@@ -29,6 +29,17 @@ compatibility imports for deterministic fallback helpers.
 Durable semantic execution claims are lease-bound. A waiting duplicate can recover an expired claim
 instead of remaining blocked behind a failed worker until the request deadline. Store failure keeps
 the turn held rather than raising an untyped transport error.
+Process readiness keeps the semantic consumer active when only model identity is unavailable. Each
+ordinary semantic turn checks its model audience within five seconds and returns a typed hold before
+planning when authentication cannot be verified. Operator persists the first terminal result as
+authoritative, records a timeout hold at the actual fallback time, and treats a later projection as
+diagnostic rather than a second terminal answer.
+For a model-validated request that lists members of one exact named resource group, the frame uses
+`Resource.parent_id` as the membership property. Core builds this frame directly from the typed
+judgment, grounds the written group name into the predicate, and does not issue a separate model
+frame call or return the resource-group object as the requested member list. The generic member
+set excludes `authorization.role-assignment`; explicit IAM questions retain their dedicated
+evidence path.
 
 ## Federated question-bank inventory
 

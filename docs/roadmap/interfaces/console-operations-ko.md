@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c7deac1287c7260220178597f0e5dad610a37ea8
-translation_revised: 2026-09-01
+translation_source_sha: e6d44445d9fcdda1053d491504425751ba756889
+translation_revised: 2026-09-04
 ---
 
 # 콘솔 운영
@@ -14,6 +14,10 @@ translation_revised: 2026-09-01
 > **제품 경계:** 제품명은 `FDAI Console`로 유지합니다. `Operations` / `운영`은 제품 안에 이미
 > 존재하는 탐색 그룹입니다. 콘솔은 Thor의 실행기 신원을 받거나 관리 리소스를 직접
 > 변경하지 않습니다.
+>
+> **지식 경계:** `Knowledge` / `지식`은 거버넌스가 적용된 문서 업로드와 리포지토리 원본
+> 설정을 위한 동급 탐색 그룹입니다. 공급자 자격 증명은 설정 > 통합에서 관리하며, 구성되지
+> 않은 GitHub, GitLab 또는 Azure DevOps 커넥터는 명시적으로 사용할 수 없는 상태를 유지합니다.
 >
 ## 설계 요약
 

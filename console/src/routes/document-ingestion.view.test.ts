@@ -3,8 +3,10 @@ import { IngestionApiError, type IngestionApiClient } from "../ingestion-api";
 import { t } from "../i18n";
 import {
   claimUploadBatch,
+  documentAccept,
   documentCapabilityFailure,
   documentFilesForUpload,
+  documentFormatLabels,
   waitForTerminal,
 } from "./document-ingestion";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
@@ -39,6 +41,45 @@ describe("Documents ViewSnapshot", () => {
       policy_versions: ["v1"],
       direct_upload: true,
     })[0]).toMatchObject({ state: "failed", error: t("documents.fileTooLarge") });
+  });
+
+  it("rejects unsupported and legacy Office files before upload", () => {
+    const capabilities = {
+      supported_formats: ["text", "pdf", "docx", "pptx", "xlsx", "png", "jpeg", "tiff"],
+      storage_modes: ["managed_copy"],
+      max_file_size: 4096,
+      max_batch_count: 3,
+      archives_enabled: false,
+      policy_versions: ["v1"],
+      direct_upload: true,
+    } as const;
+    const files = [
+      { name: "legacy.xls", size: 5, lastModified: 1 } as File,
+      { name: "archive.zip", size: 5, lastModified: 2 } as File,
+      { name: "runbook.docx", size: 5, lastModified: 3 } as File,
+    ];
+
+    const rows = documentFilesForUpload(files, capabilities);
+
+    expect(rows.map((row) => row.state)).toEqual(["failed", "failed", "queued"]);
+    expect(rows[0]?.error).toContain("Legacy");
+    expect(rows[1]?.error).toContain("not supported");
+  });
+
+  it("derives file-picker filters and localized format labels from capabilities", () => {
+    const capabilities = {
+      supported_formats: ["pdf", "docx", "jpeg", "tiff"],
+      storage_modes: ["managed_copy"],
+      max_file_size: 4096,
+      max_batch_count: 3,
+      archives_enabled: false,
+      policy_versions: ["v1"],
+      direct_upload: true,
+    } as const;
+
+    expect(documentAccept(capabilities)).toBe(".pdf,.docx,.jpg,.jpeg,.tif,.tiff");
+    expect(documentFormatLabels(capabilities.supported_formats))
+      .toBe("PDF, Word (.docx), JPEG, TIFF");
   });
 
   it("retries transient status failures but fails 4xx responses immediately", async () => {

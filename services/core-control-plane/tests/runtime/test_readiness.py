@@ -20,10 +20,12 @@ from fdai.runtime.readiness import (
     StartupReadinessRuntime,
     build_startup_readiness_runtime,
 )
+from fdai.runtime.semantic_model_identity import SemanticModelIdentityReadiness
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.local.identity import LocalWorkloadIdentity
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai.shared.providers.workload_identity import IdentityToken
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 
@@ -47,6 +49,12 @@ class _Validator:
 class _Embedding:
     async def embed(self, text: str) -> list[float]:
         return [0.1, 0.2]
+
+
+class _UnavailableIdentity:
+    async def get_token(self, audience: str) -> IdentityToken:
+        del audience
+        raise RuntimeError("credential detail")
 
 
 def _policy_probe() -> StaticStartupProbe:
@@ -102,6 +110,36 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
         entry.get("entry", {}).get("kind") == "startup_readiness.transition"
         for entry in store.audit_entries
     )
+
+
+async def test_identity_failure_degrades_authority_without_blocking_processing() -> None:
+    runtime = build_startup_readiness_runtime(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
+        event_validator=_Validator(),  # type: ignore[arg-type]
+        identity=_UnavailableIdentity(),  # type: ignore[arg-type]
+        embedding_model=_Embedding(),
+        policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
+        environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
+    )
+
+    report = await runtime.evaluate()
+
+    assert report.decision is ReadinessDecision.DEGRADED
+    assert runtime.state.is_ready()
+    assert report.authority_ceilings["identity"] is AuthorityCeiling.DETERMINISTIC_FALLBACK
+
+
+async def test_semantic_model_identity_readiness_returns_typed_failure() -> None:
+    readiness = SemanticModelIdentityReadiness(
+        identity=_UnavailableIdentity(),  # type: ignore[arg-type]
+        audiences=("https://cognitiveservices.azure.com/.default",),
+        timeout_seconds=0.1,
+    )
+
+    assert await readiness.unavailable_reason() == "semantic_model_identity_unavailable"
 
 
 async def test_readiness_transitions_publish_on_the_transition_bus_not_the_probe_bus() -> None:

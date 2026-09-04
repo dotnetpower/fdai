@@ -57,12 +57,29 @@ class PdfIsolationPolicy:
 _DEFAULT_POLICY = PdfIsolationPolicy()
 
 
+@dataclass(frozen=True, slots=True)
+class PdfPageInspection:
+    """Bounded native text and image-presence facts for one PDF page."""
+
+    text: str | None
+    has_images: bool
+
+
 def extract_pdf_pages_isolated(
     content: bytes,
     *,
     policy: PdfIsolationPolicy = _DEFAULT_POLICY,
 ) -> tuple[str | None, ...]:
     """Parse native PDF text in a spawned process or return a typed unsafe-package failure."""
+    return tuple(page.text for page in inspect_pdf_pages_isolated(content, policy=policy))
+
+
+def inspect_pdf_pages_isolated(
+    content: bytes,
+    *,
+    policy: PdfIsolationPolicy = _DEFAULT_POLICY,
+) -> tuple[PdfPageInspection, ...]:
+    """Inspect native page text and image presence inside the parser process."""
 
     deadline = time.monotonic() + policy.timeout_seconds
     context = multiprocessing.get_context("spawn")
@@ -118,13 +135,26 @@ def extract_pdf_pages_isolated(
         or set(payload) != {"status", "pages"}
         or payload.get("status") != "ok"
         or not isinstance(payload.get("pages"), list)
-        or any(item is not None and not isinstance(item, str) for item in payload["pages"])
+        or any(
+            not isinstance(item, dict)
+            or set(item) != {"text", "has_images"}
+            or (item["text"] is not None and not isinstance(item["text"], str))
+            or not isinstance(item["has_images"], bool)
+            for item in payload["pages"]
+        )
         or not 1 <= len(payload["pages"]) <= policy.max_pages
-        or sum(len(item) for item in payload["pages"] if isinstance(item, str))
+        or sum(
+            len(item["text"])
+            for item in payload["pages"]
+            if isinstance(item, dict) and isinstance(item.get("text"), str)
+        )
         > policy.max_characters
     ):
         raise _unavailable()
-    return tuple(payload["pages"])
+    return tuple(
+        PdfPageInspection(text=item["text"], has_images=item["has_images"])
+        for item in payload["pages"]
+    )
 
 
 def _pdf_worker(
@@ -139,14 +169,19 @@ def _pdf_worker(
             raise ValueError("encrypted")
         if not 1 <= len(reader.pages) <= policy.max_pages:
             raise ValueError("page_budget")
-        pages: list[str | None] = []
+        pages: list[dict[str, object]] = []
         characters = 0
         for page in reader.pages:
             text = (page.extract_text() or "").strip()
             characters += len(text)
             if characters > policy.max_characters:
                 raise ValueError("text_budget")
-            pages.append(text or None)
+            pages.append(
+                {
+                    "text": text or None,
+                    "has_images": bool(page.images),
+                }
+            )
         _send_payload(connection, {"status": "ok", "pages": pages}, policy=policy)
     except (
         PyPdfError,

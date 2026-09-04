@@ -14,6 +14,7 @@
  * privileged calls, only self-cancelling timers.
  */
 
+import { lazy, Suspense } from "preact/compat";
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
@@ -23,6 +24,7 @@ import type {
   ActionDraft,
   AnswerPlanningMetadata,
   ConfirmedAnswerSegment,
+  ConversationDocumentArtifact,
   AnswerVerification,
   DelegationMetadata,
   GroundedCodeArtifact,
@@ -34,7 +36,6 @@ import type {
 import { confirmActionDraft, renderActionResult } from "./backend";
 import { presentationArtifactSupersedesText } from "./presentation-artifact";
 import { RichContent } from "./rich-content";
-import { StructuredReply } from "./structured-reply";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
@@ -54,6 +55,13 @@ import {
   type TraceStage,
 } from "./grounded-sources";
 
+const DocumentArtifactView = lazy(async () => ({
+  default: (await import("./document-artifact-view")).DocumentArtifactView,
+}));
+const StructuredReply = lazy(async () => ({
+  default: (await import("./structured-reply")).StructuredReply,
+}));
+
 export function GroundedReply({
   turnId,
   text,
@@ -70,6 +78,7 @@ export function GroundedReply({
   incidentCandidates,
   actionDraft,
   presentationArtifact,
+  documentArtifact,
   onRegenerate,
 }: {
   readonly turnId: string;
@@ -88,6 +97,7 @@ export function GroundedReply({
   readonly incidentCandidates: readonly IncidentCandidate[] | undefined;
   readonly actionDraft: ActionDraft | undefined;
   readonly presentationArtifact: PresentationArtifact | undefined;
+  readonly documentArtifact: ConversationDocumentArtifact | undefined;
   readonly trajectory: ConversationTrajectory | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
@@ -133,6 +143,10 @@ export function GroundedReply({
     verification.reason_code === "recorded_failure_reason";
   const verificationIssue = verification?.status === "unverified"
     ? verificationIssueKind(verification.reason_code)
+    : null;
+  const structuredPresentation = !streaming && !verificationIssue && presentationArtifact
+    && presentationArtifactSupersedesText(presentationArtifact)
+    ? presentationArtifact
     : null;
   const showProcessingDisclosure = !streaming && (
     parsedSource?.kind === "llm" || parsedSource?.kind === "deterministic"
@@ -203,9 +217,21 @@ export function GroundedReply({
             {t(`deck.answerState.${answerState}`)}
           </span>
         ) : null}
-        {!streaming && !verificationIssue && presentationArtifact
-          && presentationArtifactSupersedesText(presentationArtifact) ? (
-          <StructuredReply artifact={presentationArtifact} />
+        {structuredPresentation ? (
+          <>
+            {renderedText.trim() ? (
+              <div class="deck-presentation-lead">
+                <RichContent
+                  text={renderedText}
+                  suppressCode={(codeArtifacts?.length ?? 0) > 0}
+                  citeMarks={marks}
+                />
+              </div>
+            ) : null}
+            <Suspense fallback={null}>
+              <StructuredReply artifact={structuredPresentation} />
+            </Suspense>
+          </>
         ) : (
           <RichContent
             text={renderedText}
@@ -215,6 +241,12 @@ export function GroundedReply({
           />
         )}
       </div>
+
+      {!streaming && documentArtifact ? (
+        <Suspense fallback={null}>
+          <DocumentArtifactView artifact={documentArtifact} />
+        </Suspense>
+      ) : null}
 
       {actionDraft ? (
         <section class="deck-action-draft" aria-label={t("deck.actionDraft.title")}>

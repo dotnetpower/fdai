@@ -228,6 +228,16 @@ describe("serializeTurns", () => {
           resource_type: "postgresql-server",
           evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
         },
+        documentArtifact: {
+          sourceRequestId: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+          previewMarkdown: "# FDAI conversation evidence report",
+          expectedRows: 24,
+          includedRows: 24,
+          complete: true as const,
+          sha256: "a".repeat(64),
+          markdownUrl: `/chat/documents/00000000-0000-4000-8000-${"0".repeat(11)}1/markdown`,
+          pdfUrl: `/chat/documents/00000000-0000-4000-8000-${"0".repeat(11)}1/pdf`,
+        },
         answerPlanning: {
           mode: "shadow" as const,
           status: "completed" as const,
@@ -364,6 +374,7 @@ describe("serializeTurns", () => {
     expect(parsed[0]!.recordedAt).toBe("2026-07-31T01:00:00Z");
     expect(parsed[1]!.recordedAt).toBe("2026-07-31T01:00:01Z");
     expect(parsed[1]!.resourceContext?.name).toBe("db-current");
+    expect(parsed[1]!.documentArtifact?.includedRows).toBe(24);
     expect(parsed[1]!.answerPlanning?.consulted_agents).toEqual(["Freyr", "Njord"]);
     expect(parsed[1]!.intentGraph?.goals[0]?.goal_id).toBe("health");
     expect(parsed[1]!.intentGraphEvidence?.status).toBe("partial");

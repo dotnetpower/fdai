@@ -159,6 +159,12 @@ class RuntimeSettingsReader(Protocol):
     async def effective_values(self) -> dict[str, object]: ...
 
 
+class SemanticRuntimeReadiness(Protocol):
+    """Report a stable per-turn reason when semantic-model identity is unavailable."""
+
+    async def unavailable_reason(self) -> str | None: ...
+
+
 class PantheonAssuranceRuntime(Protocol):
     """Produce one fixed-census answer and its authoritative diagnostic payload."""
 
@@ -224,6 +230,7 @@ class SemanticTurnProcessor:
         operational_evidence: OperationalEvidenceProjectionReader | None = None,
         answer_continuity_enabled: bool = False,
         runtime_settings: RuntimeSettingsReader | None = None,
+        runtime_readiness: SemanticRuntimeReadiness | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -237,6 +244,7 @@ class SemanticTurnProcessor:
         self._operational_evidence = operational_evidence
         self._answer_continuity_enabled = answer_continuity_enabled
         self._runtime_settings = runtime_settings
+        self._runtime_readiness = runtime_readiness
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -570,6 +578,16 @@ class SemanticTurnProcessor:
                 ),
                 None,
             )
+        if self._runtime_readiness is not None:
+            unavailable_reason = await self._runtime_readiness.unavailable_reason()
+            if unavailable_reason is not None:
+                return (
+                    self._with_answer_continuity(
+                        request,
+                        _terminal_result(request, "held", unavailable_reason),
+                    ),
+                    None,
+                )
 
         runtime_cancelled = asyncio.Event()
         bound_resource_context = _bound_resource_context(request)
@@ -2451,9 +2469,12 @@ def _render_query_answer(
             return None, None
         table = result.value
         rows: list[dict[str, object]] = []
-        projected_rows = (
-            table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
-        )
+        if len(table.rows) <= 40:
+            projected_rows = table.rows
+        else:
+            projected_rows = (
+                table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
+            )
         for row in projected_rows:
             candidate_rows: list[dict[str, object]] = [
                 *rows,
@@ -4719,6 +4740,15 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
 
 
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
+    if reason_code == "semantic_model_identity_unavailable":
+        return (
+            "모델 인증을 확인할 수 없어 요청을 보류했습니다. 인증을 복구한 후 다시 시도해 주세요."
+            if locale.casefold().startswith("ko")
+            else (
+                "The request was held because model authentication is unavailable. "
+                "Restore the configured identity and try again."
+            )
+        )
     if reason_code == "semantic_exact_source_unavailable":
         return (
             "차단됨: 정확한 원본을 사용할 수 없습니다."

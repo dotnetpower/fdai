@@ -732,14 +732,14 @@ resource "azurerm_role_assignment" "ingestion_migration_acr_pull" {
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_sender" {
   count                = var.enable_document_ingestion ? 1 : 0
-  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+  scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
   count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
-  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+  scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }

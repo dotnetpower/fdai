@@ -280,6 +280,8 @@ const viewerTitle = document.querySelector("#viewer-title");
 const progressBar = document.querySelector("#progress-bar");
 const progressLabel = document.querySelector("#progress-label");
 const announcement = document.querySelector("#slide-announcement");
+const slideCanvas = Object.freeze({ width: 1536, height: 864 });
+const slideResizeObserver = new ResizeObserver(updateSlideScale);
 let catalog;
 let activeManual;
 let currentSlide = 0;
@@ -303,6 +305,21 @@ function replaceViewerUrl(manual, slideIndex) {
   url.searchParams.set("manual", manual.id);
   url.searchParams.set("slide", String(slideIndex + 1));
   window.history.replaceState(null, "", url);
+}
+
+function updateSlideScale() {
+  const stageStyle = getComputedStyle(stage);
+  const horizontalInset =
+    Number.parseFloat(stageStyle.paddingLeft) + Number.parseFloat(stageStyle.paddingRight);
+  const verticalInset =
+    Number.parseFloat(stageStyle.paddingTop) + Number.parseFloat(stageStyle.paddingBottom);
+  const availableWidth = Math.max(1, stage.clientWidth - horizontalInset);
+  const availableHeight = Math.max(1, stage.clientHeight - verticalInset);
+  const scale = Math.min(
+    availableWidth / slideCanvas.width,
+    availableHeight / slideCanvas.height,
+  );
+  stage.style.setProperty("--slide-scale", String(scale));
 }
 
 function clearViewerUrl() {
@@ -446,6 +463,7 @@ function openViewer(manual, initialSlide = 0) {
   viewerTitle.textContent = manual.title;
   renderSlides(manual);
   viewer.showModal();
+  updateSlideScale();
   showSlide(initialSlide);
 }
 
@@ -488,6 +506,8 @@ function bindViewer() {
         ? "M9 3v6H3m12-6v6h6M9 21v-6H3m12 6v-6h6"
         : "M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5",
     );
+    updateSlideScale();
+    requestAnimationFrame(updateSlideScale);
   }
 
   if (!fullscreenSupported) {
@@ -511,6 +531,11 @@ function bindViewer() {
     }
   });
   document.addEventListener("fullscreenchange", syncFullscreenButton);
+  slideResizeObserver.observe(stage);
+  window.addEventListener("resize", updateSlideScale);
+  document.fonts.ready.then(updateSlideScale).catch((error) => {
+    console.error("manual_studio_font_readiness_failed", error);
+  });
   syncFullscreenButton();
   document.querySelector("#print-manual").addEventListener("click", () => {
     document.body.classList.add("printing");

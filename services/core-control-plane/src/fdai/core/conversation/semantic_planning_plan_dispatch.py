@@ -548,6 +548,9 @@ def dispatch_semantic_plan(
                 }
                 else frame.subject_constraints
             ),
+            allowed_properties=(
+                frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
+            ),
         )
         if grounded:
             _LOGGER.info(
@@ -559,6 +562,9 @@ def dispatch_semantic_plan(
                 plan,
                 utterance=utterance,
                 descriptors=descriptors,
+                allowed_properties=(
+                    frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
+                ),
             )
         verifier.verify(plan, manifest=manifest)
     return PlanDispatchResult(

@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a36267f689cc4da5aebdcf2f1764a6d1830bb33f
-translation_revised: 2026-09-04
+translation_source_sha: b740654a1d58f7f27ec359115e2af70f50116949
+translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
 
@@ -50,6 +50,11 @@ translation_revised: 2026-09-04
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
   해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
+- **통제된 문서 형식은 서비스 간 하나의 용어 체계를 사용**:
+  `fdai_service_contracts.document_formats`가 안정적인 형식 ID, 확장자 및 미디어 형식 힌트를
+  소유합니다. 수집 조립은 이 ID를 알리고 OCR이 구성된 경우에만 이미지 원본을 포함합니다.
+  API와 워커는 서명과 콘텐츠를 계속 검증하며, 파일 이름과 미디어 형식 힌트만으로는 신뢰를
+  설정하지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK

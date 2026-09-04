@@ -290,3 +290,35 @@ test("viewer fullscreen control tracks browser fullscreen state", async () => {
   assert.match(css, /\.slide-stage:fullscreen \{/);
   assert.match(css, /\.slide-stage:fullscreen \.manual-slide \{/);
 });
+
+test("viewer uniformly scales one fixed presentation canvas", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+  const css = await readFile(new URL("styles.css", root), "utf8");
+  const slideStyles = await Promise.all([
+    "manual-decks.css",
+    "executive-deck.css",
+    "executive-story.css",
+    "sre-incident-response.css",
+  ].map((path) => readFile(new URL(path, root), "utf8")));
+
+  assert.match(script, /slideCanvas = Object\.freeze\(\{ width: 1536, height: 864 \}\)/);
+  assert.match(script, /Math\.min\([\s\S]+availableWidth \/ slideCanvas\.width/);
+  assert.match(script, /slideResizeObserver = new ResizeObserver\(updateSlideScale\)/);
+  assert.match(script, /slideResizeObserver\.observe\(stage\)/);
+  assert.match(script, /window\.addEventListener\("resize", updateSlideScale\)/);
+  assert.match(script, /requestAnimationFrame\(updateSlideScale\)/);
+  assert.match(script, /document\.fonts\.ready\.then\(updateSlideScale\)/);
+  assert.match(css, /--slide-width: 1536px/);
+  assert.match(css, /--slide-height: 864px/);
+  assert.match(css, /scale\(var\(--slide-scale\)\)/);
+  assert.match(css, /container-name: slide/);
+  assert.doesNotMatch(css, /--slide-width:\s*min\(/);
+  const evidence = JSON.parse(
+    await readFile(new URL("validation-evidence.json", root), "utf8"),
+  );
+  assert.match(evidence.method.fixedCanvas, /All 300 slides/);
+  assert.match(evidence.method.pdf, /All 300 pages/);
+  for (const slideStyle of slideStyles) {
+    assert.doesNotMatch(slideStyle, /\d(?:\.\d+)?vw\b/);
+  }
+});

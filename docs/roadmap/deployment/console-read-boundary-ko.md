@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 7c933b16c3fc947ffc4326af5357ea7d47384ee7
-translation_revised: 2026-09-01
+translation_source_sha: 2d503f4b1c73d32ae9f5c4680143b2959416ac9c
+translation_revised: 2026-09-04
 ---
 # Console 읽기 경계
 
@@ -19,6 +19,7 @@ translation_revised: 2026-09-01
 | 읽기 데이터 소스 선언 완전성 | validated | `fdai_operator_service/composition.py`, 집중 Operator 테스트 및 인증된 Console 53개 경로 전수 검사 | Console이 조회하는 모든 읽기 경로는 선언된 카탈로그, 감사 또는 영속 테이블 출처로 해석됩니다. 레코드가 없는 출처는 합성 성공 값 대신 명시적인 빈 근거 상태를 반환합니다. |
 | 카탈로그 기반 참조 변환 결과 | validated | `test_materialize_authoritative_catalogs.py`, 인증된 컨트롤, 기능, 승급, 워크플로 앱 및 담당 체계 로드 | 검토된 ActionType, Workflow, 컨트롤, 기능, 온보딩, 범위 및 담당 체계 선언이 런타임 또는 액션 근거를 만들지 않고 리비전이 있는 읽기 변환 결과에 도달합니다. |
 | WARA shadow 평가 변환 결과 | 구현됨 | `fdai_operator_service/composition.py`, WARA 변환 결과 및 워크플로 계열 테스트 | 로컬 및 배포 Operator 조립은 같은 고정 교차워크, shadow 토픽, 소비자 그룹 및 PostgreSQL 변환 결과를 읽습니다. 프로바이더 관측은 별도로 연결하기 전까지 사용할 수 없으며 합성 근거로 대체하지 않습니다. |
+| 대화 문서 다운로드 | 구현됨 | `fdai_operator_service/composition.py`, `document_export.py`, 집중 소유권 및 완전성 검사 | Operator 조립은 인증된 principal의 완전한 검증 semantic 변환 결과에서만 문서를 다시 생성합니다. Markdown은 private 및 non-cacheable 상태를 유지하며, 범위가 제한된 encoder를 사용할 수 있을 때만 PDF를 표시합니다. |
 | 사용 불가 화면 표현 | validated | 집중 Operator 및 Console 검사와 영향받는 패널의 인증 통과 | 제공되지 않는 route는 서버가 소유한 사유를 유지하며 패널은 날것 전송 상태나 존재하지 않는 구성 심볼을 노출하지 않습니다. |
 | 계정 신원 및 동일 테넌트 계정 선택 | 구현됨 | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; 집중 콘솔 계정 테스트(`11 passed`), typecheck 및 프로덕션 빌드 | 헤더 패널은 권한을 추가하지 않고 MSAL 신원과 서버가 검증한 역할을 표시합니다. 대화형 세션은 로그인 힌트 없이 Entra 계정 선택기를 열고 기존 시작 권한 확인 경계로 다시 진입할 수 있습니다. |
 

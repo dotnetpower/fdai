@@ -48,6 +48,8 @@ fingerprint reflects the post-rename table set and counts. Cross-service databas
 (e.g. Operator read access to Core-owned Cost Governance objects) live in downstream
 Operator-owned migrations, not in the Core branch, so that bootstrap ordering never requires a
 role created later in the sequence.
+The root integration suite also contract-pins the Document Processing Worker outbox rule that
+routes logical `object.*` events before marking durable publication complete.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
 abstentions separately.
 
@@ -78,6 +80,11 @@ receipts before answering. Service-to-Agent ownership uses one exact-release, pr
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.
+Validated `Document` judgments and exact named resource-group membership bypass the residual frame
+model through deterministic builders. The document path remains draft-only and binds its source to
+the authenticated principal's preceding verified result.
+The Core package pins the Snappy codec used by Kafka consumers so compressed EventBus records do
+not pass readiness and then terminate a required runtime task.
 Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
 relationship inclusion by default, and the default remains absent from legacy serialized
 definitions so replay digests do not change.
@@ -558,7 +565,7 @@ The package test tree validates SDK behavior. Cross-service N/N-1 and topology c
 | [extensions/](../../../extensions/) | Optional independently packaged capabilities. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code data. |
 | [policies/](../../../policies/) | OPA/Rego policy-as-code. |
-| [console/](../../../console/) | Thin operator SPA, including the localized Guides drawer and its validated Manual Studio catalog boundary. |
+| [console/](../../../console/) | Thin operator SPA, including the Knowledge source and governed document-upload routes, localized Guides drawer, and validated Manual Studio catalog boundary. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | Independent static guide library, HTML slide viewer, repository-safe media provenance, and focused prototype checks. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | Provider-neutral Teams endpoint persistence: encrypted loopback state locally and one versioned Key Vault secret in deployment. |
 | [cli/](../../../cli/) | Operator command-line client. |

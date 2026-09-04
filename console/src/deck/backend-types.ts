@@ -3,6 +3,8 @@ import type { Answer } from "./answerer";
 export interface BackendTurn {
   readonly role: "user" | "assistant";
   readonly content: string;
+  readonly semanticRequestId?: string;
+  readonly semanticDisposition?: SemanticProjectionReceipt["disposition"];
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
@@ -636,6 +638,17 @@ export interface PresentationArtifact {
   readonly assembly?: PresentationAssembly;
 }
 
+export interface ConversationDocumentArtifact {
+  readonly sourceRequestId: string;
+  readonly expectedRows: number;
+  readonly includedRows: number;
+  readonly complete: true;
+  readonly sha256: string;
+  readonly previewMarkdown: string;
+  readonly markdownUrl: string;
+  readonly pdfUrl?: string;
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -659,6 +672,7 @@ export type ProgressiveAnswer = Answer & {
   readonly semanticReceipt?: SemanticProjectionReceipt;
   readonly incidentCandidates?: readonly IncidentCandidate[];
   readonly presentationArtifact?: PresentationArtifact;
+  readonly documentArtifact?: ConversationDocumentArtifact;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
 };
 

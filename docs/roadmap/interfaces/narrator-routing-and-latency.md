@@ -16,6 +16,10 @@ ordered `narrator_candidates` without importing Core or receiving execution auth
 available only when the resolved artifact and token are usable. Model-only answers remain
 explicitly unverified until an authoritative evidence and claim-verification path supplies receipts.
 
+Core verifies the configured model audiences through a separate bounded readiness path. If model
+identity is unavailable, semantic transport remains active and returns a typed authentication hold
+before planning; it does not fall back to lexical routing or borrow the Operator HTTP identity.
+
 Production conversation delivery still requires an injected projection and stream adapter. The
 prior in-process `LatencyRoutedChatBackend` was retired with the top-level Operator implementation;
 rolling p50/TTFT selection and multimodal routing remain target behavior for the independent

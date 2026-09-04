@@ -145,6 +145,8 @@ Every row shows scope, evaluation time, source revision, evidence completeness, 
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
+The shared Operator composition can add a principal-scoped conversation document reader without
+changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
 revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact
 evaluator reference, and structured manual-evidence requirement. The Console renders 50 controls

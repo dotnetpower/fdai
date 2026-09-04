@@ -48,6 +48,9 @@ from fdai_operator_service.environment import (
     OperatorEnvironment,
 )
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
+from fdai_operator_service.families.conversation.document_export import (
+    ConversationDocumentExporter,
+)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
@@ -477,6 +480,10 @@ def _build_route_families(
             fallback_projections=conversation,
             fallback_outbox=postgres_conversation,
             fallback_streams=postgres_conversation,
+            document_exporter=ConversationDocumentExporter(
+                store=store,
+                pdf_encoder=report_pdf_encoder,
+            ),
         )
         if semantic_bridge is not None
         else None

@@ -523,10 +523,10 @@
     },
     "view": {
       "overview": "개요",
-      "human-dependencies": "사람 의존성",
-      "knowledge-handover": "지식 인수인계",
+      "human-dependencies": "현재 담당자",
+      "knowledge-handover": "담당 체계 변경",
       "approval-routes": "승인 경로",
-      "mapping-reviews": "매핑 검토"
+      "mapping-reviews": "사용자 업무 인수인계"
     },
     "unavailable": "이 배포에는 담당 체계 엔드포인트가 연결되지 않아, 여기에서 주장하는 담당자 배정이나 인계 분석 결과가 없습니다.",
     "noMaintainer": "구성된 유지관리자가 없습니다. 최소 1명이 필요합니다.",
@@ -2164,18 +2164,18 @@
       "assignmentFilters": "할당 필터",
       "assignmentSearch": "이름, 사용자 이름 또는 주체 ID 검색",
       "allRoles": "모든 역할",
-      "allAgents": "모든 agent",
-      "agent": "Agent",
-      "agentDuties": "Agent duty",
-      "duty": "Duty",
+      "allAgents": "모든 에이전트",
+      "agent": "에이전트",
+      "agentDuties": "에이전트 담당 업무",
+      "duty": "담당 유형",
       "dutyValue": {
         "primary": "주 담당",
         "backup": "백업",
         "escalation": "에스컬레이션"
       },
       "scope": "범위 참조",
-      "addDuty": "Duty 추가",
-      "removeDuty": "Duty 제거",
+      "addDuty": "담당 업무 추가",
+      "removeDuty": "담당 업무 제거",
       "coverage": "담당 범위",
       "covered": "담당 가능",
       "coverageGap": "담당 공백",
@@ -2223,9 +2223,9 @@
       "validation": {
         "identity": "정확한 디렉터리 ID 하나를 선택하세요.",
         "inactive_identity": "선택한 ID가 활성 상태여야 합니다.",
-        "duties": "Agent duty를 하나 이상 추가하세요.",
-        "scope": "모든 duty에 범위 참조가 필요합니다.",
-        "duplicate_duty": "한 사람이 같은 agent와 범위에 두 duty를 가질 수 없습니다.",
+        "duties": "에이전트 담당 업무를 하나 이상 추가하세요.",
+        "scope": "모든 담당 업무에 범위 참조가 필요합니다.",
+        "duplicate_duty": "한 사람이 같은 에이전트와 범위에서 두 담당 유형을 맡을 수 없습니다.",
         "justification": "업무 사유를 20자 이상 입력하세요."
       },
       "createAssignmentCase": "케이스 생성 및 제출",
@@ -2452,6 +2452,11 @@
         "invalid": "구문 오류 - 실행 안 됨",
         "not_checked": "정적 검증 안 됨 - 실행 안 됨"
       }
+    },
+    "documentArtifact": {
+      "title": "검증된 문서",
+      "downloadMarkdown": "Markdown 다운로드",
+      "downloadFailed": "다운로드 실패"
     },
     "label": "명령 덱",
     "open": "명령 덱 열기",
@@ -2685,6 +2690,7 @@
       "partialEvidence": "일부 근거만 확인됨",
       "clarificationPrompt": {
         "contextRequired": "어느 대상을 의미하나요? 계속하려면 리소스, 인시던트 또는 기간을 지정해 주세요.",
+        "modelIdentityUnavailable": "모델 인증을 사용할 수 없습니다. 구성된 Azure ID를 복구한 후 이 질문을 다시 시도해 주세요.",
         "sourceUnavailable": "대신 어떤 근거 원본이나 범위를 확인할까요? 리소스, 기간 또는 근거 원본을 지정해 주세요.",
         "invalidQuery": "어떤 조건으로 다시 조회할까요? 확인할 대상과 조건을 지정해 주세요.",
         "visionUnverified": "이미지에서 어느 부분을 먼저 확인할까요? 중요한 객체나 값을 지정해 주세요.",
@@ -2706,6 +2712,7 @@
         "consistent": "근거와 일치",
         "corrected": "수정됨",
         "contextRequired": "Context 필요",
+        "modelIdentityUnavailable": "모델 인증 사용 불가",
         "sourceUnavailable": "Source 사용 불가",
         "invalidQuery": "Query 검증 실패",
         "visionUnverified": "이미지 해석",
@@ -2723,6 +2730,7 @@
         "consistent": "{scope}와 일치{claims}",
         "consistentNoClaims": "{scope}와 일치하지만 구조화된 claim은 없음",
         "contextRequired": "필요한 conversation context가 없습니다{claims}",
+        "modelIdentityUnavailable": "구성된 모델 ID를 검증할 수 없습니다{claims}",
         "sourceUnavailable": "Authoritative source를 사용할 수 없습니다{claims}",
         "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
         "visionUnverified": "현재 attachment에 근거한 이미지 해석이며 독립적으로 검증되지는 않았습니다",

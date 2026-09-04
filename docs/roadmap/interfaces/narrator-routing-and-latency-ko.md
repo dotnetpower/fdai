@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 6af1a24ba72b1e5bfbf9ea435c82c47077e9dd06
+translation_source_sha: 2a7214731bb8d1e3405b58e68c6ba11d345059fb
 translation_revised: 2026-09-04
 ---
 # 서술기 라우팅과 지연 시간
@@ -17,6 +17,10 @@ translation_revised: 2026-09-04
 `narrator_candidates`를 시도합니다. 모델 해석 산출물과 토큰을 모두 쓸 수 있을 때만 상태를 사용
 가능으로 보고하며, 권위 있는 근거와 단정 검증 증적이 없으면 모델 지식만으로 만든 답변을
 명시적으로 미검증 상태로 둡니다.
+
+Core는 별도의 범위가 제한된 준비 상태 경로에서 구성된 모델 대상을 검증합니다. 모델 ID를
+사용할 수 없으면 의미 전송을 계속 실행하면서 계획 전에 타입이 지정된 인증 보류 결과를
+반환합니다. 어휘 기반 라우팅으로 대체하거나 Operator HTTP ID를 빌려 쓰지 않습니다.
 
 운영 환경의 대화 전달에는 주입된 변환 및 스트림 어댑터가 계속 필요합니다. 예전에 프로세스 안에
 있던 `LatencyRoutedChatBackend`는 최상위 Operator 구현과 함께 제거됐으며, 이동 평균 p50/TTFT

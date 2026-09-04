@@ -275,7 +275,13 @@ def build_startup_readiness_runtime(
         _spec("catalog.load", "catalog", StartupPhase.STATIC_LOAD),
         _spec("policy.compile", "policy", StartupPhase.STATIC_LOAD),
         _spec("secret.injection", "secrets", StartupPhase.STATIC_LOAD),
-        _spec("identity.token", "identity", StartupPhase.REQUIRED_REACHABILITY),
+        StartupProbeSpec(
+            probe_id="identity.token",
+            capability="identity",
+            phase=StartupPhase.REQUIRED_REACHABILITY,
+            criticality=ProbeCriticality.AUTHORITY_CRITICAL,
+            failure_ceiling=AuthorityCeiling.DETERMINISTIC_FALLBACK,
+        ),
         _spec("postgres.state", "state", StartupPhase.REQUIRED_REACHABILITY),
         StartupProbeSpec(
             probe_id="audit.chain",

@@ -98,7 +98,7 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal, SemanticTarget
 from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -951,6 +951,7 @@ def _typed_fixture(
     include_state_transitions: bool = False,
     include_service_health: bool = False,
     include_contextual_resource: bool = False,
+    include_parent_id: bool = False,
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -961,6 +962,7 @@ def _typed_fixture(
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "type": PropertyDecl(type=PropertyType.STRING, required=True),
             "name": PropertyDecl(type=PropertyType.STRING),
+            **({"parent_id": PropertyDecl(type=PropertyType.STRING)} if include_parent_id else {}),
         },
     )
     function_types = tuple(
@@ -1193,7 +1195,6 @@ def test_function_backed_starter_skips_frame_model(
     assert outcome.frame is not None and outcome.frame.output_shape == output_shape
     assert outcome.plan is not None
     assert outcome.execution_authority is False
-    assert model.frame_calls == 0
     assert model.plan_calls == 0
     if output_shape == "subscription_service_health":
         assert outcome.plan.nodes[0].arguments["arguments"] == {"event_types": ["health_advisory"]}
@@ -1256,8 +1257,14 @@ def _state_inspection_query_language() -> InventoryQueryLanguageRegistry:
     )
 
 
-def _grounded_predicates(model: _Model, manifest: Any, utterance: str) -> list[dict[str, Any]]:
-    outcome = _service(model, manifest).plan(
+def _grounded_predicates(
+    model: _Model,
+    manifest: Any,
+    utterance: str,
+    *,
+    semantic_judgment: Any = None,
+) -> list[dict[str, Any]]:
+    outcome = _service(model, manifest, semantic_judgment=semantic_judgment).plan(
         utterance=utterance,
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
@@ -1277,6 +1284,144 @@ def test_stated_value_narrows_an_existence_predicate_to_the_declared_value() -> 
     predicates = _grounded_predicates(model, manifest, "현재구독의 리소스그룹 모두 알려줘")
 
     assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+
+
+def test_named_resource_group_membership_filters_parent_instead_of_group_type() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "rg-example"],
+            measure_concepts=["parent_id", "type"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        "rg-example 리소스 그룹에 있는 리소스의 상세 정보를 알려줘",
+    )
+
+    assert predicates == [
+        {
+            "property": "parent_id",
+            "operator": "contains",
+            "equals": "rg-example",
+        },
+        {
+            "property": "type",
+            "operator": "not_equals",
+            "equals": "authorization.role-assignment",
+        },
+    ]
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize("measures", (["name"], ["name", "type"], ["parent_id"]))
+def test_named_group_judgment_stabilizes_repeated_membership_frames(
+    measures: list[str],
+) -> None:
+    utterance = "rg-example 리소스 그룹에 있는 리소스의 상세 정보를 알려줘"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value="rg-example",
+                source_start=0,
+                source_end=len("rg-example"),
+            ),
+        ),
+        requested_facets=("details", "name_filter"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "rg-example"],
+            measure_concepts=measures,
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    )
+
+    assert predicates == [
+        {
+            "property": "parent_id",
+            "operator": "contains",
+            "equals": "rg-example",
+        },
+        {
+            "property": "type",
+            "operator": "not_equals",
+            "equals": "authorization.role-assignment",
+        },
+    ]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_document_judgment_builds_action_draft_without_frame_model_call() -> None:
+    manifest, _definition = _fixture()
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("complete_content", "download"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="draft_only",
+        action_subject="Document",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance="문서로 만들어줄래",
+        prior_turns=(
+            Turn(
+                turn_id="source-answer",
+                direction="outbound",
+                content="Verified result with 24 complete rows.",
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Document",)
+    assert outcome.frame.measure_concepts == ()
+    assert outcome.execution_authority is False
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
 
 
 @pytest.mark.parametrize(

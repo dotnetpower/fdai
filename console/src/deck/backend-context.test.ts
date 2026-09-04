@@ -314,6 +314,54 @@ describe("viewContextWithUser wiring", () => {
 
     expect(payload.resource_context).toBeUndefined();
   });
+
+  test("binds a follow-up to the latest assistant semantic request", () => {
+    const olderRequestId = crypto.randomUUID();
+    const latestRequestId = crypto.randomUUID();
+    const payload = createBackendRequestPayload("Create a document.", null, [
+      {
+        role: "assistant",
+        content: "older",
+        semanticRequestId: olderRequestId,
+        semanticDisposition: "answered",
+      },
+      { role: "user", content: "new question" },
+      {
+        role: "assistant",
+        content: "verified result",
+        semanticRequestId: latestRequestId,
+        semanticDisposition: "answered",
+      },
+    ], "session-1");
+
+    expect(payload.source_request_id).toBe(latestRequestId);
+    expect(payload.history).toEqual([
+      { role: "assistant", content: "older" },
+      { role: "user", content: "new question" },
+      { role: "assistant", content: "verified result" },
+    ]);
+  });
+
+  test("keeps the latest answered source after a document draft", () => {
+    const answeredRequestId = crypto.randomUUID();
+    const draftRequestId = crypto.randomUUID();
+    const payload = createBackendRequestPayload("Create another document.", null, [
+      {
+        role: "assistant",
+        content: "verified result",
+        semanticRequestId: answeredRequestId,
+        semanticDisposition: "answered",
+      },
+      {
+        role: "assistant",
+        content: "document draft",
+        semanticRequestId: draftRequestId,
+        semanticDisposition: "action_draft",
+      },
+    ], "session-1");
+
+    expect(payload.source_request_id).toBe(answeredRequestId);
+  });
 });
 
 describe("snapshotCitations", () => {

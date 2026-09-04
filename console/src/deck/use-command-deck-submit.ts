@@ -653,6 +653,9 @@ export function useCommandDeckSubmit({
                   ...(reply.presentationArtifact
                     ? { presentationArtifact: reply.presentationArtifact }
                     : {}),
+                  ...(reply.documentArtifact
+                    ? { documentArtifact: reply.documentArtifact }
+                    : {}),
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
                   ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
                   ...(reply.modelLatencyMs !== undefined

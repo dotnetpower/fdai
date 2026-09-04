@@ -9,6 +9,7 @@ export interface IngestionCapabilities {
   readonly archives_enabled: boolean;
   readonly policy_versions: readonly string[];
   readonly direct_upload: boolean;
+  readonly ocr_available?: boolean;
 }
 
 export interface UploadSession {
@@ -18,6 +19,7 @@ export interface UploadSession {
   readonly source_name: string;
   readonly state: string;
   readonly collection_id: string;
+  readonly failure_code?: string | null;
 }
 
 export interface HandoverDraftResult {
@@ -59,7 +61,6 @@ export interface CreateUploadInput {
   readonly purposes: readonly string[];
   readonly access_descriptor_ref: string;
   readonly retention_policy_version: string;
-  readonly reader_groups: readonly string[];
 }
 
 export class IngestionApiError extends Error {

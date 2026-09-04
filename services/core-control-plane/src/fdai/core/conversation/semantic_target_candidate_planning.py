@@ -648,10 +648,13 @@ def property_filter_has_stated_subject(
 ) -> bool:
     """Return whether a property filter retains one exact free-text subject."""
 
+    measures = set(proposal.measure_concepts)
+    supported_measures = ("name" in measures and measures <= {"name", "type"}) or (
+        "parent_id" in measures and measures <= {"parent_id", "type"}
+    )
     return (
         proposal.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES
-        and "name" in proposal.measure_concepts
-        and set(proposal.measure_concepts) <= {"name", "type"}
+        and supported_measures
         and stated_subject_fragment(
             utterance,
             proposal.subject_constraints,

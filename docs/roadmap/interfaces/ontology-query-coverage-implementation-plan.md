@@ -23,6 +23,24 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 > claim and projection paths remain executable; receipt-backed live integration evidence remains
 > the release gate.
 >
+> **Failure isolation:** A model-identity failure lowers semantic model capability without stopping
+> the semantic transport consumer. Core checks the configured model audience before each ordinary
+> semantic turn and returns `semantic_model_identity_unavailable` within a bounded preflight when
+> authentication is unavailable. Operator accepts only one authoritative terminal result per
+> request, records timeout holds at the actual fallback time, and ignores a later competing
+> projection. This behavior does not add lexical or regular-expression routing: natural-language
+> intent still requires schema-validated model judgment.
+>
+> **Named resource-group membership:** When model judgment classifies a request for members of one
+> exact named resource group, Core builds the verified `Resource.parent_id` frame before model frame
+> proposal. It compiles the exact group name into a bounded `parent_id contains` predicate. It does not
+> substitute the resource-group object itself or reinterpret the group noun as
+> `Resource.type=resource-group`. A `query.resource_current_state` judgment carrying a
+> `resource_group` target is rejected as an incompatible typed combination and retried before
+> planning. Generic group membership excludes `authorization.role-assignment`, which remains an
+> ontology resource for IAM evidence but is not an operator-selectable Azure resource-group member.
+> An explicit IAM or RBAC question uses its dedicated evidence path instead.
+>
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
 > metric providers, and causal-analysis primitives exist. The production path still uses regex and

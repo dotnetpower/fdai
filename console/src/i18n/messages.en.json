@@ -523,10 +523,10 @@
     },
     "view": {
       "overview": "Overview",
-      "human-dependencies": "Human dependencies",
-      "knowledge-handover": "Knowledge handover",
+      "human-dependencies": "Current owners",
+      "knowledge-handover": "Ownership proposal",
       "approval-routes": "Approval routes",
-      "mapping-reviews": "Mapping reviews"
+      "mapping-reviews": "User work handover"
     },
     "unavailable": "The stewardship endpoint is not wired on this deployment, so no steward assignment or handover finding is claimed here.",
     "noMaintainer": "No maintainer configured - at least 1 is required.",
@@ -2453,6 +2453,11 @@
         "not_checked": "Not statically checked - not executed"
       }
     },
+    "documentArtifact": {
+      "title": "Verified document",
+      "downloadMarkdown": "Download Markdown",
+      "downloadFailed": "Download failed."
+    },
     "label": "Command deck",
     "open": "Open command deck",
     "close": "Close command deck",
@@ -2685,6 +2690,7 @@
       "partialEvidence": "partial evidence",
       "clarificationPrompt": {
         "contextRequired": "Which target do you mean? Name the resource, incident, or time range to continue.",
+        "modelIdentityUnavailable": "Model authentication is unavailable. Restore the configured Azure identity, then retry this question.",
         "sourceUnavailable": "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
         "invalidQuery": "How should I narrow this read? Specify the target and the condition to check.",
         "visionUnverified": "What part of the image should I verify first? Point to the object or value that matters.",
@@ -2706,6 +2712,7 @@
         "consistent": "Consistent",
         "corrected": "Corrected",
         "contextRequired": "Context required",
+        "modelIdentityUnavailable": "Model authentication unavailable",
         "sourceUnavailable": "Source unavailable",
         "invalidQuery": "Invalid query",
         "visionUnverified": "Image interpretation",
@@ -2723,6 +2730,7 @@
         "consistent": "Consistent with {scope}{claims}",
         "consistentNoClaims": "Consistent with {scope} (no structured claims)",
         "contextRequired": "Required conversation context is missing{claims}",
+        "modelIdentityUnavailable": "The configured model identity could not be verified{claims}",
         "sourceUnavailable": "An authoritative source is unavailable{claims}",
         "invalidQuery": "The read query failed strict validation{claims}",
         "visionUnverified": "Image interpretation is grounded in the current attachment but is not independently verified",

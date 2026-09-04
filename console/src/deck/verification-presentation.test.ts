@@ -24,6 +24,11 @@ describe("verification presentation", () => {
     ["prior_context_required", "contextRequired", "Context required"],
     ["operational_case_context_missing", "contextRequired", "Context required"],
     ["semantic_clarification_required", "contextRequired", "Context required"],
+    [
+      "semantic_model_identity_unavailable",
+      "modelIdentityUnavailable",
+      "Model authentication unavailable",
+    ],
     ["capability_invalid_arguments", "invalidQuery", "Invalid query"],
     ["provider_unavailable", "sourceUnavailable", "Source unavailable"],
     ["screen_claim_mismatch", "unsupportedClaim", "Unsupported claim"],

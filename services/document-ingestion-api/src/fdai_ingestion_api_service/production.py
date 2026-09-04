@@ -11,7 +11,11 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
-from fdai_service_contracts import IngestionCapabilities, SourceStorageMode
+from fdai_service_contracts import (
+    IngestionCapabilities,
+    SourceStorageMode,
+    supported_document_format_ids,
+)
 from fdai_service_contracts.venue import (
     ExecutionVenue,
     ExecutionVenueError,
@@ -143,17 +147,19 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         pantheon_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects").strip(),
     )
     access = ClaimsDocumentAccessProvider()
+    ocr_available = bool(env.get("FDAI_OCR_ENDPOINT", "").strip())
     service = DocumentIngestionService(
         access=access,
         metadata=metadata,
         objects=storage,
         capabilities=IngestionCapabilities(
-            supported_formats=("text", "ooxml", "image-metadata", "pdf-text"),
+            supported_formats=supported_document_format_ids(include_ocr=ocr_available),
             storage_modes=tuple(SourceStorageMode),
             max_file_size=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
             max_batch_count=_positive_int(env, "FDAI_DOCUMENT_MAX_BATCH_COUNT", 10),
             archives_enabled=False,
             policy_versions=(env.get("FDAI_DOCUMENT_POLICY_VERSION", "prod-policy-v1"),),
+            ocr_available=ocr_available,
         ),
     )
 

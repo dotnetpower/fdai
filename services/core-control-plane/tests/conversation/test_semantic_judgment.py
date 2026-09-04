@@ -158,6 +158,51 @@ def test_accepts_locale_bound_model_authored_direct_response() -> None:
     assert result.proposal.direct_response.locale == "ko"
 
 
+def test_retries_current_state_intent_with_resource_group_target() -> None:
+    utterance = "rg-example resource group resources"
+    target = {
+        "kind": "resource_group",
+        "value": "rg-example",
+        "source_start": 0,
+        "source_end": len("rg-example"),
+    }
+    model = _SequenceModel(
+        [
+            _proposal(
+                primary_intent="query.resource_current_state",
+                targets=[target],
+                requested_facets=["resource_identity"],
+            ),
+            _proposal(
+                primary_intent="query.contextual_resources",
+                targets=[target],
+                requested_facets=["details", "name_filter"],
+            ),
+        ]
+    )
+
+    result = _boundary(model).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.resource_current_state"},
+            {"kind": "function_type", "name": "query.contextual_resources"},
+        ),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.contextual_resources"
+    assert model.calls == 2
+    assert model.schema_repairs[1] == (
+        {
+            "location": "",
+            "type": "value_error",
+            "reason": "semantic current-state intent requires a Resource target",
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "model",
     [

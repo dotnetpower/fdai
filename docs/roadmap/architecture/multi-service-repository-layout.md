@@ -14,6 +14,7 @@ implementation.
 |---------|--------------------|
 | Five backend services | Each `services/*` root owns its `pyproject.toml`, source package, tests, image, process identity, and service migration branch. |
 | Core cryptographic verification | The Core manifest owns the `cryptography` dependency used to verify deployment-owned Ed25519 observation receipts. No other service imports the Core implementation or receives the signing seed. |
+| Core event compression | The Core manifest owns `python-snappy` because the EventBus can deliver Snappy-compressed Kafka records. The root lock records the transitive codec package for reproducible local and deployed consumers. |
 | Shared service contracts | `packages/service-contracts/` owns versioned wire types and schemas without importing a service implementation. |
 | Repository root | Root `pyproject.toml` and `uv.lock` coordinate development tooling and cross-service integration. The root pytest path can import the independently installable deployment CLI for tests without adding it to the uv workspace; the root does not publish an FDAI runtime distribution. `pytest-timeout` enforces a 120 s per-test wall-clock ceiling so a single hanging test cannot block an xdist shard indefinitely. |
 | Service communication | Services exchange versioned contracts over PostgreSQL-owned projections and the event bus. One service never imports another service's implementation package. |

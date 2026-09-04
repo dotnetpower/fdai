@@ -50,9 +50,12 @@ from .semantic_planning_frame_normalization import (
     CHANGE_ACTIVITY_COMPARISON_MEASURE as CHANGE_ACTIVITY_COMPARISON_MEASURE,
 )
 from .semantic_planning_frame_normalization import (
+    build_document_draft_frame,
+    build_named_resource_group_membership_frame,
     canonicalize_semantic_judgment_frame_proposal,
     normalize_action_draft_temporal_scope,
     normalize_historical_topology_clarification,
+    normalize_named_resource_group_membership,
     normalize_network_path_clarification,
     normalize_operating_objectives_frame,
     resolve_bound_incident_action_subject,
@@ -92,9 +95,11 @@ from .semantic_planning_frame_queries import (
 __all__ = [
     "build_bound_incident_metric_comparison_frame",
     "build_business_capability_mapping_frame",
+    "build_document_draft_frame",
     "build_configuration_drift_clarification",
     "build_historical_topology_clarification",
     "build_network_path_clarification",
+    "build_named_resource_group_membership_frame",
     "build_ontology_release_health_frame",
     "build_ontology_trace_frame",
     "build_operating_objectives_frame",
@@ -119,6 +124,7 @@ __all__ = [
     "is_ontology_trace_frame",
     "is_resource_classification_frame",
     "normalize_action_draft_temporal_scope",
+    "normalize_named_resource_group_membership",
     "normalize_ontology_trace_frame",
     "normalize_network_path_clarification",
     "normalize_operating_objectives_frame",

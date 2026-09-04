@@ -91,7 +91,9 @@ on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` in
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
-floor. A workflow that needs an additional deployment helper installs it only in runner-temporary storage, pins its exact release and SHA-256 digest, and verifies it before use. The exact CI version proves parsing and plan assertions. Upgrades verify action runtime metadata, and the runner remains at version 2.327.1 or newer. When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
+floor. The protected deploy workflow stays within a 2,300-line review budget; repeated request
+validation and plan-scope logic belongs in reviewed helpers instead of inline shell blocks. A
+workflow that needs an additional deployment helper installs it only in runner-temporary storage, pins its exact release and SHA-256 digest, and verifies it before use. The exact CI version proves parsing and plan assertions. Upgrades verify action runtime metadata, and the runner remains at version 2.327.1 or newer. When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
 are disabled. Dev uses its approved private endpoint; delegated-subnet mode remains available for production.
 Protected requests checkout `commit_sha` explicitly and compare it with `git rev-parse HEAD`, so a
 release commit that advances `main` between dispatch and execution cannot change plan or apply code.
@@ -319,7 +321,8 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
 - **Topic-scoped Event Hubs roles** - the executor receives Data Owner on each currently
   provisioned hub entity, not the namespace. Inventory and canary can send only to their own
   topics. The Operator API command identity sends proposals, HIL decisions, and pantheon object
-  messages, and receives the stage topic. Document ingestion is limited to `fdai.pipeline.stages`.
+  messages, and receives the stage topic. Document ingestion API and worker identities can send
+  only to `fdai.pantheon.objects`; the worker can also receive that topic for gated stage commands.
 - **Static Web Apps (Free tier, opt-in)** - hosts the read-only console when
   `enable_console=true`.
 - **Design-mocks Static Web App (Free tier, opt-in)** - hosts the isolated static design-review

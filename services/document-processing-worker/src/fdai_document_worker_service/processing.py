@@ -656,6 +656,7 @@ class DocumentIngestionWorker:
             "collection_id": session.collection_id,
             "document_id": str(version.document_id),
             "version_id": str(version.version_id),
+            "upload_id": str(session.upload_id),
             "source_sha256": version.source_sha256,
             "state": version.state.value,
             "protection_state": version.protection_state.value,

@@ -55,6 +55,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Focused sibling modules may own canonical identity projection and hashing while the established
   owner module re-exports that public surface; the split must preserve serialized bytes and replay
   semantics.
+- **governed document formats use one cross-service vocabulary**:
+  `fdai_service_contracts.document_formats` owns stable format ids, extensions, and media-type
+  hints. Ingestion composition advertises those ids and includes image sources only when OCR is
+  configured. The API and worker still verify signatures and content; filename and media-type
+  hints never establish trust.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the

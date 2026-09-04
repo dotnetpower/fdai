@@ -53,6 +53,7 @@ from .semantic_target_identity import exact_target_from_constraints
 _ACTION_DRAFT_TEMPORAL_SCOPE = {
     "ActionType": {},
     "Change": {"kind": "historical"},
+    "Document": {},
     "Incident": {"kind": "current"},
     "RecoveryPlan": {"kind": "current"},
     "Rule": {},
@@ -63,6 +64,41 @@ normalize_missing_mysql_pressure_investigation = _mysql_pressure_investigation
 normalize_missing_resource_slowness_investigation = _resource_slowness_investigation
 normalize_missing_vm_cpu_investigation = _normalize_missing_vm_cpu_investigation
 normalize_network_application_latency_investigation = _network_latency_investigation
+
+
+def build_document_draft_frame(
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build a no-authority document draft frame from one exact typed judgment."""
+
+    if (
+        judgment is None
+        or judgment.primary_intent != "create.document"
+        or judgment.action_posture != "draft_only"
+        or judgment.action_subject != "Document"
+        or judgment.targets
+        or set(judgment.requested_facets) != {"complete_content", "download"}
+        or judgment.ambiguous
+        or judgment.unresolved_terms
+    ):
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.ACTION_DRAFT,
+        subject_constraints=("Document",),
+        measure_concepts=("complete_content", "download"),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.ACTION_DRAFT,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def _action_draft_subject_types(constraints: tuple[str, ...]) -> set[str]:
@@ -264,6 +300,82 @@ def canonicalize_semantic_judgment_frame_proposal(
             "clarification": None,
             "investigation": None,
         }
+    )
+
+
+def build_named_resource_group_membership_frame(
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build one parent-scoped frame from an accepted resource-group judgment."""
+
+    if (
+        judgment is None
+        or judgment.primary_intent != "query.contextual_resources"
+        or judgment.action_posture != "advise_only"
+        or judgment.ambiguous
+        or judgment.unresolved_terms
+        or len(judgment.targets) != 1
+        or not _resource_parent_id_available(descriptors)
+    ):
+        return None
+    target = judgment.targets[0]
+    if (
+        target.kind != "resource_group"
+        or utterance[target.source_start : target.source_end] != target.value
+    ):
+        return None
+    resolved = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource", target.value),
+        measure_concepts=("parent_id", "type"),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
+
+
+def normalize_named_resource_group_membership(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Normalize a grounded named-group member request to its parent identity axis."""
+
+    if proposal.operation is not SemanticOperation.SELECT or proposal.output_shape not in {
+        SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+        SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST,
+    }:
+        return proposal, frame
+    resolved = build_named_resource_group_membership_frame(
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
+    return resolved if resolved is not None else (proposal, frame)
+
+
+def _resource_parent_id_available(descriptors: tuple[dict[str, Any], ...]) -> bool:
+    return any(
+        descriptor.get("kind") == "object"
+        and descriptor.get("name") == "Resource"
+        and isinstance((properties := descriptor.get("properties")), Mapping)
+        and isinstance(properties.get("parent_id"), Mapping)
+        for descriptor in descriptors
     )
 
 

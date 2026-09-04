@@ -233,7 +233,6 @@ export function HandoverProposalEditor({ client, auth }: Props) {
         purposes: ["handover_bootstrap"],
         access_descriptor_ref: "collection:stewardship-handover",
         retention_policy_version: capabilities.policy_versions[0] ?? "default",
-        reader_groups: [],
       });
       const uploadId = created.session.upload_id;
       if (!mounted.current) {

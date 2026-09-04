@@ -13,14 +13,14 @@
 .manual-slide:has(.manual-status) .slide-copy h2 {
   max-width: 88%;
   margin-bottom: .75%;
-  font-size: clamp(22px, 2.45vw, 40px);
+  font-size: clamp(22px, 2.45cqw, 40px);
   line-height: 1.13;
 }
 
 .manual-slide:has(.manual-status) .slide-copy p {
   max-width: 84%;
   color: var(--manual-ink-soft);
-  font-size: clamp(9px, 1vw, 16px);
+  font-size: clamp(9px, 1cqw, 16px);
   line-height: 1.42;
   word-break: keep-all;
 }
@@ -41,7 +41,7 @@
   border-radius: 999px;
   background: var(--manual-accent-soft);
   color: #0b568f;
-  font-size: clamp(6px, .64vw, 10px);
+  font-size: clamp(6px, .64cqw, 10px);
   font-weight: 750;
   letter-spacing: .08em;
   line-height: 1;
@@ -81,7 +81,7 @@
   width: 100%;
   color: #6b7280;
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
-  font-size: clamp(7px, .68vw, 11px);
+  font-size: clamp(7px, .68cqw, 11px);
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -108,13 +108,13 @@
 }
 
 .manual-slide:has(.manual-status) .agent-constellation strong {
-  font-size: clamp(9px, 1.05vw, 17px);
+  font-size: clamp(9px, 1.05cqw, 17px);
   line-height: 1.25;
   word-break: keep-all;
 }
 
 .manual-slide:has(.manual-status) .agent-constellation span {
-  font-size: clamp(7px, .78vw, 12px);
+  font-size: clamp(7px, .78cqw, 12px);
   line-height: 1.4;
   word-break: keep-all;
 }
@@ -146,17 +146,17 @@
 }
 
 .manual-slide:has(.manual-status) .arch-node > span {
-  width: clamp(18px, 2vw, 32px);
+  width: clamp(18px, 2cqw, 32px);
 }
 
 .manual-slide:has(.manual-status) .arch-node strong {
-  font-size: clamp(8px, .96vw, 15px);
+  font-size: clamp(8px, .96cqw, 15px);
   line-height: 1.2;
   word-break: keep-all;
 }
 
 .manual-slide:has(.manual-status) .arch-node small {
-  font-size: clamp(6px, .68vw, 10px);
+  font-size: clamp(6px, .68cqw, 10px);
   line-height: 1.3;
   word-break: keep-all;
 }
@@ -169,7 +169,7 @@
   border-collapse: separate;
   border-spacing: 0;
   border-radius: 5px;
-  font-size: clamp(7px, .82vw, 13px);
+  font-size: clamp(7px, .82cqw, 13px);
   table-layout: fixed;
 }
 
@@ -229,14 +229,14 @@
 
 .manual-slide:has(.manual-status) .safety-list strong {
   color: #243746;
-  font-size: clamp(8px, .96vw, 15px);
+  font-size: clamp(8px, .96cqw, 15px);
   line-height: 1.25;
   word-break: keep-all;
 }
 
 .manual-slide:has(.manual-status) .safety-list small {
   color: var(--manual-ink-soft);
-  font-size: clamp(6px, .7vw, 11px);
+  font-size: clamp(6px, .7cqw, 11px);
   line-height: 1.3;
   word-break: keep-all;
 }
@@ -264,14 +264,14 @@
 
 .manual-timeline strong {
   color: #174e75;
-  font-size: clamp(8px, .96vw, 15px);
+  font-size: clamp(8px, .96cqw, 15px);
   line-height: 1.25;
   word-break: keep-all;
 }
 
 .manual-timeline small {
   color: var(--manual-ink-soft);
-  font-size: clamp(6px, .68vw, 10px);
+  font-size: clamp(6px, .68cqw, 10px);
   font-weight: 400;
   line-height: 1.35;
   word-break: keep-all;
@@ -291,13 +291,13 @@
 }
 
 .manual-slide:has(.manual-status) .identity-flow strong {
-  font-size: clamp(9px, 1.1vw, 18px);
+  font-size: clamp(9px, 1.1cqw, 18px);
   line-height: 1.2;
   word-break: keep-all;
 }
 
 .manual-slide:has(.manual-status) .identity-flow span {
-  font-size: clamp(6px, .72vw, 11px);
+  font-size: clamp(6px, .72cqw, 11px);
   line-height: 1.35;
   word-break: keep-all;
 }
@@ -312,7 +312,7 @@
 .manual-evidence-chain figcaption {
   align-self: end;
   color: #174e75;
-  font-size: clamp(7px, .78vw, 12px);
+  font-size: clamp(7px, .78cqw, 12px);
   font-weight: 700;
 }
 
@@ -333,14 +333,14 @@
 
 .manual-evidence-chain strong {
   color: #174e75;
-  font-size: clamp(8px, .96vw, 15px);
+  font-size: clamp(8px, .96cqw, 15px);
   line-height: 1.25;
   word-break: keep-all;
 }
 
 .manual-evidence-chain small {
   color: var(--manual-ink-soft);
-  font-size: clamp(6px, .7vw, 11px);
+  font-size: clamp(6px, .7cqw, 11px);
   font-weight: 400;
   line-height: 1.35;
   word-break: keep-all;
@@ -395,14 +395,14 @@
   max-width: 91%;
   margin-bottom: .6%;
   color: #242424;
-  font-size: clamp(23px, 2.7vw, 44px);
+  font-size: clamp(23px, 2.7cqw, 44px);
   line-height: 1.1;
 }
 
 .manual-slide[class*="slide-briefing-"] .slide-copy p {
   max-width: 88%;
   color: #536471;
-  font-size: clamp(9px, 1vw, 16px);
+  font-size: clamp(9px, 1cqw, 16px);
   line-height: 1.42;
   word-break: keep-all;
 }
@@ -428,7 +428,7 @@
 
 .briefing-status-row > span:last-child {
   color: #697783;
-  font-size: clamp(6px, .62vw, 9px);
+  font-size: clamp(6px, .62cqw, 9px);
   font-weight: 700;
   letter-spacing: .06em;
 }
@@ -529,14 +529,14 @@
 
 .briefing-number-grid strong {
   color: var(--briefing-accent-dark);
-  font: 620 clamp(18px, 2.7vw, 44px)/1 "Aptos Display", sans-serif;
+  font: 620 clamp(18px, 2.7cqw, 44px)/1 "Aptos Display", sans-serif;
   overflow-wrap: anywhere;
 }
 
 .briefing-number-grid span {
   margin-top: 10%;
   color: #3f4f5a;
-  font-size: clamp(7px, .78vw, 12px);
+  font-size: clamp(7px, .78cqw, 12px);
   line-height: 1.35;
   word-break: keep-all;
 }
@@ -544,13 +544,13 @@
 .briefing-comparison small {
   margin-bottom: 12%;
   color: var(--briefing-accent);
-  font-size: clamp(6px, .64vw, 10px);
+  font-size: clamp(6px, .64cqw, 10px);
   font-weight: 750;
 }
 
 .briefing-comparison strong {
   color: #242424;
-  font: 620 clamp(9px, 1.1vw, 18px)/1.2 "Aptos Display", sans-serif;
+  font: 620 clamp(9px, 1.1cqw, 18px)/1.2 "Aptos Display", sans-serif;
   word-break: keep-all;
 }
 
@@ -558,7 +558,7 @@
   align-self: end;
   margin-top: 10%;
   color: #536471;
-  font-size: clamp(6px, .72vw, 11px);
+  font-size: clamp(6px, .72cqw, 11px);
   line-height: 1.42;
   word-break: keep-all;
 }
@@ -592,14 +592,14 @@
 
 .briefing-layers strong {
   color: var(--briefing-accent-dark);
-  font-size: clamp(8px, .94vw, 15px);
+  font-size: clamp(8px, .94cqw, 15px);
   line-height: 1.25;
   word-break: keep-all;
 }
 
 .briefing-layers span {
   color: #536471;
-  font-size: clamp(6px, .7vw, 11px);
+  font-size: clamp(6px, .7cqw, 11px);
   line-height: 1.35;
   word-break: keep-all;
 }
@@ -618,13 +618,13 @@
 .slide-briefing-cover .slide-copy h2 {
   max-width: 100%;
   color: var(--briefing-accent-dark);
-  font-size: clamp(31px, 3.5vw, 58px);
+  font-size: clamp(31px, 3.5cqw, 58px);
 }
 
 .slide-briefing-cover .slide-copy p {
   max-width: 92%;
   margin-top: 4%;
-  font-size: clamp(10px, 1.12vw, 18px);
+  font-size: clamp(10px, 1.12cqw, 18px);
 }
 
 .slide-briefing-cover .slide-content {
@@ -662,7 +662,7 @@
   top: 8%;
   right: 8%;
   color: #fff;
-  font-size: clamp(7px, .8vw, 12px);
+  font-size: clamp(7px, .8cqw, 12px);
   font-weight: 750;
   letter-spacing: .08em;
 }
@@ -691,11 +691,11 @@
 
 .briefing-cover-index small {
   color: rgba(255, 255, 255, .72);
-  font-size: clamp(6px, .58vw, 9px);
+  font-size: clamp(6px, .58cqw, 9px);
 }
 
 .briefing-cover-index span {
-  font-size: clamp(7px, .74vw, 12px);
+  font-size: clamp(7px, .74cqw, 12px);
   font-weight: 650;
   line-height: 1.25;
   word-break: keep-all;
@@ -742,13 +742,13 @@
 .manual-slide[class*="slide-ontology-"] .slide-copy h2 {
   max-width: 92%;
   margin-bottom: .6%;
-  font-size: clamp(23px, 2.7vw, 44px);
+  font-size: clamp(23px, 2.7cqw, 44px);
 }
 
 .manual-slide[class*="slide-ontology-"] .slide-copy p {
   max-width: 91%;
   color: #536471;
-  font-size: clamp(9px, 1vw, 16px);
+  font-size: clamp(9px, 1cqw, 16px);
   line-height: 1.42;
   word-break: keep-all;
 }
@@ -774,7 +774,7 @@
 
 .ontology-status-row > span:last-child {
   color: #697783;
-  font-size: clamp(6px, .62vw, 9px);
+  font-size: clamp(6px, .62cqw, 9px);
   font-weight: 700;
   letter-spacing: .06em;
 }
@@ -823,13 +823,13 @@
 .ontology-panel-grid small {
   margin-bottom: 12%;
   color: var(--ontology-blue);
-  font-size: clamp(6px, .64vw, 10px);
+  font-size: clamp(6px, .64cqw, 10px);
   font-weight: 750;
 }
 
 .ontology-panel-grid strong {
   color: #242424;
-  font: 620 clamp(9px, 1.1vw, 18px)/1.2 "Aptos Display", sans-serif;
+  font: 620 clamp(9px, 1.1cqw, 18px)/1.2 "Aptos Display", sans-serif;
   word-break: keep-all;
 }
 
@@ -837,7 +837,7 @@
   align-self: end;
   margin-top: 10%;
   color: #536471;
-  font-size: clamp(6px, .72vw, 11px);
+  font-size: clamp(6px, .72cqw, 11px);
   line-height: 1.42;
   word-break: keep-all;
 }
@@ -849,7 +849,7 @@
 
 .ontology-number-grid strong {
   color: var(--ontology-blue-dark);
-  font: 620 clamp(18px, 2.7vw, 44px)/1 "Aptos Display", sans-serif;
+  font: 620 clamp(18px, 2.7cqw, 44px)/1 "Aptos Display", sans-serif;
   letter-spacing: -.02em;
   overflow-wrap: anywhere;
 }
@@ -857,7 +857,7 @@
 .ontology-number-grid span {
   margin-top: 10%;
   color: #3f4f5a;
-  font-size: clamp(7px, .78vw, 12px);
+  font-size: clamp(7px, .78cqw, 12px);
   line-height: 1.35;
   word-break: keep-all;
 }
@@ -906,19 +906,19 @@
 
 .ontology-flow small {
   color: var(--ontology-blue);
-  font-size: clamp(6px, .66vw, 10px);
+  font-size: clamp(6px, .66cqw, 10px);
   font-weight: 750;
 }
 
 .ontology-flow strong {
   margin: 12% 0 8%;
-  font: 620 clamp(8px, .96vw, 15px)/1.22 "Aptos Display", sans-serif;
+  font: 620 clamp(8px, .96cqw, 15px)/1.22 "Aptos Display", sans-serif;
   word-break: keep-all;
 }
 
 .ontology-flow span {
   color: #536471;
-  font-size: clamp(6px, .68vw, 10px);
+  font-size: clamp(6px, .68cqw, 10px);
   line-height: 1.38;
   word-break: keep-all;
 }
@@ -951,14 +951,14 @@
 
 .ontology-stack strong {
   color: var(--ontology-blue-dark);
-  font-size: clamp(8px, .94vw, 15px);
+  font-size: clamp(8px, .94cqw, 15px);
   line-height: 1.25;
   word-break: keep-all;
 }
 
 .ontology-stack span {
   color: #536471;
-  font-size: clamp(6px, .7vw, 11px);
+  font-size: clamp(6px, .7cqw, 11px);
   line-height: 1.35;
   word-break: keep-all;
 }
@@ -979,7 +979,7 @@
   padding: 1.7% 2.2%;
   border-bottom: 1px solid var(--ontology-line);
   color: #4b5963;
-  font-size: clamp(6px, .72vw, 11px);
+  font-size: clamp(6px, .72cqw, 11px);
   line-height: 1.34;
   text-align: left;
   word-break: keep-all;
@@ -1024,13 +1024,13 @@
 }
 
 .ontology-graph-center strong {
-  font: 620 clamp(16px, 2.3vw, 37px)/1.05 "Aptos Display", sans-serif;
+  font: 620 clamp(16px, 2.3cqw, 37px)/1.05 "Aptos Display", sans-serif;
 }
 
 .ontology-graph-center span {
   margin-top: 10%;
   color: #dcebf5;
-  font-size: clamp(7px, .76vw, 12px);
+  font-size: clamp(7px, .76cqw, 12px);
   line-height: 1.4;
   word-break: keep-all;
 }
@@ -1057,14 +1057,14 @@
 
 .ontology-graph-orbit strong {
   color: var(--ontology-blue-dark);
-  font-size: clamp(8px, .96vw, 15px);
+  font-size: clamp(8px, .96cqw, 15px);
   word-break: keep-all;
 }
 
 .ontology-graph-orbit span {
   margin-top: 6%;
   color: #536471;
-  font-size: clamp(6px, .68vw, 10px);
+  font-size: clamp(6px, .68cqw, 10px);
   line-height: 1.35;
   word-break: keep-all;
 }
@@ -1083,13 +1083,13 @@
 .slide-ontology-cover .slide-copy h2 {
   max-width: 100%;
   color: #0b2f47;
-  font-size: clamp(31px, 3.5vw, 58px);
+  font-size: clamp(31px, 3.5cqw, 58px);
 }
 
 .slide-ontology-cover .slide-copy p {
   max-width: 94%;
   margin-top: 4%;
-  font-size: clamp(10px, 1.12vw, 18px);
+  font-size: clamp(10px, 1.12cqw, 18px);
 }
 
 .slide-ontology-cover .slide-content {
@@ -1134,7 +1134,7 @@
 }
 
 .ontology-cover-art figcaption strong {
-  font-size: clamp(8px, .9vw, 14px);
+  font-size: clamp(8px, .9cqw, 14px);
 }
 
 .ontology-cover-art figcaption i {
@@ -1154,18 +1154,18 @@
   text-align: right;
 }
 
-@media (max-width: 760px) {
+@container slide (max-width: 760px) {
   .evidence-source {
-    font-size: 1.05vw;
+    font-size: 1.05cqw;
     line-height: 1.08;
   }
 
   .manual-slide.deck-enterprise-scale-roadmap.slide-briefing-cover .slide-copy h2 {
-    font-size: 2.65vw;
+    font-size: 2.65cqw;
   }
 
   .manual-slide.deck-enterprise-scale-roadmap.slide-briefing-cover .slide-copy p {
-    font-size: 1.25vw;
+    font-size: 1.25cqw;
     line-height: 1.3;
   }
 
@@ -1180,29 +1180,29 @@
   }
 
   .briefing-layers strong {
-    font-size: 1.55vw;
+    font-size: 1.55cqw;
   }
 
   .briefing-layers span {
-    font-size: 1.18vw;
+    font-size: 1.18cqw;
     line-height: 1.2;
     overflow-wrap: anywhere;
   }
 
   .manual-slide:has(.manual-status) .slide-copy h2 {
-    font-size: 3vw;
+    font-size: 3cqw;
   }
 
   .manual-slide:has(.manual-status) .slide-copy p {
-    font-size: 1.45vw;
+    font-size: 1.45cqw;
   }
 
   .manual-slide[class*="slide-ontology-"] .slide-copy h2 {
-    font-size: 3vw;
+    font-size: 3cqw;
   }
 
   .manual-slide[class*="slide-ontology-"] .slide-copy p {
-    font-size: 1.45vw;
+    font-size: 1.45cqw;
   }
 
   .ontology-panel-grid article,
@@ -1212,24 +1212,24 @@
 
   .ontology-panel-grid small {
     margin-bottom: 5%;
-    font-size: 1.25vw;
+    font-size: 1.25cqw;
   }
 
   .ontology-panel-grid strong {
-    font-size: 1.8vw;
+    font-size: 1.8cqw;
     overflow-wrap: anywhere;
   }
 
   .ontology-panel-grid span,
   .ontology-number-grid span {
     margin-top: 5%;
-    font-size: 1.35vw;
+    font-size: 1.35cqw;
     line-height: 1.26;
     overflow-wrap: anywhere;
   }
 
   .ontology-number-grid strong {
-    font-size: 2.7vw;
+    font-size: 2.7cqw;
     line-height: .98;
   }
 
@@ -1243,14 +1243,14 @@
   .ontology-table th,
   .ontology-table td,
   .ontology-graph-orbit span {
-    font-size: 1.3vw;
+    font-size: 1.3cqw;
     line-height: 1.24;
   }
 
   .ontology-flow strong,
   .ontology-stack strong,
   .ontology-graph-orbit strong {
-    font-size: 1.75vw;
+    font-size: 1.75cqw;
     overflow-wrap: anywhere;
   }
 

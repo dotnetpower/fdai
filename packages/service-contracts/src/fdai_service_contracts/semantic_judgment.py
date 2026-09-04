@@ -117,7 +117,15 @@ class SemanticJudgmentProposal(QueryContract):
     direct_response: SemanticDirectResponseDraft | None = None
     discourse_mode: SemanticDiscourseMode = SemanticDiscourseMode.DIRECT
     action_posture: Literal["advise_only", "draft_only"] = "advise_only"
-    action_subject: Literal["none", "ActionType", "Change", "Incident", "RecoveryPlan", "Rule"]
+    action_subject: Literal[
+        "none",
+        "ActionType",
+        "Change",
+        "Document",
+        "Incident",
+        "RecoveryPlan",
+        "Rule",
+    ]
     authority: Literal["candidate_only"] = "candidate_only"
     execution_authority: Literal[False] = False
 

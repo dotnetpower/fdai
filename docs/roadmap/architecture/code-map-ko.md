@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 745ef36fa3c98feaabb4eb489bfc4d8d306eb8d7
-translation_revised: 2026-09-04
+translation_source_sha: feea28426ace36a11df3578523e588819234042e
+translation_revised: 2026-09-05
 ---
 # 코드 맵
 
@@ -51,6 +51,8 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 (예: Operator의 Core 소유 Cost Governance 객체 읽기 접근)는 Core 브랜치가 아닌
 Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스트랩 순서에서 나중에 생성되는
 역할을 필요로 하지 않습니다.
+루트 통합 테스트는 논리 `object.*` 이벤트를 영속 게시 완료로 표시하기 전에 라우팅하는
+문서 처리 워커 outbox 규칙도 계약으로 고정합니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
 보류를 별도로 계수합니다.
 
@@ -82,6 +84,11 @@ BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존
 신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
 ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
 다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
+검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 builder를 통해
+잔여 frame 모델을 우회합니다. 문서 경로는 초안 전용이며 인증된 principal의 직전 검증 결과에
+원본을 바인딩합니다.
+Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다. 따라서 압축된 EventBus
+레코드가 readiness를 통과한 뒤 필수 runtime task를 종료하지 않습니다.
 의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를
 생략하되 직접 소셜 응답 후보와 이전 턴이 있는 요청은 계속 독립적으로 확인합니다.
 검증된 `query.ontology_declaration` 개수 판단에서는 고유한 canonical 선언 `*Type` target이
@@ -538,7 +545,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | [extensions/](../../../extensions/) | 선택적 독립 패키지 기능입니다. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code 데이터입니다. |
 | [policies/](../../../policies/) | OPA/Rego policy-as-code입니다. |
-| [콘솔/](../../../console/) | 지역화된 가이드 서랍과 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
+| [콘솔/](../../../console/) | 지식 원본 및 거버넌스 적용 문서 업로드 경로, 지역화된 가이드 서랍, 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | 독립 정적 가이드 라이브러리, HTML 슬라이드 뷰어, 저장소에 안전한 미디어 출처 계보 및 집중 프로토타입 검사를 제공합니다. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
 | [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |

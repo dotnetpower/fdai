@@ -40,8 +40,11 @@ describe("panel navigation placement", () => {
     expect(panelsInGroup("governance").map((panel) => panel.id)).toEqual([
       "architecture", "ontology", "handover", "rules", "workflow-builder", "capabilities", "skills", "blast-radius", "promotion-gates", "context-selection-comparisons", "scope",
     ]);
+    expect(panelsInGroup("knowledge").map((panel) => panel.id)).toEqual([
+      "knowledge", "documents", "github", "gitlab", "azure-devops",
+    ]);
     expect(panelsInGroup("evidence").map((panel) => panel.id)).toEqual([
-      "audit", "browser-evidence", "forecast-learning", "conversation-search", "conversation-assurance", "reports", "trace", "rca", "documents",
+      "audit", "browser-evidence", "forecast-learning", "conversation-search", "conversation-assurance", "reports", "trace", "rca",
     ]);
     expect(panelsInGroup("labs").map((panel) => panel.id)).toEqual(["labs"]);
     expect(panelsInGroup("settings").map((panel) => panel.id)).toEqual([

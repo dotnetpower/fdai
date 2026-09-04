@@ -114,6 +114,30 @@ describe("grounded reply presentation", () => {
     }
   });
 
+  it("directs model identity failures to authentication recovery", () => {
+    const unavailable = {
+      ...verification("server_read_model"),
+      status: "unverified" as const,
+      reason_code: "semantic_model_identity_unavailable",
+    };
+
+    expect(primaryAnswerText(
+      "Model authentication is unavailable.",
+      unavailable,
+    )).toBe(
+      "Model authentication is unavailable. Restore the configured Azure identity, then retry this question.",
+    );
+
+    setLocale("ko");
+    try {
+      expect(primaryAnswerText("모델 인증을 사용할 수 없습니다.", unavailable)).toBe(
+        "모델 인증을 사용할 수 없습니다. 구성된 Azure ID를 복구한 후 이 질문을 다시 시도해 주세요.",
+      );
+    } finally {
+      setLocale("en");
+    }
+  });
+
   it("preserves the server's typed partial-evidence hold", () => {
     const held = {
       ...verification("ontology-query"),
@@ -183,6 +207,25 @@ describe("grounded reply presentation", () => {
     expect(component).toContain("{showAnswerState ? (");
     expect(component).not.toContain("deck.answerPlan.intent");
     expect(component).not.toContain("deck.answerPlan.detail");
+  });
+
+  it("renders verified answer text before a superseding structured component", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+    const summary = component.indexOf('class="deck-presentation-lead"');
+    const structured = component.indexOf(
+      "<StructuredReply artifact={structuredPresentation} />",
+    );
+
+    expect(component).toContain(
+      "const structuredPresentation = !streaming && !verificationIssue && presentationArtifact",
+    );
+    expect(summary).toBeGreaterThan(-1);
+    expect(structured).toBeGreaterThan(summary);
+    expect(component.slice(summary, structured)).toContain("<RichContent");
+    expect(component.slice(summary, structured)).toContain("text={renderedText}");
   });
 
   it("keeps trajectory status out of the compact reply footer", () => {

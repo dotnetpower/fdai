@@ -11,8 +11,17 @@ from uuid import uuid4
 
 import pytest
 from fdai_document_worker_service.adapters import processing as processing_module
-from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
-from fdai_document_worker_service.adapters.processing import BoundedDocumentExtractor
+from fdai_document_worker_service.adapters.ooxml import (
+    OoxmlParserBudget,
+    extract_ooxml,
+    extract_ooxml_embedded_images,
+)
+from fdai_document_worker_service.adapters.pdf_isolation import PdfPageInspection
+from fdai_document_worker_service.adapters.processing import (
+    BoundedDocumentExtractor,
+    SignatureProtectionInspector,
+    UnavailableImageOcr,
+)
 from fdai_service_contracts import (
     AccessDescriptor,
     DocumentExtractionUnavailableError,
@@ -51,7 +60,7 @@ class _MixedPdfOcr:
                 unit_id="ocr-1",
                 kind="page",
                 locator="page:1:line:1",
-                text="Duplicated native text",
+                text="Native text",
             ),
             StructuralUnit(
                 unit_id="ocr-2",
@@ -72,7 +81,7 @@ class _IncompletePdfOcr:
                 unit_id="ocr-1",
                 kind="page",
                 locator="page:1:line:1",
-                text="Duplicated native text",
+                text="Native text",
             ),
         )
 
@@ -113,19 +122,24 @@ async def test_input_byte_budget_reports_typed_extraction_reason() -> None:
 def test_native_pdf_uses_canonical_page_block_locator(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         processing_module,
-        "extract_pdf_pages_isolated",
-        lambda _content: ("Native text",),
+        "inspect_pdf_pages_isolated",
+        lambda _content: (PdfPageInspection("Native text", False),),
     )
 
-    units = processing_module._pdf_units(b"pdf")
+    units, image_pages = processing_module._pdf_inspection(b"pdf")
 
     assert [unit.locator for unit in units] == ["pdf/page:1/block:1"]
+    assert image_pages == (False,)
 
 
 async def test_scanned_pdf_reports_ocr_extractor_provenance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(processing_module, "_pdf_units", lambda _content: ())
+    monkeypatch.setattr(
+        processing_module,
+        "_pdf_inspection",
+        lambda _content: ((None,), (True,)),
+    )
     extractor = BoundedDocumentExtractor(
         image_ocr=_ImageOcr(),
         max_input_bytes=1024,
@@ -144,8 +158,19 @@ async def test_mixed_pdf_uses_ocr_only_for_pages_without_native_text(
 ) -> None:
     monkeypatch.setattr(
         processing_module,
-        "extract_pdf_pages_isolated",
-        lambda _content: ("Native text", None),
+        "_pdf_inspection",
+        lambda _content: (
+            (
+                StructuralUnit(
+                    unit_id="page-1",
+                    kind="page",
+                    locator="pdf/page:1/block:1",
+                    text="Native text",
+                ),
+                None,
+            ),
+            (False, True),
+        ),
     )
     extractor = BoundedDocumentExtractor(
         image_ocr=_MixedPdfOcr(),
@@ -168,8 +193,19 @@ async def test_mixed_pdf_fails_closed_when_scanned_page_has_no_ocr_text(
 ) -> None:
     monkeypatch.setattr(
         processing_module,
-        "extract_pdf_pages_isolated",
-        lambda _content: ("Native text", None),
+        "_pdf_inspection",
+        lambda _content: (
+            (
+                StructuralUnit(
+                    unit_id="page-1",
+                    kind="page",
+                    locator="pdf/page:1/block:1",
+                    text="Native text",
+                ),
+                None,
+            ),
+            (False, True),
+        ),
     )
     extractor = BoundedDocumentExtractor(
         image_ocr=_IncompletePdfOcr(),
@@ -179,6 +215,28 @@ async def test_mixed_pdf_fails_closed_when_scanned_page_has_no_ocr_text(
 
     with pytest.raises(ValueError, match="no cited text for page 2"):
         await extractor.extract(version=_pdf_version(), chunks=_chunks(b"pdf"))
+
+
+async def test_native_pdf_page_with_image_merges_nonduplicate_ocr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    native = StructuralUnit(
+        unit_id="page-1",
+        kind="page",
+        locator="pdf/page:1/block:1",
+        text="Native text",
+    )
+    monkeypatch.setattr(
+        processing_module,
+        "_pdf_inspection",
+        lambda _content: ((native,), (True,)),
+    )
+    envelope = await BoundedDocumentExtractor(
+        image_ocr=_ImageOcr(),
+        max_input_bytes=1024,
+        max_characters=1024,
+    ).extract(version=_pdf_version(), chunks=_chunks(b"pdf"))
+    assert [unit.text for unit in envelope.units] == ["Native text", "Scanned text"]
 
 
 def test_docx_preserves_heading_context_and_table_roles() -> None:
@@ -291,6 +349,24 @@ def test_xlsx_preserves_shared_strings_inline_text_and_cell_addresses() -> None:
     assert {unit.section_name for unit in units} == {"Runbook"}
 
 
+def test_xlsx_preserves_formula_as_text_without_execution() -> None:
+    sheet = (
+        b"<worksheet xmlns='urn:x'><sheetData><row r='1'>"
+        b"<c r='A1'><f>SUM(B1:B2)</f><v>7</v></c>"
+        b"</row></sheetData></worksheet>"
+    )
+    units = extract_ooxml(
+        _ooxml(
+            {
+                "xl/workbook.xml": b"<workbook/>",
+                "xl/worksheets/sheet1.xml": sheet,
+            }
+        ),
+        budget=OoxmlParserBudget(),
+    )
+    assert units[0].text == "=SUM(B1:B2) [cached: 7]"
+
+
 def test_ooxml_reports_explicit_unavailable_reasons_for_parser_budgets() -> None:
     content = _ooxml({"word/document.xml": b"<w:document xmlns:w='urn:w'><w:body/></w:document>"})
     with pytest.raises(DocumentExtractionUnavailableError) as members:
@@ -312,6 +388,18 @@ def test_ooxml_reports_explicit_unavailable_reasons_for_parser_budgets() -> None
     with pytest.raises(DocumentExtractionUnavailableError) as unsafe:
         extract_ooxml(output.getvalue(), budget=OoxmlParserBudget())
     assert unsafe.value.reason is ExtractionUnavailableReason.UNSAFE_PACKAGE
+    symlink_output = io.BytesIO()
+    with zipfile.ZipFile(symlink_output, "w") as archive:
+        link = zipfile.ZipInfo("word/media/link.png")
+        link.create_system = 3
+        link.external_attr = 0o120777 << 16
+        archive.writestr(link, "target")
+    with pytest.raises(DocumentExtractionUnavailableError) as symlink:
+        extract_ooxml_embedded_images(
+            symlink_output.getvalue(),
+            budget=OoxmlParserBudget(),
+        )
+    assert symlink.value.reason is ExtractionUnavailableReason.UNSAFE_PACKAGE
 
 
 def test_ooxml_enforces_node_and_extracted_text_budgets() -> None:
@@ -327,6 +415,240 @@ def test_ooxml_enforces_node_and_extracted_text_budgets() -> None:
     with pytest.raises(DocumentExtractionUnavailableError) as text:
         extract_ooxml(content, budget=replace(OoxmlParserBudget(), max_text_characters=5))
     assert text.value.reason is ExtractionUnavailableReason.TEXT_BUDGET
+
+
+def test_malformed_ooxml_xml_reports_typed_package_failure() -> None:
+    with pytest.raises(DocumentExtractionUnavailableError) as malformed:
+        extract_ooxml(
+            _ooxml({"word/document.xml": b"<w:document><w:body></w:document>"}),
+            budget=OoxmlParserBudget(),
+        )
+    assert malformed.value.reason is ExtractionUnavailableReason.MALFORMED_PACKAGE
+
+
+def test_ooxml_embedded_images_are_bounded_and_sorted() -> None:
+    content = _ooxml(
+        {
+            "word/document.xml": b"<w:document xmlns:w='urn:w'><w:body/></w:document>",
+            "word/_rels/document.xml.rels": (
+                b"<Relationships><Relationship Type='urn:office/relationships/image' "
+                b"Target='media/image2.png'/><Relationship "
+                b"Type='urn:office/relationships/image' Target='media/image1.jpeg'/>"
+                b"</Relationships>"
+            ),
+            "word/media/image2.png": b"\x89PNG\r\n\x1a\nsecond",
+            "word/media/image1.jpeg": b"\xff\xd8\xfffirst",
+            "word/media/orphan.png": b"\x89PNG\r\n\x1a\norphan",
+        }
+    )
+    images = extract_ooxml_embedded_images(content, budget=OoxmlParserBudget())
+    assert [image.part_name for image in images] == [
+        "word/media/image1.jpeg",
+        "word/media/image2.png",
+    ]
+    with pytest.raises(DocumentExtractionUnavailableError) as members:
+        extract_ooxml_embedded_images(
+            content,
+            budget=replace(OoxmlParserBudget(), max_media_members=1),
+        )
+    assert members.value.reason is ExtractionUnavailableReason.PACKAGE_MEMBER_BUDGET
+
+
+@pytest.mark.parametrize(
+    ("relationship_name", "target", "media_name"),
+    [
+        ("word/_rels/document.xml.rels", "media/image1.png", "word/media/image1.png"),
+        (
+            "ppt/slides/_rels/slide1.xml.rels",
+            "../media/image1.png",
+            "ppt/media/image1.png",
+        ),
+        (
+            "xl/drawings/_rels/drawing1.xml.rels",
+            "../media/image1.png",
+            "xl/media/image1.png",
+        ),
+    ],
+)
+def test_ooxml_resolves_only_referenced_embedded_images(
+    relationship_name: str,
+    target: str,
+    media_name: str,
+) -> None:
+    relationship = (
+        b"<Relationships><Relationship Type='urn:office/relationships/image' Target='"
+        + target.encode()
+        + b"'/></Relationships>"
+    )
+    images = extract_ooxml_embedded_images(
+        _ooxml(
+            {
+                relationship_name: relationship,
+                media_name: b"\x89PNG\r\n\x1a\nreferenced",
+                media_name.replace("image1", "orphan"): b"\x89PNG\r\n\x1a\norphan",
+            }
+        ),
+        budget=OoxmlParserBudget(),
+    )
+    assert [image.part_name for image in images] == [media_name]
+
+
+async def test_ooxml_embedded_images_add_cited_ocr_units() -> None:
+    content = _ooxml(
+        {
+            "word/document.xml": (
+                b"<w:document xmlns:w='urn:w'><w:body>"
+                b"<w:p><w:r><w:t>Native text</w:t></w:r></w:p>"
+                b"</w:body></w:document>"
+            ),
+            "word/_rels/document.xml.rels": (
+                b"<Relationships><Relationship Type='urn:office/relationships/image' "
+                b"Target='media/image1.png'/></Relationships>"
+            ),
+            "word/media/image1.png": b"\x89PNG\r\n\x1a\nimage",
+        }
+    )
+    version = _pdf_version().model_copy(
+        update={
+            "source_name": "runbook.docx",
+            "media_type": (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+            "observed_format": "ooxml",
+        }
+    )
+    envelope = await BoundedDocumentExtractor(
+        image_ocr=_ImageOcr(),
+        max_input_bytes=1024 * 1024,
+        max_characters=1024,
+    ).extract(version=version, chunks=_chunks(content))
+    assert [unit.text for unit in envelope.units] == ["Native text", "Scanned text"]
+    assert envelope.units[-1].locator == "ooxml/embedded-image:1/ocr:1"
+
+
+async def test_ooxml_embedded_image_ocr_unavailability_is_explicit() -> None:
+    content = _ooxml(
+        {
+            "word/document.xml": (
+                b"<w:document xmlns:w='urn:w'><w:body>"
+                b"<w:p><w:r><w:t>Native text</w:t></w:r></w:p>"
+                b"</w:body></w:document>"
+            ),
+            "word/_rels/document.xml.rels": (
+                b"<Relationships><Relationship Type='urn:office/relationships/image' "
+                b"Target='media/image1.png'/></Relationships>"
+            ),
+            "word/media/image1.png": b"\x89PNG\r\n\x1a\nimage",
+        }
+    )
+    version = _pdf_version().model_copy(
+        update={
+            "source_name": "runbook.docx",
+            "media_type": (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+            "observed_format": "ooxml",
+        }
+    )
+    envelope = await BoundedDocumentExtractor(
+        image_ocr=UnavailableImageOcr(),
+        max_input_bytes=1024 * 1024,
+        max_characters=1024,
+    ).extract(version=version, chunks=_chunks(content))
+    assert envelope.warnings == ("embedded_image_ocr_unavailable:1",)
+
+
+async def test_image_only_ooxml_requires_available_ocr() -> None:
+    content = _ooxml(
+        {
+            "word/document.xml": b"<w:document xmlns:w='urn:w'><w:body/></w:document>",
+            "word/_rels/document.xml.rels": (
+                b"<Relationships><Relationship Type='urn:office/relationships/image' "
+                b"Target='media/image1.png'/></Relationships>"
+            ),
+            "word/media/image1.png": b"\x89PNG\r\n\x1a\nimage",
+        }
+    )
+    version = _pdf_version().model_copy(
+        update={
+            "source_name": "scan.docx",
+            "media_type": (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+            "observed_format": "ooxml",
+        }
+    )
+    with pytest.raises(DocumentExtractionUnavailableError) as unavailable:
+        await BoundedDocumentExtractor(
+            image_ocr=UnavailableImageOcr(),
+            max_input_bytes=1024 * 1024,
+            max_characters=1024,
+        ).extract(version=version, chunks=_chunks(content))
+    assert unavailable.value.reason is ExtractionUnavailableReason.OCR_UNAVAILABLE
+
+
+async def test_signature_inspector_accepts_tiff_and_rejects_mismatched_content() -> None:
+    inspector = SignatureProtectionInspector(max_input_bytes=1024)
+    tiff = await inspector.inspect(
+        source_name="scan.tiff",
+        media_type_hint="image/tiff",
+        chunks=_chunks(b"II*\x00payload"),
+    )
+    mismatch = await inspector.inspect(
+        source_name="scan.pdf",
+        media_type_hint="application/pdf",
+        chunks=_chunks(b"\x89PNG\r\n\x1a\npayload"),
+    )
+    assert (tiff.observed_format, tiff.media_type) == ("image", "image/tiff")
+    assert mismatch.reason_code == "format_signature_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("source_name", "media_type", "package_part", "observed_media_type"),
+    [
+        (
+            "runbook.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "word/document.xml",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        (
+            "slides.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "ppt/presentation.xml",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ),
+        (
+            "data.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "xl/workbook.xml",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
+    ],
+)
+async def test_signature_inspector_distinguishes_modern_office_packages(
+    source_name: str,
+    media_type: str,
+    package_part: str,
+    observed_media_type: str,
+) -> None:
+    inspector = SignatureProtectionInspector(max_input_bytes=4096)
+    result = await inspector.inspect(
+        source_name=source_name,
+        media_type_hint=media_type,
+        chunks=_chunks(_ooxml({package_part: b"<root/>"})),
+    )
+    assert (result.observed_format, result.media_type) == ("ooxml", observed_media_type)
+
+
+async def test_signature_inspector_rejects_renamed_ooxml_package() -> None:
+    inspector = SignatureProtectionInspector(max_input_bytes=4096)
+    result = await inspector.inspect(
+        source_name="slides.docx",
+        media_type_hint=("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        chunks=_chunks(_ooxml({"ppt/presentation.xml": b"<root/>"})),
+    )
+    assert result.reason_code == "format_signature_mismatch"
 
 
 def _ooxml(parts: dict[str, bytes]) -> bytes:

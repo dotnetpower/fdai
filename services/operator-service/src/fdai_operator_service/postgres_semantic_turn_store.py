@@ -45,6 +45,16 @@ class SemanticTurnRequestAbsentError(SemanticTurnConflictError):
         )
 
 
+class SemanticTurnTerminalClosedError(SemanticTurnConflictError):
+    """A different terminal result already owns this semantic request."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "semantic request already has an authoritative terminal result",
+            failure_type="semantic_terminal_already_closed",
+        )
+
+
 class SemanticTurnStoreError(RuntimeError):
     """Durable semantic-turn state is unavailable or malformed."""
 
@@ -59,6 +69,7 @@ class StoredSemanticTurn:
     principal_id: str
     envelope: Mapping[str, object]
     duplicate: bool
+    source_request_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +119,7 @@ class PostgresSemanticTurnRepository:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        source_request_id: str | None = None,
     ) -> StoredSemanticTurn:
         """Persist one v1.2 semantic request without publishing it in the transaction."""
         _bounded_component("principal_id", principal_id)
@@ -115,6 +127,8 @@ class PostgresSemanticTurnRepository:
         if not isinstance(request_id, str):
             raise ValueError("semantic envelope request_id MUST be a string")
         _bounded_component("request_id", request_id)
+        if source_request_id is not None:
+            _bounded_component("source_request_id", source_request_id)
         requested_at = envelope.get("requested_at")
         semantic_turn = envelope.get("semantic_turn")
         if not isinstance(requested_at, str) or not isinstance(semantic_turn, Mapping):
@@ -133,6 +147,7 @@ class PostgresSemanticTurnRepository:
             "principal_id": principal_id,
             "idempotency_key": idempotency_key,
             "request_digest": request_digest,
+            "source_request_id": source_request_id,
             "outbox_namespace": self._outbox_namespace,
             "state": "pending",
             "attempt": 0,
@@ -343,6 +358,8 @@ class PostgresSemanticTurnRepository:
         )
         if not rows:
             raise SemanticTurnRequestAbsentError
+        if rows[0].get("terminal_closed") is True:
+            raise SemanticTurnTerminalClosedError
         stored = _json_object(rows[0].get("value"), label=key)
         if stored.get("projection_digest") != projection_digest:
             raise SemanticTurnConflictError(
@@ -453,14 +470,13 @@ class PostgresSemanticTurnRepository:
              ORDER BY (value ->> 'event_sequence')::bigint,
                                             (value ->> 'recorded_at')::timestamptz,
                       value ->> 'projection_id'
-             LIMIT %(limit)s
+             LIMIT 1
             """,
             {
                 "prefix": f"{_RESULT_PREFIX}%",
                 "principal_id": principal_id,
                 "request_id": request_id,
                 "after_sequence": after_sequence or 0,
-                "limit": limit,
             },
         )
         return tuple(
@@ -468,7 +484,7 @@ class PostgresSemanticTurnRepository:
                 _json_object(row.get("value"), label="semantic result"),
                 duplicate=True,
             )
-            for row in rows
+            for row in rows[:1]
         )
 
     async def _transition_claim(self, *, key: str, claim_id: str, state: str) -> bool:
@@ -507,7 +523,9 @@ class PostgresSemanticTurnRepository:
         return await self._fetch_all(
             """
             WITH owned_request AS (
-                SELECT key, value ->> 'principal_id' AS principal_id
+                SELECT key,
+                       value ->> 'principal_id' AS principal_id,
+                       value ->> 'state' AS state
                   FROM state_kv
                  WHERE key LIKE %(outbox_prefix)s
                                      AND COALESCE(value ->> 'outbox_namespace', '')
@@ -564,17 +582,23 @@ class PostgresSemanticTurnRepository:
                            'principal_id', owned_request.principal_id
                        )
                   FROM owned_request
-                                 WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
+                  WHERE owned_request.state IS DISTINCT FROM 'completed'
+                   AND NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
                 ON CONFLICT (key) DO NOTHING
                 RETURNING value
             ), accepted AS (
-                                SELECT TRUE AS inserted, value
+                               SELECT TRUE AS inserted, FALSE AS terminal_closed, value
                                     FROM inserted
                                  WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
                 UNION ALL
-                                SELECT FALSE AS inserted, value
+                               SELECT FALSE AS inserted, FALSE AS terminal_closed, value
                                     FROM existing
                                  WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
+            ), terminal_closed AS (
+                SELECT FALSE AS inserted, TRUE AS terminal_closed, NULL::jsonb AS value
+                 FROM owned_request
+                WHERE owned_request.state = 'completed'
+                  AND NOT EXISTS (SELECT 1 FROM existing)
             ), completed AS (
                 UPDATE state_kv AS target
                    SET value = target.value || jsonb_build_object(
@@ -612,9 +636,16 @@ class PostgresSemanticTurnRepository:
                 RETURNING key
             )
             SELECT inserted,
+                   terminal_closed,
                    value,
                    (SELECT count(*) FROM rule_projected) AS rule_projection_writes
               FROM accepted
+            UNION ALL
+            SELECT inserted,
+                   terminal_closed,
+                   value,
+                   0 AS rule_projection_writes
+              FROM terminal_closed
             """,
             {
                 "outbox_prefix": f"{self._outbox_prefix}%",
@@ -704,15 +735,19 @@ def _stored_turn(
     request_id = record.get("request_id")
     principal_id = record.get("principal_id")
     envelope = record.get("envelope")
+    source_request_id = record.get("source_request_id")
     if not all(isinstance(value, str) for value in (proposal_id, request_id, principal_id)):
         raise SemanticTurnStoreError("stored semantic turn identity is malformed")
     if not isinstance(envelope, dict):
         raise SemanticTurnStoreError("stored semantic turn envelope is malformed")
+    if source_request_id is not None and not isinstance(source_request_id, str):
+        raise SemanticTurnStoreError("stored semantic turn source identity is malformed")
     return StoredSemanticTurn(
         key=key,
         proposal_id=str(proposal_id),
         request_id=str(request_id),
         principal_id=str(principal_id),
+        source_request_id=source_request_id,
         envelope=_json_object(envelope, label=f"{key}.envelope"),
         duplicate=duplicate,
     )

@@ -330,11 +330,11 @@ run "split_roles_are_independent_by_default" {
         output.ingestion_effective_access_evidence.identities.api.expected_role_assignments,
         {
           role_name = "Azure Event Hubs Data Sender"
-          scope     = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+          scope     = module.event_bus.topic_ids["fdai.pantheon.objects"]
         },
       )
     )
-    error_message = "the API role ceiling must be exact and retain account-scoped ADLS plus topic-scoped Event Hubs send"
+    error_message = "the API role ceiling must be exact and retain account-scoped ADLS plus pantheon-topic Event Hubs send"
   }
 
   assert {
@@ -369,11 +369,11 @@ run "split_roles_are_independent_by_default" {
         output.ingestion_effective_access_evidence.identities.worker.expected_role_assignments,
         {
           role_name = "Azure Event Hubs Data Sender"
-          scope     = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+          scope     = module.event_bus.topic_ids["fdai.pantheon.objects"]
         },
       )
     )
-    error_message = "the worker role ceiling must be exact and retain account-scoped ADLS plus physical-topic receive and stage send"
+    error_message = "the worker role ceiling must be exact and retain account-scoped ADLS plus pantheon-topic receive and send"
   }
 
   assert {

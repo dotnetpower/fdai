@@ -1,3 +1,82 @@
+.deck-presentation-lead {
+  max-width: 76ch;
+  margin: 0 0 18px;
+}
+
+.deck-document-artifact {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.deck-document-artifact-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.deck-document-artifact-meta span,
+.deck-document-artifact-meta code {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.deck-document-artifact-meta code {
+  margin-left: auto;
+  overflow-wrap: anywhere;
+}
+
+.deck-document-artifact details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.deck-document-artifact details > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.deck-document-artifact-preview {
+  max-height: 480px;
+  overflow: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.deck-document-artifact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deck-document-artifact-actions button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.deck-document-artifact-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.deck-document-artifact > [role="alert"] {
+  margin: 0;
+  color: var(--danger, #b42318);
+}
+
 .deck-presentation {
   display: grid;
   gap: 10px;

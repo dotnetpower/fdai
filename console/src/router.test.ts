@@ -32,6 +32,11 @@ describe("clean console routes", () => {
     expect(panelPath("conversation-delivery")).toBe("/conversation-delivery");
     expect(panelPath("browser-evidence")).toBe("/browser-evidence");
     expect(panelPath("forecast-learning")).toBe("/forecast-learning");
+    expect(panelPath("knowledge")).toBe("/knowledge");
+    expect(panelPath("github")).toBe("/github");
+    expect(panelPath("gitlab")).toBe("/gitlab");
+    expect(panelPath("azure-devops")).toBe("/azure-devops");
+    expect(panelPath("documents")).toBe("/documents");
     expect(panelPath("labs")).toBe("/labs");
     expect(panelPath("settings-general")).toBe("/settings/general");
     expect(panelPath("settings-models")).toBe("/settings/models");
@@ -98,6 +103,13 @@ describe("clean console routes", () => {
     expect(route.canonicalPathname).toBe("/settings/iam/users");
     expect(route.segments).toEqual(["users"]);
     expect(route.search.get("role")).toBe("Owner");
+  });
+
+  test("matches Knowledge and provider routes", () => {
+    expect(parseConsoleRoute("/knowledge").panelId).toBe("knowledge");
+    expect(parseConsoleRoute("/github").panelId).toBe("github");
+    expect(parseConsoleRoute("/gitlab").panelId).toBe("gitlab");
+    expect(parseConsoleRoute("/azure-devops").panelId).toBe("azure-devops");
   });
 
   test("keeps the legacy Settings URL as a canonical General alias", () => {

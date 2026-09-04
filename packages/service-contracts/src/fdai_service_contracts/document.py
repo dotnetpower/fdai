@@ -68,6 +68,8 @@ class ExtractionUnavailableReason(StrEnum):
     UNSAFE_PACKAGE = "extraction_unsafe_package"
     MALFORMED_PACKAGE = "extraction_malformed_package"
     UNSUPPORTED_FORMAT = "extraction_unsupported_format"
+    OCR_UNAVAILABLE = "extraction_ocr_unavailable"
+    NO_EXTRACTABLE_CONTENT = "extraction_no_extractable_content"
 
 
 class DocumentPurpose(StrEnum):
@@ -270,6 +272,7 @@ class IngestionCapabilities(DocumentContract):
     archives_enabled: bool
     policy_versions: tuple[str, ...]
     direct_upload: bool = False
+    ocr_available: bool = False
 
 
 class EventEnvelope(DocumentContract):

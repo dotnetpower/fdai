@@ -47,8 +47,8 @@ target, and requires the operator to acknowledge the effective shared audience.
 The GET-only `OperatorApiClient` remains unchanged and never gains upload helpers.
 
 The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
-operator surface into five stable navigation domains: Overview, Operations,
-Agents, Governance, and Evidence. An icon-only Activity Bar selects a domain,
+operator surface into six stable navigation domains: Overview, Operations,
+Agents, Governance, Knowledge, and Evidence. An icon-only Activity Bar selects a domain,
 opens the adjacent Explorer, and navigates to that domain's first visible panel.
 Selecting the open domain again collapses the Explorer without changing the
 current route; selecting the same domain while collapsed restores its Explorer.

@@ -14,13 +14,14 @@ from fdai_document_worker_service.adapters import pdf_isolation as pdf_isolation
 from fdai_document_worker_service.adapters.pdf_isolation import (
     PdfIsolationPolicy,
     extract_pdf_pages_isolated,
+    inspect_pdf_pages_isolated,
 )
 from fdai_service_contracts import (
     DocumentExtractionUnavailableError,
     ExtractionUnavailableReason,
 )
 from pypdf import PdfWriter
-from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
 
 
 def _sleeping_worker(*_args: object) -> None:
@@ -44,7 +45,7 @@ def _over_budget_worker(connection: Connection, _policy: PdfIsolationPolicy) -> 
     connection.close()
 
 
-def _pdf(text: str = "Native text", *, pages: int = 1) -> bytes:
+def _pdf(text: str = "Native text", *, pages: int = 1, image: bool = False) -> bytes:
     output = io.BytesIO()
     writer = PdfWriter()
     for _ in range(pages):
@@ -56,12 +57,31 @@ def _pdf(text: str = "Native text", *, pages: int = 1) -> bytes:
                 NameObject("/BaseFont"): NameObject("/Helvetica"),
             }
         )
-        page[NameObject("/Resources")] = DictionaryObject(
+        resources = DictionaryObject(
             {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
         )
+        image_command = ""
+        if image:
+            image_stream = DecodedStreamObject()
+            image_stream.set_data(b"\xff\xff\xff")
+            image_stream.update(
+                {
+                    NameObject("/Type"): NameObject("/XObject"),
+                    NameObject("/Subtype"): NameObject("/Image"),
+                    NameObject("/Width"): NumberObject(1),
+                    NameObject("/Height"): NumberObject(1),
+                    NameObject("/ColorSpace"): NameObject("/DeviceRGB"),
+                    NameObject("/BitsPerComponent"): NumberObject(8),
+                }
+            )
+            resources[NameObject("/XObject")] = DictionaryObject(
+                {NameObject("/Im1"): writer._add_object(image_stream)}
+            )
+            image_command = " q 10 0 0 10 72 680 cm /Im1 Do Q"
+        page[NameObject("/Resources")] = resources
         stream = DecodedStreamObject()
         escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-        stream.set_data(f"BT /F1 12 Tf 72 720 Td ({escaped}) Tj ET".encode("ascii"))
+        stream.set_data(f"BT /F1 12 Tf 72 720 Td ({escaped}) Tj ET{image_command}".encode("ascii"))
         page[NameObject("/Contents")] = writer._add_object(stream)
     writer.write(output)
     return output.getvalue()
@@ -74,6 +94,14 @@ def test_native_pdf_text_returns_from_the_isolated_process(
     # before the spawned process reaches the PDF parser.
     monkeypatch.delenv("COV_CORE_DATAFILE", raising=False)
     assert extract_pdf_pages_isolated(_pdf()) == ("Native text",)
+
+
+def test_isolated_pdf_inspection_reports_embedded_page_images(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COV_CORE_DATAFILE", raising=False)
+    pages = inspect_pdf_pages_isolated(_pdf(image=True))
+    assert [(page.text, page.has_images) for page in pages] == [("Native text", True)]
 
 
 def test_malformed_pdf_fails_closed_as_an_unsafe_package() -> None:

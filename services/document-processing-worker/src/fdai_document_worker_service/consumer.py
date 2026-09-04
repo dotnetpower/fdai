@@ -226,7 +226,9 @@ class DocumentIngestionEventConsumer:
                     ):
                         continue
                     try:
-                        command = DocumentWorkerAuditEvent.model_validate(event.payload)
+                        command = DocumentWorkerAuditEvent.model_validate(
+                            _domain_contract_payload(event.payload)
+                        )
                     except ValidationError:
                         await self._dead_letter_invalid(
                             event, reason="invalid_document_worker_audit_event"
@@ -276,7 +278,9 @@ class DocumentIngestionEventConsumer:
                     ):
                         continue
                     try:
-                        command = DocumentWorkerIndexCommand.model_validate(event.payload)
+                        command = DocumentWorkerIndexCommand.model_validate(
+                            _domain_contract_payload(event.payload)
+                        )
                     except ValidationError:
                         await self._dead_letter_invalid(
                             event, reason="invalid_document_worker_index_command"
@@ -307,9 +311,7 @@ class DocumentIngestionEventConsumer:
                     "object.event", "fdai-document-deletion-worker"
                 ):
                     self._observe_consumer_offset(_DELETION_LOOP, event.offset)
-                    if not _is_document_candidate(
-                        event.payload, required_shape=("deletion_request",)
-                    ):
+                    if not _is_document_deletion_candidate(event.payload):
                         continue
                     if (
                         event.payload.get("producer_principal") != "Huginn"
@@ -686,3 +688,12 @@ def _is_document_candidate(
     return payload.get("kind") == "document_ingestion" or all(
         field in payload for field in required_shape
     )
+
+
+def _is_document_deletion_candidate(payload: Mapping[str, object]) -> bool:
+    return payload.get("action") == "document.deletion_requested" or "deletion_request" in payload
+
+
+def _domain_contract_payload(payload: Mapping[str, object]) -> dict[str, object]:
+    """Remove bus-owned metadata before strict domain-contract validation."""
+    return {key: value for key, value in payload.items() if key != "envelope_schema_version"}

@@ -1805,6 +1805,7 @@ class PostgresFamilyStore:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        source_request_id: str | None = None,
     ) -> StoredSemanticTurn:
         """Persist one v1.2 semantic request without publishing it in the transaction."""
         try:
@@ -1813,6 +1814,7 @@ class PostgresFamilyStore:
                 idempotency_key=idempotency_key,
                 request_digest=request_digest,
                 envelope=envelope,
+                source_request_id=source_request_id,
             )
         except SemanticTurnStoreError as exc:
             raise PostgresFamilyStoreUnavailable(
@@ -2745,8 +2747,9 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        source_request_id: str | None = None,
     ) -> StoredSemanticTurn:
-        del principal_id, idempotency_key, request_digest, envelope
+        del principal_id, idempotency_key, request_digest, envelope, source_request_id
         raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
 
     async def claim_hil_decision_proposal(

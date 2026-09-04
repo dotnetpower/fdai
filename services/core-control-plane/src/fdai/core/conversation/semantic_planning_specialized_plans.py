@@ -36,6 +36,9 @@ from .session import Principal
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 
 
+_RESOURCE_GROUP_MEMBER_EXCLUDED_TYPES = ("authorization.role-assignment",)
+
+
 def build_anchored_incident_plan(
     *,
     verifier: OntologyQueryPlanVerifier,
@@ -106,9 +109,21 @@ def build_stated_value_filter_plan(
         SemanticOutputShape.RESOURCE_LIST,
     }:
         return None
-    filters = stated_value_filters(utterance, descriptors)
+    allowed_properties = frozenset({"parent_id"}) if "parent_id" in frame.measure_concepts else None
+    filters = stated_value_filters(
+        utterance,
+        descriptors,
+        allowed_properties=allowed_properties,
+    )
     object_types = {object_type for object_type, _property_name in filters}
-    if not filters or len(object_types) != 1:
+    declared_object_types = {
+        str(descriptor["name"])
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object"
+        and descriptor.get("name") in frame.subject_constraints
+    }
+    object_types.update(declared_object_types)
+    if len(object_types) != 1:
         return None
     object_type = next(iter(object_types))
     subject_fragment = stated_subject_fragment(
@@ -128,10 +143,15 @@ def build_stated_value_filter_plan(
         )
         if not isinstance(properties, Mapping):
             return None
+        fragment_properties = (
+            ("parent_id",)
+            if allowed_properties == frozenset({"parent_id"})
+            else ("name", "label", "id")
+        )
         fragment_property = next(
             (
                 property_name
-                for property_name in ("name", "label", "id")
+                for property_name in fragment_properties
                 if isinstance(properties.get(property_name), Mapping)
                 and not isinstance(properties[property_name].get("values"), list)
             ),
@@ -139,9 +159,20 @@ def build_stated_value_filter_plan(
         )
         if fragment_property is None:
             return None
+    if not filters and allowed_properties != frozenset({"parent_id"}):
+        return None
     predicates = []
     if fragment_property is not None:
         predicates.append({"property": fragment_property, "operator": "exists"})
+    if fragment_property == "parent_id":
+        predicates.extend(
+            {
+                "property": "type",
+                "operator": "not_equals",
+                "equals": resource_type,
+            }
+            for resource_type in _RESOURCE_GROUP_MEMBER_EXCLUDED_TYPES
+        )
     predicates.extend(
         {"property": property_name, "operator": "exists"}
         for filter_type, property_name in sorted(filters)
@@ -179,10 +210,13 @@ def build_stated_value_filter_plan(
         utterance=utterance,
         descriptors=descriptors,
         subject_constraints=frame.subject_constraints,
+        allowed_properties=allowed_properties,
     )
     required_grounding = {
         f"{filter_type}.{property_name}" for filter_type, property_name in filters
     }
+    if fragment_property is not None:
+        required_grounding.add(f"{object_type}.{fragment_property}")
     if not required_grounding <= set(grounded):
         return None
     verifier.verify(plan, manifest=manifest)
