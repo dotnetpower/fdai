@@ -33,7 +33,8 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
     health_step = health_step[: health_step.index("- name: Run canary publisher smoke")]
     assert (
         "if: ${{ inputs.apply && !inputs.deploy_design_mocks "
-        "&& env.CORE_MODEL_QUORUM_ONLY != 'true' }}"
+        "&& env.CORE_MODEL_QUORUM_ONLY != 'true' "
+        "&& env.RCA_READER_IDENTITY_ONLY != 'true' }}"
     ) in health_step
 
 
