@@ -106,6 +106,15 @@ path_digest() {
     "$@"
 }
 
+configuration_digest() {
+  local paths_digest="$1"
+  shift
+  {
+    printf '%s\n' "$paths_digest"
+    printf '%s\n' "$@"
+  } | sha256sum | cut -d' ' -f1
+}
+
 legacy_digest() {
   run_bounded input-digest \
     "$repo_root/.venv/bin/python" \
@@ -398,7 +407,10 @@ run_stage \
   prepare_local_state
 run_stage \
   runtime-environment \
-  "$(path_digest "${runtime_environment_inputs[@]}")" \
+  "$(configuration_digest \
+    "$(path_digest "${runtime_environment_inputs[@]}")" \
+    "kubernetes=${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}" \
+    "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}")" \
   prepare_runtime_environment \
   "$repo_root/.fdai/local-runtime.env"
 run_stage \

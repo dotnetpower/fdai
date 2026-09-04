@@ -19,6 +19,7 @@ from fdai_service_contracts.semantic_turn import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
+_FULL_STACK_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _BASH = shutil.which("bash") or "bash"
 
 
@@ -328,6 +329,16 @@ def test_full_stack_task_explicitly_activates_saved_teams_notifications() -> Non
     prepare = next(task for task in tasks if task.get("label") == "console: prepare full stack")
 
     assert prepare["options"]["env"]["FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION"] == "1"
+
+
+def test_full_stack_cache_binds_local_activation_inputs() -> None:
+    source = _FULL_STACK_SCRIPT.read_text(encoding="utf-8")
+    runtime_stage = source[source.index("run_stage \\\n  runtime-environment") :]
+    runtime_stage = runtime_stage[: runtime_stage.index("run_stage \\\n  authoritative-inventory")]
+
+    assert "configuration_digest" in runtime_stage
+    assert "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION" in runtime_stage
+    assert "FDAI_LOCAL_KUBERNETES_LIFECYCLE" in runtime_stage
 
 
 def test_rejects_invalid_local_teams_notification_activation_before_provider_access(
