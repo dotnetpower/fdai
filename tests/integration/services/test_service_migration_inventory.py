@@ -1892,9 +1892,12 @@ def test_service_sql_writers_and_outbox_paths_match_ownership_manifest() -> None
     assert api_postgres.index("self._publisher.publish(physical_topic") < api_postgres.index(
         "self._mark_published(event.event_id)"
     )
-    assert worker_activity.index(
-        "self._event_bus.publish(self._event_topic"
-    ) < worker_activity.index("self._mark_published(event.event_id)")
+    assert 'event.topic if event.topic.startswith("object.") else self._event_topic' in (
+        worker_activity
+    )
+    assert worker_activity.index("self._event_bus.publish(target_topic") < worker_activity.index(
+        "self._mark_published(event.event_id)"
+    )
     assert "AND state = %s AND revision = %s" in api_postgres
     assert "AND state = %s AND revision = %s" in worker_postgres
     assert "SET active = FALSE, revision = revision + 1" in api_postgres

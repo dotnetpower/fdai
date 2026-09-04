@@ -48,6 +48,8 @@ fingerprint reflects the post-rename table set and counts. Cross-service databas
 (e.g. Operator read access to Core-owned Cost Governance objects) live in downstream
 Operator-owned migrations, not in the Core branch, so that bootstrap ordering never requires a
 role created later in the sequence.
+The root integration suite also contract-pins the Document Processing Worker outbox rule that
+routes logical `object.*` events before marking durable publication complete.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
 abstentions separately.
 

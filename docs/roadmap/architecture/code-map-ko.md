@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 83676359071df60acb5ee102c955cba45bde3fd3
+translation_source_sha: bd9b32cba8a8780f0214bfc1e19660bd16653f7b
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -51,6 +51,8 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 (예: Operator의 Core 소유 Cost Governance 객체 읽기 접근)는 Core 브랜치가 아닌
 Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스트랩 순서에서 나중에 생성되는
 역할을 필요로 하지 않습니다.
+루트 통합 테스트는 논리 `object.*` 이벤트를 영속 게시 완료로 표시하기 전에 라우팅하는
+문서 처리 워커 outbox 규칙도 계약으로 고정합니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
 보류를 별도로 계수합니다.
 
