@@ -148,6 +148,10 @@ RCA hypotheses now carry an additive cause domain through T0, T1, and T2. T0 con
 violations default to infrastructure, T1 preserves the root change domain, and the T2 parser accepts
 only the reviewed domain enum. Audit and read projections map historical or unsupported values to
 `unknown`; the classification remains evidence-only and cannot authorize an action.
+Secured operational-context presentation now requires every named semantic identity to be present
+in the receipt-bound ObjectSet before it exposes service, workload, objective, constraint,
+ownership, dependency, and per-kind coverage metadata. This closes a projection gap without making
+the Console a graph source.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

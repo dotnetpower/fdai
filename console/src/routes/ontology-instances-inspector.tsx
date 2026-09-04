@@ -120,6 +120,7 @@ function InstanceRelationships({
     + groups.directOutgoing.length
     + groups.verifiedIngress.length
     + groups.verifiedEgress.length
+    + groups.runtimeCalls.length
     + groups.accessContext.length
     + groups.containmentContext.length;
   return (
@@ -149,6 +150,7 @@ function InstanceRelationships({
       {directCount === 0 ? <p>{t("ontology.instances.noRelationships")}</p> : null}
       <RelationshipGroup title={t("ontology.instances.verifiedIngress")} links={groups.verifiedIngress} rootId={data.root_id} resources={byId} onSelect={onSelect} />
       <RelationshipGroup title={t("ontology.instances.verifiedEgress")} links={groups.verifiedEgress} rootId={data.root_id} resources={byId} onSelect={onSelect} />
+      <RelationshipGroup title={t("ontology.instances.runtimeContext")} links={groups.runtimeCalls} rootId={data.root_id} resources={byId} onSelect={onSelect} />
       <RelationshipGroup title={t("ontology.instances.directIncoming")} links={groups.directIncoming} rootId={data.root_id} resources={byId} onSelect={onSelect} />
       <RelationshipGroup title={t("ontology.instances.directOutgoing")} links={groups.directOutgoing} rootId={data.root_id} resources={byId} onSelect={onSelect} />
       <RelationshipGroup title={t("ontology.instances.accessContext")} links={groups.accessContext} rootId={data.root_id} resources={byId} onSelect={onSelect} />

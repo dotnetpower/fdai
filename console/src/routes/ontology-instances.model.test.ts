@@ -327,6 +327,20 @@ describe("partitionOntologyInstanceLinks", () => {
         accessContext: [access],
       });
   });
+
+  it("keeps observed runtime calls in a first-class runtime group", () => {
+    const runtimeCall = relationship(
+      "root",
+      "dependency",
+      "runtime_calls",
+      "runtime.telemetry-call",
+    );
+
+    expect(groupOntologyInstanceRelationships([runtimeCall], "root")).toMatchObject({
+      runtimeCalls: [runtimeCall],
+      directOutgoing: [],
+    });
+  });
 });
 
 describe("ontologyInstanceNetworkPaths", () => {
@@ -425,7 +439,7 @@ function relationshipEvidence(): Record<string, unknown> {
 function relationship(
   source: string,
   target: string,
-  linkType: "attached_to" | "routes_to",
+  linkType: "attached_to" | "routes_to" | "runtime_calls",
   mappingId: string,
 ) {
   return {

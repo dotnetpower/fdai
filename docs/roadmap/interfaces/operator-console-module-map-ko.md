@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 4e4a1c0ec4cf23a9edc1ef59d0bf39dc51811f69
+translation_source_sha: 8f954c01f83a5c80f9ff6110d083dc3b71e904e0
 translation_revised: 2026-09-04
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -16,6 +16,9 @@ translation_revised: 2026-09-04
 WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 수동 근거 요구 사항을 읽기 모델에
 유지합니다. Console은 필요한 생성자, 범위, 최신성 상한 및 담당자를 설명할 수 있지만 근거
 작성기 또는 수정 컨트롤을 제공하지 않습니다.
+온톨로지 인스턴스 변환 결과는 Inspector, 밀집 범례 및 현재 화면 근거 맥락에서 관측된
+`runtime_calls`를 일반 직접 관계와 구분합니다. 저장된 원본-대상 방향을 보존하며 런타임
+원본을 사용할 수 없을 때 호출을 추론할 수 없습니다.
 ## Dependency-direction 게이트
 
 `check-operator-api-boundaries.py`는 애플리케이션 코드를 로드하지 않고 가져오기를 파싱합니다. 정리된

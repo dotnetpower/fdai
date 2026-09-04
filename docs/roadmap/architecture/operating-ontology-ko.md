@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 9a0024f7713d153fafb265315ff16b5a08443911
-translation_revised: 2026-09-01
+translation_source_sha: befe872b9f26b7baff7664217f1c70c164de840f
+translation_revised: 2026-09-04
 ---
 # FDAI 운영 온톨로지
 
@@ -485,6 +485,11 @@ Forseti가 각 결정 기준 시점에 변경할 수 없는 `OperationalContextS
 지정된 경로를 기록합니다. 각 출처의 관측 시간과 허용된 최대 age도 유지합니다. 스냅샷 신원은 이러한 개정 번호, 경로, effective 간격, 출처 이력 참조, 최신성 증적, stale-source 결과, 충돌을 포함하므로 토폴로지, 개정
 번호, validity, 출처 이력 또는 최신성이 바뀌면 이전 신원을 재사용할 수 없습니다. Raw 객체 속성은 권위 있는 프로바이더에 남으며 스냅샷에 복사하지 않습니다. 스냅샷 시간은 정본 UTC로 normalize합니다. 신원에는 신뢰된 기록된
 시간, trusted 시계 신원, 조회가 검증된 링크를 요구했는지도 포함합니다. Historical 재생은 새 wall 시계를 sampling하지 않고 보존된 기록된 시간을 제공합니다.
+
+보안이 적용된 Console 변환 결과는 스냅샷이 명명한 모든 서비스, 워크로드, 목표, 제약,
+담당 체계 및 의존성 신원이 증적에 결속된 ObjectSet에 존재하는지 확인합니다. 확인 후에만
+범위가 제한된 신원 목록과 종류별 커버리지 수량을 제공합니다. 맥락 신원이 누락되면 부분적인
+담당 체계 또는 의존성 화면을 완전한 것으로 표시하지 않고 변환 결과를 차단합니다.
 
 타입이 지정된 링크 관측 메타데이터는 raw 링크 속성을 버리는 규칙의 예외입니다. Materializer는 각 근거 링크에서 정본 검증 묶음만 보존하고 링크와 경로 신원에 해당 묶음을 포함합니다. Stale, 불완전한, conflicting,
 synthetic, after-cutoff 또는 검증되지 않은 링크는 명시적인 맥락 충돌을 추가하고 스냅샷 상한을 `SHADOW_ONLY`로 낮출 수만 있습니다. Healthy 메타데이터는 상한을 높이지 않으며, 메타데이터가 없으면 검증을 주장하지

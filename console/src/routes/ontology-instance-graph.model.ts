@@ -63,6 +63,7 @@ const DEFAULT_INSTANCE_LEGEND_LINK_TYPES = new Set<OntologyInstanceLink["link_ty
   "attached_to",
   "contains",
   "depends_on",
+  "runtime_calls",
 ]);
 
 export interface InstanceGraphScrollTarget {

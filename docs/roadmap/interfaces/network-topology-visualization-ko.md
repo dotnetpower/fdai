@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 3a8d8e62c5f6553cee439bf6bc563c57345e1c69
-translation_revised: 2026-08-27
+translation_source_sha: 72560039b99b22a10cab8160eb668a03b98205ed
+translation_revised: 2026-09-04
 ---
 # 네트워크 토폴로지 시각화
 
@@ -34,13 +34,14 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 | 공유 네트워크 어휘 및 작성 계약 | implemented | `packages/network-topology-contracts`, 네트워크 스키마 및 검증, 포커스 패키지 및 컴파일러 테스트 | 의존성이 없는 어휘를 공유하면서 작성된 `expected` 상태와 관측 근거 규칙은 분리합니다. |
 | 네트워크 참조 배치 및 Azure 아이콘 범위 | implemented | `layout/elk.ts`, 검토된 아이콘 매핑과 digest로 고정한 공식 Azure SVG 14개, 정본 이중 언어 fixture | 네트워크 프로필은 기존 배포 다이어그램의 배치 동작을 바꾸지 않고 압축 복합 배치를 추가합니다. 알 수 없는 리소스 타입은 매핑하지 않습니다. |
 | Console 2D 포커스, 경로 추적 및 내보내기 | implemented | `architecture-network-{focus,map,tools,icons}.ts*`, 경로 통합, 집중 Console 및 세 viewport 검사 | 이 모드는 기존의 권위 있는 인벤토리 응답을 사용하고 매핑된 경우 검토된 공식 아이콘을 사용하며 타입이 지정된 관계만 추적하고 식별자가 없는 하나의 SVG 소스를 SVG 또는 PNG로 내보냅니다. |
-| Console 온톨로지 인스턴스 네트워크 컨텍스트 | implemented | `ontology-instance-graph.{model.ts,tsx}`, `ontology-instance-resource-icons.ts`, 포커스 테스트, Console 타입 검사와 운영 빌드, 인증된 세 화면 크기 검사 | 선택한 분기는 피어 VNet의 분기를 확장하지 않고 VNet, Subnet, Private Endpoint 및 NIC 계층을 표현합니다. 상호 피어링은 저장된 두 레코드를 유지하면서 하나의 항목을 공유합니다. 마우스 휠 확대 및 축소, 기본 전체 화면, 빈 캔버스 이동 및 접을 수 있는 상세 패널이 그래프 작업 영역을 보존합니다. 현재 활성 스냅샷 감사에서 Resource 유형 58개 중 55개는 검토된 아이콘을 사용하고 3개는 명시적인 일반 대체 아이콘을 사용합니다. |
+| Console 온톨로지 인스턴스 네트워크 컨텍스트 | implemented | `ontology-instance-graph.{model.ts,tsx}`, `ontology-instance-resource-icons.ts`, 포커스 테스트, Console 타입 검사와 운영 빌드, 인증된 세 화면 크기 검사 | 선택한 분기는 피어 VNet의 분기를 확장하지 않고 VNet, Subnet, Private Endpoint 및 NIC 계층을 표현합니다. 상호 피어링은 저장된 두 레코드를 유지하면서 하나의 항목을 공유합니다. 관측된 `runtime_calls` 관계는 Inspector의 일급 런타임 그룹이며 기본 밀집 범례에도 표시됩니다. 마우스 휠 확대 및 축소, 기본 전체 화면, 빈 캔버스 이동 및 접을 수 있는 상세 패널이 그래프 작업 영역을 보존합니다. |
 | 무결성, 접근성 및 시각 회귀 | implemented | 정적 컴파일러 테스트 107개 통과, 정확한 `1600x900` 산출물 검사, 세 viewport 순차 Playwright 1개 통과 | 합성 브라우저 근거는 표현 동작만 입증합니다. 관리되는 런타임 검증을 주장하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 관측된 `runtime_calls` 관계를 일반 직접 에지에서 온톨로지 인스턴스 Inspector와 기본 밀집 범례의 일급 런타임 그룹으로 승격했습니다. 화면 맥락 변환 결과도 관계 방향이나 권한을 바꾸지 않고 근거 기반 후속 작업에 필요한 검증된 관계를 보존합니다. | `current change`; 집중 온톨로지 인스턴스 모델 및 화면 검사, Console 타입 검사, 운영 빌드입니다. | 런타임 검증을 주장하기 전에 정확한 출처에 연결된 관리되는 runtime-call 및 반응형 Console 근거를 보존합니다. |
 | 2026-08-22 | not-started | 런타임 동작을 변경하지 않고 네트워크 토폴로지 시각화를 위한 집중 소유 경계를 채택했습니다. | `current change`; 이 소유 문서입니다. | 각 범위 행을 구현하고 포커스 테스트를 통과한 뒤 상태를 높입니다. |
 | 2026-08-22 | implemented | 공유 프로바이더 중립 어휘, 작성된 네트워크 프로필과 주석, 검토된 공식 Azure 아이콘 매핑, 압축 네트워크 배치와 무결성 검사, 정본 이중 언어 hub-spoke 참조, 그리고 필터, 타입 지정 경로 추적, 키보드 상호 작용, 정제된 SVG 및 PNG 내보내기를 제공하는 관측 전용 Console 2D 포커스를 추가했습니다. | `current change`; 공유 패키지 테스트 통과, 정적 컴파일러 테스트 107개와 타입 검사, 렌더링 및 산출물 376개 검사 통과, 정본 출력은 정확히 `1600x900`이고 잘린 텍스트가 없음, Console 포커스 검사 23개 통과, 합성 Playwright가 `1440x900`, `993x641`, `390x844`에서 통과, 카탈로그 동등성 17쌍 통과. | Console 범위를 `validated`로 바꾸기 전에 정확한 소스에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-08-22 | implemented | PNG 및 인증된 모바일 화면을 직접 검토한 뒤 렌더링 결과를 강화했습니다. 리소스 타입 아이콘은 0이 아닌 형상을 예약하고, 최종 복합 배치 뒤 모든 네트워크 간선을 현재 endpoint 경계로 다시 라우팅하며, `orthogonal-gap`은 형제 그룹 사이 통로를 사용합니다. 결정론적 font subset은 전체 이중 언어 다이어그램 corpus를 포함하고, Console 노드는 검토된 공식 아이콘, 경계에 닿는 halo 연결선 및 44 px 모바일 target을 사용합니다. | `current change`; 정본 endpoint, 충돌, 교차, 아이콘, font digest 및 이중 언어 PNG 검사, 집중 Console 지도 및 배치 검사, Console 타입 검사와 운영 빌드, `1440x900`, `993x641`, `390x844` 순차 Playwright 통과. 인증된 모바일에서 공식 아이콘 4개, 3 px attachment path 4개, endpoint dot 4개, 44.9 px node target, 44 px control 및 가로 overflow 0을 측정했습니다. | Console 범위를 `validated`로 바꾸기 전에 정확한 소스에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |

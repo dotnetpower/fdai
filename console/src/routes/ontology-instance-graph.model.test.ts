@@ -51,12 +51,14 @@ describe("buildInstanceGraphLayout", () => {
       link("root", "c", "contains"),
       link("root", "d", "kubernetes_owned_by"),
       link("root", "e", "attached_to"),
+      link("root", "f", "runtime_calls"),
     ]);
 
     expect(defaultInstanceLegendLinkTypes(counts)).toEqual([
       { linkType: "attached_to", count: 1 },
       { linkType: "contains", count: 1 },
       { linkType: "depends_on", count: 1 },
+      { linkType: "runtime_calls", count: 1 },
     ]);
   });
 

@@ -116,9 +116,17 @@ def project_context_snapshot(
         raise ValueError("secured Context result contains duplicate object identities")
     required_paths = (*snapshot.evidence_paths, *snapshot.temporal_exclusions)
     required_ids = {item.object_id for item in required_paths}
+    context_ids = {
+        *snapshot.service_ids,
+        *snapshot.workload_ids,
+        *snapshot.objective_ids,
+        *snapshot.constraint_ids,
+        *snapshot.ownership_ids,
+        *snapshot.dependency_ids,
+    }
     if snapshot.target_resource_id not in object_by_id:
         raise ValueError("secured Context result does not provide the target Resource")
-    required_ids.update(item.object_id for item in snapshot.temporal_exclusions)
+    required_ids.update(context_ids)
     if not required_ids <= set(object_by_id):
         raise ValueError("secured Context result does not provide complete object coverage")
     target = object_by_id[snapshot.target_resource_id]
@@ -185,6 +193,20 @@ def project_context_snapshot(
         "autonomy_ceiling": snapshot.autonomy_ceiling.value,
         "object_count": len(graph.objects),
         "link_count": len(graph.links),
+        "service_ids": list(snapshot.service_ids),
+        "workload_ids": list(snapshot.workload_ids),
+        "objective_ids": list(snapshot.objective_ids),
+        "constraint_ids": list(snapshot.constraint_ids),
+        "ownership_ids": list(snapshot.ownership_ids),
+        "dependency_ids": list(snapshot.dependency_ids),
+        "semantic_coverage": {
+            "services": len(snapshot.service_ids),
+            "workloads": len(snapshot.workload_ids),
+            "objectives": len(snapshot.objective_ids),
+            "constraints": len(snapshot.constraint_ids),
+            "ownership": len(snapshot.ownership_ids),
+            "dependencies": len(snapshot.dependency_ids),
+        },
         "source_freshness": [
             {
                 "source": item.source,

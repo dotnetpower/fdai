@@ -13,6 +13,9 @@ Repository catalogs are materialized into revisioned Operator projections, while
 The WARA workflow projection keeps exact evaluator identity and structured manual-evidence
 requirements in the read model. The Console can explain which producer, scope, freshness ceiling,
 and owner are required, but it exposes no evidence writer or remediation control.
+The Ontology Instances projection keeps observed `runtime_calls` separate from generic direct
+relationships in the Inspector, dense legend, and current-screen evidence context. It preserves
+the stored source-to-target direction and cannot infer a call when the runtime source is unavailable.
 ## Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces

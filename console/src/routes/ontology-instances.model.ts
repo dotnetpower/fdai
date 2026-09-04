@@ -282,6 +282,7 @@ export interface OntologyInstanceRelationshipGroups {
   readonly directOutgoing: readonly OntologyInstanceLink[];
   readonly verifiedIngress: readonly OntologyInstanceLink[];
   readonly verifiedEgress: readonly OntologyInstanceLink[];
+  readonly runtimeCalls: readonly OntologyInstanceLink[];
   readonly accessContext: readonly OntologyInstanceLink[];
   readonly containmentContext: readonly OntologyInstanceLink[];
   readonly path: readonly OntologyInstanceLink[];
@@ -542,6 +543,7 @@ export function groupOntologyInstanceRelationships(
     directOutgoing: [],
     verifiedIngress: [],
     verifiedEgress: [],
+    runtimeCalls: [],
     accessContext: [],
     containmentContext: [],
     path: [],
@@ -553,7 +555,9 @@ export function groupOntologyInstanceRelationships(
       return;
     }
     const trafficDirection = ontologyInstanceTrafficDirection(link, rootId);
-    if (trafficDirection === "ingress") {
+    if (link.link_type === "runtime_calls") {
+      groups.runtimeCalls.push(link);
+    } else if (trafficDirection === "ingress") {
       groups.verifiedIngress.push(link);
     } else if (trafficDirection === "egress") {
       groups.verifiedEgress.push(link);

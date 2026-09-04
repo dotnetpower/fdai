@@ -264,10 +264,33 @@ def test_projects_bounded_context_from_matching_secured_receipt() -> None:
     assert projection["execution_authority"] is False
     assert projection["object_count"] == 2
     assert projection["link_count"] == 1
+    assert projection["workload_ids"] == ["workload-example"]
+    assert projection["dependency_ids"] == ["workload-example"]
+    assert projection["ownership_ids"] == []
+    assert projection["semantic_coverage"] == {
+        "services": 0,
+        "workloads": 1,
+        "objectives": 0,
+        "constraints": 0,
+        "ownership": 0,
+        "dependencies": 1,
+    }
     assert projection["evidence_paths"][1]["revision"] == 1
     assert "properties" not in projection["evidence_paths"][1]
     assert projection["evidence_paths"][0]["provenance_refs"] == ["inventory-generation:example"]
     assert projection["evidence_paths"][1]["provenance_refs"] == ["service-catalog:example"]
+
+
+def test_rejects_context_identity_missing_from_secured_result() -> None:
+    snapshot = replace(_snapshot(), ownership_ids=("ownership-missing",))
+    secured = _secured_result()
+
+    with pytest.raises(ValueError, match="complete object coverage"):
+        project_context_snapshot(
+            snapshot=snapshot,
+            secured_result=secured,
+            authenticated_context=_authenticated_context(secured),
+        )
 
 
 @pytest.mark.parametrize(

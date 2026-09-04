@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ad237fc05125d41bb40cb1aaff054731a8daa869
+translation_source_sha: d6f2b1daaa7b291fc16114419da84bcd54d79d13
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -141,6 +141,9 @@ RCA 가설은 이제 T0, T1, T2 전체에서 하위 호환 가능한 원인 영�
 기본적으로 인프라를 사용하고, T1은 루트 변경 영역을 보존하며, T2 parser는 검토된 영역 enum만
 수락합니다. 감사 및 읽기 변환 결과는 이전 레코드 또는 지원되지 않는 값을 `unknown`으로
 표시합니다. 이 분류는 근거 전용이며 작업을 승인할 수 없습니다.
+보안이 적용된 운영 맥락 표현은 서비스, 워크로드, 목표, 제약, 담당 체계, 의존성 및 종류별
+커버리지 메타데이터를 제공하기 전에 명명된 모든 의미 신원이 증적에 결속된 ObjectSet에 있는지
+확인합니다. 이 변경은 Console을 그래프 원본으로 만들지 않고 변환 결과 공백을 닫습니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|

@@ -364,6 +364,8 @@ function OntologyInstanceWorkspace({
           .map((link) => relationshipContextRecord(link, data)),
         verified_egress: relationshipGroups.verifiedEgress
           .map((link) => relationshipContextRecord(link, data)),
+        runtime_calls: relationshipGroups.runtimeCalls
+          .map((link) => relationshipContextRecord(link, data)),
         access_context: relationshipGroups.accessContext
           .map((link) => relationshipContextRecord(link, data)),
         path_relationships: relationships.path
