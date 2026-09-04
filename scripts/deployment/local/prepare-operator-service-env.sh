@@ -90,7 +90,7 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_A
   else
     printf 'FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1\n'
   fi
-  printf 'FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273\n'
+  printf 'FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273\n'
 } >> "$temp_env"
 
 mv "$temp_env" "$output_env"

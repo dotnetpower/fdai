@@ -23,7 +23,7 @@ from scripts.automation.developer_workflow_repository import RepositoryLocation,
 
 PLAYWRIGHT_POOL_SIZE = 10
 LOCAL_SERVICE_ENDPOINTS = (
-    ("console-frontend", "http://127.0.0.1:5273/"),
+    ("console-frontend", "http://localhost:5273/"),
     ("operator-api", "http://127.0.0.1:8010/healthz"),
     ("document-ingestion-api", "http://127.0.0.1:8011/healthz"),
     ("document-processing-worker", "http://127.0.0.1:8012/ready"),

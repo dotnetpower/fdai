@@ -137,7 +137,7 @@
       "name": "Console Web: Frontend",
       "type": "node-terminal",
       "request": "launch",
-      "command": "npm run dev -- --port 5273 --strictPort",
+      "command": "npm run dev -- --host 127.0.0.1 --port 5273 --strictPort",
       "cwd": "${workspaceFolder}/console",
       "env": {
         "VITE_LOCAL_AZURE_CLI_AUTH": "0",
@@ -148,7 +148,7 @@
       },
       "serverReadyAction": {
         "pattern": "Local:\\s+(https?://\\S+)",
-        "uriFormat": "%s",
+        "uriFormat": "http://localhost:5273",
         "action": "debugWithChrome"
       },
       "presentation": {

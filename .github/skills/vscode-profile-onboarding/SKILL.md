@@ -106,7 +106,7 @@ maintainer's local VS Code state.
 - Before reporting success, verify the Core Runtime process and Pantheon readiness, Operator API
   `127.0.0.1:8010`, Document Ingestion API `127.0.0.1:8011`, Document Processing Worker readiness
   `127.0.0.1:8012`, isolated Executor readiness `127.0.0.1:8013`, and frontend
-  `127.0.0.1:5273`. When requested, also verify the design server on `127.0.0.1:5373`. Do not infer
+  `localhost:5273`. When requested, also verify the design server on `127.0.0.1:5373`. Do not infer
   backend readiness from a frontend HTTP `200` response.
 - Start only the specifically named component when the user explicitly narrows the request, such as
   "frontend only", "Operator API only", or "design server only".

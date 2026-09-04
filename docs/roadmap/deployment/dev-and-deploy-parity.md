@@ -57,7 +57,7 @@ Committed VS Code settings keep each local web surface on one predictable port. 
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch or `design mocks: serve (5373)` task |
-| Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
+| Console SPA | `http://localhost:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Document Ingestion API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
@@ -108,9 +108,11 @@ migration, backend-environment, projection, inventory, or Entra stages run. The 
 its JWT audience from the browser API scope, requires matching browser and Azure tenants, disables
 raw-group fallback with unmatchable local slots, and connects through `SET ROLE fdai_operator`. Run
 the preparation task first for a standalone Core Runtime or Operator API debug launch.
-The preparation sequence safely retries both fixed loopback origins into the configured Entra SPA
-registration. The helper preserves redirects, permits loopback HTTP only, and stops when the active
-tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
+The preparation sequence registers `http://localhost:5273` as the canonical Entra SPA redirect and
+keeps `http://127.0.0.1:5273` as a compatibility redirect. The launcher always opens the canonical
+origin because browser OAuth cache, conversation history, response preferences, and screen context
+are isolated by origin. The frontend still listens only on IPv4 loopback. The helper preserves
+redirects, permits loopback HTTP only, and stops when the active tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
 `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`; default-account changes cannot replace their issuer.
 When a resolved-model artifact is present, the same preparation step validates its narrator
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the

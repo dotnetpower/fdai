@@ -52,7 +52,7 @@ write_env "$repo_root/.fdai/local-document-ingestion-api.env" "$operator_env" \
   "FDAI_DATABASE_URL=$(role_dsn fdai_ingestion_api)" \
   "FDAI_DATABASE_ROLE=fdai_ingestion_api" \
   "FDAI_INGESTION_DEPLOYMENT_ROLE=api" \
-  "FDAI_INGESTION_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273" \
+  "FDAI_INGESTION_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273" \
   "FDAI_DOCUMENT_EVENT_TOPIC=fdai.pipeline.stages" \
   "FDAI_LOCAL_DOCUMENT_STORE_DIR=$repo_root/.fdai/document-store"
 write_env "$repo_root/.fdai/local-document-processing-worker.env" "$runtime_env" \

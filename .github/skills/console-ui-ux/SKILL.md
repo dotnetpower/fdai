@@ -71,7 +71,7 @@ an explicitly mobile-only request when the desktop baseline is already known to 
 ### 1. Locate the Actual Surface
 
 - Identify the real route, shell, and owning stylesheet before changing pixels.
-- For production Console work, reuse the standard `http://127.0.0.1:5273` full-stack page.
+- For production Console work, reuse the standard `http://localhost:5273` full-stack page.
 - For static mocks, distinguish the repository-root `http://127.0.0.1:5373/` master index from
   `mocks/ui/index.html` and direct mock pages. They are separate navigation surfaces.
 - Capture one before screenshot and measure viewport, container width, overflow, and active state.

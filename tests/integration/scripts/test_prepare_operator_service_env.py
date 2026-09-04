@@ -76,6 +76,9 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
 
     rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
     assert "prepared local independent Operator Service environment" in completed.stdout
+    assert (
+        "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273"
+    ) in rendered
     if semantic == "complete":
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests" in rendered

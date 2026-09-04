@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1d55304a70e4f4524e582b17e1cc6f3ac18d21db
-translation_revised: 2026-09-03
+translation_source_sha: 0eb66796b45c08428b3a4fba2926b578ad055ee2
+translation_revised: 2026-09-04
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:
@@ -61,7 +61,7 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 표면 | 기본 주소 | Workspace 항목 지점 |
 |---------|-------------|-----------------------|
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch 또는 `design mocks: serve (5373)` 작업 |
-| Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
+| Console SPA | `http://localhost:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | 문서 인제스트 API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
@@ -111,9 +111,11 @@ Compound는 하위 구성을 시작하기 전에 `console: prepare full stack`�
 API 범위에서 JWT 대상을 파생하고 브라우저와 Azure 테넌트 일치를 요구하며, 일치할 수 없는 로컬
 자리로 raw-group 대체 경로를 비활성화하고 `SET ROLE fdai_operator`로 연결합니다. Standalone Core
 런타임 또는 Operator API debug launch에서는 이 준비 작업을 먼저 실행합니다.
-준비 순서에서는 구성된 Entra SPA 등록에 `http://localhost:5273`과
-`http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. 보조 로직은 기존
-redirect를 보존하고 해당 loopback 호스트에만 HTTP를 허용하며, 활성 테넌트가 다르거나 운영자가
+준비 순서에서는 `http://localhost:5273`을 표준 Entra SPA redirect로 등록하고
+`http://127.0.0.1:5273`은 호환 redirect로 유지합니다. 브라우저 OAuth 캐시, 대화 이력, 응답
+환경 설정 및 화면 컨텍스트는 origin별로 분리되므로 실행기는 항상 표준 origin을 엽니다.
+프런트엔드는 계속 IPv4 loopback에서만 수신합니다. 보조 로직은 기존 redirect를 보존하고 해당
+loopback 호스트에만 HTTP를 허용하며, 활성 테넌트가 다르거나 운영자가
 등록을 읽거나 업데이트할 수 없으면 서비스 시작 전에 중단합니다. 로컬 Event Hubs 토큰 새로 고침은
 준비된 `AZURE_TENANT_ID`와 `AZURE_SUBSCRIPTION_ID`에 고정되므로 이후 기본값 계정이 바뀌어도
 실행 중인 서비스의 Event Hubs 발급자를 바꿀 수 없습니다.

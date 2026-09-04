@@ -16,6 +16,7 @@ import pytest
 from scripts.automation import developer_workflow_runtime
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "developer-workflow.py"
+REPO_ROOT = SCRIPT.parents[2]
 UTC = timezone.utc  # noqa: UP017 - test remains compatible with system Python 3.10.
 
 
@@ -473,6 +474,20 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         "isolated-executor",
     ]
     assert result["unavailable_services"] == ["core-runtime", "document-ingestion-api"]
+
+
+def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
+    launch = json.loads((REPO_ROOT / ".vscode" / "launch.json").read_text(encoding="utf-8"))
+    frontend = next(
+        item for item in launch["configurations"] if item["name"] == "Console Web: Frontend"
+    )
+
+    assert frontend["command"] == ("npm run dev -- --host 127.0.0.1 --port 5273 --strictPort")
+    assert frontend["serverReadyAction"]["uriFormat"] == "http://localhost:5273"
+    assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[0] == (
+        "console-frontend",
+        "http://localhost:5273/",
+    )
 
 
 def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:
