@@ -286,6 +286,80 @@ async def test_bounded_assignment_page_reports_incomplete_change_evidence() -> N
     }
 
 
+async def test_terminal_history_does_not_consume_identity_lookup_budget() -> None:
+    assignments = _Assignments()
+    original = await assignments.assignment_projection(object())
+    item = original["items"][0]
+
+    class TerminalHistory(_Assignments):
+        async def assignment_projection(self, query: object) -> Mapping[str, object]:
+            del query
+            items = [
+                {
+                    **item,
+                    "case": {
+                        **item["case"],
+                        "case_id": f"case-{index}",
+                        "state": "rejected",
+                        "intent": {
+                            **item["case"]["intent"],
+                            "subject": {
+                                "provider": "entra",
+                                "subject_id": f"terminal-{index}",
+                            },
+                        },
+                    },
+                }
+                for index in range(70)
+            ]
+            return {**original, "items": items, "total": len(items)}
+
+    directory = _Directory()
+    reader = OwnershipProjectionReader(_Fallback(_payload()), directory, TerminalHistory())
+
+    result = await reader.read(_query())
+
+    assert result["current_ownership"]["summary"]["pending_proposals"] == 0
+    assert all(not subject.startswith("terminal-") for subject in directory.lookups)
+
+
+async def test_unique_subject_limit_degrades_enrichment_without_hiding_map() -> None:
+    assignments = _Assignments()
+    original = await assignments.assignment_projection(object())
+    item = original["items"][0]
+
+    class LargePendingPage(_Assignments):
+        async def assignment_projection(self, query: object) -> Mapping[str, object]:
+            del query
+            items = [
+                {
+                    **item,
+                    "case": {
+                        **item["case"],
+                        "case_id": f"case-{index}",
+                        "intent": {
+                            **item["case"]["intent"],
+                            "subject": {
+                                "provider": "entra",
+                                "subject_id": f"candidate-{index}",
+                            },
+                        },
+                    },
+                }
+                for index in range(70)
+            ]
+            return {**original, "items": items, "total": len(items)}
+
+    reader = OwnershipProjectionReader(_Fallback(_payload()), _Directory(), LargePendingPage())
+
+    result = await reader.read(_query())
+
+    ownership = result["current_ownership"]
+    assert ownership["agents"][0]["name"] == "Odin"
+    assert ownership["directory"]["availability"] == "unavailable"
+    assert "64-subject lookup limit" in ownership["directory"]["detail"]
+
+
 async def test_placeholders_block_readiness_without_directory_lookup() -> None:
     directory = _Directory()
     reader = OwnershipProjectionReader(

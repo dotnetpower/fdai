@@ -108,16 +108,26 @@ async def build_current_ownership_projection(
     agents = _mapping_sequence(map_value.get("agents"), "stewardship agents")
     maintainers = _string_sequence(map_value.get("maintainers"), "stewardship maintainers")
     version = _integer(map_value.get("version"), "stewardship version")
-    subject_refs = (
-        *_subject_refs(maintainers, agents),
-        *_assignment_subject_refs(assignment_projection),
-    )
-    if len(subject_refs) > _MAX_SUBJECTS:
-        raise ProjectionUnavailableError(
-            f"stewardship projection exceeds the {_MAX_SUBJECTS}-subject enrichment limit"
+    subject_refs = tuple(
+        dict.fromkeys(
+            (
+                *_subject_refs(maintainers, agents),
+                *_assignment_subject_refs(assignment_projection),
+            )
         )
-
-    resolved, directory_state = await _resolve_subjects(directory, subject_refs)
+    )
+    lookup_refs = subject_refs[:_MAX_SUBJECTS]
+    resolved, directory_state = await _resolve_subjects(directory, lookup_refs)
+    if len(subject_refs) > len(lookup_refs):
+        resolved.update({ref: "unavailable" for ref in subject_refs[len(lookup_refs) :]})
+        directory_state = {
+            **directory_state,
+            "availability": "unavailable",
+            "detail": (
+                f"Identity enrichment is partial because the {_MAX_SUBJECTS}-subject "
+                "lookup limit was reached."
+            ),
+        }
     proposals, proposal_state = _assignment_proposals(assignment_projection, resolved=resolved)
     projected_agents = [
         _project_agent(agent, version=version, resolved=resolved, proposals=proposals)
@@ -487,6 +497,9 @@ def _assignment_subject_refs(
     for item in _mapping_sequence(payload.get("items"), "assignment projection items"):
         case = item.get("case")
         if not isinstance(case, Mapping):
+            continue
+        state = _required_string(case.get("state"), "assignment case state")
+        if state not in _PENDING_ASSIGNMENT_STATES:
             continue
         intent = case.get("intent")
         if not isinstance(intent, Mapping):

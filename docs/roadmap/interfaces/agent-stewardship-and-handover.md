@@ -354,6 +354,9 @@ form:
   gaps remain distinct states. The browser never joins those sources or treats display names as
   authority. An unavailable assignment-case source removes only pending-change evidence and never
   hides the reviewed current map.
+Identity enrichment counts distinct subjects from visible nonterminal cases. If the bounded lookup
+limit is reached, unresolved identity hints become partial evidence while the reviewed map remains
+available.
 - **Projection validation** - the browser accepts only supported integer schema versions,
   non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
   counts from the fixed Pantheon map, requires the maintainer floor and non-empty exact subject
