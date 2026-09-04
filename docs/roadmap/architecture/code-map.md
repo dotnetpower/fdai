@@ -82,6 +82,11 @@ receipts before answering. Service-to-Agent ownership uses one exact-release, pr
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.
+`semantic_planning_action_draft.py` owns candidate-only action-draft normalization, and
+`semantic_judgment_repair.py` owns bounded schema-repair diagnostics without changing the public
+conversation facades. The public composition facade exports Azure semantic composition from its
+Azure-owned module instead of duplicating the provider-specific signature in the provider-neutral
+wire module.
 Validated `Document` judgments and exact named resource-group membership bypass the residual frame
 model through deterministic builders. The document path remains draft-only and binds its source to
 the authenticated principal's preceding verified result.

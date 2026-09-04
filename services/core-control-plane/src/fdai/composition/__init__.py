@@ -292,6 +292,9 @@ def default_container_from_env() -> Container:
 
 # G-3 public re-exports. E402 avoids wire_azure's package import cycle.
 from .readiness import OperationalReadinessService  # noqa: E402
+from .semantic_query_azure_composition import (  # noqa: E402
+    compose_azure_semantic_query_runtime,
+)
 from .wire_azure import AzureWireOverrides, wire_azure_container  # noqa: E402
 from .wire_azure_operational_evidence import bind_azure_operational_evidence  # noqa: E402
 from .wire_llm import bind_azure_llm_bindings  # noqa: E402
@@ -302,7 +305,6 @@ from .wire_read_investigation import (  # noqa: E402
 from .wire_semantic_query import (  # noqa: E402
     SemanticQueryRuntimeComposition,
     build_semantic_query_runtime,
-    compose_azure_semantic_query_runtime,
 )
 from .wire_trajectory import TrajectoryRuntime, wire_trajectory_runtime  # noqa: E402
 

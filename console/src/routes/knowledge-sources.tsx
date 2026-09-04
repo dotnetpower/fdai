@@ -1,5 +1,6 @@
 import { PageHeader, UnavailableState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import type { PanelProps } from "../panels";
 import { currentRoute, routeHref } from "../router";
@@ -45,9 +46,10 @@ export function KnowledgeOverviewRoute(_props: PanelProps) {
   usePublishViewContext(
     () => ({
       routeId: "knowledge",
-      routeLabel: t("nav.group.knowledge"),
+      routeLabel: t("nav.group.overview"),
       purpose: knowledgeText("viewPurpose"),
       headline: knowledgeText("subtitle"),
+      glossary: composeGlossary([]),
       capturedAt: new Date().toISOString(),
       facts: KNOWLEDGE_SOURCE_DEFINITIONS.map((source) => ({
         key: source.id,
@@ -137,6 +139,7 @@ function KnowledgeConnectorRoute({
       routeLabel: provider,
       purpose: knowledgeText("connectorViewPurpose", { provider }),
       headline: knowledgeText("connectorUnavailableTitle", { provider }),
+      glossary: composeGlossary([]),
       capturedAt: new Date().toISOString(),
       facts: [
         { key: "provider", value: source.id, group: "knowledge-source" },

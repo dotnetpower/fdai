@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 07b885532778cfcdef690a18494c32adb7776cf9
+translation_source_sha: 612ad0a35208fcb892b0c3ba4bd7b420543cd34f
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -86,6 +86,10 @@ BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존
 신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
 ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
 다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
+`semantic_planning_action_draft.py`는 후보 전용 작업 초안 정규화를 담당하고,
+`semantic_judgment_repair.py`는 공개 대화 facade를 변경하지 않으면서 범위가 제한된 스키마 복구
+진단을 담당합니다. 공개 composition facade는 provider 중립 wire 모듈에 provider별 시그니처를
+중복하지 않고 Azure 소유 모듈에서 Azure 의미 composition을 내보냅니다.
 검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 builder를 통해
 잔여 frame 모델을 우회합니다. 문서 경로는 초안 전용이며 인증된 principal의 직전 검증 결과에
 원본을 바인딩합니다.

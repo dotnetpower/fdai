@@ -5,6 +5,16 @@ This module acts as a compatibility facade exposing split sub-modules.
 
 from __future__ import annotations
 
+# Import all from action-draft normalization
+from .semantic_planning_action_draft import (
+    build_document_draft_frame,
+    canonicalize_semantic_judgment_frame_proposal,
+    normalize_action_draft_temporal_scope,
+    resolve_bound_incident_action_subject,
+    resolve_default_action_draft_subject,
+    resolve_semantic_judgment_action_draft,
+)
+
 # Import all from builders
 from .semantic_planning_frame_builders import (
     build_bound_incident_metric_comparison_frame,
@@ -50,25 +60,17 @@ from .semantic_planning_frame_normalization import (
     CHANGE_ACTIVITY_COMPARISON_MEASURE as CHANGE_ACTIVITY_COMPARISON_MEASURE,
 )
 from .semantic_planning_frame_normalization import (
-    build_document_draft_frame,
     build_named_resource_group_membership_frame,
-    canonicalize_semantic_judgment_frame_proposal,
-    normalize_action_draft_temporal_scope,
     normalize_historical_topology_clarification,
     normalize_named_resource_group_membership,
     normalize_network_path_clarification,
     normalize_operating_objectives_frame,
-    resolve_bound_incident_action_subject,
-    resolve_default_action_draft_subject,
 )
 from .semantic_planning_frame_normalization import (
     normalize_ontology_trace_frame as normalize_ontology_trace_frame,
 )
 from .semantic_planning_frame_normalization import (
     normalize_resource_classification_frame as normalize_resource_classification_frame,
-)
-from .semantic_planning_frame_normalization import (
-    resolve_semantic_judgment_action_draft as resolve_semantic_judgment_action_draft,
 )
 from .semantic_planning_frame_normalization import (
     resolve_semantic_judgment_bound_read as resolve_semantic_judgment_bound_read,
