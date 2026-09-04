@@ -78,6 +78,9 @@ receipts before answering. Service-to-Agent ownership uses one exact-release, pr
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.
+Validated `Document` judgments and exact named resource-group membership bypass the residual frame
+model through deterministic builders. The document path remains draft-only and binds its source to
+the authenticated principal's preceding verified result.
 Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
 relationship inclusion by default, and the default remains absent from legacy serialized
 definitions so replay digests do not change.

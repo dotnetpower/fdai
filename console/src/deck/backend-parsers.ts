@@ -2,6 +2,7 @@ import type {
   AnswerPlanMetadata,
   AnswerPlanningContributionMetadata,
   AnswerPlanningMetadata,
+  ConversationDocumentArtifact,
   GroundedCodeArtifact,
   IncidentCandidate,
   ModelTrace,
@@ -42,6 +43,48 @@ const TURN_TIMING_STATUSES = [
 const INCIDENT_STATUSES = new Set(["open", "in_progress", "resolved"]);
 const MAX_INCIDENT_CANDIDATES = 5;
 const MAX_INCIDENT_FIELD_CHARS = 512;
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const MAX_DOCUMENT_PREVIEW_CHARS = 256 * 1024;
+
+export function parseConversationDocumentArtifact(
+  raw: unknown,
+): ConversationDocumentArtifact | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const value = raw as Record<string, unknown>;
+  const sourceRequestId = value.source_request_id;
+  const expectedRows = value.expected_rows;
+  const includedRows = value.included_rows;
+  const sha256 = value.sha256;
+  const previewMarkdown = value.preview_markdown;
+  const markdownUrl = value.markdown_url;
+  const pdfUrl = value.pdf_url;
+  const documentPath = `/chat/documents/${sourceRequestId}`;
+  if (
+    typeof sourceRequestId !== "string" ||
+    !REQUEST_ID.test(sourceRequestId) ||
+    !boundedInteger(expectedRows, 0, 40) ||
+    !boundedInteger(includedRows, 0, 40) ||
+    expectedRows !== includedRows ||
+    value.complete !== true ||
+    typeof sha256 !== "string" ||
+    !SHA256.test(sha256) ||
+    typeof previewMarkdown !== "string" ||
+    previewMarkdown.length === 0 ||
+    previewMarkdown.length > MAX_DOCUMENT_PREVIEW_CHARS ||
+    markdownUrl !== `${documentPath}/markdown` ||
+    (pdfUrl !== undefined && pdfUrl !== `${documentPath}/pdf`)
+  ) return undefined;
+  return {
+    sourceRequestId,
+    expectedRows,
+    includedRows,
+    complete: true,
+    sha256,
+    previewMarkdown,
+    markdownUrl,
+    ...(typeof pdfUrl === "string" ? { pdfUrl } : {}),
+  };
+}
 
 export function parseIncidentCandidates(raw: unknown): IncidentCandidate[] {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];

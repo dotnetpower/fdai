@@ -28,6 +28,9 @@ from fdai_operator_service.families.conversation.contracts import (
     OutboxReceipt,
     StreamEvent,
 )
+from fdai_operator_service.families.conversation.document_export import (
+    ConversationDocumentExporter,
+)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data as _done_event_data,
@@ -40,6 +43,7 @@ from fdai_operator_service.postgres_family_store import (
 from fdai_operator_service.postgres_semantic_turn_store import (
     SemanticTurnConflictError,
     SemanticTurnRequestAbsentError,
+    SemanticTurnTerminalClosedError,
 )
 from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
@@ -79,6 +83,7 @@ class SemanticTurnStore(Protocol):
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        source_request_id: str | None = None,
     ) -> StoredSemanticTurn: ...
 
     async def claim_semantic_turn(
@@ -219,6 +224,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         principal_id: str,
         cursor: _SemanticReplayCursor | None,
         retry_seconds: float,
+        document_exporter: ConversationDocumentExporter | None = None,
     ) -> None:
         semantic = stored.envelope.get("semantic_turn")
         if not isinstance(semantic, Mapping):
@@ -230,6 +236,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._principal_id = principal_id
         self._cursor = cursor
         self._retry_seconds = retry_seconds
+        self._document_exporter = document_exporter
         self._request = SemanticTurnRequest.model_validate(semantic)
         self._events: deque[StreamEvent] = deque()
         self._closed = False
@@ -386,7 +393,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             if results:
                 self._progress_relay.discard(self._stored.request_id)
                 for result in results:
-                    self._queue_result(result)
+                    await self._queue_result(result)
                 self._terminal_loaded = True
                 return
             if self._cursor is not None and self._cursor.phase == "done":
@@ -394,7 +401,18 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                 return
             remaining = (self._request.deadline_at - datetime.now(UTC)).total_seconds()
             if remaining <= 0:
-                await self._consumer.consume(_held_projection(self._stored.envelope))
+                try:
+                    await self._consumer.consume(
+                        _held_projection(
+                            self._stored.envelope,
+                            recorded_at=datetime.now(UTC),
+                        )
+                    )
+                except SemanticTurnTerminalClosedError:
+                    _LOGGER.info(
+                        "semantic_projection_late_ignored",
+                        extra={"request_id": self._stored.request_id},
+                    )
                 store_after = _store_after_sequence(self._cursor)
                 continue
             await self._progress_relay.wait_for_update(
@@ -420,7 +438,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             execution=cast(JsonObject, activity["execution"]),
         )
 
-    def _queue_result(self, result: StoredSemanticResult) -> None:
+    async def _queue_result(self, result: StoredSemanticResult) -> None:
         if _pantheon_assurance_payload(result.data) is not None:
             self._queue_pantheon_result(result)
             return
@@ -486,6 +504,25 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         # step that already ended, whatever the disposition turned out to be.
         self._settle_pending_activities(result.sequence)
         done = _done_event_data(result.data, locale=self._request.locale)
+        if _is_document_draft(result.data) and self._stored.source_request_id is not None:
+            if self._document_exporter is None:
+                done["answer"] = _document_unavailable_answer(self._request.locale)
+            else:
+                try:
+                    document = await self._document_exporter.materialize(
+                        principal_id=self._principal_id,
+                        source_request_id=self._stored.source_request_id,
+                    )
+                except ConversationBoundaryError:
+                    done["answer"] = _document_unavailable_answer(self._request.locale)
+                else:
+                    done["answer"] = _document_ready_answer(
+                        self._request.locale,
+                        included_rows=document.included_rows,
+                    )
+                    done["document_artifact"] = document.metadata(
+                        pdf_available=self._document_exporter.pdf_encoder is not None
+                    )
         if disposition == "answered" and not _cursor_includes(
             self._cursor, result.sequence, "answer"
         ):
@@ -684,15 +721,29 @@ class SemanticTurnBridge:
                 proposal,
                 investigation_continuation=continuation,
             )
+        source_request_id = _source_request_id(proposal.body.get("source_request_id"))
+        if source_request_id == envelope["request_id"]:
+            raise ConversationBoundaryError(
+                400,
+                "source_request_invalid",
+                "source request id must refer to an earlier request",
+            )
         stored = await self._store.append_semantic_turn(
             principal_id=proposal.scope.subject_id,
             idempotency_key=proposal.idempotency_key,
             request_digest=_proposal_digest(proposal),
             envelope=envelope,
+            source_request_id=source_request_id,
         )
         dispatch_status = "pending"
         if self._publisher is None:
-            await self._consumer.consume(_held_projection(stored.envelope))
+            try:
+                await self._consumer.consume(_held_projection(stored.envelope))
+            except SemanticTurnTerminalClosedError:
+                _LOGGER.info(
+                    "semantic_projection_late_ignored",
+                    extra={"request_id": stored.request_id},
+                )
             dispatch_status = "held"
         return OutboxReceipt(
             proposal_id=stored.proposal_id,
@@ -710,7 +761,12 @@ class SemanticTurnBridge:
             ),
         )
 
-    async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
+    async def open(
+        self,
+        request: ConversationStreamRequest,
+        *,
+        document_exporter: ConversationDocumentExporter | None = None,
+    ) -> ConversationEventStream:
         """Replay only the authenticated principal's ordered events for one accepted request."""
         if request.operation != "chat.stream" or request.proposal_id is None:
             raise ConversationBoundaryError(
@@ -736,6 +792,7 @@ class SemanticTurnBridge:
             principal_id=request.scope.subject_id,
             cursor=_after_sequence(request.after_event_id),
             retry_seconds=self._retry_seconds,
+            document_exporter=document_exporter,
         )
 
     def health(self) -> JsonObject:
@@ -821,6 +878,9 @@ class SemanticTurnBridge:
                             extra={"failure_type": "durable_request_absent"},
                         )
                         await self._quarantine(quarantine_key)
+                    except SemanticTurnTerminalClosedError:
+                        conflicts.pop(quarantine_key, None)
+                        _LOGGER.info("semantic_projection_late_ignored")
                     except SemanticTurnConflictError as exc:
                         conflicts.pop(quarantine_key, None)
                         _LOGGER.warning(
@@ -897,9 +957,18 @@ class SemanticTurnConversationAdapters:
     fallback_projections: ConversationProjectionReader
     fallback_outbox: ConversationProposalOutbox
     fallback_streams: ConversationStreamReader
+    document_exporter: ConversationDocumentExporter | None = None
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
         """Serve bridge-owned health and delegate every durable projection read."""
+        if query.operation == "chat.document.download":
+            if self.document_exporter is None:
+                raise ConversationBoundaryError(
+                    503,
+                    "document_export_unavailable",
+                    "conversation document export is unavailable",
+                )
+            return await self.document_exporter.read(query)
         if query.operation != "chat.health":
             return await self.fallback_projections.read(query)
         health = self.bridge.health()
@@ -922,11 +991,52 @@ class SemanticTurnConversationAdapters:
     async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
         """Select semantic replay only for chat.stream requests."""
         if request.operation == "chat.stream":
-            return await self.bridge.open(request)
+            return await self.bridge.open(
+                request,
+                document_exporter=self.document_exporter,
+            )
         return await self.fallback_streams.open(request)
 
 
-def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
+def _is_document_draft(projection: Mapping[str, object]) -> bool:
+    semantic = projection.get("semantic_result")
+    if not isinstance(semantic, Mapping) or semantic.get("disposition") != "action_draft":
+        return False
+    assurance = semantic.get("assurance_observation")
+    frame = assurance.get("frame") if isinstance(assurance, Mapping) else None
+    subjects = frame.get("subject_types") if isinstance(frame, Mapping) else None
+    return subjects == ["Document"]
+
+
+def _document_ready_answer(locale: str, *, included_rows: int) -> str:
+    if locale.casefold().startswith("ko"):
+        return (
+            f"직전 검증 결과의 전체 행 {included_rows}개를 포함한 문서 초안을 만들었습니다. "
+            "아래 미리보기를 검토하거나 Markdown 또는 PDF로 다운로드할 수 있습니다."
+        )
+    return (
+        f"I created a document draft with all {included_rows} rows from the preceding verified "
+        "result. Review the preview below or download it as Markdown or PDF."
+    )
+
+
+def _document_unavailable_answer(locale: str) -> str:
+    if locale.casefold().startswith("ko"):
+        return (
+            "전체 행을 검증할 수 없어 문서 다운로드를 만들지 않았습니다. "
+            "원본 조회를 다시 실행한 후 문서 생성을 요청해 주세요."
+        )
+    return (
+        "No document download was created because the complete row set could not be verified. "
+        "Run the source query again, then request the document."
+    )
+
+
+def _held_projection(
+    envelope: Mapping[str, object],
+    *,
+    recorded_at: datetime | None = None,
+) -> dict[str, object]:
     request_id = _mapping_text(envelope, "request_id")
     semantic = envelope.get("semantic_turn")
     if not isinstance(semantic, Mapping):
@@ -956,7 +1066,11 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         "correlation_id": _mapping_text(envelope, "correlation_id"),
         "idempotency_key": _mapping_text(envelope, "idempotency_key"),
         "status": "held",
-        "recorded_at": _mapping_text(envelope, "requested_at"),
+        "recorded_at": (
+            recorded_at.astimezone(UTC).isoformat()
+            if recorded_at is not None
+            else _mapping_text(envelope, "requested_at")
+        ),
         "payload": {"reason_code": "semantic_transport_unavailable"},
         "semantic_result": result_payload,
     }
@@ -1479,6 +1593,32 @@ def _mapping_text(value: Mapping[str, Any], key: str) -> str:
     if not isinstance(item, str) or not item:
         raise ValueError(f"semantic {key} is malformed")
     return item
+
+
+def _source_request_id(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConversationBoundaryError(
+            400,
+            "source_request_invalid",
+            "source request id must be a UUID",
+        )
+    try:
+        parsed = UUID(value)
+    except ValueError as exc:
+        raise ConversationBoundaryError(
+            400,
+            "source_request_invalid",
+            "source request id must be a UUID",
+        ) from exc
+    if str(parsed) != value.lower():
+        raise ConversationBoundaryError(
+            400,
+            "source_request_invalid",
+            "source request id must be a canonical hyphenated UUID",
+        )
+    return str(parsed)
 
 
 def _mapping_int(value: Mapping[str, Any], key: str) -> int:

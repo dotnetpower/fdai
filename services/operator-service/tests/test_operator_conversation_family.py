@@ -515,10 +515,15 @@ async def test_post_stream_appends_proposal_before_observation() -> None:
 def test_manifest_is_complete_without_legacy_route_sources() -> None:
     manifest = {(item.method, item.path, item.name) for item in CONVERSATION_ROUTE_MANIFEST}
 
-    assert len(CONVERSATION_ROUTE_MANIFEST) == 38
-    assert len(manifest) == 38
+    assert len(CONVERSATION_ROUTE_MANIFEST) == 39
+    assert len(manifest) == 39
     assert {
         ("GET", "/chat/health", "handler"),
+        (
+            "GET",
+            "/chat/documents/{request_id:str}/{format:str}",
+            "download_document",
+        ),
         ("POST", "/chat/stream", "handler"),
         ("GET", "/conversation-assurance", "get_assurance"),
         ("GET", "/me/context", "context"),

@@ -25,6 +25,7 @@ from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
 )
 from fdai.core.operational_context import OperationalEvidenceReadService
+from fdai.core.readiness import AuthorityCeiling, ProbeCriticality, StartupPhase, StartupProbeSpec
 from fdai.delivery.evidence_conflict import (
     EventBusEvidenceConflictCandidatePublisher,
     StateStoreEvidenceConflictProjection,
@@ -79,6 +80,7 @@ from fdai.runtime.rule_generation_documents import (
     RuleGenerationReconciliation,
     build_rule_generation_reconciliation,
 )
+from fdai.runtime.semantic_model_identity import SemanticModelIdentityReadiness
 from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.log_query import NoopLogQueryProvider
@@ -294,6 +296,14 @@ async def build_semantic_runtime(
         ),
         resource_freshness_seconds=_semantic_resource_freshness_seconds(environment),
     )
+    model_identity_readiness = (
+        SemanticModelIdentityReadiness(
+            identity=identity,
+            audiences=semantic_composition.model_auth_audiences,
+        )
+        if identity is not None and semantic_composition.model_auth_audiences
+        else None
+    )
     readiness_path = environment.get("FDAI_CHAT_ASSURANCE_READINESS_RECEIPT", "").strip()
     if readiness_path:
         ontology_release = control_loop.ontology_release
@@ -325,6 +335,7 @@ async def build_semantic_runtime(
             runtime_values["conversation.answer_continuity.enabled"] is True
         ),
         runtime_settings=runtime_settings,
+        runtime_readiness=model_identity_readiness,
         operational_evidence=(
             SemanticOperationalEvidenceReader(
                 service=operational_evidence_read_service,
@@ -360,6 +371,22 @@ async def build_semantic_runtime(
 
     semantic_specs, semantic_probes = semantic_turn_readiness_registration(semantic_turn_binding)
     catalog_specs, catalog_probes = catalog_semantic_readiness_registration(catalog_binding)
+    model_identity_specs = (
+        (
+            StartupProbeSpec(
+                probe_id=model_identity_readiness.probe_id,
+                capability="semantic.model-identity",
+                phase=StartupPhase.CAPABILITY_WARMUP,
+                criticality=ProbeCriticality.AUTHORITY_CRITICAL,
+                failure_ceiling=AuthorityCeiling.DETERMINISTIC_FALLBACK,
+            ),
+        )
+        if model_identity_readiness is not None
+        else ()
+    )
+    model_identity_probes = (
+        (model_identity_readiness,) if model_identity_readiness is not None else ()
+    )
     return SemanticRuntime(
         semantic_turn_binding=semantic_turn_binding,
         read_investigation_hook=read_investigation_hook,
@@ -367,8 +394,8 @@ async def build_semantic_runtime(
         operational_evidence_read_service=operational_evidence_read_service,
         rule_generation_binding=rule_generation_binding,
         rule_generation_reconciliation=reconciliation,
-        readiness_specs=(*semantic_specs, *catalog_specs),
-        readiness_probes=(*semantic_probes, *catalog_probes),
+        readiness_specs=(*semantic_specs, *catalog_specs, *model_identity_specs),
+        readiness_probes=(*semantic_probes, *catalog_probes, *model_identity_probes),
     )
 
 

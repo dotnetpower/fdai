@@ -19,12 +19,14 @@ from fdai_service_contracts.ontology_query import (
 )
 
 MAX_GROUNDED_FILTER_VALUES = 16
-_FREE_TEXT_FRAGMENT_PROPERTIES = ("name", "label", "id")
+_FREE_TEXT_FRAGMENT_PROPERTIES = ("name", "label", "id", "parent_id")
 
 
 def stated_value_filters(
     utterance: str,
     descriptors: Sequence[Mapping[str, Any]],
+    *,
+    allowed_properties: frozenset[str] | None = None,
 ) -> dict[tuple[str, str], tuple[str, ...]]:
     """Return declared values whose own request terms the operator actually typed.
 
@@ -44,6 +46,8 @@ def stated_value_filters(
             continue
         for property_name, declaration in properties.items():
             if not isinstance(property_name, str) or not isinstance(declaration, Mapping):
+                continue
+            if allowed_properties is not None and property_name not in allowed_properties:
                 continue
             groups = declaration.get("value_groups")
             if not isinstance(groups, list):
@@ -172,6 +176,7 @@ def ground_stated_value_filters(
     utterance: str,
     descriptors: Sequence[Mapping[str, Any]],
     subject_constraints: Sequence[str] = (),
+    allowed_properties: frozenset[str] | None = None,
 ) -> tuple[OntologyQueryPlan, tuple[str, ...]]:
     """Constrain an existence predicate the operator already stated a value for.
 
@@ -180,7 +185,11 @@ def ground_stated_value_filters(
     superset. Rewriting it can only narrow the result, and every operand comes
     from the declared domain the verifier checks.
     """
-    filters = stated_value_filters(utterance, descriptors)
+    filters = stated_value_filters(
+        utterance,
+        descriptors,
+        allowed_properties=allowed_properties,
+    )
     subject_fragment = stated_subject_fragment(
         utterance,
         subject_constraints,
@@ -214,9 +223,14 @@ def verify_stated_value_filter_operands(
     *,
     utterance: str,
     descriptors: Sequence[Mapping[str, Any]],
+    allowed_properties: frozenset[str] | None = None,
 ) -> None:
     """Reject model-proposed enum operands that the operator did not state."""
-    filters = stated_value_filters(utterance, descriptors)
+    filters = stated_value_filters(
+        utterance,
+        descriptors,
+        allowed_properties=allowed_properties,
+    )
     for node in plan.nodes:
         if node.kind.value != "object_set":
             continue

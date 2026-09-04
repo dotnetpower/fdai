@@ -15,6 +15,7 @@
 import {
   parseAnswerPlan,
   parseAnswerPlanning,
+  parseConversationDocumentArtifact,
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
@@ -23,6 +24,7 @@ import {
   type AnswerPlanningMetadata,
   type AnswerVerification,
   type DelegationMetadata,
+  type ConversationDocumentArtifact,
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
@@ -113,6 +115,7 @@ export interface PersistedTurn {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly incidentCandidates?: readonly IncidentCandidate[];
   readonly presentationArtifact?: PresentationArtifact;
+  readonly documentArtifact?: ConversationDocumentArtifact;
   readonly modelTrace?: ModelTrace;
   readonly modelLatencyMs?: number;
   readonly modelUsage?: ModelUsage;
@@ -187,6 +190,7 @@ export function serializeTurns(
             verification,
           )
         : undefined;
+      const documentArtifact = documentArtifactFromPersisted(t.documentArtifact);
       const attachments = parseTurnAttachments(t.attachments);
       return {
         ...base,
@@ -211,6 +215,7 @@ export function serializeTurns(
         ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
         ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
         ...(presentationArtifact ? { presentationArtifact } : {}),
+        ...(documentArtifact ? { documentArtifact } : {}),
         ...(modelTrace ? { modelTrace } : {}),
         ...(nonnegativeSafeInteger(t.modelLatencyMs)
           ? { modelLatencyMs: t.modelLatencyMs }
@@ -287,6 +292,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const presentationArtifact = verification && rec.presentationArtifact
       ? parsePersistedPresentationArtifact(rec.presentationArtifact, verification)
       : undefined;
+    const documentArtifact = documentArtifactFromPersisted(rec.documentArtifact);
     const resourceContext = parseResourceContext(rec.resourceContext);
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
@@ -325,6 +331,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
       ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
       ...(presentationArtifact ? { presentationArtifact } : {}),
+      ...(documentArtifact ? { documentArtifact } : {}),
       ...(modelTrace ? { modelTrace } : {}),
       ...(turnTiming ? { turnTiming } : {}),
       ...(trajectoryDetail ? { trajectoryDetail } : {}),
@@ -472,6 +479,23 @@ function validCitations(
     const record = item as Record<string, unknown>;
     return boundedString(record.label, MAX_CITATION_LABEL_CHARS) &&
       (record.value === undefined || boundedString(record.value, MAX_CITATION_VALUE_CHARS));
+  });
+}
+
+function documentArtifactFromPersisted(
+  value: unknown,
+): ConversationDocumentArtifact | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  return parseConversationDocumentArtifact({
+    source_request_id: record.sourceRequestId,
+    expected_rows: record.expectedRows,
+    included_rows: record.includedRows,
+    complete: record.complete,
+    sha256: record.sha256,
+    preview_markdown: record.previewMarkdown,
+    markdown_url: record.markdownUrl,
+    pdf_url: record.pdfUrl,
   });
 }
 

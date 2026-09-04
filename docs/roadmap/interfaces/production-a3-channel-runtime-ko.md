@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: e9575f6abb25570972b326a1e777ea1e5e367bec
-translation_revised: 2026-09-01
+translation_source_sha: 4154275259edd8c6459f0cdb7b245ef46026f1f9
+translation_revised: 2026-09-04
 ---
 # 운영 A3 채널 런타임
 
@@ -56,6 +56,7 @@ compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Co
 | 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 독립 런타임이 두 경로 계열을 연결합니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
 | 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 기한이 된 전송은 프로바이더 I/O 전에 활성 principal, scope, conversation 및 channel binding을 다시 검증합니다. |
+| Principal 범위 대화 문서 | 구현됨 | `document_export.py`, 인증된 문서 경로, semantic outbox 원본 바인딩, 집중 Operator 검사 | 문서 초안은 인증된 principal의 직전 검증 결과만 replay합니다. 일부 또는 지원되지 않는 콘텐츠에는 다운로드를 만들지 않으며, 완전하고 범위가 제한된 표는 실행 권한 없이 Markdown과 선택적 PDF로 다시 생성할 수 있습니다. |
 | 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, platform 및 서비스 Terraform root, 보호된 배포 workflow 및 helper, 집중 검사 | Platform은 provider 자격 증명 없이 전용 non-executor 신원과 Operator DSN 접근을 준비할 수 있습니다. 독립 서비스 root는 edge workload를 만들기 전에 principal scope와 완전한 Slack 또는 Teams Key Vault 계약 하나를 계속 요구합니다. |
 | 독립 hardening | 구현됨 | [Hardening 캠페인](#hardening-캠페인), 집중 edge 검사 81개 통과, Ruff 및 strict mypy | 독립 round 10개를 완료했고 수락한 모든 finding에 집중 회귀를 추가했으며 검증된 Medium 이상 잔여가 없습니다. 보호된 런타임 근거는 별도 검증 gate로 유지합니다. |
 

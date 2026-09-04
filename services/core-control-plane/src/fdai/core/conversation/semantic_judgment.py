@@ -51,6 +51,7 @@ _SAFE_REJECTION_REASONS = frozenset(
         "semantic judgment ambiguity MUST match its unresolved meaning",
         "semantic judgment clarification MUST be one question",
         "semantic judgment confidence MUST be finite",
+        "semantic current-state intent requires a Resource target",
         "semantic direct response answer MUST be one paragraph",
         "semantic direct response answer MUST be trimmed",
         "semantic direct response answer MUST remain unambiguous and advisory",
@@ -278,6 +279,7 @@ class SemanticJudgmentBoundary:
                         proposal,
                         capabilities=bounded_capabilities,
                     )
+                    _validate_intent_target_compatibility(proposal)
                     _validate_direct_response(
                         proposal,
                         locale=response_locale,
@@ -617,6 +619,15 @@ def _validate_source_spans(proposal: SemanticJudgmentProposal, *, utterance: str
             raise ValueError("semantic target source span exceeds the utterance")
         if utterance[target.source_start : target.source_end] != target.value:
             raise ValueError("semantic target source span does not match the utterance")
+
+
+def _validate_intent_target_compatibility(proposal: SemanticJudgmentProposal) -> None:
+    """Reject typed intent and target-kind combinations that cannot share one query contract."""
+
+    if proposal.primary_intent == "query.resource_current_state" and any(
+        target.kind == "resource_group" for target in proposal.targets
+    ):
+        raise ValueError("semantic current-state intent requires a Resource target")
 
 
 def _normalize_primary_intent_capability(

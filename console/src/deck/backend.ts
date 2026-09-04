@@ -37,6 +37,7 @@ import {
 import {
   parseAnswerPlan,
   parseAnswerPlanning,
+  parseConversationDocumentArtifact,
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
@@ -59,6 +60,7 @@ export { renderActionResult, type ActionSubmitResult } from "./backend-actions";
 export {
   parseAnswerPlan,
   parseAnswerPlanning,
+  parseConversationDocumentArtifact,
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
@@ -154,6 +156,9 @@ export async function askBackend(
   const presentationArtifact = parsePresentationArtifact(
     payloadRecord?.presentation_artifact,
     verification,
+  );
+  const documentArtifact = parseConversationDocumentArtifact(
+    payloadRecord?.document_artifact,
   );
   const conversationBinding = normalizeIncidentBinding(payloadRecord?.conversation_context);
   const canonicalAnswer = extractString(payload, "answer");
@@ -259,6 +264,7 @@ export async function askBackend(
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
     ...(presentationArtifact ? { presentationArtifact } : {}),
+    ...(documentArtifact ? { documentArtifact } : {}),
     ...(conversationBinding ? { conversationBinding } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),

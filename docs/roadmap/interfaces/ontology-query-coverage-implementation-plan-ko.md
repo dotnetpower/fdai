@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: f595be82b7acc1b0885aa16613f3a2dba004e53f
-translation_revised: 2026-09-01
+translation_source_sha: f07d70d5c8e05996ffdad8d1a6407e365bd720ae
+translation_revised: 2026-09-04
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -36,6 +36,22 @@ translation_revised: 2026-09-01
 > 없으면 typed hold를 영속화합니다. Operator 영속성은 JSONB text parameter의 타입을 명시하여 실제
 > psycopg claim 및 변환 결과 경로를 실행 가능하게 유지합니다. Receipt-backed 실제 운영 통합 근거는
 > release 게이트로 유지됩니다.
+>
+> **실패 격리:** 모델 ID 실패는 의미 전송 consumer를 중지하지 않고 의미 모델 기능만 낮춥니다.
+> Core는 일반 의미 turn마다 구성된 모델 대상을 사전 확인하고 인증을 사용할 수 없으면 범위가
+> 제한된 사전 검사 안에서 `semantic_model_identity_unavailable`을 반환합니다. Operator는 요청별로
+> 권위 있는 최종 결과 하나만 허용하고, 시간 초과 보류를 실제 fallback 시각에 기록하며, 뒤늦게
+> 도착한 경쟁 변환 결과를 무시합니다. 이 동작은 어휘 또는 정규식 라우팅을 추가하지 않습니다.
+> 자연어 의도는 계속 스키마로 검증된 모델 판단을 거쳐야 합니다.
+>
+> **이름이 지정된 리소스 그룹 멤버십:** 모델 판단이 정확한 이름의 리소스 그룹에 속한 멤버
+> 요청으로 분류하면 Core는 모델 프레임 제안 전에 검증된 `Resource.parent_id` 프레임을 만듭니다.
+> 정확한 그룹 이름을 범위가 제한된 `parent_id contains` 조건식으로 컴파일합니다. 리소스 그룹
+> 객체 자체를 대신 반환하거나 그룹 명사를 `Resource.type=resource-group`으로 재해석하지 않습니다.
+> `resource_group` 대상을 포함한 `query.resource_current_state` 판단은 호환되지 않는 타입 조합으로
+> 차단하고 계획 전에 다시 판단합니다. 일반 그룹 멤버십에서는 `authorization.role-assignment`를
+> 제외합니다. 이 타입은 IAM 근거를 위한 온톨로지 리소스로 유지되지만 운영자가 선택할 수 있는 Azure
+> 리소스 그룹 멤버는 아닙니다. 명시적인 IAM 또는 RBAC 질문은 전용 근거 경로를 사용합니다.
 >
 > **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis

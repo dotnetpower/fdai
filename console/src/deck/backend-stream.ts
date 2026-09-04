@@ -28,6 +28,7 @@ import {
 import {
   parseAnswerPlan,
   parseAnswerPlanning,
+  parseConversationDocumentArtifact,
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
@@ -487,6 +488,7 @@ export async function askBackendStream(
     : null;
   const router = parseRouter(done.router);
   const presentationArtifact = parsePresentationArtifact(done.presentation_artifact, verification);
+  const documentArtifact = parseConversationDocumentArtifact(done.document_artifact);
   const canonicalAnswer = terminalAnswer ?? answerText;
   const finalText = presentationArtifact
     ? canonicalAnswer
@@ -508,7 +510,7 @@ export async function askBackendStream(
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
   const intentGraph = parseIntentGraph(done.intent_graph);
   const intentGraphEvidence = parseIntentGraphEvidence(done.intent_graph_evidence);
-    const conversationBinding = normalizeIncidentBinding(done.conversation_context);
+  const conversationBinding = normalizeIncidentBinding(done.conversation_context);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const directResponse = isSemanticDirectResponseSource(explicitSource);
@@ -534,6 +536,7 @@ export async function askBackendStream(
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
     ...(presentationArtifact ? { presentationArtifact } : {}),
+    ...(documentArtifact ? { documentArtifact } : {}),
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),

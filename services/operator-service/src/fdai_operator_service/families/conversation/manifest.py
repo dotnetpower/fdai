@@ -25,6 +25,13 @@ class ConversationRouteSpec:
 
 CONVERSATION_ROUTE_MANIFEST: tuple[ConversationRouteSpec, ...] = (
     ConversationRouteSpec("GET", "/chat/health", "handler", "chat.health", "read"),
+    ConversationRouteSpec(
+        "GET",
+        "/chat/documents/{request_id:str}/{format:str}",
+        "download_document",
+        "chat.document.download",
+        "read",
+    ),
     ConversationRouteSpec("POST", "/chat", "handler", "chat.exchange", "proposal", 200, 1_048_576),
     ConversationRouteSpec(
         "POST", "/chat/stream", "handler", "chat.stream", "stream", 200, 1_048_576

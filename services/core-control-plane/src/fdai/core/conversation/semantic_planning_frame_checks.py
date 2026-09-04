@@ -25,7 +25,13 @@ from .semantic_planning_frame import (
     build_configuration_drift_clarification as _build_configuration_drift_clarification,
 )
 from .semantic_planning_frame import (
+    build_document_draft_frame as _build_document_draft_frame,
+)
+from .semantic_planning_frame import (
     build_historical_topology_clarification as _build_historical_topology_clarification,
+)
+from .semantic_planning_frame import (
+    build_named_resource_group_membership_frame as _build_named_resource_group_membership_frame,
 )
 from .semantic_planning_frame import (
     build_network_path_clarification as _build_network_path_clarification,
@@ -87,6 +93,9 @@ from .semantic_planning_frame import (
 )
 from .semantic_planning_frame import (
     normalize_historical_topology_clarification as _normalize_historical_topology_clarification,
+)
+from .semantic_planning_frame import (
+    normalize_named_resource_group_membership as _normalize_named_resource_group_membership,
 )
 from .semantic_planning_frame import (
     normalize_network_path_clarification as _normalize_network_path_clarification,
@@ -388,6 +397,23 @@ def deterministic_pre_frame_selection(
 ) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
     """Build accepted typed function or relationship frames before model proposal."""
 
+    document_draft = _build_document_draft_frame(
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if document_draft is not None:
+        proposal, frame = document_draft
+        return proposal, frame, None
+    named_resource_group = _build_named_resource_group_membership_frame(
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
+    if named_resource_group is not None:
+        proposal, frame = named_resource_group
+        return proposal, frame, None
     summary = build_function_backed_summary_frame(
         judgment,
         utterance=utterance,
@@ -462,6 +488,14 @@ def normalize_and_gate_frame(
             manifest_digest=manifest_digest,
             frame=frame,
         )
+    proposal, frame = _normalize_named_resource_group_membership(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
     if property_filter_has_stated_subject(
         proposal,
         utterance=utterance,

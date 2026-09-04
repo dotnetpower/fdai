@@ -64,6 +64,18 @@ function latestEvidenceFreshnessContext(history: readonly BackendTurn[]) {
   return undefined;
 }
 
+function latestSemanticRequestId(history: readonly BackendTurn[]): string | undefined {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const turn = history[index];
+    if (
+      turn?.role === "assistant" &&
+      turn.semanticDisposition === "answered" &&
+      turn.semanticRequestId
+    ) return turn.semanticRequestId;
+  }
+  return undefined;
+}
+
 function latestConversationBinding(history: readonly BackendTurn[]) {
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const turn = history[index];
@@ -107,6 +119,7 @@ export function createBackendRequestPayload(
   const normalizedBinding = normalizeIncidentBinding(binding) ?? latestConversationBinding(history);
   const resourceContext = latestResourceContext(history);
   const evidenceFreshnessContext = latestEvidenceFreshnessContext(history);
+  const sourceRequestId = latestSemanticRequestId(history);
   const selectedContext = contextBinding(snapshot);
   return {
     ...(requestId === undefined
@@ -116,6 +129,7 @@ export function createBackendRequestPayload(
     prompt,
     locale,
     session_id: sessionId,
+    ...(sourceRequestId ? { source_request_id: sourceRequestId } : {}),
     ...(semanticPlanningProfile && semanticPlanningProfile !== "interactive"
       ? { semantic_planning_profile: semanticPlanningProfile }
       : {}),

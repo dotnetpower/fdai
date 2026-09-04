@@ -152,6 +152,16 @@ correlation, or idempotency selector continues to require server-owned action li
   operator still receives the maximum evidence-supported answer. Existing Markdown table, fenced
   chart, bullet, and prose output remains the compatibility contract for other channels and older
   clients.
+  A follow-up document request binds to the most recent verified answered turn, not to a prior
+  document draft. Core classifies the request as a read-only `Document` draft without a second
+  frame-model call. Operator Service then reconstructs the artifact from the authenticated
+  principal's durable result and issues a download only when every projected row is present,
+  untruncated, and backed by evidence. The current bound supports up to 40 rows and 16 columns.
+  The Console shows the verified natural-language summary first, followed by the complete Markdown
+  preview and an authenticated Markdown download. It shows a PDF download only when the optional
+  PDF encoder is available. Unsupported non-tabular output, partial rows, cross-principal access,
+  and malformed source identities produce an explicit unavailable result instead of a partial
+  document.
   The semantic turn planner projects only the bounded capabilities for that request into a strict
   structured-output schema. Every object rejects additional properties and marks its declared
   fields required. A tool's optional arguments are represented as nullable fields, and the

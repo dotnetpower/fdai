@@ -520,6 +520,40 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.resourceContext).toEqual(resourceContext);
   });
 
+  test("returns a complete server-issued document artifact", async () => {
+    const sourceRequestId = crypto.randomUUID();
+    const documentRequestId = crypto.randomUUID();
+    const artifact = {
+      source_request_id: sourceRequestId,
+      preview_markdown: "# FDAI conversation evidence report",
+      expected_rows: 24,
+      included_rows: 24,
+      complete: true,
+      sha256: "a".repeat(64),
+      markdown_url: `/chat/documents/${sourceRequestId}/markdown`,
+      pdf_url: `/chat/documents/${sourceRequestId}/pdf`,
+    };
+    const body = `event: done\ndata: ${JSON.stringify({
+      answer: "The complete document is ready.",
+      status: "action-draft",
+      request_id: documentRequestId,
+      action_draft: {},
+      document_artifact: artifact,
+    })}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("Create a document.", snap(), [], {
+      onToken: () => undefined,
+    });
+
+    expect(reply.documentArtifact).toEqual(expect.objectContaining({
+      includedRows: 24,
+      complete: true,
+      sha256: "a".repeat(64),
+    }));
+  });
+
   test("returns verified incident candidates from SSE and JSON terminal payloads", async () => {
     const incidentCandidates = {
       schema_version: 1,

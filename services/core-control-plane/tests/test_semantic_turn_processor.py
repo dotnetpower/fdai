@@ -1834,6 +1834,7 @@ def _processor(
     operational_evidence: Any = None,
     answer_continuity_enabled: bool = False,
     runtime_settings: Any = None,
+    runtime_readiness: Any = None,
 ) -> SemanticTurnProcessor:
     return SemanticTurnProcessor(
         runtime=runtime,
@@ -1842,6 +1843,7 @@ def _processor(
         operational_evidence=operational_evidence,
         answer_continuity_enabled=answer_continuity_enabled,
         runtime_settings=runtime_settings,
+        runtime_readiness=runtime_readiness,
     )
 
 
@@ -1983,6 +1985,27 @@ async def test_resource_scoped_operational_evidence_failure_holds_api_response()
     assert projection["status"] == "held"
     assert projection["semantic_result"]["reason_code"] == "operational_evidence_unavailable"
     assert "operational_evidence" not in projection["payload"]
+
+
+async def test_model_identity_failure_returns_typed_hold_without_calling_runtime() -> None:
+    class _UnavailableModelIdentity:
+        async def unavailable_reason(self) -> str | None:
+            return "semantic_model_identity_unavailable"
+
+    runtime = _Runtime()
+    projection = _projection(
+        await _processor(
+            runtime,
+            runtime_readiness=_UnavailableModelIdentity(),
+        ).process(_request(locale="ko"))
+    )
+
+    semantic = projection["semantic_result"]
+    assert projection["status"] == "held"
+    assert semantic["reason_code"] == "semantic_model_identity_unavailable"
+    assert semantic["unavailable_reason"] == "semantic_planner_unavailable"
+    assert "모델 인증" in semantic["answer"]
+    assert runtime.calls == 0
 
 
 async def test_answer_continuity_renders_useful_hold_without_upgrading_status() -> None:

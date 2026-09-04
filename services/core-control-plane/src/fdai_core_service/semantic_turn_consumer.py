@@ -25,6 +25,7 @@ from fdai_service_contracts import SemanticQueryProgress
 from .semantic_turn_processor import (
     OperationalEvidenceProjectionReader,
     RuntimeSettingsReader,
+    SemanticRuntimeReadiness,
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
 )
@@ -172,6 +173,7 @@ def build_semantic_turn_processor(
     operational_evidence: OperationalEvidenceProjectionReader | None = None,
     answer_continuity_enabled: bool = False,
     runtime_settings: RuntimeSettingsReader | None = None,
+    runtime_readiness: SemanticRuntimeReadiness | None = None,
 ) -> SemanticTurnProcessor:
     """Bind the durable store and an optional composed semantic runtime.
 
@@ -186,6 +188,7 @@ def build_semantic_turn_processor(
         operational_evidence=operational_evidence,
         answer_continuity_enabled=answer_continuity_enabled,
         runtime_settings=runtime_settings,
+        runtime_readiness=runtime_readiness,
     )
 
 
@@ -198,6 +201,7 @@ def semantic_turn_binding_from_config(
     operational_evidence: OperationalEvidenceProjectionReader | None = None,
     answer_continuity_enabled: bool = False,
     runtime_settings: RuntimeSettingsReader | None = None,
+    runtime_readiness: SemanticRuntimeReadiness | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -241,6 +245,7 @@ def semantic_turn_binding_from_config(
             operational_evidence=operational_evidence,
             answer_continuity_enabled=answer_continuity_enabled,
             runtime_settings=runtime_settings,
+            runtime_readiness=runtime_readiness,
         ),
         available=runtime is not None,
         unavailable_reason=(

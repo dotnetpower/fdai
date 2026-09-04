@@ -39,6 +39,9 @@ from fdai_operator_service.families.conversation.contracts import (
     JsonObject,
     PrincipalScope,
 )
+from fdai_operator_service.families.conversation.document_export import (
+    ConversationDocumentExporter,
+)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnBridge,
@@ -60,6 +63,7 @@ from fdai_operator_service.postgres_semantic_turn_store import (
     SemanticTurnConflictError,
     SemanticTurnRequestAbsentError,
     SemanticTurnStoreError,
+    SemanticTurnTerminalClosedError,
     rule_search_projection_key,
 )
 from fdai_service_contracts import (
@@ -77,6 +81,8 @@ from fdai_service_contracts.ontology_query import content_digest
 from pydantic import ValidationError
 
 _TEST_NAMESPACE = UUID(int=0)
+_DOCUMENT_REQUEST_ID = str(uuid5(_TEST_NAMESPACE, "document-request"))
+_DOCUMENT_SOURCE_REQUEST_ID = str(uuid5(_TEST_NAMESPACE, "document-source"))
 
 
 def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
@@ -521,6 +527,7 @@ class _MemorySemanticStore:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        source_request_id: str | None = None,
     ) -> StoredSemanticTurn:
         del request_digest
         request_id = cast(str, envelope["request_id"])
@@ -534,6 +541,7 @@ class _MemorySemanticStore:
                 principal_id=existing.principal_id,
                 envelope=existing.envelope,
                 duplicate=True,
+                source_request_id=existing.source_request_id,
             )
         stored = StoredSemanticTurn(
             key=f"outbox:{hashlib.sha256(idempotency_key.encode()).hexdigest()}",
@@ -542,6 +550,7 @@ class _MemorySemanticStore:
             principal_id=principal_id,
             envelope=dict(envelope),
             duplicate=False,
+            source_request_id=source_request_id,
         )
         self.turns[proposal_id] = stored
         self.claim = SemanticTurnClaim(
@@ -705,6 +714,39 @@ async def test_bridge_injects_latest_same_principal_session_continuation() -> No
     semantic = cast(Mapping[str, object], stored.envelope["semantic_turn"])
     assert semantic["investigation_continuation"] == _investigation_continuation()
     assert semantic["turn_sequence"] == 2
+
+
+@pytest.mark.parametrize(
+    ("request_id", "source_request_id"),
+    [
+        (
+            _DOCUMENT_REQUEST_ID,
+            _DOCUMENT_REQUEST_ID,
+        ),
+        (
+            _DOCUMENT_REQUEST_ID,
+            f"{{{_DOCUMENT_SOURCE_REQUEST_ID}}}",
+        ),
+    ],
+)
+async def test_bridge_rejects_self_referential_or_noncanonical_document_source(
+    request_id: str,
+    source_request_id: str,
+) -> None:
+    bridge = SemanticTurnBridge(store=_MemorySemanticStore())
+
+    with pytest.raises(ConversationBoundaryError) as raised:
+        await bridge.append(
+            _proposal(
+                body={
+                    "prompt": "Create a document.",
+                    "request_id": request_id,
+                    "source_request_id": source_request_id,
+                }
+            )
+        )
+
+    assert raised.value.code == "source_request_invalid"
 
 
 def test_semantic_envelope_rejects_conflicting_session_aliases() -> None:
@@ -1483,12 +1525,13 @@ async def test_semantic_turn_replay_is_ordered_and_principal_request_scoped(
         after_sequence=0,
     )
 
-    assert [result.sequence for result in results] == [1, 2]
+    assert [result.sequence for result in results] == [1]
     statement, parameters = captured[0]
     assert "value ->> 'principal_id' = %(principal_id)s" in statement
     assert "value ->> 'request_id' = %(request_id)s" in statement
     assert "ORDER BY (value ->> 'event_sequence')::bigint" in statement
     assert "(value ->> 'recorded_at')::timestamptz" in statement
+    assert "LIMIT 1" in statement
     assert parameters["principal_id"] == "operator-1"
     assert parameters["request_id"] == "request-1"
 
@@ -1543,6 +1586,17 @@ def test_held_projection_identity_binds_request_and_terminal_result_digest() -> 
     assert first["projection_id"] == str(
         uuid5(_TEST_NAMESPACE, f"held\0{envelope['request_id']}\0{result_digest}")
     )
+
+
+def test_timeout_hold_records_the_actual_fallback_time() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    observed_at = datetime(2026, 8, 11, 12, 1, 30, tzinfo=UTC)
+
+    projection = _held_projection(envelope, recorded_at=observed_at)
+
+    assert projection["recorded_at"] == observed_at.isoformat()
 
 
 async def test_held_retry_reuses_one_terminal_projection() -> None:
@@ -1601,6 +1655,59 @@ async def test_result_collision_binds_request_principal_and_digest() -> None:
     assert "EXISTS (SELECT 1 FROM accepted)" in normalized_statement
 
 
+async def test_late_projection_is_rejected_after_authoritative_terminal_closure() -> None:
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        normalized_statement = " ".join(statement.split())
+        assert "owned_request.state IS DISTINCT FROM 'completed'" in normalized_statement
+        assert "terminal_closed AS" in normalized_statement
+        assert parameters["request_id"]
+        return [
+            {
+                "inserted": False,
+                "terminal_closed": True,
+                "value": None,
+                "rule_projection_writes": 0,
+            }
+        ]
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+    projection = _projection(
+        SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+            _proposal()
+        )
+    )
+
+    with pytest.raises(
+        SemanticTurnTerminalClosedError,
+        match="authoritative terminal result",
+    ):
+        await repository.project(projection=projection)
+
+
+async def test_idempotent_append_ignores_late_held_projection_after_terminal_closure() -> None:
+    class _TerminalClosedStore(_MemorySemanticStore):
+        async def project_semantic_turn_result(
+            self,
+            *,
+            projection: Mapping[str, object],
+        ) -> StoredSemanticResult:
+            del projection
+            raise SemanticTurnTerminalClosedError
+
+    bridge = SemanticTurnBridge(store=_TerminalClosedStore())
+
+    receipt = await bridge.append(_proposal())
+
+    assert receipt.response.status_code == 202
+    assert receipt.response.body["dispatch_status"] == "held"
+
+
 async def test_rule_search_result_materializes_atomically_for_owning_principal() -> None:
     captured: list[tuple[str, Mapping[str, object]]] = []
 
@@ -1639,9 +1746,10 @@ async def test_rule_search_result_materializes_atomically_for_owning_principal()
     assert "%(rule_projection_record)s::jsonb IS NOT NULL" in normalized_statement
     assert "IS DISTINCT FROM rule_target.principal_id" in normalized_statement
     assert "IS DISTINCT FROM rule_target.query_digest" in normalized_statement
-    assert "FROM owned_request WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)" in (
+    assert "FROM owned_request WHERE owned_request.state IS DISTINCT FROM 'completed'" in (
         normalized_statement
     )
+    assert "AND NOT EXISTS (SELECT 1 FROM rule_identity_conflict)" in normalized_statement
     assert "sha256( convert_to(" in normalized_statement
     assert "CROSS JOIN rule_target" in normalized_statement
     assert rule_search_projection_key("operator-1", cast(str, query_digest)).endswith(
@@ -3187,6 +3295,114 @@ async def test_semantic_bridge_replays_results_in_sequence_order() -> None:
 
     events = [event async for event in stream]
     assert [event.event_id for event in events if event.event == "done"] == ["1", "2"]
+
+
+async def test_document_draft_terminal_event_materializes_complete_owned_source() -> None:
+    source_request_id = _DOCUMENT_SOURCE_REQUEST_ID
+    store = _MemorySemanticStore()
+    exporter = ConversationDocumentExporter(store=store)
+    bridge = SemanticTurnBridge(
+        store=store,
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+    receipt = await bridge.append(
+        _proposal(
+            body={
+                "prompt": "Create a document.",
+                "source_request_id": source_request_id,
+            }
+        )
+    )
+    stored_turn = store.turns[receipt.proposal_id]
+    action_projection = _projection(stored_turn.envelope, disposition="action_draft")
+    semantic = cast(dict[str, object], action_projection["semantic_result"])
+    semantic["semantic_route"] = "semantic_action_draft"
+    semantic.pop("unavailable_reason", None)
+    assurance: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "frame": {
+            "operation": "action_draft",
+            "subject_types": ["Document"],
+            "measure_concepts": [],
+            "temporal_scope": "none",
+            "output_shape": "action_draft",
+            "frame_digest": f"sha256:{'a' * 64}",
+        },
+        "capabilities": [],
+        "object_types": [],
+        "link_types": [],
+        "function_types": [],
+        "ontology_paths": [],
+        "fact_kinds": [],
+        "limitation_kinds": [],
+        "claim_kinds": [],
+        "evidence_posture": "unavailable",
+        "authority_posture": "draft_only",
+        "read_performed": False,
+        "execution_authority": False,
+    }
+    assurance["observation_digest"] = content_digest(assurance)
+    semantic["assurance_observation"] = assurance
+    store.results = {
+        "source": StoredSemanticResult(
+            sequence=1,
+            event="done",
+            request_id=source_request_id,
+            principal_id="operator-1",
+            projection_id="source",
+            data={
+                "recorded_at": "2026-08-11T00:00:00Z",
+                "semantic_result": {
+                    "disposition": "answered",
+                    "answer": "Verified inventory.",
+                    "evidence_refs": ["inventory:verified"],
+                },
+                "payload": {
+                    "technical_details": {
+                        "outputs": [
+                            {
+                                "rows": [{"row_id": "row-1", "values": {"name": "api"}}],
+                                "returned_rows": 1,
+                                "total_rows": 1,
+                                "display_truncated": False,
+                                "source_complete": True,
+                            }
+                        ]
+                    }
+                },
+            },
+            duplicate=False,
+        ),
+        "action": StoredSemanticResult(
+            sequence=1,
+            event="done",
+            request_id=stored_turn.request_id,
+            principal_id="operator-1",
+            projection_id="action",
+            data=action_projection,
+            duplicate=False,
+        ),
+    }
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        ),
+        document_exporter=exporter,
+    )
+    events = [event async for event in stream]
+
+    done = next(event for event in events if event.event == "done")
+    artifact = cast(dict[str, object], done.data["document_artifact"])
+    assert artifact["source_request_id"] == source_request_id
+    assert artifact["included_rows"] == artifact["expected_rows"] == 1
+    assert artifact["complete"] is True
+    assert "pdf_url" not in artifact
+    assert "전체 행 1개" in cast(str, done.data["answer"]) or "all 1 rows" in cast(
+        str, done.data["answer"]
+    )
 
 
 async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:

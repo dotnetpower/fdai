@@ -263,6 +263,7 @@ def build_semantic_turn_binding(
     operational_evidence: Any = None,
     answer_continuity_enabled: bool = False,
     runtime_settings: RuntimeSettingsService | None = None,
+    runtime_readiness: Any = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Bind configured transport and its explicit runtime availability state."""
 
@@ -274,6 +275,7 @@ def build_semantic_turn_binding(
         operational_evidence=operational_evidence,
         answer_continuity_enabled=answer_continuity_enabled,
         runtime_settings=runtime_settings,
+        runtime_readiness=runtime_readiness,
     )
 
 

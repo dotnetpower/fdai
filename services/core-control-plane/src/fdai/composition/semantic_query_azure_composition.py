@@ -180,7 +180,13 @@ def compose_azure_semantic_query_runtime(
         )
     except (OSError, LookupError, TypeError, ValueError):
         return _unavailable("semantic_composition_invalid")
-    return SemanticQueryRuntimeComposition(runtime=runtime, unavailable_reason=None)
+    return SemanticQueryRuntimeComposition(
+        runtime=runtime,
+        unavailable_reason=None,
+        model_auth_audiences=tuple(
+            dict.fromkeys(target.auth_audience for target in (*t1_candidates, *t2_candidates))
+        ),
+    )
 
 
 def _resource_type_property_values(catalog_root: Path) -> tuple[PropertyValueDomain, ...]:

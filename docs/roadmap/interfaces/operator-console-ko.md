@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c74be36d2b04df583da80e3f415f8e100d92e6a5
-translation_revised: 2026-09-03
+translation_source_sha: 29a511e207f34a0c67292d341c7dd7af7af2052c
+translation_revised: 2026-09-04
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -150,6 +150,15 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   결정론적 답변과 기본값 배치를 사용하므로 운영자는 가능한 최대 evidence-supported 답변을
   계속 받습니다. 기존 Markdown 표, fenced chart, bullet 및 산문 출력은 다른 채널과 이전
   클라이언트를 위한 compatibility 계약으로 유지합니다.
+  후속 문서 요청은 이전 문서 초안이 아니라 가장 최근의 검증된 답변 턴에 바인딩됩니다.
+  Core는 두 번째 frame 모델 호출 없이 요청을 읽기 전용 `Document` 초안으로 분류합니다.
+  그런 다음 Operator Service는 인증된 principal이 소유한 durable 결과에서 산출물을 다시
+  구성하고, 투영된 모든 행이 근거를 보유하며 생략되거나 잘리지 않았을 때만 다운로드를
+  제공합니다. 현재 범위는 최대 40개 행과 16개 열을 지원합니다. Console은 검증된 자연어
+  요약을 먼저 표시한 다음 전체 Markdown 미리보기와 인증된 Markdown 다운로드를 표시합니다.
+  선택적 PDF encoder를 사용할 수 있을 때만 PDF 다운로드를 표시합니다. 지원되지 않는
+  non-tabular 출력, 일부 행, 다른 principal의 접근 및 잘못된 source identity에는 일부 문서
+  대신 명시적인 사용 불가 결과를 제공합니다.
   Semantic 턴 플래너는 해당 요청의 범위가 제한된 기능만 strict structured-output 스키마로
   변환 결과합니다. 모든 객체는 additional 속성을 거부하고 declared 필드를 필수로
   표시합니다. 도구의 선택적 인자는 nullable 필드로 표현하며 조정기는 결정론적

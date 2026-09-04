@@ -78,6 +78,7 @@ export interface Turn {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly incidentCandidates?: readonly import("./backend-types").IncidentCandidate[];
   readonly presentationArtifact?: import("./backend-types").PresentationArtifact;
+  readonly documentArtifact?: import("./backend-types").ConversationDocumentArtifact;
   readonly actionDraft?: ActionDraft;
   readonly modelTrace?: ModelTrace;
   readonly modelLatencyMs?: number;
@@ -688,6 +689,7 @@ export function TurnBubble({
           incidentCandidates={turn.incidentCandidates}
           actionDraft={turn.actionDraft}
           presentationArtifact={turn.presentationArtifact}
+          documentArtifact={turn.documentArtifact}
           trajectory={trajectory}
           {...(onRegenerate ? { onRegenerate } : {})}
         />

@@ -3,6 +3,7 @@ import type { AnswerVerification } from "./backend";
 
 export type VerificationIssueKind =
   | "contextRequired"
+  | "modelIdentityUnavailable"
   | "sourceUnavailable"
   | "invalidQuery"
   | "visionUnverified"
@@ -27,6 +28,9 @@ const SOURCE_UNAVAILABLE_REASONS = new Set([
 
 export function verificationIssueKind(reasonCode: string | null): VerificationIssueKind {
   const reason = reasonCode?.toLowerCase() ?? "";
+  if (reason === "semantic_model_identity_unavailable") {
+    return "modelIdentityUnavailable";
+  }
   if (reason === "vision_interpretation_unverified") {
     return "visionUnverified";
   }
