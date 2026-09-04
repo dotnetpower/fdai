@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c323231b93c8ed46b4af934856aff8463625689d
-translation_revised: 2026-09-01
+translation_source_sha: 9fa6ad23881d2d91016e858fb8cc35a0e76075f1
+translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -60,6 +60,10 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 연결될 때까지 사용 불가로 명시하며, 브라우저는 소유권 데이터에서 경로를 추론하지 않습니다.
 담당 체계 출처가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
 매핑 검토 화면은 숨기지 않습니다.
+추가 방식의 현재 담당자 레코드는 Operator 서비스가 검토된 선언, 범위가 제한된 ID 디렉터리
+식별 정보, Owner에게 보이는 할당 케이스를 결합해 만듭니다. 브라우저는 이 레코드를 검증하고
+표시하지만 원본을 직접 결합하거나 표시 이름을 권한으로 취급하지 않습니다. 또한 누락된 연결,
+스키마 이행, ID 검사, 백업 범위 공백을 숨기지 않습니다.
 개요는 `identity_health`에서만 ID 출처 최신성을 표시합니다. Operator API는 stale-finding
 스냅샷과 개정 번호가 일치하고 만료되지 않은 last-success 하트비트에서만 `checked_at`을 제공합니다.
 완료된 `clean` 또는 `warn` 확인은 이 시각과 병합된 `stale_oid` 커버리지에 맞는 발견 사항 개수가

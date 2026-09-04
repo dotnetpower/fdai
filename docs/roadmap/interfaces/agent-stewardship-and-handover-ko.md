@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: de8c98d798c8ef2b9ad5701de80990e7a50957fd
-translation_revised: 2026-08-21
+translation_source_sha: 6588c47afc55dc113ad8428b5f59aed89b420183
+translation_revised: 2026-09-04
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -31,11 +31,13 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 | 범위, 에스컬레이션, 알림 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; 집중 담당 체계 테스트 모음 (71 passed) | 이 결정론적 기본 요소는 발견 사항과 수신자를 계산합니다. 런타임 스케줄링과 전달은 수명 주기 소유 문서에서 다룹니다. |
 | 근거 기반 담당자 인수인계 부트스트랩 | implemented | `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; 집중 담당 체계 테스트 모음 | Strict 구조화된 배정 parsing과 검토 보류 동작이 있습니다. `HandoverInterpreter` 배포 시임을 검증합니다. 바인딩이 없으면 abstain하고, 바인딩되면 문서마다 호출되며, 근거가 없거나 확신이 낮거나 신원이 해석되지 않은 제안은 적용된 매핑에 도달하지 않습니다. 업스트림은 적응형 해석기를 제공하지 않으므로 적응형 해석은 운영에서 사용할 수 없습니다. |
 | 일반 업스트림 인수인계 지도 | implemented | `config/agent-stewardship.yaml`; `bash scripts/governance/check-stewardship.sh` (15 agents, 2 maintainers) | 추적되는 지도는 의도적으로 자리 표시자 신원과 스키마 v1을 사용합니다. 일반 구조를 입증하지만 배포 준비 상태나 실제 백업 범위를 입증하지는 않습니다. |
+| 현재 담당 체계 변환 결과 | implemented | `fdai_operator_service/ownership_projection.py`; `console/src/routes/agent-oversight-views.tsx`; 집중 Operator 및 콘솔 검사 | 읽기 전용 변환 결과는 범위가 제한된 ID 식별 정보를 확인하고 정확한 주체 ID를 유지합니다. 주 담당 및 백업 범위를 보고하고 스키마, 연결, 디렉터리, 할당 준비 상태를 분리해 표시합니다. RBAC 또는 실행 권한을 부여하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 서버 소유 통합 현재 담당자 변환 결과와 정확한 기술 ID, 필터, 담당 범위, 최신성, 변경 대기 근거를 갖춘 에이전트 중심 콘솔 보기를 추가했습니다. | `current change`; 집중 담당 체계 변환 결과, 디렉터리, PostgreSQL IAM, 콘솔 계약, 형식 및 카탈로그 검사 통과. | 관리형 배포에서 실제 schema v2 연결을 제공하고 실제 ID 및 백업 범위 근거를 보존해야 합니다. |
 | 2026-08-13 | implemented | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 이 문서의 범위를 스키마, 결정론적 담당 체계 기본 요소, 마이그레이션, 인수인계 부트스트랩으로 한정했습니다. | `current change`; 구현 범위 표에 나열된 담당 체계 소스와 집중 검사. | 업스트림 저장소에 테넌트 신원을 넣지 않고 배포별 스키마 v2 `primary` 및 `backup` 범위를 기록합니다. |
 | 2026-08-15 | implemented | 기본 abstain 동작, 문서별 호출, 제안 게이팅을 다루는 `HandoverInterpreter` 배포 시임의 집중 근거를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |
 | 2026-08-21 | implemented | 인수인계 추출에서 에이전트별 domain-keyword classifier를 제거했습니다. 결정론적 경로는 명시적인 구조화된 배정 형식만 수락하며 다른 산문은 grounded `HandoverInterpreter`가 필요하거나 held 상태로 남습니다. | `current change`; 집중 담당 체계 검사 20개가 통과했고 semantic-routing guard에 migrate 경로가 없습니다. | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |
@@ -323,8 +325,12 @@ recipient 및 감사 기본 요소로 수명 주기를 완료합니다.
 거버넌스 > 에이전트 oversight 경로는 읽기 전용 변환 결과와 통제된 제안 양식을 함께
 제공합니다.
 
-- **현재 담당 체계** - `GET /stewardship`에서 15개 에이전트, accountable 소유자, 알림 contact,
-  백업 커버리지, 자율 상태, FDAI 관리자 개수, 검증 발견 사항을 표시합니다.
+- **현재 담당 체계** - `GET /stewardship`에서 15개 에이전트, 최종 책임자, 알림 대상,
+  백업 범위, 자율 상태, FDAI 유지관리자 수, 검증 결과를 표시합니다. 추가 방식의
+  `current_ownership` 레코드는 Operator 서비스가 검토된 선언, 범위가 제한된 디렉터리 ID
+  식별 정보, Owner에게 보이는 할당 케이스를 결합해 만듭니다. 누락된 연결, 스키마 이행,
+  디렉터리 가용성, ID 검토, 담당 공백은 서로 다른 상태로 유지됩니다. 브라우저는 이러한
+  원본을 결합하거나 표시 이름을 권한으로 취급하지 않습니다.
 - **프로젝션 검증** - 브라우저는 지원되는 정수 스키마 버전, 음수가 아닌 정수 개수, 양수 시간 초과와
   배정 한도만 허용합니다. 고정 Pantheon 지도에서 집계 개수를 다시 계산하고,
   관리자 하한과 비어 있지 않은 exact 대상 참조를 요구합니다. 중복된 실제 관리자와

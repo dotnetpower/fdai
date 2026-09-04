@@ -50,6 +50,10 @@ routes remains explicitly unavailable until its own authoritative projection is 
 browser does not infer a route from ownership data. A missing stewardship source blocks only
 Overview and Human dependencies; it does not hide the independent Knowledge handover, Approval
 routes, or Mapping reviews views.
+The additive Current owners record is joined by the Operator service from the reviewed declaration,
+bounded identity-directory hints, and Owner-visible assignment cases. The browser validates and
+renders that record but never joins those sources, treats a display name as authority, or hides a
+missing binding, schema migration, identity check, or backup-coverage gap.
 Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
 `checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
 snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that

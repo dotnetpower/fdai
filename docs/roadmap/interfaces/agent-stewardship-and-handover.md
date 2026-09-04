@@ -29,11 +29,13 @@ the two are resolved and validated independently.
 | Coverage, escalation, and notification primitives | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; focused stewardship suite (71 passed) | These deterministic primitives compute findings and recipients. Runtime scheduling and delivery belong to the lifecycle owner document. |
 | Grounded ownership handover bootstrap | implemented | `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; focused stewardship suite | Strict structured assignment parsing and review-hold behavior exist. The `HandoverInterpreter` deployment seam is covered: an unbound deployment stays abstaining, a bound interpreter is consulted per document, and an ungrounded, low-confidence, or unresolved proposal never reaches an applied mapping. No adaptive interpreter ships upstream, so adaptive interpretation is not operationally available. |
 | Generic upstream handover map | implemented | `config/agent-stewardship.yaml`; `bash scripts/governance/check-stewardship.sh` (15 agents, 2 maintainers) | The tracked map intentionally uses placeholder identities and schema v1. It proves generic shape, not deployment readiness or live backup coverage. |
+| Current ownership projection | implemented | `fdai_operator_service/ownership_projection.py`; `console/src/routes/agent-oversight-views.tsx`; focused Operator and Console checks | The read-only projection resolves bounded identity hints, preserves exact subject ids, reports primary and backup coverage, and exposes schema, binding, directory, and assignment readiness separately. It grants no RBAC or execution authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-04 | implemented | Added the server-owned joined Current owners projection and an agent-first Console view with exact technical identity, filters, coverage, freshness, and pending-change evidence. | `current change`; focused ownership projection, directory, PostgreSQL IAM, Console contract, type, and catalog checks passed. | A governed deployment must still supply real schema v2 bindings and retain live identity and backup-coverage evidence. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and bounded this document to schema, deterministic ownership primitives, migration, and handover bootstrap. | `current change`; ownership source and focused checks listed in the scope table. | Record deployment-specific schema v2 primary and backup coverage without placing tenant identities in the upstream repository. |
 | 2026-08-15 | implemented | Added focused evidence for the `HandoverInterpreter` deployment seam covering the abstaining default, per-document consultation, and proposal gating. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | A concrete adaptive interpreter deployment binding and its runtime receipt remain open. |
 | 2026-08-21 | implemented | Removed the per-agent domain-keyword classifier from handover extraction. The deterministic path now accepts only the explicit structured assignment form; other prose requires the grounded `HandoverInterpreter` or remains held. | `current change`; focused stewardship checks passed 20 cases and the semantic-routing guard reports no migrate paths. | A concrete adaptive interpreter deployment binding and its runtime receipt remain open. |
@@ -343,7 +345,11 @@ form:
 
 - **Current ownership** - all 15 agents, accountable owners, notification contacts, backup
   coverage, autonomous status, FDAI maintainer count, and validation findings from
-  `GET /stewardship`.
+  `GET /stewardship`. The additive `current_ownership` record is assembled by the Operator service
+  from the reviewed declaration, bounded directory identity hints, and Owner-visible assignment
+  cases. Missing bindings, schema migration, directory availability, identity review, and coverage
+  gaps remain distinct states. The browser never joins those sources or treats display names as
+  authority.
 - **Projection validation** - the browser accepts only supported integer schema versions,
   non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
   counts from the fixed Pantheon map, requires the maintainer floor and non-empty exact subject

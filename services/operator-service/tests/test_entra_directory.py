@@ -134,3 +134,37 @@ async def test_application_role_roster_ignores_placeholder_group_configuration()
     assert len(roster) == 1
     assert roster[0].subject_id == "user-1"
     assert roster[0].roles == ("Owner",)
+
+
+async def test_exact_subject_lookup_resolves_users_and_groups() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/users/user-1"):
+            return httpx.Response(
+                200,
+                json={
+                    "id": "user-1",
+                    "displayName": "Example User",
+                    "userPrincipalName": "user@example.com",
+                    "userType": "Member",
+                    "accountEnabled": True,
+                },
+            )
+        if request.url.path.endswith("/users/group-1"):
+            return httpx.Response(404)
+        if request.url.path.endswith("/groups/group-1"):
+            return httpx.Response(
+                200,
+                json={"id": "group-1", "displayName": "Example Operations"},
+            )
+        raise AssertionError(request.url)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        directory = EntraHumanIdentityDirectory(client=client, token_provider=_token)
+        user = await directory.get_by_subject_id("user-1")
+        group = await directory.get_by_subject_id("group-1")
+
+    assert user is not None
+    assert user.principal_type == "person"
+    assert group is not None
+    assert group.principal_type == "group"
+    assert group.display_name == "Example Operations"

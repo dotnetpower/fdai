@@ -1021,7 +1021,7 @@ def _assignment_projection_item(assignment: Mapping[str, object]) -> dict[str, o
             if isinstance(item, Mapping)
         ],
         "coverage": None,
-        "assignment_case": dict(assignment),
+        "case": dict(assignment),
         "handover": {
             "goal_refs": intent.get("goal_refs", []),
             "state": None,

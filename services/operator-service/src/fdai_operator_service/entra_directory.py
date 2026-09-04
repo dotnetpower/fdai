@@ -249,10 +249,29 @@ class EntraHumanIdentityDirectory:
                 params={"$select": "id,displayName,userPrincipalName,mail,userType,accountEnabled"},
             )
         except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 404:
+                raise
+        else:
+            return _user(payload)
+        try:
+            group = await self._get_json(
+                f"/groups/{normalized}",
+                params={"$select": "id,displayName"},
+            )
+        except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
             raise
-        return _user(payload)
+        display_name = _required(group, "displayName", "group")
+        return DirectoryIdentity(
+            provider="entra",
+            subject_id=_required(group, "id", "group"),
+            username=display_name,
+            display_name=display_name,
+            active=True,
+            user_type="group",
+            principal_type="group",
+        )
 
     async def directory_status(self) -> DirectoryStatus:
         availability = (

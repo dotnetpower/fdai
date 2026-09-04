@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Mapping
 from typing import Any, Final
 
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
@@ -186,6 +188,7 @@ def make_assignment_routes(
             payload = await outbox.assignment_projection(
                 AssignmentCaseQuery(principal=principal, limit=limit, offset=cursor)
             )
+            payload = await enrich_assignment_identities(payload, directory=directory)
         except (ValueError, IamFamilyError) as exc:
             if isinstance(exc, IamFamilyError):
                 return family_error(exc)
@@ -208,6 +211,67 @@ def make_assignment_routes(
             methods=["POST"],
         ),
     )
+
+
+async def enrich_assignment_identities(
+    payload: Mapping[str, Any],
+    *,
+    directory: HumanIdentityDirectory | None,
+) -> Mapping[str, Any]:
+    """Resolve assignment subjects without turning display fields into authority."""
+    items = payload.get("items")
+    if not isinstance(items, list) or not all(isinstance(item, Mapping) for item in items):
+        raise ValueError("assignment projection items MUST be an object list")
+    if directory is None:
+        return {
+            **payload,
+            "directory_availability": "not_configured",
+            "items": [dict(item) for item in items],
+        }
+
+    semaphore = asyncio.Semaphore(8)
+
+    async def enrich(item: Mapping[str, Any]) -> tuple[Mapping[str, Any], bool]:
+        subject = item.get("subject")
+        if not isinstance(subject, Mapping):
+            raise ValueError("assignment projection subject MUST be an object")
+        subject_id = require_string(dict(subject), "subject_id")
+        try:
+            async with semaphore:
+                identity = await directory.get_by_subject_id(subject_id)
+        except Exception:  # noqa: BLE001 - provider details are not caller-safe.
+            return (
+                {
+                    **item,
+                    "subject": {**subject, "resolution": "unavailable"},
+                },
+                False,
+            )
+        if identity is None:
+            return (
+                {
+                    **item,
+                    "subject": {**subject, "resolution": "not_found"},
+                },
+                True,
+            )
+        return (
+            {
+                **item,
+                "subject": {**identity.to_dict(), "resolution": "resolved"},
+                "roles": list(identity.roles),
+            },
+            True,
+        )
+
+    enriched = await asyncio.gather(*(enrich(item) for item in items))
+    return {
+        **payload,
+        "directory_availability": (
+            "available" if all(available for _, available in enriched) else "unavailable"
+        ),
+        "items": [item for item, _ in enriched],
+    }
 
 
 def _require_owner(principal: IamPrincipal) -> Response | None:

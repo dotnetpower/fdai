@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { adjacentOversightView, oversightViewFromSegment, viewRequiresStewardship } from "./agent-oversight-views";
+import {
+  adjacentOversightView,
+  groupCoverageFindings,
+  oversightViewFromSegment,
+  viewRequiresStewardship,
+} from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
 import { decodeStewardship } from "./handover";
 
@@ -54,6 +59,110 @@ function stewardshipV2Payload() {
   return payload;
 }
 
+function currentOwnershipPayload() {
+  const payload = stewardshipV2Payload();
+  return {
+    ...payload,
+    current_ownership: {
+      schema_version: "1.0.0",
+      authority: "read_only",
+      source_revision: "sha256:source",
+      deployment_readiness: "ready",
+      directory: {
+        source: "microsoft-graph",
+        availability: "available",
+        observed_at: "2026-09-04T00:00:00Z",
+        detail: null,
+      },
+      assignment_projection: {
+        availability: "available",
+        total: 1,
+        truncated: false,
+      },
+      maintainers: [{
+        kind: "user",
+        subject_id: "maintainer-1",
+        responsibility: "accountable",
+        duty: "escalation",
+        display_name: "Example Maintainer",
+        username: "maintainer@example.com",
+        active: true,
+        principal_type: "person",
+        roles: ["Owner"],
+        resolution: "resolved",
+      }],
+      agents: PANTHEON.map(({ name }) => ({
+        name,
+        autonomous: false,
+        accept_autonomous_reason: null,
+        scope: {
+          scope_ref: null,
+          status: "unscoped_declaration",
+          effective_from: null,
+          effective_until: null,
+        },
+        subjects: [{
+          kind: "user",
+          subject_id: `${name}-primary`,
+          responsibility: "accountable",
+          duty: "primary",
+          display_name: `${name} Primary`,
+          username: `${name.toLowerCase()}@example.com`,
+          active: true,
+          principal_type: "person",
+          roles: [],
+          resolution: "resolved",
+        }, {
+          kind: "user",
+          subject_id: `${name}-backup`,
+          responsibility: "accountable",
+          duty: "backup",
+          display_name: `${name} Backup`,
+          username: `${name.toLowerCase()}-backup@example.com`,
+          active: true,
+          principal_type: "person",
+          roles: [],
+          resolution: "resolved",
+        }],
+        coverage: {
+          primary_count: 1,
+          backup_or_escalation_count: 1,
+          status: "ready",
+        },
+        proposals: name === "Odin" ? [{
+          case_id: "case-1",
+          state: "pending_review",
+          revision: 2,
+          subject: {
+            kind: "user",
+            subject_id: "candidate-1",
+            responsibility: "accountable",
+            duty: null,
+            display_name: "Candidate One",
+            username: "candidate@example.com",
+            active: true,
+            principal_type: "person",
+            roles: ["Reader"],
+            resolution: "resolved",
+          },
+          requested_role: "Reader",
+          duty: "backup",
+          scope_ref: "scope:platform",
+          goal_refs: ["goal:odin:v1"],
+          effect_receipt_count: 0,
+        }] : [],
+      })),
+      summary: {
+        agent_count: 15,
+        ready_agents: 15,
+        coverage_gap_agents: 0,
+        autonomous_agents: 0,
+        pending_proposals: 1,
+      },
+    },
+  };
+}
+
 describe("Handover projection contract", () => {
   test("accepts only the five Agent oversight views", () => {
     expect(oversightViewFromSegment(undefined)).toBe("overview");
@@ -67,14 +176,43 @@ describe("Handover projection contract", () => {
     expect(viewRequiresStewardship("knowledge-handover")).toBe(false);
     expect(viewRequiresStewardship("approval-routes")).toBe(false);
     expect(viewRequiresStewardship("mapping-reviews")).toBe(false);
-    expect(adjacentOversightView("overview", "previous")).toBe("mapping-reviews");
-    expect(adjacentOversightView("mapping-reviews", "next")).toBe("overview");
+    expect(adjacentOversightView("overview", "previous")).toBe("approval-routes");
+    expect(adjacentOversightView("approval-routes", "next")).toBe("overview");
     expect(adjacentOversightView("approval-routes", "first")).toBe("overview");
-    expect(adjacentOversightView("overview", "last")).toBe("mapping-reviews");
+    expect(adjacentOversightView("overview", "last")).toBe("approval-routes");
+  });
+
+  test("groups repetitive findings while preserving affected agents", () => {
+    expect(groupCoverageFindings([
+      { code: "backup_missing", severity: "warn", message: "first", agent: "Thor" },
+      { code: "backup_missing", severity: "warn", message: "second", agent: "Odin" },
+      { code: "over_assigned", severity: "warn", message: "third", agent: null },
+    ])).toEqual([
+      {
+        code: "backup_missing",
+        severity: "warn",
+        count: 2,
+        agents: ["Odin", "Thor"],
+      },
+      {
+        code: "over_assigned",
+        severity: "warn",
+        count: 1,
+        agents: [],
+      },
+    ]);
   });
 
   test("accepts a count-consistent fixed pantheon map", () => {
     expect(decodeStewardship(stewardshipPayload()).map.agents).toHaveLength(15);
+  });
+
+  test("decodes the joined current ownership projection", () => {
+    const decoded = decodeStewardship(currentOwnershipPayload());
+    expect(decoded.current_ownership?.deployment_readiness).toBe("ready");
+    expect(decoded.current_ownership?.maintainers[0]?.display_name).toBe("Example Maintainer");
+    expect(decoded.current_ownership?.agents).toHaveLength(15);
+    expect(decoded.current_ownership?.agents[0]?.proposals[0]?.scope_ref).toBe("scope:platform");
   });
 
   test("rejects duplicate agent names and maintainer count drift", () => {

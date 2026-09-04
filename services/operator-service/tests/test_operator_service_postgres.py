@@ -259,7 +259,7 @@ async def test_assignment_proposals_project_revisioned_independent_review() -> N
         AssignmentCaseQuery(principal=_iam_principal("owner-2"), limit=50, offset=0)
     )
     assert projection["total"] == 1
-    assert projection["items"][0]["assignment_case"]["state"] == "approved"  # type: ignore[index]
+    assert projection["items"][0]["case"]["state"] == "approved"  # type: ignore[index]
 
 
 def _binding_policy(*, revision: int, active_digest: bool = True) -> dict[str, object]:

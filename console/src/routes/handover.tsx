@@ -34,6 +34,28 @@ type FindingCode =
   | "over_assigned"
   | "stale_oid";
 export type IdentityHealthStatus = "not_configured" | "pending" | "unavailable" | "clean" | "warn";
+export type OwnershipReadiness =
+  | "ready"
+  | "bindings_required"
+  | "migration_required"
+  | "review_required"
+  | "identity_unavailable";
+export type OwnershipAgentStatus =
+  | "ready"
+  | "autonomous"
+  | "bindings_required"
+  | "migration_required"
+  | "coverage_gap"
+  | "identity_unavailable"
+  | "identity_review";
+export type OwnershipSubjectResolution =
+  | "resolved"
+  | "inactive"
+  | "placeholder"
+  | "not_configured"
+  | "unavailable"
+  | "not_found"
+  | "kind_mismatch";
 
 export interface StewardDto {
   readonly kind: StewardKind;
@@ -81,6 +103,78 @@ export interface StewardshipResponse {
     readonly status: IdentityHealthStatus;
     readonly checked_at: string | null;
     readonly finding_count: number | null;
+  };
+  readonly current_ownership: CurrentOwnershipDto | null;
+}
+
+export interface OwnershipSubjectDto {
+  readonly kind: StewardKind;
+  readonly subject_id: string;
+  readonly responsibility: StewardResponsibility;
+  readonly duty: StewardDuty | null;
+  readonly display_name: string | null;
+  readonly username: string | null;
+  readonly active: boolean | null;
+  readonly principal_type: "person" | "group";
+  readonly roles: readonly string[];
+  readonly resolution: OwnershipSubjectResolution;
+}
+
+export interface OwnershipProposalDto {
+  readonly case_id: string;
+  readonly state: string;
+  readonly revision: number;
+  readonly subject: OwnershipSubjectDto;
+  readonly requested_role: string;
+  readonly duty: StewardDuty;
+  readonly scope_ref: string;
+  readonly goal_refs: readonly string[];
+  readonly effect_receipt_count: number;
+}
+
+export interface CurrentOwnershipAgentDto {
+  readonly name: string;
+  readonly autonomous: boolean;
+  readonly accept_autonomous_reason: string | null;
+  readonly scope: {
+    readonly scope_ref: string | null;
+    readonly status: "unscoped_declaration";
+    readonly effective_from: string | null;
+    readonly effective_until: string | null;
+  };
+  readonly subjects: readonly OwnershipSubjectDto[];
+  readonly coverage: {
+    readonly primary_count: number;
+    readonly backup_or_escalation_count: number;
+    readonly status: OwnershipAgentStatus;
+  };
+  readonly proposals: readonly OwnershipProposalDto[];
+}
+
+export interface CurrentOwnershipDto {
+  readonly schema_version: "1.0.0";
+  readonly authority: "read_only";
+  readonly source_revision: string | null;
+  readonly deployment_readiness: OwnershipReadiness;
+  readonly directory: {
+    readonly source: string;
+    readonly availability: "available" | "unavailable" | "unknown" | "not_configured";
+    readonly observed_at: string | null;
+    readonly detail: string | null;
+  };
+  readonly assignment_projection: {
+    readonly availability: "available" | "restricted_or_not_configured";
+    readonly total: number | null;
+    readonly truncated: boolean;
+  };
+  readonly maintainers: readonly OwnershipSubjectDto[];
+  readonly agents: readonly CurrentOwnershipAgentDto[];
+  readonly summary: {
+    readonly agent_count: number;
+    readonly ready_agents: number;
+    readonly coverage_gap_agents: number;
+    readonly autonomous_agents: number;
+    readonly pending_proposals: number;
   };
 }
 
@@ -218,6 +312,9 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
       checked_at: identityCheckedAt,
       finding_count: identityFindingCount,
     },
+    current_ownership: root["current_ownership"] === undefined
+      ? null
+      : decodeCurrentOwnership(root["current_ownership"]),
   };
   const expectedNames = PANTHEON.map((agent) => agent.name);
   const actualNames = decoded.map.agents.map((agent) => agent.name);
@@ -326,6 +423,175 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     throw panelContractError("stewardship.identity_health MUST match its completed check evidence");
   }
   return decoded;
+}
+
+function decodeCurrentOwnership(value: unknown): CurrentOwnershipDto {
+  const root = panelRecord(value, "current ownership");
+  const directory = panelRecord(root["directory"], "current ownership.directory");
+  const assignment = panelRecord(
+    root["assignment_projection"],
+    "current ownership.assignment_projection",
+  );
+  const summary = panelRecord(root["summary"], "current ownership.summary");
+  return {
+    schema_version: ownershipLiteral(root, "schema_version", ["1.0.0"]),
+    authority: ownershipLiteral(root, "authority", ["read_only"]),
+    source_revision: panelNullableString(root, "source_revision", "current ownership"),
+    deployment_readiness: ownershipLiteral(root, "deployment_readiness", [
+      "ready",
+      "bindings_required",
+      "migration_required",
+      "review_required",
+      "identity_unavailable",
+    ]),
+    directory: {
+      source: panelNonEmptyString(directory, "source", "current ownership.directory"),
+      availability: ownershipLiteral(directory, "availability", [
+        "available",
+        "unavailable",
+        "unknown",
+        "not_configured",
+      ]),
+      observed_at: panelNullableString(directory, "observed_at", "current ownership.directory"),
+      detail: panelNullableString(directory, "detail", "current ownership.directory"),
+    },
+    assignment_projection: {
+      availability: ownershipLiteral(assignment, "availability", [
+        "available",
+        "restricted_or_not_configured",
+      ]),
+      total: assignment["total"] === null
+        ? null
+        : panelNonNegativeInteger(assignment, "total", "current ownership.assignment_projection"),
+      truncated: assignment["truncated"] === undefined
+        ? false
+        : panelBoolean(assignment, "truncated", "current ownership.assignment_projection"),
+    },
+    maintainers: panelArray(root["maintainers"], "current ownership.maintainers")
+      .map((subject, index) => decodeOwnershipSubject(subject, `current ownership.maintainers[${index}]`)),
+    agents: panelArray(root["agents"], "current ownership.agents").map((agent, index) => {
+      const item = panelRecord(agent, `current ownership.agents[${index}]`);
+      const scope = panelRecord(item["scope"], `current ownership.agents[${index}].scope`);
+      const coverage = panelRecord(item["coverage"], `current ownership.agents[${index}].coverage`);
+      return {
+        name: panelNonEmptyString(item, "name", "current ownership agent"),
+        autonomous: panelBoolean(item, "autonomous", "current ownership agent"),
+        accept_autonomous_reason: panelNullableString(
+          item,
+          "accept_autonomous_reason",
+          "current ownership agent",
+        ),
+        scope: {
+          scope_ref: panelNullableString(scope, "scope_ref", "current ownership scope"),
+          status: ownershipLiteral(scope, "status", ["unscoped_declaration"]),
+          effective_from: panelNullableString(scope, "effective_from", "current ownership scope"),
+          effective_until: panelNullableString(scope, "effective_until", "current ownership scope"),
+        },
+        subjects: panelArray(item["subjects"], "current ownership agent subjects")
+          .map((subject, subjectIndex) => decodeOwnershipSubject(
+            subject,
+            `current ownership agent subjects[${subjectIndex}]`,
+          )),
+        coverage: {
+          primary_count: panelNonNegativeInteger(coverage, "primary_count", "current ownership coverage"),
+          backup_or_escalation_count: panelNonNegativeInteger(
+            coverage,
+            "backup_or_escalation_count",
+            "current ownership coverage",
+          ),
+          status: ownershipLiteral(coverage, "status", [
+            "ready",
+            "autonomous",
+            "bindings_required",
+            "migration_required",
+            "coverage_gap",
+            "identity_unavailable",
+            "identity_review",
+          ]),
+        },
+        proposals: panelArray(item["proposals"], "current ownership proposals")
+          .map((proposal, proposalIndex) => decodeOwnershipProposal(
+            proposal,
+            `current ownership proposals[${proposalIndex}]`,
+          )),
+      };
+    }),
+    summary: {
+      agent_count: panelNonNegativeInteger(summary, "agent_count", "current ownership.summary"),
+      ready_agents: panelNonNegativeInteger(summary, "ready_agents", "current ownership.summary"),
+      coverage_gap_agents: panelNonNegativeInteger(
+        summary,
+        "coverage_gap_agents",
+        "current ownership.summary",
+      ),
+      autonomous_agents: panelNonNegativeInteger(
+        summary,
+        "autonomous_agents",
+        "current ownership.summary",
+      ),
+      pending_proposals: panelNonNegativeInteger(
+        summary,
+        "pending_proposals",
+        "current ownership.summary",
+      ),
+    },
+  };
+}
+
+function decodeOwnershipSubject(value: unknown, label: string): OwnershipSubjectDto {
+  const root = panelRecord(value, label);
+  const active = root["active"] === null
+    ? null
+    : panelBoolean(root, "active", label);
+  return {
+    kind: ownershipLiteral(root, "kind", ["user", "group"]),
+    subject_id: panelNonEmptyString(root, "subject_id", label),
+    responsibility: ownershipLiteral(root, "responsibility", ["accountable", "informed"]),
+    duty: root["duty"] === null
+      ? null
+      : ownershipLiteral(root, "duty", ["primary", "backup", "escalation"]),
+    display_name: panelNullableString(root, "display_name", label),
+    username: panelNullableString(root, "username", label),
+    active,
+    principal_type: ownershipLiteral(root, "principal_type", ["person", "group"]),
+    roles: panelStringArray(root["roles"], `${label}.roles`),
+    resolution: ownershipLiteral(root, "resolution", [
+      "resolved",
+      "inactive",
+      "placeholder",
+      "not_configured",
+      "unavailable",
+      "not_found",
+      "kind_mismatch",
+    ]),
+  };
+}
+
+function decodeOwnershipProposal(value: unknown, label: string): OwnershipProposalDto {
+  const root = panelRecord(value, label);
+  return {
+    case_id: panelNonEmptyString(root, "case_id", label),
+    state: panelNonEmptyString(root, "state", label),
+    revision: panelNonNegativeInteger(root, "revision", label),
+    subject: decodeOwnershipSubject(root["subject"], `${label}.subject`),
+    requested_role: panelNonEmptyString(root, "requested_role", label),
+    duty: ownershipLiteral(root, "duty", ["primary", "backup", "escalation"]),
+    scope_ref: panelNonEmptyString(root, "scope_ref", label),
+    goal_refs: panelStringArray(root["goal_refs"], `${label}.goal_refs`),
+    effect_receipt_count: panelNonNegativeInteger(root, "effect_receipt_count", label),
+  };
+}
+
+function ownershipLiteral<const T extends string>(
+  record: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+): T {
+  const value = panelString(record, key, "current ownership");
+  if (!allowed.includes(value as T)) {
+    throw panelContractError(`current ownership.${key} MUST be one of ${allowed.join(", ")}`);
+  }
+  return value as T;
 }
 
 function stewardshipEnum<const T extends string>(
