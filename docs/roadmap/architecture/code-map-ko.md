@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 91ed84ed2a7c6b02a0eced4db6bb36fd1c1b6722
+translation_source_sha: dab4aa7b4773772d5910fddfe78729e6b48f70c9
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -79,6 +79,8 @@ principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. �
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면
 신원 주장을 답변 완료로 만들지 않고 보류합니다. 탐색이 없는 ObjectSet은 객체 전용
 스냅샷이며 관계 완전성은 명시적 탐색에만 적용됩니다.
+의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를
+생략하되 직접 소셜 응답 후보와 이전 턴이 있는 요청은 계속 독립적으로 확인합니다.
 검증된 `query.ontology_declaration` 개수 판단에서는 고유한 canonical 선언 `*Type` target이
 충돌하는 frame subject보다 우선합니다.
 선언이 아닌 영역 target은 선언 선택에 참여하지 않습니다. 판단에 canonical 선언 target이 없을

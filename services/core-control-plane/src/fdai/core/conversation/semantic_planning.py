@@ -271,6 +271,7 @@ class SemanticPlanningService:
         model_observations: list[SemanticJudgmentObservation] = []
         preflight_social_act = SocialAct.NONE
         preflight_vetoes_direct = False
+        preflight_ran = False
         unbound_conversation = bound_incident is None and bound_investigation_continuation is None
 
         def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
@@ -282,70 +283,74 @@ class SemanticPlanningService:
                 updated = replace(updated, social_act=preflight_social_act)
             return updated
 
+        def run_preflight(context: Sequence[str]) -> SemanticPlanningOutcome | None:
+            nonlocal preflight_ran, preflight_social_act, preflight_vetoes_direct
+            if self._semantic_judgment is None:
+                return None
+            preflight_ran = True
+            preflight = self._semantic_judgment.preflight(
+                utterance=utterance,
+                context=context,
+                locale=locale,
+                direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+            )
+            model_observations.extend(preflight.observations)
+            preflight_vetoes_direct = preflight.failure_kind == "malformed"
+            proposal = preflight.proposal
+            if proposal is None:
+                return None
+            preflight_vetoes_direct = (
+                proposal.social_act is SocialAct.ACKNOWLEDGEMENT
+                or proposal.operational_signal is not OperationalSignal.NONE
+                or proposal.context_dependency
+                not in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+            )
+            preflight_social_act = proposal.social_act
+            direct_intent = (
+                SemanticDirectResponseIntent.SELF_INTRODUCTION
+                if proposal.social_act is SocialAct.SELF_INTRODUCTION
+                else SemanticDirectResponseIntent.GREETING
+                if proposal.social_act in DIRECT_SOCIAL_ACTS
+                else None
+            )
+            if (
+                direct_intent is None
+                or proposal.confidence < _PREFLIGHT_DIRECT_CONFIDENCE
+                or proposal.operational_signal is not OperationalSignal.NONE
+                or proposal.context_dependency
+                not in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+                or not unbound_conversation
+            ):
+                return None
+            narrated = self._semantic_judgment.narrate_social(
+                utterance=utterance,
+                locale=locale,
+                social_act=proposal.social_act,
+                continued=proposal.context_dependency is ContextDependency.SOCIAL_CONTINUITY,
+                direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+            )
+            model_observations.extend(narrated.observations)
+            response = narrated.draft
+            if response is None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "social_response_narrator_unavailable",
+                    social_act=proposal.social_act,
+                )
+            return _outcome(
+                SemanticPlanningDisposition.DIRECT_RESPONSE,
+                "conversation_preflight_direct_response",
+                direct_response_intent=direct_intent,
+                direct_response_answer=response.answer,
+                social_act=proposal.social_act,
+            )
+
         try:
             context = _bounded_context(prior_turns)
-            if self._semantic_judgment is not None:
-                preflight = self._semantic_judgment.preflight(
-                    utterance=utterance,
-                    context=context,
-                    locale=locale,
-                    direct_response_profile=_DIRECT_RESPONSE_PROFILE,
-                )
-                model_observations = list(preflight.observations)
-                preflight_vetoes_direct = preflight.failure_kind == "malformed"
-                preflight_proposal = preflight.proposal
-                if preflight_proposal is not None:
-                    preflight_vetoes_direct = (
-                        preflight_proposal.social_act is SocialAct.ACKNOWLEDGEMENT
-                        or preflight_proposal.operational_signal is not OperationalSignal.NONE
-                        or preflight_proposal.context_dependency
-                        not in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
-                    )
-                    preflight_social_act = preflight_proposal.social_act
-                    preflight_intent = (
-                        SemanticDirectResponseIntent.SELF_INTRODUCTION
-                        if preflight_proposal.social_act is SocialAct.SELF_INTRODUCTION
-                        else SemanticDirectResponseIntent.GREETING
-                        if preflight_proposal.social_act in DIRECT_SOCIAL_ACTS
-                        else None
-                    )
-                    if (
-                        preflight_intent is not None
-                        and preflight_proposal.confidence >= _PREFLIGHT_DIRECT_CONFIDENCE
-                        and preflight_proposal.operational_signal is OperationalSignal.NONE
-                        and preflight_proposal.context_dependency
-                        in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
-                        and unbound_conversation
-                    ):
-                        narrated = self._semantic_judgment.narrate_social(
-                            utterance=utterance,
-                            locale=locale,
-                            social_act=preflight_proposal.social_act,
-                            continued=(
-                                preflight_proposal.context_dependency
-                                is ContextDependency.SOCIAL_CONTINUITY
-                            ),
-                            direct_response_profile=_DIRECT_RESPONSE_PROFILE,
-                        )
-                        model_observations.extend(narrated.observations)
-                        response = narrated.draft
-                        if response is None:
-                            return finish(
-                                _outcome(
-                                    SemanticPlanningDisposition.UNAVAILABLE,
-                                    "social_response_narrator_unavailable",
-                                    social_act=preflight_proposal.social_act,
-                                )
-                            )
-                        return finish(
-                            _outcome(
-                                SemanticPlanningDisposition.DIRECT_RESPONSE,
-                                "conversation_preflight_direct_response",
-                                direct_response_intent=preflight_intent,
-                                direct_response_answer=response.answer,
-                                social_act=preflight_proposal.social_act,
-                            )
-                        )
+            if prior_turns:
+                preflight_outcome = run_preflight(context)
+                if preflight_outcome is not None:
+                    return finish(preflight_outcome)
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             manifest_digest = manifest.manifest_digest
             scope_mismatch = manifest.principal_role.value != principal.role.value
@@ -453,14 +458,18 @@ class SemanticPlanningService:
                 and judgment_result.proposal is not None
                 else None
             )
-            if direct_response is not None and not preflight_vetoes_direct:
-                return finish(
-                    _outcome(
-                        SemanticPlanningDisposition.UNAVAILABLE,
-                        "social_response_narrator_unavailable",
-                    )
-                )
             if direct_response is not None:
+                if not preflight_ran:
+                    preflight_outcome = run_preflight(context)
+                    if preflight_outcome is not None:
+                        return finish(preflight_outcome)
+                if not preflight_vetoes_direct:
+                    return finish(
+                        _outcome(
+                            SemanticPlanningDisposition.UNAVAILABLE,
+                            "social_response_narrator_unavailable",
+                        )
+                    )
                 _LOGGER.info(
                     "semantic_direct_response_blocked_by_preflight",
                     extra={"social_act": preflight_social_act.value},

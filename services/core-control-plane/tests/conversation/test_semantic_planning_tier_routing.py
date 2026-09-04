@@ -844,7 +844,7 @@ def test_full_judgment_social_intent_requires_bound_social_narrator(
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_preflight_direct_social_bypasses_manifest_and_full_judgment() -> None:
+def test_first_turn_social_judgment_is_confirmed_by_preflight() -> None:
     manifest, definition = _fixture()
     manifests = _ManifestProvider(manifest)
     full_model = _GreetingJudgmentModel("greeting")
@@ -879,8 +879,10 @@ def test_preflight_direct_social_bypasses_manifest_and_full_judgment() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
     assert outcome.direct_response_answer == "반가워요. 무엇을 함께 살펴볼까요?"
     assert outcome.social_act.value == "greeting"
-    assert manifests.calls == 0
-    assert full_model.calls == 0
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+    assert preflight_model.calls == 1
+    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
     assert (t1.frame_calls, t1.plan_calls) == (0, 0)
 
 
@@ -1195,7 +1197,7 @@ def test_full_judgment_direct_response_without_narrator_holds_prior_thread() -> 
         ),
     ],
 )
-def test_preflight_noneligible_candidate_uses_full_planning(
+def test_first_turn_operational_judgment_skips_unneeded_preflight(
     preflight_model: _PreflightModel,
 ) -> None:
     manifest, definition = _fixture()
@@ -1227,7 +1229,7 @@ def test_preflight_noneligible_candidate_uses_full_planning(
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert manifests.calls == 1
     assert full_model.calls == 1
-    assert preflight_model.calls == 1
+    assert preflight_model.calls == 0
 
 
 def test_low_confidence_social_preflight_never_uses_full_judgment_prose() -> None:

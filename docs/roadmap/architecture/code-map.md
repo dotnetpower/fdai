@@ -78,6 +78,9 @@ granting execution permission. A missing concrete path remains held instead of b
 identity claim.
 Non-traversal ObjectSets are object-only snapshots; relationship completeness applies only to
 explicit traversal.
+Semantic judgment uses strict structured output, and a first-turn operational read avoids the
+social preflight while direct social candidates and context-bearing turns remain independently
+confirmed.
 For a
 validated `query.ontology_declaration` count judgment, a unique canonical declaration `*Type` target
 takes precedence over a conflicting frame subject. Non-declaration domain targets do not participate

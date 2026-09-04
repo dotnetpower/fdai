@@ -57,6 +57,11 @@ bound Resource state, Resource Health, or Service Health function, Core builds t
 deterministically and skips the second frame-model call. The exact function must exist in the
 principal-scoped manifest, and the normal verifier, evidence execution, and answer checks still run.
 Novel, ambiguous, action-related, or unbound questions keep the general frame-planning path.
+Provider calls use strict structured output instead of a free-form JSON object plus a repeated
+textual schema. A first-turn operational judgment does not run the social preflight because the
+accepted typed judgment already proves the turn is operational. Direct-response candidates still
+require the independent preflight before any social answer is rendered, and prior-turn requests
+keep the preflight because acknowledgement and pending-decision context can change their meaning.
 
 Console starter questions expose only this contract-covered function-backed set. They ask for
 current server-owned evidence instead of browser-authored screen summaries, tier estimates, pending

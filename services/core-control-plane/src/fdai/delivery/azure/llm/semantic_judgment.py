@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -36,6 +37,10 @@ _MAX_CANDIDATES = 8
 _MAX_PROMPT_CHARS = 32_768
 _MAX_REQUEST_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
+_SCHEMA_NAME = re.compile(r"[^a-zA-Z0-9_-]+")
+_UNSUPPORTED_STRICT_SCHEMA_KEYS = frozenset(
+    {"default", "title", "minLength", "maxLength", "minItems", "maxItems"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,14 +306,7 @@ class AzureOpenAISemanticJudgmentModel:
         temperature: float,
         timeout_seconds: float,
     ) -> SemanticJudgmentModelResponse | None:
-        schema = json.dumps(
-            proposal_schema,
-            allow_nan=False,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-        system_content = f"{system_prompt}\nRequired JSON Schema:\n{schema}"
+        response_format = _strict_response_format(proposal_schema, name=call_kind)
         candidate_timeout = timeout_seconds / len(self._config.candidates)
         for index, target in enumerate(self._config.candidates):
             try:
@@ -317,10 +315,10 @@ class AzureOpenAISemanticJudgmentModel:
                     request = target.operation("chat/completions")
                     body: dict[str, Any] = {
                         "messages": [
-                            {"role": "system", "content": system_content},
+                            {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_content},
                         ],
-                        "response_format": {"type": "json_object"},
+                        "response_format": response_format,
                         **completion_body_params(
                             target.deployment,
                             temperature=temperature,
@@ -395,6 +393,43 @@ def _response_mapping(
         payload if isinstance(payload, Mapping) else {"invalid_semantic_judgment_response": True}
     )
     return proposal, content, bounded_provider_usage
+
+
+def _strict_response_format(
+    proposal_schema: Mapping[str, Any],
+    *,
+    name: str,
+) -> dict[str, object]:
+    """Return the Azure strict structured-output envelope for one proposal."""
+
+    normalized_name = _SCHEMA_NAME.sub("_", name).strip("_")[:64]
+    if not normalized_name:
+        raise ValueError("semantic response schema name MUST be non-empty")
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": normalized_name,
+            "strict": True,
+            "schema": _strict_schema_node(proposal_schema),
+        },
+    }
+
+
+def _strict_schema_node(value: object) -> object:
+    if isinstance(value, Mapping):
+        normalized = {
+            str(key): _strict_schema_node(item)
+            for key, item in value.items()
+            if key not in _UNSUPPORTED_STRICT_SCHEMA_KEYS
+        }
+        properties = normalized.get("properties")
+        if isinstance(properties, Mapping):
+            normalized["additionalProperties"] = False
+            normalized["required"] = list(properties)
+        return normalized
+    if isinstance(value, list):
+        return [_strict_schema_node(item) for item in value]
+    return value
 
 
 __all__ = [
