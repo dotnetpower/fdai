@@ -174,6 +174,9 @@ eligible exact-bound read before evaluation, preserves manual receipts, and reco
 unavailability as bounded audit evidence instead of a satisfaction result.
 After collection, the runner advances the request evaluation and recorded cutoffs to the latest
 collected receipt, preventing a valid fresh observation from being classified as future evidence.
+Before a matching-row WARA evaluator can treat zero violations as satisfied, the Azure adapter
+requires a companion exact-id coverage query to observe every target under the same identity and
+deadline.
 Default ControlLoop assembly now carries an optional `IncidentMemberSource` and reviewed dependency
 graph from the immutable Container. This makes the deterministic T1 chain injectable without
 changing its safe unbound default or creating a second incident writer.

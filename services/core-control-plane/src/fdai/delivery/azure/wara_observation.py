@@ -134,6 +134,15 @@ class AzureResourceGraphWaraObservationProvider:
         )
         try:
             async with asyncio.timeout(plan.timeout_seconds):
+                coverage_rows = await self._fetch_rows(
+                    plan=plan,
+                    subscriptions=subscriptions,
+                    query=_scope_coverage_query(plan.resource_ids),
+                )
+                coverage_ids = _validate_scope_coverage(
+                    coverage_rows,
+                    resource_ids=plan.resource_ids,
+                )
                 rows = await self._fetch_rows(
                     plan=plan,
                     subscriptions=subscriptions,
@@ -156,6 +165,7 @@ class AzureResourceGraphWaraObservationProvider:
                 "query_digest": plan.query_digest,
                 "recommendation_id": plan.recommendation_id,
                 "resource_ids": list(plan.resource_ids),
+                "scope_coverage_ids": coverage_ids,
                 "rows": normalized_rows,
                 "semantics": binding.semantics.value,
                 "workload_id": plan.workload_id,
@@ -323,6 +333,40 @@ def _scope_query(
         "| where set_has_element(_fdai_wara_scope, tolower(tostring(id)))\n"
         f"| take {maximum_rows + 1}"
     )
+
+
+def _scope_coverage_query(resource_ids: tuple[str, ...]) -> str:
+    scope = json.dumps(
+        [resource_id.casefold() for resource_id in resource_ids],
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+    return (
+        f"let _fdai_wara_coverage = dynamic({scope});\n"
+        "Resources\n"
+        "| where set_has_element(_fdai_wara_coverage, tolower(tostring(id)))\n"
+        "| project id=tostring(id)\n"
+        f"| take {len(resource_ids) + 1}"
+    )
+
+
+def _validate_scope_coverage(
+    rows: tuple[Mapping[str, Any], ...],
+    *,
+    resource_ids: tuple[str, ...],
+) -> list[str]:
+    expected = {resource_id.casefold() for resource_id in resource_ids}
+    observed: list[str] = []
+    for row in rows:
+        resource_id = row.get("id")
+        if not isinstance(resource_id, str) or resource_id.casefold() not in expected:
+            raise WaraObservationError(
+                "WARA ARG coverage returned a row outside the exact resource scope"
+            )
+        observed.append(resource_id.casefold())
+    if len(observed) != len(set(observed)) or set(observed) != expected:
+        raise WaraObservationError("WARA ARG resource scope coverage is incomplete")
+    return sorted(observed)
 
 
 def _response_object(response: httpx.Response, page: int) -> Mapping[str, Any]:

@@ -115,6 +115,8 @@ def load_wara_evaluator_bindings(
             raise ValueError(
                 f"{binding.aprl_guid}: evaluator binding query is not read-only bounded"
             )
+        if review.declared_tables != ("resources",):
+            raise ValueError(f"{binding.aprl_guid}: evaluator binding requires Resources coverage")
         if record.applicability.disposition is not ResourceTypeDisposition.CANONICAL:
             raise ValueError(
                 f"{binding.aprl_guid}: evaluator binding resource type is not canonical"

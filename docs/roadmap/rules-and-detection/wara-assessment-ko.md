@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: d1130565fe07812e81bf672b3e69a9e39ee999b5
+translation_source_sha: ffe4d2c4516fff7fcb54ca19534f0b120b728169
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -170,8 +170,10 @@ GUID와 정확한 쿼리 다이제스트를 결정론적 평가기 하나에 결
 Resource Graph 어댑터는 고정된 쿼리에 정확한 리소스 ID 허용 목록과 행 상한을 추가하고, 승인된
 Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행을 차단하고, 결정론적 근거
 다이제스트를 기록합니다. `timeout_seconds`는 각 페이지가 아니라 페이지가 매겨진 전체 관측에
-적용됩니다. 일치하는 행이 0개이면 충족이고 하나 이상이면 실패입니다. 두 결과 모두 실행
-권한이 없는 shadow 관측입니다.
+적용됩니다. 위반을 평가하기 전에 같은 신원과 제한 시간으로 실행한 보조 `Resources` 쿼리가
+모든 정확한 대상 ID를 관측해야 합니다. 그 이후에만 일치하는 위반 행 0개를 충족으로 처리하고
+하나 이상이면 실패로 처리합니다. 범위 커버리지가 누락되면 충족이 아니라 `unknown`입니다.
+모든 결과는 실행 권한이 없는 shadow 관측입니다.
 
 `WaraAssessmentObservationRunner`는 정확하고 허용된 읽기 계획을 만들 수 있는 권고만 순회합니다.
 호출자가 제공한 수동 증적을 보존하고 프로바이더 관측을 수집하며, 일치하는 증적을 런타임 근거로

@@ -119,7 +119,12 @@ async def test_zero_rows_are_satisfied_with_exact_scoped_query() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured.append(request)
-        return httpx.Response(200, json={"data": [], "count": 0, "totalRecords": 0})
+        body = json.loads(request.content)
+        rows = [{"id": plan.resource_ids[0]}] if "_fdai_wara_coverage" in body["query"] else []
+        return httpx.Response(
+            200,
+            json={"data": rows, "count": len(rows), "totalRecords": len(rows)},
+        )
 
     provider, client = _provider(httpx.MockTransport(handler))
     try:
@@ -127,12 +132,13 @@ async def test_zero_rows_are_satisfied_with_exact_scoped_query() -> None:
     finally:
         await client.aclose()
 
-    body = json.loads(captured[0].content)
+    assert len(captured) == 2
+    body = json.loads(captured[1].content)
     assert body["subscriptions"] == [SUBSCRIPTION_ID]
     assert exact_query.decoded_body().rstrip() in body["query"]
     assert plan.resource_ids[0].casefold() in body["query"]
     assert body["options"]["$top"] == plan.maximum_rows + 1
-    assert captured[0].headers["Authorization"].startswith("Bearer ")
+    assert captured[1].headers["Authorization"].startswith("Bearer ")
     assert receipt.satisfied is True
     assert receipt.complete is True
     assert receipt.truncated is False
@@ -230,7 +236,10 @@ async def test_provider_rejects_unbounded_response_configuration(
 async def test_matching_rows_fail_and_feed_shadow_runtime() -> None:
     runtime, request, record, plan, _ = _bound_runtime()
 
-    def handler(_request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if "_fdai_wara_coverage" in body["query"]:
+            return httpx.Response(200, json={"data": [{"id": plan.resource_ids[0]}]})
         return httpx.Response(
             200,
             json={"data": [{"id": plan.resource_ids[0], "name": "example"}]},
@@ -263,8 +272,7 @@ async def test_pagination_cannot_multiply_the_read_plan_deadline() -> None:
         return httpx.Response(
             200,
             json={
-                "data": [],
-                **({"$skipToken": "next-page"} if calls == 1 else {}),
+                "data": ([{"id": plan.resource_ids[0]}] if calls == 1 else []),
             },
         )
 
@@ -284,11 +292,19 @@ async def test_receipt_digest_is_independent_of_row_order() -> None:
         {"id": plan.resource_ids[0], "value": 1},
     ]
 
-    def first_handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"data": rows})
+    def first_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        data = [{"id": plan.resource_ids[0]}] if "_fdai_wara_coverage" in body["query"] else rows
+        return httpx.Response(200, json={"data": data})
 
-    def second_handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"data": list(reversed(rows))})
+    def second_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        data = (
+            [{"id": plan.resource_ids[0]}]
+            if "_fdai_wara_coverage" in body["query"]
+            else list(reversed(rows))
+        )
+        return httpx.Response(200, json={"data": data})
 
     first_provider, first_client = _provider(httpx.MockTransport(first_handler))
     second_provider, second_client = _provider(httpx.MockTransport(second_handler))
@@ -305,7 +321,7 @@ async def test_receipt_digest_is_independent_of_row_order() -> None:
 @pytest.mark.asyncio
 async def test_out_of_scope_or_truncated_rows_fail_closed() -> None:
     _, _, _, plan, _ = _bound_runtime()
-    responses = iter(
+    violation_responses = iter(
         (
             httpx.Response(
                 200,
@@ -318,14 +334,31 @@ async def test_out_of_scope_or_truncated_rows_fail_closed() -> None:
         )
     )
 
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return next(responses)
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if "_fdai_wara_coverage" in body["query"]:
+            return httpx.Response(200, json={"data": [{"id": plan.resource_ids[0]}]})
+        return next(violation_responses)
 
     provider, client = _provider(httpx.MockTransport(handler))
     try:
         with pytest.raises(WaraObservationError, match="outside the exact resource scope"):
             await provider.observe(plan)
         with pytest.raises(WaraObservationError, match="truncated"):
+            await provider.observe(plan)
+    finally:
+        await client.aclose()
+
+
+async def test_invisible_resource_scope_cannot_be_reported_satisfied() -> None:
+    _, _, _, plan, _ = _bound_runtime()
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": []})
+
+    provider, client = _provider(httpx.MockTransport(handler))
+    try:
+        with pytest.raises(WaraObservationError, match="scope coverage is incomplete"):
             await provider.observe(plan)
     finally:
         await client.aclose()

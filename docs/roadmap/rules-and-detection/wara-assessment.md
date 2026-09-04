@@ -172,8 +172,10 @@ The first overlay binds three read-only queries whose reviewed semantics are "ma
 failures." The Azure Resource Graph adapter adds the exact resource-id allowlist and row bound to
 the pinned query, accepts only approved Azure management hosts and audiences, rejects out-of-scope
 or truncated rows, applies `timeout_seconds` to the complete paginated observation, and records a
-deterministic evidence digest. Zero matching rows mean satisfied; one or more matching rows mean
-failed. Both remain shadow observations without execution authority.
+deterministic evidence digest. Before evaluating violations, a companion `Resources` query must
+observe every exact target id under the same identity and deadline. Only then can zero matching
+violation rows mean satisfied; one or more matching rows mean failed. Missing scope coverage is
+unknown, never satisfied. All outcomes remain shadow observations without execution authority.
 
 `WaraAssessmentObservationRunner` walks only recommendations that can produce an exact admitted
 read plan. It preserves caller-supplied manual receipts, collects provider observations, converts
