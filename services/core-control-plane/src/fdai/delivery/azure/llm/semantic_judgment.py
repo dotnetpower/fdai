@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -37,7 +36,6 @@ _MAX_CANDIDATES = 8
 _MAX_PROMPT_CHARS = 32_768
 _MAX_REQUEST_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
-_SCHEMA_NAME = re.compile(r"[^a-zA-Z0-9_-]+")
 _UNSUPPORTED_STRICT_SCHEMA_KEYS = frozenset(
     {"default", "title", "minLength", "maxLength", "minItems", "maxItems"}
 )
@@ -402,7 +400,12 @@ def _strict_response_format(
 ) -> dict[str, object]:
     """Return the Azure strict structured-output envelope for one proposal."""
 
-    normalized_name = _SCHEMA_NAME.sub("_", name).strip("_")[:64]
+    normalized_name = "".join(
+        character
+        if character.isascii() and (character.isalnum() or character in {"_", "-"})
+        else "_"
+        for character in name
+    ).strip("_")[:64]
     if not normalized_name:
         raise ValueError("semantic response schema name MUST be non-empty")
     return {

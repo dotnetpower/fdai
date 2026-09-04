@@ -53,3 +53,14 @@ def test_conversation_preflight_uses_the_same_strict_contract() -> None:
     envelope = response_format["json_schema"]
     assert isinstance(envelope, Mapping)
     _assert_strict_objects(envelope["schema"])
+
+
+def test_strict_structured_output_normalizes_schema_name_without_regex() -> None:
+    response_format = _strict_response_format(
+        SemanticJudgmentProposal.model_json_schema(),
+        name="semantic judgment/v1",
+    )
+
+    envelope = response_format["json_schema"]
+    assert isinstance(envelope, Mapping)
+    assert envelope["name"] == "semantic_judgment_v1"
