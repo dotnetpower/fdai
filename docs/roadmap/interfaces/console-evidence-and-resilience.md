@@ -63,8 +63,9 @@ primary and backup counts, and summary totals against the validated stewardship 
 the panel instead of selecting one version.
 Current owners exposes an explicit refresh. It retains the last ready projection while the new read
 is in flight and replaces it only with the next terminal ready, unavailable, or error state.
-At narrow widths, Current owners changes the wide comparison table into labeled per-agent records.
-The responsive presentation preserves every field and does not change scope or evidence.
+At container-constrained desktop and mobile widths, Current owners changes the wide comparison
+table into labeled per-agent records. The responsive presentation preserves every field and does
+not change scope or evidence.
 Current owners localizes assignment lifecycle states and keeps the full source digest in disclosed
 technical details instead of presenting machine values as primary operator copy.
 Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
