@@ -500,10 +500,10 @@ transport after bootstrap reconciliation.
 
 `fdaictl deploy plan` checks the active Azure target against the mode-`0600` profile, requires the
 Azure and GitHub CLIs, and submits a plan-only workflow. It returns a bounded request id and context
-digest. `deploy status --request-id <id>` recomputes the approved context from the profile, commit, and
-feature flags, then finds exactly one workflow by its request-bound run name
-and, after success, downloads only the sanitized plan metadata artifact. The GitHub CLI uses its
-provider-hosted authentication; no credential is copied into a command argument.
+digest. `deploy status --request-id <id>` recomputes the context, finds one request-bound workflow,
+and downloads only sanitized plan metadata after success. Status strips only the reviewed
+request-mode prefix before checking the embedded target/context binding. The GitHub CLI uses
+provider-hosted authentication, and no credential is copied into a command argument.
 
 The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context fingerprint.
 Console, Operator API, document-ingestion, isolated-Executor, monitoring, and the exclusive RCA-reader

@@ -812,6 +812,53 @@ def test_rca_reader_identity_selection_is_exclusive_and_dispatched() -> None:
         DeploymentSelection(deploy_rca_reader_identity=True)
 
 
+def test_rca_reader_identity_status_uses_the_bound_request_suffix() -> None:
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_rca_reader_identity=True,
+    )
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.rca-reader-status",
+        selection=selection,
+        run=RecordingRunner(),
+    )
+    status_runner = RecordingRunner(
+        CommandResult(
+            0,
+            json.dumps(
+                [
+                    {
+                        "databaseId": 42,
+                        "displayTitle": plan.run_name,
+                        "status": "in_progress",
+                        "conclusion": None,
+                        "url": "https://example.com/run/42",
+                        "headSha": _COMMIT,
+                    }
+                ]
+            ),
+        )
+    )
+
+    result = workflow_status(
+        repository="example/fdai",
+        request_id_value=plan.request_id,
+        expected_commit=_COMMIT,
+        expected_context_digest=plan.context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        run=status_runner,
+    )
+
+    assert result["workflow_run_id"] == 42
+
+
 _IMAGE_REVISION = "24e4df68a50eed8cf355c8278836d40dc399cb54"
 
 
