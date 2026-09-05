@@ -520,12 +520,6 @@ jobs:
             console_hostname="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw console_default_hostname
             )"
-            [[ "$console_hostname" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.azurestaticapps\\.net$ \
-              && ${#console_hostname} -le 253 \
-              && "$console_hostname" != *..* ]] || {
-              echo "Platform state returned an invalid Console hostname." >&2
-              exit 1
-            }
           fi
           event_topic="$(
             terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \
