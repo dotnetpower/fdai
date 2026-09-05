@@ -92,8 +92,7 @@ export function DocumentLibraryRow({
           <button
             type="button"
             class="cs-control-button is-compact"
-            disabled={!document.preview_available || pending}
-            onClick={onPreview}
+            {...documentActionProps(document.preview_available, pending, onPreview)}
           >
             {knowledgeText("preview")}
           </button>
@@ -102,8 +101,7 @@ export function DocumentLibraryRow({
           <button
             type="button"
             class="cs-control-button is-compact"
-            disabled={!document.download_available || pending}
-            onClick={onDownload}
+            {...documentActionProps(document.download_available, pending, onDownload)}
           >
             {knowledgeText("download")}
           </button>
@@ -113,8 +111,7 @@ export function DocumentLibraryRow({
             <button
               type="button"
               class="cs-control-button is-compact"
-              disabled={!document.delete_available || pending}
-              onClick={onRequestDelete}
+              {...documentActionProps(document.delete_available, pending, onRequestDelete)}
             >
               {knowledgeText("delete")}
             </button>
@@ -133,6 +130,18 @@ export function DocumentLibraryRow({
       </div>
     </article>
   );
+}
+
+export function documentActionProps(
+  available: boolean,
+  pending: boolean,
+  onClick: () => void,
+) {
+  return {
+    "aria-disabled": available ? undefined : true,
+    disabled: pending,
+    onClick: available && !pending ? onClick : undefined,
+  } as const;
 }
 
 const DOCUMENT_STATE_KEYS: Readonly<Record<string, KnowledgeMessageKey>> = {

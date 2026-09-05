@@ -789,6 +789,14 @@ a:hover {
 .document-index-status.is-pending { color: var(--warning, #8a5a00); }
 .document-index-status.is-not_indexed { color: var(--fg-muted); }
 .document-library-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.document-library-actions .cs-control-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: .58;
+}
+.document-library-actions .cs-control-button[aria-disabled="true"]:hover {
+  border-color: var(--cs-hairline);
+  background: var(--cs-card);
+}
 .document-library-action-tooltip { display: inline-flex; }
 .document-delete-confirm {
   display: flex;
