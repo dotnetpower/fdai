@@ -162,6 +162,22 @@ def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
     assert "TF_VAR_document_ocr_provider=%s" in _DOCUMENT_OCR_STATE_HELPER
 
 
+def test_platform_apply_requires_and_revalidates_protected_environment() -> None:
+    assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in (
+        _LEGACY_WORKFLOW
+    )
+    validate_start = _LEGACY_WORKFLOW.index("- name: Validate deployment request")
+    validate_end = _LEGACY_WORKFLOW.index("- name: Bind model-binding Terraform target")
+    validate_block = _LEGACY_WORKFLOW[validate_start:validate_end]
+
+    assert "GH_TOKEN: ${{ github.token }}" in validate_block
+    assert 'if [[ "$APPLY" == "true" ]]; then' in validate_block
+    assert 'environments/$TARGET_ENVIRONMENT"' in validate_block
+    assert "verify-github-environment.py" in validate_block
+    assert "--required-approvals 1" in validate_block
+    assert "- name: Verify protected environment approval policy" not in _LEGACY_WORKFLOW
+
+
 def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]
