@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 50dd3f2885fea3fe1179b76478584d191e62b94f
+translation_source_sha: 276c6568da201012a569cf47d183c5deb95e137b
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | `once` 또는 `loop` positional Container Apps mode를 기존 CLI 계약으로 변환하는 설치형 inventory 동기화 wrapper를 추가했습니다. Positional 인자 없이 실행한 실제 inventory start는 이전에 배포된 image에서 완료되어 image override가 적용되지 않았음을 입증했습니다. 이 wrapper는 option 형태 인자나 새 권한 없이 exact image projection refresh 경로를 제공합니다. | `current change`, 집중 inventory CLI, package entrypoint, Ruff, strict mypy 및 wheel build 검사. | Wrapper가 포함된 image를 publish 및 import하고 exact image inventory refresh를 한 번 실행한 뒤 새로운 격리 scope에서 certification을 재실행합니다. |
 | 2026-09-06 | implemented | Restart phase envelope마다 artifact index row를 삽입하기 전에 실제 content-addressed archive manifest에 결속하고 recovery를 위한 정확한 storage reference 조회를 추가했습니다. Write 후 read 비교로 일치하는 verification 증적을 생성하므로 campaign bookkeeping이 instance 전체 archive coverage를 낮추지 않습니다. PostgreSQL manifest와 artifact digest는 비공개 Blob metadata와 독립적으로 유지되며 envelope는 campaign, phase, purpose 및 scope digest를 결속합니다. 일곱 번째 보호 실행은 fixture replay와 restart 전 시나리오 수집을 완료하고 비공개 phase Blob을 저장한 뒤 이전 synthetic manifest key가 artifact foreign key를 위반하자 안전하게 실패했습니다. Database restart 또는 certification 저장은 발생하지 않았습니다. | `current change`, 집중 phase store, archive manifest 및 verification, artifact 조회, campaign, finalization, Ruff 및 strict mypy 검사. 보호된 campaign run `33991048058`이 실패한 phase index 근거를 보존했습니다. | 수정된 정확한 image를 publish 및 import한 뒤 새로운 exact-revision 격리 campaign scope를 실행합니다. |
 | 2026-09-06 | implemented | 늦은 도착 상태를 다시 계산하기 전에 content-addressed observation의 기존 lifecycle binding을 보존하도록 replay를 수정했습니다. Binder는 replay된 observation identity를 반환하므로 journal은 이미 제거된 pending tombstone row도 다시 만들지 않습니다. 따라서 이후 observation이 존재한다는 이유만으로 이전에 binding된 base observation이 correction partition으로 이동하지 않으며 확인된 deletion 상태를 단조롭게 유지합니다. 격리된 여섯 번째 실행은 실제 fixture archive write를 완료한 뒤 두 번째 no-growth replay에서 retained binding 충돌을 드러내고 안전하게 중단됐습니다. Restart, purge 또는 certification 증적 저장은 발생하지 않았습니다. | `current change`, strict mypy와 Ruff를 포함한 집중 PostgreSQL lifecycle, journal, fixture 및 campaign 검사. 보호된 campaign run `33989424436`이 실패한 replay 근거를 보존했습니다. | Idempotent binder image를 publish 및 deploy하고 정확한 source tag로 import한 뒤 새로운 exact-revision 격리 campaign scope를 실행합니다. |
 | 2026-09-06 | implemented | 운영 이력 Blob metadata 이름을 허용되지 않는 하이픈 형태에서 Azure 호환 `fdai_sha256` identifier로 수정하고 managed identity round-trip 테스트에서 정확한 write 및 read header를 검사하도록 강화했습니다. 네 번째 보호 실행은 실제 fixture 준비에 도달했지만 첫 archive write에서 HTTP 400으로 안전하게 실패했습니다. Database를 재시작하거나 데이터를 purge하거나 certification 증적을 저장하지 않았습니다. | `current change`, 집중 Azure archive adapter 및 campaign 검사. 보호된 campaign run `33988596207`과 실패한 execution log에서 metadata 거부를 확인했습니다. | 수정된 adapter image를 publish 및 deploy하고 정확한 source tag로 import한 뒤 안정적인 campaign request를 다시 실행합니다. |

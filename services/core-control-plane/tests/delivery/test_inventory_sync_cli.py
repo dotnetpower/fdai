@@ -41,6 +41,7 @@ from fdai.delivery.inventory_sync_cli import (
     _resolve_resource_types,
     _run_due_once,
     _workload_identity,
+    container_argv,
     run,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventoryConfig
@@ -970,3 +971,10 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
     assert published == 5
     assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
+
+
+def test_container_entrypoint_translates_positional_modes() -> None:
+    assert container_argv(["once"]) == []
+    assert container_argv(["loop"]) == ["--loop"]
+    with pytest.raises(ValueError, match="accepts once or loop"):
+        container_argv([])

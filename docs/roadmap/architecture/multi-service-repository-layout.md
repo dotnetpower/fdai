@@ -13,7 +13,7 @@ implementation.
 | Surface | Ownership contract |
 |---------|--------------------|
 | Five backend services | Each `services/*` root owns its `pyproject.toml`, source package, tests, image, process identity, and service migration branch. |
-| Core service entry points | The Core manifest exposes service-owned bounded maintenance entry points, including inventory synchronization, the shadow operational-history lifecycle Job, and the positional protected certification runner used by Container Apps. Each entry point composes delivery adapters inside Core's package boundary and does not grant executor authority. |
+| Core service entry points | The Core manifest exposes service-owned bounded maintenance entry points, including the `once`/`loop` positional inventory synchronization wrapper, the shadow operational-history lifecycle Job, and the positional protected certification runner used by Container Apps. Each entry point composes delivery adapters inside Core's package boundary and does not grant executor authority. |
 | Core cryptographic verification | The Core manifest owns the `cryptography` dependency used to verify deployment-owned Ed25519 observation receipts. No other service imports the Core implementation or receives the signing seed. |
 | Core event compression | The Core manifest owns `python-snappy` because the EventBus can deliver Snappy-compressed Kafka records. The root lock records the transitive codec package for reproducible local and deployed consumers. |
 | Shared service contracts | `packages/service-contracts/` owns versioned wire types and schemas without importing a service implementation. |

@@ -539,6 +539,22 @@ async def _main(argv: list[str]) -> None:
         await asyncio.sleep(config.loop_seconds)
 
 
+def container_argv(argv: list[str]) -> list[str]:
+    """Translate the Container Apps positional mode into the existing CLI contract."""
+
+    if argv == ["once"]:
+        return []
+    if argv == ["loop"]:
+        return ["--loop"]
+    raise ValueError("inventory container entrypoint accepts once or loop")
+
+
+def container_main() -> None:
+    """Run inventory synchronization from a positional Container Apps command."""
+
+    asyncio.run(_main(container_argv(sys.argv[1:])))
+
+
 def main() -> None:
     """Run one due-checked reconciliation under the job process identity."""
     asyncio.run(_main(sys.argv[1:]))
@@ -551,6 +567,8 @@ if __name__ == "__main__":
 __all__ = [
     "InventoryJobConfig",
     "InventoryJobResult",
+    "container_argv",
+    "container_main",
     "run",
     "run_recovery_delta",
     "run_resource_change_feed",

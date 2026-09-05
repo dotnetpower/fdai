@@ -164,6 +164,8 @@ delivery identity, event filter, and retry policy on the next protected apply. P
 profiles do not create that unsupported Event Grid-to-private-Event-Hubs path. The VNet-integrated
 inventory Job instead forwards bounded Activity Log recovery deltas to the primary Event Bus after
 each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor.
+Its installed `fdai-inventory-sync` wrapper accepts only positional `once` or `loop`, so a protected
+exact-image rehearsal can avoid option-shaped Container Apps overrides without changing authority.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule and runs
