@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 23f109a4397fefdf5e10c4f6527b27c7e4bf8c6b
+translation_source_sha: 932f2e8dc366b5dfffce0b02c42d951a53d28b60
 translation_revised: 2026-09-05
 ---
 
@@ -128,9 +128,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본
   Event Bus topic 연결을 사용해야 합니다. 계획은 이 모드를 `database_host_binding` 및 정확한
   최초 notification receipt topic 추가와만 함께 사용할 수 있습니다. 각 guard는 전체 허용 목록을
-  검증하고 호스트와 topic은 권위 있는 platform state 출력에서 가져오며 봉인된 배포 모드는
-  정확한 조합을 기록합니다. 신원, 권한, 시크릿, 명령 또는 관련 없는 환경 변경은 허용되지
-  않습니다.
+  검증하고 호스트, topic 및 endpoint map은 권위 있는 platform state 출력에서 가져오며 봉인된
+  배포 모드는 정확한 조합을 기록합니다. 검증된 endpoint map을 처음 추가하는 model binding이면
+  증명된 model digest가 그대로일 수 있습니다. 신원, 권한, 시크릿, 명령 또는 관련 없는 환경
+  변경은 허용되지 않습니다.
 - **측정 원장 소유권**: Core는 `SELECT, INSERT` 권한만 사용해 `llm_invocation` 레코드를
   소유하고 추가합니다. Operator는 같은 테이블을 `SELECT` 권한으로만 사용합니다. 서비스
   migration graph는 Operator를 읽기 전용 consumer로 취급하고 Operator 측정 grant가

@@ -1349,9 +1349,15 @@ def test_plan_guard_composes_model_and_notification_topic_transitions(
 ) -> None:
     digest = "a" * 64
     plan = _core_model_binding_plan(guard, digest)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
     after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
         "container"
     ][0]["env"]
+    for name in ("LLM_MODE", "LLM_RESOLVED_MODELS_PATH", "LLM_RESOLVED_MODELS_SHA256"):
+        before_environment.append(
+            copy.deepcopy(next(item for item in after_environment if item["name"] == name))
+        )
     after_environment.append(
         {
             "name": "FDAI_NOTIFICATION_RECEIPT_TOPIC",

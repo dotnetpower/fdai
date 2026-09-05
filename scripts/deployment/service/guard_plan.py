@@ -602,8 +602,8 @@ def _guard_model_binding_transition(
     if not valid_timeout:
         invalid.append("FDAI_WEB_SEARCH_TIMEOUT_SECONDS")
     violations: list[str] = []
-    if not changed or "LLM_RESOLVED_MODELS_SHA256" not in changed:
-        violations.append("model binding transition does not advance the runtime digest")
+    if not changed.intersection(_MODEL_BINDING_ENVIRONMENT):
+        violations.append("model binding transition does not change a runtime model binding")
     allowed_names = _MODEL_BINDING_ENVIRONMENT | additional_allowed_names
     if changed - allowed_names:
         violations.append(
