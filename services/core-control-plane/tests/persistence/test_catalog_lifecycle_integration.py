@@ -17,9 +17,12 @@ pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 _SERVICE_CONFIG = REPO_ROOT / "service-migrations" / "configs" / "core-control-plane.ini"
+_CATALOG_LIFECYCLE_REVISION = "core_catalog_lifecycle_20260829"
 
 
 def _requires_live_db() -> str:
+    if os.environ.get("FDAI_SERIAL_MIGRATION_TESTS") != "1":
+        pytest.skip("schema-mutating service migration lifecycle tests run serially")
     url = os.environ.get("FDAI_DATABASE_URL")
     if not url:
         pytest.skip("FDAI_DATABASE_URL is unset")
@@ -101,10 +104,10 @@ def _downgrade_service(url: str, revision: str) -> None:
     )
 
 
-def _service_previous_head(head: str) -> str:
-    revision = ScriptDirectory.from_config(Config(str(_SERVICE_CONFIG))).get_revision(head)
+def _service_predecessor(revision_id: str) -> str:
+    revision = ScriptDirectory.from_config(Config(str(_SERVICE_CONFIG))).get_revision(revision_id)
     if revision is None or not isinstance(revision.down_revision, str):
-        raise AssertionError(f"service migration head {head!r} has no single predecessor")
+        raise AssertionError(f"service migration {revision_id!r} has no single predecessor")
     return revision.down_revision
 
 
@@ -117,18 +120,20 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
     url = _requires_live_db()
     _run_legacy_upgrade(url)
     head = _ensure_service_head(url)
-    previous_head = _service_previous_head(head)
+    previous_head = _service_predecessor(_CATALOG_LIFECYCLE_REVISION)
     _downgrade_service(url, previous_head)
     prefix = uuid.uuid4().hex
     rule_id = f"lifecycle.rule.{prefix}"
-    old_version = f"catalog-n-{prefix}"
-    new_version = f"catalog-n-plus-one-{prefix}"
+    old_version = f"sha256:{prefix * 2}"
+    new_version = f"sha256:{prefix[::-1] * 2}"
     old_signature = f"action-{prefix}"
     old_input = f"input-{prefix}"
     new_input = f"input-new-{prefix}"
 
     try:
         with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute("SELECT fdai_t2_cache_create_partition(%s)", (old_version,))
+            cur.execute("SELECT fdai_t2_cache_create_partition(%s)", (new_version,))
             cur.execute(
                 """
                 INSERT INTO learned_action
