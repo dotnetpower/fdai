@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 5c6e064c1d19c8399c4474296d9847ab82e73e75
+translation_source_sha: 45025371fd7d5838b624912ee82a22217a22ebda
 translation_revised: 2026-09-05
 ---
 # 지속형 운영 인스턴스 그래프
@@ -354,7 +354,7 @@ binding을
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Push 이벤트와 durable delta overlay | implemented | `delivery/azure/activity_log.py`, 실시간 inventory projector와 집중 테스트 | 리소스 변경은 범위가 제한된 overlay를 업데이트할 수 있습니다. 배포 근거는 별도입니다. |
-| 비공개 네트워크 변경 가속 | in-progress | `arg_resource_changes.py`, 인벤토리 작업 구성, Operator 내구성 무효화 SSE, Console SSE 소비자 및 폴링 카운트다운, 집중 출처, 경로, 재현 및 Console 검사 | 범위가 제한된 구현을 로컬에서 구성했습니다. 공유 main checkout 동기화 이후에 최종 통합 검증을 이어갑니다. 완전한 reconciliation만 관계 완전성 권위를 유지합니다. |
+| 비공개 네트워크 변경 가속 | in-progress | `arg_resource_changes.py`, `inventory_change_acceleration.py`, 인벤토리 작업 구성, Operator 내구성 무효화 SSE, Console SSE 소비자 및 폴링 카운트다운, 집중 출처, 경로, 재현 및 Console 검사 | 범위가 제한된 구현을 로컬에서 구성했습니다. cursor나 완전성 권위를 변경하지 않고 change-feed 조정을 완전한 reconciliation CLI에서 분리했습니다. 최종 통합 검증은 남아 있습니다. 완전한 reconciliation만 관계 완전성 권위를 유지합니다. |
 | 완전한 inventory promotion과 ontology 변환 결과 | implemented | `delivery/inventory_sync.py`, `runtime/inventory_ontology.py`, 집중 inventory 및 변환 결과 테스트 | 완전 세대가 소유된 하위 그래프를 원자적으로 대체합니다. 기존 정기 cadence는 목표 지속형 정책이 아닙니다. |
 | 관계 세대 수렴 | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, 집중 회귀 검사 | 검토된 parent가 일반 fallback을 shadow하고 snapshot과 ontology cardinality gate가 일치합니다. 분류된 non-edge는 complete coverage를 주장하지 않고 exact generation을 전진시키며 graph receipt는 generation, freshness, verification level, zero-result limitation을 보존합니다. |
 | Kubernetes 워크로드 관측 | validated | `kubernetes_api_inventory.py`, Kubernetes 실제 및 영속 Event reader, rollout, Pod 복구 및 Pod 진단 FunctionType, lifecycle collector와 PostgreSQL store, 집중 인벤토리, Event, migration, 영속성, 플래너, 증적, 조립 및 런타임 검사, 인증된 Event API와 영속 cursor 증적 | UID에 근거한 세대는 허용 목록에 있는 rollout 상태를 보존합니다. `query.resource_event_history`는 불변 `uid`와 `cluster_ref`로 정확한 child 하나를 좁힐 수 있습니다. Lease 기반 bookmark watch는 `resourceVersion`을 불투명 값으로 취급하고 로컬 단조 cursor 진행과 타입 지정 관측을 원자적으로 append하며 expiry, authorization, source, retention 및 result-limit gap을 보고합니다. `query.kubernetes_pod_diagnosis`는 실제 로그 프로바이더가 연결된 경우에만 정확한 UID 하나를 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합합니다. 내용 다이제스트, 개수, 시각, 출처 신원 및 명시적인 공백을 보존하고 인과 및 실행 권한을 false로 고정하며, 로그 행이 0개이면 `zero_records_unverified`로 유지합니다. 원시 Event message, 로그 본문, provider payload 및 ontology 쓰기는 제외합니다. 격리 validation database는 병합된 Core migration head에 도달했고 연속 실제 cycle 5개가 sequence 0에서 5까지 전진하며 약 60초의 완전한 coverage를 보존했습니다. 60초 zero-row 영속 읽기는 해당 구간을 관측한 뒤에만 complete였습니다. 이 로컬 증적은 배포 보존이나 Pod 원인 및 복구를 주장하지 않습니다. |

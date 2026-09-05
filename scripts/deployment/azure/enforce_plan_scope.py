@@ -32,7 +32,7 @@ _RCA_READER_IDENTITY = frozenset(
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
-    "module.compute.azurerm_container_app_job.operational_history_lifecycle[0]",
+    "azurerm_container_app_job.operational_history_lifecycle[0]",
 )
 
 

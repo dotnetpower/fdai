@@ -100,7 +100,7 @@
         "services/core-control-plane/tests/delivery/persistence/test_postgres_state_transitions.py",
         "tests/integration/infra/test_operational_history_lifecycle_job.py",
         "infra/modules/compute/container-apps/inventory_job.tf",
-        "infra/modules/compute/container-apps/operational_history_lifecycle_job.tf"
+        "infra/operational_history_lifecycle_job.tf"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

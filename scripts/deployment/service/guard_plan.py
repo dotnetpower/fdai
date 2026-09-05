@@ -381,12 +381,7 @@ def _only_notification_receipt_topic_transition(
         _primary_container(after, address=address, contract=contract),
         address=address,
     )
-    if "FDAI_NOTIFICATION_RECEIPT_TOPIC" in before_by_name:
-        return False
-    if _environment_binding(after_by_name.get("FDAI_NOTIFICATION_RECEIPT_TOPIC")) != (
-        _NOTIFICATION_RECEIPT_TOPIC,
-        None,
-    ):
+    if not _has_canonical_notification_receipt_topic(after_by_name):
         return False
     if any(
         before_runtime.get(key) != after_runtime.get(key) for key in ("name", "command", "args")
@@ -395,7 +390,7 @@ def _only_notification_receipt_topic_transition(
     before_bindings = {
         name: _environment_binding(item)
         for name, item in before_by_name.items()
-        if name not in additional_allowed_names
+        if name not in {"FDAI_NOTIFICATION_RECEIPT_TOPIC", *additional_allowed_names}
     }
     after_bindings = {
         name: _environment_binding(item)
@@ -403,6 +398,15 @@ def _only_notification_receipt_topic_transition(
         if name not in {"FDAI_NOTIFICATION_RECEIPT_TOPIC", *additional_allowed_names}
     }
     return before_bindings == after_bindings
+
+
+def _has_canonical_notification_receipt_topic(
+    environment: dict[str, dict[str, Any]],
+) -> bool:
+    return _environment_binding(environment.get("FDAI_NOTIFICATION_RECEIPT_TOPIC")) == (
+        _NOTIFICATION_RECEIPT_TOPIC,
+        None,
+    )
 
 
 def _valid_https_origin(value: str) -> bool:
@@ -859,7 +863,13 @@ def _guard_update(
             model_additional_names |= frozenset({"POSTGRES_HOST"})
         if allowed_rca_reader:
             model_additional_names |= _RCA_READER_ENVIRONMENT
-        if allowed_notification_topic:
+        after_environment = _environment_by_name(
+            _primary_container(after, address=address, contract=contract),
+            address=address,
+        )
+        if allowed_notification_topic or _has_canonical_notification_receipt_topic(
+            after_environment
+        ):
             model_additional_names |= frozenset({"FDAI_NOTIFICATION_RECEIPT_TOPIC"})
         violations.extend(
             _guard_model_binding_transition(

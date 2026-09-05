@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { triggerBlobDownload } from "../blob-download";
+import { Tooltip } from "../components/tooltip";
 import {
   type DocumentPreview,
   type DocumentVersionSummary,
@@ -175,34 +176,58 @@ export function DocumentLibrary({
                   </small>
                 </div>
                 <div class="document-library-actions">
-                  <button
-                    type="button"
-                    class="cs-control-button is-compact"
-                    disabled={!document.preview_available || pending}
-                    title={!document.preview_available ? knowledgeText("previewUnavailable") : undefined}
-                    onClick={() => void openPreview(document)}
-                  >
-                    {knowledgeText("preview")}
-                  </button>
-                  <button
-                    type="button"
-                    class="cs-control-button is-compact"
-                    disabled={!document.download_available || pending}
-                    title={!document.download_available ? knowledgeText("downloadUnavailable") : undefined}
-                    onClick={() => void download(document)}
-                  >
-                    {knowledgeText("download")}
-                  </button>
-                  {!deleting ? (
-                    <button
-                      type="button"
-                      class="cs-control-button is-compact"
-                      disabled={!document.delete_available || pending}
-                      title={!document.delete_available ? knowledgeText("deleteUnavailable") : undefined}
-                      onClick={() => setPendingDelete(key)}
+                  <Tooltip content={!document.preview_available ? knowledgeText("previewUnavailable") : undefined}>
+                    <span
+                      class="document-library-action-tooltip"
+                      aria-label={!document.preview_available
+                        ? `${knowledgeText("preview")}: ${knowledgeText("previewUnavailable")}`
+                        : undefined}
                     >
-                      {knowledgeText("delete")}
-                    </button>
+                      <button
+                        type="button"
+                        class="cs-control-button is-compact"
+                        disabled={!document.preview_available || pending}
+                        onClick={() => void openPreview(document)}
+                      >
+                        {knowledgeText("preview")}
+                      </button>
+                    </span>
+                  </Tooltip>
+                  <Tooltip content={!document.download_available ? knowledgeText("downloadUnavailable") : undefined}>
+                    <span
+                      class="document-library-action-tooltip"
+                      aria-label={!document.download_available
+                        ? `${knowledgeText("download")}: ${knowledgeText("downloadUnavailable")}`
+                        : undefined}
+                    >
+                      <button
+                        type="button"
+                        class="cs-control-button is-compact"
+                        disabled={!document.download_available || pending}
+                        onClick={() => void download(document)}
+                      >
+                        {knowledgeText("download")}
+                      </button>
+                    </span>
+                  </Tooltip>
+                  {!deleting ? (
+                    <Tooltip content={!document.delete_available ? knowledgeText("deleteUnavailable") : undefined}>
+                      <span
+                        class="document-library-action-tooltip"
+                        aria-label={!document.delete_available
+                          ? `${knowledgeText("delete")}: ${knowledgeText("deleteUnavailable")}`
+                          : undefined}
+                      >
+                        <button
+                          type="button"
+                          class="cs-control-button is-compact"
+                          disabled={!document.delete_available || pending}
+                          onClick={() => setPendingDelete(key)}
+                        >
+                          {knowledgeText("delete")}
+                        </button>
+                      </span>
+                    </Tooltip>
                   ) : (
                     <div class="document-delete-confirm" role="group" aria-label={knowledgeText("deleteConfirm")}>
                       <span>{knowledgeText("deleteConfirm")}</span>

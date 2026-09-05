@@ -16,8 +16,6 @@
 843 services/core-control-plane/src/fdai/core/workflow/workflow_step_executor.py
 # Pre-existing main-branch analyzer-tick debt; growth blocked until tracker #14 extraction.
 850 services/core-control-plane/src/fdai/delivery/analyzer_tick.py
-# Pre-existing main-branch inventory orchestration debt; growth blocked until tracker #14 extraction.
-853 services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py
 # Pre-existing main-branch postgres background-task debt; growth blocked until tracker #14 extraction.
 801 services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py
 # Pre-existing main-branch postgres ontology-persistence debt; growth blocked until tracker #14 extraction.

@@ -13,26 +13,32 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
-import yaml
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
 from fdai.delivery import inventory_collection_health_reporting
-from fdai.delivery.azure.activity_log import AzureActivityLogFactory, AzureActivityLogFactoryConfig
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
-from fdai.delivery.azure.arg_resource_changes import (
-    AzureResourceChangeFeed,
-    AzureResourceChangeFeedConfig,
-    forward_arg_resource_changes,
-)
 from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
 )
-from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
-from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
-from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.inventory_delta import forward_inventory_delta
+from fdai.delivery.inventory_change_acceleration import (
+    build_job_event_bus as _build_job_event_bus,
+)
+from fdai.delivery.inventory_change_acceleration import (
+    forward_recovery_deltas as _forward_recovery_deltas,
+)
+from fdai.delivery.inventory_change_acceleration import (
+    load_resource_type_registry as _load_resource_type_registry,
+)
+from fdai.delivery.inventory_change_acceleration import (
+    recovery_delta_lock as _recovery_delta_lock,
+)
+from fdai.delivery.inventory_change_acceleration import (
+    run_recovery_delta,
+    run_resource_change_feed,
+)
+from fdai.delivery.inventory_change_acceleration import workload_identity as _workload_identity
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
@@ -104,34 +110,24 @@ from fdai.rule_catalog.schema.provider_relationship_mapping import (
 )
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
-    load_resource_type_registry_from_mapping,
     resource_type_mapping_digests,
 )
 from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjectionStatus,
     InventoryOntologyProjector,
 )
-from fdai.runtime.venue import (
-    bus_security_protocol,
-    resolve_execution_venue,
-    uses_developer_identity,
-    uses_workload_identity,
-)
-from fdai.shared.config.loader import load_config_from_env
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.declarative_inventory import (
     DeclarativeInventory,
     DeclarativeInventoryConfig,
 )
-from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import Inventory
 from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
     InventorySource,
     InventorySourcesExhaustedError,
 )
-from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = repo_asset_root()
@@ -146,13 +142,6 @@ class InventoryJobResult:
     attempt_id: str
     source: str
     active: bool
-
-
-def _load_resource_type_registry() -> ResourceTypeRegistry:
-    vocabulary_path = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
-    return load_resource_type_registry_from_mapping(
-        yaml.safe_load(vocabulary_path.read_text(encoding="utf-8"))
-    )
 
 
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
@@ -542,195 +531,6 @@ async def run(
         source=result.source,
         active=active,
     )
-
-
-async def run_recovery_delta(config: InventoryJobConfig) -> int:
-    """Retry the read-only Activity Log delta independently of full-scan due state."""
-    vocabulary = _load_resource_type_registry()
-    async with httpx.AsyncClient() as client:
-        identity = _workload_identity(http_client=client)
-        return await _run_recovery_delta(
-            config=config,
-            vocabulary=vocabulary,
-            identity=identity,
-            http_client=client,
-        )
-
-
-async def _run_recovery_delta(
-    *,
-    config: InventoryJobConfig,
-    vocabulary: ResourceTypeRegistry,
-    identity: WorkloadIdentity,
-    http_client: httpx.AsyncClient,
-) -> int:
-    event_bus, event_topic = _build_job_event_bus(identity)
-    try:
-        return await _forward_recovery_deltas(
-            config=config,
-            identity=identity,
-            vocabulary=vocabulary,
-            http_client=http_client,
-            event_bus=event_bus,
-            topic=event_topic,
-            scope_lock=_recovery_delta_lock(config),
-        )
-    finally:
-        await event_bus.close()
-
-
-def _build_job_event_bus(
-    identity: WorkloadIdentity,
-) -> tuple[EventHubsKafkaBus, str]:
-    app_config = load_config_from_env()
-    venue = resolve_execution_venue()
-    return EventHubsKafkaBus(
-        identity=identity if uses_workload_identity(venue) else None,
-        config=EventHubsKafkaBusConfig(
-            bootstrap_servers=app_config.kafka.bootstrap_servers,
-            dlq_suffix=app_config.kafka.topic_dlq_suffix,
-            security_protocol=bus_security_protocol(venue),
-            client_id="fdai-inventory-recovery",
-        ),
-    ), app_config.kafka.topic_events
-
-
-def _workload_identity(*, http_client: httpx.AsyncClient) -> WorkloadIdentity:
-    if uses_developer_identity(resolve_execution_venue()):
-        return AsyncAzureCliWorkloadIdentity.from_env()
-    return ManagedIdentityWorkloadIdentity.from_env(http_client=http_client)
-
-
-async def _forward_recovery_deltas(
-    *,
-    config: InventoryJobConfig,
-    identity: WorkloadIdentity,
-    vocabulary: ResourceTypeRegistry,
-    http_client: httpx.AsyncClient,
-    event_bus: EventBus,
-    topic: str,
-    scope_lock: ResourceLock,
-) -> int:
-    """Forward every configured scope and commit each cursor only at its final fence."""
-    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    published = 0
-    for scope in config.scopes:
-        async with scope_lock.acquire(f"inventory-recovery-delta:{scope}"):
-            activity_fetch = AzureActivityLogFactory(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureActivityLogFactoryConfig(
-                    subscription_scope=scope,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                ),
-            ).build_fetch_fn()
-
-            async def _noop_query(
-                _resource_type: str,
-            ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
-                return (), ()
-
-            delta_inventory = AzureResourceGraphInventory(
-                config=AzureInventoryConfig(resource_types=()),
-                query=_noop_query,
-                delta_fetch=activity_fetch,
-            )
-            published += await forward_inventory_delta(
-                inventory=delta_inventory,
-                state_store=state_store,
-                event_bus=event_bus,
-                topic=topic,
-                scope=scope,
-            )
-    return published
-
-
-def _recovery_delta_lock(config: InventoryJobConfig) -> ResourceLock:
-    return PostgresAdvisoryResourceLock(
-        config=PostgresAdvisoryResourceLockConfig(
-            dsn=config.dsn,
-            lock_timeout_ms=30_000,
-        )
-    )
-
-
-async def run_resource_change_feed(config: InventoryJobConfig) -> int:
-    """Poll the read-only ARG resourcechanges accelerator independently of full-scan due state."""
-    vocabulary = _load_resource_type_registry()
-    async with httpx.AsyncClient() as client:
-        identity = _workload_identity(http_client=client)
-        return await _run_resource_change_feed(
-            config=config,
-            vocabulary=vocabulary,
-            identity=identity,
-            http_client=client,
-        )
-
-
-async def _run_resource_change_feed(
-    *,
-    config: InventoryJobConfig,
-    vocabulary: ResourceTypeRegistry,
-    identity: WorkloadIdentity,
-    http_client: httpx.AsyncClient,
-) -> int:
-    event_bus, event_topic = _build_job_event_bus(identity)
-    try:
-        return await _forward_resource_changes(
-            config=config,
-            identity=identity,
-            vocabulary=vocabulary,
-            http_client=http_client,
-            event_bus=event_bus,
-            topic=event_topic,
-            scope_lock=_recovery_delta_lock(config),
-        )
-    finally:
-        await event_bus.close()
-
-
-async def _forward_resource_changes(
-    *,
-    config: InventoryJobConfig,
-    identity: WorkloadIdentity,
-    vocabulary: ResourceTypeRegistry,
-    http_client: httpx.AsyncClient,
-    event_bus: EventBus,
-    topic: str,
-    scope_lock: ResourceLock,
-) -> int:
-    """Forward one bounded resourcechanges poll per configured scope.
-
-    Each scope keeps its own durable cursor (via `forward_arg_resource_changes`'s
-    StateStore key) and its own advisory lock, mirroring the Activity Log
-    recovery delta's per-scope isolation so a stuck scope never blocks the
-    others."""
-
-    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    published = 0
-    for scope in config.scopes:
-        async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
-            feed = AzureResourceChangeFeed(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureResourceChangeFeedConfig(
-                    subscription_scope=scope,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                    requests_per_second=config.arg_requests_per_second,
-                ),
-            )
-            published += await forward_arg_resource_changes(
-                feed=feed,
-                state_store=state_store,
-                event_bus=event_bus,
-                topic=topic,
-                scope=scope,
-            )
-    return published
 
 
 async def _load_job_config() -> InventoryJobConfig:
