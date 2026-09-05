@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 2a7214731bb8d1e3405b58e68c6ba11d345059fb
-translation_revised: 2026-09-04
+translation_source_sha: 8731b78bfb1714693518beb31cf43153c4c8753a
+translation_revised: 2026-09-05
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -78,6 +78,19 @@ Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표�
 않습니다. 모델 투명성은 완료된 모든 의미 판단, 프레임, 계획 모델 호출의 실측 처리 시간과 사용 가능한
 토큰 사용량을 기록합니다. 전체 턴 시간에는 모델 호출이 아닌 결정론적 작업과 provider 작업도 계속
 포함합니다.
+
+## 합성 대화 및 프롬프트 확인
+
+[적응형 응답](../../../mocks/ui/deck-sources-v2.html)과
+[인시던트 대화](../../../mocks/ui/incident-conversation.html) 시안은 결론, 부족한 근거,
+조사 기록을 에이전트 답변 안에 표시합니다. 조사 완료와 인시던트 복구는 구분하며,
+취소하면 그때까지 표시된 작업만 보존합니다.
+적응형 시안의 모의 LLM 서술 단계에서는
+[`system-prompt.example.md`](../../../mocks/ui/assets/prompts/system-prompt.example.md)를
+파일 행 아래에 펼쳐 보여줍니다. 모달을 띄우거나 입력창을 막지 않으며, 읽기 전용 Markdown
+보기와 복사, 다운로드를 지원합니다. 기록 누락과 읽기 실패는 명시적으로 표시하고,
+파일을 접으면 진행 중인 읽기를 취소합니다. 이 파일은 실제 런타임에서 수집한 프롬프트가
+아니라 공개 합성 예제입니다. 이 시안은 프로덕션의 프롬프트 수집, 권한, 모델 라우팅을 바꾸지 않습니다.
 
 ## 사용자별 선호 설정과 TTFT
 
@@ -218,6 +231,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 합성 대화 및 인라인 프롬프트 확인 | implemented | `mocks/ui/deck-sources-v2.html`; `mocks/ui/incident-conversation.html`; `console/tests/e2e/{adaptive-prompt-mock,deck-adaptive-mock,incident-conversation-mock}.spec.ts`; 집중 Playwright 및 타입 검사 | 시안에만 적용되는 표현입니다. 프롬프트 뷰어는 합성 예제를 읽으며 프로덕션의 수집과 권한 확인은 바꾸지 않습니다. |
 | 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
 | 직접 Key Vault 해석 모델 출처 어댑터 | implemented | `adapters/resolved_models_key_vault.py`; 집중 Operator 테스트 | 비동기 어댑터는 주입된 토큰 공급자와 HTTP 클라이언트를 사용하고 신뢰할 수 없는 origin, redirect, 불일치 secret 신원, 비활성 또는 만료 값, 과도한 크기나 중첩, secret을 포함한 표현을 거부합니다. 시작 조립과 통제된 런타임 근거는 열려 있습니다. |
@@ -238,6 +252,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | 인시던트 및 적응형 답변을 개선하고 완료 후에도 조사 기록을 유지하며, 대화를 막지 않는 인라인 합성 Markdown 프롬프트 보기를 추가했습니다. | `current change`; 위에 나열한 시안 Playwright 파일 세 개의 집중 시나리오, 공용 스타일 검사, Console 타입 검사를 통과했습니다. | 프로덕션 도입에는 별도 검토와 인증 및 권한 범위에 맞는 근거가 필요합니다. 런타임 프롬프트 수집을 구현했다고 주장하지 않습니다. |
 | 2026-09-02 | implemented | T2를 개인화하거나 작업 권한을 부여하지 않으면서 리비전으로 보호된 답변 연속성 및 프롬프트 ablation 설정, 시작 시 일관된 Core 스냅샷, 지역화된 콘솔 control을 추가했습니다. | `current change`, 프롬프트 조립 구현 기록의 집중 Core, Operator 및 콘솔 검사입니다. | 런타임 검증을 주장하기 전에 통제된 shadow 캠페인을 보존합니다. |
 | 2026-08-28 | implemented | Benchmark 기간을 호출자가 작성하지 못하게 하고 PR/카나리/릴리스 환경 불일치를 차단하는 단계 소유자 증적 adapter를 추가했습니다. | `current change`; 집중 Core latency 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 단계 소유자에 증적을 연결하고 통제 근거를 보존해야 합니다. |
 | 2026-08-28 | implemented | Qualification timing 상태를 파생하기 전에 latency 산출물과 완전 추적 집합을 연결했습니다. | `current change`; 집중 연결 검사(`4 passed`); 결합 latency/trace/timing 검사(`23 passed`). | Runtime 생산자를 연결하고 일치하는 통제 근거 집합 하나를 보존해야 합니다. |
@@ -255,6 +270,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 ### 남은 작업
 
+- [x] 위의 집중 Playwright 파일 세 개에서 시안 전용 대화 및 인라인 프롬프트 시나리오를 검증했습니다. 프로덕션 도입은 이번 변경 범위에 포함하지 않습니다.
 - [x] 독립 텍스트 및 비전 후보 탐색, 별도 이동 지연 시간 및 TTFT 창, 범위가 제한된 갱신, 장애 조치 및 사용 불가 동작을 구현하고 focused 테스트를 추가합니다.
 - [x] 검증된 interval, 실패 격리, duplicate-start 억제 및 종료 cleanup을 갖춘 주기적 refresh owner를 binding합니다.
 - [ ] 이미지 턴 라우팅을 완료로 표시하기 전에 서버 소유 conversation-image resolver를 binding합니다.

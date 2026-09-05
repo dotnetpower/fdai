@@ -1,0 +1,40 @@
+.ex-prompt-setting { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.ex-prompt-setting select { min-height: 34px; padding: 6px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); font: inherit; }
+.ex-model-call { max-width: 76ch; margin-block: 12px; color: var(--cs-text); }
+.ex-model-call > summary { min-height: 36px; padding-block: 8px; font-size: var(--cs-type-compact-size); cursor: pointer; }
+.ex-model-label { font-weight: 600; }
+#ex-model-state { margin-left: 10px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.ex-model-call > p { margin: 6px 0 10px; font-size: var(--cs-type-label-size); color: var(--cs-text-soft); }
+.ex-prompt-file { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 100%; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-steel); font: inherit; text-align: left; cursor: pointer; }
+.ex-prompt-file > span { min-width: 0; }
+.ex-prompt-file strong, .ex-prompt-file small { display: block; overflow-wrap: anywhere; }
+.ex-prompt-file strong { font-size: var(--cs-type-compact-size); font-weight: 500; }
+.ex-prompt-file small { margin-top: 2px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.ex-prompt-file svg { flex: 0 0 18px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.3; }
+.ex-prompt-file:disabled { cursor: default; color: var(--cs-text-soft); background: var(--cs-shade); }
+.ex-prompt-file[aria-expanded="true"] { border-radius: var(--cs-radius-sm) var(--cs-radius-sm) 0 0; background: var(--cs-bg); }
+.ex-prompt-chevron { margin-left: auto; }
+.ex-prompt-chevron::before { content: "+"; }
+.ex-prompt-file[aria-expanded="true"] .ex-prompt-chevron::before { content: "-"; }
+.ex-prompt-panel { min-width: 0; margin: 0; border: 1px solid var(--cs-hairline); border-top: 0; border-radius: 0 0 var(--cs-radius-sm) var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); }
+.ex-prompt-panel [hidden] { display: none !important; }
+#ex-prompt-notice { margin: 0; padding: 12px 20px; background: var(--cs-bg); font-size: var(--cs-type-compact-size); }
+.ex-prompt-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 20px; border-block: 1px solid var(--cs-hairline); }
+.ex-prompt-toolbar > span { margin-right: auto; font-size: var(--cs-type-label-size); color: var(--cs-text-soft); }
+.ex-prompt-source { min-width: 0; margin: 0; padding: 20px; overflow: visible; background: var(--cs-card); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--cs-type-compact-size)/1.7 var(--cs-font-mono); tab-size: 2; }
+.ex-prompt-source code { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
+.ex-prompt-loading { padding: 20px; }
+.ex-prompt-loading > div { display: grid; gap: 12px; }
+.ex-prompt-loading i { display: block; height: 12px; background: var(--cs-shade); border-radius: 4px; }
+.ex-prompt-loading i:nth-child(2) { width: 82%; }
+.ex-prompt-loading i:nth-child(3) { width: 65%; }
+.ex-prompt-error { margin: 0; padding: 20px; color: var(--cs-dusty-red); font-size: var(--cs-type-body-size); }
+.ex-prompt-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-height: 32px; padding: 8px 12px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.ex-model-call summary:focus-visible, .ex-prompt-file:focus-visible, .ex-prompt-panel :is(button, a, pre):focus-visible, .ex-prompt-setting select:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+@media (max-width: 680px) {
+  .ex-model-call > summary, .ex-prompt-setting select { min-height: 44px; }
+  #ex-model-state { display: block; margin-left: 16px; }
+  #ex-prompt-notice, .ex-prompt-toolbar, .ex-prompt-source { padding-inline: 12px; }
+  .ex-prompt-panel .cs-control-button { min-height: 44px; }
+  .ex-prompt-toolbar > span { flex-basis: 100%; }
+}

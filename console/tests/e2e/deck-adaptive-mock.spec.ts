@@ -1,6 +1,6 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type FrameLocator, type Page } from "@playwright/test";
 
 const mockUrl = pathToFileURL(fileURLToPath(
   new URL("../../../mocks/ui/deck-sources-v2.html", import.meta.url),
@@ -8,9 +8,200 @@ const mockUrl = pathToFileURL(fileURLToPath(
 
 async function openWorkspace(page: Page) {
   await page.goto(mockUrl);
+  await page.locator("#ex-preview-controls > summary").click();
+  await page.locator("#ex-demo-options > summary").click();
   await page.getByRole("button", { name: "Workspace shell" }).click();
   return page.getByRole("region", { name: "Adaptive Command deck response mock" });
 }
+
+const masterUrl = pathToFileURL(fileURLToPath(new URL("../../../index.html", import.meta.url))).href;
+
+async function openAdaptiveChat(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.install();
+  await page.goto(`${masterUrl}#mocks/ui/deck-sources-v2.html`);
+  const frame = page.frameLocator("#preview-frame");
+  await expect(frame.locator("#ex-workbench")).toHaveAttribute("data-stage", "complete");
+  await frame.locator("#ex-preview-controls > summary").click();
+  return frame;
+}
+
+async function advanceToStage(page: Page, frame: FrameLocator, stage: string) {
+  for (let tick = 0; tick < 80; tick += 1) {
+    if (await frame.locator("#ex-workbench").getAttribute("data-stage") === stage) return;
+    await page.clock.runFor(200);
+  }
+  await expect(frame.locator("#ex-workbench")).toHaveAttribute("data-stage", stage);
+}
+
+test("keeps investigation continuous from pending through verification to the same retained record", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Desktop gates precede responsive inspection.");
+  const frame = await openAdaptiveChat(page);
+  const workspace = frame.locator("#ex-workbench");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await expect(frame.locator(".ex-thread > .is-bragi")).toBeVisible();
+  await expect(frame.locator("#ex-final")).toHaveCSS("opacity", "1");
+  await expect(frame.locator("#ex-pattern-applied")).toBeHidden();
+  await expect(frame.locator(".ex-observed")).not.toHaveAttribute("open", "");
+  await page.screenshot({ path: testInfo.outputPath("adaptive-answer-desktop.png") });
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await expect(workspace).toHaveAttribute("data-stage", "pending");
+  await expect(workspace).toHaveAttribute("data-outcome", "pending");
+  await expect(frame.locator(".ex-initial-skeleton")).toBeVisible();
+  await expect(frame.locator(".ex-answer-preparing")).toHaveAttribute("aria-busy", "true");
+  await expect(frame.locator("#ex-investigation")).toBeHidden();
+  await expect(frame.locator("#ex-final")).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath("adaptive-pending-desktop.png") });
+  await advanceToStage(page, frame, "preparing");
+  await expect(frame.locator(".ex-preparation-details")).not.toHaveAttribute("open", "");
+  await advanceToStage(page, frame, "investigating");
+  await expect(frame.locator(".ex-answer-preparing")).toBeHidden();
+  await expect(frame.locator("#ex-investigation")).toHaveAttribute("open", "");
+  await expect(frame.locator(".ex-step-detail.is-open")).toHaveCount(0);
+  await expect(frame.locator("#ex-promotion")).toContainText("Simulation only");
+  await expect(frame.locator("#ex-run .ex-step.is-complete")).toHaveCount(0);
+  await frame.locator("#ex-run").evaluate((element) => { element.dataset.continuity = "same-record"; });
+  await page.screenshot({ path: testInfo.outputPath("adaptive-investigation-desktop.png") });
+  const firstStep = frame.locator("#ex-run .ex-step").first();
+  await firstStep.locator(".ex-step-toggle").click();
+  await expect(firstStep.locator(".ex-step-toggle")).toHaveAttribute("aria-expanded", "true");
+  await frame.locator("#ex-promotion").click();
+  await page.clock.runFor(600);
+  await expect(frame.locator("#ex-investigation")).not.toHaveAttribute("open", "");
+  await advanceToStage(page, frame, "verifying");
+  await expect(frame.locator("#ex-final")).toBeHidden();
+  await frame.locator("#ex-promotion").click();
+  await expect(frame.locator("#ex-promotion")).toContainText("Verifying");
+  await expect(firstStep.locator(".ex-step-toggle")).toHaveAttribute("aria-expanded", "true");
+  await page.screenshot({ path: testInfo.outputPath("adaptive-verifying-desktop.png") });
+  await advanceToStage(page, frame, "complete");
+  await expect(frame.locator("#ex-investigation")).toBeHidden();
+  await expect(frame.locator("#ex-final")).toHaveCSS("opacity", "1");
+  await expect(frame.locator(".ex-observed #ex-run")).toHaveAttribute("data-continuity", "same-record");
+  await expect(frame.locator(".ex-observed")).toHaveAttribute("open", "");
+  await expect(firstStep.locator(".ex-step-toggle")).toHaveAttribute("aria-expanded", "true");
+  await expect(frame.locator(".ex-observed .ex-step.is-complete")).toHaveCount(6);
+  await expect(frame.locator(".ex-stream-answer")).toContainText("does not modify files or cloud resources");
+  await expect(frame.locator(".ex-stream-answer")).toHaveAttribute("aria-busy", "false");
+  await expect(frame.getByRole("button", { name: "Stop replay" })).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test("cancels old replay generations and separates compact, unverified, and alternate replies", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  const frame = await openAdaptiveChat(page);
+  const workspace = frame.locator("#ex-workbench");
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await frame.getByRole("button", { name: "Stop replay" }).click();
+  await expect(workspace).toHaveAttribute("data-stage", "cancelled");
+  await expect(frame.locator(".ex-stream-answer")).toContainText("No verified conclusion");
+  await page.clock.runFor(20000);
+  await expect(workspace).toHaveAttribute("data-stage", "cancelled");
+  await expect(frame.locator(".ex-step.is-complete")).toHaveCount(0);
+  await frame.locator("#ex-demo-options > summary").click();
+  await frame.getByRole("button", { name: "Show unverified" }).click();
+  await expect(workspace).toHaveAttribute("data-stage", "unverified");
+  await expect(frame.locator("#ex-promotion")).toBeHidden();
+  await expect(frame.locator(".ex-verification-status")).toContainText("Unsupported claim");
+  await expect(frame.locator(".ex-observed-summary")).toContainText("Not verified");
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await expect(workspace).toHaveAttribute("data-outcome", "pending");
+  await advanceToStage(page, frame, "investigating");
+  await page.clock.runFor(900);
+  await frame.getByRole("button", { name: "Stop replay" }).click();
+  const completedBeforeStop = await frame.locator(".ex-step.is-complete").count();
+  expect(completedBeforeStop).toBeGreaterThan(0);
+  expect(completedBeforeStop).toBeLessThan(6);
+  await page.clock.runFor(20000);
+  await expect(workspace).toHaveAttribute("data-stage", "cancelled");
+  await expect(frame.locator(".ex-step.is-complete")).toHaveCount(completedBeforeStop);
+  await expect(frame.locator(".ex-answer-preparing")).toHaveAttribute("aria-busy", "false");
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await advanceToStage(page, frame, "investigating");
+  await frame.getByRole("button", { name: "Compact answer", exact: true }).click();
+  await advanceToStage(page, frame, "compact");
+  const compactAnswer = await frame.locator(".ex-stream-answer").innerText();
+  await page.clock.runFor(20000);
+  await expect(workspace).toHaveAttribute("data-stage", "compact");
+  expect(await frame.locator(".ex-stream-answer").innerText()).toBe(compactAnswer);
+  await expect(frame.locator("#ex-investigation")).toBeHidden();
+  await expect(frame.locator(".ex-stream-answer")).toContainText("No live health check");
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await frame.locator(".ex-pattern-switcher > summary").click();
+  await frame.getByRole("button", { name: "Investigation", exact: true }).click();
+  await expect(workspace).toHaveAttribute("data-stage", "example");
+  await expect(frame.locator("#ex-pattern-applied")).toBeFocused();
+  await expect(frame.locator(".ex-thread > .is-bragi")).toBeHidden();
+  await expect(frame.locator("#ex-pattern-applied .is-bragi")).toBeVisible();
+  await page.clock.runFor(20000);
+  await expect(workspace).toHaveAttribute("data-stage", "example");
+  await frame.getByRole("button", { name: "Show result", exact: true }).click();
+  await expect(frame.locator("#ex-pattern-applied")).toBeHidden();
+  await expect(frame.locator(".ex-thread > .is-bragi")).toBeVisible();
+});
+
+test("fits the same investigation inside constrained and mobile master-shell chat frames", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  const frame = await openAdaptiveChat(page);
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await advanceToStage(page, frame, "investigating");
+  for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.clock.runFor(16);
+    await expect.poll(() => frame.locator("#ex-workbench").evaluate((element) =>
+      element.getBoundingClientRect().bottom <= innerHeight + 1,
+    )).toBe(true);
+    const metrics = await frame.locator("#ex-workbench").evaluate((element) => {
+      const thread = element.querySelector(".ex-thread")!;
+      return {
+        rootOverflow: element.scrollWidth - element.clientWidth,
+        threadOverflow: thread.scrollWidth - thread.clientWidth,
+        documentOverflow: document.documentElement.scrollWidth - innerWidth,
+        height: element.getBoundingClientRect().height,
+        bottom: element.getBoundingClientRect().bottom,
+        viewport: innerHeight,
+      };
+    });
+    expect(metrics.rootOverflow).toBe(0);
+    expect(metrics.threadOverflow).toBe(0);
+    expect(metrics.documentOverflow).toBe(0);
+    expect(metrics.height).toBeGreaterThan(200);
+    expect(metrics.bottom).toBeLessThanOrEqual(metrics.viewport + 1);
+    await frame.locator("#ex-promotion").scrollIntoViewIfNeeded();
+    await expect(frame.locator("#ex-promotion")).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`adaptive-investigation-${viewport.width}x${viewport.height}.png`) });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await frame.getByRole("button", { name: "Show result", exact: true }).click();
+  await expect(frame.locator("#ex-final")).toHaveCSS("opacity", "1");
+});
+
+test("streams only after verification and respects a collapsed investigation at completion", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  const frame = await openAdaptiveChat(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await advanceToStage(page, frame, "investigating");
+  await frame.locator("#ex-run .ex-step-toggle").first().click();
+  await frame.locator("#ex-promotion").click();
+  await expect(frame.locator("#ex-investigation")).not.toHaveAttribute("open", "");
+  await advanceToStage(page, frame, "answering");
+  await expect(frame.locator("#ex-run .ex-step.is-complete")).toHaveCount(6);
+  await expect(frame.locator(".ex-stream-answer")).toHaveAttribute("aria-busy", "true");
+  await expect(frame.locator(".ex-final-reveal")).toBeHidden();
+  await advanceToStage(page, frame, "complete");
+  await expect(frame.locator(".ex-observed")).not.toHaveAttribute("open", "");
+  await expect(frame.locator(".ex-stream-answer")).toHaveAttribute("aria-busy", "false");
+  await expect(frame.locator("#ex-run .ex-step-toggle").first()).toHaveAttribute("aria-expanded", "true");
+  const search = frame.getByRole("searchbox", { name: "Search this conversation" });
+  await search.fill("Database pressure");
+  await expect(frame.locator(".ex-window-search-count")).toHaveText("0/0");
+  await search.fill("Synthetic replay only");
+  await expect(frame.locator(".ex-observed")).toHaveAttribute("open", "");
+  await expect(frame.locator(".ex-search-match")).toBeInViewport();
+});
 
 test("keeps the adaptive mock shell stateful and production-shaped", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "One browser covers the ordered viewport sequence.");
@@ -86,9 +277,10 @@ test("keeps the adaptive mock shell stateful and production-shaped", async ({ pa
   await expect(sourceReadiness.locator(".ex-source-status")).toHaveCount(3);
 
   const transcriptSearch = workspace.getByRole("searchbox", { name: "Search this conversation" });
+  await expect(workspace).toHaveAttribute("data-stage", "compact");
   await page.keyboard.press("Control+K");
   await expect(transcriptSearch).toBeFocused();
-  await transcriptSearch.fill("validator");
+  await transcriptSearch.fill("probe");
   await expect(workspace.locator(".ex-search-match")).toHaveCount(1);
   const searchCount = workspace.locator(".ex-window-search-count");
   await expect(searchCount).toHaveText(/^1\/\d+$/);

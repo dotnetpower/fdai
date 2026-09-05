@@ -4,9 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Command deck - Adaptive response - FDAI Console</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <link rel="stylesheet" href="assets/conversation-response-patterns.css?v=response-patterns-v1" />
   <link rel="stylesheet" href="../../ui/calm-slate-primitives.css?v=deck-shared-v2" />
@@ -508,29 +505,60 @@
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
   </style>
+  <link rel="stylesheet" href="assets/adaptive-investigation.css?v=focused-chat-v2" />
+  <link rel="stylesheet" href="assets/adaptive-prompt-viewer.css?v=inline-v2" />
+  <script src="assets/adaptive-prompt-viewer.js?v=inline-v2" defer></script>
 </head>
-<body>
+<body data-preserve-page-title>
   <main class="cs-container cs-page ex-page">
     <header class="ex-page-header">
+      <details class="ex-preview-controls" id="ex-preview-controls">
+        <summary>Preview controls <span>Synthetic example · No live execution</span></summary>
+        <div class="ex-preview-content">
       <div>
-        <div class="cs-eyebrow">Command deck &middot; unified response</div>
-        <h1>Adaptive answer lifecycle</h1>
-        <p>Every answer starts compact, expands only when observed work requires it, and preserves one inspectable run record.</p>
+        <div class="cs-eyebrow">Design preview &middot; synthetic replay</div>
+        <h1>Adaptive response</h1>
+        <p>One chat reply, from evidence to answer. No commands, model calls, or resource changes run here.</p>
       </div>
       <div class="ex-controls" aria-label="Demo controls">
-        <button class="ex-control" id="ex-compact" type="button">Compact answer</button>
         <button class="ex-control" id="ex-replay" type="button">Replay investigation</button>
+        <button class="ex-control" id="ex-stop" type="button" disabled>Stop replay</button>
         <button class="ex-control" id="ex-finish" type="button">Show result</button>
-        <button class="ex-control" id="ex-unverified" type="button">Show unverified</button>
-        <button class="ex-control" id="ex-sources" type="button" aria-pressed="false">Source state</button>
-        <button class="ex-control" id="ex-workspace" type="button" aria-pressed="false">Workspace shell</button>
+        <details class="ex-demo-options" id="ex-demo-options">
+          <summary class="ex-control">More preview options</summary>
+          <div>
+            <button class="ex-control" id="ex-compact" type="button">Compact answer</button>
+            <button class="ex-control" id="ex-unverified" type="button">Show unverified</button>
+            <button class="ex-control" id="ex-sources" type="button" aria-pressed="false">Source state</button>
+            <button class="ex-control" id="ex-workspace" type="button" aria-pressed="false">Workspace shell</button>
+            <label class="ex-prompt-setting">Prompt sample
+              <select id="ex-prompt-availability"><option value="available">Available</option><option value="not-captured">Not captured</option></select>
+            </label>
+          </div>
+        </details>
       </div>
+      <details class="ex-pattern-switcher">
+        <summary class="ex-pattern-switcher-head"><strong id="ex-pattern-switcher-title">Other response examples</strong><span>Preview one reply at a time</span></summary>
+        <div class="ex-pattern-tabs" role="group" aria-label="Choose an adaptive response example">
+          <button type="button" data-response-pattern="investigation" aria-pressed="false">Investigation</button>
+          <button type="button" data-response-pattern="clarification" aria-pressed="false">Target selection</button>
+          <button type="button" data-response-pattern="evidence" aria-pressed="false">Evidence posture</button>
+          <button type="button" data-response-pattern="proposal" aria-pressed="false">Proposal</button>
+          <button type="button" data-response-pattern="verification" aria-pressed="false">Verification</button>
+          <button type="button" data-response-pattern="cancellation" aria-pressed="false">Cancellation</button>
+          <button type="button" data-response-pattern="memory" aria-pressed="false">Memory</button>
+          <button type="button" data-response-pattern="brief" aria-pressed="false">Structured brief</button>
+          <button type="button" data-response-pattern="markdown" aria-pressed="false">Markdown document</button>
+        </div>
+      </details>
+        </div>
+      </details>
     </header>
 
     <section class="ex-workbench cs-deck-surface cs-deck-workspace-shell" id="ex-workbench" data-mode="retrieval" data-shell="specimen" data-layout="workspace" data-conversations="closed" data-digest="closed" aria-label="Adaptive Command deck response mock">
       <div class="ex-windowbar cs-deck-workspace-header">
         <span class="ex-window-dot"></span><span class="ex-window-dot"></span><span class="ex-window-dot"></span>
-        <span class="ex-window-title"><span class="ex-window-glyph" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 2.75h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H7L3.5 14v-2.25H3a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 3 2.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span><span>Command deck</span><span aria-hidden="true">&middot;</span><span class="ex-window-route">Dashboard</span><span class="ex-backend-status">deterministic</span></span>
+        <span class="ex-window-title"><span class="ex-window-glyph" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 2.75h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H7L3.5 14v-2.25H3a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 3 2.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span><span class="ex-conversation-title">API health-check investigation</span><span class="ex-window-route">Dashboard</span><span class="ex-backend-status">deterministic</span></span>
         <span class="ex-window-context" id="ex-window-context" hidden>compact retrieval / read-only</span>
         <div class="ex-window-search" role="search">
           <span aria-hidden="true">&#8981;</span>
@@ -579,20 +607,6 @@
         <button type="button" class="ex-digest-toggle" aria-pressed="false">What I see <span>17</span></button>
         <button type="button" class="ex-jump-latest">&#8595; Jump to latest</button>
       </div>
-      <section class="ex-pattern-switcher" aria-labelledby="ex-pattern-switcher-title">
-        <div class="ex-pattern-switcher-head"><strong id="ex-pattern-switcher-title">Response example</strong><span>Simulates a server-selected typed presentation profile</span></div>
-        <div class="ex-pattern-tabs" role="group" aria-label="Choose an adaptive response example">
-          <button type="button" data-response-pattern="investigation" aria-pressed="false">Investigation</button>
-          <button type="button" data-response-pattern="clarification" aria-pressed="false">Target selection</button>
-          <button type="button" data-response-pattern="evidence" aria-pressed="false">Evidence posture</button>
-          <button type="button" data-response-pattern="proposal" aria-pressed="false">Proposal</button>
-          <button type="button" data-response-pattern="verification" aria-pressed="false">Verification</button>
-          <button type="button" data-response-pattern="cancellation" aria-pressed="false">Cancellation</button>
-          <button type="button" data-response-pattern="memory" aria-pressed="false">Memory</button>
-          <button type="button" data-response-pattern="brief" aria-pressed="true">Structured brief</button>
-          <button type="button" data-response-pattern="markdown" aria-pressed="false">Markdown document</button>
-        </div>
-      </section>
       <div class="ex-thread">
         <article class="ex-turn is-user cs-deck-turn cs-deck-user-turn">
           <div class="ex-turn-body">
@@ -603,8 +617,10 @@
         <article class="ex-turn is-bragi cs-deck-turn cs-deck-agent-turn">
           <div class="ex-turn-body">
             <header class="ex-agent-head cs-deck-turn-head"><span class="ex-agent-name cs-deck-agent-name"><span class="ex-agent-icon cs-deck-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source cs-deck-agent-source" id="ex-agent-source">preparing / read-only sources</span></header>
-            <div class="ex-answer-preparing cs-grounding-panel" role="status" aria-live="polite">
+            <div class="ex-answer-preparing cs-grounding-panel" role="status" aria-live="polite" aria-busy="true">
               <div class="ex-answer-preparing-head cs-grounding-head"><span class="ex-answer-preparing-spinner" aria-hidden="true"></span><span>Preparing answer</span><span class="ex-answer-preparing-copy">Grounding the current view</span><span class="ex-preparation-timer">0 ms</span><span class="ex-answer-preparing-mode">Compact</span></div>
+              <div class="ex-initial-skeleton" aria-hidden="true"><span></span><span></span></div>
+              <details class="ex-preparation-details"><summary>Source preparation details</summary>
               <div class="ex-preparation-live">
                 <ol class="ex-preparation-stages" aria-label="Answer preparation stages"></ol>
                 <div class="ex-preparation-sources" hidden>
@@ -612,31 +628,64 @@
                   <div class="ex-preparation-source-slot cs-grounding-source-window"><ul class="ex-preparation-source-strip"></ul></div>
                 </div>
               </div>
+              </details>
               <div class="ex-answer-sources" aria-label="Sources being read">
                 <span class="ex-answer-source">Screen context</span>
                 <span class="ex-answer-source">Azure state</span>
                 <span class="ex-answer-source">Workspace evidence</span>
               </div>
             </div>
-            <div class="ex-promotion cs-work-summary" id="ex-promotion" hidden>
-              <span class="ex-promotion-mark cs-work-summary-mark" aria-hidden="true">&#10003;</span>
+            <details class="ex-investigation" id="ex-investigation" hidden>
+            <summary class="ex-promotion cs-work-summary" id="ex-promotion">
+              <span class="ex-promotion-mark cs-work-summary-mark" aria-hidden="true">&#8943;</span>
               <span class="ex-promotion-copy cs-work-summary-copy"><strong class="ex-promotion-title cs-work-summary-title">Expanded automatically</strong><span class="ex-promotion-meta cs-work-summary-meta">Sequential observed work requires verification</span></span>
-              <span class="ex-promotion-safety cs-work-summary-safety">Read-only</span>
-              <span class="ex-promotion-badge cs-work-summary-badge">Completed</span>
-            </div>
-            <p class="ex-answer-lead" aria-live="polite" aria-busy="false">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
-            <div class="ex-run" id="ex-run" aria-live="polite"></div>
+              <span class="ex-promotion-safety cs-work-summary-safety">Simulation only</span>
+              <span class="ex-promotion-badge cs-work-summary-badge">In progress</span>
+            </summary>
+            <p class="ex-answer-lead">Reading the resource and validator evidence in this fixture.</p>
+            <div class="ex-run" id="ex-run"></div>
+            <details class="ex-plan"><summary>Investigation plan</summary><ol id="ex-plan-steps"></ol></details>
+            </details>
+            <p class="ex-live-status cs-sr-only" id="ex-live-status" role="status" aria-live="polite"></p>
+            <details class="ex-model-call" id="ex-model-call" hidden>
+              <summary><span class="ex-model-label">LLM narration</span><span id="ex-model-state">Simulated call</span></summary>
+              <p>Example narrator · System message · <span id="ex-prompt-capture-state">Sample available</span></p>
+              <button type="button" class="ex-prompt-file" id="ex-open-prompt" aria-expanded="false" aria-controls="ex-prompt-panel">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2h6l4 4v12H5zM11 2v5h4" /></svg>
+                <span><strong id="ex-prompt-title">system-prompt.example.md</strong><small>Read-only Markdown example</small></span>
+                <span class="ex-prompt-chevron" aria-hidden="true"></span>
+              </button>
+              <section class="ex-prompt-panel" id="ex-prompt-panel" aria-labelledby="ex-prompt-title" aria-describedby="ex-prompt-notice" hidden>
+                <p id="ex-prompt-notice">Synthetic example only. This is not a captured runtime prompt and contains no live instructions or customer data.</p>
+                <div class="ex-prompt-toolbar">
+                  <span id="ex-prompt-file-meta">Markdown</span>
+                  <button class="cs-control-button" id="ex-copy-prompt" type="button" disabled>Copy Markdown</button>
+                  <a class="cs-control-button" id="ex-download-prompt" href="assets/prompts/system-prompt.example.md" download="system-prompt.example.md" hidden>Download .md</a>
+                </div>
+                <div class="ex-prompt-loading" id="ex-prompt-loading" role="status" aria-busy="true" hidden>
+                  <span class="cs-sr-only">Loading example prompt</span>
+                  <div aria-hidden="true"><i></i><i></i><i></i></div>
+                </div>
+                <pre class="ex-prompt-source" id="ex-prompt-source" tabindex="0" aria-label="System prompt Markdown source" hidden><code></code></pre>
+                <p class="ex-prompt-error" id="ex-prompt-error" role="alert" hidden></p>
+                <footer class="ex-prompt-footer">
+                  <span id="ex-prompt-feedback" role="status" aria-live="polite"></span>
+                  <button class="cs-control-button is-quiet" id="ex-collapse-prompt" type="button">Collapse source</button>
+                </footer>
+              </section>
+              <p class="ex-prompt-missing" id="ex-prompt-missing" hidden>No prompt was captured for this example call. Its contents are unavailable.</p>
+            </details>
             <div class="ex-final" id="ex-final">
               <div class="ex-final-copy cs-deck-answer">
               <div class="ex-stream-answer" aria-live="polite" aria-busy="false">
-                <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
-                <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
+                <p>The validator rejects a successful <code>204</code> response because it only accepts <code>200</code>. The sample records point to the validator, not a confirmed Azure outage.</p>
+                <p>A simulated correction passes four fixture checks. Applying a real change requires separate authorization and effect verification; this preview does not modify files or cloud resources.</p>
               </div>
               <div class="ex-final-reveal">
               <div class="ex-result-line cs-deck-action-row">
-                <span class="ex-result-chip cs-deck-tool"><span class="ex-result-dot"></span><strong>5</strong> commands inspected</span>
-                <span class="ex-result-chip cs-deck-tool"><span class="ex-result-dot"></span><strong>1</strong> local file changed</span>
-                <span class="ex-result-chip cs-deck-tool"><span class="ex-result-dot"></span><strong>4/4</strong> checks passed</span>
+                <span class="ex-result-chip cs-deck-tool"><strong>6</strong> simulated activities</span>
+                <span class="ex-result-chip cs-deck-tool"><strong>4/4</strong> fixture checks</span>
+                <span class="ex-result-chip cs-deck-tool">No live execution</span>
               </div>
               <details class="ex-observed cs-run-record">
                 <summary class="cs-run-record-summary">
@@ -806,7 +855,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
             <div class="ex-turn-foot cs-deck-turn-foot"><time class="ex-turn-time cs-deck-turn-time">10:43</time></div>
           </div>
         </article>
-        <section class="ex-pattern-applied" id="ex-pattern-applied" aria-labelledby="ex-pattern-applied-label">
+        <section class="ex-pattern-applied" id="ex-pattern-applied" aria-labelledby="ex-pattern-applied-label" tabindex="-1" hidden>
           <div class="ex-pattern-applied-label" id="ex-pattern-applied-label">Applied response example</div>
           <article class="ex-turn is-user cs-deck-turn cs-deck-user-turn">
             <div class="ex-turn-body">
@@ -835,7 +884,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
                   <footer class="crp-brief-foot"><span>Evidence 6/6 verified</span><span>2 limitations preserved</span><span>No managed-resource change</span><button class="crp-button" type="button">Show sources</button></footer>
                 </div>
               </div>
-              <div class="ex-pattern-foot">Presentation validated against typed state and evidence references</div>
+              <div class="ex-pattern-foot">Synthetic presentation example; not a live verification receipt.</div>
               <div class="ex-turn-foot cs-deck-turn-foot"><time class="ex-turn-time cs-deck-turn-time">10:47</time></div>
             </div>
           </article>
@@ -854,7 +903,6 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       </footer>
     </section>
   </main>
-
   <script>
     (function () {
       "use strict";
@@ -883,7 +931,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       ];
       var PHASES = [
         {
-          update: "I am checking the live resource state and locating the validator with its focused tests first.",
+          update: "I am comparing the recorded API response with the validator's expected response.",
           title: "Exploring deployed and local state", completeTitle: "Exploration completed", elapsed: "2 calls - 2.5s",
           activities: [
             { icon: "S", title: "Searched the workspace", note: "Found the probe validator and its focused tests", duration: "0.8s", kind: "Search", safety: "read-only", command: "rg -n \"health|probe|status_code\" scripts/ops tests/ops", output: ["scripts/ops/check_probe.py:41: if response.status_code != 200:", "tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():", "2 files matched"] },
@@ -891,7 +939,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           ]
         },
         {
-          update: "Azure reports the API as running. I am reproducing the local failure now, then I will read the exact condition that rejected the response.",
+          update: "The sample response is HTTP 204. Next, I am checking the condition that marks it as a failure.",
           title: "Tracing the false failure", completeTitle: "Failure isolated", elapsed: "2 calls - 1.8s",
           activities: [
             { icon: "PY", title: "Ran the validator in dry-run mode", note: "Reproduced the false failure on HTTP 204", duration: "1.2s", kind: "Python", safety: "dry-run", command: "python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["GET /healthz -> 204 No Content", "validator: unhealthy (expected 200)", "Exit code 1"], warning: true },
@@ -899,8 +947,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           ]
         },
         {
-          update: "The endpoint returns a valid 204, but the validator accepts only 200. I am changing that one condition and rerunning the focused path.",
-          title: "Applying and verifying the fix", completeTitle: "Fix verified", elapsed: "2 calls - 4.7s",
+          update: "The validator accepts only HTTP 200. I am checking the proposed correction against the recorded test cases.",
+          title: "Verifying the simulated correction", completeTitle: "Fixture checks complete", elapsed: "2 activities - 4.7s",
           activities: [
             { icon: "+-", title: "Updated the probe validator", note: "Accepted any 2xx response without changing the command contract", duration: "0.6s", kind: "Edit", safety: "local file", command: "scripts/ops/check_probe.py", output: ["- if response.status_code != 200:", "+ if not 200 <= response.status_code < 300:", "1 file changed, 1 insertion, 1 deletion"] },
             { icon: "T", title: "Ran focused checks", note: "Validator tests and a dry-run verification passed", duration: "4.1s", kind: "Test", safety: "local execution", command: "pytest -q tests/ops/test_check_probe.py && python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["tests/ops/test_check_probe.py ....                              [100%]", "4 passed in 0.31s", "validator: healthy (204)", "Exit code 0"], success: true }
@@ -909,6 +957,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       ];
       var runHost = document.getElementById("ex-run");
       var workbench = document.getElementById("ex-workbench");
+      var investigation = document.getElementById("ex-investigation");
+      var stopReplay = document.getElementById("ex-stop");
+      var liveStatus = document.getElementById("ex-live-status");
+      var patternApplied = document.getElementById("ex-pattern-applied");
+      var conversationTitle = workbench.querySelector(".ex-conversation-title");
       var workspaceBody = workbench.querySelector(".ex-workspace-body");
       var conversationsPanel = workbench.querySelector(".ex-conversations");
       var conversationsScrim = workbench.querySelector(".ex-conversations-scrim");
@@ -946,8 +999,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var observedDuration = observed.querySelector(".ex-observed-duration");
       var observedBody = observed.querySelector(".ex-observed-body");
       var finalSource = document.getElementById("ex-agent-source");
-      var investigationSourceText = "investigation / probe-diagnostics";
-      var finalSourceText = "llm:narrator-gpt-4-1-mini · 1090ms · 1.2k tok";
+      var investigationSourceText = "Synthetic investigation / no live execution";
+      var finalSourceText = "Synthetic replay / no live execution";
       var expandedQuestion = operatorMessage.textContent;
       var expandedResultHtml = resultLine.innerHTML;
       var expandedObservedTitle = observedTitle.textContent;
@@ -955,8 +1008,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var expandedObservedDuration = observedDuration.textContent;
       var expandedObservedBodyHtml = observedBody.innerHTML;
       var compactAnswer = [
-        "The example API is running and its configured health endpoint currently returns HTTP 204, which is a successful no-content response.",
-        "This answer used the current screen, one read-only Azure state query, and the probe record. No sequential investigation or change was required."
+        "The sample probe record reports HTTP 204, a successful no-content response.",
+        "The three fixture sources support this bounded answer. No live health check or change was performed."
       ];
       var unverifiedPhases = [
         { name: "Input", state: "completed", label: "Completed", detail: "The operator request was recorded." },
@@ -1051,10 +1104,28 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var sourceReadinessState = "hidden";
 
       function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
+      function setStage(stage, label) {
+        workbench.dataset.stage = stage;
+        liveStatus.textContent = label;
+        stopReplay.disabled = ["pending", "preparing", "investigating", "verifying", "answering"].indexOf(stage) === -1;
+      }
+      function selectLifecycle() {
+        patternApplied.hidden = true;
+        Array.prototype.forEach.call(transcript.querySelectorAll(":scope > article"), function (turn) { turn.hidden = false; });
+        Array.prototype.forEach.call(document.querySelectorAll("[data-response-pattern]"), function (button) { button.setAttribute("aria-pressed", "false"); });
+      }
       function selectResponsePattern(key, scroll) {
         var pattern = RESPONSE_PATTERNS[key];
-        if (!pattern) return;
-        Array.prototype.forEach.call(workbench.querySelectorAll("[data-response-pattern]"), function (button) {
+        if (!pattern) { console.error("Unknown response example:", key); return; }
+        runToken += 1;
+        clearWaits();
+        setStage("example", "Synthetic response example selected");
+        answerPreparing.classList.remove("is-active", "is-settled");
+        answerPreparing.setAttribute("aria-busy", "false");
+        streamAnswer.setAttribute("aria-busy", "false");
+        patternApplied.hidden = false;
+        Array.prototype.forEach.call(transcript.querySelectorAll(":scope > article"), function (turn) { turn.hidden = true; });
+        Array.prototype.forEach.call(document.querySelectorAll("[data-response-pattern]"), function (button) {
           button.setAttribute("aria-pressed", String(button.dataset.responsePattern === key));
         });
         document.getElementById("ex-pattern-prompt").textContent = pattern.prompt;
@@ -1063,10 +1134,28 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         document.getElementById("ex-pattern-evidence").textContent = "evidence: " + pattern.evidence;
         document.getElementById("ex-pattern-profile").textContent = "profile: " + pattern.profile;
         document.getElementById("ex-pattern-body").innerHTML = pattern.body;
-        if (scroll) document.getElementById("ex-pattern-applied").scrollIntoView({ block: "start", behavior: "smooth" });
+        conversationTitle.textContent = pattern.prompt;
+        conversationTitle.title = pattern.prompt;
+        if (scroll) {
+          document.querySelector(".ex-pattern-switcher").open = false;
+          patternApplied.focus({ preventScroll: true });
+          patternApplied.scrollIntoView({ block: "start" });
+        }
       }
-      function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
-      function clearWaits() { waits.forEach(clearTimeout); waits = []; }
+      function wait(ms, token) {
+        return new Promise(function (resolve) {
+          var pending = { resolve: resolve, timer: null };
+          pending.timer = setTimeout(function () {
+            waits = waits.filter(function (entry) { return entry !== pending; });
+            resolve(token === runToken);
+          }, ms);
+          waits.push(pending);
+        });
+      }
+      function clearWaits() {
+        waits.forEach(function (pending) { clearTimeout(pending.timer); pending.resolve(false); });
+        waits = [];
+      }
       function resetPreparation(totalSources) {
         preparationStages.innerHTML = "";
         preparationSources.hidden = true;
@@ -1096,6 +1185,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         var elapsed = 0;
         var shown = 0;
         resetPreparation(sourceIndexes.length);
+        if (!await wait(300, token)) return false;
+        setStage("preparing", "Reading synthetic source records");
         for (var stageIndex = 0; stageIndex < stages.length; stageIndex += 1) {
           if (token !== runToken) return false;
           var stage = stages[stageIndex];
@@ -1111,7 +1202,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           preparationCopy.textContent = stage.label;
           elapsed += stage.ms;
           preparationTimer.textContent = elapsed + " ms";
-          if (!await wait(120, token)) return false;
+          if (!await wait(100, token)) return false;
           for (var sourceOffset = 0; sourceOffset < stage.sources.length; sourceOffset += 1) {
             shown += 1;
             appendPreparationSource(stage.sources[sourceOffset], shown, sourceIndexes.length);
@@ -1124,26 +1215,27 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         return true;
       }
       function settlePreparation(sourceCount, mode) {
-        answerPreparing.classList.remove("is-active");
-        answerPreparing.classList.add("is-settled");
-        preparationTitle.textContent = "Answer preparation complete";
-        preparationCopy.textContent = sourceCount + " read-only sources grounded";
+        answerPreparing.classList.remove("is-active", "is-settled");
+        answerPreparing.setAttribute("aria-busy", "false");
+        preparationTitle.textContent = "Source preparation complete";
+        preparationCopy.textContent = sourceCount + " fixture sources collected";
         preparationMode.textContent = mode;
       }
       function setMode(mode, context, source) {
         workbench.dataset.mode = mode;
         windowContext.textContent = context;
         finalSource.textContent = source;
-        promotion.hidden = mode === "retrieval" || mode === "compact";
+        investigation.hidden = mode !== "investigation";
+        promotion.hidden = false;
         if (mode === "complete") {
           promotion.classList.remove("is-investigation");
-          promotion.querySelector(".ex-promotion-title").textContent = "Expanded path completed";
-          promotion.querySelector(".ex-promotion-meta").textContent = "3 phases, commands, and verification observed";
-          promotion.querySelector(".ex-promotion-badge").textContent = "Completed";
+          promotion.querySelector(".ex-promotion-title").textContent = "Investigation record";
+          promotion.querySelector(".ex-promotion-meta").textContent = "Synthetic replay";
+          promotion.querySelector(".ex-promotion-badge").textContent = "Finished";
         } else if (mode === "investigation") {
           promotion.classList.add("is-investigation");
-          promotion.querySelector(".ex-promotion-title").textContent = "Expanded automatically";
-          promotion.querySelector(".ex-promotion-meta").textContent = "Sequential observed work requires verification";
+          promotion.querySelector(".ex-promotion-title").textContent = "Investigating the probe mismatch";
+          promotion.querySelector(".ex-promotion-meta").textContent = "Details stay available";
           promotion.querySelector(".ex-promotion-badge").textContent = "In progress";
         }
       }
@@ -1156,6 +1248,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         streamAnswer.setAttribute("aria-busy", "false");
       }
       function restoreExpandedPresentation() {
+        investigation.insertBefore(runHost, investigation.querySelector(".ex-plan"));
+        conversationTitle.textContent = "API health-check investigation";
+        conversationTitle.title = "API health-check investigation";
         operatorMessage.textContent = expandedQuestion;
         finalParagraphs.forEach(function (paragraph) { paragraph.hidden = false; });
         resultLine.innerHTML = expandedResultHtml;
@@ -1171,19 +1266,22 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         finalAnswer.classList.remove("is-streaming");
         workbench.dataset.outcome = "verified";
         setMode("complete", "complete / run record available", finalSourceText);
+        setStage("complete", "Fixture investigation complete. No live change or recovery is claimed.");
         streamAnswer.setAttribute("aria-busy", "false");
         finalReveal.hidden = false;
         finalReveal.classList.add("is-visible");
+        preserveRunRecord("Investigation record", "6 simulated activities / 3 phases", "Fixture 9.0 s");
       }
       function completeCompactAnswer() {
         finalParagraphs.forEach(function (paragraph, index) { paragraph.textContent = compactAnswer[index]; });
         finalAnswer.classList.add("is-visible");
         finalAnswer.classList.remove("is-streaming");
         workbench.dataset.outcome = "verified";
-        setMode("compact", "complete / compact answer", "grounded / 3 read-only sources");
+        setMode("compact", "complete / compact answer", "Synthetic answer / 3 fixture sources");
+        setStage("compact", "Compact fixture answer ready");
         resultLine.innerHTML =
           '<span class="ex-result-chip"><span class="ex-result-dot"></span><strong>3</strong> sources</span>' +
-          '<span class="ex-result-chip"><span class="ex-result-dot"></span><strong>1</strong> live read</span>' +
+          '<span class="ex-result-chip"><strong>1</strong> sample query</span>' +
           '<span class="ex-result-chip"><span class="ex-result-dot"></span><strong>0</strong> changes</span>';
         observedTitle.textContent = "Grounding record";
         observedSummary.innerHTML = '3 observed events / sources 3 / <strong>verified</strong>';
@@ -1221,11 +1319,13 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         runToken += 1;
         clearWaits();
         answerPreparing.classList.remove("is-active", "is-settled");
+        answerPreparing.setAttribute("aria-busy", "false");
         workbench.dataset.outcome = "unverified";
         setMode("complete", "complete / verification incomplete", "investigation / read-only evidence");
+        setStage("unverified", "Verification incomplete. No supported conclusion.");
         promotion.querySelector(".ex-promotion-title").textContent = "Observed work completed";
         promotion.querySelector(".ex-promotion-meta").textContent = "2 observed events · 0 ms";
-        promotion.querySelector(".ex-promotion-badge").textContent = "Completed";
+        promotion.querySelector(".ex-promotion-badge").textContent = "Not verified";
         finalParagraphs[0].textContent = "This request cannot be answered with verified capabilities.";
         finalParagraphs[0].hidden = false;
         finalParagraphs[1].hidden = true;
@@ -1233,10 +1333,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         finalAnswer.classList.remove("is-streaming");
         resultLine.innerHTML =
           '<span class="ex-verification-status" role="status" aria-label="One or more claims are not supported by evidence"><span class="ex-verification-status-mark" aria-hidden="true">!</span>Unsupported claim</span>' +
-          '<button type="button" class="cs-deck-tool cs-deck-tool-icon" aria-label="Copy reply">&#9633;</button>' +
-          '<button type="button" class="cs-deck-tool cs-deck-tool-icon" aria-label="Regenerate">&#8635;</button>' +
-          '<button type="button" class="cs-deck-tool">Review answer quality</button>' +
-          '<button type="button" class="cs-deck-pill" aria-expanded="false"><span aria-hidden="true">!</span><strong>5</strong> sources <span>show sources</span></button>';
+          '<button type="button" class="cs-deck-tool" data-show-record>Review answer quality</button>' +
+          '<span class="ex-result-chip">2 evidence attempts / no live execution</span>';
         observedTitle.textContent = "Observed process";
         observedSummary.innerHTML = 'Model trace off / evidence 2/2 / <strong>verification Not verified</strong>';
         observedDuration.textContent = "7.0s";
@@ -1255,8 +1353,12 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
       async function streamNodeText(node, text, token, delay) {
         node.textContent = "";
-        node.setAttribute("aria-live", "polite");
         node.setAttribute("aria-busy", "true");
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          node.textContent = text;
+          node.setAttribute("aria-busy", "false");
+          return token === runToken;
+        }
         var caret = create("span", "ex-stream-caret");
         caret.setAttribute("aria-hidden", "true");
         node.appendChild(caret);
@@ -1264,6 +1366,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         for (var index = 0; index < chunks.length; index += 1) {
           node.insertBefore(document.createTextNode(chunks[index]), caret);
           if (!await wait(delay, token)) {
+            caret.remove();
             node.setAttribute("aria-busy", "false");
             return false;
           }
@@ -1273,8 +1376,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         return true;
       }
       async function streamFinalAnswer(token) {
+        setStage("answering", "Presenting the fixture-supported answer");
+        promotion.querySelector(".ex-promotion-title").textContent = "Preparing the answer";
+        promotion.querySelector(".ex-promotion-badge").textContent = "Answering";
         finalAnswer.classList.add("is-visible", "is-streaming");
-        finalSource.textContent = "llm:narrator-gpt-4-1-mini · streaming";
+        finalSource.textContent = "Synthetic answer / no model call";
         streamAnswer.setAttribute("aria-busy", "true");
         for (var paragraphIndex = 0; paragraphIndex < finalParagraphs.length; paragraphIndex += 1) {
           var paragraph = finalParagraphs[paragraphIndex];
@@ -1309,10 +1415,10 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           icon.appendChild(create("span", "", activity.icon));
           toggle.appendChild(icon);
           var copy = create("span", "ex-step-copy");
-          copy.appendChild(create("span", "ex-step-title", activity.title));
-          copy.appendChild(create("span", "ex-step-note", activity.note));
+          copy.appendChild(create("span", "ex-step-title", activity.kind + " fixture"));
+          copy.appendChild(create("span", "ex-step-note", "Queued; no result yet"));
           toggle.appendChild(copy);
-          toggle.appendChild(create("span", "ex-step-duration", activity.duration));
+          toggle.appendChild(create("span", "ex-step-duration", "Queued"));
           toggle.appendChild(create("span", "ex-chevron"));
           var detail = create("div", "ex-step-detail");
           detail.id = "ex-detail-" + phaseIndex + "-" + index;
@@ -1335,7 +1441,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           terminal.appendChild(create("span", "ex-prompt", "$ " + activity.command + "\n"));
           detailInner.appendChild(terminal);
           detail.appendChild(detailInner);
-          toggle.addEventListener("click", function () { setExpanded(step, toggle.getAttribute("aria-expanded") !== "true"); });
+          toggle.addEventListener("click", function () {
+            var expanded = toggle.getAttribute("aria-expanded") !== "true";
+            step.dataset.userExpanded = String(expanded);
+            setExpanded(step, expanded);
+          });
           step.appendChild(toggle);
           step.appendChild(detail);
           stepsHost.appendChild(step);
@@ -1344,27 +1454,24 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
 
       function renderRun() {
         runHost.innerHTML = "";
+        var plan = document.getElementById("ex-plan-steps");
+        plan.replaceChildren();
         PHASES.forEach(function (phase, phaseIndex) {
+          plan.appendChild(create("li", "", phase.title));
           var phaseNode = create("section", "ex-phase");
           phaseNode.dataset.phase = String(phaseIndex);
-          var progress = create("div", "ex-progress-note");
-          progress.appendChild(create("span", "ex-progress-mark", "0" + (phaseIndex + 1)));
-          var progressBody = create("div", "ex-progress-body");
-          progressBody.appendChild(create("span", "ex-progress-label", phaseIndex === 0 ? "Starting work" : "Progress update"));
-          var progressCopy = create("p", "ex-progress-copy", "");
-          progressCopy.setAttribute("aria-live", "polite");
-          progressCopy.setAttribute("aria-busy", "false");
-          progressBody.appendChild(progressCopy);
-          progress.appendChild(progressBody);
-          phaseNode.appendChild(progress);
-          var session = create("section", "ex-session is-running");
-          var header = create("header", "ex-session-head");
+          phaseNode.dataset.state = "queued";
+          var session = create("details", "ex-session is-queued");
+          var header = create("summary", "ex-session-head");
+          header.addEventListener("click", function () {
+            session.dataset.userExpanded = String(!session.open);
+          });
           header.appendChild(create("span", "ex-spinner"));
           var state = create("span", "ex-session-state");
           state.appendChild(create("span", "ex-session-title", phase.title));
-          state.appendChild(create("span", "ex-session-meta", "waiting"));
+          state.appendChild(create("span", "ex-session-meta", ""));
           header.appendChild(state);
-          header.appendChild(create("span", "ex-session-badge", "Running"));
+          header.appendChild(create("span", "ex-session-badge", "Queued"));
           session.appendChild(header);
           var steps = create("ol", "ex-steps");
           renderSteps(steps, phase.activities, phaseIndex);
@@ -1394,12 +1501,18 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       function reset() {
         runToken += 1;
         clearWaits();
+        selectLifecycle();
+        investigation.insertBefore(runHost, investigation.querySelector(".ex-plan"));
+        investigation.open = true;
+        workbench.dataset.outcome = "pending";
+        setStage("pending", "Preparing the synthetic replay");
         renderRun();
         answerPreparing.classList.remove("is-settled");
         answerPreparing.classList.add("is-active");
         preparationTitle.textContent = "Preparing answer";
-        preparationCopy.textContent = "Grounding the current view";
-        preparationMode.textContent = "Compact";
+        preparationCopy.textContent = "Waiting for source records";
+        preparationMode.textContent = "Preview";
+        answerPreparing.setAttribute("aria-busy", "true");
         resetPreparation(0);
         answerLead.textContent = "";
         answerLead.setAttribute("aria-busy", "false");
@@ -1419,31 +1532,75 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       function completePhase(phaseNode, phase) {
+        phaseNode.dataset.state = "complete";
         var stepsHost = phaseNode.querySelector(".ex-steps");
         Array.prototype.forEach.call(stepsHost.children, function (step, index) {
           var activity = phase.activities[index];
           step.classList.remove("is-active");
           step.classList.add("is-complete");
+          step.querySelector(".ex-step-title").textContent = activity.title;
+          step.querySelector(".ex-step-note").textContent = activity.note;
+          step.querySelector(".ex-step-duration").textContent = activity.duration;
           if (!step.querySelector(".ex-output")) activity.output.forEach(function (line) { appendOutput(step, activity, line); });
-          setExpanded(step, false);
         });
         var session = phaseNode.querySelector(".ex-session");
         session.className = "ex-session is-complete";
         session.querySelector(".ex-session-title").textContent = phase.completeTitle;
         session.querySelector(".ex-session-meta").textContent = phase.elapsed;
-        session.querySelector(".ex-session-badge").textContent = "Complete";
+        session.querySelector(".ex-session-badge").textContent = "Checked";
+        if (session.dataset.userExpanded !== "true" && !session.querySelector('[data-user-expanded="true"]')) session.open = false;
+      }
+
+      function preserveRunRecord(title, summary, duration) {
+        var keepOpen = investigation.open && Boolean(runHost.querySelector('[data-user-expanded="true"]'));
+        observedTitle.textContent = title;
+        observedSummary.textContent = summary;
+        observedDuration.textContent = duration;
+        observedBody.replaceChildren(create("p", "ex-record-note", "Synthetic replay only. The activities below are the same records shown during investigation; they are not live execution or recovery evidence."), runHost);
+        observed.hidden = false;
+        observed.open = keepOpen;
+      }
+
+      function stopRun() {
+        if (stopReplay.disabled) return;
+        runToken += 1;
+        clearWaits();
+        answerPreparing.classList.remove("is-active", "is-settled");
+        answerPreparing.setAttribute("aria-busy", "false");
+        workbench.dataset.outcome = "cancelled";
+        setMode("complete", "replay stopped", "Synthetic replay / stopped");
+        setStage("cancelled", "Replay stopped. Verification was not completed.");
+        Array.prototype.forEach.call(runHost.querySelectorAll(".ex-step.is-active"), function (step) {
+          step.classList.remove("is-active");
+          step.querySelector(".ex-step-duration").textContent = "Stopped";
+        });
+        Array.prototype.forEach.call(runHost.querySelectorAll('.ex-phase[data-state="running"]'), function (phase) {
+          phase.dataset.state = "cancelled";
+          phase.querySelector(".ex-session").className = "ex-session is-cancelled";
+          phase.querySelector(".ex-session-badge").textContent = "Stopped";
+        });
+        finalParagraphs[0].textContent = "Replay stopped. No verified conclusion was produced.";
+        finalParagraphs[0].hidden = false;
+        finalParagraphs[1].hidden = true;
+        finalAnswer.classList.add("is-visible");
+        finalAnswer.classList.remove("is-streaming");
+        streamAnswer.setAttribute("aria-busy", "false");
+        resultLine.textContent = "No live command, file change, or resource action was performed.";
+        finalReveal.hidden = false;
+        finalReveal.classList.add("is-visible");
+        preserveRunRecord("Partial investigation record", runHost.querySelectorAll(".ex-step.is-complete").length + " of 6 activities checked / verification incomplete", "Stopped");
       }
 
       function completeRun() {
         showNextSkeleton(false);
         Array.prototype.forEach.call(runHost.querySelectorAll(".ex-phase"), function (phaseNode, phaseIndex) {
           phaseNode.classList.add("is-visible");
-          phaseNode.querySelector(".ex-progress-copy").textContent = PHASES[phaseIndex].update;
           completePhase(phaseNode, PHASES[phaseIndex]);
         });
         answerLead.textContent = answerLeadText;
         answerLead.setAttribute("aria-busy", "false");
-        answerPreparing.classList.remove("is-active");
+        answerPreparing.classList.remove("is-active", "is-settled");
+        answerPreparing.setAttribute("aria-busy", "false");
         finalAnswer.classList.add("is-visible");
         completeFinalAnswer();
       }
@@ -1454,16 +1611,20 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         if (!await runPreparation("investigation", token)) return;
         settlePreparation(7, "Expanded");
         setMode("investigation", "investigation progress / observed work", investigationSourceText);
-        if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
-        if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
           var phase = PHASES[phaseIndex];
           var phaseNode = runHost.children[phaseIndex];
           showNextSkeleton(false);
           phaseNode.classList.add("is-visible");
-          var progressCopy = phaseNode.querySelector(".ex-progress-copy");
-          if (!await streamNodeText(progressCopy, phase.update, token, 14)) return;
-          if (!await wait(160, token)) return;
+          phaseNode.dataset.state = "running";
+          phaseNode.querySelector(".ex-session").className = "ex-session is-running";
+          phaseNode.querySelector(".ex-session").open = true;
+          phaseNode.querySelector(".ex-session-badge").textContent = "Reading";
+          answerLead.textContent = phase.update;
+          setStage(phaseIndex === 2 ? "verifying" : "investigating", phase.update);
+          promotion.querySelector(".ex-promotion-title").textContent = phaseIndex === 2 ? "Checking the fixture evidence" : "Investigating the probe mismatch";
+          promotion.querySelector(".ex-promotion-meta").textContent = "Stage " + (phaseIndex + 1) + " of " + PHASES.length;
+          promotion.querySelector(".ex-promotion-badge").textContent = phaseIndex === 2 ? "Verifying" : "In progress";
           var stepsHost = phaseNode.querySelector(".ex-steps");
           var sessionMeta = phaseNode.querySelector(".ex-session-meta");
           for (var index = 0; index < phase.activities.length; index += 1) {
@@ -1471,21 +1632,23 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
             var activity = phase.activities[index];
             var step = stepsHost.children[index];
             step.classList.add("is-active");
-            setExpanded(step, true);
+            step.querySelector(".ex-step-note").textContent = "Replaying the recorded activity";
+            step.querySelector(".ex-step-duration").textContent = "Running";
             sessionMeta.textContent = "call " + (index + 1) + " of " + phase.activities.length;
-            if (!await wait(260, token)) return;
+            if (!await wait(220, token)) return;
             for (var lineIndex = 0; lineIndex < activity.output.length; lineIndex += 1) {
               appendOutput(step, activity, activity.output[lineIndex]);
-              if (!await wait(280, token)) return;
+              if (!await wait(100, token)) return;
             }
             step.classList.remove("is-active");
             step.classList.add("is-complete");
-            setExpanded(step, false);
-            if (!await wait(240, token)) return;
+            step.querySelector(".ex-step-title").textContent = activity.title;
+            step.querySelector(".ex-step-note").textContent = activity.note;
+            step.querySelector(".ex-step-duration").textContent = activity.duration;
+            if (!await wait(160, token)) return;
           }
           completePhase(phaseNode, phase);
-          showNextSkeleton(true);
-          if (!await wait(620, token)) return;
+          if (!await wait(240, token)) return;
         }
         showNextSkeleton(false);
         answerPreparing.classList.remove("is-active");
@@ -1493,11 +1656,14 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       async function runCompact(question) {
+        restoreExpandedPresentation();
         var token = reset();
         operatorMessage.textContent = question || "What is the current health state of the example API?";
+        conversationTitle.textContent = question || "API health summary";
+        conversationTitle.title = conversationTitle.textContent;
         if (!await runPreparation("compact", token)) return;
         settlePreparation(3, "Compact");
-        answerLead.textContent = "The available read-only sources are sufficient, so this turn stays compact.";
+        answerLead.textContent = "";
         completeCompactAnswer();
       }
 
@@ -1624,7 +1790,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         var query = transcriptSearch.value.trim().toLowerCase();
         Array.prototype.forEach.call(transcript.querySelectorAll(".ex-search-match"), function (node) { node.classList.remove("ex-search-match"); });
         transcriptMatches = query ? Array.prototype.filter.call(transcript.querySelectorAll("p, strong, code"), function (node) {
-          return node.textContent.toLowerCase().indexOf(query) >= 0;
+          return !node.closest("[hidden], .ex-final:not(.is-visible)") && node.textContent.toLowerCase().indexOf(query) >= 0;
         }) : [];
         activeTranscriptMatch = transcriptMatches.length ? 0 : -1;
         renderTranscriptSearch();
@@ -1637,6 +1803,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         transcriptSearchPrevious.disabled = transcriptMatches.length === 0;
         transcriptSearchNext.disabled = transcriptMatches.length === 0;
         if (!match) return;
+        var disclosure = match.closest("details");
+        while (disclosure) {
+          disclosure.open = true;
+          disclosure = disclosure.parentElement.closest("details");
+        }
         match.classList.add("ex-search-match");
         match.scrollIntoView({ block: "center" });
       }
@@ -1659,12 +1830,16 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       document.getElementById("ex-replay").addEventListener("click", run);
+      stopReplay.addEventListener("click", stopRun);
+      resultLine.addEventListener("click", function (event) {
+        if (event.target.closest("[data-show-record]")) observed.open = true;
+      });
       document.getElementById("ex-compact").addEventListener("click", function () { runCompact(); });
       document.getElementById("ex-finish").addEventListener("click", function () { restoreExpandedPresentation(); reset(); runToken += 1; clearWaits(); completeRun(); });
       document.getElementById("ex-unverified").addEventListener("click", showUnverifiedResult);
       document.getElementById("ex-sources").addEventListener("click", advanceSourceReadiness);
       document.getElementById("ex-workspace").addEventListener("click", function () { setWorkspaceShell(workbench.dataset.shell !== "workspace"); });
-      Array.prototype.forEach.call(workbench.querySelectorAll("[data-response-pattern]"), function (button) {
+      Array.prototype.forEach.call(document.querySelectorAll("[data-response-pattern]"), function (button) {
         button.addEventListener("click", function () { selectResponsePattern(button.dataset.responsePattern, true); });
       });
       workbench.querySelector(".ex-conversations-toggle").addEventListener("click", function () { setConversations(workbench.dataset.conversations !== "open"); });
@@ -1788,7 +1963,10 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           workbench.querySelector(".ex-send").click();
         }
       });
-      run();
+      restoreExpandedPresentation();
+      reset();
+      completeRun();
+      if (window.self !== window.top) setWorkspaceShell(true);
     }());
   </script>
 </body>

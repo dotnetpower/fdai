@@ -79,6 +79,19 @@ development process. Model transparency records every completed semantic judgmen
 model call with its measured duration and token usage when available. The end-to-end turn timing
 continues to include deterministic and provider work that is not a model call.
 
+## Synthetic chat and prompt inspection
+
+The [adaptive response](../../../mocks/ui/deck-sources-v2.html) and
+[incident conversation](../../../mocks/ui/incident-conversation.html) mocks keep conclusions,
+evidence gaps, and investigation records inside the assistant reply. Investigation completion is
+distinct from incident recovery; cancellation preserves only the work already shown.
+The adaptive mock's simulated LLM narration exposes
+[`system-prompt.example.md`](../../../mocks/ui/assets/prompts/system-prompt.example.md) inline
+beneath its file row, without a modal or blocking the composer. It supports read-only Markdown,
+copy, and download. Missing captures and failed loads remain explicit, and collapsing the file
+cancels its pending load. The file is a public synthetic fixture, never a captured runtime prompt.
+These presentation studies do not change production prompt capture, permissions, or model routing.
+
 ## Per-user preference and TTFT
 
 The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and runtime latency
@@ -221,6 +234,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Synthetic chat and inline prompt inspection | implemented | `mocks/ui/deck-sources-v2.html`; `mocks/ui/incident-conversation.html`; `console/tests/e2e/{adaptive-prompt-mock,deck-adaptive-mock,incident-conversation-mock}.spec.ts`; focused Playwright and type checks | Mock-only presentation. The prompt viewer reads a synthetic fixture; production capture and authorization are unchanged. |
 | Local ordered narrator candidate fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; focused deployment lifecycle tests | The service-local adapter loads a file or plan-sealed inline JSON, verifies the optional deployment SHA, obtains a short-lived token, tries ordered candidates, and exposes sanitized health without Core imports or execution authority. |
 | Resolved narrator candidate collection | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; model resolver and registry | Focused checks cover collection of `narrator_candidates` from reviewed model-resolution inputs. |
 | Direct Key Vault resolved-model source adapter | implemented | `adapters/resolved_models_key_vault.py`; focused Operator tests | The async adapter uses an injected token provider and HTTP client, rejects untrusted origins, redirects, mismatched secret identity, disabled or expired values, excessive size or nesting, and secret-bearing representations. Startup composition and governed runtime evidence remain open. |
@@ -241,6 +255,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | implemented | Refined incident and adaptive replies, retained investigation records across completion, and added inline synthetic Markdown prompt inspection without blocking chat. | `current change`; the three mock Playwright files listed above passed their focused scenarios; shared style checks and Console typecheck passed. | Production adoption requires separate review and authenticated, permission-scoped evidence; no runtime prompt capture is claimed. |
 | 2026-09-02 | implemented | Added revision-fenced answer-continuity and prompt-ablation settings, one startup-consistent Core snapshot, and localized Console controls without personalizing T2 or granting action authority. | `current change`; focused Core, Operator, and Console checks in the prompt-composition implementation record. | Retain a governed shadow campaign before claiming runtime validation. |
 | 2026-08-28 | implemented | Added the stage-owner receipt adapter so benchmark duration cannot be caller-authored and PR/canary/release environment mismatches fail closed. | `current change`; focused Core latency checks (`8 passed`); Ruff and strict mypy. | Wire receipts at authoritative stage owners and retain controlled evidence. |
 | 2026-08-28 | implemented | Bound the latency artifact and complete trace cohort before deriving qualification timing state. | `current change`; focused binding checks (`4 passed`); combined latency/trace/timing checks (`23 passed`). | Bind runtime producers and retain one matching controlled evidence set. |
@@ -258,6 +273,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 ### Remaining work
 
+- [x] Complete the mock-only chat and inline prompt scenarios in the three focused Playwright files above; production adoption remains outside this change.
 - [x] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
 - [x] Bind a periodic refresh owner with validated interval, failure isolation, duplicate-start suppression, and shutdown cleanup.
 - [ ] Bind a server-owned conversation-image resolver before marking image-turn routing complete.
