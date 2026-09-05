@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dd04bcf9cab3c04f111b01897db10b462a64676f
+translation_source_sha: 61c8556a597edd265ce9fef850ab2fc715676ab5
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -39,6 +39,11 @@ translation_revised: 2026-09-05
 | 서비스 계약 | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [계약 테스트](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
 | 선택적 비용 거버넌스 패키지 | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [패키지 테스트](../../../extensions/cost-governance/tests/) 및 [레거시 자문 가드 커버리지](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 only |
+
+문서 인제스트 API는 교차 테넌트 Power Platform 인제스트도 소유합니다. 이 경로는 외부
+커넥터 토큰을 검증하고 수락한 이벤트를 서버 소유 문서 정책에 연결합니다. 선택적 비용
+거버넌스 패키지를 가져오거나 비용 권한을 변경하지 않습니다. 루트 Terraform은 기본적으로
+비활성화된 커넥터 정책 값만 인제스트 서비스에 전달합니다.
 
 ## Core 컨트롤 플레인 지도
 

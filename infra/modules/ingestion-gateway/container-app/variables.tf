@@ -96,6 +96,46 @@ variable "ocr_operation_timeout_seconds" {
     error_message = "ocr_operation_timeout_seconds must be in (0, 1800]."
   }
 }
+variable "power_platform_connector_enabled" {
+  type    = bool
+  default = false
+}
+variable "power_platform_connector_id" {
+  type    = string
+  default = ""
+}
+variable "power_platform_source_tenant_id" {
+  type    = string
+  default = ""
+}
+variable "power_platform_allowed_client_ids" {
+  type    = string
+  default = ""
+}
+variable "power_platform_api_audience" {
+  type    = string
+  default = ""
+}
+variable "power_platform_collection_id" {
+  type    = string
+  default = ""
+}
+variable "power_platform_access_descriptor_ref" {
+  type    = string
+  default = ""
+}
+variable "power_platform_reader_groups" {
+  type    = string
+  default = ""
+}
+variable "power_platform_retention_policy_version" {
+  type    = string
+  default = ""
+}
+variable "power_platform_purposes" {
+  type    = string
+  default = "knowledge_base"
+}
 variable "kafka_bootstrap_servers" { type = string }
 variable "document_event_topic" { type = string }
 variable "runtime_env" { type = string }

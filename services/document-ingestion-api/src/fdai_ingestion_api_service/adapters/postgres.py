@@ -60,12 +60,19 @@ SELECT probe.ready
       LIMIT 0
   ) AS required_connector_batch ON FALSE
   LEFT JOIN (
-     SELECT connector_id, source_item_id, source_revision, source_name,
-            size_bytes, deleted, collection_id, access_descriptor_ref,
-            document_id, version_id, deletion_pending, updated_at
+     SELECT connector_id, source_item_id, source_revision, source_sequence, source_name,
+            size_bytes, content_sha256, deleted, collection_id, access_descriptor_ref,
+            document_id, version_id, bound_source_revision,
+            deletion_pending, updated_at
        FROM document_connector_item
       LIMIT 0
   ) AS required_connector_item ON FALSE
+  LEFT JOIN (
+     SELECT connector_id, source_item_id, source_revision, status,
+            created_at, completed_at
+       FROM document_connector_cancellation
+      LIMIT 0
+  ) AS required_connector_cancellation ON FALSE
   LEFT JOIN (
      SELECT doc_id, chunk_id, text, source_ref, metadata, embedding
        FROM knowledge_chunk
@@ -338,6 +345,22 @@ class PostgresDocumentMetadataStore:
         )
         if not rows:
             raise DocumentNotFoundError("document was not found")
+        return tuple(DocumentVersion.model_validate(_payload(row["payload"])) for row in rows)
+
+    async def list_collection_versions(
+        self, collection_id: str, *, limit: int
+    ) -> tuple[DocumentVersion, ...]:
+        """Return each document's latest non-deleted version in one collection."""
+        rows = await self._many(
+            "SELECT payload FROM ("
+            "SELECT DISTINCT ON (document_id) document_id, version_id, payload, updated_at "
+            "FROM document_version "
+            "WHERE payload->'access'->>'collection_id' = %s AND state <> 'deleted' "
+            "ORDER BY document_id, updated_at DESC, version_id DESC"
+            ") AS latest "
+            "ORDER BY updated_at DESC, document_id ASC, version_id ASC LIMIT %s",
+            (collection_id, limit),
+        )
         return tuple(DocumentVersion.model_validate(_payload(row["payload"])) for row in rows)
 
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:

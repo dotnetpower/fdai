@@ -37,6 +37,11 @@ retired top-level application tree.
 | Optional Cost Governance package | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [Package tests](../../../extensions/cost-governance/tests/) and [legacy advisory guard coverage](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | Cross-service integration | Not applicable | [Root integration tests](../../../tests/integration/) | Virtual root only |
 
+The Document Ingestion API also owns cross-tenant Power Platform intake. Its route verifies external
+connector tokens and maps accepted events to server-owned document policy. It doesn't import the
+optional Cost Governance package or change cost authority. Root Terraform passes only
+disabled-by-default connector policy values into the ingestion service.
+
 ## Core Control Plane map
 
 The Core distribution retains the complete `fdai` namespace. Internal module boundaries remain

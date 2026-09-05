@@ -49,6 +49,13 @@ mixing provider credentials into the upload surface. GitHub, GitLab, and Azure D
 setup-required until their server-owned connector contracts can report configuration,
 synchronization, and indexing evidence.
 
+The destination collection is a governed logical namespace, not a mutable browser folder. Refreshing
+the route reloads a bounded list of the latest document versions in the selected collection from
+durable metadata. Uploading to a collection does not create a physical folder or grant access to that
+collection. Production deployments control the allowed collection ids and reader groups through
+server-owned policy. Moving or renaming a collection is an administrative policy and migration
+operation rather than a file-browser action.
+
 The surface shows these facts before upload:
 
 - **Destination collection:** the workspace or collection that will own the document.
@@ -493,6 +500,15 @@ ambiguous matches remain unresolved for human review. When no grounded mixed-mod
 `HandoverInterpreter` is configured, the interpreter abstains and deterministic
 extraction continues.
 
+When the Azure subscription tenant and Microsoft 365 tenant differ, the supported connector path is
+a Power Platform custom connector in the Microsoft 365 tenant. Its SharePoint connection reads the
+source, while a separate multi-tenant Entra token targets the FDAI ingestion audience in the Azure
+tenant. FDAI accepts only allowlisted source tenant and client ids plus the
+`DocumentConnector.Ingest` permission. The connector id selects server-owned collection, access,
+purpose, and retention policy; a flow cannot supply or widen those values. Created and changed files
+carry a monotonic per-item sequence and stream through the normal managed-copy lifecycle. Deletion
+events use the durable source-item binding and remain pending while legal hold applies.
+
 | Method and path | Purpose |
 |-----------------|---------|
 | `GET /healthz` | unauthenticated process liveness for deployment verification; returns only `{"status":"ok"}` |
@@ -504,6 +520,9 @@ extraction continues.
 | `GET /ingestion/uploads/{upload_id}` | authorized upload-session and processing status |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | authorized grounded steward-map draft for the `handover_bootstrap` purpose |
 | `POST /ingestion/uploads/{upload_id}/cancel` | revoke grant and clean partial data |
+| `PUT /ingestion/connectors/power-platform/{connector_id}/items/{source_item_id}/content` | accept one authenticated cross-tenant created or changed file |
+| `POST /ingestion/connectors/power-platform/{connector_id}/items/{source_item_id}/deleted` | record and propagate one sequenced source deletion |
+| `GET /documents?collection_id=...&limit=...` | bounded authorized list of the latest document version in a collection |
 | `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped hybrid retrieval with citations |
 | `GET /documents/{document_id}/versions` | authorized metadata and state history |
 | `GET /documents/{document_id}/versions/{version_id}/preview` | bounded extracted preview after collection and delegated protection authorization |
@@ -575,7 +594,7 @@ deployment-owned values.
 | Layout | Shipped generically: DOCX paragraph/heading/table cells, PPTX slide/shape/table cells/speaker notes, and strict `pypdf` native PDF page blocks. PDF parsing rejects encryption and enforces independent byte, page, object, unit, and extracted-character ceilings. Parser failures expose one sanitized error without document content. Scanned PDF uses the existing OCR seam only when bound. Previews remain provider work. |
 | Channel evidence | Shipped generically: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, full protected ingestion, reject-before-tool gating, and citation-only `doc:` refs. PNG/JPEG/GIF/WebP signatures produce metadata-only envelopes; OCR and vendor credential composition remain provider bindings. |
 | Protection | Shipped generically: PDF/Office/container encryption detection, digest-bound Purview/RMS-compatible inspection, durable leased revocation checks, atomic version/chunk invalidation, retryable artifact cleanup, delegated reader authorization, and bounded extracted preview. Provider endpoint binding and live reconciliation evidence remain deployment work. |
-| Connector and scale | Partial: ADLS preserves flushed upload prefixes, validates replayed bytes before append, seals content digests, reports persisted ranges, and removes bounded expired orphans. The production Graph/SharePoint loop persists pending pages before applying them, projects deletion-bearing items with exact collection/access binding, rejects changed token origins or configuration, and advances compare-and-swap cursors only after an idempotent batch commit. Measured capacity evidence remains open. |
+| Connector and scale | Partial: ADLS preserves flushed upload prefixes, validates replayed bytes before append, seals content digests, reports persisted ranges, and removes bounded expired orphans. The cross-tenant Power Platform connector computes the source digest, creates deterministic upload identities, binds each item to its governed version, rejects out-of-order events, and propagates legal-hold-aware deletion. Direct Graph delta remains disabled by default. Measured capacity evidence remains open. |
 
 The rollout sequence remains:
 

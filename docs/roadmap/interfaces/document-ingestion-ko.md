@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 4b6311a81985284e2627e00e7bac3f33c768df48
+translation_source_sha: 3e3afe9d0d8266b5accd9205b08531ad01abec99
 translation_revised: 2026-09-05
 ---
 # 문서 인제스트와 투입 구역
@@ -50,6 +50,13 @@ Console은 지식 > 문서에서 거버넌스가 적용된 문서 인제스트�
 않으면서 문서 업로드와 리포지토리 원본 설정을 연결합니다. GitHub, GitLab 및 Azure
 DevOps는 서버가 소유하는 커넥터 계약에서 구성, 동기화 및 인덱싱 근거를 제공할 때까지
 설정 필요 상태로 유지합니다.
+
+대상 컬렉션은 브라우저에서 변경하는 폴더가 아니라 거버넌스가 적용된 논리적 이름
+공간입니다. 경로를 새로 고치면 선택한 컬렉션의 최신 문서 버전 목록을 영속
+메타데이터에서 범위가 제한된 개수만큼 다시 불러옵니다. 컬렉션에 업로드해도 물리적
+폴더가 생성되거나 해당 컬렉션에 대한 접근 권한이 부여되지는 않습니다. 운영 배포에서는
+서버 소유 정책으로 허용된 컬렉션 ID와 읽기 그룹을 관리합니다. 컬렉션 이동이나 이름
+변경은 파일 브라우저 작업이 아니라 관리자 정책 및 마이그레이션 작업입니다.
 
 업로드 전에 다음 정보를 표시합니다.
 
@@ -498,6 +505,15 @@ Azure embedding 및 managed identity를 선택합니다.
 남깁니다. 근거에 기반한 mixed-model `HandoverInterpreter`가 구성되지 않으면 interpreter는
 abstain하고 결정론적 추출은 계속됩니다.
 
+Azure 구독 테넌트와 Microsoft 365 테넌트가 다르면 Microsoft 365 테넌트의 Power Platform
+사용자 지정 커넥터를 지원 경로로 사용합니다. SharePoint 연결은 원본을 읽고, 별도의 다중
+테넌트 Entra 토큰은 Azure 테넌트의 FDAI 인제스트 audience를 대상으로 합니다. FDAI는
+허용 목록의 원본 테넌트와 클라이언트 ID, `DocumentConnector.Ingest` 권한을 모두
+확인합니다. 커넥터 ID는 서버가 소유하는 컬렉션, 접근, 용도, 보존 정책을 선택하며 Flow가
+이 값을 제공하거나 넓힐 수 없습니다. 생성·변경 파일은 항목별 단조 증가 순서를 포함하고
+일반 managed-copy 수명 주기로 들어갑니다. 삭제 이벤트는 영속 원본 항목 binding을
+사용하고 legal hold가 적용되는 동안 대기 상태를 유지합니다.
+
 | 메서드 and 경로 | 용도 |
 |-----------------|---------|
 | `GET /healthz` | 배포 검증용 인증되지 않은 프로세스 생존, `{"status":"ok"}`만 반환 |
@@ -509,6 +525,9 @@ abstain하고 결정론적 추출은 계속됩니다.
 | `GET /ingestion/uploads/{upload_id}` | 권한이 적용된 upload-session과 처리 상태 |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | `handover_bootstrap` 용도의 권한 적용 근거에 기반한 steward-map 초안 |
 | `POST /ingestion/uploads/{upload_id}/cancel` | 권한 부여를 철회하고 부분 데이터 정리 |
+| `PUT /ingestion/connectors/power-platform/{connector_id}/items/{source_item_id}/content` | 인증된 교차 테넌트 생성·변경 파일 하나 수락 |
+| `POST /ingestion/connectors/power-platform/{connector_id}/items/{source_item_id}/deleted` | 순서가 지정된 원본 삭제 하나 기록 및 전파 |
+| `GET /documents?collection_id=...&limit=...` | 컬렉션의 최신 문서 버전을 권한에 따라 범위가 제한된 개수로 반환 |
 | `GET /documents/search?q=...&collection_id=...` | 인증과 수집 범위가 적용된 인용 포함 하이브리드 검색 |
 | `GET /documents/{document_id}/versions` | 권한이 적용된 메타데이터와 상태 이력 |
 | `GET /documents/{document_id}/versions/{version_id}/preview` | 컬렉션 권한과 위임된 보호 권한 확인을 모두 통과한 범위가 제한된 추출 결과 미리 보기 |
@@ -570,7 +589,7 @@ ADLS Gen2 출처/산출물 저장소, Microsoft Graph/SharePoint 델타 동기�
 | 배치 | 일반 구현 제공됨: DOCX paragraph/heading/표 cell, PPTX slide/형태/표 cell/speaker note 및 strict `pypdf` native PDF 페이지 블록. PDF 파싱은 encryption을 거부하고 바이트, 페이지, 객체, 단위 및 extracted-character 상한을 독립적으로 적용합니다. 파서 실패는 문서 내용 없이 정제된 오류 하나만 노출합니다. Scanned PDF는 OCR 경계가 연결된 경우에만 사용합니다. 미리 보기는 프로바이더 후속 작업입니다. |
 | 채널 근거 | 일반 구현 제공됨: 범위가 제한된 opaque Slack/Teams 메타데이터, credential-fetcher 경계, 바이트/해시 검증, 전체 protected 인제스트, reject-before-tool gating, citation-only `doc:` 참조. PNG/JPEG/GIF/WebP 서명은 metadata-only 묶음을 만들며 OCR 및 벤더 자격 증명 조립은 프로바이더 연결로 남습니다. |
 | 보호 | 일반 구현 제공됨: PDF/Office/컨테이너 암호화 감지, 다이제스트가 결합된 Purview/RMS 호환 검사, 영속 임대 기반 철회 확인, 원자적인 버전/조각 사용 중지, 재시도 가능한 산출물 정리, 위임된 독자 권한 확인, 범위가 제한된 추출 결과 미리 보기를 제공합니다. 프로바이더 엔드포인트 연결과 실제 철회 조정 근거는 배포 작업으로 남습니다. |
-| 커넥터와 규모 | 일부 제공됨: ADLS는 플러시된 업로드 접두부를 보존하고, 다시 전송된 바이트를 검증한 후 추가하며, 콘텐츠 다이제스트를 봉인하고, 영속 범위를 보고하고, 만료된 부분 객체를 제한된 수만 정리합니다. 운영 Graph/SharePoint 루프는 적용 전에 대기 페이지를 영속하고, 삭제 항목을 정확한 컬렉션/접근 서술자와 함께 변환하며, 변경된 토큰 출처나 구성을 거부하고, 멱등적 배치 커밋 후에만 compare-and-swap 커서를 전진시킵니다. 측정된 용량 근거는 남아 있습니다. |
+| 커넥터와 규모 | 일부 제공됨: ADLS는 플러시된 업로드 접두부를 보존하고, 다시 전송된 바이트를 검증한 후 추가하며, 콘텐츠 다이제스트를 봉인하고, 영속 범위를 보고하고, 만료된 부분 객체를 제한된 수만 정리합니다. 교차 테넌트 Power Platform 커넥터는 원본 다이제스트를 계산하고, 결정론적 업로드 식별자를 만들고, 각 항목을 통제된 버전에 연결하고, 순서가 뒤바뀐 이벤트를 거부하며, legal hold를 인식해 삭제를 전파합니다. 직접 Graph 델타는 기본적으로 비활성화됩니다. 측정된 용량 근거는 남아 있습니다. |
 
 롤아웃 순서는 다음과 같습니다.
 

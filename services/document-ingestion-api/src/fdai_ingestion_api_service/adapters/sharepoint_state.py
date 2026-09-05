@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -24,6 +25,17 @@ from fdai_ingestion_api_service.adapters.sharepoint import (
     SharePointDeltaItem,
     SharePointPendingPage,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectorDocumentBinding:
+    document_id: UUID
+    version_id: UUID
+    source_revision: str
+
+
+class ConnectorBindingConflictError(RuntimeError):
+    """A newer source event won before its document binding committed."""
 
 
 class PostgresSharePointDeltaStore:
@@ -116,28 +128,45 @@ class PostgresSharePointDeltaStore:
                     raise RuntimeError("SharePoint delta batch binding changed")
                 return
             for item in items:
-                await connection.execute(
+                changed = await connection.execute(
                     "INSERT INTO document_connector_item "
-                    "(connector_id, source_item_id, source_revision, source_name, "
-                    "size_bytes, deleted, collection_id, access_descriptor_ref, updated_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW()) "
+                    "(connector_id, source_item_id, source_revision, source_sequence, "
+                    "source_name, size_bytes, content_sha256, deleted, collection_id, "
+                    "access_descriptor_ref, updated_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()) "
                     "ON CONFLICT (connector_id, source_item_id) DO UPDATE SET "
                     "source_revision = EXCLUDED.source_revision, "
+                    "source_sequence = EXCLUDED.source_sequence, "
                     "source_name = EXCLUDED.source_name, size_bytes = EXCLUDED.size_bytes, "
+                    "content_sha256 = EXCLUDED.content_sha256, "
                     "deleted = EXCLUDED.deleted, collection_id = EXCLUDED.collection_id, "
-                    "access_descriptor_ref = EXCLUDED.access_descriptor_ref, updated_at = NOW()",
+                    "access_descriptor_ref = EXCLUDED.access_descriptor_ref, updated_at = NOW() "
+                    "WHERE EXCLUDED.source_sequence IS NULL "
+                    "OR document_connector_item.source_sequence IS NULL "
+                    "OR EXCLUDED.source_sequence > document_connector_item.source_sequence "
+                    "OR (EXCLUDED.source_sequence = document_connector_item.source_sequence "
+                    "AND EXCLUDED.source_revision = document_connector_item.source_revision "
+                    "AND EXCLUDED.deleted = document_connector_item.deleted "
+                    "AND EXCLUDED.source_name IS NOT DISTINCT FROM "
+                    "document_connector_item.source_name "
+                    "AND EXCLUDED.size_bytes = document_connector_item.size_bytes "
+                    "AND EXCLUDED.content_sha256 IS NOT DISTINCT FROM "
+                    "document_connector_item.content_sha256) "
+                    "RETURNING deleted",
                     (
                         connector_id,
                         item.source_item_id,
                         item.source_revision,
+                        item.source_sequence,
                         item.source_name,
                         item.size_bytes,
+                        item.content_sha256,
                         item.deleted,
                         collection_id,
                         access_descriptor_ref,
                     ),
                 )
-                if item.deleted:
+                if await changed.fetchone() is not None and item.deleted:
                     await self._propagate_deletion(
                         connection,
                         connector_id=connector_id,
@@ -151,17 +180,169 @@ class PostgresSharePointDeltaStore:
         source_item_id: str,
         document_id: UUID,
         version_id: UUID,
+        source_revision: str,
+        source_sequence: int,
+    ) -> None:
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            prior = await (
+                await connection.execute(
+                    "SELECT document_id, version_id, bound_source_revision "
+                    "FROM document_connector_item "
+                    "WHERE connector_id = %s AND source_item_id = %s FOR UPDATE",
+                    (connector_id, source_item_id),
+                )
+            ).fetchone()
+            if prior is None:
+                raise ConnectorBindingConflictError(
+                    "SharePoint connector item disappeared before document binding"
+                )
+            if prior["version_id"] is not None and UUID(str(prior["version_id"])) != version_id:
+                displaced_revision = str(prior["bound_source_revision"])
+                await self._queue_cancellation(
+                    connection,
+                    connector_id=connector_id,
+                    source_item_id=source_item_id,
+                    source_revision=displaced_revision,
+                )
+            updated = await connection.execute(
+                "UPDATE document_connector_item SET document_id = %s, version_id = %s, "
+                "bound_source_revision = %s, updated_at = NOW() "
+                "WHERE connector_id = %s AND source_item_id = %s AND NOT deleted "
+                "AND (document_id IS NULL OR document_id = %s) "
+                "AND source_revision = %s AND source_sequence = %s "
+                "RETURNING source_item_id",
+                (
+                    document_id,
+                    version_id,
+                    source_revision,
+                    connector_id,
+                    source_item_id,
+                    document_id,
+                    source_revision,
+                    source_sequence,
+                ),
+            )
+            if await updated.fetchone() is None:
+                raise ConnectorBindingConflictError(
+                    "SharePoint connector item cannot accept stale document binding"
+                )
+
+    async def pending_cancellations(
+        self, *, connector_id: str, source_item_id: str
+    ) -> tuple[str, ...]:
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            rows = await (
+                await connection.execute(
+                    "SELECT source_revision FROM document_connector_cancellation "
+                    "WHERE connector_id = %s AND source_item_id = %s AND status = 'pending' "
+                    "ORDER BY created_at, source_revision LIMIT 64",
+                    (connector_id, source_item_id),
+                )
+            ).fetchall()
+        return tuple(str(row["source_revision"]) for row in rows)
+
+    async def complete_cancellation(
+        self, *, connector_id: str, source_item_id: str, source_revision: str
     ) -> None:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             updated = await connection.execute(
-                "UPDATE document_connector_item SET document_id = %s, version_id = %s, "
-                "updated_at = NOW() WHERE connector_id = %s AND source_item_id = %s "
-                "AND NOT deleted AND document_id IS NULL RETURNING source_item_id",
-                (document_id, version_id, connector_id, source_item_id),
+                "UPDATE document_connector_cancellation "
+                "SET status = 'completed', completed_at = NOW() "
+                "WHERE connector_id = %s AND source_item_id = %s "
+                "AND source_revision = %s AND status = 'pending' "
+                "RETURNING source_revision",
+                (connector_id, source_item_id, source_revision),
             )
             if await updated.fetchone() is None:
-                raise RuntimeError("SharePoint connector item cannot accept document binding")
+                raise ConnectorBindingConflictError(
+                    "connector cancellation no longer matches pending state"
+                )
+
+    async def queue_cancellation(
+        self, *, connector_id: str, source_item_id: str, source_revision: str
+    ) -> None:
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await self._queue_cancellation(
+                connection,
+                connector_id=connector_id,
+                source_item_id=source_item_id,
+                source_revision=source_revision,
+            )
+
+    @staticmethod
+    async def _queue_cancellation(
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        *,
+        connector_id: str,
+        source_item_id: str,
+        source_revision: str,
+    ) -> None:
+        await connection.execute(
+            "INSERT INTO document_connector_cancellation "
+            "(connector_id, source_item_id, source_revision) VALUES (%s, %s, %s) "
+            "ON CONFLICT (connector_id, source_item_id, source_revision) DO NOTHING",
+            (connector_id, source_item_id, source_revision),
+        )
+
+    async def get_binding(
+        self, *, connector_id: str, source_item_id: str
+    ) -> ConnectorDocumentBinding | None:
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            row = await (
+                await connection.execute(
+                    "SELECT document_id, version_id, bound_source_revision "
+                    "FROM document_connector_item "
+                    "WHERE connector_id = %s AND source_item_id = %s AND NOT deleted",
+                    (connector_id, source_item_id),
+                )
+            ).fetchone()
+        if row is None or row["document_id"] is None:
+            return None
+        return ConnectorDocumentBinding(
+            document_id=UUID(str(row["document_id"])),
+            version_id=UUID(str(row["version_id"])),
+            source_revision=str(row["bound_source_revision"]),
+        )
+
+    async def event_matches(
+        self,
+        *,
+        connector_id: str,
+        source_item_id: str,
+        source_revision: str,
+        source_sequence: int,
+        source_name: str | None,
+        size_bytes: int,
+        content_sha256: str | None,
+        deleted: bool,
+    ) -> bool:
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            row = await (
+                await connection.execute(
+                    "SELECT 1 AS matched FROM document_connector_item "
+                    "WHERE connector_id = %s AND source_item_id = %s "
+                    "AND source_revision = %s AND source_sequence = %s "
+                    "AND source_name IS NOT DISTINCT FROM %s AND size_bytes = %s "
+                    "AND content_sha256 IS NOT DISTINCT FROM %s AND deleted = %s",
+                    (
+                        connector_id,
+                        source_item_id,
+                        source_revision,
+                        source_sequence,
+                        source_name,
+                        size_bytes,
+                        content_sha256,
+                        deleted,
+                    ),
+                )
+            ).fetchone()
+        return row is not None
 
     async def reconcile_deletions(self, *, limit: int = 100) -> int:
         if not 1 <= limit <= 1000:
@@ -338,8 +519,10 @@ def _cursor_json(cursor: SharePointDeltaCursor) -> str:
                         {
                             "source_item_id": item.source_item_id,
                             "source_revision": item.source_revision,
+                            "source_sequence": item.source_sequence,
                             "source_name": item.source_name,
                             "size_bytes": item.size_bytes,
+                            "content_sha256": item.content_sha256,
                             "deleted": item.deleted,
                         }
                         for item in pending.items
@@ -373,8 +556,10 @@ def _cursor(value: object) -> SharePointDeltaCursor:
                 SharePointDeltaItem(
                     source_item_id=_string(item, "source_item_id"),
                     source_revision=_string(item, "source_revision"),
+                    source_sequence=_optional_integer(item, "source_sequence"),
                     source_name=_optional_string(item, "source_name"),
                     size_bytes=_integer(item, "size_bytes"),
+                    content_sha256=_optional_string(item, "content_sha256"),
                     deleted=_boolean(item, "deleted"),
                 )
                 for item in raw_items
@@ -412,6 +597,15 @@ def _optional_string(payload: dict[str, object], key: str) -> str | None:
 
 def _integer(payload: dict[str, object], key: str) -> int:
     value = payload.get(key)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise RuntimeError(f"SharePoint cursor {key} is invalid")
+    return value
+
+
+def _optional_integer(payload: dict[str, object], key: str) -> int | None:
+    value = payload.get(key)
+    if value is None:
+        return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise RuntimeError(f"SharePoint cursor {key} is invalid")
     return value

@@ -291,6 +291,7 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_connector_cancellation",
       "document_connector_batch",
       "document_connector_cursor",
       "document_connector_item",
@@ -479,6 +480,7 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_connector_cancellation",
       "document_connector_batch",
       "document_connector_cursor",
       "document_connector_item",

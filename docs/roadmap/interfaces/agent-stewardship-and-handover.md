@@ -66,7 +66,11 @@ the two are resolved and validated independently.
 5. **Console never mutates the map.** The stewardship projection remains read-only. The guided
   registration form submits a structured `handover_bootstrap` document to the ingestion boundary;
   the GitHub App authors the resulting draft PR like every other governance change
-  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
+  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)). Other
+  ingestion routes, including the Power Platform connector, use a separate authenticator and
+  server-owned document policy. They cannot call the stewardship webhook or create an ownership
+  mapping unless a resulting document independently enters the normal `handover_bootstrap`
+  pipeline.
 6. **Every change must be notified and audited.** Core deterministically computes recipients and
   the audit payload. Live PR/merge integration must bind those primitives to notification and
   audit adapters.

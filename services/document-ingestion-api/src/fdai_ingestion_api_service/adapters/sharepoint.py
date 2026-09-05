@@ -91,6 +91,8 @@ class SharePointDeltaItem:
     source_name: str | None
     size_bytes: int
     deleted: bool
+    source_sequence: int | None = None
+    content_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

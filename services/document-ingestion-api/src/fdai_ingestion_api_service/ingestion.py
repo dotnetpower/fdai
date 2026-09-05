@@ -6,11 +6,13 @@ import hashlib
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
     AccessDescriptor,
     DirectUploadStore,
+    DocumentAccessDeniedError,
     DocumentAccessProvider,
     DocumentDeletionRequest,
     DocumentLifecycleEvent,
@@ -62,6 +64,18 @@ class CreateUploadRequest:
     retention_policy_version: str
     document_id: UUID | None = None
     supersedes_version_id: UUID | None = None
+    upload_id: UUID | None = None
+    version_id: UUID | None = None
+    connector_idempotency_key: str | None = None
+
+
+@runtime_checkable
+class DocumentCatalogMetadataStore(DocumentUploadMetadataStore, Protocol):
+    """Read a bounded collection projection in addition to upload lifecycle records."""
+
+    async def list_collection_versions(
+        self, collection_id: str, *, limit: int
+    ) -> tuple[DocumentVersion, ...]: ...
 
 
 class DocumentIngestionService:
@@ -102,11 +116,26 @@ class DocumentIngestionService:
             actor_groups=actor_groups,
             collection_id=request.collection_id,
         )
+        fixed_ids = (request.upload_id, request.document_id, request.version_id)
+        if any(value is not None for value in fixed_ids) and not all(
+            value is not None for value in fixed_ids
+        ):
+            raise ValueError(
+                "connector upload, document, and version ids MUST be supplied together"
+            )
+        if request.connector_idempotency_key is not None and not all(
+            value is not None for value in fixed_ids
+        ):
+            raise ValueError("connector idempotency requires fixed upload identities")
         if request.document_id is None and request.supersedes_version_id is not None:
             raise ValueError("supersedes_version_id requires document_id")
-        if request.document_id is not None:
-            if request.supersedes_version_id is None:
-                raise ValueError("a replacement requires supersedes_version_id")
+        if (
+            request.document_id is not None
+            and request.supersedes_version_id is None
+            and request.connector_idempotency_key is None
+        ):
+            raise ValueError("a replacement requires supersedes_version_id")
+        if request.document_id is not None and request.supersedes_version_id is not None:
             previous = await self._metadata.get_version(
                 request.document_id, request.supersedes_version_id
             )
@@ -128,9 +157,9 @@ class DocumentIngestionService:
             raise ValueError("at least one document purpose is required")
 
         now = self._clock()
-        upload_id = self._id_factory()
+        upload_id = request.upload_id or self._id_factory()
         document_id = request.document_id or self._id_factory()
-        version_id = self._id_factory()
+        version_id = request.version_id or self._id_factory()
         access = AccessDescriptor(
             reference=request.access_descriptor_ref,
             collection_id=request.collection_id,
@@ -209,13 +238,39 @@ class DocumentIngestionService:
         actor_groups: frozenset[str] = frozenset(),
     ) -> UploadGrant:
         session, version = await self._authorized_upload(upload_id)
-        if session.state is not DocumentState.UPLOADING:
+        if session.state not in {DocumentState.CREATED, DocumentState.UPLOADING}:
             raise ValueError("only an uploading session can be resumed")
         if session.expires_at <= self._clock():
             raise ValueError("upload session has expired")
         await self._access.authorize_delete(
             actor_id=actor_id, actor_groups=actor_groups, version=version
         )
+        if session.state is DocumentState.CREATED:
+            grant = await self._objects.issue_upload(session)
+            uploading = transition(DocumentState.CREATED, DocumentState.UPLOADING)
+            uploading_session = session.model_copy(
+                update={"state": uploading, "revision": session.revision + 1}
+            )
+            uploading_version = version.model_copy(
+                update={
+                    "state": uploading,
+                    "updated_at": self._clock(),
+                    "revision": version.revision + 1,
+                }
+            )
+            try:
+                await self._commit_transition(
+                    session,
+                    version,
+                    uploading_session,
+                    uploading_version,
+                    actor_id=actor_id,
+                    action="upload.recovered",
+                )
+            except BaseException:
+                await self._objects.revoke_upload(upload_id)
+                raise
+            return grant
         return await self._objects.resume_upload(session)
 
     async def put_local_content(
@@ -350,6 +405,36 @@ class DocumentIngestionService:
                 actor_id=actor_id, actor_groups=actor_groups, version=version
             )
         return versions
+
+    async def list_documents(
+        self,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        collection_id: str,
+        limit: int,
+    ) -> tuple[DocumentVersion, ...]:
+        """Return authorized latest document versions for one logical collection."""
+        if not isinstance(self._metadata, DocumentCatalogMetadataStore):
+            raise RuntimeError("document catalog metadata is unavailable")
+        candidates = await self._metadata.list_collection_versions(
+            collection_id,
+            limit=min(limit * 4, 400),
+        )
+        visible: list[DocumentVersion] = []
+        for version in candidates:
+            try:
+                await self._access.authorize_read(
+                    actor_id=actor_id,
+                    actor_groups=actor_groups,
+                    version=version,
+                )
+            except DocumentAccessDeniedError:
+                continue
+            visible.append(version)
+            if len(visible) == limit:
+                break
+        return tuple(visible)
 
     async def cancel_upload(
         self,
