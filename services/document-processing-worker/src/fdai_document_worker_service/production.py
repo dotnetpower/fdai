@@ -12,7 +12,7 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
-from fdai_service_contracts import AdapterLiveReadinessProvider
+from fdai_service_contracts import AdapterLiveReadinessProvider, ProtectionInspector
 from fdai_service_contracts.venue import (
     ExecutionVenue,
     ExecutionVenueError,
@@ -52,6 +52,10 @@ from fdai_document_worker_service.adapters.processing import (
     EmbeddingModel,
     PgvectorDocumentIndex,
     SignatureProtectionInspector,
+)
+from fdai_document_worker_service.adapters.protection import (
+    PurviewRmsConfig,
+    PurviewRmsProtectionInspector,
 )
 from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeArtifactStore,
@@ -236,13 +240,41 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             max_stream_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
         )
     )
+    max_document_bytes = _positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024)
+    protection_provider = env.get("FDAI_DOCUMENT_PROTECTION_PROVIDER", "signature").strip()
+    protection: ProtectionInspector
+    if protection_provider not in {"signature", "purview_rms"}:
+        raise ProductionConfigurationError(
+            "FDAI_DOCUMENT_PROTECTION_PROVIDER MUST be signature or purview_rms"
+        )
+    if protection_provider == "purview_rms":
+        protection_endpoint = env.get("FDAI_PROTECTION_ENDPOINT", "").strip()
+        protection_audience = env.get("FDAI_PROTECTION_AUDIENCE", "").strip()
+        if not protection_endpoint or not protection_audience:
+            raise ProductionConfigurationError(
+                "purview_rms protection requires FDAI_PROTECTION_ENDPOINT and "
+                "FDAI_PROTECTION_AUDIENCE"
+            )
+        protection = PurviewRmsProtectionInspector(
+            config=PurviewRmsConfig(
+                endpoint=protection_endpoint,
+                audience=protection_audience,
+                max_input_bytes=max_document_bytes,
+                timeout_seconds=float(env.get("FDAI_PROTECTION_TIMEOUT_SECONDS", "30")),
+                max_reconciliation_batch=_positive_int(
+                    env, "FDAI_PROTECTION_RECONCILIATION_BATCH", 100
+                ),
+            ),
+            credential=_deployed_credential(credential),
+            client=http_client,
+        )
+    else:
+        protection = SignatureProtectionInspector(max_input_bytes=max_document_bytes)
     worker = DocumentIngestionWorker(
         metadata=metadata,
         objects=source_store,
         malware=malware,
-        protection=SignatureProtectionInspector(
-            max_input_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024)
-        ),
+        protection=protection,
         extractor=BoundedDocumentExtractor(
             image_ocr=ocr,
             max_input_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
@@ -313,6 +345,8 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             malware,
         ]
         configured.append(ocr)
+        if isinstance(protection, PurviewRmsProtectionInspector):
+            configured.append(protection)
         results = await asyncio.gather(*(adapter.probe_readiness() for adapter in configured))
         failures = tuple(
             f"{result.adapter}:{result.reason or 'unavailable'}"

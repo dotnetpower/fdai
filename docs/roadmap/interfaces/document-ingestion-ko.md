@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: de9d0313e9e56149d56527e6d91d050642a3b0c2
+translation_source_sha: b47e59238640dab00ff7738caa690809c132f26e
 translation_revised: 2026-09-05
 ---
 # 문서 인제스트와 투입 구역
@@ -503,7 +503,7 @@ abstain하고 결정론적 추출은 계속됩니다.
 | `GET /healthz` | 배포 검증용 인증되지 않은 프로세스 생존, `{"status":"ok"}`만 반환 |
 | `GET /ingestion/capabilities` | format, 크기/배치/보관 한도, 저장소 모드, 정책 버전 |
 | `POST /ingestion/uploads` | 대상을 authorize하고 `UploadSession` 생성 |
-| `POST /ingestion/uploads/{upload_id}/resume` | 권한과 세션 상태를 재검사하고 현재 업로드 대상 반환 |
+| `POST /ingestion/uploads/{upload_id}/resume` | 권한과 세션 상태를 재검사하고 현재 업로드 대상과 영속된 바이트 범위 반환 |
 | `PUT /ingestion/uploads/{upload_id}/content` | 인증된 범위가 제한된 출처 스트림을 ADLS 격리 구역에 기록 |
 | `POST /ingestion/uploads/{upload_id}/complete` | 수신한 객체를 verify하고 커밋 |
 | `GET /ingestion/uploads/{upload_id}` | 권한이 적용된 upload-session과 처리 상태 |
@@ -527,7 +527,7 @@ Knowledge 인덱싱과 수동 정제는 버전의 선언된 용도에 자신이 
 
 | 실패 | Safe 행동 |
 |---------|---------------|
-| 브라우저 또는 네트워크 disconnect | 실패한 스트리밍 PUT의 부분 객체를 삭제하고 같은 세션에서 처음부터 재시도하거나 abandoned 세션을 expire합니다. |
+| 브라우저 또는 네트워크 연결 끊김 | 마지막으로 플러시된 ADLS 접두부를 보존하고 재시도 때 바이트 단위로 검증한 후 누락된 접미부만 추가합니다. 만료된 부분 객체는 제한된 수만 정리합니다. |
 | Storage 커밋 mismatch | 객체를 보류하고 완료를 수락하지 않으며 내용 없이 예상/관찰된 메타데이터를 감사합니다. |
 | Scanner 사용 불가 | 격리 구역에 유지하고 재시도하며 검사를 건너뛰지 않습니다. |
 | RMS 접근 거부된 | Policy에 따라 metadata-only로 기록하거나 보류하며 protection을 제거하지 않습니다. |
@@ -555,11 +555,12 @@ rights-reconciliation lag, orphaned 부분 업로드, 인덱싱 lag, deletion la
 
 업스트림 구현은 이제 계약, 실패 시 차단 수명 주기, 전용 ASGI 게이트웨이, 콘솔 투입 구역,
 스트리밍 브라우저 해시, 로컬 direct-upload 어댑터, 안전한 텍스트, 구조화된 Office, 범위가 제한된
-strict-pypdf 텍스트 추출기, protection
-서명 detection, structure-aware 조각화, ADLS Gen2 출처/산출물 저장소, PostgreSQL
+strict-pypdf 텍스트 추출기, 보호 서명 감지, 구조를 고려한 조각화, 블록 재개를 지원하는
+ADLS Gen2 출처/산출물 저장소, Microsoft Graph/SharePoint 델타 동기화, PostgreSQL
 메타데이터, 통제된 pgvector 인덱스, Azure OpenAI 임베딩, Event Hubs Kafka 처리, ClamAV
-검사, 테스트 어댑터, deletion 계보를 제공합니다. 배포는 Purview/RMS, OCR,
-rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할 수 있습니다.
+검사, 테스트 어댑터, 삭제 계보를 제공합니다. 배포는
+`FDAI_DOCUMENT_PROTECTION_PROVIDER=purview_rms`로 Purview/RMS 호환 보호 프로바이더를
+선택할 수 있습니다. 프로바이더 엔드포인트와 Managed Identity 대상은 배포가 소유합니다.
 
 | 구획 | 업스트림 상태 |
 |-------|---------------|
@@ -567,8 +568,8 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 | Safe 텍스트 | 일반 구현 제공됨: 게이트웨이 스트리밍 업로드, 격리 구역 수명 주기, 실패 시 차단 scanner 경계, UTF-8/OOXML 추출, 구조를 고려한 중첩 조각, 로컬 하이브리드 검색, 원자적 pgvector 버전 교체/삭제, 접근 권한으로 필터링한 하이브리드 검색, 삭제. 업스트림 scanner는 운영 프로바이더를 연결할 때까지 판단을 보류합니다. |
 | 배치 | 일반 구현 제공됨: DOCX paragraph/heading/표 cell, PPTX slide/형태/표 cell/speaker note 및 strict `pypdf` native PDF 페이지 블록. PDF 파싱은 encryption을 거부하고 바이트, 페이지, 객체, 단위 및 extracted-character 상한을 독립적으로 적용합니다. 파서 실패는 문서 내용 없이 정제된 오류 하나만 노출합니다. Scanned PDF는 OCR 경계가 연결된 경우에만 사용합니다. 미리 보기는 프로바이더 후속 작업입니다. |
 | 채널 근거 | 일반 구현 제공됨: 범위가 제한된 opaque Slack/Teams 메타데이터, credential-fetcher 경계, 바이트/해시 검증, 전체 protected 인제스트, reject-before-tool gating, citation-only `doc:` 참조. PNG/JPEG/GIF/WebP 서명은 metadata-only 묶음을 만들며 OCR 및 벤더 자격 증명 조립은 프로바이더 연결로 남습니다. |
-| Protection | 일부 제공됨: PDF/Office/컨테이너 encryption과 의심스러운 권리 메타데이터를 감지하고 보류합니다. Purview/RMS 어댑터, delegated 권한 확인, 철회 조정은 포크 연결로 남습니다. |
-| Connector and 규모 | 일부 제공됨: scoped 업로드 세션, 스트리밍 해시, ADLS, 영속 PostgreSQL 메타데이터, 범위가 제한된 파서 예산을 제공합니다. Block-resumable direct 업로드, connector delta sync, 측정된 용량 대상은 후속 작업입니다. |
+| 보호 | 일반 구현 제공됨: PDF/Office/컨테이너 암호화 감지와 함께 다이제스트가 결합된 Purview/RMS 호환 검사 및 범위가 제한된 철회 조정 어댑터를 제공합니다. 프로바이더 엔드포인트 연결, 위임된 권한 확인, 미리 보기, 실제 철회 조정 근거는 배포 작업으로 남습니다. |
+| 커넥터와 규모 | 일부 제공됨: ADLS는 플러시된 업로드 접두부를 보존하고, 다시 전송된 바이트를 검증한 후 추가하며, 콘텐츠 다이제스트를 봉인하고, 영속 범위를 보고하고, 만료된 부분 객체를 제한된 수만 정리합니다. Graph/SharePoint 어댑터는 삭제 항목이 포함된 델타 페이지를 안정적인 멱등성 키, 정확한 컬렉션/접근 서술자, 동일 출처 연속 URL, compare-and-swap 커서 펜스로 순차 적용합니다. 배포가 소유하는 커넥터 싱크와 측정된 용량 근거는 남아 있습니다. |
 
 롤아웃 순서는 다음과 같습니다.
 
@@ -597,8 +598,8 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 - 출처, derived 산출물, 메타데이터, vector, 감사, scratch에는 별도 저장소 등급을 사용합니다.
 - 수집 전에 접근을 적용하고 모든 derivative가 접근을 상속합니다.
 - 권리 관리를 제거하지 않고 보존합니다.
-- 현재 범위가 제한된 업로드는 스트리밍 방식입니다. Sharded/block-resumable large-document 처리는
-  운영 shipped 기능이 아니라 프로바이더 대상입니다.
+- 현재 범위가 제한된 업로드는 스트리밍 방식이며 ADLS는 바이트 단위로 일치하는 플러시된
+  접두부만 재개합니다. 분할된 대용량 문서 처리는 향후 프로바이더 기능으로 남습니다.
 - 업로드 완료와 처리 준비 상태는 서로 다른 상태입니다.
 - 업스트림의 고정 크기 한도 또는 보존 기간을 UI 코드에 포함하지 않습니다.
 

@@ -498,7 +498,7 @@ extraction continues.
 | `GET /healthz` | unauthenticated process liveness for deployment verification; returns only `{"status":"ok"}` |
 | `GET /ingestion/capabilities` | formats, size/batch/archive limits, storage modes, policy versions |
 | `POST /ingestion/uploads` | authorize destination and create an `UploadSession` |
-| `POST /ingestion/uploads/{upload_id}/resume` | recheck authorization and session state, then return the current upload target |
+| `POST /ingestion/uploads/{upload_id}/resume` | recheck authorization and session state, then return the current upload target and persisted byte range |
 | `PUT /ingestion/uploads/{upload_id}/content` | stream authenticated, bounded source bytes into ADLS quarantine |
 | `POST /ingestion/uploads/{upload_id}/complete` | verify and commit the received object |
 | `GET /ingestion/uploads/{upload_id}` | authorized upload-session and processing status |
@@ -532,7 +532,7 @@ deduplication slot, and continues on the next bounded interval instead of termin
 
 | Failure | Safe behavior |
 |---------|---------------|
-| Browser or network disconnect | Delete a failed streaming PUT's partial object, retry from the beginning in the same session, or expire an abandoned session. |
+| Browser or network disconnect | Preserve the last flushed ADLS prefix, verify it byte-for-byte on retry, append only the missing suffix, or remove the bounded orphan after expiry. |
 | Storage commit mismatch | Hold the object, reject completion, and audit expected vs observed metadata without content. |
 | Scanner unavailable | Keep in quarantine and retry; never skip scanning. |
 | RMS access denied | Record metadata-only or hold according to policy; never strip protection. |
@@ -559,10 +559,13 @@ rights-reconciliation lag, orphaned partial uploads, indexing lag, deletion lag,
 
 The upstream implementation now ships the contracts, fail-closed lifecycle, dedicated ASGI
 gateway, console drop zone, streaming browser hash, local direct-upload adapter, safe text,
-structured Office, and bounded strict-pypdf text extraction, protection signature detection, structure-aware chunking, ADLS Gen2 source and artifact
-stores, PostgreSQL metadata, a governed pgvector index, Azure OpenAI embeddings, Event Hubs Kafka
-processing, ClamAV scanning, test adapters, and deletion lineage. Deployments can replace
-providers through dependency injection when they require Purview/RMS, OCR, or richer formats.
+structured Office, and bounded strict-pypdf text extraction, protection signature detection,
+structure-aware chunking, block-resumable ADLS Gen2 source and artifact stores, Microsoft
+Graph/SharePoint delta synchronization, PostgreSQL metadata, a governed pgvector index, Azure
+OpenAI embeddings, Event Hubs Kafka processing, ClamAV scanning, test adapters, and deletion
+lineage. Deployments can select the Purview/RMS-compatible protection provider through
+`FDAI_DOCUMENT_PROTECTION_PROVIDER=purview_rms`; its endpoint and managed-identity audience remain
+deployment-owned values.
 
 | Slice | Upstream status |
 |-------|-----------------|
@@ -570,8 +573,8 @@ providers through dependency injection when they require Purview/RMS, OCR, or ri
 | Safe text | Shipped generically: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunks, local hybrid retrieval, atomic pgvector version replacement/deletion, access-filtered hybrid search, and deletion. The upstream scanner abstains until a production provider is bound. |
 | Layout | Shipped generically: DOCX paragraph/heading/table cells, PPTX slide/shape/table cells/speaker notes, and strict `pypdf` native PDF page blocks. PDF parsing rejects encryption and enforces independent byte, page, object, unit, and extracted-character ceilings. Parser failures expose one sanitized error without document content. Scanned PDF uses the existing OCR seam only when bound. Previews remain provider work. |
 | Channel evidence | Shipped generically: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, full protected ingestion, reject-before-tool gating, and citation-only `doc:` refs. PNG/JPEG/GIF/WebP signatures produce metadata-only envelopes; OCR and vendor credential composition remain provider bindings. |
-| Protection | Partial: PDF/Office/container encryption and suspicious rights metadata are detected and held. A Purview/RMS adapter, delegated authorization, and revocation reconciliation remain fork bindings. |
-| Connector and scale | Partial: scoped upload sessions, streaming hashes, ADLS, durable PostgreSQL metadata, and bounded parser budgets ship. Block-resumable direct upload, connector delta sync, and measured capacity targets remain follow-up work. |
+| Protection | Shipped generically: PDF/Office/container encryption detection plus a digest-bound Purview/RMS-compatible inspection and bounded revocation-reconciliation adapter. Provider endpoint binding, delegated authorization, preview, and live reconciliation evidence remain deployment work. |
+| Connector and scale | Partial: ADLS preserves flushed upload prefixes, validates replayed bytes before append, seals content digests, reports persisted ranges, and removes bounded expired orphans. The Graph/SharePoint adapter applies deletion-bearing delta pages sequentially with stable idempotency keys, exact collection/access binding, same-origin continuations, and compare-and-swap cursor fences. A deployment-owned connector sink and measured capacity evidence remain open. |
 
 The rollout sequence remains:
 
@@ -600,8 +603,8 @@ Decisions fixed by this design:
 - source, derived artifacts, metadata, vectors, audit, and scratch use separate storage classes;
 - access is enforced before retrieval and inherited by every derivative;
 - rights management is preserved, not removed;
-- the current bounded upload is streaming; sharded and block-resumable large-document processing is
-  a provider target rather than a shipped production capability;
+- the current bounded upload is streaming and ADLS resumes only a byte-for-byte matching flushed
+  prefix; sharded large-document processing remains a future provider capability;
 - upload completion and processing readiness are different states;
 - no fixed upstream size limit or retention period is embedded in UI code.
 
