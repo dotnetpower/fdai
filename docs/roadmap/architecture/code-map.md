@@ -66,6 +66,9 @@ The root integration suite also contract-pins the Document Processing Worker out
 routes logical `object.*` events before marking durable publication complete.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
 abstentions separately.
+Azure semantic query construction lives in `semantic_query_azure_composition.py`.
+`wire_semantic_query.py` directly re-exports that constructor while retaining the established
+public import, and the general wiring module stays below the enforced 800-line ceiling.
 
 Semantic resource-health planning now keeps collection health, exact resource identity, explicit
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves

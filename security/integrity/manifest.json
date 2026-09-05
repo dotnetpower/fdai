@@ -120,7 +120,7 @@
     "services/core-control-plane/src/fdai/composition/wire_observation_providers.py": "0457b1e8f4d2d2ae2d8d4a309c54cb3c4884a0ad6ec7373ba39139265e1391d6",
     "services/core-control-plane/src/fdai/composition/wire_read_investigation.py": "14d601c824c0de7cf7c7a7e29d9c9deea77460817de178645b3deab2017a2175",
     "services/core-control-plane/src/fdai/composition/wire_semantic_judgment.py": "d7b5e41bd63900e29acdc9863d2e00cec4c80d628c9d8f65affdd568d374b6cb",
-    "services/core-control-plane/src/fdai/composition/wire_semantic_query.py": "99bcb0d86c3fc081f96b6029346cb2bf36eed97ec4e5bc992bf5d6f2c7e0c9ca",
+    "services/core-control-plane/src/fdai/composition/wire_semantic_query.py": "b044ba0260d591974298fe8278407ecb6a1b44aca0efe2302c59c10f9a50d447",
     "services/core-control-plane/src/fdai/composition/wire_trajectory.py": "e4956f27caf996ab368b311105633434ab90a2787083c999c1eea4b99988ed40",
     "services/core-control-plane/src/fdai/core/README.md": "d3832549ad3825cf5f65a830b8d399244c7d7ca10bca00fbdb623c6e45bc0639",
     "services/core-control-plane/src/fdai/core/__init__.py": "2089fdfc47357f4a4a12c6bb4bd9bf0d7aa471492e4957d50af8aa4293b1f9f6",

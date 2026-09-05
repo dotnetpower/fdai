@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 61c8556a597edd265ce9fef850ab2fc715676ab5
+translation_source_sha: 17f56db570fc06d696f9b1fdf68b7a6264f8b1e5
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -68,6 +68,9 @@ Terraform 보안 검사는 각 Key Vault secret에 만료일 또는 명시적인
 문서 처리 워커 outbox 규칙도 계약으로 고정합니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
 보류를 별도로 계수합니다.
+Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니다.
+`wire_semantic_query.py`는 기존 공개 가져오기를 유지하면서 해당 생성자를 직접 다시
+내보내며, 일반 배선 모듈은 적용되는 800줄 상한 아래를 유지합니다.
 
 의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
