@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1c21dd0de4828132cba3d9a2e0e2299bbb124928
+translation_source_sha: 1fb9dfff2a57619cc41be8670449a8e9f586157d
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 운영 이력 Blob metadata 이름을 허용되지 않는 하이픈 형태에서 Azure 호환 `fdai_sha256` identifier로 수정하고 managed identity round-trip 테스트에서 정확한 write 및 read header를 검사하도록 강화했습니다. 네 번째 보호 실행은 실제 fixture 준비에 도달했지만 첫 archive write에서 HTTP 400으로 안전하게 실패했습니다. Database를 재시작하거나 데이터를 purge하거나 certification 증적을 저장하지 않았습니다. | `current change`, 집중 Azure archive adapter 및 campaign 검사. 보호된 campaign run `33988596207`과 실패한 execution log에서 metadata 거부를 확인했습니다. | 수정된 adapter image를 publish 및 deploy하고 정확한 source tag로 import한 뒤 안정적인 campaign request를 다시 실행합니다. |
 | 2026-09-06 | implemented | Positional Container Apps 계약을 사용하는 설치형 전용 campaign entrypoint를 추가했습니다. 보호된 실행은 더 이상 Azure CLI가 option 형태의 Python 인자를 전달하는 동작에 의존하지 않으며, entrypoint가 범위가 제한된 positional 값을 기존 typed CLI로 변환합니다. 실제 no-data argv probe와 세 번째 campaign 실행에서 문자열 및 JSON `--args` override가 모두 하나의 argv 값으로 유지됨을 확인했습니다. Campaign은 fixture 준비, database restart, purge 또는 증적 저장 전에 실패했습니다. | `current change`, 집중 entrypoint, campaign CLI, workflow contract, Ruff, strict mypy 및 actionlint 검사. 보호된 campaign run `33987284431`은 시나리오 근거 없이 before-restart 실행에서 중단됐습니다. | Entry point가 포함된 정확한 image를 publish, deploy 및 attest한 뒤 안정적인 campaign request를 다시 실행합니다. |
 | 2026-09-06 | implemented | OI-16 image preflight에서 Docker에 의존하는 ACR login을 제거했습니다. Workflow는 이미 인증된 안정적 Azure identity로 read-only manifest metadata를 조회하고, 범위가 제한된 비공개 token file을 통해 GHCR을 독립 인증하므로 Docker daemon이 필요하지 않습니다. 두 번째 보호 실행은 image 선택 또는 시나리오 실행 전에 중단되어 운영 근거나 certification 증적을 만들지 않았습니다. | `current change`, workflow contract 및 actionlint. 보호된 campaign run `33986535214`는 exact image 단계에서 `DOCKER_COMMAND_ERROR`로 안전하게 실패했습니다. | 수정된 정확한 revision을 publish 및 attest하고 exact image를 import한 뒤 변경하지 않은 campaign request를 다시 실행합니다. |
 | 2026-09-06 | implemented | 보호된 OI-16 runner가 required check, artifact 또는 attestation을 읽기 전에 저장소에 고정된 GitHub CLI를 설치하도록 추가했습니다. 첫 보호 실행은 임시 candidate runner에 `gh`가 없어 Azure login 또는 시나리오 실행 전에 안전하게 실패했습니다. 운영 근거나 certification 증적은 생성하지 않았습니다. | `current change`, workflow contract 및 actionlint. 보호된 campaign run `33985808647`은 `Verify required CI for exact revision`에서 exit `127`로 중단됐습니다. | 수정된 정확한 revision을 publish 및 attest하고 exact image를 import한 뒤 동일한 안정적 campaign request를 bot dispatch와 human Environment approval을 통해 다시 실행합니다. |

@@ -29,12 +29,13 @@ async def test_blob_archive_write_and_verified_read_use_managed_identity() -> No
         nonlocal stored
         assert request.headers["authorization"] == "Bearer test-token"
         if request.method == "PUT":
+            assert request.headers["x-ms-meta-fdai_sha256"] == digest
             stored = request.content
             return httpx.Response(201)
         return httpx.Response(
             200,
             content=stored,
-            headers={"x-ms-meta-fdai-sha256": digest},
+            headers={"x-ms-meta-fdai_sha256": digest},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:

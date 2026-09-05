@@ -71,7 +71,7 @@ class AzureBlobOperationalHistoryArtifactStore:
                 "Content-Type": "application/json",
                 "If-None-Match": "*",
                 "x-ms-blob-type": "BlockBlob",
-                "x-ms-meta-fdai-sha256": digest,
+                "x-ms-meta-fdai_sha256": digest,
             }
         )
         response = await self._request(
@@ -101,7 +101,7 @@ class AzureBlobOperationalHistoryArtifactStore:
         if response.status_code != 200:
             _raise_storage_error(response)
         content = bytes(response.content)
-        expected = response.headers.get("x-ms-meta-fdai-sha256", "")
+        expected = response.headers.get("x-ms-meta-fdai_sha256", "")
         _validate_digest(expected)
         if hashlib.sha256(content).hexdigest() != expected:
             raise ValueError("operational history stored artifact digest mismatch")
