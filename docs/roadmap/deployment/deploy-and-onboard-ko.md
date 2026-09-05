@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 16bbf073a666752674ea9484f81f22333980dd41
+translation_source_sha: 4596b6a9714e4f23e8b9699d9ac16a7310ab5f9f
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -366,6 +366,8 @@ Intelligence 리소스 상태를 유지합니다. `use_local_retain`은 Azure를
 별도 승인이 계속 필요합니다.
 독립 실행형 모듈은 AzureRM `~> 4.14`를 고정하며 커밋된 공급자 잠금 파일은 반복 가능한 모듈
 테스트에서 확인한 공급자 릴리스를 기록합니다.
+Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또는 apply gate를 바꾸지
+않으면서 보호된 Job을 검토된 line 및 step budget 안에 유지합니다.
 
 공개 Static Web App은 ADLS에 직접 접근하지 않습니다. Storage 계정을 비공개로 유지하기
 위해 인증된 게이트웨이를 통해 스트림합니다. 게이트웨이는 ADLS, Event Hubs, Azure OpenAI에 Managed

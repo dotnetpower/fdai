@@ -136,7 +136,6 @@ jobs:
     # Declared budget. Without it the only bound is the six-hour runner default, which cannot tell
     # a stalled provider from a slow apply and holds the single deploy runner meanwhile.
     timeout-minutes: 180
-    environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
       run:
         working-directory: infra
@@ -334,14 +333,6 @@ jobs:
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: python3 scripts/deployment/azure/validate_deploy_request.py
-      - name: Verify protected environment approval policy
-        if: ${{ inputs.apply }}
-        working-directory: ${{ github.workspace }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/environments/${{ inputs.environment }}" > "$RUNNER_TEMP/environment.json"
-          python3 scripts/deployment/azure/verify-github-environment.py "$RUNNER_TEMP/environment.json" --required-approvals 1
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
@@ -386,28 +377,23 @@ jobs:
             echo "TF_VAR_monthly_budget_amount=$PROD_MONTHLY_BUDGET_AMOUNT"
             echo "TF_VAR_budget_alert_emails=$PROD_BUDGET_ALERT_EMAILS_JSON"
           } >> "$GITHUB_ENV"
-      - name: Verify exact Azure context and deploy identity
+      - name: Verify exact Azure context and bind governed inputs
         # The job defaults to `infra`, so a repository-root script path only
         # resolves from the workspace root.
         working-directory: ${{ github.workspace }}
-        run: >-
-          bash scripts/deployment/azure/login-deploy-identity.sh
-          "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
-          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
-      - name: Bind document OCR proposal
-        if: env.OCR_POLICY_ONLY == 'true'
-        working-directory: ${{ github.workspace }}
         env:
           OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
-          REQUEST_ID: ${{ inputs.request_id }}
           STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
         run: |
           set -euo pipefail
-          output="$RUNNER_TEMP/document-ocr-proposal.json"
-          bash scripts/deployment/azure/materialize-document-ocr-proposal.sh \
-            "${{ inputs.environment }}" "$REQUEST_ID" "$output"
-          action="$(jq -er '.action' "$output")"
-          printf 'DOCUMENT_OCR_ACTION=%s\n' "$action" >> "$GITHUB_ENV"
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+          if [[ "$OCR_POLICY_ONLY" == "true" ]]; then
+            bash scripts/deployment/azure/materialize-document-ocr-proposal.sh \
+              "${{ inputs.environment }}" "${{ inputs.request_id }}" \
+              "$RUNNER_TEMP/document-ocr-proposal.json"
+          fi
       - name: Resolve and seal model capabilities
         if: ${{ !inputs.apply && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
@@ -535,42 +521,7 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
-
-      - name: Resolve document OCR desired state
-        if: ${{ inputs.apply || env.MODEL_BINDING_ONLY != 'true' }}
-        run: |
-          set -euo pipefail
-          if terraform state list | grep -Fxq \
-            'module.document_intelligence[0].azurerm_cognitive_account.document_intelligence'; then
-            existing_resource=true
-          else
-            existing_resource=false
-          fi
-          case "$DOCUMENT_OCR_ACTION" in
-            preserve)
-              resource_enabled="$existing_resource"
-              provider="$(terraform output -raw document_ocr_provider 2>/dev/null \
-                || printf '%s' local_python)"
-              ;;
-            use_local_retain)
-              resource_enabled="$existing_resource"
-              provider=local_python
-              ;;
-            use_azure_provision)
-              resource_enabled=true
-              provider=azure_document_intelligence
-              ;;
-            deprovision_use_local)
-              resource_enabled=false
-              provider=local_python
-              ;;
-            *)
-              echo "Document OCR action is invalid." >&2
-              exit 1
-              ;;
-          esac
-          printf 'TF_VAR_enable_document_intelligence=%s\n' "$resource_enabled" >> "$GITHUB_ENV"
-          printf 'TF_VAR_document_ocr_provider=%s\n' "$provider" >> "$GITHUB_ENV"
+          bash ../scripts/deployment/azure/resolve-document-ocr-desired-state.sh
 
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}

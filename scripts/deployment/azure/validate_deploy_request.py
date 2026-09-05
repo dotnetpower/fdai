@@ -14,7 +14,7 @@ _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
     r"^plan-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
-    r"(?:model|ocr)-[0-9a-f]{32}-[0-9a-f]{64})$"
+    r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
     r"^apply-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"

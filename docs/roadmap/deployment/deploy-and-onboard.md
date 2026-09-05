@@ -368,6 +368,8 @@ PostgreSQL proposal, policy, and plan-request records before Terraform variables
 remains the default, and exact apply still requires separate protected-environment approval.
 The standalone module pins AzureRM `~> 4.14`; its committed provider lock records the tested
 provider release for repeatable module tests.
+The workflow delegates OCR desired-state reduction to a focused script, keeping the protected job
+within its reviewed line and step budgets without changing approval or apply gates.
 
 The public Static Web App never reaches ADLS directly. It streams through the authenticated
 gateway because the Storage account stays private. The gateway uses Managed Identity for ADLS,

@@ -119,8 +119,8 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
         mark_ontology_projected=AsyncMock(),
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresInventoryObservationJournal",
-        lambda **_: observation_journal,
+        "fdai.delivery.inventory_sync_cli.build_observation_journal",
+        lambda *_args, **_kwargs: observation_journal,
     )
     activity_publisher = SimpleNamespace(publish=AsyncMock())
     observer = _build_ontology_observer(

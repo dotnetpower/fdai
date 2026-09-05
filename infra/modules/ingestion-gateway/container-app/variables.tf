@@ -79,7 +79,8 @@ variable "embedding_endpoint" { type = string }
 variable "embedding_deployment" { type = string }
 variable "ocr_endpoint" { type = string }
 variable "ocr_provider" {
-  type = string
+  type    = string
+  default = "local_python"
 
   validation {
     condition     = contains(["local_python", "azure_document_intelligence"], var.ocr_provider)

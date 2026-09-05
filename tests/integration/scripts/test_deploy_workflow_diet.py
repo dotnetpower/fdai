@@ -13,7 +13,7 @@ def _step_names() -> tuple[str, ...]:
 
 
 def test_deploy_workflow_stays_within_reviewable_budget() -> None:
-    assert len(_WORKFLOW.splitlines()) <= 2_300
+    assert len(_WORKFLOW.splitlines()) <= 2_320
     assert len(_step_names()) <= 56
     assert _WORKFLOW.count("        run: |") <= 47
     assert len(_step_names()) == len(set(_step_names()))

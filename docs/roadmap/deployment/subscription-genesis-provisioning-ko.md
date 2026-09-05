@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 7a6838b687bcbfc548bbbe58efd5c068d8b032a5
+translation_source_sha: 10f3cd3cc475e61124330abd5fac3bbd56ecdd57
 translation_revised: 2026-09-05
 ---
 # 구독 초기 프로비저닝
@@ -381,6 +381,8 @@ promotion은 관측을 정확한 수명 인스턴스와 논리적인 시간 및 
 검증 후에만 안전한 `retain` 기본값을 대체합니다. Archive writer, 검증된 principal 범위 reader,
 database purge gate 및 고정 shadow schedule은 전용 Job binding을 준비했으며, 해당 Job과 보호된
 증적이 생길 때까지 Genesis는 archive 수명 주기를 incomplete로 보고합니다.
+CI는 database integration 검사 전에 service 소유 migration chain 전체를 적용하고 해당 검사가
+그 migration 적용 database를 사용하게 하여 Genesis runtime 순서와 일치시킵니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고
 이전 완전한 그래프를 유지하며 재개 가능한 커서 또는 범위가 제한된 재시작 결정을 남깁니다.

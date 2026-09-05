@@ -16,6 +16,7 @@ import httpx
 import yaml
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
+from fdai.delivery import inventory_collection_health_reporting
 from fdai.delivery.azure.activity_log import AzureActivityLogFactory, AzureActivityLogFactoryConfig
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
 from fdai.delivery.azure.arm_inventory import (
@@ -26,9 +27,6 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.inventory_collection_health_reporting import (
-    build_scheduled_collection_health_projection,
-)
 from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
@@ -61,17 +59,12 @@ from fdai.delivery.operational_activity import (
     ObservedInventorySnapshotStore,
     ontology_projection_activity,
 )
-from fdai.delivery.operational_history_policy import (
-    load_operational_history_retention_policies,
-)
+from fdai.delivery.operational_history_policy import build_observation_journal
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
-)
-from fdai.delivery.persistence.postgres_inventory_observation import (
-    PostgresInventoryObservationJournal,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
@@ -84,10 +77,6 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleConfig,
     PostgresKubernetesLifecycleStore,
-)
-from fdai.delivery.persistence.postgres_operational_history import (
-    PostgresOperationalHistoryConfig,
-    PostgresOperationalHistoryStore,
 )
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
@@ -354,13 +343,7 @@ def _build_ontology_observer(
     publisher: EventBusOperationalActivityPublisher,
     evidence_counts: dict[str, int],
 ) -> InventoryPromotionObserver:
-    retention_policies = load_operational_history_retention_policies(os.environ)
-    operational_history_store = PostgresOperationalHistoryStore(
-        config=PostgresOperationalHistoryConfig(dsn=config.dsn)
-    )
-    observation_journal = PostgresInventoryObservationJournal(
-        config=PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
-    )
+    observation_journal = build_observation_journal(config.dsn, os.environ)
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
     topology_publisher: InventoryTopologyHistoryPublisher | None = None
@@ -407,13 +390,6 @@ def _build_ontology_observer(
         evidence_counts[observation.generation] = len(observation.resources) + len(
             observation.links
         )
-        if observation.recorded_at is None:
-            raise ValueError("promoted inventory observation recorded_at MUST be supplied")
-        for policy in retention_policies:
-            await operational_history_store.put_retention_policy(
-                policy,
-                recorded_at=observation.recorded_at,
-            )
         journal_append = await observation_journal.append_promoted_snapshot(observation)
         if projector is None or ontology_store is None or topology_publisher is None:
             return
@@ -814,7 +790,7 @@ async def _publish_collection_health(
 ) -> None:
     """Persist one sanitized aggregate projection for principal-gated reads."""
 
-    projection = build_scheduled_collection_health_projection(
+    projection = inventory_collection_health_reporting.build_scheduled_collection_health_projection(
         config,
         health_state=health_state,
         decision=decision,

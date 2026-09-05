@@ -51,6 +51,21 @@ def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     )
 
 
+def test_ci_runs_integration_tests_against_the_service_migration_head() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    migration_step = workflow.index("- name: Run service-owned migrations")
+    integration_step = workflow.index("- name: Run integration test suite")
+
+    assert migration_step < integration_step
+    integration = workflow[
+        integration_step : workflow.index(
+            "- name: Run service-owned database tests",
+            integration_step,
+        )
+    ]
+    assert "FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}" in integration
+
+
 def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
     manifest = ownership_module.load_ownership_manifest(
