@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 87b7b51f5799a57234bfef8b24a66b19543122e7
+translation_source_sha: a4fd9dda589f0e2b8815f83b1074ffdf104a6262
 translation_revised: 2026-09-05
 ---
 # 배포 리소스 규약
@@ -47,7 +47,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 | Channel-edge 신원 기반 | implemented | `infra/main.tf`; `infra/services/operator-service/`; root 및 서비스 Terraform 검사 | Platform은 전용 edge 신원에 Operator DSN 접근을 부여합니다. 추가 provider/principal 비밀 범위는 선택적 platform 입력이며, 서비스 root는 principal scope와 완전한 provider 계약 하나가 없으면 활성 edge를 차단합니다. |
 | Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 완료된 일회성 이행 모드는 더 이상 노출하지 않습니다. 과거 Terraform `moved` 블록은 state 호환성을 위해 유지합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
-| 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
+| 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. 서비스 간 근거를 고정하는 Key Vault secret은 조정되지 않은 고정 만료 대신 조정된 로테이션을 사용합니다. |
 | 초기 구성 기반 계획 경계 | implemented | `fdai_deployment_cli.bootstrap_reconcile`, `.github/workflows/deploy-dev.yml`, 집중 CLI 및 워크플로 검사 | 초기 구성 조정은 대상에 고정된 읽기 전용 작업입니다. 애플리케이션 계획은 기반 단계가 소유한 상태 컨테이너를 만들지 않고 확인합니다. 통제된 기반 적용 및 인계 증적은 아직 필요합니다. |
 | 재사용 Terraform 모듈 호환성 | implemented | `infra/modules/**/versions.tf`, `infra/services/**/modules/**/versions.tf`, TFLint | 모든 재사용 모듈은 Terraform `>= 1.9`를 선언하고 Azure 리소스를 소유한 모듈은 지원되는 AzureRM 4.x 범위를 제한합니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |

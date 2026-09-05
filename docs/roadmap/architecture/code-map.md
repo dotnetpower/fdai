@@ -55,6 +55,8 @@ single required CI graph owns Terraform validation and security scanning, while 
 container supply-chain workflow owns image build, vulnerability scanning, and attestation.
 External actions remain pinned to full commit SHAs; repository-local composite actions are accepted
 only by their checked-out relative path and are covered by the protected-workflow source verifier.
+The Terraform security scan requires either an expiry or an explicit coordinated-rotation rationale
+for each Key Vault secret.
 The root integration suite also contract-pins the Document Processing Worker outbox rule that
 routes logical `object.*` events before marking durable publication complete.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
