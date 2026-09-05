@@ -4,6 +4,7 @@ import hashlib
 
 from fdai.core.conversation_assurance import PolicyStage, PolicyTransition
 from fdai.delivery.persistence.postgres_conversation_assurance_policy import (
+    _same_transition_request,
     _transition,
     _transition_key,
 )
@@ -41,7 +42,7 @@ def test_transition_round_trip_preserves_decision_evidence_bindings() -> None:
     assert restored == transition
 
 
-def test_transition_key_binds_decision_evidence_pair() -> None:
+def test_transition_key_stays_stable_when_decision_evidence_is_added() -> None:
     transition = _admitted_transition()
     held = PolicyTransition(
         candidate_id=transition.candidate_id,
@@ -51,7 +52,7 @@ def test_transition_key_binds_decision_evidence_pair() -> None:
         evidence_digest=transition.evidence_digest,
     )
 
-    assert _transition_key(transition) != _transition_key(held)
+    assert _transition_key(transition) == _transition_key(held)
 
 
 def test_transition_key_preserves_legacy_derivation_without_decision_evidence() -> None:
@@ -73,3 +74,17 @@ def test_transition_key_preserves_legacy_derivation_without_decision_evidence() 
     )
 
     assert _transition_key(transition) == hashlib.sha256(legacy_material.encode()).hexdigest()
+
+
+def test_legacy_transition_without_stored_evidence_replays_as_safe_no_op() -> None:
+    requested = _admitted_transition()
+    legacy = PolicyTransition(
+        candidate_id=requested.candidate_id,
+        from_stage=requested.from_stage,
+        to_stage=requested.to_stage,
+        reasons=requested.reasons,
+        evidence_digest=requested.evidence_digest,
+    )
+
+    assert _same_transition_request(legacy, requested)
+    assert not _same_transition_request(requested, legacy)

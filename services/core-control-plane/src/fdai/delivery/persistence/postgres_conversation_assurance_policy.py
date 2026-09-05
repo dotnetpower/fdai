@@ -111,7 +111,7 @@ class PostgresConversationPolicyCandidateStore:
             )
             replay_row = await replay_cursor.fetchone()
             if replay_row is not None:
-                if _transition(replay_row) != transition:
+                if not _same_transition_request(_transition(replay_row), transition):
                     raise ValueError("policy transition key belongs to different content")
                 return candidate
             evidence_cursor = await connection.execute(
@@ -268,23 +268,30 @@ def _transition(row: dict[str, Any]) -> PolicyTransition:
 
 
 def _transition_key(transition: PolicyTransition) -> str:
-    parts = (
-        transition.candidate_id,
-        transition.from_stage.value,
-        transition.to_stage.value,
-        *transition.reasons,
-        transition.evidence_digest,
-    )
-    if transition.decision_evidence_receipt_digest is not None:
-        bundle_digest = transition.decision_evidence_verification_bundle_digest
-        if bundle_digest is None:
-            raise ValueError("policy transition decision evidence digests MUST be paired")
-        parts += (
-            transition.decision_evidence_receipt_digest,
-            bundle_digest,
+    material = "\0".join(
+        (
+            transition.candidate_id,
+            transition.from_stage.value,
+            transition.to_stage.value,
+            *transition.reasons,
+            transition.evidence_digest,
         )
-    material = "\0".join(parts)
+    )
     return hashlib.sha256(material.encode()).hexdigest()
+
+
+def _same_transition_request(stored: PolicyTransition, requested: PolicyTransition) -> bool:
+    if stored == requested:
+        return True
+    return (
+        stored.candidate_id == requested.candidate_id
+        and stored.from_stage is requested.from_stage
+        and stored.to_stage is requested.to_stage
+        and stored.reasons == requested.reasons
+        and stored.evidence_digest == requested.evidence_digest
+        and stored.decision_evidence_receipt_digest is None
+        and stored.decision_evidence_verification_bundle_digest is None
+    )
 
 
 def _require_limit(limit: int) -> None:
