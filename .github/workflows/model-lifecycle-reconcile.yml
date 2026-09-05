@@ -172,6 +172,7 @@ jobs:
             echo "model lifecycle proposal is not safe to publish" >&2
             exit 1
           fi
+          source_commit="$(git rev-parse HEAD)"
           branch="automation/model-lifecycle-${proposal_digest:0:12}"
           proposal="config/model-lifecycle-proposals/${proposal_digest}.json"
           if [[ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')" ]]; then
@@ -194,7 +195,6 @@ jobs:
           pr_json="$RUNNER_TEMP/model-lifecycle/pull-request.json"
           pr_proposal="$RUNNER_TEMP/model-lifecycle/pull-request-proposal.json"
           receipt="$RUNNER_TEMP/model-lifecycle/receipt.json"
-          source_commit="$(git rev-parse HEAD)"
           gh pr view "$branch" --json number,headRefOid,isDraft > "$pr_json"
           head_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["headRefOid"])' "$pr_json")"
           gh api \
