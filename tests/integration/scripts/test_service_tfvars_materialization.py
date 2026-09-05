@@ -250,11 +250,10 @@ def test_rejects_invalid_authoritative_database_host(
         )
 
 
-@pytest.mark.parametrize("service", ["core-control-plane", "operator-service"])
 def test_hydrates_primary_event_topic_from_authoritative_platform_output(
     topic_hydrator: ModuleType,
-    service: str,
 ) -> None:
+    service = "core-control-plane"
     payload = {
         "environments": {
             "dev": {
@@ -280,6 +279,54 @@ def test_hydrates_primary_event_topic_from_authoritative_platform_output(
         "other": "preserved",
     }
     assert payload["environments"]["dev"][service]["event_topics"]["events"] == ("aw.change.events")
+
+
+def test_hydrates_operator_logical_topics_from_authoritative_contract(
+    topic_hydrator: ModuleType,
+) -> None:
+    original = {
+        "events": "aw.change.events",
+        "semantic_requests": "legacy.semantic.requests",
+        "semantic_projections": "legacy.semantic.projections",
+        "semantic_physical": "aw.pantheon.objects",
+        "read_investigation_requests": "legacy.read.requests",
+        "incident_intervention_requests": "legacy.incident.requests",
+        "read_investigation_completions": "legacy.read.completions",
+        "hil_decisions": "operator.hil-decisions",
+        "notification_receipts": "legacy.notification.receipts",
+    }
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "event_topics": dict(original),
+                }
+            }
+        }
+    }
+
+    hydrated = topic_hydrator.hydrate_event_topic(
+        payload,
+        service="operator-service",
+        environment="dev",
+        event_topic="fdai.change.events",
+        pipeline_stage_topic="fdai.pipeline.stages",
+        pantheon_object_topic="fdai.pantheon.objects",
+    )
+
+    assert hydrated["environments"]["dev"]["operator-service"]["event_topics"] == {
+        "events": "fdai.change.events",
+        "semantic_requests": "operator.semantic-turn.requests",
+        "semantic_projections": "core.semantic-turn.projections",
+        "semantic_physical": "fdai.pantheon.objects",
+        "read_investigation_requests": "operator.read-investigation.requests",
+        "incident_intervention_requests": "operator.incident-intervention.requests",
+        "read_investigation_completions": "core.read-investigation.completions",
+        "hil_decisions": "fdai.hil.decisions",
+        "notification_receipts": "fdai.notifications.delivery-receipts",
+    }
+    assert payload["environments"]["dev"]["operator-service"]["event_topics"] == original
 
 
 def test_hydrates_core_observation_context_from_platform_output(

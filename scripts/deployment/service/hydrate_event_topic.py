@@ -57,7 +57,21 @@ def hydrate_event_topic(
 
     topics_by_service = {
         "core-control-plane": {"events": normalize_event_topic(event_topic)},
-        "operator-service": {"events": normalize_event_topic(event_topic)},
+        "operator-service": {
+            "events": normalize_event_topic(event_topic),
+            "semantic_requests": "operator.semantic-turn.requests",
+            "semantic_projections": "core.semantic-turn.projections",
+            "semantic_physical": _fixed_topic(
+                pantheon_object_topic,
+                expected="fdai.pantheon.objects",
+                label="Pantheon object topic",
+            ),
+            "read_investigation_requests": "operator.read-investigation.requests",
+            "incident_intervention_requests": "operator.incident-intervention.requests",
+            "read_investigation_completions": "core.read-investigation.completions",
+            "hil_decisions": "fdai.hil.decisions",
+            "notification_receipts": "fdai.notifications.delivery-receipts",
+        },
         "document-ingestion-api": {
             "pipeline_stages": _fixed_topic(
                 pipeline_stage_topic,
