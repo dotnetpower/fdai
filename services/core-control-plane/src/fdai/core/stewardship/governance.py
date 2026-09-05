@@ -92,7 +92,7 @@ class StewardshipGovernanceService:
             raise StewardshipGovernanceError("stewardship draft YAML MUST be non-empty")
         if len(artifact.yaml.encode("utf-8")) > _MAX_YAML_BYTES:
             raise StewardshipGovernanceError("stewardship draft YAML exceeds the bounded size")
-        _validate_candidate(artifact.yaml, environ=self.validation_environ)
+        validate_stewardship_candidate(artifact.yaml, environ=self.validation_environ)
         receipt = await self.publisher.publish(_render(artifact, key))
         return StewardshipGovernanceResult(
             published=True,
@@ -139,8 +139,12 @@ def _render(artifact: HandoverDraftArtifact, key: str) -> RemediationPr:
     )
 
 
-def _validate_candidate(candidate: str, *, environ: Mapping[str, str]) -> None:
-    """Fail closed unless the rendered candidate is a complete stewardship map."""
+def validate_stewardship_candidate(
+    candidate: str,
+    *,
+    environ: Mapping[str, str],
+) -> Any:
+    """Return a complete stewardship map or fail closed."""
 
     try:
         raw: Any = yaml.safe_load(candidate)
@@ -153,7 +157,7 @@ def _validate_candidate(candidate: str, *, environ: Mapping[str, str]) -> None:
     if require_bindings is not None:
         validation_environ["FDAI_STEWARDSHIP_REQUIRE_BINDINGS"] = require_bindings
     try:
-        load_stewardship_from_mapping(raw, environ=validation_environ)
+        return load_stewardship_from_mapping(raw, environ=validation_environ)
     except StewardshipValidationError as exc:
         raise StewardshipGovernanceError(
             "stewardship draft YAML failed governance validation"
@@ -171,4 +175,5 @@ __all__ = [
     "StewardshipGovernanceResult",
     "StewardshipGovernanceService",
     "stewardship_idempotency_key",
+    "validate_stewardship_candidate",
 ]

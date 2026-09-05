@@ -95,6 +95,8 @@ variable "rollback" {
   })
 }
 variable "runtime_env" { type = string }
+variable "stewardship_audit_interval_seconds" { type = number }
+variable "handover_knowledge_interval_seconds" { type = number }
 variable "startup_readiness" {
   type = object({
     kafka_settle_seconds  = number

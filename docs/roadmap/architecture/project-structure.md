@@ -62,9 +62,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   but never imports Core implementation or receives executor identity. **Document OCR stays split by contract and provider ownership**: the shared service-contract SDK owns the revisioned provider policy without deployment authority, the document worker owns the bounded local Tesseract adapter and Azure adapter selection, and infrastructure supplies only the selected endpoint, identity, and provider value, so neither ingestion service imports another service implementation. Service migration CI serializes schema-mutating lifecycle tests after adoption, and forward repairs preserve root-owned shared indexes after rollback.
 - **operational ownership draft delivery stays review-only**: the document worker persists an
   authority-free handover artifact through the shared contract. Core validates the complete tracked
-  YAML, and runtime alone binds the durable state store to the GitOps publisher. Content-addressed
-  receipts and Saga audit make retries safe without granting merge, RBAC, approval, or executor
-  authority to the worker or publisher.
+  YAML, and runtime alone binds the durable state store to the GitOps publisher, signed-merge effect
+  worker, identity-health worker, and content-free knowledge lifecycle worker. Operator reads only
+  revision-matched unexpired health. Content-addressed receipts and Saga audit make retries safe
+  without granting merge, RBAC, approval, or executor authority to a worker or publisher.
 - **observation-mode ARB composition**: `core/architecture_review/observation_loop.py` owns the
   provider-neutral Change -> authenticated context -> evidence bundle -> scenario -> DecisionCase
   and ImpactEnvelope composition. Forseti is the only publisher of its observation verdict on the

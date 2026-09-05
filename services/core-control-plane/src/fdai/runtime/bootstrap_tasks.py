@@ -71,6 +71,9 @@ class RuntimeTaskConfiguration:
     approval slot without Core importing a delivery implementation.
     """
     stewardship_governance_worker: Any = None
+    stewardship_identity_health_worker: Any = None
+    stewardship_merge_effects_worker: Any = None
+    handover_knowledge_lifecycle_worker: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +306,9 @@ async def run_runtime_tasks(
     discovery_activation_task: asyncio.Task[None] | None = None
     continuous_operating_model_task: asyncio.Task[None] | None = None
     stewardship_governance_task: asyncio.Task[None] | None = None
+    stewardship_identity_health_task: asyncio.Task[None] | None = None
+    stewardship_merge_effects_task: asyncio.Task[None] | None = None
+    handover_knowledge_lifecycle_task: asyncio.Task[None] | None = None
     pantheon_runtime = config.pantheon_runtime
     if pantheon_runtime is not None:
         pantheon_task = asyncio.create_task(
@@ -427,6 +433,30 @@ async def run_runtime_tasks(
             ),
             name="stewardship-governance",
         )
+    if config.stewardship_identity_health_worker is not None:
+        stewardship_identity_health_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.stewardship_identity_health_worker.run(config.stop),
+            ),
+            name="stewardship-identity-health",
+        )
+    if config.stewardship_merge_effects_worker is not None:
+        stewardship_merge_effects_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.stewardship_merge_effects_worker.run(config.stop),
+            ),
+            name="stewardship-merge-effects",
+        )
+    if config.handover_knowledge_lifecycle_worker is not None:
+        handover_knowledge_lifecycle_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.handover_knowledge_lifecycle_worker.run(config.stop),
+            ),
+            name="handover-knowledge-lifecycle",
+        )
 
     await hooks.supervise_runtime_tasks(
         required=(
@@ -459,6 +489,9 @@ async def run_runtime_tasks(
             rule_generation_reconciliation_task,
             incident_notification_replay_task,
             stewardship_governance_task,
+            stewardship_identity_health_task,
+            stewardship_merge_effects_task,
+            handover_knowledge_lifecycle_task,
         ),
     )
 

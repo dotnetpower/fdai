@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 78436212b29906e095bcccaf67f5a2565f75c60c
+translation_source_sha: 34124aa884fbb2100bb81b42bf80e8d9bc7a45f8
 translation_revised: 2026-09-05
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -21,11 +21,11 @@ translation_revised: 2026-09-05
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 묶음 1-3: 임무, 배정 코어, API, 콘솔 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 이 묶음은 공급자 변경 없이 관찰 전용 의도와 변환 결과를 구성합니다. |
-| 묶음 4: 소유권 PR 조정 | in-progress | `ownership_coordination.py`; `test_ownership_coordination.py`; 서명된 담당 체계 웹후크 | 다이제스트 결합 초안 게시, 정확한 PR 및 내용 검증, 소유권 결과 기록, 형식이 지정된 shadow IAM 요청 게시가 구현되었습니다. 운영 조립과 재시작 안전 전달 근거는 남아 있습니다. |
+| 묶음 4: 소유권 PR 조정 | implemented | `ownership_coordination.py`; `stewardship_merge_effects.py`; 서명된 담당 체계 웹후크; 집중 조정 테스트 | 운영 조립은 정확한 서명 병합을 소비하고 제안 다이제스트를 검증합니다. 소유권 결과를 기록하고 영향받는 소유자에게 알리며 재처리해도 동일한 shadow IAM 요청을 게시합니다. 관리형 배포 근거는 남아 있습니다. |
 | 묶음 5: 사용자 접근 공급자 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 관찰 전용 허용 목록, 수렴, 롤백 기능이 있지만 묶음 4는 아직 배정 케이스에서 이를 트리거하지 않습니다. |
 | 묶음 6: 무응답 감독자 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 shadow 관찰이 있습니다. 운영 단계 디스패치는 승격되지 않았습니다. |
-| 묶음 7: 인수인계 목표 코어와 명령 | implemented | `goals.py`; `handover_runtime.py`; `handover.py`; 집중 Core, Operator, Console 검사 | 영속 초대는 실제 담당 체계 재검증, 주간 피로도 펜스, 서버 바인딩 에이전트 라우팅, 다시 알림, 거절을 지원합니다. 인시던트 또는 승인 작업 중에는 안전하게 초대를 억제합니다. 에이전트가 공백을 직접 만드는 기능은 남아 있습니다. |
-| 묶음 8: 지식 근거 전달 | in-progress | 문서 계약; `console/src/routes/document-ingestion.tsx`; Operator 인수인계 목표 근거 상태; 집중 Console 및 Operator 검사 | 관리되는 웹 업로드는 승인된 문서 증적을 목표와 연결합니다. 이후 접근에서 증적을 다시 검증하고 삭제, 회수, 교체 후에는 목표를 stale로 표시합니다. 후보 전달과 ACL로 필터링된 에이전트 검색은 남아 있습니다. |
+| 묶음 7: 인수인계 목표 코어와 명령 | implemented | `goals.py`; `handover_runtime.py`; `handover.py`; `handover_knowledge_lifecycle.py`; 집중 Core, Operator, Console 검사 | 영속 초대는 실제 담당 체계 재검증, 주간 피로도 펜스, 현지화 렌더링, 서버 바인딩 에이전트 라우팅, 다시 알림, 거절, 작업 중 억제, 에이전트 소유 공백 생산을 지원합니다. |
+| 묶음 8: 지식 근거 전달 | implemented | 문서 계약; `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; 집중 검색 및 수명 주기 검사 | 관리되는 업로드는 승인된 근거를 목표와 연결합니다. 검색은 정확한 principal과 원본 ACL을 강제하며 후보는 검토 전용입니다. 충돌과 stale 철회는 내용이 없는 이벤트를 사용합니다. |
 | 묶음 9: 운영 롤아웃 | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | 기능 축과 관찰 전용 조정이 있습니다. 적용 모드 승격, Azure 권한 검사, 대시보드, 경고, 자동 복구, 운영 훈련은 완료되지 않았습니다. |
 
 ### 구현 이력
@@ -37,12 +37,13 @@ translation_revised: 2026-09-05
 | 2026-09-05 | implemented | 서버 소유 대화 바인딩과 최소 권한의 권위 있는 문서 검증으로 묶음 7과 8 경계를 강화했습니다. | `current change`; 집중 Operator, Console, service migration inventory 테스트가 통과했습니다. | 남은 운영 및 지식 수명 주기 근거를 완료합니다. |
 | 2026-09-05 | implemented | 서버 소유 작업 중 억제와 접근 시점 근거 노후화 전파를 추가했습니다. | `current change`; 집중 Operator 테스트가 통과했습니다. | 에이전트 소유 공백, 에이전트 검색, 후보 승격을 완료합니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입하고 묶음 4와 묶음 5의 의존성 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 묶음 4를 구현하고 묶음 8-9를 완료하며 승격 및 운영 근거를 수집합니다. |
+| 2026-09-05 | implemented | 서명된 병합 결과, 신원 상태, 에이전트 소유 공백, ACL 결합 검색, 검토 전용 후보, 충돌, stale 철회로 묶음 4 운영 조립과 묶음 8 로컬 수명 주기를 완료했습니다. | `current change`; 집중 Core 및 Operator 검사; Core 서비스 Terraform 검증. | 관리형 배포, 승격, 재시작, 장애, 롤백, 재해 복구 근거를 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 묶음 4를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 조립하고, 일치하는 병합만 해당 배정 케이스를 진행시킨다는 재시작 안전 근거를 보존합니다.
-- [ ] 일치하는 증적에서만 형식이 지정된 IAM 적용 요청을 게시하고 소유권, 검토, IAM, 실행기 권한이 이벤트 경계에서 합쳐지지 않음을 입증합니다.
-- [ ] 현지화된 웹 초대, 목표-업로드 바인딩, 충돌 펜스, 노후화 및 삭제 전파에는 집중 통과 근거가 있습니다. 에이전트 소유 인수인계 공백 생산, 후보 전달, ACL로 필터링된 에이전트 검색을 완료합니다.
+- [x] 묶음 4를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 조립하고, 일치하는 병합만 해당 배정 케이스를 진행시킨다는 재시작 안전 로컬 근거를 보존합니다.
+- [x] 일치하는 증적에서만 형식이 지정된 shadow IAM 적용 요청을 게시하고 소유권, 검토, IAM, 실행기 권한이 이벤트 경계에서 합쳐지지 않음을 입증합니다.
+- [x] 현지화된 웹 초대, 목표-업로드 바인딩, 에이전트 소유 공백, 검토 전용 후보, ACL 필터 검색, 충돌 펜스, 노후화, 삭제 전파를 완료합니다.
 - [ ] 묶음 9의 Azure 권한 검사, 비운영 변경 및 롤백 훈련, shadow 비교, 대시보드, 경고, 재시작 및 장애 복구 근거를 수행하고 보존합니다.
 - [ ] IAM 변경, 무응답 디스패치, 선제적 인수인계는 각각 롤아웃 임계값을 통과한 뒤 독립적으로 승격합니다. 소진 또는 불충분한 근거에서는 감사된 no-op을 보존합니다.
 

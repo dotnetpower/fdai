@@ -19,6 +19,7 @@ from fdai.core.control_loop import ControlLoop
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
+from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
@@ -84,9 +85,10 @@ from fdai.runtime.control_loop import (
 from fdai.runtime.conversation_assurance import (
     build_runtime_pantheon_conversation_assurance,
 )
-from fdai.runtime.delivery import _build_publisher
+from fdai.runtime.delivery import _build_notification_router, _build_publisher
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
+from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
 from fdai.runtime.operating_model import project_operating_model_from_env
@@ -102,6 +104,11 @@ from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
 )
+from fdai.runtime.stewardship_identity_health import (
+    StewardshipIdentityHealthWorker,
+    build_stewardship_identity_health_worker,
+)
+from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 from fdai.shared.providers.state_store import StateStore
@@ -132,6 +139,9 @@ class CoreRuntime:
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
+    stewardship_identity_health_worker: StewardshipIdentityHealthWorker | None = None
+    stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
+    handover_knowledge_lifecycle_worker: HandoverKnowledgeLifecycleWorker | None = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -167,6 +177,9 @@ class CoreRuntime:
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
             hil_workflow_registry=self.hil_workflow_registry,
             stewardship_governance_worker=self.stewardship_governance_worker,
+            stewardship_identity_health_worker=self.stewardship_identity_health_worker,
+            stewardship_merge_effects_worker=self.stewardship_merge_effects_worker,
+            handover_knowledge_lifecycle_worker=self.handover_knowledge_lifecycle_worker,
         )
 
 
@@ -218,14 +231,70 @@ async def build_core_runtime(
 
     state_store = state_store or _build_audit_store()
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
+    stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     if gitops_delivery_requested:
         if resources.http_client is None:  # pragma: no cover - guarded above
             raise RuntimeError("stewardship governance GitOps delivery requires an HTTP client")
+        publisher = _build_publisher(resources.http_client)
         stewardship_governance_worker = build_stewardship_governance_worker(
             store=state_store,
-            publisher=_build_publisher(resources.http_client),
+            publisher=publisher,
             environment=environment,
         )
+        if environment.get("FDAI_STATE_STORE_DSN", "").strip():
+            from fdai.core.human_assignment import (
+                AssignmentCaseService,
+                AssignmentOwnershipCoordinator,
+            )
+            from fdai.core.stewardship import load_stewardship_from_yaml
+
+            endpoint_overrides = await resolve_local_notification_endpoints(
+                environment=environment,
+                state_store=state_store,
+                key_material=environment.get("FDAI_STATE_STORE_DSN", "").strip() or None,
+            )
+            stewardship_merge_effects_worker = StewardshipMergeEffectsWorker(
+                store=state_store,
+                base=load_stewardship_from_yaml(
+                    _resolve_catalog_root().parent / "config" / "agent-stewardship.yaml",
+                    environ=environment,
+                ),
+                notifications=_build_notification_router(
+                    state_store,
+                    http_client=resources.http_client,
+                    endpoint_overrides=endpoint_overrides,
+                ),
+                ownership=AssignmentOwnershipCoordinator(
+                    cases=AssignmentCaseService(state_store),
+                    store=state_store,
+                    pr_publisher=publisher,
+                    event_bus=messaging.bus,
+                    event_topic=container.config.kafka.topic_events,
+                ),
+                validation_environ=environment,
+                interval_seconds=float(
+                    environment.get("FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS", "60")
+                ),
+            )
+    stewardship_identity_health_worker = build_stewardship_identity_health_worker(
+        store=state_store,
+        http_client=resources.http_client,
+        identity=identity,
+        environment=environment,
+        config_path=_resolve_catalog_root().parent / "config" / "agent-stewardship.yaml",
+    )
+    handover_knowledge_lifecycle_worker = (
+        HandoverKnowledgeLifecycleWorker(
+            store=state_store,
+            bus=messaging.bus,
+            topic=container.config.kafka.topic_events,
+            interval_seconds=float(
+                environment.get("FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS", "60")
+            ),
+        )
+        if environment.get("FDAI_STATE_STORE_DSN", "").strip()
+        else None
+    )
     best_practices, checklist_evidence = load_runtime_best_practice_bindings(
         _resolve_catalog_root()
     )
@@ -552,6 +621,9 @@ async def build_core_runtime(
         diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
         hil_workflow_registry=_build_hil_workflow_registry(state_store),
         stewardship_governance_worker=stewardship_governance_worker,
+        stewardship_identity_health_worker=stewardship_identity_health_worker,
+        stewardship_merge_effects_worker=stewardship_merge_effects_worker,
+        handover_knowledge_lifecycle_worker=handover_knowledge_lifecycle_worker,
     )
 
 

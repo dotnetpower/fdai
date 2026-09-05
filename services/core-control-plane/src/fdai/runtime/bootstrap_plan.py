@@ -28,6 +28,7 @@ class IdentityRequests:
     gateway: bool
     case_history: bool
     vertical_execution: bool
+    stewardship_health: bool
 
     @property
     def any_requested(self) -> bool:
@@ -40,6 +41,7 @@ class IdentityRequests:
             or self.gateway
             or self.case_history
             or self.vertical_execution
+            or self.stewardship_health
         )
 
 
@@ -92,6 +94,9 @@ def build_bootstrap_plan(
         vertical_execution=any(
             environment.get(env_var, "").strip() for env_var in VERTICAL_IDENTITY_ENV.values()
         ),
+        stewardship_health=bool(
+            environment.get("FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", "").strip()
+        ),
     )
     auxiliary_bootstrap = environment.get(_AUXILIARY_KAFKA_BOOTSTRAP_ENV, "").strip()
     diagnostic_bootstrap = environment.get("FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS", "").strip()
@@ -116,6 +121,7 @@ def build_bootstrap_plan(
             gateway=identity_requests.gateway,
             case_history=identity_requests.case_history,
             vertical_execution=identity_requests.vertical_execution,
+            stewardship_health=identity_requests.stewardship_health,
         )
 
     return BootstrapPlan(

@@ -24,6 +24,12 @@ from fdai.core.human_assignment.goals import (
     HandoverGoalState,
     HandoverInvitation,
 )
+from fdai.core.human_assignment.knowledge_handover import (
+    HandoverKnowledgeAccessContext,
+    HandoverKnowledgeClaim,
+    HandoverKnowledgeRetrieval,
+    publish_knowledge_conflict,
+)
 from fdai.core.human_assignment.model import (
     AssignmentCase,
     AssignmentIntent,
@@ -90,6 +96,9 @@ __all__ = [
     "HandoverGoalService",
     "HandoverGoalState",
     "HandoverInvitation",
+    "HandoverKnowledgeAccessContext",
+    "HandoverKnowledgeClaim",
+    "HandoverKnowledgeRetrieval",
     "ProviderSubject",
     "ReviewDecision",
     "ReviewReceipt",
@@ -98,6 +107,7 @@ __all__ = [
     "approval_quorum_satisfied",
     "required_review_quorum",
     "render_assignment_ownership_yaml",
+    "publish_knowledge_conflict",
     "OwnershipProposal",
     "VerifiedOwnershipMerge",
     "assignment_capability_status",

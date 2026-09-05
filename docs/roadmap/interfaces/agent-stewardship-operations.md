@@ -43,9 +43,9 @@ The lifecycle has four independent safety boundaries:
 | Startup binding and read-only projection | implemented | `services/operator-service/src/fdai_operator_service/`; `services/operator-service/tests/test_operator_operations_family.py`; `tests/integration/infra/test_operator_api_stewardship.py`; focused Operator and Terraform tests (15 passed) | The route and deployment bindings exist. Source wiring doesn't by itself prove a live deployment is ready. |
 | Terraform binding completeness gates | implemented | `infra/production-gates.tf`; `infra/modules/operator-api/container-app/main.tf`; `tests/integration/infra/test_operator_api_stewardship.py` | Production configuration requires maintainers and every non-autonomous agent binding while keeping identities deployment-owned. |
 | Guided registration and grounded durable draft | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; focused console tests (21 passed); focused ingestion delivery tests (9 passed) | The SPA submits a governed upload and the worker stores a review-only draft. Neither effect changes the active map. |
-| Idempotent draft governance PR delivery | in-progress | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); focused stewardship and runtime tests (149 passed) | The runtime reads durable `handover_draft:*` records, validates each complete candidate without accepting identity overrides, publishes through the configured `RemediationPrPublisher`, and atomically records the PR reference or rejection with a Saga audit. Content-addressed receipts make restart and replay safe. A governed deployment receipt is still required. |
-| Signed merge intake and downstream ownership effects | in-progress | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py`; focused ingestion delivery tests (9 passed) | HMAC, repository, merge, changed-file, merged-content, and idempotent record checks exist. Resolver validation, affected-owner calculation, assignment digest matching, Saga audit, IAM trigger, and notification aren't composed. |
-| Scheduled persisted identity health | in-progress | `services/core-control-plane/src/fdai/core/stewardship/directory.py`; `infra/modules/operator-api/container-app/main.tf` | Stale-OID evaluation and an interval setting exist, but no scheduled `StewardshipHealthMonitor` or `stewardship_health:*` snapshot and heartbeat composition was found. |
+| Idempotent draft governance PR delivery | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); focused stewardship and runtime tests | The runtime reads durable `handover_draft:*` records, validates each complete candidate without accepting identity overrides, publishes through the configured `RemediationPrPublisher`, and atomically records the PR reference or rejection with a Saga audit. Content-addressed receipts make restart and replay safe. A governed deployment receipt remains separate evidence. |
+| Signed merge intake and downstream ownership effects | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; focused merge and ownership-coordination tests | The signed intake persists inert evidence. Core then validates the merged map, computes affected agents and new recipients, dispatches through the durable notification router, advances only a digest-matched assignment proposal, publishes one replay-stable shadow IAM request, and records one Saga receipt. |
+| Scheduled persisted identity health | implemented | `services/core-control-plane/src/fdai/runtime/stewardship_identity_health.py`; `services/operator-service/src/fdai_operator_service/ownership_projection.py`; Core service Terraform | A readiness-gated Core worker deduplicates user subjects, records transition-only health and expiring successful observations, preserves the last success across Graph failure, and feeds only revision-matched unexpired results into the read-only Operator projection. |
 
 ### Implementation history
 
@@ -56,14 +56,15 @@ The lifecycle has four independent safety boundaries:
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the lifecycle claim to distinguish startup, draft generation, signed merge intake, and unimplemented operational effects. | `current change`; source and focused checks listed in the scope table. | Wire governance PR publication, complete post-merge effects and scheduled identity health, then retain runtime evidence. |
 | 2026-08-16 | in-progress | Composed the idempotent handover-artifact-to-`RemediationPrPublisher` path with a content-addressed key, review-only rendering, and fail-closed draft validation. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py` passed 9 focused tests, including retry reuse of one draft PR after an ambiguous transport failure and bounded warning rendering in the PR body. | Bind the service in production composition, complete post-merge ownership effects, and add scheduled identity health. |
 | 2026-09-05 | in-progress | Added the production runtime worker for durable handover drafts. It rejects malformed candidates without blocking later records, ignores runtime identity overrides while validating tracked YAML, preserves older serialized drafts, and records one content-addressed receipt plus Saga audit. | `current change`; `stewardship_governance.py`; focused stewardship, runtime governance, and bootstrap tests passed 149 cases; Ruff and strict mypy passed. | Retain a real draft-PR receipt, then complete merge effects and scheduled identity health. |
+| 2026-09-05 | implemented | Connected signed merge evidence to affected-owner notification, matching assignment effects, replay-stable shadow IAM requests, and scheduled Entra liveness observations without joining ownership, IAM, approval, or execution authority. | `current change`; focused Core and Operator tests; Core service Terraform validation. | Retain governed deployment, restart, notification, Graph recovery, and promotion evidence. |
 
 ### Remaining work
 
 - [x] Compose an idempotent handover-artifact-to-`RemediationPrPublisher` path and pass a focused test proving that retries reuse one draft PR for `config/agent-stewardship.yaml`.
 - [x] Bind `StewardshipGovernanceService` into production composition so a stored handover draft reaches the configured GitOps publisher, validate tracked YAML independently of runtime identity overrides, and store the returned PR reference and replay flag in a content-addressed receipt.
 - [ ] Retain a governed deployment receipt proving one stored handover draft opens one review-only PR and a restart reuses that PR without a second Saga audit.
-- [ ] Validate merged stewardship YAML through the resolver, calculate affected owners, bind assignment proposal digests, and pass focused tests proving Saga audit, IAM-request publication, and recipient notification each occur once.
-- [ ] Implement the scheduled identity-health monitor and retain tests proving transition-only audit, revision-matched heartbeat refresh, expiry, and Graph-failure behavior under `stewardship_health:current` and `stewardship_health:last_success`.
+- [x] Validate merged stewardship YAML through the resolver, calculate affected owners, bind assignment proposal digests, and pass focused tests proving Saga audit, replay-stable IAM-request publication, and recipient notification.
+- [x] Implement the scheduled identity-health monitor and retain tests proving transition-only audit, revision-matched successful observations, expiry, Graph-failure preservation, and read-only projection behavior under `stewardship_health:current` and `stewardship_health:last_success`.
 - [ ] Retain a deployment receipt and operational drill showing real startup bindings, one guided proposal and reviewed merge, notification delivery, audit closure, and stale-to-clean identity recovery before raising any row to `validated`.
 
 The grounded T2 `HandoverInterpreter` remains an optional deployment binding. The deterministic
@@ -94,7 +95,7 @@ missing-backup findings.
 
 ### Scheduled identity health
 
-`StewardshipHealthMonitor` adapts the production human directory to the core `IdentityDirectory`
+`StewardshipIdentityHealthWorker` adapts the production human directory to the core `IdentityDirectory`
 protocol. It checks maintainer and user-steward OIDs off the hot path.
 
 The monitor stores a revisioned transition snapshot under `stewardship_health:current`:
@@ -105,12 +106,12 @@ The monitor stores a revisioned transition snapshot under `stewardship_health:cu
 - a deterministic fingerprint used by the audit correlation.
 
 Every successful sweep also replaces `stewardship_health:last_success` with the observation time,
-expiry time, and matching transition revision. An unchanged result refreshes only this heartbeat
-and creates no audit record. A clean-to-stale or stale-to-clean transition atomically updates the
-transition snapshot and appends `stewardship.health.changed` before refreshing the heartbeat. A
+expiry time, and matching transition revision. An unchanged result refreshes only this successful
+observation and creates no audit record. A clean-to-stale or stale-to-clean transition atomically
+updates the transition snapshot and appends `stewardship.identity_health_transition`. A
 Graph failure logs only the error type and retries at the next interval; it does not refresh the
 heartbeat, mark every identity stale, or stop the control loop. The first sweep starts in a named
-background task, so Graph latency never delays Operator API startup. The Operator API merges stale
+Core background task, so Graph latency never delays Operator API startup. The Operator API merges stale
 findings only when both snapshots are valid, their revisions match, and the heartbeat has not
 expired. Missing, malformed, mismatched, or expired health renders
 `identity_health.status=unavailable` without hiding the base map.

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 22a9777b4e7177ea0a4c16aa193070901b2c891f
+translation_source_sha: d02c5a09531d1ad9c5cba1fcacce91360ecf4058
 translation_revised: 2026-09-05
 ---
 
@@ -217,6 +217,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **문서 서비스**: Document Ingestion API는 인증된 upload lifecycle 요청을 받고,
      Document Processing Worker만 영속 inspection, extraction, indexing, claim 및 reconciliation을
      소유합니다.
+   - **인수인계 수명 주기**: Core는 현재 및 마지막 성공 담당 체계 신원 상태 스냅샷을 기록하고,
+     구성된 주기에 따라 내용이 없는 목표 및 후보 이벤트를 게시하며, IAM 또는 실행기 권한 없이
+     서명된 병합 근거를 소비합니다. Operator는 리비전이 일치하고 만료되지 않은 상태만 표시합니다.
    - **Isolated Executor**: 내부 `/live`와 `/ready` 프로브가 통과하고 최신 revision이 활성 상태인지
      확인합니다. 전용 identity에는 image pull, 명령 수신, receipt 또는 DLQ 전송, state-secret
      읽기와 명시적으로 승인된 작업별 효과 역할만 있습니다. Core와 Operator에는 관리 대상

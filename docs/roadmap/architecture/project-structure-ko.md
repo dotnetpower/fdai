@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f7e1516474c54d72d4c33f4b1de747194e789996
+translation_source_sha: 3def773774ff05b5c19cd0709a2941394c2dec2c
 translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
@@ -60,8 +60,9 @@ translation_revised: 2026-09-05
   서비스가 다른 서비스 구현을 가져오지 않습니다. 서비스 마이그레이션 CI는 적용 후 스키마를 변경하는 수명 주기 검사를 직렬화하고 forward 복구는 rollback 후 root 소유 공유 index를 보존합니다.
 - **운영 담당 체계 초안 전달은 검토 전용으로 유지**: 문서 워커는 공유 계약을 통해 권한이 없는
   인수인계 산출물을 영속화합니다. Core는 완전한 추적 YAML을 검증하고 런타임만 영속 상태 저장소와
-  GitOps 게시기를 연결합니다. 내용 기반 증적과 Saga 감사를 사용하므로 재시도가 안전하며, 워커나
-  게시기에 병합, RBAC, 승인 또는 실행기 권한을 부여하지 않습니다.
+  GitOps 게시기, 서명 병합 결과 워커, 신원 상태 워커, 내용이 없는 지식 수명 주기 워커를 연결합니다.
+  Operator는 리비전이 일치하고 만료되지 않은 상태만 읽습니다. 내용 기반 증적과 Saga 감사를
+  사용하므로 재시도가 안전하며, 워커나 게시기에 병합, RBAC, 승인 또는 실행기 권한을 부여하지 않습니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,

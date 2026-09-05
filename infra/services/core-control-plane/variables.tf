@@ -192,6 +192,28 @@ variable "runtime_env" {
   }
 }
 
+variable "stewardship_audit_interval_seconds" {
+  description = "Interval for scheduled steward and maintainer Entra liveness checks."
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.stewardship_audit_interval_seconds >= 60
+    error_message = "stewardship_audit_interval_seconds MUST be >= 60."
+  }
+}
+
+variable "handover_knowledge_interval_seconds" {
+  description = "Interval for restart-safe handover gap and candidate event production."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.handover_knowledge_interval_seconds >= 10
+    error_message = "handover_knowledge_interval_seconds MUST be >= 10."
+  }
+}
+
 variable "startup_readiness" {
   description = "Bounded Event Hubs consumer-settle and startup probe deadlines."
   type = object({

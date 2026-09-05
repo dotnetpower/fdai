@@ -62,6 +62,10 @@ def test_bootstrap_plan_rejects_invalid_venue_only_for_enabled_consumer() -> Non
             {next(iter(VERTICAL_IDENTITY_ENV.values())): "client-id"},
             "vertical_execution",
         ),
+        (
+            {"FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": "3600"},
+            "stewardship_health",
+        ),
     ],
 )
 def test_bootstrap_plan_identifies_optional_identity_requirements(

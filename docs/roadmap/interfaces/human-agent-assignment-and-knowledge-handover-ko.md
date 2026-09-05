@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 0f3e41e52a18da8e56100aa6224e796b584e64e0
-translation_revised: 2026-09-04
+translation_source_sha: a4de287352ad51ea6b830ff16ae6f5e3061987b6
+translation_revised: 2026-09-05
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -23,11 +23,11 @@ translation_revised: 2026-09-04
 | 담당 체계 v2 임무와 커버리지 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/`; 집중 담당 체계 테스트 (71 passed) | 스키마, 결정론적 마이그레이션, 커버리지, 에스컬레이션, 알림 기본 요소가 있습니다. 실제 디렉터리 커버리지와 배포 훈련은 별도 근거입니다. |
 | 배정 케이스, 독립 검토, 관찰 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 리비전 기반 케이스와 읽기 전용 API/console은 역할, 임무, 권한 분리를 보존합니다. |
 | 통합 현재 담당 체계 읽기 모델 및 콘솔 | implemented | `services/operator-service/src/fdai_operator_service/ownership_projection.py`; `console/src/routes/{handover,agent-oversight-views}.tsx`; 집중 Operator 및 콘솔 검사 | Operator 서비스는 검토된 선언에 범위가 제한된 ID 및 할당 근거를 보강합니다. 콘솔은 이름을 식별 보조 정보로 표시하고 기술 세부 정보에는 정확한 주체 ID를 표시합니다. 또한 주 담당 및 백업 범위, 원본 최신성, 변경 대기, 필터, 명시적 배포 차단 원인을 브라우저에서 권한을 결합하지 않고 보여 줍니다. |
-| 소유권 제안과 일치하는 병합 조정 | in-progress | `ownership_coordination.py`; `test_ownership_coordination.py`; `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`의 서명된 병합 수신 경로 | 조정기는 안전하게 다시 시도할 수 있는 shadow 초안 하나를 열고 케이스, PR 참조, 후보 다이제스트를 결합합니다. 일치하지 않는 병합 내용을 차단하고 소유권 결과를 기록하며 형식이 지정된 shadow IAM 요청 하나를 게시합니다. 운영 조립과 보존된 전달 증적은 남아 있습니다. |
+| 소유권 제안과 일치하는 병합 조정 | implemented | `ownership_coordination.py`; `stewardship_merge_effects.py`; 서명된 병합 수신 경로; 집중 소유권 및 병합 테스트 | 운영 조립은 서명된 병합 레코드를 소비하고 정확한 후보 다이제스트를 검증합니다. 소유권 결과를 기록하고 재처리해도 동일한 shadow IAM 요청을 게시하며 영향받는 소유자에게 알리고 Saga 증적 하나를 보존합니다. 관리형 배포 근거는 남아 있습니다. |
 | 통제된 사용자 접근 변경 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 허용 목록 기반 계획, 적용, 검증, 롤백 기능이 관찰 모드로 있습니다. Console, 요청자, 대상 principal에는 어떤 공급자 권한도 부여하지 않습니다. |
 | 사람 무응답 감독 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 워커는 shadow-only입니다. 디스패치 승격과 실제 단계별 역할 근거는 남아 있습니다. |
-| 인수인계 목표와 피로도 통제 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/core-control-plane/src/fdai/core/human_assignment/fatigue.py`; `services/core-control-plane/tests/core/human_assignment/test_goals.py` | 영속 목표, 초대, 근거 참조, 다시 알림, 거절, 독립 검토 기능이 있습니다. 에이전트의 공백 생산과 현지화된 Bragi 렌더링은 연결되지 않았습니다. |
-| 지식 근거와 후보 수명 주기 | in-progress | 기존 문서 수집 청크 계보 및 비활성 후보 계약; 집중 수집 테스트 | 목표와 업로드의 상관관계, ACL 필터 검색 근거, 에이전트 후보 전달, 충돌 검토, 운영 삭제 훈련은 완료되지 않았습니다. |
+| 인수인계 목표와 피로도 통제 | implemented | `goals.py`; Operator `handover_runtime.py`; Console `handover-i18n.ts`; `handover_knowledge_lifecycle.py`; 집중 Core, Operator, Console 검사 | 영속 목표, 현지화된 초대 렌더링, 피로도 통제, 에이전트 소유 지식 공백 이벤트가 연결되어 있습니다. |
+| 지식 근거와 후보 수명 주기 | implemented | `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; 문서 청크 계보; 집중 수명 주기 및 검색 테스트 | 목표에 결합된 검색은 principal 또는 원본 ACL이 일치하지 않으면 명시적으로 차단됩니다. Muninn 근거, Mimir와 Norns의 검토 전용 후보, Forseti 충돌 이벤트, stale 철회는 참조와 다이제스트만 전달하며 자동 승격하지 않습니다. |
 | 운영 승격과 운영 증명 | not-started | 이 문서에서 보존된 승격 증적, Azure 권한 검사, 운영 훈련 근거로 연결되는 항목이 없습니다. | IAM 적용, 무응답 디스패치, 선제적 인수인계는 각각 독립 검사를 통과할 때까지 사용할 수 없습니다. |
 
 ### 구현 이력
@@ -37,13 +37,14 @@ translation_revised: 2026-09-04
 | 2026-09-04 | implemented | 추가 방식의 서버 소유 현재 담당 체계 변환 결과를 추가하고 에이전트 중심 현재 담당자 보기를 완성했습니다. 자리표시자 연결, 스키마 이행, ID 가용성, 담당 공백, 할당 대기 케이스를 서로 다른 상태로 유지합니다. | `current change`; `test_ownership_projection.py`, `test_entra_directory.py`, `test_operator_iam_family.py`, `test_operator_service_postgres.py`, `handover.test.ts` 및 집중 형식·카탈로그 검사 통과. | 실제 schema v2 주 담당 및 백업 연결이 포함된 관리형 배포 증적을 보존하고, 별도로 추적되는 담당 체계-IAM 결과 조정을 완료합니다. |
 | 2026-09-01 | in-progress | 다이제스트에 결합되고 안전하게 다시 시도할 수 있는 소유권 초안 조정과 일치하는 병합 검증을 추가했습니다. 정확히 검토된 내용이 수렴한 뒤에만 형식이 지정된 shadow IAM 요청을 게시합니다. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; 집중 소유권 및 액세스 적용 테스트 통과. | 조정기를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 조립한 뒤 전달 및 재시작 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 구현된 케이스, IAM, 감독, 목표 기능을 누락된 소유권-IAM 조정과 분리했습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 제안 및 병합 조정, 지식 전달, 독립 승격, 운영 근거를 완료합니다. |
+| 2026-09-05 | implemented | 서명된 병합 결과, 예약 신원 상태, 에이전트 소유 지식 공백과 검토 전용 후보 생산, ACL 검사 검색, 충돌 이벤트, stale 근거 철회를 연결했습니다. | `current change`; 집중 Core 및 Operator 검사; Core 서비스 Terraform 검증. | 관리형 배포, 독립 승격, 공급자 장애, 롤백, 재시작, 재해 복구 근거를 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 구현된 다이제스트 결합 소유권 조정기를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 연결하고, 일치하는 병합만 케이스를 진행시킨다는 재시작 안전 증적을 보존합니다.
+- [x] 구현된 다이제스트 결합 소유권 조정기를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 연결하고, 일치하는 병합만 케이스를 진행시키는 재시작 안전 증적과 재처리 안전 IAM 이벤트를 보존합니다.
 - [ ] 현재 담당자 변환 결과에서 schema v2, 자리표시자 주체 0개, 자율 운영하지 않는 모든 에이전트의 확인된 주 담당 및 서로 다른 백업 또는 에스컬레이션 범위를 보여 주는 관리형 배포 증적 1개를 보존합니다.
 - [ ] 일치하는 소유권 증적 후에만 형식이 지정된 IAM 적용 요청 하나를 게시하고, 수집 또는 Operator 서비스에 Graph 쓰기 권한을 부여하지 않으면서 허용 목록 기반 수렴과 소유권 인식 롤백을 입증합니다.
-- [ ] 목표-업로드 바인딩, ACL 필터 검색, 에이전트 소유 공백 및 후보 이벤트, 현지화된 Bragi 렌더링, 충돌 검토, 노후화, 삭제 전파를 완료합니다.
+- [x] 목표-업로드 바인딩, ACL 필터 검색, 에이전트 소유 공백 및 검토 전용 후보 이벤트, 현지화된 Bragi 렌더링, 충돌 검토, 노후화, 삭제 전파를 완료합니다.
 - [ ] 할당 API에서 그룹 또는 일정 주체를 수락하기 전에 `AssignmentCase`에 명시적으로 형식이 지정된 그룹 또는 일정 주체를 추가합니다. 담당 그룹 표시는 별도 읽기 전용 기능으로 유지합니다.
 - [ ] IAM 변경, 무응답 단계 디스패치, 선제적 인수인계의 승격 근거를 각각 보존합니다. 모든 승인 소진은 감사된 no-op으로 남아야 합니다.
 - [ ] 워크플로를 `validated`로 표시하기 전에 추가, 거부, 시간 초과, 에스컬레이션, 회수, 롤백, 재시작, 공급자 장애, 재해 복구 훈련을 수행합니다.
@@ -319,7 +320,8 @@ AgentDuty -> requires_role -> FDAI App Role
 동일한 소스 범위를 인용합니다.
 조각 기록에는 타입이 지정된 출처 구간, ACL 참조, chunk-policy 버전, 내용 다이제스트,
 선택적 목표 참조가 포함됩니다. 후보 이벤트는 내용이 없는이며 항상 검토가 필요합니다.
-자동 goal-to-upload 연결과 에이전트 후보 전달은 롤아웃 작업으로 남습니다.
+자동 goal-to-upload 연결과 에이전트 후보 전달은 shadow 모드로 연결되어 있습니다. 후보 승격은
+독립적인 검토가 필요한 롤아웃 작업으로 남습니다.
 
 ## 보안, 개인정보 보호, 장애 동작
 

@@ -162,21 +162,38 @@ class AssignmentOwnershipCoordinator:
         merged_digest = hashlib.sha256(merge.merged_yaml.encode()).hexdigest()
         if merge.pr_ref != proposal.pr_ref or merged_digest != proposal.candidate_digest:
             raise ValueError("ownership merge does not match the assignment proposal")
-        assignment = await self.cases.record_effect(
-            case_id=case_id,
-            expected_revision=expected_revision,
-            receipt=EffectReceipt(
-                kind=EffectKind.OWNERSHIP,
-                receipt_ref=f"merge:{merge.merge_commit_sha}",
-                digest=merged_digest,
-                received_at=merge.merged_at,
-            ),
-            actor_ref=actor_ref,
+        assignment = await self.cases.get_case(case_id)
+        receipt = EffectReceipt(
+            kind=EffectKind.OWNERSHIP,
+            receipt_ref=f"merge:{merge.merge_commit_sha}",
+            digest=merged_digest,
+            received_at=merge.merged_at,
         )
+        current_receipt = next(
+            (item for item in assignment.effect_receipts if item.kind is EffectKind.OWNERSHIP),
+            None,
+        )
+        replay = (
+            current_receipt is not None
+            and current_receipt.receipt_ref == receipt.receipt_ref
+            and current_receipt.digest == receipt.digest
+        )
+        if not replay:
+            assignment = await self.cases.record_effect(
+                case_id=case_id,
+                expected_revision=expected_revision,
+                receipt=receipt,
+                actor_ref=actor_ref,
+            )
+        elif assignment.state is not AssignmentState.OWNERSHIP_MERGED:
+            return assignment
         timestamp = merge.merged_at.astimezone(UTC)
         event = Event(
             schema_version="1.0.0",
-            event_id=uuid.uuid5(_NAMESPACE, f"{case_id}:iam:{assignment.revision}"),
+            event_id=uuid.uuid5(
+                _NAMESPACE,
+                f"{case_id}:iam:{proposal.candidate_digest}",
+            ),
             idempotency_key=f"assignment-iam-{case_id}",
             correlation_id=case_id,
             source="human-assignment.ownership",

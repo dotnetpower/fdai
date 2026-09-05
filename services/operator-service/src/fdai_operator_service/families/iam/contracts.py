@@ -183,6 +183,13 @@ class HumanIdentityDirectoryStatus(Protocol):
 
 
 @runtime_checkable
+class StewardshipHealthReader(Protocol):
+    """Read the Core-owned stewardship health snapshots without mutation authority."""
+
+    async def read_state(self, key: str) -> dict[str, object] | None: ...
+
+
+@runtime_checkable
 class StewardshipIdentityDirectory(Protocol):
     """Resolve exact user or group subjects for the read-only ownership projection."""
 

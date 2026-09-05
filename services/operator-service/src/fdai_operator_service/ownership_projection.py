@@ -16,8 +16,11 @@ Deployment:
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Final
 
 from fdai_service_contracts import OperatorRole
@@ -29,6 +32,7 @@ from fdai_operator_service.families.iam.contracts import (
     HumanIdentityDirectory,
     HumanIdentityDirectoryStatus,
     IamPrincipal,
+    StewardshipHealthReader,
     StewardshipIdentityDirectory,
 )
 from fdai_operator_service.families.operations.contracts import (
@@ -61,6 +65,7 @@ class OwnershipProjectionReader:
     fallback: ProjectionReader
     directory: HumanIdentityDirectory | None
     assignments: AssignmentRequestOutbox | None
+    health: StewardshipHealthReader | None = None
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         """Return an additive ownership projection without changing other reads."""
@@ -68,10 +73,12 @@ class OwnershipProjectionReader:
         if query.operation != _STEWARDSHIP_OPERATION:
             return payload
         assignment_projection = await self._assignment_projection(query)
+        identity_health = await self._identity_health_projection()
         return await build_current_ownership_projection(
             payload,
             directory=self.directory,
             assignment_projection=assignment_projection,
+            identity_health=identity_health,
         )
 
     async def _assignment_projection(
@@ -96,12 +103,28 @@ class OwnershipProjectionReader:
                 "case_projection_truncated": False,
             }
 
+    async def _identity_health_projection(self) -> Mapping[str, object]:
+        reader = self.health
+        if reader is None and isinstance(self.assignments, StewardshipHealthReader):
+            reader = self.assignments
+        if reader is None:
+            return _unavailable_health("not_configured")
+        try:
+            current, last_success = await asyncio.gather(
+                reader.read_state("stewardship_health:current"),
+                reader.read_state("stewardship_health:last_success"),
+            )
+        except Exception:  # noqa: BLE001 - provider details are not caller-safe
+            return _unavailable_health("store_unavailable")
+        return _validated_health(current, last_success)
+
 
 async def build_current_ownership_projection(
     payload: Mapping[str, object],
     *,
     directory: HumanIdentityDirectory | None,
     assignment_projection: Mapping[str, object] | None,
+    identity_health: Mapping[str, object],
 ) -> Mapping[str, object]:
     """Build the browser-safe joined projection from bounded server-owned inputs."""
     map_value = _mapping(payload.get("map"), "stewardship map")
@@ -129,10 +152,37 @@ async def build_current_ownership_projection(
             ),
         }
     proposals, proposal_state = _assignment_proposals(assignment_projection, resolved=resolved)
+    if identity_health.get("availability") == "available" and identity_health.get(
+        "assignment_digest"
+    ) != _stewardship_assignment_digest(map_value):
+        identity_health = _unavailable_health("assignment_mismatch")
     projected_agents = [
         _project_agent(agent, version=version, resolved=resolved, proposals=proposals)
         for agent in agents
     ]
+    stale_agents = {
+        str(finding.get("agent"))
+        for finding in _mapping_sequence(
+            identity_health.get("findings"),
+            "identity health findings",
+        )
+        if finding.get("agent") is not None
+    }
+    if identity_health.get("status") == "degraded":
+        projected_agents = [
+            (
+                {
+                    **agent,
+                    "coverage": {
+                        **_mapping(agent.get("coverage"), "agent coverage"),
+                        "status": "identity_review",
+                    },
+                }
+                if agent.get("name") in stale_agents
+                else agent
+            )
+            for agent in projected_agents
+        ]
     projected_maintainers = [
         _project_subject(
             kind="user",
@@ -144,6 +194,8 @@ async def build_current_ownership_projection(
         for subject_id in maintainers
     ]
     readiness = _overall_readiness(version, projected_maintainers, projected_agents)
+    if identity_health.get("status") == "degraded":
+        readiness = "review_required"
     ownership = {
         "schema_version": "1.0.0",
         "authority": "read_only",
@@ -151,11 +203,104 @@ async def build_current_ownership_projection(
         "deployment_readiness": readiness,
         "directory": directory_state,
         "assignment_projection": proposal_state,
+        "identity_health": identity_health,
         "maintainers": projected_maintainers,
         "agents": projected_agents,
         "summary": _summary(projected_agents, proposals),
     }
     return {**payload, "current_ownership": ownership}
+
+
+def _validated_health(
+    current: Mapping[str, object] | None,
+    last_success: Mapping[str, object] | None,
+) -> Mapping[str, object]:
+    if current is None:
+        return _unavailable_health("missing")
+    status = current.get("status")
+    findings = current.get("findings")
+    if status == "unavailable":
+        return {
+            **_unavailable_health("provider_unavailable"),
+            "assignment_digest": current.get("assignment_digest"),
+            "checked_at": current.get("checked_at"),
+            "provider_error_type": current.get("provider_error_type"),
+        }
+    if (
+        status not in {"healthy", "degraded"}
+        or not isinstance(findings, list)
+        or any(not isinstance(item, Mapping) for item in findings)
+    ):
+        return _unavailable_health("malformed")
+    if last_success is None:
+        return _unavailable_health("last_success_missing")
+    revision = current.get("revision")
+    expires_at = last_success.get("expires_at")
+    if (
+        not isinstance(revision, int)
+        or isinstance(revision, bool)
+        or last_success.get("revision") != revision
+        or current.get("assignment_digest") != last_success.get("assignment_digest")
+        or not isinstance(expires_at, str)
+    ):
+        return _unavailable_health("snapshot_mismatch")
+    try:
+        expiry = datetime.fromisoformat(expires_at)
+    except ValueError:
+        return _unavailable_health("malformed")
+    if expiry.tzinfo is None or expiry.utcoffset() is None or expiry <= datetime.now(UTC):
+        return _unavailable_health("expired")
+    return {
+        "availability": "available",
+        "status": status,
+        "assignment_digest": current.get("assignment_digest"),
+        "revision": revision,
+        "checked_at": last_success.get("checked_at"),
+        "expires_at": expires_at,
+        "findings": findings,
+        "provider_error_type": None,
+    }
+
+
+def _unavailable_health(reason: str) -> Mapping[str, object]:
+    return {
+        "availability": "unavailable",
+        "status": "unavailable",
+        "reason": reason,
+        "assignment_digest": None,
+        "revision": None,
+        "checked_at": None,
+        "expires_at": None,
+        "findings": [],
+        "provider_error_type": None,
+    }
+
+
+def _stewardship_assignment_digest(map_value: Mapping[str, object]) -> str:
+    agents = _mapping_sequence(map_value.get("agents"), "stewardship agents")
+    payload = {
+        "version": _integer(map_value.get("version"), "stewardship version"),
+        "maintainers": list(
+            _string_sequence(map_value.get("maintainers"), "stewardship maintainers")
+        ),
+        "agents": {
+            str(agent.get("name")): [
+                {
+                    "kind": subject.get("kind"),
+                    "id": subject.get("id"),
+                    "responsibility": subject.get("responsibility"),
+                    "duty": subject.get("duty"),
+                }
+                for subject in _mapping_sequence(
+                    agent.get("stewards"),
+                    "stewardship agent subjects",
+                )
+            ]
+            for agent in sorted(agents, key=lambda item: str(item.get("name")))
+        },
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 async def _resolve_subjects(

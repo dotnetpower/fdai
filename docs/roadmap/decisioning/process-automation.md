@@ -199,7 +199,7 @@ LinkTypes cover only the runtime graph edges between first-class object types.
 The focused [Workflow Control-Loop Integration](workflow-control-loop-integration.md) document owns
 orchestration, catalog-root, adapter routing, journals, commands, and sandbox execution details.
 
-Workflow action delivery and outbound human notification delivery remain separate runtime compositions. Process steps continue to re-enter the typed action pipeline, while A2/A4 notices use the provider-neutral notification router with named bindings and durable per-channel fan-out. A notification binding cannot select, advance, approve, or execute a workflow step.
+Workflow action delivery and outbound human notification delivery remain separate runtime compositions. Process steps continue to re-enter the typed action pipeline, while A2/A4 notices use the provider-neutral notification router with named bindings and durable per-channel fan-out. The runtime builds that router through one shared composition helper so incident and stewardship workflows cannot drift in endpoint, trust-tier, or HIL fallback resolution. A notification binding cannot select, advance, approve, or execute a workflow step.
 ## 5. Saga compensation
 
 A multi-step process that fails partway MUST be able to undo the steps that

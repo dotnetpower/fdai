@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from fdai_operator_service.families.iam.assignments import enrich_assignment_identities
@@ -15,7 +16,10 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
     ProjectionUnavailableError,
 )
-from fdai_operator_service.ownership_projection import OwnershipProjectionReader
+from fdai_operator_service.ownership_projection import (
+    OwnershipProjectionReader,
+    _stewardship_assignment_digest,
+)
 from fdai_service_contracts import OperatorRole
 
 
@@ -144,6 +148,39 @@ class _Assignments:
         }
 
 
+class _Health:
+    def __init__(self, *, status: str = "healthy", digest: str = "a" * 64) -> None:
+        self.status = status
+        self.digest = digest
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        common: dict[str, object] = {
+            "assignment_digest": self.digest,
+            "revision": 2,
+            "checked_at": "2026-09-05T08:00:00+00:00",
+            "expires_at": "2099-09-05T10:00:00+00:00",
+        }
+        if key == "stewardship_health:current":
+            return {
+                **common,
+                "status": self.status,
+                "findings": (
+                    [
+                        {
+                            "code": "stale_oid",
+                            "severity": "warn",
+                            "message": "Steward is inactive.",
+                            "agent": "Odin",
+                        }
+                    ]
+                    if self.status == "degraded"
+                    else []
+                ),
+                "provider_error_type": None,
+            }
+        return {**common, "status": self.status, "findings": []}
+
+
 class _UnavailableAssignments(_Assignments):
     async def assignment_projection(self, query: object) -> Mapping[str, object]:
         del query
@@ -209,6 +246,42 @@ async def test_enriches_exact_identities_coverage_and_owner_proposals() -> None:
         "subject-2",
         "candidate-1",
     }
+
+
+async def test_persisted_identity_health_degrades_matching_agent_coverage() -> None:
+    reader = OwnershipProjectionReader(
+        _Fallback(_payload()),
+        _Directory(),
+        None,
+        _Health(
+            status="degraded",
+            digest=_stewardship_assignment_digest(cast(Mapping[str, object], _payload()["map"])),
+        ),
+    )
+
+    result = await reader.read(_query())
+    ownership = result["current_ownership"]
+
+    assert ownership["identity_health"]["availability"] == "available"
+    assert ownership["identity_health"]["status"] == "degraded"
+    assert ownership["agents"][0]["coverage"]["status"] == "identity_review"
+    assert ownership["deployment_readiness"] == "review_required"
+
+
+async def test_identity_health_for_another_assignment_revision_is_unavailable() -> None:
+    reader = OwnershipProjectionReader(
+        _Fallback(_payload()),
+        _Directory(),
+        None,
+        _Health(status="degraded"),
+    )
+
+    result = await reader.read(_query())
+    health = result["current_ownership"]["identity_health"]
+
+    assert health["status"] == "unavailable"
+    assert health["reason"] == "assignment_mismatch"
+    assert result["current_ownership"]["agents"][0]["coverage"]["status"] == "ready"
 
 
 async def test_reader_does_not_expose_owner_assignment_cases_to_readers() -> None:

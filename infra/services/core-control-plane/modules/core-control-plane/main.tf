@@ -50,6 +50,8 @@ module "container_app" {
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
     { name = "RUNTIME_ENV", value = var.runtime_env },
+    { name = "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", value = tostring(var.stewardship_audit_interval_seconds) },
+    { name = "FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS", value = tostring(var.handover_knowledge_interval_seconds) },
     { name = "AZURE_TENANT_ID", value = var.bootstrap.azure_tenant_id },
     { name = "AZURE_SUBSCRIPTION_ID", value = var.bootstrap.azure_subscription_id },
     { name = "AZURE_REGION", value = var.bootstrap.azure_region },

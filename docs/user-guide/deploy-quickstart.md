@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4482607226cccd3ce066deec27311f34f95928da }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: e402d2c9f0a8d39fb4c575d9196477c2cab9012f }]
 ---
 
 # Deploy Quickstart
@@ -234,6 +234,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **Document services**: the Document Ingestion API accepts authenticated
      upload lifecycle requests, while the Document Processing Worker alone owns
      durable inspection, extraction, indexing, claims, and reconciliation.
+   - **Handover lifecycle**: Core records a current and last-success stewardship
+     identity-health snapshot, emits content-free goal and candidate events at the
+     configured cadence, and consumes signed merge evidence without receiving IAM
+     or executor authority. Operator shows only revision-matched unexpired health.
    - **Isolated Executor**: its internal `/live` and `/ready` probes pass, its
      latest revision is active, and its dedicated identity has image pull,
      command receive, receipt or DLQ send, state-secret read, and only the

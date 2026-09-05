@@ -91,6 +91,14 @@ class PostgresIamAdapters:
 
     store: PostgresFamilyStore
 
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        """Expose read-only shared state needed by additive IAM projections."""
+
+        try:
+            return await self.store.read_state(key)
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError("authoritative IAM state is unavailable") from exc
+
     async def snapshot(self, query: AccessGrantSnapshotQuery) -> AccessGrantSnapshot:
         """Read the reviewer-scoped access-grant snapshot for SSE replay."""
         page = await self._pending_grant_page()

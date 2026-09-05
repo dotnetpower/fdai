@@ -135,3 +135,19 @@ async def test_matching_reviewed_merge_publishes_one_shadow_iam_request() -> Non
     assert event.payload["event_type"] == "human.assignment.iam_apply_requested"
     assert event.payload["mode"] == "shadow"
     assert event.payload["payload"]["case_id"] == case_id
+
+    replayed = await coordinator.record_verified_merge(
+        case_id=case_id,
+        expected_revision=merged.revision,
+        actor_ref="github:reviewer",
+        merge=VerifiedOwnershipMerge(
+            pr_ref=proposal.pr_ref,
+            merge_commit_sha="a" * 40,
+            merged_yaml=prs.records[0].patch,
+            merged_at=_NOW,
+        ),
+    )
+    replayed_event = await anext(bus.subscribe("fdai.events", "replay-test"))
+
+    assert replayed == merged
+    assert replayed_event.payload["event_id"] == event.payload["event_id"]

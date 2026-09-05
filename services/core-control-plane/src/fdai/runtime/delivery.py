@@ -632,8 +632,6 @@ def _build_incident_notifier(
         InMemoryIncidentNotificationDeliveryStore,
         RoutedIncidentLifecycleNotifier,
     )
-    from fdai.core.notifications.router import NotificationRouter
-    from fdai.delivery.notifications import StateStoreHilEscalationSink
 
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
     if dsn:
@@ -647,19 +645,11 @@ def _build_incident_notifier(
         )
     else:
         incident_delivery_store = InMemoryIncidentNotificationDeliveryStore()
-    if notification_delivery_store is None:
-        notification_delivery_store = build_notification_delivery_store()
-    matrix = load_matrix_from_yaml(
-        _resolve_catalog_root().parent / "config" / "notifications-matrix.yaml"
-    )
-    registry = _build_notification_registry(http_client, endpoint_overrides)
-    _validate_incident_notification_route(matrix, registry)
-    router = NotificationRouter(
-        matrix=matrix,
-        registry=registry,
-        audit_store=audit_store,
-        hil_sink=StateStoreHilEscalationSink(state_store=audit_store),
-        delivery_store=notification_delivery_store,
+    router = _build_notification_router(
+        audit_store,
+        http_client=http_client,
+        notification_delivery_store=notification_delivery_store,
+        endpoint_overrides=endpoint_overrides,
     )
     return DurableIncidentLifecycleNotifier(
         delegate=RoutedIncidentLifecycleNotifier(
@@ -667,4 +657,32 @@ def _build_incident_notifier(
             incidents_url=_incident_roster_url(),
         ),
         delivery_store=incident_delivery_store,
+    )
+
+
+def _build_notification_router(
+    audit_store: Any,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    notification_delivery_store: Any = None,
+    endpoint_overrides: Mapping[str, str] | None = None,
+) -> Any:
+    """Compose the shared durable notification router for runtime workflows."""
+
+    from fdai.core.notifications.router import NotificationRouter
+    from fdai.delivery.notifications import StateStoreHilEscalationSink
+
+    if notification_delivery_store is None:
+        notification_delivery_store = build_notification_delivery_store()
+    matrix = load_matrix_from_yaml(
+        _resolve_catalog_root().parent / "config" / "notifications-matrix.yaml"
+    )
+    registry = _build_notification_registry(http_client, endpoint_overrides)
+    _validate_incident_notification_route(matrix, registry)
+    return NotificationRouter(
+        matrix=matrix,
+        registry=registry,
+        audit_store=audit_store,
+        hil_sink=StateStoreHilEscalationSink(state_store=audit_store),
+        delivery_store=notification_delivery_store,
     )
