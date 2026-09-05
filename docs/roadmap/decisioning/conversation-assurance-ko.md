@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 9a7df10b9eafd3086416660c8022970db036cfc1
+translation_source_sha: a96535511bf38d15057a6e3fa161a8cc36b96d7c
 translation_revised: 2026-09-05
 ---
 # 대화 품질 보증
@@ -46,6 +46,7 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | 에이전트 2개와 로케일 2개로 범위를 제한한 모델 기반 smoke를 실행하여 hardening checkpoint를 확인했습니다. 네 턴 모두 하나의 출처 리비전을 유지하고 직접 호명된 담당자를 선택했으며 하드 제로 위반 0건을 기록했습니다. 독립 secondary 계열 누락은 fail-closed 상태를 유지했으므로 qualification을 주장하지 않았습니다. | 커밋 `ec87daa7aa5c77d96ba54a53c80e8f42c7a3518c`; Issue #399 콘텐츠 없는 smoke 근거; 출처 및 명시적 라우팅 일치 4/4. | 승인된 독립 publisher로 `t2.reasoner.secondary`를 해소하고 단계별 smoke를 통과한 다음, 출처가 정확히 하나인 230개 사례 qualification 통과 근거를 보존합니다. |
 | 2026-09-05 | implemented | 고정된 230개 사례 census와 측정 임계값은 변경하지 않고 생산자를 강화했습니다. 로컬 Operator 큐를 체크아웃별로 격리하고, Pantheon 진단이 구성된 혼합 모델 계열 의미 검토기를 항상 호출하도록 했습니다. 수락된 여러 도메인 참여자 라우팅을 숙의에 재사용하고 T2 사례는 관측된 T1 사유와 T2 상태가 고정 시나리오와 일치할 때만 검토 근거를 연결합니다. | `current change`; 로컬 환경, 프롬프트 레지스트리, 숙의, 평가, Pantheon 런타임, CLI 및 qualification 집중 테스트. | 단계별 모델 기반 smoke 검사를 실행한 다음 Issue #399를 닫기 전에 출처가 정확히 하나인 230개 사례 qualification 통과 근거를 보존합니다. |
 | 2026-09-01 | implemented | 정확한 Golden 예상 처리 결과 적용, 여러 주체가 있는 기본 프레임 변환, Rule 상태, 구성 드리프트, 리소스 활동 및 서비스 상태에 대한 일반 타입 기반 의미 복구, 검증된 Operator 로케일 보존을 추가했습니다. | `current change`; 의미, Golden, 프롬프트 및 Operator 집중 테스트 575개, watchdog 안전 테스트 135개, Ruff 및 mypy, 새로 실행한 검토 canary의 정확한 통과가 0/10에서 5/10으로 개선되었습니다. | canary를 확대하기 전에 여러 관계가 있는 Rule 및 서비스 담당 체계 계획을 검증된 방식으로 구현하고, 대상 후보의 최종 처리 의미를 맞추며, 남은 관계 근거 공백을 해소합니다. |
 | 2026-09-01 | implemented | Watchdog의 결속 추정을 semantic runtime이 등록한 콜백과 권한의 변경할 수 없는 스냅샷으로 대체했습니다. 스키마 전용 함수는 정확한 메모리 내 release를 사용하며, 공급자 함수는 현재 probe가 성공하지 않으면 근거 준비 상태가 될 수 없습니다. | `current change`; semantic 함수 레지스트리, semantic runtime 조합, 런타임 준비 상태 테스트, 집중 watchdog 테스트, Ruff 및 mypy. | 리소스 상태, Resource Health, 계측, DR 및 Chaos 공급자 질문이 캠페인에 들어가기 전에 현재 범위 probe를 추가합니다. |
