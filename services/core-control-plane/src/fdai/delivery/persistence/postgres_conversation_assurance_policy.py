@@ -21,7 +21,10 @@ _CANDIDATE_COLUMNS: Final = (
     "candidate_id, principal_scope, cluster_id, target, policy_digest, "
     "incumbent_policy_digest, policy_text, stage"
 )
-_TRANSITION_COLUMNS: Final = "candidate_id, from_stage, to_stage, reasons, evidence_digest"
+_TRANSITION_COLUMNS: Final = (
+    "candidate_id, from_stage, to_stage, reasons, evidence_digest, "
+    "decision_evidence_receipt_digest, decision_evidence_verification_bundle_digest"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,8 +127,10 @@ class PostgresConversationPolicyCandidateStore:
                 """
                 INSERT INTO conversation_assurance_policy_transition (
                     transition_key, candidate_id, principal_scope,
-                    from_stage, to_stage, reasons, evidence_digest
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    from_stage, to_stage, reasons, evidence_digest,
+                    decision_evidence_receipt_digest,
+                    decision_evidence_verification_bundle_digest
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     key,
@@ -135,6 +140,8 @@ class PostgresConversationPolicyCandidateStore:
                     transition.to_stage.value,
                     list(transition.reasons),
                     transition.evidence_digest,
+                    transition.decision_evidence_receipt_digest,
+                    transition.decision_evidence_verification_bundle_digest,
                 ),
             )
             update_cursor = await connection.execute(
@@ -247,6 +254,16 @@ def _transition(row: dict[str, Any]) -> PolicyTransition:
         to_stage=PolicyStage(str(row["to_stage"])),
         reasons=tuple(str(item) for item in row["reasons"]),
         evidence_digest=str(row["evidence_digest"]),
+        decision_evidence_receipt_digest=(
+            str(row["decision_evidence_receipt_digest"])
+            if row["decision_evidence_receipt_digest"] is not None
+            else None
+        ),
+        decision_evidence_verification_bundle_digest=(
+            str(row["decision_evidence_verification_bundle_digest"])
+            if row["decision_evidence_verification_bundle_digest"] is not None
+            else None
+        ),
     )
 
 
@@ -258,6 +275,8 @@ def _transition_key(transition: PolicyTransition) -> str:
             transition.to_stage.value,
             *transition.reasons,
             transition.evidence_digest,
+            transition.decision_evidence_receipt_digest or "",
+            transition.decision_evidence_verification_bundle_digest or "",
         )
     )
     return hashlib.sha256(material.encode()).hexdigest()

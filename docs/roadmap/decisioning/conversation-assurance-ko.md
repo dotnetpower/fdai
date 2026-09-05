@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 02f8abbd8fcb3728b853640ccfcab11caadb81d1
+translation_source_sha: 219bc79a4d01340d126a9ec09843ea0d209d1d84
 translation_revised: 2026-09-06
 ---
 # 대화 품질 보증
@@ -561,8 +561,9 @@ $$
 바로 건너뛸 수 없습니다. 수락된 모든 전이에는 비어 있지 않은 기계 사유가 하나 이상 포함되므로
 재생 시 단계가 변경되거나 보류된 이유를 유지합니다. 의사 결정 근거 증적 및 검증 묶음 다이제스트는
 유효한 `sha256:<digest>` 값의 쌍으로만 기록되며 일부만 연결된 근거는 전이 이력에 들어갈 수
-없습니다. 반복 intake는 기록된 전이를 재생할 수 있지만 하나의 shadow 또는 canary 결과를
-재사용해 이후 트래픽 단계를 진행할 수 없습니다.
+없습니다. PostgreSQL은 두 다이제스트를 전이 신원에 포함해 저장하고 재생할 때 복원합니다.
+반복 intake는 기록된 전이를 재생할 수 있지만 하나의 shadow 또는 canary 결과를 재사용해 이후
+트래픽 단계를 진행할 수 없습니다.
 
 별도의 영속 런타임 레지스트리가 각 `(principal_scope, target)`에 현재 적용된 산출물을
 소유합니다. canary 배정은 서버가 소유한 principal, 턴 신원 및 후보 신원을
