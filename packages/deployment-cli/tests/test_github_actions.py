@@ -759,6 +759,51 @@ def test_operational_history_selection_round_trip() -> None:
     assert fields["deploy_operator_api"] == "false"
 
 
+@pytest.mark.parametrize("resume_verification", [False, True])
+def test_operational_history_apply_routes_through_bot_owned_request(
+    resume_verification: bool,
+) -> None:
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operational_history=True,
+        deploy_operator_api=False,
+        runtime_image_revision=_COMMIT,
+    )
+
+    receipt = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.operational-history-apply",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=resume_verification,
+        selection=selection,
+        run=runner,
+    )
+
+    workflow_call = next(call for call in runner.calls if call[:2] == ("workflow", "run"))
+    fields = _fields(workflow_call)
+    assert workflow_call[2] == "request-protected-operation.yml"
+    assert receipt.request_id.startswith("apply-history-")
+    assert fields == {
+        "operation": "operational-history-apply",
+        "environment": "dev",
+        "commit_sha": _COMMIT,
+        "request_id": receipt.request_id,
+        "context_digest": receipt.context_digest,
+        "plan_id": "plan-123-1",
+        "plan_digest": "c" * 64,
+        "resume_verification": str(resume_verification).lower(),
+        "runtime_image_revision": _COMMIT,
+    }
+
+
 def test_application_selection_can_preserve_monitoring() -> None:
     selection = DeploymentSelection(
         deploy_dev_operations_gateway=True,

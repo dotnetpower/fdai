@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 4b35a6e9d20b0761091c7795a5d5507f05ebb2ed
+translation_source_sha: ade2e9697f7197f8904c1ab1934ae740677e4d39
 translation_revised: 2026-09-05
 ---
 
@@ -100,7 +100,8 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 ## 최소 인벤토리 프로비저닝
 
 먼저 미리보기하고, 계획이 예상과 일치할 때만 적용하세요. 보호된 경로는 비공개 계획 데이터를
-VNet에 연결된 실행기에 유지하며 정확한 적용 전에 구성된 GitHub 환경 승인을 요구합니다.
+VNet 연결 runner에 유지합니다. 특수 exact 적용은 bot-owned 요청이 다시 전달하므로 maintainer가
+별도 GitHub Environment approver로 남습니다.
 
 프라이빗 네트워킹으로 전환하는 보호된 작업에서는 보호된 워크플로가 이미 허용한 검토된
 삭제나 마이그레이션만 받아들입니다. 광범위한 PostgreSQL Azure-services 방화벽 규칙 제거가
