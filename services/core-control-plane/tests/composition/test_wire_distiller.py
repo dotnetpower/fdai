@@ -14,6 +14,7 @@ from fdai.composition import (
     bind_azure_ontology_distiller,
     default_container,
 )
+from fdai.composition.resolved_models_revision import bind_resolved_models_revision
 from fdai.composition.wire_distiller import (
     OntologyCouncilBindingState,
     ontology_council_binding_state,
@@ -288,3 +289,18 @@ def test_apim_without_health_sink_fails_closed() -> None:
 
     with pytest.raises(LlmBindingsUnavailableError, match="model health"):
         _bind(_resolved(bindings=bindings))
+
+
+def test_startup_hold_blocks_real_ontology_council_binding() -> None:
+    resolved = _resolved()
+    container = _container(resolved)
+    held = _CAPABILITIES[0][0]
+    container = bind_resolved_models_revision(
+        container,
+        models=resolved,
+        artifact_digest=container.config.llm.resolved_models_sha256 or "",
+        held_capabilities=(held,),
+    )
+
+    with pytest.raises(LlmBindingsUnavailableError, match="all three bindable"):
+        _bind(resolved, container=container)

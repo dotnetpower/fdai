@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import tomllib
 from collections.abc import Mapping
 from datetime import datetime
@@ -87,6 +88,24 @@ BASE_ENV = {
     AUDIENCE_ENV: "audience",
     **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
 }
+
+
+class _ResolvedModelsArtifact:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.digest = hashlib.sha256(content.encode()).hexdigest()
+        self.secret_version: str | None = None
+
+
+class _ResolvedModelsSource:
+    def __init__(self, content: str) -> None:
+        self.artifact = _ResolvedModelsArtifact(content)
+        self.loads = 0
+
+    async def load(self) -> _ResolvedModelsArtifact:
+        self.loads += 1
+        return self.artifact
+
 
 EXPECTED_ROUTES = (
     (("GET", "HEAD"), "/agents/activity", "get_agent_activity"),
@@ -203,6 +222,49 @@ def _imports(path: Path) -> set[str]:
 
 def _fdai_imports(path: Path) -> set[str]:
     return {name for name in _imports(path) if name == "fdai" or name.startswith("fdai.")}
+
+
+@pytest.mark.asyncio
+async def test_production_lifecycle_loads_operator_model_revision_once() -> None:
+    source = _ResolvedModelsSource('{"capabilities":[]}')
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        resolved_models_source=source,
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            "LLM_RESOLVED_MODELS_SHA256": source.artifact.digest,
+        }
+    )
+
+    assert runtime.lifecycle is not None
+    await runtime.lifecycle.start()
+    await runtime.lifecycle.start()
+    await runtime.lifecycle.aclose()
+
+    assert source.loads == 1
+
+
+@pytest.mark.asyncio
+async def test_production_lifecycle_rejects_operator_revision_mismatch() -> None:
+    source = _ResolvedModelsSource('{"capabilities":[]}')
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        resolved_models_source=source,
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            "LLM_RESOLVED_MODELS_SHA256": "0" * 64,
+        }
+    )
+
+    assert runtime.lifecycle is not None
+    with pytest.raises(ValueError, match="deployment binding"):
+        await runtime.lifecycle.start()
+
+    assert source.loads == 1
 
 
 def test_service_package_has_no_fdai_implementation_import() -> None:

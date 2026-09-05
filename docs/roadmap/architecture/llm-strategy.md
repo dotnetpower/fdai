@@ -423,6 +423,11 @@ lifecycle observation verifies the proposal and decision digests. An expired unm
 holds only its affected capabilities before binding, and any accepted registry change still needs
 Owner review plus frozen-scenario shadow replay.
 
+Draft readback emits a governed receipt that binds the workflow run, source commit, proposal,
+pull request, and immutable head. The receipt explicitly denies activation, mapping, execution,
+and live-execution eligibility. Retaining one receipt from a protected live run remains an
+operational evidence requirement.
+
 ### Mixed-Model Family Strategies
 
 The quality gate needs two independent model families. Which pair a fork actually gets is

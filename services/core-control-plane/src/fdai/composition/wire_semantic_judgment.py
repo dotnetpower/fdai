@@ -43,6 +43,7 @@ def build_azure_semantic_judgment_factory(
     system_prompt: str | None,
     preflight_system_prompt: str | None = None,
     social_narrator_system_prompts: Mapping[str, str] | None = None,
+    held_capabilities: frozenset[str] = frozenset(),
 ) -> SemanticJudgmentFactory | None:
     """Return a loop-bound T1/T2 factory or ``None`` when unavailable."""
 
@@ -56,6 +57,7 @@ def build_azure_semantic_judgment_factory(
         resolved,
         endpoint=endpoint,
         endpoint_resolver=endpoint_resolver,
+        held_capabilities=held_capabilities,
     )
     if not t1_targets:
         _LOGGER.warning(
@@ -67,6 +69,7 @@ def build_azure_semantic_judgment_factory(
         resolved,
         endpoint=endpoint,
         endpoint_resolver=endpoint_resolver,
+        held_capabilities=held_capabilities,
     )
     available_tiers = ["t1"] + (["t2"] if t2_targets else [])
     _LOGGER.info(

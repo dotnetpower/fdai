@@ -147,6 +147,9 @@ projection absence renders as unavailable; malformed or unexpected responses rem
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
 The shared Operator composition can add a principal-scoped conversation document reader without
 changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
+The same composition starts its resolved-model revision fence before the WARA projection bridge.
+A model digest mismatch therefore blocks all later lifecycle services without changing WARA
+evidence, assessment, projection, or remediation authority.
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
 revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact
 evaluator reference, and structured manual-evidence requirement. The Console renders 50 controls

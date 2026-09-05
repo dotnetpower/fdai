@@ -222,21 +222,26 @@ compatibility.
 
 ### Runtime Resolution
 
-Core code depends only on the capability contract. `resolved-models.json` is loaded from
-Key Vault at startup; a stale reference (deployment deleted or 404) **fail-closes to HIL**,
-not to a different capability.
+Core code depends only on the capability contract. At startup, one asynchronous Core owner loads
+the configured inline or mounted `resolved-models.json` revision once. It compares the artifact
+bytes with `LLM_RESOLVED_MODELS_SHA256`, publishes the immutable revision to lifecycle evaluation,
+and supplies that same object to all production capability binders. Operator startup applies the
+same digest fence through its service-owned source. Deployed composition can use the direct Key
+Vault source, while local narrator compatibility can retain the configured file source.
 
-One asynchronous startup owner loads the artifact once and publishes an immutable revision to
-both lifecycle evaluation and capability binding. Core and Operator compare the artifact bytes
-with `LLM_RESOLVED_MODELS_SHA256` before constructing a model adapter. The lifecycle side also
-canonicalizes those bytes to the source digest carried by proposal schema v3.
+Core reads lifecycle proposals only from authenticated GitHub API responses for the configured
+repository. It accepts a workflow-bot draft on the expected base branch, fetches exactly one
+proposal file at the pull request's immutable head SHA, recomputes its path and payload digest, and
+requires `activation_authority: false`. The owner canonicalizes the loaded model bytes to proposal
+schema v3's source digest, recomputes and verifies each decision digest, and writes the decision to
+the existing durable state store before binding. Staging and production startup require the
+authenticated observation source; they stop instead of treating a missing source as an empty
+review set.
 
-Only a trusted pull-request observation with a valid head revision, recomputed proposal digest,
-and `activation_authority: false` can enter evaluation. The owner recomputes the decision digest
-and persists the decision idempotently before exposing any capability. An expired, unmerged
-proposal for the current source contributes a pre-binding hold set. A held capability is
-unavailable to the binder without rewriting the resolved mapping, granting mapping authority, or
-granting execution authority. A stale-source proposal contributes no hold.
+An expired, unmerged proposal for the current source contributes a pre-binding hold set. The main
+LLM, semantic judgment, ontology council, post-turn review, and conversation-assurance binders
+exclude held capabilities from the startup-owned revision. This does not rewrite the resolved
+mapping or grant mapping or execution authority. A stale-source proposal contributes no hold.
 
 ```python
 # core/tiers/t2-reasoning/reasoner.py (illustrative)
@@ -356,9 +361,19 @@ corresponding protocols. Otherwise the existing single-route behavior remains un
 
 ### Reconciler Job
 
-The planned weekly Job watches newer preferred families, deprecations within 60 days, and measured capacity or quality drift. It opens only a bounded issue or draft PR and an A2 alert; it never changes the live mapping.
-Proposal schema v2 compares SKU and effective capacity unit/value in addition to family, publisher, and status, so an in-place scale or replacement cannot be misclassified as no change.
-An expired unmerged replacement lowers the capability to human review, and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
+The weekly Job watches newer preferred families, deprecations within 60 days, and measured capacity
+or quality drift. It opens only an idempotent draft PR and never changes the live mapping. Proposal
+schema v3 compares SKU and effective capacity unit/value in addition to family, publisher, and
+status, so an in-place scale or replacement cannot be misclassified as no change.
+
+After draft readback, the workflow emits
+`fdai.model-lifecycle-reconciliation-receipt.v1`. The receipt binds the workflow run and attempt,
+source commit, source-model and proposal digests, pull request number, immutable head SHA, and
+draft state. It records sanitized evidence and sets activation, mapping, execution, and live
+execution eligibility to false. A protected live run must retain this receipt before operators can
+claim operational validation. An expired unmerged replacement lowers the capability to human
+review, and any accepted registry change still needs Owner review plus frozen-scenario shadow
+replay.
 
 ### Mixed-Model Family Strategies
 

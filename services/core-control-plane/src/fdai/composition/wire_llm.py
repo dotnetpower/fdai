@@ -43,7 +43,8 @@ from ._helpers import (
     LlmBindings,
     LlmBindingsUnavailableError,
 )
-from .resolved_models import _capability, _default_dim_for_family, _load_resolved_models
+from .resolved_models import _capability, _default_dim_for_family
+from .resolved_models_revision import resolved_models_for_binding
 from .wire_semantic_judgment import build_azure_semantic_judgment_factory
 
 
@@ -175,14 +176,16 @@ def bind_azure_llm_bindings(
             "bind_azure_llm_bindings requires llm.resolved_models_path (validated earlier)"
         )
 
-    resolved = _load_resolved_models(
-        container.config.llm.resolved_models_path,
-        expected_digest=container.config.llm.resolved_models_sha256,
-    )
-    embedding_cap = _capability(resolved, "t1.embedding")
-    primary_cap = _capability(resolved, "t2.reasoner.primary")
-    secondary_cap = _capability(resolved, "t2.reasoner.secondary")
-    endpoint_bindings = {binding.capability: binding for binding in resolved.endpoint_bindings}
+    resolved = resolved_models_for_binding(container)
+    held = container.held_model_capabilities
+    embedding_cap = _capability(resolved, "t1.embedding", held_capabilities=held)
+    primary_cap = _capability(resolved, "t2.reasoner.primary", held_capabilities=held)
+    secondary_cap = _capability(resolved, "t2.reasoner.secondary", held_capabilities=held)
+    endpoint_bindings = {
+        binding.capability: binding
+        for binding in resolved.endpoint_bindings
+        if binding.capability not in held
+    }
     semantic_judgment_factory = build_azure_semantic_judgment_factory(
         resolved=resolved,
         identity=identity,
@@ -192,6 +195,7 @@ def bind_azure_llm_bindings(
         system_prompt=semantic_judgment_system_prompt,
         preflight_system_prompt=conversation_preflight_system_prompt,
         social_narrator_system_prompts=conversation_social_narrator_system_prompts,
+        held_capabilities=held,
     )
     supported_binding_capabilities = {
         "t1.embedding",
@@ -265,7 +269,7 @@ def bind_azure_llm_bindings(
             pricing=pricing,
         )
 
-    rca_cap = _capability(resolved, "t2.rca")
+    rca_cap = _capability(resolved, "t2.rca", held_capabilities=held)
     rca_reasoner: RcaReasoner | None = None
     if rca_cap is not None and rca_system_prompt:
         rca_reasoner = LlmRcaReasoner(
@@ -510,7 +514,7 @@ def bind_azure_llm_bindings(
     # ``critic_system_prompt``. A fork that omits either keeps the
     # field ``None`` and the future debate orchestrator degrades to
     # the pre-Wave-4 cross-check flow.
-    critic_cap = _capability(resolved, "t2.critic")
+    critic_cap = _capability(resolved, "t2.critic", held_capabilities=held)
     critic_model: CriticModel | None = None
     if critic_cap is not None and critic_system_prompt:
         critic_model = AzureOpenAICriticModel(
@@ -531,7 +535,7 @@ def bind_azure_llm_bindings(
     # only when BOTH role models are bound; a fork that opts out of
     # either role keeps ``debate_orchestrator = None`` and the caller
     # falls back to the cross-check quorum path.
-    judge_cap = _capability(resolved, "t1.judge")
+    judge_cap = _capability(resolved, "t1.judge", held_capabilities=held)
     judge_model: JudgeModel | None = None
     if judge_cap is not None and judge_system_prompt:
         judge_model = AzureOpenAIJudgeModel(

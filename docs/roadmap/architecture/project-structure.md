@@ -23,6 +23,11 @@ closure attempts every claimed episode before re-raising the first failure, so o
 contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
 as a changed resource type.
 
+Core composition attaches one immutable resolved-model revision before any production model binder
+runs. The container carries that revision and its authority-free lifecycle hold set to focused
+binding modules; runtime code does not import private wire modules. Operator composition starts its
+service-owned revision fence before Kafka, projection, WARA, or conversation lifecycle services.
+
 ## Core domain navigation decision
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,

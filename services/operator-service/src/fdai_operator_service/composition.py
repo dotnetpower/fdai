@@ -6,7 +6,7 @@ import os
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 import httpx
 from azure.identity.aio import ManagedIdentityCredential
@@ -27,6 +27,10 @@ from fdai_operator_service.adapters import (
 )
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
+)
+from fdai_operator_service.adapters.resolved_models_key_vault import (
+    KeyVaultResolvedModelsConfig,
+    KeyVaultResolvedModelsSource,
 )
 from fdai_operator_service.auth import (
     EntraJwtVerifier,
@@ -79,6 +83,11 @@ from fdai_operator_service.iam_composition import (
     build_postgres_iam_bindings,
     build_teams_hil_http_client,
     build_unavailable_iam_bindings,
+)
+from fdai_operator_service.model_lifecycle_startup import (
+    AsyncResolvedModelsSource,
+    ConfiguredResolvedModelsSource,
+    OperatorResolvedModelsRevisionOwner,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -180,12 +189,17 @@ class ProductionOperatorComposition:
     readiness_probe: ReadinessProbe | None = None
     semantic_event_publisher: SemanticTurnEventPublisher | None = None
     semantic_result_source: SemanticTurnResultSource | None = None
+    resolved_models_source: AsyncResolvedModelsSource | None = None
     local_cli_identity_factory: LocalCliIdentityFactory = resolve_azure_cli_identity
     local_cli_session_token_factory: LocalCliSessionTokenFactory = lambda: secrets.token_urlsafe(32)
 
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
+        model_revision_owner = _model_revision_owner(
+            environment,
+            source=self.resolved_models_source,
+        )
         configured_read_model = self.read_model or _postgres_read_model(environment)
         family_store = _postgres_family_store(environment)
         context_selection_registry = ContextSelectionRegistry()
@@ -360,6 +374,7 @@ class ProductionOperatorComposition:
             ),
             local_cli_session_token=local_cli_session_token,
             lifecycle=_application_lifecycle(
+                model_revision_owner,
                 semantic_bridge,
                 read_investigation_bridge,
                 background_task_projection_bridge,
@@ -672,6 +687,86 @@ def _build_live_stage_relay(
     )
 
 
+def _model_revision_owner(
+    environment: OperatorEnvironment,
+    *,
+    source: AsyncResolvedModelsSource | None,
+) -> OperatorResolvedModelsRevisionOwner | None:
+    expected_digest = environment.values.get("LLM_RESOLVED_MODELS_SHA256", "").strip()
+    configured_path = environment.values.get("LLM_RESOLVED_MODELS_PATH", "").strip()
+    vault_url = environment.values.get(
+        "FDAI_RESOLVED_MODELS_KEY_VAULT_URL",
+        "",
+    ).strip()
+    secret_name = environment.values.get(
+        "FDAI_RESOLVED_MODELS_KEY_VAULT_SECRET_NAME",
+        "",
+    ).strip()
+    if source is None and not vault_url and not expected_digest:
+        return None
+    if len(expected_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_digest
+    ):
+        raise RuntimeError("Operator requires LLM_RESOLVED_MODELS_SHA256")
+    if source is not None:
+        return OperatorResolvedModelsRevisionOwner(
+            source=source,
+            expected_digest=expected_digest,
+        )
+    if vault_url or secret_name:
+        if not vault_url or not secret_name:
+            raise RuntimeError(
+                "Operator resolved-model Key Vault URL and secret name are both required"
+            )
+        credential = (
+            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
+            if environment.managed_identity_client_id is not None
+            else ManagedIdentityCredential()
+        )
+        http_client = httpx.AsyncClient()
+
+        async def token_provider(audience: str) -> str:
+            return cast(str, (await credential.get_token(audience)).token)
+
+        async def close() -> None:
+            try:
+                await http_client.aclose()
+            finally:
+                await credential.close()
+
+        return OperatorResolvedModelsRevisionOwner(
+            source=KeyVaultResolvedModelsSource(
+                config=KeyVaultResolvedModelsConfig(
+                    vault_url=vault_url,
+                    secret_name=secret_name,
+                    secret_version=environment.values.get(
+                        "FDAI_RESOLVED_MODELS_KEY_VAULT_SECRET_VERSION",
+                        "",
+                    ).strip()
+                    or None,
+                ),
+                token_provider=token_provider,
+                http_client=_KeyVaultHttpClient(http_client),
+            ),
+            expected_digest=expected_digest,
+            close=close,
+        )
+    if not configured_path:
+        raise RuntimeError("Operator resolved-model source is not configured")
+    return OperatorResolvedModelsRevisionOwner(
+        source=ConfiguredResolvedModelsSource(configured_path),
+        expected_digest=expected_digest,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _KeyVaultHttpClient:
+    client: httpx.AsyncClient
+
+    async def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        return await self.client.get(url, **kwargs)
+
+
 @dataclass(frozen=True, slots=True)
 class _CompositeLifecycle:
     services: tuple[ApplicationLifecycle, ...]
@@ -703,6 +798,7 @@ class _CompositeLifecycle:
 
 
 def _application_lifecycle(
+    model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
@@ -719,6 +815,7 @@ def _application_lifecycle(
     services = tuple(
         service
         for service in (
+            model_revision_owner,
             bus,
             bridge,
             read_investigation_bridge,

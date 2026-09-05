@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import fdai.runtime.bootstrap as runtime_bootstrap
+import httpx
 import pytest
+from fdai.composition import default_container
 from fdai.composition._helpers import LlmBindingsUnavailableError
 from fdai.composition.resolved_models import _load_resolved_models
 from fdai.rule_catalog.schema.llm_resolver import (
@@ -18,7 +22,9 @@ from fdai.rule_catalog.schema.model_lifecycle_review import (
     ModelLifecycleReviewStatus,
     evaluate_model_lifecycle_review,
 )
+from fdai.runtime.bootstrap import _attach_model_lifecycle_startup_revision
 from fdai.runtime.model_lifecycle_startup import resolve_models_startup_revision
+from fdai.shared.config import AppConfig
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 23, tzinfo=UTC)
@@ -307,3 +313,206 @@ def test_core_rejects_source_revision_mismatch_before_model_binding() -> None:
     ).capabilities
     with pytest.raises(LlmBindingsUnavailableError, match="source revision"):
         _load_resolved_models(content, expected_digest="0" * 64)
+
+
+def _startup_container(content: str, digest: str):  # type: ignore[no-untyped-def]
+    return default_container(
+        AppConfig.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "azure": {
+                    "tenant_id": "00000000-0000-0000-0000-000000000000",
+                    "subscription_id": "00000000-0000-0000-0000-000000000000",
+                    "region": "example-region",
+                },
+                "kafka": {
+                    "bootstrap_servers": "events.example.com:9093",
+                    "topic_events": "fdai.events",
+                },
+                "postgres": {"host": "postgres.example.com", "database": "fdai"},
+                "runtime": {"env": "dev"},
+                "llm": {
+                    "mode": "azure",
+                    "resolved_models_path": content,
+                    "resolved_models_sha256": digest,
+                },
+            }
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_core_production_startup_attaches_owner_revision_before_binding() -> None:
+    content = _resolved_content()
+    digest = hashlib.sha256(content.strip().encode()).hexdigest()
+    container = _startup_container(content, digest)
+    async with httpx.AsyncClient() as client:
+        attached = await _attach_model_lifecycle_startup_revision(
+            container,
+            http_client=client,
+            environment={},
+            state_store=InMemoryStateStore(),
+            evaluated_at=_NOW,
+        )
+
+    assert attached.resolved_models is not None
+    assert attached.resolved_models_artifact_digest == digest
+
+
+@pytest.mark.asyncio
+async def test_core_process_invokes_revision_owner_before_model_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    content = _resolved_content().strip()
+    container = _startup_container(content, hashlib.sha256(content.encode()).hexdigest())
+    plan = runtime_bootstrap.build_bootstrap_plan(
+        llm_mode=container.config.llm.mode,
+        environment={},
+    )
+    order: list[str] = []
+
+    class _ReachedModelBindingError(Exception):
+        pass
+
+    class _HealthServer:
+        async def close(self) -> None:
+            return None
+
+    class _RuntimeSettings:
+        async def effective_values(self) -> dict[str, object]:
+            return {}
+
+    async def open_health_port() -> _HealthServer:
+        return _HealthServer()
+
+    async def attach_owner(current, **_kwargs):  # type: ignore[no-untyped-def]
+        order.append("revision-owner")
+        return current
+
+    async def finalize_bindings(current, **_kwargs):  # type: ignore[no-untyped-def]
+        assert current is container
+        order.append("model-binding")
+        raise _ReachedModelBindingError
+
+    monkeypatch.setattr(runtime_bootstrap, "default_container_from_env", lambda: container)
+    monkeypatch.setattr(runtime_bootstrap, "build_bootstrap_plan", lambda **_kwargs: plan)
+    monkeypatch.setattr(runtime_bootstrap, "open_health_port", open_health_port)
+    monkeypatch.setattr(
+        runtime_bootstrap,
+        "runtime_settings_service_from_env",
+        lambda _environment: _RuntimeSettings(),
+    )
+    monkeypatch.setattr(runtime_bootstrap, "_new_http_client", httpx.AsyncClient)
+    monkeypatch.setattr(
+        runtime_bootstrap,
+        "_build_runtime_workload_identity",
+        lambda _client: object(),
+    )
+    monkeypatch.setattr(runtime_bootstrap, "_build_audit_store", InMemoryStateStore)
+    monkeypatch.setattr(
+        runtime_bootstrap,
+        "_attach_model_lifecycle_startup_revision",
+        attach_owner,
+    )
+    monkeypatch.setattr(runtime_bootstrap, "_finalize_llm_bindings", finalize_bindings)
+
+    with pytest.raises(_ReachedModelBindingError):
+        await runtime_bootstrap._run()
+
+    assert order == ["revision-owner", "model-binding"]
+
+
+@pytest.mark.asyncio
+async def test_core_production_startup_rejects_mismatch_before_binding() -> None:
+    content = _resolved_content()
+    container = _startup_container(content, "0" * 64)
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(ValueError, match="deployment binding"):
+            await _attach_model_lifecycle_startup_revision(
+                container,
+                http_client=client,
+                environment={},
+                state_store=InMemoryStateStore(),
+                evaluated_at=_NOW,
+            )
+
+    assert container.resolved_models is None
+
+
+@pytest.mark.asyncio
+async def test_core_production_requires_trusted_observation_source() -> None:
+    content = _resolved_content().strip()
+    container = _startup_container(content, hashlib.sha256(content.encode()).hexdigest())
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(RuntimeError, match="lifecycle observations"):
+            await _attach_model_lifecycle_startup_revision(
+                container,
+                http_client=client,
+                environment={"RUNTIME_ENV": "prod"},
+                state_store=InMemoryStateStore(),
+                evaluated_at=_NOW,
+            )
+
+
+@pytest.mark.asyncio
+async def test_core_production_consumes_trusted_pr_and_persists_hold() -> None:
+    content = _resolved_content().strip()
+    digest = hashlib.sha256(content.encode()).hexdigest()
+    proposal = _observation(content)["proposal"]
+    assert isinstance(proposal, dict)
+    proposal_digest = str(proposal["proposal_digest"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/pulls"):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "number": 257,
+                        "draft": True,
+                        "created_at": _NOW.isoformat(),
+                        "user": {"login": "github-actions[bot]"},
+                        "head": {
+                            "ref": f"automation/model-lifecycle-{proposal_digest[:12]}",
+                            "sha": "1" * 40,
+                        },
+                        "base": {"ref": "main"},
+                    }
+                ],
+            )
+        if request.url.path.endswith("/pulls/257/files"):
+            return httpx.Response(
+                200,
+                json=[{"filename": (f"config/model-lifecycle-proposals/{proposal_digest}.json")}],
+            )
+        return httpx.Response(
+            200,
+            json={
+                "encoding": "base64",
+                "content": base64.b64encode(json.dumps(proposal).encode()).decode(),
+            },
+        )
+
+    store = InMemoryStateStore()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        attached = await _attach_model_lifecycle_startup_revision(
+            _startup_container(content, digest),
+            http_client=client,
+            environment={
+                "FDAI_GITOPS_TOKEN": "test-token",
+                "FDAI_GITOPS_OWNER": "example",
+                "FDAI_GITOPS_REPO": "fdai",
+                "RUNTIME_ENV": "prod",
+            },
+            state_store=store,
+            evaluated_at=_NOW + timedelta(days=7),
+        )
+
+    assert attached.held_model_capabilities == frozenset({"t1.judge"})
+    stored = await store.find_state(
+        "model-lifecycle-review:",
+        field="status",
+        value="hold",
+    )
+    assert stored is not None
+    assert stored["proposal_digest"] == proposal_digest

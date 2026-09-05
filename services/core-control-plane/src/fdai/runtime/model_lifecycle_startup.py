@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from asyncio import to_thread
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Protocol
 
 from fdai.rule_catalog.schema.llm_resolver import (
@@ -30,15 +32,49 @@ _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 class ResolvedModelsArtifact(Protocol):
     """Expose immutable resolved-model bytes from an asynchronous source."""
 
-    content: str
-    digest: str
-    secret_version: str | None
+    @property
+    def content(self) -> str: ...
+
+    @property
+    def digest(self) -> str: ...
+
+    @property
+    def secret_version(self) -> str | None: ...
 
 
 class AsyncResolvedModelsSource(Protocol):
     """Load one immutable resolved-model artifact during startup."""
 
     async def load(self) -> ResolvedModelsArtifact: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FileResolvedModelsArtifact:
+    """Carry one immutable file revision through startup."""
+
+    content: str
+    digest: str
+    secret_version: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FileResolvedModelsSource:
+    """Load the existing inline or deployment-mounted model revision once."""
+
+    path_or_content: str
+    maximum_bytes: int = 1_048_576
+
+    async def load(self) -> FileResolvedModelsArtifact:
+        if self.path_or_content.lstrip().startswith("{"):
+            content = self.path_or_content.encode("utf-8")
+        else:
+            content = await to_thread(Path(self.path_or_content).read_bytes)
+        if len(content) > self.maximum_bytes:
+            raise ValueError("resolved-model artifact exceeds the startup byte limit")
+        return FileResolvedModelsArtifact(
+            content=content.decode("utf-8"),
+            digest=hashlib.sha256(content).hexdigest(),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +278,8 @@ def _require_digest(value: str, field: str) -> None:
 
 __all__ = [
     "AsyncResolvedModelsSource",
+    "FileResolvedModelsArtifact",
+    "FileResolvedModelsSource",
     "ResolvedModelsArtifact",
     "ResolvedModelsStartupRevision",
     "resolve_models_startup_revision",

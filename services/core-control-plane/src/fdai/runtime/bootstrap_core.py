@@ -171,6 +171,7 @@ async def build_core_runtime(
     identity: Any,
     environment: Mapping[str, str],
     runtime_values_snapshot: Mapping[str, object] | None = None,
+    state_store: StateStore | None = None,
 ) -> CoreRuntime:
     """Assemble one active consumer runtime without starting supervised tasks."""
 
@@ -205,7 +206,7 @@ async def build_core_runtime(
             http_client=resources.http_client,
         )
 
-    state_store: StateStore = _build_audit_store()
+    state_store = state_store or _build_audit_store()
     best_practices, checklist_evidence = load_runtime_best_practice_bindings(
         _resolve_catalog_root()
     )
@@ -496,7 +497,8 @@ async def build_core_runtime(
             repo_root=Path(__file__).resolve().parents[5],
             environment=dict(environment),
             dsn=environment.get("FDAI_STATE_STORE_DSN"),
-            resolved_models_path=container.config.llm.resolved_models_path,
+            resolved_models=container.resolved_models,
+            held_capabilities=container.held_model_capabilities,
             identity=identity,
             http_client=resources.http_client,
             pricing=(llm_bindings.conversation_pricing if llm_bindings is not None else None),

@@ -19,6 +19,9 @@ retired top-level application tree.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
   and repository checks.
+- **Operator startup revision fence:** Production Operator composition verifies the immutable
+  resolved-model digest before Cost Governance projections or any other lifecycle bridge starts.
+  The fence grants no mapping, assessment, or execution authority.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

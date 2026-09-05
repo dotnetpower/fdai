@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 2ba7c1f4f068834951c7718591d102983cdb1615
+translation_source_sha: 23b6fb7bda1c272a702245b8ba0e11bf7bc68cd7
 translation_revised: 2026-09-05
 ---
 # LLM 전략(LLM Strategy)
@@ -403,6 +403,10 @@ T2는 서로 다른 두 복구 범위를 사용합니다. 호출별 지연 시�
 확장이나 교체를 변경 없음으로 잘못 분류하지 않습니다. 신뢰할 수 있는 PR 수명 주기 관찰은
 제안 및 결정 다이제스트를 검증합니다. 병합되지 않은 교체가 만료되면 연결 전에 영향받는 기능만
 보류하고, 승인된 레지스트리 변경도 Owner 검토와 고정 시나리오 shadow 재현을 통과해야 합니다.
+
+초안 상태를 다시 읽은 뒤 워크플로 실행, 원본 커밋, 제안, PR, 불변 헤드를 연결하는 거버넌스
+영수증을 만듭니다. 영수증은 활성화, 매핑, 실행, 실제 실행 적격성을 명시적으로 부여하지
+않습니다. 보호된 실제 실행의 영수증 한 건을 보존하는 작업은 운영 근거 요구 사항으로 남습니다.
 
 ### Mixed-Model 계열 전략
 

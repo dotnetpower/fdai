@@ -222,12 +222,13 @@ async def initialize_pantheon(
             raise RuntimeError(
                 "Azure post-turn review requires HTTP and workload identity bindings"
             )
-        resolved_models_path = config.container.config.llm.resolved_models_path
-        if resolved_models_path is None:
+        resolved_models = config.container.resolved_models
+        if resolved_models is None:
             raise RuntimeError("Azure post-turn review requires resolved model configuration")
         post_turn_models = build_azure_post_turn_models(
             repo_root=Path(__file__).resolve().parents[5],
-            resolved_models_path=resolved_models_path,
+            resolved_models=resolved_models,
+            held_capabilities=config.container.held_model_capabilities,
             endpoint=config.environment["FDAI_LLM_ENDPOINT"],
             endpoint_resolver=_model_endpoint_resolver(
                 config.environment["FDAI_LLM_ENDPOINT"],

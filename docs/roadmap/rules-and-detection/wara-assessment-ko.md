@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 550a30cd873cc2375f69d67a9a8c8eea61677103
+translation_source_sha: 0828ec3a7fc9ef58ab54d1e1db61142cde24874c
 translation_revised: 2026-09-05
 ---
 # WARA 근거 기반 평가
@@ -146,6 +146,9 @@ Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제�
 잘린 식별자는 네이티브 title 속성 대신 공유 Tooltip을 통해 전체 값을 표시합니다.
 공유 Operator 조립에 principal 범위 대화 문서 reader를 추가해도 WARA의 고정 crosswalk,
 shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 변경되지 않습니다.
+같은 조립은 WARA 변환 결과 bridge보다 먼저 해석 모델 리비전 경계를 시작합니다.
+따라서 모델 다이제스트가 불일치하면 WARA 근거, 평가, 변환 결과 또는 개선 권한을 바꾸지
+않고 모든 후속 수명 주기 서비스를 차단합니다.
 초기 카탈로그 변환 결과는 고정된 APRL 출처 URL, 출처 경로, 버전, 리비전, 다이제스트, 가져온
 시각, 라이선스, 선택적 Microsoft Learn 링크, 쿼리 다이제스트, 정확한 평가기 참조 및 구조화된
 수동 근거 요구 사항도 제공합니다. Console은 페이지당 컨트롤 50개를 표시하고 명시적인 이전 및

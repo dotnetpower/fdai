@@ -14,10 +14,17 @@ def t1_model_targets(
     *,
     endpoint: str | None,
     endpoint_resolver: Callable[[str], str] | None,
+    held_capabilities: frozenset[str] = frozenset(),
 ) -> tuple[ModelRequestTarget, ...]:
     """Return resolved narrator or T1 judge targets in preference order."""
-    candidates = resolved.narrator_candidates
-    if not candidates and resolved.narrator is not None:
+    candidates = (
+        () if held_capabilities & {"t1.judge", "t1.narrator"} else resolved.narrator_candidates
+    )
+    if (
+        not candidates
+        and resolved.narrator is not None
+        and not held_capabilities & {"t1.judge", "t1.narrator"}
+    ):
         candidates = (resolved.narrator,)
     targets = [
         ModelRequestTarget(
@@ -35,6 +42,7 @@ def t1_model_targets(
             "t1.judge",
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
+            held_capabilities=held_capabilities,
         )
         if judge is not None:
             targets.append(judge)
@@ -46,6 +54,7 @@ def t2_model_targets(
     *,
     endpoint: str | None,
     endpoint_resolver: Callable[[str], str] | None,
+    held_capabilities: frozenset[str] = frozenset(),
 ) -> tuple[ModelRequestTarget, ...]:
     """Return optional T2 escalation targets without borrowing T1 capacity."""
     targets: list[ModelRequestTarget] = [
@@ -57,6 +66,7 @@ def t2_model_targets(
             auth_audience=candidate.auth_audience,
         )
         for candidate in resolved.reasoner_primary_candidates
+        if "t2.reasoner.primary" not in held_capabilities
     ]
     if not targets:
         primary = model_target_for_capability(
@@ -64,6 +74,7 @@ def t2_model_targets(
             "t2.reasoner.primary",
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
+            held_capabilities=held_capabilities,
         )
         if primary is not None:
             targets.append(primary)
@@ -83,7 +94,10 @@ def model_target_for_capability(
     *,
     endpoint: str | None,
     endpoint_resolver: Callable[[str], str] | None,
+    held_capabilities: frozenset[str] = frozenset(),
 ) -> ModelRequestTarget | None:
+    if capability_id in held_capabilities:
+        return None
     binding = next(
         (item for item in resolved.endpoint_bindings if item.capability == capability_id),
         None,

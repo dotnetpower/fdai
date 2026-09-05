@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 945dc1996c75ef0ba945866256a18e73201f3c1d
+translation_source_sha: 0576bdace21b6470bb370d0a41ce51f784088dc7
 translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
@@ -19,6 +19,11 @@ translation_revised: 2026-09-05
 허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
 않습니다. 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한 episode 하나가 due 대기열 전체를 막을 수 없습니다. T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트
 리소스 유형을 읽습니다. 따라서 이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
+
+코어 조립은 운영 모델 연결기가 실행되기 전에 하나의 불변 해석 모델 리비전을 연결합니다.
+컨테이너는 해당 리비전과 권한이 없는 수명 주기 보류 집합을 목적별 연결 모듈에 전달하며,
+런타임 코드는 비공개 wire 모듈을 가져오지 않습니다. Operator 조립은 Kafka, 변환 결과,
+WARA 또는 대화 수명 주기 서비스보다 먼저 서비스 소유 리비전 경계를 시작합니다.
 
 ## Core 도메인 탐색 결정
 

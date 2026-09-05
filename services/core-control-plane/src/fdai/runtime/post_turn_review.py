@@ -153,18 +153,25 @@ def build_post_turn_review_runtime(
 def build_azure_post_turn_models(
     *,
     repo_root: Path,
-    resolved_models_path: str,
+    resolved_models_path: str | None = None,
+    resolved_models: ResolvedModels | None = None,
+    held_capabilities: frozenset[str] = frozenset(),
     endpoint: str,
     endpoint_resolver: Callable[[str], str],
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
 ) -> tuple[PostTurnProposalModel, ...]:
     """Bind exactly two resolved, distinct-family Azure proposal models."""
-    resolved = _load_resolved_models(resolved_models_path)
+    if resolved_models is None:
+        if resolved_models_path is None:
+            raise ValueError("post-turn review requires a resolved-model revision")
+        resolved_models = _load_resolved_models(resolved_models_path)
+    resolved = resolved_models
     capabilities = {item.name: item for item in resolved.capabilities}
     selected = tuple(capabilities.get(name) for name in _CAPABILITIES)
     if any(
         item is None
+        or item.name in held_capabilities
         or item.status is CapabilityStatus.HIL_ONLY
         or item.family is None
         or item.publisher is None
@@ -180,6 +187,7 @@ def build_azure_post_turn_models(
             capability,
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
+            held_capabilities=held_capabilities,
         )
         for capability in _CAPABILITIES
     )

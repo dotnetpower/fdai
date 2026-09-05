@@ -33,7 +33,7 @@ from ..shared.providers.distiller import Distiller
 from ..shared.providers.ontology_council import CouncilModelIdentity, OntologyCouncilModel
 from ..shared.providers.workload_identity import WorkloadIdentity
 from ._helpers import Container, LlmBindingsUnavailableError
-from .resolved_models import _load_resolved_models
+from .resolved_models_revision import resolved_models_for_binding
 
 ONTOLOGY_COUNCIL_CAPABILITIES = (
     "t2.ontology.council.alpha",
@@ -68,17 +68,22 @@ class _OntologyDistillerOverrides(Protocol):
     def model_health_sink(self) -> Any | None: ...
 
 
-def ontology_council_binding_state(resolved: ResolvedModels) -> OntologyCouncilBindingState:
+def ontology_council_binding_state(
+    resolved: ResolvedModels,
+    *,
+    held_capabilities: frozenset[str] = frozenset(),
+) -> OntologyCouncilBindingState:
     """Classify council records without inspecting unrelated model capabilities."""
     capabilities = tuple(
         capability
         for capability in resolved.capabilities
-        if capability.name in _COUNCIL_CAPABILITY_SET
+        if capability.name in _COUNCIL_CAPABILITY_SET and capability.name not in held_capabilities
     )
     bindings = tuple(
         binding
         for binding in resolved.endpoint_bindings
         if binding.capability in _COUNCIL_CAPABILITY_SET
+        and binding.capability not in held_capabilities
     )
     if not capabilities and not bindings:
         return OntologyCouncilBindingState.ABSENT
@@ -108,10 +113,8 @@ async def bind_azure_ontology_distiller_from_catalog(
     if resolved_path is None:
         raise LlmBindingsUnavailableError("Azure LLM wiring requires resolved model bindings")
     state = ontology_council_binding_state(
-        _load_resolved_models(
-            resolved_path,
-            expected_digest=container.config.llm.resolved_models_sha256,
-        )
+        resolved_models_for_binding(container),
+        held_capabilities=container.held_model_capabilities,
     )
     system_prompt = ""
     prompt_digest = ""
@@ -180,11 +183,11 @@ def bind_azure_ontology_distiller(
         raise ValueError("bind_azure_ontology_distiller requires llm.resolved_models_path")
     if not endpoint:
         raise ValueError("bind_azure_ontology_distiller requires a non-empty endpoint")
-    resolved = _load_resolved_models(
-        container.config.llm.resolved_models_path,
-        expected_digest=container.config.llm.resolved_models_sha256,
+    resolved = resolved_models_for_binding(container)
+    state = ontology_council_binding_state(
+        resolved,
+        held_capabilities=container.held_model_capabilities,
     )
-    state = ontology_council_binding_state(resolved)
     if state == OntologyCouncilBindingState.ABSENT:
         return container
     if state != OntologyCouncilBindingState.COMPLETE:

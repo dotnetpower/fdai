@@ -40,8 +40,15 @@ def _load_resolved_models(
     return ResolvedModels.from_json(content)
 
 
-def _capability(resolved: ResolvedModels, name: str) -> ResolvedCapability | None:
+def _capability(
+    resolved: ResolvedModels,
+    name: str,
+    *,
+    held_capabilities: frozenset[str] = frozenset(),
+) -> ResolvedCapability | None:
     """Return a resolved capability only when it is bindable."""
+    if name in held_capabilities:
+        return None
     for capability in resolved.capabilities:
         if capability.name != name:
             continue
