@@ -149,6 +149,8 @@ class PolicyTransition:
 
     def __post_init__(self) -> None:
         _require_digest("policy transition evidence_digest", self.evidence_digest)
+        if not self.reasons or any(not reason.strip() for reason in self.reasons):
+            raise ValueError("policy transition reasons MUST be non-empty")
         allowed = {self.from_stage, PolicyStage.ROLLED_BACK}
         next_stage = _NEXT_STAGE.get(self.from_stage)
         if next_stage is not None:

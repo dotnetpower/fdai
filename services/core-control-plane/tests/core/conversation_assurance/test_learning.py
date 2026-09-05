@@ -301,6 +301,17 @@ def test_policy_transition_rejects_direct_shadow_to_active_skip() -> None:
         )
 
 
+def test_policy_transition_requires_audit_reasons() -> None:
+    with pytest.raises(ValueError, match="reasons MUST be non-empty"):
+        PolicyTransition(
+            candidate_id="candidate-1",
+            from_stage=PolicyStage.SHADOW,
+            to_stage=PolicyStage.SHADOW,
+            reasons=(),
+            evidence_digest="e" * 64,
+        )
+
+
 async def test_candidate_store_rejects_reused_trial_evidence() -> None:
     store = InMemoryConversationPolicyCandidateStore()
     candidate = _candidate()

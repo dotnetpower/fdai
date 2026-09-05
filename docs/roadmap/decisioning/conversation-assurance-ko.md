@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: e667f71ac02909c4437c4be028db57a3e608352d
+translation_source_sha: d6256437a27d042ee8939c75058bbaf2016b70f9
 translation_revised: 2026-09-06
 ---
 # 대화 품질 보증
@@ -558,8 +558,9 @@ $$
 
 단계 불일치, 이미 소비된 다이제스트 또는 누락된 측정 신원은 진행을 차단합니다. 같은 단계
 유지, 다음으로 선언된 canary 단계 또는 롤백 전이만 수락하므로 호출자가 shadow에서 active로
-바로 건너뛸 수 없습니다. 반복 intake는 기록된 전이를 재생할 수 있지만 하나의 shadow 또는
-canary 결과를 재사용해 이후 트래픽 단계를 진행할 수 없습니다.
+바로 건너뛸 수 없습니다. 수락된 모든 전이에는 비어 있지 않은 기계 사유가 하나 이상 포함되므로
+재생 시 단계가 변경되거나 보류된 이유를 유지합니다. 반복 intake는 기록된 전이를 재생할 수
+있지만 하나의 shadow 또는 canary 결과를 재사용해 이후 트래픽 단계를 진행할 수 없습니다.
 
 별도의 영속 런타임 레지스트리가 각 `(principal_scope, target)`에 현재 적용된 산출물을
 소유합니다. canary 배정은 서버가 소유한 principal, 턴 신원 및 후보 신원을

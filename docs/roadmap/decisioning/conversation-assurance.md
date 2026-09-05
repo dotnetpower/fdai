@@ -575,7 +575,8 @@ $$
 
 A stage mismatch, an already consumed digest, or missing measurement identity blocks advancement.
 The transition contract accepts only a same-stage hold, the next declared canary stage, or rollback;
-callers cannot construct a direct shadow-to-active skip.
+callers cannot construct a direct shadow-to-active skip. Every accepted transition includes at
+least one nonempty machine reason so replay preserves why the stage changed or remained held.
 Repeated intake can replay the recorded transition, but it cannot reuse one shadow or canary result
 to advance through later traffic stages.
 
