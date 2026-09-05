@@ -15,5 +15,21 @@ variable "auth" { type = object({ tenant_id = string, api_audience = string }) }
 variable "rbac" { type = object({ readers_group_id = string, contributors_group_id = string, approvers_group_id = string, owners_group_id = string, break_glass_group_id = string }) }
 variable "embedding" { type = object({ endpoint = string, deployment = string }) }
 variable "cors_allow_origins" { type = string }
+variable "sharepoint_connector" {
+  type = object({
+    enabled                = bool
+    connector_id           = string
+    target_tenant_id       = string
+    client_id              = string
+    site_id                = string
+    drive_id               = string
+    collection_id          = string
+    access_descriptor_ref  = string
+    reader_groups          = optional(string, "")
+    retention_policy       = string
+    purposes               = optional(string, "knowledge_base")
+    download_host_suffixes = optional(string, ".sharepoint.com")
+  })
+}
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "tags" { type = map(string) }

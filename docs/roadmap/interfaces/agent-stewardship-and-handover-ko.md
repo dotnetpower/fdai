@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: ec8d30067c6791e602c4bda6c4aeadffb4ca0925
+translation_source_sha: 9fdccb0236173f6ad80230f34b584347cf9d8d02
 translation_revised: 2026-09-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -65,9 +65,9 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 5. **콘솔은 지도를 직접 변경하지 않는다.** 스튜어드십 변환 결과는 읽기 전용을 유지합니다.
   Guided 등록 양식은 구조화된 `handover_bootstrap` 문서를 인제스트 경계에
   제출하고, GitHub App은 다른 모든 거버넌스 변경과 동일하게 결과를 초안 PR로 작성합니다
-   ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)). Power
-   Platform 커넥터를 포함한 다른 인제스트 경로는 별도 인증기와 서버 소유 문서 정책을
-   사용합니다. 결과 문서가 일반 `handover_bootstrap` 파이프라인에 독립적으로 진입하지
+   ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
+   FDAI-native SharePoint 커넥터는 인제스트 신원과 서버 소유 문서 정책을 사용합니다.
+   결과 문서가 일반 `handover_bootstrap` 파이프라인에 독립적으로 진입하지
    않는 한 담당 체계 웹후크를 호출하거나 담당 매핑을 만들 수 없습니다.
    컬렉션 문서 목록 경로는 읽기 전용이며 인수인계 용도를 선택하거나 웹후크를 호출하거나
    담당 체계 초안을 만들 수 없습니다.

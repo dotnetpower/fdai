@@ -275,25 +275,6 @@ resource "azurerm_container_app" "ingestion" {
           value = tostring(env.value)
         }
       }
-      dynamic "env" {
-        for_each = var.power_platform_connector_enabled ? {
-          FDAI_POWER_PLATFORM_CONNECTOR_ENABLED        = "1"
-          FDAI_POWER_PLATFORM_CONNECTOR_ID             = var.power_platform_connector_id
-          FDAI_POWER_PLATFORM_SOURCE_TENANT_ID         = var.power_platform_source_tenant_id
-          FDAI_CONNECTOR_ALLOWED_TENANT_IDS            = var.power_platform_source_tenant_id
-          FDAI_CONNECTOR_ALLOWED_CLIENT_IDS            = var.power_platform_allowed_client_ids
-          FDAI_CONNECTOR_API_AUDIENCE                  = var.power_platform_api_audience
-          FDAI_POWER_PLATFORM_COLLECTION_ID            = var.power_platform_collection_id
-          FDAI_POWER_PLATFORM_ACCESS_DESCRIPTOR_REF    = var.power_platform_access_descriptor_ref
-          FDAI_POWER_PLATFORM_READER_GROUPS            = var.power_platform_reader_groups
-          FDAI_POWER_PLATFORM_RETENTION_POLICY_VERSION = var.power_platform_retention_policy_version
-          FDAI_POWER_PLATFORM_PURPOSES                 = var.power_platform_purposes
-        } : {}
-        content {
-          name  = env.key
-          value = env.value
-        }
-      }
       env {
         name  = "FDAI_EMBEDDING_DIM"
         value = tostring(var.embedding_dim)
@@ -356,18 +337,6 @@ resource "azurerm_container_app" "ingestion" {
         var.worker_database_dsn_secret_id != ""
       )
       error_message = "split ingestion requires worker identity and database secret inputs."
-    }
-    precondition {
-      condition = !var.power_platform_connector_enabled || alltrue([
-        var.power_platform_connector_id != "",
-        var.power_platform_source_tenant_id != "",
-        var.power_platform_allowed_client_ids != "",
-        var.power_platform_api_audience != "",
-        var.power_platform_collection_id != "",
-        var.power_platform_access_descriptor_ref != "",
-        var.power_platform_retention_policy_version != "",
-      ])
-      error_message = "Power Platform connector activation requires complete tenant, client, audience, collection, access, and retention bindings."
     }
   }
 }

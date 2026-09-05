@@ -48,6 +48,15 @@ from fdai_ingestion_api_service.adapters.postgres import (
 from fdai_ingestion_api_service.adapters.protection import (
     PurviewRmsPreviewAuthorizer,
 )
+from fdai_ingestion_api_service.adapters.sharepoint import (
+    MicrosoftGraphSharePointDeltaSource,
+    SharePointDeltaConfig,
+    SharePointDeltaSynchronizer,
+)
+from fdai_ingestion_api_service.adapters.sharepoint_identity import (
+    FederatedManagedIdentityGraphCredential,
+    SharePointFederatedCredentialConfig,
+)
 from fdai_ingestion_api_service.adapters.sharepoint_state import (
     PostgresSharePointDeltaStore,
 )
@@ -67,21 +76,20 @@ from fdai_ingestion_api_service.auth import (
     Authenticator,
     EntraJwtVerifier,
     GroupMapping,
-    MultiTenantEntraJwtVerifier,
 )
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.download import GovernedDocumentDownload
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import DocumentIngestionService
-from fdai_ingestion_api_service.power_platform import (
-    PowerPlatformConnectorAuthenticator,
-    PowerPlatformConnectorConfig,
-    PowerPlatformSharePointConnector,
-)
 from fdai_ingestion_api_service.preview import (
     GovernedDocumentPreview,
     MetadataPreviewProtectionAuthorizer,
     PreviewProtectionAuthorizer,
+)
+from fdai_ingestion_api_service.sharepoint_connector import (
+    NativeSharePointDeltaSink,
+    SharePointConnectorConfig,
+    SharePointConnectorIntake,
 )
 
 _COMMON_REQUIRED_ENV = (
@@ -256,50 +264,86 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             await asyncio.sleep(0.1 if published else 2.0)
 
     connector_drainers = [drain_api_outbox]
-    sharepoint_enabled = _truthy(env.get("FDAI_SHAREPOINT_DELTA_ENABLED", ""))
-    if sharepoint_enabled:
-        raise ProductionConfigurationError(
-            "direct Graph delta is unavailable; use the cross-tenant Power Platform connector"
-        )
-    power_platform_connector = None
-    power_platform_authenticator = None
-    if _truthy(env.get("FDAI_POWER_PLATFORM_CONNECTOR_ENABLED", "")):
-        connector_config = _power_platform_config(env)
-        connector_state = PostgresSharePointDeltaStore(dsn=dsn)
-        connector_verifier = MultiTenantEntraJwtVerifier.from_env(env)
-        if connector_config.source_tenant_id not in connector_verifier.allowed_tenant_ids:
+    if _truthy(env.get("FDAI_SHAREPOINT_CONNECTOR_ENABLED", "")):
+        if uses_local_document_providers(execution_venue):
             raise ProductionConfigurationError(
-                "Power Platform source tenant is not in the connector tenant allowlist"
+                "SharePoint connector requires the deployed execution venue"
             )
-        power_platform_connector = PowerPlatformSharePointConnector(
+        connector_config = _sharepoint_connector_config(env)
+        connector_state = PostgresSharePointDeltaStore(dsn=dsn)
+        federated_config = SharePointFederatedCredentialConfig(
+            target_tenant_id=connector_config.target_tenant_id,
+            client_id=env["FDAI_SHAREPOINT_CLIENT_ID"].strip(),
+        )
+        graph_config = SharePointDeltaConfig(
+            connector_id=connector_config.connector_id,
+            site_id=env["FDAI_SHAREPOINT_SITE_ID"].strip(),
+            drive_id=env["FDAI_SHAREPOINT_DRIVE_ID"].strip(),
+            collection_id=connector_config.collection_id,
+            access_descriptor_ref=connector_config.access_descriptor_ref,
+            page_size=_positive_int(env, "FDAI_SHAREPOINT_DELTA_PAGE_SIZE", 100),
+            max_pages_per_run=_positive_int(env, "FDAI_SHAREPOINT_DELTA_MAX_PAGES", 20),
+            download_host_suffixes=tuple(
+                value.strip()
+                for value in env.get(
+                    "FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES", ".sharepoint.com"
+                ).split(",")
+                if value.strip()
+            ),
+            identity_binding=federated_config.binding_digest,
+        )
+        graph_credential = FederatedManagedIdentityGraphCredential(
+            config=federated_config,
+            managed_identity=_azure_credential(credential),
+            client=http_client,
+        )
+        graph_source = MicrosoftGraphSharePointDeltaSource(
+            config=graph_config,
+            credential=graph_credential,
+            client=http_client,
+        )
+        connector_intake = SharePointConnectorIntake(
             config=connector_config,
             service=service,
             state=connector_state,
             deletion=deletion_service,
         )
-        power_platform_authenticator = PowerPlatformConnectorAuthenticator(
-            verifier=connector_verifier,
-            config=connector_config,
+        synchronizer = SharePointDeltaSynchronizer(
+            config=graph_config,
+            source=graph_source,
+            cursors=connector_state,
+            sink=NativeSharePointDeltaSink(
+                config=connector_config,
+                source=graph_source,
+                intake=connector_intake,
+                max_file_size=service.capabilities.max_file_size,
+            ),
         )
 
-        async def reconcile_power_platform_deletions() -> None:
+        async def reconcile_sharepoint_connector() -> None:
             while True:
                 try:
+                    applied = await synchronizer.synchronize()
                     await connector_state.reconcile_deletions(limit=100)
-                    await power_platform_connector.reconcile_cancellations(
-                        actor_id=(f"power-platform:{connector_config.connector_id}:reconciler"),
+                    await connector_intake.reconcile_cancellations(
+                        actor_id=(f"sharepoint-connector:{connector_config.binding_id}:reconciler"),
                         limit=100,
                     )
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001 - hold intent remains retryable
                     _LOGGER.error(
-                        "power_platform_deletion_reconcile_failed",
+                        "sharepoint_connector_reconcile_failed",
                         extra={"exception_type": type(exc).__name__},
                     )
-                await asyncio.sleep(60)
+                    applied = 0
+                await asyncio.sleep(
+                    0.1
+                    if applied
+                    else _positive_int(env, "FDAI_SHAREPOINT_DELTA_INTERVAL_SECONDS", 60)
+                )
 
-        connector_drainers.append(reconcile_power_platform_deletions)
+        connector_drainers.append(reconcile_sharepoint_connector)
 
     stewardship_webhook = _build_stewardship_webhook(
         env=env,
@@ -343,8 +387,6 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         handover_drafts=PostgresHandoverDraftReader(dsn=dsn),
         stewardship_webhook=stewardship_webhook,
         repository_handover_intake=repository_handover_intake,
-        power_platform_connector=power_platform_connector,
-        power_platform_authenticator=power_platform_authenticator,
         config=IngestionGatewayConfig(
             proxy_upload=True,
             startup_checks=(verify_database_role, verify_adapters),
@@ -393,38 +435,41 @@ def _truthy(value: str) -> bool:
     return value.strip().casefold() in {"1", "true", "yes", "on"}
 
 
-def _power_platform_config(
+def _sharepoint_connector_config(
     env: Mapping[str, str],
-) -> PowerPlatformConnectorConfig:
+) -> SharePointConnectorConfig:
     required = (
-        "FDAI_POWER_PLATFORM_CONNECTOR_ID",
-        "FDAI_POWER_PLATFORM_SOURCE_TENANT_ID",
-        "FDAI_POWER_PLATFORM_COLLECTION_ID",
-        "FDAI_POWER_PLATFORM_ACCESS_DESCRIPTOR_REF",
-        "FDAI_POWER_PLATFORM_RETENTION_POLICY_VERSION",
+        "FDAI_SHAREPOINT_CONNECTOR_ID",
+        "FDAI_SHAREPOINT_TARGET_TENANT_ID",
+        "FDAI_SHAREPOINT_CLIENT_ID",
+        "FDAI_SHAREPOINT_SITE_ID",
+        "FDAI_SHAREPOINT_DRIVE_ID",
+        "FDAI_SHAREPOINT_COLLECTION_ID",
+        "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF",
+        "FDAI_SHAREPOINT_RETENTION_POLICY_VERSION",
     )
     missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
         raise ProductionConfigurationError(
-            "Power Platform connector environment is missing: " + ", ".join(missing)
+            "SharePoint connector environment is missing: " + ", ".join(missing)
         )
     purposes = tuple(
         DocumentPurpose(value.strip())
-        for value in env.get("FDAI_POWER_PLATFORM_PURPOSES", "knowledge_base").split(",")
+        for value in env.get("FDAI_SHAREPOINT_PURPOSES", "knowledge_base").split(",")
         if value.strip()
     )
     reader_groups = tuple(
         value.strip()
-        for value in env.get("FDAI_POWER_PLATFORM_READER_GROUPS", "").split(",")
+        for value in env.get("FDAI_SHAREPOINT_READER_GROUPS", "").split(",")
         if value.strip()
     )
-    return PowerPlatformConnectorConfig(
-        connector_id=env["FDAI_POWER_PLATFORM_CONNECTOR_ID"].strip(),
-        source_tenant_id=env["FDAI_POWER_PLATFORM_SOURCE_TENANT_ID"].strip(),
-        collection_id=env["FDAI_POWER_PLATFORM_COLLECTION_ID"].strip(),
-        access_descriptor_ref=env["FDAI_POWER_PLATFORM_ACCESS_DESCRIPTOR_REF"].strip(),
+    return SharePointConnectorConfig(
+        connector_id=env["FDAI_SHAREPOINT_CONNECTOR_ID"].strip(),
+        target_tenant_id=env["FDAI_SHAREPOINT_TARGET_TENANT_ID"].strip(),
+        collection_id=env["FDAI_SHAREPOINT_COLLECTION_ID"].strip(),
+        access_descriptor_ref=env["FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF"].strip(),
         reader_groups=reader_groups,
-        retention_policy_version=env["FDAI_POWER_PLATFORM_RETENTION_POLICY_VERSION"].strip(),
+        retention_policy_version=env["FDAI_SHAREPOINT_RETENTION_POLICY_VERSION"].strip(),
         purposes=purposes,
     )
 

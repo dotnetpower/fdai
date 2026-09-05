@@ -678,6 +678,20 @@ def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> Non
         _WORKFLOW.count('--operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION"')
         == 4
     )
+    assert (
+        _WORKFLOW.count(
+            "SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}"
+        )
+        == 4
+    )
+    assert (
+        _WORKFLOW.count(
+            "sharepoint_args+=(--sharepoint-connector-transition "
+            '"$SHAREPOINT_CONNECTOR_TRANSITION")'
+        )
+        == 3
+    )
+    assert _WORKFLOW.count('"${sharepoint_args[@]}"') == 4
     assert "PREVIOUS_CHANNEL_EDGE_REVISION" in _WORKFLOW
     assert '.operator_channel_edge.service_resource_id // ""' in _WORKFLOW
     assert "planned channel edge is missing before a non-enable transition." in _WORKFLOW
@@ -862,6 +876,15 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert 'select(. == "fdai.pantheon.objects")' in _WORKFLOW
     assert '--pipeline-stage-topic "$pipeline_stage_topic"' in _WORKFLOW
     assert '--pantheon-object-topic "$pantheon_object_topic"' in _WORKFLOW
+
+
+def test_service_workflow_seals_native_sharepoint_connector_transition() -> None:
+    assert "sharepoint_connector_transition:" in _WORKFLOW
+    assert (
+        "SharePoint connector transitions are valid only for document-ingestion-api." in _WORKFLOW
+    )
+    assert "SharePoint connector transitions must be applied independently." in _WORKFLOW
+    assert "sharepoint-connector-{0}" in _WORKFLOW
 
 
 def test_service_workflow_seals_core_model_binding_transition() -> None:

@@ -10,15 +10,12 @@ from typing import Protocol
 from urllib.parse import quote, urlparse
 
 import httpx
+from azure.core.credentials import AccessToken
 from fdai_service_contracts import ProviderUnavailableError
 
 
-class _AccessToken(Protocol):
-    token: str
-
-
 class GraphTokenCredential(Protocol):
-    async def get_token(self, *scopes: str) -> _AccessToken: ...
+    async def get_token(self, *scopes: str) -> AccessToken: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +29,8 @@ class SharePointDeltaConfig:
     max_pages_per_run: int = 20
     graph_base_url: str = "https://graph.microsoft.com/v1.0"
     graph_scope: str = "https://graph.microsoft.com/.default"
+    download_host_suffixes: tuple[str, ...] = (".sharepoint.com",)
+    identity_binding: str = "local"
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.graph_base_url)
@@ -60,6 +59,13 @@ class SharePointDeltaConfig:
             raise ValueError("SharePoint delta page size MUST be in [1, 1000]")
         if not 1 <= self.max_pages_per_run <= 1000:
             raise ValueError("SharePoint delta page count MUST be in [1, 1000]")
+        if not self.download_host_suffixes or any(
+            not suffix.startswith(".") or len(suffix) > 253
+            for suffix in self.download_host_suffixes
+        ):
+            raise ValueError("SharePoint download host suffixes MUST be explicit DNS suffixes")
+        if not self.identity_binding or len(self.identity_binding) > 128:
+            raise ValueError("SharePoint identity binding MUST be non-empty and bounded")
 
     @property
     def binding_digest(self) -> str:
@@ -71,6 +77,7 @@ class SharePointDeltaConfig:
             self.access_descriptor_ref,
             self.graph_base_url.rstrip("/"),
             self.graph_scope,
+            self.identity_binding,
         )
         return hashlib.sha256("\0".join(values).encode()).hexdigest()
 
@@ -82,6 +89,8 @@ class SharePointDeltaCursor:
     delta_url: str | None
     binding_digest: str | None = None
     pending: SharePointPendingPage | None = None
+    resync_epoch: int = 0
+    resync_active: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +102,8 @@ class SharePointDeltaItem:
     deleted: bool
     source_sequence: int | None = None
     content_sha256: str | None = None
+    media_type: str = "application/octet-stream"
+    sync_epoch: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +111,7 @@ class SharePointDeltaPage:
     items: tuple[SharePointDeltaItem, ...]
     next_url: str | None
     delta_url: str | None
+    reset_required: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,12 +139,19 @@ class SharePointDeltaSink(Protocol):
         collection_id: str,
         access_descriptor_ref: str,
         idempotency_key: str,
+        sync_epoch: int,
         items: Sequence[SharePointDeltaItem],
     ) -> None: ...
+
+    async def finalize_resync(self, *, connector_id: str, sync_epoch: int, limit: int) -> bool: ...
 
 
 class ConnectorCursorConflictError(RuntimeError):
     """The durable connector cursor changed before this page committed."""
+
+
+class SharePointRevisionSupersededError(RuntimeError):
+    """The staged source revision changed before its bytes were downloaded."""
 
 
 class MicrosoftGraphSharePointDeltaSource:
@@ -161,12 +180,19 @@ class MicrosoftGraphSharePointDeltaSource:
                     None
                     if delta_url
                     else {
-                        "$select": "id,eTag,name,size,file,deleted",
+                        "$select": "id,eTag,name,size,file,folder,deleted",
                         "$top": str(self._config.page_size),
                     }
                 ),
                 headers={"Authorization": f"Bearer {token.token}"},
             )
+            if response.status_code == 410:
+                return SharePointDeltaPage(
+                    items=(),
+                    next_url=None,
+                    delta_url=None,
+                    reset_required=True,
+                )
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise ProviderUnavailableError("SharePoint delta request failed") from exc
@@ -191,6 +217,81 @@ class MicrosoftGraphSharePointDeltaSource:
             )
         return SharePointDeltaPage(items=items, next_url=next_url, delta_url=delta_result)
 
+    async def download(
+        self,
+        source_item_id: str,
+        *,
+        source_revision: str,
+        expected_size: int,
+        max_size: int,
+    ) -> bytes:
+        if not source_item_id or len(source_item_id) > 512:
+            raise ValueError("SharePoint source item id MUST be non-empty and bounded")
+        if not source_revision or len(source_revision) > 512:
+            raise ValueError("SharePoint source revision MUST be non-empty and bounded")
+        if expected_size < 0 or max_size < 1 or expected_size > max_size:
+            raise ValueError("SharePoint download size bounds are invalid")
+        site = quote(self._config.site_id, safe="")
+        drive = quote(self._config.drive_id, safe="")
+        item = quote(source_item_id, safe="")
+        token = await self._credential.get_token(self._config.graph_scope)
+        try:
+            async with self._client.stream(
+                "GET",
+                f"{self._config.graph_base_url.rstrip('/')}/sites/{site}/drives/"
+                f"{drive}/items/{item}/content",
+                headers={
+                    "Authorization": f"Bearer {token.token}",
+                    "If-Match": source_revision,
+                },
+                follow_redirects=False,
+            ) as response:
+                if response.status_code == 412:
+                    raise SharePointRevisionSupersededError(
+                        "SharePoint source revision changed before download"
+                    )
+                if not response.is_redirect:
+                    return await self._read_bounded(
+                        response,
+                        expected_size=expected_size,
+                        max_size=max_size,
+                    )
+                location = response.headers.get("location", "")
+            self._validate_download_url(location)
+            async with self._client.stream("GET", location, follow_redirects=False) as response:
+                return await self._read_bounded(
+                    response,
+                    expected_size=expected_size,
+                    max_size=max_size,
+                )
+        except httpx.HTTPError as exc:
+            raise ProviderUnavailableError("SharePoint content download failed") from exc
+
+    async def _read_bounded(
+        self,
+        response: httpx.Response,
+        *,
+        expected_size: int,
+        max_size: int,
+    ) -> bytes:
+        response.raise_for_status()
+        content_length = response.headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except ValueError as exc:
+                raise ProviderUnavailableError("SharePoint content length is invalid") from exc
+            if declared_size != expected_size or declared_size > max_size:
+                raise ProviderUnavailableError("SharePoint content length binding failed")
+        content = bytearray()
+        async for chunk in response.aiter_bytes():
+            content.extend(chunk)
+            if len(content) > max_size or len(content) > expected_size:
+                raise ProviderUnavailableError("SharePoint content exceeds its bound")
+        if len(content) != expected_size:
+            raise ProviderUnavailableError("SharePoint content size binding failed")
+        return bytes(content)
+
     def _initial_url(self) -> str:
         site = quote(self._config.site_id, safe="")
         drive = quote(self._config.drive_id, safe="")
@@ -210,6 +311,22 @@ class MicrosoftGraphSharePointDeltaSource:
         if parsed.fragment or parsed.username or parsed.password:
             raise ProviderUnavailableError("SharePoint continuation URL is unsafe")
         return value
+
+    def _validate_download_url(self, value: str) -> None:
+        parsed = urlparse(value)
+        hostname = parsed.hostname or ""
+        if (
+            parsed.scheme != "https"
+            or not hostname
+            or parsed.username
+            or parsed.password
+            or parsed.fragment
+            or not any(
+                hostname == suffix.removeprefix(".") or hostname.endswith(suffix)
+                for suffix in self._config.download_host_suffixes
+            )
+        ):
+            raise ProviderUnavailableError("SharePoint download redirect is not allowed")
 
 
 class SharePointDeltaSynchronizer:
@@ -247,6 +364,21 @@ class SharePointDeltaSynchronizer:
         for _ in range(self._config.max_pages_per_run):
             if cursor.pending is None:
                 page = await self._source.fetch(cursor.delta_url)
+                if page.reset_required:
+                    reset_cursor = SharePointDeltaCursor(
+                        connector_id=self._config.connector_id,
+                        revision=cursor.revision + 1,
+                        delta_url=None,
+                        binding_digest=self._config.binding_digest,
+                        resync_epoch=cursor.resync_epoch + 1,
+                        resync_active=True,
+                    )
+                    if not await self._cursors.compare_and_swap(
+                        expected_revision=cursor.revision,
+                        cursor=reset_cursor,
+                    ):
+                        raise ConnectorCursorConflictError("SharePoint cursor reset lost its fence")
+                    return 0
                 continuation_url = page.next_url or page.delta_url
                 if continuation_url is None:
                     raise ProviderUnavailableError(
@@ -265,6 +397,8 @@ class SharePointDeltaSynchronizer:
                     delta_url=cursor.delta_url,
                     binding_digest=self._config.binding_digest,
                     pending=pending,
+                    resync_epoch=cursor.resync_epoch,
+                    resync_active=cursor.resync_active,
                 )
                 if not await self._cursors.compare_and_swap(
                     expected_revision=cursor.revision, cursor=staged
@@ -283,13 +417,24 @@ class SharePointDeltaSynchronizer:
                 collection_id=self._config.collection_id,
                 access_descriptor_ref=self._config.access_descriptor_ref,
                 idempotency_key=active_pending.idempotency_key,
+                sync_epoch=cursor.resync_epoch,
                 items=active_pending.items,
             )
+            if not active_pending.has_more and cursor.resync_active:
+                complete = await self._sink.finalize_resync(
+                    connector_id=self._config.connector_id,
+                    sync_epoch=cursor.resync_epoch,
+                    limit=self._config.page_size,
+                )
+                if not complete:
+                    return applied
             next_cursor = SharePointDeltaCursor(
                 connector_id=self._config.connector_id,
                 revision=cursor.revision + 1,
                 delta_url=active_pending.continuation_url,
                 binding_digest=self._config.binding_digest,
+                resync_epoch=cursor.resync_epoch,
+                resync_active=False if not active_pending.has_more else cursor.resync_active,
             )
             if not await self._cursors.compare_and_swap(
                 expected_revision=cursor.revision, cursor=next_cursor
@@ -325,12 +470,19 @@ def _delta_item(raw: object) -> SharePointDeltaItem | None:
         return None
     if not deleted and not isinstance(raw.get("file"), dict):
         raise ProviderUnavailableError("SharePoint delta item is not a file")
+    file_facet = raw.get("file")
+    media_type = (
+        str(file_facet.get("mimeType"))
+        if isinstance(file_facet, dict) and isinstance(file_facet.get("mimeType"), str)
+        else "application/octet-stream"
+    )
     return SharePointDeltaItem(
         source_item_id=item_id,
         source_revision=revision,
         source_name=name,
         size_bytes=size,
         deleted=deleted,
+        media_type=media_type,
     )
 
 
@@ -343,9 +495,22 @@ def _batch_key(
         "binding_digest": config.binding_digest,
         "connector_id": config.connector_id,
         "cursor_revision": cursor.revision,
-        "items": [[item.source_item_id, item.source_revision, item.deleted] for item in items],
+        "resync_epoch": cursor.resync_epoch,
+        "items": [
+            [
+                item.source_item_id,
+                item.source_revision,
+                item.source_name,
+                item.size_bytes,
+                item.media_type,
+                item.deleted,
+            ]
+            for item in items
+        ],
     }
     digest = hashlib.sha256(
         json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     ).hexdigest()
-    return f"sharepoint-delta:{config.connector_id}:{cursor.revision}:{digest}"
+    return (
+        f"sharepoint-delta:{config.connector_id}:{cursor.resync_epoch}:{cursor.revision}:{digest}"
+    )

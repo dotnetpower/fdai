@@ -255,6 +255,50 @@ def _remove_environment_binding(plan: dict[str, object], name: str) -> None:
         environment[:] = [item for item in environment if item["name"] != name]
 
 
+def _document_ingestion_plan(guard: ModuleType) -> dict[str, object]:
+    address = "module.document_ingestion_api.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    contract = guard.resolve_service("document-ingestion-api", "dev")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        container = resource["template"][0]["container"][0]
+        container["name"] = "document-ingestion-api"
+        container["command"] = ["fdai-document-ingestion-api"]
+        container["env"] = [
+            {"name": name, "value": f"value-{index}"}
+            for index, name in enumerate(contract.required_environment)
+        ]
+        resource["tags"]["fdai:component"] = "document-ingestion-api"
+    return plan
+
+
+def _sharepoint_connector_environment() -> list[dict[str, str]]:
+    return [
+        {"name": "FDAI_SHAREPOINT_CONNECTOR_ENABLED", "value": "1"},
+        {"name": "FDAI_SHAREPOINT_CONNECTOR_ID", "value": "sharepoint-primary"},
+        {
+            "name": "FDAI_SHAREPOINT_TARGET_TENANT_ID",
+            "value": "00000000-0000-0000-0000-000000000000",
+        },
+        {
+            "name": "FDAI_SHAREPOINT_CLIENT_ID",
+            "value": "00000000-0000-0000-0000-000000000000",
+        },
+        {"name": "FDAI_SHAREPOINT_SITE_ID", "value": "site"},
+        {"name": "FDAI_SHAREPOINT_DRIVE_ID", "value": "drive"},
+        {"name": "FDAI_SHAREPOINT_COLLECTION_ID", "value": "collection"},
+        {"name": "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF", "value": "access:sharepoint"},
+        {"name": "FDAI_SHAREPOINT_READER_GROUPS", "value": ""},
+        {"name": "FDAI_SHAREPOINT_RETENTION_POLICY_VERSION", "value": "retention-v1"},
+        {"name": "FDAI_SHAREPOINT_PURPOSES", "value": "knowledge_base"},
+        {
+            "name": "FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES",
+            "value": ".sharepoint.com",
+        },
+    ]
+
+
 def _channel_edge_enable_plan() -> dict[str, object]:
     address = "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
     resource = _resource(image="image")
@@ -1231,6 +1275,86 @@ def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> Non
             service="operator-service",
             environment="dev",
             image_ref="image",
+        )
+
+
+def test_plan_guard_allows_only_explicit_sharepoint_connector_transition(
+    guard: ModuleType,
+) -> None:
+    plan = _document_ingestion_plan(guard)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.extend(_sharepoint_connector_environment())
+
+    guard.validate_plan(
+        plan,
+        service="document-ingestion-api",
+        environment="dev",
+        image_ref="image",
+        sharepoint_connector_transition="enable",
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="document-ingestion-api",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_rejects_unrelated_sharepoint_transition_drift(guard: ModuleType) -> None:
+    plan = _document_ingestion_plan(guard)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.extend(_sharepoint_connector_environment())
+    after_environment[0]["value"] = "changed"
+
+    with pytest.raises(guard.PlanGuardError, match="unrelated environment drift"):
+        guard.validate_plan(
+            plan,
+            service="document-ingestion-api",
+            environment="dev",
+            image_ref="image",
+            sharepoint_connector_transition="enable",
+        )
+
+
+def test_plan_guard_allows_exact_sharepoint_connector_disable(guard: ModuleType) -> None:
+    plan = _document_ingestion_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    change["before"]["template"][0]["container"][0]["env"].extend(  # type: ignore[index]
+        _sharepoint_connector_environment()
+    )
+
+    guard.validate_plan(
+        plan,
+        service="document-ingestion-api",
+        environment="dev",
+        image_ref="image",
+        sharepoint_connector_transition="disable",
+    )
+
+
+def test_plan_guard_rejects_broad_sharepoint_download_suffix(guard: ModuleType) -> None:
+    plan = _document_ingestion_plan(guard)
+    environment = _sharepoint_connector_environment()
+    next(item for item in environment if item["name"] == "FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES")[
+        "value"
+    ] = ".com"
+    plan["resource_changes"][0]["change"]["after"]["template"][0]["container"][0][  # type: ignore[index]
+        "env"
+    ].extend(environment)
+
+    with pytest.raises(guard.PlanGuardError, match="bindings are invalid"):
+        guard.validate_plan(
+            plan,
+            service="document-ingestion-api",
+            environment="dev",
+            image_ref="image",
+            sharepoint_connector_transition="enable",
         )
 
 
@@ -3483,6 +3607,58 @@ def test_plan_bundle_binds_database_host_mode(bundle: ModuleType, tmp_path: Path
             context_path=context,
             metadata_path=metadata,
             service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
+def test_plan_bundle_binds_sharepoint_connector_transition(
+    bundle: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 9, 5, 1, 0, tzinfo=UTC)
+    image = _image("fdai-document-ingestion-api")
+    _write_plan_json(
+        plan_json,
+        image=image,
+        address="module.document_ingestion_api.module.container_app.azurerm_container_app.service",
+    )
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="document-ingestion-api",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        sharepoint_connector_transition="enable",
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "sharepoint-connector-enable"
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="document-ingestion-api",
             environment="dev",
             repository="example/fdai",
             commit_sha="b" * 40,

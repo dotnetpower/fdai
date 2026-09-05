@@ -38,10 +38,6 @@ from fdai_ingestion_api_service.auth import (
     RoleRequiredError,
 )
 from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
-from fdai_ingestion_api_service.power_platform import (
-    PowerPlatformConnectorAuthenticator,
-    PowerPlatformSharePointConnector,
-)
 from fdai_ingestion_api_service.providers import (
     DocumentDeletionService,
     DocumentDownloadService,
@@ -83,8 +79,6 @@ def build_app(
     handover_drafts: HandoverDraftReader | None = None,
     stewardship_webhook: StewardshipWebhook | None = None,
     repository_handover_intake: StewardshipWebhook | None = None,
-    power_platform_connector: PowerPlatformSharePointConnector | None = None,
-    power_platform_authenticator: PowerPlatformConnectorAuthenticator | None = None,
     config: IngestionGatewayConfig | None = None,
 ) -> Starlette:
     """Build the public ingestion application without worker implementation imports."""
@@ -435,47 +429,6 @@ def build_app(
             status_code=202 if result.changed else 200,
         )
 
-    def authorize_power_platform(request: Request) -> str:
-        if power_platform_authenticator is None:
-            raise AuthenticationError("Power Platform connector is unavailable")
-        return power_platform_authenticator.authenticate(request.headers.get("authorization"))
-
-    async def power_platform_content(request: Request) -> Response:
-        if power_platform_connector is None:
-            return _error(404, "not_found", "Power Platform connector is unavailable")
-        connector_id = request.path_params["connector_id"]
-        if connector_id != power_platform_connector.connector_id:
-            raise DocumentAccessDeniedError("connector policy binding is denied")
-        actor_id = authorize_power_platform(request)
-        source_revision = _required_header(request, "x-fdai-source-revision")
-        source_name = _required_header(request, "x-fdai-source-name")
-        content = await _bounded_body(request, service.capabilities.max_file_size)
-        session = await power_platform_connector.ingest(
-            actor_id=actor_id,
-            source_item_id=request.path_params["source_item_id"],
-            source_revision=source_revision,
-            source_name=source_name,
-            media_type=request.headers.get("content-type", "application/octet-stream"),
-            content=content,
-            source_sequence=_required_sequence(request),
-        )
-        return _json(session, status_code=202)
-
-    async def power_platform_deleted(request: Request) -> Response:
-        if power_platform_connector is None:
-            return _error(404, "not_found", "Power Platform connector is unavailable")
-        connector_id = request.path_params["connector_id"]
-        if connector_id != power_platform_connector.connector_id:
-            raise DocumentAccessDeniedError("connector policy binding is denied")
-        actor_id = authorize_power_platform(request)
-        await power_platform_connector.delete(
-            actor_id=actor_id,
-            source_item_id=request.path_params["source_item_id"],
-            source_revision=_required_header(request, "x-fdai-source-revision"),
-            source_sequence=_required_sequence(request),
-        )
-        return Response(status_code=202)
-
     routes = [
         Route("/healthz", readiness, methods=["GET"]),
         Route("/ingestion/capabilities", capabilities, methods=["GET"]),
@@ -515,23 +468,6 @@ def build_app(
                 "/ingestion/webhooks/github/handover",
                 repository_handover_webhook,
                 methods=["POST"],
-            )
-        )
-    if power_platform_connector is not None:
-        routes.extend(
-            (
-                Route(
-                    "/ingestion/connectors/power-platform/{connector_id}/items/"
-                    "{source_item_id}/content",
-                    power_platform_content,
-                    methods=["PUT"],
-                ),
-                Route(
-                    "/ingestion/connectors/power-platform/{connector_id}/items/"
-                    "{source_item_id}/deleted",
-                    power_platform_deleted,
-                    methods=["POST"],
-                ),
             )
         )
     middleware: list[Middleware] = []
@@ -762,24 +698,6 @@ def _uuid(value: str, field: str) -> UUID:
 
 def _optional_uuid(value: object, field: str) -> UUID | None:
     return None if value is None else _uuid(str(value), field)
-
-
-def _required_header(request: Request, name: str) -> str:
-    value = request.headers.get(name, "").strip()
-    if not value or len(value) > 512:
-        raise ValueError(f"{name} header MUST be non-empty and bounded")
-    return value
-
-
-def _required_sequence(request: Request) -> int:
-    value = _required_header(request, "x-fdai-event-sequence")
-    try:
-        sequence = int(value)
-    except ValueError as exc:
-        raise ValueError("x-fdai-event-sequence MUST be an integer") from exc
-    if sequence < 0:
-        raise ValueError("x-fdai-event-sequence MUST be non-negative")
-    return sequence
 
 
 def _access_principals(principal: Principal) -> frozenset[str]:

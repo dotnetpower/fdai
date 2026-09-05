@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 03cf98f0c136c007ae40d19e00877539bbcc0c60 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d941308a5f94339e8bb2c44f918c98f092cf20b4 }]
 ---
 
 # Deploy Quickstart
@@ -66,11 +66,12 @@ Terraform remains an expert path.
   endpoint together, or configure the Slack workspace and user-to-Entra mapping together. Keep
   mapping values and signing inputs in Key Vault or local-only deployment inputs. Missing or partial
   channel authority leaves approval unavailable; it never falls back to an Incoming Webhook.
-- To enable cross-tenant SharePoint intake, keep the SharePoint and Power Platform connection in the
-  Microsoft 365 tenant and set the disabled-by-default `power_platform_*` policy values in a local
-  `tfvars` file. Bind the exact source tenant, approved OAuth clients, FDAI API audience, collection,
-  access descriptor, audience groups, retention policy, and purposes. Don't commit deployment
-  values or provider credentials.
+- To enable cross-tenant SharePoint intake, register an application in the Microsoft 365 tenant and
+  configure it to trust the Azure ingestion UAMI through a federated identity credential. Grant the
+  application only the approved site permission, then set the disabled-by-default
+  `sharepoint_connector_*` values in a local `tfvars` file. Bind the exact target tenant,
+  application, site, drive, redirect allowlist, collection, access descriptor, audience groups,
+  retention policy, and purposes. Don't commit deployment values.
 - To provision the bounded OHL scale-out evidence target, enable
   `enable_ohl_scale_out_evidence_target` only in `dev` with private networking and the
   development operations gateway. Supply an exact image version, the protected workflow's SSH

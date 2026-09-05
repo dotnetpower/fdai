@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from service_contract import (
     ServiceContract,
@@ -67,6 +68,30 @@ _MODEL_BINDING_ENVIRONMENT = frozenset(
         "LLM_MODE",
         "LLM_RESOLVED_MODELS_PATH",
         "LLM_RESOLVED_MODELS_SHA256",
+    }
+)
+_SHAREPOINT_CONNECTOR_ENVIRONMENT = frozenset(
+    {
+        "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF",
+        "FDAI_SHAREPOINT_CLIENT_ID",
+        "FDAI_SHAREPOINT_COLLECTION_ID",
+        "FDAI_SHAREPOINT_CONNECTOR_ENABLED",
+        "FDAI_SHAREPOINT_CONNECTOR_ID",
+        "FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES",
+        "FDAI_SHAREPOINT_DRIVE_ID",
+        "FDAI_SHAREPOINT_PURPOSES",
+        "FDAI_SHAREPOINT_READER_GROUPS",
+        "FDAI_SHAREPOINT_RETENTION_POLICY_VERSION",
+        "FDAI_SHAREPOINT_SITE_ID",
+        "FDAI_SHAREPOINT_TARGET_TENANT_ID",
+    }
+)
+_SHAREPOINT_PURPOSES = frozenset(
+    {
+        "handover_bootstrap",
+        "handover_evidence",
+        "knowledge_base",
+        "manual_distillation",
     }
 )
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
@@ -331,6 +356,90 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
         None if normalized_secret is not None else item.get("value"),
         normalized_secret,
     )
+
+
+def _sharepoint_connector_bindings_are_valid(
+    environment: dict[str, dict[str, Any]],
+) -> bool:
+    bindings = {
+        name: _environment_binding(environment.get(name))
+        for name in _SHAREPOINT_CONNECTOR_ENVIRONMENT
+    }
+    if set(environment) & _SHAREPOINT_CONNECTOR_ENVIRONMENT != _SHAREPOINT_CONNECTOR_ENVIRONMENT:
+        return False
+    if bindings["FDAI_SHAREPOINT_CONNECTOR_ENABLED"] != ("1", None):
+        return False
+    values: dict[str, str] = {}
+    for name, binding in bindings.items():
+        if binding is None or binding[1] is not None or not isinstance(binding[0], str):
+            return False
+        values[name] = binding[0].strip()
+    required = _SHAREPOINT_CONNECTOR_ENVIRONMENT - {"FDAI_SHAREPOINT_READER_GROUPS"}
+    if any(not values[name] for name in required):
+        return False
+    if any(len(value) > 4096 for value in values.values()):
+        return False
+    try:
+        UUID(values["FDAI_SHAREPOINT_TARGET_TENANT_ID"])
+        UUID(values["FDAI_SHAREPOINT_CLIENT_ID"])
+    except ValueError:
+        return False
+    purposes = values["FDAI_SHAREPOINT_PURPOSES"].split(",")
+    if (
+        not purposes
+        or len(purposes) != len(set(purposes))
+        or any(purpose not in _SHAREPOINT_PURPOSES for purpose in purposes)
+    ):
+        return False
+    suffixes = values["FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES"].split(",")
+    return (
+        bool(suffixes)
+        and len(suffixes) == len(set(suffixes))
+        and all(
+            re.fullmatch(r"\.sharepoint\.(?:com|cn|de|us)", suffix) is not None
+            for suffix in suffixes
+        )
+    )
+
+
+def _guard_sharepoint_connector_transition(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+    transition: str,
+) -> list[str]:
+    violations: list[str] = []
+    before_environment = _environment_by_name(
+        _primary_container(before, address=address, contract=contract),
+        address=address,
+    )
+    after_environment = _environment_by_name(
+        _primary_container(after, address=address, contract=contract),
+        address=address,
+    )
+    source = before_environment if transition == "enable" else after_environment
+    target = after_environment if transition == "enable" else before_environment
+    if set(source) & _SHAREPOINT_CONNECTOR_ENVIRONMENT:
+        violations.append(f"SharePoint connector {transition} source is not clean at {address}")
+    if set(target) & _SHAREPOINT_CONNECTOR_ENVIRONMENT != _SHAREPOINT_CONNECTOR_ENVIRONMENT:
+        violations.append(f"SharePoint connector {transition} bindings are incomplete at {address}")
+    elif not _sharepoint_connector_bindings_are_valid(target):
+        violations.append(f"SharePoint connector {transition} bindings are invalid at {address}")
+    source_without_connector = {
+        name: _environment_binding(item)
+        for name, item in source.items()
+        if name not in _SHAREPOINT_CONNECTOR_ENVIRONMENT
+    }
+    target_without_connector = {
+        name: _environment_binding(item)
+        for name, item in target.items()
+        if name not in _SHAREPOINT_CONNECTOR_ENVIRONMENT
+    }
+    if source_without_connector != target_without_connector:
+        violations.append(f"unrelated environment drift during SharePoint connector {transition}")
+    return violations
 
 
 def _only_rca_reader_runtime_transition(
@@ -787,6 +896,7 @@ def _guard_update(
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
+    sharepoint_connector_transition: str = "none",
 ) -> list[str]:
     violations: list[str] = []
     for field in ("name", "resource_group_name"):
@@ -859,6 +969,16 @@ def _guard_update(
                 additional_allowed_names=additional_host_names,
             )
         )
+    if sharepoint_connector_transition != "none":
+        violations.extend(
+            _guard_sharepoint_connector_transition(
+                before,
+                after,
+                address=address,
+                contract=contract,
+                transition=sharepoint_connector_transition,
+            )
+        )
     if model_binding_transition:
         model_additional_names: frozenset[str] = frozenset()
         if database_host_binding:
@@ -893,6 +1013,7 @@ def _guard_update(
         not initial_cutover
         and not database_host_binding
         and not model_binding_transition
+        and sharepoint_connector_transition == "none"
         and not (
             allowed_rca_reader
             and _only_rca_reader_runtime_transition(
@@ -949,6 +1070,7 @@ def _guard_update(
         or model_binding_transition
         or allowed_rca_reader
         or allowed_notification_topic
+        or sharepoint_connector_transition != "none"
     ):
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
     if allowed_rca_reader:
@@ -1341,12 +1463,26 @@ def validate_plan(
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
     operator_channel_edge_transition: str = "none",
+    sharepoint_connector_transition: str = "none",
 ) -> None:
     """Allow only bounded actions that deploy the exact attested service image."""
     if operator_channel_edge_transition not in {"none", "enable", "disable"}:
         raise PlanGuardError("operator channel edge transition must be none, enable, or disable")
     if operator_channel_edge_transition != "none" and service != "operator-service":
         raise PlanGuardError("operator channel edge transition is valid only for operator-service")
+    if sharepoint_connector_transition not in {"none", "enable", "disable"}:
+        raise PlanGuardError("SharePoint connector transition must be none, enable, or disable")
+    if sharepoint_connector_transition != "none" and service != "document-ingestion-api":
+        raise PlanGuardError(
+            "SharePoint connector transitions are valid only for document-ingestion-api"
+        )
+    if sharepoint_connector_transition != "none" and (
+        initial_cutover
+        or database_host_binding
+        or model_binding_transition
+        or operator_channel_edge_transition != "none"
+    ):
+        raise PlanGuardError("SharePoint connector transition must be applied independently")
     if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
         raise PlanGuardError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
@@ -1469,6 +1605,7 @@ def validate_plan(
                 database_host_binding=database_host_binding,
                 model_binding_transition=model_binding_transition,
                 resolved_models_digest=resolved_models_digest,
+                sharepoint_connector_transition=sharepoint_connector_transition,
             )
         )
     if operator_channel_edge_transition in {"enable", "disable"}:
@@ -1492,7 +1629,12 @@ def validate_plan(
         )
     )
     allowed_aligned_drift = (
-        (initial_cutover or database_host_binding or model_binding_transition)
+        (
+            initial_cutover
+            or database_host_binding
+            or model_binding_transition
+            or sharepoint_connector_transition != "none"
+        )
         and selected_before is not None
         and _guard_aligned_transition_drift(
             resource_drift,
@@ -1550,6 +1692,11 @@ def main() -> int:
         choices=("none", "enable", "disable"),
         default="none",
     )
+    parser.add_argument(
+        "--sharepoint-connector-transition",
+        choices=("none", "enable", "disable"),
+        default="none",
+    )
     args = parser.parse_args()
     try:
         payload = json.loads(args.plan_json.read_text(encoding="utf-8"))
@@ -1565,6 +1712,7 @@ def main() -> int:
             model_binding_transition=args.model_binding_transition,
             resolved_models_digest=args.resolved_models_digest,
             operator_channel_edge_transition=args.operator_channel_edge_transition,
+            sharepoint_connector_transition=args.sharepoint_connector_transition,
         )
     except (OSError, json.JSONDecodeError, ServiceContractError, PlanGuardError) as exc:
         parser.error(str(exc))

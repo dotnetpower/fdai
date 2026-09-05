@@ -158,74 +158,6 @@ class EntraJwtVerifier:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class MultiTenantEntraJwtVerifier:
-    """Verify only allowlisted external tenants and Power Platform client apps."""
-
-    jwks_client: PyJWKClient
-    audience: str
-    allowed_tenant_ids: frozenset[str]
-    allowed_client_ids: frozenset[str]
-
-    def __post_init__(self) -> None:
-        if not self.audience or not self.allowed_tenant_ids or not self.allowed_client_ids:
-            raise ValueError("multi-tenant verifier requires audience, tenants, and clients")
-
-    def __call__(self, token: str) -> Mapping[str, Any]:
-        try:
-            unverified = jwt.decode(
-                token,
-                options={
-                    "verify_signature": False,
-                    "verify_aud": False,
-                    "verify_exp": False,
-                },
-                algorithms=["RS256"],
-            )
-            tenant_id = unverified.get("tid")
-            if not isinstance(tenant_id, str) or tenant_id not in self.allowed_tenant_ids:
-                raise AuthenticationError("connector token tenant is not allowed")
-            issuer = f"https://login.microsoftonline.com/{tenant_id}/v2.0"
-            signing_key = self.jwks_client.get_signing_key_from_jwt(token)
-            claims = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256"],
-                audience=self.audience,
-                issuer=issuer,
-                leeway=60,
-                options={"require": ["exp", "iss", "aud", "tid"]},
-            )
-        except AuthenticationError:
-            raise
-        except jwt.PyJWTError as exc:
-            raise AuthenticationError(
-                f"Entra connector token verification failed: {type(exc).__name__}"
-            ) from exc
-        client_id = claims.get("azp") or claims.get("appid")
-        if not isinstance(client_id, str) or client_id not in self.allowed_client_ids:
-            raise AuthenticationError("connector token client is not allowed")
-        if claims.get("tid") != tenant_id:
-            raise AuthenticationError("connector token tenant binding changed")
-        return claims
-
-    @classmethod
-    def from_env(cls, environ: Mapping[str, str] | None = None) -> MultiTenantEntraJwtVerifier:
-        env = environ if environ is not None else os.environ
-        tenants = _csv(env, "FDAI_CONNECTOR_ALLOWED_TENANT_IDS")
-        clients = _csv(env, "FDAI_CONNECTOR_ALLOWED_CLIENT_IDS")
-        audience = _required(env, "FDAI_CONNECTOR_API_AUDIENCE")
-        jwks_uri = env.get("FDAI_CONNECTOR_JWKS_URI", "").strip() or (
-            "https://login.microsoftonline.com/common/discovery/v2.0/keys"
-        )
-        return cls(
-            jwks_client=PyJWKClient(jwks_uri, cache_keys=True, lifespan=3600, timeout=10),
-            audience=audience,
-            allowed_tenant_ids=frozenset(tenants),
-            allowed_client_ids=frozenset(clients),
-        )
-
-
 def _role(value: str) -> Role | None:
     try:
         return Role(value)
@@ -244,10 +176,3 @@ def _required(env: Mapping[str, str], key: str) -> str:
     if not value:
         raise ValueError(f"{key} is required")
     return value
-
-
-def _csv(env: Mapping[str, str], key: str) -> tuple[str, ...]:
-    values = tuple(value.strip() for value in _required(env, key).split(",") if value.strip())
-    if not values or len(values) != len(set(values)):
-        raise ValueError(f"{key} MUST contain unique non-empty values")
-    return values

@@ -2966,16 +2966,6 @@ module "ingestion_gateway" {
   indexing_stage_timeout_seconds          = var.document_indexing_stage_timeout_seconds
   policy_version                          = var.document_policy_version
   document_collections                    = var.document_collections
-  power_platform_connector_enabled        = var.power_platform_connector_enabled
-  power_platform_connector_id             = var.power_platform_connector_id
-  power_platform_source_tenant_id         = var.power_platform_source_tenant_id
-  power_platform_allowed_client_ids       = var.power_platform_allowed_client_ids
-  power_platform_api_audience             = var.power_platform_api_audience
-  power_platform_collection_id            = var.power_platform_collection_id
-  power_platform_access_descriptor_ref    = var.power_platform_access_descriptor_ref
-  power_platform_reader_groups            = var.power_platform_reader_groups
-  power_platform_retention_policy_version = var.power_platform_retention_policy_version
-  power_platform_purposes                 = var.power_platform_purposes
   min_replicas                            = var.ingestion_min_replicas
   max_replicas                            = var.ingestion_max_replicas
   gateway_cpu                             = var.ingestion_api_cpu

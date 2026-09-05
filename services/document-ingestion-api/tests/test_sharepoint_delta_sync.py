@@ -56,6 +56,7 @@ class Sink:
         collection_id: str,
         access_descriptor_ref: str,
         idempotency_key: str,
+        sync_epoch: int,
         items: Sequence[SharePointDeltaItem],
     ) -> None:
         if self.fail_once:
@@ -63,6 +64,10 @@ class Sink:
             raise RuntimeError("backpressure")
         self.calls.append((collection_id, access_descriptor_ref, idempotency_key, tuple(items)))
         assert connector_id == "sharepoint-primary"
+        assert sync_epoch >= 0
+
+    async def finalize_resync(self, **_kwargs: object) -> bool:
+        return True
 
 
 def _config() -> SharePointDeltaConfig:
@@ -96,6 +101,8 @@ async def test_delta_sync_propagates_deletion_and_fences_each_cursor_page() -> N
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["authorization"] == "Bearer graph-token"
+        if "$select" in request.url.params:
+            assert "folder" in request.url.params["$select"].split(",")
         return httpx.Response(200, json=pages.pop(0))
 
     cursors = CursorStore()
@@ -181,6 +188,7 @@ async def test_ambiguous_sink_success_replays_exact_persisted_page() -> None:
             collection_id: str,
             access_descriptor_ref: str,
             idempotency_key: str,
+            sync_epoch: int,
             items: Sequence[SharePointDeltaItem],
         ) -> None:
             await super().apply_batch(
@@ -188,6 +196,7 @@ async def test_ambiguous_sink_success_replays_exact_persisted_page() -> None:
                 collection_id=collection_id,
                 access_descriptor_ref=access_descriptor_ref,
                 idempotency_key=idempotency_key,
+                sync_epoch=sync_epoch,
                 items=items,
             )
             if len(self.calls) == 1:
@@ -293,3 +302,94 @@ async def test_delta_sync_rejects_cursor_race_and_foreign_continuation() -> None
         )
         with pytest.raises(ProviderUnavailableError, match="origin changed"):
             await source.fetch(None)
+
+
+async def test_expired_delta_token_is_reset_with_cursor_fence() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(410, json={"error": {"code": "resyncChangesApplyDifferences"}})
+
+    cursors = CursorStore()
+    config = _config()
+    cursors.cursor = SharePointDeltaCursor(
+        connector_id=config.connector_id,
+        revision=4,
+        delta_url="https://graph.example/v1.0/delta?token=expired",
+        binding_digest=config.binding_digest,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = MicrosoftGraphSharePointDeltaSource(
+            config=config,
+            credential=Credential(),  # type: ignore[arg-type]
+            client=client,
+        )
+        applied = await SharePointDeltaSynchronizer(
+            config=config,
+            source=source,
+            cursors=cursors,
+            sink=Sink(),
+        ).synchronize()
+
+    assert applied == 0
+    assert cursors.cursor == SharePointDeltaCursor(
+        connector_id=config.connector_id,
+        revision=5,
+        delta_url=None,
+        binding_digest=config.binding_digest,
+        resync_epoch=1,
+        resync_active=True,
+    )
+
+
+async def test_resync_cursor_advances_only_after_missing_items_finalize() -> None:
+    class ResyncSink(Sink):
+        def __init__(self) -> None:
+            super().__init__()
+            self.finalize_results = [False, True]
+
+        async def finalize_resync(self, **_kwargs: object) -> bool:
+            return self.finalize_results.pop(0)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [],
+                "@odata.deltaLink": "https://graph.example/v1.0/delta?token=fresh",
+            },
+        )
+
+    config = _config()
+    cursors = CursorStore()
+    cursors.cursor = SharePointDeltaCursor(
+        connector_id=config.connector_id,
+        revision=5,
+        delta_url=None,
+        binding_digest=config.binding_digest,
+        resync_epoch=1,
+        resync_active=True,
+    )
+    sink = ResyncSink()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = MicrosoftGraphSharePointDeltaSource(
+            config=config,
+            credential=Credential(),  # type: ignore[arg-type]
+            client=client,
+        )
+        synchronizer = SharePointDeltaSynchronizer(
+            config=config,
+            source=source,
+            cursors=cursors,
+            sink=sink,
+        )
+        assert await synchronizer.synchronize() == 0
+        assert cursors.cursor is not None and cursors.cursor.pending is not None
+        assert await synchronizer.synchronize() == 0
+
+    assert cursors.cursor == SharePointDeltaCursor(
+        connector_id=config.connector_id,
+        revision=7,
+        delta_url="https://graph.example/v1.0/delta?token=fresh",
+        binding_digest=config.binding_digest,
+        resync_epoch=1,
+        resync_active=False,
+    )

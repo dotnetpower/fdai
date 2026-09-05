@@ -1576,66 +1576,6 @@ variable "document_collections" {
   default     = "shared-knowledge"
 }
 
-variable "power_platform_connector_enabled" {
-  description = "Enable cross-tenant Power Platform push intake for SharePoint."
-  type        = bool
-  default     = false
-}
-
-variable "power_platform_connector_id" {
-  description = "Deployment-owned logical id for the Power Platform connector."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_source_tenant_id" {
-  description = "Microsoft 365 tenant id allowed to issue connector tokens."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_allowed_client_ids" {
-  description = "Comma-separated Power Platform OAuth client ids allowed by the ingestion API."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_api_audience" {
-  description = "Azure-tenant FDAI API audience requested by the custom connector."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_collection_id" {
-  description = "Server-owned governed collection for connector imports."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_access_descriptor_ref" {
-  description = "Server-owned access descriptor for connector imports."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_reader_groups" {
-  description = "Comma-separated FDAI reader groups inherited by connector imports."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_retention_policy_version" {
-  description = "Retention policy version applied to connector imports."
-  type        = string
-  default     = ""
-}
-
-variable "power_platform_purposes" {
-  description = "Comma-separated document purposes applied to connector imports."
-  type        = string
-  default     = "knowledge_base"
-}
-
 variable "ingestion_min_replicas" {
   description = "Minimum replicas for the public ingestion API role."
   type        = number

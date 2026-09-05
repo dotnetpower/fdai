@@ -284,6 +284,7 @@ def _deployment_context(
     database_host_binding: bool,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
+    sharepoint_connector_transition: str = "none",
 ) -> dict[str, Any]:
     contract = resolve_service(service, environment)
     deployment_mode = _deployment_mode(
@@ -292,6 +293,7 @@ def _deployment_context(
         database_host_binding=database_host_binding,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
+        sharepoint_connector_transition=sharepoint_connector_transition,
     )
     context = {
         "service": service,
@@ -374,11 +376,25 @@ def _deployment_mode(
     database_host_binding: bool,
     model_binding_transition: bool,
     operator_channel_edge_transition: str,
+    sharepoint_connector_transition: str,
 ) -> str:
     if operator_channel_edge_transition not in {"none", "enable", "disable"}:
         raise PlanBundleError("operator channel edge transition must be none, enable, or disable")
     if operator_channel_edge_transition != "none" and service != "operator-service":
         raise PlanBundleError("operator channel edge transition is valid only for operator-service")
+    if sharepoint_connector_transition not in {"none", "enable", "disable"}:
+        raise PlanBundleError("SharePoint connector transition must be none, enable, or disable")
+    if sharepoint_connector_transition != "none" and service != "document-ingestion-api":
+        raise PlanBundleError(
+            "SharePoint connector transition is valid only for document-ingestion-api"
+        )
+    if sharepoint_connector_transition != "none" and (
+        initial_cutover
+        or database_host_binding
+        or model_binding_transition
+        or operator_channel_edge_transition != "none"
+    ):
+        raise PlanBundleError("SharePoint connector transition must be applied independently")
     if initial_cutover and operator_channel_edge_transition != "none":
         raise PlanBundleError("initial cutover and operator channel edge transition are exclusive")
     if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
@@ -399,6 +415,8 @@ def _deployment_mode(
         return "initial-cutover"
     if operator_channel_edge_transition != "none":
         return f"operator-channel-edge-{operator_channel_edge_transition}"
+    if sharepoint_connector_transition != "none":
+        return f"sharepoint-connector-{sharepoint_connector_transition}"
     return "standard"
 
 
@@ -428,6 +446,7 @@ def create_bundle(
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
+    sharepoint_connector_transition: str = "none",
 ) -> dict[str, Any]:
     """Seal a guarded binary plan and its deployment context for exact later apply."""
     if _COMMIT_PATTERN.fullmatch(commit_sha) is None:
@@ -460,6 +479,7 @@ def create_bundle(
         database_host_binding=database_host_binding,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
+        sharepoint_connector_transition=sharepoint_connector_transition,
     )
     context_path.write_bytes(_canonical(context))
     context_digest = _digest(context_path)
@@ -494,6 +514,7 @@ def create_bundle(
             database_host_binding=database_host_binding,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
+            sharepoint_connector_transition=sharepoint_connector_transition,
         ),
         "created_at": now.astimezone(UTC).isoformat(),
         "expires_at": (now.astimezone(UTC) + timedelta(hours=24)).isoformat(),
@@ -530,6 +551,7 @@ def verify_bundle(
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
+    sharepoint_connector_transition: str = "none",
 ) -> dict[str, Any]:
     """Verify exact apply inputs against every sealed plan artifact and mapping."""
     invalid_plan_digest = _SHA256_PATTERN.fullmatch(plan_digest) is None
@@ -573,6 +595,7 @@ def verify_bundle(
             database_host_binding=database_host_binding,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
+            sharepoint_connector_transition=sharepoint_connector_transition,
         ),
     }
     for key, value in expected.items():
@@ -605,6 +628,7 @@ def verify_bundle(
         database_host_binding=database_host_binding,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
+        sharepoint_connector_transition=sharepoint_connector_transition,
     )
     if context != expected_context:
         raise PlanBundleError("sealed deployment context does not match exact apply input")
@@ -641,6 +665,11 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
+        choices=("none", "enable", "disable"),
+        default="none",
+    )
+    parser.add_argument(
+        "--sharepoint-connector-transition",
         choices=("none", "enable", "disable"),
         default="none",
     )
@@ -682,6 +711,7 @@ def main() -> int:
         "database_host_binding": args.database_host_binding,
         "model_binding_transition": args.model_binding_transition,
         "operator_channel_edge_transition": args.operator_channel_edge_transition,
+        "sharepoint_connector_transition": args.sharepoint_connector_transition,
     }
     try:
         if args.command == "create":

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4d985c3f97fe2a979644a1ae9c9a554deb14fcc6
+translation_source_sha: 601cdc368a462790f874d4d7472785be8474fa4d
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -40,10 +40,11 @@ translation_revised: 2026-09-05
 | 선택적 비용 거버넌스 패키지 | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [패키지 테스트](../../../extensions/cost-governance/tests/) 및 [레거시 자문 가드 커버리지](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 only |
 
-문서 인제스트 API는 교차 테넌트 Power Platform 인제스트도 소유합니다. 이 경로는 외부
-커넥터 토큰을 검증하고 수락한 이벤트를 서버 소유 문서 정책에 연결합니다. 선택적 비용
-거버넌스 패키지를 가져오거나 비용 권한을 변경하지 않습니다. 루트 Terraform은 기본적으로
-비활성화된 커넥터 정책 값만 인제스트 서비스에 전달합니다.
+문서 인제스트 API는 FDAI-native 교차 테넌트 SharePoint 커넥터도 소유합니다. Federated
+Managed Identity가 대상 테넌트의 Microsoft Graph 토큰을 얻고, 영속 delta 및 인제스트
+어댑터가 변경 파일을 서버 소유 문서 정책에 연결합니다. Power Platform은 런타임 의존성이
+아닙니다. 이 서비스는 선택적 비용 거버넌스 패키지를 가져오거나 비용 권한을 변경하지
+않습니다.
 
 ## Core 컨트롤 플레인 지도
 
@@ -450,7 +451,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
 | FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트 및 알림 레이블은 기본 이중 언어 카탈로그에 둡니다. 경로별 Teams 통합 및 선택적 Cost Governance 레이블은 지연 로드되는 경로 카탈로그에 유지하므로 전문 지침이 진입 번들 예산을 사용하거나 패키지를 활성화하지 않습니다. 기본 카탈로그를 변경하면 question bank 다이제스트를 다시 생성합니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [경로 카탈로그](../../../console/src/routes/i18n/) |
 | FDAI Console 경로 로드 | 이름이 지정된 경로 내보내기는 하나의 형식 안전 지연 로드 어댑터를 사용하고, 공유 경로 모듈은 하나의 로더를 재사용합니다. 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 경로 격리를 약화하지 않으면서 원시 크기와 gzip 예산을 모두 적용합니다. | [패널 레지스트리](../../../console/src/panels.tsx), [진입 번들 검사](../../../console/scripts/check-entry-bundle.mjs) |
-| FDAI Console Dashboard v2 체크포인트 | 별도 리소스 중심 `/dashboard-v2` 경로, 표시량이 제한된 허니콤, 유형 자동완성, 인벤토리 조회 결과 디코딩을 추가합니다. 기존 대시보드와 Cost Governance 경로는 유지합니다. 실제 콘솔 통합은 진행 중이며 운영 검증이 완료된 상태가 아닙니다. | [경로](../../../console/src/routes/dashboard-v2.tsx), [디코더](../../../console/src/routes/dashboard-v2.model.ts), [적용 기록](../../roadmap-implementation/interfaces/console-operations.md) |
+| FDAI Console Dashboard v2 | 별도 리소스 중심 `/dashboard-v2` 경로, 표시량이 제한된 허니콤, 하나의 활성 미리 보기, 유형 자동완성, 인벤토리 조회 결과 디코딩을 제공합니다. 기존 대시보드와 Cost Governance 경로는 유지합니다. 실제 콘솔 화면 구현은 완료했으며 인벤토리 전체 조회 계약과 인증된 런타임 검증은 별도로 남아 있습니다. | [경로](../../../console/src/routes/dashboard-v2.tsx), [디코더](../../../console/src/routes/dashboard-v2.model.ts), [브라우저 검사](../../../console/tests/e2e/dashboard-v2.spec.ts), [적용 기록](../../roadmap-implementation/interfaces/console-operations.md) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |
 | 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
