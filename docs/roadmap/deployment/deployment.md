@@ -25,6 +25,7 @@ bindings through configuration (see
 |------|-------|----------|-------|
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
+| Bot-owned protected Core apply request | implemented | `.github/workflows/request-protected-operation.yml`, `validate_protected_service_apply_request.py`, and focused request validation tests in the current change | A bot requester keeps the FDAI maintainer distinct from the deployment requester. The non-production Core path remains plan-bound and still requires human Environment approval. |
 | Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding. Governed apply evidence remains open. |
 | Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
 | Independent-service rollback baseline | implemented | `deployment_recovery.py`, the shared service Container App module, and focused service-deploy rollback checks in the current change | Pre-apply capture rejects an unhealthy or inactive revision, and each service retains one inactive revision for recovery. A successful protected rollback receipt remains open. |
@@ -38,6 +39,7 @@ bindings through configuration (see
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | implemented | Added a non-production, bot-owned Core service apply request that verifies the exact successful plan run, unexpired artifact, image digest, commit, and Environment policy before dispatch. | `current change`; protected-operation workflow, request validator, and focused valid and fail-closed tests | Capture the first distinct-requester Environment approval and successful Core service apply receipt in Issue #454. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added deployed Operator catalog bootstrap after schema migration. | current change; focused deployment workflow and Terraform checks | Capture governed apply evidence for the catalog Job and implement the progressive-delivery targets. |
 | 2026-08-14 | implemented | Corrected ingestion rollback guidance after the co-host compatibility path was retired. Rollback now restores exact prior independent API and worker revisions. | `current change`; focused Terraform validation and mocked ingestion tests passed 5 cases. | Keep deployment guides and mocked tests aligned with the independent service roots. |
 | 2026-08-15 | implemented | Added an opt-in scheduled Container Apps Job for bounded browser-evidence retention with no executor identity or immediate platform retry. | `current change`; focused Terraform contract checks `4 passed`; `terraform validate`. | Capture the protected apply and successful and failed Job run receipts. |
@@ -62,6 +64,8 @@ bindings through configuration (see
   retain workload environment presence, authoritative inventory, and independent endpoint evidence.
 - [ ] Restore one healthy Core baseline and retain a protected service apply plus an automatic
   rollback receipt that proves the captured revision remains available and the failed revision is inactive.
+- [ ] Retain the first bot-requested Core service apply and distinct human Environment approval
+  receipt tracked by Issue #454.
 - [ ] Implement the documented automated artifact promotion, traffic-split canary, SLO rollback,
   and console blue/green flows with focused tests and governed runtime evidence.
 

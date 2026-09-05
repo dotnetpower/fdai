@@ -7,7 +7,12 @@ on:
       operation:
         description: "Protected operation to request."
         type: choice
-        options: [console-publish, catalog-refresh, operational-history-apply, rca-reader-apply]
+        options:
+          - console-publish
+          - catalog-refresh
+          - operational-history-apply
+          - rca-reader-apply
+          - core-service-apply
         required: true
       environment:
         description: "Existing environment targeted by the protected operation."
@@ -43,6 +48,18 @@ on:
         description: "Exact attested runtime image revision for an operational-history apply."
         type: string
         required: false
+      plan_run_id:
+        description: "Protected service plan workflow run id for a Core service apply."
+        type: string
+        required: false
+      plan_run_attempt:
+        description: "Protected service plan workflow run attempt for a Core service apply."
+        type: string
+        required: false
+      image_ref:
+        description: "Digest-pinned Core service image for a Core service apply."
+        type: string
+        required: false
 
 permissions:
   actions: write
@@ -55,6 +72,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (inputs.operation == 'rca-reader-apply' ||
        inputs.operation == 'operational-history-apply' ||
+       inputs.operation == 'core-service-apply' ||
        inputs.commit_sha == github.sha)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -85,7 +103,9 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-          sparse-checkout: scripts/deployment/azure/verify-github-environment.py
+          sparse-checkout: |
+            scripts/deployment/azure/validate_protected_service_apply_request.py
+            scripts/deployment/azure/verify-github-environment.py
           path: .fdai-protected-environment-verifier
 
       - name: Verify required CI
@@ -114,6 +134,9 @@ jobs:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
           APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
+          APPLY_PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+          APPLY_PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
+          APPLY_IMAGE_REF: ${{ inputs.image_ref }}
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
         run: |
           set -euo pipefail
@@ -123,6 +146,70 @@ jobs:
               ;;
             catalog-refresh)
               target_workflow=refresh-catalogs.yml
+              ;;
+            core-service-apply)
+              [[ "$TARGET_ENVIRONMENT" != "prod" ]] || {
+                echo "Bot-owned Core service apply is unavailable for production." >&2
+                exit 1
+              }
+              [[ "$APPLY_PLAN_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
+                echo "Core service apply plan run id is invalid." >&2
+                exit 1
+              }
+              [[ "$APPLY_PLAN_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || {
+                echo "Core service apply plan run attempt is invalid." >&2
+                exit 1
+              }
+              gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY_PLAN_RUN_ID" \
+                > "$RUNNER_TEMP/service-plan-run.json"
+              gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY_PLAN_RUN_ID/artifacts?per_page=100" \
+                > "$RUNNER_TEMP/service-plan-artifacts.json"
+              plan_artifact_name="service-plan-core-control-plane-${TARGET_ENVIRONMENT}-${APPLY_PLAN_RUN_ID}-${APPLY_PLAN_RUN_ATTEMPT}"
+              plan_artifact_id="$(
+                jq -er --arg name "$plan_artifact_name" '
+                  [.artifacts[] | select(.name == $name and .expired == false)]
+                  | if length == 1 then .[0].id else error("expected one unexpired plan artifact") end
+                ' "$RUNNER_TEMP/service-plan-artifacts.json"
+              )"
+              gh api \
+                "repos/$GITHUB_REPOSITORY/actions/artifacts/$plan_artifact_id/zip" \
+                > "$RUNNER_TEMP/service-plan.zip"
+              unzip -p "$RUNNER_TEMP/service-plan.zip" service-plan-metadata.json \
+                > "$RUNNER_TEMP/service-plan-metadata.json"
+              python3 \
+                .fdai-protected-environment-verifier/scripts/deployment/azure/validate_protected_service_apply_request.py \
+                --repository "$GITHUB_REPOSITORY" \
+                --environment "$TARGET_ENVIRONMENT" \
+                --commit-sha "$TARGET_COMMIT_SHA" \
+                --plan-run-id "$APPLY_PLAN_RUN_ID" \
+                --plan-run-attempt "$APPLY_PLAN_RUN_ATTEMPT" \
+                --plan-digest "$APPLY_PLAN_DIGEST" \
+                --context-digest "$APPLY_CONTEXT_DIGEST" \
+                --image-ref "$APPLY_IMAGE_REF" \
+                --run-metadata "$RUNNER_TEMP/service-plan-run.json" \
+                --artifacts "$RUNNER_TEMP/service-plan-artifacts.json" \
+                --plan-metadata "$RUNNER_TEMP/service-plan-metadata.json"
+              gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
+                > "$RUNNER_TEMP/environment.json"
+              python3 \
+                .fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py \
+                "$RUNNER_TEMP/environment.json" --required-approvals 1
+              gh api --method POST \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/service-deploy.yml/dispatches" \
+                -f ref=main \
+                -f "inputs[service]=core-control-plane" \
+                -f "inputs[environment]=$TARGET_ENVIRONMENT" \
+                -f "inputs[commit_sha]=$TARGET_COMMIT_SHA" \
+                -f "inputs[image_ref]=$APPLY_IMAGE_REF" \
+                -f "inputs[apply]=true" \
+                -f "inputs[model_binding_transition]=true" \
+                -f "inputs[plan_run_id]=$APPLY_PLAN_RUN_ID" \
+                -f "inputs[plan_run_attempt]=$APPLY_PLAN_RUN_ATTEMPT" \
+                -f "inputs[plan_digest]=$APPLY_PLAN_DIGEST" \
+                -f "inputs[context_digest]=$APPLY_CONTEXT_DIGEST"
+              exit 0
               ;;
             operational-history-apply|rca-reader-apply)
               [[ "$TARGET_ENVIRONMENT" != "prod" ]] || {
