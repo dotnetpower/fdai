@@ -19414,3 +19414,16 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   }
   .background-tasks-route .btn { min-height: 44px; }
 }
+.deck-handover-upload {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+}
+
+.deck-handover-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -1,5 +1,5 @@
 import type { IncidentConversationBinding } from "./open-deck";
-import { PANTHEON } from "../routes/agents.model";
+import { PANTHEON_NAME_SET } from "../pantheon-names";
 import type { ConversationSummaryPayload } from "../user-context-client";
 
 /**
@@ -15,7 +15,6 @@ export const CONVERSATION_INDEX_KEY = "fdai.deck.conversations.v1";
 export const GENERAL_CONVERSATION_KEY = "screen";
 export const MAX_CONVERSATION_INDEX_ENTRIES = 1000;
 export const CONVERSATION_HISTORY_PAGE_SIZE = 20;
-const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -69,7 +68,7 @@ export function newConversationKey(
 export function normalizeAgentTarget(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
-  return PANTHEON_AGENT_NAMES.has(normalized) ? normalized : null;
+  return PANTHEON_NAME_SET.has(normalized) ? normalized : null;
 }
 
 /** Keep the browser conversation index isolated when accounts change in one tab. */
@@ -297,7 +296,7 @@ export function normalizeIncidentBinding(value: unknown): IncidentConversationBi
     kind: "incident",
     incidentId,
     correlationId,
-    ...(PANTHEON_AGENT_NAMES.has(selectedAgent) ? { selectedAgent } : {}),
+    ...(PANTHEON_NAME_SET.has(selectedAgent) ? { selectedAgent } : {}),
   };
 }
 

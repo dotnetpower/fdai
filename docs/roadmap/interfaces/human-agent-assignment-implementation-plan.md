@@ -22,8 +22,8 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 | Package 4: ownership PR coordination | in-progress | `ownership_coordination.py`; `test_ownership_coordination.py`; signed stewardship webhook | Digest-bound draft publication, exact PR and content verification, ownership effect recording, and typed shadow IAM request publication are implemented. Production composition and restart-safe delivery evidence remain open. |
 | Package 5: human-access provider capability | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; focused human-assignment tests (43 passed) | Observation-only allowlist, convergence, and rollback mechanics exist, but Package 4 doesn't yet trigger them from an assignment case. |
 | Package 6: non-response supervisor | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; focused shadow-supervisor tests (10 passed) | Periodic shadow observation exists; production rung dispatch isn't promoted. |
-| Package 7: handover goal core and commands | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/operator-service/src/fdai_operator_service/families/iam/handover.py`; focused human-assignment tests (43 passed) | Durable invitations and response commands exist. Agent gap production and localized Bragi rendering remain unbound. |
-| Package 8: knowledge evidence delivery | in-progress | `packages/service-contracts/src/fdai_service_contracts/document.py`; existing ingestion chunk-lineage tests | Optional goal references and deterministic evidence metadata exist; goal-to-upload correlation, candidate delivery, ACL retrieval, review, and deletion drills remain open. |
+| Package 7: handover goal core and commands | implemented | `goals.py`; `handover_runtime.py`; `handover.py`; focused Core, Operator, and Console checks | Durable invitations and response commands now include a production-composed web path with live ownership revalidation, weekly fatigue fencing, localized presentation, mapped-agent routing, snooze, and decline. Agent-authored gap production remains open. |
+| Package 8: knowledge evidence delivery | in-progress | document contracts; `console/src/routes/document-ingestion.tsx`; Operator handover goal evidence state; focused Console and Operator checks | Governed web upload now associates a canonical admitted document receipt with the goal. Candidate delivery, ACL-filtered agent retrieval, conflict review, staleness, and deletion drills remain open. |
 | Package 9: production rollout | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | Capability axes and observation-only reconciliation exist. Enforce promotion, Azure permission probes, dashboards, alerts, automatic repair, and production drills aren't complete. |
 
 ### Implementation history
@@ -31,13 +31,14 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-09-01 | in-progress | Implemented the Package 4 coordination core: one idempotent shadow ownership draft, exact merge correlation, ownership receipt, and typed shadow IAM request. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; focused ownership and access-apply tests passed. | Bind production GitOps and signed merge consumption, then retain restart and delivery evidence before marking Package 4 implemented. |
+| 2026-09-05 | implemented | Completed the production-composed web portion of Package 7 and the goal-to-upload portion of Package 8 with live ownership revalidation, bounded proactive invitations, revisioned commands, mapped-agent conversations, and governed document receipts. | `current change`; focused Operator and Console tests, Console typecheck, and Console build. | Complete agent-authored gaps, server retrieval, post-merge effects, lifecycle propagation, and governed deployment evidence. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected Package 4 and Package 5 dependency claims. | `current change`; source and focused checks listed in the scope table. | Implement Package 4, finish Packages 8-9, and collect promotion and operational evidence. |
 
 ### Remaining work
 
 - [ ] Compose Package 4 with the production GitOps publisher and signed merge record consumer, and retain restart-safe evidence that only the matching merge advances its assignment case.
 - [ ] Publish the typed IAM apply request only from that matching receipt and prove no ownership, review, IAM, or executor authority collapses across the event boundary.
-- [ ] Complete agent-owned handover gap production, localized Bragi rendering, goal-to-upload binding, candidate delivery, ACL retrieval, conflict review, staleness, and deletion propagation.
+- [ ] Complete agent-owned handover gap production, candidate delivery, ACL-filtered agent retrieval, conflict review, staleness, and deletion propagation; localized web invitations and goal-to-upload binding now have focused passing evidence.
 - [ ] Run and retain the Package 9 Azure permission probes, non-production mutation and rollback drills, shadow comparisons, dashboards, alerts, and restart and outage recovery evidence.
 - [ ] Promote IAM mutation, non-response dispatch, and proactive handover independently only after their rollout thresholds pass; preserve audited no-op behavior on exhaustion or insufficient evidence.
 
@@ -64,6 +65,34 @@ focused commit; don't mix unrelated worktree changes into that commit.
 | Console | IAM users, roles, requests, directory search, observation-only Assignments tab and editor | Convergence and active goal projections |
 
 ## Contract decisions before coding
+
+### Proactive handover conversation
+
+The first production-capable conversation slice uses the reviewed ownership projection as the
+server-side assignment authority. The Operator service creates one safe-to-retry (idempotent)
+invitation for a signed-in accountable user and binds it to a fixed Pantheon agent, goal, session,
+and ownership revision. Browser-provided agent names remain no-authority routing hints; every
+decision and evidence transition is resolved independently from server-owned state.
+
+The slice follows these rules:
+
+- `GET /handover/goals/invitation` verifies the signed-in subject against the current ownership
+  projection before returning or creating an invitation.
+- One session receives at most one invitation. A principal receives at most two new invitations in
+  one ISO week. Retries return the existing invitation.
+- An invitation never blocks Console access. The current web slice applies login and weekly fatigue
+  limits. Server-owned incident and approval suppression remains a rollout prerequisite.
+- A handover conversation addresses the mapped agent on every turn and keeps the goal identity in
+  its session key. This routing does not grant action, approval, or evidence authority.
+- Web files enter the document-ingestion gateway first. A turn carries only an authorized immutable
+  `doc:<document_id>:<version_id>` citation, and goal evidence records the source digest rather than
+  file bytes.
+- Goal transitions use revision fencing. Evidence makes a goal ready for independent review;
+  acceptance remains a separate Owner action and never grants execution authority.
+
+This slice does not promote IAM mutation or infer a new owner from conversation text. Ownership
+changes still require the reviewed pull-request flow, and provider-side mutation remains on its
+independent promotion axis.
 
 ### Ownership schema migration
 

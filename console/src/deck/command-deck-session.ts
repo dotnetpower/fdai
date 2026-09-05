@@ -213,6 +213,10 @@ export function provisionalReplyAgent(targetAgent: string | undefined): string {
   return targetAgent ?? "Bragi";
 }
 
+export function routePromptToAgent(prompt: string, targetAgent: string | undefined): string {
+  return targetAgent ? `@${targetAgent} ${prompt}` : prompt;
+}
+
 export function replyAgentLabel(
   agent: string,
   delegation: ProgressiveAnswer["delegation"],

@@ -37,6 +37,7 @@ import {
   MAX_VISION_IMAGE_BYTES,
   normalizeVisionImage,
 } from "./composer-image-normalization";
+import { handoverText } from "./handover-i18n";
 
 const OOXML_PROBE = new Set(["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"]);
 
@@ -118,11 +119,16 @@ export function ComposerAttachments() {
                 id,
                 isRightsProtected(file.name, head)
                   ? { kind: "rms", status: "abandoned" }
-                  : { status: "ready" },
+                  : { status: "abandoned", note: handoverText("useDocumentUpload") },
               );
             })
             .catch(() => {
-              if (isCurrent()) patch(id, { status: "ready" });
+              if (isCurrent()) {
+                patch(id, {
+                  status: "abandoned",
+                  note: handoverText("useDocumentUpload"),
+                });
+              }
             });
         } else if (kind === "image") {
           // Stage the image as send-ready vision evidence: read it as a base64
@@ -187,7 +193,10 @@ export function ComposerAttachments() {
               });
           }
         } else {
-          patch(id, { status: "ready" });
+          patch(id, {
+            status: "abandoned",
+            note: handoverText("useDocumentUpload"),
+          });
         }
       }
     },

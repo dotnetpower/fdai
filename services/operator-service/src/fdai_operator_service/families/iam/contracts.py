@@ -309,7 +309,11 @@ class HandoverGoalOutbox(Protocol):
     """Project invitations and persist goal commands without provider effects."""
 
     async def invitation_for_session(
-        self, *, subject_ref: str, session_id: str
+        self,
+        *,
+        subject_ref: str,
+        roles: frozenset[OperatorRole],
+        session_id: str,
     ) -> JsonMapping | None: ...
 
     async def get_goal(self, goal_id: str) -> JsonMapping: ...

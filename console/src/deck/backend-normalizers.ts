@@ -27,9 +27,8 @@ import type {
   SemanticAssurancePathStep,
   SemanticProjectionReceipt,
 } from "./backend-types";
-import { PANTHEON } from "../routes/agents.model";
+import { PANTHEON_NAME_SET } from "../pantheon-names";
 
-const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 const MAX_AGENT_NAME_CHARS = 64;
 const MAX_TRACE_REF_CHARS = 256;
 const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$/;
@@ -784,7 +783,7 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
     typeof record.primary_agent !== "string" ||
     record.primary_agent.length === 0 ||
     record.primary_agent.length > MAX_AGENT_NAME_CHARS ||
-    !PANTHEON_AGENT_NAMES.has(record.primary_agent)
+    !PANTHEON_NAME_SET.has(record.primary_agent)
   ) {
     return undefined;
   }
@@ -793,7 +792,7 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
         (item): item is string =>
           typeof item === "string" &&
           item.length <= MAX_AGENT_NAME_CHARS &&
-          PANTHEON_AGENT_NAMES.has(item),
+          PANTHEON_NAME_SET.has(item),
       ).slice(0, 8)
     : [];
   const handoffReason = typeof record.handoff_reason === "string"
@@ -805,7 +804,7 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
     ...(typeof record.trace_ref === "string" && record.trace_ref.length > 0
       ? { trace_ref: record.trace_ref.slice(0, MAX_TRACE_REF_CHARS) }
       : {}),
-    ...(typeof record.handoff_from === "string" && PANTHEON_AGENT_NAMES.has(record.handoff_from)
+    ...(typeof record.handoff_from === "string" && PANTHEON_NAME_SET.has(record.handoff_from)
       ? { handoff_from: record.handoff_from }
       : {}),
     ...(handoffReason.length > 0

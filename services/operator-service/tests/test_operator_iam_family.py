@@ -468,9 +468,17 @@ class RecordingHandover:
         self.command: HandoverGoalCommand | None = None
 
     async def invitation_for_session(
-        self, *, subject_ref: str, session_id: str
+        self,
+        *,
+        subject_ref: str,
+        roles: frozenset[OperatorRole],
+        session_id: str,
     ) -> Mapping[str, Any] | None:
-        return {"subject_ref": subject_ref, "session_id": session_id}
+        return {
+            "subject_ref": subject_ref,
+            "roles": sorted(role.value for role in roles),
+            "session_id": session_id,
+        }
 
     async def get_goal(self, goal_id: str) -> Mapping[str, Any]:
         return {"goal_id": goal_id, "subject_ref": "target-1"}
@@ -791,7 +799,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 38
+    assert len(snapshot) == 39
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

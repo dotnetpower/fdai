@@ -35,6 +35,8 @@ import {
   saveConversationWidth,
 } from "./conversation-sidebar-width";
 import type { useViewContext } from "./context";
+import { fetchHandoverGoal, updateHandoverGoal } from "../handover-api";
+import { handoverText } from "./handover-i18n";
 import { PendingReplyIndicator, RetrievalTrace } from "./retrieval-trace";
 import { SourceReadinessStrip } from "./source-readiness-view";
 import "./conversation-sidebar.css";
@@ -197,6 +199,22 @@ export function CommandDeckView({
   const emptyConversation = turns.length === 0 && hydrationStatus === "idle";
   const centeredEmptyState = emptyConversation && layoutMode === "workspace";
   const activeConversation = conversations.find((conversation) => conversation.key === sessionKey);
+  const handoverGoalId = /(?:^|:)handover:([a-f0-9]{64})$/.exec(sessionKey)?.[1];
+  const [handoverStatus, setHandoverStatus] = useState("");
+  const [handoverPending, setHandoverPending] = useState(false);
+  const runHandoverCommand = async (operation: "snooze" | "decline") => {
+    if (!handoverGoalId || handoverPending) return;
+    setHandoverPending(true);
+    try {
+      const goal = await fetchHandoverGoal(client, handoverGoalId);
+      await updateHandoverGoal(client, handoverGoalId, operation, goal.revision);
+      setHandoverStatus(handoverText(operation === "snooze" ? "snoozeDone" : "declineDone"));
+    } catch {
+      setHandoverStatus(handoverText("commandFailed"));
+    } finally {
+      setHandoverPending(false);
+    }
+  };
   const conversationTitle = emptyConversation
     ? t("deck.newConversation")
     : activeConversation?.label ?? sessionLabel ?? t("deck.label");
@@ -238,6 +256,13 @@ export function CommandDeckView({
     <DeckComposer
       centered={centeredEmptyState}
       routeLabel={routeLabel}
+      sessionKey={sessionKey}
+      {...(handoverGoalId ? { handoverGoalId } : {})}
+      {...(activeConversation?.agent ? { handoverAgent: activeConversation.agent } : {})}
+      handoverStatus={handoverStatus}
+      handoverPending={handoverPending}
+      onHandoverSnooze={() => void runHandoverCommand("snooze")}
+      onHandoverDecline={() => void runHandoverCommand("decline")}
       draft={draft}
       inFlight={inFlight}
       slashSuggestions={slashSuggestions}
@@ -469,14 +494,28 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
   | "onDraftInput"
   | "onInputKeyDown"
   | "onStopStream"
+  | "sessionKey"
 > & {
   readonly centered: boolean;
   readonly routeLabel: string;
+  readonly handoverGoalId?: string;
+  readonly handoverAgent?: string;
+  readonly handoverStatus: string;
+  readonly handoverPending: boolean;
+  readonly onHandoverSnooze: () => void;
+  readonly onHandoverDecline: () => void;
 };
 
 function DeckComposer({
   centered,
   routeLabel,
+  sessionKey,
+  handoverGoalId,
+  handoverAgent,
+  handoverStatus,
+  handoverPending,
+  onHandoverSnooze,
+  onHandoverDecline,
   draft,
   inFlight,
   slashSuggestions,
@@ -518,6 +557,23 @@ function DeckComposer({
               </li>
             ))}
           </ul>
+        ) : null}
+        {handoverGoalId && handoverAgent ? (
+          <div class="deck-handover-actions">
+            <a
+              class="deck-handover-upload"
+              href={`/documents?handover_goal=${encodeURIComponent(handoverGoalId)}`}
+            >
+              {handoverText("uploadDocument")}
+            </a>
+            <button type="button" disabled={handoverPending} onClick={onHandoverSnooze}>
+              {handoverText("remindLater")}
+            </button>
+            <button type="button" disabled={handoverPending} onClick={onHandoverDecline}>
+              {handoverText("decline")}
+            </button>
+            {handoverStatus ? <span role="status">{handoverStatus}</span> : null}
+          </div>
         ) : null}
         <ComposerAttachments />
         <textarea

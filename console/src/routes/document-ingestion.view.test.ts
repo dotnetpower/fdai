@@ -7,6 +7,7 @@ import {
   documentCapabilityFailure,
   documentFilesForUpload,
   documentFormatLabels,
+  handoverUploadContext,
   waitForTerminal,
 } from "./document-ingestion";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
@@ -18,6 +19,18 @@ describe("Documents ViewSnapshot", () => {
     const lock = { current: false };
     expect(claimUploadBatch(lock)).toBe(true);
     expect(claimUploadBatch(lock)).toBe(false);
+  });
+
+  it("accepts only a fixed-agent bounded handover upload context", () => {
+    const goal = "a".repeat(64);
+    expect(handoverUploadContext(
+      `?handover_goal=${goal}`,
+    )).toEqual({
+      goalId: goal,
+    });
+    expect(handoverUploadContext(
+      "?handover_goal=not-a-digest",
+    )).toBeNull();
   });
 
   it("classifies unwired capability endpoints without hiding operational failures", () => {

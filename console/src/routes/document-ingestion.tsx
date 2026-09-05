@@ -12,6 +12,9 @@ import {
 import { t } from "../i18n";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
 import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18n";
+import { openDeckWithContext } from "../deck/open-deck";
+import { addHandoverEvidence, fetchHandoverGoal } from "../handover-api";
+import { handoverText } from "../deck/handover-i18n";
 
 interface Props { readonly client: OperatorApiClient }
 
@@ -27,6 +30,9 @@ interface UploadRow {
 }
 
 interface UploadBatchLock { current: boolean }
+interface HandoverUploadContext {
+  readonly goalId: string;
+}
 
 const FORMAT_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
   text: [".txt", ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv", ".tf", ".rego"],
@@ -118,6 +124,9 @@ export function DocumentIngestionRoute({ client }: Props) {
   const [consent, setConsent] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const handover = handoverUploadContext(
+    typeof window === "undefined" ? "" : window.location.search,
+  );
 
   useEffect(() => () => {
     mounted.current = false;
@@ -220,6 +229,37 @@ export function DocumentIngestionRoute({ client }: Props) {
             updateRow(row.key, { state: "failed", error: uploadTerminalError(completed) });
             continue;
           }
+          if (handover) {
+            const evidenceRef = `doc:${completed.document_id}:${completed.version_id}`;
+            try {
+              const goal = await fetchHandoverGoal(client, handover.goalId);
+              await addHandoverEvidence(
+                client,
+                handover.goalId,
+                goal.revision,
+                evidenceRef,
+                digest,
+              );
+              openDeckWithContext({
+                sessionKey: `handover:${handover.goalId}`,
+                sessionLabel: goal.agentName,
+                targetAgent: goal.agentName,
+                onlyWhenIdle: true,
+                openingBriefing: handoverText("prompt", {
+                  agent: goal.agentName,
+                }),
+                prompt: `${handoverText("prompt", {
+                  agent: goal.agentName,
+                })} ${evidenceRef}`,
+              });
+            } catch (error) {
+              console.warn("handover_evidence_link_failed", {
+                error_type: error instanceof Error ? error.name : "UnknownError",
+                upload_id: created.session.upload_id,
+              });
+              updateRow(row.key, { notice: handoverText("commandFailed") });
+            }
+          }
           const draft = batch.purpose === "handover_bootstrap"
             ? await api.handoverDraft(created.session.upload_id)
             : undefined;
@@ -259,6 +299,7 @@ export function DocumentIngestionRoute({ client }: Props) {
               ? { notice: knowledgeText("readyWithWarnings") }
               : {}),
           }
+
         : { state: "failed", error: uploadTerminalError(completed) });
     } catch (error) {
       updateRow(row.key, {
@@ -393,6 +434,18 @@ export function DocumentIngestionRoute({ client }: Props) {
   );
 }
 
+export function handoverUploadContext(search: string): HandoverUploadContext | null {
+  const params = new URLSearchParams(search);
+  const goalId = params.get("handover_goal");
+  if (
+    goalId === null ||
+    !/^[a-f0-9]{64}$/.test(goalId)
+  ) {
+    return null;
+  }
+  return { goalId };
+}
+
 export async function waitForTerminal(
   api: IngestionApiClient,
   uploadId: string,
@@ -422,7 +475,7 @@ export async function waitForTerminal(
   throw new Error(t("documents.processingTimeout"));
 }
 
-async function sha256(file: File): Promise<string> {
+export async function sha256(file: File): Promise<string> {
   const { createSHA256 } = await import("hash-wasm");
   const hasher = await createSHA256();
   const reader = file.stream().getReader();

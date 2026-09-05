@@ -39,6 +39,7 @@ from fdai_operator_service.families.conversation.channel_edge.teams_auth import 
 )
 from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
+from fdai_operator_service.families.iam.handover_runtime import ProactiveHandoverRuntime
 from fdai_operator_service.families.iam.hil_callback_authority import (
     TEAMS_APPLICATION_ID_ENV,
     TEAMS_APPROVAL_CHANNEL_ID_ENV,
@@ -54,6 +55,7 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
     TeamsHilCallbackConfig,
     TeamsHilCallbackNormalizer,
 )
+from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.notification_receipt_ingress import (
     NotificationReceiptIngress,
@@ -281,7 +283,11 @@ def build_postgres_iam_bindings(
         human_access=iam,
         directory=directory,
         assignments=iam,
-        handover_goals=iam,
+        handover_goals=ProactiveHandoverRuntime(
+            store=store,
+            ownership=PostgresOperationsAdapters(store),
+            directory=directory,
+        ),
         model_settings=iam,
         runtime_settings=iam,
         teams_workflow_tester=TeamsWorkflowDiagnosticTester(

@@ -34,6 +34,7 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("POST", "/iam/assignment-cases/{case_id:str}/submit", "submit_case"),
     IamRouteManifestEntry("POST", "/iam/assignment-cases/{case_id:str}/review", "review_case"),
     IamRouteManifestEntry("GET", "/handover/goals/invitation", "invitation"),
+    IamRouteManifestEntry("GET", "/handover/goals/{goal_id:str}", "get_goal"),
     IamRouteManifestEntry("POST", "/handover/goals/{goal_id:str}/{operation:str}", "command"),
     IamRouteManifestEntry("GET", "/models/settings", "get_settings"),
     IamRouteManifestEntry("PUT", "/models/binding-policy", "put_binding_policy"),

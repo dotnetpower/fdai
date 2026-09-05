@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
+from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy, OperatorRole
 from pydantic import ValidationError
 
 from fdai_operator_service.families.iam.contracts import (
@@ -404,9 +404,11 @@ class PostgresIamAdapters:
         self,
         *,
         subject_ref: str,
+        roles: frozenset[OperatorRole],
         session_id: str,
     ) -> JsonMapping | None:
         """Read one matching handover invitation from the materialized projection."""
+        del roles
         payload = await self._projection("handover.invitations")
         return next(
             (

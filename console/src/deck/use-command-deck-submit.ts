@@ -19,7 +19,12 @@ import {
   settleInvestigationTurn,
   settleInvestigationTurns,
 } from "./investigation-turn-state";
-import { provisionalReplyAgent, replyAgent, sessionIdFor } from "./command-deck-session";
+import {
+  provisionalReplyAgent,
+  replyAgent,
+  routePromptToAgent,
+  sessionIdFor,
+} from "./command-deck-session";
 import {
   conversationLabelForPrompt,
   conversationPath,
@@ -330,7 +335,8 @@ export function useCommandDeckSubmit({
       let reply: Awaited<ReturnType<typeof askBackendStream>>;
       try {
         if (options.requestId) queueNextRequestId(options.requestId);
-        reply = await askBackendStream(text, requestSnapshot, history, {
+        const routedText = routePromptToAgent(text, sessionSummary?.agent);
+        reply = await askBackendStream(routedText, requestSnapshot, history, {
           sessionId: conversationId,
           ...(sessionSummary?.agent ? { targetAgent: sessionSummary.agent } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),

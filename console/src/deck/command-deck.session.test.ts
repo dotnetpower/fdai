@@ -13,9 +13,17 @@ import {
 import { regenerationSubmission } from "./use-command-deck-composer";
 import { requestSnapshotForSubmit } from "./use-command-deck-submit";
 import { sessionStore } from "./use-command-deck-sessions";
+import { routePromptToAgent } from "./command-deck-session";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("Agent conversation routing", () => {
+  test("addresses every turn in an agent-bound conversation", () => {
+    expect(routePromptToAgent("What changed?", "Muninn")).toBe("@Muninn What changed?");
+    expect(routePromptToAgent("What changed?", undefined)).toBe("What changed?");
+  });
 });
 
 describe("Deck scheduled work", () => {

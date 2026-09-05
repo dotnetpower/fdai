@@ -39,6 +39,7 @@ def make_handover_routes(
         try:
             result = await outbox.invitation_for_session(
                 subject_ref=principal.oid,
+                roles=principal.roles,
                 session_id=session_id,
             )
         except IamFamilyError as exc:
@@ -78,8 +79,25 @@ def make_handover_routes(
             return family_error(exc)
         return JSONResponse({"goal": dict(updated)})
 
+    async def get_goal(request: Request) -> Response:
+        principal = await authorize(request)
+        if outbox is None:
+            return error_response(503, "handover goal outbox is not configured")
+        try:
+            goal = await outbox.get_goal(str(request.path_params["goal_id"]))
+        except IamFamilyError as exc:
+            return family_error(exc)
+        subject_ref = goal.get("subject_ref")
+        if not isinstance(subject_ref, str) or (
+            principal.oid.casefold() != subject_ref.casefold()
+            and OperatorRole.OWNER not in principal.roles
+        ):
+            return error_response(404, "handover goal was not found")
+        return JSONResponse({"goal": dict(goal)})
+
     return (
         Route("/handover/goals/invitation", invitation, methods=["GET"]),
+        Route("/handover/goals/{goal_id:str}", get_goal, methods=["GET"]),
         Route(
             "/handover/goals/{goal_id:str}/{operation:str}",
             command,
