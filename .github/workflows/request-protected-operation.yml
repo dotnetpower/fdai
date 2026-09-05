@@ -237,8 +237,19 @@ jobs:
                 -f "inputs[context_digest]=$APPLY_CONTEXT_DIGEST"
               )
               case "$service_name:$deployment_mode" in
+                core-control-plane:standard)
+                  ;;
+                core-control-plane:database-host-binding)
+                  dispatch_args+=(-f "inputs[database_host_binding]=true")
+                  ;;
                 core-control-plane:model-binding)
                   dispatch_args+=(-f "inputs[model_binding_transition]=true")
+                  ;;
+                core-control-plane:database-host-binding+model-binding)
+                  dispatch_args+=(
+                    -f "inputs[database_host_binding]=true"
+                    -f "inputs[model_binding_transition]=true"
+                  )
                   ;;
                 document-ingestion-api:standard)
                   ;;

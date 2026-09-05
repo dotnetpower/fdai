@@ -75,8 +75,17 @@ def _valid_request(
     }
 
 
-def test_valid_core_service_apply_request_is_accepted() -> None:
-    validate_protected_service_apply_request(**_valid_request())
+@pytest.mark.parametrize(
+    "deployment_mode",
+    [
+        "standard",
+        "database-host-binding",
+        "model-binding",
+        "database-host-binding+model-binding",
+    ],
+)  # type: ignore[untyped-decorator]
+def test_valid_core_service_apply_request_is_accepted(deployment_mode: str) -> None:
+    validate_protected_service_apply_request(**_valid_request(deployment_mode=deployment_mode))
 
 
 def test_repository_name_is_normalized_for_ghcr() -> None:
@@ -126,7 +135,7 @@ def test_valid_document_service_apply_request_is_accepted(deployment_mode: str) 
         lambda request: request["run_metadata"]["repository"].update(full_name="example/other"),
         lambda request: request["artifacts"]["artifacts"][0].update(expired=True),
         lambda request: request["artifacts"].update(artifacts=[]),
-        lambda request: request["plan_metadata"].update(deployment_mode="standard"),
+        lambda request: request["plan_metadata"].update(deployment_mode="initial-cutover"),
         lambda request: request["plan_metadata"].update(deployment_mode={}),
         lambda request: request["plan_metadata"].update(service="operator-service"),
         lambda request: request["plan_metadata"].update(commit_sha="e" * 40),

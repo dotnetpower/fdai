@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 0492733a03f489143bdc1f9b9edc8407b5f6e0ee
+translation_source_sha: 4285197aaa78337eb7d1fa7331540dc9b499dd6c
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -29,8 +29,8 @@ translation_revised: 2026-09-06
   정리를 시도하고 원래 실패와 함께 정리 오류를 보고합니다.
 - **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 비밀이 아닌 대상과 Key Vault 시크릿 참조를
   내보냅니다. 보호된 서비스 배포는 전달 전에 이를 검증하며 봇 소유 래퍼는 정확한 Core 또는
-  Document Ingestion API 계획만 수락합니다. 전환 플래그는 봉인된 모드에서 도출하며 서비스
-  tfvars는 플랫폼 소유권이나 사람 승인을 대체할 수 없습니다.
+  Document Ingestion API 계획만 수락합니다. 전환 플래그는 결합된 Core 바인딩을 포함해 봉인된
+  모드에서 도출하며 서비스 tfvars는 플랫폼 소유권이나 사람 승인을 대체할 수 없습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
