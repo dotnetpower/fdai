@@ -330,23 +330,21 @@ def _only_notification_receipt_topic_transition(
         None,
     ):
         return False
-    normalized_after = [
-        item
-        for item in after_environment
-        if not (
-            isinstance(item, dict)
-            and item.get("name") in {"FDAI_NOTIFICATION_RECEIPT_TOPIC", *additional_allowed_names}
-        )
-    ]
-    normalized_before = [
-        item
-        for item in before_environment
-        if not (isinstance(item, dict) and item.get("name") in additional_allowed_names)
-    ]
-    return {**after_runtime, "env": normalized_after} == {
-        **before_runtime,
-        "env": normalized_before,
+    if any(
+        before_runtime.get(key) != after_runtime.get(key) for key in ("name", "command", "args")
+    ):
+        return False
+    before_bindings = {
+        name: _environment_binding(item)
+        for name, item in before_by_name.items()
+        if name not in additional_allowed_names
     }
+    after_bindings = {
+        name: _environment_binding(item)
+        for name, item in after_by_name.items()
+        if name not in {"FDAI_NOTIFICATION_RECEIPT_TOPIC", *additional_allowed_names}
+    }
+    return before_bindings == after_bindings
 
 
 def _valid_https_origin(value: str) -> bool:

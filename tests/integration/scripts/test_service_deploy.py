@@ -1212,6 +1212,7 @@ def test_plan_guard_allows_exact_core_notification_receipt_topic_addition(
             "value": "fdai.notifications.delivery-receipts",
         }
     )
+    after_environment.reverse()
 
     guard.validate_plan(
         plan,

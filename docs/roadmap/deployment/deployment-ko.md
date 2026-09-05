@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 420a580f45ac4cdbcd3a222a99ae268aa29f10f1
+translation_source_sha: c907936047e039321794adc917a2d8ae4e27e0cf
 translation_revised: 2026-09-05
 ---
 
@@ -119,8 +119,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   및 Pantheon-object 토픽을 확인하고 Core, Operator 및 document service의 소유 `event_topics`
   필드만 덮어씁니다. 쓰기 전용 service tfvars 시크릿은 DSN 참조, 역할 및 기타 입력의 출처로
   남습니다. Core는 정본 `fdai.notifications.delivery-receipts` 토픽을 한 번 추가할 수 있습니다.
-  Guard는 비밀이 아닌 이 정확한 값만 허용하고 함께 발생하는 명령, 신원 또는 다른 환경 변경을
-  모두 차단합니다.
+  Guard는 비밀이 아닌 이 정확한 값만 허용하고 Terraform 목록 순서와 무관하게 환경 binding을
+  비교하며, 함께 발생하는 명령, 신원 또는 다른 환경 변경을 모두 차단합니다.
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본
