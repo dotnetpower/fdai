@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 4326e652724ca6c6140401ed86e56bdb0e8fbb48
+translation_source_sha: 0c5f0fc50da0977d881815cf3326320cbd225a32
 translation_revised: 2026-09-05
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -12,6 +12,8 @@ Handover-map 스키마와 소유권 개념은
 
 통제된 미리 보기와 커넥터 수명 주기는 인제스트 서비스 경계 안에 유지되며, 운영 책임
 웹후크에 문서 읽기 또는 커넥터 권한을 부여하지 않습니다.
+커넥터 취소 조정도 인제스트 API 신원 안에서 실행되며, 운영 책임 웹후크에 문서 또는
+소유권 권한을 위임하지 않습니다.
 
 > Console의 소유권 변환 결과는 읽기 전용을 유지합니다. Guided form은 인계 문서를
 > 인제스트 경계에 제출합니다. 소유권 변경은 계속 초안 pull 요청으로 생성하고 Git
