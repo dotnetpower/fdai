@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 31c5dda10925334c3997a66dc27ffdfabeba7946
+translation_source_sha: 798227241474b7fc3d4d51f98736c104906d747c
 translation_revised: 2026-09-05
 ---
 # 운영 배포 강화
@@ -30,6 +30,7 @@ translation_revised: 2026-09-05
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-05 | implemented | 독립된 인프라 PR workflow를 하나의 필수 CI 그래프에 통합했습니다. Terraform 보안 검사는 경로 범위를 유지하며 공유 유효성 검사 작업은 이제 scenario-lab 루트도 다룹니다. | `current change`, `.github/workflows/ci.yml`, `resolve_test_scope.py`, 집중 CI 범위, 보안 검사 및 scenario-lab 계약 테스트 | 아래에 나열된 정확한 보호 운영 및 drift 근거를 보존합니다. |
+| 2026-09-05 | implemented | Service 적용 후 스키마를 변경하는 카탈로그 수명 주기 회귀를 직렬화하고 forward Core 마이그레이션으로 root 소유 T2 lookup index를 복원했습니다. 조정되지 않은 만료가 진행 중인 receipt 또는 보존 근거를 무효화하므로 만료되지 않는 서명 secret 두 개에는 resource-local Checkov 예외를 적용합니다. | `current change`, 집중 마이그레이션 계약, 일회용 PostgreSQL 수명 주기 검사 및 finding 0건의 Checkov | 배포 전에 exact green required CI 및 supply-chain 증적을 보존합니다. |
 | 2026-09-04 | implemented | 실제 계획에서 split Core 서비스가 누락된 platform 출력을 올바르게 차단하고 일반 platform 계획에 관련 없는 destructive drift가 있음을 확인한 뒤, RCA reader identity만 위한 exact-context bounded bootstrap을 추가했습니다. 기존 요청 필드를 사용하므로 workflow는 GitHub의 25개 입력 한도를 유지합니다. | `current change`, deployment CLI, 요청 검증, 계획 범위 및 workflow 집중 검사 105개 통과, Ruff 및 strict mypy 통과 | 보호된 계획과 exact apply를 실행한 뒤 split Core 서비스 계획에서 결과 출력을 사용합니다. |
 | 2026-08-26 | implemented | 해석되지 않는 Functions 배포 액션을 인증된 Azure CLI `config-zip` 경로로 교체했습니다. 개발 operations gateway는 원격 빌드를 유지하고 관리 ID 실행기의 게시 작업을 900초로 제한합니다. | `current change`, 집중 배포 workflow 검사 93개 통과, CI 계약 통과 | 정확히 커밋된 workflow에서 보호된 gateway 게시 증적 하나를 보존합니다. |
 | 2026-08-26 | implemented | 예약된 인프라 drift에 읽기 전용 실행기 저장소 상태 검사를 추가하고 임시 실행기 프로파일의 구성된 할당 해제와 수동 할당 해제를 모두 차단했습니다. | `current change`; 실행기 상태 스크립트, drift workflow, 수명 주기 도우미 및 집중 계약 검사 14개. | 실제 실행기의 blue/green 교체를 완료하고 성공한 예약 상태 검사 증적 하나를 보존합니다. |

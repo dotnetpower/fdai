@@ -566,6 +566,7 @@ def test_ci_separates_root_and_service_migration_database_tests() -> None:
         "Run service-owned migrations"
     )
     integration_step = next(step for step in steps if step["name"] == "Run integration test suite")
+    assert integration_step["env"]["FDAI_PYTEST_MODE"] == "integration"
     assert "FDAI_DATABASE_URL" not in integration_step["env"]
     service_step = next(
         step for step in steps if step["name"] == "Run service-owned database tests"
