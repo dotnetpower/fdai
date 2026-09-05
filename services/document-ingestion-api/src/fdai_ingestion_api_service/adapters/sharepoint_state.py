@@ -200,14 +200,11 @@ class PostgresSharePointDeltaStore:
                 raise ConnectorBindingConflictError(
                     "SharePoint connector item disappeared before document binding"
                 )
-            if prior["version_id"] is not None and UUID(str(prior["version_id"])) != version_id:
-                displaced_revision = str(prior["bound_source_revision"])
-                await self._queue_cancellation(
-                    connection,
-                    connector_id=connector_id,
-                    source_item_id=source_item_id,
-                    source_revision=displaced_revision,
-                )
+            displaced_revision = (
+                str(prior["bound_source_revision"])
+                if prior["version_id"] is not None and UUID(str(prior["version_id"])) != version_id
+                else None
+            )
             updated = await connection.execute(
                 "UPDATE document_connector_item SET document_id = %s, version_id = %s, "
                 "bound_source_revision = %s, ingestion_outcome = 'accepted', "
@@ -230,6 +227,13 @@ class PostgresSharePointDeltaStore:
             if await updated.fetchone() is None:
                 raise ConnectorBindingConflictError(
                     "SharePoint connector item cannot accept stale document binding"
+                )
+            if displaced_revision is not None:
+                await self._queue_cancellation(
+                    connection,
+                    connector_id=connector_id,
+                    source_item_id=source_item_id,
+                    source_revision=displaced_revision,
                 )
 
     async def record_rejection(

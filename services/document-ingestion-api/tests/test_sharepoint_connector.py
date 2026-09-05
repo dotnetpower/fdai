@@ -24,7 +24,9 @@ from fdai_ingestion_api_service.adapters.sharepoint_identity import (
     SharePointFederatedCredentialConfig,
 )
 from fdai_ingestion_api_service.adapters.sharepoint_state import (
+    ConnectorBindingConflictError,
     ConnectorDocumentBinding,
+    PostgresSharePointDeltaStore,
     _cursor,
     _cursor_json,
     _validate_cancellation_revision,
@@ -536,6 +538,68 @@ async def test_cancellation_failure_remains_retryable() -> None:
 
     assert service.uploads[first.upload_id].state is DocumentState.DELETING
     assert state.pending == []
+
+
+async def test_stale_binding_does_not_queue_winning_revision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Cursor:
+        def __init__(self, row: dict[str, object] | None) -> None:
+            self._row = row
+
+        async def fetchone(self) -> dict[str, object] | None:
+            return self._row
+
+    class Connection:
+        def __init__(self) -> None:
+            self.queued = False
+
+        async def __aenter__(self) -> Connection:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        def transaction(self) -> Connection:
+            return self
+
+        async def execute(self, query: str, _params: object = None) -> Cursor:
+            if query.startswith("SELECT set_config"):
+                return Cursor(None)
+            if query.startswith("SELECT document_id"):
+                return Cursor(
+                    {
+                        "document_id": UUID(int=1),
+                        "version_id": UUID(int=2),
+                        "bound_source_revision": "winning-revision",
+                    }
+                )
+            if query.startswith("UPDATE document_connector_item"):
+                return Cursor(None)
+            if query.startswith("INSERT INTO document_connector_cancellation"):
+                self.queued = True
+                return Cursor(None)
+            raise AssertionError(f"unexpected query: {query}")
+
+    connection = Connection()
+    store = PostgresSharePointDeltaStore(dsn="postgresql://local")
+
+    async def connect() -> Connection:
+        return connection
+
+    monkeypatch.setattr(store, "_connect", connect)
+
+    with pytest.raises(ConnectorBindingConflictError, match="stale document binding"):
+        await store.bind_document(
+            connector_id="connector",
+            source_item_id="item",
+            document_id=UUID(int=3),
+            version_id=UUID(int=4),
+            source_revision="stale-revision",
+            source_sequence=1,
+        )
+
+    assert connection.queued is False
 
 
 async def test_background_cancellation_reconciliation_is_page_bounded() -> None:
