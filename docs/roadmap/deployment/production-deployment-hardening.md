@@ -121,7 +121,8 @@ A tenant without public registry egress builds the runtime image with
 `--build-arg BASE_IMAGE_REGISTRY=<internal-mirror>`. Only the registry host moves; the base image
 digests stay pinned in the `Dockerfile`, so a mirror can change where the bytes come from but never
 which bytes are accepted. `scripts/quality/ci/check-ci-contracts.py` fails the build when a base
-image loses either property.
+image loses either property. The same contract pins security-upgraded runtime libraries that are
+newer than vulnerable versions retained in the accepted base image.
 
 ## Private data services
 

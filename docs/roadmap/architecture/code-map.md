@@ -596,8 +596,8 @@ Content-addressed live evidence also binds the exact service and observation kin
 
 The package test tree validates SDK behavior. Cross-service N/N-1 and topology checks remain under
 [root integration tests](../../../tests/integration/).
-Deployable service images share the pinned Alpine Python, OpenSSL, and SQLite baseline. The document
-worker adds only its owned Tesseract language data and OCR runtime dependencies.
+Deployable service images share pinned Alpine Python, OpenSSL, SQLite, and util-linux runtime
+packages. The document worker adds only its owned Tesseract language data and OCR dependencies.
 
 ## Other repository owners
 

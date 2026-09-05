@@ -527,15 +527,18 @@ def test_azd_is_infrastructure_only_without_a_stale_service_target() -> None:
     assert "azd-service-name: core" not in azure
 
 
-def test_shipped_runtime_images_pin_the_fixed_sqlite_package() -> None:
+def test_shipped_runtime_images_pin_fixed_runtime_packages() -> None:
     root = Path(__file__).resolve().parents[3]
     dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
+    dockerfiles.append(root / "extensions" / "cost-governance" / "docker" / "Dockerfile")
 
-    assert len(dockerfiles) == 5
+    assert len(dockerfiles) == 6
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "ARG SQLITE_LIBS_VERSION=3.53.4-r0" in text
+        assert "ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r0" in text
         assert "https://dl-cdn.alpinelinux.org/alpine/edge/main" in text
+        assert '"libuuid=${UTIL_LINUX_LIBS_VERSION}"' in text
         assert '"sqlite-libs=${SQLITE_LIBS_VERSION}"' in text
 
 

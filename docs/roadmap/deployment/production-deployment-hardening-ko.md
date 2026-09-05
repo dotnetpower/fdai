@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 5f13f3def5b001c613129388769d50b82e506ce5
+translation_source_sha: a7c138e06cf7613742184ab79c4c4ecb5a618d2f
 translation_revised: 2026-09-05
 ---
 # 운영 배포 강화
@@ -124,6 +124,7 @@ soft-delete 상태의 리소스는 이름이 해제되기 전에 명시적인 �
 레지스트리 호스트뿐이고 base 이미지 다이제스트는 `Dockerfile`에 pin된 채로 남습니다. 따라서
 미러는 바이트의 출처를 바꿀 수 있어도 어떤 바이트가 수락되는지는 바꿀 수 없습니다. Base
 이미지가 둘 중 하나라도 잃으면 `scripts/quality/ci/check-ci-contracts.py`가 빌드를 실패시킵니다.
+같은 계약은 허용된 base 이미지에 남은 취약 버전보다 최신인 보안 갱신 런타임 라이브러리도 고정합니다.
 
 ## 비공개 데이터 서비스
 

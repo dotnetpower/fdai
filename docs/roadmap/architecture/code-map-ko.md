@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d31a88b3bb4f48ef68f1b26a4c18c5bcad33ee2f
+translation_source_sha: 6846c7b5237c94f90d845ed839ae126e7edccbb9
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -572,8 +572,8 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 
 패키지 테스트 트리는 SDK 행동을 검증합니다. 서비스 간 N/N-1 및 토폴로지 검사는
 [루트 통합 테스트](../../../tests/integration/)에 유지합니다.
-배포 가능한 서비스 이미지는 고정된 Alpine Python, OpenSSL 및 SQLite baseline을 공유합니다.
-문서 worker는 자신이 소유한 Tesseract 언어 데이터와 OCR runtime 의존성만 추가합니다.
+배포 가능한 서비스 이미지는 고정된 Alpine Python, OpenSSL, SQLite 및 util-linux 런타임
+패키지를 공유합니다. 문서 worker는 자신이 소유한 Tesseract 언어 데이터와 OCR 의존성만 추가합니다.
 
 ## 기타 저장소 소유자
 
