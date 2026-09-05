@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 8f954c01f83a5c80f9ff6110d083dc3b71e904e0
-translation_revised: 2026-09-04
+translation_source_sha: 2e3cc14f86238495aaef6c07c4f261161238b0e6
+translation_revised: 2026-09-05
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -19,6 +19,11 @@ WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 �
 온톨로지 인스턴스 변환 결과는 Inspector, 밀집 범례 및 현재 화면 근거 맥락에서 관측된
 `runtime_calls`를 일반 직접 관계와 구분합니다. 저장된 원본-대상 방향을 보존하며 런타임
 원본을 사용할 수 없을 때 호출을 추론할 수 없습니다.
+
+Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
+내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.
+운영 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 원시 크기와 gzip 한도를 모두 적용합니다.
+
 ## Dependency-direction 게이트
 
 `check-operator-api-boundaries.py`는 애플리케이션 코드를 로드하지 않고 가져오기를 파싱합니다. 정리된

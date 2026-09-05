@@ -64,52 +64,107 @@ const ConversationSearchRoute = lazyRoute(
   "ConversationSearchRoute",
 );
 const RuleTraceRoute = lazyRoute(() => import("./routes/rule-trace"), "RuleTraceRoute");
-const RcaRoute = lazy(async () => ({ default: (await import("./routes/rca")).RcaRoute }));
-const ArchitectureRoute = lazy(async () => ({ default: (await import("./routes/architecture")).ArchitectureRoute }));
-const OntologyRoute = lazy(async () => ({ default: (await import("./routes/ontology")).OntologyRoute }));
-const HandoverRoute = lazy(async () => ({ default: (await import("./routes/handover")).HandoverRoute }));
-const RuleCatalogRoute = lazy(async () => ({ default: (await import("./routes/rule-catalog")).RuleCatalogRoute }));
-const WorkflowBuilderRoute = lazy(async () => ({ default: (await import("./routes/workflow-builder")).WorkflowBuilderRoute }));
+const RcaRoute = lazyRoute(() => import("./routes/rca"), "RcaRoute");
+const ArchitectureRoute = lazyRoute(
+  () => import("./routes/architecture"),
+  "ArchitectureRoute",
+);
+const OntologyRoute = lazyRoute(() => import("./routes/ontology"), "OntologyRoute");
+const HandoverRoute = lazyRoute(() => import("./routes/handover"), "HandoverRoute");
+const RuleCatalogRoute = lazyRoute(
+  () => import("./routes/rule-catalog"),
+  "RuleCatalogRoute",
+);
+const WorkflowBuilderRoute = lazyRoute(
+  () => import("./routes/workflow-builder"),
+  "WorkflowBuilderRoute",
+);
 const KnowledgeDomainRoute = lazy(() => import("./routes/knowledge-domain"));
-const BlastRadiusRoute = lazy(async () => ({ default: (await import("./routes/blast-radius")).BlastRadiusRoute }));
-const PromotionGatesRoute = lazy(async () => ({ default: (await import("./routes/promotion-gates")).PromotionGatesRoute }));
-const ContextSelectionComparisonsRoute = lazy(async () => ({ default: (await import("./routes/context-selection-comparisons")).ContextSelectionComparisonsRoute }));
-const ScopeRoute = lazy(async () => ({ default: (await import("./routes/scope")).ScopeRoute }));
-const LlmCostRoute = lazy(async () => ({ default: (await import("./routes/llm-cost")).LlmCostRoute }));
-const CostGovernanceRoute = lazy(async () => ({ default: (await import("./routes/cost-governance")).CostGovernanceRoute }));
-const CapabilitiesRoute = lazy(async () => ({ default: (await import("./routes/capabilities")).CapabilitiesRoute }));
-const SkillsRoute = lazy(async () => ({ default: (await import("./routes/skills")).SkillsRoute }));
-const OnboardingRoute = lazy(async () => ({ default: (await import("./routes/onboarding")).OnboardingRoute }));
-const DetectionReadinessRoute = lazy(async () => ({ default: (await import("./routes/detection-readiness")).DetectionReadinessRoute }));
-const ConfigurationBaselinesRoute = lazy(async () => ({ default: (await import("./routes/configuration-baselines")).ConfigurationBaselinesRoute }));
-const SchedulerRunsRoute = lazy(async () => ({ default: (await import("./routes/scheduler-runs")).SchedulerRunsRoute }));
-const BackgroundTasksRoute = lazy(async () => ({ default: (await import("./routes/background-tasks")).BackgroundTasksRoute }));
-const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./routes/automation-blueprints")).AutomationBlueprintsRoute }));
-const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
-const ConversationDeliveryRoute = lazy(async () => ({ default: (await import("./routes/conversation-delivery")).ConversationDeliveryRoute }));
-const ConversationAssuranceRoute = lazy(async () => ({ default: (await import("./routes/conversation-assurance")).ConversationAssuranceRoute }));
-function analyticsRoute(
-  name:
-    | "OperatingOutcomesRoute"
-    | "ControlAssuranceRoute"
-    | "VerticalOutcomesRoute"
-    | "TrustRoutingRoute",
-) {
-  return lazy(async () => ({ default: (await import("./routes/analytics-hubs"))[name] }));
-}
-const OperatingOutcomesRoute = analyticsRoute("OperatingOutcomesRoute");
-const ControlAssuranceRoute = analyticsRoute("ControlAssuranceRoute");
-const VerticalOutcomesRoute = analyticsRoute("VerticalOutcomesRoute");
-const TrustRoutingRoute = analyticsRoute("TrustRoutingRoute");
-const SettingsGeneralRoute = lazy(async () => ({ default: (await import("./routes/settings")).SettingsGeneralRoute }));
-const SettingsModelsRoute = lazy(async () => ({ default: (await import("./routes/settings-models")).SettingsModelsRoute }));
-const SettingsRuntimeRoute = lazy(async () => ({ default: (await import("./routes/settings-runtime")).SettingsRuntimeRoute }));
-const OperatorMemoryRoute = lazy(async () => ({ default: (await import("./routes/operator-memory")).OperatorMemoryRoute }));
-const SettingsIamRoute = lazy(async () => ({ default: (await import("./routes/settings-iam")).SettingsIamRoute }));
+const BlastRadiusRoute = lazyRoute(
+  () => import("./routes/blast-radius"),
+  "BlastRadiusRoute",
+);
+const PromotionGatesRoute = lazyRoute(
+  () => import("./routes/promotion-gates"),
+  "PromotionGatesRoute",
+);
+const ContextSelectionComparisonsRoute = lazyRoute(
+  () => import("./routes/context-selection-comparisons"),
+  "ContextSelectionComparisonsRoute",
+);
+const ScopeRoute = lazyRoute(() => import("./routes/scope"), "ScopeRoute");
+const LlmCostRoute = lazyRoute(() => import("./routes/llm-cost"), "LlmCostRoute");
+const CostGovernanceRoute = lazyRoute(
+  () => import("./routes/cost-governance"),
+  "CostGovernanceRoute",
+);
+const CapabilitiesRoute = lazyRoute(
+  () => import("./routes/capabilities"),
+  "CapabilitiesRoute",
+);
+const SkillsRoute = lazyRoute(() => import("./routes/skills"), "SkillsRoute");
+const OnboardingRoute = lazyRoute(() => import("./routes/onboarding"), "OnboardingRoute");
+const DetectionReadinessRoute = lazyRoute(
+  () => import("./routes/detection-readiness"),
+  "DetectionReadinessRoute",
+);
+const ConfigurationBaselinesRoute = lazyRoute(
+  () => import("./routes/configuration-baselines"),
+  "ConfigurationBaselinesRoute",
+);
+const SchedulerRunsRoute = lazyRoute(
+  () => import("./routes/scheduler-runs"),
+  "SchedulerRunsRoute",
+);
+const BackgroundTasksRoute = lazyRoute(
+  () => import("./routes/background-tasks"),
+  "BackgroundTasksRoute",
+);
+const AutomationBlueprintsRoute = lazyRoute(
+  () => import("./routes/automation-blueprints"),
+  "AutomationBlueprintsRoute",
+);
+const ScheduledContinuationsRoute = lazyRoute(
+  () => import("./routes/scheduled-continuations"),
+  "ScheduledContinuationsRoute",
+);
+const ConversationDeliveryRoute = lazyRoute(
+  () => import("./routes/conversation-delivery"),
+  "ConversationDeliveryRoute",
+);
+const ConversationAssuranceRoute = lazyRoute(
+  () => import("./routes/conversation-assurance"),
+  "ConversationAssuranceRoute",
+);
+const loadAnalyticsHubs = () => import("./routes/analytics-hubs");
+const OperatingOutcomesRoute = lazyRoute(loadAnalyticsHubs, "OperatingOutcomesRoute");
+const ControlAssuranceRoute = lazyRoute(loadAnalyticsHubs, "ControlAssuranceRoute");
+const VerticalOutcomesRoute = lazyRoute(loadAnalyticsHubs, "VerticalOutcomesRoute");
+const TrustRoutingRoute = lazyRoute(loadAnalyticsHubs, "TrustRoutingRoute");
+const SettingsGeneralRoute = lazyRoute(
+  () => import("./routes/settings"),
+  "SettingsGeneralRoute",
+);
+const SettingsModelsRoute = lazyRoute(
+  () => import("./routes/settings-models"),
+  "SettingsModelsRoute",
+);
+const SettingsRuntimeRoute = lazyRoute(
+  () => import("./routes/settings-runtime"),
+  "SettingsRuntimeRoute",
+);
+const OperatorMemoryRoute = lazyRoute(
+  () => import("./routes/operator-memory"),
+  "OperatorMemoryRoute",
+);
+const SettingsIamRoute = lazyRoute(
+  () => import("./routes/settings-iam"),
+  "SettingsIamRoute",
+);
 const loadSettingsSystem = () => import("./routes/settings-system");
-const SettingsIntegrationsRoute = lazy(async () => ({ default: (await loadSettingsSystem()).SettingsIntegrationsRoute }));
-const SettingsDiagnosticsRoute = lazy(async () => ({ default: (await loadSettingsSystem()).SettingsDiagnosticsRoute }));
-const LabsRoute = lazy(async () => ({ default: (await import("./routes/labs")).LabsRoute }));
+const SettingsIntegrationsRoute = lazyRoute(loadSettingsSystem, "SettingsIntegrationsRoute");
+const SettingsDiagnosticsRoute = lazyRoute(loadSettingsSystem, "SettingsDiagnosticsRoute");
+const LabsRoute = lazyRoute(() => import("./routes/labs"), "LabsRoute");
 
 /** Props every panel component receives. Read-only client only. */
 export interface PanelProps {
