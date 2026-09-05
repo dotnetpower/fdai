@@ -50,6 +50,9 @@ _CATALOG_REFRESH = (_ROOT / "scripts/deployment/azure/refresh-authoritative-cata
 _MODEL_PROPOSAL_HELPER = (
     _ROOT / "scripts/deployment/azure/materialize-model-binding-proposal.sh"
 ).read_text(encoding="utf-8")
+_DOCUMENT_OCR_STATE_HELPER = (
+    _ROOT / "scripts/deployment/azure/resolve-document-ocr-desired-state.sh"
+).read_text(encoding="utf-8")
 _LEGACY_COMPUTE = (_ROOT / "infra/modules/compute/container-apps/main.tf").read_text(
     encoding="utf-8"
 )
@@ -152,11 +155,11 @@ def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
     assert "use_azure_provision" in _LEGACY_WORKFLOW
     assert "deprovision_use_local" in _LEGACY_WORKFLOW
     assert "plan-ocr-" in _LEGACY_WORKFLOW
-    assert "- name: Bind document OCR proposal" in _LEGACY_WORKFLOW
+    assert "- name: Verify exact Azure context and bind governed inputs" in _LEGACY_WORKFLOW
     assert "materialize-document-ocr-proposal.sh" in _LEGACY_WORKFLOW
-    assert "- name: Resolve document OCR desired state" in _LEGACY_WORKFLOW
-    assert "TF_VAR_enable_document_intelligence=%s" in _LEGACY_WORKFLOW
-    assert "TF_VAR_document_ocr_provider=%s" in _LEGACY_WORKFLOW
+    assert "resolve-document-ocr-desired-state.sh" in _LEGACY_WORKFLOW
+    assert "TF_VAR_enable_document_intelligence=%s" in _DOCUMENT_OCR_STATE_HELPER
+    assert "TF_VAR_document_ocr_provider=%s" in _DOCUMENT_OCR_STATE_HELPER
 
 
 def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> None:
