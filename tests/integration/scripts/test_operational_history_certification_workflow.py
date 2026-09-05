@@ -28,6 +28,8 @@ def test_certification_binds_every_authoritative_revision() -> None:
         "Verify OI-15 apply receipt artifact",
     ):
         assert value in _WORKFLOW
+    assert "Install pinned GitHub CLI" in _WORKFLOW
+    assert "scripts/deployment/azure/install-pinned-github-cli.sh" in _WORKFLOW
 
 
 def test_certification_is_dev_only_and_fail_closed() -> None:

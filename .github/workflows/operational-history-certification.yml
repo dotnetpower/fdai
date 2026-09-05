@@ -90,6 +90,9 @@ jobs:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 1
 
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
       - name: Verify required CI for exact revision
         env:
           GH_TOKEN: ${{ github.token }}
