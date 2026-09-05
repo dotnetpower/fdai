@@ -97,6 +97,8 @@ principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule�
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
 생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
+Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
+optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는

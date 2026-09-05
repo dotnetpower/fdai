@@ -742,6 +742,7 @@ a:hover {
 .document-index-status.is-pending { color: var(--warning, #8a5a00); }
 .document-index-status.is-not_indexed { color: var(--fg-muted); }
 .document-library-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.document-library-action-tooltip { display: inline-flex; }
 .document-delete-confirm {
   display: flex;
   align-items: center;
@@ -818,7 +819,11 @@ a:hover {
     grid-row: auto;
     justify-content: stretch;
   }
-  .document-library-actions > .cs-control-button { min-height: 44px; flex: 1; }
+  .document-library-actions > .cs-control-button,
+  .document-library-actions > .document-library-action-tooltip,
+  .document-library-actions > .tooltip-anchor { min-height: 44px; flex: 1; }
+  .document-library-actions > .tooltip-anchor > .document-library-action-tooltip { width: 100%; }
+  .document-library-action-tooltip > .cs-control-button { min-height: 44px; width: 100%; }
   .document-delete-confirm { max-width: none; justify-content: flex-start; }
 }
 
