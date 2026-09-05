@@ -52,14 +52,14 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
-  Focused sibling modules may own canonical identity projection and hashing while the established
-  owner module re-exports that public surface; the split must preserve serialized bytes and replay
-  semantics.
+  Focused sibling modules may own canonical identity projection and hashing while the established owner
+  module re-exports that public surface; the split must preserve serialized bytes and replay semantics.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the
   HIL coordinator. The Operator package depends on `cryptography` for local JWT/JWK verification
   but never imports Core implementation or receives executor identity. **Document OCR stays split by contract and provider ownership**: the shared service-contract SDK owns the revisioned provider policy without deployment authority, the document worker owns the bounded local Tesseract adapter and Azure adapter selection, and infrastructure supplies only the selected endpoint, identity, and provider value, so neither ingestion service imports another service implementation. Service migration CI serializes schema-mutating lifecycle tests after adoption, and forward repairs preserve root-owned shared indexes after rollback.
+- **operational ownership draft delivery stays review-only**: Runtime composition and protected Core deployment preserve the GitOps, merge-effect, identity-health, and knowledge-lifecycle boundaries defined by [Agent operational ownership lifecycle](../interfaces/agent-stewardship-operations.md).
 - **observation-mode ARB composition**: `core/architecture_review/observation_loop.py` owns the
   provider-neutral Change -> authenticated context -> evidence bundle -> scenario -> DecisionCase
   and ImpactEnvelope composition. Forseti is the only publisher of its observation verdict on the

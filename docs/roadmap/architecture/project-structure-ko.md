@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7db6aa6033f7e9388b71a3a0896626f4bf5fba44
-translation_revised: 2026-09-05
+translation_source_sha: b95ab4705cb5af2b044ea9c2566240bec55f55ba
+translation_revised: 2026-09-06
 ---
 # 프로젝트 구조
 
@@ -48,8 +48,7 @@ translation_revised: 2026-09-05
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
-  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
-  해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
+  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
@@ -58,6 +57,7 @@ translation_revised: 2026-09-05
   버전 기반 공급자 정책을 소유합니다. 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure
   어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집
   서비스가 다른 서비스 구현을 가져오지 않습니다. 서비스 마이그레이션 CI는 적용 후 스키마를 변경하는 수명 주기 검사를 직렬화하고 forward 복구는 rollback 후 root 소유 공유 index를 보존합니다.
+- **운영 담당 체계 초안 전달은 검토 전용으로 유지**: 런타임 구성과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 GitOps, 병합 결과, 신원 상태 및 지식 수명 주기 경계를 보존합니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
