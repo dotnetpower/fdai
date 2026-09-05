@@ -70,6 +70,7 @@ class RuntimeTaskConfiguration:
     Bound by runtime composition so the decision consumer can route a workflow
     approval slot without Core importing a delivery implementation.
     """
+    stewardship_governance_worker: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,6 +302,7 @@ async def run_runtime_tasks(
     case_history_retention_task: asyncio.Task[None] | None = None
     discovery_activation_task: asyncio.Task[None] | None = None
     continuous_operating_model_task: asyncio.Task[None] | None = None
+    stewardship_governance_task: asyncio.Task[None] | None = None
     pantheon_runtime = config.pantheon_runtime
     if pantheon_runtime is not None:
         pantheon_task = asyncio.create_task(
@@ -417,6 +419,14 @@ async def run_runtime_tasks(
             ),
             name="continuous-operating-model",
         )
+    if config.stewardship_governance_worker is not None:
+        stewardship_governance_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.stewardship_governance_worker.run(config.stop),
+            ),
+            name="stewardship-governance",
+        )
 
     await hooks.supervise_runtime_tasks(
         required=(
@@ -448,6 +458,7 @@ async def run_runtime_tasks(
             rule_generation_outbox_task,
             rule_generation_reconciliation_task,
             incident_notification_replay_task,
+            stewardship_governance_task,
         ),
     )
 

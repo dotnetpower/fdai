@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import psycopg
 from fdai_service_contracts import HandoverDraftArtifact
 
@@ -25,5 +27,8 @@ class PostgresHandoverDraftStore:
             await connection.execute(
                 "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
                 "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                (f"handover_draft:{artifact.upload_id}", artifact.model_dump_json()),
+                (
+                    f"handover_draft:{artifact.upload_id}",
+                    json.dumps(artifact.to_dict(), separators=(",", ":")),
+                ),
             )

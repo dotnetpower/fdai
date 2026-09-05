@@ -13,11 +13,16 @@ second one. An abstained draft is never published.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any
 from uuid import UUID
 
+import yaml
 from fdai_service_contracts.handover import HandoverDraftArtifact, HandoverDraftOutcome
 
+from fdai.core.stewardship.model import StewardshipValidationError
+from fdai.core.stewardship.resolver import load_stewardship_from_mapping
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.remediation_pr import (
     PublishReceipt,
@@ -65,6 +70,7 @@ class StewardshipGovernanceService:
     """Publish a stewardship draft as one idempotent, review-only PR."""
 
     publisher: RemediationPrPublisher
+    validation_environ: Mapping[str, str] = field(default_factory=dict)
 
     async def publish(self, artifact: HandoverDraftArtifact) -> StewardshipGovernanceResult:
         key = stewardship_idempotency_key(artifact)
@@ -86,6 +92,7 @@ class StewardshipGovernanceService:
             raise StewardshipGovernanceError("stewardship draft YAML MUST be non-empty")
         if len(artifact.yaml.encode("utf-8")) > _MAX_YAML_BYTES:
             raise StewardshipGovernanceError("stewardship draft YAML exceeds the bounded size")
+        _validate_candidate(artifact.yaml, environ=self.validation_environ)
         receipt = await self.publisher.publish(_render(artifact, key))
         return StewardshipGovernanceResult(
             published=True,
@@ -130,6 +137,27 @@ def _render(artifact: HandoverDraftArtifact, key: str) -> RemediationPr:
             "schema_version": artifact.schema_version,
         },
     )
+
+
+def _validate_candidate(candidate: str, *, environ: Mapping[str, str]) -> None:
+    """Fail closed unless the rendered candidate is a complete stewardship map."""
+
+    try:
+        raw: Any = yaml.safe_load(candidate)
+    except yaml.YAMLError as exc:
+        raise StewardshipGovernanceError("stewardship draft YAML is malformed") from exc
+    if not isinstance(raw, Mapping):
+        raise StewardshipGovernanceError("stewardship draft YAML MUST be a mapping")
+    validation_environ = {}
+    require_bindings = environ.get("FDAI_STEWARDSHIP_REQUIRE_BINDINGS")
+    if require_bindings is not None:
+        validation_environ["FDAI_STEWARDSHIP_REQUIRE_BINDINGS"] = require_bindings
+    try:
+        load_stewardship_from_mapping(raw, environ=validation_environ)
+    except StewardshipValidationError as exc:
+        raise StewardshipGovernanceError(
+            "stewardship draft YAML failed governance validation"
+        ) from exc
 
 
 def _action_id(key: str) -> UUID:

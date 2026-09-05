@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 0c5f0fc50da0977d881815cf3326320cbd225a32
+translation_source_sha: 7fb46f46d32086b2c80162b9cf8ae1aff9c850f5
 translation_revised: 2026-09-05
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -46,7 +46,7 @@ Handover-map 스키마와 소유권 개념은
 | 시작 바인딩과 읽기 전용 변환 결과 | implemented | `services/operator-service/src/fdai_operator_service/`; `services/operator-service/tests/test_operator_operations_family.py`; `tests/integration/infra/test_operator_api_stewardship.py`; 집중 Operator 및 Terraform 테스트 (15 passed) | 경로와 배포 바인딩이 있습니다. 소스 배선만으로 실제 배포 준비 상태가 입증되지는 않습니다. |
 | Terraform 바인딩 완전성 검사 | implemented | `infra/production-gates.tf`; `infra/modules/operator-api/container-app/main.tf`; `tests/integration/infra/test_operator_api_stewardship.py` | 운영 구성은 신원을 배포 소유로 유지하면서 관리자와 자율 운영이 아닌 모든 에이전트 바인딩을 요구합니다. |
 | 안내형 등록과 근거 기반 영속 초안 | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; 집중 콘솔 테스트 (21 passed); 집중 수집 전달 테스트 (9 passed) | SPA는 관리형 업로드를 제출하고 워커는 검토 전용 초안을 저장합니다. 어느 효과도 활성 지도를 변경하지 않습니다. |
-| 멱등적 초안 거버넌스 PR 전달 | in-progress | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`test_governance.py`](../../../services/core-control-plane/tests/core/stewardship/test_governance.py) | `StewardshipGovernanceService`가 인수인계 산출물에서 `config/agent-stewardship.yaml`용 shadow 라벨 초안 PR 하나를 렌더링해 `RemediationPrPublisher`로 게시합니다. 재시도는 내용 기반 키를 재사용하고, 기권하거나 비어 있는 초안은 게시되지 않으며, 메타데이터에 사람 값이 담기지 않습니다. 운영 조립과 수집 워커 연결은 아직 없습니다. |
+| 멱등적 초안 거버넌스 PR 전달 | in-progress | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); 집중 담당 체계 및 런타임 테스트 (149 passed) | 런타임은 영속 `handover_draft:*` 레코드를 읽고, 신원 재정의를 허용하지 않은 상태에서 각 완전한 후보를 검증한 다음 구성된 `RemediationPrPublisher`를 통해 게시합니다. PR 참조 또는 차단 결과는 Saga 감사와 함께 원자적으로 기록합니다. 내용 기반 증적을 사용하므로 재시작과 재처리가 안전합니다. 관리형 배포 증적은 아직 필요합니다. |
 | 서명된 병합 수신과 후속 담당 체계 효과 | in-progress | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py`; 집중 수집 전달 테스트 (9 passed) | HMAC, 저장소, 병합, 변경 파일, 병합 콘텐츠, 멱등 기록 검사가 있습니다. 해석기 검증, 영향받는 소유자 계산, 배정 다이제스트 일치, Saga 감사, IAM 트리거, 알림은 조립되지 않았습니다. |
 | 예약 실행되는 영속 신원 상태 검사 | in-progress | `services/core-control-plane/src/fdai/core/stewardship/directory.py`; `infra/modules/operator-api/container-app/main.tf` | 유효하지 않은 OID 평가와 간격 설정은 있지만 예약 실행되는 `StewardshipHealthMonitor` 또는 `stewardship_health:*` 스냅샷 및 하트비트 조립은 찾지 못했습니다. |
 
@@ -58,11 +58,13 @@ Handover-map 스키마와 소유권 개념은
 | 2026-08-18 | in-progress | stewardship webhook과 저장소 handover intake를 구성하는 ingestion API composition이 개별 파서 대신 공유 계약으로 실행 장소를 해석하도록 했습니다. 장소가 선택하는 자격 증명이나 엔드포인트가 다른 서비스와 어긋날 수 없습니다. stewardship 수명주기 동작은 바뀌지 않았습니다. | `current change`, `services/document-ingestion-api/tests`가 다른 독립 서비스 suite와 함께 focused 874건 통과(스킵 1건), venue 게이트가 소스 트리 6개에서 OK 보고 | 아래의 미연결 병합 후 소유권 효과와 예약 신원 상태 점검은 계속 열려 있습니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 시작, 초안 생성, 서명된 병합 수신, 미구현 운영 효과를 구분하도록 수명 주기 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 거버넌스 PR 게시, 병합 후 효과, 예약 실행되는 신원 상태 검사를 완료한 뒤 런타임 근거를 보존합니다. |
 | 2026-08-16 | in-progress | 내용 기반 키, 검토 전용 렌더링, 닫힘 실패 초안 검증을 갖춘 인수인계 산출물에서 `RemediationPrPublisher`로 이어지는 멱등 경로를 조립했습니다. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py`가 모호한 전송 실패 이후 초안 PR 하나를 재사용하는 재시도와 PR 본문의 제한된 경고 렌더링을 포함해 집중 테스트 9개를 통과했습니다. | 운영 조립에 서비스를 연결하고 병합 후 소유권 효과와 예약 신원 상태 검사를 완료해야 합니다. |
+| 2026-09-05 | in-progress | 영속 인수인계 초안을 처리하는 운영 런타임 워커를 추가했습니다. 잘못된 후보가 이후 레코드를 차단하지 않으며, 추적된 YAML을 검증할 때 런타임 신원 재정의를 무시하고, 이전 직렬화 초안과 호환되며, 내용 기반 증적과 Saga 감사를 한 번만 기록합니다. | `current change`; `stewardship_governance.py`; 집중 담당 체계, 런타임 거버넌스, 부트스트랩 테스트 149개와 Ruff, strict mypy 통과. | 실제 초안 PR 증적을 보존한 후 병합 결과와 예약 신원 상태 검사를 완료합니다. |
 
 ### 남은 작업
 
 - [x] 인수인계 산출물에서 `RemediationPrPublisher`로 이어지는 멱등 경로를 조립하고, 재시도가 `config/agent-stewardship.yaml`의 초안 PR 하나를 재사용함을 입증하는 집중 테스트를 통과시킵니다.
-- [ ] 저장된 인수인계 초안이 실제 GitOps 게시기에 도달하도록 `StewardshipGovernanceService`를 운영 조립에 연결하고, 게시 전에 렌더링된 YAML을 핵심 resolver로 검증하며, 반환된 PR 참조와 재생 플래그를 산출물에 저장하고 초안 PR 증적을 보존합니다.
+- [x] 저장된 인수인계 초안이 구성된 GitOps 게시기에 도달하도록 `StewardshipGovernanceService`를 운영 조립에 연결하고, 런타임 신원 재정의와 독립적으로 추적된 YAML을 검증하며, 반환된 PR 참조와 재처리 플래그를 내용 기반 증적에 저장합니다.
+- [ ] 저장된 인수인계 초안 하나가 검토 전용 PR 하나를 열고, 재시작 후에도 두 번째 Saga 감사를 만들지 않고 같은 PR을 재사용함을 보여 주는 관리형 배포 증적을 보존합니다.
 - [ ] 병합된 담당 체계 YAML을 해석기로 검증하고, 영향받는 소유자를 계산하며, 배정 제안 다이제스트를 결합하고, Saga 감사, IAM 요청 게시, 수신자 알림이 각각 한 번 발생함을 입증하는 집중 테스트를 통과시킵니다.
 - [ ] 예약 실행되는 신원 상태 모니터를 구현하고, `stewardship_health:current` 및 `stewardship_health:last_success`에서 전이 시에만 수행되는 감사, 개정 번호가 일치하는 하트비트 갱신, 만료, Graph 실패 동작을 입증하는 테스트를 보존합니다.
 - [ ] 어떤 행이든 `validated`로 올리기 전에 실제 시작 바인딩, 안내형 제안 및 검토된 병합, 알림 전달, 감사 종료, 유효하지 않음에서 정상으로의 신원 복구를 보여 주는 배포 증적과 운영 훈련을 보존합니다.
@@ -212,6 +214,8 @@ Requested notification은 현재 활성 map을 사용합니다. 병합 notificat
 | `stewardship_agent_bindings` | `FDAI_STEWARD_<AGENT>` | non-secret 환경 구성 |
 | `gitops_owner`, `gitops_repo` | `FDAI_GITOPS_OWNER`, `FDAI_GITOPS_REPO` | non-secret 환경 구성 |
 | `gitops_token` | `FDAI_GITOPS_TOKEN` | Key Vault 참조 only |
+| 거버넌스 워커 제어 | `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS`, `FDAI_STEWARDSHIP_GOVERNANCE_BATCH_LIMIT` | 비밀이 아닌 환경 구성 |
+| 영속 거버넌스 증적 | `FDAI_STATE_STORE_DSN` | Key Vault 참조 only |
 | `github_webhook_secret` | `FDAI_GITHUB_WEBHOOK_SECRET` | Key Vault 참조 only |
 | `chatops_webhook_url` | `FDAI_CHATOPS_WEBHOOK_URL` | Key Vault 참조 only |
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -24,10 +25,11 @@ from fdai_service_contracts.handover import (
     StewardshipDraft,
 )
 
+_CONFIG = Path(__file__).resolve().parents[5] / "config" / "agent-stewardship.yaml"
 UPLOAD_ID = UUID(int=1, version=4)
 DOCUMENT_ID = UUID(int=2, version=4)
 VERSION_ID = UUID(int=3, version=4)
-YAML = "version: 1\nagents:\n  - agent_name: Freyr\n"
+YAML = _CONFIG.read_text(encoding="utf-8")
 
 
 class _Publisher:
@@ -132,7 +134,14 @@ async def test_changed_yaml_produces_a_new_key() -> None:
     service = StewardshipGovernanceService(publisher=publisher)
 
     first = await service.publish(_artifact())
-    second = await service.publish(_artifact(yaml=f"{YAML}  - agent_name: Njord\n"))
+    second = await service.publish(
+        _artifact(
+            yaml=YAML.replace(
+                "hop_timeout_seconds: 900",
+                "hop_timeout_seconds: 901",
+            )
+        )
+    )
 
     assert first.idempotency_key != second.idempotency_key
     assert second.receipt is not None
@@ -158,6 +167,37 @@ async def test_blank_or_oversized_yaml_fails_closed() -> None:
         await service.publish(_artifact(yaml="   "))
     with pytest.raises(StewardshipGovernanceError, match="bounded size"):
         await service.publish(_artifact(yaml="a" * (256 * 1024 + 1)))
+
+
+async def test_incomplete_or_malformed_candidate_never_publishes() -> None:
+    publisher = _Publisher()
+    service = StewardshipGovernanceService(publisher=publisher)
+
+    with pytest.raises(StewardshipGovernanceError, match="failed governance validation"):
+        await service.publish(_artifact(yaml="stewardship:\n  version: 2\n"))
+    with pytest.raises(StewardshipGovernanceError, match="malformed"):
+        await service.publish(_artifact(yaml="stewardship: ["))
+
+    assert publisher.published == []
+
+
+async def test_runtime_identity_overrides_cannot_hide_an_incomplete_candidate() -> None:
+    publisher = _Publisher()
+    candidate = YAML.replace(
+        '    - oid: "00000000-0000-0000-0000-000000000000"\n',
+        "",
+    )
+    service = StewardshipGovernanceService(
+        publisher=publisher,
+        validation_environ={
+            "FDAI_MAINTAINERS": "00000000-0000-0000-0000-000000000000",
+        },
+    )
+
+    with pytest.raises(StewardshipGovernanceError, match="failed governance validation"):
+        await service.publish(_artifact(yaml=candidate))
+
+    assert publisher.published == []
 
 
 def test_idempotency_key_is_stable_and_content_addressed() -> None:

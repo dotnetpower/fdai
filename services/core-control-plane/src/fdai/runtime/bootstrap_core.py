@@ -84,6 +84,7 @@ from fdai.runtime.control_loop import (
 from fdai.runtime.conversation_assurance import (
     build_runtime_pantheon_conversation_assurance,
 )
+from fdai.runtime.delivery import _build_publisher
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
@@ -97,6 +98,10 @@ from fdai.runtime.providers import (
 )
 from fdai.runtime.rca_bindings import bind_t1_rca_from_environment
 from fdai.runtime.readiness import StartupReadinessRuntime, build_startup_readiness_runtime
+from fdai.runtime.stewardship_governance import (
+    StewardshipGovernanceWorker,
+    build_stewardship_governance_worker,
+)
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 from fdai.shared.providers.state_store import StateStore
@@ -126,6 +131,7 @@ class CoreRuntime:
     environment: Mapping[str, str]
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
+    stewardship_governance_worker: StewardshipGovernanceWorker | None = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -160,6 +166,7 @@ class CoreRuntime:
             notification_receipt_applier=self.notification_receipt_applier,
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
             hil_workflow_registry=self.hil_workflow_registry,
+            stewardship_governance_worker=self.stewardship_governance_worker,
         )
 
 
@@ -198,7 +205,10 @@ async def build_core_runtime(
                 metric_whitelist=plan.diagnostic_metric_whitelist,
             ),
         )
-    if plan.requires_channel_http_client and resources.http_client is None:
+    gitops_delivery_requested = bool(environment.get("FDAI_GITOPS_TOKEN", "").strip())
+    if (
+        plan.requires_channel_http_client or gitops_delivery_requested
+    ) and resources.http_client is None:
         resources.http_client = _new_http_client()
     if plan.github_change_feed_enabled and resources.http_client is not None:
         container = _attach_runtime_github_change_feed(
@@ -207,6 +217,15 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
+    stewardship_governance_worker: StewardshipGovernanceWorker | None = None
+    if gitops_delivery_requested:
+        if resources.http_client is None:  # pragma: no cover - guarded above
+            raise RuntimeError("stewardship governance GitOps delivery requires an HTTP client")
+        stewardship_governance_worker = build_stewardship_governance_worker(
+            store=state_store,
+            publisher=_build_publisher(resources.http_client),
+            environment=environment,
+        )
     best_practices, checklist_evidence = load_runtime_best_practice_bindings(
         _resolve_catalog_root()
     )
@@ -532,6 +551,7 @@ async def build_core_runtime(
         environment=environment,
         diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
         hil_workflow_registry=_build_hil_workflow_registry(state_store),
+        stewardship_governance_worker=stewardship_governance_worker,
     )
 
 
