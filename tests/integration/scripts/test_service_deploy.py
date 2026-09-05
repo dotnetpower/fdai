@@ -1198,6 +1198,38 @@ def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> Non
         )
 
 
+def test_plan_guard_allows_exact_core_notification_receipt_topic_addition(
+    guard: ModuleType,
+) -> None:
+    service = "core-control-plane"
+    plan = _core_model_binding_plan(guard, "a" * 64)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    change["before"]["template"][0]["container"][0]["env"] = copy.deepcopy(after_environment)
+    after_environment.append(
+        {
+            "name": "FDAI_NOTIFICATION_RECEIPT_TOPIC",
+            "value": "fdai.notifications.delivery-receipts",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+    )
+
+    after_environment[-1]["value"] = "unreviewed.topic"
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+        )
+
+
 def _core_model_binding_plan(guard: ModuleType, digest: str) -> dict[str, object]:
     service = "core-control-plane"
     address = "module.core_control_plane.module.container_app.azurerm_container_app.service"

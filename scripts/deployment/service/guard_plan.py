@@ -70,6 +70,7 @@ _MODEL_BINDING_ENVIRONMENT = frozenset(
     }
 )
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
+_NOTIFICATION_RECEIPT_TOPIC = "fdai.notifications.delivery-receipts"
 
 
 def _operator_channel_edge_contract(base: ServiceContract) -> ServiceContract:
@@ -296,6 +297,44 @@ def _only_rca_reader_runtime_transition(
         **after_runtime,
         "env": normalized_after,
     } == before_runtime
+
+
+def _only_notification_receipt_topic_transition(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> bool:
+    if contract.service != "core-control-plane":
+        return False
+    before_runtime = _runtime_contract(before, address=address, contract=contract)
+    after_runtime = _runtime_contract(after, address=address, contract=contract)
+    before_environment = before_runtime.get("env")
+    after_environment = after_runtime.get("env")
+    if not isinstance(before_environment, list) or not isinstance(after_environment, list):
+        return False
+    before_by_name = _environment_by_name(
+        _primary_container(before, address=address, contract=contract),
+        address=address,
+    )
+    after_by_name = _environment_by_name(
+        _primary_container(after, address=address, contract=contract),
+        address=address,
+    )
+    if "FDAI_NOTIFICATION_RECEIPT_TOPIC" in before_by_name:
+        return False
+    if _environment_binding(after_by_name.get("FDAI_NOTIFICATION_RECEIPT_TOPIC")) != (
+        _NOTIFICATION_RECEIPT_TOPIC,
+        None,
+    ):
+        return False
+    normalized_after = [
+        item
+        for item in after_environment
+        if not (isinstance(item, dict) and item.get("name") == "FDAI_NOTIFICATION_RECEIPT_TOPIC")
+    ]
+    return {**after_runtime, "env": normalized_after} == before_runtime
 
 
 def _valid_https_origin(value: str) -> bool:
@@ -711,6 +750,12 @@ def _guard_update(
 
     before_authority = _authority_cutover(before, address=address, contract=contract)
     after_authority = _authority_cutover(after, address=address, contract=contract)
+    allowed_notification_topic = _only_notification_receipt_topic_transition(
+        before,
+        after,
+        address=address,
+        contract=contract,
+    )
     authority_removed_from_core = (
         initial_cutover
         and contract.service == "core-control-plane"
@@ -762,6 +807,7 @@ def _guard_update(
                 contract=contract,
             )
         )
+        and not allowed_notification_topic
         and _runtime_contract(before, address=address, contract=contract)
         != _runtime_contract(after, address=address, contract=contract)
     ):
@@ -802,7 +848,12 @@ def _guard_update(
     expected_primary = _primary_container(expected_before, address=address, contract=contract)
     after_primary = _primary_container(after, address=address, contract=contract)
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
-    if database_host_binding or model_binding_transition or allowed_rca_reader:
+    if (
+        database_host_binding
+        or model_binding_transition
+        or allowed_rca_reader
+        or allowed_notification_topic
+    ):
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
     if allowed_rca_reader:
         expected_before["identity"] = copy.deepcopy(after.get("identity"))
