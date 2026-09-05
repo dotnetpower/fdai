@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: a7c138e06cf7613742184ab79c4c4ecb5a618d2f
+translation_source_sha: 1d529ddf243ecae9e42774c6651f7c3e86603d6e
 translation_revised: 2026-09-05
 ---
 # 운영 배포 강화
@@ -34,6 +34,7 @@ translation_revised: 2026-09-05
 | 2026-09-05 | implemented | Service 적용 후 스키마를 변경하는 카탈로그 수명 주기 회귀를 직렬화하고 forward Core 마이그레이션으로 root 소유 T2 lookup index를 복원했습니다. 조정되지 않은 만료가 진행 중인 receipt 또는 보존 근거를 무효화하므로 만료되지 않는 서명 secret 두 개에는 resource-local Checkov 예외를 적용합니다. | `current change`, 집중 마이그레이션 계약, 일회용 PostgreSQL 수명 주기 검사 및 finding 0건의 Checkov | 배포 전에 exact green required CI 및 supply-chain 증적을 보존합니다. |
 | 2026-09-05 | implemented | 1인 유지관리자가 자체 검토 없이 bot이 요청한 배포를 검토할 수 있도록 exact RCA reader apply와 검증 재개를 위한 bot 소유 요청 경로를 추가했습니다. `fdaictl`은 exclusive RCA 작업을 이 경계로 라우팅합니다. Environment가 관리자 우회를 비활성화하고 자체 검토를 차단하며 필수 reviewer를 선언하지 않으면 요청은 제출 전에 실패합니다. apply job은 선택한 Environment에 binding하고 변경 전에 같은 정책을 다시 검사합니다. 두 검사는 보호된 `main` checkout의 validator를 실행하므로 이전 plan이 정책을 downgrade할 수 없습니다. | `current change`, 집중 deployment CLI, Environment validator 및 보호된 workflow 계약 검사 | 독립 승인 exact apply 및 효과 증적을 보존합니다. |
 | 2026-09-05 | implemented | 이미 검증된 model, notification-receipt 및 RCA reader 환경 전환을 Core plan 하나에서 조합했습니다. 검증기는 여전히 정확한 model digest, 정본 notification topic, 전용 RCA identity를 요구하고 추가 runtime drift를 허용하지 않습니다. | `current change`, 집중 service plan guard 검사, Ruff 및 strict mypy | 세 전환을 모두 포함하는 보호된 Core plan을 생성하고 적용한 뒤 배포된 환경을 독립적으로 검증합니다. |
+| 2026-09-05 | implemented | RCA binding transition의 rollback recovery 형태를 추가했습니다. Terraform state에 전용 `-rca-reader` identity가 정확히 하나 이미 있지만 복원된 active revision에 client-ID environment value가 없으면 명시적 model-binding plan이 해당 값 하나만 완성할 수 있습니다. Model guard는 관련 없는 모든 environment 변경을 계속 거부합니다. | `current change`, 집중 service plan recovery 및 negative identity 검사 | 보호된 Core plan을 적용하고 배포된 identity와 environment value를 독립적으로 검증합니다. |
 | 2026-09-05 | implemented | 현재 revision이 healthy 상태가 아니고 정확한 last-ready revision이 provisioned 및 healthy 상태를 유지할 때만 보호된 service apply가 Azure의 별도 `latestReadyRevisionName`을 rollback baseline으로 사용할 수 있게 했습니다. workflow는 해당 revision을 활성화하지 않고 snapshot으로 보존하며, 별도의 apply 이후 freshness sentinel은 실제 apply 이전 current revision을 계속 사용합니다. Service Terraform은 inactive revision 2개를 보존하고 plan guard는 범위가 제한된 `1 -> 2` retention 증가만 허용하므로 새 revision을 만드는 동안 stuck current revision과 last-ready rollback source가 유지됩니다. | `current change`, 집중 recovery, workflow, rollback 거부, Terraform, Ruff 및 strict mypy 검사 | 보호된 Core plan을 적용하고 health 및 rollback 근거를 모두 보존합니다. |
 | 2026-09-04 | implemented | 실제 계획에서 split Core 서비스가 누락된 platform 출력을 올바르게 차단하고 일반 platform 계획에 관련 없는 destructive drift가 있음을 확인한 뒤, RCA reader identity만 위한 exact-context bounded bootstrap을 추가했습니다. 기존 요청 필드를 사용하므로 workflow는 GitHub의 25개 입력 한도를 유지합니다. | `current change`, deployment CLI, 요청 검증, 계획 범위 및 workflow 집중 검사 105개 통과, Ruff 및 strict mypy 통과 | 보호된 계획과 exact apply를 실행한 뒤 split Core 서비스 계획에서 결과 출력을 사용합니다. |
 | 2026-08-26 | implemented | 해석되지 않는 Functions 배포 액션을 인증된 Azure CLI `config-zip` 경로로 교체했습니다. 개발 operations gateway는 원격 빌드를 유지하고 관리 ID 실행기의 게시 작업을 900초로 제한합니다. | `current change`, 집중 배포 workflow 검사 93개 통과, CI 계약 통과 | 정확히 커밋된 workflow에서 보호된 gateway 게시 증적 하나를 보존합니다. |
