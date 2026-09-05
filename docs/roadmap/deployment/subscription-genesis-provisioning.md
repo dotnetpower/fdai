@@ -51,8 +51,11 @@ subscription-onboarding product:
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
 | Initial resource scan | The continuous inventory Job promotes only a complete generation; the Console separates estimated scan counters from verified closure | The protected run does not yet publish durable provider progress or retain the governed full-subscription receipt. |
 
-The inventory CLI delegates sanitized collection-health assembly to a focused pure helper before it
-persists the result through the existing state-store adapter. A one-shot scheduled run still fails
+The inventory CLI delegates source construction, Kubernetes lifecycle collection, and sanitized
+collection-health assembly to focused support helpers before it persists results through the
+existing state-store adapters. Private-safe Activity Log recovery and Resource Graph change
+acceleration remain in a separate composition module with per-scope locks and cursor fencing; they
+cannot replace complete reconciliation or raise readiness. A one-shot scheduled run still fails
 when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
 local long-running profile records that exact failure and retries only after its configured loop
 interval. Neither mode changes source authority or readiness semantics.

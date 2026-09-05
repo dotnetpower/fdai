@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 9fdccb0236173f6ad80230f34b584347cf9d8d02
+translation_source_sha: 0d2c0748b6f3726e11185159e886ec6e47df422a
 translation_revised: 2026-09-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -73,6 +73,8 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
    담당 체계 초안을 만들 수 없습니다.
    커넥터 취소 조정기는 문서 버전 정리 레코드만 처리하며 담당 체계 상태나 인수인계 초안으로
    이어지는 경로가 없습니다.
+   임시 업로드 할당량 실패와 예약된 보존 또는 고아 항목 정리는 문서 수명 주기 안에서만
+   처리되며 담당 체계 웹후크를 호출하거나 인수인계 초안을 만들 수 없습니다.
 6. **모든 변경은 통보되고 감사되어야 한다.** Core는 recipient와 감사 페이로드를 결정론적으로
   계산합니다. 실제 운영 PR/병합 통합은 이 기본 요소를 알림/감사 어댑터에 배선해야 합니다.
 7. **자율 운영은 담당 체계의 대안입니다.** `accept_autonomous`는 에이전트에 accountable 소유자가

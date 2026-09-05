@@ -75,6 +75,8 @@ the two are resolved and validated independently.
   webhook, or create a stewardship draft.
   The connector cancellation reconciler operates only on document-version cleanup records and has
   no path to stewardship state or handover drafts.
+  Temporary-upload quota failures and scheduled retention or orphan cleanup remain inside the
+  document lifecycle and cannot invoke the stewardship webhook or create a handover draft.
 6. **Every change must be notified and audited.** Core deterministically computes recipients and
   the audit payload. Live PR/merge integration must bind those primitives to notification and
   audit adapters.
