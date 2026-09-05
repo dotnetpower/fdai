@@ -43,79 +43,65 @@ operator messages or tool arguments, and only terminal governed versions can bec
 
 ### Before the operator selects a file
 
-The Console exposes governed document intake under Knowledge > Documents and preserves `/documents`
-as its stable route. Knowledge > Overview links document upload with repository-source setup without
-mixing provider credentials into the upload surface. GitHub, GitLab, and Azure DevOps remain
-setup-required until their server-owned connector contracts can report configuration,
-synchronization, and indexing evidence.
-
-The destination collection is a governed logical namespace, not a mutable browser folder. Refreshing
-the route reloads a bounded list of the latest document versions in the selected collection from
-durable metadata. Uploading to a collection does not create a physical folder or grant access to that
-collection. Production deployments control the allowed collection ids and reader groups through
-server-owned policy. Moving or renaming a collection is an administrative policy and migration
-operation rather than a file-browser action.
-When the selected collection changes, the Console clears the prior collection's rows before loading
-the next authorized projection so stale metadata never appears under a different scope.
+The Console exposes governed intake at Knowledge > Documents on `/documents`. Collections are
+server-owned logical namespaces, not mutable browser folders. Refresh restores the bounded durable
+list, and changing collection clears prior rows before the next authorized projection loads.
 
 The surface shows these facts before upload:
 
 - **Destination collection:** the workspace or collection that will own the document.
-- **Who can see it:** the roles or groups that can read the filename, preview, extracted content,
-  and citations. "FDAI access" alone is not a document permission.
+- **Who can see it:** roles or groups that can read metadata and content; Console access alone isn't document permission.
 - **Use:** Knowledge Base grounding, manual distillation, or both.
 - **Retention:** the approved source and derived-artifact retention policy.
-- **Supported formats and current limits:** format, per-file size, batch count, and archive policy
-  come from server capability discovery, not hard-coded UI text.
-- **Protected-content behavior:** rights-managed or encrypted content may be held or rejected when
-  FDAI cannot obtain authorized read access.
+- **Supported formats and limits:** server-discovered format, file-size, batch, and archive policy.
+- **Protected-content behavior:** hold or rejection when authorized decryption isn't available.
 
 The confirmation text should be explicit and collection-specific:
 
 > This upload is not private to you. People who can access `<collection>` in FDAI may be able to
-> view the filename, preview, extracted text, and citations. Source protection and collection
-> policy can narrow that audience. Do not upload secrets or content that this audience may not
-> access.
+> view its metadata and content. Don't upload content that this audience may not access.
 
-The operator confirms this notice before the first upload to a collection and again whenever the
-collection, audience, use, or retention policy changes. Consent is recorded as policy version,
-collection id, actor id, and timestamp. The audit record never contains document text.
+The operator reconfirms after collection, audience, use, or retention changes. Consent records policy
+version, collection, actor, and time without document text.
 
 ### During upload and processing
 
 Upload progress and processing progress are separate:
 
-1. **Uploading:** the current UI shows hashing/uploading state and cancel, sending one file as one
-  bounded PUT. Byte progress, pause/resume, and block checkpoints are future provider capabilities.
+1. **Uploading:** hashing and one bounded PUT; byte progress and resume require provider support.
 2. **Received:** the source hash and byte count were accepted.
 3. **Safety checks:** malware, archive, secret, personal-data, and protection checks.
 4. **Extracting:** page, slide, sheet, image, and attachment progress where the extractor reports it.
 5. **Indexing:** chunks and embeddings are being committed.
-6. **Ready, held, or failed:** a clear outcome with an actionable reason and no sensitive preview
-   in an error message.
+6. **Ready, held, or failed:** actionable terminal outcome without sensitive error previews.
 
-Closing the browser after `complete` does not cancel server-side processing. The current Console
-polls status while the view is open; durable activity/history can be queried by upload id.
-Cancellation stops new work, invalidates the session, and
-schedules partial artifacts for deletion.
-
-Format eligibility, parser selection, OCR requirements, and typed failures are owned by
-[Governed document format policy](document-ingestion-format-policy.md). Client hints select only an
-eligible parser; server-side signature and content verification remain authoritative.
+Closing the browser after `complete` doesn't cancel server processing. Cancellation stops new work
+and schedules partial artifacts for deletion. The [format policy](document-ingestion-format-policy.md)
+owns eligibility, parser, OCR, and typed failures; server verification remains authoritative.
 
 ### After processing
 
-A ready document displays:
+A ready row combines source, format, size, collection, purpose, classification, protection, version,
+warnings, retention, and available actions without exposing content to unauthorized readers.
+Replacement creates an immutable version and moves the active pointer only after `ready`.
 
-- source name, format, size, content hash prefix, uploader, and upload time;
-- collection, classification, sensitivity label, protection state, and effective audience;
-- processing use, version, parser name/version, page or item count, and warnings;
-- source retention, derived retention, legal-hold state, and deletion eligibility;
-- links to citations and distilled candidates without exposing content to unauthorized readers.
+### Document library and collection navigation
 
-Replacing a document creates a new immutable version. It does not overwrite evidence in place.
-The active pointer moves only after the new version reaches `ready`; a failed replacement leaves
-the prior version active.
+**Initial design.** Use a mutable browser folder tree with direct content actions.
+
+**Critique.** That creates a hierarchy outside collection policy, retention, version lineage, and
+source protection. One badge also blurs upload, safety, extraction, and index readiness.
+
+**Revised design.** Server-owned collections act as top-level folders and can't be moved or renamed
+in Console. Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings`
+display **Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures
+display **Not indexed**.
+
+Each content action rechecks current metadata and authorization:
+
+- **Preview:** bounded extracted text after collection and delegated protection authorization.
+- **Download:** immutable unprotected indexed source after a content-free audit request; rights-managed download remains unavailable.
+- **Delete:** two-step confirmation, server reauthorization, retention and legal-hold check, then worker-owned deletion Saga.
 
 ## Authorization and shared visibility
 
@@ -532,6 +518,7 @@ characters before durable insertion.
 | `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped hybrid retrieval with citations |
 | `GET /documents/{document_id}/versions` | authorized metadata and state history |
 | `GET /documents/{document_id}/versions/{version_id}/preview` | bounded extracted preview after collection and delegated protection authorization |
+| `GET /documents/{document_id}/versions/{version_id}/download` | audited immutable-source stream for an authorized unprotected indexed version |
 | `DELETE /documents/{document_id}/versions/{version_id}` | request governed deletion |
 
 Source bytes stream from the client through the dedicated gateway to object storage. Authentication

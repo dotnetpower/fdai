@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fdai_service_contracts import (
@@ -17,6 +18,7 @@ from fdai_service_contracts import (
     DocumentSearch,
     DocumentState,
     DocumentVersion,
+    ProtectionState,
     ProviderUnavailableError,
     SourceStorageMode,
 )
@@ -25,7 +27,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from fdai_ingestion_api_service.auth import (
@@ -42,6 +44,7 @@ from fdai_ingestion_api_service.power_platform import (
 )
 from fdai_ingestion_api_service.providers import (
     DocumentDeletionService,
+    DocumentDownloadService,
     DocumentPreviewService,
     HandoverDraftReader,
     StewardshipWebhook,
@@ -74,6 +77,7 @@ def build_app(
     authenticator: Authenticator,
     service: DocumentIngestionService,
     deletion: DocumentDeletionService,
+    download: DocumentDownloadService | None = None,
     preview: DocumentPreviewService | None = None,
     search_index: DocumentSearch | None = None,
     handover_drafts: HandoverDraftReader | None = None,
@@ -105,7 +109,12 @@ def build_app(
                 or resolved.proxy_upload
             }
         )
-        return _json(payload)
+        return JSONResponse(
+            {
+                **payload.model_dump(mode="json"),
+                "collections": list(resolved.allowed_collections),
+            }
+        )
 
     async def create_upload(request: Request) -> Response:
         principal = authorize(request, _CONTRIBUTOR_ROLES)
@@ -243,6 +252,7 @@ def build_app(
 
     async def documents(request: Request) -> Response:
         principal = authorize(request, _READER_ROLES)
+        actor_groups = _access_principals(principal)
         collection_id = request.query_params.get("collection_id", "").strip()
         if not collection_id:
             raise ValueError("collection_id is required")
@@ -253,11 +263,22 @@ def build_app(
             raise ValueError("limit MUST be in [1, 100]")
         items = await service.list_documents(
             actor_id=principal.oid,
-            actor_groups=_access_principals(principal),
+            actor_groups=actor_groups,
             collection_id=collection_id,
             limit=limit,
         )
-        return JSONResponse({"items": [_document_summary(item) for item in items]})
+        return JSONResponse(
+            {
+                "items": [
+                    _document_summary(
+                        item,
+                        actor_id=principal.oid,
+                        actor_groups=actor_groups,
+                    )
+                    for item in items
+                ]
+            }
+        )
 
     async def delete_version(request: Request) -> Response:
         principal = authorize(request, _CONTRIBUTOR_ROLES)
@@ -294,6 +315,30 @@ def build_app(
                 ],
                 "warnings": list(envelope.warnings),
             }
+        )
+
+    async def download_version(request: Request) -> Response:
+        if download is None:
+            return _error(404, "not_found", "document download is unavailable")
+        principal = authorize(request, _READER_ROLES)
+        result = await download.download(
+            actor_id=principal.oid,
+            actor_groups=_access_principals(principal),
+            document_id=_uuid(request.path_params["document_id"], "document_id"),
+            version_id=_uuid(request.path_params["version_id"], "version_id"),
+        )
+        filename = _download_filename(result.version.source_name)
+        return StreamingResponse(
+            result.content,
+            media_type="application/octet-stream",
+            headers={
+                "cache-control": "no-store",
+                "content-disposition": (
+                    f"attachment; filename=\"document\"; filename*=UTF-8''{filename}"
+                ),
+                "content-length": str(result.version.size_bytes),
+                "x-content-type-options": "nosniff",
+            },
         )
 
     async def search_documents(request: Request) -> Response:
@@ -446,6 +491,11 @@ def build_app(
         Route(
             "/documents/{document_id}/versions/{version_id}/preview",
             preview_version,
+            methods=["GET"],
+        ),
+        Route(
+            "/documents/{document_id}/versions/{version_id}/download",
+            download_version,
             methods=["GET"],
         ),
         Route("/documents/{document_id}/versions/{version_id}", delete_version, methods=["DELETE"]),
@@ -615,7 +665,12 @@ def _create_request(
     )
 
 
-def _document_summary(version: DocumentVersion) -> dict[str, object]:
+def _document_summary(
+    version: DocumentVersion,
+    *,
+    actor_id: str,
+    actor_groups: frozenset[str],
+) -> dict[str, object]:
     """Return list metadata without source hashes, uploader ids, or access memberships."""
     return {
         "document_id": str(version.document_id),
@@ -623,15 +678,63 @@ def _document_summary(version: DocumentVersion) -> dict[str, object]:
         "source_name": version.source_name,
         "size_bytes": version.size_bytes,
         "media_type": version.media_type,
+        "observed_format": version.observed_format,
         "state": version.state.value,
         "classification": version.classification,
+        "sensitivity_label": version.sensitivity_label,
+        "protection_state": version.protection_state.value,
         "purposes": [purpose.value for purpose in version.purposes],
         "created_at": version.created_at.isoformat(),
         "updated_at": version.updated_at.isoformat(),
         "active": version.active,
         "available": version.available,
         "warnings": list(version.warnings),
+        "failure_code": version.failure_code,
+        "index_status": _index_status(version),
+        "preview_available": (
+            version.active
+            and version.available
+            and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+        ),
+        "download_available": (
+            version.active
+            and version.available
+            and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+            and version.protection_state
+            in {ProtectionState.NONE, ProtectionState.LABELED_UNENCRYPTED}
+        ),
+        "delete_available": (
+            (actor_id == version.uploader_id or "role:Owner" in actor_groups)
+            and not version.retention.legal_hold
+            and version.state not in {DocumentState.DELETING, DocumentState.DELETED}
+        ),
     }
+
+
+def _index_status(version: DocumentVersion) -> str:
+    if (
+        version.active
+        and version.available
+        and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+    ):
+        return "indexed"
+    if version.state is DocumentState.INDEXING:
+        return "indexing"
+    if version.state in {
+        DocumentState.CREATED,
+        DocumentState.UPLOADING,
+        DocumentState.RECEIVED,
+        DocumentState.QUARANTINED,
+        DocumentState.SCANNING,
+        DocumentState.PROTECTION_CHECK,
+        DocumentState.EXTRACTING,
+    }:
+        return "pending"
+    return "not_indexed"
+
+
+def _download_filename(source_name: str) -> str:
+    return quote(source_name, safe="")
 
 
 async def _json_body(request: Request) -> dict[str, Any]:

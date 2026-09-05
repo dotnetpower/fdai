@@ -126,6 +126,10 @@ describe("Documents ViewSnapshot", () => {
         name: "persisted-guide.txt",
         size: 512,
         state: "ready",
+        indexStatus: "indexed",
+        previewAvailable: true,
+        downloadAvailable: true,
+        deleteAvailable: true,
       }],
       capabilities: {
         supportedFormats: ["text", "ooxml", "pdf-detect-only"],
@@ -149,6 +153,7 @@ describe("Documents ViewSnapshot", () => {
       expect.objectContaining({ key: "shared_visibility_confirmed", label: "Shared visibility confirmed", value: false }),
       expect.objectContaining({ key: "max_batch_count", value: 10 }),
       expect.objectContaining({ key: "stored_documents", value: 1 }),
+      expect.objectContaining({ key: "indexed_documents", value: 1 }),
     ]));
     expect(snapshot.records?.sections).toHaveLength(3);
     expect(snapshot.records?.documents).toEqual([
@@ -158,6 +163,10 @@ describe("Documents ViewSnapshot", () => {
         name: "persisted-guide.txt",
         size: 512,
         state: "ready",
+        index_status: "indexed",
+        preview_available: true,
+        download_available: true,
+        delete_available: true,
       },
     ]);
     expect(snapshot.records?.controls).toEqual(expect.arrayContaining([

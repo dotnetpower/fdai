@@ -208,6 +208,10 @@ export function DocumentIngestionRoute({ client }: Props) {
         name: document.source_name,
         size: document.size_bytes,
         state: document.state,
+        indexStatus: document.index_status,
+        previewAvailable: document.preview_available,
+        downloadAvailable: document.download_available,
+        deleteAvailable: document.delete_available,
       })),
       capabilities: capabilities ? {
         supportedFormats: capabilities.supported_formats,
@@ -399,7 +403,20 @@ export function DocumentIngestionRoute({ client }: Props) {
       <section class="document-upload-settings" aria-label={t("documents.settings") }>
         <label>
           <span>{t("documents.collection")}</span>
-          <input value={collection} maxLength={256} disabled={uploading} onInput={(event) => { setCollection(event.currentTarget.value); setConsent(false); }} />
+          {capabilities?.collections && capabilities.collections.length > 0 ? (
+            <select
+              value={collection}
+              disabled={uploading}
+              onChange={(event) => {
+                setCollection(event.currentTarget.value);
+                setConsent(false);
+              }}
+            >
+              {capabilities.collections.map((item) => <option value={item}>{item}</option>)}
+            </select>
+          ) : (
+            <input value={collection} maxLength={256} disabled={uploading} onInput={(event) => { setCollection(event.currentTarget.value); setConsent(false); }} />
+          )}
           <small>{knowledgeText("collectionHint")}</small>
         </label>
         <label>
@@ -491,10 +508,17 @@ export function DocumentIngestionRoute({ client }: Props) {
 
       <Suspense fallback={<p role="status">{knowledgeText("libraryLoading")}</p>}>
         <DocumentLibrary
+          api={api}
           collection={collection.trim() || t("documents.collectionFallback")}
+          collections={capabilities?.collections ?? []}
           documents={documents}
           loading={documentsLoading}
           error={documentsError}
+          onCollectionChange={(value) => {
+            setCollection(value);
+            setConsent(false);
+          }}
+          onDeleted={() => setDocumentsRevision((current) => current + 1)}
         />
       </Suspense>
     </div>

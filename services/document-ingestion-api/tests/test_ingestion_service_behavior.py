@@ -48,6 +48,7 @@ from fdai_ingestion_api_service.adapters.postgres import (
 )
 from fdai_ingestion_api_service.auth import Authenticator, GroupMapping
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
+from fdai_ingestion_api_service.download import GovernedDocumentDownload
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
 from fdai_ingestion_api_service.state_machine import (
@@ -74,6 +75,7 @@ from fdai_service_contracts import (
     IngestionCapabilities,
     JsonSchemaContractValidator,
     PackageResourceSchemaRegistry,
+    ProtectionState,
     RetentionPolicy,
     SourceStorageMode,
     StoredObjectInfo,
@@ -2103,6 +2105,11 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         ),
         service=service,
         deletion=NoDeletion(),
+        download=GovernedDocumentDownload(
+            access=ClaimsDocumentAccessProvider(),
+            metadata=metadata,
+            objects=objects,
+        ),
         config=IngestionGatewayConfig(dev_mode=True, direct_upload=True),
     )
     content = b"hello"
@@ -2136,15 +2143,42 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         assert [(item["source_name"], item["state"]) for item in listed.json()["items"]] == [
             ("note.txt", "received")
         ]
+        assert listed.json()["items"][0]["index_status"] == "pending"
+        assert listed.json()["items"][0]["preview_available"] is False
+        assert listed.json()["items"][0]["download_available"] is False
+        assert listed.json()["items"][0]["delete_available"] is True
         assert not {
             "source_sha256",
             "uploader_id",
             "access",
             "retention",
         }.intersection(listed.json()["items"][0])
+        version_key = next(iter(metadata.versions))
+        version = metadata.versions[version_key].model_copy(
+            update={
+                "state": DocumentState.READY,
+                "active": True,
+                "available": True,
+                "protection_state": ProtectionState.NONE,
+            }
+        )
+        metadata.versions[version_key] = version
+        metadata.uploads[version.upload_id] = metadata.uploads[version.upload_id].model_copy(
+            update={"state": DocumentState.READY}
+        )
+        downloaded = client.get(
+            f"/documents/{version.document_id}/versions/{version.version_id}/download"
+        )
+        assert downloaded.status_code == 200
+        assert downloaded.content == content
+        assert downloaded.headers["cache-control"] == "no-store"
+        assert downloaded.headers["x-content-type-options"] == "nosniff"
+        assert "filename*=UTF-8''note.txt" in downloaded.headers["content-disposition"]
+        assert metadata.events[-1].payload["action"] == "document.source_download_requested"
     assert [event.payload["action"] for event in metadata.events] == [
         "upload.created",
         "document.received",
+        "document.source_download_requested",
     ]
 
 

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Set up OPA
 description: "Install the checksum-pinned OPA binary used by deterministic policy tests."
 

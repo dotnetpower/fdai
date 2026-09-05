@@ -623,22 +623,84 @@ a:hover {
 .document-upload-error,
 .document-upload-notice { overflow-wrap: anywhere; }
 .document-upload-notice { color: var(--warning, #8a5a00) !important; }
-.document-library-head,
+.document-library {
+  padding: 0;
+  overflow: hidden;
+  container: document-library / inline-size;
+}
+.document-library-layout {
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  min-height: 280px;
+}
+.document-library-folders {
+  padding: 20px 12px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 72%, var(--bg-elevated));
+}
+.document-library-folders h3,
+.document-library-folders p { margin: 0 8px; }
+.document-library-folders p {
+  margin-top: 6px;
+  margin-bottom: 16px;
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.document-library-folders button {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.document-library-folders button:hover { color: var(--fg); background: var(--bg-elevated); }
+.document-library-folders button.is-active {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font-weight: 600;
+}
+.document-library-content { min-width: 0; padding: 20px; }
+.document-library-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
 .document-library-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(180px, .65fr) auto;
+  grid-template-columns: minmax(240px, 1.3fr) minmax(130px, auto) minmax(180px, .7fr) auto;
   align-items: center;
   gap: 12px;
 }
-.document-library-head { align-items: start; }
-.document-library-head > div { grid-column: 1 / -2; }
+.document-library-columns {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.3fr) minmax(130px, auto) minmax(180px, .7fr) auto;
+  gap: 12px;
+  margin-top: 18px;
+  padding-bottom: 8px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.document-library-columns span:last-child { text-align: right; }
 .document-library-head h3,
 .document-library-head p { margin: 0; }
 .document-library-head p,
 .document-library-head > span,
 .document-library-state,
 .document-library-row small,
-.document-library-size { color: var(--fg-muted); }
+.document-preview-unit small { color: var(--fg-muted); }
 .document-library-head p { margin-top: 6px; }
 .document-library-row {
   padding: 12px 0;
@@ -652,17 +714,82 @@ a:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.document-library-meta { display: flex; flex-direction: column; }
 .document-library-row .status {
   padding: 3px 8px;
   border-radius: 999px;
   background: var(--bg);
   font-size: 11px;
 }
+.document-library-statuses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
 .document-library-row .status-ready,
 .document-library-row .status-ready_with_warnings { color: var(--success, #217a4b); }
 .document-library-row .status-held { color: var(--warning, #8a5a00); }
 .document-library-row .status-failed { color: var(--danger, #b3261e); }
+.document-index-status {
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.document-index-status.is-indexed { color: var(--success, #217a4b); }
+.document-index-status.is-indexing,
+.document-index-status.is-pending { color: var(--warning, #8a5a00); }
+.document-index-status.is-not_indexed { color: var(--fg-muted); }
+.document-library-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.document-delete-confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 320px;
+  font-size: 12px;
+}
+.document-delete-confirm button {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+}
+.document-delete-confirm button.is-danger { color: var(--danger, #b3261e); }
+.document-preview-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  max-height: 420px;
+  overflow: auto;
+}
+.document-preview-panel > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.document-preview-panel h4,
+.document-preview-panel p { margin: 0; }
+.document-preview-unit { padding-top: 12px; border-top: 1px solid var(--border); }
+.document-preview-unit + .document-preview-unit { margin-top: 12px; }
+.document-preview-unit p { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .document-library-state { margin-bottom: 0; }
+
+@container document-library (max-width: 1100px) {
+  .document-library-layout { grid-template-columns: 184px minmax(0, 1fr); }
+  .document-library-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .document-library-columns { display: none; }
+  .document-library-statuses { grid-column: 2; justify-content: flex-end; }
+  .document-library-meta { grid-column: 1; }
+  .document-library-actions { grid-column: 2; grid-row: 2; }
+}
 
 @media (max-width: 760px) {
   .document-upload-list-head { align-items: flex-start; flex-direction: column; }
@@ -674,10 +801,25 @@ a:hover {
     min-height: 44px;
     justify-self: stretch;
   }
-  .document-library-head,
+}
+
+@container document-library (max-width: 620px) {
+  .document-library-layout { grid-template-columns: minmax(0, 1fr); }
+  .document-library-folders {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .document-library-folders button { min-height: 44px; }
   .document-library-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .document-library-head > div { grid-column: 1 / -1; }
+  .document-library-statuses { grid-column: 2; }
   .document-library-meta { grid-column: 1 / -1; }
+  .document-library-actions {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-content: stretch;
+  }
+  .document-library-actions > .cs-control-button { min-height: 44px; flex: 1; }
+  .document-delete-confirm { max-width: none; justify-content: flex-start; }
 }
 
 .knowledge-route { gap: 32px; }

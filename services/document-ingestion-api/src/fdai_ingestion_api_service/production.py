@@ -70,6 +70,7 @@ from fdai_ingestion_api_service.auth import (
     MultiTenantEntraJwtVerifier,
 )
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
+from fdai_ingestion_api_service.download import GovernedDocumentDownload
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import DocumentIngestionService
 from fdai_ingestion_api_service.power_platform import (
@@ -325,6 +326,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         authenticator=authenticator,
         service=service,
         deletion=deletion_service,
+        download=GovernedDocumentDownload(access=access, metadata=metadata, objects=storage),
         preview=GovernedDocumentPreview(
             access=access,
             metadata=metadata,

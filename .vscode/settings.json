@@ -41,7 +41,15 @@
     "python.analysis.useLibraryCodeForTypes": false,
     "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
+        "**/.github/actions/**/action.yaml": "yaml",
+        "**/.github/actions/**/action.yml": "yaml",
         "**/.github/workflows/deploy-dev.yml": "yaml"
+    },
+    "yaml.schemas": {
+        "https://json.schemastore.org/github-action.json": [
+            ".github/actions/**/action.yaml",
+            ".github/actions/**/action.yml"
+        ]
     },
     "files.exclude": {
         "**/__pycache__": true,

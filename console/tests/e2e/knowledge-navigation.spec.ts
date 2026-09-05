@@ -49,29 +49,85 @@ test("uploads a document without overriding collection reader policy", async ({ 
   let createPayload: Record<string, unknown> | null = null;
   let createAttempts = 0;
   let statusChecks = 0;
+  let deleted = false;
   await page.context().route("http://127.0.0.1:8011/documents?**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
-        items: [{
+        items: deleted ? [] : [{
           document_id: "document-library-1",
           version_id: "version-library-1",
           source_name: "persisted-guide.txt",
           size_bytes: 17,
           media_type: "text/plain",
+          observed_format: "text",
           state: "ready",
           classification: "unclassified",
+          sensitivity_label: null,
+          protection_state: "none",
           purposes: ["knowledge_base"],
           created_at: "2026-09-05T03:00:00Z",
           updated_at: "2026-09-05T03:01:00Z",
           active: true,
           available: true,
           warnings: [],
+          failure_code: null,
+          index_status: "indexed",
+          preview_available: true,
+          download_available: true,
+          delete_available: true,
         }],
       }),
     });
+  });
+  await page.context().route("http://127.0.0.1:8011/documents/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const headers = { "Access-Control-Allow-Origin": "*" };
+    if (url.pathname.endsWith("/preview")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify({
+          document_id: "document-library-1",
+          version_id: "version-library-1",
+          units: [{
+            unit_id: "page-1",
+            kind: "page",
+            locator: "page:1",
+            text: "Persistent governed preview",
+          }],
+          warnings: [],
+        }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith("/download")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/octet-stream",
+        headers: {
+          ...headers,
+          "Content-Disposition": 'attachment; filename="persisted-guide.txt"',
+        },
+        body: "persistent content",
+      });
+      return;
+    }
+    if (request.method() === "DELETE") {
+      deleted = true;
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify({ state: "deleting" }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 404, contentType: "application/json", headers, body: "{}" });
   });
   await page.context().route("http://127.0.0.1:8011/ingestion/**", async (route) => {
     const request = route.request();
@@ -91,6 +147,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
           policy_versions: ["v1"],
           direct_upload: true,
           ocr_available: true,
+          collections: ["shared-knowledge", "runbooks"],
         }),
       });
       return;
@@ -149,8 +206,16 @@ test("uploads a document without overriding collection reader policy", async ({ 
 
   await page.goto("/documents");
   await expect(page.getByText("persisted-guide.txt")).toBeVisible();
+  await expect(page.getByText("Indexed", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "runbooks" })).toBeVisible();
   await page.reload();
   await expect(page.getByText("persisted-guide.txt")).toBeVisible();
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(page.getByText("Persistent governed preview")).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download" }).click();
+  await expect(download).resolves.toBeTruthy();
   const filePicker = page.getByRole("button", { name: "Choose files" });
   await expect(filePicker).toBeVisible();
   await expect(filePicker).toHaveCSS("display", "flex");
@@ -186,6 +251,11 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await page.setViewportSize({ width: 993, height: 641 });
   await expect(page.getByText("persisted-guide.txt")).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  const nameBox = await page.locator(".document-library-name").first().boundingBox();
+  const statusBox = await page.locator(".document-library-statuses").first().boundingBox();
+  expect(nameBox).not.toBeNull();
+  expect(statusBox).not.toBeNull();
+  expect(nameBox!.x + nameBox!.width).toBeLessThanOrEqual(statusBox!.x);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".document-library-row")).toHaveCSS(
@@ -193,6 +263,13 @@ test("uploads a document without overriding collection reader policy", async ({ 
     /.+ .+/,
   );
   await expectNoHorizontalOverflow(page);
+
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Delete this version and its indexed content?")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete document" }).click();
+  await expect(page.getByText("No documents are visible in this collection.")).toBeVisible();
 });
 
 function uploadSession(state: string, failureCode: string | null = null) {

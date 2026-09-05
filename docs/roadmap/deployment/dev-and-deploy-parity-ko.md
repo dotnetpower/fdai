@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 13b45fbe62cdc398dfe3259441c2f01a700e31a6
+translation_source_sha: 0883d49ace75131d979c4d0a3329d54d0decee12
 translation_revised: 2026-09-05
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -218,12 +218,12 @@ hook 디렉터리를 비활성화하므로 같은 지침이나 도구 hook이 �
 중복으로 들어가지 않습니다. 백그라운드 원격 동기화는 전용 `git: auto-pull` 작업이 소유하며,
 이 workspace에서는 VS 코드 기본 autofetch를 비활성화합니다.
 
-Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML 언어 모드에 연결합니다.
-GitHub Actions 확장은 참조한 액션 tag가 존재하고 다음 단계에서 `GITHUB_ENV` 값을 사용할 수
-있는 경우에도 이 작업 흐름에 unresolved-action 및 dynamic 맥락 오류를 표시할 수 있습니다. Plain
-YAML 검증은 계속 활성 상태입니다. 원격 action-tag 확인, 저장소 작업 흐름 계약 테스트 및
-GitHub Actions 런타임 검증이 권위 있으며 다른 작업 흐름의 GitHub Actions 언어 support는
-유지됩니다.
+Workspace는 `.github/workflows/deploy-dev.yml`과 로컬 복합 액션 메타데이터를 plain YAML
+언어 모드에 연결합니다. 로컬 `action.yml` 및 `action.yaml` 파일에는 GitHub Action JSON
+스키마도 적용하므로 확장 진단 없이 편집기 자동 완성과 구조 검증을 사용할 수 있습니다. 참조한
+태그와 다음 단계 값이 유효해도 확장은 배포 워크플로에 unresolved-action 및 동적 `GITHUB_ENV`
+맥락 오류를 표시할 수 있습니다. 원격 태그 검사, 저장소 워크플로 계약, GitHub Actions
+런타임이 최종 근거입니다.
 
 Workspace 설정에는 resource scope Pylance 제어만 둡니다. Shared Remote WSL server는 프로파일별로
 격리할 수 없으므로 machine scope Node.js 설정은 두지 않습니다. 프로파일은

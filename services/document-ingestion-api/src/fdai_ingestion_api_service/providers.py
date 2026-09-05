@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -38,6 +38,25 @@ class DocumentPreviewService(Protocol):
         document_id: UUID,
         version_id: UUID,
     ) -> DocumentEnvelope: ...
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentDownload:
+    version: DocumentVersion
+    content: AsyncIterator[bytes]
+
+
+class DocumentDownloadService(Protocol):
+    """Authorize and audit one immutable source stream."""
+
+    async def download(
+        self,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        document_id: UUID,
+        version_id: UUID,
+    ) -> DocumentDownload: ...
 
 
 class HandoverArtifact(Protocol):

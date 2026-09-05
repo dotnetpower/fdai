@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 041d2a592e313f48b8d4016e4eca0be95f115dad
+translation_source_sha: ec8d30067c6791e602c4bda6c4aeadffb4ca0925
 translation_revised: 2026-09-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -417,6 +417,11 @@ polling하고 검토용 초안 요약, YAML, 저장된 거버넌스 PR 증적을
 독립 로컬 ingestion service는 source와 derived 문서 object를 private filesystem root에
 저장하고 loopback Redpanda로 lifecycle record를 교환합니다. 이 adapter는 저장소와 transport만
 바꾸며 동일한 `HandoverBootstrapConsumer`가 accountable handover 경계로 유지됩니다.
+
+통제된 문서 미리 보기와 변경 불가 원본 다운로드는 별도의 principal 범위 읽기로 유지됩니다.
+다운로드는 객체를 스트리밍하기 전에 현재 버전 권한 확인, 보호되지 않은 원본, 영속 감사 등록을
+요구합니다. `HandoverBootstrapConsumer`를 호출하지 않으며 초안 또는 지도 권한을 변경하지
+않습니다.
 
 인계 출처가 이미지이면 선택적 문서 Intelligence OCR도 동일한 agent-owned 인제스트
 경로 안에 유지됩니다. `FDAI_OCR_OPERATION_TIMEOUT_SECONDS`는 제출, polling 및 poll delay

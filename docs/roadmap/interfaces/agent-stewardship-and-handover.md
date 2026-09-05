@@ -447,6 +447,11 @@ private filesystem root and exchange lifecycle records through loopback Redpanda
 change storage and transport only; the same `HandoverBootstrapConsumer` remains the accountable
 handover boundary.
 
+Governed document preview and immutable-source download remain separate principal-scoped reads.
+A download requires current-version authorization, an unprotected source, and durable audit enqueue
+before object streaming. It neither invokes `HandoverBootstrapConsumer` nor changes draft or map
+authority.
+
 When a handover source is an image, optional Document Intelligence OCR remains inside the same
 agent-owned ingestion path. `FDAI_OCR_OPERATION_TIMEOUT_SECONDS` bounds submission, polling, and
 poll delays end to end; timeout or duplicate page locators fail extraction and produce no draft

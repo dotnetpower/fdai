@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { triggerBlobDownload } from "../blob-download";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -106,19 +107,7 @@ export function pdfDownloadAvailable(
   return catalogFormats.includes("pdf") && registryFormats.includes("pdf");
 }
 
-export function triggerBlobDownload(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  document.body.append(anchor);
-  try {
-    anchor.click();
-  } finally {
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
-}
+export { triggerBlobDownload } from "../blob-download";
 
 export function defaultReport(
   items: readonly ReportSummary[],

@@ -14,6 +14,10 @@ export interface DocumentLibraryViewRow {
   readonly name: string;
   readonly size: number;
   readonly state: string;
+  readonly indexStatus: string;
+  readonly previewAvailable: boolean;
+  readonly downloadAvailable: boolean;
+  readonly deleteAvailable: boolean;
 }
 
 export interface DocumentCapabilityView {
@@ -38,6 +42,7 @@ export interface DocumentViewInput {
 
 export function buildDocumentViewSnapshot(input: DocumentViewInput): ViewSnapshot {
   const documents = input.documents ?? [];
+  const indexedDocuments = documents.filter((document) => document.indexStatus === "indexed").length;
   const ready = input.uploads.filter((upload) => upload.state === "ready").length;
   const failed = input.uploads.filter((upload) => upload.state === "failed").length;
   const queued = input.uploads.filter((upload) => upload.state === "queued").length;
@@ -79,6 +84,7 @@ export function buildDocumentViewSnapshot(input: DocumentViewInput): ViewSnapsho
       { key: "ready_files", label: "Files ready to use", value: ready, group: "status" },
       { key: "failed_files", label: "Failed files", value: failed, group: "status" },
       { key: "stored_documents", label: "Documents in collection", value: documents.length, group: "status" },
+      { key: "indexed_documents", label: "Indexed documents", value: indexedDocuments, group: "status" },
       { key: "capabilities_available", label: "Upload service available", value: input.capabilitiesAvailable, group: "limits" },
       { key: "supported_formats", label: "Supported formats", value: formats, group: "limits" },
       { key: "max_file_size_bytes", label: "Maximum file size in bytes", value: input.capabilities?.maxFileSize ?? null, group: "limits" },
@@ -175,6 +181,10 @@ export function buildDocumentViewSnapshot(input: DocumentViewInput): ViewSnapsho
         name: document.name,
         size: document.size,
         state: document.state,
+        index_status: document.indexStatus,
+        preview_available: document.previewAvailable,
+        download_available: document.downloadAvailable,
+        delete_available: document.deleteAvailable,
       })),
     },
   };

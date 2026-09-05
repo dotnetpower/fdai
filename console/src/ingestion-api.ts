@@ -10,6 +10,7 @@ export interface IngestionCapabilities {
   readonly policy_versions: readonly string[];
   readonly direct_upload: boolean;
   readonly ocr_available?: boolean;
+  readonly collections?: readonly string[];
 }
 
 export interface UploadSession {
@@ -20,6 +21,7 @@ export interface UploadSession {
   readonly state: string;
   readonly collection_id: string;
   readonly failure_code?: string | null;
+  readonly collections?: readonly string[];
 }
 
 export interface DocumentVersionSummary {
@@ -28,13 +30,33 @@ export interface DocumentVersionSummary {
   readonly source_name: string;
   readonly size_bytes: number;
   readonly media_type: string;
+  readonly observed_format: string | null;
   readonly state: string;
   readonly classification: string;
+  readonly sensitivity_label: string | null;
+  readonly protection_state: string;
   readonly purposes: readonly string[];
   readonly created_at: string;
   readonly updated_at: string;
   readonly active: boolean;
   readonly available: boolean;
+  readonly warnings: readonly string[];
+  readonly failure_code: string | null;
+  readonly index_status: "pending" | "indexing" | "indexed" | "not_indexed";
+  readonly preview_available: boolean;
+  readonly download_available: boolean;
+  readonly delete_available: boolean;
+}
+
+export interface DocumentPreview {
+  readonly document_id: string;
+  readonly version_id: string;
+  readonly units: readonly {
+    readonly unit_id: string;
+    readonly kind: string;
+    readonly locator: string;
+    readonly text: string;
+  }[];
   readonly warnings: readonly string[];
 }
 
@@ -142,6 +164,28 @@ export class IngestionApiClient {
       { method: "GET" },
     );
     return response.items;
+  }
+
+  async previewDocument(documentId: string, versionId: string): Promise<DocumentPreview> {
+    return this.#json<DocumentPreview>(
+      `/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}/preview`,
+      { method: "GET" },
+    );
+  }
+
+  async downloadDocument(documentId: string, versionId: string): Promise<Blob> {
+    const response = await this.#request(new URL(
+      `/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}/download`,
+      this.#baseUrl,
+    ), { method: "GET" });
+    return response.blob();
+  }
+
+  async deleteDocument(documentId: string, versionId: string): Promise<void> {
+    await this.#request(new URL(
+      `/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}`,
+      this.#baseUrl,
+    ), { method: "DELETE" });
   }
 
   async handoverDraft(uploadId: string): Promise<HandoverDraftResult> {
