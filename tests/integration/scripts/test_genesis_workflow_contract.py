@@ -16,7 +16,7 @@ def test_protected_workflow_exposes_request_bound_status_metadata() -> None:
     assert "name: deployment-plan-metadata-${{ inputs.request_id }}" in source
     assert "path: infra/plan-metadata.json" in source
     assert "retention-days: 1" in source
-    assert "Verify protected environment approval policy" in source
+    assert "Verify protected environment approval policy before mutation" in source
     assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in source
     assert "GH_TOKEN: ${{ github.token }}" in source
 

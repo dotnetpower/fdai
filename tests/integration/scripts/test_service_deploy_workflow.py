@@ -376,15 +376,16 @@ def test_apply_job_enforces_the_selected_protected_environment() -> None:
     assert (
         "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _LEGACY_WORKFLOW
     )
-    assert "Verify protected environment approval policy" in _LEGACY_WORKFLOW
+    assert "Verify protected environment approval policy before mutation" in _LEGACY_WORKFLOW
     assert "actions: read" in _LEGACY_WORKFLOW
-    assert "if: inputs.apply" in _LEGACY_WORKFLOW
+    assert 'if [[ "$APPLY" == "true" ]]' in _LEGACY_WORKFLOW
     assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _LEGACY_WORKFLOW
-    assert (
-        ".fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py"
-    ) in _LEGACY_WORKFLOW
-    assert _LEGACY_WORKFLOW.index("- name: Checkout\n") < _LEGACY_WORKFLOW.index(
-        "Checkout protected Environment verifier"
+    assert '"$RUNNER_TEMP/verify-github-environment.py"' in _LEGACY_WORKFLOW
+    assert _LEGACY_WORKFLOW.index("Checkout protected workflow verifier") < (
+        _LEGACY_WORKFLOW.index("- name: Checkout\n")
+    )
+    assert _LEGACY_WORKFLOW.index("HEAD:scripts/deployment/azure/verify-github-environment.py") < (
+        _LEGACY_WORKFLOW.index("- name: Checkout\n")
     )
 
 

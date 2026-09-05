@@ -86,12 +86,6 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl trajectory validate` | Check governed dataset checksums, schema, order, and source mapping | No |
 | `fdaictl license inspect` | Verify a capability license token against the packaged public key and report entitlement status | No |
 
-For the exclusive RCA reader identity target, `deploy apply` and verification resume submit through
-the allowlisted protected-operation workflow. The repository automation identity then requests the
-exact downstream apply so a solo maintainer can review it without self-approval. The downstream job
-still binds the selected GitHub Environment and revalidates its no-bypass reviewer policy before
-mutation.
-
 Disconnected installation authenticates the signed kit with a trusted verifier outside that kit,
 copies its wheels into a private digest-checked snapshot, and installs only from that snapshot. The
 same verifier safely extracts and verifies the signed bundle before Terraform reads it. The installed
