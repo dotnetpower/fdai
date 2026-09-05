@@ -55,6 +55,13 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "ontology.instance.explore",
     ),
     OperationRoute(
+        "/ontology/instances/stream",
+        "GET",
+        "ontology_instances_stream",
+        "ontology.inventory.invalidations",
+        "stream",
+    ),
+    OperationRoute(
         "/ontology/declarations/{kind:str}/{name:str}",
         "GET",
         "ontology_declaration_detail",

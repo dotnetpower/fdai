@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  formatOntologyRefreshCountdown,
   installOntologyInstanceRefresh,
   ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
   type OntologyInstanceRefreshHost,
@@ -9,6 +10,7 @@ import {
 
 function refreshHost(initiallyVisible = true) {
   let visible = initiallyVisible;
+  let now = 1_000;
   let interval: (() => void) | undefined;
   const windowListeners = new Map<string, () => void>();
   const documentListeners = new Map<string, () => void>();
@@ -28,12 +30,15 @@ function refreshHost(initiallyVisible = true) {
     },
     removeDocumentListener: vi.fn(),
     isVisible: () => visible,
+    now: () => now,
   };
   return {
     host,
+    setNow: (value: number) => { now = value; },
     setVisible: (value: boolean) => { visible = value; },
     triggerInterval: () => interval?.(),
-    triggerWindow: (type: "focus" | "online") => windowListeners.get(type)?.(),
+    triggerWindow: (type: "focus" | "online" | "fdai:ontology-invalidated") =>
+      windowListeners.get(type)?.(),
     triggerVisible: () => documentListeners.get("visibilitychange")?.(),
   };
 }
@@ -44,10 +49,19 @@ async function settleRefresh(): Promise<void> {
 }
 
 describe("ontology instance refresh scheduling", () => {
+  it("formats a monotonic countdown without negative values", () => {
+    expect(formatOntologyRefreshCountdown(15)).toBe("00:15");
+    expect(formatOntologyRefreshCountdown(65)).toBe("01:05");
+    expect(formatOntologyRefreshCountdown(-1)).toBe("00:00");
+  });
+
   it("refreshes initially, periodically, and when a visible browser resumes", async () => {
     const refresh = vi.fn(async (_trigger: OntologyInstanceRefreshTrigger) => undefined);
     const fixture = refreshHost();
-    const stop = installOntologyInstanceRefresh(refresh, fixture.host);
+    const deadlines: Array<number | null> = [];
+    const stop = installOntologyInstanceRefresh(refresh, fixture.host, {
+      onNextPeriodicAt: (deadline) => deadlines.push(deadline),
+    });
 
     expect(refresh).toHaveBeenCalledWith("initial");
     await settleRefresh();
@@ -57,6 +71,8 @@ describe("ontology instance refresh scheduling", () => {
     await settleRefresh();
     fixture.triggerWindow("online");
     await settleRefresh();
+    fixture.triggerWindow("fdai:ontology-invalidated");
+    await settleRefresh();
     fixture.triggerVisible();
     await settleRefresh();
 
@@ -65,11 +81,14 @@ describe("ontology instance refresh scheduling", () => {
       "periodic",
       "focus",
       "online",
+      "sse",
       "visible",
     ]);
+    expect(deadlines).toEqual([16_000, 16_000]);
     stop();
     fixture.triggerInterval();
-    expect(refresh).toHaveBeenCalledTimes(5);
+    expect(refresh).toHaveBeenCalledTimes(6);
+    expect(deadlines.at(-1)).toBeNull();
   });
 
   it("does not poll a hidden document and refreshes when it becomes visible", async () => {
@@ -84,6 +103,7 @@ describe("ontology instance refresh scheduling", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
 
     fixture.setVisible(true);
+    fixture.setNow(4_000);
     fixture.triggerVisible();
     await settleRefresh();
     expect(refresh).toHaveBeenLastCalledWith("visible");
@@ -107,6 +127,25 @@ describe("ontology instance refresh scheduling", () => {
     await settleRefresh();
     fixture.triggerWindow("focus");
     expect(refresh).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
+  it("runs one queued SSE refresh after an older request settles", async () => {
+    let release: (() => void) | undefined;
+    const refresh = vi.fn((_trigger: OntologyInstanceRefreshTrigger) =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }));
+    const fixture = refreshHost();
+    const stop = installOntologyInstanceRefresh(refresh, fixture.host);
+
+    fixture.triggerWindow("fdai:ontology-invalidated");
+    fixture.triggerWindow("fdai:ontology-invalidated");
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    release?.();
+    await settleRefresh();
+    expect(refresh).toHaveBeenNthCalledWith(2, "sse");
     stop();
   });
 });

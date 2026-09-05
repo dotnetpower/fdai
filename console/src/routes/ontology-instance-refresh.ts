@@ -5,16 +5,31 @@ export type OntologyInstanceRefreshTrigger =
   | "periodic"
   | "focus"
   | "online"
-  | "visible";
+  | "visible"
+  | "sse";
+
+type OntologyInstanceRefreshWindowEvent = "focus" | "online" | "fdai:ontology-invalidated";
 
 export interface OntologyInstanceRefreshHost {
   setInterval(callback: () => void, intervalMs: number): unknown;
   clearInterval(handle: unknown): void;
-  addWindowListener(type: "focus" | "online", listener: () => void): void;
-  removeWindowListener(type: "focus" | "online", listener: () => void): void;
+  addWindowListener(type: OntologyInstanceRefreshWindowEvent, listener: () => void): void;
+  removeWindowListener(type: OntologyInstanceRefreshWindowEvent, listener: () => void): void;
   addDocumentListener(type: "visibilitychange", listener: () => void): void;
   removeDocumentListener(type: "visibilitychange", listener: () => void): void;
   isVisible(): boolean;
+  now(): number;
+}
+
+export interface OntologyInstanceRefreshOptions {
+  readonly onNextPeriodicAt?: (deadlineMs: number | null) => void;
+}
+
+export function formatOntologyRefreshCountdown(totalSeconds: number): string {
+  const bounded = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(bounded / 60);
+  const seconds = bounded % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 /**
@@ -26,41 +41,63 @@ export interface OntologyInstanceRefreshHost {
 export function installOntologyInstanceRefresh(
   refresh: (trigger: OntologyInstanceRefreshTrigger) => Promise<void>,
   host: OntologyInstanceRefreshHost = browserRefreshHost(),
+  options: OntologyInstanceRefreshOptions = {},
 ): () => void {
   let stopped = false;
   let inFlight: Promise<void> | null = null;
+  let pendingSseRefresh = false;
 
   const requestRefresh = (trigger: OntologyInstanceRefreshTrigger): void => {
-    if (
-      stopped
-      || inFlight !== null
-      || (trigger !== "initial" && !host.isVisible())
-    ) return;
+    if (stopped || (trigger !== "initial" && !host.isVisible())) return;
+    if (inFlight !== null) {
+      if (trigger === "sse") pendingSseRefresh = true;
+      return;
+    }
     inFlight = refresh(trigger);
+    const settled = () => {
+      inFlight = null;
+      if (pendingSseRefresh) {
+        pendingSseRefresh = false;
+        requestRefresh("sse");
+      }
+    };
     void inFlight.then(
-      () => { inFlight = null; },
-      () => { inFlight = null; },
+      settled,
+      settled,
     );
   };
   const onFocus = () => requestRefresh("focus");
   const onOnline = () => requestRefresh("online");
   const onVisible = () => requestRefresh("visible");
+  const onSseInvalidation = () => requestRefresh("sse");
+  const scheduleNextPeriodic = () => {
+    options.onNextPeriodicAt?.(host.now() + ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS);
+  };
+  scheduleNextPeriodic();
   const interval = host.setInterval(
-    () => requestRefresh("periodic"),
+    () => {
+      if (stopped) return;
+      scheduleNextPeriodic();
+      requestRefresh("periodic");
+    },
     ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
   );
 
   host.addWindowListener("focus", onFocus);
   host.addWindowListener("online", onOnline);
+  host.addWindowListener("fdai:ontology-invalidated", onSseInvalidation);
   host.addDocumentListener("visibilitychange", onVisible);
   requestRefresh("initial");
 
   return () => {
     stopped = true;
+    pendingSseRefresh = false;
     host.clearInterval(interval);
     host.removeWindowListener("focus", onFocus);
     host.removeWindowListener("online", onOnline);
+    host.removeWindowListener("fdai:ontology-invalidated", onSseInvalidation);
     host.removeDocumentListener("visibilitychange", onVisible);
+    options.onNextPeriodicAt?.(null);
   };
 }
 
@@ -73,5 +110,6 @@ function browserRefreshHost(): OntologyInstanceRefreshHost {
     addDocumentListener: (type, listener) => document.addEventListener(type, listener),
     removeDocumentListener: (type, listener) => document.removeEventListener(type, listener),
     isVisible: () => document.visibilityState === "visible",
+    now: () => Date.now(),
   };
 }

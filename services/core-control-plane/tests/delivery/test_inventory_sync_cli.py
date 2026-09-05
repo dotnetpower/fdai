@@ -501,7 +501,13 @@ async def test_change_stream_failure_degrades_without_stopping_the_tick(
     async def _unavailable(_config: InventoryJobConfig) -> int:
         raise RuntimeError("activity log unavailable")
 
+    async def _feed_unavailable(_config: InventoryJobConfig) -> int:
+        raise RuntimeError("resource change feed unavailable")
+
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _unavailable)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed_unavailable
+    )
 
     assert await _drain_change_stream(config) is None
 
@@ -512,19 +518,100 @@ async def test_change_stream_is_skipped_when_disabled(monkeypatch: pytest.Monkey
             "FDAI_INVENTORY_DSN": "postgresql://example",
             "AZURE_SUBSCRIPTION_ID": "sub-1",
             "FDAI_INVENTORY_RECOVERY_DELTA": "false",
+            "FDAI_INVENTORY_RESOURCE_CHANGE_FEED": "false",
         }
     )
     called = False
+    feed_called = False
 
     async def _record(_config: InventoryJobConfig) -> int:
         nonlocal called
         called = True
         return 3
 
+    async def _record_feed(_config: InventoryJobConfig) -> int:
+        nonlocal feed_called
+        feed_called = True
+        return 5
+
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _record)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _record_feed)
 
     assert await _drain_change_stream(config) == 0
     assert called is False
+    assert feed_called is False
+
+
+async def test_change_stream_sums_both_accelerators_when_both_succeed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+
+    async def _recovery(_config: InventoryJobConfig) -> int:
+        return 3
+
+    async def _feed(_config: InventoryJobConfig) -> int:
+        return 5
+
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _recovery)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed)
+
+    assert await _drain_change_stream(config) == 8
+
+
+async def test_change_stream_one_failure_does_not_mask_the_other_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+
+    async def _recovery_unavailable(_config: InventoryJobConfig) -> int:
+        raise RuntimeError("activity log unavailable")
+
+    async def _feed(_config: InventoryJobConfig) -> int:
+        return 5
+
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.run_recovery_delta", _recovery_unavailable
+    )
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed)
+
+    assert await _drain_change_stream(config) == 5
+
+
+async def test_change_stream_invokes_resource_change_feed_before_recovery_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    call_order: list[str] = []
+
+    async def _feed(_config: InventoryJobConfig) -> int:
+        call_order.append("resource_change_feed")
+        return 0
+
+    async def _recovery(_config: InventoryJobConfig) -> int:
+        call_order.append("recovery_delta")
+        return 0
+
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_resource_change_feed", _feed)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _recovery)
+
+    assert await _drain_change_stream(config) == 0
+    assert call_order == ["resource_change_feed", "recovery_delta"]
 
 
 async def test_not_due_tick_flushes_service_readiness_status(

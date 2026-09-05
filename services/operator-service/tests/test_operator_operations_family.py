@@ -25,11 +25,18 @@ from fdai_operator_service.families.operations import (
     ReportPdfEncodingError,
     build_operations_routes,
 )
+from fdai_operator_service.families.operations.manifest import READ_ROLES
 from fdai_service_contracts import OperatorRole
 from fdai_service_contracts.read_investigation import read_investigation_task_id
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
+
+# Sentinel placed in RecordingDependencies.replay_batches to end a persistent
+# stream test deterministically by simulating the durable reader becoming
+# unavailable, since the inventory invalidation stream never has a terminal
+# event of its own.
+_REPLAY_UNAVAILABLE = object()
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FAMILY_ROOT = REPO_ROOT / "services/operator-service/src/fdai_operator_service/families/operations"
@@ -39,6 +46,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/ontology/graph", "handler"),
     (("GET", "HEAD"), "/ontology/instances", "ontology_instances"),
     (("GET", "HEAD"), "/ontology/instances/explore", "ontology_instance_explore"),
+    (("GET", "HEAD"), "/ontology/instances/stream", "ontology_instances_stream"),
     (
         ("GET", "HEAD"),
         "/ontology/declarations/{kind:str}/{name:str}",
@@ -104,7 +112,7 @@ class RecordingDependencies:
         self.replay_events = (
             ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),
         )
-        self.replay_batches: list[ReplayBatch] = []
+        self.replay_batches: list[ReplayBatch | object] = []
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         self.queries.append(query)
@@ -131,7 +139,11 @@ class RecordingDependencies:
     async def replay(self, query: ReplayQuery) -> ReplayBatch:
         self.replays.append(query)
         if self.replay_batches:
-            return self.replay_batches.pop(0)
+            next_batch = self.replay_batches.pop(0)
+            if next_batch is _REPLAY_UNAVAILABLE:
+                raise ProjectionUnavailableError
+            assert isinstance(next_batch, ReplayBatch)
+            return next_batch
         return ReplayBatch(
             events=self.replay_events,
             watermark=8,
@@ -208,7 +220,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 36
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 37
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:
@@ -990,3 +1002,222 @@ def test_family_has_no_fdai_implementation_imports() -> None:
             for alias in node.names
         )
         assert not any(name == "fdai" or name.startswith("fdai.") for name in imports)
+
+
+def test_inventory_invalidation_manifest_route_is_reader_gated_with_no_mutation_authority() -> None:
+    entry = next(
+        item for item in OPERATIONS_ROUTE_MANIFEST if item.path == "/ontology/instances/stream"
+    )
+    assert entry.method == "GET"
+    assert entry.name == "ontology_instances_stream"
+    assert entry.operation == "ontology.inventory.invalidations"
+    assert entry.kind == "stream"
+    # Reader is the floor: no separate contributor/approver ladder guards this
+    # read-only invalidation signal, and it carries no mutation authority.
+    assert entry.roles == READ_ROLES
+    assert OperatorRole.READER in entry.roles
+
+
+def test_inventory_invalidation_stream_rejects_unauthenticated_requests() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+
+    response = client.get("/ontology/instances/stream")
+
+    assert response.status_code == 401
+    assert dependencies.replays == []
+
+
+def test_inventory_invalidation_stream_establishes_watermark_without_a_replay_storm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = RecordingDependencies()
+    monkeypatch.setattr(operations_factory, "INVENTORY_INVALIDATION_POLL_SECONDS", 0.0)
+    dependencies.replay_batches = [
+        ReplayBatch(
+            events=(
+                ReplayEvent(
+                    42,
+                    "inventory.invalidated",
+                    {
+                        "schema_version": "1.0.0",
+                        "watermark": 42,
+                        "observation_count": 3,
+                        "observed_at": "2026-09-06T01:00:00+00:00",
+                        "recorded_at": "2026-09-06T01:00:05+00:00",
+                        "complete": False,
+                        "execution_authority": False,
+                        "mutation_authority": False,
+                    },
+                ),
+            ),
+            watermark=42,
+        ),
+        _REPLAY_UNAVAILABLE,
+    ]
+
+    with _client(dependencies).stream(
+        "GET",
+        "/ontology/instances/stream",
+        headers=HEADERS,
+    ) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    # No Last-Event-ID means the very first replay call establishes the
+    # current watermark; it must not request an unbounded history replay.
+    assert dependencies.replays[0] == ReplayQuery(
+        stream="ontology.inventory.invalidations",
+        principal_id="reader-oid",
+        after_sequence=None,
+        limit=500,
+    )
+    # SSE id equals the coalesced event's watermark.
+    assert "id: 42\nevent: inventory.invalidated" in body
+    assert '"watermark":42' in body
+    assert '"observation_count":3' in body
+
+
+def test_inventory_invalidation_stream_honors_last_event_id_on_reconnect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = RecordingDependencies()
+    monkeypatch.setattr(operations_factory, "INVENTORY_INVALIDATION_POLL_SECONDS", 0.0)
+    dependencies.replay_batches = [
+        ReplayBatch(events=(), watermark=99),
+        _REPLAY_UNAVAILABLE,
+    ]
+
+    with _client(dependencies).stream(
+        "GET",
+        "/ontology/instances/stream",
+        headers={**HEADERS, "Last-Event-ID": "99"},
+    ) as response:
+        b"".join(response.iter_bytes())
+
+    assert response.status_code == 200
+    assert dependencies.replays[0] == ReplayQuery(
+        stream="ontology.inventory.invalidations",
+        principal_id="reader-oid",
+        after_sequence=99,
+        limit=500,
+    )
+
+
+def test_inventory_invalidation_stream_coalesces_page_and_exposes_no_sensitive_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = RecordingDependencies()
+    monkeypatch.setattr(operations_factory, "INVENTORY_INVALIDATION_POLL_SECONDS", 0.0)
+    dependencies.replay_batches = [
+        ReplayBatch(
+            events=(
+                ReplayEvent(
+                    50,
+                    "inventory.invalidated",
+                    {
+                        "schema_version": "1.0.0",
+                        "watermark": 50,
+                        "observation_count": 5,
+                        "observed_at": "2026-09-06T01:00:00+00:00",
+                        "recorded_at": "2026-09-06T01:00:05+00:00",
+                        "complete": False,
+                        "execution_authority": False,
+                        "mutation_authority": False,
+                    },
+                ),
+            ),
+            watermark=50,
+        ),
+        _REPLAY_UNAVAILABLE,
+    ]
+
+    with _client(dependencies).stream(
+        "GET",
+        "/ontology/instances/stream",
+        headers=HEADERS,
+    ) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    assert body.count("event: inventory.invalidated") == 1
+    for forbidden in (
+        "resource",
+        "provider_ref",
+        "subject_ref",
+        "principal",
+        "tenant",
+        "properties",
+        "oid",
+    ):
+        assert forbidden not in body
+
+
+def test_inventory_invalidation_stream_polls_persistently_and_emits_heartbeats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_batches = [
+        ReplayBatch(events=(), watermark=0),
+        ReplayBatch(
+            events=(ReplayEvent(51, "inventory.invalidated", {"watermark": 51}),),
+            watermark=51,
+        ),
+        _REPLAY_UNAVAILABLE,
+    ]
+    monkeypatch.setattr(operations_factory, "INVENTORY_INVALIDATION_POLL_SECONDS", 0.0)
+    monkeypatch.setattr(operations_factory, "INVENTORY_INVALIDATION_HEARTBEAT_SECONDS", 0.0)
+
+    with _client(dependencies).stream(
+        "GET",
+        "/ontology/instances/stream",
+        headers=HEADERS,
+    ) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    assert ": heartbeat\n\n" in body
+    assert "id: 51\nevent: inventory.invalidated" in body
+    # Every poll durably re-requests the stream past the last seen watermark.
+    assert all(query.stream == "ontology.inventory.invalidations" for query in dependencies.replays)
+    assert len(dependencies.replays) >= 3
+
+
+def test_inventory_invalidation_stream_terminates_when_the_reader_becomes_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_batches = [
+        ReplayBatch(events=(), watermark=0),
+        _REPLAY_UNAVAILABLE,
+    ]
+    monkeypatch.setattr(operations_factory, "INVENTORY_INVALIDATION_POLL_SECONDS", 0.0)
+
+    with _client(dependencies).stream(
+        "GET",
+        "/ontology/instances/stream",
+        headers=HEADERS,
+    ) as response:
+        body = b"".join(response.iter_bytes())
+
+    # The generator returns (ending the SSE body) instead of raising once the
+    # durable reader reports it is unavailable mid-poll.
+    assert response.status_code == 200
+    assert body == b""
+    assert len(dependencies.replays) == 2
+
+
+def test_inventory_invalidation_stream_fails_closed_when_unavailable_on_initial_connect() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_batches = [_REPLAY_UNAVAILABLE]
+
+    response = _client(dependencies).get(
+        "/ontology/instances/stream",
+        headers=HEADERS,
+    )
+
+    # The very first (pre-stream) replay call happens synchronously in the
+    # route handler, so an unavailable reader fails the request closed with
+    # 503 instead of opening an empty SSE body.
+    assert response.status_code == 503
+    assert len(dependencies.replays) == 1

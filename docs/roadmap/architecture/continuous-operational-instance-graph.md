@@ -61,6 +61,28 @@ Every reachable managed-service connection therefore needs its target type in th
 Continuous means collection always has a durable next action, not one never-ending process. Event
 consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
 
+### Private-safe change acceleration
+
+The private deployment profile polls Azure Resource Graph `resourcechanges` with a durable
+timestamp-and-change-id cursor. Each bounded page is ordered oldest first, duplicate boundary rows
+are idempotent, and the cursor advances only after every accepted change enters the canonical
+observation ingress. Create and update rows trigger a bounded exact Resource Graph hydration for the
+changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation
+before proving absence. A partial change page or hydration failure advances neither cursor nor
+overlay.
+
+The change accelerator batches bursts for at most two seconds, applies per-resource ordering, and
+publishes no relationship that the exact hydration and reviewed mapping catalog did not support.
+Azure Activity Log remains an audit and recovery source, while complete ARG and ARM reconciliation
+continues to repair missed changes and collect child topology. Resource Graph change availability is
+eventually consistent, so this path is near-real-time rather than an immediate provider guarantee.
+
+After the observation journal and real-time overlay commit, its monotonic watermark becomes a
+sanitized inventory invalidation. The Operator SSE route exposes only watermark, count, and
+observation time under authenticated read access. It never exposes provider payloads or creates
+graph facts. A visible Console receiving the invalidation re-reads its bounded selected-instance
+projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded fallback.
+
 ### Load-aware scheduling
 
 Each source has a validated policy rather than one global interval. The policy includes:
@@ -335,6 +357,7 @@ work, or an open stage that does not name its exact gap.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Push events and durable delta overlay | implemented | `delivery/azure/activity_log.py`; realtime inventory projector and focused tests | Resource changes can update a bounded overlay. Deployment evidence remains separate. |
+| Private-safe change acceleration | in-progress | `arg_resource_changes.py`; inventory job composition; Operator durable invalidation SSE; Console SSE consumer and polling countdown; focused source, route, replay, and Console checks | The bounded implementation is locally assembled. Final integrated validation is intentionally deferred until the shared main checkout is synchronized. Complete reconciliation remains the only relationship-completeness authority. |
 | Complete inventory promotion and ontology projection | implemented | `delivery/inventory_sync.py`; `runtime/inventory_ontology.py`; focused inventory and projection tests | Complete generations replace the owned subgraph atomically. The existing routine cadence is not the target continuous policy. |
 | Relationship generation convergence | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, and focused regression checks | Reviewed parents shadow generic fallback, snapshot and ontology cardinality gates agree, classified non-edges advance the exact generation without claiming complete coverage, and graph receipts preserve generation, freshness, verification level, and zero-result limitations. |
 | Kubernetes workload observations | validated | `kubernetes_api_inventory.py`; Kubernetes live and durable Event readers; rollout, Pod recovery, and Pod diagnosis FunctionTypes; lifecycle collector and PostgreSQL store; focused inventory, event, migration, persistence, planner, receipt, composition, and runtime checks; authenticated Event API and durable cursor receipts | The UID-grounded generation preserves allowlisted rollout state. `query.resource_event_history` can narrow one exact child through immutable `uid` and `cluster_ref`. A leased bookmark watch treats `resourceVersion` as opaque, atomically appends typed observations with local monotonic cursor progress, and reports expiry, authorization, source, retention, and result-limit gaps. `query.kubernetes_pod_diagnosis` joins one exact UID with bounded lifecycle and content-free log evidence only when a real log provider is bound. It retains content digests, counts, timestamps, source identity, and explicit gaps while fixing causal and execution authority false; zero log rows remain `zero_records_unverified`. Raw Event messages, log bodies, provider payloads, and ontology writes remain excluded. The isolated validation database reached the merged Core migration head; five consecutive live cycles advanced sequence 0 to 5 and retained about 60 seconds of complete coverage. A 60-second zero-row durable read was complete only after that observed interval. This local receipt does not claim deployed retention or Pod cause/recovery. |
@@ -355,6 +378,7 @@ work, or an open stage that does not name its exact gap.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | in-progress | Added a private-safe Resource Graph change accelerator, durable no-payload inventory invalidation SSE, and Console immediate revalidation with a visible 15-second fallback countdown. | `current change`; source adapter checks passed 38 cases before the requested pause, Operator SSE checks passed 140 cases, and Console SSE/countdown checks passed 112 cases. | Synchronize the shared main checkout, run combined focused and clean-build validation, critique the integrated diff, and retain one local state-transition timing receipt. |
 | 2026-09-05 | implemented | Clarified the negative sparse-property contract after tombstones became explicitly typed. A delete with `properties_complete=false` is a tombstone unless `observation_kind=partial` is explicitly declared; the negative test now exercises the prohibited partial-delete combination before database access. | `current change`; `test_inventory_live_evidence.py`; 5 focused partial and tombstone semantics checks passed with Ruff and formatting. | Rerun required CI for the exact corrected revision before the protected deployment plan. |
 | 2026-09-05 | implemented | Restored migration-safe shadow dual-write adoption for pre-journal active snapshots. The projector resolves a missing legacy scope only from the single active coverage scope, materializes deterministic baseline incarnations before sparse object and relationship binding, keeps tombstone-first ordering monotonic, and isolates root rollback tests from the service-owned migration database. | `current change`; PostgreSQL delta and lifecycle adapters, CI database ordering, migration inventory and workflow contracts; fresh pgvector checks passed 13 root tests with 25 service-only skips followed by 31 service-owned tests, plus 123 workflow and migration contracts, 187 focused OI and deployment CLI checks, Ruff, formatting, and strict mypy. | The protected plan and apply plus the dedicated OI-15 runtime Job and OI-16 operational certification receipt remain open. |
 | 2026-09-05 | in-progress | Implemented OI-14 and the local code surfaces for OI-15 and OI-16. Observation ingestion now binds Resources and relationship endpoints to exact incarnations and time-and-scope partitions. Late observations open correction partitions, lower source completeness, and close only after a content-addressed ontology replay receipt. Case, investigation, approval, execution, rollback, legal-hold, and replay-lease pins block purge. Deployment policy loading, storage-pressure degradation, verified principal-scoped Blob archive access, database-gated source purge, N/N-1 schema replay, database recovery comparison, a fixed shadow schedule, and pinned-revision certification are implemented. | `current change`; lifecycle and certification types, Core migration `20260906_core_operational_history_lifecycle.py`, PostgreSQL and Azure adapters, inventory journal integration, source-completeness reduction, certification CLI, and 322 passing focused checks; Ruff, formatting, and strict mypy passed. | Compose the fixed lifecycle schedule as a dedicated runtime Job, then commit and push a green revision and run the protected operational certification. Until that receipt exists, OI-15 and OI-16 remain open and no deployed bounded-growth or recovery claim is made. |

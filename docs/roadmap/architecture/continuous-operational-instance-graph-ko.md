@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 290f7baa623035cee550152bdcb1ef6009393f24
+translation_source_sha: 4ae2ff1b47e5efdb055d4f669f1077bdde1aee44
 translation_revised: 2026-09-05
 ---
 # 지속형 운영 인스턴스 그래프
@@ -63,6 +63,28 @@ translation_revised: 2026-09-05
 
 지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다.
 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
+
+### 비공개 네트워크 변경 가속
+
+비공개 배포 프로필은 내구성 있는 타임스탬프 및 변경 ID cursor로 Azure Resource Graph
+`resourcechanges`를 폴링합니다. 범위가 제한된 각 페이지는 오래된 항목부터 정렬하고 경계에서
+중복된 행은 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤에만 cursor를
+진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
+Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
+부재를 입증할 때까지 기다립니다. 변경 페이지 또는 재조회가 부분적이면 cursor와 overlay를 모두
+진행하지 않습니다.
+
+변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
+mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구
+출처로 유지하고, 완전한 ARG 및 ARM reconciliation은 누락된 변경을 복구하고 하위 토폴로지를
+수집합니다. Resource Graph 변경 정보는 최종 일관성을 사용하므로 이 경로는 즉시성을 보장하는
+프로바이더 기능이 아니라 실시간에 가까운 처리입니다.
+
+관측 journal과 실시간 overlay가 커밋된 뒤 단조 증가 watermark를 정제된 인벤토리 무효화 이벤트로
+사용합니다. Operator SSE 경로는 인증된 읽기 권한 아래에서 watermark, 개수, 관측 시각만
+노출합니다. 프로바이더 payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 중인 Console이
+무효화 이벤트를 받으면 범위가 제한된 선택 인스턴스 변환 결과를 다시 읽습니다. SSE는
+`Last-Event-ID`부터 다시 연결하며 폴링은 범위가 제한된 fallback으로 유지합니다.
 
 ### 부하 인식 일정 관리
 
@@ -332,6 +354,7 @@ binding을
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Push 이벤트와 durable delta overlay | implemented | `delivery/azure/activity_log.py`, 실시간 inventory projector와 집중 테스트 | 리소스 변경은 범위가 제한된 overlay를 업데이트할 수 있습니다. 배포 근거는 별도입니다. |
+| 비공개 네트워크 변경 가속 | in-progress | `arg_resource_changes.py`, 인벤토리 작업 구성, Operator 내구성 무효화 SSE, Console SSE 소비자 및 폴링 카운트다운, 집중 출처, 경로, 재현 및 Console 검사 | 범위가 제한된 구현을 로컬에서 구성했습니다. 공유 main checkout 동기화 이후에 최종 통합 검증을 이어갑니다. 완전한 reconciliation만 관계 완전성 권위를 유지합니다. |
 | 완전한 inventory promotion과 ontology 변환 결과 | implemented | `delivery/inventory_sync.py`, `runtime/inventory_ontology.py`, 집중 inventory 및 변환 결과 테스트 | 완전 세대가 소유된 하위 그래프를 원자적으로 대체합니다. 기존 정기 cadence는 목표 지속형 정책이 아닙니다. |
 | 관계 세대 수렴 | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, 집중 회귀 검사 | 검토된 parent가 일반 fallback을 shadow하고 snapshot과 ontology cardinality gate가 일치합니다. 분류된 non-edge는 complete coverage를 주장하지 않고 exact generation을 전진시키며 graph receipt는 generation, freshness, verification level, zero-result limitation을 보존합니다. |
 | Kubernetes 워크로드 관측 | validated | `kubernetes_api_inventory.py`, Kubernetes 실제 및 영속 Event reader, rollout, Pod 복구 및 Pod 진단 FunctionType, lifecycle collector와 PostgreSQL store, 집중 인벤토리, Event, migration, 영속성, 플래너, 증적, 조립 및 런타임 검사, 인증된 Event API와 영속 cursor 증적 | UID에 근거한 세대는 허용 목록에 있는 rollout 상태를 보존합니다. `query.resource_event_history`는 불변 `uid`와 `cluster_ref`로 정확한 child 하나를 좁힐 수 있습니다. Lease 기반 bookmark watch는 `resourceVersion`을 불투명 값으로 취급하고 로컬 단조 cursor 진행과 타입 지정 관측을 원자적으로 append하며 expiry, authorization, source, retention 및 result-limit gap을 보고합니다. `query.kubernetes_pod_diagnosis`는 실제 로그 프로바이더가 연결된 경우에만 정확한 UID 하나를 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합합니다. 내용 다이제스트, 개수, 시각, 출처 신원 및 명시적인 공백을 보존하고 인과 및 실행 권한을 false로 고정하며, 로그 행이 0개이면 `zero_records_unverified`로 유지합니다. 원시 Event message, 로그 본문, provider payload 및 ontology 쓰기는 제외합니다. 격리 validation database는 병합된 Core migration head에 도달했고 연속 실제 cycle 5개가 sequence 0에서 5까지 전진하며 약 60초의 완전한 coverage를 보존했습니다. 60초 zero-row 영속 읽기는 해당 구간을 관측한 뒤에만 complete였습니다. 이 로컬 증적은 배포 보존이나 Pod 원인 및 복구를 주장하지 않습니다. |
@@ -352,6 +375,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | in-progress | 비공개 네트워크 Resource Graph 변경 가속기, payload 없는 내구성 인벤토리 무효화 SSE, 표시되는 15초 fallback 카운트다운이 있는 Console 즉시 재검증을 추가했습니다. | `current change`, 요청된 중지 전에 출처 어댑터 검사 38개, Operator SSE 검사 140개, Console SSE 및 카운트다운 검사 112개가 통과했습니다. | 공유 main checkout을 동기화하고, 통합 집중 검사와 깨끗한 빌드 검증을 실행하고, 통합 차이를 비평하고, 로컬 상태 전환 시간 증적을 보존합니다. |
 | 2026-09-05 | implemented | Tombstone을 명시적으로 타입 지정한 뒤 sparse 속성의 부정 계약을 명확히 했습니다. `properties_complete=false`인 삭제는 `observation_kind=partial`을 명시하지 않으면 tombstone입니다. 부정 테스트는 이제 데이터베이스 접근 전에 허용되지 않는 partial-delete 조합을 검사합니다. | `current change`, `test_inventory_live_evidence.py`, 집중 partial 및 tombstone 의미 검사 5개, Ruff, formatting 통과 | 보호된 배포 plan 전에 정확한 보정 리비전의 필수 CI를 다시 실행합니다. |
 | 2026-09-05 | implemented | 관측 원장 도입 이전의 활성 snapshot에도 migration-safe shadow 이중 기록을 적용하도록 복구했습니다. 변환기는 누락된 legacy 범위를 단일 활성 범위에서만 해석하고, sparse 객체와 관계를 결속하기 전에 결정론적 기준 수명 인스턴스를 생성하며, tombstone 우선 순서를 단조롭게 유지하고, root rollback 검사를 서비스 소유 migration 데이터베이스와 격리합니다. | `current change`, PostgreSQL delta 및 수명 주기 어댑터, CI 데이터베이스 순서, migration inventory 및 작업 흐름 계약. 새 pgvector 검사에서 root 테스트 13개와 service-only skip 25개 이후 서비스 소유 테스트 31개가 통과했고, 작업 흐름 및 migration 계약 123개, 집중 OI 및 배포 CLI 검사 187개, Ruff, formatting, strict mypy가 통과했습니다. | 보호된 plan과 apply, 전용 OI-15 runtime Job, OI-16 운영 certification 증적은 계속 열려 있습니다. |
 | 2026-09-05 | in-progress | OI-14와 OI-15 및 OI-16의 로컬 코드 표면을 구현했습니다. 관측 ingress는 이제 Resource와 관계 endpoint를 정확한 수명 인스턴스와 시간 및 범위 partition에 결속합니다. 지연 관측은 correction partition을 열고 원본 완전성을 낮추며, content-addressed 온톨로지 replay 증적 이후에만 종료됩니다. Case, investigation, approval, execution, rollback, legal-hold 및 replay-lease pin은 purge를 차단합니다. 배포 policy load, 저장소 압력 저하, 검증된 principal 범위 Blob archive 접근, database gate 기반 source purge, N/N-1 schema replay, database recovery 비교, 고정 shadow schedule 및 고정 개정 certification을 구현했습니다. | `current change`, 수명 주기 및 certification 타입, Core migration `20260906_core_operational_history_lifecycle.py`, PostgreSQL 및 Azure adapter, inventory journal 통합, 원본 완전성 축약, certification CLI, 집중 검사 322개 통과, Ruff, formatting 및 strict mypy 통과 | 고정 수명 주기 schedule을 전용 runtime Job으로 조립한 뒤 green 개정을 commit하고 push하여 보호된 운영 certification을 실행합니다. 그 증적이 생길 때까지 OI-15와 OI-16은 열려 있으며 배포된 제한 증가 또는 recovery를 주장하지 않습니다. |

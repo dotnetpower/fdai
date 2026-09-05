@@ -24,6 +24,7 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionReader,
     ProjectionUnavailableError,
     ProposalConflictError,
+    ReplayBatch,
     ReplayEvent,
     ReplayQuery,
     ReportPdfEncoder,
@@ -59,6 +60,13 @@ MAX_SSE_FRAME_BYTES: Final = 256 * 1024
 READ_INVESTIGATION_STREAM_SECONDS: Final = 35.0
 READ_INVESTIGATION_POLL_SECONDS: Final = 0.25
 READ_INVESTIGATION_HEARTBEAT_SECONDS: Final = 10.0
+# The inventory invalidation signal has no terminal event and no known
+# session length, so it stays open indefinitely instead of expiring like the
+# bounded read-investigation stream above; only cancellation or an
+# unavailable durable reader end it.
+INVENTORY_INVALIDATION_STREAM: Final = "ontology.inventory.invalidations"
+INVENTORY_INVALIDATION_POLL_SECONDS: Final = 2.0
+INVENTORY_INVALIDATION_HEARTBEAT_SECONDS: Final = 15.0
 _EVENT_NAME: Final = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 
@@ -353,11 +361,12 @@ async def _stream(
     *,
     stream: str | None = None,
 ) -> Response:
+    resolved_stream = stream or entry.operation
     try:
         after_sequence = _last_event_id(request)
         batch = await reader.replay(
             ReplayQuery(
-                stream=stream or entry.operation,
+                stream=resolved_stream,
                 principal_id=principal.subject_id,
                 after_sequence=after_sequence,
                 limit=MAX_LIMIT,
@@ -369,7 +378,16 @@ async def _stream(
         return _error(400, str(exc))
 
     async def events() -> AsyncIterator[bytes]:
-        if not (stream or entry.operation).startswith("read-investigation:"):
+        if resolved_stream == INVENTORY_INVALIDATION_STREAM:
+            async for chunk in _inventory_invalidation_events(
+                reader,
+                principal,
+                after_sequence,
+                batch,
+            ):
+                yield chunk
+            return
+        if not resolved_stream.startswith("read-investigation:"):
             for event in batch.events:
                 yield _sse_event(event)
             yield _watermark(batch.watermark)
@@ -396,7 +414,7 @@ async def _stream(
             try:
                 current = await reader.replay(
                     ReplayQuery(
-                        stream=stream or entry.operation,
+                        stream=resolved_stream,
                         principal_id=principal.subject_id,
                         after_sequence=cursor,
                         limit=MAX_LIMIT,
@@ -410,6 +428,48 @@ async def _stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
+
+
+async def _inventory_invalidation_events(
+    reader: DurableReplayReader,
+    principal: OperatorPrincipal,
+    after_sequence: int | None,
+    batch: ReplayBatch,
+) -> AsyncIterator[bytes]:
+    """Poll durable invalidation replay indefinitely, one bounded page at a time.
+
+    Unlike the finite streams above, this connection never completes on its
+    own; the caller only stops it by disconnecting. Every 2 seconds it asks
+    the durable reader for events past the last seen watermark, and every 15
+    seconds of silence it emits a comment-only heartbeat so idle proxies do
+    not close the connection. It ends only when the client disconnects
+    (cancellation unwinds this generator) or the durable reader itself
+    reports it is unavailable.
+    """
+    cursor = after_sequence or 0
+    current = batch
+    loop = asyncio.get_running_loop()
+    heartbeat_at = loop.time() + INVENTORY_INVALIDATION_HEARTBEAT_SECONDS
+    while True:
+        for event in current.events:
+            cursor = max(cursor, event.sequence)
+            yield _sse_event(event)
+        now = loop.time()
+        if now >= heartbeat_at:
+            yield b": heartbeat\n\n"
+            heartbeat_at = now + INVENTORY_INVALIDATION_HEARTBEAT_SECONDS
+        await asyncio.sleep(INVENTORY_INVALIDATION_POLL_SECONDS)
+        try:
+            current = await reader.replay(
+                ReplayQuery(
+                    stream=INVENTORY_INVALIDATION_STREAM,
+                    principal_id=principal.subject_id,
+                    after_sequence=cursor,
+                    limit=MAX_LIMIT,
+                )
+            )
+        except (ProjectionUnavailableError, ValueError):
+            return
 
 
 def _bounded_params(request: Request) -> dict[str, tuple[str, ...]]:

@@ -19,6 +19,11 @@ from fdai_service_contracts import OperationalActivityStatus, OperationalFreshne
 from fdai.delivery import inventory_collection_health_reporting
 from fdai.delivery.azure.activity_log import AzureActivityLogFactory, AzureActivityLogFactoryConfig
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
+from fdai.delivery.azure.arg_resource_changes import (
+    AzureResourceChangeFeed,
+    AzureResourceChangeFeedConfig,
+    forward_arg_resource_changes,
+)
 from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
@@ -651,6 +656,83 @@ def _recovery_delta_lock(config: InventoryJobConfig) -> ResourceLock:
     )
 
 
+async def run_resource_change_feed(config: InventoryJobConfig) -> int:
+    """Poll the read-only ARG resourcechanges accelerator independently of full-scan due state."""
+    vocabulary = _load_resource_type_registry()
+    async with httpx.AsyncClient() as client:
+        identity = _workload_identity(http_client=client)
+        return await _run_resource_change_feed(
+            config=config,
+            vocabulary=vocabulary,
+            identity=identity,
+            http_client=client,
+        )
+
+
+async def _run_resource_change_feed(
+    *,
+    config: InventoryJobConfig,
+    vocabulary: ResourceTypeRegistry,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+) -> int:
+    event_bus, event_topic = _build_job_event_bus(identity)
+    try:
+        return await _forward_resource_changes(
+            config=config,
+            identity=identity,
+            vocabulary=vocabulary,
+            http_client=http_client,
+            event_bus=event_bus,
+            topic=event_topic,
+            scope_lock=_recovery_delta_lock(config),
+        )
+    finally:
+        await event_bus.close()
+
+
+async def _forward_resource_changes(
+    *,
+    config: InventoryJobConfig,
+    identity: WorkloadIdentity,
+    vocabulary: ResourceTypeRegistry,
+    http_client: httpx.AsyncClient,
+    event_bus: EventBus,
+    topic: str,
+    scope_lock: ResourceLock,
+) -> int:
+    """Forward one bounded resourcechanges poll per configured scope.
+
+    Each scope keeps its own durable cursor (via `forward_arg_resource_changes`'s
+    StateStore key) and its own advisory lock, mirroring the Activity Log
+    recovery delta's per-scope isolation so a stuck scope never blocks the
+    others."""
+
+    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+    published = 0
+    for scope in config.scopes:
+        async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
+            feed = AzureResourceChangeFeed(
+                identity=identity,
+                resource_types=vocabulary,
+                http_client=http_client,
+                config=AzureResourceChangeFeedConfig(
+                    subscription_scope=scope,
+                    arg_endpoint=config.management_endpoint,
+                    audience=config.management_audience,
+                    requests_per_second=config.arg_requests_per_second,
+                ),
+            )
+            published += await forward_arg_resource_changes(
+                feed=feed,
+                state_store=state_store,
+                event_bus=event_bus,
+                topic=topic,
+                scope=scope,
+            )
+    return published
+
+
 async def _load_job_config() -> InventoryJobConfig:
     """Resolve one authoritative settings snapshot for an inventory tick."""
 
@@ -803,8 +885,37 @@ async def _publish_collection_health(
 
 
 async def _drain_change_stream(config: InventoryJobConfig) -> int | None:
-    """Drain the read-only change accelerator without stopping completeness scans."""
+    """Drain the read-only change accelerators without stopping completeness scans.
 
+    The bounded ARG resourcechanges accelerator runs first - it is the
+    lower-latency freshness hint - followed by the Activity Log recovery
+    delta fallback/audit source. Each degrades independently: a source
+    that is disabled or raises does not mask the other's success. The
+    combined result is `None` only when both are unavailable (disabled
+    counts as `0`, not unavailable), otherwise it is the sum of whatever
+    each source actually published."""
+
+    resource_change_result = await _try_resource_change_feed(config)
+    recovery_delta_result = await _try_recovery_delta(config)
+    if resource_change_result is None and recovery_delta_result is None:
+        return None
+    return (resource_change_result or 0) + (recovery_delta_result or 0)
+
+
+async def _try_resource_change_feed(config: InventoryJobConfig) -> int | None:
+    if not config.resource_change_feed_enabled:
+        return 0
+    try:
+        return await run_resource_change_feed(config)
+    except Exception as exc:  # noqa: BLE001 - read-only accelerator degrades independently
+        _LOGGER.warning(
+            "inventory_resource_change_feed_unavailable",
+            extra={"reason": type(exc).__name__},
+        )
+        return None
+
+
+async def _try_recovery_delta(config: InventoryJobConfig) -> int | None:
     if not config.recovery_delta_enabled:
         return 0
     try:
@@ -849,4 +960,10 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["InventoryJobConfig", "InventoryJobResult", "run", "run_recovery_delta"]
+__all__ = [
+    "InventoryJobConfig",
+    "InventoryJobResult",
+    "run",
+    "run_recovery_delta",
+    "run_resource_change_feed",
+]

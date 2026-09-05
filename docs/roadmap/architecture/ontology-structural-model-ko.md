@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 510f24d6545155dbc41d3d4680f6838163e00ecf
+translation_source_sha: a46b5d200853e3dda84ff9f81e4f1b02dc79fb47
 translation_revised: 2026-09-05
 ---
 # 온톨로지 구조 모델
@@ -235,10 +235,11 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 Console은 응답, 표현 대상, 집중 그래프, Inspector 전용, 목적별 위임, 가림, 생략 개수를 서로
 겹치지 않는 처리 버킷으로 보고합니다. 레이아웃 선택은 권위 있는 응답 개수를 바꾸지 않습니다.
 
-선택한 인스턴스 화면은 문서가 보이는 동안 15초마다 범위가 제한된 응답을 다시 검증하고, 창이
-포커스를 얻거나 온라인 또는 표시 상태로 돌아오면 즉시 다시 확인합니다. 겹치는 요청은 하나로
-합치고 새로고침이 실패하면 마지막으로 검증된 응답을 유지하면서 실패를 표시합니다. 오래된 데이터를
-현재 데이터처럼 조용히 처리하지 않습니다. 이 동작은 실시간에 가까운 화면 폴링이며 프로바이더
+선택한 인스턴스 화면은 내구성 있는 인증 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를
+받을 때마다 범위가 제한된 응답을 다시 검증합니다. SSE를 사용할 수 없으면 단조 증가 15초
+카운트다운으로 fallback 폴링을 실행합니다. 창이 포커스를 얻거나 온라인 또는 표시 상태로 돌아오면
+즉시 다시 확인합니다. 겹치는 요청은 하나로 합치고 새로고침이 실패하면 마지막으로 검증된 응답을
+유지하며 오래된 데이터를 현재 데이터처럼 조용히 처리하지 않습니다. SSE와 폴링은 프로바이더
 관측이 아닙니다. Resource 또는 관계는 인벤토리 권위가 새 근거를 기록한 뒤에만 변경됩니다.
 프로바이더가 보고한 상태는 정확한 값을 유지하고 텍스트를 포함한 의미 배지로 표시합니다. 색상만으로
 상태를 전달하지 않습니다.
@@ -370,6 +371,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
+| 내구성 있는 인스턴스 무효화 전달 | in-progress | Operator 인벤토리 관측 재현, `/ontology/instances/stream`, Console SSE 소비자, 단조 증가 폴링 카운트다운 | 로컬 구성 요소 검사가 통과했습니다. 공유 main checkout을 동기화한 뒤 깨끗한 통합 빌드와 상태 전환 시간 검증을 이어갑니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 거버넌스 만료 액션 연결 | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; 집중 수명 주기 및 ActionType 카탈로그 검사 | 정확한 배정 연결과 예외 개정은 등록된 ActionType 하나를 위한 런타임 근거입니다. 새 LinkType을 만들거나 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
 | 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 매핑 94개가 Azure 포함 및 트래픽 구성, UID 기반 Kubernetes 런타임 토폴로지, 정확한 Node 프로바이더 아이덴티티, Ingress 백엔드 Service 및 EndpointSlice 노출을 포함합니다. 구성되지 않은 Kubernetes 출처는 명시적인 `unavailable` 세대 근거로 보존됩니다. 실제 운영 Kubernetes 근거는 별도 검증 작업으로 남습니다. |
@@ -379,6 +381,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | in-progress | 내구성 있는 인벤토리 무효화 SSE와 선택한 인스턴스 즉시 재검증을 추가하고, 스트림을 사용할 수 없을 때 단조 증가 카운트다운을 표시했습니다. | `current change`, 요청된 동기화 중지 전에 Operator SSE 검사 140개와 Console SSE 및 카운트다운 검사 112개가 통과했습니다. | main을 동기화하고 깨끗한 통합 타입 검사와 빌드를 실행한 뒤 로컬 상태 전환 시간 증적 하나를 보존합니다. |
 | 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 두 객체 유형 모두 `id: {type: string, required: true}`를 선언하며 수명 주기 분류에는 이미 포함되어 있었지만 인터페이스 구현 레지스트리에서 누락되어 있었습니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 범위가 제한된 구조 작업은 남아 있지 않습니다. |
 | 2026-08-31 | implemented | 온톨로지 관계나 권한 출처를 추가하지 않고 예외 만료를 정확한 배정 하나와 등록된 ActionType 하나에 연결했습니다. 연결 근거가 없거나 충돌하면 제안을 보류합니다. | `current change`; 예외 수명 주기 스키마, ActionType 선언, 집중 수명 주기 및 카탈로그 검사. | 범위가 제한된 구조 작업은 남아 있지 않으며 배포 근거는 별도로 유지합니다. |
 | 2026-08-28 | implemented | 대화 화면 컨텍스트에서 제외해야 하는 `authorization.role-assignment`가 정확한 화면 선택 신원에 포함되던 문제를 닫았습니다. `ontologyInstanceContextIdentity`는 기존 표시 리소스 가드로 숨겨진 역할 배정을 제거한 뒤 `resourceIds`를 구성하므로 숨겨진 역할 배정만 있는 디렉터리가 비어 있지 않은 선택처럼 보이지 않습니다. | `current change`; `console/src/routes/ontology-instances.model.test.ts` 30개 및 Console typecheck 통과. | 이 표시 범위에 남은 제한된 구현 작업은 없습니다. |

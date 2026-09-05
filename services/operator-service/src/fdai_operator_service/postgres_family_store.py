@@ -59,6 +59,13 @@ from fdai_operator_service.process_transition_projection import (
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
 _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
+# The invalidation stream never exposes the durable inventory observation
+# journal itself; it only signals that the authoritative graph moved so the
+# caller re-fetches it. Coalescing every bounded page into this one event
+# name keeps that contract obvious at every call site.
+INVENTORY_INVALIDATION_STREAM: Final = "ontology.inventory.invalidations"
+_INVENTORY_INVALIDATION_EVENT: Final = "inventory.invalidated"
+_INVENTORY_INVALIDATION_SCHEMA_VERSION: Final = "1.0.0"
 _LOGGER = logging.getLogger(__name__)
 _MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
 _MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
@@ -2475,6 +2482,11 @@ class PostgresFamilyStore:
             raise ValueError("after_sequence MUST be non-negative")
         if not 1 <= limit <= 500:
             raise ValueError("replay limit MUST be in [1, 500]")
+        if stream == INVENTORY_INVALIDATION_STREAM:
+            return await self._replay_inventory_invalidations(
+                after_sequence=after_sequence,
+                limit=limit,
+            )
         if stream.startswith("read-investigation:"):
             rows = await self._fetch_all(
                 """
@@ -2525,6 +2537,99 @@ class PostgresFamilyStore:
                 )
             )
         return tuple(events)
+
+    async def _replay_inventory_invalidations(
+        self,
+        *,
+        after_sequence: int | None,
+        limit: int,
+    ) -> tuple[StoredReplayEvent, ...]:
+        """Coalesce one bounded inventory_observation_journal page into one signal.
+
+        The caller only ever learns that the durable inventory journal moved
+        past a watermark; it never learns which resource, provider, or
+        principal produced that motion. On a fresh connection
+        (``after_sequence is None``) this establishes the current watermark
+        from the newest bounded page instead of replaying the journal from
+        its origin, so a long-lived journal never forces a multi-page
+        startup replay before the caller can observe live invalidations. An
+        empty page (nothing observed yet, or nothing new since the last
+        watermark) yields no event at all, since the frontend contract
+        requires ``observation_count`` to be at least one whenever a signal
+        is emitted.
+        """
+        if after_sequence is None:
+            rows = await self._fetch_all(
+                """
+                SELECT watermark, observed_at, recorded_at
+                  FROM inventory_observation_journal
+                 ORDER BY watermark DESC
+                 LIMIT %(limit)s
+                """,
+                {"limit": limit},
+            )
+            baseline = 0
+        else:
+            rows = await self._fetch_all(
+                """
+                SELECT watermark, observed_at, recorded_at
+                  FROM inventory_observation_journal
+                 WHERE watermark > %(after_sequence)s
+                 ORDER BY watermark ASC
+                 LIMIT %(limit)s
+                """,
+                {"after_sequence": after_sequence, "limit": limit},
+            )
+            baseline = after_sequence
+        if not rows:
+            return ()
+        watermark = baseline
+        latest_observed_at: datetime | None = None
+        latest_recorded_at: datetime | None = None
+        for row in rows:
+            candidate = row.get("watermark")
+            if not isinstance(candidate, int):
+                raise PostgresFamilyStoreUnavailable(
+                    "inventory observation journal watermark is malformed"
+                )
+            watermark = max(watermark, candidate)
+            observed_at = row.get("observed_at")
+            if not isinstance(observed_at, datetime):
+                raise PostgresFamilyStoreUnavailable(
+                    "inventory observation journal observed_at is malformed"
+                )
+            if latest_observed_at is None or observed_at > latest_observed_at:
+                latest_observed_at = observed_at
+            recorded_at = row.get("recorded_at")
+            if not isinstance(recorded_at, datetime):
+                raise PostgresFamilyStoreUnavailable(
+                    "inventory observation journal recorded_at is malformed"
+                )
+            if latest_recorded_at is None or recorded_at > latest_recorded_at:
+                latest_recorded_at = recorded_at
+        if latest_observed_at is None or latest_recorded_at is None:
+            # Unreachable given the non-empty, per-row validation above; kept
+            # as an explicit fail-closed guard instead of a stripped assert.
+            raise PostgresFamilyStoreUnavailable(
+                "inventory observation journal page produced no timestamps"
+            )
+        data: dict[str, object] = {
+            "schema_version": _INVENTORY_INVALIDATION_SCHEMA_VERSION,
+            "watermark": watermark,
+            "observation_count": len(rows),
+            "observed_at": latest_observed_at.isoformat(),
+            "recorded_at": latest_recorded_at.isoformat(),
+            "complete": False,
+            "execution_authority": False,
+            "mutation_authority": False,
+        }
+        return (
+            StoredReplayEvent(
+                sequence=watermark,
+                event=_INVENTORY_INVALIDATION_EVENT,
+                data=data,
+            ),
+        )
 
     async def _insert_if_absent(
         self,

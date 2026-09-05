@@ -38,6 +38,8 @@
 .ontology-instance-refresh-status > strong { color: var(--fg); font-size: var(--cs-type-label-size); }
 .ontology-instance-refresh-status > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ontology-instance-refresh-status.is-refreshing > span:first-child { background: var(--accent); }
+.ontology-instance-refresh-status.is-live > span:first-child { background: var(--success); }
+.ontology-instance-refresh-status.is-reconnecting > span:first-child { background: var(--warning); }
 .ontology-instance-refresh-status.is-error { border-color: color-mix(in srgb, var(--warning) 48%, var(--border)); }
 .ontology-instance-refresh-status.is-error > span:first-child { background: var(--warning); }
 .ontology-instance-empty { min-height: min(360px, 44vh); display: grid; place-content: center; gap: 5px; text-align: center; }

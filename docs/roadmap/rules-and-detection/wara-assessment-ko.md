@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 038ac12dfda14da6f7b67d79c632d358cc697ee4
+translation_source_sha: 550a30cd873cc2375f69d67a9a8c8eea61677103
 translation_revised: 2026-09-05
 ---
 # WARA 근거 기반 평가
@@ -213,7 +213,8 @@ Sender 권한을 가집니다. Terraform은 실행 slot과 일치하는 매시�
 디코딩, Console 현지화, 결정론적 갱신 차이를 포함합니다. 전체 카탈로그 검증은 고정된 입력과
 파생 아티팩트가 일치함을 증명합니다.
 공유 PostgreSQL 제품군 저장소는 WARA 범위 읽기와 별도로 온톨로지 관계 후보 수를 검증합니다.
-이 수는 WARA 근거를 충족하거나, 넓히거나, 대체할 수 없습니다.
+인벤토리 무효화 watermark 판독기는 payload가 없는 별도 스트림으로 유지되며, 이 수와 스트림은
+WARA 근거를 충족하거나, 넓히거나, 대체할 수 없습니다.
 변경할 수 없는 요청, 근거, 상태, 컨트롤 및 결과 계약은 `core/wara/models.py`에 유지합니다.
 런타임 모듈은 평가, 관측 수집, 감사 및 게시를 소유하고 기존 import 호환성을 위해 해당 계약을
 다시 내보냅니다.

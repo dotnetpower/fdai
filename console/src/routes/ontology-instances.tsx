@@ -7,9 +7,15 @@ import { Tooltip } from "../components/tooltip";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import {
+  formatOntologyRefreshCountdown,
   installOntologyInstanceRefresh,
+  ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
   type OntologyInstanceRefreshTrigger,
 } from "./ontology-instance-refresh";
+import {
+  useOntologyInvalidationStream,
+  type OntologyInvalidationStreamStatus,
+} from "./use-ontology-invalidation-stream";
 import {
   decodeOntologyInstanceDirectory,
   decodeOntologyInstanceExploration,
@@ -57,6 +63,13 @@ export function OntologyInstancesView({ client }: Props) {
   const [detailRefreshStatus, setDetailRefreshStatus] =
     useState<DetailRefreshStatus>("idle");
   const [detailCheckedAt, setDetailCheckedAt] = useState<string | null>(null);
+  const [detailNextPeriodicAt, setDetailNextPeriodicAt] = useState<number | null>(null);
+  const invalidationStream = useOntologyInvalidationStream({
+    url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
+    enabled: selectedId !== null,
+    getAuthorizationHeader: client.authorizationHeader,
+    onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +121,7 @@ export function OntologyInstancesView({ client }: Props) {
       setDetail({ status: "idle" });
       setDetailRefreshStatus("idle");
       setDetailCheckedAt(null);
+      setDetailNextPeriodicAt(null);
       return;
     }
     let cancelled = false;
@@ -128,6 +142,7 @@ export function OntologyInstancesView({ client }: Props) {
           setDetail({ status: "idle" });
           setDetailRefreshStatus("idle");
           setDetailCheckedAt(null);
+          setDetailNextPeriodicAt(null);
           replaceRouteState(routeHref("ontology", { params: { view: "instances" } }));
           return;
         }
@@ -146,7 +161,9 @@ export function OntologyInstancesView({ client }: Props) {
         }
       }
     };
-    const stopRefresh = installOntologyInstanceRefresh(refresh);
+    const stopRefresh = installOntologyInstanceRefresh(refresh, undefined, {
+      onNextPeriodicAt: setDetailNextPeriodicAt,
+    });
     return () => {
       cancelled = true;
       stopRefresh();
@@ -326,6 +343,8 @@ export function OntologyInstancesView({ client }: Props) {
                   <OntologyInstanceRefreshStatus
                     status={detailRefreshStatus}
                     checkedAt={detailCheckedAt}
+                    nextPeriodicAt={detailNextPeriodicAt}
+                    streamStatus={invalidationStream.status}
                   />
                 ) : null}
                 <AsyncBoundary state={detail} resourceLabel={t("ontology.instances.detailLoading")}>
@@ -345,26 +364,57 @@ export function OntologyInstancesView({ client }: Props) {
 function OntologyInstanceRefreshStatus({
   status,
   checkedAt,
+  nextPeriodicAt,
+  streamStatus,
 }: {
   readonly status: DetailRefreshStatus;
   readonly checkedAt: string | null;
+  readonly nextPeriodicAt: number | null;
+  readonly streamStatus: OntologyInvalidationStreamStatus;
 }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (streamStatus === "open" || nextPeriodicAt === null) return undefined;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [nextPeriodicAt, streamStatus]);
+  const remainingSeconds = nextPeriodicAt === null
+    ? Math.ceil(ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS / 1_000)
+    : Math.max(0, Math.ceil((nextPeriodicAt - now) / 1_000));
   const detail = status === "refreshing"
     ? t("ontology.instances.autoRefreshChecking")
     : status === "error"
       ? t("ontology.instances.autoRefreshFailed")
-      : checkedAt === null
-        ? t("ontology.instances.autoRefreshWaiting")
-        : t("ontology.instances.autoRefreshChecked", {
-          time: formatDateTime(checkedAt),
-        });
+      : streamStatus === "open"
+        ? t("ontology.instances.autoRefreshLive", {
+          time: checkedAt === null
+            ? t("ontology.instances.autoRefreshNotChecked")
+            : formatDateTime(checkedAt),
+        })
+        : streamStatus === "connecting" || streamStatus === "reconnecting"
+          ? t("ontology.instances.autoRefreshReconnecting", {
+            countdown: formatOntologyRefreshCountdown(remainingSeconds),
+          })
+          : t("ontology.instances.autoRefreshCountdown", {
+            countdown: formatOntologyRefreshCountdown(remainingSeconds),
+          });
+  const mode = streamStatus === "open"
+    ? "live"
+    : status === "error"
+      ? "error"
+      : streamStatus === "connecting" || streamStatus === "reconnecting"
+        ? "reconnecting"
+        : status;
   return (
     <div
-      class={`ontology-instance-refresh-status is-${status}`}
+      class={`ontology-instance-refresh-status is-${mode}`}
       aria-label={t("ontology.instances.autoRefreshLabel")}
     >
       <span aria-hidden="true" />
-      <strong>{t("ontology.instances.autoRefreshActive")}</strong>
+      <strong>{t(streamStatus === "open"
+        ? "ontology.instances.autoRefreshLiveLabel"
+        : "ontology.instances.autoRefreshActive")}</strong>
       {status === "error" ? <span role="alert">{detail}</span> : <span>{detail}</span>}
     </div>
   );

@@ -474,8 +474,9 @@ coverage, delayed runtime activation, and explicit adoption evidence.
   resources, and pages; completion reaches 100 percent only after active-generation verification.
 - [ ] Inventory covers the complete target subscription with no genesis type filter, materializes
   unmapped provider identities, distinguishes relationship limitations from object incompleteness,
-  records materialized, reviewed-unavailable, and unclassified relationship candidate counts, and
-  retains the prior complete graph on an injected partial failure.
+  records materialized, reviewed-unavailable, and unclassified relationship candidate counts,
+  advances the private-safe Resource Graph change cursor only after canonical observation ingress,
+  and retains the prior complete graph on an injected partial failure.
 - [ ] Runtime health, canary, event flow, audit closure, and Console projections pass before the run
   becomes `ready`.
 - [ ] Logs, artifacts, local journals, summaries, and receipts contain no secrets, DSNs, tokens,

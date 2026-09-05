@@ -51,6 +51,7 @@ class InventoryJobConfig:
     attempt_deadline_seconds: int = int(DEFAULT_ATTEMPT_DEADLINE_SECONDS)
     arg_requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
     recovery_delta_enabled: bool = True
+    resource_change_feed_enabled: bool = True
     declarative_path: Path | None = None
     declarative_sha256: str | None = None
     kubernetes_api_server: str | None = None
@@ -121,6 +122,11 @@ class InventoryJobConfig:
         recovery_delta_enabled = read_bool_env(
             source,
             "FDAI_INVENTORY_RECOVERY_DELTA",
+            True,
+        )
+        resource_change_feed_enabled = read_bool_env(
+            source,
+            "FDAI_INVENTORY_RESOURCE_CHANGE_FEED",
             True,
         )
         declarative_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
@@ -218,6 +224,7 @@ class InventoryJobConfig:
             attempt_deadline_seconds=attempt_deadline,
             arg_requests_per_second=arg_requests_per_second,
             recovery_delta_enabled=recovery_delta_enabled,
+            resource_change_feed_enabled=resource_change_feed_enabled,
         )
         return cls(
             dsn=dsn,
@@ -234,6 +241,7 @@ class InventoryJobConfig:
             attempt_deadline_seconds=attempt_deadline,
             arg_requests_per_second=arg_requests_per_second,
             recovery_delta_enabled=recovery_delta_enabled,
+            resource_change_feed_enabled=resource_change_feed_enabled,
             declarative_path=Path(declarative_value) if declarative_value else None,
             declarative_sha256=declarative_sha256,
             kubernetes_api_server=kubernetes_api_server,
@@ -280,6 +288,7 @@ def _validate_collection_policy_bindings(
     attempt_deadline_seconds: int,
     arg_requests_per_second: float,
     recovery_delta_enabled: bool,
+    resource_change_feed_enabled: bool,
 ) -> None:
     for source_name in source_order:
         try:
@@ -312,6 +321,13 @@ def _validate_collection_policy_bindings(
             policy.source("activity-log-delta")
         except KeyError as exc:
             raise ValueError("inventory collection policy is missing activity-log-delta") from exc
+    if resource_change_feed_enabled:
+        try:
+            policy.source("resourcechanges-delta")
+        except KeyError as exc:
+            raise ValueError(
+                "inventory collection policy is missing resourcechanges-delta"
+            ) from exc
 
 
 def _freshness_seconds(

@@ -71,7 +71,10 @@ describe("Ontology Instances view controls", () => {
     expect(inspectorSource).toContain("<StatusPill");
     expect(inspectorSource).toContain("ontologyInstanceStatusTone(root.status)");
     expect(instancesSource).toContain("installOntologyInstanceRefresh");
-    expect(instancesSource).toContain('class={`ontology-instance-refresh-status is-${status}`}');
+    expect(instancesSource).toContain("useOntologyInvalidationStream");
+    expect(instancesSource).toContain("formatOntologyRefreshCountdown");
+    expect(instancesSource).toContain('new Event("fdai:ontology-invalidated")');
+    expect(instancesSource).toContain('class={`ontology-instance-refresh-status is-${mode}`}');
     expect(instancesSource).toContain("setDetailRefreshStatus(\"error\")");
     expect(styles).toContain(".ontology-instance-refresh-status");
     expect(styles).toContain(".ontology-instance-state-badge.is-warning");

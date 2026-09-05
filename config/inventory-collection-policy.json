@@ -66,6 +66,38 @@
       }
     },
     {
+      "source_id": "resourcechanges-delta",
+      "source_kind": "delta",
+      "target_freshness_seconds": 60,
+      "max_staleness_seconds": 300,
+      "min_poll_interval_seconds": 5,
+      "max_poll_interval_seconds": 60,
+      "budget_window_seconds": 60,
+      "max_requests_per_window": 120,
+      "max_bytes_per_window": 16777216,
+      "global_concurrency_limit": 16,
+      "scope_concurrency_limit": 8,
+      "resource_type_concurrency_limit": 4,
+      "endpoint_concurrency_limit": 4,
+      "max_cursor_pages": 20,
+      "max_objects": 2000,
+      "max_relationships": 4000,
+      "max_run_seconds": 60,
+      "no_progress_timeout_seconds": 30,
+      "jitter_ratio": 0.1,
+      "backoff_base_seconds": 5,
+      "backoff_max_seconds": 60,
+      "circuit_failure_threshold": 5,
+      "circuit_probe_interval_seconds": 60,
+      "priority": {
+        "base": 18,
+        "changed_boost": 40,
+        "stale_boost": 30,
+        "critical_boost": 50,
+        "operator_requested_boost": 60
+      }
+    },
+    {
       "source_id": "arg-snapshot",
       "source_kind": "snapshot",
       "target_freshness_seconds": 21600,

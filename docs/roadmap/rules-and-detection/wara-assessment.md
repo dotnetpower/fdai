@@ -216,7 +216,8 @@ query safety, exact scope and endpoint enforcement, manual evidence, runtime fai
 ontology invariants, Operator API decoding, Console localization, and deterministic update diffs.
 Full-catalog validation proves the pinned inputs and derived artifacts agree.
 The shared PostgreSQL family store validates ontology relationship candidate counts independently
-from WARA scope reads. Those counts cannot satisfy, widen, or replace WARA evidence.
+from WARA scope reads. Its inventory invalidation watermark reader remains a separate no-payload
+stream and cannot satisfy, widen, or replace WARA evidence.
 Immutable request, evidence, status, control, and result contracts remain in `core/wara/models.py`.
 The runtime module owns evaluation, observation collection, audit, and publication and re-exports
 those contracts so existing imports remain compatible.
