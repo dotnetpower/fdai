@@ -524,6 +524,9 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert '"/repos/${GITHUB_REPOSITORY}/contents/${proposal}?ref=${head_sha}"' in workflow
     assert '--proposal "$pr_proposal"' in workflow
     assert 'source_commit="$(git rev-parse HEAD)"' in workflow
+    assert workflow.index('source_commit="$(git rev-parse HEAD)"') < workflow.index(
+        'git switch -c "$branch"'
+    )
     assert '--source-commit "$source_commit"' in workflow
     assert '--source-commit "${GITHUB_SHA}"' not in workflow
 
