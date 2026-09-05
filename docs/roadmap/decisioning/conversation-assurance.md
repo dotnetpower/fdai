@@ -579,7 +579,8 @@ callers cannot construct a direct shadow-to-active skip. Every accepted transiti
 least one nonempty machine reason so replay preserves why the stage changed or remained held.
 Decision-evidence receipt and verification-bundle digests are valid `sha256:<digest>` values and
 appear as a pair; a partial evidence binding cannot enter transition history. PostgreSQL stores
-both digests in the transition identity and reconstructs them during replay.
+both digests in the transition identity and reconstructs them during replay. Transitions created
+before this binding keep their original idempotency key when both fields are absent.
 Repeated intake can replay the recorded transition, but it cannot reuse one shadow or canary result
 to advance through later traffic stages.
 

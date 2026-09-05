@@ -268,17 +268,22 @@ def _transition(row: dict[str, Any]) -> PolicyTransition:
 
 
 def _transition_key(transition: PolicyTransition) -> str:
-    material = "\0".join(
-        (
-            transition.candidate_id,
-            transition.from_stage.value,
-            transition.to_stage.value,
-            *transition.reasons,
-            transition.evidence_digest,
-            transition.decision_evidence_receipt_digest or "",
-            transition.decision_evidence_verification_bundle_digest or "",
-        )
+    parts = (
+        transition.candidate_id,
+        transition.from_stage.value,
+        transition.to_stage.value,
+        *transition.reasons,
+        transition.evidence_digest,
     )
+    if transition.decision_evidence_receipt_digest is not None:
+        bundle_digest = transition.decision_evidence_verification_bundle_digest
+        if bundle_digest is None:
+            raise ValueError("policy transition decision evidence digests MUST be paired")
+        parts += (
+            transition.decision_evidence_receipt_digest,
+            bundle_digest,
+        )
+    material = "\0".join(parts)
     return hashlib.sha256(material.encode()).hexdigest()
 
 

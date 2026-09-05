@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from fdai.core.conversation_assurance import PolicyStage, PolicyTransition
 from fdai.delivery.persistence.postgres_conversation_assurance_policy import (
     _transition,
@@ -50,3 +52,24 @@ def test_transition_key_binds_decision_evidence_pair() -> None:
     )
 
     assert _transition_key(transition) != _transition_key(held)
+
+
+def test_transition_key_preserves_legacy_derivation_without_decision_evidence() -> None:
+    transition = PolicyTransition(
+        candidate_id="candidate-1",
+        from_stage=PolicyStage.SHADOW,
+        to_stage=PolicyStage.SHADOW,
+        reasons=("decision_evidence_admission_missing",),
+        evidence_digest="e" * 64,
+    )
+    legacy_material = "\0".join(
+        (
+            transition.candidate_id,
+            transition.from_stage.value,
+            transition.to_stage.value,
+            *transition.reasons,
+            transition.evidence_digest,
+        )
+    )
+
+    assert _transition_key(transition) == hashlib.sha256(legacy_material.encode()).hexdigest()
