@@ -10,6 +10,7 @@ from fdai.core.conversation_assurance import (
     PantheonDiagnosticVerdict,
     PantheonRubric,
     PantheonSemanticReview,
+    PantheonTurnDiagnostic,
     ParticipantPromptReceipt,
     T2Expectation,
     aggregate_pantheon_diagnostics,
@@ -176,6 +177,20 @@ def test_hard_zero_dominates_a_perfect_score() -> None:
 
     assert result.score == 30
     assert result.verdict is PantheonDiagnosticVerdict.HARD_ZERO_FAIL
+
+
+def test_diagnostic_rejects_verdict_that_conflicts_with_atomic_score() -> None:
+    with pytest.raises(ValueError, match="verdict MUST match"):
+        PantheonTurnDiagnostic(
+            case_id="case-1",
+            agent="Njord",
+            locale="en",
+            score=30,
+            verdict=PantheonDiagnosticVerdict.FAIL,
+            results=(),
+            hard_zero_violations=(),
+            trace_receipt_digest=_DIGEST,
+        )
 
 
 def test_required_t2_needs_budget_metering_and_preserves_t1_on_failure() -> None:

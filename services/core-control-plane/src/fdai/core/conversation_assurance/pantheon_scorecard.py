@@ -127,10 +127,12 @@ class PantheonTurnDiagnostic:
             raise ValueError("Pantheon diagnostic score MUST equal its atomic item results")
         if len(self.trace_receipt_digest) != 64:
             raise ValueError("Pantheon diagnostic trace digest MUST be SHA-256")
-        if self.hard_zero_violations and (
-            self.verdict is not PantheonDiagnosticVerdict.HARD_ZERO_FAIL
-        ):
-            raise ValueError("Pantheon hard-zero violations MUST dominate the verdict")
+        expected_verdict = _diagnostic_verdict(
+            score=self.score,
+            has_hard_zero=bool(self.hard_zero_violations),
+        )
+        if self.verdict is not expected_verdict:
+            raise ValueError("Pantheon diagnostic verdict MUST match score and hard-zero state")
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> PantheonTurnDiagnostic:
@@ -235,14 +237,10 @@ def evaluate_pantheon_turn(
         for index, rubric in enumerate(PantheonRubric, start=1)
     )
     score = sum(item.passed for item in results)
-    if trace.hard_zero_violations:
-        verdict = PantheonDiagnosticVerdict.HARD_ZERO_FAIL
-    elif score >= 27:
-        verdict = PantheonDiagnosticVerdict.PASS
-    elif score >= 24:
-        verdict = PantheonDiagnosticVerdict.REVIEW
-    else:
-        verdict = PantheonDiagnosticVerdict.FAIL
+    verdict = _diagnostic_verdict(
+        score=score,
+        has_hard_zero=bool(trace.hard_zero_violations),
+    )
     return PantheonTurnDiagnostic(
         case_id=case.case_id,
         agent=trace.actual_primary_agent or trace.expected_primary_agent,
@@ -348,6 +346,16 @@ def _integer(value: object, label: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise ValueError(f"{label} MUST be an integer")
     return value
+
+
+def _diagnostic_verdict(*, score: int, has_hard_zero: bool) -> PantheonDiagnosticVerdict:
+    if has_hard_zero:
+        return PantheonDiagnosticVerdict.HARD_ZERO_FAIL
+    if score >= 27:
+        return PantheonDiagnosticVerdict.PASS
+    if score >= 24:
+        return PantheonDiagnosticVerdict.REVIEW
+    return PantheonDiagnosticVerdict.FAIL
 
 
 __all__ = [
