@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1325,
+  "file_count": 1329,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "184bbde89444c6896480ccf1b591dd5b69f2fe84513e37f8923dd1e9f61451ec",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -639,6 +639,10 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/objective_rule_resolution.py": "eb61af2b3c65542ba974c52b2665cbea9beea2419eda60cd0acb10a12f054efc",
     "services/core-control-plane/src/fdai/core/ontology_platform/observation_adjudication.py": "f5c01be230ce873c9b6aed8b4f1d205f82921886662d8464f43deaddd35f7218",
     "services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py": "2b725f3ad07d74f4431a4765db6a07c9bb556b831c9f84173eae1172638c0de0",
+    "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_certification.py": "9f3aad6e0a24597db914f81039b3949d0b8f10760c319b0f0e0da961f6b350fa",
+    "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_lifecycle.py": "d77c08c152c3237ed1b60b1d9aab1eeced797d12234b1e9a08a0761dc46ca890",
+    "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_pressure.py": "7c1cdee4d2db8f72606006cbf50423372161514a84809b26b71300ef49e043e0",
+    "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_retention.py": "6bdf269846795f5f6c42c297e9f64bc003efec0b96e96bb4deae0e3404abe795",
     "services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_certification.py": "4fc22ab5d308476630401aef42d5ce24315a850efedc14e4ce01d4717d12e160",
     "services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_competency.py": "a100cd57d83934a41fd82d6d6806efbae7ede325f8505bb821eb50fa33999230",
     "services/core-control-plane/src/fdai/core/ontology_platform/planning.py": "35e537003f1b68f88d7cb13a8fc214ed3a5ea210f98e894483c784fd42b87f07",
@@ -1223,7 +1227,7 @@
     "services/core-control-plane/src/fdai/shared/providers/idempotency.py": "66b21a614515dc2b0578779bf361bd07e812d8a99d44baf7bd392f2388740e1a",
     "services/core-control-plane/src/fdai/shared/providers/incident_platform.py": "048ccf4b187dc02aa7309a82c9d0465791696c0089b55233009379c0b6ae1920",
     "services/core-control-plane/src/fdai/shared/providers/inventory.py": "1e9d8f46ffc0db408a71663c345a0e3e5e929a8491250483e3b7135699e9fec5",
-    "services/core-control-plane/src/fdai/shared/providers/inventory_observation.py": "a888a7d860ea1bfc0fdeb87db0327bb627891d85e5f59dd6842388833cb7d0ec",
+    "services/core-control-plane/src/fdai/shared/providers/inventory_observation.py": "41d029b4bf926c1a8c6417382bd91d2985cbf131a51b7034e9c0c24117b7cd73",
     "services/core-control-plane/src/fdai/shared/providers/inventory_snapshot.py": "d076bfc6c9d1492d80aa7880e5d4694cfabea80c26f62dfef978624457c23df0",
     "services/core-control-plane/src/fdai/shared/providers/knowledge.py": "a8660bd5b361eb6c8e3370332d97f1d6f8a33cd2993f0a80ecdd5da17ce32c02",
     "services/core-control-plane/src/fdai/shared/providers/local/__init__.py": "3ee90db23ead7a100cd433cbb0f402f986bda3e780d7e9fd7a009b109350a9cc",

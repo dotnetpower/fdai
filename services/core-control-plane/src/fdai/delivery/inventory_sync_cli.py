@@ -61,6 +61,9 @@ from fdai.delivery.operational_activity import (
     ObservedInventorySnapshotStore,
     ontology_projection_activity,
 )
+from fdai.delivery.operational_history_policy import (
+    load_operational_history_retention_policies,
+)
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
@@ -81,6 +84,10 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleConfig,
     PostgresKubernetesLifecycleStore,
+)
+from fdai.delivery.persistence.postgres_operational_history import (
+    PostgresOperationalHistoryConfig,
+    PostgresOperationalHistoryStore,
 )
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
@@ -347,6 +354,10 @@ def _build_ontology_observer(
     publisher: EventBusOperationalActivityPublisher,
     evidence_counts: dict[str, int],
 ) -> InventoryPromotionObserver:
+    retention_policies = load_operational_history_retention_policies(os.environ)
+    operational_history_store = PostgresOperationalHistoryStore(
+        config=PostgresOperationalHistoryConfig(dsn=config.dsn)
+    )
     observation_journal = PostgresInventoryObservationJournal(
         config=PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
     )
@@ -396,6 +407,13 @@ def _build_ontology_observer(
         evidence_counts[observation.generation] = len(observation.resources) + len(
             observation.links
         )
+        if observation.recorded_at is None:
+            raise ValueError("promoted inventory observation recorded_at MUST be supplied")
+        for policy in retention_policies:
+            await operational_history_store.put_retention_policy(
+                policy,
+                recorded_at=observation.recorded_at,
+            )
         journal_append = await observation_journal.append_promoted_snapshot(observation)
         if projector is None or ontology_store is None or topology_publisher is None:
             return

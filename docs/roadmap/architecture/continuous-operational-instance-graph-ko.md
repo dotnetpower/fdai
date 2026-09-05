@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 82675877b1b2a6b386e632a8467b0d546d9dfaa2
+translation_source_sha: e700a8ef133ba50dd3512e24467d0b7289609c3f
 translation_revised: 2026-09-05
 ---
 # 지속형 운영 인스턴스 그래프
@@ -151,7 +151,8 @@ PostgreSQL projector는 lock을 획득하고 활성 인벤토리 세대를 다�
 런타임은 기존 overlay를 현재 조회 경로로 유지하면서 정규화된 관측을 추가 전용 원장에
 이중 기록합니다. 원장 레코드는 범위가 제한된 사실 또는 변경 힌트 하나를 전달하고 원본
 schema와 원본 수정본을 고정합니다. Partition 수명 주기, archive 보존 및 수명 인스턴스 경계는
-후속 구현 작업으로 남아 있습니다.
+이제 Core 소유의 타입 지정 수명 주기 레코드를 사용합니다. Production archive 구성요소는
+전용 예약 Job이 배포 개정에서 결속할 때까지 조립되지 않은 상태로 남아 있습니다.
 
 각 레코드는 다음 의미를 구분합니다.
 
@@ -322,7 +323,7 @@ binding을
 | 적응형 일정 관리 | implemented | 검증된 source policy와 순수 reducer가 freshness, lag, demand, provider pressure, `Retry-After`, 남은 budget, concurrency, circuit-open 상태, recovery probe를 사용합니다. PostgreSQL은 durable due 상태를 제공하고 principal-safe health projection은 다음 bounded action을 노출합니다. |
 | Retention 및 hold | implemented | Archive purge coordinator는 정확한 verification, restore sampling, retention 또는 legal hold 평가가 통과하기 전까지 삭제를 차단합니다. Append-only PostgreSQL receipt는 blocked, pending, failed, successful, retry 결과를 보존합니다. |
 | 타입 지정 rollup | implemented | Fact별 policy가 gauge, counter, categorical state, relationship change, evidence health를 분리해 집계하면서 source와 generation 계보, bitemporal 범위, 누락 구간, 관측된 0, 충돌, 완전성, 병합 가능한 count와 sum을 보존합니다. Percentile은 unavailable로 유지합니다. |
-| Archive lifecycle | in-progress | Content-addressed 매니페스트와 추가 전용 verification, restore, coverage, hold 및 purge 증적은 구현됐습니다. Production partition writer, principal 범위 reader, 구체적인 source purger 및 예약 runtime binding은 열려 있습니다. |
+| Archive lifecycle | in-progress | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 고정 shadow schedule이 구현됐습니다. 전용 runtime Job 조립과 보호된 배포 증적은 열려 있습니다. |
 
 ## 구현 상태
 
@@ -338,8 +339,8 @@ binding을
 | Bitemporal topology 이력 | implemented | `core/ontology_platform/topology_history.py`, PostgreSQL topology 이력 adapter와 집중 테스트 | 현재 production 보존, rollup, archive, 복원 근거는 열려 있습니다. |
 | 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL 조정 상태, 수집 상태, 분석기 틱 CLI와 로컬 VS Code 작업, 영속 게시 원장 및 집중 수집 검사 | 출처 정책과 결정론적 일정 관리가 구현됐습니다. 배포된 Container Apps Job과 로컬 백그라운드 작업은 같은 one-shot 분석기 논리와 게시 전 PostgreSQL 청구를 사용합니다. 완료된 브로커 증적은 프로세스가 다시 시작되어도 같은 구간의 발견 사항이 다시 게시되지 않도록 억제합니다. 활성 청구가 있으면 틱이 실패하고, 아직 전송하지 않은 오래된 청구는 범위가 제한된 임대 기간 뒤 다시 획득할 수 있습니다. 실행기는 브로커를 호출하기 전에 전송 의도를 영속적으로 기록하므로, 레코드가 확실히 전송되지 않았다고 버스가 증명할 때만 청구를 해제하고 그 밖의 모든 게시 실패는 청구를 불확실 상태로 유지해 재시도 전에 조정을 요구합니다. 만료된 전송 임대와 증적을 기록하지 못한 브로커 확인은 모두 다시 게시하지 않고 불확실한 상태로 남습니다. 청구 저장소 읽기나 쓰기가 실패하면 해당 발견 사항은 게시하지 않고 안전하게 실패합니다. 준비 상태는 일정 관리, 대상 검색, 메트릭 접근, 이벤트 게시 및 구성된 Log Analytics와 Prometheus 지연 시간 하한을 분리합니다. 배포 운영 측정은 별도 검증 근거로 남습니다. |
 | 타입 지정 rollup | implemented | `semantic_rollup*.py`, `inventory_rollup.py`, 집중 integration 검사 | 사실별 집계와 범위 계약은 구현되고 로컬에서 검증됐습니다. |
-| 영속 정규화 관측 이력 | implemented | `inventory_observation.py`, `postgres_inventory_observation*.py`, Core migration `20260905_core_inventory_observation_journal.py`, 타입 지정 replay 및 원본 범위 검사 | OI-13은 versioned 전체, 부분, 변경 힌트, tombstone 객체 또는 관계 관측을 shadow 모드에서 이중 기록합니다. 내용에 결속된 replay는 단조롭게 동작하고 관측하지 않은 속성을 보존합니다. OI-14 수명 인스턴스 및 보정 의미와 OI-15 보존 partition은 열려 있습니다. |
-| 운영 archive 및 제한된 이력 purge | in-progress | `archive_*.py`, PostgreSQL archive adapter, Core service migration, 집중 integration 검사 | 계약과 로컬 인증은 존재합니다. Production archive partition writer 또는 reader, 구체적인 source purger, 예약 수명 주기 및 배포된 제한 증가 증적은 없습니다. |
+| 영속 정규화 관측 이력 | implemented | `inventory_observation.py`, `operational_history_lifecycle.py`, `postgres_inventory_observation*.py`, `postgres_observation_lifecycle.py`, `20260906_core_operational_history_lifecycle.py`까지의 Core migration, 타입 지정 replay 및 원본 범위 검사 | OI-13과 OI-14는 정확한 객체 및 관계 관측, 수명 인스턴스 신원, 지연 correction partition, 결정론적 correction 종료, case 또는 legal-hold pin을 보존합니다. 대기 중인 correction은 원본 완전성을 낮추며 보정된 base partition은 purge 전에 더 최신 checkpoint를 요구합니다. |
+| 운영 archive 및 제한된 이력 purge | in-progress | `operational_history_archive.py`, Azure Blob artifact adapter, PostgreSQL 수명 주기 store 및 database purge gate, 배포 정책 loader, 수명 주기 planner와 고정 schedule, OI-16 certification 타입 및 CLI, 집중 검사 | Writer, 검증된 principal 범위 reader, 정확한 source purger, policy, checkpoint, pressure, schema replay, recovery 및 certification 계약이 존재합니다. 전용 예약 runtime 조립과 보호된 고정 개정 배포 증적은 열려 있으므로 OI-15와 OI-16은 완료되지 않았습니다. |
 | 그래프 우선 조건부 실시간 보강 | implemented | `graph_evidence_refresh.py`, `graph_query_refresh.py`, `inventory_live_evidence.py`, runtime 의미 조립, 부분 overlay 영속성, 집중 테스트 | Exact-target 현재 상태 조립은 action authority 없이 graph-first 평가, bounded live read 1회, canonical write-through, 재조회 및 fail-closed hold를 종단으로 연결합니다. 최신성을 요구하는 Resource 결과는 반환된 모든 Resource가 완전한 state-fact metadata를 가질 때만 complete입니다. |
 | 운영 인스턴스 semantic 정확성 | implemented | `operational_instance_competency.py`, 집중 이중 언어 action-draft routing 검사, 타입 지정 no-authority 증적 | 대표 typed competency와 OI-11 이중 언어 positive 및 negative 분류 검사가 답변 text 또는 keyword routing 없이 통과합니다. 전체 corpus 및 예약 검증은 [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md)이 소유합니다. |
 | Runtime-call 근거 binding | implemented | `runtime_calls.yaml`, `runtime_call_projection.py`, `runtime_call_telemetry.py`, `delivery/azure/runtime_call_telemetry.py`, `runtime_call_inventory.py`, `inventory_projection.py`, inventory single-writer 및 집중 endpoint 검사 | 인증된 producer는 정확한 envelope identity를 독립된 credential lineage에 결속합니다. Azure query는 두 runtime table을 모두 요구하고 unavailable, redacted, malformed row coverage를 보존합니다. 부분 candidate가 하나라도 있으면 batch는 incomplete입니다. 검토된 `runtime_calls` LinkType을 projection contract에 등록하여 verified endpoint 방향과 Resource cardinality가 current 및 historical projection에서 유지됩니다. 인증된 runtime 근거는 열려 있습니다. |
@@ -352,6 +353,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | in-progress | OI-14와 OI-15 및 OI-16의 로컬 코드 표면을 구현했습니다. 관측 ingress는 이제 Resource와 관계 endpoint를 정확한 수명 인스턴스와 시간 및 범위 partition에 결속합니다. 지연 관측은 correction partition을 열고 원본 완전성을 낮추며, content-addressed 온톨로지 replay 증적 이후에만 종료됩니다. Case, investigation, approval, execution, rollback, legal-hold 및 replay-lease pin은 purge를 차단합니다. 배포 policy load, 저장소 압력 저하, 검증된 principal 범위 Blob archive 접근, database gate 기반 source purge, N/N-1 schema replay, database recovery 비교, 고정 shadow schedule 및 고정 개정 certification을 구현했습니다. | `current change`, 수명 주기 및 certification 타입, Core migration `20260906_core_operational_history_lifecycle.py`, PostgreSQL 및 Azure adapter, inventory journal 통합, 원본 완전성 축약, certification CLI, 집중 검사 322개 통과, Ruff, formatting 및 strict mypy 통과 | 고정 수명 주기 schedule을 전용 runtime Job으로 조립한 뒤 green 개정을 commit하고 push하여 보호된 운영 certification을 실행합니다. 그 증적이 생길 때까지 OI-15와 OI-16은 열려 있으며 배포된 제한 증가 또는 recovery를 주장하지 않습니다. |
 | 2026-09-05 | implemented | OI-13과 선행 정확성 결함을 완료했습니다. Event Grid 변경은 sparse 변경 힌트로 처리하고, 작업 상태는 리소스 상태가 아니라 원장 metadata로 유지하며, 속성 마스크는 tag, SKU 및 관측하지 않은 값을 보존하고, 확인되지 않은 tombstone은 부재를 입증할 수 없습니다. Core 소유 원장은 기존 overlay를 조회 경로로 유지하면서 전체 snapshot과 delta 객체 또는 관계 관측을 이중 기록합니다. 내용에 결속된 replay는 중복, 재정렬, 오래된 이벤트 및 재시작 전달에서도 결정론적으로 동작합니다. 원장 지연과 대기 중인 tombstone은 온톨로지 원본 완전성을 낮춥니다. | `current change`, 정규화 관측 타입, PostgreSQL 원장 및 migration, delta 및 snapshot 이중 기록, 온톨로지 watermark 증적, 원본 범위 축약, 감사 레지스트리 및 집중 테스트. 최종 OI-13 집중 검사 219개와 Ruff, strict mypy, continuous-graph audit 및 design-route 검사가 통과했습니다. | OI-14는 리소스 수명 인스턴스 신원, 관계 보정 범위, correction partition, 활성 case 또는 legal-hold 고정을 위해 열려 있습니다. OI-15와 OI-16도 열려 있습니다. |
 | 2026-09-05 | in-progress | 원본부터 저장소까지 재검토한 뒤 제한된 이력 설계를 확장하고 archive lifecycle 상태를 구성요소 완료에서 운영 binding이 열린 상태로 수정했습니다. 개정된 계약은 정규화 관측, 속성 마스크, 리소스 수명 인스턴스, 관계 이력, partition 상태, 검증된 checkpoint, 지연 보정, 활성 case 고정, 저장소 압력, schema 진화 및 재해 복구를 다룹니다. | `current change`, 이 설계 소유자 및 `config/continuous-operational-instance-graph-audit.json`, continuous-graph audit, roadmap 추적, 번역, 문장 부호 및 문서 크기 검사 | 아래 OI-13부터 OI-16까지 구현하고 검증합니다. 이 전환에서는 runtime 동작을 변경하지 않았습니다. |
 | 2026-08-31 | implemented | 이슈 #295의 결정론적 분석기 동등성 경계를 완료했습니다. 분석기 이벤트 ID와 구간 키는 안정적이며, 토큰 소유 PostgreSQL 청구는 완료된 브로커 증적이 있는 발견 사항만 억제합니다. 활성 청구가 있으면 안전하게 실패하고 오래된 청구를 다시 획득할 수 있으며 게시 실패 시 청구를 해제합니다. 범위가 제한된 분석기 경로 시나리오는 같은 UID의 재시작과 서로 다른 UID의 교체를 구분하고 감지 지연 시간, 근거 완전성, 게시 및 복구 완료를 하나의 증적으로 만듭니다. | `current change`, 분석기 실행기, CLI, PostgreSQL 게시 원장, Pod 교체 분석기 경로 시나리오 및 집중 검사 85개 통과, Ruff 통과 | 배포 런타임 또는 Azure 증적을 만들지 않았습니다. 보호된 배포 인증은 이슈 #295 외부에 남아 있습니다. |
@@ -477,18 +479,22 @@ purge가 연결되지 않았습니다. 위의 제한된 이력 설계와 OI-13�
 - [x] `OI-13`은 명시적인 전체, 부분, 변경 힌트 및 tombstone 의미를 가진 versioned 정규화
   객체 및 관계 관측 원장을 영속화합니다. 집중 중복, 재정렬, sparse 속성, 작업 상태, 재시작 및
   current 변환 결과 다이제스트 검사를 통과해야 완료됩니다.
-- [ ] `OI-14`는 리소스 수명 인스턴스 신원, 관계 보정 범위, late correction partition 및 활성
+- [x] `OI-14`는 리소스 수명 인스턴스 신원, 관계 보정 범위, late correction partition 및 활성
   case 또는 legal-hold 고정을 완료합니다. 선행 원장 및 변환 결과 watermark gate는 이제 대기
   중인 관측과 확인되지 않은 tombstone이 원본 완전성을 낮추게 합니다. 수락된 모든 보정이 영향
   범위를 무효화한 뒤 결정론적으로 닫아야 완료됩니다.
 - [ ] `OI-15`는 배포 보존 정책 레지스트리, 시간과 범위 partition, 검증된 checkpoint,
   production archive writer와 principal 범위 reader, 구체적인 source purger, 예약 수명 주기
-  조정 및 저장소 압력 저하 동작을 결속합니다. Archive 또는 복원 gate 실패가 source partition을
-  보존하고 완전성에 의존하는 작업을 차단해야 완료됩니다.
+  조정 및 저장소 압력 저하 동작을 결속합니다. 이러한 코드 표면과 고정 shadow schedule은
+  구현됐지만 전용 runtime Job은 아직 조립되지 않았습니다. 해당 binding과 archive 또는 복원
+  gate 실패가 배포 경로에서 source partition을 보존하고 완전성에 의존하는 작업을 차단해야
+  완료됩니다.
 - [ ] `OI-16`은 고정된 개정 하나에서 안정 상태 저장소 증가 제한, exact warm replay, archive
   복원, 안전한 partition purge, N/N-1 schema replay, database 복구, hold 적용 및 false-complete
   0건을 입증하는 운영 증적을 보존합니다. 중복, 지연, 삭제, 재생성, 프로바이더 실패, database
-  재시작 및 archive 중단 시나리오를 포함해야 합니다.
+  재시작 및 archive 중단 시나리오를 포함해야 합니다. 타입 지정 로컬 certification과 비공개
+  증적 writer는 구현됐고 보호된 배포 증적 없이는 `operationally_validated=true`를 보고할 수
+  없습니다. 해당 보호된 증적은 열려 있습니다.
 - [x] 표준 로컬 프로필에 `analyzer: run continuously (local)`을 제공합니다. 배포 one-shot
   analyzer CLI, 로컬 런타임 환경, 인벤토리 대상 검색, 메트릭 매핑, 멱등성 키, 이벤트 계약 및
   shadow 상태를 재사용하며 analyzer 로직을 중복하지 않습니다.

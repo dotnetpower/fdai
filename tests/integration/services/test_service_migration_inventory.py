@@ -88,8 +88,18 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "operator_background_task_projection",
         "operator_read_investigation_completion",
         "operator_incident_projection",
+        "inventory_observation_checkpoint",
+        "inventory_observation_correction_receipt",
         "inventory_observation_journal",
+        "inventory_observation_lifecycle_binding",
         "inventory_observation_pending_tombstone",
+        "inventory_observation_partition",
+        "inventory_observation_partition_event",
+        "inventory_observation_partition_pin_event",
+        "inventory_resource_incarnation",
+        "operational_archive_artifact",
+        "operational_history_certification_receipt",
+        "operational_retention_policy",
         "operational_state_transition",
         "operational_state_transition_batch",
         "operational_state_transition_coverage",
@@ -1452,6 +1462,11 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     observation_journal_migration = inventory_module.load_revision_metadata(
         observation_journal_path
     )
+    history_lifecycle_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260906_core_operational_history_lifecycle.py"
+    )
+    history_lifecycle_migration = inventory_module.load_revision_metadata(history_lifecycle_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1475,6 +1490,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(t2_cache_migration.owned_tables)
         | set(state_transition_migration.owned_tables)
         | set(observation_journal_migration.owned_tables)
+        | set(history_lifecycle_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
@@ -1494,6 +1510,11 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     assert "inventory observation journal is append-only" in observation_source
     assert "operation_status TEXT" in observation_source
     assert "projection_mode TEXT NOT NULL DEFAULT 'shadow'" in observation_source
+    assert history_lifecycle_migration.rollback == {
+        "strategy": "drop-rebuildable-operational-history-lifecycle",
+        "restores": "core_inventory_observation_journal_20260905",
+        "requires": "observation-archive-and-certification-writers-stopped",
+    }
 
 
 def test_adoption_evidence_schema_matches_canonical_legacy_inventory() -> None:

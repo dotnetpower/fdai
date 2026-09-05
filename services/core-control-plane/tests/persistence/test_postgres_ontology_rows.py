@@ -133,6 +133,40 @@ def test_malformed_observation_watermark_state_lowers_source_completeness() -> N
     assert complete is False
 
 
+def test_pending_correction_partition_lowers_source_completeness() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        pending_correction=True,
+    )
+
+    assert complete is False
+    assert generation == "generation-2"
+
+
+def test_hard_storage_pressure_lowers_source_completeness() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        storage_pressure_hard=True,
+    )
+
+    assert complete is False
+    assert generation == "generation-2"
+
+
 async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None:
     connection = _CoverageConnection()
 

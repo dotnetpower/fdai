@@ -373,6 +373,13 @@ Journal lag or an unconfirmed tombstone keeps inventory source completeness fals
 readiness cannot hide a sparse event that the ontology has not projected. This prerequisite does
 not complete the later incarnation, correction-partition, retention, or archive work.
 
+Core migrations now add those lifecycle records after the normalized journal. Inventory promotion
+binds observations to exact incarnations and logical time-and-scope partitions, and projection
+closes late corrections with replay evidence. Deployment-supplied retention policies replace the
+safe `retain` defaults only after schema validation. The archive writer, verified principal-scoped
+reader, database purge gate, and fixed shadow schedule are ready for a dedicated Job binding; until
+that Job and its protected receipt exist, Genesis reports the archive lifecycle as incomplete.
+
 Every emitted batch advances the durable heartbeat. A no-progress deadline fails the attempt,
 retains the previous complete graph, and leaves a resumable cursor or a bounded restart decision.
 The Console shows `observed / expected`, type and scope counts, current stage, elapsed time, last

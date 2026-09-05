@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 1dc0cfaad552d9d9cd357ab135dd627253ef2795
+translation_source_sha: 7a6838b687bcbfc548bbbe58efd5c068d8b032a5
 translation_revised: 2026-09-05
 ---
 # 구독 초기 프로비저닝
@@ -374,6 +374,13 @@ Inventory Job이 시작되기 전에 Core 서비스 migration head에 정규화�
 확인되지 않은 tombstone이 있으면 inventory 원본 완전성은 false로 유지되므로 Genesis 준비
 상태가 온톨로지에 반영되지 않은 sparse 이벤트를 숨길 수 없습니다. 이 선행 조건은 후속 수명
 인스턴스, correction partition, 보존 또는 archive 작업을 완료하지 않습니다.
+
+Core migration은 이제 정규화 원장 다음에 이러한 수명 주기 레코드를 추가합니다. Inventory
+promotion은 관측을 정확한 수명 인스턴스와 논리적인 시간 및 범위 partition에 결속하고, 변환
+결과는 replay 근거를 사용해 지연 correction을 종료합니다. 배포에서 제공한 보존 policy는 schema
+검증 후에만 안전한 `retain` 기본값을 대체합니다. Archive writer, 검증된 principal 범위 reader,
+database purge gate 및 고정 shadow schedule은 전용 Job binding을 준비했으며, 해당 Job과 보호된
+증적이 생길 때까지 Genesis는 archive 수명 주기를 incomplete로 보고합니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고
 이전 완전한 그래프를 유지하며 재개 가능한 커서 또는 범위가 제한된 재시작 결정을 남깁니다.

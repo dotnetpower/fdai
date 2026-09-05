@@ -124,13 +124,25 @@
           "state": "bound",
           "path": "service-migrations/branches/core-control-plane/versions/20260905_core_inventory_observation_journal.py",
           "symbol": "upgrade"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_observation_lifecycle.py",
+          "symbol": "bind_observation_lifecycle"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260906_core_operational_history_lifecycle.py",
+          "symbol": "upgrade"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/persistence/test_inventory_delta_validation.py",
         "services/core-control-plane/tests/persistence/test_postgres_inventory_observation.py",
         "services/core-control-plane/tests/shared/providers/test_inventory_observation.py",
+        "services/core-control-plane/tests/persistence/test_postgres_observation_lifecycle.py",
         "tests/integration/services/test_inventory_observation_migration.py",
+        "tests/integration/services/test_operational_history_lifecycle_migration.py",
         "tests/integration/services/test_service_migration_inventory.py"
       ],
       "missing_binding": null
@@ -452,10 +464,27 @@
           "state": "bound",
           "path": "service-migrations/branches/core-control-plane/versions/20260822_core_operational_archive.py",
           "symbol": "upgrade"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_lifecycle.py",
+          "symbol": "build_partition_pin"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_history.py",
+          "symbol": "PostgresOperationalHistoryStore.append_pin"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260906_core_operational_history_lifecycle.py",
+          "symbol": "fdai_purge_observation_partition"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/delivery/test_operational_archive_purge.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_operational_history_lifecycle.py",
+        "services/core-control-plane/tests/persistence/test_postgres_observation_lifecycle.py",
         "tests/integration/test_operational_instance_retention.py",
         "tests/integration/services/test_service_migration_inventory.py"
       ],
@@ -517,15 +546,56 @@
           "state": "bound",
           "path": "service-migrations/branches/core-control-plane/versions/20260822_core_operational_archive.py",
           "symbol": "upgrade"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/operational_history_archive.py",
+          "symbol": "OperationalHistoryArchiveWriter"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/azure/operational_history_archive.py",
+          "symbol": "AzureBlobOperationalHistoryArtifactStore"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_history.py",
+          "symbol": "PostgresOperationalHistoryStore.purge"
+        },
+        {
+          "state": "partial",
+          "path": "services/core-control-plane/src/fdai/delivery/operational_history_lifecycle.py",
+          "symbol": "operational_history_lifecycle_schedule"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_certification.py",
+          "symbol": "build_operational_history_certification"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_pressure.py",
+          "symbol": "assess_storage_pressure"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_retention.py",
+          "symbol": "load_retention_policy_registry"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/core/ontology_platform/test_archive_manifest.py",
         "services/core-control-plane/tests/delivery/test_operational_archive_purge.py",
+        "services/core-control-plane/tests/delivery/test_operational_history_archive.py",
+        "services/core-control-plane/tests/delivery/azure/test_operational_history_archive.py",
+        "services/core-control-plane/tests/delivery/test_operational_history_lifecycle.py",
+        "services/core-control-plane/tests/delivery/test_operational_history_policy.py",
+        "services/core-control-plane/tests/delivery/test_operational_history_certification_cli.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_operational_history_certification.py",
         "tests/integration/test_operational_instance_retention.py",
         "tests/integration/services/test_service_migration_inventory.py"
       ],
-      "missing_binding": "A production archive partition writer, principal-scoped reader, concrete ArchiveSourcePurger, and scheduled runtime binding are not implemented."
+      "missing_binding": "The production writer, principal-scoped reader, database-gated source purger, lifecycle planner, and fixed shadow schedule exist. A dedicated runtime Job does not yet compose Azure Blob writes, checkpoints, verification, restore sampling, and purge, and no protected deployment certification receipt exists."
     }
   ]
 }

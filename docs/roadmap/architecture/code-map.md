@@ -62,6 +62,10 @@ the Core-owned append-only PostgreSQL observation journal while the existing ove
 current read path. Journal replay applies explicit property masks, keeps operation status separate
 from resource state, and exposes journal and ontology projection watermarks to source-completeness
 checks.
+`operational_history_lifecycle.py` and `operational_history_certification.py` own incarnation,
+partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
+certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob
+artifacts, principal-scoped reads, a database-owned purge gate, and a fixed shadow schedule.
 
 Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
 into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the

@@ -28,6 +28,11 @@ async def resource_graph_source_coverage(
         "SELECT active.snapshot_id, status.value AS status_value, "
         "manifest.value AS manifest_value, "
         "observation_watermarks.value AS observation_watermarks_value, "
+        "storage_pressure.value AS storage_pressure_value, "
+        "EXISTS (SELECT 1 FROM inventory_observation_partition AS correction "
+        "WHERE correction.scope_ref IN ("
+        "SELECT value FROM jsonb_array_elements_text(snapshot.scopes)) "
+        "AND correction.state='correction_pending') AS pending_correction, "
         "EXISTS (SELECT 1 FROM jsonb_array_elements_text(snapshot.scopes) "
         "AS active_scope(scope) JOIN state_kv AS marker ON "
         "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope) "
@@ -38,6 +43,8 @@ async def resource_graph_source_coverage(
         "LEFT JOIN state_kv AS manifest ON manifest.key='inventory-ontology:manifest' "
         "LEFT JOIN state_kv AS observation_watermarks "
         "ON observation_watermarks.key='inventory-observation:watermarks' "
+        "LEFT JOIN state_kv AS storage_pressure "
+        "ON storage_pressure.key='operational-history:storage-pressure' "
         "WHERE active.singleton=TRUE"
     )
     row = await cursor.fetchone()
@@ -47,6 +54,7 @@ async def resource_graph_source_coverage(
     manifest = _json_mapping(row.get("manifest_value"))
     observation_watermarks_value = row.get("observation_watermarks_value")
     observation_watermarks = _json_mapping(observation_watermarks_value)
+    storage_pressure = _json_mapping(row.get("storage_pressure_value"))
     return resolve_inventory_graph_source_coverage(
         active_generation=row.get("snapshot_id"),
         status=status,
@@ -57,6 +65,8 @@ async def resource_graph_source_coverage(
         ontology_projection_watermark=observation_watermarks.get("ontology_projection_watermark"),
         pending_tombstones=observation_watermarks.get("pending_tombstones"),
         observation_watermark_state_present=observation_watermarks_value is not None,
+        pending_correction=bool(row.get("pending_correction")),
+        storage_pressure_hard=storage_pressure.get("hold_completeness_dependent_work") is True,
     )
 
 
@@ -71,6 +81,8 @@ def resolve_inventory_graph_source_coverage(
     ontology_projection_watermark: object = None,
     pending_tombstones: object = None,
     observation_watermark_state_present: bool = False,
+    pending_correction: bool = False,
+    storage_pressure_hard: bool = False,
 ) -> tuple[bool, str | None]:
     """Reduce inventory projection state to exact graph generation and completeness."""
 
@@ -84,6 +96,8 @@ def resolve_inventory_graph_source_coverage(
     )
     if (
         watermark_incomplete
+        or pending_correction
+        or storage_pressure_hard
         or (pending_reconciliation and expresses_relationships)
         or (
             not isinstance(active_generation, str)

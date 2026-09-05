@@ -310,6 +310,50 @@ class InventoryObservationProjectionJournal(Protocol):
     async def mark_ontology_projected(self, *, generation: str, watermark: int) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class InventoryObservationSchemaReplay:
+    """N or N-1 normalized record replay with both content digests."""
+
+    source_schema_version: str
+    target_schema_version: str
+    original_digest: str
+    transformed_digest: str
+    transformed_record: Mapping[str, Any]
+
+
+def replay_inventory_observation_schema(
+    record: Mapping[str, Any],
+) -> InventoryObservationSchemaReplay:
+    """Replay N or N-1 journal records without inferring missing authority."""
+
+    source_schema = record.get("schema_version")
+    if source_schema not in {"0.9.0", INVENTORY_OBSERVATION_SCHEMA_VERSION}:
+        raise ValueError("inventory observation schema version is unsupported")
+    original = dict(record)
+    transformed = dict(original)
+    if source_schema == "0.9.0":
+        properties = transformed.get("properties")
+        if not isinstance(properties, Mapping):
+            raise ValueError("N-1 inventory observation properties MUST be an object")
+        transformed.update(
+            {
+                "schema_version": INVENTORY_OBSERVATION_SCHEMA_VERSION,
+                "property_mask": sorted(properties),
+                "scope_ref": None,
+                "operation": None,
+                "operation_status": None,
+                "tombstone_confirmed": False,
+            }
+        )
+    return InventoryObservationSchemaReplay(
+        source_schema_version=str(source_schema),
+        target_schema_version=INVENTORY_OBSERVATION_SCHEMA_VERSION,
+        original_digest=_digest(original),
+        transformed_digest=_digest(transformed),
+        transformed_record=transformed,
+    )
+
+
 def replay_object_observations(
     observations: Sequence[NormalizedInventoryObservation],
     *,
@@ -417,7 +461,9 @@ __all__ = [
     "InventoryObservationKind",
     "InventoryObservationProjectionJournal",
     "InventoryObservationReplay",
+    "InventoryObservationSchemaReplay",
     "InventoryObservationSubjectKind",
     "NormalizedInventoryObservation",
+    "replay_inventory_observation_schema",
     "replay_object_observations",
 ]

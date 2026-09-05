@@ -18,6 +18,10 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
     _snapshot_relationship_props,
 )
+from fdai.delivery.persistence.postgres_observation_lifecycle import (
+    bind_observation_lifecycle,
+    close_observation_corrections,
+)
 from fdai.shared.providers.inventory_observation import (
     INVENTORY_OBSERVATION_SCHEMA_VERSION,
     InventoryMutationKind,
@@ -61,6 +65,7 @@ class PostgresInventoryObservationJournal:
         """Append one normalized change inside the caller's overlay transaction."""
 
         result = await _append_records(connection, observations)
+        await bind_observation_lifecycle(connection, observations)
         for item in observations:
             if (
                 item.subject_kind is InventoryObservationSubjectKind.OBJECT
@@ -142,8 +147,12 @@ class PostgresInventoryObservationJournal:
                 snapshot = await snapshot_cursor.fetchone()
                 if snapshot is None:
                     raise ValueError("promoted inventory observation is not the active snapshot")
-                records = _snapshot_records(observation)
+                records = _snapshot_records(
+                    observation,
+                    scope_refs=tuple(str(value) for value in snapshot["scopes"]),
+                )
                 result = await _append_records(connection, records)
+                await bind_observation_lifecycle(connection, records)
                 high_watermark = result.high_watermark
                 metadata = _mapping(snapshot["metadata"])
                 covered_types = tuple(str(value) for value in snapshot["resource_types"])
@@ -175,6 +184,7 @@ class PostgresInventoryObservationJournal:
                     )
                     if confirmations:
                         confirmed = await _append_records(connection, confirmations)
+                        await bind_observation_lifecycle(connection, confirmations)
                         high_watermark = max(high_watermark, confirmed.high_watermark)
                     if pending:
                         await connection.execute(
@@ -233,6 +243,12 @@ class PostgresInventoryObservationJournal:
                     connection,
                     ontology_watermark=watermark,
                     ontology_generation=generation,
+                )
+                await close_observation_corrections(
+                    connection,
+                    generation=generation,
+                    projection_watermark=watermark,
+                    closed_at=datetime.now(tz=UTC),
                 )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -397,10 +413,13 @@ def _observation(row: Mapping[str, Any]) -> NormalizedInventoryObservation:
 
 def _snapshot_records(
     observation: PromotedInventoryObservation,
+    *,
+    scope_refs: tuple[str, ...],
 ) -> tuple[NormalizedInventoryObservation, ...]:
     if observation.recorded_at is None:
         raise ValueError("promoted inventory observation recorded_at MUST be supplied")
     records: list[NormalizedInventoryObservation] = []
+    scope_ref = _scope_set_ref(scope_refs)
     for resource in observation.resources:
         observed_at = _timestamp(resource.last_seen) or observation.recorded_at
         records.append(
@@ -419,7 +438,7 @@ def _snapshot_records(
                 links_complete=observation.complete,
                 tombstone_confirmed=False,
                 provider_ref=resource.provider_ref,
-                scope_ref=_provider_scope(resource.provider_ref),
+                scope_ref=_provider_scope(resource.provider_ref) or scope_ref,
                 source_identity="inventory.reconciliation",
                 source_event_id=f"snapshot:{observation.generation}",
                 source_revision=observation.generation,
@@ -445,6 +464,7 @@ def _snapshot_records(
                 properties_complete=True,
                 links_complete=observation.complete,
                 tombstone_confirmed=False,
+                scope_ref=scope_ref,
                 source_identity="inventory.reconciliation",
                 source_event_id=f"snapshot:{observation.generation}",
                 source_revision=observation.generation,
@@ -583,6 +603,16 @@ def _provider_scope(provider_ref: str | None) -> str | None:
         if part.lower() == "subscriptions" and parts[index + 1]:
             return parts[index + 1]
     return None
+
+
+def _scope_set_ref(scope_refs: tuple[str, ...]) -> str:
+    scopes = tuple(sorted(set(scope_refs)))
+    if not scopes:
+        raise ValueError("promoted inventory observation requires source scopes")
+    if len(scopes) == 1:
+        return scopes[0]
+    digest = hashlib.sha256("\0".join(scopes).encode()).hexdigest()
+    return f"scope-set:sha256:{digest}"
 
 
 __all__ = [

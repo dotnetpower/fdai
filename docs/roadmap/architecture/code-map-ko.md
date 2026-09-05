@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 530cdd460ed1e7f8e80872a12ba1cbb1b47bde39
+translation_source_sha: b5ee7b0063850c6cdbead7a577071b818b9d9334
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -64,6 +64,10 @@ Inventory 변경 수집은 이제 타입이 지정된 `inventory_observation.py`
 overlay를 현재 조회 경로로 유지하면서 Core 소유의 추가 전용 PostgreSQL 관측 원장에 이중
 기록합니다. 원장 replay는 명시적인 속성 마스크를 적용하고 작업 상태를 리소스 상태와 분리하며,
 원본 완전성 검사에 원장 및 온톨로지 변환 결과 watermark를 제공합니다.
+`operational_history_lifecycle.py`와 `operational_history_certification.py`는 수명 인스턴스,
+partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
+의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,
+principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule에 결속합니다.
 
 프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
 `composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator

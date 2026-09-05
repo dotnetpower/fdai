@@ -10,6 +10,7 @@ from fdai.shared.providers.inventory_observation import (
     InventoryObservationKind,
     InventoryObservationSubjectKind,
     NormalizedInventoryObservation,
+    replay_inventory_observation_schema,
     replay_object_observations,
 )
 
@@ -232,3 +233,22 @@ def test_relationship_observation_is_typed_and_content_addressed() -> None:
 
     assert observation.observation_id == observation.content_digest
     assert observation.observation_kind is InventoryObservationKind.FULL
+
+
+def test_n_and_n_minus_one_schema_replay_preserves_both_digests() -> None:
+    legacy = {
+        "schema_version": "0.9.0",
+        "observation_kind": "tombstone",
+        "properties": {},
+        "properties_complete": False,
+        "links_complete": True,
+    }
+
+    first = replay_inventory_observation_schema(legacy)
+    replay = replay_inventory_observation_schema(dict(reversed(tuple(legacy.items()))))
+
+    assert first.original_digest == replay.original_digest
+    assert first.transformed_digest == replay.transformed_digest
+    assert first.original_digest != first.transformed_digest
+    assert first.transformed_record["schema_version"] == "1.0.0"
+    assert first.transformed_record["tombstone_confirmed"] is False
