@@ -80,6 +80,11 @@ from fdai_operator_service.iam_composition import (
     build_teams_hil_http_client,
     build_unavailable_iam_bindings,
 )
+from fdai_operator_service.model_lifecycle_composition import (
+    AsyncResolvedModelsSource,
+    OperatorResolvedModelsRevisionOwner,
+    build_model_revision_owner,
+)
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
@@ -180,12 +185,17 @@ class ProductionOperatorComposition:
     readiness_probe: ReadinessProbe | None = None
     semantic_event_publisher: SemanticTurnEventPublisher | None = None
     semantic_result_source: SemanticTurnResultSource | None = None
+    resolved_models_source: AsyncResolvedModelsSource | None = None
     local_cli_identity_factory: LocalCliIdentityFactory = resolve_azure_cli_identity
     local_cli_session_token_factory: LocalCliSessionTokenFactory = lambda: secrets.token_urlsafe(32)
 
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
+        model_revision_owner = build_model_revision_owner(
+            environment,
+            source=self.resolved_models_source,
+        )
         configured_read_model = self.read_model or _postgres_read_model(environment)
         family_store = _postgres_family_store(environment)
         context_selection_registry = ContextSelectionRegistry()
@@ -360,6 +370,7 @@ class ProductionOperatorComposition:
             ),
             local_cli_session_token=local_cli_session_token,
             lifecycle=_application_lifecycle(
+                model_revision_owner,
                 semantic_bridge,
                 read_investigation_bridge,
                 background_task_projection_bridge,
@@ -682,10 +693,18 @@ class _CompositeLifecycle:
         for service in self.services:
             try:
                 await service.start()
-            except BaseException:
-                await service.aclose()
-                for prior in reversed(started):
-                    await prior.aclose()
+            except BaseException as start_error:
+                cleanup_errors: list[BaseException] = []
+                for acquired in (service, *reversed(started)):
+                    try:
+                        await acquired.aclose()
+                    except BaseException as cleanup_error:
+                        cleanup_errors.append(cleanup_error)
+                if cleanup_errors:
+                    raise BaseExceptionGroup(
+                        "Operator startup and cleanup failed",
+                        [start_error, *cleanup_errors],
+                    ) from None
                 raise
             started.append(service)
 
@@ -703,6 +722,7 @@ class _CompositeLifecycle:
 
 
 def _application_lifecycle(
+    model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
@@ -719,6 +739,7 @@ def _application_lifecycle(
     services = tuple(
         service
         for service in (
+            model_revision_owner,
             bus,
             bridge,
             read_investigation_bridge,

@@ -2,7 +2,7 @@
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
 translation_source_sha: 1b37ffb2b87212fc92a086e8120e367926911ab7
-translation_revised: 2026-09-01
+translation_revised: 2026-09-05
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
@@ -395,9 +395,9 @@ T2는 서로 다른 두 복구 범위를 사용합니다. 호출별 지연 시�
 
 ### 조정기 작업
 
-계획된 주간 작업은 더 선호되는 새 계열, 60일 안의 사용 중단, 측정된 용량 또는 품질 표류를 감시합니다. 범위가 제한된 이슈 또는 초안 PR과 A2 알림만 만들며 실제 매핑을 바꾸지 않습니다.
-제안 스키마 v2는 모델 계열, 발행자, 상태뿐 아니라 SKU와 유효 용량 단위/값도 비교하므로 제자리 확장이나 교체를 변경 없음으로 잘못 분류하지 않습니다.
-병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고, 승인된 레지스트리 변경도 Owner 검토와 고정 시나리오 shadow 재현을 통과해야 합니다.
+계획된 주간 작업은 더 선호되는 새 계열, 60일 이내의 사용 중단, 측정된 용량 또는 품질 표류를 감시합니다. 범위가 제한된 이슈나 초안 PR 및 A2 경고만 열며 실제 매핑은 바꾸지 않습니다.
+제안 스키마 v2는 모델 계열, 발행자, 상태뿐 아니라 SKU와 유효 용량 단위 및 값을 비교하므로 제자리 확장이나 교체를 변경 없음으로 잘못 분류하지 않습니다.
+병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고 승인된 레지스트리 변경도 Owner 검토와 고정 시나리오 shadow 재현을 통과해야 합니다.
 
 ### Mixed-Model 계열 전략
 

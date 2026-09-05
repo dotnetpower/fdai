@@ -19,6 +19,11 @@ retired top-level application tree.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
   and repository checks.
+- **Operator startup revision fence:** Production Operator composition delegates resolved-model
+  source construction to a focused lifecycle module and verifies the immutable digest before Cost
+  Governance projections or any other lifecycle bridge starts.
+  The fence grants no mapping, assessment, or execution authority. If startup fails, composition
+  attempts every acquired service cleanup and reports cleanup errors with the original failure.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
@@ -40,8 +45,9 @@ retired top-level application tree.
 The Document Ingestion API also owns the FDAI-native cross-tenant SharePoint connector. Its
 federated managed identity obtains Microsoft Graph tokens in the target tenant, while its durable
 delta and intake adapters map changed files to server-owned document policy. Power Platform is not
-a runtime dependency. The service doesn't import the optional Cost Governance package or change
-cost authority.
+a runtime dependency. Root Terraform forwards connector settings only through the document
+ingestion module; neither service composition nor root composition imports the optional Cost
+Governance package or changes cost authority.
 
 ## Core Control Plane map
 
@@ -590,8 +596,8 @@ Content-addressed live evidence also binds the exact service and observation kin
 
 The package test tree validates SDK behavior. Cross-service N/N-1 and topology checks remain under
 [root integration tests](../../../tests/integration/).
-Deployable service images share the pinned Alpine Python, OpenSSL, and SQLite baseline. The document
-worker adds only its owned Tesseract language data and OCR runtime dependencies.
+Deployable service images share pinned Alpine Python, OpenSSL, SQLite, and util-linux runtime
+packages. The document worker adds only its owned Tesseract language data and OCR dependencies.
 
 ## Other repository owners
 

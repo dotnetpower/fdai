@@ -45,7 +45,7 @@ from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container
-from .resolved_models import _load_resolved_models
+from .resolved_models_revision import resolved_models_for_binding
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 from .semantic_query_value_domains import resource_type_value_domains
 
@@ -102,11 +102,12 @@ def compose_azure_semantic_query_runtime(
     if identity is None or http_client is None:
         return _unavailable("semantic_model_transport_unavailable")
     try:
-        resolved = _load_resolved_models(container.config.llm.resolved_models_path)
+        resolved = resolved_models_for_binding(container)
         t1_candidates = t1_model_targets(
             resolved,
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
+            held_capabilities=container.held_model_capabilities,
         )
         if not t1_candidates:
             return _unavailable("semantic_t1_model_candidates_unavailable")
@@ -114,6 +115,7 @@ def compose_azure_semantic_query_runtime(
             resolved,
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
+            held_capabilities=container.held_model_capabilities,
         )
         prompts = FileSystemPromptRegistry(catalog_root)
         frame_system_prompt = prompts.get_base(_FRAME_CAPABILITY).body

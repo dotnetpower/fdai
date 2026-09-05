@@ -70,6 +70,7 @@ from ..core.working_context import (
     ContextSelectionPolicyAuthority,
     ContextSelectionShadowRunner,
 )
+from ..rule_catalog.schema.llm_resolver import ResolvedModels
 from ..shared.config.models import AppConfig
 from ..shared.contracts.models import (
     OntologyFunctionType,
@@ -239,6 +240,9 @@ class Container:
     ontology_interface_implementations: tuple[OntologyInterfaceImplementation, ...] = ()
     compiled_ontology_interfaces: CompiledInterfaceCatalog | None = None
     workflows: tuple[Workflow, ...] = ()
+    resolved_models: ResolvedModels | None = None
+    resolved_models_artifact_digest: str | None = None
+    held_model_capabilities: frozenset[str] = frozenset()
     llm_bindings: LlmBindings | None = field(default=None)
     metric_provider: MetricProvider = field(default_factory=NoopMetricProvider)
     live_blast_probe: LiveBlastProbe | None = None

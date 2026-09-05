@@ -5,11 +5,20 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
+import httpx
+
 from fdai.composition import (
+    Container,
     LlmBindings,
+    bind_resolved_models_revision,
     default_container_from_env,
+)
+from fdai.delivery.github.model_lifecycle_observations import (
+    GitHubModelLifecycleObservationConfig,
+    GitHubModelLifecycleObservationSource,
 )
 from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 from fdai.runtime.bootstrap_bindings import (
@@ -48,8 +57,14 @@ from fdai.runtime.configuration import (
     _new_http_client,
     _summarize_config,
 )
+from fdai.runtime.model_lifecycle_startup import (
+    FileResolvedModelsSource,
+    resolve_models_startup_revision,
+)
+from fdai.runtime.providers import _build_audit_store
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
+from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
 __all__ = [
@@ -72,6 +87,7 @@ async def _run() -> int:
     resources = RuntimeResources()
     identity: Any = None
     runtime_values: Mapping[str, object] | None = None
+    state_store: StateStore | None = None
 
     try:
         resources.health_server = await open_health_port()
@@ -89,6 +105,13 @@ async def _run() -> int:
                 raise RuntimeError("Azure LLM mode requires HTTP and workload identity bindings")
             if runtime_values is None:  # pragma: no cover - startup branch invariant
                 raise RuntimeError("Azure LLM mode requires a runtime settings snapshot")
+            state_store = _build_audit_store()
+            container = await _attach_model_lifecycle_startup_revision(
+                container,
+                http_client=resources.http_client,
+                environment=os.environ,
+                state_store=state_store,
+            )
             container = await _finalize_llm_bindings(
                 container,
                 http_client=resources.http_client,
@@ -139,6 +162,7 @@ async def _run() -> int:
                 identity=identity,
                 environment=os.environ,
                 runtime_values_snapshot=runtime_values,
+                state_store=state_store,
             )
         elif pantheon_start_enabled(os.environ):
             # Pantheon needs the same Kafka bus the consumer builds; without
@@ -164,6 +188,61 @@ async def _run() -> int:
         return 0
     finally:
         await resources.close()
+
+
+async def _attach_model_lifecycle_startup_revision(
+    container: Container,
+    *,
+    http_client: httpx.AsyncClient,
+    environment: Mapping[str, str],
+    state_store: StateStore,
+    evaluated_at: datetime | None = None,
+) -> Container:
+    path = container.config.llm.resolved_models_path
+    expected_digest = container.config.llm.resolved_models_sha256
+    if path is None or expected_digest is None:
+        raise RuntimeError("Azure LLM startup requires one resolved-model revision")
+    observations: tuple[Mapping[str, object], ...] = ()
+    token = environment.get("FDAI_GITOPS_TOKEN", "").strip()
+    runtime_env = environment.get("RUNTIME_ENV", "").strip().lower()
+    if not token and runtime_env in {"staging", "prod"}:
+        raise RuntimeError("staging and prod require FDAI_GITOPS_TOKEN for lifecycle observations")
+    if token:
+        owner = environment.get("FDAI_GITOPS_OWNER", "").strip()
+        repo = environment.get("FDAI_GITOPS_REPO", "").strip()
+        if not owner or not repo:
+            raise RuntimeError("FDAI_GITOPS_TOKEN requires FDAI_GITOPS_OWNER and FDAI_GITOPS_REPO")
+        ttl_raw = environment.get("FDAI_MODEL_LIFECYCLE_REVIEW_TTL_HOURS", "168")
+        try:
+            ttl_hours = int(ttl_raw)
+        except ValueError as exc:
+            raise RuntimeError("FDAI_MODEL_LIFECYCLE_REVIEW_TTL_HOURS MUST be an integer") from exc
+        observations = await GitHubModelLifecycleObservationSource(
+            config=GitHubModelLifecycleObservationConfig(
+                owner=owner,
+                repo=repo,
+                api_base=environment.get(
+                    "FDAI_GITHUB_API_BASE",
+                    "https://api.github.com",
+                ).strip(),
+                review_ttl_hours=ttl_hours,
+            ),
+            http_client=http_client,
+            token=token,
+        ).load()
+    revision = await resolve_models_startup_revision(
+        FileResolvedModelsSource(path),
+        expected_artifact_digest=expected_digest,
+        observations=observations,
+        decision_store=state_store,
+        evaluated_at=evaluated_at or datetime.now(UTC),
+    )
+    return bind_resolved_models_revision(
+        container,
+        models=revision.models,
+        artifact_digest=revision.artifact_digest,
+        held_capabilities=revision.held_capabilities,
+    )
 
 
 def main() -> int:

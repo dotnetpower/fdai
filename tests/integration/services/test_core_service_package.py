@@ -37,6 +37,7 @@ EXPECTED_RUNTIME_MODULES = {
     "assurance_twin_query.py",
     "blast_probe.py",
     "bootstrap.py",
+    "model_lifecycle_startup.py",
     "bootstrap_bindings.py",
     "bootstrap_core.py",
     "bootstrap_incidents.py",

@@ -25,6 +25,8 @@ _EXPECTED_FILES = frozenset(
         "_helpers.py",
         # Loads and filters resolved-model artifacts for the focused binders.
         "resolved_models.py",
+        # Publishes the startup-owned immutable revision to every model binder.
+        "resolved_models_revision.py",
         "wire_llm.py",
         "wire_distiller.py",
         "wire_azure.py",
@@ -115,6 +117,7 @@ _PUBLIC_NAMES = (
     "OperationalReadinessService",
     "bind_browser_evidence",
     "bind_execution_authorization",
+    "bind_resolved_models_revision",
 )
 
 # Names that MUST also appear in __all__ (subset of _PUBLIC_NAMES). The
@@ -137,6 +140,7 @@ _ALL_MEMBERS = (
     "OperationalReadinessService",
     "bind_browser_evidence",
     "bind_execution_authorization",
+    "bind_resolved_models_revision",
 )
 
 
@@ -224,6 +228,7 @@ _LOC_LIMITS = {
     "__init__.py": 400,
     "_helpers.py": 400,
     "resolved_models.py": 100,
+    "resolved_models_revision.py": 100,
     "wire_azure.py": 400,
     "wire_llm.py": 800,  # holds the ~308-LOC bind_azure_llm_bindings body
     "wire_semantic_judgment.py": 200,

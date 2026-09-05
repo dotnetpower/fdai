@@ -42,10 +42,12 @@ FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067b
 
 ARG OPENSSL_LIBS_VERSION=3.5.8-r0
 ARG SQLITE_LIBS_VERSION=3.53.4-r0
+ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r0
 RUN apk add --no-cache --upgrade \
         "libcrypto3=${OPENSSL_LIBS_VERSION}" \
         "libssl3=${OPENSSL_LIBS_VERSION}" \
     && apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+        "libuuid=${UTIL_LINUX_LIBS_VERSION}" \
         "sqlite-libs=${SQLITE_LIBS_VERSION}" \
         libgomp \
         tesseract-ocr \

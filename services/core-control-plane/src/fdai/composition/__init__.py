@@ -292,6 +292,7 @@ def default_container_from_env() -> Container:
 
 # G-3 public re-exports. E402 avoids wire_azure's package import cycle.
 from .readiness import OperationalReadinessService  # noqa: E402
+from .resolved_models_revision import bind_resolved_models_revision  # noqa: E402
 from .wire_azure import AzureWireOverrides, wire_azure_container  # noqa: E402
 from .wire_azure_operational_evidence import bind_azure_operational_evidence  # noqa: E402
 from .wire_llm import bind_azure_llm_bindings  # noqa: E402
@@ -320,6 +321,7 @@ __all__ = [
     "bind_context_selection_shadow",
     "bind_execution_authorization",
     "bind_execution_backends",
+    "bind_resolved_models_revision",
     "bind_azure_llm_bindings",
     "bind_azure_ontology_distiller",
     "bind_azure_operational_evidence",

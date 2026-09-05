@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dc135ffa47c04a8500be49a2f8cc1ad049710fe8
+translation_source_sha: 6846c7b5237c94f90d845ed839ae126e7edccbb9
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -22,6 +22,11 @@ translation_revised: 2026-09-05
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
   저장소 검사를 소유합니다.
+- **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 수명 주기 전용
+  모듈에 위임하고 Cost Governance 변환 결과 또는 다른 수명 주기 bridge를 시작하기 전에 불변
+  다이제스트를 검증합니다. 이 경계는
+  매핑, 평가 또는 실행 권한을 부여하지 않습니다. 시작에 실패하면 조립은 획득한 모든 서비스
+  정리를 시도하고 원래 실패와 함께 정리 오류를 보고합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
@@ -43,8 +48,8 @@ translation_revised: 2026-09-05
 문서 인제스트 API는 FDAI-native 교차 테넌트 SharePoint 커넥터도 소유합니다. Federated
 Managed Identity가 대상 테넌트의 Microsoft Graph 토큰을 얻고, 영속 delta 및 인제스트
 어댑터가 변경 파일을 서버 소유 문서 정책에 연결합니다. Power Platform은 런타임 의존성이
-아닙니다. 이 서비스는 선택적 비용 거버넌스 패키지를 가져오거나 비용 권한을 변경하지
-않습니다.
+아닙니다. 루트 Terraform은 커넥터 설정을 문서 인제스트 모듈을 통해서만 전달합니다. 서비스
+조립과 루트 조립은 선택적 비용 거버넌스 패키지를 가져오거나 비용 권한을 변경하지 않습니다.
 
 ## Core 컨트롤 플레인 지도
 
@@ -567,8 +572,8 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 
 패키지 테스트 트리는 SDK 행동을 검증합니다. 서비스 간 N/N-1 및 토폴로지 검사는
 [루트 통합 테스트](../../../tests/integration/)에 유지합니다.
-배포 가능한 서비스 이미지는 고정된 Alpine Python, OpenSSL 및 SQLite baseline을 공유합니다.
-문서 worker는 자신이 소유한 Tesseract 언어 데이터와 OCR runtime 의존성만 추가합니다.
+배포 가능한 서비스 이미지는 고정된 Alpine Python, OpenSSL, SQLite 및 util-linux 런타임
+패키지를 공유합니다. 문서 worker는 자신이 소유한 Tesseract 언어 데이터와 OCR 의존성만 추가합니다.
 
 ## 기타 저장소 소유자
 

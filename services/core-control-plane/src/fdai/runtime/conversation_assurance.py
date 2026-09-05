@@ -83,22 +83,29 @@ def build_conversation_assurance_reviewer(
 def build_azure_conversation_assurance_evaluators(
     *,
     repo_root: Path,
-    resolved_models_path: str,
+    resolved_models_path: str | None = None,
+    resolved_models: ResolvedModels | None = None,
+    held_capabilities: frozenset[str] = frozenset(),
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
     pricing: PricingTable,
     metering_sink: MeteringSink,
 ) -> tuple[ConversationAssuranceEvaluator, ...]:
-    try:
-        resolved = _load_resolved_models(resolved_models_path)
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
-        return ()
+    if resolved_models is None:
+        if resolved_models_path is None:
+            return ()
+        try:
+            resolved_models = _load_resolved_models(resolved_models_path)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return ()
+    resolved = resolved_models
     if resolved.narrator is None or not resolved.narrator.endpoint:
         return ()
     capabilities = {item.name: item for item in resolved.capabilities}
     selected = [capabilities.get(_PRIMARY), capabilities.get(_SECONDARY)]
     if any(
         item is None
+        or item.name in held_capabilities
         or item.status is CapabilityStatus.HIL_ONLY
         or item.family is None
         or item.publisher is None
@@ -108,6 +115,7 @@ def build_azure_conversation_assurance_evaluators(
     tie = capabilities.get(_TIE_BREAKER)
     if (
         tie is not None
+        and tie.name not in held_capabilities
         and tie.status is not CapabilityStatus.HIL_ONLY
         and tie.family is not None
         and tie.publisher is not None
@@ -157,7 +165,8 @@ def build_runtime_pantheon_conversation_assurance(
     repo_root: Path,
     environment: dict[str, str],
     dsn: str | None,
-    resolved_models_path: str | None,
+    resolved_models: ResolvedModels | None,
+    held_capabilities: frozenset[str] = frozenset(),
     identity: WorkloadIdentity | None,
     http_client: httpx.AsyncClient | None,
     pricing: PricingTable | None,
@@ -170,7 +179,7 @@ def build_runtime_pantheon_conversation_assurance(
         return None
     evaluators: tuple[ConversationAssuranceEvaluator, ...] = ()
     if (
-        resolved_models_path
+        resolved_models is not None
         and identity is not None
         and http_client is not None
         and pricing is not None
@@ -178,7 +187,8 @@ def build_runtime_pantheon_conversation_assurance(
     ):
         evaluators = build_azure_conversation_assurance_evaluators(
             repo_root=repo_root,
-            resolved_models_path=resolved_models_path,
+            resolved_models=resolved_models,
+            held_capabilities=held_capabilities,
             identity=identity,
             http_client=http_client,
             pricing=pricing,

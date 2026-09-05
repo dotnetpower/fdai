@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 8731b78bfb1714693518beb31cf43153c4c8753a
+translation_source_sha: 22a315ae20ebf76a8a289222b8aa257193c23f1d
 translation_revised: 2026-09-05
 ---
 # 서술기 라우팅과 지연 시간
@@ -167,8 +167,9 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - **모델 해석 결과 전달**: 초기에는 파일 시스템 경로 또는 인라인 JSON 환경 변수/시크릿 참조를
   지원합니다. 서비스 소유 비동기 Key Vault 출처 어댑터는 이제 공식 Azure vault origin과
   audience, 정확한 secret 신원, 크기, JSON 구조, 활성화 및 만료 상태, 전체 마감을 검증하면서
-  값을 노출하지 않습니다. 하나의 변경 불가능한 출처 개정을 기능 바인딩과 수명 주기 보류 평가에
-  함께 발행할 비동기 소유자가 생길 때까지 시작 바인딩은 보류됩니다.
+  값을 노출하지 않습니다. 수명 주기 전용 조립이 이 출처를 구성하고 애플리케이션 lifespan이
+  하나의 비동기 소유자를 호출합니다. 이 소유자는 후속 서비스를 시작하기 전에 기능 바인딩과
+  수명 주기 보류 평가에 변경 불가능한 출처 리비전 하나를 발행합니다.
 - **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
   명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
 - **조정기 전달**: 주간 workflow는 정제된 근거를 보존하고 검토가 필요할 때 멱등적 초안 PR을
@@ -267,6 +268,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 2026-08-19 | implemented | 보호된 해석기의 정확한 인라인 JSON과 SHA를 Operator 시작에 연결하고 제안 전용 주간 조정기를 추가했습니다. 다이제스트가 다르면 서술기 구성을 차단하며, 공급자 실패는 정제된 판단 보류를 만들고 PR을 열지 않습니다. | `current change`; 집중 서술기, 수명 주기, 계획 검증기, Terraform 및 권한 workflow 테스트. | 통제된 로컬/배포 timing 및 조정기 실행 근거를 보존하며 직접 Key Vault 읽기는 계속 연기합니다. |
 | 2026-08-23 | implemented | 해석 모델 JSON을 위한 서비스 소유 비동기 Key Vault 출처 어댑터를 추가했습니다. 어댑터는 토큰 및 HTTP 공급자를 주입 상태로 유지하고, 일치하는 cloud audience를 가진 현재 Azure Key Vault DNS suffix만 허용하며, 응답 신원을 요청한 secret 및 버전에 결합하고, 하나의 전체 마감 안에서 실패 시 차단 처리합니다. | `current change`; 집중 Key Vault 출처 테스트와 15회의 비평 및 하드닝 라운드입니다. | 현재 파일 또는 인라인 출처를 교체하기 전에 비동기 시작 소유자, 변경 불가능한 출처 개정 발행, Core/Operator parity 바인딩 및 통제된 로컬/배포 근거를 추가합니다. |
 | 2026-08-24 | implemented | 프로비저닝된 SKU와 PTU 용량, 정확한 활성 다이제스트 제한, 분리된 초안, 평가 및 보호된 계획 요청을 포함해 T1/T2 `auto`, `pinned`, `hil-only` 모드를 위한 환경 전체 정책 편집기를 추가했습니다. | `current change`; 공통 계약, Operator 경로 및 저장소, Console 정책 편집기, 해석기, 워크플로 및 Terraform 검사. | 보호된 공급자 평가, 적용, 독립 검증 및 롤백 증적을 보존합니다. |
+| 2026-09-05 | implemented | 서비스 소유 출처를 Operator 애플리케이션 수명 주기의 첫 위치에 연결했습니다. 이 소유자는 한 번만 로드하고 JSON을 검증하며 `LLM_RESOLVED_MODELS_SHA256` 불일치를 거부한 뒤 후속 서비스를 시작합니다. 직접 Key Vault는 배포 출처 seam으로 유지하고 구성된 파일 또는 인라인 콘텐츠는 로컬 호환성을 보존합니다. | `current change`; 집중 Operator 운영 조립 및 Key Vault 출처 테스트입니다. | 정확한 출처 리비전에 대한 통제된 배포 시작 영수증 하나를 보존합니다. |
 
 ### 남은 작업
 
@@ -278,7 +280,9 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 - [ ] Narrator 선호 설정 저장소를 principal별 영속 저장과 인증된 Settings 경로에 binding하고, 그 경로를 통해 개정 번호 충돌과 principal 범위를 증명합니다.
 - [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
 - [x] 신뢰할 수 있는 origin, 신원, 범위, 만료, timeout 및 secret-redaction 검사를 갖춘 service-owned 비동기 직접 Key Vault 모델 해석 결과 출처 어댑터를 구현하고 집중 테스트합니다.
-- [ ] 기능 바인딩과 수명 주기 보류 평가가 공유하는 비동기 시작 소유자를 통해 Key Vault 출처를 연결하고, Core/Operator 출처 개정 parity를 보존하며, 통제된 제안 전용 조정기 실행 하나를 보존합니다.
+- [x] 비동기 Operator 시작 소유자를 통해 Key Vault 출처를 연결하고, Core가 자체 리비전을 수명 주기 보류 평가 및 기능 바인딩과 공유하는 동안 Core/Operator 출처 리비전 parity를 보존합니다.
+- [x] 시작 실패 시 획득한 모든 수명 주기 서비스의 정리를 시도하고 원래 출처 리비전 경계를 숨기지 않은 채 정리 실패를 보고합니다.
+- [ ] 통제된 제안 전용 조정기 실행 하나와 정확한 출처 리비전에 대한 배포 Operator 시작 영수증 하나를 보존합니다.
 - [ ] 런타임이 봉인된 정책과 모델 버전을 로드했음을 독립 검증하는 근거를 포함해 정확한 환경 정책 평가 및 보호된 PTU 계획, 적용, 롤백 캠페인 하나를 보존합니다.
 
 ## 관련 문서

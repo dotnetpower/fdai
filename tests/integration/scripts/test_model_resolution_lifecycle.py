@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from scripts.deployment.azure.model_lifecycle_receipt import build_model_lifecycle_receipt
 from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_lifecycle
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -517,6 +518,44 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert "terraform apply" not in workflow
     assert "az cognitiveservices account deployment create" not in workflow
     assert "az cognitiveservices account deployment update" not in workflow
+    assert "model_lifecycle_receipt.py" in workflow
+    assert "Upload governed draft receipt" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+    assert '"/repos/${GITHUB_REPOSITORY}/contents/${proposal}?ref=${head_sha}"' in workflow
+    assert '--proposal "$pr_proposal"' in workflow
+    assert 'source_commit="$(git rev-parse HEAD)"' in workflow
+    assert '--source-commit "$source_commit"' in workflow
+    assert '--source-commit "${GITHUB_SHA}"' not in workflow
+
+
+def test_reconciliation_receipt_binds_draft_without_authority() -> None:
+    proposal = reconcile_model_lifecycle(
+        current=_resolved(),
+        candidate=_resolved("gpt-5"),
+        deprecations=(),
+    )
+
+    receipt = build_model_lifecycle_receipt(
+        proposal=proposal,
+        pull_request={
+            "number": 257,
+            "headRefOid": "1" * 40,
+            "isDraft": True,
+        },
+        source_commit="2" * 40,
+        workflow_run_id="1234",
+        workflow_run_attempt=1,
+    )
+
+    assert receipt["proposal_digest"] == proposal["proposal_digest"]
+    assert receipt["proposal_path"] == (
+        f"config/model-lifecycle-proposals/{proposal['proposal_digest']}.json"
+    )
+    assert receipt["draft"] is True
+    assert receipt["mapping_authority"] is False
+    assert receipt["execution_authority"] is False
+    assert receipt["live_execution_eligible"] is False
+    assert len(str(receipt["receipt_digest"])) == 64
 
 
 def test_terraform_binds_the_exact_resolved_manifest_to_both_runtimes() -> None:

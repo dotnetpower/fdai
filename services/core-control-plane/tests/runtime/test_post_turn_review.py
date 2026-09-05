@@ -190,9 +190,19 @@ async def test_azure_models_require_two_distinct_resolved_families() -> None:
             identity=identity,
             http_client=client,
         )
+        held = build_azure_post_turn_models(
+            repo_root=Path(__file__).resolve().parents[4],
+            resolved_models=_resolved_models(secondary_family="family-b"),
+            held_capabilities=frozenset({"t2.reasoner.primary"}),
+            endpoint="https://example.com",
+            endpoint_resolver=lambda _: "https://example.com",
+            identity=identity,
+            http_client=client,
+        )
 
     assert tuple(model.model_family for model in models) == ("family-a", "family-b")
     assert unavailable == ()
+    assert held == ()
 
 
 def _endpoint_binding(

@@ -111,6 +111,7 @@ class LlmConfig(_ConfigBase):
 
     mode: Annotated[str, Field(pattern=r"^(local-fake|azure)$")] = LlmMode.LOCAL_FAKE
     resolved_models_path: Annotated[str, Field(min_length=1)] | None = None
+    resolved_models_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
     capabilities: tuple[str, ...] = _DEFAULT_LLM_CAPABILITIES
     t1_similarity_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.8
     t1_min_success_rate: Annotated[float, Field(ge=0.0, le=1.0)] = 0.9

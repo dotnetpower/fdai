@@ -4113,11 +4113,11 @@ def test_production_composition_activates_semantic_bridge_only_with_transport(
     tmp_path: Path,
 ) -> None:
     model_path = tmp_path / "models.json"
-    model_path.write_text(
+    model_content = (
         '{"narrator":{"endpoint":"https://example.openai.azure.com",'
-        '"deployment":"narrator","api_version":"2024-08-01-preview"}}',
-        encoding="utf-8",
+        '"deployment":"narrator","api_version":"2024-08-01-preview"}}'
     )
+    model_path.write_text(model_content, encoding="utf-8")
     environment = {
         TENANT_ENV: "tenant",
         AUDIENCE_ENV: "audience",
@@ -4126,6 +4126,7 @@ def test_production_composition_activates_semantic_bridge_only_with_transport(
         LOCAL_AZURE_NARRATOR_ENV: "1",
         "RUNTIME_ENV": "dev",
         "LLM_RESOLVED_MODELS_PATH": str(model_path),
+        "LLM_RESOLVED_MODELS_SHA256": hashlib.sha256(model_content.encode()).hexdigest(),
         **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
     }
 

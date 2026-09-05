@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -13,6 +14,7 @@ from fdai.composition import (
     bind_azure_ontology_distiller,
     default_container,
 )
+from fdai.composition.resolved_models_revision import bind_resolved_models_revision
 from fdai.composition.wire_distiller import (
     OntologyCouncilBindingState,
     ontology_council_binding_state,
@@ -138,7 +140,13 @@ def _container(resolved: ResolvedModels):  # type: ignore[no-untyped-def]
             },
             "postgres": {"host": "postgres.example.com", "database": "fdai"},
             "runtime": {"env": "dev"},
-            "llm": {"mode": "azure", "resolved_models_path": resolved.to_json()},
+            "llm": {
+                "mode": "azure",
+                "resolved_models_path": resolved.to_json(),
+                "resolved_models_sha256": hashlib.sha256(
+                    resolved.to_json().strip().encode("utf-8")
+                ).hexdigest(),
+            },
         }
     )
     return default_container(config)
@@ -281,3 +289,18 @@ def test_apim_without_health_sink_fails_closed() -> None:
 
     with pytest.raises(LlmBindingsUnavailableError, match="model health"):
         _bind(_resolved(bindings=bindings))
+
+
+def test_startup_hold_blocks_real_ontology_council_binding() -> None:
+    resolved = _resolved()
+    container = _container(resolved)
+    held = _CAPABILITIES[0][0]
+    container = bind_resolved_models_revision(
+        container,
+        models=resolved,
+        artifact_digest=container.config.llm.resolved_models_sha256 or "",
+        held_capabilities=(held,),
+    )
+
+    with pytest.raises(LlmBindingsUnavailableError, match="all three bindable"):
+        _bind(resolved, container=container)
