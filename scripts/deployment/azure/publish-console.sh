@@ -45,8 +45,34 @@ if [[ -z "$observed_hostname" || "${observed_hostname,,}" != "${hostname,,}" ]];
   exit 2
 fi
 
-operator_api="$(terraform -chdir="$terraform_dir" output -raw operator_api_fqdn)"
-ingestion_api="$(terraform -chdir="$terraform_dir" output -raw ingestion_gateway_fqdn)"
+resolve_service_fqdn() {
+  local service="$1"
+  local service_dir="$repo_root/infra/services/$service"
+  : "${FDAI_DEPLOY_ENVIRONMENT:?FDAI_DEPLOY_ENVIRONMENT is required for independent service state}"
+  : "${STATE_CONTAINER:?STATE_CONTAINER is required for independent service state}"
+  : "${STATE_RESOURCE_GROUP:?STATE_RESOURCE_GROUP is required for independent service state}"
+  : "${STATE_STORAGE_ACCOUNT:?STATE_STORAGE_ACCOUNT is required for independent service state}"
+  local state_key="services/$service/$FDAI_DEPLOY_ENVIRONMENT.tfstate"
+  terraform -chdir="$service_dir" init -reconfigure -input=false \
+    -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+    -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+    -backend-config="container_name=$STATE_CONTAINER" \
+    -backend-config="key=$state_key" \
+    -backend-config="use_azuread_auth=true" >/dev/null
+  terraform -chdir="$service_dir" output -json service \
+    | jq -er '.fqdn | select(type == "string" and length > 0)'
+}
+
+operator_api="$(terraform -chdir="$terraform_dir" output -raw operator_api_fqdn 2>/dev/null || true)"
+ingestion_api="$(terraform -chdir="$terraform_dir" output -raw ingestion_gateway_fqdn 2>/dev/null || true)"
+operator_api="${operator_api:-$(resolve_service_fqdn operator-service)}"
+ingestion_api="${ingestion_api:-$(resolve_service_fqdn document-ingestion-api)}"
+for service_fqdn in "$operator_api" "$ingestion_api"; do
+  if [[ ! "$service_fqdn" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?[.]azurecontainerapps[.]io$ ]]; then
+    echo "independent service FQDN is invalid" >&2
+    exit 2
+  fi
+done
 
 deployment_token="$(az rest --method post \
   --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \
