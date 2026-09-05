@@ -243,6 +243,22 @@ class PostgresSharePointDeltaStore:
             ).fetchall()
         return tuple(str(row["source_revision"]) for row in rows)
 
+    async def pending_cancellation_items(self, *, connector_id: str, limit: int) -> tuple[str, ...]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("connector cancellation item limit MUST be in [1, 1000]")
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            rows = await (
+                await connection.execute(
+                    "SELECT source_item_id, min(created_at) AS oldest "
+                    "FROM document_connector_cancellation "
+                    "WHERE connector_id = %s AND status = 'pending' "
+                    "GROUP BY source_item_id ORDER BY oldest, source_item_id LIMIT %s",
+                    (connector_id, limit),
+                )
+            ).fetchall()
+        return tuple(str(row["source_item_id"]) for row in rows)
+
     async def complete_cancellation(
         self, *, connector_id: str, source_item_id: str, source_revision: str
     ) -> None:

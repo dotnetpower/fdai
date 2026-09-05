@@ -70,6 +70,10 @@ class PowerPlatformConnectorState(Protocol):
         self, *, connector_id: str, source_item_id: str
     ) -> tuple[str, ...]: ...
 
+    async def pending_cancellation_items(
+        self, *, connector_id: str, limit: int
+    ) -> tuple[str, ...]: ...
+
     async def complete_cancellation(
         self, *, connector_id: str, source_item_id: str, source_revision: str
     ) -> None: ...
@@ -369,6 +373,20 @@ class PowerPlatformSharePointConnector:
                 source_item_id=source_item_id,
                 source_revision=pending_revision,
             )
+
+    async def reconcile_cancellations(self, *, actor_id: str, limit: int = 100) -> int:
+        if not 1 <= limit <= 1000:
+            raise ValueError("connector cancellation item limit MUST be in [1, 1000]")
+        items = await self._state.pending_cancellation_items(
+            connector_id=self._config.binding_id,
+            limit=limit,
+        )
+        for source_item_id in items:
+            await self._drain_cancellations(
+                actor_id=actor_id,
+                source_item_id=source_item_id,
+            )
+        return len(items)
 
     async def delete(
         self,

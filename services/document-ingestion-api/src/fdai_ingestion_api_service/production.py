@@ -285,6 +285,10 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             while True:
                 try:
                     await connector_state.reconcile_deletions(limit=100)
+                    await power_platform_connector.reconcile_cancellations(
+                        actor_id=(f"power-platform:{connector_config.connector_id}:reconciler"),
+                        limit=100,
+                    )
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001 - hold intent remains retryable

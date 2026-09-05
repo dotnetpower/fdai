@@ -120,7 +120,10 @@ class State:
         )
 
     async def pending_cancellations(self, **_kwargs: object) -> tuple[str, ...]:
-        return tuple(self.pending)
+        return tuple(self.pending[:64])
+
+    async def pending_cancellation_items(self, **_kwargs: object) -> tuple[str, ...]:
+        return ("item-1",) if self.pending else ()
 
     async def complete_cancellation(self, *, source_revision: str, **_kwargs: object) -> None:
         self.pending = [revision for revision in self.pending if revision != source_revision]
@@ -724,6 +727,21 @@ async def test_deletion_drains_pending_displaced_cancellations() -> None:
     )
 
     assert service.uploads[first.upload_id].state is DocumentState.DELETING
+    assert state.pending == []
+
+
+async def test_background_reconciliation_drains_cancellation_pages() -> None:
+    state = State()
+    state.pending = [f"etag-{index}" for index in range(65)]
+    connector = PowerPlatformSharePointConnector(
+        config=_config(),
+        service=Service(),  # type: ignore[arg-type]
+        state=state,
+    )
+
+    assert await connector.reconcile_cancellations(actor_id="reconciler") == 1
+    assert state.pending == ["etag-64"]
+    assert await connector.reconcile_cancellations(actor_id="reconciler") == 1
     assert state.pending == []
 
 

@@ -73,6 +73,8 @@ the two are resolved and validated independently.
   pipeline.
   The collection document-list route is read-only and cannot select a handover purpose, invoke the
   webhook, or create a stewardship draft.
+  The connector cancellation reconciler operates only on document-version cleanup records and has
+  no path to stewardship state or handover drafts.
 6. **Every change must be notified and audited.** Core deterministically computes recipients and
   the audit payload. Live PR/merge integration must bind those primitives to notification and
   audit adapters.
