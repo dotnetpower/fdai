@@ -146,7 +146,9 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     plan = prompts.get_base("semantic.query.plan")
 
     assert frame.version == 39
-    assert judgment.version == 7
+    assert judgment.version == 8
+    assert "emit exactly one source-spanned agent target for that addressee" in judgment.body
+    assert "preserve one as primary_intent and the other in secondary_intents" in judgment.body
     assert "query.resource_event_history with resource_event.kubernetes" in judgment.body
     assert "include kubernetes_events and an ordering facet" in judgment.body
     assert "Do not add resource_event.resource_health" in judgment.body

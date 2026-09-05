@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ebd43e5db40f36a3ea88b6c2749e455555defcaf
+translation_source_sha: a408f2bb9cc5c5a794376e2d9a675b60f044b498
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -76,7 +76,7 @@ principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule�
 질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
-기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
+기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다. Pantheon qualification은 로컬 Operator outbox 점유를 체크아웃별로 격리하고, 결정론적 근거 처리 결과와 별개로 진단 의미 검토를 실행하며, 관측된 T1 사유와 T2 상태가 고정 사례와 일치할 때만 T2 시나리오 근거를 수락합니다.
 생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
 생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본

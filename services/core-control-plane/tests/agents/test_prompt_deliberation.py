@@ -7,8 +7,10 @@ from collections.abc import Callable, Sequence
 from decimal import Decimal
 
 import pytest
+from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
+    ConversationDeliberator,
     DeliberationClaim,
     DeliberationRequest,
     SynthesisOutcome,
@@ -460,6 +462,32 @@ def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
         for agent, prompt in request.participant_prompts
     )
     assert "Authority boundary:" not in str(result)
+
+
+def test_deliberation_reuses_verified_semantic_participant_selection() -> None:
+    runtime = _bind_t1_recommendations(_runtime(), ("scale_down", "scale_up"))
+    deliberator = runtime.agents["Bragi"]._deliberator  # noqa: SLF001
+    assert isinstance(deliberator, ConversationDeliberator)
+
+    result = asyncio.run(
+        deliberator.deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Forseti",
+            correlation_id="corr-semantic-route",
+            routing_decision=RoutingDecision(
+                primary_agent="Njord",
+                scores={"Njord": 3.0, "Freyr": 3.0},
+                tie_break="canonical_name",
+                contributors=("Freyr",),
+                method="semantic_judgment",
+            ),
+        )
+    )
+
+    assert result["status"] == "completed"
+    assert result["primary_agent"] == "Njord"
+    assert result["participants"] == ["Njord", "Freyr"]
+    assert result["t1_evaluation"]["reason"] == "structured_conflict"
 
 
 @pytest.mark.parametrize(

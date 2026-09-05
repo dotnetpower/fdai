@@ -389,6 +389,7 @@ class Bragi(Agent):
             question=question,
             requester=requester,
             correlation_id=correlation_id,
+            routing_decision=self.route(judgment),
         )
 
     # ---- routing -------------------------------------------------------

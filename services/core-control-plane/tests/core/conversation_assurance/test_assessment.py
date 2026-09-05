@@ -134,6 +134,27 @@ def test_deterministic_unverified_preserves_exact_reason() -> None:
     assert result.reasons == ("verification_failed:unknown_link_type",)
 
 
+async def test_diagnostic_semantic_review_does_not_short_circuit_on_verification() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+
+    review = await coordinator.review_semantically(
+        _turn(
+            verification_status="unverified",
+            verification_reason_code="provider_evidence_unavailable",
+        )
+    )
+
+    assert review.decision.verdict is AssuranceVerdict.PASS
+    assert len(review.evaluator_outputs) == 2
+    assert first.calls == second.calls == 1
+
+
 async def test_mixed_family_consensus_passes_conservatively() -> None:
     first = _Evaluator("publisher-a:model-a", "family-a", 4, "Fully supported.")
     second = _Evaluator("publisher-b:model-b", "family-b", 3, "Minor support gap.")

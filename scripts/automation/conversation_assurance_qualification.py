@@ -13,6 +13,7 @@ from fdai.core.conversation_assurance import (
     PantheonRubric,
     PantheonTurnDiagnostic,
     T2Expectation,
+    t2_expected_outcome,
 )
 
 _MIN_OWNER_ROUTING_F1 = 0.98
@@ -256,7 +257,7 @@ def _trace_results_match(
             else trace.handoff_owner is None
         ),
         not forbidden or not trace.t2_attempted,
-        not required or trace.t2_attempted,
+        not required or trace.t2_required,
         (
             not trace.t2_attempted
             or (
@@ -270,7 +271,10 @@ def _trace_results_match(
     )
     item_ids = (1, 2, 3, 4, 5, 26, 27, 28, 29, 30)
     rubrics = tuple(PantheonRubric)
-    return all(
+    expected_t2_outcome = t2_expected_outcome(case.case_id)
+    return (
+        expected_t2_outcome is None or expected_t2_outcome == (trace.t1_reason, trace.t2_status)
+    ) and all(
         measurement.diagnostic.results[item_id - 1].rubric is rubrics[item_id - 1]
         and measurement.diagnostic.results[item_id - 1].passed is passed
         for item_id, passed in zip(item_ids, expected, strict=True)

@@ -110,6 +110,18 @@ _T2_CASES = (
         True,
     ),
 )
+_T2_EXPECTED_OUTCOMES = {
+    "conflict": ("structured_conflict", "completed"),
+    "consistent": ("no_structured_conflict", "not_required"),
+    "no-signals": ("no_comparable_signals", "not_required"),
+    "no-route": ("t1_no_confident_route", "not_required"),
+    "peer-abstain": ("peers_abstained", "not_required"),
+    "unavailable": ("structured_conflict", "unavailable"),
+    "budget": ("structured_conflict", "budget_denied"),
+    "provider": ("structured_conflict", "error"),
+    "sensitive": ("structured_conflict", "sensitive_output"),
+    "success": ("structured_conflict", "completed"),
+}
 
 
 def build_pantheon_census(specs: Sequence[ConversationSpec]) -> PantheonCensus:
@@ -192,8 +204,20 @@ def build_pantheon_census(specs: Sequence[ConversationSpec]) -> PantheonCensus:
     return PantheonCensus(version="pantheon-census-v1", cases=tuple(cases))
 
 
+def t2_expected_outcome(case_id: str) -> tuple[str, str] | None:
+    """Return the fixed T1 reason and T2 status for one T2 scenario case."""
+
+    if not case_id.startswith("t2-"):
+        return None
+    scenario, separator, locale = case_id.removeprefix("t2-").rpartition("-")
+    if not separator or locale not in {"en", "ko"}:
+        return None
+    return _T2_EXPECTED_OUTCOMES.get(scenario)
+
+
 __all__ = [
     "PantheonCensus",
     "PantheonCensusCase",
     "build_pantheon_census",
+    "t2_expected_outcome",
 ]

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 159dd4782e1455144cb6fb6e3d1c3f38a509ad16
-translation_revised: 2026-09-01
+translation_source_sha: 549f6af1fe0267cba1feba347257703ee0c5bd7f
+translation_revised: 2026-09-05
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -377,11 +377,10 @@ Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라�
 
 각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
 
-Bragi는 범위가 제한된 각 턴에서 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only`
-액션 자세는 운영자를 시작 주체로 유지한 채 타입이 지정된 파이프라인으로 다시 들어가며 채팅은
-실행하지 않습니다. 읽기 도구 선택은 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를
-사용합니다. 모델이 바인딩되지 않았거나 실패하면 사용할 수 없음으로 끝나며 구문 사전으로
-대체하지 않습니다.
+Bragi는 범위가 제한된 각 턴에서 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only` 액션 자세는 운영자를 시작 주체로 유지한 채 타입이 지정된 파이프라인으로 다시 들어가며 채팅은
+실행하지 않습니다. 읽기 도구 선택은 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를 사용합니다. 모델이 바인딩되지 않았거나 실패하면 사용할 수 없음으로 끝나며 구문 사전으로
+대체하지 않습니다. 의미 프롬프트는 직접 호명된 정본 에이전트 하나를 라우팅 대상으로 유지하고 인계 대상이나 비교 상대는 분리합니다. 명시적 숙의는 임베딩 대체 경로를 시도하기 전에
+수락된 의미 참여자 선택을 재사용하므로 하나의 턴이 검증된 여러 도메인 경로를 버리지 않습니다.
 Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`, `_`, `-`를 가진 완전한 정본
 식별자만 매칭하며, 더 긴 식별자의 접두사일 뿐인 짧은 후보는 허용하지 않습니다.
 `PantheonRuntime.introspect`는 귀속되는 읽기 전용 peer 변환 결과와 digest-only Bragi Turn을 제공하며 제한된 표현 discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.

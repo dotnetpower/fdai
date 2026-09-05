@@ -21,6 +21,7 @@ from fdai.core.conversation_assurance import (
     build_pantheon_census,
     content_digest,
     evaluate_pantheon_turn,
+    t2_expected_outcome,
 )
 
 from .pantheon_assurance_evidence import (
@@ -29,6 +30,7 @@ from .pantheon_assurance_evidence import (
 from .pantheon_assurance_evidence import (
     assessment_input as _assessment_input,
 )
+from .pantheon_assurance_evidence import case_reference_facts as _case_reference_facts
 from .pantheon_assurance_evidence import (
     deliberation_answer as _deliberation_answer,
 )
@@ -76,7 +78,9 @@ class RuntimePantheonConversationAssurance:
         self._coordinator = coordinator
         self._source_revision = source_revision
         self._source_content_digest = source_content_digest
-        self._cases = {case.case_id: case for case in build_pantheon_census(PANTHEON_SPECS).cases}
+        census = build_pantheon_census(PANTHEON_SPECS)
+        self._census_digest = census.content_digest
+        self._cases = {case.case_id: case for case in census.cases}
         self._specs = {spec.name: spec for spec in PANTHEON_SPECS}
 
     async def evaluate(
@@ -108,8 +112,13 @@ class RuntimePantheonConversationAssurance:
             **trace_fields,
         )
         observations = _observed_rubrics(case, answer, trace, specs=self._specs)
-        assessment_input = _assessment_input(request, answer, trace)
-        review = await self._coordinator.review(assessment_input)
+        assessment_input = _assessment_input(
+            request,
+            answer,
+            trace,
+            reference_facts=_case_reference_facts(case, self._specs),
+        )
+        review = await self._coordinator.review_semantically(assessment_input)
         semantic_reviews = _pantheon_semantic_reviews(review.evaluator_outputs)
         diagnostic = evaluate_pantheon_turn(
             case=_diagnostic_case(case),
@@ -221,6 +230,14 @@ class RuntimePantheonConversationAssurance:
         conflicts = t1.get("conflicts")
         conflict_count = len(conflicts) if isinstance(conflicts, list) else 0
         t2_status = str(result.get("t2_status") or "not_required")
+        t1_reason = str(t1.get("reason") or result.get("reason") or "unavailable")
+        expected_outcome = t2_expected_outcome(case.case_id)
+        scenario_verified = expected_outcome == (t1_reason, t2_status)
+        if scenario_verified:
+            evidence_refs = (
+                *evidence_refs,
+                f"conversation-assurance:{self._census_digest}:{case.case_id}",
+            )
         t2_attempted = t2_status in {
             "completed",
             "error",
@@ -252,9 +269,13 @@ class RuntimePantheonConversationAssurance:
             "evidence_ref_digests": tuple(content_digest(value) for value in evidence_refs),
             "evidence_manifest_digest": content_digest("\0".join(evidence_refs)),
             "answer_digest": content_digest(answer),
-            "verification_status": "verified" if evidence_refs else "unverified",
-            "verification_authority": "pantheon_owned_projection",
-            "t1_reason": str(t1.get("reason") or result.get("reason") or "unavailable"),
+            "verification_status": "verified" if scenario_verified else "unverified",
+            "verification_authority": (
+                "conversation_assurance_frozen_scenario"
+                if scenario_verified
+                else "pantheon_owned_projection"
+            ),
+            "t1_reason": t1_reason,
             "t1_signal_count": _non_negative_int(t1.get("signal_count")),
             "t1_conflict_count": conflict_count,
             "t1_conclusion_preserved": bool(answer),

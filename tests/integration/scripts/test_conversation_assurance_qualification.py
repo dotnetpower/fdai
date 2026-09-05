@@ -14,6 +14,7 @@ from fdai.core.conversation_assurance import (
     ParticipantPromptReceipt,
     T2Expectation,
     build_pantheon_census,
+    t2_expected_outcome,
 )
 from scripts.automation.conversation_assurance_qualification import (
     PantheonCaseMeasurement,
@@ -28,6 +29,18 @@ def _measurement(index: int) -> PantheonCaseMeasurement:
     census = build_pantheon_census(PANTHEON_SPECS)
     case = census.cases[index]
     required_t2 = case.t2_expectation is T2Expectation.REQUIRED
+    expected_outcome = t2_expected_outcome(case.case_id)
+    t1_reason, t2_status = expected_outcome or (
+        ("structured_conflict", "completed")
+        if required_t2
+        else ("no_structured_conflict", "not_required")
+    )
+    actual_primary_agent = (
+        None if t1_reason == "t1_no_confident_route" else (case.expected_primary_agent)
+    )
+    t2_attempted = required_t2 and t2_status not in {"budget_denied", "unavailable"}
+    budget_reserved = t2_attempted and t2_status not in {"budget_denied", "unavailable"}
+    metered = t2_attempted and t2_status in {"completed", "sensitive_output"}
     trace = ConversationTurnTraceReceipt(
         campaign_id=f"campaign-{index // 20}",
         case_id=case.case_id,
@@ -38,7 +51,7 @@ def _measurement(index: int) -> PantheonCaseMeasurement:
         correlation_digest=hashlib.sha256(f"correlation-{index}".encode()).hexdigest(),
         locale=case.locale,
         expected_primary_agent=case.expected_primary_agent,
-        actual_primary_agent=case.expected_primary_agent,
+        actual_primary_agent=actual_primary_agent,
         routing_method=case.expected_routing_method,
         semantic_score=None if case.expected_routing_method == "explicit" else 1.0,
         semantic_margin=None if case.expected_routing_method == "explicit" else 1.0,
@@ -58,27 +71,36 @@ def _measurement(index: int) -> PantheonCaseMeasurement:
         answer_digest=hashlib.sha256(f"answer-{index}".encode()).hexdigest(),
         verification_status="verified",
         verification_authority="test",
-        t1_reason="structured_conflict" if required_t2 else "no_structured_conflict",
+        t1_reason=t1_reason,
         t1_signal_count=2 if required_t2 else 0,
         t1_conflict_count=1 if required_t2 else 0,
         t1_conclusion_preserved=True,
         t2_required=required_t2,
-        t2_attempted=required_t2,
-        t2_status="completed" if required_t2 else "not_required",
-        t2_model_family="family-c" if required_t2 else None,
-        budget_reserved=required_t2,
+        t2_attempted=t2_attempted,
+        t2_status=t2_status,
+        t2_model_family="family-c" if metered else None,
+        budget_reserved=budget_reserved,
         metering_receipt_digest=(
-            hashlib.sha256(f"metering-{index}".encode()).hexdigest() if required_t2 else None
+            hashlib.sha256(f"metering-{index}".encode()).hexdigest() if metered else None
         ),
         latency_ms=10,
         latency_budget_ms=1_000,
         terminal_status="completed",
     )
+    item_passes = {
+        1: actual_primary_agent == case.expected_primary_agent,
+        28: not t2_attempted
+        or (
+            budget_reserved
+            and trace.metering_receipt_digest is not None
+            and trace.t2_model_family is not None
+        ),
+    }
     results = tuple(
         PantheonRubricResult(
             item_id=item_id,
             rubric=rubric,
-            passed=True,
+            passed=item_passes.get(item_id, True),
             reason="verified",
         )
         for item_id, rubric in enumerate(PantheonRubric, start=1)
@@ -87,7 +109,7 @@ def _measurement(index: int) -> PantheonCaseMeasurement:
         case_id=case.case_id,
         agent=case.expected_primary_agent,
         locale=case.locale,
-        score=30,
+        score=sum(item.passed for item in results),
         verdict=PantheonDiagnosticVerdict.PASS,
         results=results,
         hard_zero_violations=(),
@@ -123,7 +145,7 @@ def test_complete_clean_census_produces_qualified_replayable_evidence() -> None:
     assert evidence.owner_routing_f1 == 1.0
     assert evidence.missed_t2_rate == 0.0
     assert evidence.unnecessary_t2_rate == 0.0
-    assert evidence.minimum_score == 30
+    assert evidence.minimum_score == 29
     assert evidence.hard_zero_count == 0
     assert len(evidence.agent_locale_floors) == 30
     assert len(evidence.measurement_set_digest) == 64
@@ -175,6 +197,25 @@ def test_incomplete_or_non_terminal_series_cannot_qualify() -> None:
     )
     with pytest.raises(ValueError, match="installed census"):
         qualify_pantheon_series(census, non_terminal)
+
+
+def test_t2_scenario_outcome_mismatch_cannot_qualify() -> None:
+    census = build_pantheon_census(PANTHEON_SPECS)
+    measurements = list(_complete_series())
+    index = next(index for index, case in enumerate(census.cases) if case.case_id == "t2-budget-en")
+    measurement = measurements[index]
+    mismatched = replace(
+        measurement.trace,
+        t2_attempted=True,
+        t2_status="completed",
+        budget_reserved=True,
+        t2_model_family="family-c",
+        metering_receipt_digest="c" * 64,
+    )
+    measurements[index] = _replace_trace(measurement, mismatched)
+
+    with pytest.raises(ValueError, match="installed census"):
+        qualify_pantheon_series(census, tuple(measurements))
 
 
 def test_dirty_source_digest_cannot_qualify() -> None:

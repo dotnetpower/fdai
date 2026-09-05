@@ -74,7 +74,7 @@ startup. Prompt ablation removes only optional context and records every exclusi
 Question campaign wording uses `core/conversation/question_candidates.py` as the server-owned
 semantic boundary. Azure and explicit Copilot generators receive the complete immutable case but
 can return only a `question` field. Core binds the case before independent semantic review, so
-generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
+generated prose cannot replace scope, authority, capability, evidence posture, or result shape. Pantheon qualification keeps local Operator outbox claims checkout-scoped, runs diagnostic semantic review independently from deterministic evidence disposition, and accepts T2 scenario evidence only when the observed T1 reason and T2 status match the frozen case.
 Generated question-bank artifacts record the current Console catalog digests, so a reviewed
 presentation-contract change regenerates the JSON bank and review catalog together.
 The generated question bank binds both Console message catalogs by digest and is regenerated

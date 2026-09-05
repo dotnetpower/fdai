@@ -64,6 +64,7 @@ from fdai.core.conversation_assurance.pantheon_census import (
     PantheonCensus,
     PantheonCensusCase,
     build_pantheon_census,
+    t2_expected_outcome,
 )
 from fdai.core.conversation_assurance.pantheon_hardening import (
     HardeningDecision,
@@ -233,6 +234,7 @@ __all__ = [
     "classify_hardening",
     "build_ontology_adequacy_review",
     "build_pantheon_census",
+    "t2_expected_outcome",
     "content_digest",
     "evaluate_policy_transition",
     "evaluate_pantheon_turn",

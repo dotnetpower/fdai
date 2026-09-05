@@ -169,6 +169,7 @@ class ConversationDeliberator:
         question: str,
         requester: str,
         correlation_id: str = "",
+        routing_decision: RoutingDecision | None = None,
     ) -> dict[str, Any]:
         """Return a bounded presentation outcome without typed authority."""
         if len(question) > _MAX_QUESTION_CHARS:
@@ -183,15 +184,21 @@ class ConversationDeliberator:
             "authority": "presentation_only",
             "rounds": [],
         }
-        if self._semantic_router is None:
+        if self._semantic_router is None and routing_decision is None:
             return {**base, "status": "abstain", "reason": "t1_unavailable"}
 
-        decision = await self._semantic_router.route(
-            question,
-            t0=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
-            max_contributors=_MAX_PARTICIPANTS - 1,
-        )
-        if decision.primary_agent is None or decision.method != "t1_semantic":
+        decision = routing_decision
+        if decision is None or decision.primary_agent is None or not decision.contributors:
+            if self._semantic_router is None:
+                if decision is None or decision.primary_agent is None:
+                    return {**base, "status": "abstain", "reason": "t1_no_confident_route"}
+            else:
+                decision = await self._semantic_router.route(
+                    question,
+                    t0=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
+                    max_contributors=_MAX_PARTICIPANTS - 1,
+                )
+        if decision.primary_agent is None:
             return {**base, "status": "abstain", "reason": "t1_no_confident_route"}
         participants = (decision.primary_agent, *decision.contributors)[:_MAX_PARTICIPANTS]
         if len(participants) < 2:

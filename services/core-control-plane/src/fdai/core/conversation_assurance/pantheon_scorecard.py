@@ -308,7 +308,7 @@ def _t2_results(
     forbidden = case.t2_expectation is T2Expectation.FORBIDDEN
     return {
         PantheonRubric.UNNECESSARY_T2_SUPPRESSED: not forbidden or not trace.t2_attempted,
-        PantheonRubric.REQUIRED_T2_ADMITTED: not required or trace.t2_attempted,
+        PantheonRubric.REQUIRED_T2_ADMITTED: not required or trace.t2_required,
         PantheonRubric.T2_BUDGET_AND_METERING: (
             not trace.t2_attempted
             or (

@@ -133,6 +133,26 @@ class ConversationAssuranceCoordinator:
             evaluator_outputs=outputs,
         )
 
+    async def review_semantically(self, turn: TurnAssessmentInput) -> AssuranceReview:
+        """Run the mixed-family reviewer for a diagnostic without granting authority."""
+
+        model_set_digest = self._reviewer.model_set_digest if self._reviewer else "none"
+        if self._reviewer is None:
+            decision = AssuranceDecision(
+                verdict=AssuranceVerdict.INCONCLUSIVE,
+                content_score=0.0,
+                confidence=0.0,
+                reasons=("mixed_family_reviewer_unavailable",),
+            )
+            outputs: tuple[EvaluatorOutput, ...] = ()
+        else:
+            decision, outputs = await self._reviewer.review_with_outputs(turn)
+        return AssuranceReview(
+            decision=decision,
+            model_set_digest=model_set_digest,
+            evaluator_outputs=outputs,
+        )
+
     async def persist(
         self,
         turn: TurnAssessmentInput,

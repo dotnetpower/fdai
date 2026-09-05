@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -17,6 +18,7 @@ _TRANSPORT_ENV_KEYS = (
     "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
     "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
     "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
+    "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE",
     "FDAI_READ_INVESTIGATION_REQUEST_TOPIC",
     "FDAI_HIL_DECISION_TOPIC",
 )
@@ -80,10 +82,12 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273"
     ) in rendered
     if semantic == "complete":
+        expected_namespace = "local-" + hashlib.sha256(str(repo).encode()).hexdigest()[:16]
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests" in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections" in rendered
         assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects" in rendered
+        assert f"FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE={expected_namespace}" in rendered
         assert (
             "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests" in rendered
         )
@@ -93,6 +97,7 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=" not in rendered
+        assert "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE=" not in rendered
         assert "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=" not in rendered
         assert "FDAI_HIL_DECISION_TOPIC=" not in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
