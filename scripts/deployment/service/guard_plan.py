@@ -821,6 +821,8 @@ def _guard_update(
     )
     if database_host_binding:
         notification_companion_names |= frozenset({"POSTGRES_HOST"})
+    if allowed_rca_reader:
+        notification_companion_names |= _RCA_READER_ENVIRONMENT
     allowed_notification_topic = _only_notification_receipt_topic_transition(
         before,
         after,
