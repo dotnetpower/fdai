@@ -50,6 +50,8 @@ relationships, and independent content-review, semantic-contract, runtime-bindin
 and validation states.
 Any change to a joined source, including a Console starter catalog, regenerates both the machine
 inventory and human review catalog so their source-file digests stay exact.
+Run `uv run python scripts/automation/build_question_bank.py`; editing either generated artifact by
+hand isn't supported.
 
 Inventory membership is not runtime readiness. A candidate does not become Golden, Console-visible,
 or answerable until its own reviewed semantic expectation, principal-scoped capability binding,

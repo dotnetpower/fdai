@@ -25,7 +25,6 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "RelationshipGroup",
   "RelationshipDirection",
   "SettingsSectionHeader",
-  "StatusPill",
   "TrendChart",
   "TypeSelector",
   "UnavailablePanel",

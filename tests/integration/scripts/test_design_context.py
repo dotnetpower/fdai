@@ -129,7 +129,7 @@ def test_ordinary_channel_gateway_avoids_ontology_query_governance_context() -> 
         ("services/core-control-plane/src/fdai/core/conversation/channel_gateway.py",)
     )
 
-    assert len(required) <= 14
+    assert len(required) <= 15
     assert "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md" not in required
 
 

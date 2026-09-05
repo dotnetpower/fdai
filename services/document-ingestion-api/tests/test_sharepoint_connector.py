@@ -123,6 +123,7 @@ class State:
     async def finalize_resync(self, **_kwargs: object) -> bool:
         return True
 
+
 class Service:
     def __init__(self) -> None:
         self.uploads: dict[UUID, UploadSession] = {}

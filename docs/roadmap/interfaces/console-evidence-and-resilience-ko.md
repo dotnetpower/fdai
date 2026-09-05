@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 57cacb1e26b45e703ac27dd4c8e2d3dc9da81a02
-translation_revised: 2026-09-04
+translation_source_sha: a0e52bde1e9da4d22c75e2e93a18496d9bc9cb06
+translation_revised: 2026-09-05
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -19,7 +19,7 @@ Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.
 정규화된 질문은 이력 메타데이터에서 512자로 제한되고 브라우저 및 영속 복원 후에도 보존됩니다.
 제목이 시각적으로 잘리면 visible 텍스트는 ellipsis를 유지합니다. 시간 영역을 포함한 selectable
 대화 행 어디에서든 포인터 hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 콘솔
-툴팁으로 제한된 질문 전체를 표시합니다. 배치 및 닫기 icon 컨트롤도 같은 localized 툴팁 컴포넌트를 사용합니다. 연결된 백엔드 툴팁은 모드, 엔드포인트, 경로 choice 및 후보를 별도 줄로 유지하고 localized 자리 표시자를 모두 채우며 긴 엔드포인트 또는 배포 토큰을 뷰포트 경계 안에서 줄바꿈합니다.
+툴팁으로 제한된 질문 전체를 표시합니다. 배치 및 닫기 icon 컨트롤도 같은 localized 툴팁 컴포넌트를 사용합니다. 연결된 백엔드 툴팁은 모드, 엔드포인트, 경로 choice 및 후보를 별도 줄로 유지하고 localized 자리 표시자를 모두 채우며 긴 엔드포인트 또는 배포 토큰을 뷰포트 경계 안에서 줄바꿈합니다. 상태 pill은 완전한 visible label을 표시하고 `title` prop을 사용하지 않습니다. Hover 또는 keyboard 공개가 필요한 제목 외 세부 정보는 공용 툴팁을 사용합니다.
 에이전트 카드의 Ask 액션은 항상 unique user-scoped 키를 가진 비어 있는 새 에이전트 대화를 엽니다. 새 요약은 선택한 에이전트를 즉시 보유하므로 첫 제출부터 같은 에이전트 대상을 Operator API에 전달합니다. 기존 에이전트 대화는 별도 이력 항목으로 보존하며 운영자가 명시적으로 선택할 때만 복원합니다.
 활성 cached 대화를 제거하면 current-route 기본값(이전 방식 `screen` 키 포함) 또는 current-route 스레드만 선택합니다. 둘 다 없으면 unrelated-route 또는 에이전트 대화 기록을 활성화하지 않고 새 current-route 기본값을 만듭니다. Context-dependent 취소, 런북, knowledge, 기억, learning, ordinal-resource, 모호함, reformatting 및 partial-source 질문에는 검증된 이전 대화 기록이 필요합니다. 서버는 principal 범위로 한정된 `ConversationHistoryStore`의 최신 사용 가능한 assistant 재생에서 활성 조사, 선택된 리소스, 이전 답변 또는 source-failure 증적을 재구성합니다. 브라우저 대화 기록은 이 권한을 만들 수 없으며 fresh 대화는 사용 불가 상태를 유지합니다. 검증된 또는 corrected 이전 턴 이후 `KnowledgeContextChatTools`는 unique trusted 런북 하나를 부하하거나 활성화된 출처의 권한 확인 및 refresh 상태를 보고하거나 해당 principal만 볼 수 있는 explicit-consent 기억을 표시합니다. Exact assistant-turn 검토가 materialized 기억 또는 runtime-skill 제안을 가리킬 때만 learning을 reusable로 보고합니다. 초안과 모호한 런북은 빈으로, 프로바이더 실패는 사용 불가로 유지하며 ordinary chat은 기억 또는 검토 상태를 쓰지 않습니다. 완료된 이어가기는 영속 assistant 턴과 내용 기반 주소를 가진 출처 증적을 인용합니다.
 검증된 fresh 인벤토리 답변은 서버가 소유한 재생 메타데이터에 범위가 제한된 `resource_result_context`를 포함할 수 있습니다. Raw 리소스 ID를 포함하지 않고 브라우저 맥락에서는 수락하지 않으며 출처, 스냅샷, 범위, 조회 다이제스트, 최신성, 잘림 및 이후 결정론적 후속 조치에 사용할 최대 40개의 ordered 선택자를 보존합니다.

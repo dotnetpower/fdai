@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 08ff8d2781915251cd996f970f168a7fbd5baa59
+translation_source_sha: 253c20ccc42969b91595d3f7a06fe405d87795f7
 translation_revised: 2026-09-05
 ---
 # 지속형 질문 공간
@@ -51,6 +51,8 @@ turn은 5초 이내에 모델 대상을 확인하고 인증을 검증할 수 없
 보존합니다.
 Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
 검토용 카탈로그를 모두 다시 생성하여 원본 파일 다이제스트를 정확하게 유지합니다.
+`uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
+직접 편집하는 방식은 지원하지 않습니다.
 
 인벤토리에 포함됐다는 사실만으로 런타임 준비가 완료되지는 않습니다. 후보별로 검토된 의미
 기대값, principal 범위의 기능 연결, 근거 한계, 금지된 주장 oracle, 필수 검증을 갖추기 전에는

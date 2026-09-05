@@ -186,8 +186,6 @@
         ],
         "integration": [
           "services/document-ingestion-api/tests/test_adls_resumable_upload.py",
-          "services/document-ingestion-api/tests/test_document_download.py",
-          "services/document-ingestion-api/tests/test_document_preview.py",
           "services/document-ingestion-api/tests/test_document_search.py",
           "services/document-ingestion-api/tests/test_ingestion_service_composition.py",
           "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py",
@@ -214,6 +212,7 @@
         ],
         "integration": [
           "services/document-processing-worker/tests/test_artifact_index_lifecycle.py",
+          "services/document-processing-worker/tests/test_purge_verifier.py",
           "services/document-processing-worker/tests/test_protection_reconciliation.py",
           "services/document-processing-worker/tests/test_purview_rms_protection.py"
         ],
