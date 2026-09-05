@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -76,6 +77,26 @@ class PantheonDiagnosticCase:
     t2_expectation: T2Expectation
     minimum_semantic_score: float = 0.0
     minimum_semantic_margin: float = 0.0
+
+    def __post_init__(self) -> None:
+        if (
+            not self.case_id.strip()
+            or not self.expected_primary_agent.strip()
+            or not self.expected_routing_method.strip()
+        ):
+            raise ValueError("Pantheon diagnostic case identity and route MUST be non-empty")
+        if any(not contributor.strip() for contributor in self.allowed_contributors) or len(
+            self.allowed_contributors
+        ) != len(set(self.allowed_contributors)):
+            raise ValueError("Pantheon diagnostic contributors MUST be non-empty and unique")
+        has_handoff_owner = self.expected_handoff_owner is not None and bool(
+            self.expected_handoff_owner.strip()
+        )
+        if self.expected_handoff != has_handoff_owner:
+            raise ValueError("Pantheon diagnostic handoff owner MUST match the handoff expectation")
+        thresholds = (self.minimum_semantic_score, self.minimum_semantic_margin)
+        if any(not math.isfinite(value) or not 0.0 <= value <= 1.0 for value in thresholds):
+            raise ValueError("Pantheon diagnostic semantic thresholds MUST be in [0, 1]")
 
 
 @dataclass(frozen=True, slots=True)

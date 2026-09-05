@@ -116,6 +116,24 @@ def test_census_has_exact_bilingual_230_case_contract() -> None:
     assert len(census.content_digest) == 64
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"expected_handoff": True, "expected_handoff_owner": None},
+        {"expected_handoff": True, "expected_handoff_owner": " "},
+        {"expected_handoff": False, "expected_handoff_owner": "Var"},
+        {"minimum_semantic_score": 1.1},
+        {"minimum_semantic_margin": float("nan")},
+        {"allowed_contributors": ("Freyr", "Freyr")},
+    ],
+)
+def test_diagnostic_case_rejects_inconsistent_expectations(
+    overrides: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="Pantheon diagnostic"):
+        _case(**overrides)
+
+
 def test_passing_diagnostic_recomputes_all_thirty_atomic_items() -> None:
     result = evaluate_pantheon_turn(
         case=_case(),
