@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 2a77e29be38bfca10cbb5cf0f7e1bf79e98a61eb
+translation_source_sha: 290f7baa623035cee550152bdcb1ef6009393f24
 translation_revised: 2026-09-05
 ---
 # 지속형 운영 인스턴스 그래프
@@ -352,6 +352,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | Tombstone을 명시적으로 타입 지정한 뒤 sparse 속성의 부정 계약을 명확히 했습니다. `properties_complete=false`인 삭제는 `observation_kind=partial`을 명시하지 않으면 tombstone입니다. 부정 테스트는 이제 데이터베이스 접근 전에 허용되지 않는 partial-delete 조합을 검사합니다. | `current change`, `test_inventory_live_evidence.py`, 집중 partial 및 tombstone 의미 검사 5개, Ruff, formatting 통과 | 보호된 배포 plan 전에 정확한 보정 리비전의 필수 CI를 다시 실행합니다. |
 | 2026-09-05 | implemented | 관측 원장 도입 이전의 활성 snapshot에도 migration-safe shadow 이중 기록을 적용하도록 복구했습니다. 변환기는 누락된 legacy 범위를 단일 활성 범위에서만 해석하고, sparse 객체와 관계를 결속하기 전에 결정론적 기준 수명 인스턴스를 생성하며, tombstone 우선 순서를 단조롭게 유지하고, root rollback 검사를 서비스 소유 migration 데이터베이스와 격리합니다. | `current change`, PostgreSQL delta 및 수명 주기 어댑터, CI 데이터베이스 순서, migration inventory 및 작업 흐름 계약. 새 pgvector 검사에서 root 테스트 13개와 service-only skip 25개 이후 서비스 소유 테스트 31개가 통과했고, 작업 흐름 및 migration 계약 123개, 집중 OI 및 배포 CLI 검사 187개, Ruff, formatting, strict mypy가 통과했습니다. | 보호된 plan과 apply, 전용 OI-15 runtime Job, OI-16 운영 certification 증적은 계속 열려 있습니다. |
 | 2026-09-05 | in-progress | OI-14와 OI-15 및 OI-16의 로컬 코드 표면을 구현했습니다. 관측 ingress는 이제 Resource와 관계 endpoint를 정확한 수명 인스턴스와 시간 및 범위 partition에 결속합니다. 지연 관측은 correction partition을 열고 원본 완전성을 낮추며, content-addressed 온톨로지 replay 증적 이후에만 종료됩니다. Case, investigation, approval, execution, rollback, legal-hold 및 replay-lease pin은 purge를 차단합니다. 배포 policy load, 저장소 압력 저하, 검증된 principal 범위 Blob archive 접근, database gate 기반 source purge, N/N-1 schema replay, database recovery 비교, 고정 shadow schedule 및 고정 개정 certification을 구현했습니다. | `current change`, 수명 주기 및 certification 타입, Core migration `20260906_core_operational_history_lifecycle.py`, PostgreSQL 및 Azure adapter, inventory journal 통합, 원본 완전성 축약, certification CLI, 집중 검사 322개 통과, Ruff, formatting 및 strict mypy 통과 | 고정 수명 주기 schedule을 전용 runtime Job으로 조립한 뒤 green 개정을 commit하고 push하여 보호된 운영 certification을 실행합니다. 그 증적이 생길 때까지 OI-15와 OI-16은 열려 있으며 배포된 제한 증가 또는 recovery를 주장하지 않습니다. |
 | 2026-09-05 | implemented | OI-13과 선행 정확성 결함을 완료했습니다. Event Grid 변경은 sparse 변경 힌트로 처리하고, 작업 상태는 리소스 상태가 아니라 원장 metadata로 유지하며, 속성 마스크는 tag, SKU 및 관측하지 않은 값을 보존하고, 확인되지 않은 tombstone은 부재를 입증할 수 없습니다. Core 소유 원장은 기존 overlay를 조회 경로로 유지하면서 전체 snapshot과 delta 객체 또는 관계 관측을 이중 기록합니다. 내용에 결속된 replay는 중복, 재정렬, 오래된 이벤트 및 재시작 전달에서도 결정론적으로 동작합니다. 원장 지연과 대기 중인 tombstone은 온톨로지 원본 완전성을 낮춥니다. | `current change`, 정규화 관측 타입, PostgreSQL 원장 및 migration, delta 및 snapshot 이중 기록, 온톨로지 watermark 증적, 원본 범위 축약, 감사 레지스트리 및 집중 테스트. 최종 OI-13 집중 검사 219개와 Ruff, strict mypy, continuous-graph audit 및 design-route 검사가 통과했습니다. | OI-14는 리소스 수명 인스턴스 신원, 관계 보정 범위, correction partition, 활성 case 또는 legal-hold 고정을 위해 열려 있습니다. OI-15와 OI-16도 열려 있습니다. |
@@ -445,7 +446,6 @@ binding을
 purge가 연결되지 않았습니다. 위의 제한된 이력 설계와 OI-13부터 OI-16까지가 해당 공백의 완료를
 소유합니다. 이 종료 조건이 통과할 때까지 realtime ontology 최신성과 제한된 이력 보존은
 진행 중입니다.
-
 ### 남은 작업
 
 - [x] `OI-01`은 원본부터 저장소까지 구현 감사를 기록하고 모든 수집, 변환 결과, 조회,

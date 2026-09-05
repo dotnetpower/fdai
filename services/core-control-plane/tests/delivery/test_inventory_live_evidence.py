@@ -126,6 +126,7 @@ async def test_duplicate_live_receipt_reuses_observation_identity() -> None:
     [
         {
             "kind": "delete",
+            "observation_kind": "partial",
             "properties_complete": False,
             "resource": {
                 "resource_id": "resource:vm-1",
@@ -137,6 +138,7 @@ async def test_duplicate_live_receipt_reuses_observation_identity() -> None:
         },
         {
             "kind": "upsert",
+            "observation_kind": "partial",
             "properties_complete": False,
             "resource": {
                 "resource_id": "resource:vm-1",
