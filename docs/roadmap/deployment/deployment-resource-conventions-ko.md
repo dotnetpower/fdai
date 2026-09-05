@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: a4fd9dda589f0e2b8815f83b1074ffdf104a6262
+translation_source_sha: e47914fe8719e9af302ce2efe07c2a8617a5c4d6
 translation_revised: 2026-09-05
 ---
 # 배포 리소스 규약
@@ -32,8 +32,12 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 Job을 rollback과 함께 갱신한 뒤 schema migration을 실행합니다. 일치하는 Console 산출물을
 게시하기 전에 선택한 revision의 변경할 수 없는 Rule 및 Ontology 변환 결과를 PostgreSQL
 readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목록의 작업과 정확한 revision을
-검증한 뒤 repository 자동화 identity로 Console 게시 또는 catalog 새로 고침을 제출합니다. 따라서
-사람 유지관리자는 자체 검토 또는 관리자 우회를 활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.
+검증한 뒤 repository 자동화 identity로 Console 게시 또는 catalog 새로 고침을 제출합니다. 같은
+요청 경계는 Environment 정책을 검증한 후 exact protected RCA reader apply 또는 검증 재개
+좌표만 제출할 수 있습니다. `fdaictl`은 exclusive RCA apply를 이 요청 경계를 통해 라우팅합니다.
+관련 없는 커밋으로 `main`이 전진해도 plan revision이 여전히 ancestor이고 보호된 요청 control이
+같을 때만 유효 기간이 남은 plan을 사용할 수 있습니다. 따라서 사람 유지관리자는 자체 검토 또는
+관리자 우회를 활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.
 
 ## 구현 상태
 

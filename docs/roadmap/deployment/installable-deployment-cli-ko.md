@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 164ed93af09b76ef06c490b94cd88b8cd40d10aa
-translation_revised: 2026-09-04
+translation_source_sha: 71240560d565f465e72311000a5b5d7f3ac01679
+translation_revised: 2026-09-05
 ---
 # 설치형 배포 CLI
 
@@ -87,6 +87,12 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl extension validate` | 확장 매니페스트/보관 호환성 및 security offline 검사 | 없음 |
 | `fdaictl trajectory validate` | 통제된 trajectory 데이터셋 체크섬/스키마/순서/출처 대응 검사 | 없음 |
 | `fdaictl license inspect` | 기능 license 토큰을 packaged 공개 키로 검증하고 권한 상태 보고 | 없음 |
+
+exclusive RCA reader identity 대상의 경우 `deploy apply`와 검증 재개는 허용 목록 기반의 보호된
+작업 workflow를 통해 제출합니다. 그러면 repository automation identity가 exact downstream
+apply를 요청하므로 1인 유지관리자는 자체 승인 없이 이를 검토할 수 있습니다. downstream job은
+선택한 GitHub Environment에 계속 binding하며 변경 전에 우회 불가 reviewer 정책을 다시
+검증합니다.
 
 폐쇄망 설치는 키트 외부의 신뢰된 검증기로 서명 키트를 인증하고 wheel을 다이제스트 확인
 비공개 스냅샷으로 복사한 뒤 해당 스냅샷에서만 설치합니다. 같은 검증기가 Terraform이 읽기
