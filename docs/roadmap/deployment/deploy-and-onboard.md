@@ -248,8 +248,7 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   recomputes those bindings and requires one reviewer with self-review and administrator bypass
   disabled. Bot-owned Core and document applies validate the exact private plan and derive model,
   database-host, or SharePoint inputs from its sealed mode, keeping the human reviewer distinct.
-  Profiles requiring N-of-M quorum or production-only inputs remain blocked until workflow-owned
-  authority can bind and verify them.
+  Profiles requiring N-of-M quorum or production-only inputs remain blocked until workflow-owned authority can bind and verify them.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 
