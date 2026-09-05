@@ -64,6 +64,10 @@ resource "azurerm_role_assignment" "deployer_data_owner" {
   scope                = azurerm_storage_account.case_history.id
   role_definition_name = "Storage Blob Data Owner"
   principal_id         = var.deployer_principal_id
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "azurerm_role_assignment" "runtime_data_contributor" {

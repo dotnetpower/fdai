@@ -43,6 +43,7 @@ def test_operational_history_job_has_dedicated_private_storage() -> None:
     )
     assert "shared_access_key_enabled         = false" in storage
     assert "public_network_access_enabled     = var.public_network_access_enabled" in storage
+    assert "create_before_destroy = true" in storage
     assert 'role_definition_name = "Storage Blob Data Contributor"' in storage
 
 

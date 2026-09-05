@@ -731,7 +731,9 @@ jobs:
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
+          EXPECTED_DEPLOYER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
           MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
+          OPERATIONAL_HISTORY_ONLY: ${{ env.OPERATIONAL_HISTORY_ONLY }}
         run: |
           set -euo pipefail
           terraform show -json dev.plan > dev.plan.review.json
@@ -782,6 +784,10 @@ jobs:
               "after_capacity": 200,
             },
             "module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]": {"name": "t2.reasoner.primary", "before_family": "gpt-4o", "before_version": "2024-11-20", "before_sku": "GlobalStandard", "before_capacity": 1, "family": "gpt-5.4", "version": "2026-03-05", "after_sku": "GlobalStandard", "after_capacity": 100},
+          }
+          approved_deployer_role_replacements = {
+            "module.operational_history_storage[0]."
+            "azurerm_role_assignment.deployer_data_owner",
           }
           if os.environ.get("MODEL_BINDING_ONLY") == "true":
             resolved_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH")
@@ -880,6 +886,33 @@ jobs:
               and after_sku.get("capacity") == expected["after_capacity"]
             )
 
+          def exact_deployer_role_replacement(change):
+            details = change.get("change", {})
+            before = details.get("before")
+            after = details.get("after")
+            expected_principal = os.environ.get("EXPECTED_DEPLOYER_PRINCIPAL_ID", "")
+            return (
+              os.environ.get("OPERATIONAL_HISTORY_ONLY") == "true"
+              and nonempty_string(expected_principal)
+              and tuple(details.get("actions", [])) == ("create", "delete")
+              and isinstance(before, dict)
+              and isinstance(after, dict)
+              and nonempty_string(before.get("scope"))
+              and before.get("scope") == after.get("scope")
+              and nonempty_string(before.get("role_definition_id"))
+              and before.get("role_definition_id") == after.get("role_definition_id")
+              and before.get("role_definition_name")
+              == after.get("role_definition_name")
+              == "Storage Blob Data Owner"
+              and nonempty_string(before.get("principal_id"))
+              and before.get("principal_id") != expected_principal
+              and after.get("principal_id") == expected_principal
+              and before.get("condition") == after.get("condition")
+              and before.get("condition_version") == after.get("condition_version")
+              and before.get("delegated_managed_identity_resource_id")
+              == after.get("delegated_managed_identity_resource_id")
+            )
+
           destructive = sorted(
             (
               str(change.get("address", "unknown")),
@@ -890,7 +923,10 @@ jobs:
           )
           unexpected = []
           for address, actions in destructive:
-            if address in approved_model_replacements:
+            if address in approved_deployer_role_replacements:
+              if not exact_deployer_role_replacement(resource_changes[address]):
+                unexpected.append(address)
+            elif address in approved_model_replacements:
               if not exact_model_replacement(
                 resource_changes[address], approved_model_replacements[address]
               ):
@@ -909,7 +945,9 @@ jobs:
               print(f"- {address}")
             raise SystemExit(1)
           for address, _actions in destructive:
-            if address in approved_model_replacements:
+            if address in approved_deployer_role_replacements:
+              print(f"Protected plan permits exact deployer role handoff: {address}")
+            elif address in approved_model_replacements:
               print(f"Protected plan permits exact Azure OpenAI replacement: {address}")
             else:
               successors = permitted_retirements[address]

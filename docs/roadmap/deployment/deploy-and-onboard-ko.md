@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5d02a28bda52892c5da089afc34adce418277266
+translation_source_sha: 82ff2bffb785e2eea580929cc83dda836fd5cbf4
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -290,9 +290,9 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1`, manual Consumption Job | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target 및 normal-ingress shadow proposal | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. Proposal UAMI에는 ACR pull과 primary Event Hub send만 있습니다. Protected provider staging은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
 보호된 `history-` 요청 모드는 운영 이력 storage, private endpoint 및 독립 선언한 root Job만
 target으로 지정합니다. Exact apply는 bot-owned protected-operation workflow가 다시 전달하므로
-maintainer는 별도 Environment approver로 남습니다. 기존 resource ID와 versionless Key Vault
-secret URI는 관련 없는 compute drift를 제외합니다. 이후 일반 배포 계획이 이 명시적 선택
-리소스를 보존하도록 초기 계획 전에 `ENABLE_OPERATIONAL_HISTORY=true`를 설정합니다.
+maintainer는 별도 Environment approver로 남습니다. 안정적인 resource ID와 versionless Key Vault secret
+URI는 관련 없는 compute drift를 제외합니다. 저장소에 바인딩된 deploy UAMI로 인계할 때는 동일 범위의
+archive `Storage Blob Data Owner` 역할을 먼저 만들고 이전 역할을 제거합니다. 다른 교체는 계속 차단하며 이후 계획이 리소스를 보존하도록 초기 계획 전에 `ENABLE_OPERATIONAL_HISTORY=true`를 설정합니다.
 로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
 filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
 사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는

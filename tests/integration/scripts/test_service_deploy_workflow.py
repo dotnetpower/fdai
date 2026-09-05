@@ -10,6 +10,8 @@ import subprocess
 import textwrap
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = (_ROOT / ".github" / "workflows" / "service-deploy.yml").read_text(encoding="utf-8")
 _PEER_CAPTURE = (_ROOT / "scripts" / "deployment" / "service" / "capture_peer_states.sh").read_text(
@@ -563,6 +565,73 @@ def test_platform_destructive_guard_accepts_only_exact_embedding_replacement(
             assert exc.code == 1
         else:
             raise AssertionError(f"destructive guard accepted drifted model field: {owner}.{field}")
+
+
+def test_platform_destructive_guard_accepts_only_exact_deployer_role_handoff(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    step = _LEGACY_WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[1].split(
+        "- name: Run complete Azure live preflight", maxsplit=1
+    )[0]
+    match = re.search(r"python3 - <<'PY'\n(?P<source>.*?)\n\s+PY", step, re.DOTALL)
+
+    assert match is not None
+    source = textwrap.dedent(match.group("source"))
+    address = "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner"
+    expected_principal = "00000000-0000-0000-0000-000000000002"
+    before = {
+        "scope": "same-storage-account",
+        "role_definition_id": "same-storage-data-owner-role",
+        "role_definition_name": "Storage Blob Data Owner",
+        "principal_id": "00000000-0000-0000-0000-000000000001",
+        "condition": None,
+        "condition_version": None,
+        "delegated_managed_identity_resource_id": None,
+    }
+    after = {**before, "principal_id": expected_principal}
+    exact_change = {
+        "address": address,
+        "change": {"actions": ["create", "delete"], "before": before, "after": after},
+    }
+    plan_path = tmp_path / "dev.plan.review.json"
+    script_path = tmp_path / "deploy_dev_destructive_guard.py"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("EXPECTED_DEPLOYER_PRINCIPAL_ID", expected_principal)
+    monkeypatch.setenv("OPERATIONAL_HISTORY_ONLY", "true")
+    script_path.write_text(source, encoding="utf-8")
+    plan_path.write_text(
+        json.dumps({"resource_changes": [exact_change]}),
+        encoding="utf-8",
+    )
+    runpy.run_path(str(script_path), run_name="__main__")
+
+    mutations = (
+        ("change", "actions", ["delete", "create"]),
+        ("after", "scope", "another-storage-account"),
+        ("after", "role_definition_id", "another-role"),
+        ("after", "role_definition_name", "Contributor"),
+        ("after", "principal_id", "00000000-0000-0000-0000-000000000003"),
+        ("before", "principal_id", expected_principal),
+    )
+    for owner, field, value in mutations:
+        changed = json.loads(json.dumps(exact_change))
+        target = changed["change"] if owner == "change" else changed["change"][owner]
+        target[field] = value
+        plan_path.write_text(
+            json.dumps({"resource_changes": [changed]}),
+            encoding="utf-8",
+        )
+        with pytest.raises(SystemExit, match="1"):
+            runpy.run_path(str(script_path), run_name="__main__")
+
+    monkeypatch.setenv("OPERATIONAL_HISTORY_ONLY", "false")
+    plan_path.write_text(
+        json.dumps({"resource_changes": [exact_change]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="1"):
+        runpy.run_path(str(script_path), run_name="__main__")
 
 
 def test_platform_workflow_does_not_require_system_pip() -> None:
