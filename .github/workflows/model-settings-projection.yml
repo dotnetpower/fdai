@@ -136,6 +136,18 @@ jobs:
           PY
           )"
           resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
+          document_ocr_endpoint="$(
+            terraform -chdir=infra output -raw document_ocr_endpoint 2>/dev/null || true
+          )"
+          document_ocr_provider="$(
+            terraform -chdir=infra output -raw document_ocr_provider 2>/dev/null \
+              || printf '%s' local_python
+          )"
+          [[ "$document_ocr_provider" == "local_python" \
+            || "$document_ocr_provider" == "azure_document_intelligence" ]] || {
+            echo "Terraform document_ocr_provider output is invalid" >&2
+            exit 1
+          }
           core_app="$(terraform -chdir=infra output -raw core_app_name)"
           active_revision="$(az containerapp show --resource-group "$resource_group" \
             --name "$core_app" --query properties.latestRevisionName --output tsv)"
@@ -193,6 +205,8 @@ jobs:
           export RUNTIME_ENV="${{ inputs.environment }}"
           export FDAI_WEB_SEARCH_ENABLED="$WEB_SEARCH_ENABLED"
           export FDAI_WEB_SEARCH_ALLOWED_DOMAINS="$domains"
+          export FDAI_OCR_ENDPOINT="$document_ocr_endpoint"
+          export FDAI_DOCUMENT_OCR_PROVIDER="$document_ocr_provider"
           uv run --frozen --package fdai-core-control-plane python \
             scripts/deployment/local/materialize-authoritative-settings.py --model-only
           EXPECTED_DIGEST="sha256:$artifact_digest" \

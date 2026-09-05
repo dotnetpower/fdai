@@ -29,10 +29,21 @@ def model_settings_projection(
     allowed_domains: Sequence[str],
     active_digest: str | None = None,
     environment: str = "unspecified",
+    document_ocr_provider: str = "local_python",
+    document_ocr_endpoint_configured: bool = False,
 ) -> dict[str, object]:
     """Build a sanitized model projection without identifiers, endpoints, or credentials."""
     if environment not in {"dev", "staging", "prod"}:
         environment = "unspecified"
+    if document_ocr_provider not in {
+        "local_python",
+        "azure_document_intelligence",
+    }:
+        raise ValueError("document OCR provider is invalid")
+    if document_ocr_provider == "azure_document_intelligence" and not (
+        document_ocr_endpoint_configured
+    ):
+        raise ValueError("Azure document OCR requires a configured endpoint")
     raw_capabilities = _mapping_sequence(raw.get("capabilities"))
     capabilities = [
         _capability(item)
@@ -113,6 +124,16 @@ def model_settings_projection(
             "readiness_status": "unavailable",
             "current_auto_pick": web_deployment,
             "candidates": web_candidates,
+        },
+        "document_ocr": {
+            "available": True,
+            "effective_provider": document_ocr_provider,
+            "local_python_available": True,
+            "azure_available": document_ocr_endpoint_configured,
+            "azure_resource_state": ("ready" if document_ocr_endpoint_configured else "absent"),
+            "korean_enabled": True,
+            "can_manage": False,
+            "execution_authority": False,
         },
         "model_routing": [],
         "t2_selection_scope": "system-governed",
@@ -332,6 +353,10 @@ async def materialize(*, model_only: bool = False) -> None:
             allowed_domains=domains,
             active_digest=active_digest,
             environment=os.environ.get("RUNTIME_ENV", "").strip().lower(),
+            document_ocr_provider=os.environ.get(
+                "FDAI_DOCUMENT_OCR_PROVIDER", "local_python"
+            ).strip(),
+            document_ocr_endpoint_configured=bool(os.environ.get("FDAI_OCR_ENDPOINT", "").strip()),
         ),
     )
     if not model_only:

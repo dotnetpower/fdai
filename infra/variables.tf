@@ -1384,6 +1384,23 @@ variable "enable_document_ingestion" {
   default     = false
 }
 
+variable "enable_document_intelligence" {
+  description = "Provision a Terraform-owned Azure AI Document Intelligence account, diagnostics, and optional private endpoint for OCR."
+  type        = bool
+  default     = false
+}
+
+variable "document_ocr_provider" {
+  description = "Effective document OCR provider. Azure requires a Terraform-owned or complete external Document Intelligence binding."
+  type        = string
+  default     = "local_python"
+
+  validation {
+    condition     = contains(["local_python", "azure_document_intelligence"], var.document_ocr_provider)
+    error_message = "document_ocr_provider MUST be local_python or azure_document_intelligence."
+  }
+}
+
 variable "ingestion_image" {
   description = "FDAI runtime image containing the serve extra. Empty falls back to core_image."
   type        = string
@@ -1420,13 +1437,13 @@ variable "ingestion_embedding_capability" {
 }
 
 variable "document_ocr_endpoint" {
-  description = "Optional Azure Document Intelligence endpoint for image OCR. Empty keeps image metadata only."
+  description = "Optional external Azure Document Intelligence endpoint for image OCR. Mutually exclusive with enable_document_intelligence. Empty keeps image metadata only."
   type        = string
   default     = ""
 }
 
 variable "document_ocr_resource_id" {
-  description = "Azure resource id matching document_ocr_endpoint for ingestion identity RBAC."
+  description = "External Azure resource id matching document_ocr_endpoint for ingestion identity RBAC. Mutually exclusive with enable_document_intelligence."
   type        = string
   default     = ""
 }

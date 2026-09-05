@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9d5dd0fed264eb7f8675620ff5caf9b0b5a6d1c1
+translation_source_sha: 1e6747b8fa797e9bdb504f9c8e7a1746bfef62ef
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -356,6 +356,14 @@ Terraform은 다음 항목을 프로비저닝합니다.
 트래픽 전에 PostgreSQL `PGOPTIONS`로 declared 역할을 강제합니다. 두 개정 번호를 검증한 뒤 `ingestion_gateway_fqdn`을 출력합니다. Console은
 `VITE_INGESTION_API_BASE_URL=https://<fqdn>`으로 빌드합니다. 운영 게이트는 비공개
 networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
+
+문서 OCR은 별도의 보호된 작업을 사용합니다. `preserve`는 이전에 적용한 공급자와 Document
+Intelligence 리소스 상태를 유지합니다. `use_local_retain`은 Azure를 삭제하지 않고 워커를 로컬
+`kor+eng` Tesseract로 전환하고, `use_azure_provision`은 비공개 Document Intelligence 계정을
+프로비저닝하거나 유지하며, `deprovision_use_local`은 제거 전에 로컬 OCR을 선택합니다. 설정에서
+시작한 `plan-ocr-<proposal>-<digest>` 요청은 Terraform 변수를 설정하기 전에 PostgreSQL의 최종
+제안, 정책 및 계획 요청 기록과 대조합니다. 기본 동작은 계획이며 정확한 적용에는 보호된 환경의
+별도 승인이 계속 필요합니다.
 
 공개 Static Web App은 ADLS에 직접 접근하지 않습니다. Storage 계정을 비공개로 유지하기
 위해 인증된 게이트웨이를 통해 스트림합니다. 게이트웨이는 ADLS, Event Hubs, Azure OpenAI에 Managed

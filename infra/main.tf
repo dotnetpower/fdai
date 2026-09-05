@@ -52,9 +52,10 @@ moved {
 data "azurerm_client_config" "current" {}
 
 locals {
-  env_suffix    = var.env == "" ? "" : "-${var.env}"
-  region_suffix = var.region_short == "" ? "" : "-${var.region_short}"
-  full_suffix   = "${local.env_suffix}${local.region_suffix}"
+  env_suffix                         = var.env == "" ? "" : "-${var.env}"
+  region_suffix                      = var.region_short == "" ? "" : "-${var.region_short}"
+  full_suffix                        = "${local.env_suffix}${local.region_suffix}"
+  document_intelligence_account_name = "di-${var.workload}${local.full_suffix}"
 
   static_web_app_region_shorts = {
     westus2    = "wus2"
@@ -119,6 +120,36 @@ locals {
     "fdai.hil.decisions",
     "fdai.pipeline.stages",
   ]
+}
+
+locals {
+  document_intelligence_name                = try(module.document_intelligence[0].name, "")
+  document_intelligence_endpoint            = try(module.document_intelligence[0].endpoint, "")
+  document_intelligence_resource_id         = try(module.document_intelligence[0].resource_id, "")
+  document_intelligence_private_endpoint_id = try(module.document_intelligence_private_endpoint[0].private_endpoint_id, "")
+  external_document_ocr_binding_configured = (
+    trimspace(var.document_ocr_endpoint) != "" ||
+    trimspace(var.document_ocr_resource_id) != ""
+  )
+  document_ocr_binding_enabled = (
+    var.enable_document_intelligence ||
+    trimspace(var.document_ocr_resource_id) != ""
+  )
+  document_ocr_effective_binding_mode = (
+    var.enable_document_intelligence
+    ? "terraform-owned"
+    : local.external_document_ocr_binding_configured ? "external" : "disabled"
+  )
+  document_ocr_effective_endpoint = (
+    var.enable_document_intelligence
+    ? local.document_intelligence_endpoint
+    : trimspace(var.document_ocr_endpoint)
+  )
+  document_ocr_effective_resource_id = (
+    var.enable_document_intelligence
+    ? local.document_intelligence_resource_id
+    : trimspace(var.document_ocr_resource_id)
+  )
 }
 
 # -----------------------------------------------------------------------
@@ -768,8 +799,8 @@ resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
 }
 
 resource "azurerm_role_assignment" "ingestion_ocr_user" {
-  count                = var.enable_document_ingestion && var.document_ocr_resource_id != "" ? 1 : 0
-  scope                = var.document_ocr_resource_id
+  count                = var.enable_document_ingestion && local.document_ocr_binding_enabled ? 1 : 0
+  scope                = local.document_ocr_effective_resource_id
   role_definition_name = "Cognitive Services User"
   principal_id = var.ingestion_cohost_worker ? (
     module.ingestion_identity[0].principal_id
@@ -1207,6 +1238,21 @@ resource "azurerm_role_assignment" "ingestion_migration_kv_secrets_user" {
 }
 
 # -----------------------------------------------------------------------
+# Terraform-owned Azure AI Document Intelligence - optional OCR endpoint.
+# -----------------------------------------------------------------------
+module "document_intelligence" {
+  count  = var.enable_document_intelligence ? 1 : 0
+  source = "./modules/document-intelligence"
+
+  account_name               = local.document_intelligence_account_name
+  location                   = var.region
+  resource_group_name        = module.resource_group.name
+  private_networking_enabled = var.enable_private_networking
+  log_analytics_workspace_id = module.log_analytics.workspace_id
+  tags                       = merge(local.tags, { "fdai:component" = "document-intelligence" })
+}
+
+# -----------------------------------------------------------------------
 # Governed document storage - StorageV2 with ADLS Gen2 HNS.
 # -----------------------------------------------------------------------
 module "document_storage" {
@@ -1294,6 +1340,21 @@ module "kv_private_endpoint" {
   # (which lives in the peered ops VNet) resolves the vault privately and can
   # write the persistence DSN secrets during apply.
   extra_vnet_links = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+}
+
+module "document_intelligence_private_endpoint" {
+  count                 = var.enable_document_intelligence && var.enable_private_networking ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-di-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.document_intelligence[0].resource_id
+  subresource_name      = "account"
+  private_dns_zone_name = "privatelink.cognitiveservices.azure.com"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = merge(local.tags, { "fdai:component" = "document-intelligence" })
 }
 
 module "document_blob_private_endpoint" {
@@ -2821,7 +2882,8 @@ module "ingestion_gateway" {
   adls_derived_file_system       = module.document_storage[0].derived_file_system
   embedding_endpoint             = var.enable_llm ? module.llm_azure_openai[0].endpoint : ""
   embedding_deployment           = var.enable_llm ? lookup(module.llm_azure_openai[0].deployments, var.ingestion_embedding_capability, "") : ""
-  ocr_endpoint                   = var.document_ocr_endpoint
+  ocr_endpoint                   = local.document_ocr_effective_endpoint
+  ocr_provider                   = var.document_ocr_provider
   ocr_operation_timeout_seconds  = var.document_ocr_operation_timeout_seconds
   kafka_bootstrap_servers        = module.event_bus.kafka_bootstrap
   document_event_topic           = "fdai.pipeline.stages"
@@ -2862,6 +2924,7 @@ module "ingestion_gateway" {
     azurerm_key_vault_secret.github_webhook_secret,
     azurerm_role_assignment.ingestion_document_data,
     azurerm_role_assignment.ingestion_worker_document_data,
+    module.document_intelligence_private_endpoint,
     module.document_blob_private_endpoint,
     module.document_dfs_private_endpoint,
   ]

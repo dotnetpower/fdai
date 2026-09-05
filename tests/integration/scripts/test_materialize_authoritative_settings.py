@@ -118,8 +118,24 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
     assert projection["model_catalog"]["available"] is False
     assert projection["resolved_metadata"]["digest"] == "sha256:" + "a" * 64
     assert projection["environment"] == "dev"
+    assert projection["document_ocr"]["effective_provider"] == "local_python"
+    assert projection["document_ocr"]["azure_resource_state"] == "absent"
     assert projection["t2_model_policy"]["active_primary"] is None
     assert projection["t2_model_policy"]["active_secondary"]["capacity_unit"] == "ptu"
+
+
+def test_model_projection_requires_an_endpoint_for_azure_document_ocr() -> None:
+    module = _module()
+
+    with pytest.raises(ValueError, match="requires a configured endpoint"):
+        module.model_settings_projection(
+            {},
+            observed_at=datetime(2026, 8, 10, tzinfo=UTC),
+            web_search_enabled=False,
+            allowed_domains=(),
+            document_ocr_provider="azure_document_intelligence",
+            document_ocr_endpoint_configured=False,
+        )
 
 
 def test_active_digest_is_independent_of_json_whitespace() -> None:

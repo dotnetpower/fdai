@@ -140,9 +140,10 @@ endpoint is not a console button, uses no executor identity, and atomically reco
 state change with its audit entry.
 
 The `manage-model-bindings` capability is also Owner-only. It permits revisioned policy drafts and
-authority-free assessment or protected-plan requests. It does not grant Terraform apply, provider
-mutation, model invocation, approval, or executor authority. BreakGlass is not an Owner superset
-and does not inherit this capability.
+authority-free assessment or protected-plan requests, including the document OCR provider policy.
+It does not grant Terraform apply, provider mutation, model invocation, approval, or executor
+authority. Reader, Contributor, Approver, and BreakGlass roles cannot save the OCR policy or request
+its plan. BreakGlass is not an Owner superset and does not inherit this capability.
 
 ## 4. Entra ID Artifacts
 

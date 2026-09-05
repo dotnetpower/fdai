@@ -352,6 +352,36 @@ output "document_storage_account_name" {
   value       = length(module.document_storage) > 0 ? module.document_storage[0].name : ""
 }
 
+output "document_intelligence_name" {
+  description = "Terraform-owned Azure AI Document Intelligence account name. Empty when disabled."
+  value       = local.document_intelligence_name
+}
+
+output "document_intelligence_endpoint" {
+  description = "Terraform-owned Azure AI Document Intelligence endpoint. Empty when disabled."
+  value       = local.document_intelligence_endpoint
+}
+
+output "document_ocr_endpoint" {
+  description = "Effective Azure Document Intelligence endpoint for the selected binding. Empty when no Azure binding exists."
+  value       = local.document_ocr_effective_endpoint
+}
+
+output "document_intelligence_resource_id" {
+  description = "Terraform-owned Azure AI Document Intelligence account ARM id. Empty when disabled."
+  value       = local.document_intelligence_resource_id
+}
+
+output "document_intelligence_private_endpoint_id" {
+  description = "Document Intelligence private endpoint id. Empty when private networking or Terraform ownership is disabled."
+  value       = local.document_intelligence_private_endpoint_id
+}
+
+output "document_ocr_provider" {
+  description = "Effective document OCR provider configured for the ingestion worker."
+  value       = var.document_ocr_provider
+}
+
 output "case_history_storage_account_name" {
   description = "Private versioned case-history storage account name."
   value       = length(module.case_history_storage) > 0 ? module.case_history_storage[0].name : ""
@@ -381,6 +411,21 @@ output "rule_catalog_snapshot_container_url" {
 output "document_storage_dfs_endpoint" {
   description = "Private ADLS Gen2 DFS endpoint consumed by the ingestion gateway."
   value       = length(module.document_storage) > 0 ? module.document_storage[0].primary_dfs_endpoint : ""
+}
+
+output "document_ocr_effective_binding_mode" {
+  description = "Resolved OCR binding mode: disabled, external, or terraform-owned."
+  value       = local.document_ocr_effective_binding_mode
+}
+
+output "document_ocr_effective_endpoint" {
+  description = "Resolved OCR endpoint delivered to the ingestion worker. Empty when OCR is disabled."
+  value       = local.document_ocr_effective_endpoint
+}
+
+output "document_ocr_effective_resource_id" {
+  description = "Resolved OCR resource id used for ingestion RBAC. Empty when OCR is disabled."
+  value       = local.document_ocr_effective_resource_id
 }
 
 output "ingestion_gateway_fqdn" {
@@ -459,7 +504,7 @@ locals {
         scope     = azurerm_role_assignment.ingestion_api_kv_secrets_user[0].scope
       },
     ],
-    var.ingestion_cohost_worker && var.document_ocr_resource_id != "" ? [
+    var.ingestion_cohost_worker && local.document_ocr_binding_enabled ? [
       {
         role_name = azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name
         scope     = azurerm_role_assignment.ingestion_ocr_user[0].scope
@@ -493,7 +538,7 @@ locals {
         scope     = module.llm_azure_openai[0].resource_id
       },
     ],
-    var.document_ocr_resource_id != "" ? [
+    local.document_ocr_binding_enabled ? [
       {
         role_name = azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name
         scope     = azurerm_role_assignment.ingestion_ocr_user[0].scope

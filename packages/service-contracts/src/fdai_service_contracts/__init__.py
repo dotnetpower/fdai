@@ -161,6 +161,11 @@ from fdai_service_contracts.document_formats import (
     supported_document_extensions,
     supported_document_format_ids,
 )
+from fdai_service_contracts.document_ocr import (
+    DocumentOcrPolicy,
+    DocumentOcrProvider,
+    DocumentOcrResourceState,
+)
 from fdai_service_contracts.document_providers import (
     DirectUploadStore,
     DocumentAccessDeniedError,
@@ -524,6 +529,9 @@ __all__ = [
     "DocumentExtractionUnavailableError",
     "DocumentExtractor",
     "DocumentFormatSpec",
+    "DocumentOcrPolicy",
+    "DocumentOcrProvider",
+    "DocumentOcrResourceState",
     "DocumentIndex",
     "DocumentIngestionError",
     "DocumentLifecycleConflictError",

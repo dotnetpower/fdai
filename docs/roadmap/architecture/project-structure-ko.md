@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b459c0363ceade8c0a6fb7727931f4e67b932c72
+translation_source_sha: 4b0c0c503fa9827fb1feab20d8a89e023e396dfa
 translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
@@ -54,6 +54,10 @@ translation_revised: 2026-09-05
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
   검증을 위해 `cryptography`에 의존하지만 Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
+- **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 서비스 계약 SDK는 배포 권한이 없는 수정
+  버전 기반 공급자 정책을 소유합니다. 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure
+  어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집
+  서비스가 다른 서비스 구현을 가져오지 않습니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,

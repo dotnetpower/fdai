@@ -147,7 +147,12 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         pantheon_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects").strip(),
     )
     access = ClaimsDocumentAccessProvider()
-    ocr_available = bool(env.get("FDAI_OCR_ENDPOINT", "").strip())
+    ocr_provider = env.get("FDAI_DOCUMENT_OCR_PROVIDER", "local_python").strip()
+    if ocr_provider not in {"local_python", "azure_document_intelligence"}:
+        raise ProductionConfigurationError(
+            "FDAI_DOCUMENT_OCR_PROVIDER MUST be local_python or azure_document_intelligence"
+        )
+    ocr_available = ocr_provider == "local_python" or bool(env.get("FDAI_OCR_ENDPOINT", "").strip())
     service = DocumentIngestionService(
         access=access,
         metadata=metadata,

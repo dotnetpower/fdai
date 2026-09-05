@@ -78,6 +78,14 @@ variable "adls_derived_file_system" { type = string }
 variable "embedding_endpoint" { type = string }
 variable "embedding_deployment" { type = string }
 variable "ocr_endpoint" { type = string }
+variable "ocr_provider" {
+  type = string
+
+  validation {
+    condition     = contains(["local_python", "azure_document_intelligence"], var.ocr_provider)
+    error_message = "ocr_provider MUST be local_python or azure_document_intelligence."
+  }
+}
 variable "ocr_operation_timeout_seconds" {
   type    = number
   default = 180

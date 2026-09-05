@@ -9,6 +9,8 @@ from typing import Final
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     AuthorizePrincipal,
+    DocumentOcrPlanCommand,
+    DocumentOcrPolicyCommand,
     ModelBindingDraftCommand,
     ModelBindingRequestCommand,
     ModelPreferenceCommand,
@@ -39,7 +41,7 @@ from fdai_operator_service.teams_workflow_diagnostics import (
     TeamsWorkflowTestConflictError,
     TeamsWorkflowTestProviderError,
 )
-from fdai_service_contracts import ModelBindingPolicy
+from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
 from pydantic import ValidationError
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -187,6 +189,77 @@ def make_model_settings_routes(
             return error_response(400, str(exc))
         return JSONResponse(dict(projection))
 
+    async def put_document_ocr_policy(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(principal.roles, IamCapability.MANAGE_MODEL_BINDINGS):
+            return error_response(403, "Owner role is required")
+        if outbox is None:
+            return error_response(503, "model settings outbox is not configured")
+        body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
+        _require_exact_fields(
+            body,
+            {"policy", "expected_revision", "idempotency_key"},
+        )
+        policy_raw = body.get("policy")
+        if not isinstance(policy_raw, dict):
+            return error_response(400, "policy MUST be an object")
+        try:
+            policy = DocumentOcrPolicy.model_validate(policy_raw)
+        except ValidationError as exc:
+            return error_response(400, _validation_message(exc))
+        expected_revision = require_revision(body)
+        if policy.revision != expected_revision + 1:
+            return error_response(400, "policy revision MUST advance expected_revision by one")
+        command = DocumentOcrPolicyCommand(
+            actor_id=principal.oid,
+            policy=policy.model_dump(mode="json"),
+            policy_digest=policy.digest(),
+            expected_revision=expected_revision,
+            idempotency_key=_idempotency_key(body),
+        )
+        try:
+            receipt = await outbox.save_document_ocr_policy(command)
+        except IamFamilyError as exc:
+            return family_error(exc)
+        return JSONResponse(dict(receipt), status_code=202, headers=_NO_STORE_HEADERS)
+
+    async def post_document_ocr_plan(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(principal.roles, IamCapability.MANAGE_MODEL_BINDINGS):
+            return error_response(403, "Owner role is required")
+        if outbox is None:
+            return error_response(503, "model settings outbox is not configured")
+        body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
+        _require_exact_fields(
+            body,
+            {"environment", "policy_revision", "policy_digest", "idempotency_key"},
+        )
+        environment = _bounded_string(body, "environment", maximum=32)
+        if _ENVIRONMENT.fullmatch(environment) is None:
+            return error_response(400, "environment MUST be dev, staging, or prod style")
+        policy_digest = _bounded_string(body, "policy_digest", maximum=71)
+        if _POLICY_DIGEST.fullmatch(policy_digest) is None:
+            return error_response(400, "policy_digest MUST be a lowercase SHA-256 digest")
+        policy_revision = body.get("policy_revision")
+        if (
+            not isinstance(policy_revision, int)
+            or isinstance(policy_revision, bool)
+            or policy_revision < 1
+        ):
+            return error_response(400, "policy_revision MUST be a positive integer")
+        command = DocumentOcrPlanCommand(
+            actor_id=principal.oid,
+            environment=environment,
+            policy_revision=policy_revision,
+            policy_digest=policy_digest,
+            idempotency_key=_idempotency_key(body),
+        )
+        try:
+            receipt = await outbox.request_document_ocr_plan(command)
+        except IamFamilyError as exc:
+            return family_error(exc)
+        return JSONResponse(dict(receipt), status_code=202, headers=_NO_STORE_HEADERS)
+
     return (
         Route("/models/settings", get_settings, methods=["GET"]),
         Route("/models/binding-policy", put_binding_policy, methods=["PUT"]),
@@ -197,6 +270,8 @@ def make_model_settings_routes(
         ),
         Route("/models/binding-policy/plan", post_binding_plan, methods=["POST"]),
         Route("/models/web-search-settings", put_web_search, methods=["PUT"]),
+        Route("/models/document-ocr-policy", put_document_ocr_policy, methods=["PUT"]),
+        Route("/models/document-ocr-policy/plan", post_document_ocr_plan, methods=["POST"]),
         Route("/me/model-preferences", put_preference, methods=["PUT"]),
     )
 

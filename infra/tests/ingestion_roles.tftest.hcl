@@ -162,6 +162,25 @@ override_module {
   }
 }
 
+override_module {
+  target = module.document_intelligence
+  outputs = {
+    name                  = "di-fdai"
+    endpoint              = "https://di-fdai.cognitiveservices.azure.com/"
+    resource_id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/di-fdai"
+    diagnostic_setting_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.Insights/diagnosticSettings/diag-di-fdai"
+  }
+}
+
+override_module {
+  target = module.document_intelligence_private_endpoint
+  outputs = {
+    private_endpoint_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.Network/privateEndpoints/pe-di-fdai"
+    private_dns_zone_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.Network/privateDnsZones/privatelink.cognitiveservices.azure.com"
+    private_ip_address  = "10.60.0.10"
+  }
+}
+
 variables {
   region                         = "koreacentral"
   tenant_id                      = "00000000-0000-0000-0000-000000000000"
@@ -439,6 +458,58 @@ run "partner_models_use_separate_foundry_account" {
   }
 }
 
+run "terraform_owned_document_intelligence_binds_effective_worker_access" {
+  command = plan
+
+  variables {
+    enable_document_intelligence = true
+    enable_private_networking    = true
+  }
+
+  assert {
+    condition = (
+      output.document_intelligence_name == "di-fdai" &&
+      output.document_intelligence_endpoint == "https://di-fdai.cognitiveservices.azure.com/" &&
+      output.document_intelligence_resource_id == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/di-fdai" &&
+      output.document_intelligence_private_endpoint_id == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.Network/privateEndpoints/pe-di-fdai"
+    )
+    error_message = "Terraform-owned Document Intelligence must publish deterministic account and private-endpoint outputs."
+  }
+
+  assert {
+    condition = (
+      output.document_ocr_effective_binding_mode == "terraform-owned" &&
+      output.document_ocr_effective_endpoint == "https://di-fdai.cognitiveservices.azure.com/" &&
+      output.document_ocr_effective_resource_id == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/di-fdai"
+    )
+    error_message = "Terraform-owned Document Intelligence must override the effective OCR binding."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_role_assignment.ingestion_ocr_user) == 1 &&
+      azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name == "Cognitive Services User" &&
+      azurerm_role_assignment.ingestion_ocr_user[0].scope == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/di-fdai" &&
+      azurerm_role_assignment.ingestion_ocr_user[0].principal_id == module.ingestion_worker_identity[0].principal_id
+    )
+    error_message = "Terraform-owned Document Intelligence must grant the worker Cognitive Services User on the effective resource."
+  }
+
+  assert {
+    condition = (
+      length(output.ingestion_effective_access_evidence.identities.worker.expected_role_assignments) == 7 &&
+      contains(
+        output.ingestion_effective_access_evidence.identities.worker.expected_role_assignments,
+        {
+          role_name = "Cognitive Services User"
+          scope     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/di-fdai"
+        },
+      )
+    )
+    error_message = "The worker role ceiling must include the effective Document Intelligence role assignment."
+  }
+}
+
 run "channel_edge_identity_gets_platform_dsn_without_external_secrets" {
   command = plan
 
@@ -484,6 +555,18 @@ run "cohost_flag_is_rejected" {
   }
 
   expect_failures = [var.ingestion_cohost_worker]
+}
+
+run "terraform_owned_document_intelligence_rejects_external_binding" {
+  command = plan
+
+  variables {
+    enable_document_intelligence = true
+    document_ocr_endpoint        = "https://external-ocr.cognitiveservices.azure.com/"
+    document_ocr_resource_id     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/external-ocr"
+  }
+
+  expect_failures = [check.document_ocr_binding_modes_are_mutually_exclusive]
 }
 
 run "worker_scale_to_zero_is_rejected_without_kafka_scaler" {

@@ -16,6 +16,7 @@ from fdai_document_worker_service.adapters.event_bus import (
     EventHubsKafkaBus,
     EventHubsKafkaConfig,
 )
+from fdai_document_worker_service.adapters.local_ocr import LocalKoreanOcr
 from fdai_document_worker_service.adapters.postgres import (
     PostgresDocumentMetadataStore,
     PostgresWorkerConfig,
@@ -298,6 +299,7 @@ async def test_worker_startup_adapter_gate_includes_clamav(
         EventHubsKafkaBus,
         AzureEmbeddingModel,
         ClamAvMalwareScanner,
+        LocalKoreanOcr,
     ):
         monkeypatch.setattr(adapter_type, "probe_readiness", probe)
 

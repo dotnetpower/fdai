@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthContext } from "../auth";
 import {
+  decodeDocumentOcrProposalReceipt,
   decodeModelBindingProposalReceipt,
+  requestDocumentOcrPlan,
   requestModelBindingOperation,
+  saveDocumentOcrPolicy,
   saveNarratorPreference,
   saveModelBindingPolicy,
   saveWebSearchSettings,
@@ -117,6 +120,22 @@ const payload = {
     readiness_status: "ready",
     current_auto_pick: "foundry-agent:fdai-web-search",
     candidates: [],
+  },
+  document_ocr: {
+    available: true,
+    revision: 2,
+    desired_provider: "local_python",
+    effective_provider: "local_python",
+    local_python_available: true,
+    azure_available: true,
+    azure_resource_desired: true,
+    azure_resource_state: "ready",
+    request_state: "ready",
+    korean_enabled: true,
+    deprovision_requested: false,
+    policy_digest: "sha256:" + "b".repeat(64),
+    can_manage: true,
+    execution_authority: false,
   },
   model_routing: [{
     role: "t2.reasoner.primary",
@@ -243,6 +262,14 @@ describe("Settings Models contracts", () => {
       modelDeployment: "t1.web_search",
       provisioningStatus: "configured",
       readinessStatus: "ready",
+    });
+    expect(decoded.documentOcr).toMatchObject({
+      revision: 2,
+      desiredProvider: "local_python",
+      effectiveProvider: "local_python",
+      azureResourceDesired: true,
+      azureResourceState: "ready",
+      canManage: true,
     });
     expect(decoded.modelRouting[0]?.selectedDeployment).toBe("primary-b");
     expect(decoded.modelRouting[0]?.candidates[0]?.status).toBe("recovered");
@@ -508,6 +535,87 @@ describe("Settings Models contracts", () => {
       execution_authority: true,
       activation_boundary: "protected-plan-only",
     })).toThrow("execution_authority MUST be false");
+  });
+
+  it("saves an OCR policy and requests its protected plan without apply authority", async () => {
+    const calls: Array<{ readonly url: string; readonly body: unknown }> = [];
+    const digest = "sha256:" + "c".repeat(64);
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), body: JSON.parse(String(init?.body)) });
+      return new Response(JSON.stringify({
+        proposal_id: "ocr-proposal",
+        accepted_at: "2026-08-24T00:00:00Z",
+        duplicate: false,
+        state: calls.length === 1 ? "plan-required" : "plan-requested",
+        policy_digest: digest,
+        policy_revision: 3,
+        execution_authority: false,
+        activation_boundary: "protected-plan-only",
+      }), { status: 202 });
+    }));
+    const auth: AuthContext = {
+      devMode: false,
+      account: null,
+      getAuthorizationHeader: async () => "******",
+      signIn: async () => undefined,
+      signOut: async () => undefined,
+    };
+
+    const saved = await saveDocumentOcrPolicy(auth, "http://127.0.0.1:8030", {
+      environment: "dev",
+      expectedRevision: 2,
+      provider: "local_python",
+      azureResourceDesired: true,
+      deprovisionRequested: false,
+      idempotencyKey: "ocr-policy-3",
+    });
+    const planned = await requestDocumentOcrPlan(auth, "http://127.0.0.1:8030", {
+      environment: "dev",
+      policyRevision: saved.policyRevision,
+      policyDigest: saved.policyDigest,
+      idempotencyKey: "ocr-plan-3",
+    });
+
+    expect(planned.executionAuthority).toBe(false);
+    expect(calls).toEqual([
+      {
+        url: "http://127.0.0.1:8030/models/document-ocr-policy",
+        body: {
+          policy: {
+            schema_version: "1.0.0",
+            environment: "dev",
+            revision: 3,
+            desired_provider: "local_python",
+            azure_resource_desired: true,
+            deprovision_requested: false,
+          },
+          expected_revision: 2,
+          idempotency_key: "ocr-policy-3",
+        },
+      },
+      {
+        url: "http://127.0.0.1:8030/models/document-ocr-policy/plan",
+        body: {
+          environment: "dev",
+          policy_revision: 3,
+          policy_digest: digest,
+          idempotency_key: "ocr-plan-3",
+        },
+      },
+    ]);
+  });
+
+  it("rejects OCR receipts that claim a binding-only state", () => {
+    expect(() => decodeDocumentOcrProposalReceipt({
+      proposal_id: "ocr-proposal",
+      accepted_at: "2026-08-24T00:00:00Z",
+      duplicate: false,
+      state: "draft",
+      policy_digest: "sha256:" + "d".repeat(64),
+      policy_revision: 1,
+      execution_authority: false,
+      activation_boundary: "protected-plan-only",
+    })).toThrow("document OCR receipt state is invalid");
   });
 
   it("rejects a model binding receipt with an unknown activation boundary", () => {

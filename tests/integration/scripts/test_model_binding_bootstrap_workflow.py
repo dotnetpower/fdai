@@ -103,14 +103,17 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     assert workflow_text.index("verify-deployment-plan.py") < workflow_text.rindex(
         "require_resolved_capability.py"
     )
+    assert '"azurerm_cognitive_account": "azure.ai.account"' in workflow_text
     assert '"azurerm_cognitive_account_project": "azure.ai.project"' in workflow_text
     assert '"azurerm_cognitive_deployment": "azure.ai.deployment"' in workflow_text
+    assert '"azure.ai.account": "Microsoft.CognitiveServices/accounts"' in workflow_text
     assert '"azure.ai.project": "Microsoft.CognitiveServices/accounts/projects"' in workflow_text
     assert (
         '"azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments"' in workflow_text
     )
     for terraform_type in (
         "azurerm_application_insights",
+        "azurerm_cognitive_account",
         "azurerm_container_app_environment",
         "azurerm_container_registry",
         "azurerm_key_vault",

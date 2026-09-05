@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: dd4670f6bdc76761a80127651453371d12c48ec2
+translation_source_sha: dd31adebb8e17faeb60e8eb3bace7b46d7b21106
 translation_revised: 2026-09-05
 ---
 
@@ -212,8 +212,12 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **이메일 알림**: incident-open 메시지가 multipart HTML과 plain 텍스트로 도착합니다. Console을
      활성화한 경우 상세 링크는 Static Web App 출처를 사용하고 Settings > Integrations는 합성
      자리 표시자로 동일한 렌더러를 표시합니다.
-   - **문서 OCR**: 수집 자격 증명이 지정된 문서 Intelligence 리소스에만
-     `Cognitive Services User` 역할을 갖습니다.
+   - **문서 OCR**: Azure를 삭제하지 않고 로컬 한국어 및 영어 OCR을 사용하려면
+     `use_local_retain`, 비공개 Document Intelligence 계정을 계획하려면
+     `use_azure_provision`, 제거 전에 로컬 OCR을 선택하려면 `deprovision_use_local`을
+     사용합니다. 수집 자격 증명은 구성된 Document Intelligence 리소스에만
+     `Cognitive Services User` 역할을 갖습니다. 기본 동작은 계획이며 적용에는 별도 승인이
+     필요합니다.
    - **케이스 히스토리**: 전용 관리 자격 증명만 Blob 데이터에 접근하고, 실행기에는
      케이스 히스토리 Blob 역할이 없으며, 비공개 네트워크 룰은 Defender scanner
      private-link 접근을 유지하고, `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된 삭제

@@ -34,6 +34,8 @@ from fdai_operator_service.families.iam.contracts import (
     AssignmentTransitionCommand,
     ConfigurationReviewCommand,
     DirectoryIdentity,
+    DocumentOcrPlanCommand,
+    DocumentOcrPolicyCommand,
     HandoverGoalCommand,
     HilApprovalDecision,
     HilDecisionCommand,
@@ -74,7 +76,7 @@ from fdai_operator_service.families.iam.hil_decision_outbox import (
 )
 from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
-from fdai_service_contracts import OperatorRole
+from fdai_service_contracts import DocumentOcrPolicy, OperatorRole
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
@@ -158,6 +160,8 @@ class _RuntimeSettingsStore:
 
     async def read_projection(self, *, family: str, operation: str) -> Mapping[str, object]:
         assert family == "iam"
+        if operation == "model-settings":
+            return {"environment": "dev", "web_search": {}}
         assert operation == "runtime-settings"
         return deepcopy(self.runtime_projection)
 
@@ -261,6 +265,46 @@ async def test_postgres_runtime_settings_rejects_unreviewed_ablation_profile() -
                 expected_revision=0,
             )
         )
+
+
+async def test_postgres_document_ocr_plan_persists_request_state() -> None:
+    store = _RuntimeSettingsStore()
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    policy = DocumentOcrPolicy(
+        environment="dev",
+        revision=1,
+        desired_provider="azure_document_intelligence",
+        azure_resource_desired=True,
+    )
+
+    await adapter.save_document_ocr_policy(
+        DocumentOcrPolicyCommand(
+            actor_id="owner-1",
+            policy=policy.model_dump(mode="json"),
+            policy_digest=policy.digest(),
+            expected_revision=0,
+            idempotency_key="ocr-policy-1",
+        )
+    )
+    receipt = await adapter.request_document_ocr_plan(
+        DocumentOcrPlanCommand(
+            actor_id="owner-1",
+            environment="dev",
+            policy_revision=1,
+            policy_digest=policy.digest(),
+            idempotency_key="ocr-plan-1",
+        )
+    )
+
+    assert receipt["state"] == "plan-requested"
+    assert store.state["operator-document-ocr-policy:current"]["state"] == "plan-required"
+    assert store.state["operator-document-ocr-plan:current"]["state"] == "plan-requested"
+    assert store.proposals[-1]["operation"] == "model-settings.document-ocr.plan"
+    projection = await adapter.projection(
+        "owner-1",
+        can_manage_model_bindings=True,
+    )
+    assert projection["document_ocr"]["request_state"] == "plan-requested"
 
 
 def test_runtime_settings_http_reports_invalid_profile_as_bad_request() -> None:
@@ -443,6 +487,8 @@ class RecordingModelSettings:
         self.binding_draft: ModelBindingDraftCommand | None = None
         self.binding_assessment: ModelBindingRequestCommand | None = None
         self.binding_plan: ModelBindingRequestCommand | None = None
+        self.ocr_policy: DocumentOcrPolicyCommand | None = None
+        self.ocr_plan: DocumentOcrPlanCommand | None = None
 
     async def projection(
         self,
@@ -507,6 +553,34 @@ class RecordingModelSettings:
         return {
             "proposal_id": "binding-plan-1",
             "accepted_at": "2026-08-25T00:00:00Z",
+            "duplicate": False,
+            "state": "plan-requested",
+            "policy_digest": command.policy_digest,
+            "policy_revision": command.policy_revision,
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
+
+    async def save_document_ocr_policy(
+        self, command: DocumentOcrPolicyCommand
+    ) -> Mapping[str, Any]:
+        self.ocr_policy = command
+        return {
+            "proposal_id": "ocr-policy-1",
+            "accepted_at": "2026-09-05T00:00:00Z",
+            "duplicate": False,
+            "state": "plan-required",
+            "policy_digest": command.policy_digest,
+            "policy_revision": command.expected_revision + 1,
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
+
+    async def request_document_ocr_plan(self, command: DocumentOcrPlanCommand) -> Mapping[str, Any]:
+        self.ocr_plan = command
+        return {
+            "proposal_id": "ocr-plan-1",
+            "accepted_at": "2026-09-05T00:00:00Z",
             "duplicate": False,
             "state": "plan-requested",
             "policy_digest": command.policy_digest,
@@ -717,7 +791,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 36
+    assert len(snapshot) == 38
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -939,6 +1013,46 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
     assert runtime.command is not None and runtime.command.expected_revision == 2
     assert kill.command is not None and kill.command.request_id == "stop-1"
     assert review.command is not None and review.command.run_id == "review-1"
+
+
+def test_owner_can_request_document_ocr_policy_and_protected_plan() -> None:
+    models = RecordingModelSettings()
+    client = _client(model_settings=models)
+    owner = {"x-test-role": "Owner", "x-test-oid": "owner-1"}
+    policy = {
+        "schema_version": "1.0.0",
+        "environment": "dev",
+        "revision": 1,
+        "desired_provider": "azure_document_intelligence",
+        "azure_resource_desired": True,
+        "deprovision_requested": False,
+    }
+    digest = DocumentOcrPolicy.model_validate(policy).digest()
+    saved = client.put(
+        "/models/document-ocr-policy",
+        headers=owner,
+        json={
+            "policy": policy,
+            "expected_revision": 0,
+            "idempotency_key": "ocr-policy-1",
+        },
+    )
+    planned = client.post(
+        "/models/document-ocr-policy/plan",
+        headers=owner,
+        json={
+            "environment": "dev",
+            "policy_revision": 1,
+            "policy_digest": digest,
+            "idempotency_key": "ocr-plan-1",
+        },
+    )
+    assert saved.status_code == 202
+    assert saved.json()["execution_authority"] is False
+    assert planned.status_code == 202
+    assert planned.json()["state"] == "plan-requested"
+    assert models.ocr_policy is not None
+    assert models.ocr_plan is not None
 
 
 def test_owner_can_send_one_secret_free_teams_workflow_diagnostic() -> None:

@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from fdai_service_contracts import ModelBindingPolicy
+from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
 from pydantic import ValidationError
 
 from fdai_operator_service.families.iam.contracts import (
@@ -29,6 +29,8 @@ from fdai_operator_service.families.iam.contracts import (
     ConfigurationReviewCommand,
     DirectoryIdentity,
     DirectoryStatus,
+    DocumentOcrPlanCommand,
+    DocumentOcrPolicyCommand,
     HandoverGoalCommand,
     HilApprovalDecision,
     HilDecisionCommand,
@@ -78,6 +80,8 @@ _IAM_PROPOSAL_SCAN_LIMIT = 1_000
 _CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
 _SCOPE_REF = re.compile(r"^scope://[\x20-\x7E]{1,504}$")
 _MODEL_BINDING_POLICY_KEY = "operator-model-binding-policy:current"
+_DOCUMENT_OCR_POLICY_KEY = "operator-document-ocr-policy:current"
+_DOCUMENT_OCR_PLAN_KEY = "operator-document-ocr-plan:current"
 _RUNTIME_SETTINGS_POLICY_KEY = "runtime-settings:policy"
 
 
@@ -442,6 +446,8 @@ class PostgresIamAdapters:
             if not isinstance(web_search, Mapping):
                 raise IamUnavailableError("model settings projection has no web_search object")
             binding_policy = await self._state(_MODEL_BINDING_POLICY_KEY)
+            document_ocr_policy = await self._state(_DOCUMENT_OCR_POLICY_KEY)
+            document_ocr_plan = await self._state(_DOCUMENT_OCR_PLAN_KEY)
             environment = str(payload.get("environment") or "unspecified")
             if binding_policy is not None and binding_policy.get("environment") != environment:
                 raise IamUnavailableError(
@@ -465,6 +471,12 @@ class PostgresIamAdapters:
                         "can_manage": can_manage_model_bindings,
                         "execution_authority": False,
                     }
+                ),
+                "document_ocr": _document_ocr_projection(
+                    payload.get("document_ocr"),
+                    document_ocr_policy,
+                    document_ocr_plan,
+                    can_manage=can_manage_model_bindings,
                 ),
             }
         runtime_policy = await self._state(_RUNTIME_SETTINGS_POLICY_KEY)
@@ -532,6 +544,83 @@ class PostgresIamAdapters:
     async def request_binding_plan(self, command: ModelBindingRequestCommand) -> JsonMapping:
         """Queue a protected plan only when the draft binds the active artifact digest."""
         return await self._request_binding_operation(command, operation="plan")
+
+    async def save_document_ocr_policy(self, command: DocumentOcrPolicyCommand) -> JsonMapping:
+        try:
+            policy = DocumentOcrPolicy.model_validate(command.policy)
+        except ValidationError as exc:
+            raise IamConflictError("document OCR policy is invalid") from exc
+        if policy.digest() != command.policy_digest:
+            raise IamConflictError("document OCR policy digest does not match its content")
+        if policy.revision != command.expected_revision + 1:
+            raise IamConflictError("document OCR policy revision conflict")
+        projection = await self._projection("model-settings")
+        if policy.environment != projection.get("environment"):
+            raise IamConflictError("document OCR policy environment does not match this deployment")
+        state: dict[str, object] = {
+            "environment": policy.environment,
+            "revision": policy.revision,
+            "state": "plan-required",
+            "policy": policy.model_dump(mode="json"),
+            "policy_digest": policy.digest(),
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
+        try:
+            stored = await self.store.append_revisioned_proposal(
+                family="iam",
+                operation="model-settings.document-ocr.policy",
+                principal_id=command.actor_id,
+                idempotency_key=command.idempotency_key,
+                payload=_command_payload(command),
+                state_key=_DOCUMENT_OCR_POLICY_KEY,
+                state_value=state,
+                expected_revision=command.expected_revision,
+            )
+        except PostgresProposalConflict as exc:
+            raise IamConflictError(str(exc)) from exc
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(str(exc)) from exc
+        return _document_ocr_receipt(stored, state="plan-required", policy=policy)
+
+    async def request_document_ocr_plan(self, command: DocumentOcrPlanCommand) -> JsonMapping:
+        state = await self._state(_DOCUMENT_OCR_POLICY_KEY)
+        if state is None:
+            raise IamNotFoundError("document OCR policy does not exist")
+        policy = _stored_document_ocr_policy(state)
+        if (
+            policy.environment != command.environment
+            or policy.revision != command.policy_revision
+            or policy.digest() != command.policy_digest
+        ):
+            raise IamConflictError("document OCR plan does not match the current policy")
+        current_plan = await self._state(_DOCUMENT_OCR_PLAN_KEY)
+        current_plan_revision = _state_revision(current_plan, label="document OCR plan")
+        next_state: dict[str, object] = {
+            "revision": current_plan_revision + 1,
+            "state": "plan-requested",
+            "environment": policy.environment,
+            "policy_revision": policy.revision,
+            "policy_digest": policy.digest(),
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
+        try:
+            stored = await self.store.append_revisioned_proposal(
+                family="iam",
+                operation="model-settings.document-ocr.plan",
+                principal_id=command.actor_id,
+                idempotency_key=command.idempotency_key,
+                payload=_command_payload(command),
+                state_key=_DOCUMENT_OCR_PLAN_KEY,
+                state_value=next_state,
+                expected_revision=current_plan_revision,
+            )
+        except PostgresProposalConflict as exc:
+            raise IamConflictError(str(exc)) from exc
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(str(exc)) from exc
+        return _document_ocr_receipt(stored, state="plan-requested", policy=policy)
 
     async def _request_binding_operation(
         self,
@@ -1313,6 +1402,122 @@ def _binding_policy_projection(
         "policy": policy.model_dump(mode="json", exclude_none=True),
         "policy_digest": policy.digest(),
         "can_manage": can_manage,
+        "execution_authority": False,
+        "activation_boundary": "protected-plan-only",
+    }
+
+
+def _stored_document_ocr_policy(
+    state: Mapping[str, object] | None,
+) -> DocumentOcrPolicy:
+    if state is None:
+        raise IamNotFoundError("document OCR policy does not exist")
+    policy_raw = state.get("policy")
+    if not isinstance(policy_raw, Mapping):
+        raise IamUnavailableError("stored document OCR policy is malformed")
+    try:
+        policy = DocumentOcrPolicy.model_validate(policy_raw)
+    except ValidationError as exc:
+        raise IamUnavailableError("stored document OCR policy is malformed") from exc
+    if (
+        state.get("environment") != policy.environment
+        or state.get("revision") != policy.revision
+        or state.get("policy_digest") != policy.digest()
+        or state.get("state") not in {"plan-required", "plan-requested"}
+        or state.get("execution_authority") is not False
+        or state.get("activation_boundary") != "protected-plan-only"
+    ):
+        raise IamUnavailableError("stored document OCR policy metadata is inconsistent")
+    return policy
+
+
+def _state_revision(state: Mapping[str, object] | None, *, label: str) -> int:
+    if state is None:
+        return 0
+    revision = state.get("revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 0:
+        raise IamUnavailableError(f"stored {label} revision is malformed")
+    return revision
+
+
+def _document_ocr_projection(
+    base: object,
+    state: Mapping[str, object] | None,
+    plan_state: Mapping[str, object] | None,
+    *,
+    can_manage: bool,
+) -> JsonMapping:
+    projection: dict[str, object] = (
+        dict(base)
+        if isinstance(base, Mapping)
+        else {
+            "available": True,
+            "effective_provider": "local_python",
+            "local_python_available": True,
+            "azure_available": False,
+            "azure_resource_state": "absent",
+            "korean_enabled": True,
+        }
+    )
+    projection["can_manage"] = can_manage
+    if state is None:
+        projection.update(
+            {
+                "revision": 0,
+                "desired_provider": projection.get("effective_provider", "local_python"),
+                "azure_resource_desired": bool(projection.get("azure_resource_state") == "ready"),
+                "deprovision_requested": False,
+                "policy_digest": None,
+                "request_state": "ready"
+                if projection.get("azure_resource_state") == "ready"
+                else "absent",
+                "execution_authority": False,
+            }
+        )
+        return projection
+    policy = _stored_document_ocr_policy(state)
+    request_state = str(state.get("state"))
+    if (
+        plan_state is not None
+        and plan_state.get("state") == "plan-requested"
+        and plan_state.get("environment") == policy.environment
+        and plan_state.get("policy_revision") == policy.revision
+        and plan_state.get("policy_digest") == policy.digest()
+        and plan_state.get("execution_authority") is False
+        and plan_state.get("activation_boundary") == "protected-plan-only"
+    ):
+        request_state = "plan-requested"
+    if projection.get("effective_provider") == policy.desired_provider.value and (
+        not policy.azure_resource_desired or projection.get("azure_resource_state") == "ready"
+    ):
+        request_state = "ready"
+    projection.update(
+        {
+            "revision": policy.revision,
+            "desired_provider": policy.desired_provider.value,
+            "azure_resource_desired": policy.azure_resource_desired,
+            "deprovision_requested": policy.deprovision_requested,
+            "policy_digest": policy.digest(),
+            "request_state": request_state,
+            "execution_authority": False,
+        }
+    )
+    return projection
+
+
+def _document_ocr_receipt(
+    stored: StoredProposal,
+    *,
+    state: str,
+    policy: DocumentOcrPolicy,
+) -> JsonMapping:
+    return {
+        "proposal_id": stored.proposal_id,
+        "accepted_at": stored.accepted_at,
+        "duplicate": stored.duplicate,
+        "state": state,
+        "policy_digest": policy.digest(),
+        "policy_revision": policy.revision,
         "execution_authority": False,
         "activation_boundary": "protected-plan-only",
     }

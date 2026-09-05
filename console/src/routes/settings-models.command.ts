@@ -8,11 +8,19 @@ export interface ModelBindingProposalReceipt {
   readonly proposalId: string;
   readonly acceptedAt: string;
   readonly duplicate: boolean;
-  readonly state: "draft" | "assessment-requested" | "plan-requested";
+  readonly state:
+    | "draft"
+    | "assessment-requested"
+    | "plan-requested"
+    | "plan-required";
   readonly policyDigest: string;
   readonly policyRevision: number;
   readonly executionAuthority: false;
   readonly activationBoundary: "protected-plan-only";
+}
+
+export interface DocumentOcrProposalReceipt extends ModelBindingProposalReceipt {
+  readonly state: "plan-required" | "plan-requested";
 }
 
 export async function saveNarratorPreference(
@@ -89,6 +97,61 @@ export async function requestModelBindingOperation(
   ));
 }
 
+export async function saveDocumentOcrPolicy(
+  auth: AuthContext,
+  operatorApiBaseUrl: string,
+  input: {
+    readonly environment: "dev" | "staging" | "prod";
+    readonly expectedRevision: number;
+    readonly provider: "local_python" | "azure_document_intelligence";
+    readonly azureResourceDesired: boolean;
+    readonly deprovisionRequested: boolean;
+    readonly idempotencyKey: string;
+  },
+): Promise<DocumentOcrProposalReceipt> {
+  return decodeDocumentOcrProposalReceipt(await putGovernedJson(
+    auth,
+    operatorApiBaseUrl,
+    "/models/document-ocr-policy",
+    {
+      policy: {
+        schema_version: "1.0.0",
+        environment: input.environment,
+        revision: input.expectedRevision + 1,
+        desired_provider: input.provider,
+        azure_resource_desired: input.azureResourceDesired,
+        deprovision_requested: input.deprovisionRequested,
+      },
+      expected_revision: input.expectedRevision,
+      idempotency_key: input.idempotencyKey,
+    },
+  ));
+}
+
+export async function requestDocumentOcrPlan(
+  auth: AuthContext,
+  operatorApiBaseUrl: string,
+  input: {
+    readonly environment: string;
+    readonly policyRevision: number;
+    readonly policyDigest: string;
+    readonly idempotencyKey: string;
+  },
+): Promise<DocumentOcrProposalReceipt> {
+  return decodeDocumentOcrProposalReceipt(await putGovernedJson(
+    auth,
+    operatorApiBaseUrl,
+    "/models/document-ocr-policy/plan",
+    {
+      environment: input.environment,
+      policy_revision: input.policyRevision,
+      policy_digest: input.policyDigest,
+      idempotency_key: input.idempotencyKey,
+    },
+    "POST",
+  ));
+}
+
 async function putModelSettings(
   auth: AuthContext,
   operatorApiBaseUrl: string,
@@ -108,11 +171,13 @@ export function decodeModelBindingProposalReceipt(value: unknown): ModelBindingP
   ) {
     throw new Error("model binding receipt accepted_at is invalid");
   }
+
   const duplicate = requiredBoolean(item["duplicate"], "duplicate");
   const state = requiredLiteral(item["state"], "state", [
     "draft",
     "assessment-requested",
     "plan-requested",
+    "plan-required",
   ]) as ModelBindingProposalReceipt["state"];
   const policyDigest = requiredString(item["policy_digest"], "policy_digest");
   const policyRevision = requiredNonNegativeInteger(item["policy_revision"], "policy_revision");
@@ -134,6 +199,14 @@ export function decodeModelBindingProposalReceipt(value: unknown): ModelBindingP
     executionAuthority: false,
     activationBoundary,
   };
+}
+
+export function decodeDocumentOcrProposalReceipt(value: unknown): DocumentOcrProposalReceipt {
+  const receipt = decodeModelBindingProposalReceipt(value);
+  if (receipt.state !== "plan-required" && receipt.state !== "plan-requested") {
+    throw new Error("document OCR receipt state is invalid");
+  }
+  return receipt as DocumentOcrProposalReceipt;
 }
 
 function requiredObject(value: unknown, label: string): Record<string, unknown> {

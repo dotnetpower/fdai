@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 9d5dd0fed264eb7f8675620ff5caf9b0b5a6d1c1 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 1e6747b8fa797e9bdb504f9c8e7a1746bfef62ef }]
 ---
 
 # Deploy Quickstart
@@ -230,8 +230,12 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **Email notifications**: an incident-open message arrives as multipart HTML and plain text.
      When the Console is enabled, its detail link uses the Static Web App origin and Settings >
      Integrations shows the same renderer with synthetic placeholders.
-   - **Document OCR**: the ingestion identity has `Cognitive Services User` only
-     on the configured Document Intelligence resource.
+   - **Document OCR**: choose `use_local_retain` for local Korean and English
+     OCR without deleting Azure, `use_azure_provision` to plan the private
+     Document Intelligence account, or `deprovision_use_local` to select local
+     OCR before removal. The ingestion identity has `Cognitive Services User`
+     only on the configured Document Intelligence resource. Plan is the default,
+     and apply still requires separate approval.
    - **Case history**: only its dedicated managed identity has Blob data access,
      its private network rules retain Defender scanner private-link access, the
      executor has no case-history Blob role, and

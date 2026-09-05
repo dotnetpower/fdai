@@ -13,8 +13,57 @@ server-side content validation.
 ## Design at a glance
 
 The capability endpoint and upload boundary consume one shared allowlist. A filename extension and
-media-type hint select an eligible parser only. Production advertises image sources only when OCR
-is configured.
+media-type hint select an eligible parser only. Production advertises image sources only when an
+optical character recognition (OCR) provider is ready.
+
+## OCR provider control
+
+Local Python OCR is the default provider. You can select Azure Document Intelligence from
+**Settings > Integrations > Document OCR**. Saving a selection writes a revision-fenced policy and
+a protected plan request. It doesn't run Terraform or grant apply authority.
+
+The policy separates the active provider from the Azure resource lifecycle:
+
+| Operator intent | Runtime provider | Azure resource |
+|-----------------|------------------|----------------|
+| Keep the current state | Preserve the last applied provider | Preserve the current resource state |
+| Use local OCR | `local_python` | Retain an existing resource |
+| Use Azure OCR | `azure_document_intelligence` | Provision or retain the resource |
+| Remove Azure OCR | `local_python` | Plan explicit deprovisioning |
+
+The Settings projection reports the effective provider only after deployment readback. A requested
+provider doesn't become effective because a policy was saved or a plan was accepted.
+
+## Local Korean OCR
+
+The local provider uses Tesseract with pinned `kor+eng` language data. Rasterization and OCR run in
+a spawned process with CPU, memory, elapsed-time, page-count, pixel-count, line-count, character,
+and inter-process output limits. PDF pages are rasterized with `pypdfium2`; PNG, JPEG, and TIFF
+frames use Pillow. Runtime language downloads aren't supported.
+
+Provider readiness checks require both Korean and English language data. Missing data, parser
+errors, timeouts, and output-bound violations produce an unavailable provider result without
+placing document text in logs.
+
+## Azure Document Intelligence lifecycle
+
+Azure mode uses the `prebuilt-read` model through managed identity. The protected Terraform
+workflow can provision a `FormRecognizer` account with local authentication disabled, diagnostics,
+a private endpoint, and private DNS. The ingestion worker receives `Cognitive Services User` on
+the selected resource.
+
+The workflow is plan-only by default. The `document_ocr_action` input binds one of four explicit
+operations to the protected deployment request: `preserve`, `use_local_retain`,
+`use_azure_provision`, or `deprovision_use_local`. An apply still requires an exact protected plan
+and separate approval. Later deployments preserve the previously applied resource and provider
+unless an OCR action explicitly changes them.
+
+For a Settings-originated request, the protected runner resolves `plan-ocr-<proposal>-<digest>`
+coordinates against the authoritative PostgreSQL proposal outbox, which is the durable request
+queue. It accepts the action only when the
+proposal, current policy, plan-request state, environment, principal, idempotency key, and digest
+agree. The runner then derives the Terraform action from the policy instead of trusting a
+workflow-supplied provider value.
 
 ## Intake and processing matrix
 
@@ -31,7 +80,7 @@ is configured.
 
 ## Extraction and failure behavior
 
-Embedded images use bounded package-member extraction and the configured OCR provider. A modern
+Embedded images use bounded package-member extraction and the effective OCR provider. A modern
 Office document with usable native text can finish as `ready_with_warnings` when embedded-image OCR
 is unavailable. An image-only document, scanned PDF, or image-only Office package cannot become
 ready without cited OCR text. Empty extraction is a typed failure, not a searchable zero-content

@@ -9,15 +9,13 @@ run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, 
 #       DEPLOY_RUNNER_CLIENT_ID, DEPLOY_RUNNER_PRINCIPAL_ID,
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
-#       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE
-#       (required when deploy_console=true),
+#       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE,
+#       PRODUCTION_BUDGET_ALERT_EMAILS_JSON (required when deploy_console=true),
 #       Feature-specific variables are documented by their workflow inputs and
 #       docs/roadmap/deployment/deploy-and-onboard.md.
 #   - Repo secrets:
 #       POSTGRES_ADMIN_LOGIN, POSTGRES_ADMIN_PASSWORD,
 #       CHATOPS_WEBHOOK_URL, CHATOPS_WEBHOOK_SECRET
-#   - Production workflow inputs:
-#       digest-pinned image, alert email, monthly budget, budget-alert email JSON.
 # Default run is plan-only (shadow). Set the `apply` input to true to enforce.
 on:
   workflow_dispatch:
@@ -103,6 +101,11 @@ on:
         description: "Provision ADLS Gen2 HNS storage and the document-ingestion gateway."
         type: boolean
         default: false
+      document_ocr_action:
+        description: "Preserve OCR state, retain Azure while using local OCR, provision/use Azure, or deprovision/use local."
+        type: choice
+        options: [preserve, use_local_retain, use_azure_provision, deprovision_use_local]
+        default: preserve
       deploy_monitoring:
         description: "Provision the action group, alerts, and diagnostic settings."
         type: boolean
@@ -119,10 +122,6 @@ on:
         description: "Prod-only positive monthly budget amount."
         type: string
         required: false
-      production_budget_alert_emails_json:
-        description: "Prod-only JSON string list of budget alert emails."
-        type: string
-        required: false
 permissions:
   attestations: read
   contents: read
@@ -134,8 +133,8 @@ jobs:
   terraform:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
-    # Declared budget. Without it the only bound is the six-hour runner default, which cannot
-    # tell a stalled provider from a slow apply and holds the single deploy runner meanwhile.
+    # Declared budget. Without it the only bound is the six-hour runner default, which cannot tell
+    # a stalled provider from a slow apply and holds the single deploy runner meanwhile.
     timeout-minutes: 180
     environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
@@ -169,16 +168,18 @@ jobs:
       TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
       TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
       TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
-      TF_CLI_ARGS_plan: ${{ (startsWith(inputs.request_id, 'plan-rca-') || startsWith(inputs.request_id, 'apply-rca-')) && '-target=module.rca_reader_identity -target=azurerm_role_assignment.rca_monitoring_reader' || (startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-')) && '-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t1.judge\"] -target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]' || inputs.deploy_design_mocks && '-target=module.design_mocks' || (inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion) && '-target=module.monitoring' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=module.measurement_runners.azurerm_container_app_job.baseline_regression -target=module.measurement_runners.azurerm_container_app_job.pattern_growth -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
+      TF_CLI_ARGS_plan: ${{ (startsWith(inputs.request_id, 'plan-rca-') || startsWith(inputs.request_id, 'apply-rca-')) && '-target=module.rca_reader_identity -target=azurerm_role_assignment.rca_monitoring_reader' || (startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-')) && '-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t1.judge\"] -target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]' || inputs.deploy_design_mocks && '-target=module.design_mocks' || (inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && inputs.document_ocr_action == 'preserve') && '-target=module.monitoring' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=module.measurement_runners.azurerm_container_app_job.baseline_regression -target=module.measurement_runners.azurerm_container_app_job.pattern_growth -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') || startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') || inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
       MODEL_BINDING_POLICY_JSON: ""
       MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}
+      DOCUMENT_OCR_ACTION: ${{ inputs.document_ocr_action }}
+      OCR_POLICY_ONLY: ${{ startsWith(inputs.request_id, 'plan-ocr-') || startsWith(inputs.request_id, 'apply-ocr-') }}
       CORE_MODEL_QUORUM_ONLY: ${{ startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') }}
       VALIDATE_CHATOPS_CHANNELS: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') }}
-      MONITORING_ONLY: ${{ inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion }}
+      MONITORING_ONLY: ${{ inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && inputs.document_ocr_action == 'preserve' }}
       RCA_READER_IDENTITY_ONLY: ${{ startsWith(inputs.request_id, 'plan-rca-') || startsWith(inputs.request_id, 'apply-rca-') }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
@@ -316,6 +317,7 @@ jobs:
           DEPLOY_CORE_MODEL_QUORUM: ${{ env.CORE_MODEL_QUORUM_ONLY }}
           DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
           DEPLOY_DOCUMENT_INGESTION: ${{ inputs.deploy_document_ingestion }}
+          DOCUMENT_OCR_ACTION: ${{ inputs.document_ocr_action }}
           DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
           DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
           DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
@@ -355,7 +357,7 @@ jobs:
           PROD_CORE_IMAGE: ${{ inputs.production_core_image }}
           PROD_ALERT_EMAIL: ${{ inputs.production_alert_email }}
           PROD_MONTHLY_BUDGET_AMOUNT: ${{ inputs.production_monthly_budget }}
-          PROD_BUDGET_ALERT_EMAILS_JSON: ${{ inputs.production_budget_alert_emails_json }}
+          PROD_BUDGET_ALERT_EMAILS_JSON: ${{ vars.PRODUCTION_BUDGET_ALERT_EMAILS_JSON || '[]' }}
         run: |
           if [[ ! "$PROD_CORE_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]]; then
             echo "PROD_CORE_IMAGE must be digest-pinned." >&2
@@ -392,6 +394,20 @@ jobs:
           bash scripts/deployment/azure/login-deploy-identity.sh
           "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
           "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+      - name: Bind document OCR proposal
+        if: env.OCR_POLICY_ONLY == 'true'
+        working-directory: ${{ github.workspace }}
+        env:
+          OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/document-ocr-proposal.json"
+          bash scripts/deployment/azure/materialize-document-ocr-proposal.sh \
+            "${{ inputs.environment }}" "$REQUEST_ID" "$output"
+          action="$(jq -er '.action' "$output")"
+          printf 'DOCUMENT_OCR_ACTION=%s\n' "$action" >> "$GITHUB_ENV"
       - name: Resolve and seal model capabilities
         if: ${{ !inputs.apply && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
@@ -519,6 +535,42 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Resolve document OCR desired state
+        if: ${{ inputs.apply || env.MODEL_BINDING_ONLY != 'true' }}
+        run: |
+          set -euo pipefail
+          if terraform state list | grep -Fxq \
+            'module.document_intelligence[0].azurerm_cognitive_account.document_intelligence'; then
+            existing_resource=true
+          else
+            existing_resource=false
+          fi
+          case "$DOCUMENT_OCR_ACTION" in
+            preserve)
+              resource_enabled="$existing_resource"
+              provider="$(terraform output -raw document_ocr_provider 2>/dev/null \
+                || printf '%s' local_python)"
+              ;;
+            use_local_retain)
+              resource_enabled="$existing_resource"
+              provider=local_python
+              ;;
+            use_azure_provision)
+              resource_enabled=true
+              provider=azure_document_intelligence
+              ;;
+            deprovision_use_local)
+              resource_enabled=false
+              provider=local_python
+              ;;
+            *)
+              echo "Document OCR action is invalid." >&2
+              exit 1
+              ;;
+          esac
+          printf 'TF_VAR_enable_document_intelligence=%s\n' "$resource_enabled" >> "$GITHUB_ENV"
+          printf 'TF_VAR_document_ocr_provider=%s\n' "$provider" >> "$GITHUB_ENV"
 
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
@@ -978,8 +1030,8 @@ jobs:
           arm_types = live.setdefault("arm_resource_type_map", {})
           if not isinstance(terraform_types, dict) or not isinstance(arm_types, dict):
             raise SystemExit("runner preflight resource type mappings must be objects")
-          terraform_types.update({"azurerm_application_insights": "observability.application-insights", "azurerm_cognitive_account_project": "azure.ai.project", "azurerm_cognitive_deployment": "azure.ai.deployment", "azurerm_container_app_environment": "runtime.container-app-environment", "azurerm_container_registry": "storage.container-registry", "azurerm_key_vault": "secret.vault", "azurerm_log_analytics_workspace": "observability.log-analytics", "azurerm_monitor_diagnostic_setting": "diagnostic-settings", "azurerm_postgresql_flexible_server": "data.postgresql", "azurerm_postgresql_flexible_server_configuration": "data.postgresql-configuration", "azurerm_postgresql_flexible_server_database": "data.postgresql-database", "azurerm_resource_group": "deployment.resource-group", "azurerm_storage_management_policy": "storage.management-policy", "azurerm_virtual_network_peering": "network.vnet-peering"})
-          arm_types.update({"azure.ai.project": "Microsoft.CognitiveServices/accounts/projects", "azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments", "data.postgresql": "Microsoft.DBforPostgreSQL/flexibleServers", "data.postgresql-configuration": "Microsoft.DBforPostgreSQL/flexibleServers/configurations", "data.postgresql-database": "Microsoft.DBforPostgreSQL/flexibleServers/databases", "deployment.resource-group": "Microsoft.Resources/resourceGroups", "diagnostic-settings": "Microsoft.Insights/diagnosticSettings", "network.vnet-peering": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings", "observability.application-insights": "Microsoft.Insights/components", "observability.log-analytics": "Microsoft.OperationalInsights/workspaces", "runtime.container-app-environment": "Microsoft.App/managedEnvironments", "secret.vault": "Microsoft.KeyVault/vaults", "storage.container-registry": "Microsoft.ContainerRegistry/registries", "storage.management-policy": "Microsoft.Storage/storageAccounts/managementPolicies"})
+          terraform_types.update({"azurerm_application_insights": "observability.application-insights", "azurerm_cognitive_account": "azure.ai.account", "azurerm_cognitive_account_project": "azure.ai.project", "azurerm_cognitive_deployment": "azure.ai.deployment", "azurerm_container_app_environment": "runtime.container-app-environment", "azurerm_container_registry": "storage.container-registry", "azurerm_key_vault": "secret.vault", "azurerm_log_analytics_workspace": "observability.log-analytics", "azurerm_monitor_diagnostic_setting": "diagnostic-settings", "azurerm_postgresql_flexible_server": "data.postgresql", "azurerm_postgresql_flexible_server_configuration": "data.postgresql-configuration", "azurerm_postgresql_flexible_server_database": "data.postgresql-database", "azurerm_resource_group": "deployment.resource-group", "azurerm_storage_management_policy": "storage.management-policy", "azurerm_virtual_network_peering": "network.vnet-peering"})
+          arm_types.update({"azure.ai.account": "Microsoft.CognitiveServices/accounts", "azure.ai.project": "Microsoft.CognitiveServices/accounts/projects", "azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments", "data.postgresql": "Microsoft.DBforPostgreSQL/flexibleServers", "data.postgresql-configuration": "Microsoft.DBforPostgreSQL/flexibleServers/configurations", "data.postgresql-database": "Microsoft.DBforPostgreSQL/flexibleServers/databases", "deployment.resource-group": "Microsoft.Resources/resourceGroups", "diagnostic-settings": "Microsoft.Insights/diagnosticSettings", "network.vnet-peering": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings", "observability.application-insights": "Microsoft.Insights/components", "observability.log-analytics": "Microsoft.OperationalInsights/workspaces", "runtime.container-app-environment": "Microsoft.App/managedEnvironments", "secret.vault": "Microsoft.KeyVault/vaults", "storage.container-registry": "Microsoft.ContainerRegistry/registries", "storage.management-policy": "Microsoft.Storage/storageAccounts/managementPolicies"})
           live["additional_policy_scopes"] = [{"resource_group": os.environ["TF_VAR_ops_resource_group_name"], "resource_types": ["network.vnet-peering"]}]
           if os.environ["DEPLOY_MONITORING"] == "true":
             terraform_types.update({
@@ -2297,4 +2349,8 @@ jobs:
           EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           ENTRA_CONSOLE_SPA_CLIENT_ID: ${{ vars.ENTRA_CONSOLE_SPA_CLIENT_ID }}
           ENTRA_CONSOLE_API_SCOPE: ${{ vars.ENTRA_CONSOLE_API_SCOPE }}
+          FDAI_DEPLOY_ENVIRONMENT: dev
+          STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
+          STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP || vars.OPS_RESOURCE_GROUP_NAME }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
         run: bash scripts/deployment/azure/publish-console.sh infra

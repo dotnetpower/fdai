@@ -69,6 +69,31 @@ export interface WebSearchSettingsView {
   readonly candidates: readonly unknown[];
 }
 
+export interface DocumentOcrSettingsView {
+  readonly available: boolean;
+  readonly revision: number;
+  readonly desiredProvider: "local_python" | "azure_document_intelligence";
+  readonly effectiveProvider: "local_python" | "azure_document_intelligence";
+  readonly localPythonAvailable: boolean;
+  readonly azureAvailable: boolean;
+  readonly azureResourceDesired: boolean;
+  readonly azureResourceState:
+    | "absent"
+    | "plan-required"
+    | "plan-requested"
+    | "provisioning"
+    | "verifying"
+    | "ready"
+    | "draining"
+    | "failed";
+  readonly requestState: string;
+  readonly koreanEnabled: boolean;
+  readonly deprovisionRequested: boolean;
+  readonly policyDigest: string | null;
+  readonly canManage: boolean;
+  readonly executionAuthority: false;
+}
+
 export interface ModelRoutingCandidateView {
   readonly deployment: string;
   readonly status: "unhealthy" | "recovered";
@@ -248,6 +273,7 @@ export interface ModelSettingsView {
     readonly candidates: readonly NarratorCandidateView[];
   };
   readonly webSearch: WebSearchSettingsView;
+  readonly documentOcr: DocumentOcrSettingsView;
   readonly modelRouting: readonly ModelRoutingRoleView[];
   readonly t2SelectionScope: "system-governed";
   readonly t2ModelPolicy: T2ModelPolicyView;
@@ -262,6 +288,25 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
   const resolvedMetadata = object(root["resolved_metadata"], "model settings.resolved_metadata");
   const narrator = object(root["narrator"], "model settings.narrator");
   const webSearch = object(root["web_search"], "model settings.web_search");
+  const documentOcr = object(
+    root["document_ocr"] ?? {
+      available: true,
+      revision: 0,
+      desired_provider: "local_python",
+      effective_provider: "local_python",
+      local_python_available: true,
+      azure_available: false,
+      azure_resource_desired: false,
+      azure_resource_state: "absent",
+      request_state: "absent",
+      korean_enabled: true,
+      deprovision_requested: false,
+      policy_digest: null,
+      can_manage: false,
+      execution_authority: false,
+    },
+    "model settings.document_ocr",
+  );
   const bindingPolicy = object(
     root["binding_policy"] ?? {
       environment: root["environment"] ?? "unspecified",
@@ -326,6 +371,9 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
   const t2Scope = string(root["t2_selection_scope"], "t2_selection_scope");
   if (t2Scope !== "system-governed") {
     throw new Error("t2_selection_scope MUST be system-governed");
+  }
+  if (documentOcr["execution_authority"] !== false) {
+    throw new Error("document_ocr.execution_authority MUST be false");
   }
   return {
     region: nullableString(root["region"], "model settings.region"),
@@ -398,6 +446,43 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
         "web_search.current_auto_pick",
       ),
       candidates: array(webSearch["candidates"], "web_search.candidates"),
+    },
+    documentOcr: {
+      available: boolean(documentOcr["available"], "document_ocr.available"),
+      revision: nonNegativeInteger(documentOcr["revision"], "document_ocr.revision"),
+      desiredProvider: knownString(
+        documentOcr["desired_provider"],
+        "document_ocr.desired_provider",
+        ["local_python", "azure_document_intelligence"],
+      ) as DocumentOcrSettingsView["desiredProvider"],
+      effectiveProvider: knownString(
+        documentOcr["effective_provider"],
+        "document_ocr.effective_provider",
+        ["local_python", "azure_document_intelligence"],
+      ) as DocumentOcrSettingsView["effectiveProvider"],
+      localPythonAvailable: boolean(
+        documentOcr["local_python_available"],
+        "document_ocr.local_python_available",
+      ),
+      azureAvailable: boolean(documentOcr["azure_available"], "document_ocr.azure_available"),
+      azureResourceDesired: boolean(
+        documentOcr["azure_resource_desired"],
+        "document_ocr.azure_resource_desired",
+      ),
+      azureResourceState: knownString(
+        documentOcr["azure_resource_state"],
+        "document_ocr.azure_resource_state",
+        ["absent", "plan-required", "plan-requested", "provisioning", "verifying", "ready", "draining", "failed"],
+      ) as DocumentOcrSettingsView["azureResourceState"],
+      requestState: string(documentOcr["request_state"], "document_ocr.request_state"),
+      koreanEnabled: boolean(documentOcr["korean_enabled"], "document_ocr.korean_enabled"),
+      deprovisionRequested: boolean(
+        documentOcr["deprovision_requested"],
+        "document_ocr.deprovision_requested",
+      ),
+      policyDigest: nullableString(documentOcr["policy_digest"], "document_ocr.policy_digest"),
+      canManage: boolean(documentOcr["can_manage"], "document_ocr.can_manage"),
+      executionAuthority: false,
     },
     modelRouting,
     t2SelectionScope: "system-governed",

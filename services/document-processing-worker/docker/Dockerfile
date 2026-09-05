@@ -2,7 +2,7 @@
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:adafcc17694d715c905b4c7bebd96907a1fd5cf183395f0ebc4d3428bd22d92d AS builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -10,7 +10,9 @@ ENV UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apk add --no-cache build-base zlib-dev
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv==0.11.32
 
 WORKDIR /build
@@ -38,16 +40,16 @@ RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && test -x /app/.venv/bin/fdai-document-processing-worker \
     && test "$(head -n 1 /app/.venv/bin/fdai-document-processing-worker)" = "#!/app/.venv/bin/python"
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:adafcc17694d715c905b4c7bebd96907a1fd5cf183395f0ebc4d3428bd22d92d AS runtime
 
-ARG OPENSSL_LIBS_VERSION=3.5.8-r0
-ARG SQLITE_LIBS_VERSION=3.53.4-r0
-RUN apk add --no-cache --upgrade \
-        "libcrypto3=${OPENSSL_LIBS_VERSION}" \
-        "libssl3=${OPENSSL_LIBS_VERSION}" \
-    && apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
-        "sqlite-libs=${SQLITE_LIBS_VERSION}" \
-    && rm -rf /usr/local/lib/python3.13/site-packages/pip \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        libgomp1 \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-kor \
+    && rm -rf /var/lib/apt/lists/* \
+        /usr/local/lib/python3.13/site-packages/pip \
         /usr/local/lib/python3.13/site-packages/pip-*.dist-info
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -55,7 +57,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \
     HOME=/tmp/fdai \
     PATH="/app/.venv/bin:${PATH}" \
-    XDG_CACHE_HOME=/tmp/fdai/.cache
+    XDG_CACHE_HOME=/tmp/fdai/.cache \
+    OMP_NUM_THREADS=1
 
 WORKDIR /app
 COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv

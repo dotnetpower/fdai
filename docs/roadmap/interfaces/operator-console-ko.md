@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c74be36d2b04df583da80e3f415f8e100d92e6a5
+translation_source_sha: 8ac879967a68f3e376186b10265a48d70b7062e7
 translation_revised: 2026-09-05
 ---
 # FDAI Console 대화
@@ -9,6 +9,11 @@ translation_revised: 2026-09-05
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다.
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. Owner는 상용 클라우드 Teams Workflows URL 한 개를 저장하고 범위가 제한된 진단으로 고정된 합성 Adaptive Card 한 건을 전송할 수도 있습니다. 배포 환경은 전용 Key Vault 시크릿과 버전이 지정된 이 시크릿 하나만 쓸 수 있는 Managed Identity를 사용합니다. 로컬 프로필은 비공개 서비스 DSN에서 도메인을 분리하여 파생한 키로 값을 암호화하고 루프백 Operator 데이터베이스에는 암호문만 저장합니다. FDAI는 저장된 정확한 버전을 다시 읽고 다이제스트를 확인한 후 테스트합니다. Contributor, Approver 및 Owner 역할은 새로고침 후 `no-store` 응답으로 현재 URL을 받고 Reader와 BreakGlass 역할은 `visible: false`만 받습니다. reveal에 성공할 때마다 URL 없이 행위자, 다이제스트, 바인딩 버전 및 타임스탬프를 담은 감사 기록을 남깁니다. 시크릿 저장 또는 reveal은 승인이나 실행 권한을 부여하지 않으며 알림 런타임이 이 바인딩을 참조하는 시점은 배포에서 계속 제어합니다.
 Settings > Runtime policies에서는 Owner가 적극적인 T2 답변 복구를 제어할 수 있습니다. 모든 환경에서 기본적으로 비활성화하며, 승격 근거가 있을 때만 감사되는 override로 활성화합니다. 감사되는 리비전을 저장하면 Core를 재시작하지 않고 이후 대화형 읽기 턴에 적용됩니다. 이 컨트롤은 Golden 캠페인, 액션 초안, 범위 또는 권한 부여 차단, 실행 경로에서 T2를 활성화할 수 없으며 온톨로지 또는 근거 검증을 완화하지 않습니다. 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다.
+Settings > Integrations > Document OCR에서는 Owner가 프로세스로 격리된 로컬 한국어 및 영어
+OCR을 선택하거나 Azure Document Intelligence를 요청할 수 있습니다. 저장하면 적용 권한 없이
+수정 버전과 다이제스트로 보호되는 정책 및 보호된 계획 요청을 생성합니다. 패널은 배포 후 실제
+상태 확인으로 확정한 공급자를 표시하고 계획 요청 재시도를 지원하며, 로컬 OCR 전환과 Azure
+리소스의 명시적 제거를 분리합니다.
 컨트롤 보기에서는 카탈로그 존재와 의미 매핑을 범위별 평가, 적용 가능성, 충족 상태와 구분합니다.
 대시보드는 로딩, 부분 완료 및 사용 불가 상태에서도 범위가 제한된 서비스 상태 답변을
 보존합니다. 일반 인벤토리 데이터로 대체하지 않고 의미 변환 결과의 정확한 리소스 식별자,

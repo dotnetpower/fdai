@@ -27,6 +27,7 @@ _CONTEXT = hashlib.sha256(
         '"deploy_document_ingestion":false,'
         '"deploy_isolated_executor":false,"deploy_monitoring":false,'
         '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
+        '"document_ocr_action":"preserve",'
         '"runtime_image_revision":""}}'
     ).encode()
 ).hexdigest()
@@ -62,6 +63,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "DEPLOY_OPERATOR_CHANNEL_EDGE": "false",
         "VALIDATE_CHATOPS_CHANNELS": "false",
         "DEPLOY_DOCUMENT_INGESTION": "false",
+        "DOCUMENT_OCR_ACTION": "preserve",
         "DEPLOY_MONITORING": "false",
         "RCA_READER_IDENTITY_ONLY": "false",
         "RUNTIME_IMAGE_REVISION": "",
@@ -80,6 +82,37 @@ def _request(**overrides: str) -> dict[str, str]:
 
 def test_unprotected_plan_request_is_valid() -> None:
     validate(_request(), checkout_commit=_COMMIT)
+
+
+def test_document_ocr_proposal_plan_derives_action_from_policy() -> None:
+    request_id = f"plan-ocr-{'a' * 32}-{'b' * 64}"
+    validate(
+        _request(
+            REQUEST_ID=request_id,
+            CONTEXT_DIGEST=_CONTEXT,
+            COMMIT_SHA=_COMMIT,
+            DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+        ),
+        checkout_commit=_COMMIT,
+    )
+
+    with pytest.raises(ValueError, match="derive their action"):
+        validate(
+            _request(
+                REQUEST_ID=request_id,
+                DOCUMENT_OCR_ACTION="use_azure_provision",
+                CONTEXT_DIGEST=_CONTEXT,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_document_ocr_proposal_apply_requires_apply_mode() -> None:
+    request_id = f"apply-ocr-{'a' * 32}-{'b' * 64}"
+    with pytest.raises(ValueError, match="mode does not match"):
+        validate(_request(REQUEST_ID=request_id), checkout_commit=_COMMIT)
 
 
 def test_console_deployment_requires_an_api_scope() -> None:
@@ -252,6 +285,24 @@ def test_monitoring_only_rejects_runtime_image_but_full_plan_can_preserve_it() -
         )
 
 
+def test_document_intelligence_round_trip_updates_context_digest() -> None:
+    values = _request(DEPLOY_DOCUMENT_INTELLIGENCE="true", COMMIT_SHA=_COMMIT)
+    context = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    values.update(
+        REQUEST_ID=f"plan-{prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+
+    validate(values, checkout_commit=_COMMIT)
+
+
 def test_rca_reader_identity_is_exclusive() -> None:
     validate(_request(RCA_READER_IDENTITY_ONLY="true"), checkout_commit=_COMMIT)
 
@@ -384,6 +435,7 @@ def _gateway_context() -> str:
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":false,"deploy_monitoring":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
+            '"document_ocr_action":"preserve",'
             '"runtime_image_revision":""}}'
         ).encode()
     ).hexdigest()
@@ -447,6 +499,7 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":true,"deploy_monitoring":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
+            '"document_ocr_action":"preserve",'
             '"runtime_image_revision":"' + image_revision + '"}}'
         ).encode()
     ).hexdigest()

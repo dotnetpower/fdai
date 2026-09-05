@@ -41,6 +41,7 @@ import {
   type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
 } from "./settings-teams-workflow.model";
+import { DocumentOcrSettingsPanel } from "./document-ocr-settings";
 
 /**
  * A1 approvals, A2/A4 notifications, and A3 conversations use separate
@@ -199,6 +200,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
           <a href={routeHref("onboarding")}>{t("route.onboarding")}</a>
         </nav>
       </section>
+      <DocumentOcrSettingsPanel client={client} auth={auth} />
       <section class="settings-section" aria-labelledby="settings-incident-email-template">
         <h3 id="settings-incident-email-template">{t("settings.emailTemplateHeading")}</h3>
         <AsyncBoundary

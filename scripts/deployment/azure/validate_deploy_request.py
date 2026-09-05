@@ -14,11 +14,11 @@ _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
     r"^plan-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
-    r"model-[0-9a-f]{32}-[0-9a-f]{64})$"
+    r"(?:model|ocr)-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
     r"^apply-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
-    r"model-[0-9a-f]{64})$"
+    r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _TRUE = "true"
@@ -58,7 +58,18 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     monitoring = _enabled(values, "DEPLOY_MONITORING")
     rca_reader_identity = _enabled(values, "RCA_READER_IDENTITY_ONLY")
     resume = _enabled(values, "RESUME_VERIFICATION")
+    document_ocr_action = values.get("DOCUMENT_OCR_ACTION", "preserve")
+    if document_ocr_action not in {
+        "preserve",
+        "use_local_retain",
+        "use_azure_provision",
+        "deprovision_use_local",
+    }:
+        raise ValueError("DOCUMENT_OCR_ACTION is invalid")
     request_id = values.get("REQUEST_ID", "")
+    ocr_policy_only = (
+        re.fullmatch(r"(?:plan|apply)-ocr-[0-9a-f]{32}-[0-9a-f]{64}", request_id) is not None
+    )
     context_digest = values.get("CONTEXT_DIGEST", "")
     runtime_image_revision = values.get("RUNTIME_IMAGE_REVISION", "")
     if deploy_console and _API_SCOPE.fullmatch(values.get("ENTRA_CONSOLE_API_SCOPE", "")) is None:
@@ -163,6 +174,25 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         "DEPLOY_DOCUMENT_INGESTION",
         "DEPLOY_MONITORING",
     )
+    if ocr_policy_only:
+        if document_ocr_action != "preserve":
+            raise ValueError("document OCR proposal requests must derive their action from policy")
+        if apply != request_id.startswith("apply-ocr-"):
+            raise ValueError("document OCR proposal request mode does not match apply")
+        if context_digest and _deployment_context_digest(values) != context_digest:
+            raise ValueError("document OCR deployment context does not match workflow inputs")
+        if (
+            any(_enabled(values, key) for key in targets)
+            or design_mocks
+            or model_only
+            or deploy_core_model_quorum
+            or validate_chatops
+            or rca_reader_identity
+            or runtime_image_revision
+        ):
+            raise ValueError(
+                "document OCR proposal cannot be combined with another deployment target"
+            )
     if deploy_core_model_quorum:
         if values.get("TARGET_ENVIRONMENT") != "dev":
             raise ValueError("core model quorum deployment is restricted to dev")
@@ -182,35 +212,42 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "VERIFY_EXECUTOR_EFFECT",
             "MODEL_BINDING_ONLY",
         )
-        if any(_enabled(values, key) for key in mixed) or values.get("RUNTIME_IMAGE_REVISION", ""):
+        if (
+            any(_enabled(values, key) for key in mixed)
+            or document_ocr_action != "preserve"
+            or values.get("RUNTIME_IMAGE_REVISION", "")
+        ):
             raise ValueError(
                 "core model quorum deployment cannot be combined with another bounded operation"
             )
     if design_mocks:
         if values.get("TARGET_ENVIRONMENT") != "dev":
             raise ValueError("design-mocks deployment is restricted to the dev environment")
-        if any(_enabled(values, key) for key in targets):
+        if any(_enabled(values, key) for key in targets) or document_ocr_action != "preserve":
             raise ValueError(
                 "deploy_design_mocks cannot be combined with another deployment target"
             )
-    application_target = any(
-        _enabled(values, key)
-        for key in (
-            "DEPLOY_CONSOLE",
-            "DEPLOY_OPERATOR_API",
-            "DEPLOY_ISOLATED_EXECUTOR",
-            "DEPLOY_DEV_OPERATIONS_GATEWAY",
-            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
-            "DEPLOY_DOCUMENT_INGESTION",
+    application_target = (
+        any(
+            _enabled(values, key)
+            for key in (
+                "DEPLOY_CONSOLE",
+                "DEPLOY_OPERATOR_API",
+                "DEPLOY_ISOLATED_EXECUTOR",
+                "DEPLOY_DEV_OPERATIONS_GATEWAY",
+                "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+                "DEPLOY_DOCUMENT_INGESTION",
+            )
         )
+        or document_ocr_action != "preserve"
     )
     if monitoring and not application_target and runtime_image_revision:
         raise ValueError("deploy_monitoring cannot be combined with another deployment target")
 
     if rca_reader_identity:
-        mixed = targets
         if (
-            any(_enabled(values, key) for key in mixed)
+            any(_enabled(values, key) for key in targets)
+            or document_ocr_action != "preserve"
             or design_mocks
             or model_only
             or deploy_core_model_quorum
@@ -334,6 +371,7 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
                 "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
                 "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
                 "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
+                "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),
                 "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
             },
         },

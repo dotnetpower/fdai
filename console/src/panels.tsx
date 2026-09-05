@@ -30,21 +30,40 @@ import type { OperatorApiClient } from "./api";
 import type { AuthContext } from "./auth";
 import { t } from "./i18n";
 
-const DashboardRoute = lazy(async () => ({ default: (await import("./routes/dashboard")).DashboardRoute }));
-const LiveRoute = lazy(async () => ({ default: (await import("./routes/live")).LiveRoute }));
-const IncidentsRoute = lazy(async () => ({ default: (await import("./routes/incidents")).IncidentsRoute }));
-const AgentsRoute = lazy(async () => ({ default: (await import("./routes/agents")).AgentsRoute }));
-const HilQueueRoute = lazy(async () => ({ default: (await import("./routes/hil-queue")).HilQueueRoute }));
-const ProvisionRoute = lazy(async () => ({ default: (await import("./routes/provision")).ProvisionRoute }));
-const ProcessesRoute = lazy(async () => ({ default: (await import("./routes/processes")).ProcessesRoute }));
-const WorkflowAppsRoute = lazy(async () => ({ default: (await import("./routes/workflow-apps")).WorkflowAppsRoute }));
-const ReportsRoute = lazy(async () => ({ default: (await import("./routes/reports")).ReportsRoute }));
-const AgentActivityRoute = lazy(async () => ({ default: (await import("./routes/agent-activity")).AgentActivityRoute }));
-const AuditRoute = lazy(async () => ({ default: (await import("./routes/audit")).AuditRoute }));
-const BrowserEvidenceRoute = lazy(async () => ({ default: (await import("./routes/browser-evidence")).BrowserEvidenceRoute }));
-const ForecastLearningRoute = lazy(async () => ({ default: (await import("./routes/forecast-learning")).ForecastLearningRoute }));
-const ConversationSearchRoute = lazy(async () => ({ default: (await import("./routes/conversation-search")).ConversationSearchRoute }));
-const RuleTraceRoute = lazy(async () => ({ default: (await import("./routes/rule-trace")).RuleTraceRoute }));
+function lazyRoute<K extends string, M extends Record<K, ComponentType<PanelProps>>>(
+  load: () => Promise<M>,
+  name: K,
+) {
+  return lazy(async () => ({ default: (await load())[name] }));
+}
+
+const DashboardRoute = lazyRoute(() => import("./routes/dashboard"), "DashboardRoute");
+const LiveRoute = lazyRoute(() => import("./routes/live"), "LiveRoute");
+const IncidentsRoute = lazyRoute(() => import("./routes/incidents"), "IncidentsRoute");
+const AgentsRoute = lazyRoute(() => import("./routes/agents"), "AgentsRoute");
+const HilQueueRoute = lazyRoute(() => import("./routes/hil-queue"), "HilQueueRoute");
+const ProvisionRoute = lazyRoute(() => import("./routes/provision"), "ProvisionRoute");
+const ProcessesRoute = lazyRoute(() => import("./routes/processes"), "ProcessesRoute");
+const WorkflowAppsRoute = lazyRoute(() => import("./routes/workflow-apps"), "WorkflowAppsRoute");
+const ReportsRoute = lazyRoute(() => import("./routes/reports"), "ReportsRoute");
+const AgentActivityRoute = lazyRoute(
+  () => import("./routes/agent-activity"),
+  "AgentActivityRoute",
+);
+const AuditRoute = lazyRoute(() => import("./routes/audit"), "AuditRoute");
+const BrowserEvidenceRoute = lazyRoute(
+  () => import("./routes/browser-evidence"),
+  "BrowserEvidenceRoute",
+);
+const ForecastLearningRoute = lazyRoute(
+  () => import("./routes/forecast-learning"),
+  "ForecastLearningRoute",
+);
+const ConversationSearchRoute = lazyRoute(
+  () => import("./routes/conversation-search"),
+  "ConversationSearchRoute",
+);
+const RuleTraceRoute = lazyRoute(() => import("./routes/rule-trace"), "RuleTraceRoute");
 const RcaRoute = lazy(async () => ({ default: (await import("./routes/rca")).RcaRoute }));
 const ArchitectureRoute = lazy(async () => ({ default: (await import("./routes/architecture")).ArchitectureRoute }));
 const OntologyRoute = lazy(async () => ({ default: (await import("./routes/ontology")).OntologyRoute }));
@@ -69,17 +88,27 @@ const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./
 const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
 const ConversationDeliveryRoute = lazy(async () => ({ default: (await import("./routes/conversation-delivery")).ConversationDeliveryRoute }));
 const ConversationAssuranceRoute = lazy(async () => ({ default: (await import("./routes/conversation-assurance")).ConversationAssuranceRoute }));
-const OperatingOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).OperatingOutcomesRoute }));
-const ControlAssuranceRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).ControlAssuranceRoute }));
-const VerticalOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).VerticalOutcomesRoute }));
-const TrustRoutingRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).TrustRoutingRoute }));
+function analyticsRoute(
+  name:
+    | "OperatingOutcomesRoute"
+    | "ControlAssuranceRoute"
+    | "VerticalOutcomesRoute"
+    | "TrustRoutingRoute",
+) {
+  return lazy(async () => ({ default: (await import("./routes/analytics-hubs"))[name] }));
+}
+const OperatingOutcomesRoute = analyticsRoute("OperatingOutcomesRoute");
+const ControlAssuranceRoute = analyticsRoute("ControlAssuranceRoute");
+const VerticalOutcomesRoute = analyticsRoute("VerticalOutcomesRoute");
+const TrustRoutingRoute = analyticsRoute("TrustRoutingRoute");
 const SettingsGeneralRoute = lazy(async () => ({ default: (await import("./routes/settings")).SettingsGeneralRoute }));
 const SettingsModelsRoute = lazy(async () => ({ default: (await import("./routes/settings-models")).SettingsModelsRoute }));
 const SettingsRuntimeRoute = lazy(async () => ({ default: (await import("./routes/settings-runtime")).SettingsRuntimeRoute }));
 const OperatorMemoryRoute = lazy(async () => ({ default: (await import("./routes/operator-memory")).OperatorMemoryRoute }));
 const SettingsIamRoute = lazy(async () => ({ default: (await import("./routes/settings-iam")).SettingsIamRoute }));
-const SettingsIntegrationsRoute = lazy(async () => ({ default: (await import("./routes/settings-system")).SettingsIntegrationsRoute }));
-const SettingsDiagnosticsRoute = lazy(async () => ({ default: (await import("./routes/settings-system")).SettingsDiagnosticsRoute }));
+const loadSettingsSystem = () => import("./routes/settings-system");
+const SettingsIntegrationsRoute = lazy(async () => ({ default: (await loadSettingsSystem()).SettingsIntegrationsRoute }));
+const SettingsDiagnosticsRoute = lazy(async () => ({ default: (await loadSettingsSystem()).SettingsDiagnosticsRoute }));
 const LabsRoute = lazy(async () => ({ default: (await import("./routes/labs")).LabsRoute }));
 
 /** Props every panel component receives. Read-only client only. */

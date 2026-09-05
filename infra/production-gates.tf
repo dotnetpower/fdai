@@ -50,17 +50,38 @@ check "document_ingestion_requires_dependencies" {
   }
 }
 
-check "document_ocr_requires_complete_binding" {
+check "document_ocr_binding_modes_are_mutually_exclusive" {
   assert {
-    condition = (
-      trimspace(var.document_ocr_endpoint) == "" &&
-      trimspace(var.document_ocr_resource_id) == ""
-      ) || (
-      var.enable_document_ingestion &&
+    condition     = !var.enable_document_intelligence || !local.external_document_ocr_binding_configured
+    error_message = "enable_document_intelligence is mutually exclusive with external document_ocr_endpoint and document_ocr_resource_id."
+  }
+}
+
+check "document_ocr_external_binding_is_complete" {
+  assert {
+    condition = !local.external_document_ocr_binding_configured || (
       can(regex("^https://[^/]+/?$", var.document_ocr_endpoint)) &&
       trimspace(var.document_ocr_resource_id) != ""
     )
-    error_message = "document OCR requires document ingestion plus an HTTPS endpoint and matching Azure resource id."
+    error_message = "external document OCR requires an HTTPS endpoint and matching Azure resource id."
+  }
+}
+
+check "document_ocr_external_binding_requires_ingestion" {
+  assert {
+    condition     = !local.external_document_ocr_binding_configured || var.enable_document_ingestion
+    error_message = "external document OCR requires enable_document_ingestion."
+  }
+}
+
+check "azure_document_ocr_provider_requires_binding" {
+  assert {
+    condition = var.document_ocr_provider != "azure_document_intelligence" || (
+      var.enable_document_ingestion &&
+      local.document_ocr_effective_endpoint != "" &&
+      local.document_ocr_effective_resource_id != ""
+    )
+    error_message = "azure_document_intelligence requires document ingestion and a complete Terraform-owned or external OCR binding."
   }
 }
 
@@ -133,6 +154,13 @@ check "production_ingestion_worker_scale_requires_evidence" {
       var.ingestion_worker_scale_out_verified
     )
     error_message = "production ingestion worker scale-out requires verified restart, redelivery, DLQ, and durable-claim smoke evidence."
+  }
+}
+
+check "production_document_intelligence_is_private" {
+  assert {
+    condition     = var.env != "prod" || !var.enable_document_intelligence || var.enable_private_networking
+    error_message = "prod Terraform-owned Document Intelligence requires enable_private_networking."
   }
 }
 

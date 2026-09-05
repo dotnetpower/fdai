@@ -358,6 +358,28 @@ class ModelBindingRequestCommand:
     idempotency_key: str
 
 
+@dataclass(frozen=True, slots=True)
+class DocumentOcrPolicyCommand:
+    """Store one Owner-scoped OCR provider policy without deployment authority."""
+
+    actor_id: str
+    policy: JsonMapping
+    policy_digest: str
+    expected_revision: int
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentOcrPlanCommand:
+    """Request a protected infrastructure plan for one exact OCR policy."""
+
+    actor_id: str
+    environment: str
+    policy_revision: int
+    policy_digest: str
+    idempotency_key: str
+
+
 class ModelSettingsOutbox(Protocol):
     """Project model settings and persist policy requests without provisioning models."""
 
@@ -381,6 +403,8 @@ class ModelSettingsOutbox(Protocol):
     ) -> JsonMapping: ...
 
     async def request_binding_plan(self, command: ModelBindingRequestCommand) -> JsonMapping: ...
+    async def save_document_ocr_policy(self, command: DocumentOcrPolicyCommand) -> JsonMapping: ...
+    async def request_document_ocr_plan(self, command: DocumentOcrPlanCommand) -> JsonMapping: ...
 
 
 @dataclass(frozen=True, slots=True)

@@ -359,6 +359,14 @@ An apply runs the migration job; independent service apply masks the Key Vault a
 It verifies both revisions and publishes `ingestion_gateway_fqdn`; build with `VITE_INGESTION_API_BASE_URL=https://<fqdn>`. Production gates require private networking and
 digest-pinned FDAI plus ClamAV images.
 
+Document OCR uses a separate protected action. `preserve` retains the previously applied provider
+and Document Intelligence resource state. `use_local_retain` switches the worker to local
+`kor+eng` Tesseract without deleting Azure, `use_azure_provision` provisions or retains the private
+Document Intelligence account, and `deprovision_use_local` selects local OCR before removal. A
+Settings-originated `plan-ocr-<proposal>-<digest>` request is resolved from the authoritative
+PostgreSQL proposal, policy, and plan-request records before Terraform variables are set. Plan
+remains the default, and exact apply still requires separate protected-environment approval.
+
 The public Static Web App never reaches ADLS directly. It streams through the authenticated
 gateway because the Storage account stays private. The gateway uses Managed Identity for ADLS,
 Event Hubs, and Azure OpenAI; no connection string or Storage account key is created.

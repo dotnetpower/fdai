@@ -40,6 +40,8 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("POST", "/models/binding-policy/assess", "post_binding_assessment"),
     IamRouteManifestEntry("POST", "/models/binding-policy/plan", "post_binding_plan"),
     IamRouteManifestEntry("PUT", "/models/web-search-settings", "put_web_search"),
+    IamRouteManifestEntry("PUT", "/models/document-ocr-policy", "put_document_ocr_policy"),
+    IamRouteManifestEntry("POST", "/models/document-ocr-policy/plan", "post_document_ocr_plan"),
     IamRouteManifestEntry("PUT", "/me/model-preferences", "put_preference"),
     IamRouteManifestEntry("GET", "/runtime/settings", "get_settings"),
     IamRouteManifestEntry("PUT", "/runtime/settings", "put_settings"),

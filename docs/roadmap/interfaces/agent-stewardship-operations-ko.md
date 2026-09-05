@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 54780df82271ca772fc58084f9f326c88b684698
+translation_source_sha: e0cbb0ad1f41987a06a4d4658f26d8b779629ae9
 translation_revised: 2026-09-05
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -15,7 +15,8 @@ Handover-map 스키마와 소유권 개념은
 > host에서 검토하며, 병합 후 signed webhook으로 관찰합니다. 담당 체계는 RBAC 기능을
 > 부여하지 않으며 Thor의 실행기 신원을 받지 않습니다. 운영 수집은 업로드 검색에 공유
 > 문서 형식 기능 용어 체계를 재사용하며, 이 변경은 담당 수명 주기나 권한 경계를 바꾸지
-> 않습니다.
+> 않습니다. 로컬 또는 Azure OCR 준비 상태는 수집에서 알리는 이미지 형식만 변경하며 담당자
+> 인수인계, RBAC 역할 또는 최종 책임자를 변경하지 않습니다.
 
 ## 설계 개요
 

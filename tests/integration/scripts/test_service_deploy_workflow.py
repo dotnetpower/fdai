@@ -146,6 +146,19 @@ def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> 
     assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
+    assert "document_ocr_action:" in _LEGACY_WORKFLOW
+    assert "use_local_retain" in _LEGACY_WORKFLOW
+    assert "use_azure_provision" in _LEGACY_WORKFLOW
+    assert "deprovision_use_local" in _LEGACY_WORKFLOW
+    assert "plan-ocr-" in _LEGACY_WORKFLOW
+    assert "- name: Bind document OCR proposal" in _LEGACY_WORKFLOW
+    assert "materialize-document-ocr-proposal.sh" in _LEGACY_WORKFLOW
+    assert "- name: Resolve document OCR desired state" in _LEGACY_WORKFLOW
+    assert "TF_VAR_enable_document_intelligence=%s" in _LEGACY_WORKFLOW
+    assert "TF_VAR_document_ocr_provider=%s" in _LEGACY_WORKFLOW
+
+
 def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]
@@ -211,11 +224,13 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
     target_expression = target_expression[: target_expression.index("\n")]
 
     assert "inputs.deploy_monitoring && !inputs.deploy_console" in target_expression
+    assert "inputs.document_ocr_action == 'preserve'" in target_expression
     assert "&& '-target=module.monitoring'" in target_expression
     assert target_expression.index("inputs.deploy_monitoring") < target_expression.index(
         "inputs.deploy_dev_operations_gateway"
     )
     assert "MONITORING_ONLY:" in _LEGACY_WORKFLOW
+    assert "inputs.document_ocr_action == 'preserve'" in _LEGACY_WORKFLOW
     assert "Monitoring-only plan contains changes outside module.monitoring:" in _PLAN_SCOPE
     assert '.startswith("module.monitoring[")' in _PLAN_SCOPE
     design_mocks_guard = _LEGACY_WORKFLOW[
@@ -473,6 +488,10 @@ def test_console_publish_binds_auth_and_verifies_exact_static_artifact() -> None
     assert 'resource_id="${resource_id:-${CONSOLE_STATIC_WEB_APP_ID:-}}"' in _CONSOLE_PUBLISHER
     assert "console Static Web App belongs to a different subscription" in _CONSOLE_PUBLISHER
     assert "console Static Web App hostname does not match its resource id" in _CONSOLE_PUBLISHER
+    assert "resolve_service_fqdn operator-service" in _CONSOLE_PUBLISHER
+    assert "resolve_service_fqdn document-ingestion-api" in _CONSOLE_PUBLISHER
+    assert 'state_key="services/$service/$FDAI_DEPLOY_ENVIRONMENT.tfstate"' in _CONSOLE_PUBLISHER
+    assert "independent service FQDN is invalid" in _CONSOLE_PUBLISHER
     assert 'npm --prefix "$repo_root/console" run build' in _CONSOLE_PUBLISHER
     assert "SWA_CLI_DEPLOYMENT_TOKEN" in _CONSOLE_PUBLISHER
     assert "sha256sum --check --status" in _CONSOLE_PUBLISHER

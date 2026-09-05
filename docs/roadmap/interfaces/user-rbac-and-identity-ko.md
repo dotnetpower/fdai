@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: a5a8d8b2fdea59f6e60fd1cb3e0bf6fd44fe95d8
-translation_revised: 2026-09-04
+translation_source_sha: 3324e30235a40fcb8c113e17c738d5fe2074563c
+translation_revised: 2026-09-05
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -142,8 +142,10 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 감사 항목을 원자적으로 기록합니다.
 
 `manage-model-bindings` 기능도 Owner 전용입니다. 리비전이 있는 정책 초안과 권한 없는 평가 또는
-보호된 계획 요청을 허용합니다. Terraform 적용, 공급자 변경, 모델 호출, 승인 또는 실행기 권한을
-부여하지 않습니다. BreakGlass는 Owner 상위 집합이 아니며 이 기능을 상속하지 않습니다.
+문서 OCR 공급자 정책을 포함한 보호된 계획 요청을 허용합니다. Terraform 적용, 공급자 변경,
+모델 호출, 승인 또는 실행기 권한을 부여하지 않습니다. Reader, Contributor, Approver 및
+BreakGlass 역할은 OCR 정책을 저장하거나 계획을 요청할 수 없습니다. BreakGlass는 Owner 상위
+집합이 아니며 이 기능을 상속하지 않습니다.
 
 ## 4. Entra ID 아티팩트
 

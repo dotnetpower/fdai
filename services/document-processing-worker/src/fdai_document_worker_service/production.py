@@ -35,6 +35,7 @@ from fdai_document_worker_service.adapters.local import (
     LocalDocumentArtifactStore,
     LocalDocumentObjectStore,
 )
+from fdai_document_worker_service.adapters.local_ocr import LocalKoreanOcr, LocalOcrConfig
 from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget
 from fdai_document_worker_service.adapters.postgres import (
     PostgresDocumentMetadataStore,
@@ -51,7 +52,6 @@ from fdai_document_worker_service.adapters.processing import (
     EmbeddingModel,
     PgvectorDocumentIndex,
     SignatureProtectionInspector,
-    UnavailableImageOcr,
 )
 from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeArtifactStore,
@@ -164,11 +164,16 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         physical_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects").strip(),
     )
     metadata = PostgresDocumentMetadataStore(config=PostgresWorkerConfig(dsn=dsn))
-    ocr_endpoint = (
-        ""
-        if uses_local_document_providers(execution_venue)
-        else env.get("FDAI_OCR_ENDPOINT", "").strip()
-    )
+    ocr_endpoint = env.get("FDAI_OCR_ENDPOINT", "").strip()
+    ocr_provider = env.get("FDAI_DOCUMENT_OCR_PROVIDER", "local_python").strip()
+    if ocr_provider not in {"local_python", "azure_document_intelligence"}:
+        raise ProductionConfigurationError(
+            "FDAI_DOCUMENT_OCR_PROVIDER MUST be local_python or azure_document_intelligence"
+        )
+    if ocr_provider == "azure_document_intelligence" and not ocr_endpoint:
+        raise ProductionConfigurationError(
+            "azure_document_intelligence OCR requires FDAI_OCR_ENDPOINT"
+        )
     ocr = (
         AzureDocumentIntelligenceOcr(
             config=AzureDocumentOcrConfig(
@@ -184,8 +189,19 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             credential=_deployed_credential(credential),
             client=http_client,
         )
-        if ocr_endpoint
-        else UnavailableImageOcr()
+        if ocr_provider == "azure_document_intelligence"
+        else LocalKoreanOcr(
+            LocalOcrConfig(
+                languages=env.get("FDAI_LOCAL_OCR_LANGUAGES", "kor+eng").strip(),
+                timeout_seconds=_positive_int(env, "FDAI_LOCAL_OCR_TIMEOUT_SECONDS", 30),
+                max_pages=_positive_int(env, "FDAI_LOCAL_OCR_MAX_PAGES", 20),
+                max_pixels_per_page=_positive_int(
+                    env, "FDAI_LOCAL_OCR_MAX_PIXELS_PER_PAGE", 16_000_000
+                ),
+                max_lines=_positive_int(env, "FDAI_OCR_MAX_LINES", 5000),
+                max_characters=_positive_int(env, "FDAI_OCR_MAX_CHARACTERS", 1_000_000),
+            )
+        )
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
     embedding: EmbeddingModel
@@ -296,8 +312,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             embedding,
             malware,
         ]
-        if ocr_endpoint:
-            configured.append(ocr)
+        configured.append(ocr)
         results = await asyncio.gather(*(adapter.probe_readiness() for adapter in configured))
         failures = tuple(
             f"{result.adapter}:{result.reason or 'unavailable'}"

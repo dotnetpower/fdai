@@ -257,6 +257,10 @@ resource "azurerm_container_app" "ingestion" {
         name  = "FDAI_EMBEDDING_DEPLOYMENT"
         value = var.embedding_deployment
       }
+      env {
+        name  = "FDAI_DOCUMENT_OCR_PROVIDER"
+        value = var.ocr_provider
+      }
       dynamic "env" {
         for_each = var.ocr_endpoint == "" ? [] : [var.ocr_endpoint]
         content {
@@ -481,6 +485,10 @@ resource "azurerm_container_app" "worker" {
       env {
         name  = "FDAI_EMBEDDING_DIM"
         value = tostring(var.embedding_dim)
+      }
+      env {
+        name  = "FDAI_DOCUMENT_OCR_PROVIDER"
+        value = var.ocr_provider
       }
       dynamic "env" {
         for_each = var.ocr_endpoint == "" ? [] : [var.ocr_endpoint]
