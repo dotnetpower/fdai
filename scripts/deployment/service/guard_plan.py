@@ -107,6 +107,10 @@ _SHAREPOINT_PURPOSES = frozenset(
     }
 )
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
+_CORE_HANDOVER_CADENCE_MINIMUMS = {
+    "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": 60,
+    "FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS": 10,
+}
 _NOTIFICATION_RECEIPT_TOPIC = "fdai.notifications.delivery-receipts"
 
 
@@ -368,6 +372,41 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
         None if normalized_secret is not None else item.get("value"),
         normalized_secret,
     )
+
+
+def _only_core_handover_cadence_adoption(
+    *,
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> bool:
+    if contract.service != "core-control-plane":
+        return False
+    changed_names = {
+        name.removeprefix("env:") for name in runtime_drift_names if name.startswith("env:")
+    }
+    if (
+        not changed_names
+        or not changed_names <= _CORE_HANDOVER_CADENCE_MINIMUMS.keys()
+        or set(runtime_drift_names) != {f"env:{name}" for name in changed_names}
+    ):
+        return False
+    for name in changed_names:
+        if _environment_binding(before_environment.get(name)) is not None:
+            return False
+        binding = _environment_binding(after_environment.get(name))
+        if binding is None:
+            return False
+        value, secret_name = binding
+        if (
+            secret_name is not None
+            or not isinstance(value, str)
+            or re.fullmatch(r"[1-9][0-9]*", value) is None
+            or int(value) < _CORE_HANDOVER_CADENCE_MINIMUMS[name]
+        ):
+            return False
+    return True
 
 
 def _sharepoint_connector_bindings_are_valid(
@@ -1080,6 +1119,12 @@ def _guard_update(
         address=address,
         contract=contract,
     )
+    allowed_core_handover_cadence = _only_core_handover_cadence_adoption(
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=runtime_drift_names,
+    )
     if (
         not initial_cutover
         and not database_host_binding
@@ -1095,6 +1140,7 @@ def _guard_update(
             )
         )
         and not allowed_notification_topic
+        and not allowed_core_handover_cadence
         and runtime_drift_names
     ):
         violations.append(
@@ -1141,6 +1187,7 @@ def _guard_update(
         or model_binding_transition
         or allowed_rca_reader
         or allowed_notification_topic
+        or allowed_core_handover_cadence
         or sharepoint_connector_transition != "none"
     ):
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))

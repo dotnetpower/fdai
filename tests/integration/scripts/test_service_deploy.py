@@ -273,6 +273,29 @@ def _document_ingestion_plan(guard: ModuleType) -> dict[str, object]:
     return plan
 
 
+def _core_plan_with_handover_cadence_adoption(guard: ModuleType) -> dict[str, object]:
+    service = "core-control-plane"
+    address = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    contract = guard.resolve_service(service, "dev")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    cadence_values = {
+        "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": "3600",
+        "FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS": "60",
+    }
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": cadence_values.get(name, "value")}
+            for name in contract.required_environment
+            if side == "after" or name not in cadence_values
+        ]
+    return plan
+
+
 def _sharepoint_connector_environment() -> list[dict[str, str]]:
     return [
         {"name": "FDAI_SHAREPOINT_CONNECTOR_ENABLED", "value": "1"},
@@ -1250,6 +1273,73 @@ def test_plan_guard_ignores_primary_environment_block_order(guard: ModuleType) -
         environment="dev",
         image_ref="image",
     )
+
+
+def test_plan_guard_allows_bounded_core_handover_cadence_adoption(
+    guard: ModuleType,
+) -> None:
+    guard.validate_plan(
+        _core_plan_with_handover_cadence_adoption(guard),
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", "59"),
+        ("FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS", "9"),
+        ("FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS", "not-a-number"),
+    ],
+)
+def test_plan_guard_rejects_invalid_core_handover_cadence_adoption(
+    guard: ModuleType,
+    name: str,
+    value: str,
+) -> None:
+    plan = _core_plan_with_handover_cadence_adoption(guard)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    next(item for item in after_environment if item["name"] == name)["value"] = value
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_rejects_existing_core_handover_cadence_change(
+    guard: ModuleType,
+) -> None:
+    plan = _core_plan_with_handover_cadence_adoption(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for name, value in (
+        ("FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", "3600"),
+        ("FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS", "60"),
+    ):
+        change["before"]["template"][0]["container"][0]["env"].append(
+            {"name": name, "value": value}
+        )
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    next(
+        item
+        for item in after_environment
+        if item["name"] == "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS"
+    )["value"] = "7200"
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+        )
 
 
 def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> None:
