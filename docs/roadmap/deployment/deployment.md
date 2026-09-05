@@ -119,8 +119,9 @@ prod topology so shadow evaluation is representative.
   `event_topics` fields for Core, Operator, and the document services. The write-only service
   tfvars secret remains the source for DSN references, roles, and other inputs. Core may also add
   the canonical `fdai.notifications.delivery-receipts` topic once; the guard requires that exact
-  non-secret value, compares environment bindings independent of Terraform list order, and rejects
-  every accompanying command, identity, or environment change.
+  non-secret value and rejects every accompanying command, identity, or environment change. All
+  primary-container environment comparisons use exact name-to-binding maps, so Terraform list order
+  alone does not create a false drift finding.
 - **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
   attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
   and validated web-search settings. The active Core revision must already use canonical Event Bus

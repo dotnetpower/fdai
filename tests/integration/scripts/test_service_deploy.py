@@ -1172,6 +1172,22 @@ def test_plan_guard_rejects_command_and_environment_drift(
         )
 
 
+def test_plan_guard_ignores_primary_environment_block_order(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.reverse()
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+
 def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])

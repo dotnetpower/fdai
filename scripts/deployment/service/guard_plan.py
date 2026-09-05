@@ -251,6 +251,40 @@ def _runtime_contract(
     return {key: container.get(key) for key in ("name", "command", "args", "env")}
 
 
+def _runtime_contract_by_name(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> dict[str, Any]:
+    container = _primary_container(resource, address=address, contract=contract)
+    environment = _environment_by_name(container, address=address)
+    return {
+        "name": container.get("name"),
+        "command": container.get("command"),
+        "args": container.get("args"),
+        "env": {name: _environment_binding(item) for name, item in sorted(environment.items())},
+    }
+
+
+def _sort_primary_environment(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> dict[str, Any]:
+    normalized = copy.deepcopy(resource)
+    container = _primary_container(normalized, address=address, contract=contract)
+    environment = container.get("env")
+    if not isinstance(environment, list):
+        raise PlanGuardError(f"resource at {address} has an invalid environment")
+    container["env"] = sorted(
+        environment,
+        key=lambda item: str(item.get("name")) if isinstance(item, dict) else "",
+    )
+    return normalized
+
+
 def _environment_by_name(container: dict[str, Any], *, address: str) -> dict[str, dict[str, Any]]:
     environment = container.get("env")
     if not isinstance(environment, list):
@@ -826,8 +860,8 @@ def _guard_update(
             )
         )
         and not allowed_notification_topic
-        and _runtime_contract(before, address=address, contract=contract)
-        != _runtime_contract(after, address=address, contract=contract)
+        and _runtime_contract_by_name(before, address=address, contract=contract)
+        != _runtime_contract_by_name(after, address=address, contract=contract)
     ):
         violations.append(f"command or environment drift at {address}")
 
@@ -902,7 +936,11 @@ def _guard_update(
         ):
             violations.append(f"planned revision suffix is invalid at {address}")
         expected_templates[0]["revision_suffix"] = after_suffix
-    if expected_before != after:
+    if _sort_primary_environment(
+        expected_before,
+        address=address,
+        contract=contract,
+    ) != _sort_primary_environment(after, address=address, contract=contract):
         violations.append(f"protected update changes fields rollback cannot prove at {address}")
     return violations
 
