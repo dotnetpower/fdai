@@ -294,14 +294,12 @@ jobs:
         run: |
           set -euo pipefail
           # The campaign records scenario_evidence_unavailable instead of inferring success.
-          campaign_args="-m fdai.delivery.operational_history_certification_campaign \
-            --phase ${CAMPAIGN_PHASE} --campaign-id ${CAMPAIGN_REQUEST_ID} \
-            --output /tmp/oi16-before.json --source-revision ${TARGET_COMMIT_SHA}"
           execution="$(az containerapp job start \
             --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
             --image "$RUNTIME_IMAGE" \
-            --command python \
-            --args="$campaign_args" \
+            --command fdai-operational-history-certification \
+            --args "$CAMPAIGN_PHASE" "$CAMPAIGN_REQUEST_ID" \
+              /tmp/oi16-before.json "$TARGET_COMMIT_SHA" none false none \
             --env-vars \
               FDAI_ENV=dev \
               FDAI_OPERATIONAL_HISTORY_SYNTHETIC_SCOPE="synthetic/oi16-certification/${CAMPAIGN_REQUEST_ID#certify-history-}" \
@@ -397,16 +395,13 @@ jobs:
           CAMPAIGN_PHASE: after-restart
         run: |
           set -euo pipefail
-          campaign_args="-m fdai.delivery.operational_history_certification_campaign \
-            --phase ${CAMPAIGN_PHASE} --campaign-id ${CAMPAIGN_REQUEST_ID} \
-            --output /tmp/oi16-merged.json --source-revision ${TARGET_COMMIT_SHA} \
-            --restart-receipt-digest ${RESTART_RECEIPT_DIGEST} \
-            --finalize --receipt-output /tmp/oi16-certification-receipt.json"
           execution="$(az containerapp job start \
             --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
             --image "$RUNTIME_IMAGE" \
-            --command python \
-            --args="$campaign_args" \
+            --command fdai-operational-history-certification \
+            --args "$CAMPAIGN_PHASE" "$CAMPAIGN_REQUEST_ID" \
+              /tmp/oi16-merged.json "$TARGET_COMMIT_SHA" "$RESTART_RECEIPT_DIGEST" \
+              true /tmp/oi16-certification-receipt.json \
             --env-vars \
               FDAI_ENV=dev \
               FDAI_OPERATIONAL_HISTORY_SYNTHETIC_SCOPE="synthetic/oi16-certification/${CAMPAIGN_REQUEST_ID#certify-history-}" \

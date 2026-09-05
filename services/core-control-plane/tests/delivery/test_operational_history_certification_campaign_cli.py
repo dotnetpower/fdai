@@ -16,6 +16,7 @@ from fdai.core.ontology_platform.operational_history_certification import (
     OperationalHistoryScenario,
     OperationalHistoryScenarioStatus,
 )
+from fdai.delivery import operational_history_certification_campaign_cli as campaign_cli
 from fdai.delivery.operational_history_archive import OperationalArchiveArtifact
 from fdai.delivery.operational_history_certification_campaign import (
     CampaignPhase,
@@ -507,6 +508,49 @@ def test_cli_resolves_the_finalize_contract() -> None:
     assert options.finalize is True
     assert options.receipt_output == Path("r.json")
     assert options.phase is CampaignPhase.POST_RESTART
+
+
+def test_container_entrypoint_translates_positional_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: list[str] = []
+    merged = str(tmp_path / "merged.json")
+    receipt = str(tmp_path / "receipt.json")
+
+    def capture(argv: list[str]) -> int:
+        captured.extend(argv)
+        return 7
+
+    monkeypatch.setattr(campaign_cli, "main", capture)
+    result = campaign_cli.container_main(
+        [
+            "after-restart",
+            CAMPAIGN_ID,
+            merged,
+            REVISION,
+            RECEIPT_DIGEST,
+            "true",
+            receipt,
+        ]
+    )
+
+    assert result == 7
+    assert captured == [
+        "--phase",
+        "after-restart",
+        "--campaign-id",
+        CAMPAIGN_ID,
+        "--output",
+        merged,
+        "--source-revision",
+        REVISION,
+        "--restart-receipt-digest",
+        RECEIPT_DIGEST,
+        "--finalize",
+        "--receipt-output",
+        receipt,
+    ]
 
 
 async def test_summary_is_sanitized_and_carries_no_paths(tmp_path: Path) -> None:

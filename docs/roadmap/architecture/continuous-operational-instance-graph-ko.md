@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 0b706ecaf63aff98995dc6c018359ab814c5335c
+translation_source_sha: 1c21dd0de4828132cba3d9a2e0e2299bbb124928
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | Positional Container Apps 계약을 사용하는 설치형 전용 campaign entrypoint를 추가했습니다. 보호된 실행은 더 이상 Azure CLI가 option 형태의 Python 인자를 전달하는 동작에 의존하지 않으며, entrypoint가 범위가 제한된 positional 값을 기존 typed CLI로 변환합니다. 실제 no-data argv probe와 세 번째 campaign 실행에서 문자열 및 JSON `--args` override가 모두 하나의 argv 값으로 유지됨을 확인했습니다. Campaign은 fixture 준비, database restart, purge 또는 증적 저장 전에 실패했습니다. | `current change`, 집중 entrypoint, campaign CLI, workflow contract, Ruff, strict mypy 및 actionlint 검사. 보호된 campaign run `33987284431`은 시나리오 근거 없이 before-restart 실행에서 중단됐습니다. | Entry point가 포함된 정확한 image를 publish, deploy 및 attest한 뒤 안정적인 campaign request를 다시 실행합니다. |
 | 2026-09-06 | implemented | OI-16 image preflight에서 Docker에 의존하는 ACR login을 제거했습니다. Workflow는 이미 인증된 안정적 Azure identity로 read-only manifest metadata를 조회하고, 범위가 제한된 비공개 token file을 통해 GHCR을 독립 인증하므로 Docker daemon이 필요하지 않습니다. 두 번째 보호 실행은 image 선택 또는 시나리오 실행 전에 중단되어 운영 근거나 certification 증적을 만들지 않았습니다. | `current change`, workflow contract 및 actionlint. 보호된 campaign run `33986535214`는 exact image 단계에서 `DOCKER_COMMAND_ERROR`로 안전하게 실패했습니다. | 수정된 정확한 revision을 publish 및 attest하고 exact image를 import한 뒤 변경하지 않은 campaign request를 다시 실행합니다. |
 | 2026-09-06 | implemented | 보호된 OI-16 runner가 required check, artifact 또는 attestation을 읽기 전에 저장소에 고정된 GitHub CLI를 설치하도록 추가했습니다. 첫 보호 실행은 임시 candidate runner에 `gh`가 없어 Azure login 또는 시나리오 실행 전에 안전하게 실패했습니다. 운영 근거나 certification 증적은 생성하지 않았습니다. | `current change`, workflow contract 및 actionlint. 보호된 campaign run `33985808647`은 `Verify required CI for exact revision`에서 exit `127`로 중단됐습니다. | 수정된 정확한 revision을 publish 및 attest하고 exact image를 import한 뒤 동일한 안정적 campaign request를 bot dispatch와 human Environment approval을 통해 다시 실행합니다. |
 | 2026-09-06 | implemented | OI-16 실행을 lifecycle Job에 이전에 배포된 image와 분리했습니다. Campaign은 정확한 `fdai-core-control-plane` GHCR digest와 source에 결속된 ACR tag를 모두 해석하고 digest 일치와 GitHub attestation을 요구하며, 해당 digest 고정 ACR image를 범위가 제한된 campaign 실행에만 전달합니다. 따라서 plan `33978778160`에서 거부된 archive role 교체를 승격하지 않습니다. Schema migration은 별도의 zero-destroy Core service plan/apply가 계속 소유합니다. | `current change`, campaign workflow contract 및 actionlint. 거부된 root plan은 `1 add / 1 change / 1 destroy`를 기록했으며 독립 handover service plan은 zero-destroy service 배포 경계를 입증했습니다. | 정확한 revision의 CI 및 image publication 성공을 확보하고 거부된 root plan을 apply하지 않은 채 exact image를 import합니다. 그 뒤 migration을 위한 zero-destroy Core service apply를 완료하고 보호된 campaign을 실행합니다. |

@@ -49,13 +49,8 @@ def test_campaign_derives_canonical_release_and_reads_final_summary_after_restar
 
 def test_campaign_job_arguments_are_one_azure_cli_value() -> None:
     assert "--args -m" not in _WORKFLOW
-    assert _WORKFLOW.count('--args="$campaign_args"') == 2
-    assert (
-        _WORKFLOW.count(
-            'campaign_args="-m fdai.delivery.operational_history_certification_campaign'
-        )
-        == 2
-    )
+    assert _WORKFLOW.count("--command fdai-operational-history-certification") == 2
+    assert _WORKFLOW.count('--args "$CAMPAIGN_PHASE" "$CAMPAIGN_REQUEST_ID"') == 2
 
 
 def test_campaign_resolves_the_exact_acr_revision_instead_of_trusting_job_configuration() -> None:

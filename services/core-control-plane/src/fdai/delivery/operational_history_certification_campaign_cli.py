@@ -185,6 +185,39 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def container_main(argv: Sequence[str] | None = None) -> int:
+    """Translate the Container Apps positional contract into the stable CLI."""
+
+    parser = argparse.ArgumentParser(prog="fdai-operational-history-certification")
+    parser.add_argument("phase", choices=("before-restart", "after-restart"))
+    parser.add_argument("campaign_id")
+    parser.add_argument("output")
+    parser.add_argument("source_revision")
+    parser.add_argument("restart_receipt_digest")
+    parser.add_argument("finalize", choices=("true", "false"))
+    parser.add_argument("receipt_output")
+    args = parser.parse_args(argv)
+    translated = [
+        "--phase",
+        args.phase,
+        "--campaign-id",
+        args.campaign_id,
+        "--output",
+        args.output,
+        "--source-revision",
+        args.source_revision,
+    ]
+    if args.restart_receipt_digest != "none":
+        translated.extend(("--restart-receipt-digest", args.restart_receipt_digest))
+    if args.finalize == "true":
+        if args.receipt_output == "none":
+            parser.error("finalized container execution requires a receipt output")
+        translated.extend(("--finalize", "--receipt-output", args.receipt_output))
+    elif args.receipt_output != "none":
+        parser.error("non-final container execution cannot write a receipt")
+    return main(translated)
+
+
 def options_from_args(
     args: argparse.Namespace,
     environ: Mapping[str, str],
@@ -550,6 +583,7 @@ __all__ = [
     "CertificationRunner",
     "MergedPhaseSink",
     "build_parser",
+    "container_main",
     "finalize_blockers",
     "finalize_campaign",
     "main",

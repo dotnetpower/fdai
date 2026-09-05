@@ -27,6 +27,7 @@ dependencies = [
 [project.scripts]
 fdai-core-control-plane = "fdai_core_service.main:main"
 fdai-browser-evidence-cleanup = "fdai.delivery.browser_evidence_cleanup_cli:main"
+fdai-operational-history-certification = "fdai.delivery.operational_history_certification_campaign_cli:container_main"
 fdai-operational-history-lifecycle = "fdai.delivery.operational_history_lifecycle_runner:main"
 fdai-t2-cache-rotate = "fdai.delivery.t2_cache_rotation_cli:main"
 fdai-wara-assessment = "fdai.delivery.wara_assessment_cli:main"
