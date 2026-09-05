@@ -14,7 +14,14 @@ _LOWER_HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 _SERVICE_CONTRACTS = {
     "core-control-plane": (
         "fdai-core-control-plane",
-        frozenset({"model-binding"}),
+        frozenset(
+            {
+                "standard",
+                "database-host-binding",
+                "model-binding",
+                "database-host-binding+model-binding",
+            }
+        ),
     ),
     "document-ingestion-api": (
         "fdai-document-ingestion-api",

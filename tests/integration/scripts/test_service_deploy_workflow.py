@@ -401,6 +401,10 @@ def test_core_service_apply_request_preserves_independent_human_approval() -> No
     assert "service_name=core-control-plane" in _CONSOLE_REQUEST_WORKFLOW
     assert '"inputs[apply]=true"' in _CONSOLE_REQUEST_WORKFLOW
     assert '"inputs[model_binding_transition]=true"' in _CONSOLE_REQUEST_WORKFLOW
+    assert "core-control-plane:standard)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "core-control-plane:database-host-binding)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "core-control-plane:database-host-binding+model-binding)" in (_CONSOLE_REQUEST_WORKFLOW)
+    assert '"inputs[database_host_binding]=true"' in _CONSOLE_REQUEST_WORKFLOW
     assert "Bot-owned service apply is unavailable for production." in (_CONSOLE_REQUEST_WORKFLOW)
     assert "service-plan-metadata.json" in _CONSOLE_REQUEST_WORKFLOW
     assert "deployment_mode" in (

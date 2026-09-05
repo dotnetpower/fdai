@@ -27,7 +27,7 @@ retired top-level application tree.
 - **Platform-to-service bindings:** Root Terraform exports reviewed non-secret targets and Key Vault
   secret references. Protected service deployment validates those objects before delivery, and the
   bot-owned wrapper accepts only an exact Core or Document Ingestion API plan. Transition flags come
-  from its sealed mode; service tfvars cannot replace platform ownership or human approval.
+  from its sealed mode, including combined Core bindings; service tfvars cannot replace ownership or approval.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
