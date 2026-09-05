@@ -366,6 +366,8 @@ Document Intelligence account, and `deprovision_use_local` selects local OCR bef
 Settings-originated `plan-ocr-<proposal>-<digest>` request is resolved from the authoritative
 PostgreSQL proposal, policy, and plan-request records before Terraform variables are set. Plan
 remains the default, and exact apply still requires separate protected-environment approval.
+The standalone module pins AzureRM `~> 4.14`; its committed provider lock records the tested
+provider release for repeatable module tests.
 
 The public Static Web App never reaches ADLS directly. It streams through the authenticated
 gateway because the Storage account stays private. The gateway uses Managed Identity for ADLS,
