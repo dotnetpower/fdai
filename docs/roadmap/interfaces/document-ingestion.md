@@ -496,13 +496,10 @@ Microsoft 365 tenant application. That application receives only the approved si
 The connector registry fixes the site, drive, collection, access, purpose, and retention policy.
 Graph delta pages are fenced before the connector downloads each changed file through an allowlisted
 SharePoint redirect and sends it through the normal managed-copy lifecycle. Deletion events use the
-durable source-item binding and remain pending while legal hold applies. Superseded or
-compare-and-swap-losing uploads enter an idempotent cancellation table. The production reconciler
-drains bounded pages until each displaced version reaches cancellation or lineage deletion. A
-binding transaction first proves that its source revision and sequence still own the item, then
-queues the displaced bound revision. A stale replica therefore cannot queue the newer winning
-version for cancellation. A
-native ordering epoch keeps its delta sequences separate from the retired push-connector namespace.
+durable source-item binding and remain pending while legal hold applies. Superseded or compare-and-swap-losing uploads enter an idempotent cancellation table.
+The production reconciler drains bounded pages until each displaced version reaches cancellation or lineage deletion. A binding transaction first proves that its
+source revision and sequence still own the item, then queues the displaced bound revision. A stale replica therefore cannot queue the newer winning version for
+cancellation. A native ordering epoch keeps its delta sequences separate from the retired push-connector namespace.
 When Graph expires a delta token, the connector revision-fences a reset instead of retrying the
 invalid continuation and starts a full delta on the next cycle. The final page withdraws persisted
 items not seen in the new resync epoch before the fresh cursor can commit.
