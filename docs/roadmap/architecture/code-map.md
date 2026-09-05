@@ -49,6 +49,10 @@ service-owned migrations in the isolated service database, then runs service-dep
 that service head. Cross-service database grants, such as Operator read access to Core-owned Cost
 Governance objects, live in downstream Operator-owned migrations rather than the Core branch, so
 bootstrap ordering never requires a role created later in the sequence.
+The migration ownership inventory also pins the durable conversation-channel message claim and the
+Cost Governance lifecycle, settlement, and retention tables before either package can ship. The
+single required CI graph owns Terraform validation and security scanning, while the path-scoped
+container supply-chain workflow owns image build, vulnerability scanning, and attestation.
 The root integration suite also contract-pins the Document Processing Worker outbox rule that
 routes logical `object.*` events before marking durable publication complete.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius

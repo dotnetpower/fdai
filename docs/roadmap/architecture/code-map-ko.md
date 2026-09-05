@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8bdf654c0106c676fc24da5714ccea5093d5af8f
+translation_source_sha: 4f19714b5265b68b5330077539706ac4741ccd49
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -52,6 +52,10 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 서비스 의존 테스트를 실행합니다. Operator의 Core 소유 Cost Governance 객체 읽기 접근 같은
 서비스 간 데이터베이스 부여는 Core 브랜치가 아닌 Operator 소유 다운스트림 마이그레이션에
 위치하므로 부트스트랩 순서에서 나중에 생성되는 역할을 필요로 하지 않습니다.
+마이그레이션 소유권 인벤토리는 영속 대화 채널 메시지 claim과 Cost Governance 수명 주기, 정산 및
+보존 테이블도 각 패키지가 배포되기 전에 고정합니다. 하나의 필수 CI 그래프는 Terraform 유효성 검사와
+보안 검사를 소유하고, 경로 범위가 지정된 컨테이너 공급망 workflow는 이미지 빌드, 취약성 검사 및
+attestation을 소유합니다.
 루트 통합 테스트는 논리 `object.*` 이벤트를 영속 게시 완료로 표시하기 전에 라우팅하는
 문서 처리 워커 outbox 규칙도 계약으로 고정합니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
