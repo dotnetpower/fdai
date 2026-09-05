@@ -8,6 +8,7 @@ from typing import Any
 
 from fdai.delivery.persistence.postgres_observation_lifecycle import (
     _fact_family,
+    bind_observation_lifecycle,
     close_observation_corrections,
 )
 from fdai.delivery.persistence.postgres_operational_history import (
@@ -83,6 +84,33 @@ class _Connection:
 
     def transaction(self) -> _Connection:
         return self
+
+
+class _BoundConnection(_Connection):
+    async def execute(self, query: str, params: object = None) -> _Cursor:
+        self.executions.append((query, params))
+        if "SELECT 1 AS present FROM inventory_observation_lifecycle_binding" in query:
+            return _Cursor([{"present": 1}])
+        raise AssertionError("retained binding replay MUST NOT recompute lifecycle state")
+
+
+async def test_retained_binding_replay_does_not_reclassify_late_observations() -> None:
+    connection = _BoundConnection()
+    observation = _full_observation(scope_ref="provider/subscription/example")
+
+    replayed = await bind_observation_lifecycle(
+        connection,  # type: ignore[arg-type]
+        (observation,),
+    )
+
+    assert replayed == frozenset({observation.observation_id})
+    assert connection.executions == [
+        (
+            "SELECT 1 AS present FROM inventory_observation_lifecycle_binding "
+            "WHERE observation_id=%s",
+            (observation.observation_id,),
+        )
+    ]
 
 
 async def test_projection_closes_pending_correction_with_content_addressed_receipt() -> None:

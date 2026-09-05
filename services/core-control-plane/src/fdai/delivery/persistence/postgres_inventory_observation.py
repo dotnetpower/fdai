@@ -72,7 +72,7 @@ class PostgresInventoryObservationJournal:
         """Append one normalized change inside the caller's overlay transaction."""
 
         result = await _append_records(connection, observations)
-        await bind_observation_lifecycle(
+        replayed = await bind_observation_lifecycle(
             connection,
             observations,
             allow_oi16_synthetic=self._allow_oi16_synthetic,
@@ -82,6 +82,7 @@ class PostgresInventoryObservationJournal:
                 item.subject_kind is InventoryObservationSubjectKind.OBJECT
                 and item.observation_kind is InventoryObservationKind.TOMBSTONE
                 and not item.tombstone_confirmed
+                and item.observation_id not in replayed
             ):
                 await connection.execute(
                     "INSERT INTO inventory_observation_pending_tombstone "

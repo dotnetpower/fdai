@@ -8,6 +8,7 @@ from types import MethodType
 from typing import Any
 
 import pytest
+from fdai.delivery.persistence import postgres_inventory_observation as observation_module
 from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
@@ -45,6 +46,7 @@ class _Connection:
     def __init__(self, retained: dict[str, object]) -> None:
         self._retained = retained
         self.transactions = 0
+        self.executions: list[str] = []
 
     async def __aenter__(self) -> _Connection:
         return self
@@ -60,6 +62,7 @@ class _Connection:
         return _Cursor([])
 
     async def execute(self, query: str, _params: object = None) -> _Cursor:
+        self.executions.append(query)
         if "WHERE idempotency_key=ANY" in query:
             return _Cursor([self._retained])
         if "SELECT value FROM state_kv" in query:
@@ -89,6 +92,67 @@ def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:
         observed_at=NOW,
         evidence_cutoff=NOW,
         recorded_at=NOW,
+    )
+
+
+def _tombstone() -> NormalizedInventoryObservation:
+    return NormalizedInventoryObservation.create(
+        idempotency_key="event:tombstone",
+        subject_kind=InventoryObservationSubjectKind.OBJECT,
+        observation_kind=InventoryObservationKind.TOMBSTONE,
+        mutation_kind=InventoryMutationKind.DELETE,
+        subject_ref="resource-1",
+        subject_type="compute.vm",
+        properties={},
+        property_mask=(),
+        properties_complete=False,
+        links_complete=False,
+        tombstone_confirmed=False,
+        source_identity="test.inventory",
+        source_event_id="event-tombstone",
+        source_revision="revision-1",
+        effective_at=NOW,
+        observed_at=NOW,
+        evidence_cutoff=NOW,
+        recorded_at=NOW,
+    )
+
+
+async def test_replayed_tombstone_does_not_recreate_pending_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observation = _tombstone()
+    connection = _Connection({})
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    async def append_records(
+        _connection: object,
+        _observations: Sequence[NormalizedInventoryObservation],
+    ) -> InventoryObservationAppendResult:
+        return InventoryObservationAppendResult(11, 0)
+
+    async def bind(
+        _connection: object,
+        _observations: Sequence[NormalizedInventoryObservation],
+        *,
+        allow_oi16_synthetic: bool = False,
+    ) -> frozenset[str]:
+        del allow_oi16_synthetic
+        return frozenset({observation.observation_id})
+
+    monkeypatch.setattr(observation_module, "_append_records", append_records)
+    monkeypatch.setattr(observation_module, "bind_observation_lifecycle", bind)
+
+    result = await journal.append_change(
+        connection,  # type: ignore[arg-type]
+        (observation,),
+    )
+
+    assert result == InventoryObservationAppendResult(11, 0)
+    assert not any(
+        "inventory_observation_pending_tombstone" in query for query in connection.executions
     )
 
 

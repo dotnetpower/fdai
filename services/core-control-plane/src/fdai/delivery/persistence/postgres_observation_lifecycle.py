@@ -37,9 +37,10 @@ async def bind_observation_lifecycle(
     observations: Sequence[NormalizedInventoryObservation],
     *,
     allow_oi16_synthetic: bool = False,
-) -> None:
+) -> frozenset[str]:
     """Atomically bind each retained observation to exact lifecycle identities."""
 
+    replayed: set[str] = set()
     ordered = sorted(
         observations,
         key=lambda item: (
@@ -49,6 +50,9 @@ async def bind_observation_lifecycle(
         ),
     )
     for observation in ordered:
+        if await _binding_exists(connection, observation.observation_id):
+            replayed.add(observation.observation_id)
+            continue
         watermark = await _watermark(connection, observation.observation_id)
         policy_digest = await _policy_digest(
             connection,
@@ -105,6 +109,18 @@ async def bind_observation_lifecycle(
             )
             if row is None or tuple(row.values()) != expected:
                 raise ValueError("observation lifecycle replay changed retained binding")
+    return frozenset(replayed)
+
+
+async def _binding_exists(
+    connection: psycopg.AsyncConnection[Any],
+    observation_id: str,
+) -> bool:
+    cursor = await connection.execute(
+        "SELECT 1 AS present FROM inventory_observation_lifecycle_binding WHERE observation_id=%s",
+        (observation_id,),
+    )
+    return await cursor.fetchone() is not None
 
 
 async def _partition(
