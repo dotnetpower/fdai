@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7105d3f70639370344faab550858387a317800fc }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 943a5c4cafa1f9659ab14823caea67949628f2be }]
 ---
 
 # Deploy Quickstart
@@ -114,7 +114,9 @@ Terraform remains an expert path.
 Preview first, and apply only when the plan matches what you expect. The protected
 path keeps private plan data on the VNet-connected runner. Specialized exact applies are
 re-dispatched by a bot-owned request so the maintainer remains the distinct GitHub Environment
-approver.
+approver. For Core and Document Ingestion API service plans, the bot validates the exact plan
+artifact and derives model, database-host, or SharePoint transition inputs from its sealed
+deployment mode.
 
 During a protected move to private networking, FDAI accepts a delete only for a
 reviewed retirement or migration that the protected workflow already allows, such

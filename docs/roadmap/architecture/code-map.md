@@ -25,9 +25,9 @@ retired top-level application tree.
   The fence grants no mapping, assessment, or execution authority. If startup fails, composition
   attempts every acquired service cleanup and reports cleanup errors with the original failure.
 - **Platform-to-service bindings:** Root Terraform exports reviewed non-secret targets and Key Vault
-  secret references. Protected service deployment validates those objects before an independently
-  deployed service receives them; a service tfvars payload cannot replace the platform-owned
-  stewardship GitOps binding.
+  secret references. Protected service deployment validates those objects before delivery, and the
+  bot-owned wrapper accepts only an exact Core or Document Ingestion API plan. Transition flags come
+  from its sealed mode; service tfvars cannot replace platform ownership or human approval.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
