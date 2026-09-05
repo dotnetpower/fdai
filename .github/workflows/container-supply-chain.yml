@@ -191,7 +191,7 @@ jobs:
                   raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
           canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
           digest = hashlib.sha256(canonical).hexdigest()
-          rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          rendered = canonical.decode("utf-8")
           Path("resolved-models.json").write_text(rendered, encoding="utf-8")
           Path("services/assets/resolved-models.json").write_text(rendered, encoding="utf-8")
           predicate = {

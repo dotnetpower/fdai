@@ -65,6 +65,8 @@ The migration ownership inventory also pins the durable conversation-channel mes
 Cost Governance lifecycle, settlement, and retention tables before either package can ship. The
 single required CI graph owns Terraform validation and security scanning, while the path-scoped
 container supply-chain workflow owns image build, vulnerability scanning, and attestation.
+Core image materialization writes canonical resolved-model JSON bytes, so the attested digest is
+the same byte-level fence enforced at startup.
 External actions remain pinned to full commit SHAs; repository-local composite actions are accepted
 only by their checked-out relative path and are covered by the protected-workflow source verifier.
 The Terraform security scan requires either an expiry or an explicit coordinated-rotation rationale

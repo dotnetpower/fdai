@@ -1,7 +1,7 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: 87e34c18169c30275f525d4921c1751c7f44889d
+translation_source_sha: 5d1b8af7a358ef1e8c55bb633ac743e369c805e0
 translation_revised: 2026-09-05
 ---
 # 모델 기능 수명 주기
@@ -222,6 +222,8 @@ CI 배포 단계가 모든 T2 케이스를 조용히 HIL로 보내는 reasoning 
 연결기에 제공합니다. Operator 시작도 서비스가 소유한 출처를 통해 같은 다이제스트 경계를
 적용합니다. 배포 조립은 직접 Key Vault 출처를 사용할 수 있고, 로컬 서술기 호환 경로는 구성된
 파일 출처를 유지할 수 있습니다.
+Container supply chain은 정규 JSON byte sequence를 image에 기록하므로 attested canonical
+digest와 startup artifact-byte digest는 의미만 같은 별도 값이 아니라 정확히 동일합니다.
 
 코어는 구성된 리포지토리의 인증된 GitHub API 응답에서만 수명 주기 제안을 읽습니다. 예상 기본
 브랜치에 대한 워크플로 봇의 초안 PR을 받아들이고, PR의 불변 헤드 SHA에서 제안 파일을 정확히

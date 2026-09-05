@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6846c7b5237c94f90d845ed839ae126e7edccbb9
+translation_source_sha: ffc314466b1649acf64a8dde3c5879780f55646b
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -68,6 +68,8 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 보안 검사를 소유하고, 경로 범위가 지정된 컨테이너 공급망 workflow는 이미지 빌드, 취약성 검사 및
 attestation을 소유합니다. 외부 action은 전체 commit SHA로 계속 고정하고, 리포지토리 로컬 composite
 action은 checkout된 상대 경로로만 허용하며 보호된 workflow 원본 검증기가 검사합니다.
+Core image 구체화는 canonical resolved-model JSON byte를 기록하므로 attested digest는 startup이
+강제하는 byte-level fence와 동일합니다.
 Terraform 보안 검사는 각 Key Vault secret에 만료일 또는 명시적인 조정 로테이션 근거를
 요구합니다.
 루트 통합 테스트는 논리 `object.*` 이벤트를 영속 게시 완료로 표시하기 전에 라우팅하는
