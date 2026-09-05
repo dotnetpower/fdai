@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: d4ac86ce31a806f59c2b276ac01062b0558ca407
+translation_source_sha: 4aee3d012b4d128eb6dd578506d322f1e7142d1c
 translation_revised: 2026-09-05
 ---
 # 프로비저닝 실행 프로파일
@@ -33,6 +33,7 @@ translation_revised: 2026-09-05
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 점검, 프로파일 영속성 및 offline 검증을 근거에 맞는 현재 상태로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, bootstrap 소스, release 스크립트 및 집중 작업 흐름 검사 | CLI 패키지를 만들고 offline 검증을 복원하며 trust 초기화를 완료한 뒤 전체 수명 주기를 검증해야 합니다. |
 | 2026-08-29 | validated | 대상 연결 점검과 비공개 프로필을 추가하고 서명 offline 검증을 복원하며 제공 wheel 네트워크 격리 훈련을 완료했습니다. | `dd28b64d9` 이후 캠페인 커밋, 집중 검사, 성공한 `airgap-drill.sh` | 관리 호스트 Azure 실행을 완료하고 보호된 프로비저닝 후 증적을 보존해야 합니다. |
 | 2026-09-05 | implemented | exclusive RCA reader identity apply와 검증 재개를 허용 목록 기반 bot 소유 요청으로 라우팅했습니다. downstream apply는 보호된 GitHub Environment에 계속 binding하며 변경 전에 보호된 `main`의 validator로 reviewer 정책을 검사합니다. | `current change`, 집중 deployment CLI, workflow 및 Environment 정책 검사 | 독립 승인 exact apply와 효과 증적을 하나 보존합니다. |
+| 2026-09-05 | implemented | 실행 venue가 선택한 workload identity, 비공개 runner transport, scope별 lock, durable cursor fence 및 complete-reconciliation 권위를 보존하면서 읽기 전용 inventory change accelerator를 scheduled inventory 진입점에서 분리했습니다. | `current change`, inventory accelerator와 job 검사, strict mypy 및 강제 file-size gate | operating-instance owner가 추적하는 통합 change-feed timing 증적을 보존합니다. |
 
 ### 남은 작업
 

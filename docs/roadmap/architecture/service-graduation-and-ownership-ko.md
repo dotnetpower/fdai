@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 1f1f6bc158787bc5e451727a6de5a7ebf37cfa7d
-translation_revised: 2026-08-31
+translation_source_sha: b60ccfd763f71f2bbb4e94f57a13127eb3e040cd
+translation_revised: 2026-09-05
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -65,6 +65,7 @@ translation_revised: 2026-08-31
 | 2026-08-23 | 구현됨 | 서로 독립적이던 시작 및 취소 partition key를 소유자 범위의 정본 background-task 수명 주기 identity로 교체했습니다. 이제 한 작업의 시작 및 취소 기록이 같은 partition을 사용하며 Core는 영속화 또는 취소 전에 같은 identity를 다시 검증합니다. | `current change`; 시작/취소 partition 동등성 검사를 포함한 집중 계약 및 전송 검사 22개가 통과했고 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Core에 Operator 대화 writer를 추가하지 않고 역방향 최종 완료 계약을 정의합니다. |
 | 2026-08-26 | 진행 중 | 역방향 완료 계약을 Core 발신함과 Operator 소유 writer에 연결했습니다. Operator migration은 대화 쓰기와 inbox sequence 사용을 부여하고 하나의 transaction이 서비스 토폴로지 또는 Core 권한을 바꾸지 않으면서 제안, Web assistant turn 및 inbox 행을 dedupe합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 채널 outbound enqueue, 보존 정리 및 통제된 배포/rollback 근거를 추가합니다. |
 | 2026-08-29 | 구현됨 | Operator 소유 완료 inbox 보존 worker와 해당 inbox에만 삭제 권한을 부여하는 후속 migration을 추가했습니다. 정리는 계약 기한, 제한된 배치, 기한 순서 및 `SKIP LOCKED`를 사용합니다. 정리에 실패하면 완료 수신은 차단하지 않지만 Operator 준비 상태는 닫힌 상태를 유지합니다. | `current change`, `postgres_read_investigation_completion.py`, `read_investigation_completion_runtime.py`, `operator_completion_retention_20260829`, 집중 완료, 조립, migration 및 서비스 inventory 검사 | 검증된 채널 outbound enqueue를 추가한 뒤 통제된 재시작, 배포 및 rollback 근거를 보존합니다. |
+| 2026-09-05 | implemented | 새로운 handover, document 및 protection suite의 정확한 service-test 소유권을 복원하고 5개 서비스 토폴로지를 변경하지 않은 채 Operator aggregate manifest를 등록된 경로 188개와 일치시켰습니다. | `current change`, service-suite 소유권 및 Operator full-composition 검사 통과 | 각 소유 capability에서 이미 추적하는 통제된 runtime 근거를 보존합니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
