@@ -87,6 +87,7 @@ class DeploymentSelection:
 
         result: dict[str, bool | str] = {name: bool(getattr(self, name)) for name in _BOOL_INPUTS}
         result["deploy_rca_reader_identity"] = self.deploy_rca_reader_identity
+        result["document_ocr_action"] = "preserve"
         result["runtime_image_revision"] = self.runtime_image_revision
         return result
 

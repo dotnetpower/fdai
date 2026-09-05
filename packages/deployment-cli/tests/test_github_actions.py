@@ -103,6 +103,7 @@ def test_plan_and_apply_share_one_context_and_exact_feature_inputs() -> None:
     assert apply_fields["plan_id"] == "plan-123-1"
     assert apply_fields["plan_digest"] == "c" * 64
     assert plan_fields["deploy_document_ingestion"] == "true"
+    assert plan_fields["document_ocr_action"] == "preserve"
     assert plan_fields["context_digest"] == apply_fields["context_digest"]
     assert "expected_target_binding" not in plan_fields
     assert "expected_target_binding" not in apply_fields
@@ -724,6 +725,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "deploy_monitoring": False,
                 "deploy_operator_api": True,
                 "deploy_rca_reader_identity": False,
+                "document_ocr_action": "preserve",
                 "runtime_image_revision": "",
             },
         },
