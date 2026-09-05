@@ -483,6 +483,7 @@ jobs:
         env:
           SERVICE: ${{ inputs.service }}
           SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+          CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
@@ -517,9 +518,7 @@ jobs:
           }
           console_hostname=""
           if [[ "$SERVICE" == "operator-service" ]]; then
-            console_hostname="$(
-              terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw console_default_hostname
-            )"
+            console_hostname="$CONSOLE_DEFAULT_HOSTNAME"
           fi
           event_topic="$(
             terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \

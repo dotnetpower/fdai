@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 888ac784b7e034fb70ae8d638a14300994f62fca
+translation_source_sha: cac159a490f7d07d24d70d162555506019a1fcc1
 translation_revised: 2026-09-05
 ---
 
@@ -33,7 +33,7 @@ translation_revised: 2026-09-05
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
 | 독립 서비스 롤백 기준 | implemented | 현재 변경의 `deployment_recovery.py`, 공유 서비스 Container App 모듈 및 집중 service-deploy 롤백 검사 | 적용 전 수집은 비정상 또는 비활성 개정 번호를 차단하고, 각 서비스는 복구를 위해 비활성 개정 번호 1개를 보존합니다. 성공한 protected 롤백 증적은 아직 필요합니다. |
 | 성능 저하 상태의 Operator 복구 기준 | validated | Protected 계획 `33957891101`, 정확한 적용 `33957993467` 및 집중 복구 검사 | 명시적 모드는 실행 중인 비정상 Operator 개정 번호를 봉인된 롤백 기준으로 사용해 서비스를 정상 상태로 복원했습니다. |
-| 권위 있는 Operator Console origin | implemented | 현재 변경의 `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py` 및 집중 hydration과 계획 검사 | 계획은 플랫폼 상태에서 단일 HTTPS CORS origin을 가져옵니다. 통제된 적용과 브라우저 근거는 아직 필요합니다. |
+| 권위 있는 Operator Console origin | implemented | 현재 변경의 `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py` 및 집중 hydration과 계획 검사 | 계획은 보호된 Console 게시 연결에서 단일 HTTPS CORS origin을 가져옵니다. 통제된 적용과 브라우저 근거는 아직 필요합니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -119,9 +119,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   연결과 아래의 정본 런타임 연결만 추가하거나 바꿀 수 있습니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
   in-place 갱신 대상으로 유지하고 새 Operator 리소스는 계속 `-operator-api`를 사용합니다.
   입력을 구체화할 때 작업 흐름은 플랫폼 상태의 `postgres_fqdn` 출력에서 호스트 이름을
-  확인하고 `database.host`만 덮어씁니다. Operator의 경우 `console_default_hostname`을 확인하고
-  `cors_allow_origins`를 정규화된 단일 Static Web Apps HTTPS origin으로 바꿉니다. 또한 플랫폼
-  상태에서 정본 기본 유입, pipeline-stage 및 Pantheon-object 토픽을 확인하고 Core, Operator 및
+  확인하고 `database.host`만 덮어씁니다. Operator의 경우 보호된 `CONSOLE_DEFAULT_HOSTNAME`
+  게시 연결을 사용하고 `cors_allow_origins`를 정규화된 단일 Static Web Apps HTTPS origin으로
+  바꿉니다. 또한 플랫폼 상태에서 정본 기본 유입, pipeline-stage 및 Pantheon-object 토픽을 확인하고 Core, Operator 및
   document service의 소유 `event_topics` 필드만 덮어씁니다. 쓰기 전용 service tfvars 시크릿은 DSN 참조, 역할 및 기타 입력의 출처로
   남습니다. Core는 정본 `fdai.notifications.delivery-receipts` 토픽을 한 번 추가할 수 있습니다.
   Guard는 비밀이 아닌 이 정확한 값만 허용하고 함께 발생하는 명령, 신원 또는 다른 환경 변경을

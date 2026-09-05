@@ -29,7 +29,7 @@ bindings through configuration (see
 | Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
 | Independent-service rollback baseline | implemented | `deployment_recovery.py`, the shared service Container App module, and focused service-deploy rollback checks in the current change | Pre-apply capture rejects an unhealthy or inactive revision, and each service retains one inactive revision for recovery. A successful protected rollback receipt remains open. |
 | Degraded Operator recovery baseline | validated | Protected plan `33957891101`, exact apply `33957993467`, and focused recovery checks | The explicit mode used the running unhealthy Operator revision as a sealed rollback baseline and restored a healthy service. |
-| Authoritative Operator Console origin | implemented | `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py`, and focused hydration and plan checks in the current change | Planning derives the single HTTPS CORS origin from platform state. Governed apply and browser evidence remain open. |
+| Authoritative Operator Console origin | implemented | `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py`, and focused hydration and plan checks in the current change | Planning derives the single HTTPS CORS origin from the protected Console publication binding. Governed apply and browser evidence remain open. |
 | Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
 | Browser-evidence retention Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks (`4 passed`) and `terraform validate` | The opt-in scheduled Job uses a non-executor identity and bounded one-shot cleanup. Governed apply and run receipts are not retained. |
 | Automated promotion and progressive delivery | not-started | Target design in this document | Automated dev -> staging -> prod promotion, traffic-split canaries, SLO rollback, and console blue/green are not implemented. |
@@ -118,11 +118,11 @@ prod topology so shadow evaluation is representative.
   Operator workloads with the historical `-readapi` suffix remain eligible for an in-place update,
   while newly declared Operator resources continue to use `-operator-api`. During input
   materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
-  output and overwrites only `database.host`. For Operator, it resolves `console_default_hostname`
-  and replaces `cors_allow_origins` with that single normalized Static Web Apps HTTPS origin. It
-  also resolves the canonical primary ingress, pipeline-stage, and Pantheon-object topics from
-  platform state and overwrites only their owned `event_topics` fields for Core, Operator, and the
-  document services. The write-only service
+  output and overwrites only `database.host`. For Operator, it uses the protected
+  `CONSOLE_DEFAULT_HOSTNAME` publication binding and replaces `cors_allow_origins` with that single
+  normalized Static Web Apps HTTPS origin. It also resolves the canonical primary ingress,
+  pipeline-stage, and Pantheon-object topics from platform state and overwrites only their owned
+  `event_topics` fields for Core, Operator, and the document services. The write-only service
   tfvars secret remains the source for DSN references, roles, and other inputs. Core may also add
   the canonical `fdai.notifications.delivery-receipts` topic once; the guard requires that exact
   non-secret value and rejects every accompanying command, identity, or environment change. All
