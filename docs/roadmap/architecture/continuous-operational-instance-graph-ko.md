@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e3bc69044a407a857b0e89f9424f958e2d78f233
+translation_source_sha: 0b706ecaf63aff98995dc6c018359ab814c5335c
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | OI-16 image preflight에서 Docker에 의존하는 ACR login을 제거했습니다. Workflow는 이미 인증된 안정적 Azure identity로 read-only manifest metadata를 조회하고, 범위가 제한된 비공개 token file을 통해 GHCR을 독립 인증하므로 Docker daemon이 필요하지 않습니다. 두 번째 보호 실행은 image 선택 또는 시나리오 실행 전에 중단되어 운영 근거나 certification 증적을 만들지 않았습니다. | `current change`, workflow contract 및 actionlint. 보호된 campaign run `33986535214`는 exact image 단계에서 `DOCKER_COMMAND_ERROR`로 안전하게 실패했습니다. | 수정된 정확한 revision을 publish 및 attest하고 exact image를 import한 뒤 변경하지 않은 campaign request를 다시 실행합니다. |
 | 2026-09-06 | implemented | 보호된 OI-16 runner가 required check, artifact 또는 attestation을 읽기 전에 저장소에 고정된 GitHub CLI를 설치하도록 추가했습니다. 첫 보호 실행은 임시 candidate runner에 `gh`가 없어 Azure login 또는 시나리오 실행 전에 안전하게 실패했습니다. 운영 근거나 certification 증적은 생성하지 않았습니다. | `current change`, workflow contract 및 actionlint. 보호된 campaign run `33985808647`은 `Verify required CI for exact revision`에서 exit `127`로 중단됐습니다. | 수정된 정확한 revision을 publish 및 attest하고 exact image를 import한 뒤 동일한 안정적 campaign request를 bot dispatch와 human Environment approval을 통해 다시 실행합니다. |
 | 2026-09-06 | implemented | OI-16 실행을 lifecycle Job에 이전에 배포된 image와 분리했습니다. Campaign은 정확한 `fdai-core-control-plane` GHCR digest와 source에 결속된 ACR tag를 모두 해석하고 digest 일치와 GitHub attestation을 요구하며, 해당 digest 고정 ACR image를 범위가 제한된 campaign 실행에만 전달합니다. 따라서 plan `33978778160`에서 거부된 archive role 교체를 승격하지 않습니다. Schema migration은 별도의 zero-destroy Core service plan/apply가 계속 소유합니다. | `current change`, campaign workflow contract 및 actionlint. 거부된 root plan은 `1 add / 1 change / 1 destroy`를 기록했으며 독립 handover service plan은 zero-destroy service 배포 경계를 입증했습니다. | 정확한 revision의 CI 및 image publication 성공을 확보하고 거부된 root plan을 apply하지 않은 채 exact image를 import합니다. 그 뒤 migration을 위한 zero-destroy Core service apply를 완료하고 보호된 campaign을 실행합니다. |
 | 2026-09-05 | implemented | 정확한 OI-16 revision의 필수 gitleaks job을 실패하게 만든 API key 유사 source literal 2개를 제거했습니다. Phase digest domain 값과 runtime 동작은 변경하지 않았으며 내부 identifier와 synthetic schema replay fixture 값 1개만 변경했습니다. | `current change`, 집중 schema replay 및 campaign CLI 검사 75개와 Ruff가 통과했습니다. Required CI run `33974940666`에서 `generic-api-key` false positive 2개를 확인했습니다. | 수정된 정확한 revision을 push하고 새로운 required CI run이 성공한 뒤에만 보호된 배포 또는 certification을 진행합니다. |

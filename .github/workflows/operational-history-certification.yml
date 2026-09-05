@@ -208,7 +208,6 @@ jobs:
 
           registry="${deployed_image%%/*}"
           [[ "$deployed_image" =~ ^[^/]+/fdai@sha256:[0-9a-f]{64}$ ]]
-          az acr login --name "${registry%%.*}" --only-show-errors >/dev/null
           runtime_image_digest="$(
             az acr manifest list-metadata \
               --registry "${registry%%.*}" \

@@ -64,3 +64,4 @@ def test_campaign_resolves_the_exact_acr_revision_instead_of_trusting_job_config
     assert 'source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"' in _WORKFLOW
     assert '[[ "$runtime_image_digest" == "$source_digest" ]]' in _WORKFLOW
     assert 'runtime_image_digest="${runtime_image##*@}"' not in _WORKFLOW
+    assert "az acr login" not in _WORKFLOW
