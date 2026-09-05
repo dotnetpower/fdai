@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "ingestion_lifecycle_axes_20260905"
-down_revision: str | Sequence[str] | None = "native_sharepoint_connector_state_20260905"
+down_revision: str | Sequence[str] | None = "native_sharepoint_resync_state_20260905"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "document-ingestion-api"
 owned_tables: tuple[str, ...] = ()
 rollback = {
     "strategy": "restore-lifecycle-transition-owner-without-axis-progress",
-    "restores": "power_platform_connector_state_20260905",
+    "restores": "native_sharepoint_resync_state_20260905",
     "requires": "document-processing-worker-stopped",
 }
 
@@ -32,6 +32,7 @@ def upgrade() -> None:
             api_allowed BOOLEAN;
             worker_allowed BOOLEAN;
             worker_axis_allowed BOOLEAN;
+            worker_purge_allowed BOOLEAN;
         BEGIN
             IF NEW.revision <> OLD.revision + 1 THEN
                 RAISE EXCEPTION 'document lifecycle revision must increment exactly once';
@@ -63,13 +64,35 @@ def upgrade() -> None:
                         - 'revision' - 'index_state' - 'retention_state'
                         - 'updated_at' - 'active' - 'available'
                 )
+                AND NEW.payload->>'active' = 'false'
+                AND NEW.payload->>'available' = 'false'
                 AND (
                     TG_TABLE_NAME <> 'document_version'
-                    OR (
-                        to_jsonb(NEW)->>'active' = 'false'
-                        AND NEW.payload->>'active' = 'false'
-                        AND NEW.payload->>'available' = 'false'
-                    )
+                    OR to_jsonb(NEW)->>'active' = 'false'
+                );
+            worker_purge_allowed :=
+                OLD.state = 'deleted'
+                AND NEW.state = 'deleted'
+                AND NEW.payload->>'index_state' = 'purged'
+                AND NEW.payload->>'retention_state' = 'purged'
+                AND (
+                    OLD.payload
+                        - 'revision' - 'index_state' - 'retention_state'
+                        - 'updated_at' - 'active' - 'available'
+                ) = (
+                    NEW.payload
+                        - 'revision' - 'index_state' - 'retention_state'
+                        - 'updated_at' - 'active' - 'available'
+                )
+                AND NEW.payload->>'active' = 'false'
+                AND NEW.payload->>'available' = 'false'
+                AND (
+                    TG_TABLE_NAME <> 'document_version'
+                    OR to_jsonb(NEW)->>'active' = 'false'
+                )
+                AND (
+                    OLD.payload->>'index_state' IS DISTINCT FROM 'purged'
+                    OR OLD.payload->>'retention_state' IS DISTINCT FROM 'purged'
                 );
             worker_allowed :=
                 (OLD.state = 'received' AND NEW.state = 'quarantined')
@@ -86,21 +109,32 @@ def upgrade() -> None:
                 )
                 OR (OLD.state = 'deleting' AND NEW.state = 'deleted')
                 OR worker_axis_allowed
+                OR worker_purge_allowed
                 OR (
                     TG_TABLE_NAME = 'document_version'
                     AND OLD.state = NEW.state
-                    AND to_jsonb(OLD)->>'active' = 'true'
-                    AND to_jsonb(NEW)->>'active' = 'false'
+                    AND (
+                        (
+                            to_jsonb(OLD)->>'active' = 'true'
+                            AND to_jsonb(NEW)->>'active' = 'false'
+                        )
+                        OR (
+                            OLD.payload->>'available' = 'true'
+                            AND NEW.payload->>'available' = 'false'
+                            AND NEW.payload->>'protection_state'
+                                = 'rights_managed_access_denied'
+                        )
+                    )
                 );
 
-            IF current_user = 'fdai_ingestion_api' AND NOT api_allowed THEN
+            IF current_user = 'fdai_ingestion_api' AND api_allowed IS NOT TRUE THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_api does not own this lifecycle transition';
-            ELSIF current_user = 'fdai_ingestion_worker' AND NOT worker_allowed THEN
+            ELSIF current_user = 'fdai_ingestion_worker' AND worker_allowed IS NOT TRUE THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_worker does not own this lifecycle transition';
             ELSIF current_user = 'fdai_ingestion_cohost'
-                  AND NOT (api_allowed OR worker_allowed) THEN
+                  AND (api_allowed OR worker_allowed) IS NOT TRUE THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_cohost does not own this lifecycle transition';
             END IF;
@@ -155,17 +189,27 @@ def downgrade() -> None:
                 OR (
                     TG_TABLE_NAME = 'document_version'
                     AND OLD.state = NEW.state
-                    AND to_jsonb(OLD)->>'active' = 'true'
-                    AND to_jsonb(NEW)->>'active' = 'false'
+                    AND (
+                        (
+                            to_jsonb(OLD)->>'active' = 'true'
+                            AND to_jsonb(NEW)->>'active' = 'false'
+                        )
+                        OR (
+                            OLD.payload->>'available' = 'true'
+                            AND NEW.payload->>'available' = 'false'
+                            AND NEW.payload->>'protection_state'
+                                = 'rights_managed_access_denied'
+                        )
+                    )
                 );
-            IF current_user = 'fdai_ingestion_api' AND NOT api_allowed THEN
+            IF current_user = 'fdai_ingestion_api' AND api_allowed IS NOT TRUE THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_api does not own this lifecycle transition';
-            ELSIF current_user = 'fdai_ingestion_worker' AND NOT worker_allowed THEN
+            ELSIF current_user = 'fdai_ingestion_worker' AND worker_allowed IS NOT TRUE THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_worker does not own this lifecycle transition';
             ELSIF current_user = 'fdai_ingestion_cohost'
-                  AND NOT (api_allowed OR worker_allowed) THEN
+                  AND (api_allowed OR worker_allowed) IS NOT TRUE THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_cohost does not own this lifecycle transition';
             END IF;

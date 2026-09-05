@@ -17,9 +17,18 @@ def test_deletion_axis_progress_is_narrow_and_worker_owned() -> None:
     migration = runpy.run_path(str(_MIGRATION))
 
     assert migration["owned_tables"] == ()
+    assert migration["down_revision"] == "native_sharepoint_resync_state_20260905"
     assert "OLD.state = 'deleting'" in source
     assert "NEW.state = 'deleting'" in source
     assert "NEW.payload->>'index_state' = 'tombstoned'" in source
     assert "NEW.payload->>'retention_state' IN ('tombstoned', 'purge_pending')" in source
+    assert "OLD.state = 'deleted'" in source
+    assert "NEW.payload->>'index_state' = 'purged'" in source
+    assert "NEW.payload->>'retention_state' = 'purged'" in source
     assert "- 'updated_at' - 'active' - 'available'" in source
     assert "TG_TABLE_NAME <> 'document_version'" in source
+    assert "NEW.payload->>'active' = 'false'" in source
+    assert "NEW.payload->>'available' = 'false'" in source
+    assert "rights_managed_access_denied" in source
+    assert "api_allowed IS NOT TRUE" in source
+    assert "worker_allowed IS NOT TRUE" in source
