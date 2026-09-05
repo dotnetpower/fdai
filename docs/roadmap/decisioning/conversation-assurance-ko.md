@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: abce507ff5fa553a8665dbeb44a6f9e783c13254
+translation_source_sha: 157d5db842b2e5eecffad8d99ff8c623580ef10f
 translation_revised: 2026-09-06
 ---
 # 대화 품질 보증
@@ -577,6 +577,8 @@ $$
 
 `H`는 하드 실패 이탈 수입니다. 하드 이탈, 0보다 낮은 신뢰 하한, 비용 또는 지연 회귀, 로케일
 격차 또는 불일치 증가가 있으면 이전 변경할 수 없는 정책을 자동 복원합니다.
+후보 및 incumbent의 검증된 답변당 비용 측정값은 절대값입니다. 음수 비용은 잘못된 값으로
+처리하며 승격 결정에 사용할 수 없습니다.
 기본 최소 lower-confidence-bound gain은 `0.01`이므로 동점 또는 측정되지 않은 improvement는 다음
 단계로 진행하지 않습니다. 잘못된 샘플, gain, 지연 시간, locale-gap 또는 disagreement 임계값은
 런타임 정책 생성 시 실패합니다.

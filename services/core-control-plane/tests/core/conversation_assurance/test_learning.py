@@ -210,6 +210,18 @@ def test_policy_requires_statistically_positive_gain_by_default() -> None:
 
 
 @pytest.mark.parametrize(
+    "overrides",
+    [
+        {"candidate_cost_per_verified_microusd": -1.0},
+        {"incumbent_cost_per_verified_microusd": -1.0},
+    ],
+)
+def test_policy_trial_rejects_negative_absolute_costs(overrides: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="costs MUST be non-negative"):
+        _metrics(**overrides)
+
+
+@pytest.mark.parametrize(
     "kwargs",
     [
         {"min_samples": 0},

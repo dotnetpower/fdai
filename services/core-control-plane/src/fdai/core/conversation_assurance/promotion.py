@@ -99,6 +99,11 @@ class PolicyTrialMetrics:
             raise ValueError("policy trial metrics MUST be finite")
         if self.sample_count < 0 or self.hard_failure_escapes < 0:
             raise ValueError("policy trial counts MUST be non-negative")
+        if (
+            self.candidate_cost_per_verified_microusd < 0
+            or self.incumbent_cost_per_verified_microusd < 0
+        ):
+            raise ValueError("policy trial costs MUST be non-negative")
         if self.measured_at.tzinfo is None or self.measured_at.utcoffset() is None:
             raise ValueError("policy trial measured_at MUST be timezone-aware")
 

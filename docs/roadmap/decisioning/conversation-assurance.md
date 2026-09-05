@@ -595,6 +595,8 @@ $$
 `H` is the hard-failure escape count. A hard escape, lower confidence bound below zero, cost or
 latency regression, locale disparity, or increased disagreement automatically restores the prior
 immutable policy.
+Candidate and incumbent cost-per-verified-answer measurements are absolute values; negative costs
+are invalid and cannot enter a promotion decision.
 The default minimum lower-confidence-bound gain is `0.01`, so a tie or unmeasured improvement does
 not advance. Invalid sample, gain, latency, locale-gap, or disagreement thresholds fail when the
 runtime policy is constructed.
