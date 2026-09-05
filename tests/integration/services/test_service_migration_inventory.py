@@ -54,15 +54,16 @@ def test_legacy_migration_inventory_is_linear_and_complete() -> None:
 def test_ci_separates_root_and_service_migration_database_tests() -> None:
     workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     migration_step = workflow.index("- name: Run service-owned migrations")
+    lifecycle_step = workflow.index("- name: Run serial service migration lifecycle tests")
     integration_step = workflow.index("- name: Run integration test suite")
 
-    assert integration_step < migration_step
-    integration = workflow[
-        integration_step : workflow.index(
-            "- name: Run service-owned database tests",
-            integration_step,
-        )
+    assert integration_step < migration_step < lifecycle_step
+    lifecycle = workflow[
+        lifecycle_step : workflow.index("- name: Run service-owned database tests", lifecycle_step)
     ]
+    assert 'FDAI_SERIAL_MIGRATION_TESTS: "1"' in lifecycle
+    assert "test_catalog_lifecycle_integration.py" in lifecycle
+    integration = workflow[integration_step:migration_step]
     assert "FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}" not in integration
     service_tests = workflow[workflow.index("- name: Run service-owned database tests") :]
     assert 'FDAI_SERVICE_MIGRATIONS_READY: "1"' in service_tests
