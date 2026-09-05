@@ -196,7 +196,7 @@ output "browser_evidence_cleanup_job_id" {
 
 output "operational_history_lifecycle_job_id" {
   description = "Scheduled shadow operational-history lifecycle Job resource id, or null when disabled."
-  value       = module.compute.operational_history_lifecycle_job_id
+  value       = try(azurerm_container_app_job.operational_history_lifecycle[0].id, null)
 }
 
 output "measurement_baseline_job_name" {

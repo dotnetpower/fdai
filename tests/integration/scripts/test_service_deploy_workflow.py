@@ -165,7 +165,7 @@ def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
     assert "-target=module.operational_history_storage[0]" in target_expression
     assert "-target=azurerm_private_endpoint.operational_history_blob[0]" in target_expression
     assert (
-        "-target=module.compute.azurerm_container_app_job.operational_history_lifecycle[0]"
+        "-target=azurerm_container_app_job.operational_history_lifecycle[0]"
     ) in target_expression
     assert "OPERATIONAL_HISTORY_ONLY:" in _LEGACY_WORKFLOW
     assert "mode=operational-history" in _LEGACY_WORKFLOW

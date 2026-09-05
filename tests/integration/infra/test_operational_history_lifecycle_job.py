@@ -3,13 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
-_MODULE = _ROOT / "infra" / "modules" / "compute" / "container-apps"
+_JOB = _ROOT / "infra" / "operational_history_lifecycle_job.tf"
 
 
 def test_operational_history_job_is_scheduled_shadow_only() -> None:
-    job = (_MODULE / "operational_history_lifecycle_job.tf").read_text(encoding="utf-8")
+    job = _JOB.read_text(encoding="utf-8")
 
-    assert "inventory_identity_id" in job
+    assert "module.inventory_identity.resource_id" in job
     assert "executor_identity" not in job
     assert 'args    = ["--mode", "shadow"]' in job
     assert "AUTHORITY_RECEIPT" not in job
@@ -17,6 +17,10 @@ def test_operational_history_job_is_scheduled_shadow_only() -> None:
     assert "parallelism              = 1" in job
     assert 'name        = "FDAI_DATABASE_URL"' in job
     assert 'name  = "FDAI_OPERATIONAL_HISTORY_CONTAINER_URL"' in job
+    assert "module.compute" not in job
+    assert "azurerm_key_vault_secret.state_store_dsn" not in job
+    assert "Microsoft.App/managedEnvironments" in job
+    assert "%s/secrets/fdai-state-store-dsn" in job
 
 
 def test_operational_history_job_has_dedicated_private_storage() -> None:
@@ -30,29 +34,30 @@ def test_operational_history_job_has_dedicated_private_storage() -> None:
     assert 'container_name                = "operational-history"' in root
     assert "runtime_principal_id          = module.inventory_identity.principal_id" in root
     assert 'resource "azurerm_private_endpoint" "operational_history_blob"' in root
+    assert "Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net" in root
+    assert "Microsoft.Network/virtualNetworks/%s/subnets/snet-pe" in root
     assert (
         "private_dns_zone_ids = [module.case_history_blob_private_endpoint[0].private_dns_zone_id]"
-    ) in root
-    assert 'private_dns_zone_name = "privatelink.blob.core.windows.net"' in root
+        not in root
+    )
     assert "shared_access_key_enabled         = false" in storage
     assert "public_network_access_enabled     = var.public_network_access_enabled" in storage
     assert 'role_definition_name = "Storage Blob Data Contributor"' in storage
 
 
 def test_operational_history_wiring_exposes_bounded_controls_and_outputs() -> None:
-    root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    job = _JOB.read_text(encoding="utf-8")
     root_variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
     root_outputs = (_ROOT / "infra" / "outputs.tf").read_text(encoding="utf-8")
-    module_outputs = (_MODULE / "outputs.tf").read_text(encoding="utf-8")
 
-    assert "operational_history_lifecycle_cron_expression" in root
-    assert "operational_history_lifecycle_max_partitions" in root
+    assert "operational_history_lifecycle_cron_expression" in job
+    assert "operational_history_lifecycle_max_partitions" in job
     assert "operational_history_lifecycle_max_partitions <= 256" in root_variables
     assert 'default     = "0 * * * *"' in _variable_block(
         root_variables, "operational_history_lifecycle_cron_expression"
     )
-    assert 'output "operational_history_lifecycle_job_id"' in module_outputs
     assert 'output "operational_history_lifecycle_job_id"' in root_outputs
+    assert "azurerm_container_app_job.operational_history_lifecycle[0].id" in root_outputs
     assert 'output "operational_history_container_url"' in root_outputs
 
 
