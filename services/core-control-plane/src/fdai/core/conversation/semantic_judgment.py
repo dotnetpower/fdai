@@ -86,6 +86,7 @@ _COLLECTION_FUNCTION_INTENTS = frozenset(
     {
         "query.resource_health_inventory",
         "query.resource_state_inventory",
+        "query.subscription_scope_identity",
         "query.subscription_service_health",
     }
 )

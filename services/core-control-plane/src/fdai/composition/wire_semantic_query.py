@@ -178,6 +178,11 @@ from fdai.core.ontology_platform.state_transitions import (
     StateTransitionStore,
     resource_state_transitions_function,
 )
+from fdai.core.ontology_platform.subscription_scope_queries import (
+    SUBSCRIPTION_SCOPE_FUNCTION_NAME,
+    SubscriptionScopeReader,
+    subscription_scope_function,
+)
 from fdai.core.ontology_platform.vm_process_evidence import (
     VM_PROCESS_CPU_FUNCTION_NAME,
     VmProcessCpuReader,
@@ -245,6 +250,7 @@ def build_semantic_query_runtime(
     read_investigation_provider: ReadInvestigationProvider | None = None,
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
+    subscription_scope_reader: SubscriptionScopeReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
     state_transition_reader: StateTransitionStore | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
@@ -405,6 +411,16 @@ def build_semantic_query_runtime(
             service_health_declaration,
             service_health_function(ontology_release, reader=service_health_reader),
             authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
+        )
+    if subscription_scope_reader is not None:
+        subscription_scope_declaration = declarations[SUBSCRIPTION_SCOPE_FUNCTION_NAME]
+        function_registry.register_contextual(
+            subscription_scope_declaration,
+            subscription_scope_function(
+                ontology_release,
+                reader=subscription_scope_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_SUBSCRIPTION_SCOPE,
         )
     if state_transition_reader is not None:
         state_transition_declaration = declarations[RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME]

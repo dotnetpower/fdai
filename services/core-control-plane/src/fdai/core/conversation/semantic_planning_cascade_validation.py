@@ -38,6 +38,7 @@ _SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE = {
     "resource_metric_list": SemanticOperation.SELECT,
     "resource_state_list": SemanticOperation.SELECT,
     "resource_target_candidates": SemanticOperation.SELECT,
+    "subscription_scope_identity": SemanticOperation.SELECT,
     "subscription_service_health": SemanticOperation.SELECT,
     "target_activity": SemanticOperation.SELECT,
     "target_current_state": SemanticOperation.SELECT,
