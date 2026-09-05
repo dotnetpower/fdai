@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 5e35ba9212555559b39e7e4d7d4560bd1cbcd72b
+translation_source_sha: 4888c6d9e0cdf51dba8cf074d0e157201392aecd
 translation_revised: 2026-09-05
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -27,7 +27,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 | Operator 대화 SSE 종료 | 구현됨 | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | 애플리케이션 종료와 호출자 취소는 모두 진행 중인 source 읽기를 취소하고 기다린 뒤 스트림을 닫습니다. 유휴 source는 정상 종료를 막거나 분리된 읽기 task를 남길 수 없습니다. |
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
-| 선제적 담당 업무 인수인계 대화 | 구현됨 | `handover_runtime.py`; `console/src/handover-*`; Command Deck 세션 및 문서 업로드 경로; 집중 Operator 및 Console 검사 | 실제 최종 책임자 매핑은 피로도 한도가 적용된 에이전트 대화 하나를 열 수 있습니다. 모든 후속 턴은 매핑된 에이전트를 지정하며 관리되는 업로드는 정규화된 근거 후보를 목표에 연결할 수 있습니다. 배포 증적과 서버 소유 인시던트 또는 승인 작업 중 억제는 남아 있습니다. |
+| 선제적 담당 업무 인수인계 대화 | 구현됨 | `handover_runtime.py`; `handover_binding.py`; `console/src/handover-*`; Command Deck 세션 및 문서 업로드 경로; 집중 Operator 및 Console 검사 | 실제 최종 책임자 매핑은 피로도 한도가 적용된 에이전트 대화 하나를 열 수 있습니다. 서버는 라우팅 전에 주체, 목표, 세션, 에이전트를 검증하고 영속적으로 연결합니다. 관리되는 근거는 권위 있는 문서 메타데이터가 업로더, 승인, 가용성, 다이제스트를 확인한 후에만 검토 준비 상태가 됩니다. 배포 증적과 서버 소유 인시던트 또는 승인 작업 중 억제는 남아 있습니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 외부 Browser Entra 실행기는 정확한 Operator API 원본을 요구하고, 성공 경로에서 모호하지 않은 조회 가능 유형 요청을 사용하며, 요청 및 변환 결과에 결속된 증적을 펼치고, 산출물을 출처, 작업 영역 패치, 실행 구성 digest에 결속합니다. `answered`가 아닌 증적을 받으면 답변 전용 UI 단언 전에 중단합니다. `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 Console 검사 | `semantic_clarification_required`를 `Context required`로 표시하면서 범위가 제한된 서버 작성 질문을 기본 답변으로 보존합니다. 질문이 잘못되었거나 없으면 지역화된 대체 문구를 사용합니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
@@ -43,6 +43,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-05 | 구현됨 | 선제적 웹 담당 업무 인수인계 대화, 리비전 기반 목표 제어, 매핑된 에이전트 후속 라우팅, 관리되는 문서 근거 연결을 추가했습니다. | `current change`; 집중 Operator 및 Console 테스트, Console typecheck, Console build. | 인증된 배포 증적을 보존하고 서버 소유 인시던트 및 승인 작업 중 억제를 추가합니다. |
+| 2026-09-05 | 구현됨 | 인수인계 대상 선택을 브라우저 작성 프롬프트 라우팅에서 서버가 검증한 주체, 목표, 세션 바인딩으로 이동하고 근거 검토 전에 권위 있는 문서 승인을 요구했습니다. | `current change`; 집중 Operator, Console, migration inventory 테스트가 통과했습니다. | 인증된 배포 증적을 보존하고 서버 소유 인시던트 및 승인 작업 중 억제를 추가합니다. |
 | 2026-09-05 | 구현됨 | 공통 카탈로그 용어집과 카탈로그 기반 경로 레이블을 게시하여 지식 개요 및 커넥터 스냅샷이 자체 설명 화면 계약을 다시 충족하도록 수정했습니다. | `current change`, `console/src/routes/knowledge-sources.tsx`, 집중 Console 카탈로그 및 화면 계약 검사 47개 통과, 분리된 Console 타입 검사 및 운영 빌드 통과 | 이 범위가 제한된 계약 수정에 남은 구현 작업은 없습니다. |
 | 2026-09-03 | 구현됨 | 평가되지 않은 시작 예시를 이중 언어 함수 기반 질문 5개로 교체하고, 신뢰도가 높은 타입 기반 프레임 재사용을 추가하고, 적극적인 T2 복구를 기본적으로 비활성화하고, 완료된 프레임 및 계획 호출을 모델 지연 시간 근거에 포함했습니다. | `current change`, 집중 의미 계획, Azure 어댑터, 런타임 설정, Console 시작 화면, 질문 은행 검사 | 시작 질문 집합 또는 지연 시간 개선을 `검증됨`으로 올리기 전에 인증된 이중 언어 런타임 증적을 새로 보존합니다. |
 | 2026-08-31 | 구현됨 | 완료된 측정, 이름이 표시된 미해결 가설, 정확한 공백, `execution_authority=false`가 표시되도록 Console에서 타입 기반 부분 근거 보류 답변을 보존했습니다. 보존에는 정본 최종 본문, 비어 있지 않은 근거, 같은 요청의 일치하는 검증 및 의미 증적이 필요합니다. 증적이 없거나 잘못됐거나 최종 답변이 없거나 공백뿐이면 활성 token pump generation을 무효화하고 내보내기 전에 대기 및 누적 초안을 지운 뒤 단조 증가하는 철회 revision을 보냅니다. | `current change`, 집중 grounded-reply 및 스트림 검사 52개와 Console typecheck 통과 | 정확한 커밋 리비전에서 인증된 데스크톱 및 모바일 타입 기반 보류 증적 하나를 보존합니다. |

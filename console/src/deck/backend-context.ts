@@ -113,6 +113,7 @@ export function createBackendRequestPayload(
   attachments?: readonly ChatAttachment[],
   targetAgent?: string,
   semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2",
+  handoverGoalId?: string,
 ): Record<string, unknown> {
   const locale = responseLocale(prompt);
   const includeModelTrace = readConsolePreferences().showModelTrace;
@@ -134,6 +135,7 @@ export function createBackendRequestPayload(
       ? { semantic_planning_profile: semanticPlanningProfile }
       : {}),
     ...(targetAgent ? { target_agent: targetAgent } : {}),
+    ...(handoverGoalId ? { handover_goal_id: handoverGoalId } : {}),
     ...(resourceContext ? { resource_context: resourceContext } : {}),
     ...(evidenceFreshnessContext
       ? { evidence_freshness_context: evidenceFreshnessContext }

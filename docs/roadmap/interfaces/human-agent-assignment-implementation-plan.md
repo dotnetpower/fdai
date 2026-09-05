@@ -32,6 +32,7 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 |------|-------|--------|----------|-----------|
 | 2026-09-01 | in-progress | Implemented the Package 4 coordination core: one idempotent shadow ownership draft, exact merge correlation, ownership receipt, and typed shadow IAM request. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; focused ownership and access-apply tests passed. | Bind production GitOps and signed merge consumption, then retain restart and delivery evidence before marking Package 4 implemented. |
 | 2026-09-05 | implemented | Completed the production-composed web portion of Package 7 and the goal-to-upload portion of Package 8 with live ownership revalidation, bounded proactive invitations, revisioned commands, mapped-agent conversations, and governed document receipts. | `current change`; focused Operator and Console tests, Console typecheck, and Console build. | Complete agent-authored gaps, server retrieval, post-merge effects, lifecycle propagation, and governed deployment evidence. |
+| 2026-09-05 | implemented | Hardened Package 7 and 8 boundaries with server-owned conversation binding and least-privilege authoritative document verification. | `current change`; focused Operator, Console, and service migration inventory tests passed. | Complete the remaining production and knowledge-lifecycle evidence. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected Package 4 and Package 5 dependency claims. | `current change`; source and focused checks listed in the scope table. | Implement Package 4, finish Packages 8-9, and collect promotion and operational evidence. |
 
 ### Remaining work
@@ -82,11 +83,12 @@ The slice follows these rules:
   one ISO week. Retries return the existing invitation.
 - An invitation never blocks Console access. The current web slice applies login and weekly fatigue
   limits. Server-owned incident and approval suppression remains a rollout prerequisite.
-- A handover conversation addresses the mapped agent on every turn and keeps the goal identity in
-  its session key. This routing does not grant action, approval, or evidence authority.
-- Web files enter the document-ingestion gateway first. A turn carries only an authorized immutable
-  `doc:<document_id>:<version_id>` citation, and goal evidence records the source digest rather than
-  file bytes.
+- A handover conversation sends the goal identity with every turn. The server verifies principal,
+  goal, agent, and durable conversation session before injecting the mapped agent address. This
+  routing does not grant action, approval, or evidence authority.
+- Web files enter the document-ingestion gateway first. Before goal evidence becomes reviewable, the
+  Operator service re-reads the exact document version and verifies uploader, admitted state,
+  active availability, immutable `doc:<document_id>:<version_id>` citation, and source digest.
 - Goal transitions use revision fencing. Evidence makes a goal ready for independent review;
   acceptance remains a separate Owner action and never grants execution authority.
 

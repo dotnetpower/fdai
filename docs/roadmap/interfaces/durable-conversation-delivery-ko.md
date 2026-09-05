@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 78593959574a56d1ea7099aab9004d53feb1b91a
-translation_revised: 2026-08-26
+translation_source_sha: 22669b813140681cd946298589cdca07b332086e
+translation_revised: 2026-09-05
 ---
 # 영구 대화 전송
 
@@ -77,6 +77,7 @@ writer를 부여하지 않습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | 구현됨 | 기존 의미 기반 영속 경계 전에 주체, 목표, 에이전트, 세션을 검증하는 웹 전용 인수인계 제안 데코레이터를 추가했습니다. Slack, Teams, 외부 전달, 공급자 승인 상태는 변경하지 않습니다. | `current change`; 집중 Operator 인수인계 및 경로 조립 테스트가 통과했습니다. | 별도로 필요한 채널 및 배포 증적을 보존합니다. |
 | 2026-08-13 | 진행 중 | 구현 장부를 도입하고 운영 영속성, 시작, 명령, 예약 전달 및 운영 화면 주장을 현재 서비스 트리에 맞게 수정했습니다. | 구현 범위 표에 나열한 집중 테스트 76개가 통과했습니다. 저장소 검색에서 현재 운영 저장소, 런타임 조립, 명령 경로, 예약 전달 조정기 또는 읽기 패널을 찾지 못했습니다. | 누락된 운영 표면을 구현하고 연결하며 데이터베이스 기반 검사를 실행하고 통제된 런타임 증적을 확보해야 합니다. |
 | 2026-08-16 | 진행 중 | 범위가 제한된 지연 시간 백분위수, 차단기 및 상태 개수, 선택적 progressive 계수기를 갖추고 변경 제어나 식별자 표면이 없는 GET 전용 `ConversationDeliveryPanel` 집계 투영을 구현했습니다. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py`가 읽기 전용 선언, 식별자 없는 페이로드, 변경 경로 거부를 포함한 집중 테스트 11개를 통과했습니다. | 패널을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결한 뒤 통제된 런타임 증적을 확보해야 합니다. |
 | 2026-08-19 | 구현됨 | 변경하지 않은 revision 0047 위에 구체적인 PostgreSQL principal binding 및 outbound delivery store를 추가하고 additive revision 0087과 lease-aware inbound message ledger를 추가했습니다. Gateway는 direct acknowledgement 또는 durable delivery ownership 이후에만 inbound claim을 완료로 표시합니다. | `current change`, loopback PostgreSQL 실제 검사 9개 건너뛰기 없이 통과, in-memory/gateway parity 36개, migration 검사 183개 및 Ruff, formatting, strict mypy 통과 | Fail-closed 운영 A3 lifespan에 모든 store를 binding하고 runtime restart 근거를 보존합니다. |

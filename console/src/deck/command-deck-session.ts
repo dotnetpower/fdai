@@ -217,6 +217,10 @@ export function routePromptToAgent(prompt: string, targetAgent: string | undefin
   return targetAgent ? `@${targetAgent} ${prompt}` : prompt;
 }
 
+export function handoverGoalIdForSessionKey(sessionKey: string): string | undefined {
+  return /(?:^|:)handover:([a-f0-9]{64})$/.exec(sessionKey)?.[1];
+}
+
 export function replyAgentLabel(
   agent: string,
   delegation: ProgressiveAnswer["delegation"],

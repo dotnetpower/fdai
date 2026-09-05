@@ -9,6 +9,7 @@ const EN = {
   snoozeDone: "Reminder postponed.",
   declineDone: "Handover declined.",
   commandFailed: "The handover status could not be updated.",
+  evidenceLinkFailed: "The document was uploaded, but it could not be linked to the handover.",
   useDocumentUpload: "use the governed document upload",
 } as const;
 
@@ -21,6 +22,7 @@ const KO: Partial<Record<keyof typeof EN, string>> = {
   snoozeDone: "알림을 연기했습니다.",
   declineDone: "인수인계를 거절했습니다.",
   commandFailed: "인수인계 상태를 업데이트하지 못했습니다.",
+  evidenceLinkFailed: "문서는 업로드되었지만 인수인계에 연결하지 못했습니다.",
   useDocumentUpload: "관리되는 문서 업로드를 사용하세요",
 };
 

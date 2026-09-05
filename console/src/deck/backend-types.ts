@@ -700,6 +700,7 @@ export interface StreamCallbacks {
   readonly sessionId?: string;
   readonly semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2";
   readonly targetAgent?: string;
+  readonly handoverGoalId?: string;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
   /** Inline image attachments to escalate this turn to a vision narrator. */
   readonly attachments?: readonly import("./composer-attachment-store").ChatAttachment[];

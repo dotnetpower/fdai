@@ -1265,8 +1265,8 @@ def test_dispatcher_all_upgrade_uses_manifest_dependency_order(
     assert cli_module.main(["all", "upgrade"]) == 0
     assert tuple(calls) == (
         "core-control-plane",
-        "operator-service",
         "document-ingestion-api",
+        "operator-service",
         "document-processing-worker",
         "isolated-executor",
     )
@@ -2068,3 +2068,40 @@ def test_operator_cost_governance_settings_grants_exist() -> None:
     assert "cost_governance_analytics_snapshot" in source
     assert "fdai_set_cost_governance_enabled" in source
     assert 'migration_owner = "operator-service"' in source
+
+
+def test_operator_handover_document_read_grant_is_exact() -> None:
+    """Handover verification exposes only a bounded boolean function."""
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches"
+        / "operator-service"
+        / "versions"
+        / "20260905_operator_handover_document_read.py"
+    )
+    source = revision_path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(revision_path))
+
+    assert migration["owned_tables"] == ()
+    assert "FROM PUBLIC, fdai_operator" in source
+    assert "GRANT SELECT ON TABLE document_version TO fdai_operator" not in source
+    assert "SECURITY DEFINER" in source
+    assert "GRANT EXECUTE ON FUNCTION fdai_verify_handover_document" in source
+    assert "GRANT INSERT" not in source
+    assert "GRANT UPDATE" not in source
+    assert "GRANT DELETE" not in source
+
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    dependency = next(
+        item
+        for item in raw["migration_dependencies"]
+        if item["consumer_revision"] == "operator_handover_document_read_20260905"
+    )
+    assert dependency == {
+        "consumer_service": "operator-service",
+        "consumer_revision": "operator_handover_document_read_20260905",
+        "provider_service": "document-ingestion-api",
+        "provider_revision": "ingestion_api_outbox_20260808",
+        "schema_prerequisites": ["document_version"],
+        "provider_rollback": "blocked-until-operator-handover-document-read-rollback",
+    }

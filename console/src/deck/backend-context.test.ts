@@ -214,6 +214,25 @@ describe("viewContextWithUser wiring", () => {
     expect(payload.idempotency_key).toBe(requestId);
   });
 
+  test("carries a handover goal for server-side agent binding", () => {
+    const goalId = "a".repeat(64);
+    const payload = createBackendRequestPayload(
+      "What should I document?",
+      liveSnap(),
+      [],
+      "session-42",
+      undefined,
+      undefined,
+      undefined,
+      "Muninn",
+      undefined,
+      goalId,
+    );
+
+    expect(payload.handover_goal_id).toBe(goalId);
+    expect(payload.target_agent).toBe("Muninn");
+  });
+
   test("requests model traces only after the default-off preference is enabled", () => {
     const disabled = createBackendRequestPayload("status", liveSnap(), [], "session-42");
     setConsolePreference("showModelTrace", true);

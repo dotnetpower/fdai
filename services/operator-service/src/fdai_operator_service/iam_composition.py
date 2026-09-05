@@ -39,7 +39,10 @@ from fdai_operator_service.families.conversation.channel_edge.teams_auth import 
 )
 from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
-from fdai_operator_service.families.iam.handover_runtime import ProactiveHandoverRuntime
+from fdai_operator_service.families.iam.handover_runtime import (
+    PostgresHandoverEvidenceVerifier,
+    ProactiveHandoverRuntime,
+)
 from fdai_operator_service.families.iam.hil_callback_authority import (
     TEAMS_APPLICATION_ID_ENV,
     TEAMS_APPROVAL_CHANNEL_ID_ENV,
@@ -244,6 +247,10 @@ def build_postgres_iam_bindings(
     role_group_ids: Mapping[str, str],
 ) -> IamFamilyBindings:
     """Compose the durable IAM family without granting execution authority."""
+    if environment.database_url is None:
+        raise OperatorServiceConfigurationError(
+            "handover composition requires the authoritative Operator database"
+        )
     iam = PostgresIamAdapters(store)
     directory = build_iam_directory(environment, teams_http_client) or iam
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
@@ -276,6 +283,16 @@ def build_postgres_iam_bindings(
         if hil_secret is not None and teams_http_client is not None
         else None
     )
+    handover = ProactiveHandoverRuntime(
+        store=store,
+        ownership=PostgresOperationsAdapters(store),
+        directory=directory,
+        evidence_verifier=PostgresHandoverEvidenceVerifier(
+            dsn=environment.database_url,
+            connect_timeout_s=environment.database_connect_timeout_s,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+        ),
+    )
     return IamFamilyBindings(
         authorize=authorizer.iam,
         authenticate=authorizer.iam,
@@ -283,11 +300,8 @@ def build_postgres_iam_bindings(
         human_access=iam,
         directory=directory,
         assignments=iam,
-        handover_goals=ProactiveHandoverRuntime(
-            store=store,
-            ownership=PostgresOperationsAdapters(store),
-            directory=directory,
-        ),
+        handover_goals=handover,
+        handover_conversations=handover,
         model_settings=iam,
         runtime_settings=iam,
         teams_workflow_tester=TeamsWorkflowDiagnosticTester(

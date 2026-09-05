@@ -23,6 +23,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import cast
 
+from fdai_operator_service.families.conversation.handover_binding import (
+    HandoverConversationBinder,
+)
 from fdai_operator_service.families.iam.access_grants import make_access_grant_routes
 from fdai_operator_service.families.iam.assignments import make_assignment_routes
 from fdai_operator_service.families.iam.break_glass import make_break_glass_activation_route
@@ -86,6 +89,7 @@ class IamFamilyBindings:
     directory: HumanIdentityDirectory | None = None
     assignments: AssignmentRequestOutbox | None = None
     handover_goals: HandoverGoalOutbox | None = None
+    handover_conversations: HandoverConversationBinder | None = None
     model_settings: ModelSettingsOutbox | None = None
     runtime_settings: RuntimeSettingsOutbox | None = None
     teams_workflow_tester: TeamsWorkflowTester | None = None

@@ -5,10 +5,16 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
+from uuid import UUID
 
+import psycopg
+from fdai_operator_service.families.conversation.contracts import (
+    ConversationBoundaryError,
+    ConversationProposal,
+)
 from fdai_operator_service.families.iam.contracts import (
     HandoverGoalCommand,
     HumanIdentityDirectory,
@@ -62,6 +68,57 @@ class HandoverStateStore(Protocol):
     ) -> object: ...
 
 
+class HandoverEvidenceVerifier(Protocol):
+    """Verify one immutable document receipt against authoritative metadata."""
+
+    async def verify(
+        self,
+        *,
+        principal_id: str,
+        document_id: UUID,
+        version_id: UUID,
+        source_sha256: str,
+    ) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PostgresHandoverEvidenceVerifier:
+    """Read only the exact document version needed for a handover receipt."""
+
+    dsn: str
+    connect_timeout_s: int = 10
+    statement_timeout_ms: int = 10_000
+
+    async def verify(
+        self,
+        *,
+        principal_id: str,
+        document_id: UUID,
+        version_id: UUID,
+        source_sha256: str,
+    ) -> bool:
+        if not self.dsn:
+            raise IamUnavailableError("handover evidence verifier is not configured")
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                self.dsn,
+                connect_timeout=self.connect_timeout_s,
+            ) as connection:
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (f"{self.statement_timeout_ms}ms",),
+                )
+                row = await (
+                    await connection.execute(
+                        "SELECT fdai_verify_handover_document(%s, %s, %s, %s)",
+                        (principal_id, document_id, version_id, source_sha256),
+                    )
+                ).fetchone()
+        except psycopg.Error as exc:
+            raise IamUnavailableError("authoritative document metadata is unavailable") from exc
+        return row is not None and row[0] is True
+
+
 @dataclass(frozen=True, slots=True)
 class ProactiveHandoverRuntime:
     """Create one bounded invitation from the authoritative ownership projection."""
@@ -69,6 +126,7 @@ class ProactiveHandoverRuntime:
     store: HandoverStateStore
     ownership: ProjectionReader
     directory: HumanIdentityDirectory
+    evidence_verifier: HandoverEvidenceVerifier
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 
     async def invitation_for_session(
@@ -154,6 +212,15 @@ class ProactiveHandoverRuntime:
             and command.operation != "accept"
         ):
             raise IamConflictError("handover goal belongs to another subject")
+        if command.operation == "evidence":
+            document_id, version_id = _document_receipt(command)
+            if not await self.evidence_verifier.verify(
+                principal_id=command.principal.oid,
+                document_id=document_id,
+                version_id=version_id,
+                source_sha256=command.digest or "",
+            ):
+                raise IamConflictError("handover evidence is not an admitted document")
         updated = _transition(current, command=command, now=_aware(self.clock()))
         try:
             await self.store.append_revisioned_proposal(
@@ -178,6 +245,94 @@ class ProactiveHandoverRuntime:
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("handover goal state is unavailable") from exc
         return dict(await self.get_goal(command.goal_id))
+
+    async def bind_conversation(self, proposal: ConversationProposal) -> ConversationProposal:
+        """Resolve an optional handover goal and inject its server-owned agent target."""
+        goal_id = proposal.body.get("handover_goal_id")
+        if goal_id is None:
+            return proposal
+        if not isinstance(goal_id, str) or _SHA256.fullmatch(goal_id) is None:
+            raise ConversationBoundaryError(
+                400, "handover_binding_invalid", "handover goal binding is malformed"
+            )
+        try:
+            goal = await self.get_goal(goal_id)
+        except IamNotFoundError as exc:
+            raise ConversationBoundaryError(
+                404,
+                "handover_goal_not_found",
+                "handover goal was not found",
+            ) from exc
+        except IamUnavailableError as exc:
+            raise ConversationBoundaryError(
+                503,
+                "handover_state_unavailable",
+                "handover state is unavailable",
+            ) from exc
+        if goal.get("subject_ref") != proposal.scope.subject_id:
+            raise ConversationBoundaryError(
+                404, "handover_goal_not_found", "handover goal was not found"
+            )
+        if goal.get("state") in {"declined", "stale", "superseded"}:
+            raise ConversationBoundaryError(
+                409,
+                "handover_goal_closed",
+                "handover goal is no longer conversational",
+            )
+        agent_name = goal.get("agent_name")
+        prompt = proposal.body.get("prompt")
+        session_id = proposal.body.get("session_id")
+        if (
+            not isinstance(agent_name, str)
+            or not agent_name
+            or not isinstance(prompt, str)
+            or not prompt.strip()
+            or not isinstance(session_id, str)
+            or not session_id.strip()
+        ):
+            raise ConversationBoundaryError(
+                400,
+                "handover_binding_incomplete",
+                "handover conversation binding is incomplete",
+            )
+        requested_agent = proposal.body.get("target_agent")
+        if requested_agent is not None and requested_agent != agent_name:
+            raise ConversationBoundaryError(
+                409,
+                "handover_agent_mismatch",
+                "handover agent does not match the verified goal",
+            )
+        binding_key = f"operator-handover-conversation:{proposal.scope.subject_id}:{goal_id}"
+        binding = {
+            "goal_id": goal_id,
+            "subject_ref": proposal.scope.subject_id,
+            "agent_name": agent_name,
+            "session_id": session_id,
+            "execution_authority": False,
+        }
+        try:
+            await self._create(binding_key, binding)
+            durable_binding = await self._read_required(binding_key)
+        except IamUnavailableError as exc:
+            raise ConversationBoundaryError(
+                503,
+                "handover_state_unavailable",
+                "handover state is unavailable",
+            ) from exc
+        if durable_binding != binding:
+            raise ConversationBoundaryError(
+                409,
+                "handover_session_conflict",
+                "handover goal is already bound to another conversation",
+            )
+        return replace(
+            proposal,
+            body={
+                **proposal.body,
+                "prompt": f"@{agent_name} {prompt.strip()}",
+                "target_agent": agent_name,
+            },
+        )
 
     async def _mapped_agents(
         self,
@@ -399,6 +554,19 @@ def _transition(
     return updated
 
 
+def _document_receipt(command: HandoverGoalCommand) -> tuple[UUID, UUID]:
+    if (
+        command.kind != "document"
+        or command.evidence_ref is None
+        or _DOCUMENT_REF.fullmatch(command.evidence_ref) is None
+        or command.digest is None
+        or _SHA256.fullmatch(command.digest) is None
+    ):
+        raise IamConflictError("handover evidence is not a canonical document receipt")
+    _, document_id, version_id = command.evidence_ref.split(":", 2)
+    return UUID(document_id), UUID(version_id)
+
+
 def _mapping(value: object, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise IamUnavailableError(f"{label} is malformed")
@@ -442,4 +610,7 @@ def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-__all__ = ["ProactiveHandoverRuntime"]
+__all__ = [
+    "PostgresHandoverEvidenceVerifier",
+    "ProactiveHandoverRuntime",
+]

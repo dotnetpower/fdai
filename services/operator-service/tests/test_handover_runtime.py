@@ -5,6 +5,10 @@ from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
+from fdai_operator_service.families.conversation.contracts import (
+    ConversationProposal,
+    PrincipalScope,
+)
 from fdai_operator_service.families.iam.contracts import (
     DirectoryIdentity,
     HandoverGoalCommand,
@@ -130,6 +134,14 @@ class IdentityDirectory:
         )
 
 
+class EvidenceVerifier:
+    def __init__(self, *, admitted: bool = True) -> None:
+        self.admitted = admitted
+
+    async def verify(self, **_kwargs: object) -> bool:
+        return self.admitted
+
+
 def _runtime(
     *,
     store: MemoryStore | None = None,
@@ -144,6 +156,7 @@ def _runtime(
             store=resolved_store,
             ownership=reader,
             directory=IdentityDirectory(active=active),
+            evidence_verifier=EvidenceVerifier(),
             clock=lambda: _NOW,
         ),
         resolved_store,
@@ -202,6 +215,7 @@ async def test_cached_invitation_is_hidden_after_identity_deactivation() -> None
         store=store,
         ownership=OwnershipReader(active=False),
         directory=IdentityDirectory(active=False),
+        evidence_verifier=EvidenceVerifier(),
         clock=lambda: _NOW,
     )
 
@@ -309,3 +323,67 @@ async def test_evidence_transition_is_revision_fenced_and_reviewable() -> None:
                 expected_revision=1,
             )
         )
+
+
+@pytest.mark.asyncio
+async def test_evidence_must_be_admitted_by_authoritative_metadata() -> None:
+    runtime, store, reader = _runtime()
+    runtime = ProactiveHandoverRuntime(
+        store=store,
+        ownership=reader,
+        directory=IdentityDirectory(active=True),
+        evidence_verifier=EvidenceVerifier(admitted=False),
+        clock=lambda: _NOW,
+    )
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+
+    with pytest.raises(IamConflictError, match="not an admitted document"):
+        await runtime.submit(
+            HandoverGoalCommand(
+                principal=IamPrincipal(
+                    oid=_SUBJECT,
+                    roles=frozenset({OperatorRole.READER}),
+                ),
+                goal_id=str(invitation["goal_id"]),
+                operation="evidence",
+                expected_revision=1,
+                evidence_ref=_EVIDENCE_REF,
+                digest="a" * 64,
+                kind="document",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_conversation_target_is_resolved_from_goal_and_bound_to_session() -> None:
+    runtime, _store, _reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    proposal = ConversationProposal(
+        operation="chat.stream",
+        scope=PrincipalScope(subject_id=_SUBJECT, roles=frozenset({"Reader"})),
+        idempotency_key="turn-1",
+        body={
+            "prompt": "What should I document?",
+            "session_id": "conversation-1",
+            "handover_goal_id": goal_id,
+            "target_agent": "Muninn",
+        },
+    )
+
+    bound = await runtime.bind_conversation(proposal)
+    replay = await runtime.bind_conversation(proposal)
+
+    assert bound == replay
+    assert bound.body["prompt"] == "@Muninn What should I document?"
+    assert bound.body["target_agent"] == "Muninn"

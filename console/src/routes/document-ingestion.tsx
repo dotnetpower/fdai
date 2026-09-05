@@ -257,7 +257,7 @@ export function DocumentIngestionRoute({ client }: Props) {
                 error_type: error instanceof Error ? error.name : "UnknownError",
                 upload_id: created.session.upload_id,
               });
-              updateRow(row.key, { notice: handoverText("commandFailed") });
+              updateRow(row.key, { notice: handoverText("evidenceLinkFailed") });
             }
           }
           const draft = batch.purpose === "handover_bootstrap"

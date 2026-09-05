@@ -102,6 +102,16 @@
         "fdai_set_cost_governance_enabled"
       ],
       "provider_rollback": "blocked-until-operator-cost-settings-grant-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_handover_document_read_20260905",
+      "provider_service": "document-ingestion-api",
+      "provider_revision": "ingestion_api_outbox_20260808",
+      "schema_prerequisites": [
+        "document_version"
+      ],
+      "provider_rollback": "blocked-until-operator-handover-document-read-rollback"
     }
   ],
   "legacy_inventory": {

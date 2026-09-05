@@ -33,6 +33,10 @@ domain code and assets. It does not create another control plane or move authori
 
 ## Design at a glance
 
+> **Composition isolation:** The shared Operator route assembly may decorate web conversation
+> proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
+> change package activation, or grant access to cost data.
+
 FDAI packages Cost Governance as one exact-release vertical profile: reviewed code, declarative
 assets, ontology references, bounded query profiles, and provider requirements installed into an
 image. The profile lets agents share the same resource identity, service topology, objectives,

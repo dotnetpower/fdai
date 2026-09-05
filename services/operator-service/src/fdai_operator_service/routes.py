@@ -47,6 +47,9 @@ from fdai_operator_service.families.conversation import (
     ConversationFamilyDependencies,
     build_conversation_routes,
 )
+from fdai_operator_service.families.conversation.handover_binding import (
+    bind_handover_conversations,
+)
 from fdai_operator_service.families.cost_governance import (
     COST_GOVERNANCE_ROUTE_MANIFEST,
     CostGovernanceFamilyDependencies,
@@ -451,7 +454,12 @@ def build_operator_app(
         ),
     ]
     family_routes = [
-        *build_conversation_routes(route_families.conversation),
+        *build_conversation_routes(
+            bind_handover_conversations(
+                route_families.conversation,
+                route_families.iam.handover_conversations,
+            )
+        ),
         *make_iam_family_routes(route_families.iam),
         *build_workflow_family_routes(
             authorize=route_families.workflow_authorize,

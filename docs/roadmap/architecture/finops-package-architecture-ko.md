@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: eead596a1ff940239f1c99dce25219749db19ac3
+translation_source_sha: 480aad5b032b9a0ee86c238c42306f0025a2cb6b
 translation_revised: 2026-09-05
 ---
 
@@ -35,6 +35,10 @@ translation_revised: 2026-09-05
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 
 ## 설계 개요
+
+> **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
+> 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
+> 데이터 접근 권한을 부여하지 않습니다.
 
 FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패키징합니다. 이 프로필은
 검토된 코드, 선언적 자산, 온톨로지 참조, 범위가 제한된 쿼리 프로필 및 이미지에 설치되는

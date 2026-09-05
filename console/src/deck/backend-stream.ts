@@ -217,6 +217,7 @@ export async function askBackendStream(
           callbacks.attachments,
           callbacks.targetAgent,
           callbacks.semanticPlanningProfile,
+          callbacks.handoverGoalId,
         ),
       ),
       signal: callbacks.signal ?? null,

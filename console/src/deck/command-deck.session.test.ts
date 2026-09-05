@@ -13,7 +13,10 @@ import {
 import { regenerationSubmission } from "./use-command-deck-composer";
 import { requestSnapshotForSubmit } from "./use-command-deck-submit";
 import { sessionStore } from "./use-command-deck-sessions";
-import { routePromptToAgent } from "./command-deck-session";
+import {
+  handoverGoalIdForSessionKey,
+  routePromptToAgent,
+} from "./command-deck-session";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -23,6 +26,12 @@ describe("Agent conversation routing", () => {
   test("addresses every turn in an agent-bound conversation", () => {
     expect(routePromptToAgent("What changed?", "Muninn")).toBe("@Muninn What changed?");
     expect(routePromptToAgent("What changed?", undefined)).toBe("What changed?");
+  });
+
+  test("extracts a handover goal only from its bounded session namespace", () => {
+    const goalId = "a".repeat(64);
+    expect(handoverGoalIdForSessionKey(`user:scope:handover:${goalId}`)).toBe(goalId);
+    expect(handoverGoalIdForSessionKey("user:scope:agent:Muninn")).toBeUndefined();
   });
 });
 

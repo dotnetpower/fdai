@@ -20,6 +20,7 @@ import {
   settleInvestigationTurns,
 } from "./investigation-turn-state";
 import {
+  handoverGoalIdForSessionKey,
   provisionalReplyAgent,
   replyAgent,
   routePromptToAgent,
@@ -335,9 +336,14 @@ export function useCommandDeckSubmit({
       let reply: Awaited<ReturnType<typeof askBackendStream>>;
       try {
         if (options.requestId) queueNextRequestId(options.requestId);
-        const routedText = routePromptToAgent(text, sessionSummary?.agent);
+        const handoverGoalId = handoverGoalIdForSessionKey(originSessionKey);
+        const routedText = routePromptToAgent(
+          text,
+          handoverGoalId ? undefined : sessionSummary?.agent,
+        );
         reply = await askBackendStream(routedText, requestSnapshot, history, {
           sessionId: conversationId,
+          ...(handoverGoalId ? { handoverGoalId } : {}),
           ...(sessionSummary?.agent ? { targetAgent: sessionSummary.agent } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
           ...(conversationBinding
