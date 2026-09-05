@@ -156,6 +156,7 @@ def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]
 
+    assert "env.OPERATIONAL_HISTORY_ONLY" not in target_expression
     assert "startsWith(inputs.request_id, 'plan-history-')" in _LEGACY_WORKFLOW
     assert "startsWith(inputs.request_id, 'apply-history-')" in _LEGACY_WORKFLOW
     assert "deploy_operational_history:" not in _LEGACY_WORKFLOW

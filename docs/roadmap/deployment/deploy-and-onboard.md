@@ -289,9 +289,11 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 17 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only, enforced by a lifecycle precondition and covered by `infra/tests/dev_operations_gateway.tftest.hcl`; terminates a **public** inbound endpoint behind Easy Auth - a developer has to reach it - so it stays off on a closed network; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
 | 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**opt-in**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, capacity `1`; manual Consumption Job | bounded non-production target and normal-ingress shadow proposal for governed `ops.scale-out` evidence | dev, private networking, and the operations gateway are required; the deployment supplies an exact region-available image version and rejects mutable `latest`; a dedicated `/27` subnet has no public IP; the proposal UAMI has only ACR pull and primary Event Hub send; protected provider staging may increase capacity only to `2` before verified rollback |
 The protected `history-` request mode enables the initial bounded operational-history plan and
-apply without adding another workflow input. Set the `ENABLE_OPERATIONAL_HISTORY` repository
-variable to `true` before that plan so subsequent general deployment plans preserve the opt-in
-resources instead of proposing their removal.
+apply without adding another workflow input. The workflow derives both the enablement flag and
+bounded Terraform targets directly from that request prefix rather than from a sibling job
+environment value. Set the `ENABLE_OPERATIONAL_HISTORY` repository variable to `true` before that
+plan so subsequent general deployment plans preserve the opt-in resources instead of proposing
+their removal.
 The local parity profile starts the same five service packages against loopback PostgreSQL and
 Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
 loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed
