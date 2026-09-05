@@ -51,8 +51,10 @@ def test_console_publisher_binds_and_verifies_same_origin_manuals() -> None:
     assert "build_manual_studio_artifact.py" in publisher
     assert '"https://$hostname/manuals/$manual_file"' in publisher
     assert "sha256sum --check --status" in publisher
-    assert "output -raw operator_api_fqdn" in publisher
-    assert "output -raw ingestion_gateway_fqdn" in publisher
+    assert "resolve_service_fqdn operator-service" in publisher
+    assert "resolve_service_fqdn document-ingestion-api" in publisher
+    assert 'state_key="services/$service/$FDAI_DEPLOY_ENVIRONMENT.tfstate"' in publisher
+    assert "jq -er '.fqdn | select(type == \"string\" and length > 0)'" in publisher
     assert "DEPLOY_OPERATOR_API" not in publisher
     assert "DEPLOY_DOCUMENT_INGESTION" not in publisher
 
@@ -68,4 +70,10 @@ def test_console_static_publish_workflow_requires_exact_green_main_revision() ->
     assert "terraform init -input=false" in workflow
     assert "CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}" in workflow
     assert "CONSOLE_STATIC_WEB_APP_ID: ${{ vars.CONSOLE_STATIC_WEB_APP_ID }}" in workflow
+    assert "FDAI_DEPLOY_ENVIRONMENT: ${{ inputs.environment }}" in workflow
+    assert (
+        "STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP || vars.OPS_RESOURCE_GROUP_NAME }}"
+        in workflow
+    )
+    assert "STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}" in workflow
     assert "publish-console.sh infra" in workflow
