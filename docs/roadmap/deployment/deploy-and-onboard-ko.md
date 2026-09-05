@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c14918e2e619c6ffc39ff924e9d06cb9ff366899
+translation_source_sha: 5d02a28bda52892c5da089afc34adce418277266
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -167,8 +167,6 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 프로파일은 지원되지 않는 Event Grid-to-private-Event-Hubs 경로를 만들지 않습니다. 대신 VNet-integrated
 인벤토리 작업은 각 조정 후 범위가 제한된 Activity Log 복구 delta를 기본 Event 버스로
 전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다.
-설치된 `fdai-inventory-sync` wrapper는 positional `once` 또는 `loop`만 허용하므로 보호된 exact
-image rehearsal은 권한을 바꾸지 않고 option 형태의 Container Apps override를 피할 수 있습니다.
 빈 cron은 해당 작업을 비활성화합니다. 기존 스케줄러 또는 analyzer 작업은 계획 전에 안전하게
 가져오고 이후 이미지와 구성 변경은 같은 계획 및 적용 경로로 수렴합니다.
 Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_cli`를 실행하며, 발견 건마다

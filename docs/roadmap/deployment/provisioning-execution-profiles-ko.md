@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 4aee3d012b4d128eb6dd578506d322f1e7142d1c
-translation_revised: 2026-09-05
+translation_source_sha: 184427b4eeb420232c9d8d7d4faaae8239ebed94
+translation_revised: 2026-09-06
 ---
 # 프로비저닝 실행 프로파일
 
@@ -34,6 +34,7 @@ translation_revised: 2026-09-05
 | 2026-08-29 | validated | 대상 연결 점검과 비공개 프로필을 추가하고 서명 offline 검증을 복원하며 제공 wheel 네트워크 격리 훈련을 완료했습니다. | `dd28b64d9` 이후 캠페인 커밋, 집중 검사, 성공한 `airgap-drill.sh` | 관리 호스트 Azure 실행을 완료하고 보호된 프로비저닝 후 증적을 보존해야 합니다. |
 | 2026-09-05 | implemented | exclusive RCA reader identity apply와 검증 재개를 허용 목록 기반 bot 소유 요청으로 라우팅했습니다. downstream apply는 보호된 GitHub Environment에 계속 binding하며 변경 전에 보호된 `main`의 validator로 reviewer 정책을 검사합니다. | `current change`, 집중 deployment CLI, workflow 및 Environment 정책 검사 | 독립 승인 exact apply와 효과 증적을 하나 보존합니다. |
 | 2026-09-05 | implemented | 실행 venue가 선택한 workload identity, 비공개 runner transport, scope별 lock, durable cursor fence 및 complete-reconciliation 권위를 보존하면서 읽기 전용 inventory change accelerator를 scheduled inventory 진입점에서 분리했습니다. | `current change`, inventory accelerator와 job 검사, strict mypy 및 강제 file-size gate | operating-instance owner가 추적하는 통합 change-feed timing 증적을 보존합니다. |
+| 2026-09-06 | implemented | Exact image Container Apps rehearsal을 위해 positional `once` 또는 `loop` mode만 허용하는 설치형 inventory wrapper를 추가했습니다. Collection, projection, identity 또는 execution 권한을 바꾸지 않고 기존 CLI로 변환합니다. | `current change`, 집중 inventory CLI 테스트, strict mypy, package build 및 entrypoint 검색 | 운영 이력 certification 전에 exact image inventory projection refresh 증적 1개를 보존합니다. |
 
 ### 남은 작업
 
