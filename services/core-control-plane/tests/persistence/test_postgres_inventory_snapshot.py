@@ -138,6 +138,8 @@ def test_snapshot_relationship_props_retain_verified_runtime_observation() -> No
 
 
 def _dsn() -> str:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("service-owned migrations are not ready")
     value = os.environ.get("FDAI_DATABASE_URL")
     if not value:
         pytest.skip("FDAI_DATABASE_URL is unset")
@@ -1112,7 +1114,7 @@ async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> No
         await projector(
             {
                 "event_id": event_id,
-                "idempotency_key": f"inventory-tie-{event_id}",
+                "idempotency_key": f"inventory-tie-{event_id}-{kind}",
                 "inventory_change": {
                     "kind": kind,
                     "resource": {

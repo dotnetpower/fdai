@@ -629,6 +629,11 @@ jobs:
           chmod +x /tmp/opa
           sudo mv /tmp/opa /usr/local/bin/opa
 
+      - name: Run integration test suite
+        env:
+          FDAI_PYTEST_MODE: integration
+        run: bash scripts/quality/ci/run-python-tests.sh
+
       - name: Run service-owned migrations
         run: |
           set -euo pipefail
@@ -654,12 +659,6 @@ jobs:
                   "git:${GITHUB_SHA}:service-migrations/branches/${service}/adoption.json#rollback"
           done
 
-      - name: Run integration test suite
-        env:
-          FDAI_PYTEST_MODE: integration
-          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
-        run: bash scripts/quality/ci/run-python-tests.sh
-
       - name: Run service-owned database tests
         env:
           FDAI_SERVICE_MIGRATIONS_READY: "1"
@@ -668,6 +667,8 @@ jobs:
           uv run pytest -q --no-cov
           services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot
           services/core-control-plane/tests/persistence/test_postgres_kubernetes_lifecycle.py::test_lease_reacquire_duplicate_and_reorder_are_safe
+          services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py
+          services/core-control-plane/tests/persistence/test_postgres_ontology_instance.py::test_postgres_inventory_coverage_scopes_reconciliation_markers
 
   provider-contracts-docker:
     name: fake and real provider contract matrix

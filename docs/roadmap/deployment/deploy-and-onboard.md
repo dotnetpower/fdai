@@ -418,12 +418,13 @@ later stage with a broken earlier one.
 - **Shadow-only on first deploy**: no rule / action starts in enforce mode, ever. Promotion is
   a separate act ([rule-governance.md](../rules-and-detection/rule-governance.md)).
 - **Migrations MUST run before the first control-loop tick**. The Container App itself does not migrate
-  on start (to keep replicas identical + prevent races). Run `alembic upgrade head` from a workstation or a CI job that can reach the provisioned Postgres FQDN with the admin DSN. Every tracked migration under `alembic/versions/` defines
+  on start (to keep replicas identical + prevent races). CI runs root rollback checks before it
+  applies service-owned migrations to an isolated service database, then runs service-dependent
+  checks at that service head. Every tracked migration under `alembic/versions/` defines
   `downgrade()`, but schema/data rollback can be destructive. Rehearse backup/restore and each
-  migration-specific downgrade in staging before using it. The protected service path uses a
-  10-second connection deadline, a 5-minute database lock deadline, a 15-minute server statement
-  deadline, and a 20-minute complete migration-stage deadline. The database cancels over-budget
-  DDL and releases its locks before the workflow closes the stage, so a stalled migration fails before the service plan is applied.
+  migration-specific downgrade in staging before using it. The protected path uses 10-second
+  connection, 5-minute database lock, 15-minute statement, and 20-minute migration-stage deadlines.
+  The database cancels over-budget DDL and releases locks before the service plan is applied.
 - **Authoritative catalogs load after migrations from the exact verified Core image**. The
   materialization Job applies a five-minute PostgreSQL statement deadline for large immutable
   projections. A management-plane prebind or prestart is accepted only when readback proves the

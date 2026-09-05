@@ -15,6 +15,7 @@ from fdai.core.ontology_platform.operational_history_lifecycle import (
     ObservationPartition,
     ObservationPartitionKind,
     ObservationPartitionState,
+    ResourceIncarnation,
     build_correction_receipt,
     build_observation_partition,
     build_resource_incarnation,
@@ -201,49 +202,44 @@ async def _object_incarnation(
     )
     row = await cursor.fetchone()
     if row is None:
-        if observation.observation_kind is not InventoryObservationKind.FULL:
-            raise ValueError("sparse or tombstone observation has no current incarnation")
-        provider_identity = observation.provider_ref or (
-            f"{observation.source_identity}:{observation.subject_ref}"
+        prior_cursor = await connection.execute(
+            "SELECT incarnation_id, closed_at FROM inventory_resource_incarnation "
+            "WHERE resource_ref=%s ORDER BY opened_at DESC LIMIT 1 FOR UPDATE",
+            (observation.subject_ref,),
         )
-        incarnation = build_resource_incarnation(
-            resource_ref=observation.subject_ref,
-            resource_type=observation.subject_type,
-            provider_identity=provider_identity,
-            lifecycle_boundary_ref=observation.source_revision,
-            opened_at=observation.effective_at,
-            opening_observation_id=observation.observation_id,
-        )
-        record = {
-            "incarnation_id": incarnation.incarnation_id,
-            "resource_ref": incarnation.resource_ref,
-            "resource_type": incarnation.resource_type,
-            "provider_identity": incarnation.provider_identity,
-            "lifecycle_boundary_ref": incarnation.lifecycle_boundary_ref,
-            "opened_at": incarnation.opened_at.isoformat(),
-            "closed_at": None,
-            "opening_observation_id": incarnation.opening_observation_id,
-            "closing_observation_id": None,
-            "digest": incarnation.digest,
-        }
-        await connection.execute(
-            "INSERT INTO inventory_resource_incarnation "
-            "(incarnation_id, resource_ref, resource_type, provider_identity, "
-            "lifecycle_boundary_ref, opened_at, opening_observation_id, record) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            (
-                incarnation.incarnation_id,
-                incarnation.resource_ref,
-                incarnation.resource_type,
-                incarnation.provider_identity,
-                incarnation.lifecycle_boundary_ref,
-                incarnation.opened_at,
-                incarnation.opening_observation_id,
-                Jsonb(record),
-            ),
-        )
-        return incarnation.incarnation_id
-    incarnation_id = str(row["incarnation_id"])
+        prior = await prior_cursor.fetchone()
+        incarnation_id: str | None
+        if (
+            prior is not None
+            and prior["closed_at"] is not None
+            and observation.effective_at <= prior["closed_at"]
+        ):
+            incarnation_id = str(prior["incarnation_id"])
+        else:
+            incarnation_id = (
+                await _materialize_snapshot_incarnation(
+                    connection,
+                    resource_ref=observation.subject_ref,
+                )
+                if prior is None
+                else None
+            )
+        if incarnation_id is None:
+            if observation.observation_kind is not InventoryObservationKind.FULL:
+                raise ValueError("sparse or tombstone observation has no current incarnation")
+            incarnation = build_resource_incarnation(
+                resource_ref=observation.subject_ref,
+                resource_type=observation.subject_type,
+                provider_identity=observation.provider_ref
+                or f"{observation.source_identity}:{observation.subject_ref}",
+                lifecycle_boundary_ref=observation.source_revision,
+                opened_at=observation.effective_at,
+                opening_observation_id=observation.observation_id,
+            )
+            await _insert_incarnation(connection, incarnation)
+            incarnation_id = incarnation.incarnation_id
+    else:
+        incarnation_id = str(row["incarnation_id"])
     if (
         observation.mutation_kind is InventoryMutationKind.DELETE
         and observation.tombstone_confirmed
@@ -276,8 +272,102 @@ async def _current_incarnation(
     )
     row = await cursor.fetchone()
     if row is None:
-        raise ValueError("relationship observation endpoint has no current incarnation")
+        prior_cursor = await connection.execute(
+            "SELECT 1 FROM inventory_resource_incarnation WHERE resource_ref=%s LIMIT 1",
+            (resource_ref,),
+        )
+        if await prior_cursor.fetchone() is not None:
+            raise ValueError("relationship observation endpoint has no current incarnation")
+        incarnation_id = await _materialize_snapshot_incarnation(
+            connection,
+            resource_ref=resource_ref,
+        )
+        if incarnation_id is None:
+            raise ValueError("relationship observation endpoint has no current incarnation")
+        return incarnation_id
     return str(row["incarnation_id"])
+
+
+async def _materialize_snapshot_incarnation(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    resource_ref: str,
+) -> str | None:
+    cursor = await connection.execute(
+        "SELECT s.id AS snapshot_id, s.started_at, r.resource_type, "
+        "r.provider_ref, r.last_seen "
+        "FROM inventory_active a "
+        "JOIN inventory_snapshot s ON s.id=a.snapshot_id AND s.status='active' "
+        "JOIN inventory_snapshot_resource r ON r.snapshot_id=s.id "
+        "WHERE a.singleton=TRUE AND r.resource_id=%s",
+        (resource_ref,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    snapshot_id = str(row["snapshot_id"])
+    opened_at = row["last_seen"] or row["started_at"]
+    opening_observation_id = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                {
+                    "kind": "promoted_snapshot_baseline",
+                    "snapshot_id": snapshot_id,
+                    "resource_ref": resource_ref,
+                    "resource_type": str(row["resource_type"]),
+                    "provider_ref": row["provider_ref"],
+                    "opened_at": opened_at.astimezone(UTC).isoformat(),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+    )
+    incarnation = build_resource_incarnation(
+        resource_ref=resource_ref,
+        resource_type=str(row["resource_type"]),
+        provider_identity=str(row["provider_ref"] or f"inventory-snapshot:{snapshot_id}"),
+        lifecycle_boundary_ref=f"inventory-snapshot:{snapshot_id}",
+        opened_at=opened_at,
+        opening_observation_id=opening_observation_id,
+    )
+    await _insert_incarnation(connection, incarnation)
+    return incarnation.incarnation_id
+
+
+async def _insert_incarnation(
+    connection: psycopg.AsyncConnection[Any],
+    incarnation: ResourceIncarnation,
+) -> None:
+    record = {
+        "incarnation_id": incarnation.incarnation_id,
+        "resource_ref": incarnation.resource_ref,
+        "resource_type": incarnation.resource_type,
+        "provider_identity": incarnation.provider_identity,
+        "lifecycle_boundary_ref": incarnation.lifecycle_boundary_ref,
+        "opened_at": incarnation.opened_at.isoformat(),
+        "closed_at": None,
+        "opening_observation_id": incarnation.opening_observation_id,
+        "closing_observation_id": None,
+        "digest": incarnation.digest,
+    }
+    await connection.execute(
+        "INSERT INTO inventory_resource_incarnation "
+        "(incarnation_id, resource_ref, resource_type, provider_identity, "
+        "lifecycle_boundary_ref, opened_at, opening_observation_id, record) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            incarnation.incarnation_id,
+            incarnation.resource_ref,
+            incarnation.resource_type,
+            incarnation.provider_identity,
+            incarnation.lifecycle_boundary_ref,
+            incarnation.opened_at,
+            incarnation.opening_observation_id,
+            Jsonb(record),
+        ),
+    )
 
 
 async def _watermark(

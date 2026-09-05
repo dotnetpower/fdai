@@ -162,6 +162,8 @@ async def test_postgres_ontology_round_trip_and_traversal() -> None:
 
 
 async def test_postgres_inventory_coverage_scopes_reconciliation_markers() -> None:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("service-owned migrations are not ready")
     connection = await psycopg.AsyncConnection.connect(
         _requires_live_db(),
         autocommit=True,

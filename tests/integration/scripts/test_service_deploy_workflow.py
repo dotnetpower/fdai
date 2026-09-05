@@ -29,6 +29,9 @@ _SERVICE_CONTAINER_APP = (_ROOT / "infra/services/_modules/container-app/main.tf
 )
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
+_OCR_RESOLVER = (
+    _ROOT / "scripts/deployment/azure/resolve-document-ocr-desired-state.sh"
+).read_text(encoding="utf-8")
 _IMAGE_BINDER = (_ROOT / "scripts/deployment/azure/bind_core_runtime_image.sh").read_text(
     encoding="utf-8"
 )
@@ -152,11 +155,11 @@ def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
     assert "use_azure_provision" in _LEGACY_WORKFLOW
     assert "deprovision_use_local" in _LEGACY_WORKFLOW
     assert "plan-ocr-" in _LEGACY_WORKFLOW
-    assert "- name: Bind document OCR proposal" in _LEGACY_WORKFLOW
+    assert "- name: Verify exact Azure context and bind governed inputs" in _LEGACY_WORKFLOW
     assert "materialize-document-ocr-proposal.sh" in _LEGACY_WORKFLOW
-    assert "- name: Resolve document OCR desired state" in _LEGACY_WORKFLOW
-    assert "TF_VAR_enable_document_intelligence=%s" in _LEGACY_WORKFLOW
-    assert "TF_VAR_document_ocr_provider=%s" in _LEGACY_WORKFLOW
+    assert "resolve-document-ocr-desired-state.sh" in _LEGACY_WORKFLOW
+    assert "TF_VAR_enable_document_intelligence=%s" in _OCR_RESOLVER
+    assert "TF_VAR_document_ocr_provider=%s" in _OCR_RESOLVER
 
 
 def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> None:

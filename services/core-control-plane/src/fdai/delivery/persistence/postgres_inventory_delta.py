@@ -178,7 +178,11 @@ class PostgresInventoryDeltaProjector:
             for link in links
         )
         links_complete = _optional_bool(change, "links_complete", default=False)
-        properties_complete = _optional_bool(change, "properties_complete", default=True)
+        properties_complete = _optional_bool(
+            change,
+            "properties_complete",
+            default=change_kind != "delete",
+        )
         observation_kind = inventory_observation_kind(
             change,
             change_kind=change_kind,
@@ -196,6 +200,9 @@ class PostgresInventoryDeltaProjector:
         )
         operation = optional_change_text(change, "operation")
         operation_status = optional_change_text(change, "operation_status")
+        observation_properties = (
+            {} if observation_kind is InventoryObservationKind.TOMBSTONE else props
+        )
         if len(links) > self._max_links:
             raise ValueError(f"inventory_change.links exceeds cap ({self._max_links})")
         _reject_duplicate_link_keys(links)
@@ -214,7 +221,7 @@ class PostgresInventoryDeltaProjector:
             change_kind=change_kind,
             properties_complete=properties_complete,
             property_mask=property_mask,
-            properties=props,
+            properties=observation_properties,
             tombstone_confirmed=tombstone_confirmed,
         )
         if any(not _link_owned_by(resource_id, link) for link in links):
@@ -227,7 +234,7 @@ class PostgresInventoryDeltaProjector:
                 await self._set_timeout(connection)
                 await _acquire_inventory_gate(connection, exclusive_graph=reconcile_graph)
                 coverage_cursor = await connection.execute(
-                    "SELECT s.id, s.started_at FROM inventory_active a "
+                    "SELECT s.id, s.started_at, s.scopes FROM inventory_active a "
                     "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                     "WHERE a.singleton=TRUE AND s.status='active' "
                     "AND s.resource_types ?& %s",
@@ -246,6 +253,16 @@ class PostgresInventoryDeltaProjector:
                         links=0,
                         outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
                     )
+                await _acquire_resource_locks(
+                    connection,
+                    (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
+                )
+                await _validate_upsert_link_endpoints(
+                    connection,
+                    snapshot_id=str(coverage["id"]),
+                    links=links,
+                    additional_resource=(resource_id, resource_type),
+                )
                 observations = normalized_inventory_observations(
                     payload=payload,
                     change=change,
@@ -261,6 +278,7 @@ class PostgresInventoryDeltaProjector:
                     operation_status=operation_status,
                     observed_at=observed_at,
                     recorded_at=now.astimezone(UTC),
+                    active_scope_refs=tuple(str(value) for value in coverage["scopes"]),
                 )
                 journal_result = await self._observation_journal.append_change(
                     connection,
@@ -279,10 +297,6 @@ class PostgresInventoryDeltaProjector:
                         links=0,
                         outcome=InventoryDeltaApplyOutcome.APPLIED,
                     )
-                await _acquire_resource_locks(
-                    connection,
-                    (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
-                )
                 await _validate_resource_type(
                     connection,
                     snapshot_id=str(coverage["id"]),
@@ -297,10 +311,10 @@ class PostgresInventoryDeltaProjector:
                     resource_id=resource_id,
                     resource_type=resource_type,
                 )
-                if (
-                    not replay.present
-                    and observation_kind is not InventoryObservationKind.TOMBSTONE
-                ):
+                if not replay.present and observation_kind in {
+                    InventoryObservationKind.PARTIAL,
+                    InventoryObservationKind.CHANGE_HINT,
+                }:
                     raise ValueError("sparse inventory properties require an existing resource")
                 resource_props_json = replay.properties_json
                 provider_ref = replay.provider_ref
@@ -610,8 +624,14 @@ async def _validate_upsert_link_endpoints(
     *,
     snapshot_id: str,
     links: Sequence[Mapping[str, Any]],
+    additional_resource: tuple[str, str] | None = None,
 ) -> None:
     declared = _declared_upsert_endpoint_types(links)
+    if additional_resource is not None:
+        resource_id, resource_type = additional_resource
+        declared_type = declared.pop(resource_id, None)
+        if declared_type is not None and declared_type != resource_type:
+            raise ValueError("inventory relationship endpoint type does not match resource type")
     if not declared:
         return
     cursor = await connection.execute(

@@ -136,6 +136,7 @@ jobs:
     # Declared budget. Without it the only bound is the six-hour runner default, which cannot tell
     # a stalled provider from a slow apply and holds the single deploy runner meanwhile.
     timeout-minutes: 180
+    environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
       run:
         working-directory: infra
@@ -333,6 +334,14 @@ jobs:
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: python3 scripts/deployment/azure/validate_deploy_request.py
+      - name: Verify protected environment approval policy
+        if: ${{ inputs.apply }}
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/environments/${{ inputs.environment }}" > "$RUNNER_TEMP/environment.json"
+          python3 scripts/deployment/azure/verify-github-environment.py "$RUNNER_TEMP/environment.json" --required-approvals 1
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"

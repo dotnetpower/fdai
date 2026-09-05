@@ -45,10 +45,10 @@ def inventory_observation_kind(
 ) -> InventoryObservationKind:
     raw = change.get("observation_kind")
     if raw is None:
-        if not properties_complete:
-            return InventoryObservationKind.PARTIAL
         if change_kind == "delete":
             return InventoryObservationKind.TOMBSTONE
+        if not properties_complete:
+            return InventoryObservationKind.PARTIAL
         return InventoryObservationKind.FULL
     if not isinstance(raw, str):
         raise ValueError("inventory_change.observation_kind MUST be a string")
@@ -125,6 +125,7 @@ def normalized_inventory_observations(
     operation_status: str | None,
     observed_at: datetime,
     recorded_at: datetime,
+    active_scope_refs: Sequence[str],
 ) -> tuple[NormalizedInventoryObservation, ...]:
     event_id = _required_str(payload, "event_id")
     idempotency_key = _required_str(payload, "idempotency_key")
@@ -144,6 +145,20 @@ def normalized_inventory_observations(
     resource_props = resource.get("props", {})
     if not isinstance(resource_props, Mapping):
         raise ValueError("inventory_change.resource.props MUST be an object")
+    if observation_kind is InventoryObservationKind.TOMBSTONE:
+        resource_props = {}
+    provider_ref = (
+        str(resource["provider_ref"]) if resource.get("provider_ref") is not None else None
+    )
+    resolved_scope_ref = scope_value if isinstance(scope_value, str) else None
+    if resolved_scope_ref is None and len(active_scope_refs) == 1:
+        resolved_scope_ref = active_scope_refs[0]
+    if resolved_scope_ref is None:
+        resolved_scope_ref = _provider_scope(provider_ref)
+    if resolved_scope_ref is None:
+        raise ValueError("inventory observation requires an exact scope_ref")
+    if resolved_scope_ref not in active_scope_refs:
+        raise ValueError("inventory observation scope_ref is outside active snapshot coverage")
     records = [
         NormalizedInventoryObservation.create(
             idempotency_key=idempotency_key,
@@ -157,18 +172,8 @@ def normalized_inventory_observations(
             properties_complete=properties_complete,
             links_complete=links_complete,
             tombstone_confirmed=tombstone_confirmed,
-            provider_ref=(
-                str(resource["provider_ref"]) if resource.get("provider_ref") is not None else None
-            ),
-            scope_ref=(
-                scope_value
-                if isinstance(scope_value, str)
-                else _provider_scope(
-                    str(resource["provider_ref"])
-                    if resource.get("provider_ref") is not None
-                    else None
-                )
-            ),
+            provider_ref=provider_ref,
+            scope_ref=resolved_scope_ref,
             operation=operation,
             operation_status=operation_status,
             source_identity=source_identity,
@@ -213,6 +218,7 @@ def normalized_inventory_observations(
                 observed_at=observed_at,
                 evidence_cutoff=observed_at,
                 recorded_at=recorded_at,
+                scope_ref=resolved_scope_ref,
                 from_id=from_id,
                 from_type=_required_str(link, "from_type"),
                 link_type=link_type,

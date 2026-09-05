@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a1a6e70c5e9052d74e2250ec9c9c6c825851b421
+translation_source_sha: 19b3bd20e0692923fa8bfad3be030894f614c9bf
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -414,13 +414,13 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 - **첫 배포에서 shadow-only**: 어떤 규칙/액션도 절대 강제 적용 모드로 시작하지 않음. 승격은
   별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
 - **첫 컨트롤 루프 틱 전에 마이그레이션이 반드시 실행되어야 함**. Container App은 시작 시 마이그레이션을 실행하지 않습니다(복제본 간 일관성 유지 + race 방지).
-  프로비저닝된 Postgres FQDN에 admin DSN으로 접속 가능한 워크스테이션 또는 CI job에서 `alembic upgrade head` 를 실행. `alembic/versions/`의 모든 tracked 이행은
-  `downgrade()`를 정의하지만, 스키마/데이터 롤백은 파괴적일 수 있으므로 백업/복원과
-  이행별 downgrade를 staging에서 예행 연습한 뒤 실행합니다. Protected service 경로는
-  10초 연결 deadline, 5분 database 잠금 deadline, 15분 server statement deadline 및 20분
-  전체 migration 단계 deadline을 사용합니다. Database는 workflow가 단계를 닫기 전에 예산을
-  초과한 DDL을 취소하고 lock을 해제하므로 정지한 migration은 service 계획을 적용하기 전에
-  실패합니다.
+  CI는 격리된 서비스 데이터베이스에 서비스 소유 마이그레이션을 적용하기 전에 root rollback
+  검사를 실행하고, 이어서 해당 서비스 헤드에서 서비스 의존 검사를 실행합니다.
+  `alembic/versions/`의 모든 tracked 이행은 `downgrade()`를 정의하지만 스키마와 데이터 rollback은
+  파괴적일 수 있으므로 백업과 복원 및 각 이행의 downgrade를 staging에서 예행 연습합니다.
+  보호된 경로는 연결 10초, database 잠금 5분, server statement 15분, 전체 migration 단계 20분의
+  deadline을 사용합니다. Database는 서비스 계획을 적용하기 전에 예산을 초과한 DDL을 취소하고
+  잠금을 해제합니다.
 - **권위 있는 카탈로그는 마이그레이션 후 정확히 검증된 Core 이미지에서 적재합니다**.
   구체화 Job은 큰 불변 프로젝션을 위해 PostgreSQL 문 제한 시간을 5분으로 설정합니다.
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
