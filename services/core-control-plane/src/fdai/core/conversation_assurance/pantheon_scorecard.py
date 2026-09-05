@@ -103,6 +103,14 @@ class PantheonRubricResult:
     passed: bool
     reason: str
 
+    def __post_init__(self) -> None:
+        if isinstance(self.item_id, bool) or not 1 <= self.item_id <= 30:
+            raise ValueError("Pantheon rubric item_id MUST be in [1, 30]")
+        if type(self.passed) is not bool:
+            raise ValueError("Pantheon rubric passed MUST be boolean")
+        if not self.reason.strip():
+            raise ValueError("Pantheon rubric reason MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class PantheonTurnDiagnostic:
@@ -123,6 +131,8 @@ class PantheonTurnDiagnostic:
             raise ValueError("Pantheon diagnostic score MUST be in [0, 30]")
         if self.results and tuple(item.item_id for item in self.results) != tuple(range(1, 31)):
             raise ValueError("Pantheon diagnostic results MUST contain item ids 1 through 30")
+        if self.results and tuple(item.rubric for item in self.results) != tuple(PantheonRubric):
+            raise ValueError("Pantheon diagnostic results MUST follow the canonical rubric order")
         if self.results and self.score != sum(item.passed for item in self.results):
             raise ValueError("Pantheon diagnostic score MUST equal its atomic item results")
         if len(self.trace_receipt_digest) != 64 or any(

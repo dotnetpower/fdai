@@ -9,6 +9,7 @@ from fdai.core.conversation_assurance import (
     PantheonDiagnosticCase,
     PantheonDiagnosticVerdict,
     PantheonRubric,
+    PantheonRubricResult,
     PantheonSemanticReview,
     PantheonTurnDiagnostic,
     ParticipantPromptReceipt,
@@ -204,6 +205,44 @@ def test_diagnostic_rejects_non_hex_trace_digest() -> None:
             results=(),
             hard_zero_violations=(),
             trace_receipt_digest="z" * 64,
+        )
+
+
+def test_diagnostic_rejects_repeated_rubrics_with_complete_item_ids() -> None:
+    repeated = tuple(
+        PantheonRubricResult(
+            item_id=index,
+            rubric=PantheonRubric.PRIMARY_OWNER,
+            passed=True,
+            reason="observed_pass",
+        )
+        for index in range(1, 31)
+    )
+
+    with pytest.raises(ValueError, match="canonical rubric order"):
+        PantheonTurnDiagnostic(
+            case_id="case-1",
+            agent="Njord",
+            locale="en",
+            score=30,
+            verdict=PantheonDiagnosticVerdict.PASS,
+            results=repeated,
+            hard_zero_violations=(),
+            trace_receipt_digest=_DIGEST,
+        )
+
+
+@pytest.mark.parametrize(
+    ("passed", "reason"),
+    [(1, "observed_pass"), (True, "")],
+)
+def test_rubric_result_requires_boolean_and_reason(passed: object, reason: str) -> None:
+    with pytest.raises(ValueError, match="Pantheon rubric"):
+        PantheonRubricResult(
+            item_id=1,
+            rubric=PantheonRubric.PRIMARY_OWNER,
+            passed=passed,  # type: ignore[arg-type]
+            reason=reason,
         )
 
 
