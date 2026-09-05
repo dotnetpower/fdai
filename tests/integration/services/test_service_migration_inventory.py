@@ -51,7 +51,7 @@ def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     )
 
 
-def test_ci_runs_integration_tests_against_the_service_migration_head() -> None:
+def test_ci_separates_root_and_service_migration_database_tests() -> None:
     workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     legacy_step = workflow.index("- name: Run legacy migration downgrade tests")
     migration_step = workflow.index("- name: Run service-owned migrations")
