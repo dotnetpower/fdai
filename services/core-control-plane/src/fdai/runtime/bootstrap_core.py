@@ -6,7 +6,6 @@ import asyncio
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from fdai.composition import Container
@@ -20,6 +19,7 @@ from fdai.core.control_loop import ControlLoop
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
@@ -494,7 +494,7 @@ async def build_core_runtime(
         llm_bindings = container.llm_bindings
         pantheon_assurance = build_runtime_pantheon_conversation_assurance(
             pantheon=resources.pantheon.runtime,
-            repo_root=Path(__file__).resolve().parents[5],
+            repo_root=repo_asset_root(),
             environment=dict(environment),
             dsn=environment.get("FDAI_STATE_STORE_DSN"),
             resolved_models=container.resolved_models,

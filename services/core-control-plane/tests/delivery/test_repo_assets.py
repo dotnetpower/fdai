@@ -35,3 +35,15 @@ def test_repo_asset_root_rejects_a_tree_without_shipped_assets(tmp_path: Path) -
 
     with pytest.raises(FileNotFoundError):
         repo_asset_root(module)
+
+
+def test_runtime_asset_consumers_do_not_use_fixed_parent_depth() -> None:
+    runtime_root = Path(__file__).resolve().parents[2] / "src" / "fdai" / "runtime"
+
+    offenders = tuple(
+        path
+        for path in runtime_root.glob("*.py")
+        if "Path(__file__).resolve().parents[5]" in path.read_text(encoding="utf-8")
+    )
+
+    assert offenders == ()
