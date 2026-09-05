@@ -96,6 +96,8 @@ Generated question-bank artifacts record the current Console catalog digests, so
 presentation-contract change regenerates the JSON bank and review catalog together.
 The generated question bank binds both Console message catalogs by digest and is regenerated
 whenever those reviewed source catalogs change.
+The Console static catalog inventory resolves shared, route-local, and optional package catalogs,
+including the Dashboard v2 catalog, so a new route cannot hide a missing English fallback key.
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. `semantic_planning_fallbacks.py` owns

@@ -140,6 +140,7 @@
           "services/operator-service/tests/test_channel_edge_worker.py",
           "services/operator-service/tests/test_channel_message_ledger_postgres.py",
           "services/operator-service/tests/test_guarded_workflow_transition_store.py",
+          "services/operator-service/tests/test_handover_runtime.py",
           "services/operator-service/tests/test_hil_bootstrap_canary.py",
           "services/operator-service/tests/test_hil_decision_outbox_replay.py",
           "services/operator-service/tests/test_incident_rca_reporting_projection.py",
@@ -179,9 +180,12 @@
         ],
         "integration": [
           "services/document-ingestion-api/tests/test_adls_resumable_upload.py",
+          "services/document-ingestion-api/tests/test_document_download.py",
+          "services/document-ingestion-api/tests/test_document_preview.py",
           "services/document-ingestion-api/tests/test_document_search.py",
           "services/document-ingestion-api/tests/test_ingestion_service_composition.py",
           "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py",
+          "services/document-ingestion-api/tests/test_power_platform_connector.py",
           "services/document-ingestion-api/tests/test_sharepoint_delta_sync.py"
         ],
         "smoke": []
@@ -203,6 +207,7 @@
           "services/document-processing-worker/tests/test_pdf_isolation.py"
         ],
         "integration": [
+          "services/document-processing-worker/tests/test_protection_reconciliation.py",
           "services/document-processing-worker/tests/test_purview_rms_protection.py"
         ],
         "smoke": [

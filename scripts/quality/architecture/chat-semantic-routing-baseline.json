@@ -23,6 +23,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/components/searchable-select.tsx",
+      "disposition": "retain",
+      "owner": "console-presentation",
+      "reason": "Retains presentation-only filtering over caller-owned option labels without selecting intent or authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/deck/backend-parsers.ts",
       "disposition": "retain",
       "owner": "console-command-deck",
@@ -153,6 +160,13 @@
       "disposition": "retain",
       "owner": "console-settings",
       "reason": "Retains validated model capability inventory contracts and display projection.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/use-ontology-invalidation-stream.ts",
+      "disposition": "retain",
+      "owner": "console-ontology",
+      "reason": "Retains strict machine-protocol validation for ontology invalidation events without interpreting operator language.",
       "issue": 252
     },
     {

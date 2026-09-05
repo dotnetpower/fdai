@@ -19,6 +19,9 @@ import yaml
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.inventory_change_acceleration import (
+    forward_recovery_deltas as _forward_recovery_deltas,
+)
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_scheduler import (
     CollectionScheduleAction,
@@ -32,7 +35,6 @@ from fdai.delivery.inventory_sync_cli import (
     _build_sources,
     _collect_kubernetes_lifecycle,
     _drain_change_stream,
-    _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
     _main,
     _publish_collection_health,
@@ -938,7 +940,10 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
         }
     )
     forward = AsyncMock(side_effect=(2, 3))
-    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.forward_inventory_delta", forward)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_change_acceleration.forward_inventory_delta",
+        forward,
+    )
     identity = StaticWorkloadIdentity(
         audience="https://management.azure.com/.default",
         token="test-token",  # noqa: S106 - deterministic test credential
