@@ -267,6 +267,30 @@ def _runtime_contract_by_name(
     }
 
 
+def _runtime_contract_drift_names(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> tuple[str, ...]:
+    before_runtime = _runtime_contract_by_name(before, address=address, contract=contract)
+    after_runtime = _runtime_contract_by_name(after, address=address, contract=contract)
+    changed = [
+        key for key in ("name", "command", "args") if before_runtime[key] != after_runtime[key]
+    ]
+    before_environment = before_runtime["env"]
+    after_environment = after_runtime["env"]
+    if not isinstance(before_environment, dict) or not isinstance(after_environment, dict):
+        raise PlanGuardError(f"resource at {address} has an invalid normalized environment")
+    changed.extend(
+        f"env:{name}"
+        for name in sorted(set(before_environment) | set(after_environment))
+        if before_environment.get(name) != after_environment.get(name)
+    )
+    return tuple(changed)
+
+
 def _sort_primary_environment(
     resource: dict[str, Any],
     *,
@@ -847,9 +871,16 @@ def _guard_update(
                 additional_allowed_names=model_additional_names,
             )
         )
-    elif (
+    runtime_drift_names = _runtime_contract_drift_names(
+        before,
+        after,
+        address=address,
+        contract=contract,
+    )
+    if (
         not initial_cutover
         and not database_host_binding
+        and not model_binding_transition
         and not (
             allowed_rca_reader
             and _only_rca_reader_runtime_transition(
@@ -860,10 +891,11 @@ def _guard_update(
             )
         )
         and not allowed_notification_topic
-        and _runtime_contract_by_name(before, address=address, contract=contract)
-        != _runtime_contract_by_name(after, address=address, contract=contract)
+        and runtime_drift_names
     ):
-        violations.append(f"command or environment drift at {address}")
+        violations.append(
+            f"command or environment drift at {address}: changed={list(runtime_drift_names)!r}"
+        )
 
     before_resource_ids = _resource_ids(before)
     after_resource_ids = _resource_ids(after)

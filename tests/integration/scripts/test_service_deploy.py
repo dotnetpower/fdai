@@ -1129,6 +1129,26 @@ def test_plan_guard_rejects_target_or_platform_identity_drift(
         )
 
 
+def test_plan_guard_names_changed_environment_without_exposing_values(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    next(item for item in after_environment if item["name"] == "POSTGRES_HOST")["value"] = (
+        "changed.example.com"
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="env:POSTGRES_HOST") as error:
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+    assert "changed.example.com" not in str(error.value)
+
+
 def test_plan_guard_rejects_identity_expansion(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])

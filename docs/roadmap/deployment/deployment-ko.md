@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 00139810ba844acaa570dc0f83d8c37949719385
+translation_source_sha: 23f109a4397fefdf5e10c4f6527b27c7e4bf8c6b
 translation_revised: 2026-09-05
 ---
 
@@ -121,7 +121,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   남습니다. Core는 정본 `fdai.notifications.delivery-receipts` 토픽을 한 번 추가할 수 있습니다.
   Guard는 비밀이 아닌 이 정확한 값만 허용하고 함께 발생하는 명령, 신원 또는 다른 환경 변경을
   모두 차단합니다. 모든 primary container 환경 비교는 정확한 이름과 binding map을 사용하므로
-  Terraform 목록 순서만 바뀌어도 잘못된 drift 결과가 생기지 않습니다.
+  Terraform 목록 순서만 바뀌어도 잘못된 drift 결과가 생기지 않습니다. 차단 결과는 변경된
+  binding 이름만 보고하고 값은 기록하지 않습니다.
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본
