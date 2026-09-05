@@ -593,7 +593,6 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
-          DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
@@ -612,9 +611,6 @@ jobs:
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
-          recovery_args=()
-          [[ "$DEGRADED_RECOVERY" == "true" ]] \
-            && recovery_args+=(--degraded-recovery)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition --resolved-models-digest "$RESOLVED_MODELS_DIGEST")
@@ -629,7 +625,6 @@ jobs:
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
-            "${recovery_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}"
 
@@ -651,6 +646,7 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
+          DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
@@ -661,6 +657,9 @@ jobs:
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
+          recovery_args=()
+          [[ "$DEGRADED_RECOVERY" == "true" ]] \
+            && recovery_args+=(--degraded-recovery)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition)
@@ -690,6 +689,7 @@ jobs:
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
+            "${recovery_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
