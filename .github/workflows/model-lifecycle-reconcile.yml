@@ -56,6 +56,12 @@ jobs:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
           fetch-depth: 0
 
+      - name: Install pinned uv for lifecycle resolution
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
       - name: Authenticate and verify stable deploy identity
         run: >-
           bash scripts/deployment/azure/login-deploy-identity.sh
@@ -70,7 +76,6 @@ jobs:
           evidence="$RUNNER_TEMP/model-lifecycle/evidence.json"
           candidate="$RUNNER_TEMP/model-lifecycle/candidate.json"
           deprecations="$RUNNER_TEMP/model-lifecycle/deprecations.json"
-          python3 -m pip install --quiet 'pyyaml==6.0.3'
 
           if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ \
             || -z "$MODEL_RESOLVER_ACCOUNT_NAME" \
@@ -83,7 +88,8 @@ jobs:
 
           set +e
           PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
-            python3 -m fdai.rule_catalog.schema.llm_resolver_cli \
+            uv run --frozen --package fdai-core-control-plane python \
+              -m fdai.rule_catalog.schema.llm_resolver_cli \
               --registry rule-catalog/llm-registry.yaml \
               --region "$AZURE_REGION" \
               --subscription-id "$ARM_SUBSCRIPTION_ID" \
