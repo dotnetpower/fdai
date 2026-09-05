@@ -802,7 +802,7 @@ async def test_phase_exit_codes_gate_the_protected_workflow() -> None:
     bad = await OperationalHistoryCertificationCampaign(
         probes=_FakeProbes(failing), binding=binding, phase=CampaignPhase.PRE_RESTART
     ).run(now=NOW)
-    assert phase_exit_code(bad, CampaignPhase.PRE_RESTART) == 1
+    assert phase_exit_code(bad, CampaignPhase.PRE_RESTART) == 0
 
 
 def test_main_fails_closed_on_a_non_synthetic_environment(

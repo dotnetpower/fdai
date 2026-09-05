@@ -587,6 +587,8 @@ async def test_summary_is_sanitized_and_carries_no_paths(tmp_path: Path) -> None
         "phase",
         "reason_codes",
         "receipt_digest",
+        "scenario_reason_codes",
+        "scenario_statuses",
     }
 
 

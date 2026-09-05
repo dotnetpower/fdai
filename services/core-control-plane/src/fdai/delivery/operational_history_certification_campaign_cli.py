@@ -274,13 +274,11 @@ def options_from_args(
 
 
 def phase_exit_code(manifest: Mapping[str, object], phase: CampaignPhase) -> int:
-    """Return ``0`` only when the phase produced acceptable evidence."""
+    """Let split campaigns collect every phase before grading scenario evidence."""
 
-    if phase is not CampaignPhase.PRE_RESTART:
-        return 0 if manifest.get("deterministic_complete") is True else 1
-    failed = OperationalHistoryScenarioStatus.FAILED.value
-    entries = _scenarios(manifest).values()
-    return 1 if any(e.get("status") == failed for e in entries) else 0
+    if phase is CampaignPhase.PRE_RESTART:
+        return 0
+    return 0 if manifest.get("deterministic_complete") is True else 1
 
 
 def finalize_blockers(manifest: Mapping[str, object]) -> tuple[str, ...]:
@@ -375,7 +373,13 @@ async def finalize_campaign(
     )
     if blockers:
         _LOGGER.error("campaign finalization refused incomplete merged evidence")
-        return _summary(campaign_id, binding, None, reason_codes=blockers)
+        return _summary(
+            campaign_id,
+            binding,
+            None,
+            scenario_results=_scenarios(manifest),
+            reason_codes=blockers,
+        )
     candidate = build_certification_from_manifest(
         manifest,
         source_revision=options.source_revision,
@@ -409,6 +413,7 @@ async def finalize_campaign(
         campaign_id,
         binding,
         artifact_digest,
+        scenario_results=_scenarios(manifest),
         reason_codes=tuple(sorted(reasons)),
         receipt_digest=_digest_or_none(summary.get("receipt_digest")),
         operationally_validated=validated,
@@ -527,6 +532,7 @@ def _summary(
     binding: OperationalHistoryProtectedBinding,
     merged_artifact_digest: str | None,
     *,
+    scenario_results: Mapping[str, Mapping[str, object]],
     reason_codes: tuple[str, ...],
     receipt_digest: str | None = None,
     operationally_validated: bool = False,
@@ -542,9 +548,22 @@ def _summary(
         "phase": CampaignPhase.MERGED.value,
         "reason_codes": list(reason_codes),
         "receipt_digest": receipt_digest,
+        "scenario_reason_codes": {
+            name: _scenario_reason_codes(value) for name, value in scenario_results.items()
+        },
+        "scenario_statuses": {
+            name: value.get("status", "invalid") for name, value in scenario_results.items()
+        },
     }
     assert_sanitized(summary)
     return summary
+
+
+def _scenario_reason_codes(value: Mapping[str, object]) -> list[str]:
+    raw = value.get("reason_codes")
+    if not isinstance(raw, Sequence) or isinstance(raw, str):
+        return ["scenario_reason_codes_invalid"]
+    return [str(item) for item in raw]
 
 
 def _scenarios(manifest: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
