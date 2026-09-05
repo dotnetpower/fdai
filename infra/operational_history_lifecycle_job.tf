@@ -30,8 +30,8 @@ resource "azurerm_container_app_job" "operational_history_lifecycle" {
     name     = "operational-history-dsn"
     identity = module.inventory_identity.resource_id
     key_vault_secret_id = format(
-      "%s/secrets/fdai-state-store-dsn",
-      module.key_vault.id,
+      "%ssecrets/fdai-state-store-dsn",
+      module.key_vault.uri,
     )
   }
 

@@ -20,7 +20,8 @@ def test_operational_history_job_is_scheduled_shadow_only() -> None:
     assert "module.compute" not in job
     assert "azurerm_key_vault_secret.state_store_dsn" not in job
     assert "Microsoft.App/managedEnvironments" in job
-    assert "%s/secrets/fdai-state-store-dsn" in job
+    assert "%ssecrets/fdai-state-store-dsn" in job
+    assert "module.key_vault.uri" in job
 
 
 def test_operational_history_job_has_dedicated_private_storage() -> None:
