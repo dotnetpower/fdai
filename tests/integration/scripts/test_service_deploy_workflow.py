@@ -96,7 +96,7 @@ def test_workflow_has_closed_five_service_input_and_runner() -> None:
     assert services == set(_MIGRATION["services"])
     for service in services:
         assert f"          - {service}\n" in _WORKFLOW
-    assert "runs-on: [self-hosted, fdai-deploy]" in _WORKFLOW
+    assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in _WORKFLOW
     assert "group: service-deploy-${{ inputs.service }}-${{ inputs.environment }}" in _WORKFLOW
 
 
@@ -429,7 +429,10 @@ def test_core_service_apply_request_preserves_independent_human_approval() -> No
 
 
 def test_apply_job_enforces_the_selected_protected_environment() -> None:
-    assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _WORKFLOW
+    assert (
+        "environment: ${{ (inputs.apply || inputs.migrate_state) "
+        "&& inputs.environment || 'plan-only' }}" in _WORKFLOW
+    )
     assert "Verify protected environment approval policy before mutation" in _WORKFLOW
     assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _WORKFLOW
     assert '"$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py"' in _WORKFLOW

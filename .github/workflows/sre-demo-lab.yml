@@ -48,7 +48,7 @@ concurrency:
 jobs:
   scenario-lab:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, fdai-deploy]
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
     timeout-minutes: 240
     environment: ${{ inputs.action == 'plan' && 'plan-only' || 'scenario-lab' }}
     defaults:

@@ -21,7 +21,7 @@ concurrency:
 jobs:
   reconcile:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, fdai-deploy]
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
     timeout-minutes: 30
     env:
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}

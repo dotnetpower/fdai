@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f0517f68793815166ebab41249f9dd33639b323e
+translation_source_sha: 4482607226cccd3ce066deec27311f34f95928da
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -89,9 +89,9 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure
 앱 구성 는 spoke VNet 을 ops 허브 에 (양방향) 피어링 하고 비공개 DNS 영역 을
 `extra_vnet_links` 경계 으로 ops VNet 에 링크해, 러너가 앱 Key Vault 를 비공개 로 해석하게
 한다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고 의
-`Key Vault Secrets Officer` 로 만든다 - 적용 중 DSN 시크릿을 쓰기 한다. 배포는
-`[self-hosted, fdai-deploy]` 러너 위에서 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)
-로 실행한다(기본 plan-only; `apply` 입력이 강제 적용).
+`Key Vault Secrets Officer` 로 만든다 - 적용 중 DSN 시크릿을 쓰기 한다. 배포는 `[self-hosted, fdai-deploy, fdai-deploy-candidate]`와 일치하는 실행기에서
+[`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)로 실행합니다(기본 plan-only; `apply` 입력이 강제 적용). 추가 라벨은 검증된 8 vCPU 로컬 SSD 풀을 선택합니다.
+GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으면 작업이 느린 관리형 디스크 실행기로 자동 전환되지 않고 큐에서 대기합니다.
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는

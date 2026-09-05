@@ -63,7 +63,7 @@ def test_console_static_publish_workflow_requires_exact_green_main_revision() ->
     workflow = _WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert "inputs.commit_sha == github.sha" in workflow
-    assert "runs-on: [self-hosted, fdai-deploy]" in workflow
+    assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in workflow
     assert 'select(.name == "required")' in workflow
     assert "verify-github-environment.py" not in workflow
     assert "login-deploy-identity.sh" in workflow

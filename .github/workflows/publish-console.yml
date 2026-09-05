@@ -27,7 +27,7 @@ concurrency:
 jobs:
   publish:
     if: github.ref == 'refs/heads/main' && inputs.commit_sha == github.sha
-    runs-on: [self-hosted, fdai-deploy]
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
     timeout-minutes: 30
     env:
       ARM_USE_AZUREAD: "true"

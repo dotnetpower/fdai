@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-    runs-on: [self-hosted, fdai-deploy]
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
     defaults:
       run:
         working-directory: infra

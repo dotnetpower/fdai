@@ -86,8 +86,8 @@ The app config peers its spoke VNet to the ops hub (both directions) and links i
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
 Key Vault privately. The runner is the terraform apply principal, so the existing
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
-DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml)
-on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
+DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml) on runners matching `[self-hosted, fdai-deploy, fdai-deploy-candidate]` (plan-only by default; the `apply` input enforces).
+The additional label selects the validated 8-vCPU local-SSD pool; conjunctive GitHub label matching queues jobs when that pool is unavailable instead of silently falling back to the slower managed-disk runner.
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`

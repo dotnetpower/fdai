@@ -21,7 +21,7 @@ def test_projection_workflow_is_protected_and_exact_revision() -> None:
     assert isinstance(parsed, dict)
     assert "workflow_dispatch" in parsed[True]
     assert "commit_sha" in parsed[True]["workflow_dispatch"]["inputs"]
-    assert "runs-on: [self-hosted, fdai-deploy]" in WORKFLOW
+    assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in WORKFLOW
     assert "target-commit-sha: ${{ inputs.commit_sha }}" in WORKFLOW
     assert "workflow-path: .github/workflows/model-settings-projection.yml" in WORKFLOW
     assert 'git -C "$guard_repo" diff --quiet' in PROTECTED_WORKFLOW_ACTION

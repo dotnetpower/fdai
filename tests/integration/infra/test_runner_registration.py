@@ -8,6 +8,26 @@ from pathlib import Path
 
 import pytest
 
+_SSD_DEPLOY_WORKFLOWS = (
+    "deploy-dev.yml",
+    "destroy-env.yml",
+    "infra-drift.yml",
+    "model-lifecycle-reconcile.yml",
+    "model-settings-projection.yml",
+    "publish-console.yml",
+    "refresh-catalogs.yml",
+    "service-deploy.yml",
+    "sre-demo-lab.yml",
+)
+
+
+def test_protected_deploy_workflows_select_ssd_runners() -> None:
+    workflow_root = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+
+    for workflow_name in _SSD_DEPLOY_WORKFLOWS:
+        workflow = (workflow_root / workflow_name).read_text(encoding="utf-8")
+        assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in workflow
+
 
 def test_registration_replaces_existing_local_configuration() -> None:
     bootstrap_root = Path(__file__).resolve().parents[3] / "infra" / "bootstrap"

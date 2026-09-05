@@ -32,7 +32,7 @@ concurrency:
 jobs:
   destroy:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, fdai-deploy]
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
     defaults:
       run:
         working-directory: infra
