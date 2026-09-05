@@ -392,6 +392,42 @@ def test_specialized_apply_requests_are_bot_owned_and_exact_plan_bound() -> None
         assert f'"inputs[{field}]=' in _CONSOLE_REQUEST_WORKFLOW
 
 
+def test_core_service_apply_request_preserves_independent_human_approval() -> None:
+    assert "core-service-apply)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "validate_protected_service_apply_request.py" in _CONSOLE_REQUEST_WORKFLOW
+    assert "actions/workflows/service-deploy.yml/dispatches" in _CONSOLE_REQUEST_WORKFLOW
+    assert '"inputs[service]=core-control-plane"' in _CONSOLE_REQUEST_WORKFLOW
+    assert '"inputs[apply]=true"' in _CONSOLE_REQUEST_WORKFLOW
+    assert '"inputs[model_binding_transition]=true"' in _CONSOLE_REQUEST_WORKFLOW
+    assert "Bot-owned Core service apply is unavailable for production." in (
+        _CONSOLE_REQUEST_WORKFLOW
+    )
+    assert "service-plan-metadata.json" in _CONSOLE_REQUEST_WORKFLOW
+    assert "deployment_mode" in (
+        _ROOT / "scripts/deployment/azure/validate_protected_service_apply_request.py"
+    ).read_text(encoding="utf-8")
+    for field in (
+        "environment",
+        "commit_sha",
+        "image_ref",
+        "plan_run_id",
+        "plan_run_attempt",
+        "plan_digest",
+        "context_digest",
+    ):
+        assert f'"inputs[{field}]=' in _CONSOLE_REQUEST_WORKFLOW
+    environment_policy = (
+        ".fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py"
+    )
+    assert _CONSOLE_REQUEST_WORKFLOW.index(environment_policy) < (
+        _CONSOLE_REQUEST_WORKFLOW.index("actions/workflows/service-deploy.yml/dispatches")
+    )
+    assert (
+        "environment: ${{ (inputs.apply || inputs.migrate_state) "
+        "&& inputs.environment || 'plan-only' }}" in _WORKFLOW
+    )
+
+
 def test_apply_job_enforces_the_selected_protected_environment() -> None:
     assert (
         "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _LEGACY_WORKFLOW
