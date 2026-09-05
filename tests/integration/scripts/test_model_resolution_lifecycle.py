@@ -509,6 +509,10 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert "schedule:" in workflow
     assert "workflow_dispatch:" in workflow
     assert "runs-on: [self-hosted, fdai-deploy]" in workflow
+    assert "astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990" in workflow
+    assert 'version: "0.11.32"' in workflow
+    assert "python3 -m pip install" not in workflow
+    assert "uv run --frozen --package fdai-core-control-plane python" in workflow
     assert "model_lifecycle_reconciler" in workflow
     assert "--provider-error" in workflow
     assert "gh pr create --draft" in workflow
