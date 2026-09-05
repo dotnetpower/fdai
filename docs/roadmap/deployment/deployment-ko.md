@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 0cdd1d0e675b5af8f01b12ceaeda13d3c4c8792c
+translation_source_sha: 1cc4c3760f89e604fb545377d401bbca3f72771d
 translation_revised: 2026-09-05
 ---
 
@@ -29,7 +29,7 @@ translation_revised: 2026-09-05
 |------|------|------|------|
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
-| Bot 소유의 보호된 Core 적용 요청 | implemented | 현재 변경의 `.github/workflows/request-protected-operation.yml`, `validate_protected_service_apply_request.py` 및 집중 요청 검증 테스트 | Bot 요청자를 사용해 FDAI 유지관리자와 배포 요청자를 분리합니다. 운영 외 Core 경로는 계획에 계속 결합되며 사람의 Environment 승인이 필요합니다. |
+| Bot 소유의 보호된 Core 적용 요청 | validated | PR #455, 보호된 계획 `33965356996`, Bot 요청 `33965478498`, 정확한 적용 `33965498775` 및 이슈 #454 | Bot 요청자를 사용해 FDAI 유지관리자와 배포 요청자를 분리합니다. 운영 외 Core 경로는 계획에 계속 결합되며 사람의 Environment 승인이 필요합니다. |
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
 | 독립 서비스 롤백 기준 | implemented | 현재 변경의 `deployment_recovery.py`, 공유 서비스 Container App 모듈 및 집중 service-deploy 롤백 검사 | 적용 전 수집은 비정상 또는 비활성 개정 번호를 차단하고, 각 서비스는 복구를 위해 비활성 개정 번호 1개를 보존합니다. 성공한 protected 롤백 증적은 아직 필요합니다. |
@@ -43,6 +43,7 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | validated | 독립된 사람의 Environment 승인, 성공한 상태 및 peer 격리 검사, 독립적인 이미지 및 신원 확인을 거쳐 첫 번째 Bot 요청 보호 Core 서비스 적용을 완료했습니다. | PR #455, 계획 `33965356996`, 요청 `33965478498`, 적용 `33965498775`, 이슈 #454 | 이 경로를 운영 외 범위와 정확한 계획에 계속 결합하고 보호된 Environment 정책을 적용합니다. |
 | 2026-09-05 | implemented | 정확한 성공 계획 실행, 만료되지 않은 산출물, 이미지 digest, 커밋 및 Environment 정책을 전달 전에 검증하는 운영 외 Bot 소유 Core 서비스 적용 요청을 추가했습니다. | `current change`, 보호된 작업 workflow, 요청 검증기 및 성공과 차단 기본 동작에 대한 집중 테스트 | 이슈 #454에서 첫 번째 독립 요청자 Environment 승인과 성공한 Core 서비스 적용 증적을 수집합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |
 | 2026-08-14 | implemented | Co-host 호환 경로가 제거된 뒤 인제스트 롤백 지침을 수정했습니다. 이제 롤백은 독립 API 및 워커의 정확한 이전 개정 번호를 복원합니다. | `current change`, 집중 Terraform 검증 및 mock 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
@@ -68,8 +69,8 @@ translation_revised: 2026-09-05
   환경 존재 여부, authoritative inventory 및 독립 endpoint 근거를 보존합니다.
 - [ ] 정상 Core 기준 하나를 복원하고 수집한 개정 번호가 계속 사용 가능하며 실패한 개정 번호가
   비활성임을 증명하는 protected 서비스 적용 및 자동 롤백 증적을 보존합니다.
-- [ ] 이슈 #454에서 추적하는 첫 번째 Bot 요청 Core 서비스 적용과 독립된 사람의
-  Environment 승인 증적을 보존합니다.
+- [x] 계획 `33965356996`, 요청 `33965478498`, 적용 `33965498775` 및 이슈 #454에 첫 번째
+  Bot 요청 Core 서비스 적용과 독립된 사람의 Environment 승인 증적을 보존했습니다.
 - [ ] 문서화된 자동 artifact 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green
   흐름을 집중 테스트와 통제된 런타임 증적으로 구현합니다.
 
