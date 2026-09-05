@@ -176,29 +176,46 @@ class PantheonTurnDiagnostic:
         raw_results = raw.get("results")
         if not isinstance(raw_results, list):
             raise ValueError("Pantheon diagnostic results MUST be a list")
+        legacy_unscored = not raw_results and raw.get("schema_version") == "1.0.0"
         results: list[PantheonRubricResult] = []
-        for item in raw_results:
-            if not isinstance(item, Mapping):
-                raise ValueError("Pantheon diagnostic result MUST be an object")
-            results.append(
+        if legacy_unscored:
+            results.extend(
                 PantheonRubricResult(
-                    item_id=_integer(item["item_id"], "Pantheon diagnostic item id"),
-                    rubric=PantheonRubric(str(item["rubric"])),
-                    passed=_strict_bool(item["passed"], "Pantheon diagnostic item"),
-                    reason=str(item["reason"]),
+                    item_id=index,
+                    rubric=rubric,
+                    passed=False,
+                    reason="legacy_atomic_results_unavailable",
                 )
+                for index, rubric in enumerate(PantheonRubric, start=1)
             )
+        else:
+            for item in raw_results:
+                if not isinstance(item, Mapping):
+                    raise ValueError("Pantheon diagnostic result MUST be an object")
+                results.append(
+                    PantheonRubricResult(
+                        item_id=_integer(item["item_id"], "Pantheon diagnostic item id"),
+                        rubric=PantheonRubric(str(item["rubric"])),
+                        passed=_strict_bool(item["passed"], "Pantheon diagnostic item"),
+                        reason=str(item["reason"]),
+                    )
+                )
         violations = raw.get("hard_zero_violations")
         if not isinstance(violations, list):
             raise ValueError("Pantheon diagnostic hard-zero violations MUST be a list")
+        violation_values = tuple(str(item) for item in violations)
         return cls(
             case_id=str(raw["case_id"]),
             agent=str(raw["agent"]),
             locale=str(raw["locale"]),
-            score=_integer(raw["score"], "Pantheon diagnostic score"),
-            verdict=PantheonDiagnosticVerdict(str(raw["verdict"])),
+            score=0 if legacy_unscored else _integer(raw["score"], "Pantheon diagnostic score"),
+            verdict=(
+                _diagnostic_verdict(score=0, has_hard_zero=bool(violation_values))
+                if legacy_unscored
+                else PantheonDiagnosticVerdict(str(raw["verdict"]))
+            ),
             results=tuple(results),
-            hard_zero_violations=tuple(str(item) for item in violations),
+            hard_zero_violations=violation_values,
             trace_receipt_digest=str(raw["trace_receipt_digest"]),
             t2_expectation=T2Expectation(str(raw["t2_expectation"])),
         )

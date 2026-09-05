@@ -303,6 +303,29 @@ def test_diagnostic_rejects_missing_atomic_results() -> None:
         )
 
 
+def test_schema_v1_empty_results_remain_readable_as_unqualified_failure() -> None:
+    raw = {
+        "schema_version": "1.0.0",
+        "case_id": "legacy-case",
+        "agent": "Njord",
+        "locale": "en",
+        "score": 30,
+        "verdict": "pass",
+        "results": [],
+        "hard_zero_violations": [],
+        "trace_receipt_digest": _DIGEST,
+        "t2_expectation": "optional",
+    }
+
+    restored = PantheonTurnDiagnostic.from_mapping(raw)
+
+    assert restored.score == 0
+    assert restored.verdict is PantheonDiagnosticVerdict.FAIL
+    assert len(restored.results) == 30
+    assert all(not item.passed for item in restored.results)
+    assert {item.reason for item in restored.results} == {"legacy_atomic_results_unavailable"}
+
+
 @pytest.mark.parametrize(
     ("passed", "reason"),
     [(1, "observed_pass"), (True, "")],
