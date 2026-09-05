@@ -10,7 +10,9 @@ All profiles share **one control path**: only composition-root adapters and cred
 Inventory invalidation uses the same read path in both profiles. Core commits normalized observations
 before the Operator role reads a SELECT-only watermark. The authenticated SSE contains no Resource
 or provider payload, and the Console re-reads the same bounded instance projection. Local and
-deployed profiles differ only in the configured Azure identity and network route.
+deployed profiles differ only in the configured Azure identity and network route. Cross-origin
+stream replay admits the authenticated `Authorization` and bounded `Last-Event-ID` headers without
+widening allowed origins, methods, or credentials.
 ## Audit - What Works Local, What Needs Azure
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the
 test runner. "Full-stack local" means the VS Code compound launch using browser Entra for the

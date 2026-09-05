@@ -91,6 +91,7 @@ def _change_row(
     change_type: str,
     arm_id: str,
     arm_type: str | None = None,
+    changes: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": change_id,
@@ -98,6 +99,7 @@ def _change_row(
         "changeType": change_type,
         "targetResourceId": arm_id,
         "targetResourceType": arm_type,
+        "changes": changes,
     }
 
 
@@ -187,6 +189,10 @@ async def test_query_orders_oldest_first_and_bounds_by_id_tiebreak() -> None:
     assert "changeType = tostring(properties.changeType)" in body
     assert "targetResourceId = tostring(properties.targetResourceId)" in body
     assert "targetResourceType = tostring(properties.targetResourceType)" in body
+    assert "changes = properties.changes" in body
+    assert (
+        "project id, changeTime, changeType, targetResourceId, targetResourceType, changes" in body
+    )
 
 
 @pytest.mark.asyncio
@@ -228,12 +234,26 @@ async def test_update_row_hydrates_to_full_upsert() -> None:
                     change_type="Update",
                     arm_id=arm_id,
                     arm_type=arm_type,
+                    changes={
+                        "properties.powerState.code": {
+                            "newValue": "Running",
+                            "previousValue": "Stopped",
+                        }
+                    },
                 )
             ]
         )
 
     async def on_hydration(_request: httpx.Request) -> httpx.Response:
-        return _changes_response([_hydration_row(arm_id=arm_id, arm_type=arm_type)])
+        return _changes_response(
+            [
+                _hydration_row(
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                    properties={"powerState": {"code": "Stopped"}},
+                )
+            ]
+        )
 
     feed, client, _ = _factory(
         _router(on_changes=on_changes, on_hydration=on_hydration), vocab=vocab
@@ -255,6 +275,8 @@ async def test_update_row_hydrates_to_full_upsert() -> None:
     assert change["property_mask"] == sorted(change["resource"]["props"])
     assert change["resource"]["type"] == neutral_id
     assert change["resource"]["provider_ref"] == arm_id
+    assert change["resource"]["props"]["status"] == "Running"
+    assert change["resource"]["props"]["properties"]["powerState"]["code"] == "Running"
     assert change["scope_ref"] == _SCOPE
     assert change["links_complete"] is False
     assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
@@ -638,6 +660,7 @@ async def test_delete_falls_back_to_arm_id_type_when_target_type_is_absent() -> 
         ("changeTime", "not-a-timestamp"),
         ("changeType", "Rename"),
         ("targetResourceId", "not-an-arm-id"),
+        ("changes", []),
     ],
 )
 @pytest.mark.asyncio

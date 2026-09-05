@@ -512,6 +512,7 @@ def build_operator_app(
                     "Authorization",
                     "Content-Type",
                     "Idempotency-Key",
+                    "Last-Event-ID",
                     "X-Correlation-ID",
                 ],
                 expose_headers=["X-FDAI-Local-Session"],

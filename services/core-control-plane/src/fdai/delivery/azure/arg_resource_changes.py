@@ -122,6 +122,13 @@ _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
     "update": "upsert",
     "delete": "delete",
 }
+_OPERATIONAL_STATUS_CHANGE_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
+    "properties.powerState.code": ("properties", "powerState", "code"),
+    "properties.resourceState": ("properties", "resourceState"),
+    "properties.state": ("properties", "state"),
+    "properties.status": ("properties", "status"),
+    "properties.userVisibleState": ("properties", "userVisibleState"),
+}
 _SOURCE: Final[str] = "fdai.delivery.azure.arg_resource_changes"
 _SIGNAL_KIND: Final[str] = "azure.resource_graph_change_feed"
 _CURSOR_PREFIX: Final[str] = "arg_resource_change_cursor:"
@@ -217,6 +224,7 @@ class _ChangeRow:
     arm_id: str
     arm_type: str | None
     neutral_id: str
+    operational_status_change: tuple[tuple[str, ...], str] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -344,10 +352,11 @@ class AzureResourceChangeFeed:
             "| extend changeTime = todatetime(properties.changeAttributes.timestamp), "
             "changeType = tostring(properties.changeType), "
             "targetResourceId = tostring(properties.targetResourceId), "
-            "targetResourceType = tostring(properties.targetResourceType) "
+            "targetResourceType = tostring(properties.targetResourceType), "
+            "changes = properties.changes "
             f"{predicate}"
             "| order by changeTime asc, id asc "
-            "| project id, changeTime, changeType, targetResourceId, targetResourceType"
+            "| project id, changeTime, changeType, targetResourceId, targetResourceType, changes"
         )
 
     def _build_hydration_query(self, arm_ids: Sequence[str]) -> str:
@@ -390,6 +399,9 @@ class AzureResourceChangeFeed:
             raise ArgResourceChangeError(
                 "resourcechanges row targetResourceType MUST be a string or null"
             )
+        raw_changes = row.get("changes")
+        if raw_changes is not None and not isinstance(raw_changes, Mapping):
+            raise ArgResourceChangeError("resourcechanges row changes MUST be an object or null")
         return _ChangeRow(
             change_id=change_id,
             change_time=change_time,
@@ -397,6 +409,7 @@ class AzureResourceChangeFeed:
             arm_id=arm_id,
             arm_type=arm_type,
             neutral_id=to_neutral_id(arm_id),
+            operational_status_change=_operational_status_change(raw_changes or {}),
         )
 
     def _resolve_delete_type(self, change: _ChangeRow) -> str | None:
@@ -492,7 +505,16 @@ class AzureResourceChangeFeed:
     # ------------------------------------------------------------------
 
     def _upsert_event(self, change: _ChangeRow, *, record: ResourceRecord) -> Event:
-        resource = replace(record, last_seen=change.change_time.isoformat())
+        props = dict(record.props)
+        if change.operational_status_change is not None:
+            path, status = change.operational_status_change
+            props = _with_nested_value(props, path, status)
+            props["status"] = status
+        resource = replace(
+            record,
+            props=props,
+            last_seen=change.change_time.isoformat(),
+        )
         resource_payload = {
             "resource_id": resource.resource_id,
             "type": resource.type,
@@ -655,6 +677,36 @@ def _parse_ts(raw: Any) -> datetime | None:
     except ValueError:
         return None
     return parsed.astimezone(UTC) if parsed.tzinfo else None
+
+
+def _operational_status_change(
+    changes: Mapping[str, Any],
+) -> tuple[tuple[str, ...], str] | None:
+    for source_path, target_path in _OPERATIONAL_STATUS_CHANGE_PATHS.items():
+        raw_change = changes.get(source_path)
+        if not isinstance(raw_change, Mapping):
+            continue
+        raw_value = raw_change.get("newValue")
+        candidate = raw_value.get("code") if isinstance(raw_value, Mapping) else raw_value
+        if isinstance(candidate, str) and candidate.strip():
+            return target_path, candidate.strip()
+    return None
+
+
+def _with_nested_value(
+    value: Mapping[str, Any],
+    path: tuple[str, ...],
+    replacement: str,
+) -> dict[str, Any]:
+    updated = dict(value)
+    cursor = updated
+    for component in path[:-1]:
+        existing = cursor.get(component)
+        child = dict(existing) if isinstance(existing, Mapping) else {}
+        cursor[component] = child
+        cursor = child
+    cursor[path[-1]] = replacement
+    return updated
 
 
 __all__ = [

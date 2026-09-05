@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 84abfe9cf7e9ee035f83abb01bd5da733ce26601
+translation_source_sha: c1aff5040e09592da94cc0d438d2ca3a64f7bcb0
 translation_revised: 2026-09-05
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -13,7 +13,9 @@ translation_revised: 2026-09-05
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한
 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더
 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포
-프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다.
+프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된
+출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된
+`Last-Event-ID` 헤더를 허용합니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에

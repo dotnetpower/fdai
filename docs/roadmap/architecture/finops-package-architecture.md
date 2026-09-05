@@ -201,6 +201,8 @@ activation, disclosure, or package authority.
 The Operator semantic stream fallback also remains a host seam: it preserves
 `ConversationAssuranceReader` before the raw PostgreSQL adapter without changing Cost Governance
 availability, enablement, or package ownership.
+The shared ontology invalidation stream similarly admits `Last-Event-ID` only for authenticated
+read replay. It registers no Cost Governance route and widens no package data access.
 Core Pantheon bootstrap reads the persisted package activation through the package-neutral store.
 When the reviewed distribution is installed and enabled, composition binds its deterministic
 advisory provider to Njord before the existing event-bus subscriptions start. It also restores at

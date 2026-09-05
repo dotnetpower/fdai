@@ -516,6 +516,43 @@ def test_local_cli_mode_projects_profile_and_authorizes_reader_routes() -> None:
     assert audit.status_code == 200
 
 
+def test_cors_preflight_allows_durable_sse_replay_header() -> None:
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        local_cli_identity_factory=_local_cli_identity,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    client = TestClient(
+        create_app(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                CORS_ORIGINS_ENV: "http://localhost:5273",
+            },
+            composition=composition,
+        ),
+        client=("127.0.0.1", 50000),
+    )
+
+    response = client.options(
+        "/ontology/instances/stream",
+        headers={
+            "Origin": "http://localhost:5273",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization,last-event-id",
+        },
+    )
+
+    assert response.status_code == 200
+    allowed = {
+        value.strip().casefold()
+        for value in response.headers["access-control-allow-headers"].split(",")
+    }
+    assert {"authorization", "last-event-id"} <= allowed
+
+
 def test_local_cli_mode_rejects_non_loopback_requests() -> None:
     composition = ProductionOperatorComposition(
         verifier_factory=lambda environment: _verify,
