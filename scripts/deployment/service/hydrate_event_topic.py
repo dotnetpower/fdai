@@ -97,10 +97,8 @@ def hydrate_event_topic(
     if replacements is None:
         return hydrated
     event_topics = selected.get("event_topics")
-    if not isinstance(event_topics, dict) or any(
-        not isinstance(event_topics.get(name), str) for name in replacements
-    ):
-        raise EventTopicError("selected service tfvars must contain its platform-owned topics")
+    if not isinstance(event_topics, dict):
+        raise EventTopicError("selected service tfvars must contain an event_topics object")
     hydrated["environments"][environment][service]["event_topics"].update(replacements)
     return hydrated
 

@@ -329,6 +329,44 @@ def test_hydrates_operator_logical_topics_from_authoritative_contract(
     assert payload["environments"]["dev"]["operator-service"]["event_topics"] == original
 
 
+def test_hydrates_missing_operator_logical_topics(
+    topic_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "event_topics": {"events": "aw.change.events"},
+                }
+            }
+        }
+    }
+
+    hydrated = topic_hydrator.hydrate_event_topic(
+        payload,
+        service="operator-service",
+        environment="dev",
+        event_topic="fdai.change.events",
+        pipeline_stage_topic="fdai.pipeline.stages",
+        pantheon_object_topic="fdai.pantheon.objects",
+    )
+
+    assert (
+        hydrated["environments"]["dev"]["operator-service"]["event_topics"][
+            "read_investigation_requests"
+        ]
+        == "operator.read-investigation.requests"
+    )
+    assert (
+        hydrated["environments"]["dev"]["operator-service"]["event_topics"]["notification_receipts"]
+        == "fdai.notifications.delivery-receipts"
+    )
+    assert payload["environments"]["dev"]["operator-service"]["event_topics"] == {
+        "events": "aw.change.events"
+    }
+
+
 def test_hydrates_core_observation_context_from_platform_output(
     observation_hydrator: ModuleType,
 ) -> None:
