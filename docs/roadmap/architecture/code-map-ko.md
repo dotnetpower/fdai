@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c0e67479ceb8dc623ac02d67eac18c9f93230fc5
+translation_source_sha: b5ebc244c83382d369eaf6206c0a6b33879f9dd2
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -30,6 +30,9 @@ translation_revised: 2026-09-06
 - **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 비밀이 아닌 대상과 Key Vault 시크릿
   참조를 내보냅니다. 보호된 서비스 배포는 독립 배포 서비스에 전달하기 전에 이 객체를
   검증합니다. 서비스 tfvars 페이로드는 플랫폼 소유 담당 체계 GitOps 바인딩을 대체할 수 없습니다.
+- **봇 소유 서비스 적용:** 보호된 작업 래퍼는 환경 승인이 필요한 적용을 요청하기 전에 정확한
+  Core 또는 Document Ingestion API 계획 산출물 하나를 검증합니다. 전환 플래그는 봉인된 배포
+  모드에서만 도출하므로 사람 검토자는 요청자와 구분됩니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

@@ -395,15 +395,13 @@ def test_specialized_apply_requests_are_bot_owned_and_exact_plan_bound() -> None
 
 
 def test_core_service_apply_request_preserves_independent_human_approval() -> None:
-    assert "core-service-apply)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "core-service-apply|document-service-apply)" in _CONSOLE_REQUEST_WORKFLOW
     assert "validate_protected_service_apply_request.py" in _CONSOLE_REQUEST_WORKFLOW
     assert "actions/workflows/service-deploy.yml/dispatches" in _CONSOLE_REQUEST_WORKFLOW
-    assert '"inputs[service]=core-control-plane"' in _CONSOLE_REQUEST_WORKFLOW
+    assert "service_name=core-control-plane" in _CONSOLE_REQUEST_WORKFLOW
     assert '"inputs[apply]=true"' in _CONSOLE_REQUEST_WORKFLOW
     assert '"inputs[model_binding_transition]=true"' in _CONSOLE_REQUEST_WORKFLOW
-    assert "Bot-owned Core service apply is unavailable for production." in (
-        _CONSOLE_REQUEST_WORKFLOW
-    )
+    assert "Bot-owned service apply is unavailable for production." in (_CONSOLE_REQUEST_WORKFLOW)
     assert "service-plan-metadata.json" in _CONSOLE_REQUEST_WORKFLOW
     assert "deployment_mode" in (
         _ROOT / "scripts/deployment/azure/validate_protected_service_apply_request.py"
@@ -427,6 +425,25 @@ def test_core_service_apply_request_preserves_independent_human_approval() -> No
     assert (
         "environment: ${{ (inputs.apply || inputs.migrate_state) "
         "&& inputs.environment || 'plan-only' }}" in _WORKFLOW
+    )
+
+
+def test_document_service_apply_request_derives_transition_from_verified_plan() -> None:
+    assert "document-service-apply)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "service_name=document-ingestion-api" in _CONSOLE_REQUEST_WORKFLOW
+    assert '--service "$service_name"' in _CONSOLE_REQUEST_WORKFLOW
+    assert 'deployment_mode="$(jq -er' in _CONSOLE_REQUEST_WORKFLOW
+    for mode, field in (
+        ("standard", None),
+        ("database-host-binding", "database_host_binding"),
+        ("sharepoint-connector-enable", "sharepoint_connector_transition]=enable"),
+        ("sharepoint-connector-disable", "sharepoint_connector_transition]=disable"),
+    ):
+        assert f"document-ingestion-api:{mode})" in _CONSOLE_REQUEST_WORKFLOW
+        if field is not None:
+            assert f'"inputs[{field}' in _CONSOLE_REQUEST_WORKFLOW
+    assert _CONSOLE_REQUEST_WORKFLOW.index("validate_protected_service_apply_request.py") < (
+        _CONSOLE_REQUEST_WORKFLOW.index('deployment_mode="$(jq -er')
     )
 
 

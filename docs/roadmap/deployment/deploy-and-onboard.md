@@ -249,6 +249,11 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   reviewer with self-review and administrator bypass disabled, then restores only the exact private
   plan. Profiles that require an N-of-M quorum and production-only image, alert, or budget inputs
   remain blocked until a workflow-owned authority can bind and verify them.
+- Bot-owned service apply requests keep the human reviewer distinct from the deployment requester.
+  The protected wrapper accepts Core and document-ingestion plans only after validating the exact
+  plan run, artifact, commit, image, digest, context, expiry, service, and deployment mode. It derives
+  model binding, database host binding, or SharePoint connector transition inputs from that validated
+  deployment mode instead of accepting a second unbound transition choice.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 

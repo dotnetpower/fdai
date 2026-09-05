@@ -14,6 +14,7 @@ on:
           - operational-history-certification
           - rca-reader-apply
           - core-service-apply
+          - document-service-apply
         required: true
       environment:
         description: "Existing environment targeted by the protected operation."
@@ -50,15 +51,15 @@ on:
         type: string
         required: false
       plan_run_id:
-        description: "Protected service plan workflow run id for a Core service apply."
+        description: "Protected service plan workflow run id for a bot-owned service apply."
         type: string
         required: false
       plan_run_attempt:
-        description: "Protected service plan workflow run attempt for a Core service apply."
+        description: "Protected service plan workflow run attempt for a bot-owned service apply."
         type: string
         required: false
       image_ref:
-        description: "Digest-pinned Core service image for a Core service apply."
+        description: "Digest-pinned service image for a bot-owned service apply."
         type: string
         required: false
       deployment_receipt_digest:
@@ -84,6 +85,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (inputs.operation == 'core-service-apply' ||
+       inputs.operation == 'document-service-apply' ||
        inputs.operation == 'rca-reader-apply' ||
        inputs.operation == 'operational-history-certification' ||
        inputs.operation == 'operational-history-apply' ||
@@ -171,17 +173,22 @@ jobs:
             catalog-refresh)
               target_workflow=refresh-catalogs.yml
               ;;
-            core-service-apply)
+            core-service-apply|document-service-apply)
               [[ "$TARGET_ENVIRONMENT" != "prod" ]] || {
-                echo "Bot-owned Core service apply is unavailable for production." >&2
+                echo "Bot-owned service apply is unavailable for production." >&2
                 exit 1
               }
+              if [[ "$OPERATION" == "core-service-apply" ]]; then
+                service_name=core-control-plane
+              else
+                service_name=document-ingestion-api
+              fi
               [[ "$APPLY_PLAN_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
-                echo "Core service apply plan run id is invalid." >&2
+                echo "Service apply plan run id is invalid." >&2
                 exit 1
               }
               [[ "$APPLY_PLAN_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || {
-                echo "Core service apply plan run attempt is invalid." >&2
+                echo "Service apply plan run attempt is invalid." >&2
                 exit 1
               }
               gh api \
@@ -190,7 +197,7 @@ jobs:
               gh api \
                 "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY_PLAN_RUN_ID/artifacts?per_page=100" \
                 > "$RUNNER_TEMP/service-plan-artifacts.json"
-              plan_artifact_name="service-plan-core-control-plane-${TARGET_ENVIRONMENT}-${APPLY_PLAN_RUN_ID}-${APPLY_PLAN_RUN_ATTEMPT}"
+              plan_artifact_name="service-plan-${service_name}-${TARGET_ENVIRONMENT}-${APPLY_PLAN_RUN_ID}-${APPLY_PLAN_RUN_ATTEMPT}"
               plan_artifact_id="$(
                 jq -er --arg name "$plan_artifact_name" '
                   [.artifacts[] | select(.name == $name and .expired == false)]
@@ -205,6 +212,7 @@ jobs:
               python3 \
                 .fdai-protected-environment-verifier/scripts/deployment/azure/validate_protected_service_apply_request.py \
                 --repository "$GITHUB_REPOSITORY" \
+                --service "$service_name" \
                 --environment "$TARGET_ENVIRONMENT" \
                 --commit-sha "$TARGET_COMMIT_SHA" \
                 --plan-run-id "$APPLY_PLAN_RUN_ID" \
@@ -215,20 +223,43 @@ jobs:
                 --run-metadata "$RUNNER_TEMP/service-plan-run.json" \
                 --artifacts "$RUNNER_TEMP/service-plan-artifacts.json" \
                 --plan-metadata "$RUNNER_TEMP/service-plan-metadata.json"
+              deployment_mode="$(jq -er '.deployment_mode' "$RUNNER_TEMP/service-plan-metadata.json")"
+              dispatch_args=(
+                -f ref=main
+                -f "inputs[service]=$service_name"
+                -f "inputs[environment]=$TARGET_ENVIRONMENT"
+                -f "inputs[commit_sha]=$TARGET_COMMIT_SHA"
+                -f "inputs[image_ref]=$APPLY_IMAGE_REF"
+                -f "inputs[apply]=true"
+                -f "inputs[plan_run_id]=$APPLY_PLAN_RUN_ID"
+                -f "inputs[plan_run_attempt]=$APPLY_PLAN_RUN_ATTEMPT"
+                -f "inputs[plan_digest]=$APPLY_PLAN_DIGEST"
+                -f "inputs[context_digest]=$APPLY_CONTEXT_DIGEST"
+              )
+              case "$service_name:$deployment_mode" in
+                core-control-plane:model-binding)
+                  dispatch_args+=(-f "inputs[model_binding_transition]=true")
+                  ;;
+                document-ingestion-api:standard)
+                  ;;
+                document-ingestion-api:database-host-binding)
+                  dispatch_args+=(-f "inputs[database_host_binding]=true")
+                  ;;
+                document-ingestion-api:sharepoint-connector-enable)
+                  dispatch_args+=(-f "inputs[sharepoint_connector_transition]=enable")
+                  ;;
+                document-ingestion-api:sharepoint-connector-disable)
+                  dispatch_args+=(-f "inputs[sharepoint_connector_transition]=disable")
+                  ;;
+                *)
+                  echo "Validated service plan has no supported dispatch mode." >&2
+                  exit 1
+                  ;;
+              esac
               verify_environment
               gh api --method POST \
                 "repos/$GITHUB_REPOSITORY/actions/workflows/service-deploy.yml/dispatches" \
-                -f ref=main \
-                -f "inputs[service]=core-control-plane" \
-                -f "inputs[environment]=$TARGET_ENVIRONMENT" \
-                -f "inputs[commit_sha]=$TARGET_COMMIT_SHA" \
-                -f "inputs[image_ref]=$APPLY_IMAGE_REF" \
-                -f "inputs[apply]=true" \
-                -f "inputs[model_binding_transition]=true" \
-                -f "inputs[plan_run_id]=$APPLY_PLAN_RUN_ID" \
-                -f "inputs[plan_run_attempt]=$APPLY_PLAN_RUN_ATTEMPT" \
-                -f "inputs[plan_digest]=$APPLY_PLAN_DIGEST" \
-                -f "inputs[context_digest]=$APPLY_CONTEXT_DIGEST"
+                "${dispatch_args[@]}"
               exit 0
               ;;
             operational-history-certification)

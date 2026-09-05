@@ -28,6 +28,9 @@ retired top-level application tree.
   secret references. Protected service deployment validates those objects before an independently
   deployed service receives them; a service tfvars payload cannot replace the platform-owned
   stewardship GitOps binding.
+- **Bot-owned service apply:** The protected operation wrapper validates one exact Core or Document
+  Ingestion API plan artifact before dispatching its Environment-gated apply. Transition flags come
+  only from the sealed deployment mode, so the human reviewer remains distinct from the requester.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7105d3f70639370344faab550858387a317800fc
-translation_revised: 2026-09-05
+translation_source_sha: 7fdda3e744b58166babfd6550e09176ca6d6b1d3
+translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -249,6 +249,11 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
   계산하고 대상 GitHub 환경이 한 명의 필수 검토자를 요구하며 자체 검토와 관리자 우회를
   차단하는지 확인한 후 정확한 비공개 계획만 복원합니다. N명 중 M명 정족수가 필요한 프로필과
   프로덕션 전용 이미지, 경고, 예산 입력은 작업 흐름 소유 권한 계층에서 검증할 때까지 차단합니다.
+- 봇 소유 서비스 적용 요청은 사람 검토자를 배포 요청자와 구분합니다. 보호된 래퍼는 정확한 계획
+  실행, 산출물, 커밋, 이미지, 다이제스트, 컨텍스트, 만료 시각, 서비스 및 배포 모드를 검증한
+  후에만 Core 및 문서 수집 계획을 수락합니다. 두 번째로 연결되지 않은 전환 선택을 받는 대신
+  검증된 배포 모드에서 모델 바인딩, 데이터베이스 호스트 바인딩 또는 SharePoint 커넥터 전환
+  입력을 도출합니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
   ([deployment-ko.md](deployment-ko.md)).
 

@@ -11,6 +11,23 @@ from typing import Any
 _POSITIVE_INTEGER = re.compile(r"^[1-9][0-9]*$")
 _LOWER_HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 _LOWER_HEX_64 = re.compile(r"^[0-9a-f]{64}$")
+_SERVICE_CONTRACTS = {
+    "core-control-plane": (
+        "fdai-core-control-plane",
+        frozenset({"model-binding"}),
+    ),
+    "document-ingestion-api": (
+        "fdai-document-ingestion-api",
+        frozenset(
+            {
+                "standard",
+                "database-host-binding",
+                "sharepoint-connector-enable",
+                "sharepoint-connector-disable",
+            }
+        ),
+    ),
+}
 
 
 class ProtectedServiceApplyRequestError(ValueError):
@@ -20,6 +37,7 @@ class ProtectedServiceApplyRequestError(ValueError):
 def validate_protected_service_apply_request(
     *,
     repository: str,
+    service: str,
     environment: str,
     commit_sha: str,
     plan_run_id: str,
@@ -32,12 +50,16 @@ def validate_protected_service_apply_request(
     plan_metadata: Mapping[str, Any],
     now: datetime | None = None,
 ) -> None:
-    """Validate the bounded Core apply request before the bot dispatches it."""
+    """Validate one bounded service apply request before the bot dispatches it."""
 
     if environment not in {"dev", "staging"}:
         raise ProtectedServiceApplyRequestError(
-            "Core service bot-owned apply is available only for dev and staging."
+            "Service bot-owned apply is available only for dev and staging."
         )
+    service_contract = _SERVICE_CONTRACTS.get(service)
+    if service_contract is None:
+        raise ProtectedServiceApplyRequestError("Service is not approved for bot-owned apply.")
+    image_name, deployment_modes = service_contract
     if not _LOWER_HEX_40.fullmatch(commit_sha):
         raise ProtectedServiceApplyRequestError("Commit SHA must be lowercase 40-character hex.")
     if not _POSITIVE_INTEGER.fullmatch(plan_run_id):
@@ -51,11 +73,11 @@ def validate_protected_service_apply_request(
 
     image_pattern = re.compile(
         rf"^ghcr\.io/{re.escape(repository.lower())}/"
-        rf"fdai-core-control-plane@sha256:[0-9a-f]{{64}}$"
+        rf"{re.escape(image_name)}@sha256:[0-9a-f]{{64}}$"
     )
     if not image_pattern.fullmatch(image_ref):
         raise ProtectedServiceApplyRequestError(
-            "Image reference must be the repository Core image pinned by SHA-256."
+            "Image reference must be the approved repository service image pinned by SHA-256."
         )
 
     expected_run_id = int(plan_run_id)
@@ -83,9 +105,7 @@ def validate_protected_service_apply_request(
     artifact_values = artifacts.get("artifacts")
     if not isinstance(artifact_values, list):
         raise ProtectedServiceApplyRequestError("Plan artifact response must contain an array.")
-    expected_name = (
-        f"service-plan-core-control-plane-{environment}-{plan_run_id}-{plan_run_attempt}"
-    )
+    expected_name = f"service-plan-{service}-{environment}-{plan_run_id}-{plan_run_attempt}"
     matching = [
         artifact
         for artifact in artifact_values
@@ -93,17 +113,16 @@ def validate_protected_service_apply_request(
     ]
     if len(matching) != 1 or matching[0].get("expired") is not False:
         raise ProtectedServiceApplyRequestError(
-            "Exactly one unexpired protected Core service plan artifact is required."
+            "Exactly one unexpired protected service plan artifact is required."
         )
 
     expected_plan = {
-        "plan_id": (f"core-control-plane-{environment}-{plan_run_id}-{plan_run_attempt}"),
+        "plan_id": (f"{service}-{environment}-{plan_run_id}-{plan_run_attempt}"),
         "workflow_run_id": plan_run_id,
         "workflow_run_attempt": plan_run_attempt,
-        "service": "core-control-plane",
+        "service": service,
         "environment": environment,
         "status": "ready",
-        "deployment_mode": "model-binding",
         "commit_sha": commit_sha,
         "plan_digest": plan_digest,
         "context_digest": context_digest,
@@ -113,8 +132,13 @@ def validate_protected_service_apply_request(
     for field, expected in expected_plan.items():
         if plan_metadata.get(field) != expected:
             raise ProtectedServiceApplyRequestError(
-                f"Plan metadata field {field!r} is not bound to the requested Core apply."
+                f"Plan metadata field {field!r} is not bound to the requested service apply."
             )
+    deployment_mode = plan_metadata.get("deployment_mode")
+    if not isinstance(deployment_mode, str) or deployment_mode not in deployment_modes:
+        raise ProtectedServiceApplyRequestError(
+            "Plan deployment mode is not approved for the requested service apply."
+        )
 
     expires_at = plan_metadata.get("expires_at")
     if not isinstance(expires_at, str):
@@ -128,7 +152,7 @@ def validate_protected_service_apply_request(
     if expiry.tzinfo is None:
         raise ProtectedServiceApplyRequestError("Plan expiry must include a time zone.")
     if expiry <= (now or datetime.now(UTC)):
-        raise ProtectedServiceApplyRequestError("Protected Core service plan has expired.")
+        raise ProtectedServiceApplyRequestError("Protected service plan has expired.")
 
 
 def _load_object(path: Path, *, label: str) -> Mapping[str, Any]:
@@ -146,6 +170,7 @@ def _load_object(path: Path, *, label: str) -> Mapping[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", required=True)
+    parser.add_argument("--service", required=True)
     parser.add_argument("--environment", required=True)
     parser.add_argument("--commit-sha", required=True)
     parser.add_argument("--plan-run-id", required=True)
@@ -161,6 +186,7 @@ def main() -> int:
     try:
         validate_protected_service_apply_request(
             repository=args.repository,
+            service=args.service,
             environment=args.environment,
             commit_sha=args.commit_sha,
             plan_run_id=args.plan_run_id,
