@@ -381,8 +381,6 @@ def _only_notification_receipt_topic_transition(
         _primary_container(after, address=address, contract=contract),
         address=address,
     )
-    if "FDAI_NOTIFICATION_RECEIPT_TOPIC" in before_by_name:
-        return False
     if _environment_binding(after_by_name.get("FDAI_NOTIFICATION_RECEIPT_TOPIC")) != (
         _NOTIFICATION_RECEIPT_TOPIC,
         None,
@@ -395,7 +393,7 @@ def _only_notification_receipt_topic_transition(
     before_bindings = {
         name: _environment_binding(item)
         for name, item in before_by_name.items()
-        if name not in additional_allowed_names
+        if name not in {"FDAI_NOTIFICATION_RECEIPT_TOPIC", *additional_allowed_names}
     }
     after_bindings = {
         name: _environment_binding(item)

@@ -1375,6 +1375,37 @@ def test_plan_guard_composes_model_and_notification_topic_transitions(
     )
 
 
+def test_plan_guard_composes_model_and_notification_topic_correction(
+    guard: ModuleType,
+) -> None:
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    before_environment.append(
+        {
+            "name": "FDAI_NOTIFICATION_RECEIPT_TOPIC",
+            "value": "fdai.notifications.legacy-receipts",
+        }
+    )
+    after_environment.append(
+        {
+            "name": "FDAI_NOTIFICATION_RECEIPT_TOPIC",
+            "value": "fdai.notifications.delivery-receipts",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        model_binding_transition=True,
+        resolved_models_digest=digest,
+    )
+
+
 def test_plan_guard_allows_exact_hydrated_rca_reader_identity(guard: ModuleType) -> None:
     service = "core-control-plane"
     digest = "a" * 64
