@@ -37,6 +37,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceResource,
     InventoryInstanceResourcePage,
     InventoryProjectionSourceState,
+    InventoryRelationshipCoverage,
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
 )
@@ -774,6 +775,7 @@ class PostgresFamilyStore:
         projection_source_states = _projection_source_states(
             metadata.get("derived_source_states", [])
         )
+        relationship_coverage = _relationship_coverage(metadata.get("relationship_coverage"))
         return InventoryImpactContext(
             snapshot_id=snapshot_id,
             observed_at=_stored_timestamp(
@@ -783,6 +785,7 @@ class PostgresFamilyStore:
             relationship_drop_reasons=relationship_drop_reasons,
             relationship_drop_classifications=relationship_drop_classifications,
             projection_source_states=projection_source_states,
+            relationship_coverage=relationship_coverage,
         )
 
     async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
@@ -3375,6 +3378,8 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
     if not isinstance(value, list) or len(value) > 8:
         raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
     allowed_sources = {
+        "azure_activity_log",
+        "azure_resource_health",
         "kubernetes_runtime_inventory",
         "runtime_call_graph",
         "postgres_role_evidence",
@@ -3427,6 +3432,45 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
     if len({state.source for state in states}) != len(states):
         raise PostgresFamilyStoreUnavailable("active inventory source states are duplicated")
     return tuple(sorted(states, key=lambda state: state.source))
+
+
+def _relationship_coverage(value: object) -> InventoryRelationshipCoverage | None:
+    """Decode the exact candidate-relationship count without provider identifiers.
+
+    A snapshot promoted before this count existed carries no
+    ``relationship_coverage`` key, and an older reader tolerates an explicit
+    ``None`` the same way; both decode to ``None`` rather than a failure.
+    """
+
+    if value is None:
+        return None
+    item = _json_object(value, label="active inventory relationship coverage")
+    counts: dict[str, int] = {}
+    for name in ("materialized", "reviewed_unavailable", "unclassified", "total_candidates"):
+        raw_count = item.get(name)
+        if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
+            raise PostgresFamilyStoreUnavailable(
+                "active inventory relationship coverage is malformed"
+            )
+        counts[name] = raw_count
+    if counts["total_candidates"] != (
+        counts["materialized"] + counts["reviewed_unavailable"] + counts["unclassified"]
+    ):
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory relationship coverage sums are inconsistent"
+        )
+    complete = item.get("complete")
+    if not isinstance(complete, bool) or (complete and counts["unclassified"] != 0):
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory relationship coverage complete flag is inconsistent"
+        )
+    return InventoryRelationshipCoverage(
+        materialized=counts["materialized"],
+        reviewed_unavailable=counts["reviewed_unavailable"],
+        unclassified=counts["unclassified"],
+        total_candidates=counts["total_candidates"],
+        complete=complete,
+    )
 
 
 def _psycopg_dsn(value: str) -> str:

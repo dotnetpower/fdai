@@ -12,6 +12,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceActivity,
     InventoryInstanceReader,
     InventoryInstanceResource,
+    InventoryRelationshipCoverage,
     InventoryRelationshipEvidence,
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -147,7 +148,7 @@ async def project_inventory_instance(
         *(("activity_limit",) if activity.truncated else ()),
     ]
     return {
-        "schema_version": "1.3.0",
+        "schema_version": "1.4.0",
         "ontology_release_digest": release_digest,
         "source_generation": context.snapshot_id,
         "source_cutoff": context.observed_at.isoformat(),
@@ -235,18 +236,16 @@ async def project_inventory_instance(
                 source="postgres_role_evidence",
                 unavailable_reason="projection_not_bound",
             ),
-            {
-                "source": "azure_resource_health",
-                "status": "unavailable",
-                "observed_at": None,
-                "reason": "projection_not_bound",
-            },
-            {
-                "source": "azure_activity_log",
-                "status": "unavailable",
-                "observed_at": None,
-                "reason": "projection_not_bound",
-            },
+            _projection_source(
+                context,
+                source="azure_resource_health",
+                unavailable_reason="projection_not_bound",
+            ),
+            _projection_source(
+                context,
+                source="azure_activity_log",
+                unavailable_reason="projection_not_bound",
+            ),
         ],
         "relationship_drop_reasons": list(context.relationship_drop_reasons),
         "relationship_drop_classifications": [
@@ -261,6 +260,7 @@ async def project_inventory_instance(
             }
             for item in context.relationship_drop_classifications
         ],
+        "relationship_coverage": _relationship_coverage_projection(context.relationship_coverage),
         "complete": not truncation_reasons and not context.relationship_drop_reasons,
         "truncation_reasons": truncation_reasons,
         **_context_identity(
@@ -298,6 +298,22 @@ def _projection_source(
         "status": state.status,
         "observed_at": state.observed_at.isoformat() if state.observed_at is not None else None,
         "reason": state.reason,
+    }
+
+
+def _relationship_coverage_projection(
+    coverage: InventoryRelationshipCoverage | None,
+) -> dict[str, object] | None:
+    """Render the exact candidate-relationship count, or ``None`` for an older generation."""
+
+    if coverage is None:
+        return None
+    return {
+        "total_candidates": coverage.total_candidates,
+        "materialized": coverage.materialized,
+        "reviewed_unavailable": coverage.reviewed_unavailable,
+        "unclassified": coverage.unclassified,
+        "complete": coverage.complete,
     }
 
 

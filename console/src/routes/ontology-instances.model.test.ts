@@ -10,6 +10,7 @@ import {
   ontologyInstanceAksLanes,
   ontologyInstanceContextIdentity,
   ontologyInstanceNetworkPaths,
+  ontologyInstancePresentationCoverage,
   ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstanceResourceOptionLabel,
@@ -97,6 +98,44 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.root_id).toBe("root");
     expect(decoded.links).toHaveLength(1);
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
+    expect(decoded.relationship_coverage).toBeNull();
+  });
+
+  it("accepts additive relationship candidate accounting", () => {
+    const value = payload();
+    value.schema_version = "1.4.0";
+    value.relationship_coverage = {
+      total_candidates: 12,
+      materialized: 9,
+      reviewed_unavailable: 3,
+      unclassified: 0,
+      complete: true,
+    };
+
+    expect(decodeOntologyInstanceExploration(value).relationship_coverage).toEqual(
+      value.relationship_coverage,
+    );
+  });
+
+  it("rejects incomplete or contradictory relationship candidate accounting", () => {
+    const value = payload();
+    value.schema_version = "1.4.0";
+    value.relationship_coverage = {
+      total_candidates: 12,
+      materialized: 9,
+      reviewed_unavailable: 2,
+      unclassified: 0,
+      complete: true,
+    };
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "relationship coverage counts MUST account for every candidate",
+    );
+
+    (value.relationship_coverage as Record<string, unknown>).total_candidates = 12;
+    (value.relationship_coverage as Record<string, unknown>).unclassified = 1;
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "complete relationship coverage MUST NOT contain unclassified candidates",
+    );
   });
 
   it("requires an opaque selection token for complete context identity", () => {
@@ -533,6 +572,51 @@ describe("Resource instance autocomplete", () => {
       resources: [...data.resources, role],
       links: [...data.links, roleLink],
     })).toEqual(data.links);
+  });
+
+  it("accounts for focus, Inspector-only, and IAM-delegated relationships", () => {
+    const data = decodeOntologyInstanceExploration(payload());
+    const role = {
+      ...data.resources[1]!,
+      id: "role-assignment",
+      resource_type: "authorization.role-assignment",
+    };
+    const roleLink = relationship("role-assignment", "root", "attached_to", "azure.role");
+    const coverage = ontologyInstancePresentationCoverage(
+      {
+        ...data,
+        resources: [...data.resources, role],
+        links: [...data.links, roleLink],
+      },
+      ["root"],
+      [],
+    );
+
+    expect(coverage).toMatchObject({
+      responseResources: 3,
+      responseLinks: 2,
+      presentationResources: 2,
+      presentationLinks: 1,
+      graphResources: 1,
+      graphLinks: 0,
+      inspectorOnlyLinks: 1,
+      delegatedResources: 1,
+      delegatedLinks: 1,
+      graphOmittedResources: 1,
+      graphOmittedLinks: 1,
+      graphConsistent: true,
+    });
+  });
+
+  it("rejects a stale graph relationship outside the returned presentation response", () => {
+    const data = decodeOntologyInstanceExploration(payload());
+    const stale = relationship("root", "stale", "attached_to", "azure.stale");
+
+    expect(ontologyInstancePresentationCoverage(
+      data,
+      ["root", "stale"],
+      [stale],
+    ).graphConsistent).toBe(false);
   });
 
   it("rejects a role assignment as the exact default presentation root", () => {

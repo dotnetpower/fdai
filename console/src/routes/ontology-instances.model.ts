@@ -192,8 +192,16 @@ export interface OntologyRelationshipDropClassification {
   readonly count: number;
 }
 
+export interface OntologyInstanceRelationshipCoverage {
+  readonly total_candidates: number;
+  readonly materialized: number;
+  readonly reviewed_unavailable: number;
+  readonly unclassified: number;
+  readonly complete: boolean;
+}
+
 export interface OntologyInstanceExploration {
-  readonly schema_version: "1.3.0";
+  readonly schema_version: "1.3.0" | "1.4.0";
   readonly ontology_release_digest: string;
   readonly source_generation: string;
   readonly principal_id?: string;
@@ -217,12 +225,73 @@ export interface OntologyInstanceExploration {
   readonly sources: readonly OntologyInstanceSource[];
   readonly relationship_drop_reasons: readonly string[];
   readonly relationship_drop_classifications: readonly OntologyRelationshipDropClassification[];
+  readonly relationship_coverage?: OntologyInstanceRelationshipCoverage | null;
   readonly complete: boolean;
   readonly truncation_reasons: readonly (
     "adjacent_edge_limit" | "resource_limit" | "link_limit" | "activity_limit"
   )[];
   readonly execution_authority: false;
   readonly mutation_authority: false;
+}
+
+export interface OntologyInstancePresentationCoverage {
+  readonly responseResources: number;
+  readonly responseLinks: number;
+  readonly presentationResources: number;
+  readonly presentationLinks: number;
+  readonly graphResources: number;
+  readonly graphLinks: number;
+  readonly inspectorOnlyLinks: number;
+  readonly delegatedResources: number;
+  readonly delegatedLinks: number;
+  readonly graphOmittedResources: number;
+  readonly graphOmittedLinks: number;
+  readonly graphConsistent: boolean;
+}
+
+/** Accounts for every returned item without treating focus-graph omission as source loss. */
+export function ontologyInstancePresentationCoverage(
+  data: OntologyInstanceExploration,
+  graphResourceIds: readonly string[],
+  graphLinks: readonly OntologyInstanceLink[],
+): OntologyInstancePresentationCoverage {
+  const presentationResources = data.resources.filter(isOntologyInstancePresentationResource);
+  const presentationLinks = ontologyInstancePresentationLinks(data);
+  const presentationResourceIds = new Set(presentationResources.map((resource) => resource.id));
+  const graphResourceSet = new Set(graphResourceIds);
+  const graphResources = [...graphResourceSet].filter((id) =>
+    presentationResourceIds.has(id)).length;
+  const unexpectedGraphResources = [...graphResourceSet].some((id) =>
+    !presentationResourceIds.has(id));
+  const presentationLinkKeys = new Set(presentationLinks.map(ontologyInstanceLinkKey));
+  const graphLinkKeys = new Set(graphLinks.map(ontologyInstanceLinkKey));
+  const displayedGraphLinks = [...graphLinkKeys].filter((key) =>
+    presentationLinkKeys.has(key)).length;
+  const unexpectedGraphLinks = [...graphLinkKeys].some((key) =>
+    !presentationLinkKeys.has(key));
+  const delegatedResources = data.resources.length - presentationResources.length;
+  const delegatedLinks = data.links.length - presentationLinks.length;
+  const inspectorOnlyLinks = presentationLinks.length - displayedGraphLinks;
+  return {
+    responseResources: data.resources.length,
+    responseLinks: data.links.length,
+    presentationResources: presentationResources.length,
+    presentationLinks: presentationLinks.length,
+    graphResources,
+    graphLinks: displayedGraphLinks,
+    inspectorOnlyLinks,
+    delegatedResources,
+    delegatedLinks,
+    graphOmittedResources: presentationResources.length - graphResources,
+    graphOmittedLinks: inspectorOnlyLinks,
+    graphConsistent: !unexpectedGraphResources
+      && !unexpectedGraphLinks
+      && graphLinkKeys.size === graphLinks.length,
+  };
+}
+
+function ontologyInstanceLinkKey(link: OntologyInstanceLink): string {
+  return `${link.source}\u0000${link.link_type}\u0000${link.target}`;
 }
 
 /**
@@ -652,7 +721,9 @@ export function decodeOntologyInstanceDirectory(value: unknown): OntologyInstanc
 
 export function decodeOntologyInstanceExploration(value: unknown): OntologyInstanceExploration {
   const record = objectRecord(value, "instance exploration");
-  if (record.schema_version !== "1.3.0") throw new Error("instance schema_version MUST be 1.3.0");
+  if (record.schema_version !== "1.3.0" && record.schema_version !== "1.4.0") {
+    throw new Error("instance schema_version MUST be 1.3.0 or 1.4.0");
+  }
   if (record.execution_authority !== false || record.mutation_authority !== false) {
     throw new Error("instance exploration MUST carry no execution or mutation authority");
   }
@@ -734,6 +805,10 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
   if (classificationKeys.size !== relationshipDropClassifications.length) {
     throw new Error("relationship drop classifications MUST be unique");
   }
+  const relationshipCoverage = record.relationship_coverage === undefined
+    || record.relationship_coverage === null
+    ? null
+    : decodeRelationshipCoverage(record.relationship_coverage);
   const truncationReasons = uniqueStrings(
     record.truncation_reasons,
     "truncation reasons",
@@ -753,7 +828,7 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     throw new Error("instance timeline truncation MUST match response truncation");
   }
   return {
-    schema_version: "1.3.0",
+    schema_version: record.schema_version,
     ontology_release_digest: releaseDigest,
     source_generation: sourceGeneration,
     source_cutoff: sourceCutoff,
@@ -770,6 +845,7 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     sources,
     relationship_drop_reasons: relationshipDropReasons,
     relationship_drop_classifications: relationshipDropClassifications,
+    relationship_coverage: relationshipCoverage,
     complete,
     truncation_reasons: truncationReasons as (
       "adjacent_edge_limit" | "resource_limit" | "link_limit" | "activity_limit"
@@ -777,6 +853,40 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     execution_authority: false,
     mutation_authority: false,
     ...identityFields,
+  };
+}
+
+function decodeRelationshipCoverage(value: unknown): OntologyInstanceRelationshipCoverage {
+  const record = objectRecord(value, "relationship coverage");
+  const totalCandidates = nonNegativeInteger(
+    record.total_candidates,
+    "relationship coverage total candidates",
+  );
+  const materialized = nonNegativeInteger(
+    record.materialized,
+    "relationship coverage materialized",
+  );
+  const reviewedUnavailable = nonNegativeInteger(
+    record.reviewed_unavailable,
+    "relationship coverage reviewed unavailable",
+  );
+  const unclassified = nonNegativeInteger(
+    record.unclassified,
+    "relationship coverage unclassified",
+  );
+  const complete = boolean(record.complete, "relationship coverage complete");
+  if (totalCandidates !== materialized + reviewedUnavailable + unclassified) {
+    throw new Error("relationship coverage counts MUST account for every candidate");
+  }
+  if (complete && unclassified > 0) {
+    throw new Error("complete relationship coverage MUST NOT contain unclassified candidates");
+  }
+  return {
+    total_candidates: totalCandidates,
+    materialized,
+    reviewed_unavailable: reviewedUnavailable,
+    unclassified,
+    complete,
   };
 }
 
@@ -1080,6 +1190,13 @@ function boolean(value: unknown, label: string): boolean {
 function positiveInteger(value: unknown, label: string): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) {
     throw new Error(`${label} MUST be a positive integer`);
+  }
+  return value as number;
+}
+
+function nonNegativeInteger(value: unknown, label: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new Error(`${label} MUST be a non-negative integer`);
   }
   return value as number;
 }

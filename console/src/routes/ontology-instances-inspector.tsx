@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { routeHref } from "../router";
-import { formatDateTime, t } from "./i18n/ontology";
+import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import type {
   OntologyInstanceActivity,
   OntologyInstanceExploration,
@@ -17,6 +17,7 @@ import {
 } from "./ontology-instances.model";
 
 type InspectorView = "overview" | "relationships" | "events" | "sources";
+const INDIRECT_RELATIONSHIP_PAGE_SIZE = 40;
 
 export function OntologyInstanceInspector({
   data,
@@ -157,8 +158,9 @@ function InstanceRelationships({
       <RelationshipGroup title={t("ontology.instances.containmentContext")} links={groups.containmentContext} rootId={data.root_id} resources={byId} onSelect={onSelect} />
       {groups.path.length > 0 ? (
         <details class="ontology-instance-path-details">
-          <summary>{t("ontology.instances.pathSegment")} ({groups.path.length})</summary>
-          <RelationshipList
+          <summary>{t("ontology.instances.indirectRelationships")} ({groups.path.length})</summary>
+          <PaginatedRelationshipList
+            key={data.root_id}
             links={groups.path}
             rootId={data.root_id}
             resources={byId}
@@ -167,6 +169,49 @@ function InstanceRelationships({
         </details>
       ) : null}
     </section>
+  );
+}
+
+function PaginatedRelationshipList({
+  links,
+  rootId,
+  resources,
+  onSelect,
+}: {
+  readonly links: readonly OntologyInstanceLink[];
+  readonly rootId: string;
+  readonly resources: ReadonlyMap<string, OntologyInstanceResource>;
+  readonly onSelect: (resourceId: string | null) => void;
+}) {
+  const [visibleCount, setVisibleCount] = useState(INDIRECT_RELATIONSHIP_PAGE_SIZE);
+  const boundedCount = Math.min(visibleCount, links.length);
+  return (
+    <>
+      <p class="ontology-instance-relationship-page-status">
+        {t("ontology.instances.relationshipPageStatus", {
+          visible: String(boundedCount),
+          total: String(links.length),
+        })}
+      </p>
+      <RelationshipList
+        links={links.slice(0, boundedCount)}
+        rootId={rootId}
+        resources={resources}
+        onSelect={onSelect}
+      />
+      {boundedCount < links.length ? (
+        <button
+          type="button"
+          class="btn ontology-instance-relationship-more"
+          onClick={() => setVisibleCount((current) =>
+            Math.min(current + INDIRECT_RELATIONSHIP_PAGE_SIZE, links.length))}
+        >
+          {t("ontology.instances.showMoreRelationships", {
+            count: String(Math.min(INDIRECT_RELATIONSHIP_PAGE_SIZE, links.length - boundedCount)),
+          })}
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -257,7 +302,7 @@ function RelationshipList({
                 ? t("ontology.instances.graphOutgoing")
                 : rootDirection === "incoming"
                   ? t("ontology.instances.graphIncoming")
-                  : t("ontology.instances.pathSegment")
+                  : t("ontology.instances.indirectRelationship")
               : t(`ontology.instances.verified.${trafficDirection}`)}</span>
             <strong>{relationshipLabel(link.link_type)}</strong>
             <div class="ontology-instance-relationship-endpoints">
@@ -340,6 +385,30 @@ function InstanceSources({ data }: { readonly data: OntologyInstanceExploration 
     <section class="ontology-instance-inspector-section">
       <h3>{t("ontology.instances.sourcesTitle")}</h3>
       <p>{t("ontology.instances.sourcesHint")}</p>
+      {data.relationship_coverage ? (
+        <dl class="ontology-instance-source-coverage-summary">
+          <div>
+            <dt>{t("ontology.instances.coverageCandidates")}</dt>
+            <dd>{formatNumber(data.relationship_coverage.total_candidates)}</dd>
+          </div>
+          <div>
+            <dt>{t("ontology.instances.coverageMaterialized")}</dt>
+            <dd>{formatNumber(data.relationship_coverage.materialized)}</dd>
+          </div>
+          <div>
+            <dt>{t("ontology.instances.coverageReviewedUnavailable")}</dt>
+            <dd>{formatNumber(data.relationship_coverage.reviewed_unavailable)}</dd>
+          </div>
+          <div>
+            <dt>{t("ontology.instances.coverageUnclassified")}</dt>
+            <dd>{formatNumber(data.relationship_coverage.unclassified)}</dd>
+          </div>
+        </dl>
+      ) : (
+        <p class="ontology-instance-source-coverage-unavailable">
+          {t("ontology.instances.coverageNotReported")}
+        </p>
+      )}
       <ul class="ontology-instance-source-list">
         {data.sources.map((source) => (
           <li key={source.source}>

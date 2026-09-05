@@ -15,6 +15,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceActivityPage,
     InventoryInstanceNeighborhood,
     InventoryProjectionSourceState,
+    InventoryRelationshipCoverage,
     InventoryRelationshipDropClassification,
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -315,6 +316,163 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
         "link_types": ["contains"],
         "probe": 2,
     }
+
+
+async def test_postgres_inventory_impact_decodes_relationship_coverage(
+    monkeypatch: Any,
+) -> None:
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        return [
+            {
+                "id": "generation-1",
+                "completed_at": datetime(2026, 8, 19, tzinfo=UTC),
+                "metadata": {
+                    "relationship_coverage": {
+                        "materialized": 10,
+                        "reviewed_unavailable": 2,
+                        "unclassified": 0,
+                        "total_candidates": 12,
+                        "complete": True,
+                    },
+                },
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    context = await store.read_inventory_impact_context()
+
+    assert context is not None
+    assert context.relationship_coverage == InventoryRelationshipCoverage(
+        materialized=10,
+        reviewed_unavailable=2,
+        unclassified=0,
+        total_candidates=12,
+        complete=True,
+    )
+
+
+async def test_postgres_inventory_impact_treats_a_null_relationship_coverage_as_absent(
+    monkeypatch: Any,
+) -> None:
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        return [
+            {
+                "id": "generation-1",
+                "completed_at": datetime(2026, 8, 19, tzinfo=UTC),
+                "metadata": {"relationship_coverage": None},
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    context = await store.read_inventory_impact_context()
+
+    assert context is not None
+    assert context.relationship_coverage is None
+
+
+async def test_postgres_inventory_impact_treats_a_missing_relationship_coverage_as_absent(
+    monkeypatch: Any,
+) -> None:
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        return [
+            {
+                "id": "generation-1",
+                "completed_at": datetime(2026, 8, 19, tzinfo=UTC),
+                "metadata": {},
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    context = await store.read_inventory_impact_context()
+
+    assert context is not None
+    assert context.relationship_coverage is None
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [
+        {
+            "materialized": -1,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": -1,
+            "complete": False,
+        },
+        {
+            "materialized": True,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": 1,
+            "complete": False,
+        },
+        {
+            "materialized": 1,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": 2,
+            "complete": False,
+        },
+        {
+            "materialized": 1,
+            "reviewed_unavailable": 0,
+            "unclassified": 1,
+            "total_candidates": 2,
+            "complete": True,
+        },
+        {
+            "materialized": 1,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": 1,
+            "complete": 1,
+        },
+    ],
+)
+async def test_postgres_inventory_impact_rejects_malformed_relationship_coverage(
+    monkeypatch: Any,
+    coverage: dict[str, object],
+) -> None:
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        return [
+            {
+                "id": "generation-1",
+                "completed_at": datetime(2026, 8, 19, tzinfo=UTC),
+                "metadata": {"relationship_coverage": coverage},
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="relationship coverage"):
+        await store.read_inventory_impact_context()
 
 
 def test_runtime_call_relationship_evidence_decodes_as_observation() -> None:

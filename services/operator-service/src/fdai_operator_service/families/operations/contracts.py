@@ -68,6 +68,47 @@ class InventoryProjectionSourceState:
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryRelationshipCoverage:
+    """Exact counted disposition of every candidate ontology relationship instance.
+
+    ``total_candidates`` MUST equal the sum of ``materialized``,
+    ``reviewed_unavailable``, and ``unclassified``. ``complete`` is ``True``
+    only when no candidate remains unclassified and the source generation that
+    produced this count was itself complete.
+    """
+
+    materialized: int
+    reviewed_unavailable: int
+    unclassified: int
+    total_candidates: int
+    complete: bool
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("materialized", self.materialized),
+            ("reviewed_unavailable", self.reviewed_unavailable),
+            ("unclassified", self.unclassified),
+            ("total_candidates", self.total_candidates),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(
+                    f"inventory relationship coverage {field_name} MUST be a non-negative count"
+                )
+        if self.total_candidates != (
+            self.materialized + self.reviewed_unavailable + self.unclassified
+        ):
+            raise ValueError(
+                "inventory relationship coverage total_candidates MUST equal its counted parts"
+            )
+        if not isinstance(self.complete, bool):
+            raise ValueError("inventory relationship coverage complete MUST be boolean")
+        if self.complete and self.unclassified != 0:
+            raise ValueError(
+                "inventory relationship coverage complete MUST be false with unclassified drops"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class InventoryImpactContext:
     """Exact active inventory generation and its authoritative observation cutoff."""
 
@@ -76,6 +117,7 @@ class InventoryImpactContext:
     relationship_drop_reasons: tuple[str, ...] = ()
     relationship_drop_classifications: tuple[InventoryRelationshipDropClassification, ...] = ()
     projection_source_states: tuple[InventoryProjectionSourceState, ...] = ()
+    relationship_coverage: InventoryRelationshipCoverage | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,6 +391,7 @@ __all__ = [
     "InventoryImpactEdge",
     "InventoryImpactLinkPage",
     "InventoryImpactReader",
+    "InventoryRelationshipCoverage",
     "InventoryRelationshipDropClassification",
     "ProjectionQuery",
     "ProjectionReader",

@@ -17,6 +17,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceResource,
     InventoryInstanceResourcePage,
     InventoryProjectionSourceState,
+    InventoryRelationshipCoverage,
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
     ProjectionQuery,
@@ -382,7 +383,8 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "selected": False,
         },
     ]
-    assert result["schema_version"] == "1.3.0"
+    assert result["schema_version"] == "1.4.0"
+    assert result["relationship_coverage"] is None
     assert result["relationship_drop_classifications"] == [
         {
             "reason": "missing_target_endpoint",
@@ -480,6 +482,120 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "status": "unavailable",
             "observed_at": None,
             "reason": "projection_not_bound",
+        },
+    ]
+
+
+class _FullCoverageReader(_Reader):
+    """Extend ``_Reader`` with every derived source state and a coverage count."""
+
+    async def read_inventory_impact_context(self) -> InventoryImpactContext:
+        base = await super().read_inventory_impact_context()
+        return replace(
+            base,
+            projection_source_states=(
+                *base.projection_source_states,
+                InventoryProjectionSourceState(
+                    source="azure_resource_health",
+                    status="available",
+                    observed_at=datetime(2026, 8, 22, 0, 55, tzinfo=UTC),
+                    reason=None,
+                ),
+                InventoryProjectionSourceState(
+                    source="azure_activity_log",
+                    status="unavailable",
+                    observed_at=None,
+                    reason="activity_log_query_unavailable",
+                ),
+            ),
+            relationship_coverage=InventoryRelationshipCoverage(
+                materialized=4,
+                reviewed_unavailable=1,
+                unclassified=0,
+                total_candidates=5,
+                complete=False,
+            ),
+        )
+
+    async def read_inventory_instance_neighborhood(
+        self,
+        *,
+        snapshot_id: str,
+        root_id: str,
+        link_types: tuple[str, ...],
+        depth: int,
+        limit: int,
+    ) -> InventoryInstanceNeighborhood:
+        neighborhood = await super().read_inventory_instance_neighborhood(
+            snapshot_id=snapshot_id,
+            root_id=root_id,
+            link_types=link_types,
+            depth=depth,
+            limit=limit,
+        )
+        return replace(neighborhood, truncated=True)
+
+    async def read_inventory_instance_activity(
+        self,
+        *,
+        resource_id: str,
+        limit: int,
+    ) -> InventoryInstanceActivityPage:
+        activity = await super().read_inventory_instance_activity(
+            resource_id=resource_id,
+            limit=limit,
+        )
+        return replace(activity, truncated=True)
+
+
+async def test_instance_projection_reports_full_source_coverage_and_truncation_reasons() -> None:
+    result = await project_inventory_instance(
+        query=ProjectionQuery(
+            operation="ontology.instance.explore",
+            principal_id="reader",
+            path={},
+            params={"root": ("container-app-1",), "activity_limit": ("10",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_FullCoverageReader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": [
+                "caused_by",
+                "contains",
+                "attached_to",
+                "depends_on",
+                "governed_by",
+            ],
+        },
+        now=lambda: datetime(2026, 8, 22, 2, 0, tzinfo=UTC),
+    )
+
+    assert result["relationship_coverage"] == {
+        "materialized": 4,
+        "reviewed_unavailable": 1,
+        "unclassified": 0,
+        "total_candidates": 5,
+        "complete": False,
+    }
+    assert result["truncation_reasons"] == ["resource_limit", "activity_limit"]
+    assert result["complete"] is False
+    sources = result["sources"]
+    assert isinstance(sources, list)
+    assert sources[-2:] == [
+        {
+            "source": "azure_resource_health",
+            "status": "available",
+            "observed_at": "2026-08-22T00:55:00+00:00",
+            "reason": None,
+        },
+        {
+            "source": "azure_activity_log",
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": "activity_log_query_unavailable",
         },
     ]
 

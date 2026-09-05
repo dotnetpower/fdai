@@ -12,9 +12,11 @@ import pytest
 from fdai.delivery.inventory_sync import (
     InventoryProjectionSourceState,
     InventoryProjectionSourceStatus,
+    InventoryRelationshipCoverage,
     InventoryStreamError,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
+    compute_relationship_coverage,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     load_provider_relationship_mapping_catalog,
@@ -708,6 +710,167 @@ async def test_promotion_manifest_preserves_relationship_coverage_gaps() -> None
             "count": 1,
         }
     ]
+    assert store.promoted_manifests[0].metadata["relationship_coverage"] == {
+        "materialized": 0,
+        "reviewed_unavailable": 1,
+        "unclassified": 0,
+        "total_candidates": 1,
+        "complete": True,
+    }
+
+
+async def test_promotion_manifest_marks_relationship_coverage_incomplete_when_unclassified() -> (
+    None
+):
+    store = _Store()
+    await InventorySyncCoordinator(store=store).run(
+        [
+            _source(
+                "arg",
+                _Inventory(
+                    [
+                        InventoryBatch(
+                            relationship_drops=(
+                                RelationshipDrop(
+                                    reason=RelationshipDropReason.UNRESOLVED_REFERENCE,
+                                    mapping_id="azure.example-depends-on-target",
+                                    source_property_path="properties.target",
+                                    source_provider_type="Microsoft.Example/widgets",
+                                    unavailable_reason=(
+                                        RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED
+                                    ),
+                                ),
+                                RelationshipDrop(
+                                    reason=RelationshipDropReason.UNVERIFIED_METADATA,
+                                ),
+                            ),
+                            final=True,
+                        )
+                    ]
+                ),
+            )
+        ]
+    )
+
+    assert store.promoted_manifests[0].metadata["relationship_coverage"] == {
+        "materialized": 0,
+        "reviewed_unavailable": 1,
+        "unclassified": 1,
+        "total_candidates": 2,
+        "complete": False,
+    }
+
+
+def test_compute_relationship_coverage_counts_materialized_and_classified_drops() -> None:
+    link = LinkRecord(
+        from_id="vm-1",
+        from_type="compute.vm",
+        link_type="depends_on",
+        to_id="vm-2",
+        to_type="compute.vm",
+    )
+    observation = PromotedInventoryObservation(
+        generation="attempt-1",
+        resources=(),
+        links=(link,),
+        complete=True,
+        relationship_drops=(
+            RelationshipDrop(
+                reason=RelationshipDropReason.UNRESOLVED_REFERENCE,
+                unavailable_reason=RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED,
+            ),
+            RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),
+        ),
+    )
+
+    coverage = compute_relationship_coverage(observation)
+
+    assert coverage == InventoryRelationshipCoverage(
+        materialized=1,
+        reviewed_unavailable=1,
+        unclassified=1,
+        total_candidates=3,
+        complete=False,
+    )
+
+
+def test_compute_relationship_coverage_is_complete_only_without_unclassified_drops() -> None:
+    link = LinkRecord(
+        from_id="vm-1",
+        from_type="compute.vm",
+        link_type="depends_on",
+        to_id="vm-2",
+        to_type="compute.vm",
+    )
+    observation = PromotedInventoryObservation(
+        generation="attempt-1",
+        resources=(),
+        links=(link,),
+        complete=True,
+        relationship_drops=(
+            RelationshipDrop(
+                reason=RelationshipDropReason.UNRESOLVED_REFERENCE,
+                unavailable_reason=RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED,
+            ),
+        ),
+    )
+
+    assert compute_relationship_coverage(observation) == InventoryRelationshipCoverage(
+        materialized=1,
+        reviewed_unavailable=1,
+        unclassified=0,
+        total_candidates=2,
+        complete=True,
+    )
+
+
+def test_compute_relationship_coverage_stays_incomplete_for_a_truncated_generation() -> None:
+    observation = PromotedInventoryObservation(
+        generation="attempt-1",
+        resources=(),
+        links=(),
+        complete=False,
+    )
+
+    assert compute_relationship_coverage(observation).complete is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {
+            "materialized": -1,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": -1,
+            "complete": False,
+        },
+        {
+            "materialized": True,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": 1,
+            "complete": False,
+        },
+        {
+            "materialized": 1,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "total_candidates": 2,
+            "complete": False,
+        },
+        {
+            "materialized": 1,
+            "reviewed_unavailable": 0,
+            "unclassified": 1,
+            "total_candidates": 2,
+            "complete": True,
+        },
+    ],
+)
+def test_relationship_coverage_rejects_malformed_values(kwargs: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="inventory relationship coverage"):
+        InventoryRelationshipCoverage(**kwargs)
 
 
 async def test_promotion_observer_is_not_called_for_a_failed_stream() -> None:

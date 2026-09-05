@@ -114,6 +114,85 @@ class InventoryProjectionSourceState:
         return metadata
 
 
+@dataclass(frozen=True, slots=True)
+class InventoryRelationshipCoverage:
+    """Exact counted disposition of every candidate ontology relationship instance.
+
+    A candidate is either a materialized link or a relationship drop reported
+    against the same promoted observation. ``total_candidates`` MUST equal the
+    sum of ``materialized``, ``reviewed_unavailable``, and ``unclassified``.
+    ``complete`` is ``True`` only when no candidate remains unclassified and
+    the promoted observation itself is complete; a truncated generation keeps
+    coverage incomplete even when every reviewed disposition is otherwise
+    final.
+    """
+
+    materialized: int
+    reviewed_unavailable: int
+    unclassified: int
+    total_candidates: int
+    complete: bool
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("materialized", self.materialized),
+            ("reviewed_unavailable", self.reviewed_unavailable),
+            ("unclassified", self.unclassified),
+            ("total_candidates", self.total_candidates),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(
+                    f"inventory relationship coverage {field_name} MUST be a non-negative count"
+                )
+        if self.total_candidates != (
+            self.materialized + self.reviewed_unavailable + self.unclassified
+        ):
+            raise ValueError(
+                "inventory relationship coverage total_candidates MUST equal its counted parts"
+            )
+        if self.complete and self.unclassified != 0:
+            raise ValueError(
+                "inventory relationship coverage complete MUST be false with unclassified drops"
+            )
+
+    def to_metadata(self) -> dict[str, object]:
+        """Return the sanitized generation metadata record for this coverage."""
+
+        return {
+            "total_candidates": self.total_candidates,
+            "materialized": self.materialized,
+            "reviewed_unavailable": self.reviewed_unavailable,
+            "unclassified": self.unclassified,
+            "complete": self.complete,
+        }
+
+
+def compute_relationship_coverage(
+    observation: PromotedInventoryObservation,
+) -> InventoryRelationshipCoverage:
+    """Count every candidate ontology relationship instance in one promoted observation.
+
+    Materialized links are the promoted, verified graph edges. A relationship
+    drop reviewed with an ``unavailable_reason`` is a known-absent candidate;
+    a drop without one is unclassified and keeps coverage incomplete.
+    """
+
+    materialized = len(observation.links)
+    reviewed_unavailable = sum(
+        1 for drop in observation.relationship_drops if drop.unavailable_reason is not None
+    )
+    unclassified = sum(
+        1 for drop in observation.relationship_drops if drop.unavailable_reason is None
+    )
+    return InventoryRelationshipCoverage(
+        materialized=materialized,
+        reviewed_unavailable=reviewed_unavailable,
+        unclassified=unclassified,
+        total_candidates=materialized + reviewed_unavailable + unclassified,
+        complete=unclassified == 0 and observation.complete,
+    )
+
+
 #: Receives one promoted observation after the active pointer moves. The sink
 #: owns a derived read model only; it never gains promotion authority.
 InventoryPromotionObserver = Callable[[PromotedInventoryObservation], Awaitable[None]]
@@ -217,6 +296,9 @@ class InventorySyncCoordinator:
                     state.to_metadata() for state in promoted_observation.source_states
                 ]
                 metadata["projection_complete"] = promoted_observation.complete
+                metadata["relationship_coverage"] = compute_relationship_coverage(
+                    promoted_observation
+                ).to_metadata()
                 if provider_scope_coverage is not None:
                     metadata["provider_scope_coverage"] = provider_scope_coverage.to_metadata()
                 manifest = InventoryCoverageManifest(
@@ -519,8 +601,10 @@ def _validate_enrichment(
 __all__ = [
     "InventoryProjectionSourceState",
     "InventoryProjectionSourceStatus",
+    "InventoryRelationshipCoverage",
     "InventoryStreamError",
     "InventoryPromotionEnricher",
     "InventorySyncCoordinator",
     "classify_inventory_failure",
+    "compute_relationship_coverage",
 ]

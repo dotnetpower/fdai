@@ -38,6 +38,10 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-empty\s*\{[^}]*min-height:\s*min\(360px,\s*44vh\)/s);
     expect(instancesSource).not.toContain('class="ontology-instance-map-summary"');
     expect(styles).not.toContain(".ontology-instance-map-summary");
+    expect(graphSource).toContain('class="ontology-instance-presentation-coverage"');
+    expect(graphSource).toContain("ontologyInstancePresentationCoverage");
+    expect(graphSource).toContain('id="ontology-instance-map-description"');
+    expect(instancesSource).not.toContain('id="ontology-instance-map-description"');
     expect(styles).toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*position:\s*absolute[^}]*right:\s*12px[^}]*bottom:\s*12px[^}]*left:\s*12px[^}]*flex-wrap:\s*wrap/s);
     expect(styles).not.toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*overflow-x:\s*auto/s);
     expect(styles).toMatch(/\.ontology-instance-graph-key i\.is-direction::after\s*\{[^}]*right:\s*-1px[^}]*border-left:\s*6px solid #637c93[^}]*content:\s*""/s);
@@ -51,6 +55,14 @@ describe("Ontology Instances view controls", () => {
     expect(globalStyles).toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)\s*>\s*\.page-header \.page-header-subtitle\s*\{[^}]*display:\s*none/s);
     expect(instancesSource).toContain('class="ontology-instance-toolbar-status"');
     expect(instancesSource).not.toContain('class="ontology-instance-header"');
+  });
+
+  it("keeps indirect relationship inspection bounded without calling it an ordered path", () => {
+    expect(inspectorSource).toContain("INDIRECT_RELATIONSHIP_PAGE_SIZE");
+    expect(inspectorSource).toContain("<PaginatedRelationshipList");
+    expect(inspectorSource).toContain("ontology.instances.indirectRelationships");
+    expect(inspectorSource).toContain("ontology.instances.relationshipPageStatus");
+    expect(inspectorSource).toContain("ontology.instances.showMoreRelationships");
   });
 
   it("keeps all registry views in one compact scrollable tab row", () => {

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Tooltip } from "../components/tooltip";
 import { routeHref } from "../router";
-import { formatDateTime, t } from "./i18n/ontology";
+import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import {
   buildInstanceEdgeGeometry,
   buildInstanceGraphLayout,
@@ -24,6 +24,7 @@ import {
 import { nestInstanceContainment } from "./ontology-instance-boxes";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 import {
+  ontologyInstancePresentationCoverage,
   ontologyInstanceTrafficDirection,
   type OntologyInstanceExploration,
 } from "./ontology-instances.model";
@@ -111,6 +112,14 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   const visiblePreview = preview ?? defaultPreview;
   const rootNode = layout.nodes.find((node) => node.resource.id === data.root_id)!;
   const rootBox = nested.boxes.find((box) => box.resource.id === data.root_id) ?? null;
+  const presentationCoverage = useMemo(
+    () => ontologyInstancePresentationCoverage(
+      data,
+      layout.nodes.map((node) => node.resource.id),
+      [...layout.edges.map((edge) => edge.link), ...nested.absorbedLinks],
+    ),
+    [data, layout.edges, layout.nodes, nested.absorbedLinks],
+  );
   const selectedLeft = rootBox?.x ?? rootNode.x;
   const selectedWidth = rootBox?.width ?? INSTANCE_NODE_WIDTH;
   const omittedByOwner = new Map(nested.boxes
@@ -227,6 +236,67 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
 
   return (
     <div class="ontology-instance-graph" ref={graphRef}>
+      <section
+        class="ontology-instance-presentation-coverage"
+        aria-label={t("ontology.instances.presentationCoverageTitle")}
+      >
+        <header>
+          <strong>{t("ontology.instances.presentationCoverageTitle")}</strong>
+          <span class={presentationCoverage.graphConsistent ? "is-complete" : "is-incomplete"}>
+            {t(presentationCoverage.graphConsistent
+              ? "ontology.instances.presentationCoverageConsistent"
+              : "ontology.instances.presentationCoverageInconsistent")}
+          </span>
+        </header>
+        <dl>
+          <div>
+            <dt>{t("ontology.instances.coverageResponse")}</dt>
+            <dd>{t("ontology.instances.coverageResourceLinkCounts", {
+              resources: formatNumber(presentationCoverage.responseResources),
+              links: formatNumber(presentationCoverage.responseLinks),
+            })}</dd>
+          </div>
+          <div>
+            <dt>{t("ontology.instances.coverageFocusGraph")}</dt>
+            <dd>{t("ontology.instances.coverageResourceLinkCounts", {
+              resources: formatNumber(presentationCoverage.graphResources),
+              links: formatNumber(presentationCoverage.graphLinks),
+            })}</dd>
+          </div>
+          <div>
+            <dt>{t("ontology.instances.coverageInspectorOnly")}</dt>
+            <dd>{formatNumber(presentationCoverage.inspectorOnlyLinks)}</dd>
+          </div>
+          <div>
+            <dt>{t("ontology.instances.coverageIamDelegated")}</dt>
+            <dd>{t("ontology.instances.coverageResourceLinkCounts", {
+              resources: formatNumber(presentationCoverage.delegatedResources),
+              links: formatNumber(presentationCoverage.delegatedLinks),
+            })}</dd>
+          </div>
+        </dl>
+        {data.relationship_coverage ? (
+          <p>
+            {t("ontology.instances.sourceCandidateCoverage", {
+              total: formatNumber(data.relationship_coverage.total_candidates),
+              materialized: formatNumber(data.relationship_coverage.materialized),
+              unavailable: formatNumber(data.relationship_coverage.reviewed_unavailable),
+              unclassified: formatNumber(data.relationship_coverage.unclassified),
+            })}
+          </p>
+        ) : null}
+      </section>
+      <p id="ontology-instance-map-description" class="sr-only">
+        {t("ontology.instances.mapDescription", {
+          depth: formatNumber(data.depth),
+          graphResources: formatNumber(presentationCoverage.graphResources),
+          presentationResources: formatNumber(presentationCoverage.presentationResources),
+          graphLinks: formatNumber(presentationCoverage.graphLinks),
+          presentationLinks: formatNumber(presentationCoverage.presentationLinks),
+          responseResources: formatNumber(presentationCoverage.responseResources),
+          responseLinks: formatNumber(presentationCoverage.responseLinks),
+        })}
+      </p>
       <div class="ontology-instance-graph-viewport">
         <div class="ontology-instance-legend-dock">
           <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
@@ -326,11 +396,15 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             <rect class="is-incoming" x="0" y="0" width={selectedLeft} height={layout.height} />
             <rect class="is-selected" x={selectedLeft} y="0" width={selectedWidth} height={layout.height} />
             <rect class="is-outgoing" x={selectedLeft + selectedWidth} y="0" width={Math.max(0, layout.width - selectedLeft - selectedWidth)} height={layout.height} />
-            <text x={Math.max(70, selectedLeft / 2)} y="19">{t("ontology.common.incoming")}</text>
+            <text x={Math.max(70, selectedLeft / 2)} y="19">
+              {t("ontology.instances.graphTowardSelection")}
+            </text>
             <text x={selectedLeft + selectedWidth / 2} y="19">{t(rootBox === null
               ? "ontology.instances.selectedResource"
               : "ontology.instances.selectedResourceAndContents")}</text>
-            <text x={selectedLeft + selectedWidth + Math.max(70, (layout.width - selectedLeft - selectedWidth) / 2)} y="19">{t("ontology.common.outgoing")}</text>
+            <text x={selectedLeft + selectedWidth + Math.max(70, (layout.width - selectedLeft - selectedWidth) / 2)} y="19">
+              {t("ontology.instances.graphAwayFromSelection")}
+            </text>
           </g>
           <g class="ontology-instance-boxes" aria-hidden="true">
             {nested.boxes.map((box) => (
@@ -389,7 +463,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                   x: event.clientX + 12,
                   y: event.clientY + 12,
                   title: label,
-                  detail: `${sourceName} -> ${targetName}`,
+                  detail: `${sourceName} -> ${targetName} - ${edge.link.evidence.mapping_id ?? t("ontology.instances.mappingNotReported")}`,
                 })}
                 onPointerMove={(event) => setGraphTooltip((current) => current === null ? null : {
                   ...current,
@@ -436,7 +510,12 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             ].filter((notice): notice is string => notice !== null).join(", ") || null;
             const typeCaption = node.clusterManaged
               ? t("ontology.instances.nodeClusterManaged", { type: resource.resource_type })
-              : resource.resource_type;
+              : node.distance > 1
+                ? t("ontology.instances.nodeIndirectHops", {
+                  type: resource.resource_type,
+                  count: String(node.distance),
+                })
+                : resource.resource_type;
             // Absent status means no state is projected for this class, not an observation that found none.
             const stateText = resource.status ?? t("ontology.instances.stateNotReported");
             return (

@@ -212,6 +212,34 @@ Graph consumers preserve four independent limitation families:
 | Access redaction | The principal cannot read an endpoint, property, or evidence field. |
 | Presentation omission | The Console focus view intentionally hides bounded response items. |
 
+### Relationship coverage accounting
+
+Relationship coverage uses five independent measures. A single percentage cannot combine provider
+support, one bounded query, source readiness, and browser presentation without creating a false
+completeness claim.
+
+| Measure | Complete result |
+|---------|-----------------|
+| Candidate accounting | Every discovered candidate is materialized, assigned a reviewed unavailable reason, or access-redacted. |
+| Supported materialization | Every candidate inside the reviewed provider and evidence profile, excluding reviewed unavailable and redacted candidates, becomes one verified link. |
+| Query completeness | The requested depth, object, edge, and result bounds are not reached. |
+| Source readiness | Every evidence source required by the selected competency profile is available and current. |
+| Presentation accounting | Every returned item is shown in the focus graph, retained in the full bounded Inspector, delegated to a purpose-specific surface such as IAM, access-redacted, or counted as a presentation omission. |
+
+The candidate-accounting receipt keeps materialized, reviewed-unavailable, redacted, and
+unclassified counts separate. An unclassified candidate or a sum that does not equal the discovered
+candidate total makes the receipt incomplete. Supported materialization reaches 100% only for an
+explicit provider, release, source, principal, scope, and competency profile. It never means every
+possible relationship in an open cloud-provider schema.
+
+A bounded exploratory response reports returned Resource and link counts, the exact requested
+limits, and per-reason truncation. When a bound is reached, the response stays incomplete and the
+operator narrows the link types, depth, or root. Local Inspector paging covers only relationships
+already returned by the server and is never presented as a server continuation. The Console reports
+response, presentation, focus-graph, Inspector-only, purpose-delegated, redacted, and omitted counts
+without overlapping those disposition buckets. Layout selection never changes the authoritative
+response count.
+
 Operator projections preserve source generation, ontology release, query bounds, relationship
 coverage, and exact limitation codes. The Console may build containment, dependency, connectivity,
 authorization, classification, and evidence views from semantic traits. It also provides an
@@ -346,15 +374,17 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Lifecycle-free declarations and authority carriers | implemented | `object-type-lifecycle-classification.yaml`; `CapacityGraduationRecommendation`, `EvidenceConflict`, and `ProspectiveLineage`; strict catalog and parity checks | Every lifecycle-free ObjectType has one reviewable classification. The three additive carriers preserve fixed agent ownership and grant no execution authority. |
 | Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps selection, legend, and Inspector state in the presentation layer without changing graph authority. |
+| Operational relationship coverage accounting | implemented | `inventory_sync.py`; Operator instance contracts and PostgreSQL reader; Console instance model, graph, Inspector, and focused Python and Console checks | Each promoted generation records candidate dispositions without provider identifiers. The Console distinguishes response, focus-graph, Inspector-only, and IAM-only relationships, while a legacy generation reports that candidate accounting is unavailable. |
 | Governance artifact separation | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; focused governance loader and registry tests | Assignments, exemptions, and rule retirements are validated catalog-as-code inputs. Merged retirements are projected out of the active rule index; none grant query, approval, or execution authority. |
 | Governance expiry action binding | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; focused lifecycle and ActionType catalog checks | The exact assignment binding and exemption revisions are runtime evidence for one registered ActionType. They do not create a new LinkType, infer a relationship, or grant mutation authority. |
-| Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Ninety-four reviewed mappings cover Azure containment and traffic configuration plus UID-grounded Kubernetes runtime topology, exact Node provider identity, Ingress backend Services, and EndpointSlice exposure. An unconfigured Kubernetes source is retained as explicit unavailable generation evidence. Live Kubernetes evidence remains separate validation work. |
+| Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Ninety-five reviewed mappings cover Azure containment and traffic configuration plus UID-grounded Kubernetes runtime topology, exact Node provider identity, Ingress backend Services, and EndpointSlice exposure. An unconfigured Kubernetes source is retained as explicit unavailable generation evidence. Live Kubernetes evidence remains separate validation work. |
 | Adversarial hardening | implemented | Forty-two cumulative rounds below, including 14 current source, identity-bridge, taxonomy, projection, compatibility, and presentation lenses; focused Python, Operator, Console, and PostgreSQL checks | Every verified Critical, High, and Medium finding was resolved. Operational source unavailability and unverified external ingress remain explicit evidence gaps rather than code claims. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | implemented | Added exact relationship candidate accounting to promoted inventory metadata and the no-authority Operator projection. The Console now reports every returned relationship as focus-graph, Inspector-only, or IAM-only, uses an accurate screen-reader description, distinguishes indirect relationships from ordered paths, and pages the bounded Inspector list locally. | `current change`; focused backend checks passed 61 cases, focused Console checks passed 89 cases, Ruff and strict Python type checks passed. Critique replaced an always-true accounting status with an independent graph-to-response consistency check and a negative stale-graph regression. | Retain a fresh authenticated browser receipt after the task-owned commit. Exact-cluster Kubernetes and runtime-call evidence remain tracked by Issues #278 and #260. |
 | 2026-09-01 | implemented | Registered Framework and FrameworkControl as Identifiable implementations. Both declare `id: {type: string, required: true}` and were already in the lifecycle classification but missing from the interface implementation registry. | `current change`; focused ontology catalog and object-type catalog checks passed. | No bounded structural work remains. |
 | 2026-08-31 | implemented | Bound exemption expiry to one exact assignment and one registered ActionType without adding an ontology relationship or authority source. Missing or conflicting binding evidence holds the proposal. | `current change`; exemption lifecycle schema, ActionType declaration, and focused lifecycle/catalog checks. | No bounded structural work remains; deployment evidence stays separate. |
 | 2026-08-28 | implemented | Closed a gap in the `authorization.role-assignment` omission this document already required for conversational screen context. `ontology-instances.tsx`'s exact-screen selection identity built `resourceIds` from every fetched Resource, including hidden role assignments the same screen already excludes from the graph, legend, and Inspector. The identity builder moved to `ontology-instances.model.ts` as `ontologyInstanceContextIdentity` and now filters through the existing `isOntologyInstancePresentationResource` guard before mapping ids, so a directory containing only hidden role assignments can no longer look like a bound non-empty selection. | `current change`; `console/src/routes/ontology-instances.model.test.ts` (`30 passed`); Console typecheck passed. | No bounded implementation work remains for this presentation slice. |
@@ -426,6 +456,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 40 | Ambiguous and partial endpoint closure | Resolved High ambiguity and Medium partial-path defects by rejecting duplicate exact provider identities and withholding all Ingress backend routes when any configured Service is missing. | Focused conflicting-identity and partial-backend fixtures pass with typed drop reasons. |
 | 41 | Rolling source-state compatibility | Resolved a High N-1 decoder regression by treating the Kubernetes source record as additive rather than mandatory. | Current payloads expose explicit unavailable state, while legacy payloads decode and keep runtime steps Unknown. |
 | 42 | EndpointSlice label boundary | Resolved a Medium source-validation gap by rejecting an overlong standard Service label before relationship projection. | The malformed EndpointSlice fixture fails closed at collection. |
+| 43 | Presentation-accounting independence | Resolved a Medium defect where derived partition arithmetic made the coverage status always complete. | The UI now reports graph-to-response consistency instead of manufacturing a second completeness claim. The helper independently rejects stale, duplicate, or non-presentation graph keys, and a negative stale-relationship fixture exercises the inconsistent branch. |
 
 ### Remaining work
 
@@ -441,6 +472,8 @@ major version or explicit graph migration. No rollout rewrites historical contex
   historical links.
 - [x] Add reviewed Azure parent and root containment plus UID-grounded Kubernetes runtime
   enrichment without creating another snapshot writer or inferring endpoint identities.
+- [x] Record exact candidate dispositions and report every returned relationship as focus-graph,
+  Inspector-only, or IAM-only without treating local paging as server continuation.
 - [x] Separate source, query, access, and presentation limitations in the authoritative declaration
   graph and Console LinkType inspector, including the complete bounded LinkType directory.
 - [x] Complete at least ten independent critique and hardening rounds and leave no verified finding

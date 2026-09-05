@@ -427,13 +427,6 @@ function OntologyInstanceWorkspace({
               </button>
             </Tooltip>
           ) : null}
-          <p id="ontology-instance-map-description" class="sr-only">
-            {t("ontology.instances.mapDescription", {
-              depth: formatNumber(data.depth),
-              resources: formatNumber(data.resources.length),
-              links: formatNumber(data.links.length),
-            })}
-          </p>
           <OntologyInstanceGraph data={data} onSelect={onSelect} />
         </div>
         {!data.complete ? (
