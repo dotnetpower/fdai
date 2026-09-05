@@ -151,6 +151,15 @@ class PolicyTransition:
         _require_digest("policy transition evidence_digest", self.evidence_digest)
         if not self.reasons or any(not reason.strip() for reason in self.reasons):
             raise ValueError("policy transition reasons MUST be non-empty")
+        evidence_pair = (
+            self.decision_evidence_receipt_digest,
+            self.decision_evidence_verification_bundle_digest,
+        )
+        if (evidence_pair[0] is None) != (evidence_pair[1] is None):
+            raise ValueError("policy transition decision evidence digests MUST be paired")
+        for value in evidence_pair:
+            if value is not None:
+                _require_prefixed_digest("policy transition decision evidence digest", value)
         allowed = {self.from_stage, PolicyStage.ROLLED_BACK}
         next_stage = _NEXT_STAGE.get(self.from_stage)
         if next_stage is not None:
@@ -267,6 +276,13 @@ def chat_policy_promotion_scope_digest(candidate: ChatPolicyCandidate) -> str:
 def _require_digest(name: str, value: str) -> None:
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise ValueError(f"{name} MUST be a lowercase SHA-256 digest")
+
+
+def _require_prefixed_digest(name: str, value: str) -> None:
+    prefix, separator, digest = value.partition(":")
+    if prefix != "sha256" or separator != ":":
+        raise ValueError(f"{name} MUST use the sha256:<digest> format")
+    _require_digest(name, digest)
 
 
 __all__ = [

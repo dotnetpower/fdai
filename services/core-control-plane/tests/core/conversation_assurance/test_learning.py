@@ -312,6 +312,30 @@ def test_policy_transition_requires_audit_reasons() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("receipt_digest", "bundle_digest"),
+    [
+        ("sha256:" + "d" * 64, None),
+        (None, "sha256:" + "f" * 64),
+        ("not-a-digest", "sha256:" + "f" * 64),
+    ],
+)
+def test_policy_transition_requires_paired_valid_decision_evidence(
+    receipt_digest: str | None,
+    bundle_digest: str | None,
+) -> None:
+    with pytest.raises(ValueError, match="decision evidence digest"):
+        PolicyTransition(
+            candidate_id="candidate-1",
+            from_stage=PolicyStage.SHADOW,
+            to_stage=PolicyStage.SHADOW,
+            reasons=("held",),
+            evidence_digest="e" * 64,
+            decision_evidence_receipt_digest=receipt_digest,
+            decision_evidence_verification_bundle_digest=bundle_digest,
+        )
+
+
 async def test_candidate_store_rejects_reused_trial_evidence() -> None:
     store = InMemoryConversationPolicyCandidateStore()
     candidate = _candidate()
