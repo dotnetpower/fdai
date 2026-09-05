@@ -152,11 +152,20 @@ def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
     assert "use_azure_provision" in _LEGACY_WORKFLOW
     assert "deprovision_use_local" in _LEGACY_WORKFLOW
     assert "plan-ocr-" in _LEGACY_WORKFLOW
-    assert "- name: Bind document OCR proposal" in _LEGACY_WORKFLOW
     assert "materialize-document-ocr-proposal.sh" in _LEGACY_WORKFLOW
-    assert "- name: Resolve document OCR desired state" in _LEGACY_WORKFLOW
-    assert "TF_VAR_enable_document_intelligence=%s" in _LEGACY_WORKFLOW
-    assert "TF_VAR_document_ocr_provider=%s" in _LEGACY_WORKFLOW
+    assert "- name: Bind document OCR proposal" not in _LEGACY_WORKFLOW
+    assert "- name: Resolve document OCR desired state" not in _LEGACY_WORKFLOW
+    assert _LEGACY_WORKFLOW.index("Verify exact Azure context") < _LEGACY_WORKFLOW.index(
+        "materialize-document-ocr-proposal.sh"
+    )
+    assert _LEGACY_WORKFLOW.index("Initialize Terraform remote state") < _LEGACY_WORKFLOW.index(
+        "resolve-document-ocr-desired-state.sh"
+    )
+    resolver = (_ROOT / "scripts/deployment/azure/resolve-document-ocr-desired-state.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "TF_VAR_enable_document_intelligence=%s" in resolver
+    assert "TF_VAR_document_ocr_provider=%s" in resolver
 
 
 def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> None:

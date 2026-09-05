@@ -72,3 +72,6 @@ actual_policy_digest="$(jq -er '.policy_digest | sub("^sha256:"; "")' "$output_p
   echo "document OCR plan request does not match the proposal policy digest" >&2
   exit 1
 }
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+  printf 'DOCUMENT_OCR_ACTION=%s\n' "$(jq -er '.action' "$output_path")" >> "$GITHUB_ENV"
+fi

@@ -141,6 +141,10 @@ def normalized_inventory_observations(
         not isinstance(scope_value, str) or not scope_value or len(scope_value) > 512
     ):
         raise ValueError("inventory_change.scope_ref MUST be bounded non-empty text or null")
+    provider_ref = (
+        str(resource["provider_ref"]) if resource.get("provider_ref") is not None else None
+    )
+    scope_ref = scope_value if isinstance(scope_value, str) else _provider_scope(provider_ref)
     resource_props = resource.get("props", {})
     if not isinstance(resource_props, Mapping):
         raise ValueError("inventory_change.resource.props MUST be an object")
@@ -157,18 +161,8 @@ def normalized_inventory_observations(
             properties_complete=properties_complete,
             links_complete=links_complete,
             tombstone_confirmed=tombstone_confirmed,
-            provider_ref=(
-                str(resource["provider_ref"]) if resource.get("provider_ref") is not None else None
-            ),
-            scope_ref=(
-                scope_value
-                if isinstance(scope_value, str)
-                else _provider_scope(
-                    str(resource["provider_ref"])
-                    if resource.get("provider_ref") is not None
-                    else None
-                )
-            ),
+            provider_ref=provider_ref,
+            scope_ref=scope_ref,
             operation=operation,
             operation_status=operation_status,
             source_identity=source_identity,
@@ -206,6 +200,7 @@ def normalized_inventory_observations(
                 properties_complete=not is_tombstone,
                 links_complete=links_complete,
                 tombstone_confirmed=is_tombstone,
+                scope_ref=scope_ref,
                 source_identity=source_identity,
                 source_event_id=event_id,
                 source_revision=source_revision,

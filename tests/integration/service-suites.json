@@ -192,7 +192,8 @@
       ],
       "test_groups": {
         "unit": [
-          "services/document-processing-worker/tests/test_ingestion_parser_parity.py"
+          "services/document-processing-worker/tests/test_ingestion_parser_parity.py",
+          "services/document-processing-worker/tests/test_local_korean_ocr.py"
         ],
         "contract": [
           "services/document-processing-worker/tests/test_ingestion_adapter_readiness.py",

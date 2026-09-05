@@ -494,6 +494,20 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     assert "inputs: audit-requirements.txt" in audit_job
 
 
+def test_ci_migrates_service_database_before_integration_tests() -> None:
+    workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+    steps = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]["db-migrations"][
+        "steps"
+    ]
+    step_names = [step["name"] for step in steps]
+
+    assert step_names.index("Run service-owned migrations") < step_names.index(
+        "Run integration test suite"
+    )
+    integration_step = next(step for step in steps if step["name"] == "Run integration test suite")
+    assert integration_step["env"]["FDAI_DATABASE_URL"] == "${{ env.FDAI_SERVICE_DATABASE_URL }}"
+
+
 def test_ci_required_status_aggregates_every_execution_job() -> None:
     workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
     jobs = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]

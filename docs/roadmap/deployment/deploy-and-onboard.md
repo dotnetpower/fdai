@@ -93,6 +93,9 @@ refs; container supply-chain actions use immutable commit SHAs. The CI contract 
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
 floor. The protected deploy workflow stays within a 2,300-line review budget; repeated request
 validation and plan-scope logic belongs in reviewed helpers instead of inline shell blocks. A
+reviewed helper also resolves document OCR desired state after remote-state initialization.
+Database integration checks run only after every service-owned migration branch reaches its head.
+A
 workflow that needs an additional deployment helper installs it only in runner-temporary storage, pins its exact release and SHA-256 digest, and verifies it before use. The exact CI version proves parsing and plan assertions. Upgrades verify action runtime metadata, and the runner remains at version 2.327.1 or newer. When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
 are disabled. Dev uses its approved private endpoint; delegated-subnet mode remains available for production.
 Protected requests checkout `commit_sha` explicitly and compare it with `git rev-parse HEAD`, so a

@@ -297,10 +297,10 @@ class PostgresInventoryDeltaProjector:
                     resource_id=resource_id,
                     resource_type=resource_type,
                 )
-                if (
-                    not replay.present
-                    and observation_kind is not InventoryObservationKind.TOMBSTONE
-                ):
+                if not replay.present and observation_kind in {
+                    InventoryObservationKind.PARTIAL,
+                    InventoryObservationKind.CHANGE_HINT,
+                }:
                     raise ValueError("sparse inventory properties require an existing resource")
                 resource_props_json = replay.properties_json
                 provider_ref = replay.provider_ref

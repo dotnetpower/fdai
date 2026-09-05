@@ -358,56 +358,24 @@ jobs:
           PROD_ALERT_EMAIL: ${{ inputs.production_alert_email }}
           PROD_MONTHLY_BUDGET_AMOUNT: ${{ inputs.production_monthly_budget }}
           PROD_BUDGET_ALERT_EMAILS_JSON: ${{ vars.PRODUCTION_BUDGET_ALERT_EMAILS_JSON || '[]' }}
-        run: |
-          if [[ ! "$PROD_CORE_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]]; then
-            echo "PROD_CORE_IMAGE must be digest-pinned." >&2
-            exit 1
-          fi
-          if [[ -z "$PROD_ALERT_EMAIL" ]]; then
-            echo "production_alert_email is required." >&2
-            exit 1
-          fi
-          if [[ ! "$PROD_MONTHLY_BUDGET_AMOUNT" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
-            echo "PROD_MONTHLY_BUDGET_AMOUNT must be positive." >&2
-            exit 1
-          fi
-          python3 -c 'import json, os; value=json.loads(os.environ["PROD_BUDGET_ALERT_EMAILS_JSON"]); assert isinstance(value, list) and value and all(isinstance(item, str) and item for item in value)'
-          {
-            echo "TF_VAR_core_image=$PROD_CORE_IMAGE"
-            echo "TF_VAR_enable_resource_locks=true"
-            echo "TF_VAR_kv_purge_protection_enabled=true"
-            echo "TF_VAR_kv_soft_delete_retention_days=90"
-            echo "TF_VAR_postgres_backup_retention_days=35"
-            echo "TF_VAR_postgres_geo_redundant_backup=true"
-                        echo "TF_VAR_postgres_high_availability_mode=ZoneRedundant"
-            echo "TF_VAR_acr_sku=Premium"
-            echo "TF_VAR_enable_monitoring=true"
-            echo "TF_VAR_alert_email=$PROD_ALERT_EMAIL"
-            echo "TF_VAR_monthly_budget_amount=$PROD_MONTHLY_BUDGET_AMOUNT"
-            echo "TF_VAR_budget_alert_emails=$PROD_BUDGET_ALERT_EMAILS_JSON"
-          } >> "$GITHUB_ENV"
-      - name: Verify exact Azure context and deploy identity
+        run: bash ../scripts/deployment/azure/bind-production-terraform-inputs.sh
+      - name: Verify exact Azure context and bind governed inputs
         # The job defaults to `infra`, so a repository-root script path only
         # resolves from the workspace root.
         working-directory: ${{ github.workspace }}
-        run: >-
-          bash scripts/deployment/azure/login-deploy-identity.sh
-          "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
-          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
-      - name: Bind document OCR proposal
-        if: env.OCR_POLICY_ONLY == 'true'
-        working-directory: ${{ github.workspace }}
         env:
           OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
-          REQUEST_ID: ${{ inputs.request_id }}
           STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
         run: |
           set -euo pipefail
-          output="$RUNNER_TEMP/document-ocr-proposal.json"
-          bash scripts/deployment/azure/materialize-document-ocr-proposal.sh \
-            "${{ inputs.environment }}" "$REQUEST_ID" "$output"
-          action="$(jq -er '.action' "$output")"
-          printf 'DOCUMENT_OCR_ACTION=%s\n' "$action" >> "$GITHUB_ENV"
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+          if [[ "$OCR_POLICY_ONLY" == "true" ]]; then
+            bash scripts/deployment/azure/materialize-document-ocr-proposal.sh \
+              "${{ inputs.environment }}" "${{ inputs.request_id }}" \
+              "$RUNNER_TEMP/document-ocr-proposal.json"
+          fi
       - name: Resolve and seal model capabilities
         if: ${{ !inputs.apply && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
@@ -535,42 +503,7 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
-
-      - name: Resolve document OCR desired state
-        if: ${{ inputs.apply || env.MODEL_BINDING_ONLY != 'true' }}
-        run: |
-          set -euo pipefail
-          if terraform state list | grep -Fxq \
-            'module.document_intelligence[0].azurerm_cognitive_account.document_intelligence'; then
-            existing_resource=true
-          else
-            existing_resource=false
-          fi
-          case "$DOCUMENT_OCR_ACTION" in
-            preserve)
-              resource_enabled="$existing_resource"
-              provider="$(terraform output -raw document_ocr_provider 2>/dev/null \
-                || printf '%s' local_python)"
-              ;;
-            use_local_retain)
-              resource_enabled="$existing_resource"
-              provider=local_python
-              ;;
-            use_azure_provision)
-              resource_enabled=true
-              provider=azure_document_intelligence
-              ;;
-            deprovision_use_local)
-              resource_enabled=false
-              provider=local_python
-              ;;
-            *)
-              echo "Document OCR action is invalid." >&2
-              exit 1
-              ;;
-          esac
-          printf 'TF_VAR_enable_document_intelligence=%s\n' "$resource_enabled" >> "$GITHUB_ENV"
-          printf 'TF_VAR_document_ocr_provider=%s\n' "$provider" >> "$GITHUB_ENV"
+          bash ../scripts/deployment/azure/resolve-document-ocr-desired-state.sh
 
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}

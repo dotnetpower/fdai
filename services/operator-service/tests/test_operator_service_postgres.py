@@ -664,7 +664,11 @@ class ProjectionPostgresFamilyStore(PostgresFamilyStore):
         return self.payload
 
     async def read_state(self, key: str) -> dict[str, object] | None:
-        assert key == "operator-model-binding-policy:current"
+        assert key in {
+            "operator-model-binding-policy:current",
+            "operator-document-ocr-policy:current",
+            "operator-document-ocr-plan:current",
+        }
         return None
 
 
@@ -684,8 +688,12 @@ class ModelBindingPostgresFamilyStore(ProjectionPostgresFamilyStore):
         self.accepted: dict[str, StoredProposal] = {}
 
     async def read_state(self, key: str) -> dict[str, object] | None:
-        assert key == "operator-model-binding-policy:current"
-        return self.state
+        assert key in {
+            "operator-model-binding-policy:current",
+            "operator-document-ocr-policy:current",
+            "operator-document-ocr-plan:current",
+        }
+        return self.state if key == "operator-model-binding-policy:current" else None
 
     async def append_revisioned_proposal(
         self,

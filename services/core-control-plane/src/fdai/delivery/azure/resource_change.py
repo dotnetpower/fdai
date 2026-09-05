@@ -107,7 +107,7 @@ def _normalize_one(
         raise ValueError("id MUST be a non-empty string")
     event_id = _event_id(raw_event_id)
     idempotency_key = f"azure-resource-change:{raw_event_id}"
-    inventory_change = {
+    inventory_change: dict[str, Any] = {
         "kind": change_kind,
         "observation_kind": "change_hint" if change_kind == "upsert" else "tombstone",
         "properties_complete": False,

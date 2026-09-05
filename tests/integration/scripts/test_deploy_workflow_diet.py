@@ -76,6 +76,7 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
     helpers = (
         "install-pinned-github-cli.sh",
         "validate_deploy_request.py",
+        "bind-production-terraform-inputs.sh",
         "bind_core_runtime_image.sh",
         "publish-console.sh",
         "build_dev_gateway_artifact.py",
@@ -86,6 +87,24 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
     for helper in helpers:
         assert f"scripts/deployment/azure/{helper}" in _WORKFLOW
         assert (_ROOT / "scripts/deployment/azure" / helper).is_file()
+
+
+def test_production_input_helper_preserves_hardening_contract() -> None:
+    helper = (_ROOT / "scripts/deployment/azure/bind-production-terraform-inputs.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "@sha256:[0-9a-f]{64}" in helper
+    assert "PROD_BUDGET_ALERT_EMAILS_JSON" in helper
+    for value in (
+        "TF_VAR_enable_resource_locks=true",
+        "TF_VAR_kv_purge_protection_enabled=true",
+        "TF_VAR_postgres_geo_redundant_backup=true",
+        "TF_VAR_postgres_high_availability_mode=ZoneRedundant",
+        "TF_VAR_acr_sku=Premium",
+        "TF_VAR_enable_monitoring=true",
+    ):
+        assert value in helper
 
 
 def test_deploy_workflow_initializes_remote_state_before_terraform_use() -> None:

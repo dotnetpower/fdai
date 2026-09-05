@@ -12,11 +12,15 @@ from typing import cast
 
 import psycopg
 import pytest
+from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence.postgres_inventory_delta import (
     InventoryDeltaApplyOutcome,
     PostgresInventoryDeltaProjector,
     _acquire_inventory_gate,
     _acquire_inventory_locks,
+)
+from fdai.delivery.persistence.postgres_inventory_observation import (
+    PostgresInventoryObservationJournal,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
@@ -169,6 +173,27 @@ def _manifest(source: str) -> InventoryCoverageManifest:
 def _after_snapshot(manifest: InventoryCoverageManifest, seconds: int) -> str:
     assert manifest.started_at is not None
     return (manifest.started_at + timedelta(seconds=seconds)).isoformat()
+
+
+async def _promote_with_journal(
+    config: PostgresInventorySnapshotStoreConfig,
+    store: PostgresInventorySnapshotStore,
+    attempt: str,
+    manifest: InventoryCoverageManifest,
+    batch: InventoryBatch,
+) -> None:
+    await store.stage(attempt, batch)
+    await store.promote(attempt, manifest)
+    assert manifest.completed_at is not None
+    await PostgresInventoryObservationJournal(config=config).append_promoted_snapshot(
+        PromotedInventoryObservation(
+            generation=attempt,
+            resources=batch.resources,
+            links=batch.links,
+            complete=True,
+            recorded_at=manifest.completed_at,
+        )
+    )
 
 
 @pytest.mark.parametrize("write_batch_size", [0, 10_001])
@@ -666,8 +691,11 @@ async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> 
 
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(
                 ResourceRecord("rg-overlay", "resource-group", {"name": "rg"}),
@@ -684,7 +712,6 @@ async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> 
             ),
         ),
     )
-    await store.promote(attempt, manifest)
 
     await projector(
         {
@@ -719,6 +746,9 @@ async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> 
             "idempotency_key": "inventory-delete",
             "inventory_change": {
                 "kind": "delete",
+                "observation_kind": "tombstone",
+                "properties_complete": False,
+                "tombstone_confirmed": True,
                 "resource": {
                     "resource_id": "rg-overlay/vm-old",
                     "type": "compute.vm",
@@ -756,8 +786,11 @@ async def test_complete_relationship_set_tombstones_missing_owned_link() -> None
     projector = PostgresInventoryDeltaProjector(config=config)
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(
                 ResourceRecord("rg-complete", "resource-group"),
@@ -774,7 +807,6 @@ async def test_complete_relationship_set_tombstones_missing_owned_link() -> None
             ),
         ),
     )
-    await store.promote(attempt, manifest)
 
     await projector(
         {
@@ -782,6 +814,7 @@ async def test_complete_relationship_set_tombstones_missing_owned_link() -> None
             "idempotency_key": "inventory-complete-links",
             "inventory_change": {
                 "kind": "upsert",
+                "scope_ref": "scope-test",
                 "resource": {
                     "resource_id": "rg-complete/vm",
                     "type": "compute.vm",
@@ -813,8 +846,11 @@ async def test_partial_live_evidence_preserves_snapshot_properties_and_links() -
     context_provider = PostgresInventoryContextProvider(config=config)
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(
                 ResourceRecord("rg-live", "resource-group", {"name": "group"}),
@@ -835,7 +871,6 @@ async def test_partial_live_evidence_preserves_snapshot_properties_and_links() -
             ),
         ),
     )
-    await store.promote(attempt, manifest)
 
     result = await projector(
         {
@@ -843,6 +878,7 @@ async def test_partial_live_evidence_preserves_snapshot_properties_and_links() -
             "idempotency_key": "inventory-live-evidence",
             "inventory_change": {
                 "kind": "upsert",
+                "scope_ref": "scope-test",
                 "properties_complete": False,
                 "resource": {
                     "resource_id": "rg-live/vm",
@@ -883,8 +919,11 @@ async def test_stale_resource_delete_does_not_tombstone_current_relationships() 
     projector = PostgresInventoryDeltaProjector(config=config)
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(
                 ResourceRecord("rg-ordering", "resource-group"),
@@ -901,7 +940,6 @@ async def test_stale_resource_delete_does_not_tombstone_current_relationships() 
             ),
         ),
     )
-    await store.promote(attempt, manifest)
 
     async def project(event_id: str, kind: str, seconds: int) -> InventoryDeltaApplyOutcome:
         result = await projector(
@@ -910,6 +948,10 @@ async def test_stale_resource_delete_does_not_tombstone_current_relationships() 
                 "idempotency_key": f"inventory-stale-{event_id}",
                 "inventory_change": {
                     "kind": kind,
+                    "scope_ref": "scope-test",
+                    "observation_kind": "tombstone" if kind == "delete" else "full",
+                    "properties_complete": kind != "delete",
+                    "tombstone_confirmed": kind == "delete",
                     "resource": {
                         "resource_id": "rg-ordering/vm",
                         "type": "compute.vm",
@@ -947,21 +989,24 @@ async def test_realtime_overlay_rejects_dangling_relationship() -> None:
     projector = PostgresInventoryDeltaProjector(config=config)
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(ResourceRecord("rg-dangling/vm", "compute.vm"),),
         ),
     )
-    await store.promote(attempt, manifest)
 
-    with pytest.raises(ValueError, match="relationship endpoint is missing"):
+    with pytest.raises(ValueError, match="endpoint has no current incarnation"):
         await projector(
             {
                 "event_id": "event-dangling-link",
                 "idempotency_key": "inventory-dangling-link",
                 "inventory_change": {
                     "kind": "upsert",
+                    "scope_ref": "scope-test",
                     "resource": {
                         "resource_id": "rg-dangling/vm",
                         "type": "compute.vm",
@@ -999,8 +1044,11 @@ async def test_realtime_overlay_rejects_relationship_endpoint_type_mismatch() ->
     projector = PostgresInventoryDeltaProjector(config=config)
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(
                 ResourceRecord("rg-type-check", "resource-group"),
@@ -1008,7 +1056,6 @@ async def test_realtime_overlay_rejects_relationship_endpoint_type_mismatch() ->
             ),
         ),
     )
-    await store.promote(attempt, manifest)
 
     with pytest.raises(ValueError, match="endpoint type does not match"):
         await projector(
@@ -1017,6 +1064,7 @@ async def test_realtime_overlay_rejects_relationship_endpoint_type_mismatch() ->
                 "idempotency_key": "inventory-link-type-mismatch",
                 "inventory_change": {
                     "kind": "upsert",
+                    "scope_ref": "scope-test",
                     "resource": {
                         "resource_id": "rg-type-check/vm",
                         "type": "compute.vm",
@@ -1054,13 +1102,15 @@ async def test_realtime_overlay_rejects_existing_resource_type_change() -> None:
     projector = PostgresInventoryDeltaProjector(config=config)
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(ResourceRecord("resource-type-stable", "compute.vm"),),
         ),
     )
-    await store.promote(attempt, manifest)
 
     with pytest.raises(ValueError, match="resource type does not match"):
         await projector(
@@ -1069,6 +1119,7 @@ async def test_realtime_overlay_rejects_existing_resource_type_change() -> None:
                 "idempotency_key": "inventory-resource-type-change",
                 "inventory_change": {
                     "kind": "upsert",
+                    "scope_ref": "scope-test",
                     "resource": {
                         "resource_id": "resource-type-stable",
                         "type": "resource-group",
@@ -1098,13 +1149,15 @@ async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> No
 
     manifest = _manifest("arg")
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(
             resources=(ResourceRecord("rg-tie/vm", "compute.vm", {"name": "base"}),),
         ),
     )
-    await store.promote(attempt, manifest)
 
     observed_at = _after_snapshot(manifest, 1)
 
@@ -1115,10 +1168,14 @@ async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> No
                 "idempotency_key": f"inventory-tie-{event_id}",
                 "inventory_change": {
                     "kind": kind,
+                    "scope_ref": "scope-test",
+                    "observation_kind": "tombstone" if kind == "delete" else "full",
+                    "properties_complete": kind != "delete",
+                    "tombstone_confirmed": kind == "delete",
                     "resource": {
                         "resource_id": "rg-tie/vm",
                         "type": "compute.vm",
-                        "props": {"name": name},
+                        "props": {} if kind == "delete" else {"name": name},
                         "provider_ref": None,
                         "last_seen": observed_at,
                     },
@@ -1134,7 +1191,7 @@ async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> No
     assert context is not None
     assert context["props"] == {"name": "winner"}
 
-    await project("event-a", "deleted", kind="delete")
+    await project("event-0", "deleted", kind="delete")
     assert await context_provider("rg-tie/vm") is None
     await project("event-zz", "must-not-resurrect")
     assert await context_provider("rg-tie/vm") is None
@@ -1158,11 +1215,13 @@ async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliati
         metadata={"link_types": ("contains", "attached_to", "depends_on")},
     )
     attempt = await store.begin(manifest)
-    await store.stage(
+    await _promote_with_journal(
+        config,
+        store,
         attempt,
+        manifest,
         InventoryBatch(resources=(ResourceRecord("rg-fresh/vm", "compute.vm"),)),
     )
-    await store.promote(attempt, manifest)
     assert await age_provider("rg-fresh/vm") is not None
 
     await projector(
@@ -1171,6 +1230,7 @@ async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliati
             "idempotency_key": "inventory-realtime",
             "inventory_change": {
                 "kind": "upsert",
+                "scope_ref": "scope-test",
                 "resource": {
                     "resource_id": "rg-fresh/vm",
                     "type": "compute.vm",
