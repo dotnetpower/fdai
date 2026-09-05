@@ -76,12 +76,13 @@ jobs:
           evidence="$RUNNER_TEMP/model-lifecycle/evidence.json"
           candidate="$RUNNER_TEMP/model-lifecycle/candidate.json"
           deprecations="$RUNNER_TEMP/model-lifecycle/deprecations.json"
+          current="services/assets/resolved-models.json"
 
           if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ \
             || -z "$MODEL_RESOLVER_ACCOUNT_NAME" \
             || -z "$MODEL_RESOLVER_RESOURCE_GROUP" ]]; then
             python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
-              --current resolved-models.json --provider-error unavailable --out "$evidence"
+              --current "$current" --provider-error unavailable --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -101,7 +102,7 @@ jobs:
           set -e
           if [[ "$resolver_exit" -ne 0 ]]; then
             python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
-              --current resolved-models.json --provider-error unavailable --out "$evidence"
+              --current "$current" --provider-error unavailable --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -115,7 +116,7 @@ jobs:
           set -e
           if [[ "$provider_exit" -ne 0 ]]; then
             python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
-              --current resolved-models.json --provider-error unavailable --out "$evidence"
+              --current "$current" --provider-error unavailable --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -147,7 +148,7 @@ jobs:
               stream.write("\n")
           PY
           python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
-            --current resolved-models.json \
+            --current "$current" \
             --candidate "$candidate" \
             --deprecations "$deprecations" \
             --out "$evidence"

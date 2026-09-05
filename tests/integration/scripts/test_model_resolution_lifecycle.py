@@ -513,6 +513,9 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert 'version: "0.11.32"' in workflow
     assert "python3 -m pip install" not in workflow
     assert "uv run --frozen --package fdai-core-control-plane python" in workflow
+    assert 'current="services/assets/resolved-models.json"' in workflow
+    assert '--current "$current"' in workflow
+    assert "--current resolved-models.json" not in workflow
     assert "model_lifecycle_reconciler" in workflow
     assert "--provider-error" in workflow
     assert "gh pr create --draft" in workflow
