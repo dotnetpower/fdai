@@ -72,6 +72,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
             index_status: "pending",
             preview_available: false,
             download_available: false,
+            delete_available: false,
           }),
           documentSummary({
             document_id: "document-library-4",
@@ -228,6 +229,21 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await page.getByRole("searchbox", { name: "Search documents" }).fill("pending");
   await expect(page.getByText("pending-runbook.txt")).toBeVisible();
   await expect(page.getByText("persisted-guide.txt")).toHaveCount(0);
+  const unavailableActions = [
+    ["Preview", "Preview becomes available after indexing and authorization checks."],
+    ["Download", "Download requires an indexed, available, unprotected source."],
+    ["Delete", "Deletion requires uploader or Owner authority and no legal hold."],
+  ] as const;
+  for (const [name, explanation] of unavailableActions) {
+    const action = page.getByRole("button", { name });
+    await expect(action).toHaveAttribute("aria-disabled", "true");
+    await expect(action).not.toHaveAttribute("disabled");
+    await action.focus();
+    await expect(page.getByRole("tooltip", { name: explanation, exact: true })).toBeVisible();
+    await action.press("Enter");
+  }
+  await expect(page.locator(".document-preview-panel")).toHaveCount(0);
+  await expect(page.getByText("Delete this version and its indexed content?")).toHaveCount(0);
   await page.getByRole("searchbox", { name: "Search documents" }).fill("");
   await page.getByRole("button", { name: "Add to knowledge" }).click();
   await expect(page.getByText(/Add this document to governed knowledge/)).toBeVisible();
