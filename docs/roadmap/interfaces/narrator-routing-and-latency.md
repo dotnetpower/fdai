@@ -283,6 +283,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 - [ ] Retain governed local and deployed receipts for narrator and web-search candidate selection, first-token timing, failure, recovery, and sanitized health.
 - [x] Implement and focused-test the service-owned async direct Key Vault resolved-model source adapter with trusted-origin, identity, bound, expiration, timeout, and secret-redaction checks.
 - [x] Bind the Key Vault source through an asynchronous Operator startup owner, and preserve Core/Operator source-revision parity while Core shares its own revision with lifecycle-hold evaluation and capability binding.
+- [x] On startup failure, attempt cleanup for every acquired lifecycle service and report cleanup failures without hiding the original source-revision fence.
 - [ ] Retain one governed proposal-only reconciler run and one deployed Operator startup receipt for the exact source revision.
 - [ ] Retain one exact environment-policy assessment and protected PTU plan/apply/rollback campaign, including independent verification that the runtime loaded the sealed policy and model version.
 

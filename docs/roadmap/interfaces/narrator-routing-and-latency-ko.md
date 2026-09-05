@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 0d343b088218f445cd6ad8b2032960026d97facf
+translation_source_sha: fbb4c6fdc2b4bb7ee0750b6d188a2bc3ca04e91c
 translation_revised: 2026-09-05
 ---
 # 서술기 라우팅과 지연 시간
@@ -280,6 +280,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 - [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
 - [x] 신뢰할 수 있는 origin, 신원, 범위, 만료, timeout 및 secret-redaction 검사를 갖춘 service-owned 비동기 직접 Key Vault 모델 해석 결과 출처 어댑터를 구현하고 집중 테스트합니다.
 - [x] 비동기 Operator 시작 소유자를 통해 Key Vault 출처를 연결하고, Core가 자체 리비전을 수명 주기 보류 평가 및 기능 바인딩과 공유하는 동안 Core/Operator 출처 리비전 parity를 보존합니다.
+- [x] 시작 실패 시 획득한 모든 수명 주기 서비스의 정리를 시도하고 원래 출처 리비전 경계를 숨기지 않은 채 정리 실패를 보고합니다.
 - [ ] 통제된 제안 전용 조정기 실행 하나와 정확한 출처 리비전에 대한 배포 Operator 시작 영수증 하나를 보존합니다.
 - [ ] 런타임이 봉인된 정책과 모델 버전을 로드했음을 독립 검증하는 근거를 포함해 정확한 환경 정책 평가 및 보호된 PTU 계획, 적용, 롤백 캠페인 하나를 보존합니다.
 

@@ -702,7 +702,8 @@ def _model_revision_owner(
         "FDAI_RESOLVED_MODELS_KEY_VAULT_SECRET_NAME",
         "",
     ).strip()
-    if source is None and not vault_url and not expected_digest:
+    source_configured = source is not None or bool(vault_url or secret_name or configured_path)
+    if not source_configured and not expected_digest:
         return None
     if len(expected_digest) != 64 or any(
         character not in "0123456789abcdef" for character in expected_digest
@@ -777,10 +778,18 @@ class _CompositeLifecycle:
         for service in self.services:
             try:
                 await service.start()
-            except BaseException:
-                await service.aclose()
-                for prior in reversed(started):
-                    await prior.aclose()
+            except BaseException as start_error:
+                cleanup_errors: list[BaseException] = []
+                for acquired in (service, *reversed(started)):
+                    try:
+                        await acquired.aclose()
+                    except BaseException as cleanup_error:
+                        cleanup_errors.append(cleanup_error)
+                if cleanup_errors:
+                    raise BaseExceptionGroup(
+                        "Operator startup and cleanup failed",
+                        [start_error, *cleanup_errors],
+                    ) from None
                 raise
             started.append(service)
 

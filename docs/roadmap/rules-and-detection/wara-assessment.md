@@ -149,7 +149,8 @@ The shared Operator composition can add a principal-scoped conversation document
 changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
 The same composition starts its resolved-model revision fence before the WARA projection bridge.
 A model digest mismatch therefore blocks all later lifecycle services without changing WARA
-evidence, assessment, projection, or remediation authority.
+evidence, assessment, projection, or remediation authority. Startup failure cleanup attempts every
+acquired service, so one failing close cannot leave an earlier WARA dependency running.
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
 revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact
 evaluator reference, and structured manual-evidence requirement. The Console renders 50 controls

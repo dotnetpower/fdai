@@ -21,7 +21,8 @@ retired top-level application tree.
   and repository checks.
 - **Operator startup revision fence:** Production Operator composition verifies the immutable
   resolved-model digest before Cost Governance projections or any other lifecycle bridge starts.
-  The fence grants no mapping, assessment, or execution authority.
+  The fence grants no mapping, assessment, or execution authority. If startup fails, composition
+  attempts every acquired service cleanup and reports cleanup errors with the original failure.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the

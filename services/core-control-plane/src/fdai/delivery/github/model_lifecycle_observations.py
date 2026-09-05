@@ -32,6 +32,7 @@ class GitHubModelLifecycleObservationConfig:
     base_ref: str = "main"
     review_ttl_hours: int = 168
     timeout_seconds: float = 15.0
+    max_pages: int = 10
 
     def __post_init__(self) -> None:
         if not self.owner or not self.repo:
@@ -44,6 +45,8 @@ class GitHubModelLifecycleObservationConfig:
             raise ValueError("model lifecycle review TTL MUST be between 1 and 720 hours")
         if self.timeout_seconds <= 0:
             raise ValueError("model lifecycle GitHub timeout MUST be positive")
+        if not 1 <= self.max_pages <= 10:
+            raise ValueError("model lifecycle GitHub max_pages MUST be between 1 and 10")
 
 
 class GitHubModelLifecycleObservationSource:
@@ -69,14 +72,14 @@ class GitHubModelLifecycleObservationSource:
     async def load(self) -> tuple[Mapping[str, object], ...]:
         """Return bounded, verified observations without granting authority."""
 
-        pulls = await self._get_json(
+        pulls = await self._get_paginated_array(
             f"/repos/{self._config.owner}/{self._config.repo}/pulls",
             params={"state": "open", "per_page": "100", "base": self._config.base_ref},
         )
-        if not isinstance(pulls, list):
-            raise ModelLifecycleObservationError("GitHub pull request response is invalid")
         observations: list[Mapping[str, object]] = []
         for pull in pulls:
+            if not isinstance(pull, Mapping):
+                continue
             if not self._is_workflow_draft(pull):
                 continue
             observations.append(await self._load_proposal(pull))
@@ -110,12 +113,10 @@ class GitHubModelLifecycleObservationSource:
         ):
             raise ModelLifecycleObservationError("trusted lifecycle pull request is invalid")
         head_sha = str(head["sha"])
-        files = await self._get_json(
+        files = await self._get_paginated_array(
             f"/repos/{self._config.owner}/{self._config.repo}/pulls/{number}/files",
             params={"per_page": "100"},
         )
-        if not isinstance(files, list):
-            raise ModelLifecycleObservationError("lifecycle pull request files are invalid")
         paths = [
             item.get("filename")
             for item in files
@@ -155,6 +156,25 @@ class GitHubModelLifecycleObservationSource:
             "merged_at": None,
             "proposal": proposal,
         }
+
+    async def _get_paginated_array(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, str],
+    ) -> list[object]:
+        items: list[object] = []
+        for page in range(1, self._config.max_pages + 1):
+            payload = await self._get_json(
+                path,
+                params={**params, "page": str(page)},
+            )
+            if not isinstance(payload, list):
+                raise ModelLifecycleObservationError("GitHub paginated response is invalid")
+            items.extend(payload)
+            if len(payload) < 100:
+                return items
+        raise ModelLifecycleObservationError("GitHub pagination exceeds the configured bound")
 
     async def _get_json(
         self,

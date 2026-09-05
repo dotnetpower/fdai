@@ -520,8 +520,12 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
     assert "az cognitiveservices account deployment update" not in workflow
     assert "model_lifecycle_receipt.py" in workflow
     assert "Upload governed draft receipt" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
     assert '"/repos/${GITHUB_REPOSITORY}/contents/${proposal}?ref=${head_sha}"' in workflow
     assert '--proposal "$pr_proposal"' in workflow
+    assert 'source_commit="$(git rev-parse HEAD)"' in workflow
+    assert '--source-commit "$source_commit"' in workflow
+    assert '--source-commit "${GITHUB_SHA}"' not in workflow
 
 
 def test_reconciliation_receipt_binds_draft_without_authority() -> None:

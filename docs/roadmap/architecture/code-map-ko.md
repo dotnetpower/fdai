@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 0faa1bc3f46a2f06cbfbf9c133805399f3e43a33
+translation_source_sha: 93235439b4026e0f9089a4e57c024d1a4882b84c
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -24,7 +24,8 @@ translation_revised: 2026-09-05
   저장소 검사를 소유합니다.
 - **Operator 시작 리비전 경계:** 운영 Operator 조립은 Cost Governance 변환 결과 또는
   다른 수명 주기 bridge를 시작하기 전에 불변 해석 모델 다이제스트를 검증합니다. 이 경계는
-  매핑, 평가 또는 실행 권한을 부여하지 않습니다.
+  매핑, 평가 또는 실행 권한을 부여하지 않습니다. 시작에 실패하면 조립은 획득한 모든 서비스
+  정리를 시도하고 원래 실패와 함께 정리 오류를 보고합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

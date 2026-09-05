@@ -194,6 +194,7 @@ jobs:
           pr_json="$RUNNER_TEMP/model-lifecycle/pull-request.json"
           pr_proposal="$RUNNER_TEMP/model-lifecycle/pull-request-proposal.json"
           receipt="$RUNNER_TEMP/model-lifecycle/receipt.json"
+          source_commit="$(git rev-parse HEAD)"
           gh pr view "$branch" --json number,headRefOid,isDraft > "$pr_json"
           head_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["headRefOid"])' "$pr_json")"
           gh api \
@@ -203,7 +204,7 @@ jobs:
           python3 scripts/deployment/azure/model_lifecycle_receipt.py \
             --proposal "$pr_proposal" \
             --pull-request "$pr_json" \
-            --source-commit "${GITHUB_SHA}" \
+            --source-commit "$source_commit" \
             --workflow-run-id "${GITHUB_RUN_ID}" \
             --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --out "$receipt"
@@ -211,7 +212,7 @@ jobs:
 
       - name: Upload governed draft receipt
         if: ${{ steps.candidate.outputs.status == 'proposal' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: model-lifecycle-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ steps.publish.outputs.receipt }}

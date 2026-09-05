@@ -55,6 +55,7 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
 )
 from fdai_operator_service.local_auth import AzureCliIdentityError, LocalAzureCliIdentity
 from fdai_operator_service.main import SERVICE
+from fdai_operator_service.model_lifecycle_startup import ConfiguredResolvedModelsSource
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
 from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
@@ -265,6 +266,70 @@ async def test_production_lifecycle_rejects_operator_revision_mismatch() -> None
         await runtime.lifecycle.start()
 
     assert source.loads == 1
+
+
+def test_production_rejects_configured_model_source_without_digest() -> None:
+    with pytest.raises(RuntimeError, match="LLM_RESOLVED_MODELS_SHA256"):
+        ProductionOperatorComposition(
+            verifier_factory=lambda environment: _verify,
+            read_model=EmptyReadModel(),
+        ).build_runtime(
+            {
+                **BASE_ENV,
+                "LLM_RESOLVED_MODELS_PATH": '{"capabilities":[]}',
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_configured_model_source_hashes_exact_file_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "resolved-models.json"
+    encoded = b'{\r\n  "capabilities": []\r\n}\r\n'
+    path.write_bytes(encoded)
+
+    artifact = await ConfiguredResolvedModelsSource(str(path)).load()
+
+    assert artifact.content.encode("utf-8") == encoded
+    assert artifact.digest == hashlib.sha256(encoded).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_cleanup_attempts_every_started_service() -> None:
+    closed: list[str] = []
+
+    class Service:
+        def __init__(
+            self,
+            name: str,
+            *,
+            fail_start: bool = False,
+            fail_close: bool = False,
+        ) -> None:
+            self.name = name
+            self.fail_start = fail_start
+            self.fail_close = fail_close
+
+        async def start(self) -> None:
+            if self.fail_start:
+                raise RuntimeError(f"{self.name}-start")
+
+        async def aclose(self) -> None:
+            closed.append(self.name)
+            if self.fail_close:
+                raise RuntimeError(f"{self.name}-close")
+
+    lifecycle = operator_composition._CompositeLifecycle(
+        (
+            Service("first", fail_close=True),
+            Service("second"),
+            Service("third", fail_start=True, fail_close=True),
+        )
+    )
+
+    with pytest.raises(BaseExceptionGroup, match="startup and cleanup"):
+        await lifecycle.start()
+
+    assert closed == ["third", "second", "first"]
 
 
 def test_service_package_has_no_fdai_implementation_import() -> None:
@@ -799,11 +864,11 @@ def test_repository_catalog_routes_declare_authoritative_durable_sources() -> No
 
 def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:
     model_path = tmp_path / "models.json"
-    model_path.write_text(
+    content = (
         '{"narrator":{"endpoint":"https://example.openai.azure.com",'
-        '"deployment":"narrator","api_version":"2024-08-01-preview"}}',
-        encoding="utf-8",
+        '"deployment":"narrator","api_version":"2024-08-01-preview"}}'
     )
+    model_path.write_text(content, encoding="utf-8")
     runtime = ProductionOperatorComposition(
         verifier_factory=lambda environment: _verify
     ).build_runtime(
@@ -815,11 +880,17 @@ def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> No
             NARRATOR_PROBE_INTERVAL_ENV: "30",
             "RUNTIME_ENV": "dev",
             "LLM_RESOLVED_MODELS_PATH": str(model_path),
+            "LLM_RESOLVED_MODELS_SHA256": hashlib.sha256(content.encode()).hexdigest(),
         }
     )
 
-    assert isinstance(runtime.lifecycle, PeriodicNarratorRefreshScheduler)
-    assert runtime.lifecycle.interval_seconds == 30
+    assert isinstance(runtime.lifecycle, operator_composition._CompositeLifecycle)
+    scheduler = next(
+        service
+        for service in runtime.lifecycle.services
+        if isinstance(service, PeriodicNarratorRefreshScheduler)
+    )
+    assert scheduler.interval_seconds == 30
 
 
 @pytest.mark.parametrize(

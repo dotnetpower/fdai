@@ -49,15 +49,15 @@ class ConfiguredResolvedModelsSource:
 
     async def load(self) -> ConfiguredResolvedModelsArtifact:
         if self.path_or_content.lstrip().startswith("{"):
-            content = self.path_or_content
+            encoded = self.path_or_content.encode("utf-8")
         else:
-            content = await to_thread(
-                Path(self.path_or_content).read_text,
-                encoding="utf-8",
-            )
-        encoded = content.encode("utf-8")
+            encoded = await to_thread(Path(self.path_or_content).read_bytes)
         if len(encoded) > self.maximum_bytes:
             raise ValueError("Operator resolved-model artifact exceeds the size limit")
+        try:
+            content = encoded.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("Operator resolved-model artifact is not UTF-8") from exc
         return ConfiguredResolvedModelsArtifact(
             content=content,
             digest=hashlib.sha256(encoded).hexdigest(),
