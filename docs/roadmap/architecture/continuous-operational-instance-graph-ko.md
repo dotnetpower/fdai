@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 7d2e98ca259a5587ce4dd7698e38c3078aaa021c
+translation_source_sha: eb973d592ca12c1fc07372d57fbaea2d19e558e5
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 같은 operation timestamp를 공유하는 audit row에서 PostgreSQL purge 증적 조회가 가장 높은 attempt와 `pending`보다 terminal 상태를 우선하도록 수정했습니다. 첫 complete all-phase campaign은 통과한 시나리오 11개, unavailable late correction closure 1개 및 실패한 purge audit 1개를 보존했습니다. Exact inventory projection refresh가 범위가 제한된 실행 deadline을 초과했으므로 전역 ontology release는 conflicting으로 남았고 certification 증적이나 최종 artifact를 저장하지 않았습니다. | `current change`, 집중 archive store 및 campaign 검사. Campaign run `33999035116`은 restart 전 수집을 완료하고 Azure PostgreSQL restart를 독립 검증했으며 `late_observation`과 `safe_partition_purge`를 제외한 모든 시나리오가 통과한 정제된 상태를 출력했습니다. | Terminal ordering 수정 image를 publish 및 import하고 최종 격리 campaign을 한 번 실행합니다. Projection 또는 시나리오가 하나라도 unavailable이면 OI-16을 운영 검증되지 않은 상태로 유지합니다. |
 | 2026-09-06 | implemented | 분할 phase orchestration을 변경하여 restart 전 시나리오 실패를 database restart 및 restart 후 시나리오 실행 전에 workflow를 종료하는 process failure가 아니라 근거로 유지합니다. 내부 예외는 계속 Job을 즉시 실패시키며 finalization만 모든 시나리오 gate로 남습니다. Certification 증적을 저장하지 않은 채 진단할 수 있도록 정제된 시나리오별 상태와 reason code map도 출력합니다. | `current change`, 집중 campaign phase exit, finalization summary, workflow, Ruff 및 strict mypy 검사. | 수정된 정확한 image를 publish 및 import하고 exact ontology projection을 refresh한 뒤 모든 phase를 거치는 새로운 격리 campaign을 실행합니다. |
 | 2026-09-06 | implemented | `once` 또는 `loop` positional Container Apps mode를 기존 CLI 계약으로 변환하는 설치형 inventory 동기화 wrapper를 추가했습니다. Positional 인자 없이 실행한 실제 inventory start는 이전에 배포된 image에서 완료되어 image override가 적용되지 않았음을 입증했습니다. 이 wrapper는 option 형태 인자나 새 권한 없이 exact image projection refresh 경로를 제공합니다. | `current change`, 집중 inventory CLI, package entrypoint, Ruff, strict mypy 및 wheel build 검사. | Wrapper가 포함된 image를 publish 및 import하고 exact image inventory refresh를 한 번 실행한 뒤 새로운 격리 scope에서 certification을 재실행합니다. |
 | 2026-09-06 | implemented | Restart phase envelope마다 artifact index row를 삽입하기 전에 실제 content-addressed archive manifest에 결속하고 recovery를 위한 정확한 storage reference 조회를 추가했습니다. Write 후 read 비교로 일치하는 verification 증적을 생성하므로 campaign bookkeeping이 instance 전체 archive coverage를 낮추지 않습니다. PostgreSQL manifest와 artifact digest는 비공개 Blob metadata와 독립적으로 유지되며 envelope는 campaign, phase, purpose 및 scope digest를 결속합니다. 일곱 번째 보호 실행은 fixture replay와 restart 전 시나리오 수집을 완료하고 비공개 phase Blob을 저장한 뒤 이전 synthetic manifest key가 artifact foreign key를 위반하자 안전하게 실패했습니다. Database restart 또는 certification 저장은 발생하지 않았습니다. | `current change`, 집중 phase store, archive manifest 및 verification, artifact 조회, campaign, finalization, Ruff 및 strict mypy 검사. 보호된 campaign run `33991048058`이 실패한 phase index 근거를 보존했습니다. | 수정된 정확한 image를 publish 및 import한 뒤 새로운 exact-revision 격리 campaign scope를 실행합니다. |

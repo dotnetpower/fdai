@@ -240,7 +240,9 @@ class PostgresOperationalArchiveStore:
         raw = await self._get_record(
             "SELECT record FROM operational_archive_purge_receipt "
             "WHERE idempotency_key = %s "
-            "ORDER BY recorded_at DESC, receipt_digest DESC LIMIT 1",
+            "ORDER BY attempt DESC, "
+            "CASE status WHEN 'pending' THEN 0 ELSE 1 END DESC, "
+            "recorded_at DESC, receipt_digest DESC LIMIT 1",
             (idempotency_key,),
         )
         return None if raw is None else _purge_from_record(raw)

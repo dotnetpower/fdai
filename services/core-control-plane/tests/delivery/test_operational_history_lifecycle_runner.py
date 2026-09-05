@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock
 
@@ -41,6 +41,7 @@ from fdai.delivery.operational_history_lifecycle_runner import (
 )
 from fdai.delivery.persistence.postgres_operational_archive import (
     PostgresOperationalArchiveStore,
+    PostgresOperationalArchiveStoreConfig,
 )
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryStore,
@@ -200,6 +201,27 @@ def _runner(mode, repository):
         artifacts=cast(AzureBlobOperationalHistoryArtifactStore, artifacts),
     )
     return runner, history, archives, artifacts
+
+
+async def test_purge_receipt_latest_prefers_terminal_status_within_attempt() -> None:
+    store = PostgresOperationalArchiveStore(
+        config=PostgresOperationalArchiveStoreConfig(dsn="postgresql://unused")
+    )
+    queries: list[str] = []
+
+    async def get_record(
+        _self: object,
+        query: str,
+        _params: tuple[object, ...],
+    ) -> dict[str, object] | None:
+        queries.append(query)
+        return None
+
+    store._get_record = MethodType(get_record, store)  # type: ignore[method-assign]
+
+    assert await store.latest("purge:test") is None
+    assert "ORDER BY attempt DESC" in queries[0]
+    assert "CASE status WHEN 'pending' THEN 0 ELSE 1 END DESC" in queries[0]
 
 
 @pytest.mark.parametrize(
