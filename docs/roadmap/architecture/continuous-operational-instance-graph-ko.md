@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: d8803b9f271b123c86d086d7ab710e1bcfc642fd
+translation_source_sha: 188c116bd86f752eb5e04ddc297b1039ede8a1aa
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | 정확한 OI-16 revision의 필수 gitleaks job을 실패하게 만든 API key 유사 source literal 2개를 제거했습니다. Phase digest domain 값과 runtime 동작은 변경하지 않았으며 내부 identifier와 synthetic schema replay fixture 값 1개만 변경했습니다. | `current change`, 집중 schema replay 및 campaign CLI 검사 75개와 Ruff가 통과했습니다. Required CI run `33974940666`에서 `generic-api-key` false positive 2개를 확인했습니다. | 수정된 정확한 revision을 push하고 새로운 required CI run이 성공한 뒤에만 보호된 배포 또는 certification을 진행합니다. |
 | 2026-09-05 | implemented | 검토된 중첩 운영 상태 값을 ARG hydration과 인벤토리 소유 온톨로지 변환 결과까지 보존하고, Dashboard 상태 조회가 커밋된 온톨로지 세대와 일치하도록 검사했습니다. | `current change`, 집중 Core 변환 결과, ARG, Operator 상태 페이지 및 Dashboard 검사가 통과했습니다. | 실제 배포 준비를 주장하기 전에 인증된 운영자 화면 근거를 보존합니다. |
 | 2026-09-05 | implemented | 실패 시 안전하게 중단하는 OI-16 보호 certification campaign을 추가했습니다. 개발 전용 runner는 범위가 제한된 synthetic 근거를 생성하고 평가하며, 독립적으로 관측한 Azure PostgreSQL 재시작 전후로 실행을 나눕니다. 단계별 근거는 principal 범위의 비공개 Blob storage에 저장합니다. 안전한 synthetic purge는 dry-run, 영향 범위 제한, 대상 lock, 안정적인 멱등성, 2단계 감사, rollback 및 독립 효과 검사가 모두 충족되어야 허용합니다. 보호 workflow는 bot 소유 요청과 별도 Environment 승인을 요구하며 정확한 source revision, 성공한 required CI run, 일치하는 attested runtime image, OI-15 배포 revision, apply run 및 apply-receipt artifact digest를 결속합니다. 필수 시나리오가 모두 통과한 경우에만 증적 저장과 비공개 sanitized 최종 artifact 생성을 진행합니다. | `current change`, certification model, CLI, campaign runner와 probe, phase store, 보호된 요청 및 campaign workflow, audit와 design route, 집중 model, CLI, campaign, workflow, identity 및 CI contract 검사 | 정확한 revision을 commit하고 push한 뒤 required CI와 runtime image attestation을 확보합니다. zero-destroy 보호 plan을 검토하고 bot 소유 요청과 human Environment 승인을 통해 apply한 다음 실제 시나리오 13개를 모두 실행합니다. Campaign이 통과하기 전까지 `operationally_validated=false`를 유지하고 certification 증적을 append하지 않으며 OI-16과 이슈 #262를 열어 둡니다. |
 | 2026-09-05 | validated | OI-15 runtime 조립을 배포하고 실행했습니다. 독립 target Container Apps Job은 실행기 권한이 없는 inventory identity, versionless Key Vault DSN 참조, 비공개 versioned Blob 저장소 및 고정 shadow 명령을 사용합니다. 특수 exact apply는 bot-owned이므로 maintainer가 별도 Environment approver로 남습니다. | Revision `c209b0896`, `3bef1a800`, `69bbdf6c1`, required CI `33951293573`, runtime supply chain `33948715715`, plan `33951584532` (`8 add / 0 change / 0 destroy`), bot 요청 `33951765704`, apply `33951784309`, apply receipt artifact digest `sha256:3fe1b7d77ed4511c9e88283bae9798a8e74e2c79fc502e234fe36477d736cade`, 배포 Job 계약 검증, `2026-09-05T07:16:06Z`부터 `2026-09-05T07:16:43Z`까지 성공한 shadow 실행 | OI-16은 모든 필수 운영 시나리오가 독립 근거를 보존할 때까지 열려 있습니다. 이 shadow 실행은 archive restore, 안전한 purge, schema replay, database recovery/restart 또는 outage 동작을 입증하지 않습니다. |

@@ -55,7 +55,7 @@ CURRENT_RECORD: Mapping[str, Any] = {
     "schema_version": INVENTORY_OBSERVATION_SCHEMA_VERSION,
     "observation_id": "obs-synthetic-0001",
     "content_digest": "sha256:" + "1" * 64,
-    "idempotency_key": "oi16-synthetic-key-0001",
+    "idempotency_key": "oi16-test",
     "subject_kind": "object",
     "observation_kind": "full",
     "mutation_kind": "upsert",

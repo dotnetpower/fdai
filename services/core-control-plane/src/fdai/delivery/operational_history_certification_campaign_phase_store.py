@@ -27,7 +27,7 @@ from fdai.delivery.operational_history_certification_campaign import (
 )
 
 MAX_PHASE_BYTES = 1_048_576
-_PHASE_KEY_PREFIX = "oi16-campaign-phase"
+_PHASE_DIGEST_DOMAIN = "oi16-campaign-phase"
 _STORAGE_ROOT = "operational-history/oi16-certification-campaign"
 _LOGGER = logging.getLogger("fdai.operational_history_certification_campaign.phase_store")
 
@@ -53,7 +53,7 @@ class PhaseMetadataStore(Protocol):
 def phase_key_digest(campaign_id: str, phase: CampaignPhase) -> str:
     """Return the deterministic index key for one campaign phase artifact."""
 
-    material = "|".join((_PHASE_KEY_PREFIX, campaign_id, phase.value))
+    material = "|".join((_PHASE_DIGEST_DOMAIN, campaign_id, phase.value))
     return "sha256:" + hashlib.sha256(material.encode()).hexdigest()
 
 
