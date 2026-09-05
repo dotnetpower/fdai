@@ -63,7 +63,7 @@ def upgrade() -> None:
             'sha256:086589221a8bd798816d9b1d0136c20f547a3a3cd3b1a0693122340f64f05124',
             'safety-retain-change_hint-v1', 'change_hint', 'safety-hold-unconfigured',
             0, 0, 'unconfigured-retain', 'retain', '2099-01-01T00:00:00Z',
-            '{"source":"repository-safe-default","deletion_authority":false}'::jsonb,
+            '{"source":"repository-safe-default","deletion_authority": false}'::jsonb,
             CURRENT_TIMESTAMP
         ),
         (
@@ -71,7 +71,7 @@ def upgrade() -> None:
             'safety-retain-partial_observation-v1', 'partial_observation',
             'safety-hold-unconfigured', 0, 0, 'unconfigured-retain', 'retain',
             '2099-01-01T00:00:00Z',
-            '{"source":"repository-safe-default","deletion_authority":false}'::jsonb,
+            '{"source":"repository-safe-default","deletion_authority": false}'::jsonb,
             CURRENT_TIMESTAMP
         ),
         (
@@ -79,7 +79,7 @@ def upgrade() -> None:
             'safety-retain-full_observation-v1', 'full_observation',
             'safety-hold-unconfigured', 0, 0, 'unconfigured-retain', 'retain',
             '2099-01-01T00:00:00Z',
-            '{"source":"repository-safe-default","deletion_authority":false}'::jsonb,
+            '{"source":"repository-safe-default","deletion_authority": false}'::jsonb,
             CURRENT_TIMESTAMP
         ),
         (
@@ -87,7 +87,7 @@ def upgrade() -> None:
             'safety-retain-tombstone_candidate-v1', 'tombstone_candidate',
             'safety-hold-unconfigured', 0, 0, 'unconfigured-retain', 'retain',
             '2099-01-01T00:00:00Z',
-            '{"source":"repository-safe-default","deletion_authority":false}'::jsonb,
+            '{"source":"repository-safe-default","deletion_authority": false}'::jsonb,
             CURRENT_TIMESTAMP
         ),
         (
@@ -95,7 +95,7 @@ def upgrade() -> None:
             'safety-retain-confirmed_tombstone-v1', 'confirmed_tombstone',
             'safety-hold-unconfigured', 0, 0, 'unconfigured-retain', 'retain',
             '2099-01-01T00:00:00Z',
-            '{"source":"repository-safe-default","deletion_authority":false}'::jsonb,
+            '{"source":"repository-safe-default","deletion_authority": false}'::jsonb,
             CURRENT_TIMESTAMP
         ),
         (
@@ -103,7 +103,7 @@ def upgrade() -> None:
             'safety-retain-relationship_observation-v1', 'relationship_observation',
             'safety-hold-unconfigured', 0, 0, 'unconfigured-retain', 'retain',
             '2099-01-01T00:00:00Z',
-            '{"source":"repository-safe-default","deletion_authority":false}'::jsonb,
+            '{"source":"repository-safe-default","deletion_authority": false}'::jsonb,
             CURRENT_TIMESTAMP
         );
         CREATE TABLE inventory_resource_incarnation (
