@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from fdai.delivery.inventory_cache_invalidation import InvalidatingInventoryDeltaProjector
 from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventoryDeltaProjector
 from fdai.runtime.providers import _build_inventory_delta_projector
 
 
-def _configure_inventory_projector(monkeypatch, *, runtime_env: str) -> None:  # type: ignore[no-untyped-def]
+def _configure_inventory_projector(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    runtime_env: str,
+) -> None:
     monkeypatch.delenv("FDAI_INVENTORY_DSN", raising=False)
     monkeypatch.delenv("FDAI_LOCAL_AZURE_CONFIG_DIR", raising=False)
     monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example.invalid/fdai")
@@ -14,18 +21,25 @@ def _configure_inventory_projector(monkeypatch, *, runtime_env: str) -> None:  #
     monkeypatch.setenv("RUNTIME_ENV", runtime_env)
 
 
-def test_local_inventory_projector_invalidates_its_account_cache(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_local_inventory_projector_invalidates_its_account_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     _configure_inventory_projector(monkeypatch, runtime_env="dev")
+    monkeypatch.setattr("fdai.runtime.providers.repo_asset_root", lambda: tmp_path)
 
     projector = _build_inventory_delta_projector()
 
     assert isinstance(projector, InvalidatingInventoryDeltaProjector)
+    assert projector._marker_path.is_relative_to(tmp_path)
     assert projector._marker_path.parent.name == "inventory"
     assert projector._marker_path.suffix == ".invalidated"
     assert "subscription-example" not in projector._marker_path.name
 
 
-def test_deployed_inventory_projector_does_not_write_local_cache_markers(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_deployed_inventory_projector_does_not_write_local_cache_markers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _configure_inventory_projector(monkeypatch, runtime_env="prod")
 
     projector = _build_inventory_delta_projector()

@@ -69,6 +69,7 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.bootstrap_pantheon import (
     _approver_authorizer_from_env,
     _pantheon_enforce_enabled,
+    _runtime_asset_root,
 )
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
@@ -84,6 +85,15 @@ from fdai_service_contracts.semantic_turn import (
 
 def test_pantheon_starts_by_default() -> None:
     assert pantheon_start_enabled({}) is True
+
+
+def test_pantheon_runtime_assets_use_the_layout_aware_root(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("fdai.runtime.bootstrap_pantheon.repo_asset_root", lambda: tmp_path)
+
+    assert _runtime_asset_root() == tmp_path
 
 
 def test_pantheon_enforce_requires_deployment_authority_ceiling() -> None:

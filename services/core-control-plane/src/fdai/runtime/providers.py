@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
 from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
 from fdai.core.tiers.t1_lightweight.tier import PatternLibrary
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.resource_lock import ResourceLock
@@ -609,7 +609,7 @@ def _build_inventory_delta_projector() -> Any:
         )
 
         cache_path, _ = inventory_cache_path(
-            repo_root=Path(__file__).resolve().parents[5],
+            repo_root=repo_asset_root(),
             subscription_id=subscription_id,
             azure_config_dir=os.environ.get("FDAI_LOCAL_AZURE_CONFIG_DIR", "").strip() or None,
         )

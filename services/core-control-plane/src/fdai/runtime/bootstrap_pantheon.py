@@ -55,6 +55,7 @@ from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
     StateStoreProspectiveLineageMaterializer,
 )
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import (
     load_capacity_graduation_policy,
@@ -181,6 +182,12 @@ def _approver_authorizer_from_env(
     )
 
 
+def _runtime_asset_root() -> Path:
+    """Locate shipped runtime assets in either checkout or installed image layout."""
+
+    return repo_asset_root()
+
+
 async def initialize_pantheon(
     config: PantheonInitialization,
 ) -> PantheonInitializationResult:
@@ -189,6 +196,7 @@ async def initialize_pantheon(
     if not pantheon_start_enabled(config.environment):
         return PantheonInitializationResult()
 
+    asset_root = _runtime_asset_root()
     cost_runtime = await build_cost_runtime_bindings(config.environment)
     _LOGGER.info(
         "cost_governance_runtime_binding",
@@ -226,7 +234,7 @@ async def initialize_pantheon(
         if resolved_models is None:
             raise RuntimeError("Azure post-turn review requires resolved model configuration")
         post_turn_models = build_azure_post_turn_models(
-            repo_root=Path(__file__).resolve().parents[5],
+            repo_root=asset_root,
             resolved_models=resolved_models,
             held_capabilities=config.container.held_model_capabilities,
             endpoint=config.environment["FDAI_LLM_ENDPOINT"],
@@ -429,9 +437,7 @@ async def initialize_pantheon(
         prospective_lineage_materializer=prospective_lineage_materializer,
         capacity_graduation_controller=CapacityGraduationController(
             load_capacity_graduation_policy(
-                Path(__file__).resolve().parents[5]
-                / "rule-catalog"
-                / "capacity-graduation-policy.yaml"
+                asset_root / "rule-catalog" / "capacity-graduation-policy.yaml"
             )
         ),
         rule_generation_workers=(
@@ -479,8 +485,8 @@ async def initialize_pantheon(
             control_loop=config.control_loop,
             http_client=config.http_client,
             environment=config.environment,
-            catalog_root=Path(__file__).resolve().parents[5] / "rule-catalog",
-            policies_root=Path(__file__).resolve().parents[5] / "policies",
+            catalog_root=asset_root / "rule-catalog",
+            policies_root=asset_root / "policies",
         ),
         case_history_analyzer=(
             case_history_runtime.analyzer if case_history_runtime is not None else None
