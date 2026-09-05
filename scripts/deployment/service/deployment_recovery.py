@@ -266,6 +266,46 @@ def _health_state_is_accepted(app: dict[str, Any], revision_properties: dict[str
     )
 
 
+def select_rollback_baseline(
+    *,
+    app: dict[str, Any],
+    current_revision: dict[str, Any],
+    ready_revision: dict[str, Any],
+) -> str:
+    """Select the current healthy revision or Azure's exact last-ready fallback."""
+
+    properties = app.get("properties")
+    if not isinstance(properties, dict):
+        raise DeploymentRecoveryError("Container App properties are missing")
+    latest_name = properties.get("latestRevisionName")
+    ready_name = properties.get("latestReadyRevisionName")
+    if not isinstance(latest_name, str) or current_revision.get("name") != latest_name:
+        raise DeploymentRecoveryError("current revision does not match the Container App")
+    current_properties = current_revision.get("properties")
+    if not isinstance(current_properties, dict):
+        raise DeploymentRecoveryError("current revision properties are missing")
+    if (
+        current_properties.get("provisioningState") == "Provisioned"
+        and current_properties.get("active") is True
+        and _health_state_is_accepted(app, current_properties)
+    ):
+        return latest_name
+    if (
+        not isinstance(ready_name, str)
+        or ready_name == latest_name
+        or ready_revision.get("name") != ready_name
+    ):
+        raise DeploymentRecoveryError("no distinct last-ready rollback revision is available")
+    ready_properties = ready_revision.get("properties")
+    if (
+        not isinstance(ready_properties, dict)
+        or ready_properties.get("provisioningState") != "Provisioned"
+        or ready_properties.get("healthState") != "Healthy"
+    ):
+        raise DeploymentRecoveryError("last-ready rollback revision is not healthy")
+    return ready_name
+
+
 def _key_vault_secrets(app: dict[str, Any]) -> list[dict[str, str]]:
     properties = app.get("properties")
     configuration = properties.get("configuration") if isinstance(properties, dict) else None
@@ -393,18 +433,38 @@ def capture_snapshot(
     if str(app.get("id", "")).lower() != expected_id.lower():
         raise DeploymentRecoveryError("rollback snapshot resource id does not match sealed context")
     properties = app.get("properties")
-    previous_revision = (
-        properties.get("latestRevisionName") if isinstance(properties, dict) else None
+    latest_revision = properties.get("latestRevisionName") if isinstance(properties, dict) else None
+    latest_ready_revision = (
+        properties.get("latestReadyRevisionName") if isinstance(properties, dict) else None
     )
-    if not isinstance(previous_revision, str) or revision.get("name") != previous_revision:
-        raise DeploymentRecoveryError("rollback snapshot revision is not the current revision")
+    previous_revision = revision.get("name")
+    current_revision = isinstance(latest_revision, str) and previous_revision == latest_revision
+    last_ready_revision = (
+        isinstance(latest_ready_revision, str)
+        and latest_ready_revision != latest_revision
+        and previous_revision == latest_ready_revision
+    )
+    if not current_revision and not last_ready_revision:
+        raise DeploymentRecoveryError(
+            "rollback snapshot revision is neither current nor the distinct last-ready revision"
+        )
     revision_properties = revision.get("properties")
-    if (
-        not isinstance(revision_properties, dict)
-        or revision_properties.get("provisioningState") != "Provisioned"
-        or revision_properties.get("active") is not True
-        or not _health_state_is_accepted(app, revision_properties)
-    ):
+    invalid_current_revision = not isinstance(revision_properties, dict) or (
+        current_revision
+        and (
+            revision_properties.get("provisioningState") != "Provisioned"
+            or revision_properties.get("active") is not True
+            or not _health_state_is_accepted(app, revision_properties)
+        )
+    )
+    invalid_last_ready_revision = not isinstance(revision_properties, dict) or (
+        last_ready_revision
+        and (
+            revision_properties.get("provisioningState") != "Provisioned"
+            or revision_properties.get("healthState") != "Healthy"
+        )
+    )
+    if invalid_current_revision or invalid_last_ready_revision:
         raise DeploymentRecoveryError("rollback snapshot revision is not healthy and active")
     service = _required(context, "service", label="service")
     allow_legacy_sidecar_probes = context.get("deployment_mode") == "initial-cutover"
@@ -541,6 +601,10 @@ def main() -> int:
     verify.add_argument("--previous-revision", required=True)
     capture.add_argument("--rollback-contract", type=Path, required=True)
     capture.add_argument("--output", type=Path, required=True)
+    select_baseline = commands.add_parser("select-baseline")
+    select_baseline.add_argument("--app", type=Path, required=True)
+    select_baseline.add_argument("--current-revision", type=Path, required=True)
+    select_baseline.add_argument("--ready-revision", type=Path, required=True)
     rollback = commands.add_parser("rollback-command")
     rollback.add_argument("--snapshot", type=Path, required=True)
     rollback.add_argument("--revision-suffix", required=True)
@@ -569,6 +633,14 @@ def main() -> int:
                 rollback_contract=_object(args.rollback_contract),
             )
             args.output.write_text(json.dumps(snapshot, sort_keys=True) + "\n", encoding="utf-8")
+        elif args.command == "select-baseline":
+            print(
+                select_rollback_baseline(
+                    app=_object(args.app),
+                    current_revision=_object(args.current_revision),
+                    ready_revision=_object(args.ready_revision),
+                )
+            )
         elif args.command == "rollback-command":
             values = rollback_command(_object(args.snapshot), revision_suffix=args.revision_suffix)
             sys.stdout.buffer.write("\0".join(values).encode() + b"\0")

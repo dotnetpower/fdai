@@ -985,13 +985,39 @@ jobs:
             --ids "$resource_id" \
             --only-show-errors \
             --output json >"$rollback_dir/app.json"
-          previous_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app.json")"
+          current_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app.json")"
+          ready_revision="$(jq -er '.properties.latestReadyRevisionName' "$rollback_dir/app.json")"
           timeout 60s az containerapp revision show \
             --resource-group "$resource_group" \
             --name "$service_name" \
-            --revision "$previous_revision" \
+            --revision "$current_revision" \
             --only-show-errors \
-            --output json >"$rollback_dir/revision.json"
+            --output json >"$rollback_dir/current-revision.json"
+          if [[ "$ready_revision" == "$current_revision" ]]; then
+            cp "$rollback_dir/current-revision.json" "$rollback_dir/ready-revision.json"
+          else
+            timeout 60s az containerapp revision show \
+              --resource-group "$resource_group" \
+              --name "$service_name" \
+              --revision "$ready_revision" \
+              --only-show-errors \
+              --output json >"$rollback_dir/ready-revision.json"
+          fi
+          rollback_revision="$(
+            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
+              select-baseline \
+              --app "$rollback_dir/app.json" \
+              --current-revision "$rollback_dir/current-revision.json" \
+              --ready-revision "$rollback_dir/ready-revision.json"
+          )"
+          if [[ "$rollback_revision" == "$current_revision" ]]; then
+            cp "$rollback_dir/current-revision.json" "$rollback_dir/revision.json"
+          elif [[ "$rollback_revision" == "$ready_revision" ]]; then
+            cp "$rollback_dir/ready-revision.json" "$rollback_dir/revision.json"
+          else
+            echo "selected rollback revision does not match the observed candidates." >&2
+            exit 1
+          fi
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" capture \
             --context "$bundle/service-context.json" \
             --account "$rollback_dir/account.json" \
@@ -999,7 +1025,7 @@ jobs:
             --revision "$rollback_dir/revision.json" \
             --rollback-contract "$rollback_dir/rollback-contract.json" \
             --output "$rollback_dir/snapshot.json"
-          echo "PREVIOUS_REVISION=$previous_revision" >> "$GITHUB_ENV"
+          echo "PREVIOUS_REVISION=$current_revision" >> "$GITHUB_ENV"
           edge_resource_id="$(jq -r '.operator_channel_edge.service_resource_id // ""' \
             "$bundle/service-context.json")"
           if [[ -n "$edge_resource_id" ]]; then

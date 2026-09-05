@@ -934,7 +934,7 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     )
     assert "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" not in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
-    assert "max_inactive_revisions       = 1" in _SERVICE_CONTAINER_APP
+    assert "max_inactive_revisions       = 2" in _SERVICE_CONTAINER_APP
 
 
 def test_core_startup_probe_uses_the_operational_event_bus() -> None:
@@ -972,6 +972,16 @@ def test_service_deploy_bootstraps_service_migrations() -> None:
     assert "Upload service migration adoption evidence" in _WORKFLOW
     assert "service-migration-adoption-${{ inputs.service }}" in _WORKFLOW
     assert "if-no-files-found: ignore" in _WORKFLOW
+
+
+def test_service_apply_selects_current_or_exact_last_ready_rollback_baseline() -> None:
+    assert "select-baseline" in _WORKFLOW
+    assert "properties.latestReadyRevisionName" in _WORKFLOW
+    assert '--current-revision "$rollback_dir/current-revision.json"' in _WORKFLOW
+    assert '--ready-revision "$rollback_dir/ready-revision.json"' in _WORKFLOW
+    assert "selected rollback revision does not match the observed candidates" in _WORKFLOW
+    assert 'echo "PREVIOUS_REVISION=$current_revision"' in _WORKFLOW
+    assert 'echo "PREVIOUS_REVISION=$rollback_revision"' not in _WORKFLOW
     assert "retention-days: 90" in _WORKFLOW
     assert "-destroy" not in _WORKFLOW
     assert "az containerapp secret set" in _WORKFLOW
