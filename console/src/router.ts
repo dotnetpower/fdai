@@ -4,7 +4,6 @@ const ROUTE_EVENT = "fdai:route-changed";
 
 export const PANEL_PATHS: Readonly<Record<string, string>> = {
   dashboard: "/overview",
-  "dashboard-v2": "/dashboard-v2",
   live: "/live",
   incidents: "/incidents",
   agents: "/agents",

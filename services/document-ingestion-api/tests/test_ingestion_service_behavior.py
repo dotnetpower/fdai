@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -50,7 +50,15 @@ from fdai_ingestion_api_service.auth import Authenticator, GroupMapping
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.download import GovernedDocumentDownload
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
-from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
+from fdai_ingestion_api_service.ingestion import (
+    CreateUploadRequest,
+    DocumentIngestionService,
+    DocumentLifecyclePolicy,
+    TemporaryDocumentQuota,
+    TemporaryDocumentQuotaExceededError,
+    TemporaryDocumentUsage,
+)
+from fdai_ingestion_api_service.retention import DocumentRetentionReconciler
 from fdai_ingestion_api_service.state_machine import (
     InvalidDocumentTransitionError as InvalidApiTransitionError,
 )
@@ -60,10 +68,16 @@ from fdai_service_contracts import (
     AUDIT_GENESIS_HASH,
     AccessDescriptor,
     DocumentDeletionRequest,
+    DocumentDisposition,
     DocumentEnvelope,
+    DocumentIndexState,
     DocumentLifecycleConflictError,
     DocumentLifecycleEvent,
+    DocumentNotFoundError,
+    DocumentPurgeVerificationReceipt,
     DocumentPurpose,
+    DocumentRetentionState,
+    DocumentScopeKind,
     DocumentState,
     DocumentVersion,
     DocumentWorkerAuditEvent,
@@ -157,13 +171,19 @@ class MemoryMetadata:
             self.events.append(event)
 
     async def get_upload(self, upload_id: UUID) -> UploadSession:
-        return self.uploads[upload_id]
+        try:
+            return self.uploads[upload_id]
+        except KeyError as exc:
+            raise DocumentNotFoundError("upload was not found") from exc
 
     async def save_upload(self, session: UploadSession) -> None:
         self.uploads[session.upload_id] = session
 
     async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
-        return self.versions[(document_id, version_id)]
+        try:
+            return self.versions[(document_id, version_id)]
+        except KeyError as exc:
+            raise DocumentNotFoundError("document version was not found") from exc
 
     async def save_version(self, version: DocumentVersion) -> None:
         self.versions[(version.document_id, version.version_id)] = version
@@ -268,6 +288,83 @@ class MemoryMetadata:
 
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
         return tuple(value for value in self.uploads.values() if value.state.value == state)[:limit]
+
+    async def temporary_usage(self, actor_id: str) -> TemporaryDocumentUsage:
+        active = tuple(
+            upload
+            for upload in self.uploads.values()
+            if upload.actor_id == actor_id
+            and upload.disposition
+            in {
+                DocumentDisposition.SESSION_EPHEMERAL,
+                DocumentDisposition.WORKSPACE_DRAFT,
+            }
+            and upload.state not in {DocumentState.DELETING, DocumentState.DELETED}
+        )
+        return TemporaryDocumentUsage(
+            documents=len(active),
+            bytes=sum(upload.expected_size for upload in active),
+        )
+
+    async def create_with_temporary_quota(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        max_documents: int,
+        max_bytes: int,
+    ) -> None:
+        usage = await self.temporary_usage(session.actor_id)
+        if usage.documents >= max_documents:
+            raise TemporaryDocumentQuotaExceededError("active temporary document quota exceeded")
+        if usage.bytes + session.expected_size > max_bytes:
+            raise TemporaryDocumentQuotaExceededError("active temporary byte quota exceeded")
+        await self.create(session, version)
+
+    async def list_due_temporary_versions(
+        self, *, now: datetime, limit: int
+    ) -> tuple[DocumentVersion, ...]:
+        candidates = []
+        for version in self.versions.values():
+            deadlines = tuple(
+                deadline
+                for deadline in (
+                    version.retention.source_expires_at,
+                    version.retention.derived_expires_at,
+                )
+                if deadline is not None
+            )
+            if (
+                version.disposition
+                in {
+                    DocumentDisposition.SESSION_EPHEMERAL,
+                    DocumentDisposition.WORKSPACE_DRAFT,
+                }
+                and version.state not in {DocumentState.DELETING, DocumentState.DELETED}
+                and not version.retention.legal_hold
+                and version.retention_state
+                in {DocumentRetentionState.LIVE, DocumentRetentionState.EXPIRING}
+                and deadlines
+                and min(deadlines) <= now
+            ):
+                candidates.append(version)
+        return tuple(
+            sorted(
+                candidates,
+                key=lambda version: (
+                    min(
+                        deadline
+                        for deadline in (
+                            version.retention.source_expires_at,
+                            version.retention.derived_expires_at,
+                        )
+                        if deadline is not None
+                    ),
+                    version.created_at,
+                    version.version_id,
+                ),
+            )[:limit]
+        )
 
     async def list_uploads_by_state_after(
         self,
@@ -715,7 +812,30 @@ def _effect_worker(metadata: MemoryMetadata, objects: MemoryObjects) -> Document
         extractor=object(),  # type: ignore[arg-type]
         artifacts=DeleteRecorder(),
         index=DeleteRecorder(),
+        purge_verifier=ZeroResidueVerifier(),
     )
+
+
+class ZeroResidueVerifier:
+    async def verify(
+        self,
+        *,
+        document_id: UUID,
+        version_id: UUID,
+        source_object_keys: Sequence[str],
+    ) -> DocumentPurgeVerificationReceipt:
+        del source_object_keys
+        return DocumentPurgeVerificationReceipt(
+            document_id=document_id,
+            version_id=version_id,
+            live_index_rows=0,
+            derivative_objects=0,
+            source_objects=0,
+            cache_entries=0,
+            legal_hold_blocked=False,
+            backup_blocked=False,
+            verified_at=datetime.now(UTC),
+        )
 
 
 @pytest.mark.asyncio
@@ -768,10 +888,13 @@ async def test_promotion_reconciliation_deletes_only_unowned_stale_target() -> N
 
 
 @pytest.mark.asyncio
-async def test_restart_reconciles_ephemeral_cleanup_after_terminal_state() -> None:
+@pytest.mark.parametrize("state", [DocumentState.READY, DocumentState.FAILED])
+async def test_restart_reconciles_ephemeral_cleanup_after_terminal_state(
+    state: DocumentState,
+) -> None:
     objects = MemoryObjects()
     metadata, session, version = await _effect_fixture(
-        state=DocumentState.READY,
+        state=state,
         storage_mode=SourceStorageMode.EPHEMERAL_PROCESSING,
         object_key="quarantine/ephemeral",
     )
@@ -996,6 +1119,7 @@ async def test_deletion_effect_reconciles_partial_cleanup_and_closes_state() -> 
         extractor=object(),  # type: ignore[arg-type]
         artifacts=artifacts,
         index=index,
+        purge_verifier=ZeroResidueVerifier(),
     )
     request = DocumentDeletionRequest(
         request_id=uuid4(),
@@ -1572,6 +1696,7 @@ async def test_completed_deletion_redelivery_completes_claim_and_commits_offset(
         extractor=object(),  # type: ignore[arg-type]
         artifacts=artifacts,
         index=index,
+        purge_verifier=ZeroResidueVerifier(),
     )
     initial_claim = await metadata.claim_worker_stage(
         session.upload_id,
@@ -1713,6 +1838,253 @@ class SimpleWorker:
 class NoDeletion:
     async def delete(self, **_kwargs: object) -> DocumentVersion:
         raise AssertionError("delete is not expected")
+
+    async def expire(self, **_kwargs: object) -> DocumentVersion:
+        raise AssertionError("expiry is not expected")
+
+
+def _lifecycle_service(
+    metadata: MemoryMetadata,
+    objects: MemoryObjects,
+    *,
+    now: datetime,
+    quota: TemporaryDocumentQuota | None = None,
+) -> DocumentIngestionService:
+    return DocumentIngestionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=metadata,
+        objects=objects,
+        capabilities=IngestionCapabilities(
+            supported_formats=("text",),
+            storage_modes=(SourceStorageMode.MANAGED_COPY,),
+            max_file_size=1024,
+            max_batch_count=10,
+            archives_enabled=False,
+            policy_versions=("test",),
+        ),
+        clock=lambda: now,
+        lifecycle_policy=DocumentLifecyclePolicy(
+            session_ephemeral_duration=timedelta(hours=2),
+            workspace_draft_duration=timedelta(days=7),
+        ),
+        temporary_quota=quota,
+    )
+
+
+def _temporary_request(
+    *,
+    disposition: DocumentDisposition = DocumentDisposition.SESSION_EPHEMERAL,
+    scope_kind: DocumentScopeKind = DocumentScopeKind.CONVERSATION,
+    scope_ref: str = "conversation-1",
+    content: bytes = b"hello",
+) -> CreateUploadRequest:
+    return CreateUploadRequest(
+        source_name="note.txt",
+        collection_id="shared",
+        media_type_hint="text/plain",
+        expected_size=len(content),
+        expected_sha256=hashlib.sha256(content).hexdigest(),
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        access_descriptor_ref="collection:shared",
+        reader_groups=(),
+        retention_policy_version="test",
+        disposition=disposition,
+        scope_kind=scope_kind,
+        scope_ref=scope_ref,
+    )
+
+
+@pytest.mark.asyncio
+async def test_temporary_scope_and_server_owned_retention_are_enforced() -> None:
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    service = _lifecycle_service(metadata, MemoryObjects(), now=now)
+
+    session, _grant = await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(),
+    )
+
+    assert session.scope_kind is DocumentScopeKind.CONVERSATION
+    assert session.retention.source_expires_at == now + timedelta(hours=2)
+    assert session.retention.derived_expires_at == now + timedelta(hours=2)
+    draft, _grant = await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(
+            disposition=DocumentDisposition.WORKSPACE_DRAFT,
+            scope_kind=DocumentScopeKind.WORKSPACE,
+            scope_ref="workspace-1",
+        ),
+    )
+    assert draft.retention.source_expires_at == now + timedelta(days=7)
+    with pytest.raises(ValueError, match="conversation scope"):
+        await service.create_upload(
+            actor_id="operator",
+            actor_groups=frozenset({"role:Contributor"}),
+            request=_temporary_request(
+                scope_kind=DocumentScopeKind.WORKSPACE,
+                scope_ref="workspace-1",
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_temporary_quota_counts_active_documents_and_reserved_bytes() -> None:
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    service = _lifecycle_service(
+        metadata,
+        MemoryObjects(),
+        now=now,
+        quota=TemporaryDocumentQuota(max_documents=2, max_bytes=9),
+    )
+
+    await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(content=b"12345"),
+    )
+    with pytest.raises(TemporaryDocumentQuotaExceededError, match="byte quota"):
+        await service.create_upload(
+            actor_id="operator",
+            actor_groups=frozenset({"role:Contributor"}),
+            request=_temporary_request(
+                scope_ref="conversation-2",
+                content=b"67890",
+            ),
+        )
+    await service.create_upload(
+        actor_id="other-operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(scope_ref="conversation-3", content=b"67890"),
+    )
+    assert await metadata.temporary_usage("operator") == TemporaryDocumentUsage(
+        documents=1,
+        bytes=5,
+    )
+
+
+@pytest.mark.asyncio
+async def test_promotion_copies_into_replay_stable_governed_upload_without_mutation() -> None:
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    service = _lifecycle_service(metadata, objects, now=now)
+    source_session, _grant = await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(),
+    )
+    await service.put_local_content(
+        actor_id="operator",
+        upload_id=source_session.upload_id,
+        content=b"hello",
+    )
+    await service.complete_upload(actor_id="operator", upload_id=source_session.upload_id)
+    source_version_key = (source_session.document_id, source_session.version_id)
+    source_version = metadata.versions[source_version_key].model_copy(
+        update={
+            "state": DocumentState.READY,
+            "active": True,
+            "available": True,
+            "index_state": DocumentIndexState.ACTIVE,
+        }
+    )
+    metadata.versions[source_version_key] = source_version
+    metadata.uploads[source_session.upload_id] = metadata.uploads[
+        source_session.upload_id
+    ].model_copy(update={"state": DocumentState.READY})
+    original = source_version.model_dump()
+
+    promoted = await service.promote_version(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        document_id=source_version.document_id,
+        version_id=source_version.version_id,
+        collection_id="shared",
+        access_descriptor_ref="collection:shared",
+        reader_groups=(),
+    )
+    event_count = len(metadata.events)
+    replay = await service.promote_version(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        document_id=source_version.document_id,
+        version_id=source_version.version_id,
+        collection_id="shared",
+        access_descriptor_ref="collection:shared",
+        reader_groups=(),
+    )
+
+    promoted_version = metadata.versions[(promoted.document_id, promoted.version_id)]
+    assert replay.upload_id == promoted.upload_id
+    assert len(metadata.events) == event_count
+    assert promoted.document_id != source_version.document_id
+    assert promoted_version.disposition is DocumentDisposition.GOVERNED_KNOWLEDGE
+    assert promoted_version.scope_kind is DocumentScopeKind.COLLECTION
+    assert promoted_version.promoted_from_version_id == source_version.version_id
+    assert metadata.versions[source_version_key].model_dump() == original
+    assert objects.content[source_session.object_key] == b"hello"
+    assert objects.content[promoted.object_key] == b"hello"
+
+
+@pytest.mark.asyncio
+async def test_retention_reconciliation_skips_hold_and_replays_expiry_once() -> None:
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    service = _lifecycle_service(metadata, MemoryObjects(), now=now - timedelta(hours=3))
+    due_session, _grant = await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(scope_ref="conversation-due"),
+    )
+    held_session, _grant = await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_temporary_request(scope_ref="conversation-held"),
+    )
+    due_key = (due_session.document_id, due_session.version_id)
+    held_key = (held_session.document_id, held_session.version_id)
+    metadata.versions[held_key] = metadata.versions[held_key].model_copy(
+        update={
+            "retention": metadata.versions[held_key].retention.model_copy(
+                update={"legal_hold": True}
+            )
+        }
+    )
+    deletion = ApiDocumentDeletionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=metadata,
+        clock=lambda: now,
+    )
+    reconciler = DocumentRetentionReconciler(
+        metadata=metadata,
+        deletion=deletion,
+        batch_limit=10,
+        clock=lambda: now,
+    )
+
+    assert await reconciler.run_once() == 1
+    expired = metadata.versions[due_key]
+    assert expired.state is DocumentState.DELETING
+    assert expired.index_state is DocumentIndexState.TOMBSTONED
+    assert expired.retention_state is DocumentRetentionState.TOMBSTONED
+    request = DocumentDeletionRequest.model_validate(
+        metadata.events[-1].payload["deletion_request"]
+    )
+    assert request.requested_by == "retention-reconciler"
+    event_count = len(metadata.events)
+    replay = await deletion.expire(
+        document_id=expired.document_id,
+        version_id=expired.version_id,
+    )
+    assert replay.revision == expired.revision
+    assert len(metadata.events) == event_count
+    assert metadata.versions[held_key].state is DocumentState.UPLOADING
+    assert await reconciler.run_once() == 0
 
 
 @pytest.mark.asyncio
@@ -1941,6 +2313,7 @@ async def test_api_cancel_hands_deletion_completion_to_worker() -> None:
         extractor=object(),  # type: ignore[arg-type]
         artifacts=DeleteRecorder(),
         index=DeleteRecorder(),
+        purge_verifier=ZeroResidueVerifier(),
     )
 
     claim = await metadata.claim_worker_stage(
@@ -2024,6 +2397,7 @@ async def test_worker_rejects_stale_request_and_claim_before_any_external_delete
         extractor=object(),  # type: ignore[arg-type]
         artifacts=artifacts,
         index=index,
+        purge_verifier=ZeroResidueVerifier(),
     )
     stale = DocumentDeletionRequest(
         request_id=uuid4(),
@@ -2147,6 +2521,19 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         assert listed.json()["items"][0]["preview_available"] is False
         assert listed.json()["items"][0]["download_available"] is False
         assert listed.json()["items"][0]["delete_available"] is True
+        expected_lifecycle = {
+            "disposition": "governed_knowledge",
+            "scope_kind": "collection",
+            "scope_ref": "shared",
+            "source_expires_at": None,
+            "derived_expires_at": None,
+            "retention_state": "live",
+            "index_state": "not_requested",
+            "promotable": False,
+        }
+        assert {
+            key: listed.json()["items"][0][key] for key in expected_lifecycle
+        } == expected_lifecycle
         assert not {
             "source_sha256",
             "uploader_id",
@@ -2180,6 +2567,100 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         "document.received",
         "document.source_download_requested",
     ]
+
+
+def test_http_accepts_lifecycle_scope_promotes_and_rejects_client_expiry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_INGESTION_GATEWAY_DEV_MODE", "1")
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    service = _lifecycle_service(metadata, objects, now=now)
+    app = build_app(
+        authenticator=Authenticator(
+            verifier=lambda _token: {"oid": "operator", "roles": ["Contributor"]},
+            mapping=GroupMapping("r", "c", "a", "o", "b"),
+        ),
+        service=service,
+        deletion=ApiDocumentDeletionService(
+            access=ClaimsDocumentAccessProvider(),
+            metadata=metadata,
+            clock=lambda: now,
+        ),
+        config=IngestionGatewayConfig(dev_mode=True, direct_upload=True),
+    )
+    content = b"hello"
+    body = {
+        "source_name": "note.txt",
+        "collection_id": "shared",
+        "media_type_hint": "text/plain",
+        "expected_size": len(content),
+        "expected_sha256": hashlib.sha256(content).hexdigest(),
+        "storage_mode": "managed_copy",
+        "purposes": ["knowledge_base"],
+        "access_descriptor_ref": "collection:shared",
+        "reader_groups": [],
+        "retention_policy_version": "test",
+        "disposition": "session_ephemeral",
+        "scope_kind": "conversation",
+        "scope_ref": "conversation-1",
+    }
+    with TestClient(app) as client:
+        malformed = client.post(
+            "/ingestion/uploads",
+            json={**body, "source_expires_at": now.isoformat()},
+        )
+        assert malformed.status_code == 400
+        assert "unknown fields: source_expires_at" in malformed.json()["message"]
+
+        created = client.post("/ingestion/uploads", json=body)
+        assert created.status_code == 201
+        source = created.json()["session"]
+        assert source["disposition"] == "session_ephemeral"
+        assert source["scope_kind"] == "conversation"
+        assert datetime.fromisoformat(source["retention"]["source_expires_at"]) == (
+            now + timedelta(hours=2)
+        )
+        assert (
+            client.put(
+                f"/ingestion/uploads/{source['upload_id']}/content",
+                content=content,
+            ).status_code
+            == 204
+        )
+        assert client.post(f"/ingestion/uploads/{source['upload_id']}/complete").status_code == 202
+        source_key = (UUID(source["document_id"]), UUID(source["version_id"]))
+        metadata.versions[source_key] = metadata.versions[source_key].model_copy(
+            update={
+                "state": DocumentState.READY,
+                "active": True,
+                "available": True,
+                "index_state": DocumentIndexState.ACTIVE,
+            }
+        )
+        metadata.uploads[UUID(source["upload_id"])] = metadata.uploads[
+            UUID(source["upload_id"])
+        ].model_copy(update={"state": DocumentState.READY})
+        listed = client.get("/documents", params={"collection_id": "shared"})
+        summary = next(
+            item for item in listed.json()["items"] if item["version_id"] == source["version_id"]
+        )
+        assert summary["disposition"] == "session_ephemeral"
+        assert summary["scope_kind"] == "conversation"
+        assert summary["scope_ref"] == "conversation-1"
+        assert summary["source_expires_at"] is not None
+        assert summary["derived_expires_at"] is not None
+        assert summary["retention_state"] == "live"
+        assert summary["index_state"] == "active"
+        assert summary["promotable"] is True
+
+        path = f"/documents/{source['document_id']}/versions/{source['version_id']}/promote"
+        promoted = client.post(path, json={"collection_id": "shared"})
+        replay = client.post(path, json={"collection_id": "shared"})
+        assert promoted.status_code == replay.status_code == 202
+        assert promoted.json()["upload_id"] == replay.json()["upload_id"]
+        assert promoted.json()["disposition"] == "governed_knowledge"
 
 
 def _ingestion_health_app(config: IngestionGatewayConfig) -> Starlette:

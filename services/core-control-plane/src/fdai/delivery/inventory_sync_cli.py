@@ -9,19 +9,12 @@ import ssl
 import sys
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from datetime import UTC, datetime
 
 import httpx
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
-from fdai.delivery import inventory_collection_health_reporting
-from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
-from fdai.delivery.azure.arm_inventory import (
-    AzureArmInventoryFactory,
-    AzureArmInventoryFactoryConfig,
-)
-from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
+from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
 from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
 )
@@ -42,7 +35,6 @@ from fdai.delivery.inventory_change_acceleration import workload_identity as _wo
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
-    verify_declarative_sha256,
 )
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
@@ -64,7 +56,6 @@ from fdai.delivery.kubernetes_inventory import (
     SequentialInventoryPromotionEnricher,
     UnavailableKubernetesInventoryEnricher,
 )
-from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
@@ -84,10 +75,6 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
-)
-from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
-    PostgresKubernetesLifecycleConfig,
-    PostgresKubernetesLifecycleStore,
 )
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
@@ -117,17 +104,7 @@ from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjector,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
-from fdai.shared.providers.declarative_inventory import (
-    DeclarativeInventory,
-    DeclarativeInventoryConfig,
-)
-from fdai.shared.providers.inventory import Inventory
-from fdai.shared.providers.inventory_snapshot import (
-    InventoryCoverageManifest,
-    InventoryObservationKind,
-    InventorySource,
-    InventorySourcesExhaustedError,
-)
+from fdai.shared.providers.inventory_snapshot import InventorySourcesExhaustedError
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = repo_asset_root()
@@ -197,137 +174,8 @@ async def _build_kubernetes_enricher(
     )
 
 
-def _resolve_resource_types(
-    config: InventoryJobConfig,
-    vocabulary: ResourceTypeRegistry,
-) -> tuple[str, ...]:
-    resource_types = config.resource_types or tuple(
-        item.id for item in vocabulary if item.azure_arm_type is not None
-    )
-    unknown_types = sorted(set(resource_types) - vocabulary.ids())
-    if unknown_types:
-        raise ValueError(f"unknown inventory resource types: {', '.join(unknown_types)}")
-    if "resource-group" not in resource_types:
-        resource_types = ("resource-group", *resource_types)
-    return resource_types
-
-
-def _build_sources(
-    *,
-    config: InventoryJobConfig,
-    vocabulary: ResourceTypeRegistry,
-    resource_types: tuple[str, ...],
-    identity: WorkloadIdentity,
-    http_client: httpx.AsyncClient,
-    started_at: datetime,
-) -> tuple[InventorySource, ...]:
-    """Build ordered provider sources without granting any source promotion authority."""
-    sources: list[InventorySource] = []
-    for source_priority, source_name in enumerate(config.source_order):
-        observation_kind = InventoryObservationKind.OBSERVED
-        link_types: tuple[str, ...] = (
-            "contains",
-            "attached_to",
-            "depends_on",
-            "peered_with",
-            "routes_to",
-        )
-        inventory: Inventory
-        if source_name == "arg":
-            full_provider_scope = not config.resource_types
-            query_factory = AzureArgQueryFactory(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureArgQueryFactoryConfig(
-                    subscription_scopes=config.scopes,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                    requests_per_second=config.arg_requests_per_second,
-                ),
-            )
-            query = AzureArmInventoryFactory(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureArmInventoryFactoryConfig(
-                    subscription_scopes=config.scopes,
-                    arm_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                ),
-            ).build_child_overlay_query_fn(query_factory.build_query_fn())
-            inventory = AzureResourceGraphInventory(
-                config=AzureInventoryConfig(
-                    resource_types=resource_types,
-                    subscription_scopes=config.scopes,
-                ),
-                query=query,
-                scope_coverage=(
-                    query_factory.build_scope_coverage_fn() if full_provider_scope else None
-                ),
-                unmapped_resources=(
-                    query_factory.build_unmapped_resource_query_fn()
-                    if full_provider_scope
-                    else None
-                ),
-                generation_relationships=query_factory.build_generation_relationship_fn(),
-            )
-        elif source_name == "arm":
-            link_types = ("contains",)
-            query = AzureArmInventoryFactory(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureArmInventoryFactoryConfig(
-                    subscription_scopes=config.scopes,
-                    arm_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                ),
-            ).build_query_fn()
-            inventory = AzureResourceGraphInventory(
-                config=AzureInventoryConfig(
-                    resource_types=resource_types,
-                    subscription_scopes=config.scopes,
-                ),
-                query=query,
-            )
-        else:
-            if config.declarative_path is None or config.declarative_sha256 is None:
-                raise ValueError("declarative fallback is missing its signed fixture")
-            verify_declarative_sha256(config.declarative_path, config.declarative_sha256)
-            inventory = DeclarativeInventory(
-                DeclarativeInventoryConfig(
-                    fixture_path=config.declarative_path,
-                    known_resource_types=frozenset(vocabulary.ids()),
-                    known_link_types=frozenset(
-                        {"contains", "attached_to", "depends_on", "peered_with", "routes_to"}
-                    ),
-                )
-            )
-            observation_kind = InventoryObservationKind.EXPECTED
-        sources.append(
-            InventorySource(
-                name=source_name,
-                inventory=inventory,
-                manifest=InventoryCoverageManifest(
-                    source=source_name,
-                    scopes=config.scopes,
-                    resource_types=resource_types,
-                    observation_kind=observation_kind,
-                    started_at=started_at,
-                    metadata={
-                        "source_priority": source_priority,
-                        "link_types": link_types,
-                        "coverage_scope": (
-                            "full_provider_scope"
-                            if source_name == "arg" and not config.resource_types
-                            else "requested_resource_types"
-                        ),
-                    },
-                ),
-            )
-        )
-    return tuple(sources)
+_resolve_resource_types = inventory_sync_cli_support.resolve_resource_types
+_build_sources = inventory_sync_cli_support.build_sources
 
 
 def _build_ontology_observer(
@@ -597,71 +445,11 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
 
 async def _collect_kubernetes_lifecycle(config: InventoryJobConfig) -> int | None:
     """Collect one leased watch window independently of inventory snapshot due state."""
-
-    if (
-        config.kubernetes_api_server is None
-        or config.kubernetes_cluster_ref is None
-        or config.kubernetes_auth_mode is None
-        or (config.kubernetes_ca_path is None and config.kubernetes_ca_pem is None)
-    ):
-        return 0
-    now = datetime.now(UTC)
-    holder = f"inventory-lifecycle:{uuid4()}"
-    store = PostgresKubernetesLifecycleStore(
-        config=PostgresKubernetesLifecycleConfig(dsn=config.dsn)
+    return await inventory_sync_cli_support.collect_kubernetes_lifecycle(
+        config,
+        logger=_LOGGER,
+        workload_identity_factory=_workload_identity,
     )
-    try:
-        cursor = await store.acquire(
-            cluster_ref=config.kubernetes_cluster_ref,
-            holder=holder,
-            now=now,
-            lease_until=now + timedelta(seconds=45),
-        )
-        if cursor is None:
-            return 0
-        kubernetes_ssl = ssl.create_default_context(
-            cafile=str(config.kubernetes_ca_path) if config.kubernetes_ca_path else None,
-            cadata=config.kubernetes_ca_pem,
-        )
-        async with httpx.AsyncClient() as identity_client:
-            identity = _workload_identity(http_client=identity_client)
-            auth: KubernetesApiAuth
-            if config.kubernetes_auth_mode == "workload-identity":
-                if config.kubernetes_audience is None:
-                    raise RuntimeError("Kubernetes lifecycle workload audience is unavailable")
-                auth = WorkloadIdentityKubernetesAuth(
-                    identity=identity,
-                    audience=config.kubernetes_audience,
-                )
-            else:
-                if config.kubernetes_token_path is None:
-                    raise RuntimeError("Kubernetes lifecycle service-account token is unavailable")
-                auth = ServiceAccountTokenAuth(config.kubernetes_token_path)
-            async with httpx.AsyncClient(verify=kubernetes_ssl) as kubernetes_client:
-                batch = await KubernetesLifecycleCollector(
-                    api_server=config.kubernetes_api_server,
-                    cluster_ref=config.kubernetes_cluster_ref,
-                    auth=auth,
-                    http_client=kubernetes_client,
-                ).collect(cursor)
-        if not await store.append(batch, holder=holder, now=datetime.now(UTC)):
-            _LOGGER.warning(
-                "kubernetes_lifecycle_cursor_contended",
-                extra={"reason": "lease_or_sequence_changed"},
-            )
-            return None
-        if batch.limitation is not None:
-            _LOGGER.warning(
-                "kubernetes_lifecycle_collection_incomplete",
-                extra={"reason": batch.limitation},
-            )
-        return len(batch.observations)
-    except Exception as exc:  # noqa: BLE001 - independent read-only evidence source
-        _LOGGER.warning(
-            "kubernetes_lifecycle_collection_failed",
-            extra={"reason": type(exc).__name__},
-        )
-        return None
 
 
 async def _publish_collection_health(

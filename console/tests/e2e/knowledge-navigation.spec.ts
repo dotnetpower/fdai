@@ -50,35 +50,39 @@ test("uploads a document without overriding collection reader policy", async ({ 
   let createAttempts = 0;
   let statusChecks = 0;
   let deleted = false;
+  let promotions = 0;
   await page.context().route("http://127.0.0.1:8011/documents?**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
-        items: deleted ? [] : [{
-          document_id: "document-library-1",
-          version_id: "version-library-1",
-          source_name: "persisted-guide.txt",
-          size_bytes: 17,
-          media_type: "text/plain",
-          observed_format: "text",
-          state: "ready",
-          classification: "unclassified",
-          sensitivity_label: null,
-          protection_state: "none",
-          purposes: ["knowledge_base"],
-          created_at: "2026-09-05T03:00:00Z",
-          updated_at: "2026-09-05T03:01:00Z",
-          active: true,
-          available: true,
-          warnings: [],
-          failure_code: null,
-          index_status: "indexed",
-          preview_available: true,
-          download_available: true,
-          delete_available: true,
-        }],
+        items: deleted ? [] : [
+          documentSummary(),
+          documentSummary({
+            document_id: "document-library-2",
+            version_id: "version-library-2",
+            updated_at: "2026-09-04T03:01:00Z",
+          }),
+          documentSummary({
+            document_id: "document-library-3",
+            version_id: "version-library-3",
+            source_name: "pending-runbook.txt",
+            state: "extracting",
+            index_status: "pending",
+            preview_available: false,
+            download_available: false,
+          }),
+          documentSummary({
+            document_id: "document-library-4",
+            version_id: "version-library-4",
+            source_name: "workspace-draft.txt",
+            disposition: "workspace_draft",
+            scope_kind: "workspace",
+            derived_expires_at: "2026-09-12T03:01:00Z",
+            promotable: true,
+          }),
+        ],
       }),
     });
   });
@@ -114,6 +118,16 @@ test("uploads a document without overriding collection reader policy", async ({ 
           "Content-Disposition": 'attachment; filename="persisted-guide.txt"',
         },
         body: "persistent content",
+      });
+      return;
+    }
+    if (url.pathname.endsWith("/promote") && request.method() === "POST") {
+      promotions += 1;
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify(uploadSession("uploading")),
       });
       return;
     }
@@ -205,16 +219,27 @@ test("uploads a document without overriding collection reader policy", async ({ 
   });
 
   await page.goto("/documents");
-  await expect(page.getByText("persisted-guide.txt")).toBeVisible();
-  await expect(page.getByText("Indexed", { exact: true })).toBeVisible();
+  await expect(page.getByText("persisted-guide.txt").first()).toBeVisible();
+  await expect(page.locator(".document-index-status").filter({ hasText: "Indexed" }).first())
+    .toBeVisible();
   await expect(page.getByRole("button", { name: "runbooks" })).toBeVisible();
+  await expect(page.getByText("4 files from 4 uploads")).toBeVisible();
+  await expect(page.getByText("persisted-guide.txt")).toHaveCount(2);
+  await page.getByRole("searchbox", { name: "Search documents" }).fill("pending");
+  await expect(page.getByText("pending-runbook.txt")).toBeVisible();
+  await expect(page.getByText("persisted-guide.txt")).toHaveCount(0);
+  await page.getByRole("searchbox", { name: "Search documents" }).fill("");
+  await page.getByRole("button", { name: "Add to knowledge" }).click();
+  await expect(page.getByText(/Add this document to governed knowledge/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirm addition" }).click();
+  expect(promotions).toBe(1);
   await page.reload();
-  await expect(page.getByText("persisted-guide.txt")).toBeVisible();
-  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(page.getByText("persisted-guide.txt").first()).toBeVisible();
+  await page.getByRole("button", { name: "Preview" }).first().click();
   await expect(page.getByText("Persistent governed preview")).toBeVisible();
   await page.getByRole("button", { name: "Close" }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Download" }).first().click();
   await expect(download).resolves.toBeTruthy();
   const filePicker = page.getByRole("button", { name: "Choose files" });
   await expect(filePicker).toBeVisible();
@@ -237,7 +262,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await expect(page.getByText(/encrypted or protected document/)).toBeVisible();
   await page.getByRole("button", { name: "Check status" }).click();
 
-  await expect(page.locator(".status-ready")).toHaveText("Ready");
+  await expect(page.locator(".document-upload-row .status-ready")).toHaveText("Ready");
   expect(createAttempts).toBe(2);
   expect(statusChecks).toBe(2);
   expect(createPayload).not.toBeNull();
@@ -245,11 +270,14 @@ test("uploads a document without overriding collection reader policy", async ({ 
   expect(createPayload).toMatchObject({
     collection_id: "shared-knowledge",
     access_descriptor_ref: "collection:shared-knowledge",
+    disposition: "governed_knowledge",
+    scope_kind: "collection",
+    scope_ref: "shared-knowledge",
   });
   await expectNoHorizontalOverflow(page);
 
   await page.setViewportSize({ width: 993, height: 641 });
-  await expect(page.getByText("persisted-guide.txt")).toBeVisible();
+  await expect(page.getByText("persisted-guide.txt").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
   const nameBox = await page.locator(".document-library-name").first().boundingBox();
   const statusBox = await page.locator(".document-library-statuses").first().boundingBox();
@@ -258,16 +286,16 @@ test("uploads a document without overriding collection reader policy", async ({ 
   expect(nameBox!.x + nameBox!.width).toBeLessThanOrEqual(statusBox!.x);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".document-library-row")).toHaveCSS(
+  await expect(page.locator(".document-library-row").first()).toHaveCSS(
     "grid-template-columns",
     /.+ .+/,
   );
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete" }).first().click();
   await expect(page.getByText("Delete this version and its indexed content?")).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
-  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete" }).first().click();
   await page.getByRole("button", { name: "Delete document" }).click();
   await expect(page.getByText("No documents are visible in this collection.")).toBeVisible();
 });
@@ -281,5 +309,40 @@ function uploadSession(state: string, failureCode: string | null = null) {
     state,
     collection_id: "shared-knowledge",
     failure_code: failureCode,
+  };
+}
+
+function documentSummary(overrides: Record<string, unknown> = {}) {
+  return {
+    document_id: "document-library-1",
+    version_id: "version-library-1",
+    source_name: "persisted-guide.txt",
+    size_bytes: 17,
+    media_type: "text/plain",
+    observed_format: "text",
+    state: "ready",
+    classification: "unclassified",
+    sensitivity_label: null,
+    protection_state: "none",
+    purposes: ["knowledge_base"],
+    created_at: "2026-09-05T03:00:00Z",
+    updated_at: "2026-09-05T03:01:00Z",
+    active: true,
+    available: true,
+    warnings: [],
+    failure_code: null,
+    index_status: "indexed",
+    preview_available: true,
+    download_available: true,
+    delete_available: true,
+    disposition: "governed_knowledge",
+    scope_kind: "collection",
+    scope_ref: "shared-knowledge",
+    source_expires_at: null,
+    derived_expires_at: null,
+    retention_state: "live",
+    index_state: "active",
+    promotable: false,
+    ...overrides,
   };
 }

@@ -2937,45 +2937,57 @@ module "ingestion_gateway" {
   chatops_webhook_url_secret_id = (
     var.enable_stewardship_governance ? azurerm_key_vault_secret.chatops_webhook_url[0].id : ""
   )
-  stewardship_maintainers        = var.stewardship_maintainers
-  stewardship_agent_bindings     = var.stewardship_agent_bindings
-  entra_tenant_id                = var.tenant_id
-  api_audience                   = var.operator_api_audience
-  rbac_readers_group_id          = var.rbac_readers_group_id
-  rbac_contributors_group_id     = var.rbac_contributors_group_id
-  rbac_approvers_group_id        = var.rbac_approvers_group_id
-  rbac_owners_group_id           = var.rbac_owners_group_id
-  rbac_break_glass_group_id      = var.rbac_break_glass_group_id
-  cors_allow_origins             = var.ingestion_cors_allow_origins
-  adls_account_name              = module.document_storage[0].name
-  adls_account_url               = module.document_storage[0].primary_dfs_endpoint
-  adls_source_file_system        = module.document_storage[0].source_file_system
-  adls_derived_file_system       = module.document_storage[0].derived_file_system
-  embedding_endpoint             = var.enable_llm ? module.llm_azure_openai[0].endpoint : ""
-  embedding_deployment           = var.enable_llm ? lookup(module.llm_azure_openai[0].deployments, var.ingestion_embedding_capability, "") : ""
-  ocr_endpoint                   = local.document_ocr_effective_endpoint
-  ocr_provider                   = var.document_ocr_provider
-  ocr_operation_timeout_seconds  = var.document_ocr_operation_timeout_seconds
-  kafka_bootstrap_servers        = module.event_bus.kafka_bootstrap
-  document_event_topic           = "fdai.pipeline.stages"
-  runtime_env                    = var.env == "" ? "dev" : var.env
-  max_file_size_bytes            = var.document_max_file_size_bytes
-  max_batch_count                = var.document_max_batch_count
-  chunk_max_chars                = var.document_chunk_max_chars
-  chunk_overlap                  = var.document_chunk_overlap
-  indexing_stage_timeout_seconds = var.document_indexing_stage_timeout_seconds
-  policy_version                 = var.document_policy_version
-  document_collections           = var.document_collections
-  min_replicas                   = var.ingestion_min_replicas
-  max_replicas                   = var.ingestion_max_replicas
-  gateway_cpu                    = var.ingestion_api_cpu
-  gateway_memory                 = var.ingestion_api_memory
-  worker_min_replicas            = var.ingestion_worker_min_replicas
-  worker_max_replicas            = var.ingestion_worker_max_replicas
-  worker_cpu                     = var.ingestion_worker_cpu
-  worker_memory                  = var.ingestion_worker_memory
-  acr_login_server               = module.container_registry.login_server
-  tags                           = merge(local.tags, { "fdai:component" = "document-ingestion" })
+  stewardship_maintainers             = var.stewardship_maintainers
+  stewardship_agent_bindings          = var.stewardship_agent_bindings
+  entra_tenant_id                     = var.tenant_id
+  api_audience                        = var.operator_api_audience
+  rbac_readers_group_id               = var.rbac_readers_group_id
+  rbac_contributors_group_id          = var.rbac_contributors_group_id
+  rbac_approvers_group_id             = var.rbac_approvers_group_id
+  rbac_owners_group_id                = var.rbac_owners_group_id
+  rbac_break_glass_group_id           = var.rbac_break_glass_group_id
+  cors_allow_origins                  = var.ingestion_cors_allow_origins
+  adls_account_name                   = module.document_storage[0].name
+  adls_account_url                    = module.document_storage[0].primary_dfs_endpoint
+  adls_source_file_system             = module.document_storage[0].source_file_system
+  adls_derived_file_system            = module.document_storage[0].derived_file_system
+  embedding_endpoint                  = var.enable_llm ? module.llm_azure_openai[0].endpoint : ""
+  embedding_deployment                = var.enable_llm ? lookup(module.llm_azure_openai[0].deployments, var.ingestion_embedding_capability, "") : ""
+  ocr_endpoint                        = local.document_ocr_effective_endpoint
+  ocr_provider                        = var.document_ocr_provider
+  ocr_operation_timeout_seconds       = var.document_ocr_operation_timeout_seconds
+  kafka_bootstrap_servers             = module.event_bus.kafka_bootstrap
+  document_event_topic                = "fdai.pipeline.stages"
+  runtime_env                         = var.env == "" ? "dev" : var.env
+  max_file_size_bytes                 = var.document_max_file_size_bytes
+  max_batch_count                     = var.document_max_batch_count
+  chunk_max_chars                     = var.document_chunk_max_chars
+  chunk_overlap                       = var.document_chunk_overlap
+  indexing_stage_timeout_seconds      = var.document_indexing_stage_timeout_seconds
+  policy_version                      = var.document_policy_version
+  document_collections                = var.document_collections
+  sharepoint_connector_enabled        = var.sharepoint_connector_enabled
+  sharepoint_connector_id             = var.sharepoint_connector_id
+  sharepoint_target_tenant_id         = var.sharepoint_target_tenant_id
+  sharepoint_client_id                = var.sharepoint_client_id
+  sharepoint_site_id                  = var.sharepoint_site_id
+  sharepoint_drive_id                 = var.sharepoint_drive_id
+  sharepoint_collection_id            = var.sharepoint_collection_id
+  sharepoint_access_descriptor_ref    = var.sharepoint_access_descriptor_ref
+  sharepoint_reader_groups            = var.sharepoint_reader_groups
+  sharepoint_retention_policy_version = var.sharepoint_retention_policy_version
+  sharepoint_purposes                 = var.sharepoint_purposes
+  sharepoint_download_host_suffixes   = var.sharepoint_download_host_suffixes
+  min_replicas                        = var.ingestion_min_replicas
+  max_replicas                        = var.ingestion_max_replicas
+  gateway_cpu                         = var.ingestion_api_cpu
+  gateway_memory                      = var.ingestion_api_memory
+  worker_min_replicas                 = var.ingestion_worker_min_replicas
+  worker_max_replicas                 = var.ingestion_worker_max_replicas
+  worker_cpu                          = var.ingestion_worker_cpu
+  worker_memory                       = var.ingestion_worker_memory
+  acr_login_server                    = module.container_registry.login_server
+  tags                                = merge(local.tags, { "fdai:component" = "document-ingestion" })
 
   depends_on = [
     azurerm_role_assignment.ingestion_acr_pull,

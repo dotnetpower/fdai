@@ -1,4 +1,6 @@
 import type { ViewContextIdentity } from "../deck/context";
+import { isOperationalResourceType } from "../resource-presentation";
+import { decodeRecordedResourceStates, type RecordedResourceStates } from "../recorded-resource-state";
 
 export interface OntologyInstanceResource {
   readonly id: string;
@@ -11,6 +13,7 @@ export interface OntologyInstanceResource {
   readonly capacity?: number | null;
   readonly last_seen: string | null;
   readonly selected: boolean;
+  readonly states?: RecordedResourceStates;
 }
 
 export type OntologyInstanceStatusTone = "neutral" | "success" | "warning" | "danger";
@@ -63,10 +66,6 @@ export function ontologyInstanceStatusTone(status: string | null): OntologyInsta
   return "neutral";
 }
 
-const HIDDEN_ONTOLOGY_INSTANCE_DIRECTORY_TYPES = new Set([
-  "authorization.role-assignment",
-]);
-
 /** Returns whether a Resource is meaningful as an operator-selected graph root. */
 export function isOntologyInstanceDirectoryResource(
   resource: OntologyInstanceResource,
@@ -78,7 +77,7 @@ export function isOntologyInstanceDirectoryResource(
 export function isOntologyInstancePresentationResource(
   resource: OntologyInstanceResource,
 ): boolean {
-  return !HIDDEN_ONTOLOGY_INSTANCE_DIRECTORY_TYPES.has(resource.resource_type);
+  return isOperationalResourceType(resource.resource_type);
 }
 
 /** Omits hidden Resource endpoints without changing the authoritative response. */
@@ -1049,6 +1048,7 @@ function decodeResource(value: unknown): OntologyInstanceResource {
       : nonNegativeInteger(record.capacity, "Resource capacity"),
     last_seen: nullableTimestamp(record.last_seen, "Resource last seen"),
     selected: boolean(record.selected, "Resource selected"),
+    ...(record.states === undefined ? {} : { states: decodeRecordedResourceStates(record.states) }),
   };
 }
 

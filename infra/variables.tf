@@ -1576,6 +1576,78 @@ variable "document_collections" {
   default     = "shared-knowledge"
 }
 
+variable "sharepoint_connector_enabled" {
+  description = "Enable the FDAI-native cross-tenant SharePoint connector."
+  type        = bool
+  default     = false
+}
+
+variable "sharepoint_connector_id" {
+  description = "Deployment-owned logical id for the SharePoint connector."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_target_tenant_id" {
+  description = "Microsoft 365 tenant id that hosts the target SharePoint site."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_client_id" {
+  description = "M365-tenant application client id that trusts the Azure ingestion UAMI."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_site_id" {
+  description = "Deployment-owned Microsoft Graph site id."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_drive_id" {
+  description = "Deployment-owned Microsoft Graph drive id."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_collection_id" {
+  description = "Server-owned governed collection for connector imports."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_access_descriptor_ref" {
+  description = "Server-owned access descriptor for connector imports."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_reader_groups" {
+  description = "Comma-separated FDAI reader groups inherited by connector imports."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_retention_policy_version" {
+  description = "Retention policy version applied to connector imports."
+  type        = string
+  default     = ""
+}
+
+variable "sharepoint_purposes" {
+  description = "Comma-separated document purposes applied to connector imports."
+  type        = string
+  default     = "knowledge_base"
+}
+
+variable "sharepoint_download_host_suffixes" {
+  description = "Comma-separated HTTPS host suffixes allowed for Graph content redirects."
+  type        = string
+  default     = ".sharepoint.com"
+}
+
 variable "ingestion_min_replicas" {
   description = "Minimum replicas for the public ingestion API role."
   type        = number

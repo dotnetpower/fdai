@@ -25,6 +25,9 @@ from fdai_operator_service.families.operations import (
     ReportPdfEncodingError,
     build_operations_routes,
 )
+from fdai_operator_service.families.operations.instance_states import (
+    InventoryGenerationChangedError,
+)
 from fdai_operator_service.families.operations.manifest import READ_ROLES
 from fdai_service_contracts import OperatorRole
 from fdai_service_contracts.read_investigation import read_investigation_task_id
@@ -45,6 +48,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/inventory/graph", "handler"),
     (("GET", "HEAD"), "/ontology/graph", "handler"),
     (("GET", "HEAD"), "/ontology/instances", "ontology_instances"),
+    (("GET", "HEAD"), "/ontology/instances/states", "ontology_instance_states"),
     (("GET", "HEAD"), "/ontology/instances/explore", "ontology_instance_explore"),
     (("GET", "HEAD"), "/ontology/instances/stream", "ontology_instances_stream"),
     (
@@ -220,7 +224,39 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 37
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 38
+
+
+def test_recorded_state_route_is_authenticated_and_preserves_bounded_query_context() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    assert client.get("/ontology/instances/states").status_code == 401
+    response = client.get(
+        "/ontology/instances/states?limit=500&search=example&cursor=page-selector",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    query = dependencies.queries[-1]
+    assert query.operation == "ontology.instance.states"
+    assert query.principal_id == "reader-oid"
+    assert query.roles == frozenset({OperatorRole.READER})
+    assert query.purpose == "operations-review"
+    assert query.limit == 500
+    assert query.cursor == "page-selector"
+    assert query.params["search"] == ("example",)
+    assert client.get("/ontology/instances/states?limit=501", headers=HEADERS).status_code == 400
+    assert not dependencies.proposals
+
+
+def test_recorded_state_route_reports_generation_change_explicitly() -> None:
+    class ChangedDependencies(RecordingDependencies):
+        async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
+            del query
+            raise InventoryGenerationChangedError
+
+    response = _client(ChangedDependencies()).get("/ontology/instances/states", headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json() == {"error": {"status": 409, "message": "inventory_generation_changed"}}
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:

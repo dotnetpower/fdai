@@ -29,6 +29,7 @@ from fdai_operator_service.families.operations.instance_explorer import (
     project_inventory_instance,
     project_inventory_instances,
 )
+from fdai_operator_service.families.operations.recorded_state import recorded_resource_states
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
@@ -228,7 +229,9 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
             "name": "core",
             "location": None,
             "resource_group": None,
+            "subscription_id": None,
             "status": None,
+            "states": recorded_resource_states({}),
             "last_seen": None,
             "selected": False,
         }
@@ -368,7 +371,9 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "name": "core",
             "location": "koreacentral",
             "resource_group": "resource-group-one",
+            "subscription_id": None,
             "status": "Succeeded",
+            "states": recorded_resource_states({"properties": {"provisioningState": "Succeeded"}}),
             "last_seen": "2026-08-22T00:59:00+00:00",
             "selected": True,
         },
@@ -379,7 +384,9 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "name": "environment",
             "location": None,
             "resource_group": None,
+            "subscription_id": None,
             "status": None,
+            "states": recorded_resource_states({}),
             "last_seen": None,
             "selected": False,
         },

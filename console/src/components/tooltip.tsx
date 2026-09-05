@@ -1,11 +1,4 @@
-import {
-  autoUpdate,
-  computePosition,
-  flip,
-  offset,
-  shift,
-  type Placement,
-} from "@floating-ui/dom";
+import type { Placement } from "@floating-ui/dom";
 import { cloneElement, type ComponentChildren, type JSX, type VNode } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -121,25 +114,29 @@ function ActiveTooltip({
     if (state === null || anchor === null || tooltip === null) return;
 
     let active = true;
-    const update = () => {
-      void computePosition(anchor, tooltip, {
-        placement,
-        strategy: "fixed",
-        middleware: [
-          offset(sideOffset),
-          flip({ padding: 16 }),
-          shift({ padding: 16 }),
-        ],
-      }).then((next) => {
-        if (!active) return;
-        setPosition({ x: next.x, y: next.y, placement: next.placement });
-        setPositioned(true);
-      });
-    };
-    const stopAutoUpdate = autoUpdate(anchor, tooltip, update);
+    let stopAutoUpdate: (() => void) | undefined;
+    void import("@floating-ui/dom").then(({ autoUpdate, computePosition, flip, offset, shift }) => {
+      if (!active) return;
+      const update = () => {
+        void computePosition(anchor, tooltip, {
+          placement,
+          strategy: "fixed",
+          middleware: [
+            offset(sideOffset),
+            flip({ padding: 16 }),
+            shift({ padding: 16 }),
+          ],
+        }).then((next) => {
+          if (!active) return;
+          setPosition({ x: next.x, y: next.y, placement: next.placement });
+          setPositioned(true);
+        });
+      };
+      stopAutoUpdate = autoUpdate(anchor, tooltip, update);
+    });
     return () => {
       active = false;
-      stopAutoUpdate();
+      stopAutoUpdate?.();
     };
   }, [placement, sideOffset, state]);
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -80,12 +81,17 @@ from fdai_ingestion_api_service.auth import (
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.download import GovernedDocumentDownload
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
-from fdai_ingestion_api_service.ingestion import DocumentIngestionService
+from fdai_ingestion_api_service.ingestion import (
+    DocumentIngestionService,
+    DocumentLifecyclePolicy,
+    TemporaryDocumentQuota,
+)
 from fdai_ingestion_api_service.preview import (
     GovernedDocumentPreview,
     MetadataPreviewProtectionAuthorizer,
     PreviewProtectionAuthorizer,
 )
+from fdai_ingestion_api_service.retention import DocumentRetentionReconciler
 from fdai_ingestion_api_service.sharepoint_connector import (
     NativeSharePointDeltaSink,
     SharePointConnectorConfig,
@@ -197,8 +203,56 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             policy_versions=(env.get("FDAI_DOCUMENT_POLICY_VERSION", "prod-policy-v1"),),
             ocr_available=ocr_available,
         ),
+        lifecycle_policy=DocumentLifecyclePolicy(
+            session_ephemeral_duration=timedelta(
+                seconds=_bounded_int(
+                    env,
+                    "FDAI_DOCUMENT_SESSION_EPHEMERAL_DURATION_SECONDS",
+                    24 * 60 * 60,
+                    maximum=365 * 24 * 60 * 60,
+                )
+            ),
+            workspace_draft_duration=timedelta(
+                seconds=_bounded_int(
+                    env,
+                    "FDAI_DOCUMENT_WORKSPACE_DRAFT_DURATION_SECONDS",
+                    30 * 24 * 60 * 60,
+                    maximum=365 * 24 * 60 * 60,
+                )
+            ),
+        ),
+        temporary_quota=TemporaryDocumentQuota(
+            max_documents=_bounded_int(
+                env,
+                "FDAI_DOCUMENT_TEMPORARY_MAX_DOCUMENTS",
+                100,
+                maximum=100_000,
+            ),
+            max_bytes=_bounded_int(
+                env,
+                "FDAI_DOCUMENT_TEMPORARY_MAX_BYTES",
+                256 * 1024 * 1024,
+                maximum=10 * 1024 * 1024 * 1024 * 1024,
+            ),
+        ),
     )
     deletion_service = ApiDocumentDeletionService(access=access, metadata=metadata)
+    retention_reconciler = DocumentRetentionReconciler(
+        metadata=metadata,
+        deletion=deletion_service,
+        batch_limit=_bounded_int(
+            env,
+            "FDAI_DOCUMENT_RETENTION_BATCH_LIMIT",
+            100,
+            maximum=1000,
+        ),
+    )
+    retention_interval = _bounded_int(
+        env,
+        "FDAI_DOCUMENT_RETENTION_INTERVAL_SECONDS",
+        60,
+        maximum=24 * 60 * 60,
+    )
 
     async def verify_database_role() -> None:
         async with await psycopg.AsyncConnection.connect(dsn) as connection:
@@ -263,7 +317,59 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
                 published = 0
             await asyncio.sleep(0.1 if published else 2.0)
 
-    connector_drainers = [drain_api_outbox]
+    async def reconcile_document_retention() -> None:
+        while True:
+            try:
+                await retention_reconciler.run_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - due rows remain retryable
+                _LOGGER.error(
+                    "document_retention_reconcile_failed",
+                    extra={"exception_type": type(exc).__name__},
+                )
+            await asyncio.sleep(retention_interval)
+
+    connector_drainers = [drain_api_outbox, reconcile_document_retention]
+    if isinstance(storage, AzureDataLakeObjectStore):
+        orphan_grace = timedelta(
+            seconds=_bounded_int(
+                env,
+                "FDAI_DOCUMENT_ORPHAN_GRACE_SECONDS",
+                24 * 60 * 60,
+                maximum=30 * 24 * 60 * 60,
+            )
+        )
+        orphan_limit = _bounded_int(
+            env,
+            "FDAI_DOCUMENT_ORPHAN_BATCH_LIMIT",
+            100,
+            maximum=1000,
+        )
+        orphan_interval = _bounded_int(
+            env,
+            "FDAI_DOCUMENT_ORPHAN_INTERVAL_SECONDS",
+            60 * 60,
+            maximum=24 * 60 * 60,
+        )
+
+        async def reconcile_quarantine_orphans() -> None:
+            while True:
+                try:
+                    await storage.cleanup_orphans(
+                        older_than=datetime.now(tz=UTC) - orphan_grace,
+                        limit=orphan_limit,
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - orphan candidates remain retryable
+                    _LOGGER.error(
+                        "document_orphan_reconcile_failed",
+                        extra={"exception_type": type(exc).__name__},
+                    )
+                await asyncio.sleep(orphan_interval)
+
+        connector_drainers.append(reconcile_quarantine_orphans)
     if _truthy(env.get("FDAI_SHAREPOINT_CONNECTOR_ENABLED", "")):
         if uses_local_document_providers(execution_venue):
             raise ProductionConfigurationError(
@@ -397,7 +503,11 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             allowed_collections=_collections(
                 env.get("FDAI_DOCUMENT_COLLECTIONS", "shared-knowledge")
             ),
-            shutdown_callbacks=(publisher.close, storage.close, http_client.aclose),
+            shutdown_callbacks=(
+                publisher.close,
+                storage.close,
+                http_client.aclose,
+            ),
         ),
     )
 
@@ -428,6 +538,22 @@ def _positive_int(env: Mapping[str, str], key: str, default: int) -> int:
     value = int(env.get(key, str(default)))
     if value < 1:
         raise ProductionConfigurationError(f"{key} MUST be positive")
+    return value
+
+
+def _bounded_int(
+    env: Mapping[str, str],
+    key: str,
+    default: int,
+    *,
+    maximum: int,
+) -> int:
+    try:
+        value = int(env.get(key, str(default)))
+    except ValueError as exc:
+        raise ProductionConfigurationError(f"{key} MUST be an integer") from exc
+    if value < 1 or value > maximum:
+        raise ProductionConfigurationError(f"{key} MUST be in [1, {maximum}]")
     return value
 
 

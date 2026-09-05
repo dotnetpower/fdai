@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { triggerBlobDownload } from "../blob-download";
 import { Tooltip } from "../components/tooltip";
 import {
@@ -6,7 +6,12 @@ import {
   type DocumentVersionSummary,
   IngestionApiClient,
 } from "../ingestion-api";
-import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18n";
+import {
+  groupDocuments,
+  type DocumentIndexFilter,
+} from "./document-library.model";
+import { DocumentLibraryRow } from "./document-library-row";
+import { knowledgeText } from "./knowledge-sources.i18n";
 
 interface Props {
   readonly api: IngestionApiClient;
@@ -17,6 +22,7 @@ interface Props {
   readonly error: string | null;
   readonly onCollectionChange: (collection: string) => void;
   readonly onDeleted: () => void;
+  readonly onPromoted: () => void;
 }
 
 interface PreviewState {
@@ -35,12 +41,30 @@ export function DocumentLibrary({
   error,
   onCollectionChange,
   onDeleted,
+  onPromoted,
 }: Props) {
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [indexFilter, setIndexFilter] = useState<DocumentIndexFilter>("all");
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(new Set());
   const folders = [...new Set([collection, ...collections])];
+  const groups = useMemo(
+    () => groupDocuments(documents, query, indexFilter),
+    [documents, indexFilter, query],
+  );
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const openPreview = async (document: DocumentVersionSummary) => {
     const key = documentKey(document);
@@ -97,6 +121,21 @@ export function DocumentLibrary({
     }
   };
 
+  const promoteDocument = async (document: DocumentVersionSummary) => {
+    const key = documentKey(document);
+    if (actionPending) return;
+    setActionPending(key);
+    setActionError(null);
+    try {
+      await api.promoteDocument(document.document_id, document.version_id, collection);
+      onPromoted();
+    } catch (promotionError) {
+      setActionError(actionErrorText(promotionError));
+    } finally {
+      setActionPending(null);
+    }
+  };
+
   return (
     <section class="document-library" aria-labelledby="document-library-title">
       <div class="document-library-layout">
@@ -132,10 +171,46 @@ export function DocumentLibrary({
           {!loading && !error && documents.length === 0 ? (
             <p class="document-library-state">{knowledgeText("libraryEmpty")}</p>
           ) : null}
+          {documents.length > 0 ? (
+            <div class="document-library-tools">
+              <label>
+                <span>{knowledgeText("searchDocuments")}</span>
+                <input
+                  type="search"
+                  value={query}
+                  placeholder={knowledgeText("searchPlaceholder")}
+                  onInput={(event) => setQuery(event.currentTarget.value)}
+                />
+              </label>
+              <label>
+                <span>{knowledgeText("filterIndexStatus")}</span>
+                <select
+                  value={indexFilter}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    if (value === "all" || value === "indexed" || value === "attention") {
+                      setIndexFilter(value);
+                    }
+                  }}
+                >
+                  <option value="all">{knowledgeText("filterAll")}</option>
+                  <option value="indexed">{knowledgeText("filterIndexed")}</option>
+                  <option value="attention">{knowledgeText("filterAttention")}</option>
+                </select>
+              </label>
+              <span>{knowledgeText("groupSummary", {
+                files: groups.length,
+                uploads: groups.reduce((total, group) => total + group.documents.length, 0),
+              })}</span>
+            </div>
+          ) : null}
+          {!loading && !error && documents.length > 0 && groups.length === 0 ? (
+            <p class="document-library-state">{knowledgeText("noMatches")}</p>
+          ) : null}
           {preview ? (
             <DocumentPreviewPanel preview={preview} onClose={() => setPreview(null)} />
           ) : null}
-          {documents.length > 0 ? (
+          {groups.length > 0 ? (
             <div class="document-library-columns" aria-hidden="true">
               <span>{knowledgeText("columnDocument")}</span>
               <span>{knowledgeText("columnStatus")}</span>
@@ -143,104 +218,51 @@ export function DocumentLibrary({
               <span>{knowledgeText("columnActions")}</span>
             </div>
           ) : null}
-          {documents.map((document) => {
-            const key = documentKey(document);
-            const deleting = pendingDelete === key;
-            const pending = actionPending === key;
+          {groups.map((group) => {
+            const expanded = expandedGroups.has(group.key);
+            const visible = expanded ? group.documents : group.documents.slice(0, 1);
             return (
-              <article class="document-library-row" key={key}>
-                <div class="document-library-name">
-                  <strong>{document.source_name}</strong>
-                  <small>
-                    {document.observed_format ?? document.media_type}
-                    {" - "}
-                    {formatDocumentBytes(document.size_bytes)}
-                  </small>
-                </div>
-                <div class="document-library-statuses">
-                  <span class={`status status-${document.state}`}>
-                    {documentStateText(document.state)}
-                  </span>
-                  <span class={`document-index-status is-${document.index_status}`}>
-                    {indexStatusText(document.index_status)}
-                  </span>
-                </div>
-                <div class="document-library-meta">
-                  <span>{purposeText(document.purposes[0])}</span>
-                  <small>
-                    {document.classification}
-                    {" - "}
-                    {protectionText(document.protection_state)}
-                    {" - "}
-                    {document.updated_at.slice(0, 10)}
-                  </small>
-                </div>
-                <div class="document-library-actions">
-                  <Tooltip content={!document.preview_available ? knowledgeText("previewUnavailable") : undefined}>
-                    <span
-                      class="document-library-action-tooltip"
-                      aria-label={!document.preview_available
-                        ? `${knowledgeText("preview")}: ${knowledgeText("previewUnavailable")}`
-                        : undefined}
+              <section class="document-file-group" key={group.key}>
+                {visible.map((document, index) => {
+                  const key = documentKey(document);
+                  return (
+                    <DocumentLibraryRow
+                      key={key}
+                      document={document}
+                      promotionCollection={collection}
+                      pending={actionPending === key}
+                      deleting={pendingDelete === key}
+                      promoting={pendingPromotion === key}
+                      previous={index > 0}
+                      onPreview={() => void openPreview(document)}
+                      onDownload={() => void download(document)}
+                      onRequestDelete={() => setPendingDelete(key)}
+                      onCancelDelete={() => setPendingDelete(null)}
+                      onConfirmDelete={() => void deleteDocument(document)}
+                      onRequestPromotion={() => setPendingPromotion(key)}
+                      onCancelPromotion={() => setPendingPromotion(null)}
+                      onConfirmPromotion={() => {
+                        setPendingPromotion(null);
+                        void promoteDocument(document);
+                      }}
+                    />
+                  );
+                })}
+                {group.documents.length > 1 ? (
+                    <button
+                      type="button"
+                      class="document-group-toggle"
+                      aria-expanded={expanded}
+                      onClick={() => toggleGroup(group.key)}
                     >
-                      <button
-                        type="button"
-                        class="cs-control-button is-compact"
-                        disabled={!document.preview_available || pending}
-                        onClick={() => void openPreview(document)}
-                      >
-                        {knowledgeText("preview")}
-                      </button>
-                    </span>
-                  </Tooltip>
-                  <Tooltip content={!document.download_available ? knowledgeText("downloadUnavailable") : undefined}>
-                    <span
-                      class="document-library-action-tooltip"
-                      aria-label={!document.download_available
-                        ? `${knowledgeText("download")}: ${knowledgeText("downloadUnavailable")}`
-                        : undefined}
-                    >
-                      <button
-                        type="button"
-                        class="cs-control-button is-compact"
-                        disabled={!document.download_available || pending}
-                        onClick={() => void download(document)}
-                      >
-                        {knowledgeText("download")}
-                      </button>
-                    </span>
-                  </Tooltip>
-                  {!deleting ? (
-                    <Tooltip content={!document.delete_available ? knowledgeText("deleteUnavailable") : undefined}>
-                      <span
-                        class="document-library-action-tooltip"
-                        aria-label={!document.delete_available
-                          ? `${knowledgeText("delete")}: ${knowledgeText("deleteUnavailable")}`
-                          : undefined}
-                      >
-                        <button
-                          type="button"
-                          class="cs-control-button is-compact"
-                          disabled={!document.delete_available || pending}
-                          onClick={() => setPendingDelete(key)}
-                        >
-                          {knowledgeText("delete")}
-                        </button>
-                      </span>
-                    </Tooltip>
-                  ) : (
-                    <div class="document-delete-confirm" role="group" aria-label={knowledgeText("deleteConfirm")}>
-                      <span>{knowledgeText("deleteConfirm")}</span>
-                      <button type="button" disabled={pending} onClick={() => setPendingDelete(null)}>
-                        {knowledgeText("cancel")}
-                      </button>
-                      <button type="button" class="is-danger" disabled={pending} onClick={() => void deleteDocument(document)}>
-                        {knowledgeText("confirmDelete")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </article>
+                      {expanded
+                        ? knowledgeText("hidePreviousUploads")
+                        : knowledgeText("showPreviousUploads", {
+                            count: group.documents.length - 1,
+                          })}
+                    </button>
+                ) : null}
+              </section>
             );
           })}
         </div>
@@ -281,65 +303,10 @@ function DocumentPreviewPanel({
   );
 }
 
-const DOCUMENT_STATE_KEYS: Readonly<Record<string, KnowledgeMessageKey>> = {
-  created: "stateCreated",
-  uploading: "stateUploading",
-  received: "stateReceived",
-  quarantined: "stateQuarantined",
-  scanning: "stateScanning",
-  protection_check: "stateProtectionCheck",
-  extracting: "stateExtracting",
-  indexing: "stateIndexing",
-  ready: "stateReady",
-  ready_with_warnings: "stateReadyWithWarnings",
-  held: "stateHeld",
-  deleting: "stateDeleting",
-  deleted: "stateDeleted",
-  failed: "stateFailed",
-};
-
-const INDEX_STATUS_KEYS: Readonly<Record<DocumentVersionSummary["index_status"], KnowledgeMessageKey>> = {
-  pending: "indexPending",
-  indexing: "indexing",
-  indexed: "indexed",
-  not_indexed: "notIndexed",
-};
-
 function documentKey(document: DocumentVersionSummary): string {
   return `${document.document_id}:${document.version_id}`;
 }
 
-function documentStateText(state: string): string {
-  const key = DOCUMENT_STATE_KEYS[state];
-  return key === undefined ? state : knowledgeText(key);
-}
-
-function indexStatusText(status: DocumentVersionSummary["index_status"]): string {
-  return knowledgeText(INDEX_STATUS_KEYS[status]);
-}
-
-function purposeText(purpose: string | undefined): string {
-  if (purpose === "manual_distillation") return knowledgeText("purposeManualDistillation");
-  if (purpose === "handover_bootstrap") return knowledgeText("purposeHandover");
-  if (purpose === "handover_evidence") return knowledgeText("purposeHandoverEvidence");
-  return knowledgeText("purposeKnowledgeBase");
-}
-
-function protectionText(protection: string): string {
-  if (protection === "none") return knowledgeText("protectionNone");
-  if (protection === "labeled_unencrypted") return knowledgeText("protectionLabeled");
-  if (protection === "rights_managed_accessible") return knowledgeText("protectionRightsManaged");
-  if (protection === "rights_managed_access_denied") return knowledgeText("protectionDenied");
-  if (protection === "password_encrypted") return knowledgeText("protectionEncrypted");
-  return knowledgeText("protectionUnknown");
-}
-
 function actionErrorText(error: unknown): string {
   return error instanceof Error ? error.message : knowledgeText("documentActionFailed");
-}
-
-function formatDocumentBytes(value: number): string {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
 }

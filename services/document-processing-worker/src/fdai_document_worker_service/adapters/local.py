@@ -53,6 +53,10 @@ class LocalDocumentObjectStore:
     async def delete(self, object_key: str) -> None:
         await asyncio.to_thread(self._path(object_key).unlink, missing_ok=True)
 
+    async def source_exists(self, object_key: str) -> bool:
+        """Return whether the exact source key still exists."""
+        return await asyncio.to_thread(self._path(object_key).is_file)
+
     async def promote(self, session: UploadSession) -> str:
         if session.object_key.startswith("governed/"):
             return session.object_key
@@ -108,6 +112,10 @@ class LocalDocumentArtifactStore:
 
     async def delete(self, document_id: UUID, version_id: UUID) -> None:
         await asyncio.to_thread(self._path(document_id, version_id).unlink, missing_ok=True)
+
+    async def artifact_exists(self, document_id: UUID, version_id: UUID) -> bool:
+        """Return whether the exact persisted envelope still exists."""
+        return await asyncio.to_thread(self._path(document_id, version_id).is_file)
 
     async def close(self) -> None:
         return None

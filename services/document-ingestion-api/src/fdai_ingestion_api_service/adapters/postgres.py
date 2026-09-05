@@ -8,6 +8,7 @@ import logging
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Final, Protocol
 from uuid import UUID
 
@@ -26,6 +27,11 @@ from fdai_service_contracts import (
 )
 from psycopg.rows import dict_row
 from pydantic import ValidationError
+
+from fdai_ingestion_api_service.ingestion import (
+    TemporaryDocumentQuotaExceededError,
+    TemporaryDocumentUsage,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _READINESS_SQL: Final = """
@@ -110,6 +116,13 @@ authorized AS MATERIALIZED (
       FROM knowledge_chunk AS chunk
       CROSS JOIN inputs
      WHERE chunk.metadata->>'governed_document' = 'true'
+       AND COALESCE(chunk.metadata->>'disposition', 'governed_knowledge')
+           = 'governed_knowledge'
+       AND COALESCE(chunk.metadata->>'retention_state', 'live') = 'live'
+       AND (
+           chunk.metadata->>'expires_at' IS NULL
+           OR (chunk.metadata->>'expires_at')::timestamptz > NOW()
+       )
        AND chunk.metadata->>'collection_id' = %s
        AND chunk.metadata->>'access_descriptor_ref' = ANY(%s)
 ),
@@ -216,42 +229,31 @@ class PostgresDocumentMetadataStore:
     ) -> None:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
-            try:
-                await connection.execute(
-                    "INSERT INTO document_upload_session "
-                    "(upload_id, document_id, version_id, state, revision, payload, "
-                    "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
-                    (
-                        session.upload_id,
-                        session.document_id,
-                        session.version_id,
-                        session.state.value,
-                        session.revision,
-                        session.model_dump_json(),
-                        session.created_at,
-                        session.created_at,
-                    ),
+            await self._insert_records(connection, session, version, event=event)
+
+    async def create_with_temporary_quota(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        max_documents: int,
+        max_bytes: int,
+    ) -> None:
+        """Serialize one principal's usage count and temporary upload reservation."""
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (session.actor_id,),
+            )
+            usage = await self._temporary_usage(connection, session.actor_id)
+            if usage.documents >= max_documents:
+                raise TemporaryDocumentQuotaExceededError(
+                    "active temporary document quota exceeded"
                 )
-                await connection.execute(
-                    "INSERT INTO document_version "
-                    "(document_id, version_id, upload_id, state, active, revision, payload, "
-                    "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
-                    (
-                        version.document_id,
-                        version.version_id,
-                        version.upload_id,
-                        version.state.value,
-                        version.active,
-                        version.revision,
-                        version.model_dump_json(),
-                        version.created_at,
-                        version.updated_at,
-                    ),
-                )
-                if event is not None:
-                    await _enqueue_outbox(connection, event)
-            except psycopg.errors.UniqueViolation as exc:
-                raise ValueError("document upload or version already exists") from exc
+            if usage.bytes + session.expected_size > max_bytes:
+                raise TemporaryDocumentQuotaExceededError("active temporary byte quota exceeded")
+            await self._insert_records(connection, session, version)
 
     async def get_upload(self, upload_id: UUID) -> UploadSession:
         row = await self._one(
@@ -373,6 +375,114 @@ class PostgresDocumentMetadataStore:
             (state, limit),
         )
         return tuple(UploadSession.model_validate(_payload(row["payload"])) for row in rows)
+
+    async def temporary_usage(self, actor_id: str) -> TemporaryDocumentUsage:
+        """Count active temporary uploads and their reserved source bytes."""
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            return await self._temporary_usage(connection, actor_id)
+
+    async def _temporary_usage(
+        self,
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        actor_id: str,
+    ) -> TemporaryDocumentUsage:
+        row = await (
+            await connection.execute(
+                "SELECT COUNT(*) AS document_count, "
+                "COALESCE(SUM((payload->>'expected_size')::bigint), 0) AS byte_count "
+                "FROM document_upload_session "
+                "WHERE payload->>'actor_id' = %s "
+                "AND payload->>'disposition' = ANY(%s) "
+                "AND state NOT IN ('deleting', 'deleted')",
+                (
+                    actor_id,
+                    ["session_ephemeral", "workspace_draft"],
+                ),
+            )
+        ).fetchone()
+        if row is None:
+            return TemporaryDocumentUsage(documents=0, bytes=0)
+        return TemporaryDocumentUsage(
+            documents=int(row["document_count"]),
+            bytes=int(row["byte_count"]),
+        )
+
+    async def list_due_temporary_versions(
+        self, *, now: datetime, limit: int
+    ) -> tuple[DocumentVersion, ...]:
+        """List a bounded deterministic batch of expired non-held temporary versions."""
+        if now.utcoffset() is None:
+            raise ValueError("retention reconciliation time MUST include a timezone")
+        if limit < 1 or limit > 1000:
+            raise ValueError("retention reconciliation limit MUST be in [1, 1000]")
+        rows = await self._many(
+            "SELECT payload FROM document_version "
+            "WHERE payload->>'disposition' = ANY(%s) "
+            "AND state NOT IN ('deleting', 'deleted') "
+            "AND COALESCE((payload->'retention'->>'legal_hold')::boolean, FALSE) = FALSE "
+            "AND payload->>'retention_state' IN ('live', 'expiring') "
+            "AND ("
+            "(payload->'retention'->>'source_expires_at')::timestamptz <= %s "
+            "OR (payload->'retention'->>'derived_expires_at')::timestamptz <= %s"
+            ") "
+            "ORDER BY LEAST("
+            "COALESCE((payload->'retention'->>'source_expires_at')::timestamptz, 'infinity'), "
+            "COALESCE((payload->'retention'->>'derived_expires_at')::timestamptz, 'infinity')"
+            "), created_at, version_id LIMIT %s",
+            (
+                ["session_ephemeral", "workspace_draft"],
+                now,
+                now,
+                limit,
+            ),
+        )
+        return tuple(DocumentVersion.model_validate(_payload(row["payload"])) for row in rows)
+
+    async def _insert_records(
+        self,
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        event: DocumentLifecycleEvent | None = None,
+    ) -> None:
+        try:
+            await connection.execute(
+                "INSERT INTO document_upload_session "
+                "(upload_id, document_id, version_id, state, revision, payload, "
+                "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
+                (
+                    session.upload_id,
+                    session.document_id,
+                    session.version_id,
+                    session.state.value,
+                    session.revision,
+                    session.model_dump_json(),
+                    session.created_at,
+                    session.created_at,
+                ),
+            )
+            await connection.execute(
+                "INSERT INTO document_version "
+                "(document_id, version_id, upload_id, state, active, revision, payload, "
+                "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
+                (
+                    version.document_id,
+                    version.version_id,
+                    version.upload_id,
+                    version.state.value,
+                    version.active,
+                    version.revision,
+                    version.model_dump_json(),
+                    version.created_at,
+                    version.updated_at,
+                ),
+            )
+            if event is not None:
+                await _enqueue_outbox(connection, event)
+        except psycopg.errors.UniqueViolation as exc:
+            raise ValueError("document upload or version already exists") from exc
 
     async def _one(self, query: str, params: tuple[object, ...]) -> dict[str, Any] | None:
         async with await self._connect() as connection:

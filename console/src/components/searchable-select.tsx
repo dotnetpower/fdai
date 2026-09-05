@@ -125,7 +125,7 @@ export function SearchableSelect({
             padding: 8,
             apply({ availableWidth, availableHeight, rects }) {
               if (!active || request !== revision) return;
-              popup.style.width = `${Math.max(0, Math.min(rects.reference.width, availableWidth))}px`;
+              popup.style.width = `${Math.max(0, Math.min(Math.max(320, rects.reference.width), availableWidth))}px`;
               popup.style.maxHeight = `${Math.max(0, Math.min(360, availableHeight))}px`;
             },
           }),
@@ -312,6 +312,7 @@ export function SearchableSelect({
               </li>
             ))}
           </ul>
+          <p class="searchable-select-results">{helpText}</p>
           {suggestions.length === 0 ? <p class="searchable-select-empty">{emptyLabel}</p> : null}
         </div>,
         document.body,

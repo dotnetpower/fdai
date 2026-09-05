@@ -347,7 +347,10 @@ class ProductionOperatorComposition:
             environment=environment,
             authenticator=authenticator,
             read_model=configured_read_model or UnavailableOperatorReadModel(),
-            data_sources=_build_data_sources(configured=configured_read_model is not None),
+            data_sources=_build_data_sources(
+                configured=configured_read_model is not None,
+                inventory_configured=family_store is not None,
+            ),
             route_families=route_families,
             readiness_probe=self.readiness_probe
             or _readiness_probe(
@@ -809,9 +812,30 @@ def _readiness_probe(
     return probe
 
 
-def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
+def _build_data_sources(
+    *, configured: bool, inventory_configured: bool
+) -> tuple[ReadDataSource, ...]:
     reason = None if configured else "Authoritative service-local projections are not configured."
     return (
+        ReadDataSource(
+            key="ontology-instances",
+            source="service-local-inventory" if inventory_configured else "not-configured",
+            routes=(
+                "/ontology/instances",
+                "/ontology/instances/explore",
+                "/ontology/instances/states",
+            ),
+            availability="unknown" if inventory_configured else "unavailable",
+            configured=inventory_configured,
+            reachable=None,
+            authoritative=inventory_configured,
+            durable=True if inventory_configured else None,
+            reason=(
+                None
+                if inventory_configured
+                else "Authoritative inventory instance projections are not configured."
+            ),
+        ),
         ReadDataSource(
             key="operational-state",
             source="service-local-projection" if configured else "not-configured",

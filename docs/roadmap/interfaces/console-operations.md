@@ -488,13 +488,11 @@ production inventory reader. Its local fixture adapter covers 24, 100, 1,000, an
 | Evidence states | Keep operating state, availability, and observation coverage independent. Partial inventory has an unknown full total. Stale observations cannot establish current state. Loading starts with a skeleton; read failure is not zero; an empty inventory is distinct from no filter matches. |
 | Exceptions and history | Authored highlights remain independent of map filters and are not a complete queue. Sample events and historical performance keep their own time windows. An event whose resource is absent from received inventory cannot select an invented record. |
 
-Production adoption needs an authenticated, server-scoped read projection with same-snapshot
-aggregates, stable ordering, snapshot-bound page cursors, and explicit freshness and completeness.
-Search should reach the authorized result set rather than only the current page. Expired snapshots
-and out-of-order responses need explicit recovery without mixing generations. The browser does not
-derive scope authority, health, or permission from filters. Replace the local generator and in-memory
-aggregation; never import synthetic fixtures into the interactive Console. Local browser checks prove
-presentation mechanics, not server capacity or live operational readiness.
+The additive native `/dashboard-v2` route keeps `/overview` and its default Dashboard unchanged.
+It uses the [shared recorded-state API](recorded-resource-state.md) with Ontology Instances, retaining separate state axes and evidence.
+Server pages bind generation, cutoff, search and principal context; local filters use only received records. Unknown freshness does not erase recorded values or prove health.
+No mock fixtures enter the route. Snapshot replacement clears selection and rejects late responses; the common query excludes role assignments and scope containers.
+Change history stays in resource evidence views. Local checks prove mechanics, not live readiness; tooltip positioning loads on demand.
 
 ## Console shape
 

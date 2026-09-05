@@ -93,9 +93,10 @@ Replacement creates an immutable version and moves the active pointer only after
 source protection. One badge also blurs upload, safety, extraction, and index readiness.
 
 **Revised design.** Server-owned collections act as top-level folders and can't be moved or renamed
-in Console. Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings`
-display **Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures
-display **Not indexed**.
+in Console. Same-name uploads collapse into an expandable group after search and index filtering.
+Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings` display
+**Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures display
+**Not indexed**.
 
 Each content action rechecks current metadata and authorization:
 
@@ -638,6 +639,7 @@ Fork decisions that require approved evidence:
 | Compiling manuals into deterministic artifacts | [Manual Distillation](../rules-and-detection/manual-distillation.md) |
 | Knowledge evidence in root-cause analysis | [Observability and Detection](../rules-and-detection/observability-and-detection.md) |
 | Data classification, retention, and privacy evidence | [Data Governance and Privacy Evidence](../architecture/data-governance.md) |
+| Temporary uploads, promotion, artifacts, and verified purge | [Document lifecycle governance](document-lifecycle-governance.md) |
 | Human roles and Entra authorization | [User RBAC and Entra Identity](user-rbac-and-identity.md) |
 | Console authority boundaries | [Operator Console](operator-console.md) |
 | Storage and security threat model | [Security and Identity](../architecture/security-and-identity.md) |

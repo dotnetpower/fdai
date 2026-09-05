@@ -1,0 +1,12 @@
+.recorded-state-facts { min-width: 0; margin-top: 16px; }
+.recorded-state-facts h4 { margin: 0; font-size: var(--cs-type-panel-title-size); }
+.recorded-state-facts p, .recorded-state-freshness { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.recorded-state-axis { padding: 12px 0; border-top: 1px solid var(--cs-hairline); }
+.recorded-state-axis > div { display: flex; justify-content: space-between; gap: 12px; font-size: var(--cs-type-compact-size); }
+.recorded-state-axis strong { overflow-wrap: anywhere; text-align: right; }
+.recorded-state-axis details { margin-top: 8px; }
+.recorded-state-axis summary { cursor: pointer; min-height: 32px; font-size: var(--cs-type-label-size); }
+.recorded-state-axis dl { margin: 4px 0; }
+.recorded-state-axis dt { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.recorded-state-axis dd { margin: 4px 0 12px; font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
+@media (pointer: coarse) { .recorded-state-axis summary { min-height: 44px; } }

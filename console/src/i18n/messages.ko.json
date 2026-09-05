@@ -90,7 +90,6 @@
   },
   "route": {
     "dashboard": "대시보드",
-    "dashboardV2": "대시보드 v2",
     "hilQueue": "승인",
     "blastRadius": "영향 범위",
     "audit": "감사 로그",
@@ -199,7 +198,6 @@
       "browserEvidence": "브라우저 근거",
       "forecastLearning": "예측 학습",
       "dashboard": "대시보드",
-      "dashboardV2": "대시보드 v2",
       "operatingOutcomes": "운영 성과",
       "controlAssurance": "통제 보증",
       "verticalOutcomes": "영역별 성과",
@@ -255,7 +253,6 @@
       "browserEvidence": "허용된 브라우저 캡처의 변경 불가한 마스킹 근거",
       "forecastLearning": "예측 종료, 누락 원인, 게시 및 보존 근거",
       "dashboard": "감사 로그 기반 건강도 / 위험 / 비용",
-      "dashboardV2": "인벤토리 조회 결과의 리소스 상태와 근거",
       "operatingOutcomes": "핵심 운영 지표의 추세, 기준선, 기여 요인",
       "controlAssurance": "가드 근거, 승격 차단 원인, 승격 준비도",
       "verticalOutcomes": "복원력, 변경 안전, 비용 거버넌스 성과",

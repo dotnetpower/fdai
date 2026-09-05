@@ -19,6 +19,7 @@ read-only, without giving the Operator API an executor identity.
 | Conversation document downloads | implemented | `fdai_operator_service/composition.py`; `document_export.py`; focused ownership and completeness tests | Operator composition regenerates a document only from the authenticated principal's complete verified semantic projection. Markdown remains private and non-cacheable, and PDF is advertised only when its bounded encoder is available. |
 | Unavailable-surface presentation | validated | Focused Operator and Console checks plus authenticated passes over the affected panels | Unserved routes retain server-owned reasons, and panels do not expose raw transport status or nonexistent configuration symbols. |
 | Account identity and same-tenant account selection | implemented | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; focused Console account tests (`11 passed`), typecheck, and production build | The header panel displays MSAL identity and server-verified roles without adding authority. Interactive sessions can open the Entra account picker without a login hint and re-enter the existing startup authorization boundary. |
+| Recorded Resource state source | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [recorded-state evidence](../../roadmap-implementation/interfaces/recorded-resource-state.md) | Directory, exploration, and batch-state routes share the inventory family store in both venues. Source configuration does not certify the freshness of a recorded fact. |
 
 ### Implementation history
 
@@ -30,6 +31,7 @@ read-only, without giving the Operator API an executor identity.
 | 2026-08-18 | implemented | Declared `/kpi/promotion-gates` as an explicitly unavailable read source. The workflow family reads the `promotion-gate.list` projection, but nothing writes it, so the route answered `503` on every Overview and Control assurance load and the console kept requesting it. Declaring the absence lets the client short-circuit and lets the panel state a reason about itself. No gate value is synthesized in either direction. | `current change`; operator suite `406 passed, 1 skipped`; Ruff check and format clean. Measured: the local store holds `rule.list`, `workflow.action-type-list`, and `workflow.catalog` under `operator-projection:workflow:` and zero rows matching `promotion-gate`, and no writer for that key exists in the tree. Mutation-verified by emptying the declared routes, which fails both unavailable-source tests. | Remove the declaration if a promotion-gate producer is introduced. |
 | 2026-08-18 | validated | Adopted this focused owner for the Console read boundary and moved its current scope, remaining work, and normative read contract out of the oversized parity document. | `current change`; the six earlier implementation transitions remain unchanged in `dev-and-deploy-parity.md`, and the focused document, translation, route, and size gates pass. | Complete the observable items below without widening the Operator API's authority. |
 | 2026-08-27 | implemented | Bound complete ontology instance projections to opaque, process-local selection tokens. The Operator resolves each token against the authenticated principal, ordinary role scope, purpose, exact release, source generation, completeness, and ids before a semantic turn can use it; restart, forgery, and client-recomputed membership fail closed. | `current change`; focused Operator, Core, and Console tests, strict typechecks, Ruff, and translation gates pass. | Retain an authenticated Browser receipt for the complete selection-token path. |
+| 2026-09-05 | implemented | Declared the shared recorded-state routes against the inventory family store rather than the generic operational projection configuration. | `current change`; the local/deployed and configured/unconfigured source-composition cases pass; [recorded-state evidence](../../roadmap-implementation/interfaces/recorded-resource-state.md). | Retain authenticated browser evidence for the recorded-state source declaration. |
 
 ### Remaining work
 
@@ -37,6 +39,8 @@ read-only, without giving the Operator API an executor identity.
   authenticated browser receipt that distinguishes no observed activity from an unavailable relay.
 - [ ] Bind the governed Python task authoring provider and retain its no-execution-authority
   capability receipt.
+- [ ] Retain an authenticated browser receipt showing the recorded-state source declaration and
+  fact-level evidence gaps without treating a configured source as a fresh observation.
 
 ## Design at a glance
 
@@ -54,6 +58,13 @@ is therefore declared unavailable with a reason instead of being omitted or answ
 synthesized value, and the console treats that declared unavailability as an optional projection
 rather than a page failure. A panel never renders a raw transport status as its operator-facing
 message; an unavailable surface shows either the declared reason or its own catalog copy.
+
+The `ontology-instances` source groups `/ontology/instances`, `/ontology/instances/explore`, and
+`/ontology/instances/states`. Its configuration follows the inventory family store independently
+of the generic operational read model. Both venues read the same immutable inventory generation;
+an unconfigured store is explicitly unavailable. A configured authoritative source identifies
+where records come from, not whether each recorded fact is current. Dashboard v2 and Ontology
+Instances preserve that distinction through the [recorded-state contract](../interfaces/recorded-resource-state.md).
 
 ## Local authentication
 

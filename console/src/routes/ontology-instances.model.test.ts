@@ -542,6 +542,32 @@ function relationship(
 }
 
 describe("decodeOntologyInstanceDirectory", () => {
+  it("shares recorded state facts with instance detail without merging provisioning into operation", () => {
+    const value = payload();
+    const fact = (state: string | null, source_path: string | null) => ({
+      value: state, source_path, observed_at: null, recorded_at: null,
+      freshness: "unknown", completeness: null, conflicts: [], reason: "metadata_not_recorded",
+    });
+    const states = {
+      schema_version: "1.0.0",
+      operational: fact("Running", "properties.runningStatus"),
+      provisioning: fact("Succeeded", "properties.provisioningState"),
+      availability: fact(null, null),
+    };
+    const resources = (value.resources as Record<string, unknown>[]).map((resource) => ({ ...resource, states }));
+    const detail = decodeOntologyInstanceExploration({ ...value, resources });
+    const directory = decodeOntologyInstanceDirectory({
+      schema_version: "1.0.0", ontology_release_digest: value.ontology_release_digest,
+      source_generation: value.source_generation, source_cutoff: value.source_cutoff,
+      search: null, resources: resources.map((resource) => ({ ...resource, selected: false })),
+      complete: true, truncation_reason: null, execution_authority: false, mutation_authority: false,
+    });
+    expect(directory.resources[0]?.states).toEqual(detail.resources[0]?.states);
+    expect(detail.resources[0]?.states?.operational.value).toBe("Running");
+    expect(detail.resources[0]?.states?.provisioning.value).toBe("Succeeded");
+    expect(detail.resources[0]?.states?.operational.observed_at).toBeNull();
+  });
+
   it("accepts a complete active-generation directory", () => {
     const value = payload();
     const decoded = decodeOntologyInstanceDirectory({

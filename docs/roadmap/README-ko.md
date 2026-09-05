@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 2665a7967b21eefd29c40005870f2674e0840de4
-translation_revised: 2026-08-29
+translation_source_sha: 45219f245d9238a55be43f0fb6d61a7bf4a58df2
+translation_revised: 2026-09-05
 ---
 # FDAI 로드맵
 
@@ -132,6 +132,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19o | [ontology-query-coverage-implementation-plan-ko.md](interfaces/ontology-query-coverage-implementation-plan-ko.md) | 매니페스트, 조회 계획, 의미 세대, 토폴로지 이력, causal 근거 및 이전 방식 전환을 위한 감사된 구현 공백과 의존성 순서 작업 패키지 |
 | 19p | [continuous-question-space-ko.md](interfaces/continuous-question-space-ko.md) | 정확한 릴리스의 유한 질문 사례, 이중 언어 후보 생성, 캠페인 근거 원장, strict v2 보증 및 제한된 예약 실행 |
 | 19j | [console-operations-ko.md](interfaces/console-operations-ko.md) | 기존 Operations 탐색, 출처별 작업 변환 결과와 스키마, 운영 요청, pantheon 소유권, 실행 분리 |
+| 19j.1 | [recorded-resource-state-ko.md](interfaces/recorded-resource-state-ko.md) | 기록된 운영, 프로비저닝, 가용성 상태의 공통 조회, 근거 한정 정보, 세대에 결속된 리소스 페이지 처리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 근거 출처 이력, localization, 영속 재생, 스트림 복구 및 아키텍처 지도 복원력 |
 | 19q | [network-topology-visualization-ko.md](interfaces/network-topology-visualization-ko.md) | 공유 네트워크 어휘, 작성된 참조 다이어그램, 관측된 Console 포커스, 경로 추적, 내보내기 및 시각 무결성 |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format 추출, 비공개 저장소, 공유 가시성, 보존, deletion 계약 |

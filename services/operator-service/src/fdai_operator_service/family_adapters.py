@@ -54,6 +54,7 @@ from fdai_operator_service.families.operations.instance_explorer import (
     project_inventory_instance,
     project_inventory_instances,
 )
+from fdai_operator_service.families.operations.instance_states import project_inventory_states
 from fdai_operator_service.families.operations.inventory_impact import (
     project_inventory_impact,
 )
@@ -713,12 +714,19 @@ class PostgresOperationsAdapters:
             "blast_radius.simulate",
             "ontology.instance.explore",
             "ontology.instance.list",
+            "ontology.instance.states",
         }:
             try:
                 ontology_projection = await self.store.read_projection(
                     family="operations",
                     operation="ontology.graph",
                 )
+                if query.operation == "ontology.instance.states":
+                    return await project_inventory_states(
+                        query=query,
+                        reader=self.store,
+                        ontology_projection=ontology_projection,
+                    )
                 if query.operation == "ontology.instance.explore":
                     return await project_inventory_instance(
                         query=query,

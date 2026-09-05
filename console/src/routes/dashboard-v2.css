@@ -1,4 +1,7 @@
 .dashboard-v2-page { --dv2-border: var(--cs-hairline); gap: 20px; }
+.dashboard-v2-page > .page-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; }
+.dashboard-v2-page .page-header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dashboard-v2-page .page-header-actions a { text-decoration: none; }
 .dv2-scope { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; font-size: var(--cs-type-compact-size); }
 .dv2-scope > div:first-child { flex: 1 1 400px; }
 .dv2-scope > div:last-child { text-align: right; }
@@ -11,6 +14,7 @@
 .dv2-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 288px; gap: 20px; align-items: start; }
 .dv2-resource-panel, .dv2-attention, .dv2-inspector, .dv2-coverage { padding: 20px; min-width: 0; border: 1px solid var(--dv2-border); border-radius: 8px; background: var(--cs-card); }
 .dv2-panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.dv2-panel-head > div:first-child { flex: 1 1 350px; }
 .dashboard-v2-page h3 { margin: 0; font-size: var(--cs-type-section-title-size); }
 .dv2-panel-head p, .dv2-note { margin: 6px 0; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
 .dv2-controls, .dv2-lenses { display: flex; align-items: start; flex-wrap: wrap; gap: 4px; }
@@ -19,13 +23,20 @@
 .dv2-controls button[aria-pressed="true"], .dv2-legend button[aria-pressed="true"] { background: var(--cs-shade); border-color: var(--cs-steel); color: var(--cs-text); }
 .dv2-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr); gap: 10px; }
 .dv2-filters label { display: grid; min-width: 0; gap: 4px; font-size: var(--cs-type-label-size); color: var(--cs-text-soft); }
+.dv2-filters { align-items: start; }
+.dv2-filters .searchable-select { gap: 4px; }
+.dv2-filters .searchable-select-help { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.dv2-filters .searchable-select-label { font-weight: 400; }
+.dv2-filters .searchable-select-input { min-height: 36px; height: 36px; }
 .dv2-filters input, .dv2-filters select { width: 100%; min-width: 0; min-height: 36px; }
 .dv2-meta, .dv2-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-block: 12px; font-size: var(--cs-type-label-size); color: var(--cs-text-soft); }
 .dv2-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 12px 20px; }
 .dv2-legend button { background: transparent; border: 1px solid transparent; padding: 4px 8px; color: var(--cs-text); font-size: var(--cs-type-label-size); }
+.dv2-legend .dv2-state { background: transparent; padding: 0; }
 .dv2-state { display: inline-flex; padding: 3px 6px; border-radius: 4px; background: var(--cs-shade); color: var(--cs-text); font-size: var(--cs-type-label-size); white-space: nowrap; }
 .dv2-state[data-tone="active"] { color: var(--cs-steel); }
 .dv2-state[data-tone="attention"] { color: var(--cs-terracotta); background: var(--cs-attention-bg); }
+.dv2-state[data-tone="negative"] { color: var(--cs-dusty-red); background: var(--cs-failure-bg); }
 .dv2-state[data-tone="na"] { background: transparent; color: var(--cs-text-soft); }
 .dv2-notice { background: var(--cs-shade); padding: 12px; border-radius: 4px; font-size: var(--cs-type-compact-size); margin: 0; }
 .dv2-side { min-width: 0; align-self: stretch; }

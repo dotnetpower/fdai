@@ -41,6 +41,12 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
 )
+from fdai_operator_service.families.operations.instance_states import (
+    MAX_STATE_PAGE_OFFSET,
+    MAX_STATE_PAGE_SIZE,
+    STATE_DIRECTORY_EXCLUDED_TYPES,
+    InventoryStatePage,
+)
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
     SemanticTurnClaim,
@@ -1033,6 +1039,62 @@ class PostgresFamilyStore:
                 for row in rows[:limit]
             ),
             truncated=len(rows) > limit,
+        )
+
+    async def read_inventory_state_page(
+        self, *, snapshot_id: str, search: str | None, offset: int, limit: int
+    ) -> InventoryStatePage:
+        """Read one immutable Resource page and its search count in a single statement.
+
+        The caller rechecks the active pointer before returning a page. No realtime
+        overlay, provider read, per-resource query, or new persistence is involved.
+        """
+        if isinstance(limit, bool) or not 1 <= limit <= MAX_STATE_PAGE_SIZE:
+            raise ValueError("states limit MUST be in [1, 500]")
+        if isinstance(offset, bool) or not 0 <= offset <= MAX_STATE_PAGE_OFFSET:
+            raise ValueError("states offset exceeds its bounds")
+        if search is not None and (not search.strip() or len(search) > 256):
+            raise ValueError("states search MUST contain 1 to 256 characters")
+        rows = await self._fetch_all(
+            "WITH matched AS MATERIALIZED ("
+            "SELECT resource_id, resource_type, props, last_seen "
+            "FROM inventory_snapshot_resource "
+            "WHERE snapshot_id = %(snapshot_id)s "
+            "AND resource_type <> ALL(%(excluded_types)s) "
+            "AND (%(pattern)s::text IS NULL "
+            "OR COALESCE(props ->> 'name', '') ILIKE %(pattern)s ESCAPE '\\' "
+            "OR resource_type ILIKE %(pattern)s ESCAPE '\\' "
+            "OR resource_id ILIKE %(pattern)s ESCAPE '\\')), "
+            "totals AS (SELECT COUNT(*) AS total_count FROM matched) "
+            "SELECT page.*, totals.total_count FROM totals "
+            "LEFT JOIN LATERAL (SELECT * FROM matched "
+            'ORDER BY resource_id COLLATE "C" LIMIT %(limit)s OFFSET %(offset)s'
+            ') AS page ON TRUE ORDER BY page.resource_id COLLATE "C"',
+            {
+                "snapshot_id": snapshot_id,
+                "pattern": f"%{_escape_like(search)}%" if search is not None else None,
+                "excluded_types": list(STATE_DIRECTORY_EXCLUDED_TYPES),
+                "offset": offset,
+                "limit": limit,
+            },
+        )
+        if not rows:
+            raise PostgresFamilyStoreUnavailable("recorded Resource count is unavailable")
+        total = rows[0].get("total_count")
+        if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+            raise PostgresFamilyStoreUnavailable("recorded Resource count is malformed")
+        return InventoryStatePage(
+            resources=tuple(
+                InventoryInstanceResource(
+                    resource_id=str(row.get("resource_id") or ""),
+                    resource_type=str(row.get("resource_type") or ""),
+                    properties=_json_object(row.get("props"), label="recorded Resource properties"),
+                    last_seen=_optional_timestamp(row.get("last_seen")),
+                )
+                for row in rows
+                if row.get("resource_id") is not None
+            ),
+            total_count=total,
         )
 
     async def read_inventory_instance_activity(

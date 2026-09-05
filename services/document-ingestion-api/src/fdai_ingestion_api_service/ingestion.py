@@ -15,9 +15,12 @@ from fdai_service_contracts import (
     DocumentAccessDeniedError,
     DocumentAccessProvider,
     DocumentDeletionRequest,
+    DocumentDisposition,
     DocumentLifecycleEvent,
+    DocumentNotFoundError,
     DocumentObjectStore,
     DocumentPurpose,
+    DocumentScopeKind,
     DocumentState,
     DocumentUploadMetadataStore,
     DocumentVersion,
@@ -46,6 +49,13 @@ _COMPLETED_UPLOAD_STATES = frozenset(
         DocumentState.FAILED,
     }
 )
+_TEMPORARY_DISPOSITIONS = frozenset(
+    {
+        DocumentDisposition.SESSION_EPHEMERAL,
+        DocumentDisposition.WORKSPACE_DRAFT,
+    }
+)
+_MAX_TEMPORARY_RETENTION = timedelta(days=365)
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +77,77 @@ class CreateUploadRequest:
     upload_id: UUID | None = None
     version_id: UUID | None = None
     connector_idempotency_key: str | None = None
+    disposition: DocumentDisposition = DocumentDisposition.GOVERNED_KNOWLEDGE
+    scope_kind: DocumentScopeKind | None = None
+    scope_ref: str | None = None
+    promoted_from_version_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentLifecyclePolicy:
+    """Resolve server-owned temporary retention without accepting client deadlines."""
+
+    session_ephemeral_duration: timedelta = timedelta(days=1)
+    workspace_draft_duration: timedelta = timedelta(days=30)
+
+    def __post_init__(self) -> None:
+        for name, duration in (
+            ("session_ephemeral_duration", self.session_ephemeral_duration),
+            ("workspace_draft_duration", self.workspace_draft_duration),
+        ):
+            if duration <= timedelta(0) or duration > _MAX_TEMPORARY_RETENTION:
+                raise ValueError(f"{name} MUST be in (0, 365 days]")
+
+    def resolve(
+        self,
+        *,
+        disposition: DocumentDisposition,
+        policy_version: str,
+        now: datetime,
+    ) -> RetentionPolicy:
+        """Return temporary deadlines or leave governed retention policy-owned."""
+        if now.utcoffset() is None:
+            raise ValueError("document lifecycle clock MUST include a timezone")
+        duration = {
+            DocumentDisposition.SESSION_EPHEMERAL: self.session_ephemeral_duration,
+            DocumentDisposition.WORKSPACE_DRAFT: self.workspace_draft_duration,
+        }.get(disposition)
+        deadline = None if duration is None else now + duration
+        return RetentionPolicy(
+            policy_version=policy_version,
+            source_expires_at=deadline,
+            derived_expires_at=deadline,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class TemporaryDocumentQuota:
+    """Bound active temporary material reserved by one authenticated principal."""
+
+    max_documents: int = 100
+    max_bytes: int = 256 * 1024 * 1024
+
+    def __post_init__(self) -> None:
+        if self.max_documents < 1 or self.max_documents > 100_000:
+            raise ValueError("temporary max_documents MUST be in [1, 100000]")
+        if self.max_bytes < 1 or self.max_bytes > 10 * 1024 * 1024 * 1024 * 1024:
+            raise ValueError("temporary max_bytes MUST be in [1, 10995116277760]")
+
+
+@dataclass(frozen=True, slots=True)
+class TemporaryDocumentUsage:
+    """Current active temporary document count and reserved source bytes."""
+
+    documents: int
+    bytes: int
+
+    def __post_init__(self) -> None:
+        if self.documents < 0 or self.bytes < 0:
+            raise ValueError("temporary document usage MUST NOT be negative")
+
+
+class TemporaryDocumentQuotaExceededError(ValueError):
+    """The principal's active temporary reservation would exceed a configured bound."""
 
 
 @runtime_checkable
@@ -76,6 +157,24 @@ class DocumentCatalogMetadataStore(DocumentUploadMetadataStore, Protocol):
     async def list_collection_versions(
         self, collection_id: str, *, limit: int
     ) -> tuple[DocumentVersion, ...]: ...
+
+
+@runtime_checkable
+class TemporaryDocumentMetadataStore(DocumentUploadMetadataStore, Protocol):
+    """Count active temporary versions for principal-scoped admission control."""
+
+    async def temporary_usage(self, actor_id: str) -> TemporaryDocumentUsage: ...
+
+    async def create_with_temporary_quota(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        max_documents: int,
+        max_bytes: int,
+    ) -> None:
+        """Atomically count and reserve one temporary upload."""
+        ...
 
 
 class DocumentIngestionService:
@@ -91,6 +190,8 @@ class DocumentIngestionService:
         clock: Callable[[], datetime] | None = None,
         id_factory: Callable[[], UUID] | None = None,
         upload_ttl: timedelta = timedelta(minutes=15),
+        lifecycle_policy: DocumentLifecyclePolicy | None = None,
+        temporary_quota: TemporaryDocumentQuota | None = None,
     ) -> None:
         self._access = access
         self._metadata = metadata
@@ -99,6 +200,8 @@ class DocumentIngestionService:
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._id_factory = id_factory or uuid4
         self._upload_ttl = upload_ttl
+        self._lifecycle_policy = lifecycle_policy or DocumentLifecyclePolicy()
+        self._temporary_quota = temporary_quota or TemporaryDocumentQuota()
 
     @property
     def capabilities(self) -> IngestionCapabilities:
@@ -133,8 +236,14 @@ class DocumentIngestionService:
             request.document_id is not None
             and request.supersedes_version_id is None
             and request.connector_idempotency_key is None
+            and request.promoted_from_version_id is None
         ):
             raise ValueError("a replacement requires supersedes_version_id")
+        if request.promoted_from_version_id is not None and (
+            request.disposition is not DocumentDisposition.GOVERNED_KNOWLEDGE
+            or request.supersedes_version_id is not None
+        ):
+            raise ValueError("promotion MUST create a new governed document")
         if request.document_id is not None and request.supersedes_version_id is not None:
             previous = await self._metadata.get_version(
                 request.document_id, request.supersedes_version_id
@@ -155,8 +264,16 @@ class DocumentIngestionService:
             raise ValueError("requested storage mode is unavailable")
         if not request.purposes:
             raise ValueError("at least one document purpose is required")
+        if request.retention_policy_version not in self._capabilities.policy_versions:
+            raise ValueError("requested retention policy version is unavailable")
+        _validate_scope(request)
 
         now = self._clock()
+        retention = self._lifecycle_policy.resolve(
+            disposition=request.disposition,
+            policy_version=request.retention_policy_version,
+            now=now,
+        )
         upload_id = request.upload_id or self._id_factory()
         document_id = request.document_id or self._id_factory()
         version_id = request.version_id or self._id_factory()
@@ -165,7 +282,6 @@ class DocumentIngestionService:
             collection_id=request.collection_id,
             reader_groups=request.reader_groups,
         )
-        retention = RetentionPolicy(policy_version=request.retention_policy_version)
         session = UploadSession(
             upload_id=upload_id,
             document_id=document_id,
@@ -184,6 +300,9 @@ class DocumentIngestionService:
             retention=retention,
             created_at=now,
             expires_at=now + self._upload_ttl,
+            disposition=request.disposition,
+            scope_kind=request.scope_kind,
+            scope_ref=request.scope_ref,
             supersedes_version_id=request.supersedes_version_id,
         )
         version = DocumentVersion(
@@ -201,9 +320,23 @@ class DocumentIngestionService:
             uploader_id=actor_id,
             created_at=now,
             updated_at=now,
+            disposition=request.disposition,
+            scope_kind=request.scope_kind,
+            scope_ref=request.scope_ref,
             supersedes_version_id=request.supersedes_version_id,
+            promoted_from_version_id=request.promoted_from_version_id,
         )
-        await self._metadata.create(session, version)
+        if request.disposition in _TEMPORARY_DISPOSITIONS:
+            if not isinstance(self._metadata, TemporaryDocumentMetadataStore):
+                raise RuntimeError("temporary document quota metadata is unavailable")
+            await self._metadata.create_with_temporary_quota(
+                session,
+                version,
+                max_documents=self._temporary_quota.max_documents,
+                max_bytes=self._temporary_quota.max_bytes,
+            )
+        else:
+            await self._metadata.create(session, version)
         grant = await self._objects.issue_upload(session)
         uploading = transition(DocumentState.CREATED, DocumentState.UPLOADING)
         uploading_session = session.model_copy(
@@ -229,6 +362,114 @@ class DocumentIngestionService:
             await self._objects.revoke_upload(session.upload_id)
             raise
         return uploading_session, grant
+
+    async def promote_version(
+        self,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        document_id: UUID,
+        version_id: UUID,
+        collection_id: str,
+        access_descriptor_ref: str,
+        reader_groups: tuple[str, ...],
+    ) -> UploadSession:
+        """Copy one eligible temporary source into a replay-stable governed upload."""
+        source = await self._metadata.get_version(document_id, version_id)
+        source_session = await self._metadata.get_upload(source.upload_id)
+        await self._access.authorize_delete(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            version=source,
+        )
+        await self._access.authorize_create(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            collection_id=collection_id,
+        )
+        if source.disposition not in _TEMPORARY_DISPOSITIONS:
+            raise ValueError("only temporary or draft documents can be promoted")
+        if (
+            source.state not in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+            or not source.active
+            or not source.available
+        ):
+            raise ValueError("only the current ready document version can be promoted")
+        if source.retention.legal_hold:
+            raise ValueError("a document subject to legal hold cannot be promoted")
+        if collection_id != source.access.collection_id:
+            raise ValueError("promotion cannot move source bytes between collections")
+
+        upload_id = _stable_id(f"document.promote:upload:{source.version_id}:{collection_id}")
+        promoted_document_id = _stable_id(
+            f"document.promote:document:{source.version_id}:{collection_id}"
+        )
+        promoted_version_id = _stable_id(
+            f"document.promote:version:{source.version_id}:{collection_id}"
+        )
+        try:
+            target = await self._metadata.get_upload(upload_id)
+            target_version = await self._metadata.get_version(
+                promoted_document_id, promoted_version_id
+            )
+            if (
+                target_version.promoted_from_version_id != source.version_id
+                or target.collection_id != collection_id
+                or target.expected_sha256 != source.source_sha256
+            ):
+                raise ValueError("promotion replay identity conflicts with stored metadata")
+        except DocumentNotFoundError:
+            try:
+                target, _grant = await self.create_upload(
+                    actor_id=actor_id,
+                    actor_groups=actor_groups,
+                    request=CreateUploadRequest(
+                        source_name=source.source_name,
+                        collection_id=collection_id,
+                        media_type_hint=source.media_type,
+                        expected_size=source.size_bytes,
+                        expected_sha256=source.source_sha256,
+                        storage_mode=source_session.storage_mode,
+                        purposes=source.purposes,
+                        access_descriptor_ref=access_descriptor_ref,
+                        reader_groups=reader_groups,
+                        retention_policy_version=source.retention.policy_version,
+                        document_id=promoted_document_id,
+                        upload_id=upload_id,
+                        version_id=promoted_version_id,
+                        disposition=DocumentDisposition.GOVERNED_KNOWLEDGE,
+                        scope_kind=DocumentScopeKind.COLLECTION,
+                        scope_ref=collection_id,
+                        promoted_from_version_id=source.version_id,
+                    ),
+                )
+            except ValueError as exc:
+                if str(exc) != "document upload or version already exists":
+                    raise
+                target = await self._metadata.get_upload(upload_id)
+
+        if target.state is DocumentState.CREATED:
+            await self.resume_upload(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                upload_id=target.upload_id,
+            )
+            target = await self._metadata.get_upload(target.upload_id)
+        if target.state is DocumentState.UPLOADING:
+            await self.put_streaming_content(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                upload_id=target.upload_id,
+                chunks=self._objects.read(source_session.object_key),
+            )
+            return await self.complete_upload(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                upload_id=target.upload_id,
+            )
+        if target.state in _COMPLETED_UPLOAD_STATES:
+            return target
+        raise ValueError("promoted upload is not replayable from its current state")
 
     async def resume_upload(
         self,
@@ -600,3 +841,26 @@ class DocumentIngestionService:
 
 def _collection_segment(collection_id: str) -> str:
     return hashlib.sha256(collection_id.encode("utf-8")).hexdigest()[:16]
+
+
+def _stable_id(identity: str) -> UUID:
+    return UUID(bytes=hashlib.sha256(identity.encode()).digest()[:16])
+
+
+def _validate_scope(request: CreateUploadRequest) -> None:
+    expected = {
+        DocumentDisposition.SESSION_EPHEMERAL: DocumentScopeKind.CONVERSATION,
+        DocumentDisposition.WORKSPACE_DRAFT: DocumentScopeKind.WORKSPACE,
+        DocumentDisposition.REGULATED_RECORD: DocumentScopeKind.REGULATED,
+    }.get(request.disposition)
+    if expected is not None and (
+        request.scope_kind is not expected or not (request.scope_ref or "").strip()
+    ):
+        raise ValueError(
+            f"{request.disposition.value} documents MUST identify a {expected.value} scope"
+        )
+    if request.disposition is DocumentDisposition.GOVERNED_KNOWLEDGE and (
+        request.scope_kind not in {None, DocumentScopeKind.COLLECTION}
+        or request.scope_ref not in {None, request.collection_id}
+    ):
+        raise ValueError("governed knowledge MUST use its collection scope")

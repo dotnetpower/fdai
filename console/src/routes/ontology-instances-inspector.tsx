@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { StatusPill } from "../components/ui";
+import { RecordedStateFacts } from "../components/recorded-state-facts";
 import { routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import type {
@@ -87,13 +88,12 @@ function InstanceOverview({
     <section class="ontology-instance-inspector-section">
       <span class="eyebrow">Resource</span>
       <h3>{root.name ?? root.resource_type}</h3>
-      <div class="ontology-instance-overview-status">
+      {root.states ? <RecordedStateFacts states={root.states} /> : <div class="ontology-instance-overview-status">
         <StatusPill
           kind={ontologyInstanceStatusTone(root.status)}
           label={root.status ?? t("ontology.instances.stateNotReported")}
-          title={t("ontology.instances.providerReportedState")}
         />
-      </div>
+      </div>}
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
         {root.capacity === null || root.capacity === undefined || capacityKind === null ? null : (

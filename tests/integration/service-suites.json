@@ -78,6 +78,8 @@
           "services/operator-service/tests/test_entra_directory.py",
           "services/operator-service/tests/test_hil_teams_callback.py",
           "services/operator-service/tests/test_inventory_instance_projection.py",
+          "services/operator-service/tests/test_inventory_state_pages.py",
+          "services/operator-service/tests/test_recorded_resource_state.py",
           "services/operator-service/tests/test_inventory_impact_projection.py",
           "services/operator-service/tests/test_investigation_presentation.py",
           "services/operator-service/tests/test_investigation_projection.py",
@@ -178,6 +180,8 @@
       "test_groups": {
         "unit": [],
         "contract": [
+          "services/document-ingestion-api/tests/test_document_download.py",
+          "services/document-ingestion-api/tests/test_document_preview.py",
           "services/document-ingestion-api/tests/test_ingestion_service_behavior.py"
         ],
         "integration": [
@@ -209,6 +213,7 @@
           "services/document-processing-worker/tests/test_pdf_isolation.py"
         ],
         "integration": [
+          "services/document-processing-worker/tests/test_artifact_index_lifecycle.py",
           "services/document-processing-worker/tests/test_protection_reconciliation.py",
           "services/document-processing-worker/tests/test_purview_rms_protection.py"
         ],

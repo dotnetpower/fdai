@@ -31,6 +31,9 @@ from fdai_operator_service.families.operations.contracts import (
     ReportPdfEncodingError,
     WebhookVerifier,
 )
+from fdai_operator_service.families.operations.instance_states import (
+    InventoryGenerationChangedError,
+)
 from fdai_operator_service.families.operations.manifest import (
     OPERATIONS_ROUTE_MANIFEST,
     OperationRoute,
@@ -204,6 +207,8 @@ async def _projection(
             operation=entry.operation,
             report_pdf_encoder=report_pdf_encoder,
         )
+    except InventoryGenerationChangedError:
+        return _error(409, "inventory_generation_changed")
     except ProjectionNotFoundError:
         if entry.operation in {"blast_radius.simulate", "ontology.instance.explore"}:
             return _error(404, "target resource is not available in the active inventory")

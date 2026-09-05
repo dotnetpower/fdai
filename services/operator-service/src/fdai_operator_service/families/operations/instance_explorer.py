@@ -18,6 +18,7 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
     ProjectionUnavailableError,
 )
+from fdai_operator_service.families.operations.recorded_state import recorded_resource_states
 from fdai_service_contracts import (
     OperatorRole,
     canonical_ordinary_role,
@@ -76,13 +77,17 @@ async def project_inventory_instances(
         search=search,
         limit=min(query.limit, MAX_INSTANCE_RESOURCES),
     )
+    evaluated_at = datetime.now(UTC)
     return {
         "schema_version": "1.0.0",
         "ontology_release_digest": release_digest,
         "source_generation": context.snapshot_id,
         "source_cutoff": context.observed_at.isoformat(),
         "search": search,
-        "resources": [_resource_projection(resource, root_id=None) for resource in page.resources],
+        "resources": [
+            _resource_projection(resource, root_id=None, now=evaluated_at)
+            for resource in page.resources
+        ],
         "complete": not page.truncated,
         "truncation_reason": "resource_limit" if page.truncated else None,
         **_context_identity(
@@ -156,7 +161,7 @@ async def project_inventory_instance(
         "depth": depth,
         "link_types": list(link_types),
         "resources": [
-            _resource_projection(resource, root_id=root_id)
+            _resource_projection(resource, root_id=root_id, now=evaluated_at)
             for resource in sorted(
                 neighborhood.resources,
                 key=lambda item: (item.resource_id != root_id, item.resource_id),
@@ -486,8 +491,15 @@ def _resource_projection(
     resource: InventoryInstanceResource,
     *,
     root_id: str | None,
+    now: datetime | None = None,
 ) -> dict[str, object]:
     properties = resource.properties
+    if (
+        not resource.resource_id
+        or len(resource.resource_id) > 1024
+        or (not resource.resource_type or len(resource.resource_type) > 256)
+    ):
+        raise ProjectionUnavailableError("inventory Resource identity exceeds its bounds")
     projection: dict[str, object] = {
         "id": resource.resource_id,
         "object_type": "Resource",
@@ -496,8 +508,15 @@ def _resource_projection(
         "location": _optional_text(properties.get("location")),
         "resource_group": _optional_text(properties.get("resourceGroup"))
         or _optional_text(properties.get("resource_group")),
-        "status": _resource_status(properties),
-        "last_seen": resource.last_seen.isoformat() if resource.last_seen else None,
+        "subscription_id": _optional_text(properties.get("subscriptionId"))
+        or _optional_text(properties.get("subscription_id")),
+        "status": _optional_text(_resource_status(properties)),
+        "states": recorded_resource_states(properties, now=now),
+        "last_seen": (
+            resource.last_seen.isoformat()
+            if resource.last_seen and resource.last_seen.utcoffset() is not None
+            else None
+        ),
         "selected": root_id is not None and resource.resource_id == root_id,
     }
     capacity = _resource_capacity(resource.resource_type, properties)
@@ -538,7 +557,7 @@ def _resource_status(properties: Mapping[str, object]) -> str | None:
 
 
 def _optional_text(value: object) -> str | None:
-    return value.strip() if isinstance(value, str) and value.strip() else None
+    return value.strip() if isinstance(value, str) and value.strip() and len(value) <= 256 else None
 
 
 def _latest_activity_time(

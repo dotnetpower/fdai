@@ -49,6 +49,12 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "ontology.instance.list",
     ),
     OperationRoute(
+        "/ontology/instances/states",
+        "GET",
+        "ontology_instance_states",
+        "ontology.instance.states",
+    ),
+    OperationRoute(
         "/ontology/instances/explore",
         "GET",
         "ontology_instance_explore",

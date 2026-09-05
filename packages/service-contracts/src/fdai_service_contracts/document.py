@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class DocumentContract(BaseModel):
@@ -31,6 +31,61 @@ class DocumentState(StrEnum):
     FAILED = "failed"
     DELETING = "deleting"
     DELETED = "deleted"
+
+
+class DocumentDisposition(StrEnum):
+    """Governance purpose assigned to a document version."""
+
+    SESSION_EPHEMERAL = "session_ephemeral"
+    WORKSPACE_DRAFT = "workspace_draft"
+    GOVERNED_KNOWLEDGE = "governed_knowledge"
+    REGULATED_RECORD = "regulated_record"
+
+
+class DocumentScopeKind(StrEnum):
+    """Authorization scope that owns a document version."""
+
+    CONVERSATION = "conversation"
+    WORKSPACE = "workspace"
+    COLLECTION = "collection"
+    REGULATED = "regulated"
+
+
+class DocumentIndexState(StrEnum):
+    """Independent lifecycle state of a document's search index."""
+
+    NOT_REQUESTED = "not_requested"
+    QUEUED = "queued"
+    BUILDING = "building"
+    ACTIVE = "active"
+    TOMBSTONED = "tombstoned"
+    PURGED = "purged"
+    FAILED = "failed"
+
+
+class DocumentRetentionState(StrEnum):
+    """Independent lifecycle state of retained document material."""
+
+    LIVE = "live"
+    EXPIRING = "expiring"
+    HELD = "held"
+    TOMBSTONED = "tombstoned"
+    PURGE_PENDING = "purge_pending"
+    PURGED = "purged"
+
+
+class DocumentArtifactKind(StrEnum):
+    """Material kinds tracked in a document artifact graph."""
+
+    SOURCE = "source"
+    NATIVE_TEXT = "native_text"
+    PAGE_RASTER = "page_raster"
+    EMBEDDED_IMAGE = "embedded_image"
+    OCR_TEXT = "ocr_text"
+    THUMBNAIL = "thumbnail"
+    NORMALIZED_ENVELOPE = "normalized_envelope"
+    CHUNK = "chunk"
+    EMBEDDING = "embedding"
 
 
 class ProtectionState(StrEnum):
@@ -107,6 +162,192 @@ class RetentionPolicy(DocumentContract):
     legal_hold: bool = False
 
 
+class ArtifactManifestEntry(DocumentContract):
+    """One immutable, content-addressed node in a document artifact graph."""
+
+    artifact_id: Annotated[str, Field(min_length=1, max_length=256)]
+    parent_artifact_id: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    kind: DocumentArtifactKind
+    content_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    locator: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
+    media_type: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    size_bytes: Annotated[int, Field(ge=0)] | None = None
+    retained: bool
+    expires_at: datetime | None = None
+
+    @field_validator("expires_at")
+    @classmethod
+    def _validate_expiry(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.utcoffset() is None:
+            raise ValueError("artifact expiry MUST include a timezone")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_retained_integrity(self) -> ArtifactManifestEntry:
+        if self.retained and (self.content_sha256 is None or self.size_bytes is None):
+            raise ValueError("retained artifact MUST include content digest and size")
+        return self
+
+
+class DocumentArtifactManifest(DocumentContract):
+    """Bind a document version to its source and complete derived-artifact lineage."""
+
+    document_id: UUID
+    version_id: UUID
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    access: AccessDescriptor
+    retention: RetentionPolicy
+    disposition: DocumentDisposition = DocumentDisposition.GOVERNED_KNOWLEDGE
+    scope_kind: DocumentScopeKind | None = None
+    scope_ref: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+    entries: Annotated[tuple[ArtifactManifestEntry, ...], Field(min_length=1)]
+    extractor_name: Annotated[str, Field(min_length=1, max_length=256)]
+    extractor_version: Annotated[str, Field(min_length=1, max_length=128)]
+    created_at: datetime
+    updated_at: datetime
+
+    @model_validator(mode="after")
+    def _validate_manifest(self) -> DocumentArtifactManifest:
+        if self.created_at.utcoffset() is None or self.updated_at.utcoffset() is None:
+            raise ValueError("artifact manifest timestamps MUST include a timezone")
+        if self.updated_at < self.created_at:
+            raise ValueError("artifact manifest updated_at MUST NOT precede created_at")
+        scope_kind, scope_ref = _resolve_document_scope(
+            disposition=self.disposition,
+            scope_kind=self.scope_kind,
+            scope_ref=self.scope_ref,
+            collection_id=self.access.collection_id,
+        )
+        object.__setattr__(self, "scope_kind", scope_kind)
+        object.__setattr__(self, "scope_ref", scope_ref)
+
+        entries_by_id = {entry.artifact_id: entry for entry in self.entries}
+        if len(entries_by_id) != len(self.entries):
+            raise ValueError("artifact manifest artifact_id values MUST be unique")
+
+        source_entries = [
+            entry for entry in self.entries if entry.kind is DocumentArtifactKind.SOURCE
+        ]
+        if len(source_entries) != 1:
+            raise ValueError("artifact manifest MUST contain exactly one source artifact")
+        source = source_entries[0]
+        if source.parent_artifact_id is not None:
+            raise ValueError("artifact manifest source artifact MUST NOT have a parent")
+        if source.content_sha256 != self.source_sha256:
+            raise ValueError("artifact manifest source hash MUST match source_sha256")
+
+        for entry in self.entries:
+            parent_id = entry.parent_artifact_id
+            if entry.kind is not DocumentArtifactKind.SOURCE and parent_id is None:
+                raise ValueError("artifact manifest derivative MUST identify its parent")
+            if parent_id is not None and parent_id not in entries_by_id:
+                raise ValueError("artifact manifest child parent MUST exist")
+
+        for entry in self.entries:
+            parent_id = entry.parent_artifact_id
+            seen = {entry.artifact_id}
+            while parent_id is not None:
+                if parent_id in seen:
+                    raise ValueError("artifact manifest lineage MUST NOT contain a cycle")
+                seen.add(parent_id)
+                parent_id = entries_by_id[parent_id].parent_artifact_id
+
+            if (
+                entry.kind is DocumentArtifactKind.SOURCE
+                and entry.retained
+                and self.retention.source_expires_at is not None
+            ):
+                if entry.expires_at is None:
+                    raise ValueError("retained source MUST expire by the governed source expiry")
+                if entry.expires_at > self.retention.source_expires_at:
+                    raise ValueError(
+                        "retained source MUST NOT expire after the governed source expiry"
+                    )
+            if (
+                entry.kind is not DocumentArtifactKind.SOURCE
+                and entry.retained
+                and self.retention.derived_expires_at is not None
+            ):
+                if entry.expires_at is None:
+                    raise ValueError(
+                        "retained derivative MUST expire by the governed derived expiry"
+                    )
+                if entry.expires_at > self.retention.derived_expires_at:
+                    raise ValueError(
+                        "retained derivative MUST NOT expire after the governed derived expiry"
+                    )
+        return self
+
+
+class DocumentPurgeVerificationReceipt(DocumentContract):
+    """Independently report whether every owned document residue is absent."""
+
+    document_id: UUID
+    version_id: UUID
+    live_index_rows: Annotated[int, Field(ge=0)]
+    derivative_objects: Annotated[int, Field(ge=0)]
+    source_objects: Annotated[int, Field(ge=0)]
+    cache_entries: Annotated[int, Field(ge=0)]
+    legal_hold_blocked: bool
+    backup_blocked: bool
+    producer_blocked: bool = False
+    verified_at: datetime
+    verified: bool | None = None
+
+    @field_validator("verified_at")
+    @classmethod
+    def _validate_verified_at(cls, value: datetime) -> datetime:
+        if value.utcoffset() is None:
+            raise ValueError("purge verification timestamp MUST include a timezone")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_verified(self) -> DocumentPurgeVerificationReceipt:
+        expected = (
+            self.live_index_rows == 0
+            and self.derivative_objects == 0
+            and self.source_objects == 0
+            and self.cache_entries == 0
+            and not self.legal_hold_blocked
+            and not self.backup_blocked
+            and not self.producer_blocked
+        )
+        if self.verified is not None and self.verified is not expected:
+            raise ValueError("purge verification result MUST match residue and blocker fields")
+        object.__setattr__(self, "verified", expected)
+        return self
+
+
+def _resolve_document_scope(
+    *,
+    disposition: DocumentDisposition,
+    scope_kind: DocumentScopeKind | None,
+    scope_ref: str | None,
+    collection_id: str,
+) -> tuple[DocumentScopeKind | None, str | None]:
+    if disposition is DocumentDisposition.GOVERNED_KNOWLEDGE:
+        scope_kind = scope_kind or DocumentScopeKind.COLLECTION
+        if scope_kind is not DocumentScopeKind.COLLECTION:
+            raise ValueError("governed knowledge MUST use collection scope")
+        scope_ref = scope_ref or collection_id
+        if scope_ref != collection_id:
+            raise ValueError("governed knowledge scope MUST match its collection")
+    else:
+        expected_scope = {
+            DocumentDisposition.SESSION_EPHEMERAL: DocumentScopeKind.CONVERSATION,
+            DocumentDisposition.WORKSPACE_DRAFT: DocumentScopeKind.WORKSPACE,
+            DocumentDisposition.REGULATED_RECORD: DocumentScopeKind.REGULATED,
+        }[disposition]
+        if scope_kind is not expected_scope or scope_ref is None:
+            raise ValueError(
+                f"{disposition.value} documents MUST identify a {expected_scope.value} scope"
+            )
+
+    if (scope_kind is None) != (scope_ref is None):
+        raise ValueError("document scope kind and reference MUST be provided together")
+    return scope_kind, scope_ref
+
+
 class UploadSession(DocumentContract):
     upload_id: UUID
     document_id: UUID
@@ -125,9 +366,26 @@ class UploadSession(DocumentContract):
     retention: RetentionPolicy
     created_at: datetime
     expires_at: datetime
+    disposition: DocumentDisposition = DocumentDisposition.GOVERNED_KNOWLEDGE
+    index_state: DocumentIndexState = DocumentIndexState.NOT_REQUESTED
+    retention_state: DocumentRetentionState = DocumentRetentionState.LIVE
+    scope_kind: DocumentScopeKind | None = None
+    scope_ref: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     supersedes_version_id: UUID | None = None
     failure_code: str | None = None
     revision: Annotated[int, Field(ge=1)] = 1
+
+    @model_validator(mode="after")
+    def _validate_scope(self) -> UploadSession:
+        scope_kind, scope_ref = _resolve_document_scope(
+            disposition=self.disposition,
+            scope_kind=self.scope_kind,
+            scope_ref=self.scope_ref,
+            collection_id=self.collection_id,
+        )
+        object.__setattr__(self, "scope_kind", scope_kind)
+        object.__setattr__(self, "scope_ref", scope_ref)
+        return self
 
 
 class DocumentWorkerClaim(DocumentContract):
@@ -230,10 +488,39 @@ class DocumentVersion(DocumentContract):
     updated_at: datetime
     active: bool = False
     available: bool = False
+    disposition: DocumentDisposition = DocumentDisposition.GOVERNED_KNOWLEDGE
+    index_state: DocumentIndexState = DocumentIndexState.NOT_REQUESTED
+    retention_state: DocumentRetentionState = DocumentRetentionState.LIVE
+    scope_kind: DocumentScopeKind | None = None
+    scope_ref: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     supersedes_version_id: UUID | None = None
+    promoted_from_version_id: UUID | None = None
     failure_code: str | None = None
     warnings: tuple[str, ...] = ()
     revision: Annotated[int, Field(ge=1)] = 1
+
+    @model_validator(mode="after")
+    def _validate_scope(self) -> DocumentVersion:
+        scope_kind, scope_ref = _resolve_document_scope(
+            disposition=self.disposition,
+            scope_kind=self.scope_kind,
+            scope_ref=self.scope_ref,
+            collection_id=self.access.collection_id,
+        )
+        object.__setattr__(self, "scope_kind", scope_kind)
+        object.__setattr__(self, "scope_ref", scope_ref)
+        if self.promoted_from_version_id == self.version_id:
+            raise ValueError("promoted document version MUST NOT reference itself")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_purged_availability(self) -> DocumentVersion:
+        if (
+            self.index_state is DocumentIndexState.PURGED
+            or self.retention_state is DocumentRetentionState.PURGED
+        ) and (self.active or self.available):
+            raise ValueError("a purged document version MUST be inactive and unavailable")
+        return self
 
 
 class StructuralUnit(DocumentContract):
@@ -264,6 +551,30 @@ class DocumentEnvelope(DocumentContract):
     extractor_version: str
     goal_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     warnings: tuple[str, ...] = ()
+    artifact_manifest: DocumentArtifactManifest | None = None
+
+    @model_validator(mode="after")
+    def _validate_artifact_manifest(self) -> DocumentEnvelope:
+        manifest = self.artifact_manifest
+        if manifest is None:
+            return self
+        if (
+            manifest.document_id != self.document_id
+            or manifest.version_id != self.version_id
+            or manifest.source_sha256 != self.source_sha256
+        ):
+            raise ValueError("artifact manifest MUST bind the envelope document version and source")
+        if (
+            manifest.access.collection_id != self.collection_id
+            or manifest.access.reference != self.access_descriptor_ref
+        ):
+            raise ValueError("artifact manifest MUST bind the envelope access descriptor")
+        if (
+            manifest.extractor_name != self.extractor_name
+            or manifest.extractor_version != self.extractor_version
+        ):
+            raise ValueError("artifact manifest MUST bind the envelope extractor")
+        return self
 
 
 class IngestionCapabilities(DocumentContract):

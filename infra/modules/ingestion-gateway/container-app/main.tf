@@ -275,6 +275,26 @@ resource "azurerm_container_app" "ingestion" {
           value = tostring(env.value)
         }
       }
+      dynamic "env" {
+        for_each = var.sharepoint_connector_enabled ? {
+          FDAI_SHAREPOINT_CONNECTOR_ENABLED        = "1"
+          FDAI_SHAREPOINT_CONNECTOR_ID             = var.sharepoint_connector_id
+          FDAI_SHAREPOINT_TARGET_TENANT_ID         = var.sharepoint_target_tenant_id
+          FDAI_SHAREPOINT_CLIENT_ID                = var.sharepoint_client_id
+          FDAI_SHAREPOINT_SITE_ID                  = var.sharepoint_site_id
+          FDAI_SHAREPOINT_DRIVE_ID                 = var.sharepoint_drive_id
+          FDAI_SHAREPOINT_COLLECTION_ID            = var.sharepoint_collection_id
+          FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF    = var.sharepoint_access_descriptor_ref
+          FDAI_SHAREPOINT_READER_GROUPS            = var.sharepoint_reader_groups
+          FDAI_SHAREPOINT_RETENTION_POLICY_VERSION = var.sharepoint_retention_policy_version
+          FDAI_SHAREPOINT_PURPOSES                 = var.sharepoint_purposes
+          FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES   = var.sharepoint_download_host_suffixes
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       env {
         name  = "FDAI_EMBEDDING_DIM"
         value = tostring(var.embedding_dim)
@@ -337,6 +357,19 @@ resource "azurerm_container_app" "ingestion" {
         var.worker_database_dsn_secret_id != ""
       )
       error_message = "split ingestion requires worker identity and database secret inputs."
+    }
+    precondition {
+      condition = !var.sharepoint_connector_enabled || alltrue([
+        var.sharepoint_connector_id != "",
+        var.sharepoint_target_tenant_id != "",
+        var.sharepoint_client_id != "",
+        var.sharepoint_site_id != "",
+        var.sharepoint_drive_id != "",
+        var.sharepoint_collection_id != "",
+        var.sharepoint_access_descriptor_ref != "",
+        var.sharepoint_retention_policy_version != "",
+      ])
+      error_message = "SharePoint connector activation requires complete target tenant, federated client, site, drive, collection, access, and retention bindings."
     }
   }
 }

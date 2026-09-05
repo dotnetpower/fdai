@@ -23,6 +23,9 @@ from fdai_service_contracts import (
     AdapterReadiness,
     DocumentEnvelope,
     DocumentExtractionUnavailableError,
+    DocumentIndexState,
+    DocumentLifecycleConflictError,
+    DocumentState,
     DocumentVersion,
     ExtractionUnavailableReason,
     ImageOcrProvider,
@@ -596,6 +599,29 @@ class PgvectorDocumentIndex:
                     "collection_id": envelope.collection_id,
                     "access_descriptor_ref": envelope.access_descriptor_ref,
                     "locator": unit.locator,
+                    "disposition": (
+                        envelope.artifact_manifest.disposition.value
+                        if envelope.artifact_manifest is not None
+                        else "governed_knowledge"
+                    ),
+                    "scope_kind": (
+                        envelope.artifact_manifest.scope_kind.value
+                        if envelope.artifact_manifest is not None
+                        and envelope.artifact_manifest.scope_kind is not None
+                        else "collection"
+                    ),
+                    "scope_ref": (
+                        envelope.artifact_manifest.scope_ref
+                        if envelope.artifact_manifest is not None
+                        else envelope.collection_id
+                    ),
+                    "retention_state": "building",
+                    "expires_at": (
+                        envelope.artifact_manifest.retention.derived_expires_at.isoformat()
+                        if envelope.artifact_manifest is not None
+                        and envelope.artifact_manifest.retention.derived_expires_at is not None
+                        else None
+                    ),
                 }
                 rows.append(
                     (
@@ -611,6 +637,25 @@ class PgvectorDocumentIndex:
             await psycopg.AsyncConnection.connect(self._dsn) as connection,
             connection.transaction(),
         ):
+            version_row = await (
+                await connection.execute(
+                    "SELECT payload FROM document_version "
+                    "WHERE document_id = %s AND version_id = %s FOR UPDATE",
+                    (envelope.document_id, envelope.version_id),
+                )
+            ).fetchone()
+            if version_row is None:
+                raise DocumentLifecycleConflictError("document index version is unavailable")
+            version = DocumentVersion.model_validate(version_row[0])
+            if (
+                version.state is not DocumentState.INDEXING
+                or version.index_state is not DocumentIndexState.BUILDING
+                or version.active
+                or version.available
+            ):
+                raise DocumentLifecycleConflictError(
+                    "document index commit requires the current building version"
+                )
             await connection.execute("DELETE FROM knowledge_chunk WHERE doc_id = %s", (doc_id,))
             for row in rows:
                 await connection.execute(
@@ -623,6 +668,70 @@ class PgvectorDocumentIndex:
                     row,
                 )
         return len(rows)
+
+    async def activate(self, document_id: UUID, version_id: UUID) -> None:
+        """Expose staged chunks only after authoritative READY/ACTIVE metadata."""
+        async with (
+            await psycopg.AsyncConnection.connect(self._dsn) as connection,
+            connection.transaction(),
+        ):
+            version_row = await (
+                await connection.execute(
+                    "SELECT payload FROM document_version "
+                    "WHERE document_id = %s AND version_id = %s FOR UPDATE",
+                    (document_id, version_id),
+                )
+            ).fetchone()
+            if version_row is None:
+                raise DocumentLifecycleConflictError("document index version is unavailable")
+            version = DocumentVersion.model_validate(version_row[0])
+            if (
+                version.state not in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+                or version.index_state is not DocumentIndexState.ACTIVE
+                or not version.active
+                or not version.available
+            ):
+                raise DocumentLifecycleConflictError(
+                    "document index activation requires the current ready version"
+                )
+            await connection.execute(
+                "UPDATE knowledge_chunk "
+                "SET metadata = jsonb_set(metadata, '{retention_state}', '\"live\"'::jsonb) "
+                "WHERE doc_id = %s",
+                (_document_ref(document_id, version_id),),
+            )
+
+    async def tombstone(self, document_id: UUID, version_id: UUID) -> None:
+        """Remove chunks from retrieval before retryable physical deletion."""
+        async with (
+            await psycopg.AsyncConnection.connect(self._dsn) as connection,
+            connection.transaction(),
+        ):
+            version_row = await (
+                await connection.execute(
+                    "SELECT payload FROM document_version "
+                    "WHERE document_id = %s AND version_id = %s FOR UPDATE",
+                    (document_id, version_id),
+                )
+            ).fetchone()
+            if version_row is None:
+                raise DocumentLifecycleConflictError("document index version is unavailable")
+            version = DocumentVersion.model_validate(version_row[0])
+            if (
+                version.state is not DocumentState.DELETING
+                or version.index_state is not DocumentIndexState.TOMBSTONED
+                or version.active
+                or version.available
+            ):
+                raise DocumentLifecycleConflictError(
+                    "document index tombstone requires authoritative deletion metadata"
+                )
+            await connection.execute(
+                "UPDATE knowledge_chunk "
+                "SET metadata = jsonb_set(metadata, '{retention_state}', '\"tombstoned\"'::jsonb) "
+                "WHERE doc_id = %s",
+                (_document_ref(document_id, version_id),),
+            )
 
     async def delete(self, document_id: UUID, version_id: UUID) -> None:
         async with await psycopg.AsyncConnection.connect(self._dsn) as connection:

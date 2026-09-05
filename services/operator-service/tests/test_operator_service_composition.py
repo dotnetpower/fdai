@@ -899,6 +899,46 @@ def test_repository_catalog_routes_declare_authoritative_durable_sources() -> No
         assert source.reason is None
 
 
+@pytest.mark.parametrize("configured", [False, True])
+@pytest.mark.parametrize("venue", ["local", "deployed"])
+def test_recorded_state_route_and_source_are_common_to_both_venues(
+    configured: bool, venue: str
+) -> None:
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+    )
+    environment = {
+        **BASE_ENV,
+        "FDAI_EXECUTION_VENUE": venue,
+        **(
+            {
+                DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+                DATABASE_ROLE_ENV: "fdai_operator",
+            }
+            if configured
+            else {}
+        ),
+    }
+    runtime = composition.build_runtime(environment)
+    source = next(item for item in runtime.data_sources if item.key == "ontology-instances")
+    assert set(source.routes) == {
+        "/ontology/instances",
+        "/ontology/instances/explore",
+        "/ontology/instances/states",
+    }
+    assert source.configured is configured
+    assert source.authoritative is configured
+    assert source.availability == ("unknown" if configured else "unavailable")
+    app = cast(Starlette, create_app(environment, composition=composition))
+    route = next(
+        item
+        for item in app.router.routes
+        if getattr(item, "path", "") == "/ontology/instances/states"
+    )
+    assert getattr(route, "name", "") == "ontology_instance_states"
+
+
 def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:
     model_path = tmp_path / "models.json"
     content = (

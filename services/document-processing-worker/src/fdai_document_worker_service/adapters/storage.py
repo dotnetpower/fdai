@@ -82,6 +82,16 @@ class AzureDataLakeObjectStore:
         except ResourceNotFoundError:
             return
 
+    async def source_exists(self, object_key: str) -> bool:
+        """Return whether the exact ADLS source key still exists."""
+        try:
+            await self._files.get_file_client(object_key).get_file_properties(
+                timeout=self._config.operation_timeout_seconds
+            )
+        except ResourceNotFoundError:
+            return False
+        return True
+
     async def promote(self, session: UploadSession) -> str:
         if session.object_key.startswith("governed/"):
             return session.object_key
@@ -166,6 +176,16 @@ class AzureDataLakeArtifactStore:
             )
         except ResourceNotFoundError:
             return
+
+    async def artifact_exists(self, document_id: UUID, version_id: UUID) -> bool:
+        """Return whether the exact persisted envelope still exists."""
+        try:
+            await self._files.get_file_client(
+                self._path(document_id, version_id)
+            ).get_file_properties(timeout=self._config.operation_timeout_seconds)
+        except ResourceNotFoundError:
+            return False
+        return True
 
     async def close(self) -> None:
         await self._service.close()

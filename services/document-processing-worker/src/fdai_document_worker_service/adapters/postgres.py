@@ -451,6 +451,20 @@ class PostgresDocumentMetadataStore:
         _validate_claim(owner, lease_seconds)
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
+            await connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s::text, 0))",
+                (upload_id,),
+            )
+            conflicting = await (
+                await connection.execute(
+                    "SELECT 1 FROM document_worker_claim "
+                    "WHERE upload_id = %s AND stage <> %s AND status = 'active' "
+                    "AND lease_expires_at > clock_timestamp() LIMIT 1",
+                    (upload_id, stage.value),
+                )
+            ).fetchone()
+            if conflicting is not None:
+                return None
             cursor = await connection.execute(
                 "INSERT INTO document_worker_claim ("
                 f"{_CLAIM_COLUMNS}) VALUES ("

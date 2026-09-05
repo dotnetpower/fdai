@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: a25067984b45bdd10e03c511978397f960eb766b
+translation_source_sha: 371721c312b54c127b65b1ccd52ad2a670e28b1c
 translation_revised: 2026-09-05
 ---
 # 문서 인제스트와 투입 구역
@@ -95,7 +95,8 @@ Console은 지식 > 문서의 `/documents`에서 거버넌스가 적용된 인�
 하나의 배지로는 업로드, 안전성 검사, 추출, 인덱스 준비 상태도 구분하기 어렵습니다.
 
 **수정된 설계.** 서버 소유 컬렉션을 이동하거나 이름을 바꿀 수 없는 최상위 폴더로
-표시합니다. 행은 수명 주기와 검색 인덱스 상태를 구분합니다. `ready`와
+표시합니다. 검색 및 인덱스 필터를 적용한 뒤 같은 이름의 업로드를 펼칠 수 있는 그룹으로
+묶습니다. 행은 수명 주기와 검색 인덱스 상태를 구분합니다. `ready`와
 `ready_with_warnings`는 **인덱싱됨**, 이전 상태는 **대기 중** 또는 **인덱싱 중**,
 최종 보류와 실패는 **인덱싱되지 않음**으로 표시합니다.
 
@@ -641,3 +642,4 @@ ADLS Gen2 출처/산출물 저장소, Microsoft Graph/SharePoint 델타 동기�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/document-ingestion.md) |
+| 임시 업로드, 승격, 산출물, 검증된 삭제 | [문서 수명 주기 거버넌스](document-lifecycle-governance-ko.md) |

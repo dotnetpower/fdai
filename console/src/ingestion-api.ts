@@ -46,6 +46,14 @@ export interface DocumentVersionSummary {
   readonly preview_available: boolean;
   readonly download_available: boolean;
   readonly delete_available: boolean;
+  readonly disposition: "session_ephemeral" | "workspace_draft" | "governed_knowledge" | "regulated_record";
+  readonly scope_kind: "conversation" | "workspace" | "collection" | "regulated" | null;
+  readonly scope_ref: string | null;
+  readonly source_expires_at: string | null;
+  readonly derived_expires_at: string | null;
+  readonly retention_state: "live" | "expiring" | "held" | "tombstoned" | "purge_pending" | "purged";
+  readonly index_state: "not_requested" | "queued" | "building" | "active" | "tombstoned" | "purged" | "failed";
+  readonly promotable: boolean;
 }
 
 export interface DocumentPreview {
@@ -99,6 +107,9 @@ export interface CreateUploadInput {
   readonly purposes: readonly string[];
   readonly access_descriptor_ref: string;
   readonly retention_policy_version: string;
+  readonly disposition?: DocumentVersionSummary["disposition"];
+  readonly scope_kind?: Exclude<DocumentVersionSummary["scope_kind"], null>;
+  readonly scope_ref?: string;
 }
 
 export class IngestionApiError extends Error {
@@ -186,6 +197,21 @@ export class IngestionApiClient {
       `/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}`,
       this.#baseUrl,
     ), { method: "DELETE" });
+  }
+
+  async promoteDocument(
+    documentId: string,
+    versionId: string,
+    collectionId: string,
+  ): Promise<UploadSession> {
+    return this.#json<UploadSession>(
+      `/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}/promote`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ collection_id: collectionId }),
+      },
+    );
   }
 
   async handoverDraft(uploadId: string): Promise<HandoverDraftResult> {

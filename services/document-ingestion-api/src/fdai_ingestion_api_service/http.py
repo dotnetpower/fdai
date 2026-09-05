@@ -13,8 +13,12 @@ from uuid import UUID
 
 from fdai_service_contracts import (
     DocumentAccessDeniedError,
+    DocumentDisposition,
+    DocumentIndexState,
     DocumentNotFoundError,
     DocumentPurpose,
+    DocumentRetentionState,
+    DocumentScopeKind,
     DocumentSearch,
     DocumentState,
     DocumentVersion,
@@ -37,7 +41,11 @@ from fdai_ingestion_api_service.auth import (
     Role,
     RoleRequiredError,
 )
-from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
+from fdai_ingestion_api_service.ingestion import (
+    CreateUploadRequest,
+    DocumentIngestionService,
+    TemporaryDocumentQuotaExceededError,
+)
 from fdai_ingestion_api_service.providers import (
     DocumentDeletionService,
     DocumentDownloadService,
@@ -284,6 +292,28 @@ def build_app(
         )
         return _json(version, status_code=202)
 
+    async def promote_version(request: Request) -> Response:
+        principal = authorize(request, _CONTRIBUTOR_ROLES)
+        body = await _json_body(request)
+        unknown = sorted(body.keys() - {"collection_id"})
+        if unknown:
+            raise ValueError(f"unknown fields: {', '.join(unknown)}")
+        collection_id = str(body.get("collection_id", "")).strip()
+        if not collection_id:
+            raise ValueError("collection_id is required")
+        if resolved.allowed_collections and collection_id not in resolved.allowed_collections:
+            raise DocumentAccessDeniedError("document collection access is denied")
+        session = await service.promote_version(
+            actor_id=principal.oid,
+            actor_groups=_access_principals(principal),
+            document_id=_uuid(request.path_params["document_id"], "document_id"),
+            version_id=_uuid(request.path_params["version_id"], "version_id"),
+            collection_id=collection_id,
+            access_descriptor_ref=f"collection:{collection_id}",
+            reader_groups=resolved.default_reader_groups,
+        )
+        return _json(session, status_code=202)
+
     async def preview_version(request: Request) -> Response:
         if preview is None:
             return _error(404, "not_found", "document preview is unavailable")
@@ -451,6 +481,11 @@ def build_app(
             download_version,
             methods=["GET"],
         ),
+        Route(
+            "/documents/{document_id}/versions/{version_id}/promote",
+            promote_version,
+            methods=["POST"],
+        ),
         Route("/documents/{document_id}/versions/{version_id}", delete_version, methods=["DELETE"]),
         Route("/documents/search", search_documents, methods=["GET"]),
     ]
@@ -497,6 +532,9 @@ def build_app(
     async def bad_request(_request: Request, exc: Exception) -> Response:
         return _error(400, "invalid_request", str(exc))
 
+    async def quota_exceeded(_request: Request, exc: Exception) -> Response:
+        return _error(429, "temporary_quota_exceeded", str(exc))
+
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         nonlocal lifecycle_started, outbox_tasks
@@ -526,6 +564,7 @@ def build_app(
             DocumentAccessDeniedError: authorization_error,
             DocumentNotFoundError: not_found,
             ProviderUnavailableError: unavailable,
+            TemporaryDocumentQuotaExceededError: quota_exceeded,
             ValueError: bad_request,
             ValidationError: bad_request,
         },
@@ -575,7 +614,14 @@ def _create_request(
     managed_access_ref = f"collection:{collection_id}"
     if default_reader_groups and str(body["access_descriptor_ref"]) != managed_access_ref:
         raise ValueError("access_descriptor_ref is controlled by the collection policy")
-    allowed = required | {"reader_groups", "document_id", "supersedes_version_id"}
+    allowed = required | {
+        "reader_groups",
+        "document_id",
+        "supersedes_version_id",
+        "disposition",
+        "scope_kind",
+        "scope_ref",
+    }
     unknown = sorted(body.keys() - allowed)
     if unknown:
         raise ValueError(f"unknown fields: {', '.join(unknown)}")
@@ -598,6 +644,13 @@ def _create_request(
         supersedes_version_id=_optional_uuid(
             body.get("supersedes_version_id"), "supersedes_version_id"
         ),
+        disposition=DocumentDisposition(
+            str(body.get("disposition", DocumentDisposition.GOVERNED_KNOWLEDGE.value))
+        ),
+        scope_kind=(
+            None if body.get("scope_kind") is None else DocumentScopeKind(str(body["scope_kind"]))
+        ),
+        scope_ref=None if body.get("scope_ref") is None else str(body["scope_ref"]),
     )
 
 
@@ -624,6 +677,21 @@ def _document_summary(
         "updated_at": version.updated_at.isoformat(),
         "active": version.active,
         "available": version.available,
+        "disposition": version.disposition.value,
+        "scope_kind": version.scope_kind.value if version.scope_kind is not None else None,
+        "scope_ref": version.scope_ref,
+        "source_expires_at": (
+            version.retention.source_expires_at.isoformat()
+            if version.retention.source_expires_at is not None
+            else None
+        ),
+        "derived_expires_at": (
+            version.retention.derived_expires_at.isoformat()
+            if version.retention.derived_expires_at is not None
+            else None
+        ),
+        "retention_state": version.retention_state.value,
+        "index_state": version.index_state.value,
         "warnings": list(version.warnings),
         "failure_code": version.failure_code,
         "index_status": _index_status(version),
@@ -643,6 +711,21 @@ def _document_summary(
             (actor_id == version.uploader_id or "role:Owner" in actor_groups)
             and not version.retention.legal_hold
             and version.state not in {DocumentState.DELETING, DocumentState.DELETED}
+        ),
+        "promotable": (
+            version.disposition
+            in {
+                DocumentDisposition.SESSION_EPHEMERAL,
+                DocumentDisposition.WORKSPACE_DRAFT,
+            }
+            and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+            and version.active
+            and version.available
+            and version.retention_state is DocumentRetentionState.LIVE
+            and version.index_state in {DocumentIndexState.ACTIVE, DocumentIndexState.NOT_REQUESTED}
+            and not version.retention.legal_hold
+            and (actor_id == version.uploader_id or "role:Owner" in actor_groups)
+            and bool(actor_groups.intersection({"role:Contributor", "role:Approver", "role:Owner"}))
         ),
     }
 

@@ -118,6 +118,7 @@ describe("console static translation keys", () => {
 
     for (const file of sourceFiles(SOURCE_ROOT)) {
       const source = readFileSync(file, "utf8");
+      const relativePath = relative(SOURCE_ROOT, file);
       const routeKeys = source.includes('from "./i18n/cost-governance"')
         ? costGovernanceKeys
         : source.includes('from "./i18n/dashboard-v2"') ||
@@ -127,6 +128,8 @@ describe("console static translation keys", () => {
         ? liveKeys
         : source.includes('from "./i18n/analytics"')
           ? analyticsKeys
+          : relativePath === "routes/i18n/dashboard-v2.ts" || source.includes('from "./i18n/dashboard-v2"')
+            ? dashboardV2Keys
           : source.includes("i18n/detection-readiness")
             ? detectionReadinessKeys
           : source.includes("i18n/architecture")
@@ -150,7 +153,7 @@ describe("console static translation keys", () => {
             : new Set<string>();
       const expected = new Set([...mainKeys, ...routeKeys]);
       for (const key of staticKeys(source)) {
-        if (!expected.has(key)) missing.push(`${relative(SOURCE_ROOT, file)}: ${key}`);
+        if (!expected.has(key)) missing.push(`${relativePath}: ${key}`);
       }
     }
 

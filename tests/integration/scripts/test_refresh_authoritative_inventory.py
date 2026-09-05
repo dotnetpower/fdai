@@ -31,7 +31,12 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
     module = _module()
     payload = module._operator_inventory_payload(
+        snapshot_id="example-snapshot",
         snapshot_at=datetime(2026, 8, 10, 12, 0, tzinfo=UTC),
+        now=datetime(2026, 8, 10, 12, 1, tzinfo=UTC),
+        source="example-inventory",
+        observation_kind=module.InventoryObservationKind.OBSERVED,
+        freshness_budget_seconds=86400,
         resource_rows=[
             {
                 "resource_id": "scope/resource-group/example",
@@ -68,7 +73,11 @@ def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
         ],
     )
 
-    assert payload["source"] == "azure-cli-local"
+    assert payload["source"] == "example-inventory"
+    assert payload["snapshot_id"] == "example-snapshot"
+    assert payload["observation_kind"] == "observed"
+    assert payload["cache"]["age_seconds"] == 60
+    assert payload["cursor"] == "example-snapshot"
     assert payload["truncated"] is False
     assert payload["links"] == [
         {
@@ -92,3 +101,51 @@ def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
         "depends_on",
         "peered_with",
     ]
+
+
+def test_operator_projection_does_not_claim_expired_or_expected_inventory_is_fresh() -> None:
+    module = _module()
+    for kind, age in [
+        (module.InventoryObservationKind.OBSERVED, 2),
+        (module.InventoryObservationKind.EXPECTED, 0),
+    ]:
+        payload = module._operator_inventory_payload(
+            snapshot_id="example-snapshot",
+            snapshot_at=datetime(2026, 8, 10, 12, 0, tzinfo=UTC),
+            now=datetime(2026, 8, 10 + age, 12, 0, tzinfo=UTC),
+            source="example-inventory",
+            observation_kind=kind,
+            freshness_budget_seconds=86400,
+            resource_rows=[],
+            link_rows=[],
+        )
+        assert payload["freshness"] == "stale"
+        assert payload["cache"]["status"] == "stale"
+        assert payload["observation_kind"] == kind.value
+
+
+def test_operator_projection_preserves_unreconciled_changes_and_newer_failures() -> None:
+    module = _module()
+    payload = module._operator_inventory_payload(
+        snapshot_id="example-snapshot",
+        snapshot_at=datetime(2026, 8, 10, 12, 0, tzinfo=UTC),
+        now=datetime(2026, 8, 10, 12, 1, tzinfo=UTC),
+        source="example-inventory",
+        observation_kind=module.InventoryObservationKind.OBSERVED,
+        freshness_budget_seconds=86400,
+        resource_rows=[],
+        link_rows=[],
+        pending_changes=3,
+        newer_failure=True,
+    )
+    assert payload["freshness"] == "unknown"
+    assert payload["cache"]["status"] == "stale"
+    assert payload["realtime"]["pending_changes"] == 3
+    assert payload["coverage_gaps"] == ["newer_inventory_failure"]
+
+
+def test_operator_projection_carries_promoted_snapshot_provenance() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "SELECT s.id, s.completed_at, s.source, s.observation_kind" in source
+    assert 'snapshot_id=str(snapshot["id"])' in source
+    assert 'observation_kind=InventoryObservationKind(snapshot["observation_kind"])' in source

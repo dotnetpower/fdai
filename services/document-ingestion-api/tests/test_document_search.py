@@ -92,6 +92,9 @@ async def test_search_uses_one_acl_filtered_relation_for_both_rankers(
     assert statements[0] == ("SET LOCAL statement_timeout = 3210", None)
     query, parameters = statements[1]
     assert "authorized AS MATERIALIZED" in query
+    assert "COALESCE(chunk.metadata->>'disposition', 'governed_knowledge')" in query
+    assert "COALESCE(chunk.metadata->>'retention_state', 'live') = 'live'" in query
+    assert "(chunk.metadata->>'expires_at')::timestamptz > NOW()" in query
     assert query.count("FROM authorized") == 2
     assert "WHERE lexical_match" in query
     assert "ORDER BY semantic_score DESC, chunk_id ASC" in query

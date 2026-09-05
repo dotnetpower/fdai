@@ -78,6 +78,7 @@ from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.protection_reconciliation import (
     ProtectionReconciliationService,
 )
+from fdai_document_worker_service.purge import PostgresDocumentPurgeVerifier
 from fdai_document_worker_service.supervisor import (
     DependencyReadinessError,
     IngestionWorkerSupervisor,
@@ -337,6 +338,12 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         ),
         artifacts=artifact_store,
         index=document_index,
+        purge_verifier=PostgresDocumentPurgeVerifier(
+            dsn=dsn,
+            artifacts=artifact_store,
+            sources=source_store,
+            backup_blocked=_truthy(env.get("FDAI_DOCUMENT_BACKUP_PURGE_BLOCKED", "")),
+        ),
         consumers=(
             HandoverBootstrapConsumer(
                 directory=(

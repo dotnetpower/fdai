@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 2d503f4b1c73d32ae9f5c4680143b2959416ac9c
-translation_revised: 2026-09-04
+translation_source_sha: d835674524b777e73985413a72ccf37c5edbf2b2
+translation_revised: 2026-09-05
 ---
 # Console 읽기 경계
 
@@ -22,6 +22,7 @@ translation_revised: 2026-09-04
 | 대화 문서 다운로드 | 구현됨 | `fdai_operator_service/composition.py`, `document_export.py`, 집중 소유권 및 완전성 검사 | Operator 조립은 인증된 principal의 완전한 검증 semantic 변환 결과에서만 문서를 다시 생성합니다. Markdown은 private 및 non-cacheable 상태를 유지하며, 범위가 제한된 encoder를 사용할 수 있을 때만 PDF를 표시합니다. |
 | 사용 불가 화면 표현 | validated | 집중 Operator 및 Console 검사와 영향받는 패널의 인증 통과 | 제공되지 않는 route는 서버가 소유한 사유를 유지하며 패널은 날것 전송 상태나 존재하지 않는 구성 심볼을 노출하지 않습니다. |
 | 계정 신원 및 동일 테넌트 계정 선택 | 구현됨 | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; 집중 콘솔 계정 테스트(`11 passed`), typecheck 및 프로덕션 빌드 | 헤더 패널은 권한을 추가하지 않고 MSAL 신원과 서버가 검증한 역할을 표시합니다. 대화형 세션은 로그인 힌트 없이 Entra 계정 선택기를 열고 기존 시작 권한 확인 경계로 다시 진입할 수 있습니다. |
+| 기록된 Resource 상태 출처 | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 목록, 탐색 및 일괄 상태 조회 경로는 두 실행 환경에서 같은 인벤토리 계열 저장소를 사용합니다. 출처를 구성했다고 해서 기록된 사실의 최신성이 입증되지는 않습니다. |
 
 ### 구현 이력
 
@@ -33,12 +34,15 @@ translation_revised: 2026-09-04
 | 2026-08-18 | implemented | `/kpi/promotion-gates`를 명시적으로 사용할 수 없는 읽기 소스로 선언했습니다. workflow 계열은 `promotion-gate.list` 투영을 읽지만 이를 쓰는 구성요소가 없어 모든 Overview와 Control assurance 로드에서 이 경로가 `503`을 반환했고 콘솔은 계속 요청했습니다. 부재를 선언하면 클라이언트가 단락하고 패널은 자신에 대한 사유를 제시합니다. 어느 방향으로도 gate 값을 합성하지 않습니다. | `current change`, operator 스위트 `406 passed, 1 skipped`, Ruff check와 format 통과. 측정: 로컬 저장소에는 `operator-projection:workflow:` 아래에 `rule.list`, `workflow.action-type-list`, `workflow.catalog`만 있고 `promotion-gate` 일치 행은 0개이며, 트리 전체에 해당 키의 writer가 없습니다. 선언된 경로를 비우는 변이 검증에서 두 개의 unavailable-source 테스트가 실패합니다. | promotion-gate 생산자가 도입되면 이 선언을 제거합니다. |
 | 2026-08-18 | validated | 이 focused owner가 Console 읽기 경계를 소유하도록 채택하고 현재 범위, 잔여 작업 및 규범적 읽기 계약을 초대형 동등성 문서에서 옮겼습니다. | `current change`; 이전 구현 전환 6개는 `dev-and-deploy-parity-ko.md`에 변경 없이 남아 있으며 focused 문서, 번역, route 및 크기 게이트가 통과합니다. | Operator API 권한을 넓히지 않고 아래의 관측 가능한 항목을 완료합니다. |
 | 2026-08-27 | implemented | 완전한 ontology instance projection을 불투명한 프로세스 로컬 selection token에 결속했습니다. Operator는 semantic turn이 이를 사용하기 전에 인증된 principal, 일반 role 범위, purpose, 정확한 release, source generation, completeness 및 id와 token이 일치하는지 확인하며 재시작, 위조 및 클라이언트 재계산 membership은 fail closed 됩니다. | `current change`, 집중 Operator/Core/Console 테스트, strict 타입 검사, Ruff 및 번역 게이트 통과 | 완전한 selection-token 경로에 대한 인증된 Browser receipt를 보존합니다. |
+| 2026-09-05 | implemented | 공통 기록 상태 경로를 일반 운영 변환 결과의 구성 여부가 아닌 인벤토리 계열 저장소에 연결해 선언했습니다. | `current change`; 로컬/배포 및 구성됨/미구성 출처 조립 사례 통과; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 기록 상태 출처 선언에 대한 인증된 브라우저 근거를 보존합니다. |
 
 ### 잔여 작업
 
 - [ ] 프로비저닝 진행 상황과 라이브 온보딩 관찰 relay를 연결한 뒤, 관찰된 활동 없음과 relay 사용
   불가를 구분하는 인증된 브라우저 증적을 보존합니다.
 - [ ] 통제된 Python 작업 작성 프로바이더를 연결하고 실행 권한 없음 기능 증적을 보존합니다.
+- [ ] 구성된 출처를 최신 관측으로 취급하지 않으면서 기록 상태 출처 선언과 사실별 근거 누락을
+  보여 주는 인증된 브라우저 증적을 보존합니다.
 
 ## 설계 개요
 
@@ -54,6 +58,13 @@ route는 이 확인을 건너뛰고 실패만 가능한 요청을 보내게 되�
 unavailable로 선언하며, 콘솔은 이렇게 선언된 unavailable을 페이지 실패가 아니라 선택적
 projection으로 처리합니다. 패널은 운영자에게 보이는 메시지로 날것 전송 상태를 표시하지 않으며,
 unavailable 화면은 선언된 사유 또는 자체 카탈로그 문구를 보여줍니다.
+
+`ontology-instances` 출처는 `/ontology/instances`, `/ontology/instances/explore` 및
+`/ontology/instances/states`를 묶습니다. 구성 여부는 일반 운영 읽기 모델과 독립적으로 인벤토리
+계열 저장소를 따릅니다. 두 실행 환경은 같은 변경 불가 인벤토리 세대를 읽으며, 저장소를
+구성하지 않으면 명시적으로 사용 불가 상태가 됩니다. 권위 있는 출처를 구성했다는 선언은
+레코드의 출처를 나타낼 뿐, 각 기록이 최신임을 의미하지 않습니다. Dashboard v2와 온톨로지
+인스턴스 화면은 [기록 상태 계약](../interfaces/recorded-resource-state-ko.md)을 통해 이 구분을 유지합니다.
 
 ## 로컬 인증
 

@@ -96,6 +96,54 @@ variable "ocr_operation_timeout_seconds" {
     error_message = "ocr_operation_timeout_seconds must be in (0, 1800]."
   }
 }
+variable "sharepoint_connector_enabled" {
+  type    = bool
+  default = false
+}
+variable "sharepoint_connector_id" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_target_tenant_id" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_client_id" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_site_id" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_drive_id" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_collection_id" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_access_descriptor_ref" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_reader_groups" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_retention_policy_version" {
+  type    = string
+  default = ""
+}
+variable "sharepoint_purposes" {
+  type    = string
+  default = "knowledge_base"
+}
+variable "sharepoint_download_host_suffixes" {
+  type    = string
+  default = ".sharepoint.com"
+}
 variable "kafka_bootstrap_servers" { type = string }
 variable "document_event_topic" { type = string }
 variable "runtime_env" { type = string }

@@ -1,8 +1,10 @@
 import type { JSX } from "preact";
-import { useId, useRef, useState } from "preact/hooks";
-import { Tooltip } from "../components/tooltip";
+import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
+import { DashboardResourcePreview } from "./dashboard-v2-preview";
+import { date } from "./i18n/dashboard-v2";
 import {
   dashboardResourceState,
+  dashboardStateFact,
   STATE_STYLE,
   type DashboardLens,
   type DashboardResource,
@@ -22,6 +24,7 @@ export interface DashboardResourceMapProps {
   readonly onSelect: (id: string) => void;
   readonly labels: {
     readonly operation: string;
+    readonly provisioning: string;
     readonly availability: string;
     readonly observation: string;
     readonly observedAt: string;
@@ -42,7 +45,7 @@ function resourceTooltip(
     resource.subscriptionLabel ?? resource.subscription ?? labels.missing,
     resource.groupLabel ?? resource.group ?? labels.missing,
   ].join(" / ");
-  const lenses: readonly DashboardLens[] = ["operation", "availability", "observation"];
+  const lenses: readonly DashboardLens[] = ["operation", "provisioning", "availability", "observation"];
   return (
     <span class="dashboard-v2-map-tooltip">
       <strong class="dashboard-v2-map-tooltip-name">{resource.name}</strong>
@@ -54,8 +57,8 @@ function resourceTooltip(
           <span class="dashboard-v2-map-tooltip-fact" key={lens}>
             <span>{labels[lens]}</span>
             <span class="dashboard-v2-map-tooltip-value">
-              <span>{labels.state(dashboardResourceState(resource, snapshot, lens))}</span>
-              {lens === "operation"
+              <span>{lens === "observation" ? labels.state(dashboardResourceState(resource, snapshot, lens)) : dashboardStateFact(resource, lens)?.value ?? labels.state(dashboardResourceState(resource, snapshot, lens))}</span>
+              {lens === "operation" && !resource.states
                 ? <code>{resource.status.trim() ? resource.status : labels.missing}</code> : null}
             </span>
           </span>
@@ -63,12 +66,12 @@ function resourceTooltip(
         <span class="dashboard-v2-map-tooltip-fact">
           <span>{labels.observedAt}</span>
           {resource.observedAt
-            ? <time dateTime={resource.observedAt}>{resource.observedAt}</time>
+            ? <time dateTime={resource.observedAt}>{date(resource.observedAt)}</time>
             : <span>{labels.missing}</span>}
         </span>
         <span class="dashboard-v2-map-tooltip-fact">
           <span>{labels.snapshotAt}</span>
-          <time dateTime={snapshot.at}>{snapshot.at}</time>
+          <time dateTime={snapshot.at}>{date(snapshot.at)}</time>
         </span>
       </span>
     </span>
@@ -86,6 +89,10 @@ export function DashboardResourceMap({
   const id = useId();
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ readonly id: string; readonly anchor: HTMLButtonElement } | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
+  useEffect(closePreview, [resources, snapshot, lens, density, closePreview]);
+  const previewResource = resources.find((resource) => resource.id === preview?.id);
   const columnCount = Number.isSafeInteger(columns) && columns > 0 ? columns : 1;
   const tabStop = resources.find((resource) => resource.id === focusedId)?.id
     ?? resources.find((resource) => resource.id === selectedId)?.id
@@ -137,12 +144,10 @@ export function DashboardResourceMap({
         const pattern = style.tone === "unknown" ? `${id}-unknown`
           : style.tone === "na" ? `${id}-na` : null;
         return (
-          <Tooltip
+          <span
             key={resource.id}
-            anchorClassName={`dashboard-v2-map-slot${row % 2 ? " is-offset" : ""}`}
-            anchorStyle={{ gridColumn: index % columnCount + 1, gridRow: row + 1 }}
-            content={resourceTooltip(resource, snapshot, labels)}
-            placement="top"
+            class={`dashboard-v2-map-slot${row % 2 ? " is-offset" : ""}`}
+            style={{ gridColumn: index % columnCount + 1, gridRow: row + 1 }}
           >
             <button
               type="button"
@@ -150,12 +155,20 @@ export function DashboardResourceMap({
               data-resource-id={resource.id}
               data-tone={style.tone}
               data-state={state}
-              aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${labels.state(state)}`}
+              aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${lens === "observation" ? labels.state(state) : dashboardStateFact(resource, lens)?.value ?? labels.state(state)}`}
               aria-pressed={resource.id === selectedId}
+              aria-describedby={preview?.id === resource.id ? `${id}-preview` : undefined}
               tabIndex={resource.id === tabStop ? 0 : -1}
-              onFocus={() => setFocusedId(resource.id)}
+              onFocus={(event) => {
+                setFocusedId(resource.id);
+                setPreview({ id: resource.id, anchor: event.currentTarget });
+              }}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== "touch") setPreview({ id: resource.id, anchor: event.currentTarget });
+              }}
+              onBlur={closePreview}
               onKeyDown={(event: JSX.TargetedKeyboardEvent<HTMLButtonElement>) => onKeyDown(event, index)}
-              onClick={() => onSelect(resource.id)}
+              onClick={() => { closePreview(); onSelect(resource.id); }}
             >
               <svg viewBox="0 0 24 28" aria-hidden="true" focusable="false">
                 <polygon class="dashboard-v2-map-surface" points={HEXAGON} />
@@ -167,10 +180,14 @@ export function DashboardResourceMap({
                   {style.symbol}
                 </text>
               </svg>
+              {density === "comfortable" && <span class="dashboard-v2-map-name" aria-hidden="true">{resource.name}</span>}
             </button>
-          </Tooltip>
+          </span>
         );
       })}
+      {preview && previewResource && <DashboardResourcePreview anchor={preview.anchor} id={`${id}-preview`} onClose={closePreview}>
+        {resourceTooltip(previewResource, snapshot, labels)}
+      </DashboardResourcePreview>}
     </div>
   );
 }

@@ -132,6 +132,31 @@ def test_local_api_composition_needs_no_managed_identity(
     assert application is not None
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("FDAI_DOCUMENT_SESSION_EPHEMERAL_DURATION_SECONDS", "0"),
+        ("FDAI_DOCUMENT_WORKSPACE_DRAFT_DURATION_SECONDS", "31536001"),
+        ("FDAI_DOCUMENT_TEMPORARY_MAX_DOCUMENTS", "100001"),
+        ("FDAI_DOCUMENT_TEMPORARY_MAX_BYTES", "not-an-integer"),
+        ("FDAI_DOCUMENT_RETENTION_BATCH_LIMIT", "1001"),
+        ("FDAI_DOCUMENT_RETENTION_INTERVAL_SECONDS", "-1"),
+    ],
+)
+def test_lifecycle_configuration_rejects_malformed_bounds(key: str, value: str) -> None:
+    maximum = {
+        "FDAI_DOCUMENT_SESSION_EPHEMERAL_DURATION_SECONDS": 31_536_000,
+        "FDAI_DOCUMENT_WORKSPACE_DRAFT_DURATION_SECONDS": 31_536_000,
+        "FDAI_DOCUMENT_TEMPORARY_MAX_DOCUMENTS": 100_000,
+        "FDAI_DOCUMENT_TEMPORARY_MAX_BYTES": 10 * 1024 * 1024 * 1024 * 1024,
+        "FDAI_DOCUMENT_RETENTION_BATCH_LIMIT": 1000,
+        "FDAI_DOCUMENT_RETENTION_INTERVAL_SECONDS": 86_400,
+    }[key]
+
+    with pytest.raises(api_production.ProductionConfigurationError, match=key):
+        api_production._bounded_int({key: value}, key, 1, maximum=maximum)
+
+
 def test_local_worker_composition_needs_no_managed_identity(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

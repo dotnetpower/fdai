@@ -3,7 +3,7 @@ import { sourceForRoute } from "./api-data-sources";
 
 const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   dashboard: ["/kpi", "/finops", "/kpi/promotion-gates", "/kpi/autonomy"],
-  "dashboard-v2": ["/inventory/graph"],
+  "dashboard-v2": ["/ontology/instances/states"],
   "operating-outcomes": ["/kpi/autonomy"],
   "control-assurance": ["/kpi/autonomy", "/kpi/promotion-gates", "/hil-queue"],
   verticals: ["/kpi/autonomy"],

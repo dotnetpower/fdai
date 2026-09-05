@@ -152,6 +152,12 @@ resulting revision fence before the WARA projection bridge.
 A model digest mismatch therefore blocks all later lifecycle services without changing WARA
 evidence, assessment, projection, or remediation authority. Startup failure cleanup attempts every
 acquired service, so one failing close cannot leave an earlier WARA dependency running.
+The same boundary applies to the shared [recorded Resource state query](../interfaces/recorded-resource-state.md).
+Its inventory facts are operator context, not WARA assessment receipts. A retained `Running` or
+`Succeeded` value, particularly one with unknown freshness, cannot populate recommendation
+applicability, evaluation, or satisfaction. Assessment evidence still enters through the pinned
+query and manual-evidence admission paths above, not through Dashboard colors or instance status.
+
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
 revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact
 evaluator reference, and structured manual-evidence requirement. The Console renders 50 controls

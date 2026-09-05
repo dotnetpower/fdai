@@ -7,6 +7,31 @@
   "roadmap_context_line_budget": 4500,
   "routes": [
     {
+      "id": "recorded-resource-state",
+      "paths": [
+        "docs/roadmap/interfaces/recorded-resource-state*.md",
+        "docs/roadmap-implementation/interfaces/recorded-resource-state.md",
+        "services/operator-service/src/fdai_operator_service/families/operations/*state*.py",
+        "services/operator-service/src/fdai_operator_service/families/operations/instance_explorer.py",
+        "console/src/recorded-resource-state.ts",
+        "console/src/components/recorded-state*",
+        "console/src/routes/dashboard-v2*",
+        "console/src/routes/ontology-instances*",
+        "console/tests/e2e/dashboard-v2.spec.ts"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/recorded-resource-state.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/recorded-resource-state.md"
+      ],
+      "validate": [
+        "npm --prefix console test -- --run src/routes/dashboard-v2.loading.test.ts src/routes/ontology-instances.model.test.ts"
+      ]
+    },
+    {
       "id": "baseline",
       "paths": [
         "**"
@@ -1349,13 +1374,15 @@
         "services/document-ingestion-api/src/fdai_ingestion_api_service/**",
         "services/core-control-plane/tests/delivery/channels/**",
         "services/core-control-plane/tests/core/document_ingestion/**",
-        "services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py"
+        "services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py",
+        "docs/roadmap/interfaces/document-lifecycle-governance*.md"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/interfaces/conversation-attachments.md",
         "docs/roadmap/interfaces/document-ingestion.md",
+        "docs/roadmap/interfaces/document-lifecycle-governance.md",
         "docs/roadmap/interfaces/document-ingestion-format-policy.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/interfaces/operator-console.md"
@@ -1363,6 +1390,7 @@
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
         "docs/roadmap/interfaces/document-ingestion.md",
+        "docs/roadmap/interfaces/document-lifecycle-governance.md",
         "docs/roadmap/interfaces/document-ingestion-format-policy.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",

@@ -127,6 +127,9 @@ export function DocumentIngestionRoute({ client }: Props) {
   const [collection, setCollection] = useState("shared-knowledge");
   const [purpose, setPurpose] = useState("knowledge_base");
   const [storageMode, setStorageMode] = useState("managed_copy");
+  const [disposition, setDisposition] = useState<"governed_knowledge" | "workspace_draft">(
+    "governed_knowledge",
+  );
   const [consent, setConsent] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -263,6 +266,9 @@ export function DocumentIngestionRoute({ client }: Props) {
             purposes: [batch.purpose],
             access_descriptor_ref: `collection:${batch.collection}`,
             retention_policy_version: batch.capabilities.policy_versions[0] ?? "default",
+            disposition,
+            scope_kind: disposition === "workspace_draft" ? "workspace" : "collection",
+            scope_ref: batch.collection,
           });
           if (!mounted.current) {
             await api.cancel(created.session.upload_id).catch(() => undefined);
@@ -402,6 +408,28 @@ export function DocumentIngestionRoute({ client }: Props) {
 
       <section class="document-upload-settings" aria-label={t("documents.settings") }>
         <label>
+          <span>{knowledgeText("disposition")}</span>
+          <select
+            value={disposition}
+            disabled={uploading}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              if (value === "governed_knowledge" || value === "workspace_draft") {
+                setDisposition(value);
+                setConsent(false);
+              }
+            }}
+          >
+            <option value="governed_knowledge">{knowledgeText("dispositionKnowledge")}</option>
+            <option value="workspace_draft">{knowledgeText("dispositionDraft")}</option>
+          </select>
+          <small>{knowledgeText(
+            disposition === "workspace_draft"
+              ? "dispositionHintDraft"
+              : "dispositionHintKnowledge",
+          )}</small>
+        </label>
+        <label>
           <span>{t("documents.collection")}</span>
           {capabilities?.collections && capabilities.collections.length > 0 ? (
             <select
@@ -519,6 +547,7 @@ export function DocumentIngestionRoute({ client }: Props) {
             setConsent(false);
           }}
           onDeleted={() => setDocumentsRevision((current) => current + 1)}
+          onPromoted={() => setDocumentsRevision((current) => current + 1)}
         />
       </Suspense>
     </div>

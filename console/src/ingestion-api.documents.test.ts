@@ -49,7 +49,15 @@ describe("IngestionApiClient document catalog", () => {
         warnings: [],
       }))
       .mockResolvedValueOnce(new Response("source", { status: 200 }))
-      .mockResolvedValueOnce(Response.json({ state: "deleting" }, { status: 202 }));
+      .mockResolvedValueOnce(Response.json({ state: "deleting" }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({
+        upload_id: "promoted-upload",
+        document_id: "promoted-document",
+        version_id: "promoted-version",
+        source_name: "guide.txt",
+        state: "uploading",
+        collection_id: "shared-knowledge",
+      }, { status: 202 }));
     vi.stubGlobal("fetch", fetch);
     const client = new IngestionApiClient(config, {
       authorizationHeader: vi.fn().mockResolvedValue("******"),
@@ -59,11 +67,13 @@ describe("IngestionApiClient document catalog", () => {
     await expect(client.downloadDocument("document-1", "version-1"))
       .resolves.toBeInstanceOf(Blob);
     await client.deleteDocument("document-1", "version-1");
+    await client.promoteDocument("document-1", "version-1", "shared-knowledge");
 
     expect(fetch.mock.calls.map(([url, init]) => [String(url), init.method])).toEqual([
       ["https://ingestion.example.com/documents/document-1/versions/version-1/preview", "GET"],
       ["https://ingestion.example.com/documents/document-1/versions/version-1/download", "GET"],
       ["https://ingestion.example.com/documents/document-1/versions/version-1", "DELETE"],
+      ["https://ingestion.example.com/documents/document-1/versions/version-1/promote", "POST"],
     ]);
   });
 });

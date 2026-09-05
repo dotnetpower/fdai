@@ -2,6 +2,7 @@ import type { JSX } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Tooltip } from "../components/tooltip";
+import { recordedText } from "../components/recorded-state-text";
 import { routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import {
@@ -534,8 +535,13 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
               ? baseTypeCaption
               : `${baseTypeCaption} - ${capacityCaption}`;
             // Absent status means no state is projected for this class, not an observation that found none.
-            const stateText = resource.status ?? t("ontology.instances.stateNotReported");
-            const stateTone = ontologyInstanceStatusTone(resource.status);
+            const fact = resource.states?.operational;
+            const stateText = fact
+              ? `${recordedText("operational")}: ${fact.value ?? recordedText("missing")}`
+              : resource.status ?? t("ontology.instances.stateNotReported");
+            const stateTone = fact
+              ? fact.freshness === "stale" || fact.conflicts.length > 0 ? "warning" : "neutral"
+              : ontologyInstanceStatusTone(resource.status);
             return (
               <g
                 key={node.key}
