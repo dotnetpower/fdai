@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 0e58d21c4a16765eb6e06a3024c5b50512e65062
-translation_revised: 2026-09-04
+translation_source_sha: 08ff8d2781915251cd996f970f168a7fbd5baa59
+translation_revised: 2026-09-05
 ---
 # 지속형 질문 공간
 
@@ -172,6 +172,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 | 2026-08-20 | implemented | 적대적 검토에서 기존 exact 집합 밖의 일반적인 한국어 operator 두 개를 발견한 뒤 rejection-only 한국어 aggregation 어휘를 확장했습니다. `그루핑`과 `합계`는 이제 기능을 선택하거나 구성하지 않고 nonaggregation frame을 거부합니다. | `current change`; positive, negative, 이중 언어, 한국어 recall, domain noun, false-positive control 9개가 통과했고 전체 집중 slice 84개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 실행 r13에서 한국어 inventory listing 하나가 aggregate 답변으로 나타난 뒤 대칭적인 explicit-listing 일치 검사를 추가했습니다. 영어와 한국어 list, show, find operator는 명시적 count, total 또는 grouping operator가 없을 때만 `aggregation_table`을 거부합니다. 검사는 rejection-only를 유지하고 prompt v27도 같은 요청 모양에 `select`를 요구합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 실행 `question-space-final-f7fff0f9e-20260820-r13`은 strict 22/22를 통과하고 seeded 100/100을 완료했으며 capability mismatch 1개를 기록했습니다. Aggregate/listing 대칭, 이중 언어, 우선순위, domain noun, false-positive control 13개가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | Aggregate-plan fixture 2개를 명시적 aggregation 발화로 마이그레이션하고 편집 과정에서 바뀐 unrelated test 발화 2개를 복원한 뒤 round 66 집중 검증을 확장했습니다. | `current change`; 전체 contract, 의미, prompt, composition 집중 slice 88개가 Ruff, format, strict mypy와 함께 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
+| 2026-09-05 | implemented | 병합된 Console 영어 및 한국어 카탈로그가 변경된 뒤 machine question bank와 human review catalog를 다시 생성했습니다. 질문 identity 350개를 모두 보존하고 정확한 source digest만 갱신했습니다. | `current change`, 공식 question-bank generator 및 집중 generated-artifact 계약 검사 7개 통과 | 이후 catalog 변경은 같은 변경에서 두 artifact를 모두 다시 생성해야 합니다. |
 
 ### 남은 작업
 
