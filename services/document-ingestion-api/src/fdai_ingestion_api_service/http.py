@@ -37,6 +37,7 @@ from fdai_ingestion_api_service.auth import (
 from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
 from fdai_ingestion_api_service.providers import (
     DocumentDeletionService,
+    DocumentPreviewService,
     HandoverDraftReader,
     StewardshipWebhook,
 )
@@ -68,6 +69,7 @@ def build_app(
     authenticator: Authenticator,
     service: DocumentIngestionService,
     deletion: DocumentDeletionService,
+    preview: DocumentPreviewService | None = None,
     search_index: DocumentSearch | None = None,
     handover_drafts: HandoverDraftReader | None = None,
     stewardship_webhook: StewardshipWebhook | None = None,
@@ -242,6 +244,33 @@ def build_app(
         )
         return _json(version, status_code=202)
 
+    async def preview_version(request: Request) -> Response:
+        if preview is None:
+            return _error(404, "not_found", "document preview is unavailable")
+        principal = authorize(request, _READER_ROLES)
+        envelope = await preview.preview(
+            actor_id=principal.oid,
+            actor_groups=_access_principals(principal),
+            document_id=_uuid(request.path_params["document_id"], "document_id"),
+            version_id=_uuid(request.path_params["version_id"], "version_id"),
+        )
+        return JSONResponse(
+            {
+                "document_id": str(envelope.document_id),
+                "version_id": str(envelope.version_id),
+                "units": [
+                    {
+                        "unit_id": unit.unit_id,
+                        "kind": unit.kind,
+                        "locator": unit.locator,
+                        "text": unit.text,
+                    }
+                    for unit in envelope.units
+                ],
+                "warnings": list(envelope.warnings),
+            }
+        )
+
     async def search_documents(request: Request) -> Response:
         principal = authorize(request, _READER_ROLES)
         if search_index is None:
@@ -347,6 +376,11 @@ def build_app(
         Route("/ingestion/uploads/{upload_id}/handover-draft", handover_draft, methods=["GET"]),
         Route("/ingestion/uploads/{upload_id}/cancel", cancel_upload, methods=["POST"]),
         Route("/documents/{document_id}/versions", versions, methods=["GET"]),
+        Route(
+            "/documents/{document_id}/versions/{version_id}/preview",
+            preview_version,
+            methods=["GET"],
+        ),
         Route("/documents/{document_id}/versions/{version_id}", delete_version, methods=["DELETE"]),
         Route("/documents/search", search_documents, methods=["GET"]),
     ]

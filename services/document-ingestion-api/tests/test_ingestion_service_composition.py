@@ -175,7 +175,7 @@ def test_outbox_drainers_are_service_owned_without_cohost_seam() -> None:
     worker_supervisor = (WORKER_SOURCE / "supervisor.py").read_text(encoding="utf-8")
 
     assert "background_services" not in api_source
-    assert "api_outbox_drainers=(drain_api_outbox,)" in api_source
+    assert "api_outbox_drainers=tuple(connector_drainers)" in api_source
     assert "FROM document_api_outbox" in (API_SOURCE / "adapters" / "postgres.py").read_text(
         encoding="utf-8"
     )

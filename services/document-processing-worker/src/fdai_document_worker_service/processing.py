@@ -138,6 +138,8 @@ class DocumentIngestionWorker:
                 "observed_format": inspection.observed_format if inspection else None,
                 "media_type": inspection.media_type if inspection else version.media_type,
                 "sensitivity_label": inspection.sensitivity_label if inspection else None,
+                "protection_provider_ref": inspection.provider_ref if inspection else None,
+                "protection_policy_revision": inspection.policy_revision if inspection else None,
                 "failure_code": failure_code,
                 "updated_at": self._clock(),
             }

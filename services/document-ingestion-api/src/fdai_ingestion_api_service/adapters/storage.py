@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.filedatalake.aio import DataLakeLeaseClient, DataLakeServiceClient
 from fdai_service_contracts import (
     AdapterReadiness,
+    DocumentEnvelope,
     DocumentNotFoundError,
     ProviderUnavailableError,
     StoredObjectInfo,
@@ -296,6 +298,20 @@ class AzureDataLakeObjectStore:
             )
         except ResourceNotFoundError:
             return
+
+    async def read_artifact(self, document_id: UUID, version_id: UUID) -> DocumentEnvelope:
+        path = f"documents/{document_id.hex}/versions/{version_id.hex}/envelope.json"
+        try:
+            download = await self._derived.get_file_client(path).download_file(
+                timeout=self._config.operation_timeout_seconds
+            )
+            content = await download.readall()
+        except ResourceNotFoundError as exc:
+            raise DocumentNotFoundError("document preview artifact was not found") from exc
+        try:
+            return DocumentEnvelope.model_validate(json.loads(content))
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise ProviderUnavailableError("document preview artifact is invalid") from exc
 
     async def close(self) -> None:
         await self._service.close()

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -56,6 +58,10 @@ from fdai_document_worker_service.adapters.processing import (
 from fdai_document_worker_service.adapters.protection import (
     PurviewRmsConfig,
     PurviewRmsProtectionInspector,
+    PurviewRmsRevocationReconciler,
+)
+from fdai_document_worker_service.adapters.protection_state import (
+    PostgresProtectionReconciliationStore,
 )
 from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeArtifactStore,
@@ -69,6 +75,9 @@ from fdai_document_worker_service.handover import (
     stewardship_input_from_environment,
 )
 from fdai_document_worker_service.processing import DocumentIngestionWorker
+from fdai_document_worker_service.protection_reconciliation import (
+    ProtectionReconciliationService,
+)
 from fdai_document_worker_service.supervisor import (
     DependencyReadinessError,
     IngestionWorkerSupervisor,
@@ -255,21 +264,46 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
                 "purview_rms protection requires FDAI_PROTECTION_ENDPOINT and "
                 "FDAI_PROTECTION_AUDIENCE"
             )
-        protection = PurviewRmsProtectionInspector(
-            config=PurviewRmsConfig(
-                endpoint=protection_endpoint,
-                audience=protection_audience,
-                max_input_bytes=max_document_bytes,
-                timeout_seconds=float(env.get("FDAI_PROTECTION_TIMEOUT_SECONDS", "30")),
-                max_reconciliation_batch=_positive_int(
-                    env, "FDAI_PROTECTION_RECONCILIATION_BATCH", 100
-                ),
+        protection_config = PurviewRmsConfig(
+            endpoint=protection_endpoint,
+            audience=protection_audience,
+            max_input_bytes=max_document_bytes,
+            timeout_seconds=float(env.get("FDAI_PROTECTION_TIMEOUT_SECONDS", "30")),
+            max_reconciliation_batch=_positive_int(
+                env, "FDAI_PROTECTION_RECONCILIATION_BATCH", 100
             ),
+        )
+        protection = PurviewRmsProtectionInspector(
+            config=protection_config,
             credential=_deployed_credential(credential),
             client=http_client,
         )
+        protection_reconciliation = ProtectionReconciliationService(
+            store=PostgresProtectionReconciliationStore(dsn=dsn),
+            provider=PurviewRmsRevocationReconciler(
+                config=protection_config,
+                credential=_deployed_credential(credential),
+                client=http_client,
+            ),
+            index=document_index,
+            artifacts=artifact_store,
+            owner=env.get("FDAI_PROTECTION_RECONCILIATION_OWNER", "").strip()
+            or f"{socket.gethostname()}:protection",
+            batch_size=_positive_int(env, "FDAI_PROTECTION_RECONCILIATION_BATCH", 100),
+            lease_seconds=_positive_int(env, "FDAI_PROTECTION_RECONCILIATION_LEASE_SECONDS", 120),
+            clock=lambda: datetime.now(tz=UTC),
+            next_check=lambda now: (
+                now
+                + timedelta(
+                    seconds=_positive_int(
+                        env, "FDAI_PROTECTION_RECONCILIATION_INTERVAL_SECONDS", 300
+                    )
+                )
+            ),
+        )
     else:
         protection = SignatureProtectionInspector(max_input_bytes=max_document_bytes)
+        protection_reconciliation = None
     worker = DocumentIngestionWorker(
         metadata=metadata,
         objects=source_store,
@@ -367,6 +401,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             topic="object.audit-entry",
             worker_owner=env.get("FDAI_INGESTION_WORKER_OWNER", "").strip() or None,
             lease_seconds=_positive_int(env, "FDAI_INGESTION_WORKER_LEASE_SECONDS", 120),
+            protection_reconciliation=protection_reconciliation,
         ),
         startup_checks=(verify_database_role, verify_adapters),
         shutdown_callbacks=(

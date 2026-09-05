@@ -281,11 +281,15 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_connector_batch",
+      "document_connector_cursor",
+      "document_connector_item",
       "document_api_outbox",
       "document_upload_session",
       "document_version"
     ],
     "document-processing-worker": [
+      "document_protection_reconciliation",
       "document_worker_effect",
       "document_worker_outbox",
       "document_worker_claim",
@@ -465,9 +469,13 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_connector_batch",
+      "document_connector_cursor",
+      "document_connector_item",
       "document_api_outbox"
     ],
     "document-processing-worker": [
+      "document_protection_reconciliation",
       "document_worker_effect",
       "document_worker_outbox",
       "document_worker_claim",

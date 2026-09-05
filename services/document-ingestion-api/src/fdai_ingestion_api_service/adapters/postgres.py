@@ -50,6 +50,23 @@ SELECT probe.ready
       LIMIT 0
   ) AS required_outbox ON FALSE
   LEFT JOIN (
+     SELECT connector_id, revision, payload, updated_at
+       FROM document_connector_cursor
+      LIMIT 0
+  ) AS required_connector_cursor ON FALSE
+  LEFT JOIN (
+     SELECT idempotency_key, connector_id, collection_id, access_descriptor_ref, applied_at
+       FROM document_connector_batch
+      LIMIT 0
+  ) AS required_connector_batch ON FALSE
+  LEFT JOIN (
+     SELECT connector_id, source_item_id, source_revision, source_name,
+            size_bytes, deleted, collection_id, access_descriptor_ref,
+            document_id, version_id, deletion_pending, updated_at
+       FROM document_connector_item
+      LIMIT 0
+  ) AS required_connector_item ON FALSE
+  LEFT JOIN (
      SELECT doc_id, chunk_id, text, source_ref, metadata, embedding
        FROM knowledge_chunk
       LIMIT 0

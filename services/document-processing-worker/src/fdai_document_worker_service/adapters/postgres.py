@@ -50,6 +50,11 @@ SELECT
     AND has_table_privilege(current_user, 'document_worker_claim', 'SELECT, INSERT, UPDATE')
     AND has_table_privilege(current_user, 'document_worker_outbox', 'SELECT, INSERT, UPDATE')
     AND has_table_privilege(current_user, 'document_worker_effect', 'SELECT, INSERT, UPDATE')
+    AND has_table_privilege(
+        current_user,
+        'document_protection_reconciliation',
+        'SELECT, INSERT, UPDATE'
+    )
     AND has_table_privilege(current_user, 'knowledge_chunk', 'SELECT, INSERT, UPDATE, DELETE')
     AND has_table_privilege(current_user, 'state_kv', 'SELECT, INSERT, UPDATE, DELETE') AS ready
   FROM (VALUES (1)) AS probe(value)
@@ -83,6 +88,13 @@ SELECT
        FROM document_worker_effect
       LIMIT 0
   ) AS required_effect ON FALSE
+  LEFT JOIN (
+     SELECT document_id, version_id, upload_id, source_sha256, provider_ref,
+            policy_revision, protection_state, status, next_check_at,
+            claim_owner, lease_expires_at, revision, last_checked_at, reason_code
+       FROM document_protection_reconciliation
+      LIMIT 0
+  ) AS required_protection_reconciliation ON FALSE
   LEFT JOIN (
      SELECT doc_id, chunk_id, text, source_ref, metadata, embedding
        FROM knowledge_chunk
@@ -238,6 +250,36 @@ class PostgresDocumentMetadataStore:
             )
             if await version_cursor.fetchone() is None:
                 raise DocumentLifecycleConflictError("document version lifecycle CAS conflict")
+            if (
+                version.protection_provider_ref is not None
+                and version.protection_policy_revision is not None
+                and version.state.value in {"ready", "ready_with_warnings"}
+            ):
+                await connection.execute(
+                    "INSERT INTO document_protection_reconciliation "
+                    "(document_id, version_id, upload_id, source_sha256, provider_ref, "
+                    "policy_revision, protection_state, next_check_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, NOW()) "
+                    "ON CONFLICT (document_id, version_id) DO UPDATE SET "
+                    "source_sha256 = EXCLUDED.source_sha256, "
+                    "provider_ref = EXCLUDED.provider_ref, "
+                    "policy_revision = GREATEST("
+                    "document_protection_reconciliation.policy_revision, "
+                    "EXCLUDED.policy_revision), "
+                    "protection_state = EXCLUDED.protection_state, "
+                    "next_check_at = LEAST("
+                    "document_protection_reconciliation.next_check_at, NOW()) "
+                    "WHERE document_protection_reconciliation.status = 'active'",
+                    (
+                        version.document_id,
+                        version.version_id,
+                        version.upload_id,
+                        version.source_sha256,
+                        version.protection_provider_ref,
+                        version.protection_policy_revision,
+                        version.protection_state.value,
+                    ),
+                )
             await _enqueue_outbox(connection, event)
 
     async def assert_worker_stage_active(self, claim: DocumentWorkerClaim) -> None:

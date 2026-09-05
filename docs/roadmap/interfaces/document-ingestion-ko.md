@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: b47e59238640dab00ff7738caa690809c132f26e
+translation_source_sha: 4b6311a81985284e2627e00e7bac3f33c768df48
 translation_revised: 2026-09-05
 ---
 # 문서 인제스트와 투입 구역
@@ -511,6 +511,7 @@ abstain하고 결정론적 추출은 계속됩니다.
 | `POST /ingestion/uploads/{upload_id}/cancel` | 권한 부여를 철회하고 부분 데이터 정리 |
 | `GET /documents/search?q=...&collection_id=...` | 인증과 수집 범위가 적용된 인용 포함 하이브리드 검색 |
 | `GET /documents/{document_id}/versions` | 권한이 적용된 메타데이터와 상태 이력 |
+| `GET /documents/{document_id}/versions/{version_id}/preview` | 컬렉션 권한과 위임된 보호 권한 확인을 모두 통과한 범위가 제한된 추출 결과 미리 보기 |
 | `DELETE /documents/{document_id}/versions/{version_id}` | 통제된 deletion 요청 |
 
 출처 바이트는 클라이언트에서 전용 게이트웨이를 거쳐 객체 저장소로 스트리밍됩니다. Authentication 토큰은 헤더로 전달하며 저장소 자격 증명이나 권한 부여를 조회 문자열로 브라우저에 노출하지 않습니다.
@@ -568,8 +569,8 @@ ADLS Gen2 출처/산출물 저장소, Microsoft Graph/SharePoint 델타 동기�
 | Safe 텍스트 | 일반 구현 제공됨: 게이트웨이 스트리밍 업로드, 격리 구역 수명 주기, 실패 시 차단 scanner 경계, UTF-8/OOXML 추출, 구조를 고려한 중첩 조각, 로컬 하이브리드 검색, 원자적 pgvector 버전 교체/삭제, 접근 권한으로 필터링한 하이브리드 검색, 삭제. 업스트림 scanner는 운영 프로바이더를 연결할 때까지 판단을 보류합니다. |
 | 배치 | 일반 구현 제공됨: DOCX paragraph/heading/표 cell, PPTX slide/형태/표 cell/speaker note 및 strict `pypdf` native PDF 페이지 블록. PDF 파싱은 encryption을 거부하고 바이트, 페이지, 객체, 단위 및 extracted-character 상한을 독립적으로 적용합니다. 파서 실패는 문서 내용 없이 정제된 오류 하나만 노출합니다. Scanned PDF는 OCR 경계가 연결된 경우에만 사용합니다. 미리 보기는 프로바이더 후속 작업입니다. |
 | 채널 근거 | 일반 구현 제공됨: 범위가 제한된 opaque Slack/Teams 메타데이터, credential-fetcher 경계, 바이트/해시 검증, 전체 protected 인제스트, reject-before-tool gating, citation-only `doc:` 참조. PNG/JPEG/GIF/WebP 서명은 metadata-only 묶음을 만들며 OCR 및 벤더 자격 증명 조립은 프로바이더 연결로 남습니다. |
-| 보호 | 일반 구현 제공됨: PDF/Office/컨테이너 암호화 감지와 함께 다이제스트가 결합된 Purview/RMS 호환 검사 및 범위가 제한된 철회 조정 어댑터를 제공합니다. 프로바이더 엔드포인트 연결, 위임된 권한 확인, 미리 보기, 실제 철회 조정 근거는 배포 작업으로 남습니다. |
-| 커넥터와 규모 | 일부 제공됨: ADLS는 플러시된 업로드 접두부를 보존하고, 다시 전송된 바이트를 검증한 후 추가하며, 콘텐츠 다이제스트를 봉인하고, 영속 범위를 보고하고, 만료된 부분 객체를 제한된 수만 정리합니다. Graph/SharePoint 어댑터는 삭제 항목이 포함된 델타 페이지를 안정적인 멱등성 키, 정확한 컬렉션/접근 서술자, 동일 출처 연속 URL, compare-and-swap 커서 펜스로 순차 적용합니다. 배포가 소유하는 커넥터 싱크와 측정된 용량 근거는 남아 있습니다. |
+| 보호 | 일반 구현 제공됨: PDF/Office/컨테이너 암호화 감지, 다이제스트가 결합된 Purview/RMS 호환 검사, 영속 임대 기반 철회 확인, 원자적인 버전/조각 사용 중지, 재시도 가능한 산출물 정리, 위임된 독자 권한 확인, 범위가 제한된 추출 결과 미리 보기를 제공합니다. 프로바이더 엔드포인트 연결과 실제 철회 조정 근거는 배포 작업으로 남습니다. |
+| 커넥터와 규모 | 일부 제공됨: ADLS는 플러시된 업로드 접두부를 보존하고, 다시 전송된 바이트를 검증한 후 추가하며, 콘텐츠 다이제스트를 봉인하고, 영속 범위를 보고하고, 만료된 부분 객체를 제한된 수만 정리합니다. 운영 Graph/SharePoint 루프는 적용 전에 대기 페이지를 영속하고, 삭제 항목을 정확한 컬렉션/접근 서술자와 함께 변환하며, 변경된 토큰 출처나 구성을 거부하고, 멱등적 배치 커밋 후에만 compare-and-swap 커서를 전진시킵니다. 측정된 용량 근거는 남아 있습니다. |
 
 롤아웃 순서는 다음과 같습니다.
 

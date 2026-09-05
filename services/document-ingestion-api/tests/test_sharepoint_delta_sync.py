@@ -114,7 +114,10 @@ async def test_delta_sync_propagates_deletion_and_fences_each_cursor_page() -> N
     assert sink.calls[0][0:2] == ("shared-knowledge", "acl:sharepoint:operations")
     assert sink.calls[0][3][1].deleted is True
     assert cursors.cursor == SharePointDeltaCursor(
-        "sharepoint-primary", 4, "https://graph.example/v1.0/delta?token=stable"
+        "sharepoint-primary",
+        4,
+        "https://graph.example/v1.0/delta?token=stable",
+        binding_digest=_config().binding_digest,
     )
 
 
@@ -225,6 +228,7 @@ async def test_pending_page_rejects_changed_collection_binding() -> None:
         connector_id="sharepoint-primary",
         revision=1,
         delta_url=None,
+        binding_digest=_config().binding_digest,
         pending=pending,
     )
     changed = SharePointDeltaConfig(

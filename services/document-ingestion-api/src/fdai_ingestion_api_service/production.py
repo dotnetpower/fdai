@@ -44,6 +44,17 @@ from fdai_ingestion_api_service.adapters.postgres import (
     PostgresDocumentMetadataStore,
     PostgresDocumentSearch,
 )
+from fdai_ingestion_api_service.adapters.protection import (
+    PurviewRmsPreviewAuthorizer,
+)
+from fdai_ingestion_api_service.adapters.sharepoint import (
+    MicrosoftGraphSharePointDeltaSource,
+    SharePointDeltaConfig,
+    SharePointDeltaSynchronizer,
+)
+from fdai_ingestion_api_service.adapters.sharepoint_state import (
+    PostgresSharePointDeltaStore,
+)
 from fdai_ingestion_api_service.adapters.stewardship import (
     GitHubRepositoryHandoverIntake,
     GitHubRepositoryHandoverIntakeConfig,
@@ -60,6 +71,11 @@ from fdai_ingestion_api_service.auth import Authenticator, EntraJwtVerifier, Gro
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import DocumentIngestionService
+from fdai_ingestion_api_service.preview import (
+    GovernedDocumentPreview,
+    MetadataPreviewProtectionAuthorizer,
+    PreviewProtectionAuthorizer,
+)
 
 _COMMON_REQUIRED_ENV = (
     "FDAI_DATABASE_URL",
@@ -231,18 +247,106 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
                 published = 0
             await asyncio.sleep(0.1 if published else 2.0)
 
+    connector_drainers = [drain_api_outbox]
+    sharepoint_enabled = _truthy(env.get("FDAI_SHAREPOINT_DELTA_ENABLED", ""))
+    if sharepoint_enabled:
+        raise ProductionConfigurationError(
+            "SharePoint delta activation requires the durable changed-file ingestion binding"
+        )
+        if uses_local_document_providers(execution_venue):
+            raise ProductionConfigurationError(
+                "SharePoint delta synchronization requires the deployed execution venue"
+            )
+        required_sharepoint = (
+            "FDAI_SHAREPOINT_CONNECTOR_ID",
+            "FDAI_SHAREPOINT_SITE_ID",
+            "FDAI_SHAREPOINT_DRIVE_ID",
+            "FDAI_SHAREPOINT_COLLECTION_ID",
+            "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF",
+        )
+        missing_sharepoint = [key for key in required_sharepoint if not env.get(key, "").strip()]
+        if missing_sharepoint:
+            raise ProductionConfigurationError(
+                "SharePoint delta environment is missing: " + ", ".join(missing_sharepoint)
+            )
+        sharepoint_config = SharePointDeltaConfig(
+            connector_id=env["FDAI_SHAREPOINT_CONNECTOR_ID"].strip(),
+            site_id=env["FDAI_SHAREPOINT_SITE_ID"].strip(),
+            drive_id=env["FDAI_SHAREPOINT_DRIVE_ID"].strip(),
+            collection_id=env["FDAI_SHAREPOINT_COLLECTION_ID"].strip(),
+            access_descriptor_ref=env["FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF"].strip(),
+            page_size=_positive_int(env, "FDAI_SHAREPOINT_DELTA_PAGE_SIZE", 100),
+            max_pages_per_run=_positive_int(env, "FDAI_SHAREPOINT_DELTA_MAX_PAGES", 20),
+            graph_base_url=env.get(
+                "FDAI_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
+            ).strip(),
+            graph_scope=env.get("FDAI_GRAPH_SCOPE", "https://graph.microsoft.com/.default").strip(),
+        )
+        sharepoint_store = PostgresSharePointDeltaStore(dsn=dsn)
+        sharepoint = SharePointDeltaSynchronizer(
+            config=sharepoint_config,
+            source=MicrosoftGraphSharePointDeltaSource(
+                config=sharepoint_config,
+                credential=_azure_credential(credential),
+                client=http_client,
+            ),
+            cursors=sharepoint_store,
+            sink=sharepoint_store,
+        )
+        sharepoint_interval = _positive_int(env, "FDAI_SHAREPOINT_DELTA_INTERVAL_SECONDS", 60)
+
+        async def synchronize_sharepoint() -> None:
+            while True:
+                try:
+                    applied = await sharepoint.synchronize()
+                    await sharepoint_store.reconcile_deletions(limit=sharepoint_config.page_size)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - cursor remains retryable
+                    _LOGGER.error(
+                        "sharepoint_delta_sync_failed",
+                        extra={"exception_type": type(exc).__name__},
+                    )
+                    applied = 0
+                await asyncio.sleep(0.1 if applied else sharepoint_interval)
+
+        connector_drainers.append(synchronize_sharepoint)
+
     stewardship_webhook = _build_stewardship_webhook(
         env=env,
         dsn=dsn,
         http_client=http_client,
     )
     repository_handover_intake = _build_repository_handover_intake(env=env, dsn=dsn)
+    preview_protection: PreviewProtectionAuthorizer = MetadataPreviewProtectionAuthorizer()
+    if env.get("FDAI_DOCUMENT_PROTECTION_PROVIDER", "signature").strip() == "purview_rms":
+        protection_endpoint = env.get("FDAI_PROTECTION_ENDPOINT", "").strip()
+        protection_audience = env.get("FDAI_PROTECTION_AUDIENCE", "").strip()
+        if not protection_endpoint or not protection_audience:
+            raise ProductionConfigurationError(
+                "purview_rms preview requires FDAI_PROTECTION_ENDPOINT and FDAI_PROTECTION_AUDIENCE"
+            )
+        preview_protection = PurviewRmsPreviewAuthorizer(
+            endpoint=protection_endpoint,
+            audience=protection_audience,
+            credential=_azure_credential(credential),
+            client=http_client,
+            timeout_seconds=float(env.get("FDAI_PROTECTION_TIMEOUT_SECONDS", "15")),
+        )
     return build_app(
         authenticator=authenticator,
         service=service,
         deletion=ApiDocumentDeletionService(
             access=access,
             metadata=metadata,
+        ),
+        preview=GovernedDocumentPreview(
+            access=access,
+            metadata=metadata,
+            artifacts=storage,
+            protection=preview_protection,
+            max_units=_positive_int(env, "FDAI_DOCUMENT_PREVIEW_MAX_UNITS", 200),
+            max_characters=_positive_int(env, "FDAI_DOCUMENT_PREVIEW_MAX_CHARACTERS", 100_000),
         ),
         search_index=PostgresDocumentSearch(
             config=database,
@@ -256,7 +360,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             proxy_upload=True,
             startup_checks=(verify_database_role, verify_adapters),
             readiness_checks=(verify_database_role, verify_adapters),
-            api_outbox_drainers=(drain_api_outbox,),
+            api_outbox_drainers=tuple(connector_drainers),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
             allowed_collections=_collections(
@@ -294,6 +398,10 @@ def _positive_int(env: Mapping[str, str], key: str, default: int) -> int:
     if value < 1:
         raise ProductionConfigurationError(f"{key} MUST be positive")
     return value
+
+
+def _truthy(value: str) -> bool:
+    return value.strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _origins(raw: str) -> tuple[str, ...]:

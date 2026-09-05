@@ -85,6 +85,10 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
         "document_api_outbox",
+        "document_connector_batch",
+        "document_connector_cursor",
+        "document_connector_item",
+        "document_protection_reconciliation",
         "document_worker_effect",
         "document_worker_outbox",
         "executor_receipt_outbox",

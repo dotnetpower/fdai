@@ -80,6 +80,7 @@ class SharePointDeltaCursor:
     connector_id: str
     revision: int
     delta_url: str | None
+    binding_digest: str | None = None
     pending: SharePointPendingPage | None = None
 
 
@@ -228,9 +229,18 @@ class SharePointDeltaSynchronizer:
     async def synchronize(self) -> int:
         cursor = await self._cursors.load(self._config.connector_id)
         if cursor is None:
-            cursor = SharePointDeltaCursor(self._config.connector_id, 0, None)
+            cursor = SharePointDeltaCursor(
+                self._config.connector_id,
+                0,
+                None,
+                binding_digest=self._config.binding_digest,
+            )
         elif cursor.connector_id != self._config.connector_id or cursor.revision < 0:
             raise ConnectorCursorConflictError("SharePoint cursor binding is invalid")
+        elif cursor.binding_digest != self._config.binding_digest:
+            raise ConnectorCursorConflictError(
+                "SharePoint stable cursor configuration binding changed"
+            )
         applied = 0
         for _ in range(self._config.max_pages_per_run):
             if cursor.pending is None:
@@ -251,6 +261,7 @@ class SharePointDeltaSynchronizer:
                     connector_id=self._config.connector_id,
                     revision=cursor.revision + 1,
                     delta_url=cursor.delta_url,
+                    binding_digest=self._config.binding_digest,
                     pending=pending,
                 )
                 if not await self._cursors.compare_and_swap(
@@ -276,6 +287,7 @@ class SharePointDeltaSynchronizer:
                 connector_id=self._config.connector_id,
                 revision=cursor.revision + 1,
                 delta_url=active_pending.continuation_url,
+                binding_digest=self._config.binding_digest,
             )
             if not await self._cursors.compare_and_swap(
                 expected_revision=cursor.revision, cursor=next_cursor

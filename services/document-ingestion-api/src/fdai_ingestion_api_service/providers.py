@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
-from fdai_service_contracts import DocumentVersion
+from fdai_service_contracts import DocumentEnvelope, DocumentVersion
 
 
 class ApplicationFactory(Protocol):
@@ -27,6 +27,17 @@ class DocumentDeletionService(Protocol):
         document_id: UUID,
         version_id: UUID,
     ) -> DocumentVersion: ...
+
+
+class DocumentPreviewService(Protocol):
+    async def preview(
+        self,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        document_id: UUID,
+        version_id: UUID,
+    ) -> DocumentEnvelope: ...
 
 
 class HandoverArtifact(Protocol):

@@ -12,6 +12,8 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > through the Git host, and observed after merge through a signed webhook. Stewardship grants no
 > RBAC capability and never receives Thor's executor identity. Production ingestion reuses the
 > shared document-format capability vocabulary for upload discovery; this changes neither the
+> governed preview and connector lifecycle remain inside the ingestion service boundary and do not
+> grant the stewardship webhook any document-read or connector authority.
 > ownership lifecycle nor its authority boundaries. Local or Azure OCR readiness only changes
 > which image formats ingestion advertises. It doesn't change an ownership handover, RBAC role, or
 > accountable owner.

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c710e73db7b12c0f5f8f585b6a8522301f82519e
+translation_source_sha: dd04bcf9cab3c04f111b01897db10b462a64676f
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -440,8 +440,8 @@ shadow 테스트가 두 경계를 고정합니다.
 | FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트 및 알림 레이블은 기본 이중 언어 카탈로그에 둡니다. 경로별 Teams 통합 및 선택적 Cost Governance 레이블은 지연 로드되는 경로 카탈로그에 유지하므로 전문 지침이 진입 번들 예산을 사용하거나 패키지를 활성화하지 않습니다. 기본 카탈로그를 변경하면 question bank 다이제스트를 다시 생성합니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [경로 카탈로그](../../../console/src/routes/i18n/) |
 | FDAI Console 경로 로드 | 이름이 지정된 경로 내보내기는 하나의 형식 안전 지연 로드 어댑터를 사용하고, 공유 경로 모듈은 하나의 로더를 재사용합니다. 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 경로 격리를 약화하지 않으면서 원시 크기와 gzip 예산을 모두 적용합니다. | [패널 레지스트리](../../../console/src/panels.tsx), [진입 번들 검사](../../../console/scripts/check-entry-bundle.mjs) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |
-| 문서 인제스트 API | 업로드 intake, API 소유 전이 및 서비스 어댑터 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
-| 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 워커 소유 로컬 또는 Azure 공급자 어댑터 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
+| 문서 인제스트 API | 업로드 접수, API 소유 전이, 통제된 미리 보기 권한 확인, 펜스가 적용된 커넥터 상태 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
+| 문서 처리 워커 | 영속 문서 처리, 프로세스로 격리된 한국어 및 영어 OCR, 다시 시작해도 안전한 보호 철회 정리 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/), [로컬 OCR](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/local_ocr.py), [공급자 정책 계약](../../../packages/service-contracts/src/fdai_service_contracts/document_ocr.py) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
 
 이 패키지는 `fdai-service-contracts`에만 의존하며 다른 서비스 구현은 가져오지 않습니다.

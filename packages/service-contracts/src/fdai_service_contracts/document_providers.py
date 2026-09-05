@@ -84,6 +84,8 @@ class ProtectionInspection:
     media_type: str
     sensitivity_label: str | None = None
     reason_code: str | None = None
+    provider_ref: str | None = None
+    policy_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

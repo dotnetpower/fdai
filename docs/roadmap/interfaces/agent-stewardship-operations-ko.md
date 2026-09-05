@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: e0cbb0ad1f41987a06a4d4658f26d8b779629ae9
+translation_source_sha: 4326e652724ca6c6140401ed86e56bdb0e8fbb48
 translation_revised: 2026-09-05
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -9,6 +9,9 @@ title: 에이전트 운영 책임 수명 주기
 이 문서는 FDAI 운영 책임(`stewardship`)의 구현된 런타임 및 거버넌스 수명 주기를 정의합니다.
 Handover-map 스키마와 소유권 개념은
 [에이전트 운영 책임과 담당자 인수인계](agent-stewardship-and-handover-ko.md)를 참조하세요.
+
+통제된 미리 보기와 커넥터 수명 주기는 인제스트 서비스 경계 안에 유지되며, 운영 책임
+웹후크에 문서 읽기 또는 커넥터 권한을 부여하지 않습니다.
 
 > Console의 소유권 변환 결과는 읽기 전용을 유지합니다. Guided form은 인계 문서를
 > 인제스트 경계에 제출합니다. 소유권 변경은 계속 초안 pull 요청으로 생성하고 Git

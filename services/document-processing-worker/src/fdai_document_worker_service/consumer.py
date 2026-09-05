@@ -31,6 +31,9 @@ from pydantic import ValidationError
 
 from fdai_document_worker_service.effects import WorkerEffectKind, WorkerMetadataStore
 from fdai_document_worker_service.processing import DocumentIngestionWorker
+from fdai_document_worker_service.protection_reconciliation import (
+    ProtectionReconciliationService,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _ClaimReader = Callable[[], DocumentWorkerClaim]
@@ -82,6 +85,7 @@ class DocumentIngestionEventConsumer:
         worker_owner: str | None = None,
         lease_seconds: int = 120,
         readiness_freshness_seconds: float = 15.0,
+        protection_reconciliation: ProtectionReconciliationService | None = None,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if (
@@ -110,6 +114,7 @@ class DocumentIngestionEventConsumer:
         self._worker_owner: Final = resolved_owner
         self._lease_seconds: Final = lease_seconds
         self._readiness_freshness_seconds: Final = readiness_freshness_seconds
+        self._protection_reconciliation: Final = protection_reconciliation
         self._loop_readiness_freshness_seconds: Final = max(
             readiness_freshness_seconds,
             reconcile_interval_seconds + retry_seconds,
@@ -414,6 +419,17 @@ class DocumentIngestionEventConsumer:
 
     async def _reconcile_cycle(self) -> bool:
         healthy = True
+        if self._protection_reconciliation is not None:
+            try:
+                await self._protection_reconciliation.reconcile_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                healthy = False
+                _LOGGER.error(
+                    "document_protection_reconciliation_failed",
+                    extra={"exception_type": type(exc).__name__},
+                )
         for effect in await self._metadata.claim_pending_worker_effects(
             limit=self._reconcile_batch_size
         ):

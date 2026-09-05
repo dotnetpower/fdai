@@ -60,6 +60,8 @@ async def test_inspection_binds_digest_and_preserves_accessible_label() -> None:
                 "sensitivity_label": "confidential",
                 "reason_code": None,
                 "revoked": False,
+                "provider_ref": "provider:document:1",
+                "policy_revision": 7,
             },
         )
 
@@ -79,6 +81,8 @@ async def test_inspection_binds_digest_and_preserves_accessible_label() -> None:
 
     assert result.state is ProtectionState.RIGHTS_MANAGED_ACCESSIBLE
     assert result.sensitivity_label == "confidential"
+    assert result.provider_ref == "provider:document:1"
+    assert result.policy_revision == 7
 
 
 async def test_inspection_fails_closed_on_provider_digest_mismatch() -> None:

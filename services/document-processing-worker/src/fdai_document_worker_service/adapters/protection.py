@@ -154,6 +154,10 @@ class PurviewRmsProtectionInspector:
                 "protection provider returned an invalid revocation flag"
             )
         reason_code = _optional_string(payload, "reason_code")
+        provider_ref = _required_string(payload, "provider_ref")
+        policy_revision = payload.get("policy_revision")
+        if not isinstance(policy_revision, int) or policy_revision < 0:
+            raise ProviderUnavailableError("protection provider policy revision is invalid")
         if revoked:
             state = ProtectionState.RIGHTS_MANAGED_ACCESS_DENIED
             reason_code = "rights_management_revoked"
@@ -163,6 +167,8 @@ class PurviewRmsProtectionInspector:
             media_type=_required_string(payload, "media_type"),
             sensitivity_label=_optional_string(payload, "sensitivity_label"),
             reason_code=reason_code,
+            provider_ref=provider_ref,
+            policy_revision=policy_revision,
         )
 
 

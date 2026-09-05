@@ -218,6 +218,8 @@ class DocumentVersion(DocumentContract):
     observed_format: str | None = None
     state: DocumentState
     protection_state: ProtectionState = ProtectionState.UNKNOWN
+    protection_provider_ref: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+    protection_policy_revision: Annotated[int, Field(ge=0)] | None = None
     classification: str = "unclassified"
     sensitivity_label: str | None = None
     access: AccessDescriptor

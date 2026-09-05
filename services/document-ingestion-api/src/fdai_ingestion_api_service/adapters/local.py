@@ -12,6 +12,7 @@ from uuid import UUID
 from aiokafka import AIOKafkaProducer
 from fdai_service_contracts import (
     AdapterReadiness,
+    DocumentEnvelope,
     DocumentNotFoundError,
     StoredObjectInfo,
     UploadGrant,
@@ -115,6 +116,20 @@ class LocalDocumentObjectStore:
     async def delete_artifact(self, document_id: UUID, version_id: UUID) -> None:
         path = self._derived / "documents" / document_id.hex / "versions" / version_id.hex
         await asyncio.to_thread((path / "envelope.json").unlink, missing_ok=True)
+
+    async def read_artifact(self, document_id: UUID, version_id: UUID) -> DocumentEnvelope:
+        path = (
+            self._derived
+            / "documents"
+            / document_id.hex
+            / "versions"
+            / version_id.hex
+            / "envelope.json"
+        )
+        if not path.is_file():
+            raise DocumentNotFoundError("document preview artifact was not found")
+        payload = await asyncio.to_thread(path.read_text, encoding="utf-8")
+        return DocumentEnvelope.model_validate_json(payload)
 
     async def close(self) -> None:
         return None
