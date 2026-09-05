@@ -7,7 +7,7 @@ on:
       operation:
         description: "Protected operation to request."
         type: choice
-        options: [console-publish, catalog-refresh, rca-reader-apply]
+        options: [console-publish, catalog-refresh, operational-history-apply, rca-reader-apply]
         required: true
       environment:
         description: "Existing environment targeted by the protected operation."
@@ -19,25 +19,29 @@ on:
         type: string
         required: true
       request_id:
-        description: "Exact apply request id for an RCA reader apply."
+        description: "Exact apply request id for a bot-owned protected apply."
         type: string
         required: false
       context_digest:
-        description: "Deployment context SHA-256 for an RCA reader apply."
+        description: "Deployment context SHA-256 for a bot-owned protected apply."
         type: string
         required: false
       plan_id:
-        description: "Protected plan id for an RCA reader apply."
+        description: "Protected plan id for a bot-owned protected apply."
         type: string
         required: false
       plan_digest:
-        description: "Protected plan SHA-256 for an RCA reader apply."
+        description: "Protected plan SHA-256 for a bot-owned protected apply."
         type: string
         required: false
       resume_verification:
-        description: "Resume verification without repeating an accepted RCA reader apply."
+        description: "Resume verification without repeating an accepted protected apply."
         type: boolean
         default: false
+        required: false
+      runtime_image_revision:
+        description: "Exact attested runtime image revision for an operational-history apply."
+        type: string
         required: false
 
 permissions:
@@ -49,7 +53,9 @@ jobs:
   request:
     if: >-
       github.ref == 'refs/heads/main' &&
-      (inputs.operation == 'rca-reader-apply' || inputs.commit_sha == github.sha)
+      (inputs.operation == 'rca-reader-apply' ||
+       inputs.operation == 'operational-history-apply' ||
+       inputs.commit_sha == github.sha)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -107,6 +113,7 @@ jobs:
           APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
         run: |
           set -euo pipefail
@@ -117,25 +124,34 @@ jobs:
             catalog-refresh)
               target_workflow=refresh-catalogs.yml
               ;;
-            rca-reader-apply)
+            operational-history-apply|rca-reader-apply)
               [[ "$TARGET_ENVIRONMENT" != "prod" ]] || {
-                echo "RCA reader apply is unavailable for production." >&2
+                echo "Bot-owned protected apply is unavailable for production." >&2
                 exit 1
               }
-              [[ "$APPLY_REQUEST_ID" =~ ^apply-rca-[0-9a-f]{48}$ ]] || {
-                echo "RCA reader apply request id is invalid." >&2
+              if [[ "$OPERATION" == "operational-history-apply" ]]; then
+                request_pattern='^apply-history-[0-9a-f]{48}$'
+                [[ "$APPLY_RUNTIME_IMAGE_REVISION" =~ ^[0-9a-f]{40}$ ]] || {
+                  echo "Operational-history runtime image revision is invalid." >&2
+                  exit 1
+                }
+              else
+                request_pattern='^apply-rca-[0-9a-f]{48}$'
+              fi
+              [[ "$APPLY_REQUEST_ID" =~ $request_pattern ]] || {
+                echo "Protected apply request id is invalid." >&2
                 exit 1
               }
               [[ "$APPLY_CONTEXT_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
-                echo "RCA reader context digest is invalid." >&2
+                echo "Protected apply context digest is invalid." >&2
                 exit 1
               }
               [[ "$APPLY_PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]] || {
-                echo "RCA reader plan id is invalid." >&2
+                echo "Protected apply plan id is invalid." >&2
                 exit 1
               }
               [[ "$APPLY_PLAN_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
-                echo "RCA reader plan digest is invalid." >&2
+                echo "Protected apply plan digest is invalid." >&2
                 exit 1
               }
               gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
@@ -154,6 +170,7 @@ jobs:
                 -f "inputs[plan_id]=$APPLY_PLAN_ID" \
                 -f "inputs[plan_digest]=$APPLY_PLAN_DIGEST" \
                 -f "inputs[resume_verification]=$RESUME_VERIFICATION" \
+                -f "inputs[runtime_image_revision]=$APPLY_RUNTIME_IMAGE_REVISION" \
                 -f "inputs[deploy_console]=false" \
                 -f "inputs[deploy_operator_api]=false"
               exit 0

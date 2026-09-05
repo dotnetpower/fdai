@@ -362,12 +362,10 @@ def test_console_release_request_uses_bot_as_deployment_requester() -> None:
     assert '"inputs[commit_sha]=$TARGET_COMMIT_SHA"' in _CONSOLE_REQUEST_WORKFLOW
 
 
-def test_rca_reader_apply_request_is_bot_owned_and_exact_plan_bound() -> None:
+def test_specialized_apply_requests_are_bot_owned_and_exact_plan_bound() -> None:
     assert "rca-reader-apply)" in _CONSOLE_REQUEST_WORKFLOW
-    assert (
-        "inputs.operation == 'rca-reader-apply' || inputs.commit_sha == github.sha"
-        in _CONSOLE_REQUEST_WORKFLOW
-    )
+    assert "operational-history-apply|rca-reader-apply)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "inputs.operation == 'operational-history-apply' ||" in _CONSOLE_REQUEST_WORKFLOW
     assert (
         ".fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py"
     ) in _CONSOLE_REQUEST_WORKFLOW
@@ -375,6 +373,8 @@ def test_rca_reader_apply_request_is_bot_owned_and_exact_plan_bound() -> None:
         _CONSOLE_REQUEST_WORKFLOW.index("Checkout protected Environment verifier")
     )
     assert "^apply-rca-[0-9a-f]{48}$" in _CONSOLE_REQUEST_WORKFLOW
+    assert "^apply-history-[0-9a-f]{48}$" in _CONSOLE_REQUEST_WORKFLOW
+    assert "Operational-history runtime image revision is invalid." in _CONSOLE_REQUEST_WORKFLOW
     assert "^plan-[1-9][0-9]*-[1-9][0-9]*$" in _CONSOLE_REQUEST_WORKFLOW
     assert "actions/workflows/deploy-dev.yml/dispatches" in _CONSOLE_REQUEST_WORKFLOW
     for field in (
@@ -385,6 +385,7 @@ def test_rca_reader_apply_request_is_bot_owned_and_exact_plan_bound() -> None:
         "plan_id",
         "plan_digest",
         "resume_verification",
+        "runtime_image_revision",
         "deploy_console",
         "deploy_operator_api",
     ):

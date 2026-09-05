@@ -534,10 +534,14 @@ def _dispatch(
         fields["plan_id"] = plan_id
         fields["plan_digest"] = plan_digest
     workflow = "deploy-dev.yml"
-    if apply and selection.deploy_rca_reader_identity:
+    if apply and (selection.deploy_operational_history or selection.deploy_rca_reader_identity):
         workflow = "request-protected-operation.yml"
         fields = {
-            "operation": "rca-reader-apply",
+            "operation": (
+                "operational-history-apply"
+                if selection.deploy_operational_history
+                else "rca-reader-apply"
+            ),
             "environment": environment,
             "commit_sha": commit_sha,
             "request_id": request_id_value,
@@ -546,6 +550,8 @@ def _dispatch(
             "plan_digest": fields["plan_digest"],
             "resume_verification": str(resume_verification).lower(),
         }
+        if selection.deploy_operational_history:
+            fields["runtime_image_revision"] = selection.runtime_image_revision
     arguments = [
         "workflow",
         "run",
