@@ -1623,6 +1623,61 @@ def test_plan_guard_composes_model_notification_and_rca_reader_transitions(
     )
 
 
+def test_plan_guard_completes_rca_binding_after_rollback_preserved_identity(
+    guard: ModuleType,
+) -> None:
+    service = "core-control-plane"
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    identity_id = (
+        "/subscriptions/example/resourceGroups/example/providers/"
+        "Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-dev-rca-reader"
+    )
+    for side in ("before", "after"):
+        change[side]["identity"][0]["identity_ids"].append(identity_id)
+    change["after"]["template"][0]["container"][0]["env"].append(
+        {
+            "name": "FDAI_RCA_AZURE_READER_CLIENT_ID",
+            "value": "00000000-0000-0000-0000-000000000001",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        model_binding_transition=True,
+        resolved_models_digest=digest,
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+        )
+
+    unrelated = copy.deepcopy(plan)
+    unrelated_change = unrelated["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        unrelated_change[side]["identity"][0]["identity_ids"] = [  # type: ignore[index]
+            "/subscriptions/example/resourceGroups/example/providers/"
+            "Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-dev-other"
+        ]
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            unrelated,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            model_binding_transition=True,
+            resolved_models_digest=digest,
+        )
+
+
 def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> None:
     service = "core-control-plane"
     plan = _core_model_binding_plan(guard, "b" * 64)

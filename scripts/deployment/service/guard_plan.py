@@ -957,28 +957,49 @@ def _guard_update(
 
     before_identities = _identity_ids(before, address=address)
     after_identities = _identity_ids(after, address=address)
+    before_environment = _environment_by_name(
+        _primary_container(before, address=address, contract=contract),
+        address=address,
+    )
+    after_environment = _environment_by_name(
+        _primary_container(after, address=address, contract=contract),
+        address=address,
+    )
+    rca_reader = _environment_binding(after_environment.get("FDAI_RCA_AZURE_READER_CLIENT_ID"))
+    valid_rca_reader_binding = (
+        contract.service == "core-control-plane"
+        and rca_reader is not None
+        and isinstance(rca_reader[0], str)
+        and bool(rca_reader[0])
+        and rca_reader[1] is None
+    )
     allowed_rca_reader = False
     if after_identities > before_identities:
         added = after_identities - before_identities
-        after_container = _primary_container(after, address=address, contract=contract)
-        after_environment = _environment_by_name(
-            after_container,
-            address=address,
-        )
-        rca_reader = _environment_binding(after_environment.get("FDAI_RCA_AZURE_READER_CLIENT_ID"))
         allowed_rca_reader = (
-            contract.service == "core-control-plane"
+            valid_rca_reader_binding
             and len(added) == 1
             and next(iter(added)).casefold().endswith("-rca-reader")
-            and rca_reader is not None
-            and isinstance(rca_reader[0], str)
-            and bool(rca_reader[0])
-            and rca_reader[1] is None
         )
         if not allowed_rca_reader:
             violations.append(f"identity expansion at {address}")
     elif after_identities != before_identities:
         violations.append(f"workload identity drift at {address}")
+    existing_rca_reader_binding = (
+        model_binding_transition
+        and valid_rca_reader_binding
+        and after_identities == before_identities
+        and len(
+            [
+                identity
+                for identity in after_identities
+                if identity.casefold().endswith("-rca-reader")
+            ]
+        )
+        == 1
+        and _environment_binding(before_environment.get("FDAI_RCA_AZURE_READER_CLIENT_ID")) is None
+    )
+    allowed_rca_binding = allowed_rca_reader or existing_rca_reader_binding
 
     before_authority = _authority_cutover(before, address=address, contract=contract)
     after_authority = _authority_cutover(after, address=address, contract=contract)
@@ -987,7 +1008,7 @@ def _guard_update(
     )
     if database_host_binding:
         notification_companion_names |= frozenset({"POSTGRES_HOST"})
-    if allowed_rca_reader:
+    if allowed_rca_binding:
         notification_companion_names |= _RCA_READER_ENVIRONMENT
     allowed_notification_topic = _only_notification_receipt_topic_transition(
         before,
@@ -1008,7 +1029,7 @@ def _guard_update(
         additional_host_names: frozenset[str] = frozenset()
         if model_binding_transition:
             additional_host_names |= _MODEL_BINDING_ENVIRONMENT
-        if allowed_rca_reader:
+        if allowed_rca_binding:
             additional_host_names |= _RCA_READER_ENVIRONMENT
         violations.extend(
             _guard_database_host_binding(
@@ -1033,7 +1054,7 @@ def _guard_update(
         model_additional_names: frozenset[str] = frozenset()
         if database_host_binding:
             model_additional_names |= frozenset({"POSTGRES_HOST"})
-        if allowed_rca_reader:
+        if allowed_rca_binding:
             model_additional_names |= _RCA_READER_ENVIRONMENT
         after_environment = _environment_by_name(
             _primary_container(after, address=address, contract=contract),
@@ -1065,7 +1086,7 @@ def _guard_update(
         and not model_binding_transition
         and sharepoint_connector_transition == "none"
         and not (
-            allowed_rca_reader
+            allowed_rca_binding
             and _only_rca_reader_runtime_transition(
                 before,
                 after,
