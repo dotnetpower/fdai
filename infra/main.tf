@@ -1954,7 +1954,7 @@ resource "azurerm_role_assignment" "core_teams_notification_secret_reader" {
 }
 
 resource "azurerm_key_vault_secret" "notification_receipt_secret" {
-  # checkov:skip=CKV_AZURE_41:Receipt verification requires coordinated rotation; expiring one version independently would reject valid in-flight receipts.
+  # checkov:skip=CKV_AZURE_41:Receipt publishers and verifiers require coordinated HMAC rotation; an uncoordinated fixed expiry would reject valid delivery evidence.
   count        = var.enable_operator_api && var.notification_receipt_secret != "" ? 1 : 0
   name         = "fdai-notification-receipt-secret"
   value        = var.notification_receipt_secret
@@ -2047,7 +2047,7 @@ resource "random_id" "ohl_observation_signing_seed" {
 }
 
 resource "azurerm_key_vault_secret" "ohl_observation_signing_seed" {
-  # checkov:skip=CKV_AZURE_41:Observation signatures require coordinated key rotation and verifier overlap; a fixed expiry would invalidate retained evidence.
+  # checkov:skip=CKV_AZURE_41:This seed anchors observation-verifier lineage and rotates only through a coordinated revision with retained prior-key verification.
   name         = "fdai-ohl-observation-signing-seed"
   value        = sensitive(random_id.ohl_observation_signing_seed.b64_url)
   key_vault_id = module.key_vault.id
