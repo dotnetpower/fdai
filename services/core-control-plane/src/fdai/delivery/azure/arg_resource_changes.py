@@ -124,6 +124,9 @@ _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
 }
 _OPERATIONAL_STATUS_CHANGE_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
     "properties.powerState.code": ("properties", "powerState", "code"),
+    "properties.runningStatus": ("properties", "runningStatus"),
+    "properties.operationalState": ("properties", "operationalState"),
+    "properties.dnsResolverState": ("properties", "dnsResolverState"),
     "properties.resourceState": ("properties", "resourceState"),
     "properties.state": ("properties", "state"),
     "properties.status": ("properties", "status"),

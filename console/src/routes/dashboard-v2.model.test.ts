@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownReason,
+  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   decodeDashboardSnapshot, EMPTY_DASHBOARD_FILTERS,
 } from "./dashboard-v2.model";
 import en from "./i18n/dashboard-v2.en.json";
@@ -111,5 +111,44 @@ describe("Dashboard v2 inventory projection", () => {
     expect(Object.keys(ko).sort()).toEqual(Object.keys(en).sort());
     expect(Object.values(en).every(Boolean) && Object.values(ko).every(Boolean)).toBe(true);
     expect(ko.title).toContain("대시보드");
+  });
+
+  test("groups recorded-state Unknown causes without recasting them as not applicable", () => {
+    const state = (reason: string) => ({
+      value: null, source_path: null, observed_at: null, recorded_at: null,
+      freshness: "unknown" as const, completeness: null, conflicts: [], reason,
+    });
+    const snapshot = {
+      ...decodeDashboardSnapshot(base),
+      resources: [
+        {
+          id: "mapped", name: "Mapped", type: "compute.container-app", status: "",
+          parentId: null, group: null, groupLabel: null, subscription: null,
+          subscriptionLabel: null, observedAt: null,
+          states: {
+            schema_version: "1.0.0" as const,
+            operational: state("state_not_recorded"),
+            provisioning: state("state_not_recorded"),
+            availability: state("state_not_recorded"),
+          },
+        },
+        {
+          id: "unclassified", name: "Unclassified", type: "unclassified-resource", status: "",
+          parentId: null, group: null, groupLabel: null, subscription: null,
+          subscriptionLabel: null, observedAt: null,
+          states: {
+            schema_version: "1.0.0" as const,
+            operational: state("resource_type_unclassified"),
+            provisioning: state("resource_type_unclassified"),
+            availability: state("resource_type_unclassified"),
+          },
+        },
+      ],
+    };
+    expect([...dashboardUnknownCounts(snapshot.resources, snapshot)]).toEqual([
+      ["stateNotRecorded", 1],
+      ["resourceTypeUnclassified", 1],
+    ]);
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe("unknown");
   });
 });

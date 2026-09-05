@@ -20,6 +20,7 @@ from fdai_operator_service.families.operations.contracts import (
 from fdai_operator_service.families.operations.instance_explorer import (
     _ontology_identity,
     _resource_projection,
+    _state_observation,
 )
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -36,6 +37,19 @@ class InventoryGenerationChangedError(RuntimeError):
     """The active immutable source changed; clients must discard accumulated pages."""
 
 
+class OntologyGenerationChangedError(RuntimeError):
+    """The active inventory is not the generation currently committed to ontology."""
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryOntologyContext:
+    """Committed ontology projection identity for the inventory-owned Resource subgraph."""
+
+    generation: str
+    ontology_release_digest: str
+    manifest_digest: str
+
+
 @dataclass(frozen=True, slots=True)
 class InventoryStatePage:
     """One id-ordered snapshot page and the count across its complete search result."""
@@ -49,6 +63,10 @@ class InventoryStateReader(Protocol):
 
     async def read_inventory_impact_context(self) -> InventoryImpactContext | None:
         """Return the active immutable generation and cutoff."""
+        ...
+
+    async def read_inventory_ontology_context(self) -> InventoryOntologyContext | None:
+        """Return the committed inventory-owned ontology generation."""
         ...
 
     async def read_inventory_state_page(
@@ -87,10 +105,26 @@ async def project_inventory_states(
         or context.observed_at.utcoffset() is None
     ):
         raise ProjectionUnavailableError("active inventory snapshot identity is malformed")
+    ontology_context = await reader.read_inventory_ontology_context()
+    if (
+        ontology_context is not None
+        and re.fullmatch(
+            r"sha256:[a-f0-9]{64}",
+            ontology_context.manifest_digest,
+        )
+        is None
+    ):
+        raise ProjectionUnavailableError("inventory ontology manifest identity is malformed")
+    if ontology_context is None or (
+        ontology_context.generation != context.snapshot_id
+        or ontology_context.ontology_release_digest != release_digest
+    ):
+        raise OntologyGenerationChangedError
     binding = {
         "schema_version": "1.0.0",
         "generation": content_digest({"source_generation": context.snapshot_id}),
         "cutoff": context.observed_at.isoformat(),
+        "ontology_manifest_digest": ontology_context.manifest_digest,
         "query_digest": content_digest(
             {
                 "operation": query.operation,
@@ -112,9 +146,15 @@ async def project_inventory_states(
         snapshot_id=context.snapshot_id, search=search, offset=offset, limit=query.limit
     )
     active = await reader.read_inventory_impact_context()
-    if active is None or (active.snapshot_id, active.observed_at) != (
-        context.snapshot_id,
-        context.observed_at,
+    active_ontology = await reader.read_inventory_ontology_context()
+    if (
+        active is None
+        or (active.snapshot_id, active.observed_at)
+        != (
+            context.snapshot_id,
+            context.observed_at,
+        )
+        or active_ontology != ontology_context
     ):
         raise InventoryGenerationChangedError
     _validate_page(page, offset=offset, limit=query.limit)
@@ -124,10 +164,18 @@ async def project_inventory_states(
     return {
         "schema_version": "1.0.0",
         "ontology_release_digest": release_digest,
+        "ontology_generation": ontology_context.generation,
+        "ontology_manifest_digest": ontology_context.manifest_digest,
+        "source_kind": "inventory_snapshot_resource",
         "source_generation": context.snapshot_id,
         "source_cutoff": context.observed_at.isoformat(),
         "resources": [
-            _resource_projection(resource, root_id=None, now=evaluated_at)
+            _resource_projection(
+                resource,
+                root_id=None,
+                now=evaluated_at,
+                state_observation=_state_observation(resource, context),
+            )
             for resource in page.resources
         ],
         "total_count": page.total_count,
@@ -179,7 +227,9 @@ def _offset(cursor: str | None, binding: Mapping[str, str]) -> int:
         raise ValueError("invalid states cursor schema")
     if any(payload[key] != binding[key] for key in ("query_digest", "context_digest")):
         raise ValueError("states cursor does not match the current query or principal context")
-    if any(payload[key] != binding[key] for key in ("generation", "cutoff")):
+    if any(
+        payload[key] != binding[key] for key in ("generation", "cutoff", "ontology_manifest_digest")
+    ):
         raise InventoryGenerationChangedError
     return int(payload["offset"])
 

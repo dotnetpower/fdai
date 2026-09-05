@@ -8,7 +8,10 @@ from datetime import UTC, datetime
 import pytest
 from fdai_operator_service.families.operations.contracts import InventoryInstanceResource
 from fdai_operator_service.families.operations.instance_explorer import _resource_projection
-from fdai_operator_service.families.operations.recorded_state import recorded_resource_states
+from fdai_operator_service.families.operations.recorded_state import (
+    RecordedStateObservation,
+    recorded_resource_states,
+)
 
 NOW = datetime(2026, 9, 5, 0, 5, tzinfo=UTC)
 OBSERVED = "2026-09-05T00:00:00+00:00"
@@ -109,6 +112,50 @@ def test_canonical_resource_wrapper_and_provisioning_are_separate() -> None:
         _state({"properties": {"availabilityState": "Unavailable"}}, "availability")["value"]
         == "Unavailable"
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        ("operationalState", "Running"),
+        ("dnsResolverState", "Connected"),
+        ("resourceState", "Active"),
+        ("userVisibleState", "Ready"),
+    ],
+)
+def test_reviewed_operational_paths_are_retained(path: str, value: str) -> None:
+    fact = _state({"properties": {path: value}})
+    assert fact["value"] == value
+    assert fact["source_path"] == f"properties.{path}"
+
+
+def test_snapshot_columns_qualify_legacy_values_without_replacing_effective_time() -> None:
+    states = recorded_resource_states(
+        {"properties": {"runningStatus": "Running", "provisioningState": "Succeeded"}},
+        resource_type="compute.container-app",
+        observation=RecordedStateObservation(
+            generation="generation-1",
+            observed_at=datetime(2026, 9, 5, 0, 0, tzinfo=UTC),
+            recorded_at=datetime(2026, 9, 5, 0, 1, tzinfo=UTC),
+        ),
+        now=datetime(2026, 9, 5, 0, 5, tzinfo=UTC),
+    )
+    assert states["operational"]["observed_at"] == "2026-09-05T00:00:00+00:00"
+    assert states["operational"]["recorded_at"] == "2026-09-05T00:01:00+00:00"
+    assert states["operational"]["freshness"] == "fresh"
+    assert states["provisioning"]["freshness"] == "fresh"
+
+
+def test_unclassified_resource_missing_state_has_a_distinct_reason() -> None:
+    states = recorded_resource_states({}, resource_type="unclassified-resource", now=NOW)
+    assert states["operational"]["reason"] == "resource_type_unclassified"
+
+
+def test_missing_state_separates_reviewed_source_contract_from_unknown_applicability() -> None:
+    mapped = recorded_resource_states({}, resource_type="compute.container-app", now=NOW)
+    unresolved = recorded_resource_states({}, resource_type="object-storage", now=NOW)
+    assert mapped["operational"]["reason"] == "state_source_not_recorded"
+    assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
 
 @pytest.mark.parametrize("value", [None, "", "unknown", "Unknown", " unknown ", {}, True])

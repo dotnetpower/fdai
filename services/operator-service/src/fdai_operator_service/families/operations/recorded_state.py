@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, TypedDict
 
 MAX_STATE_VALUE_CHARS = 256
 MAX_STATE_CONFLICTS = 16
+DEFAULT_STATE_FRESHNESS_CEILING_SECONDS = 21_600
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})")
 _OPERATIONAL_PATHS = (
     "status",
@@ -17,11 +19,46 @@ _OPERATIONAL_PATHS = (
     "ready_status",
     "readiness",
     "runningStatus",
+    "operationalState",
+    "dnsResolverState",
+    "resourceState",
+    "userVisibleState",
     "powerState.code",
     "powerState",
     "instanceView.powerState.code",
     "extended.instanceView.powerState.code",
 )
+OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
+    "compute.container-app": ("runningStatus",),
+    "compute.container-app-job": ("runningStatus",),
+    "kubernetes-node-pool": ("powerState.code",),
+    "network.application-gateway": ("operationalState",),
+    "network.dns-resolver": ("dnsResolverState",),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedStateObservation:
+    """Immutable snapshot columns that qualify one retained provider value."""
+
+    generation: str
+    observed_at: datetime
+    recorded_at: datetime
+    freshness_ceiling_seconds: int = DEFAULT_STATE_FRESHNESS_CEILING_SECONDS
+
+    def __post_init__(self) -> None:
+        if not self.generation.strip():
+            raise ValueError("recorded state generation MUST be non-empty")
+        if any(
+            value.tzinfo is None or value.utcoffset() is None
+            for value in (
+                self.observed_at,
+                self.recorded_at,
+            )
+        ):
+            raise ValueError("recorded state observation times MUST be timezone-aware")
+        if self.freshness_ceiling_seconds < 1:
+            raise ValueError("recorded state freshness ceiling MUST be positive")
 
 
 class RecordedStateFact(TypedDict):
@@ -38,7 +75,11 @@ class RecordedStateFact(TypedDict):
 
 
 def recorded_resource_states(
-    properties: Mapping[str, object], *, now: datetime | None = None
+    properties: Mapping[str, object],
+    *,
+    resource_type: str | None = None,
+    observation: RecordedStateObservation | None = None,
+    now: datetime | None = None,
 ) -> dict[str, object]:
     """Project three separate recorded lanes, never substituting inventory observation time.
 
@@ -51,14 +92,37 @@ def recorded_resource_states(
         raise ValueError("recorded state evaluation time MUST be timezone-aware")
     return {
         "schema_version": "1.0.0",
-        "operational": _fact(properties, _OPERATIONAL_PATHS, evaluated_at),
-        "provisioning": _fact(properties, ("provisioningState",), evaluated_at),
-        "availability": _fact(properties, ("availabilityState",), evaluated_at),
+        "operational": _fact(
+            properties,
+            _OPERATIONAL_PATHS,
+            evaluated_at,
+            resource_type=resource_type,
+            observation=observation,
+        ),
+        "provisioning": _fact(
+            properties,
+            ("provisioningState",),
+            evaluated_at,
+            resource_type=resource_type,
+            observation=observation,
+        ),
+        "availability": _fact(
+            properties,
+            ("availabilityState",),
+            evaluated_at,
+            resource_type=resource_type,
+            observation=observation,
+        ),
     }
 
 
 def _fact(
-    properties: Mapping[str, object], paths: tuple[str, ...], now: datetime
+    properties: Mapping[str, object],
+    paths: tuple[str, ...],
+    now: datetime,
+    *,
+    resource_type: str | None,
+    observation: RecordedStateObservation | None,
 ) -> RecordedStateFact:
     result: RecordedStateFact = {
         "value": None,
@@ -68,7 +132,7 @@ def _fact(
         "freshness": "unknown",
         "completeness": None,
         "conflicts": [],
-        "reason": "state_not_recorded",
+        "reason": _missing_reason(resource_type, paths),
     }
     for prefix in ("", "properties.", "properties.properties."):
         for path in paths:
@@ -86,6 +150,8 @@ def _fact(
             result["value"] = value
             result["source_path"] = source_path
             metadata = _metadata(properties, source_path, prefix, path)
+            if metadata is None and observation is not None:
+                metadata = _snapshot_metadata(observation, source_path)
             if metadata is None:
                 result["reason"] = "state_metadata_not_recorded"
                 return result
@@ -104,6 +170,41 @@ def _fact(
                 )
             return result
     return result
+
+
+def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
+    if resource_type == "unclassified-resource":
+        return "resource_type_unclassified"
+    if paths == _OPERATIONAL_PATHS and resource_type is not None:
+        return (
+            "state_source_not_recorded"
+            if resource_type in OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
+            else "state_applicability_unknown"
+        )
+    return "state_not_recorded"
+
+
+def _snapshot_metadata(
+    observation: RecordedStateObservation,
+    source_path: str,
+) -> Mapping[str, object]:
+    """Qualify legacy snapshot values from their immutable row and snapshot timestamps."""
+
+    return {
+        "source_path": source_path,
+        "lane": "observed",
+        "authority": "provider",
+        "source_identity": "inventory-snapshot",
+        "source_revision": observation.generation,
+        "effective_at": observation.observed_at.isoformat(),
+        "recorded_at": observation.recorded_at.isoformat(),
+        "evidence_cutoff": observation.recorded_at.isoformat(),
+        "freshness_ceiling_seconds": observation.freshness_ceiling_seconds,
+        "completeness": 1.0,
+        "synthetic": False,
+        "conflicts": [],
+        "evidence_refs": [f"inventory-generation:{observation.generation}"],
+    }
 
 
 def _at(properties: Mapping[str, object], path: str) -> object:

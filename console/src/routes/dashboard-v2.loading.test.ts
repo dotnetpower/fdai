@@ -19,6 +19,9 @@ function resource(id: string, value = "Running") {
 function page(ids: string[], next_cursor: string | null = null, total_count = ids.length) {
   return {
     schema_version: "1.0.0", source_generation: "example-generation",
+    ontology_generation: "example-generation",
+    ontology_manifest_digest: `sha256:${"c".repeat(64)}`,
+    source_kind: "inventory_snapshot_resource",
     source_cutoff: "2026-09-05T12:00:00Z", ontology_release_digest: `sha256:${"a".repeat(64)}`,
     resources: ids.map((id) => resource(id)), total_count, next_cursor,
     complete: next_cursor === null, execution_authority: false, mutation_authority: false,
@@ -41,6 +44,9 @@ describe("shared recorded state consumption", () => {
     expect(snapshot?.resources[0]?.states?.provisioning.value).toBe("Succeeded");
     expect(snapshot?.resources[0]?.states?.operational.freshness).toBe("unknown");
     expect(snapshot?.recordedStates).toBe(true);
+    expect(snapshot?.source).toBe("inventory_snapshot_resource");
+    expect(snapshot?.ontologyGeneration).toBe("example-generation");
+    expect(snapshot?.ontologyManifestDigest).toBe(`sha256:${"c".repeat(64)}`);
   });
 
   test.each(["Online", "Active", "Enabled", "Ready", "Custom retained state"])("retains %s without turning it into Running or discarding it", async (value) => {
@@ -55,6 +61,7 @@ describe("shared recorded state consumption", () => {
   test.each([
     { source_generation: "different" }, { source_cutoff: "2026-09-05T12:01:00Z" },
     { total_count: 3 }, { ontology_release_digest: `sha256:${"b".repeat(64)}` },
+    { ontology_manifest_digest: `sha256:${"d".repeat(64)}` },
     { resources: [resource("one")] },
   ])("rejects mixed, overlapping or inconsistent pages: %j", async (patch) => {
     const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValueOnce(page(["one"], "next", 2))
@@ -65,6 +72,7 @@ describe("shared recorded state consumption", () => {
   test.each([
     { next_cursor: "loop" }, { resources: [] }, { execution_authority: true },
     { complete: true, next_cursor: "next" }, { total_count: 0 },
+    { ontology_generation: "different" }, { source_kind: "ontology_resource" },
     { resources: [{ ...resource("one"), resource_type: "authorization.role-assignment" }] },
   ])("fails closed on malformed or stalled responses: %j", async (patch) => {
     const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValue({ ...page(["one"], "loop", 2), ...patch });

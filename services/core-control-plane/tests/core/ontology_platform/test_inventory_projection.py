@@ -213,6 +213,37 @@ def test_resource_status_is_projected_as_observed_state_evidence() -> None:
     assert metadata.effective_at == OBSERVED_AT
 
 
+@pytest.mark.parametrize(
+    ("properties", "expected"),
+    [
+        ({"properties": {"runningStatus": "Running"}}, "Running"),
+        ({"properties": {"operationalState": "Started"}}, "Started"),
+        ({"properties": {"dnsResolverState": "Connected"}}, "Connected"),
+        ({"properties": {"powerState": {"code": "Stopped"}}}, "Stopped"),
+    ],
+)
+def test_nested_operational_state_is_projected_with_observation_metadata(
+    properties: dict[str, object],
+    expected: str,
+) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-1",
+                type="compute.container-app",
+                props=properties,
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider_properties = projection.objects[0].properties["properties"]
+    assert provider_properties["state"] == expected
+    metadata = StateFactMetadata.from_mapping(provider_properties[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.effective_at == OBSERVED_AT
+
+
 def test_incomplete_observation_claims_no_relationship() -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",

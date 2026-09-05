@@ -157,6 +157,8 @@ Its inventory facts are operator context, not WARA assessment receipts. A retain
 `Succeeded` value, particularly one with unknown freshness, cannot populate recommendation
 applicability, evaluation, or satisfaction. Assessment evidence still enters through the pinned
 query and manual-evidence admission paths above, not through Dashboard colors or instance status.
+The shared family store reads the committed inventory-ontology manifest only to fence this
+operator-context query. That lookup cannot satisfy or widen WARA evidence.
 
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
 revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact

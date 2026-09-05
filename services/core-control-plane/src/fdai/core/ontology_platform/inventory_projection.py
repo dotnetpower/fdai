@@ -67,6 +67,22 @@ _RESOURCE_OBJECT_TYPE = "Resource"
 _MAX_RESOURCES = 50_000
 _MAX_LINKS = 200_000
 DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS = 21_600
+_OPERATIONAL_STATE_PATHS = (
+    "status",
+    "state",
+    "phase",
+    "ready_status",
+    "readiness",
+    "runningStatus",
+    "operationalState",
+    "dnsResolverState",
+    "resourceState",
+    "userVisibleState",
+    "powerState.code",
+    "powerState",
+    "instanceView.powerState.code",
+    "extended.instanceView.powerState.code",
+)
 
 _DROP_OBSERVATION_INCOMPLETE = "observation_incomplete"
 _DROP_UNREGISTERED_LINK_TYPE = "unregistered_link_type"
@@ -334,12 +350,12 @@ def _add_observed_state(
     not evidence that the fact was independently corroborated.
     """
 
-    state = properties.get("status")
-    has_state = isinstance(state, str) and bool(state.strip())
+    state = _operational_state(properties)
+    has_state = state is not None
     if observed_at is None or not (has_state or conflicts):
         return
     if has_state:
-        properties["state"] = str(state).strip()
+        properties["state"] = state
     properties[STATE_FACT_METADATA_PROPERTY] = StateFactMetadata(
         lane=StateFactLane.OBSERVED,
         authority=StateFactAuthority.PROVIDER,
@@ -354,6 +370,25 @@ def _add_observed_state(
         conflicts=conflicts,
         evidence_refs=(f"inventory-generation:{generation}",),
     ).to_mapping()
+
+
+def _operational_state(properties: Mapping[str, object]) -> str | None:
+    for prefix in ("", "properties.", "properties.properties."):
+        for path in _OPERATIONAL_STATE_PATHS:
+            current: object = properties
+            for part in (prefix + path).split("."):
+                if not isinstance(current, Mapping):
+                    current = None
+                    break
+                current = current.get(part)
+            candidate = current.get("code") if isinstance(current, Mapping) else current
+            if (
+                isinstance(candidate, str)
+                and candidate.strip()
+                and candidate.strip().casefold() != "unknown"
+            ):
+                return candidate.strip()
+    return None
 
 
 def _observed_at(value: str | None) -> datetime | None:

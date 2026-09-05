@@ -38,6 +38,18 @@ remains unknown; it never becomes an invented observation receipt. A missing val
 not-applicable. The display projection is not a replacement for the existing decision-critical
 ontology query verifier or its receipts.
 
+For active snapshots created before property-level metadata was recorded, the read model qualifies a
+retained value from the immutable Resource `last_seen` timestamp and the snapshot completion cutoff.
+It preserves `last_seen` as effective time and never substitutes the later cutoff for that time.
+Malformed or reversed timestamps remain unknown.
+
+Operational applicability is explicit and conservative. The reviewed source contract currently
+covers Container Apps and Jobs `runningStatus`, AKS node pool `powerState.code`, Application Gateway
+`operationalState`, and DNS Resolver `dnsResolverState`. A missing value for one of these types is
+`state_source_not_recorded`. Other canonical types remain `state_applicability_unknown`, and
+`unclassified-resource` remains `resource_type_unclassified`. None of these reasons is equivalent to
+not-applicable.
+
 ## Batch query and consistency
 
 `GET /ontology/instances/states` is a read-only route in the existing authenticated operations family.
@@ -47,11 +59,12 @@ It accepts bounded `limit`, optional `search`, and a continuation `cursor`.
 |----------|----------|
 | Page size | At most 500 Resources in deterministic resource-id order. No per-resource API fan-out. |
 | Exclusions | Authorization role assignments, subscription containers, and resource-group containers are not operational roster items. |
-| Identity | Every page preserves `source_generation`, `source_cutoff`, and `ontology_release_digest`. |
+| Identity | Every page preserves `source_kind`, `source_generation`, `source_cutoff`, `ontology_generation`, `ontology_manifest_digest`, and `ontology_release_digest`. |
 | Count | `total_count` describes the same-generation query, not an inferred tenant-wide total. |
 | Continuation | The cursor binds generation, query and authenticated principal context. It is a selector, never authority. Invalid or changed context is rejected. |
 | Completion | `next_cursor` is explicit; `complete` is true only on the last page. An empty page cannot carry a continuing cursor. |
-| Change during traversal | A replaced active generation requires a new read. Pages from different generations cannot be merged. |
+| Generation fence | The active inventory generation, committed inventory-owned ontology generation, and ontology release must agree before and after each page read. A mismatch returns a bounded conflict. |
+| Change during traversal | A replaced inventory or ontology manifest requires a new read. Pages from different generations cannot be merged. |
 
 Dashboard loads bounded pages, rejects duplicate records and changing totals/cutoffs/releases, and
 caps accumulation at 20,000 records under a total deadline. Reaching that bound is explicit partial
@@ -63,6 +76,8 @@ Display filters and local pages operate on this received set; the server query r
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
 - Ontology directory and exploration records expose the same additive `states` field.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
+- Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
+  machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
 - The original Dashboard and older instance clients retain their existing routes and fields.
 - Resource inspection and selection do not grant approval or execution authority.

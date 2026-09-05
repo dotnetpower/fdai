@@ -107,6 +107,9 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         instance_view_properties.get("powerState"),
         nested.get("state"),
         nested.get("status"),
+        nested.get("runningStatus"),
+        nested.get("operationalState"),
+        nested.get("dnsResolverState"),
         nested.get("userVisibleState"),
         nested.get("resourceState"),
     ):

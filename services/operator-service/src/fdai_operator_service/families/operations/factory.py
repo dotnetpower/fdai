@@ -33,6 +33,7 @@ from fdai_operator_service.families.operations.contracts import (
 )
 from fdai_operator_service.families.operations.instance_states import (
     InventoryGenerationChangedError,
+    OntologyGenerationChangedError,
 )
 from fdai_operator_service.families.operations.manifest import (
     OPERATIONS_ROUTE_MANIFEST,
@@ -209,6 +210,8 @@ async def _projection(
         )
     except InventoryGenerationChangedError:
         return _error(409, "inventory_generation_changed")
+    except OntologyGenerationChangedError:
+        return _error(409, "ontology_generation_changed")
     except ProjectionNotFoundError:
         if entry.operation in {"blast_radius.simulate", "ontology.instance.explore"}:
             return _error(404, "target resource is not available in the active inventory")

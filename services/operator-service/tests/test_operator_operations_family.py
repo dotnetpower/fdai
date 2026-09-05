@@ -27,6 +27,7 @@ from fdai_operator_service.families.operations import (
 )
 from fdai_operator_service.families.operations.instance_states import (
     InventoryGenerationChangedError,
+    OntologyGenerationChangedError,
 )
 from fdai_operator_service.families.operations.manifest import READ_ROLES
 from fdai_service_contracts import OperatorRole
@@ -257,6 +258,17 @@ def test_recorded_state_route_reports_generation_change_explicitly() -> None:
     response = _client(ChangedDependencies()).get("/ontology/instances/states", headers=HEADERS)
     assert response.status_code == 409
     assert response.json() == {"error": {"status": 409, "message": "inventory_generation_changed"}}
+
+
+def test_recorded_state_route_reports_ontology_generation_change_explicitly() -> None:
+    class ChangedDependencies(RecordingDependencies):
+        async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
+            del query
+            raise OntologyGenerationChangedError
+
+    response = _client(ChangedDependencies()).get("/ontology/instances/states", headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json() == {"error": {"status": 409, "message": "ontology_generation_changed"}}
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:

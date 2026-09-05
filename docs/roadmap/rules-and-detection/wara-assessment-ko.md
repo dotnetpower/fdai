@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 4de72dab047ee9d0e1cf526f8f8d27a622954685
+translation_source_sha: 3b92e399f22e8cbcbddcbb5f271aea0ae8d9cd1b
 translation_revised: 2026-09-05
 ---
 # WARA 근거 기반 평가
@@ -156,6 +156,8 @@ shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 변경되�
 `Running` 또는 `Succeeded` 값, 특히 최신성을 알 수 없는 값으로 권고의 적용 가능성, 평가 또는
 충족 여부를 채울 수 없습니다. 평가 근거는 대시보드 색상이나 인스턴스 상태가 아니라 위에서
 정의한 고정 쿼리 및 수동 근거 수락 경로를 통해 들어옵니다.
+공통 family store는 이 운영자 맥락 조회에 세대 경계를 적용할 목적으로만 커밋된 인벤토리
+온톨로지 매니페스트를 읽습니다. 이 조회로 WARA 근거를 충족하거나 범위를 넓힐 수 없습니다.
 
 초기 카탈로그 변환 결과는 고정된 APRL 출처 URL, 출처 경로, 버전, 리비전, 다이제스트, 가져온
 시각, 라이선스, 선택적 Microsoft Learn 링크, 쿼리 다이제스트, 정확한 평가기 참조 및 구조화된

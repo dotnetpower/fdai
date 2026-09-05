@@ -32,6 +32,8 @@ export async function loadDashboardRecordedStates(
 ): Promise<DashboardSnapshot | null> {
   const started = Date.now();
   let generation: string | null = null;
+  let ontologyGeneration: string | null = null;
+  let ontologyManifestDigest: string | null = null;
   let cutoff: string | null = null;
   let release: string | null = null;
   let total: number | null = null;
@@ -49,11 +51,27 @@ export async function loadDashboardRecordedStates(
     const payload = stateRecord(raw, "resource page");
     if (payload.schema_version !== "1.0.0" || payload.execution_authority !== false || payload.mutation_authority !== false) throw new Error("Invalid recorded resource page authority/version");
     const nextGeneration = stateText(payload.source_generation, "generation");
+    const nextOntologyGeneration = stateText(payload.ontology_generation, "ontology generation");
+    const nextOntologyManifestDigest = stateText(payload.ontology_manifest_digest, "ontology manifest");
+    const sourceKind = stateText(payload.source_kind, "source kind");
     const nextCutoff = stateTime(payload.source_cutoff, "cutoff");
     const nextRelease = stateText(payload.ontology_release_digest, "ontology release");
     if (!/^sha256:[a-f0-9]{64}$/.test(nextRelease)) throw new Error("Invalid recorded resource ontology release");
-    if (generation !== null && (generation !== nextGeneration || cutoff !== nextCutoff || release !== nextRelease)) throw new Error("Recorded resource generation changed; refresh the snapshot");
-    generation = nextGeneration; cutoff = nextCutoff; release = nextRelease;
+    if (!/^sha256:[a-f0-9]{64}$/.test(nextOntologyManifestDigest)) throw new Error("Invalid recorded resource ontology manifest");
+    if (nextOntologyGeneration !== nextGeneration) throw new Error("Recorded resource ontology generation does not match inventory");
+    if (sourceKind !== "inventory_snapshot_resource") throw new Error("Invalid recorded resource source kind");
+    if (generation !== null && (
+      generation !== nextGeneration
+      || ontologyGeneration !== nextOntologyGeneration
+      || ontologyManifestDigest !== nextOntologyManifestDigest
+      || cutoff !== nextCutoff
+      || release !== nextRelease
+    )) throw new Error("Recorded resource generation changed; refresh the snapshot");
+    generation = nextGeneration;
+    ontologyGeneration = nextOntologyGeneration;
+    ontologyManifestDigest = nextOntologyManifestDigest;
+    cutoff = nextCutoff;
+    release = nextRelease;
     if (!Number.isSafeInteger(payload.total_count) || typeof payload.total_count !== "number" || payload.total_count < 0) throw new Error("Invalid recorded resource total");
     if (total !== null && total !== payload.total_count) throw new Error("Recorded resource total changed within the snapshot");
     total = payload.total_count;
@@ -86,9 +104,18 @@ export async function loadDashboardRecordedStates(
     if (payload.resources.length === 0 || cursors.has(cursor)) throw new Error("Recorded resource cursor made no progress");
     cursors.add(cursor);
   }
-  if (generation === null || cutoff === null || total === null) throw new Error("Recorded resource snapshot is missing");
+  if (
+    generation === null
+    || ontologyGeneration === null
+    || ontologyManifestDigest === null
+    || cutoff === null
+    || total === null
+  ) throw new Error("Recorded resource snapshot is missing");
   return {
-    id: generation, at: cutoff, source: "ontology-instances", scope: null,
+    id: generation,
+    ontologyGeneration,
+    ontologyManifestDigest,
+    at: cutoff, source: "inventory_snapshot_resource", scope: null,
     freshness: "unknown", observationKind: null, truncated: cursor !== null,
     limitations: cursor !== null ? ["client_record_limit"] : [], resources,
     excludedContainers: 0, excludedAuthorization: 0, pendingChanges: null,

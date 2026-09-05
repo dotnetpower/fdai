@@ -18,7 +18,10 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
     ProjectionUnavailableError,
 )
-from fdai_operator_service.families.operations.recorded_state import recorded_resource_states
+from fdai_operator_service.families.operations.recorded_state import (
+    RecordedStateObservation,
+    recorded_resource_states,
+)
 from fdai_service_contracts import (
     OperatorRole,
     canonical_ordinary_role,
@@ -85,7 +88,12 @@ async def project_inventory_instances(
         "source_cutoff": context.observed_at.isoformat(),
         "search": search,
         "resources": [
-            _resource_projection(resource, root_id=None, now=evaluated_at)
+            _resource_projection(
+                resource,
+                root_id=None,
+                now=evaluated_at,
+                state_observation=_state_observation(resource, context),
+            )
             for resource in page.resources
         ],
         "complete": not page.truncated,
@@ -161,7 +169,12 @@ async def project_inventory_instance(
         "depth": depth,
         "link_types": list(link_types),
         "resources": [
-            _resource_projection(resource, root_id=root_id, now=evaluated_at)
+            _resource_projection(
+                resource,
+                root_id=root_id,
+                now=evaluated_at,
+                state_observation=_state_observation(resource, context),
+            )
             for resource in sorted(
                 neighborhood.resources,
                 key=lambda item: (item.resource_id != root_id, item.resource_id),
@@ -492,6 +505,7 @@ def _resource_projection(
     *,
     root_id: str | None,
     now: datetime | None = None,
+    state_observation: RecordedStateObservation | None = None,
 ) -> dict[str, object]:
     properties = resource.properties
     if (
@@ -511,7 +525,12 @@ def _resource_projection(
         "subscription_id": _optional_text(properties.get("subscriptionId"))
         or _optional_text(properties.get("subscription_id")),
         "status": _optional_text(_resource_status(properties)),
-        "states": recorded_resource_states(properties, now=now),
+        "states": recorded_resource_states(
+            properties,
+            resource_type=resource.resource_type,
+            observation=state_observation,
+            now=now,
+        ),
         "last_seen": (
             resource.last_seen.isoformat()
             if resource.last_seen and resource.last_seen.utcoffset() is not None
@@ -523,6 +542,19 @@ def _resource_projection(
     if capacity is not None:
         projection["capacity"] = capacity
     return projection
+
+
+def _state_observation(
+    resource: InventoryInstanceResource,
+    context: InventoryImpactContext,
+) -> RecordedStateObservation | None:
+    if resource.last_seen is None or resource.last_seen.utcoffset() is None:
+        return None
+    return RecordedStateObservation(
+        generation=context.snapshot_id,
+        observed_at=resource.last_seen,
+        recorded_at=context.observed_at,
+    )
 
 
 def _resource_capacity(resource_type: str, properties: Mapping[str, object]) -> int | None:

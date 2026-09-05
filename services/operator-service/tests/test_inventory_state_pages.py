@@ -18,7 +18,9 @@ from fdai_operator_service.families.operations.contracts import (
 from fdai_operator_service.families.operations.instance_states import (
     STATE_DIRECTORY_EXCLUDED_TYPES,
     InventoryGenerationChangedError,
+    InventoryOntologyContext,
     InventoryStatePage,
+    OntologyGenerationChangedError,
     _encode,
     _validate_page,
     project_inventory_states,
@@ -35,6 +37,11 @@ ONTOLOGY: Mapping[str, object] = {
     "ontology_release_digest": f"sha256:{'a' * 64}",
     "link_types": ["contains"],
 }
+ONTOLOGY_CONTEXT = InventoryOntologyContext(
+    generation="generation-1",
+    ontology_release_digest=f"sha256:{'a' * 64}",
+    manifest_digest=f"sha256:{'c' * 64}",
+)
 QUERY = ProjectionQuery(
     operation="ontology.instance.states",
     principal_id="example-reader",
@@ -50,6 +57,8 @@ class _Reader:
     def __init__(self) -> None:
         self.context: InventoryImpactContext | None = InventoryImpactContext("generation-1", NOW)
         self.next_context: InventoryImpactContext | None = self.context
+        self.ontology_context: InventoryOntologyContext | None = ONTOLOGY_CONTEXT
+        self.next_ontology_context: InventoryOntologyContext | None = self.ontology_context
         self.calls: list[tuple[str, str | None, int, int]] = []
         self.resources = tuple(
             InventoryInstanceResource(
@@ -64,11 +73,15 @@ class _Reader:
     async def read_inventory_impact_context(self) -> InventoryImpactContext | None:
         return self.context
 
+    async def read_inventory_ontology_context(self) -> InventoryOntologyContext | None:
+        return self.ontology_context
+
     async def read_inventory_state_page(
         self, *, snapshot_id: str, search: str | None, offset: int, limit: int
     ) -> InventoryStatePage:
         self.calls.append((snapshot_id, search, offset, limit))
         self.context = self.next_context
+        self.ontology_context = self.next_ontology_context
         resources = tuple(
             resource
             for resource in self.resources
@@ -108,6 +121,9 @@ async def test_page_contract_and_last_page_completeness_with_one_read_per_page()
     assert set(first) == {
         "schema_version",
         "ontology_release_digest",
+        "ontology_generation",
+        "ontology_manifest_digest",
+        "source_kind",
         "source_generation",
         "source_cutoff",
         "resources",
@@ -119,12 +135,16 @@ async def test_page_contract_and_last_page_completeness_with_one_read_per_page()
     }
     assert first["schema_version"] == "1.0.0"
     assert first["source_generation"] == "generation-1"
+    assert first["ontology_generation"] == "generation-1"
+    assert first["ontology_manifest_digest"] == f"sha256:{'c' * 64}"
+    assert first["source_kind"] == "inventory_snapshot_resource"
     assert first["source_cutoff"] == NOW.isoformat()
     assert first["total_count"] == 3
     assert first["complete"] is False
     assert first["execution_authority"] is False
     assert first["mutation_authority"] is False
     assert reader.calls == [("generation-1", None, 0, 2)]
+    assert first["resources"][0]["states"]["operational"]["freshness"] == "fresh"
     cursor = first["next_cursor"]
     assert isinstance(cursor, str)
     assert len(cursor) <= 1024
@@ -188,7 +208,7 @@ async def test_cursor_rejects_principal_roles_purpose_search_and_limit_mismatch(
 async def test_release_change_rejects_cursor_before_source_page_read() -> None:
     reader = _Reader()
     cursor = await _cursor(reader)
-    with pytest.raises(ValueError, match="current query"):
+    with pytest.raises(OntologyGenerationChangedError):
         await project_inventory_states(
             query=replace(QUERY, cursor=cursor),
             reader=reader,
@@ -208,6 +228,8 @@ async def test_cursor_rejects_generation_or_cutoff_change(active: InventoryImpac
     reader = _Reader()
     cursor = await _cursor(reader)
     reader.context = active
+    if active.snapshot_id != ONTOLOGY_CONTEXT.generation:
+        reader.ontology_context = replace(ONTOLOGY_CONTEXT, generation=active.snapshot_id)
     with pytest.raises(InventoryGenerationChangedError):
         await _read(reader, replace(QUERY, cursor=cursor))
     assert len(reader.calls) == 1
@@ -219,6 +241,55 @@ async def test_active_generation_is_rechecked_after_each_page(
 ) -> None:
     reader = _Reader()
     reader.next_context = active
+    with pytest.raises(InventoryGenerationChangedError):
+        await _read(reader)
+    assert len(reader.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "ontology_context",
+    [
+        None,
+        replace(ONTOLOGY_CONTEXT, generation="generation-2"),
+        replace(ONTOLOGY_CONTEXT, ontology_release_digest=f"sha256:{'b' * 64}"),
+    ],
+)
+async def test_inventory_and_ontology_generation_must_match_before_read(
+    ontology_context: InventoryOntologyContext | None,
+) -> None:
+    reader = _Reader()
+    reader.ontology_context = ontology_context
+    with pytest.raises(OntologyGenerationChangedError):
+        await _read(reader)
+    assert reader.calls == []
+
+
+async def test_malformed_ontology_manifest_identity_fails_before_source_read() -> None:
+    reader = _Reader()
+    reader.ontology_context = replace(ONTOLOGY_CONTEXT, manifest_digest="invalid")
+    with pytest.raises(ProjectionUnavailableError, match="manifest identity"):
+        await _read(reader)
+    assert reader.calls == []
+
+
+async def test_cursor_rejects_replaced_ontology_manifest_before_source_read() -> None:
+    reader = _Reader()
+    cursor = await _cursor(reader)
+    reader.ontology_context = replace(
+        ONTOLOGY_CONTEXT,
+        manifest_digest=f"sha256:{'d' * 64}",
+    )
+    with pytest.raises(InventoryGenerationChangedError):
+        await _read(reader, replace(QUERY, cursor=cursor))
+    assert len(reader.calls) == 1
+
+
+async def test_ontology_manifest_is_rechecked_after_each_page() -> None:
+    reader = _Reader()
+    reader.next_ontology_context = replace(
+        ONTOLOGY_CONTEXT,
+        manifest_digest=f"sha256:{'d' * 64}",
+    )
     with pytest.raises(InventoryGenerationChangedError):
         await _read(reader)
     assert len(reader.calls) == 1
@@ -378,6 +449,39 @@ async def test_postgres_page_count_and_rows_use_one_bounded_parameterized_statem
     assert "example_%" not in statement
 
 
+async def test_postgres_reads_the_committed_inventory_ontology_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore, statement: str, parameters: Mapping[str, object]
+    ) -> list[dict[str, object]]:
+        del self
+        calls.append((statement, parameters))
+        return [
+            {
+                "value": {
+                    "schema_version": "1.3.0",
+                    "generation": "generation-1",
+                    "ontology_release_digest": f"sha256:{'a' * 64}",
+                    "manifest_digest": f"sha256:{'c' * 64}",
+                    "complete": True,
+                }
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+    assert await store.read_inventory_ontology_context() == ONTOLOGY_CONTEXT
+    assert calls == [
+        (
+            "SELECT value FROM state_kv WHERE key = %(key)s",
+            {"key": "inventory-ontology:manifest"},
+        )
+    ]
+
+
 async def test_postgres_empty_page_retains_zero_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -421,6 +525,12 @@ async def test_postgres_operations_adapter_dispatches_to_shared_bulk_projection(
         del self
         return await reader.read_inventory_impact_context()
 
+    async def ontology_context(
+        self: PostgresFamilyStore,
+    ) -> InventoryOntologyContext | None:
+        del self
+        return await reader.read_inventory_ontology_context()
+
     async def page(
         self: PostgresFamilyStore,
         *,
@@ -436,6 +546,7 @@ async def test_postgres_operations_adapter_dispatches_to_shared_bulk_projection(
 
     monkeypatch.setattr(PostgresFamilyStore, "read_projection", projection)
     monkeypatch.setattr(PostgresFamilyStore, "read_inventory_impact_context", context)
+    monkeypatch.setattr(PostgresFamilyStore, "read_inventory_ontology_context", ontology_context)
     monkeypatch.setattr(PostgresFamilyStore, "read_inventory_state_page", page)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
     result = await PostgresOperationsAdapters(store).read(QUERY)

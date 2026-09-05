@@ -82,10 +82,10 @@ The relationship legend shows `contains`, `attached_to`, and `depends_on` by def
 the remaining bounded-response types through an explicit disclosure. Expanding or collapsing the
 legend does not remove links, change counts, or narrow the Inspector.
 
-The Resource directory is bounded, so an unsearched page is never a complete inventory. The
-workspace states that bound as its own notice and counts only Resources an operator can select.
-Search reaches the authoritative directory while the operator types, so a Resource beyond the bound
-stays reachable without pressing a button. Keyboard suggestions never act on the operator's behalf:
+The Resource directory is bounded, so an unsearched page is never a complete inventory. Dashboard v2
+reads recorded state only when the active inventory matches the committed ontology manifest, rejects
+cross-generation pages, preserves distinct unknown reasons, and replaces its bounded snapshot after
+invalidation. Search still reaches Resources beyond the directory bound while the operator types.
 `Enter` runs the typed search unless the operator has actively highlighted a suggestion.
 
 The search control is the only Resource selection control. It browses the bounded directory when

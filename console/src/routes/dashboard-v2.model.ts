@@ -25,6 +25,8 @@ export interface DashboardResource {
 
 export interface DashboardSnapshot {
   readonly id: string | null;
+  readonly ontologyGeneration?: string;
+  readonly ontologyManifestDigest?: string;
   readonly at: string;
   readonly source: string | null;
   readonly scope: string | null;
@@ -171,13 +173,52 @@ export function dashboardStateFact(resource: DashboardResource, lens: DashboardL
   return resource.states[lens === "operation" || lens === "observation" ? "operational" : lens];
 }
 
-export function dashboardUnknownReason(resource: DashboardResource, snapshot: DashboardSnapshot): "missingProvenance" | "oldSnapshot" | "pendingChanges" | "noState" | "unclassifiedState" | null {
-  if (resource.states) return resource.states.operational.value === null ? "noState" : null;
+export type DashboardUnknownReason =
+  | "missingProvenance"
+  | "oldSnapshot"
+  | "pendingChanges"
+  | "noState"
+  | "unclassifiedState"
+  | "resourceTypeUnclassified"
+  | "stateNotRecorded"
+  | "stateSourceNotRecorded"
+  | "stateApplicabilityUnknown"
+  | "stateMetadataNotRecorded"
+  | "stateMetadataInvalid"
+  | "stateAfterCutoff";
+
+export function dashboardUnknownReason(
+  resource: DashboardResource,
+  snapshot: DashboardSnapshot,
+): DashboardUnknownReason | null {
+  if (resource.states) {
+    const fact = resource.states.operational;
+    if (fact.value !== null) return null;
+    if (fact.reason === "resource_type_unclassified") return "resourceTypeUnclassified";
+    if (fact.reason === "state_source_not_recorded") return "stateSourceNotRecorded";
+    if (fact.reason === "state_applicability_unknown") return "stateApplicabilityUnknown";
+    if (fact.reason === "state_metadata_not_recorded") return "stateMetadataNotRecorded";
+    if (fact.reason === "state_metadata_invalid") return "stateMetadataInvalid";
+    if (fact.reason === "state_after_cutoff") return "stateAfterCutoff";
+    return fact.reason === "state_not_recorded" ? "stateNotRecorded" : "noState";
+  }
   if (dashboardResourceState(resource, snapshot, "operation") !== "unknown") return null;
   if (snapshot.observationKind !== "OBSERVED" || snapshot.id === null || snapshot.source === null) return "missingProvenance";
   if ((snapshot.pendingChanges ?? 0) > 0) return "pendingChanges";
   if (snapshot.freshness !== "fresh") return "oldSnapshot";
   return !resource.status || resource.status.toLowerCase() === "unknown" ? "noState" : "unclassifiedState";
+}
+
+export function dashboardUnknownCounts(
+  resources: readonly DashboardResource[],
+  snapshot: DashboardSnapshot,
+): ReadonlyMap<DashboardUnknownReason, number> {
+  const result = new Map<DashboardUnknownReason, number>();
+  for (const resource of resources) {
+    const reason = dashboardUnknownReason(resource, snapshot);
+    if (reason !== null) result.set(reason, (result.get(reason) ?? 0) + 1);
+  }
+  return result;
 }
 
 export function dashboardTypeLabel(resource: DashboardResource): string {

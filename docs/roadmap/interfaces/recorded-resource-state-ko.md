@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 56eee8069afb93e086fe08fd54e16f8ffe3d1d7f
+translation_source_sha: e809c9d4c55e6767cb0168d135e430b529332f1d
 translation_revised: 2026-09-05
 ---
 # 기록된 리소스 상태
@@ -39,6 +39,19 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 유지하며 관측 증적을 만들어 넣지 않습니다. 값이 없다고 자동으로 적용 대상 아님으로 처리하지도
 않습니다. 이 화면용 조회 결과는 기존 의사결정용 온톨로지 쿼리 검증기나 증적을 대체하지 않습니다.
 
+속성 단위 메타데이터를 기록하기 전에 생성된 현재 스냅샷은 불변 Resource의 `last_seen` 시각과
+스냅샷 완료 기준 시점으로 유지된 값을 설명합니다. `last_seen`을 실제 관측 시각으로 보존하며 더
+늦은 기준 시점으로 대체하지 않습니다. 시각 형식이나 순서가 올바르지 않으면 알 수 없음으로
+유지합니다.
+
+운영 상태 적용 여부는 명시적이고 보수적으로 처리합니다. 현재 검토된 출처 계약에는 Container
+Apps와 Jobs의 `runningStatus`, AKS 노드 풀의 `powerState.code`, Application Gateway의
+`operationalState`, DNS Resolver의 `dnsResolverState`가 포함됩니다. 이 유형에서 값이 없으면
+`state_source_not_recorded`로 표시합니다. 다른 표준 유형은
+`state_applicability_unknown`, `unclassified-resource`는
+`resource_type_unclassified`로 유지합니다. 이 이유 중 어느 것도 적용 대상 아님을 뜻하지
+않습니다.
+
 ## 일괄 조회와 일관성
 
 `GET /ontology/instances/states`는 인증이 적용된 기존 운영 경로 계열의 읽기 전용 경로입니다.
@@ -48,11 +61,12 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 |------|------|
 | 페이지 크기 | 리소스 식별자 순서로 최대 500개의 Resource를 반환합니다. 리소스마다 API를 호출하지 않습니다. |
 | 제외 대상 | 역할 할당, 구독 컨테이너, 리소스 그룹 컨테이너는 운영 리소스 목록 항목이 아닙니다. |
-| 식별 정보 | 모든 페이지가 `source_generation`, `source_cutoff`, `ontology_release_digest`를 유지합니다. |
+| 식별 정보 | 모든 페이지가 `source_kind`, `source_generation`, `source_cutoff`, `ontology_generation`, `ontology_manifest_digest`, `ontology_release_digest`를 유지합니다. |
 | 건수 | `total_count`는 같은 세대의 조회 건수이며 테넌트 전체 수량을 추정한 값이 아닙니다. |
 | 이어 읽기 | 커서는 세대, 조회 조건, 인증된 principal 문맥에 결속됩니다. 선택자일 뿐 권한이 아니며 잘못되거나 바뀐 문맥은 차단됩니다. |
 | 완료 | `next_cursor`를 명시하고 마지막 페이지에서만 `complete`가 true입니다. 빈 페이지에는 이어 읽기 커서가 올 수 없습니다. |
-| 조회 중 변경 | 현재 세대가 교체되면 새로 조회해야 합니다. 서로 다른 세대의 페이지를 합치지 않습니다. |
+| 세대 일치 검사 | 현재 인벤토리 세대, 커밋된 인벤토리 소유 온톨로지 세대, 온톨로지 release가 각 페이지 조회 전후에 일치해야 합니다. 일치하지 않으면 범위가 제한된 충돌로 반환합니다. |
+| 조회 중 변경 | 인벤토리 또는 온톨로지 매니페스트가 교체되면 새로 조회해야 합니다. 서로 다른 세대의 페이지를 합치지 않습니다. |
 
 Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하는 건수, 기준 시점, 릴리스를
 차단합니다. 전체 제한 시간 안에서 최대 20,000개를 누적하며 한도에 도달하면 일부 범위임을
@@ -64,6 +78,8 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
 - 온톨로지 디렉터리와 탐색 기록에도 같은 `states` 필드를 추가합니다.
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
+- Dashboard는 출처를 `inventory_snapshot_resource`로 표시하고, 알 수 없음 기록을 기계 판독용
+  이유별로 집계하며, 공통 주기와 브라우저 복귀 및 인벤토리 변경 알림에 따라 새로 고칩니다.
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.
 - 기존 대시보드와 이전 인스턴스 클라이언트의 경로와 필드는 유지합니다.
 - 리소스 확인과 선택은 승인 또는 실행 권한을 부여하지 않습니다.

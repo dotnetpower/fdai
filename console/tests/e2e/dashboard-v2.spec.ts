@@ -37,6 +37,9 @@ function recordedPage(input: unknown, cursor: string | null = null) {
   });
   return {
     schema_version: "1.0.0", source_generation: graph.snapshot_id, source_cutoff: graph.snapshot_at,
+    ontology_generation: graph.snapshot_id,
+    ontology_manifest_digest: `sha256:${"c".repeat(64)}`,
+    source_kind: "inventory_snapshot_resource",
     ontology_release_digest: `sha256:${"a".repeat(64)}`,
     resources: !Array.isArray(rawResources) ? null : values.map((row) => ({
       id: row.id, object_type: "Resource", resource_type: row.type, name: row.name, location: null,
@@ -108,11 +111,12 @@ test.describe("Native Dashboard v2", () => {
     await openV2(page);
     await expect(page.locator(".page-header-title")).toContainText("Dashboard v2");
     await expect(page.locator(".dv2-summary strong")).toHaveText(["600", "500", "100", "100"]);
-    await expect(page.locator(".dv2-scope")).toContainText("Active ontology Resource generation");
+    await expect(page.locator(".dv2-scope")).toContainText("Immutable inventory snapshot");
     await page.locator(".activity-bar").getByRole("button", { name: "Overview", exact: true }).hover();
     await expect(page.getByRole("tooltip")).toContainText("Overview");
     await page.keyboard.press("Escape");
-    await expect(page.locator(".dv2-coverage")).toContainText("ontology-instances");
+    await expect(page.locator(".dv2-coverage")).toContainText("inventory_snapshot_resource");
+    await expect(page.locator(".dv2-coverage")).toContainText("Unknown causes");
     expect(await page.locator(".dashboard-v2-map-cell").count()).toBeGreaterThan(200);
     expect(await page.locator(".dashboard-v2-map-cell").count()).toBeLessThanOrEqual(476);
     expect(await page.locator(".dashboard-v2-map").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);

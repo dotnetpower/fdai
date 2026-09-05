@@ -45,6 +45,7 @@ from fdai_operator_service.families.operations.instance_states import (
     MAX_STATE_PAGE_OFFSET,
     MAX_STATE_PAGE_SIZE,
     STATE_DIRECTORY_EXCLUDED_TYPES,
+    InventoryOntologyContext,
     InventoryStatePage,
 )
 from fdai_operator_service.postgres_semantic_turn_store import (
@@ -799,6 +800,35 @@ class PostgresFamilyStore:
             relationship_drop_classifications=relationship_drop_classifications,
             projection_source_states=projection_source_states,
             relationship_coverage=relationship_coverage,
+        )
+
+    async def read_inventory_ontology_context(self) -> InventoryOntologyContext | None:
+        """Read the committed inventory-owned ontology manifest identity."""
+
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %(key)s",
+            {"key": "inventory-ontology:manifest"},
+        )
+        if not rows:
+            return None
+        value = _json_object(rows[0].get("value"), label="inventory ontology manifest")
+        generation = value.get("generation")
+        release_digest = value.get("ontology_release_digest")
+        manifest_digest = value.get("manifest_digest")
+        if (
+            value.get("complete") is not True
+            or not isinstance(generation, str)
+            or not generation.strip()
+            or not isinstance(release_digest, str)
+            or re.fullmatch(r"sha256:[a-f0-9]{64}", release_digest) is None
+            or not isinstance(manifest_digest, str)
+            or re.fullmatch(r"sha256:[a-f0-9]{64}", manifest_digest) is None
+        ):
+            raise PostgresFamilyStoreUnavailable("inventory ontology manifest is malformed")
+        return InventoryOntologyContext(
+            generation=generation,
+            ontology_release_digest=release_digest,
+            manifest_digest=manifest_digest,
         )
 
     async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:

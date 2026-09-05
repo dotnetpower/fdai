@@ -29,7 +29,10 @@ from fdai_operator_service.families.operations.instance_explorer import (
     project_inventory_instance,
     project_inventory_instances,
 )
-from fdai_operator_service.families.operations.recorded_state import recorded_resource_states
+from fdai_operator_service.families.operations.recorded_state import (
+    RecordedStateObservation,
+    recorded_resource_states,
+)
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
@@ -231,7 +234,10 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
             "resource_group": None,
             "subscription_id": None,
             "status": None,
-            "states": recorded_resource_states({}),
+            "states": recorded_resource_states(
+                {},
+                resource_type="compute.container-app",
+            ),
             "last_seen": None,
             "selected": False,
         }
@@ -373,7 +379,16 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "resource_group": "resource-group-one",
             "subscription_id": None,
             "status": "Succeeded",
-            "states": recorded_resource_states({"properties": {"provisioningState": "Succeeded"}}),
+            "states": recorded_resource_states(
+                {"properties": {"provisioningState": "Succeeded"}},
+                resource_type="compute.container-app",
+                observation=RecordedStateObservation(
+                    generation="generation-1",
+                    observed_at=datetime(2026, 8, 22, 0, 59, tzinfo=UTC),
+                    recorded_at=datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+                ),
+                now=datetime(2026, 8, 22, 2, 0, tzinfo=UTC),
+            ),
             "last_seen": "2026-08-22T00:59:00+00:00",
             "selected": True,
         },
@@ -386,7 +401,10 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "resource_group": None,
             "subscription_id": None,
             "status": None,
-            "states": recorded_resource_states({}),
+            "states": recorded_resource_states(
+                {},
+                resource_type="compute.container-app-environment",
+            ),
             "last_seen": None,
             "selected": False,
         },

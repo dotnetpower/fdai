@@ -8,29 +8,44 @@ import { composeGlossary, TERMS } from "../deck/glossary";
 import { currentRoute, routeHref } from "../router";
 import { DashboardResourceMap } from "./dashboard-v2-map";
 import {
-  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownReason,
+  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   EMPTY_DASHBOARD_FILTERS, STATE_STYLE, dashboardStateFact,
   type DashboardFilters, type DashboardLens, type DashboardResource, type DashboardSnapshot, type DashboardState, type DashboardView,
 } from "./dashboard-v2.model";
 import { date, number, t } from "./i18n/dashboard-v2";
 import { loadDashboardRecordedStates } from "./dashboard-v2.loading";
+import {
+  installOntologyInstanceRefresh,
+  type OntologyInstanceRefreshTrigger,
+} from "./ontology-instance-refresh";
+import { useOntologyInvalidationStream } from "./use-ontology-invalidation-stream";
 import "./dashboard-v2.css";
 
 /** Additive read-only resource view; refresh replaces the entire projection, never merges generations. */
 export default function DashboardV2Route({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<DashboardSnapshot>>({ status: "loading" });
   const [revision, setRevision] = useState(0);
+  useOntologyInvalidationStream({
+    url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
+    enabled: true,
+    getAuthorizationHeader: client.authorizationHeader,
+    onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
+  });
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
-    void loadDashboardRecordedStates(client, () => cancelled).then((snapshot) => {
-      if (!cancelled && snapshot) setState({ status: "ready", data: snapshot });
-    }).catch((error: unknown) => {
-      if (!cancelled) setState(isOptionalOperatorApiUnavailable(error)
-        ? { status: "unavailable", message: t("unavailable") }
-        : { status: "error", message: error instanceof Error ? error.message : String(error) });
-    });
-    return () => { cancelled = true; };
+    const refresh = async (trigger: OntologyInstanceRefreshTrigger) => {
+      if (trigger === "initial") setState({ status: "loading" });
+      try {
+        const snapshot = await loadDashboardRecordedStates(client, () => cancelled);
+        if (!cancelled && snapshot) setState({ status: "ready", data: snapshot });
+      } catch (error: unknown) {
+        if (!cancelled) setState(isOptionalOperatorApiUnavailable(error)
+          ? { status: "unavailable", message: t("unavailable") }
+          : { status: "error", message: error instanceof Error ? error.message : String(error) });
+      }
+    };
+    const stopRefresh = installOntologyInstanceRefresh(refresh);
+    return () => { cancelled = true; stopRefresh(); };
   }, [client, revision]);
   return <div class="stack dashboard-v2-page">
     <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<>
@@ -134,6 +149,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
     return [{ value: "", label: t("allTypes"), count: available.length }, ...result.values()];
   }, [snapshot, filters]);
   const operations = dashboardCounts(snapshot.resources, snapshot, "operation");
+  const unknownCounts = dashboardUnknownCounts(snapshot.resources, snapshot);
   const known = snapshot.resources.length - (operations.get("unknown") ?? 0) - (operations.get("not-applicable") ?? 0);
   const provisioningRecorded = snapshot.resources.filter((resource) => resource.states?.provisioning.value != null).length;
   const highlights = snapshot.resources.filter((resource) => ["unknown", "transitioning"].includes(dashboardResourceState(resource, snapshot, "operation"))).slice(0, 3);
@@ -158,7 +174,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   }), [snapshot, matches.length, selected]);
   return <>
     <section class="dv2-scope">
-      <div><strong>{t("scope")}</strong><p>{snapshot.recordedStates ? t("ontologyScope") : snapshot.scope ?? t("missing")}</p><p>{t("boundary")}</p></div>
+      <div><strong>{t("scope")}</strong><p>{snapshot.recordedStates ? t("inventoryScope") : snapshot.scope ?? t("missing")}</p><p>{t("boundary")}</p></div>
       <div><strong>{t("snapshotAt")}</strong><p>{date(snapshot.at)}</p>{!snapshot.recordedStates && <StateBadge value={snapshot.freshness} />}</div>
     </section>
     {(snapshot.truncated || snapshot.limitations.length > 0) && <p class="dv2-notice" role="status">{t("partial")}</p>}
@@ -215,7 +231,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
             <div><dt>{t("reported")}</dt><dd>{selected.status || t("missing")}</dd></div><div><dt>{t("observedAt")}</dt><dd>{date(selected.observedAt)}</dd></div></dl>}
           {unknownReason && <p class="dv2-note">{t(unknownReason)}</p>}
           <a href={resourceHref(selected)}>{t("inspectOntology")}</a>
-          <details><summary>{t("evidence")}</summary><pre>{JSON.stringify({ snapshot_id: snapshot.id, snapshot_at: snapshot.at, source: snapshot.source, observation_kind: snapshot.observationKind, resource: selected, execution_authority: false }, null, 2)}</pre></details>
+          <details><summary>{t("evidence")}</summary><pre>{JSON.stringify({ snapshot_id: snapshot.id, snapshot_at: snapshot.at, source: snapshot.source, ontology_generation: snapshot.ontologyGeneration, ontology_manifest_digest: snapshot.ontologyManifestDigest, observation_kind: snapshot.observationKind, resource: selected, execution_authority: false }, null, 2)}</pre></details>
         </section> : <section class="dv2-attention"><h3>{t("checkFirst")}</h3><p class="dv2-note">{t("checkHelp")}</p>
           {highlights.length === 0 ? <p>{t("noHighlights")}</p> : highlights.map((resource) => <div key={resource.id}><StateBadge value={dashboardResourceState(resource, snapshot, "operation")} /><button type="button" class="dv2-link" onClick={() => setSelectedId(resource.id)}>{resource.name}</button><p class="dv2-note">{resource.type}</p></div>)}
           <a href={resourceHref()}>{t("browseOntology")}</a></section>}
@@ -224,7 +240,8 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
     <span class="sr-only" role="status">{selected ? t("pinned", { name: selected.name }) : ""}</span>
     <section class="dv2-coverage"><h3>{t("coverage")}</h3><dl>
       <div><dt>{t("inventoryCoverage")}</dt><dd>{t(snapshot.truncated || snapshot.limitations.length ? "partialProjection" : "completeProjection")}<p>{snapshot.recordedStates ? t("queryTotal", { total: number(snapshot.totalCount ?? snapshot.resources.length) }) : t("excluded", { count: snapshot.excludedContainers })}</p><p>{snapshot.recordedStates ? t("operationalOnly") : t("excludedAuthorization", { count: snapshot.excludedAuthorization })}</p></dd></div>
-      <div><dt>{t("source")}</dt><dd>{snapshot.source ?? t("missing")}<p>{snapshot.id ?? t("missing")}</p></dd></div>
+      <div><dt>{t("source")}</dt><dd>{snapshot.source ?? t("missing")}<p>{t("snapshot")}: {snapshot.id ?? t("missing")}</p><p>{t("ontologyGeneration")}: {snapshot.ontologyGeneration ?? t("missing")}</p></dd></div>
+      <div><dt>{t("unknownCauses")}</dt><dd>{unknownCounts.size === 0 ? t("noneRecorded") : <ul>{[...unknownCounts].map(([reason, count]) => <li key={reason}>{t(reason)}: {number(count)}</li>)}</ul>}</dd></div>
       <div><dt>{t("availabilityCoverage")}</dt><dd>{t("availabilityHelp")}</dd></div>
       <div><dt>{t("historyCoverage")}</dt><dd>{t("historyUnavailable")} <a href={resourceHref(selected ?? undefined)}>{t("inspectOntology")}</a></dd></div>
     </dl>{snapshot.pendingChanges !== null && <p>{t("pending", { count: snapshot.pendingChanges })}</p>}
