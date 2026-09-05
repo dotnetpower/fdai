@@ -25,6 +25,7 @@ import { nestInstanceContainment } from "./ontology-instance-boxes";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 import {
   ontologyInstancePresentationCoverage,
+  ontologyInstanceStatusTone,
   ontologyInstanceTrafficDirection,
   type OntologyInstanceExploration,
 } from "./ontology-instances.model";
@@ -518,6 +519,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 : resource.resource_type;
             // Absent status means no state is projected for this class, not an observation that found none.
             const stateText = resource.status ?? t("ontology.instances.stateNotReported");
+            const stateTone = ontologyInstanceStatusTone(resource.status);
             return (
               <g
                 key={node.key}
@@ -589,7 +591,9 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                     <div class="ontology-instance-node-copy">
                       <strong>{displayName}</strong>
                       <span>{typeCaption}</span>
-                      <span class="ontology-instance-node-state">{stateText}</span>
+                      <span class={`ontology-instance-node-state ontology-instance-state-badge is-${stateTone}`}>
+                        {stateText}
+                      </span>
                     </div>
                   </foreignObject>
                 </a>

@@ -14,6 +14,7 @@ import {
   ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstanceResourceOptionLabel,
+  ontologyInstanceStatusTone,
   ontologyInstanceTrafficDirection,
   partitionOntologyInstanceLinks,
   resolveOntologyInstanceAutocomplete,
@@ -99,6 +100,24 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.links).toHaveLength(1);
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
     expect(decoded.relationship_coverage).toBeNull();
+  });
+
+  describe("ontology instance status tone", () => {
+    it.each([
+      ["Stopped", "warning"],
+      ["PowerState/deallocated", "warning"],
+      ["Failed", "danger"],
+      ["NotReady", "danger"],
+      ["NotAvailable", "danger"],
+      ["not-healthy", "danger"],
+      ["NotActive", "warning"],
+      ["Running", "success"],
+      ["Succeeded", "success"],
+      ["Unknown", "neutral"],
+      [null, "neutral"],
+    ] as const)("maps %s without rewriting the provider state", (status, expected) => {
+      expect(ontologyInstanceStatusTone(status)).toBe(expected);
+    });
   });
 
   it("accepts additive relationship candidate accounting", () => {

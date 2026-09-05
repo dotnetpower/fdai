@@ -33,6 +33,13 @@
 .ontology-instance-toolbar-status { display: grid; gap: 2px; color: var(--fg-muted); font-size: var(--cs-type-caption-size); text-align: right; white-space: nowrap; }
 .ontology-instance-toolbar-status strong { color: var(--fg); }
 .ontology-instance-bound-notice { margin: 0; padding: 8px 12px; border: 1px solid var(--warning, var(--border)); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font-size: var(--cs-type-caption-size); line-height: 1.5; }
+.ontology-instance-refresh-status { display: flex; align-items: center; min-width: 0; gap: 7px; margin: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
+.ontology-instance-refresh-status > span:first-child { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.ontology-instance-refresh-status > strong { color: var(--fg); font-size: var(--cs-type-label-size); }
+.ontology-instance-refresh-status > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ontology-instance-refresh-status.is-refreshing > span:first-child { background: var(--accent); }
+.ontology-instance-refresh-status.is-error { border-color: color-mix(in srgb, var(--warning) 48%, var(--border)); }
+.ontology-instance-refresh-status.is-error > span:first-child { background: var(--warning); }
 .ontology-instance-empty { min-height: min(360px, 44vh); display: grid; place-content: center; gap: 5px; text-align: center; }
 .ontology-instance-empty p { max-width: 56ch; margin: 0; color: var(--fg-muted); }
 .ontology-instance-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(216px, 240px); min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--cs-radius); background: var(--bg-elevated); }
@@ -141,6 +148,12 @@
 .ontology-instance-node-copy strong { font-size: var(--cs-type-compact-size); font-weight: 800; }
 .ontology-instance-node-copy span { color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
 .ontology-instance-node-copy .ontology-instance-node-state { font-weight: 700; }
+.ontology-instance-state-badge { display: inline-flex; width: fit-content; max-width: 100%; padding: 1px 5px; overflow: hidden; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-subtle); color: var(--fg); line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.ontology-instance-state-badge.is-success { border-color: color-mix(in srgb, var(--success) 38%, var(--border)); background: color-mix(in srgb, var(--success) 10%, var(--bg-elevated)); color: var(--success); }
+.ontology-instance-state-badge.is-warning { border-color: color-mix(in srgb, var(--warning) 48%, var(--border)); background: color-mix(in srgb, var(--warning) 13%, var(--bg-elevated)); color: color-mix(in srgb, var(--warning) 80%, var(--fg)); }
+.ontology-instance-state-badge.is-danger { border-color: color-mix(in srgb, var(--danger) 42%, var(--border)); background: color-mix(in srgb, var(--danger) 11%, var(--bg-elevated)); color: var(--danger); }
+.ontology-instance-overview-status { margin: 0 0 14px; }
+.ontology-instance-overview-status .status-pill { font-size: var(--cs-type-compact-size); font-weight: 800; }
 .ontology-instance-graph-tooltip { display: grid; min-width: 180px; gap: 2px; white-space: normal; }
 .ontology-instance-graph-tooltip strong { font-size: var(--cs-type-compact-size); }
 .ontology-instance-graph-tooltip span { color: var(--fg-muted); }

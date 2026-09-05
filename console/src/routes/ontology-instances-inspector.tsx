@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
+import { StatusPill } from "../components/ui";
 import { routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import type {
@@ -13,6 +14,7 @@ import {
   groupOntologyInstanceRelationships,
   ontologyInstanceNetworkPaths,
   ontologyInstancePresentationLinks,
+  ontologyInstanceStatusTone,
   ontologyInstanceTrafficDirection,
 } from "./ontology-instances.model";
 
@@ -83,7 +85,13 @@ function InstanceOverview({
     <section class="ontology-instance-inspector-section">
       <span class="eyebrow">Resource</span>
       <h3>{root.name ?? root.resource_type}</h3>
-      <p>{root.status ?? t("ontology.instances.stateNotReported")}</p>
+      <div class="ontology-instance-overview-status">
+        <StatusPill
+          kind={ontologyInstanceStatusTone(root.status)}
+          label={root.status ?? t("ontology.instances.stateNotReported")}
+          title={t("ontology.instances.providerReportedState")}
+        />
+      </div>
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
         <div><dt>{t("ontology.instances.location")}</dt><dd>{root.location ?? t("ontology.instances.notReported")}</dd></div>

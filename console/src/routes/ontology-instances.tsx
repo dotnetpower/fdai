@@ -5,7 +5,11 @@ import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { Tooltip } from "../components/tooltip";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
-import { formatNumber, t } from "./i18n/ontology";
+import { formatDateTime, formatNumber, t } from "./i18n/ontology";
+import {
+  installOntologyInstanceRefresh,
+  type OntologyInstanceRefreshTrigger,
+} from "./ontology-instance-refresh";
 import {
   decodeOntologyInstanceDirectory,
   decodeOntologyInstanceExploration,
@@ -38,6 +42,7 @@ interface Props {
 const ONTOLOGY_INSTANCE_SEARCH_DEBOUNCE_MS = 250;
 
 type DetailState = AsyncState<OntologyInstanceExploration> | { readonly status: "idle" };
+type DetailRefreshStatus = "idle" | "refreshing" | "error";
 
 export function OntologyInstancesView({ client }: Props) {
   const [directory, setDirectory] = useState<AsyncState<OntologyInstanceDirectory>>({ status: "loading" });
@@ -49,6 +54,9 @@ export function OntologyInstancesView({ client }: Props) {
     () => currentRoute().search.get("instance"),
   );
   const [detail, setDetail] = useState<DetailState>({ status: "idle" });
+  const [detailRefreshStatus, setDetailRefreshStatus] =
+    useState<DetailRefreshStatus>("idle");
+  const [detailCheckedAt, setDetailCheckedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,36 +106,51 @@ export function OntologyInstancesView({ client }: Props) {
   useEffect(() => {
     if (selectedId === null) {
       setDetail({ status: "idle" });
+      setDetailRefreshStatus("idle");
+      setDetailCheckedAt(null);
       return;
     }
     let cancelled = false;
-    setDetail({ status: "loading" });
-    client.panel<unknown>("/ontology/instances/explore", {
-      root: selectedId,
-      depth: "8",
-      limit: "200",
-      activity_limit: "30",
-    }).then(
-      (payload) => {
+    const refresh = async (trigger: OntologyInstanceRefreshTrigger): Promise<void> => {
+      if (trigger === "initial") setDetail({ status: "loading" });
+      else setDetailRefreshStatus("refreshing");
+      try {
+        const payload = await client.panel<unknown>("/ontology/instances/explore", {
+          root: selectedId,
+          depth: "8",
+          limit: "200",
+          activity_limit: "30",
+        });
         if (cancelled) return;
         const data = decodeOntologyInstanceExploration(payload);
         if (!isOntologyInstancePresentationRoot(data)) {
           setSelectedId(null);
           setDetail({ status: "idle" });
+          setDetailRefreshStatus("idle");
+          setDetailCheckedAt(null);
           replaceRouteState(routeHref("ontology", { params: { view: "instances" } }));
           return;
         }
         setDetail({ status: "ready", data });
-      },
-      (error: unknown) => {
+        setDetailRefreshStatus("idle");
+        setDetailCheckedAt(new Date().toISOString());
+      } catch (error: unknown) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
-        setDetail(isOptionalOperatorApiUnavailable(error)
-          ? { status: "unavailable", message: t("ontology.instances.detailUnavailable") }
-          : { status: "error", message });
-      },
-    );
-    return () => { cancelled = true; };
+        if (trigger === "initial") {
+          setDetail(isOptionalOperatorApiUnavailable(error)
+            ? { status: "unavailable", message: t("ontology.instances.detailUnavailable") }
+            : { status: "error", message });
+        } else {
+          setDetailRefreshStatus("error");
+        }
+      }
+    };
+    const stopRefresh = installOntologyInstanceRefresh(refresh);
+    return () => {
+      cancelled = true;
+      stopRefresh();
+    };
   }, [client, selectedId]);
 
   const selectResource = (resourceId: string | null): void => {
@@ -298,16 +321,52 @@ export function OntologyInstancesView({ client }: Props) {
                 <p>{t("ontology.instances.emptyDescription")}</p>
               </div>
             ) : (
-              <AsyncBoundary state={detail} resourceLabel={t("ontology.instances.detailLoading")}>
-                {(data) => (
-                  <OntologyInstanceWorkspace data={data} onSelect={selectResource} />
-                )}
-              </AsyncBoundary>
+              <>
+                {detail.status === "ready" ? (
+                  <OntologyInstanceRefreshStatus
+                    status={detailRefreshStatus}
+                    checkedAt={detailCheckedAt}
+                  />
+                ) : null}
+                <AsyncBoundary state={detail} resourceLabel={t("ontology.instances.detailLoading")}>
+                  {(data) => (
+                    <OntologyInstanceWorkspace data={data} onSelect={selectResource} />
+                  )}
+                </AsyncBoundary>
+              </>
             )}
           </>
         )}
       </AsyncBoundary>
     </section>
+  );
+}
+
+function OntologyInstanceRefreshStatus({
+  status,
+  checkedAt,
+}: {
+  readonly status: DetailRefreshStatus;
+  readonly checkedAt: string | null;
+}) {
+  const detail = status === "refreshing"
+    ? t("ontology.instances.autoRefreshChecking")
+    : status === "error"
+      ? t("ontology.instances.autoRefreshFailed")
+      : checkedAt === null
+        ? t("ontology.instances.autoRefreshWaiting")
+        : t("ontology.instances.autoRefreshChecked", {
+          time: formatDateTime(checkedAt),
+        });
+  return (
+    <div
+      class={`ontology-instance-refresh-status is-${status}`}
+      aria-label={t("ontology.instances.autoRefreshLabel")}
+    >
+      <span aria-hidden="true" />
+      <strong>{t("ontology.instances.autoRefreshActive")}</strong>
+      {status === "error" ? <span role="alert">{detail}</span> : <span>{detail}</span>}
+    </div>
   );
 }
 

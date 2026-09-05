@@ -12,6 +12,46 @@ export interface OntologyInstanceResource {
   readonly selected: boolean;
 }
 
+export type OntologyInstanceStatusTone = "neutral" | "success" | "warning" | "danger";
+
+/** Maps exact provider state text to presentation tone without changing the state value. */
+export function ontologyInstanceStatusTone(status: string | null): OntologyInstanceStatusTone {
+  const normalized = status?.trim().toLowerCase() ?? "";
+  const compact = normalized.replace(/[^a-z0-9]/g, "");
+  if (!normalized || normalized.includes("unknown")) return "neutral";
+  if (["notready", "notavailable", "nothealthy"].some((value) =>
+    compact.includes(value))) return "danger";
+  if (["notactive", "notrunning", "notsucceeded"].some((value) =>
+    compact.includes(value))) return "warning";
+  if ([
+    "failed",
+    "error",
+    "unhealthy",
+    "notready",
+    "not ready",
+    "canceled",
+    "cancelled",
+  ].some((value) => normalized.includes(value))) return "danger";
+  if ([
+    "stopped",
+    "stopping",
+    "deallocated",
+    "disabled",
+    "inactive",
+    "paused",
+    "unavailable",
+  ].some((value) => normalized.includes(value))) return "warning";
+  if ([
+    "running",
+    "ready",
+    "succeeded",
+    "active",
+    "healthy",
+    "available",
+  ].some((value) => normalized.includes(value))) return "success";
+  return "neutral";
+}
+
 const HIDDEN_ONTOLOGY_INSTANCE_DIRECTORY_TYPES = new Set([
   "authorization.role-assignment",
 ]);
