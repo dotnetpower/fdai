@@ -5,7 +5,9 @@ from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import fdai_document_worker_service.adapters.processing as processing_adapter_module
 import pytest
+from fdai_document_worker_service.adapters.processing import PgvectorDocumentIndex
 from fdai_document_worker_service.artifact_manifest import build_artifact_manifest
 from fdai_document_worker_service.effects import (
     WorkerEffect,
@@ -358,6 +360,11 @@ class ReceiptVerifier:
         return self.receipts.pop(0) if self.receipts else _receipt(document_id, version_id)
 
 
+class UnusedEmbedder:
+    async def embed(self, _text: str) -> tuple[float, ...]:
+        raise AssertionError("tombstone MUST NOT call the embedding provider")
+
+
 def _receipt(
     document_id: UUID,
     version_id: UUID,
@@ -598,7 +605,7 @@ async def test_partial_failure_is_pending_and_replay_converges() -> None:
     with pytest.raises(RuntimeError, match="artifact failure"):
         await worker.apply_deletion_request(request, lambda: claim)
 
-    assert metadata.version.retention_state is DocumentRetentionState.PURGE_PENDING
+    assert metadata.version.retention_state is DocumentRetentionState.TOMBSTONED
     effect = next(iter(metadata.effects.values()))
     assert effect.status is WorkerEffectStatus.PENDING
 
@@ -619,6 +626,135 @@ async def test_partial_failure_is_pending_and_replay_converges() -> None:
         "source",
         "verify",
     ]
+
+
+async def test_failure_before_tombstone_does_not_claim_index_cleanup() -> None:
+    session, version = _records(
+        DocumentState.DELETING,
+        index_state=DocumentIndexState.ACTIVE,
+    )
+    metadata = MemoryMetadata(session, version)
+    order: list[str] = []
+    worker = _worker(
+        metadata,
+        MemoryObjects(order),
+        RecordingArtifacts(order),
+        RecordingIndex(order),
+        verifier=ReceiptVerifier(order),
+    )
+    claim = _claim(session.upload_id).model_copy(update={"stage": DocumentWorkerStage.DELETION})
+    effect = await metadata.prepare_worker_effect(
+        claim=claim,
+        kind=WorkerEffectKind.DELETION_CLEANUP,
+        document_id=version.document_id,
+        version_id=version.version_id,
+        object_key="changed/source",
+    )
+
+    with pytest.raises(DocumentLifecycleConflictError, match="source target changed"):
+        await worker.reconcile_deletion_effect(
+            session.upload_id,
+            lambda: claim,
+            effect=effect,
+        )
+
+    assert metadata.version.index_state is DocumentIndexState.ACTIVE
+    assert metadata.version.retention_state is DocumentRetentionState.LIVE
+    assert order == []
+    assert metadata.events[-1].payload["record"]["failure_type"] == (
+        "DocumentLifecycleConflictError"
+    )
+
+
+async def test_legacy_deleted_replay_persists_verified_purged_axes() -> None:
+    session, version = _records(DocumentState.DELETED)
+    metadata = MemoryMetadata(session, version)
+    order: list[str] = []
+    worker = _worker(
+        metadata,
+        MemoryObjects(order),
+        RecordingArtifacts(order),
+        RecordingIndex(order),
+        verifier=ReceiptVerifier(order),
+    )
+    claim = _claim(session.upload_id).model_copy(update={"stage": DocumentWorkerStage.DELETION})
+    effect = await metadata.prepare_worker_effect(
+        claim=claim,
+        kind=WorkerEffectKind.DELETION_CLEANUP,
+        document_id=version.document_id,
+        version_id=version.version_id,
+        object_key=session.object_key,
+    )
+
+    deleted = await worker.reconcile_deletion_effect(
+        session.upload_id,
+        lambda: claim,
+        effect=effect,
+    )
+
+    assert order == ["tombstone", "index", "artifacts", "source", "verify"]
+    assert deleted.state is DocumentState.DELETED
+    assert deleted.index_state is DocumentIndexState.PURGED
+    assert deleted.retention_state is DocumentRetentionState.PURGED
+    assert metadata.session.index_state is DocumentIndexState.PURGED
+    assert metadata.session.retention_state is DocumentRetentionState.PURGED
+    assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
+    assert metadata.events[-1].payload["record"]["purge_receipt"]["verified"] is True
+
+
+async def test_pgvector_tombstone_accepts_inactive_legacy_deleted_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _session, version = _records(DocumentState.DELETED)
+
+    class Cursor:
+        def __init__(self, row: object | None) -> None:
+            self._row = row
+
+        async def fetchone(self) -> object | None:
+            return self._row
+
+    class Transaction:
+        async def __aenter__(self) -> Transaction:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class Connection:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        async def __aenter__(self) -> Connection:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        def transaction(self) -> Transaction:
+            return Transaction()
+
+        async def execute(self, query: str, _params: object = ()) -> Cursor:
+            self.queries.append(query)
+            if "SELECT payload FROM document_version" in query:
+                return Cursor((version.model_dump(mode="json"),))
+            return Cursor(None)
+
+    connection = Connection()
+
+    async def connect(_dsn: str) -> Connection:
+        return connection
+
+    monkeypatch.setattr(processing_adapter_module.psycopg.AsyncConnection, "connect", connect)
+    index = PgvectorDocumentIndex(
+        dsn="postgresql://example.invalid/fdai",
+        embedder=UnusedEmbedder(),
+        dimension=3,
+    )
+
+    await index.tombstone(version.document_id, version.version_id)
+
+    assert any("SET metadata = jsonb_set" in query for query in connection.queries)
 
 
 async def test_replay_after_verified_transition_only_completes_effect() -> None:
@@ -723,7 +859,7 @@ async def test_legal_hold_tombstones_index_before_blocking_physical_cleanup() ->
         await worker.apply_deletion_request(_request(session, version), lambda: claim)
 
     assert order == ["tombstone"]
-    assert metadata.version.retention_state is DocumentRetentionState.PURGE_PENDING
+    assert metadata.version.retention_state is DocumentRetentionState.TOMBSTONED
 
 
 async def test_missing_verifier_fails_closed_after_cleanup() -> None:

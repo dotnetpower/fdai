@@ -702,7 +702,7 @@ class PgvectorDocumentIndex:
             )
 
     async def tombstone(self, document_id: UUID, version_id: UUID) -> None:
-        """Remove chunks from retrieval before retryable physical deletion."""
+        """Remove chunks from retrieval for active or legacy terminal deletion."""
         async with (
             await psycopg.AsyncConnection.connect(self._dsn) as connection,
             connection.transaction(),
@@ -717,12 +717,11 @@ class PgvectorDocumentIndex:
             if version_row is None:
                 raise DocumentLifecycleConflictError("document index version is unavailable")
             version = DocumentVersion.model_validate(version_row[0])
-            if (
-                version.state is not DocumentState.DELETING
-                or version.index_state is not DocumentIndexState.TOMBSTONED
-                or version.active
-                or version.available
-            ):
+            deletion_metadata_valid = version.state is DocumentState.DELETED or (
+                version.state is DocumentState.DELETING
+                and version.index_state is DocumentIndexState.TOMBSTONED
+            )
+            if not deletion_metadata_valid or version.active or version.available:
                 raise DocumentLifecycleConflictError(
                     "document index tombstone requires authoritative deletion metadata"
                 )

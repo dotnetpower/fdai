@@ -106,7 +106,7 @@ class DocumentDeletionLifecycle:
         )
         if not receipt.verified:
             raise PurgeVerificationError("document purge left residue or a deletion blocker")
-        if version.state is DocumentState.DELETING:
+        if version.state in {DocumentState.DELETING, DocumentState.DELETED}:
             session, version = await self._advance_deleted(
                 session,
                 version,
@@ -124,7 +124,7 @@ class DocumentDeletionLifecycle:
         *,
         reason: str,
     ) -> None:
-        """Persist a retryable purge state after cleanup or verification failure."""
+        """Record a retryable failure without claiming unverified cleanup progress."""
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
         current_claim = claim()
@@ -145,33 +145,14 @@ class DocumentDeletionLifecycle:
                 claim=current_claim,
             )
             return
-        if version.retention_state is DocumentRetentionState.PURGE_PENDING:
-            await self._metadata.enqueue_worker_event(
-                self._event(
-                    session,
-                    version,
-                    "document.deletion_pending",
-                    extra={"failure_type": reason},
-                ),
-                claim=current_claim,
-            )
-            return
-        await self._update_axes(
-            session,
-            version,
-            claim=claim,
-            session_updates={
-                "index_state": DocumentIndexState.TOMBSTONED,
-                "retention_state": DocumentRetentionState.PURGE_PENDING,
-            },
-            version_updates={
-                "active": False,
-                "available": False,
-                "index_state": DocumentIndexState.TOMBSTONED,
-                "retention_state": DocumentRetentionState.PURGE_PENDING,
-            },
-            action="document.deletion_pending",
-            extra={"failure_type": reason},
+        await self._metadata.enqueue_worker_event(
+            self._event(
+                session,
+                version,
+                "document.deletion_pending",
+                extra={"failure_type": reason},
+            ),
+            claim=current_claim,
         )
 
     async def _tombstone(
@@ -180,11 +161,7 @@ class DocumentDeletionLifecycle:
         version: DocumentVersion,
         claim: _ClaimReader,
     ) -> tuple[UploadSession, DocumentVersion]:
-        if (
-            version.state is DocumentState.DELETED
-            and version.index_state is DocumentIndexState.PURGED
-            and version.retention_state is DocumentRetentionState.PURGED
-        ):
+        if version.state is DocumentState.DELETED:
             return session, version
         if version.index_state is DocumentIndexState.TOMBSTONED and version.retention_state in {
             DocumentRetentionState.TOMBSTONED,
@@ -214,7 +191,7 @@ class DocumentDeletionLifecycle:
         version: DocumentVersion,
         claim: _ClaimReader,
     ) -> tuple[UploadSession, DocumentVersion]:
-        if version.retention_state in {
+        if version.state is DocumentState.DELETED or version.retention_state in {
             DocumentRetentionState.PURGE_PENDING,
             DocumentRetentionState.PURGED,
         }:
@@ -241,7 +218,11 @@ class DocumentDeletionLifecycle:
             "index_state": DocumentIndexState.PURGED,
             "retention_state": DocumentRetentionState.PURGED,
         }
-        state = transition(version.state, DocumentState.DELETED)
+        state = (
+            DocumentState.DELETED
+            if version.state is DocumentState.DELETED
+            else transition(version.state, DocumentState.DELETED)
+        )
         updated_session = session.model_copy(
             update={**updates, "state": state, "revision": session.revision + 1}
         )
