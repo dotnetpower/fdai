@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 961d02096e191e132591b000727b9541ba69f62d
+translation_source_sha: 420a580f45ac4cdbcd3a222a99ae268aa29f10f1
 translation_revised: 2026-09-05
 ---
 
@@ -124,10 +124,11 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본
-  Event Bus topic 연결을 사용해야 합니다. 계획은 이 모드를 `database_host_binding`과만 함께
-  사용할 수 있습니다. 각 guard는 자신의 전체 허용 목록을 검증하고 호스트는 권위 있는
-  플랫폼 상태 출력에서 가져오며 봉인된 배포 모드는 정확한 조합을 기록합니다. 신원, 권한,
-  시크릿, 명령 또는 관련 없는 환경 변경은 허용되지 않습니다.
+  Event Bus topic 연결을 사용해야 합니다. 계획은 이 모드를 `database_host_binding` 및 정확한
+  최초 notification receipt topic 추가와만 함께 사용할 수 있습니다. 각 guard는 전체 허용 목록을
+  검증하고 호스트와 topic은 권위 있는 platform state 출력에서 가져오며 봉인된 배포 모드는
+  정확한 조합을 기록합니다. 신원, 권한, 시크릿, 명령 또는 관련 없는 환경 변경은 허용되지
+  않습니다.
 - **측정 원장 소유권**: Core는 `SELECT, INSERT` 권한만 사용해 `llm_invocation` 레코드를
   소유하고 추가합니다. Operator는 같은 테이블을 `SELECT` 권한으로만 사용합니다. 서비스
   migration graph는 Operator를 읽기 전용 consumer로 취급하고 Operator 측정 grant가

@@ -123,10 +123,11 @@ prod topology so shadow evaluation is representative.
 - **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
   attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
   and validated web-search settings. The active Core revision must already use canonical Event Bus
-  topic bindings. The plan may compose this mode only with `database_host_binding`; each guard
-  validates its complete allowlist, the host comes from the authoritative platform-state output,
-  and the sealed deployment mode records the exact combination. No identity, authority, secret,
-  command, or unrelated environment change is accepted.
+  topic bindings. The plan may compose this mode only with `database_host_binding` and the exact
+  first-time notification receipt topic addition. Each guard validates its complete allowlist, the
+  host and topic come from authoritative platform-state output, and the sealed deployment mode
+  records the exact combination. No identity, authority, secret, command, or unrelated environment
+  change is accepted.
 - **Metering ledger ownership**: Core owns and appends `llm_invocation` records with only
   `SELECT, INSERT`; Operator consumes the same table with `SELECT` only. The service migration
   graph treats Operator as the read-only consumer and blocks provider rollback until the Operator

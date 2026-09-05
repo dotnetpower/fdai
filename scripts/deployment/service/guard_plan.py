@@ -305,6 +305,7 @@ def _only_notification_receipt_topic_transition(
     *,
     address: str,
     contract: ServiceContract,
+    additional_allowed_names: frozenset[str] = frozenset(),
 ) -> bool:
     if contract.service != "core-control-plane":
         return False
@@ -332,9 +333,20 @@ def _only_notification_receipt_topic_transition(
     normalized_after = [
         item
         for item in after_environment
-        if not (isinstance(item, dict) and item.get("name") == "FDAI_NOTIFICATION_RECEIPT_TOPIC")
+        if not (
+            isinstance(item, dict)
+            and item.get("name") in {"FDAI_NOTIFICATION_RECEIPT_TOPIC", *additional_allowed_names}
+        )
     ]
-    return {**after_runtime, "env": normalized_after} == before_runtime
+    normalized_before = [
+        item
+        for item in before_environment
+        if not (isinstance(item, dict) and item.get("name") in additional_allowed_names)
+    ]
+    return {**after_runtime, "env": normalized_after} == {
+        **before_runtime,
+        "env": normalized_before,
+    }
 
 
 def _valid_https_origin(value: str) -> bool:
@@ -750,11 +762,17 @@ def _guard_update(
 
     before_authority = _authority_cutover(before, address=address, contract=contract)
     after_authority = _authority_cutover(after, address=address, contract=contract)
+    notification_companion_names = (
+        _MODEL_BINDING_ENVIRONMENT if model_binding_transition else frozenset()
+    )
+    if database_host_binding:
+        notification_companion_names |= frozenset({"POSTGRES_HOST"})
     allowed_notification_topic = _only_notification_receipt_topic_transition(
         before,
         after,
         address=address,
         contract=contract,
+        additional_allowed_names=notification_companion_names,
     )
     authority_removed_from_core = (
         initial_cutover
@@ -785,6 +803,8 @@ def _guard_update(
             model_additional_names |= frozenset({"POSTGRES_HOST"})
         if allowed_rca_reader:
             model_additional_names |= _RCA_READER_ENVIRONMENT
+        if allowed_notification_topic:
+            model_additional_names |= frozenset({"FDAI_NOTIFICATION_RECEIPT_TOPIC"})
         violations.extend(
             _guard_model_binding_transition(
                 before,
