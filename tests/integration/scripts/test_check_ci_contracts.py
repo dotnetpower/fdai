@@ -172,6 +172,68 @@ def test_privileged_workflow_guard_is_required_by_properties(
     assert any("protected-source guard" in error for error in errors)
 
 
+def test_privileged_workflow_rejects_remote_action_before_source_guard(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    action_dir = tmp_path / ".github" / "actions" / "verify-protected-workflow-source"
+    action_dir.mkdir(parents=True)
+    action_dir.joinpath("action.yml").write_text(
+        "\n".join(
+            (
+                "+refs/heads/main:refs/remotes/origin/main",
+                'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+                '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+                '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+                "diff --quiet",
+            )
+        ),
+        encoding="utf-8",
+    )
+    workflow_dir.joinpath("custom-operation.yml").write_text(
+        "on:\n"
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      commit_sha:\n"
+        "        required: true\n"
+        "permissions:\n"
+        "  contents: read\n"
+        "jobs:\n"
+        "  apply:\n"
+        "    if: github.ref == 'refs/heads/main'\n"
+        "    runs-on: [self-hosted, custom]\n"
+        "    steps:\n"
+        "      - name: Checkout protected workflow verifier\n"
+        "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n"
+        "        with:\n"
+        "          ref: main\n"
+        "          sparse-checkout: .github/actions/verify-protected-workflow-source\n"
+        "          path: .fdai-protected-workflow-verifier\n"
+        "      - name: Untrusted action\n"
+        "        uses: example/untrusted@0000000000000000000000000000000000000000\n"
+        "      - name: Verify protected workflow source\n"
+        "        uses: ./.fdai-protected-workflow-verifier/.github/actions/"
+        "verify-protected-workflow-source\n"
+        "        with:\n"
+        "          target-commit-sha: ${{ inputs.commit_sha }}\n"
+        "          workflow-path: .github/workflows/custom-operation.yml\n"
+        "          origin-url: ${{ github.server_url }}/${{ github.repository }}.git\n"
+        "          github-token: ${{ github.token }}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    errors = module._validate_privileged_workflow_guards()
+
+    assert errors == [
+        ".github/workflows/custom-operation.yml executes an additional action before its "
+        "protected-source guard"
+    ]
+
+
 def test_event_scoped_issue_mutation_does_not_require_repository_guard(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

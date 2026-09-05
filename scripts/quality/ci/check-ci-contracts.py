@@ -397,6 +397,16 @@ def _validate_privileged_workflow_guards() -> list[str]:
             errors.append(
                 f"{relative} does not load the protected verifier before its source guard"
             )
+        else:
+            pre_guard_actions = [
+                f"{match.group('action')}@{match.group('ref')}"
+                for match in ACTION_REF_RE.finditer(content[:guard_index])
+            ]
+            expected_checkout = f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}"
+            if pre_guard_actions != [expected_checkout]:
+                errors.append(
+                    f"{relative} executes an additional action before its protected-source guard"
+                )
         if "workflow_dispatch:" in content or "workflow_call:" in content:
             if "commit_sha:" not in content:
                 errors.append(f"{relative} must accept an exact commit_sha for privileged dispatch")
