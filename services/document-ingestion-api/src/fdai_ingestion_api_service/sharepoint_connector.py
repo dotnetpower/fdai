@@ -1,10 +1,10 @@
-"""Cross-tenant Power Platform intake for governed SharePoint documents."""
+"""FDAI-native cross-tenant SharePoint connector intake."""
 
 from __future__ import annotations
 
 import hashlib
-from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass, replace
 from typing import Protocol
 from uuid import UUID
 
@@ -14,20 +14,21 @@ from fdai_service_contracts import (
     DocumentState,
     SourceStorageMode,
     UploadSession,
+    classify_document_intake,
 )
 
-from fdai_ingestion_api_service.adapters.sharepoint import SharePointDeltaItem
+from fdai_ingestion_api_service.adapters.sharepoint import (
+    SharePointDeltaItem,
+    SharePointRevisionSupersededError,
+)
 from fdai_ingestion_api_service.adapters.sharepoint_state import (
     ConnectorBindingConflictError,
     ConnectorDocumentBinding,
 )
-from fdai_ingestion_api_service.auth import AuthenticationError, ClaimsVerifier
 from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
 
-_INGEST_PERMISSION = "DocumentConnector.Ingest"
 
-
-class PowerPlatformConnectorState(Protocol):
+class SharePointConnectorState(Protocol):
     async def get_binding(
         self, *, connector_id: str, source_item_id: str
     ) -> ConnectorDocumentBinding | None: ...
@@ -82,6 +83,18 @@ class PowerPlatformConnectorState(Protocol):
         self, *, connector_id: str, source_item_id: str, source_revision: str
     ) -> None: ...
 
+    async def record_rejection(
+        self,
+        *,
+        connector_id: str,
+        source_item_id: str,
+        source_revision: str,
+        source_sequence: int,
+        failure_code: str,
+    ) -> None: ...
+
+    async def finalize_resync(self, *, connector_id: str, sync_epoch: int, limit: int) -> bool: ...
+
 
 class ConnectorDeletionService(Protocol):
     async def delete(
@@ -94,10 +107,21 @@ class ConnectorDeletionService(Protocol):
     ) -> object: ...
 
 
+class SharePointContentSource(Protocol):
+    async def download(
+        self,
+        source_item_id: str,
+        *,
+        source_revision: str,
+        expected_size: int,
+        max_size: int,
+    ) -> bytes: ...
+
+
 @dataclass(frozen=True, slots=True)
-class PowerPlatformConnectorConfig:
+class SharePointConnectorConfig:
     connector_id: str
-    source_tenant_id: str
+    target_tenant_id: str
     collection_id: str
     access_descriptor_ref: str
     reader_groups: tuple[str, ...]
@@ -107,66 +131,35 @@ class PowerPlatformConnectorConfig:
     def __post_init__(self) -> None:
         values = (
             self.connector_id,
-            self.source_tenant_id,
+            self.target_tenant_id,
             self.collection_id,
             self.access_descriptor_ref,
             self.retention_policy_version,
         )
         if any(not value or len(value) > 512 for value in values):
-            raise ValueError("Power Platform connector policy values MUST be non-empty and bounded")
+            raise ValueError("SharePoint connector policy values MUST be non-empty and bounded")
         try:
-            UUID(self.source_tenant_id)
+            UUID(self.target_tenant_id)
         except ValueError as exc:
-            raise ValueError("Power Platform source tenant MUST be a UUID") from exc
+            raise ValueError("SharePoint target tenant MUST be a UUID") from exc
         if not self.purposes:
-            raise ValueError("Power Platform connector purposes MUST NOT be empty")
+            raise ValueError("SharePoint connector purposes MUST NOT be empty")
 
     @property
     def binding_id(self) -> str:
-        tenant_digest = hashlib.sha256(self.source_tenant_id.encode()).hexdigest()[:16]
-        return f"{self.connector_id}:{tenant_digest}"
+        tenant_digest = hashlib.sha256(self.target_tenant_id.encode()).hexdigest()[:16]
+        return f"{self.connector_id}:{tenant_digest}:native-v1"
 
 
-class PowerPlatformConnectorAuthenticator:
-    """Bind an external-tenant token to one server-owned connector policy."""
-
-    def __init__(
-        self,
-        *,
-        verifier: ClaimsVerifier,
-        config: PowerPlatformConnectorConfig,
-    ) -> None:
-        self._verifier = verifier
-        self._config = config
-
-    def authenticate(self, authorization_header: str | None) -> str:
-        if not authorization_header or not authorization_header.startswith("Bearer "):
-            raise AuthenticationError("connector authorization requires a bearer token")
-        token = authorization_header.removeprefix("Bearer ").strip()
-        if not token:
-            raise AuthenticationError("connector bearer token is empty")
-        claims = self._verifier(token)
-        if claims.get("tid") != self._config.source_tenant_id:
-            raise AuthenticationError("connector source tenant does not match its policy")
-        roles = _strings(claims.get("roles"))
-        scopes = set(str(claims.get("scp", "")).split())
-        if _INGEST_PERMISSION not in roles | scopes:
-            raise AuthenticationError("connector token lacks the ingestion permission")
-        subject = claims.get("oid") or claims.get("sub")
-        if not isinstance(subject, str) or not subject:
-            raise AuthenticationError("connector token has no stable subject")
-        return f"power-platform:{self._config.connector_id}:{subject}"
-
-
-class PowerPlatformSharePointConnector:
-    """Import push-delivered SharePoint bytes with deterministic retry identities."""
+class SharePointConnectorIntake:
+    """Import connector-fetched SharePoint bytes with deterministic retry identities."""
 
     def __init__(
         self,
         *,
-        config: PowerPlatformConnectorConfig,
+        config: SharePointConnectorConfig,
         service: DocumentIngestionService,
-        state: PowerPlatformConnectorState,
+        state: SharePointConnectorState,
         deletion: ConnectorDeletionService | None = None,
     ) -> None:
         self._config = config
@@ -178,6 +171,58 @@ class PowerPlatformSharePointConnector:
     def connector_id(self) -> str:
         return self._config.connector_id
 
+    def policy_rejection(
+        self,
+        *,
+        source_name: str | None,
+        media_type: str,
+        size_bytes: int,
+    ) -> str | None:
+        if source_name is None:
+            return "source_name_missing"
+        if size_bytes > self._service.capabilities.max_file_size:
+            return "source_too_large"
+        try:
+            source_format = classify_document_intake(source_name, media_type)
+        except ValueError:
+            return "unsupported_format"
+        if source_format.format_id not in self._service.capabilities.supported_formats:
+            return "unsupported_format"
+        return None
+
+    async def record_rejection(
+        self,
+        *,
+        item: SharePointDeltaItem,
+        source_sequence: int,
+        failure_code: str,
+    ) -> None:
+        rejected = replace(item, source_sequence=source_sequence)
+        await self._state.apply_batch(
+            connector_id=self._config.binding_id,
+            collection_id=self._config.collection_id,
+            access_descriptor_ref=self._config.access_descriptor_ref,
+            idempotency_key=(
+                f"sharepoint-connector:{self._config.binding_id}:"
+                f"{item.source_item_id}:{item.source_revision}:{source_sequence}"
+            ),
+            items=(rejected,),
+        )
+        await self._state.record_rejection(
+            connector_id=self._config.binding_id,
+            source_item_id=item.source_item_id,
+            source_revision=item.source_revision,
+            source_sequence=source_sequence,
+            failure_code=failure_code,
+        )
+
+    async def finalize_resync(self, *, sync_epoch: int, limit: int) -> bool:
+        return await self._state.finalize_resync(
+            connector_id=self._config.binding_id,
+            sync_epoch=sync_epoch,
+            limit=limit,
+        )
+
     async def ingest(
         self,
         *,
@@ -188,6 +233,7 @@ class PowerPlatformSharePointConnector:
         media_type: str,
         content: bytes,
         source_sequence: int,
+        sync_epoch: int = 0,
     ) -> UploadSession:
         _bounded(source_item_id, "source_item_id")
         _bounded(source_revision, "source_revision")
@@ -208,7 +254,8 @@ class PowerPlatformSharePointConnector:
         if binding is not None and binding.document_id != document_id:
             raise RuntimeError("connector item document identity changed")
         idempotency_key = (
-            f"power-platform:{self._config.binding_id}:{source_item_id}:{source_revision}"
+            f"sharepoint-connector:{self._config.binding_id}:"
+            f"{source_item_id}:{source_revision}:{source_sequence}"
         )
         await self._state.apply_batch(
             connector_id=self._config.binding_id,
@@ -224,6 +271,7 @@ class PowerPlatformSharePointConnector:
                     content_sha256=digest,
                     deleted=False,
                     source_sequence=source_sequence,
+                    sync_epoch=sync_epoch,
                 ),
             ),
         )
@@ -395,6 +443,7 @@ class PowerPlatformSharePointConnector:
         source_item_id: str,
         source_revision: str,
         source_sequence: int,
+        sync_epoch: int = 0,
     ) -> None:
         _bounded(source_item_id, "source_item_id")
         _bounded(source_revision, "source_revision")
@@ -404,8 +453,8 @@ class PowerPlatformSharePointConnector:
             collection_id=self._config.collection_id,
             access_descriptor_ref=self._config.access_descriptor_ref,
             idempotency_key=(
-                f"power-platform:{self._config.binding_id}:"
-                f"{source_item_id}:{source_revision}:deleted"
+                f"sharepoint-connector:{self._config.binding_id}:"
+                f"{source_item_id}:{source_revision}:{source_sequence}:deleted"
             ),
             items=(
                 SharePointDeltaItem(
@@ -416,6 +465,7 @@ class PowerPlatformSharePointConnector:
                     content_sha256=None,
                     deleted=True,
                     source_sequence=source_sequence,
+                    sync_epoch=sync_epoch,
                 ),
             ),
         )
@@ -439,12 +489,147 @@ class PowerPlatformSharePointConnector:
         )
 
 
+class NativeSharePointDeltaSink:
+    """Download delta items and pass them through the governed intake lifecycle."""
+
+    def __init__(
+        self,
+        *,
+        config: SharePointConnectorConfig,
+        source: SharePointContentSource,
+        intake: SharePointConnectorIntake,
+        max_file_size: int,
+    ) -> None:
+        if max_file_size < 1:
+            raise ValueError("SharePoint connector file-size limit MUST be positive")
+        self._config = config
+        self._source = source
+        self._intake = intake
+        self._max_file_size = max_file_size
+
+    async def apply_batch(
+        self,
+        *,
+        connector_id: str,
+        collection_id: str,
+        access_descriptor_ref: str,
+        idempotency_key: str,
+        sync_epoch: int,
+        items: Sequence[SharePointDeltaItem],
+    ) -> None:
+        if (
+            connector_id != self._config.connector_id
+            or collection_id != self._config.collection_id
+            or access_descriptor_ref != self._config.access_descriptor_ref
+        ):
+            raise RuntimeError("SharePoint connector batch policy binding changed")
+        sequence = _batch_sequence(idempotency_key, connector_id)
+        actor_id = f"sharepoint-connector:{self._config.binding_id}:reconciler"
+        for raw_item in _coalesce_items(items):
+            item = replace(raw_item, sync_epoch=sync_epoch)
+            if item.deleted:
+                await self._intake.delete(
+                    actor_id=actor_id,
+                    source_item_id=item.source_item_id,
+                    source_revision=item.source_revision,
+                    source_sequence=sequence,
+                    sync_epoch=sync_epoch,
+                )
+                continue
+            rejection = (
+                "source_too_large"
+                if item.size_bytes > self._max_file_size
+                else self._intake.policy_rejection(
+                    source_name=item.source_name,
+                    media_type=item.media_type,
+                    size_bytes=item.size_bytes,
+                )
+            )
+            if rejection is not None:
+                await self._intake.record_rejection(
+                    item=item,
+                    source_sequence=sequence,
+                    failure_code=rejection,
+                )
+                continue
+            try:
+                content = await self._source.download(
+                    item.source_item_id,
+                    source_revision=item.source_revision,
+                    expected_size=item.size_bytes,
+                    max_size=self._max_file_size,
+                )
+            except SharePointRevisionSupersededError:
+                await self._intake.record_rejection(
+                    item=item,
+                    source_sequence=sequence,
+                    failure_code="source_revision_superseded",
+                )
+                continue
+            if item.source_name is None:
+                raise RuntimeError("SharePoint source name disappeared after policy validation")
+            await self._intake.ingest(
+                actor_id=actor_id,
+                source_item_id=item.source_item_id,
+                source_revision=item.source_revision,
+                source_name=item.source_name,
+                media_type=item.media_type,
+                content=content,
+                source_sequence=sequence,
+                sync_epoch=sync_epoch,
+            )
+
+    async def finalize_resync(self, *, connector_id: str, sync_epoch: int, limit: int) -> bool:
+        if connector_id != self._config.connector_id:
+            raise RuntimeError("SharePoint resync connector binding changed")
+        return await self._intake.finalize_resync(
+            sync_epoch=sync_epoch,
+            limit=limit,
+        )
+
+
 async def _one_chunk(content: bytes) -> AsyncIterator[bytes]:
     yield content
 
 
 def _stable_uuid(value: str) -> UUID:
     return UUID(bytes=hashlib.sha256(value.encode()).digest()[:16])
+
+
+def _batch_sequence(idempotency_key: str, connector_id: str) -> int:
+    prefix = f"sharepoint-delta:{connector_id}:"
+    if not idempotency_key.startswith(prefix):
+        raise RuntimeError("SharePoint connector batch identity changed")
+    parts = idempotency_key.removeprefix(prefix).split(":")
+    if len(parts) == 2:
+        epoch_text = "0"
+        sequence_text, digest = parts
+    elif len(parts) == 3:
+        epoch_text, sequence_text, digest = parts
+    else:
+        raise RuntimeError("SharePoint connector batch identity is invalid")
+    if (
+        not epoch_text.isdecimal()
+        or not sequence_text.isdecimal()
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        raise RuntimeError("SharePoint connector batch identity is invalid")
+    epoch = int(epoch_text)
+    sequence = int(sequence_text)
+    if sequence >= 1_000_000_000_000:
+        raise RuntimeError("SharePoint connector batch sequence exceeds its epoch")
+    return epoch * 1_000_000_000_000 + sequence
+
+
+def _coalesce_items(
+    items: Sequence[SharePointDeltaItem],
+) -> tuple[SharePointDeltaItem, ...]:
+    latest: dict[str, SharePointDeltaItem] = {}
+    for item in items:
+        latest.pop(item.source_item_id, None)
+        latest[item.source_item_id] = item
+    return tuple(latest.values())
 
 
 def _bounded(value: str, field: str) -> None:
@@ -455,12 +640,6 @@ def _bounded(value: str, field: str) -> None:
 def _sequence(value: int) -> None:
     if not 0 <= value <= 2**63 - 1:
         raise ValueError("source_sequence MUST be a non-negative signed 64-bit integer")
-
-
-def _strings(value: object) -> set[str]:
-    if not isinstance(value, (list, tuple, set, frozenset)):
-        return set()
-    return {item for item in value if isinstance(item, str)}
 
 
 def _validate_retry(session: UploadSession, *, digest: str, size: int, version_id: UUID) -> None:

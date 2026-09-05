@@ -1,4 +1,4 @@
-"""Extend connector state for ordered cross-tenant Power Platform intake."""
+"""Extend native connector state; retain the published revision id for compatibility."""
 
 from __future__ import annotations
 

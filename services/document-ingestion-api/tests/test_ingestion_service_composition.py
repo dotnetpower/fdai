@@ -157,20 +157,23 @@ def test_local_worker_composition_needs_no_managed_identity(
     assert runtime.worker_service is not None
 
 
-def test_power_platform_policy_keeps_m365_tenant_separate_from_azure_tenant() -> None:
-    config = api_production._power_platform_config(
+def test_sharepoint_policy_keeps_m365_tenant_separate_from_azure_tenant() -> None:
+    config = api_production._sharepoint_connector_config(
         {
-            "FDAI_POWER_PLATFORM_CONNECTOR_ID": "sharepoint-operations",
-            "FDAI_POWER_PLATFORM_SOURCE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
-            "FDAI_POWER_PLATFORM_COLLECTION_ID": "shared-knowledge",
-            "FDAI_POWER_PLATFORM_ACCESS_DESCRIPTOR_REF": "collection:shared-knowledge",
-            "FDAI_POWER_PLATFORM_RETENTION_POLICY_VERSION": "retention-v1",
-            "FDAI_POWER_PLATFORM_READER_GROUPS": "reader-a,reader-b",
-            "FDAI_POWER_PLATFORM_PURPOSES": "knowledge_base",
+            "FDAI_SHAREPOINT_CONNECTOR_ID": "sharepoint-operations",
+            "FDAI_SHAREPOINT_TARGET_TENANT_ID": "00000000-0000-0000-0000-000000000000",
+            "FDAI_SHAREPOINT_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+            "FDAI_SHAREPOINT_SITE_ID": "site-id",
+            "FDAI_SHAREPOINT_DRIVE_ID": "drive-id",
+            "FDAI_SHAREPOINT_COLLECTION_ID": "shared-knowledge",
+            "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF": "collection:shared-knowledge",
+            "FDAI_SHAREPOINT_RETENTION_POLICY_VERSION": "retention-v1",
+            "FDAI_SHAREPOINT_READER_GROUPS": "reader-a,reader-b",
+            "FDAI_SHAREPOINT_PURPOSES": "knowledge_base",
         }
     )
 
-    assert config.source_tenant_id == "00000000-0000-0000-0000-000000000000"
+    assert config.target_tenant_id == "00000000-0000-0000-0000-000000000000"
     assert config.collection_id == "shared-knowledge"
     assert config.reader_groups == ("reader-a", "reader-b")
 

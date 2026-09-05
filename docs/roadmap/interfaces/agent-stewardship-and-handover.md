@@ -66,9 +66,9 @@ the two are resolved and validated independently.
 5. **Console never mutates the map.** The stewardship projection remains read-only. The guided
   registration form submits a structured `handover_bootstrap` document to the ingestion boundary;
   the GitHub App authors the resulting draft PR like every other governance change
-  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)). Other
-  ingestion routes, including the Power Platform connector, use a separate authenticator and
-  server-owned document policy. They cannot call the stewardship webhook or create an ownership
+  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)). The
+  FDAI-native SharePoint connector uses its ingestion identity and server-owned document policy.
+  It cannot call the stewardship webhook or create an ownership
   mapping unless a resulting document independently enters the normal `handover_bootstrap`
   pipeline.
   The collection document-list route is read-only and cannot select a handover purpose, invoke the

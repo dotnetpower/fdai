@@ -61,9 +61,10 @@ SELECT probe.ready
   ) AS required_connector_batch ON FALSE
   LEFT JOIN (
      SELECT connector_id, source_item_id, source_revision, source_sequence, source_name,
-            size_bytes, content_sha256, deleted, collection_id, access_descriptor_ref,
+            size_bytes, content_sha256, deleted, sync_epoch,
+            collection_id, access_descriptor_ref,
             document_id, version_id, bound_source_revision,
-            deletion_pending, updated_at
+            deletion_pending, ingestion_outcome, failure_code, updated_at
        FROM document_connector_item
       LIMIT 0
   ) AS required_connector_item ON FALSE

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: ade2e9697f7197f8904c1ab1934ae740677e4d39
+translation_source_sha: abbf36e48f7e5f36a72c8742071ff64d22c6dc30
 translation_revised: 2026-09-05
 ---
 
@@ -56,11 +56,12 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   구성하거나 Slack 워크스페이스와 사용자-Entra 매핑을 함께 구성하세요. 매핑 값과 서명 입력은
   Key Vault 또는 로컬 전용 배포 입력에 보관합니다. 채널 권한 구성이 없거나 일부뿐이면 승인을
   사용할 수 없으며 Incoming Webhook으로 대체하지 않습니다.
-- 교차 테넌트 SharePoint 인제스트를 사용하려면 SharePoint 및 Power Platform 연결을 Microsoft
-  365 테넌트에 유지하고, 기본적으로 비활성화된 `power_platform_*` 정책 값을 로컬 `tfvars`
-  파일에 설정하세요. 정확한 원본 테넌트, 승인된 OAuth 클라이언트, FDAI API 대상, 컬렉션,
-  접근 서술자, 대상 그룹, 보존 정책 및 용도를 연결합니다. 배포 값이나 공급자 자격 증명을
-  커밋하지 마세요.
+- 교차 테넌트 SharePoint 인제스트를 사용하려면 Microsoft 365 테넌트에 애플리케이션을
+  등록하고 federated identity credential로 Azure 인제스트 UAMI를 신뢰하도록 구성하세요.
+  애플리케이션에는 승인된 사이트 권한만 부여한 뒤 기본적으로 비활성화된
+  `sharepoint_connector_*` 값을 로컬 `tfvars` 파일에 설정합니다. 정확한 대상 테넌트,
+  애플리케이션, 사이트, 드라이브, redirect 허용 목록, 컬렉션, 접근 서술자, 대상 그룹,
+  보존 정책 및 용도를 연결합니다. 배포 값을 커밋하지 마세요.
 - 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
   게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
   설정하세요. Exact 이미지 버전, 보호된 작업 흐름의 SSH 공개 키 입력, 재시도해도 유지되는

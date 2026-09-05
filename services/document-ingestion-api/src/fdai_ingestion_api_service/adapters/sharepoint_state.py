@@ -132,15 +132,17 @@ class PostgresSharePointDeltaStore:
                     "INSERT INTO document_connector_item "
                     "(connector_id, source_item_id, source_revision, source_sequence, "
                     "source_name, size_bytes, content_sha256, deleted, collection_id, "
-                    "access_descriptor_ref, updated_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()) "
+                    "access_descriptor_ref, sync_epoch, updated_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()) "
                     "ON CONFLICT (connector_id, source_item_id) DO UPDATE SET "
                     "source_revision = EXCLUDED.source_revision, "
                     "source_sequence = EXCLUDED.source_sequence, "
                     "source_name = EXCLUDED.source_name, size_bytes = EXCLUDED.size_bytes, "
                     "content_sha256 = EXCLUDED.content_sha256, "
                     "deleted = EXCLUDED.deleted, collection_id = EXCLUDED.collection_id, "
-                    "access_descriptor_ref = EXCLUDED.access_descriptor_ref, updated_at = NOW() "
+                    "access_descriptor_ref = EXCLUDED.access_descriptor_ref, "
+                    "sync_epoch = EXCLUDED.sync_epoch, "
+                    "ingestion_outcome = 'pending', failure_code = NULL, updated_at = NOW() "
                     "WHERE EXCLUDED.source_sequence IS NULL "
                     "OR document_connector_item.source_sequence IS NULL "
                     "OR EXCLUDED.source_sequence > document_connector_item.source_sequence "
@@ -164,6 +166,7 @@ class PostgresSharePointDeltaStore:
                         item.deleted,
                         collection_id,
                         access_descriptor_ref,
+                        item.sync_epoch,
                     ),
                 )
                 if await changed.fetchone() is not None and item.deleted:
@@ -207,7 +210,8 @@ class PostgresSharePointDeltaStore:
                 )
             updated = await connection.execute(
                 "UPDATE document_connector_item SET document_id = %s, version_id = %s, "
-                "bound_source_revision = %s, updated_at = NOW() "
+                "bound_source_revision = %s, ingestion_outcome = 'accepted', "
+                "failure_code = NULL, updated_at = NOW() "
                 "WHERE connector_id = %s AND source_item_id = %s AND NOT deleted "
                 "AND (document_id IS NULL OR document_id = %s) "
                 "AND source_revision = %s AND source_sequence = %s "
@@ -226,6 +230,38 @@ class PostgresSharePointDeltaStore:
             if await updated.fetchone() is None:
                 raise ConnectorBindingConflictError(
                     "SharePoint connector item cannot accept stale document binding"
+                )
+
+    async def record_rejection(
+        self,
+        *,
+        connector_id: str,
+        source_item_id: str,
+        source_revision: str,
+        source_sequence: int,
+        failure_code: str,
+    ) -> None:
+        if not failure_code or len(failure_code) > 128:
+            raise ValueError("connector rejection code MUST be non-empty and bounded")
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            updated = await connection.execute(
+                "UPDATE document_connector_item "
+                "SET ingestion_outcome = 'rejected', failure_code = %s, updated_at = NOW() "
+                "WHERE connector_id = %s AND source_item_id = %s "
+                "AND source_revision = %s AND source_sequence = %s AND NOT deleted "
+                "RETURNING source_item_id",
+                (
+                    failure_code,
+                    connector_id,
+                    source_item_id,
+                    source_revision,
+                    source_sequence,
+                ),
+            )
+            if await updated.fetchone() is None:
+                raise ConnectorBindingConflictError(
+                    "SharePoint rejection no longer matches the source event"
                 )
 
     async def pending_cancellations(
@@ -383,6 +419,49 @@ class PostgresSharePointDeltaStore:
                 )
         return len(rows)
 
+    async def finalize_resync(self, *, connector_id: str, sync_epoch: int, limit: int) -> bool:
+        if sync_epoch < 1 or not 1 <= limit <= 1000:
+            raise ValueError("SharePoint resync epoch and limit are invalid")
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            rows = await (
+                await connection.execute(
+                    "SELECT source_item_id FROM document_connector_item "
+                    "WHERE connector_id = %s AND NOT deleted AND sync_epoch < %s "
+                    "ORDER BY source_item_id FOR UPDATE SKIP LOCKED LIMIT %s",
+                    (connector_id, sync_epoch, limit),
+                )
+            ).fetchall()
+            for row in rows:
+                source_item_id = str(row["source_item_id"])
+                await connection.execute(
+                    "UPDATE document_connector_item SET deleted = TRUE, "
+                    "source_revision = %s, source_sequence = COALESCE(source_sequence, 0) + 1, "
+                    "content_sha256 = NULL, sync_epoch = %s, "
+                    "ingestion_outcome = 'pending', failure_code = NULL, updated_at = NOW() "
+                    "WHERE connector_id = %s AND source_item_id = %s",
+                    (
+                        f"resync-missing:{sync_epoch}",
+                        sync_epoch,
+                        connector_id,
+                        source_item_id,
+                    ),
+                )
+                await self._propagate_deletion(
+                    connection,
+                    connector_id=connector_id,
+                    source_item_id=source_item_id,
+                )
+            remaining = await (
+                await connection.execute(
+                    "SELECT EXISTS (SELECT 1 FROM document_connector_item "
+                    "WHERE connector_id = %s AND NOT deleted AND sync_epoch < %s) "
+                    "AS remaining",
+                    (connector_id, sync_epoch),
+                )
+            ).fetchone()
+        return remaining is not None and remaining["remaining"] is False
+
     async def _propagate_deletion(
         self,
         connection: psycopg.AsyncConnection[dict[str, Any]],
@@ -398,6 +477,12 @@ class PostgresSharePointDeltaStore:
             )
         ).fetchone()
         if binding is None or binding["document_id"] is None:
+            await self._set_item_outcome(
+                connection,
+                connector_id,
+                source_item_id,
+                outcome="accepted",
+            )
             return
         document_id = UUID(str(binding["document_id"]))
         version_id = UUID(str(binding["version_id"]))
@@ -493,6 +578,12 @@ class PostgresSharePointDeltaStore:
             ),
         )
         await self._set_deletion_pending(connection, connector_id, source_item_id, pending=False)
+        await self._set_item_outcome(
+            connection,
+            connector_id,
+            source_item_id,
+            outcome="accepted",
+        )
 
     @staticmethod
     async def _set_deletion_pending(
@@ -506,6 +597,21 @@ class PostgresSharePointDeltaStore:
             "UPDATE document_connector_item SET deletion_pending = %s, updated_at = NOW() "
             "WHERE connector_id = %s AND source_item_id = %s",
             (pending, connector_id, source_item_id),
+        )
+
+    @staticmethod
+    async def _set_item_outcome(
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        connector_id: str,
+        source_item_id: str,
+        *,
+        outcome: str,
+    ) -> None:
+        await connection.execute(
+            "UPDATE document_connector_item "
+            "SET ingestion_outcome = %s, failure_code = NULL, updated_at = NOW() "
+            "WHERE connector_id = %s AND source_item_id = %s",
+            (outcome, connector_id, source_item_id),
         )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -526,6 +632,8 @@ def _cursor_json(cursor: SharePointDeltaCursor) -> str:
             "revision": cursor.revision,
             "delta_url": cursor.delta_url,
             "binding_digest": cursor.binding_digest,
+            "resync_epoch": cursor.resync_epoch,
+            "resync_active": cursor.resync_active,
             "pending": (
                 None
                 if pending is None
@@ -540,6 +648,8 @@ def _cursor_json(cursor: SharePointDeltaCursor) -> str:
                             "source_name": item.source_name,
                             "size_bytes": item.size_bytes,
                             "content_sha256": item.content_sha256,
+                            "media_type": item.media_type,
+                            "sync_epoch": item.sync_epoch,
                             "deleted": item.deleted,
                         }
                         for item in pending.items
@@ -577,6 +687,8 @@ def _cursor(value: object) -> SharePointDeltaCursor:
                     source_name=_optional_string(item, "source_name"),
                     size_bytes=_integer(item, "size_bytes"),
                     content_sha256=_optional_string(item, "content_sha256"),
+                    media_type=_optional_string(item, "media_type") or "application/octet-stream",
+                    sync_epoch=_optional_integer(item, "sync_epoch") or 0,
                     deleted=_boolean(item, "deleted"),
                 )
                 for item in raw_items
@@ -593,12 +705,23 @@ def _cursor(value: object) -> SharePointDeltaCursor:
         delta_url=_optional_string(payload, "delta_url"),
         binding_digest=_optional_string(payload, "binding_digest"),
         pending=pending,
+        resync_epoch=_optional_integer(payload, "resync_epoch") or 0,
+        resync_active=_optional_boolean(payload, "resync_active") or False,
     )
 
 
 def _string(payload: dict[str, object], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value:
+        raise RuntimeError(f"SharePoint cursor {key} is invalid")
+    return value
+
+
+def _optional_boolean(payload: dict[str, object], key: str) -> bool | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, bool):
         raise RuntimeError(f"SharePoint cursor {key} is invalid")
     return value
 

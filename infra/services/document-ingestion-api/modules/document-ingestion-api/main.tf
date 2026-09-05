@@ -13,7 +13,7 @@ module "container_app" {
     identity            = var.identity.resource_id
     key_vault_secret_id = var.database.dsn_secret_id
   }]
-  environment = [
+  environment = concat([
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
     { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
@@ -38,7 +38,20 @@ module "container_app" {
     { name = "FDAI_ADLS_ACCOUNT_NAME", value = var.document_store.account_name },
     { name = "FDAI_ADLS_ACCOUNT_URL", value = var.document_store.account_url },
     { name = "FDAI_ADLS_SOURCE_FILE_SYSTEM", value = var.document_store.source_file_system },
-  ]
+    ], var.sharepoint_connector.enabled ? [
+    { name = "FDAI_SHAREPOINT_CONNECTOR_ENABLED", value = "1" },
+    { name = "FDAI_SHAREPOINT_CONNECTOR_ID", value = var.sharepoint_connector.connector_id },
+    { name = "FDAI_SHAREPOINT_TARGET_TENANT_ID", value = var.sharepoint_connector.target_tenant_id },
+    { name = "FDAI_SHAREPOINT_CLIENT_ID", value = var.sharepoint_connector.client_id },
+    { name = "FDAI_SHAREPOINT_SITE_ID", value = var.sharepoint_connector.site_id },
+    { name = "FDAI_SHAREPOINT_DRIVE_ID", value = var.sharepoint_connector.drive_id },
+    { name = "FDAI_SHAREPOINT_COLLECTION_ID", value = var.sharepoint_connector.collection_id },
+    { name = "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF", value = var.sharepoint_connector.access_descriptor_ref },
+    { name = "FDAI_SHAREPOINT_READER_GROUPS", value = var.sharepoint_connector.reader_groups },
+    { name = "FDAI_SHAREPOINT_RETENTION_POLICY_VERSION", value = var.sharepoint_connector.retention_policy },
+    { name = "FDAI_SHAREPOINT_PURPOSES", value = var.sharepoint_connector.purposes },
+    { name = "FDAI_SHAREPOINT_DOWNLOAD_HOST_SUFFIXES", value = var.sharepoint_connector.download_host_suffixes },
+  ] : [])
   health            = var.health
   ingress           = { external_enabled = true, target_port = var.health.port }
   scaling           = var.scaling
