@@ -1102,8 +1102,8 @@ def _guard_update(
     before_retention = expected_before.get("max_inactive_revisions")
     after_retention = after.get("max_inactive_revisions")
     if before_retention != after_retention:
-        if before_retention in (None, 0) and after_retention == 1:
-            expected_before["max_inactive_revisions"] = 1
+        if before_retention in (None, 0, 1) and after_retention in (1, 2):
+            expected_before["max_inactive_revisions"] = after_retention
         else:
             violations.append(f"rollback revision retention drift at {address}")
     expected_templates = expected_before.get("template")
