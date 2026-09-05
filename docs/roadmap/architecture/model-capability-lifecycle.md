@@ -228,6 +228,9 @@ bytes with `LLM_RESOLVED_MODELS_SHA256`, publishes the immutable revision to lif
 and supplies that same object to all production capability binders. Operator startup applies the
 same digest fence through its service-owned source. Deployed composition can use the direct Key
 Vault source, while local narrator compatibility can retain the configured file source.
+The container supply chain writes the canonical JSON byte sequence into the image, so the attested
+canonical digest and the startup artifact-byte digest are identical rather than merely
+semantically equivalent.
 
 Core reads lifecycle proposals only from authenticated GitHub API responses for the configured
 repository. It accepts a workflow-bot draft on the expected base branch, fetches exactly one

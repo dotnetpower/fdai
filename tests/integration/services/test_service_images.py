@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -241,7 +245,9 @@ def test_core_provenance_contains_only_canonical_resolved_models_digest() -> Non
     assert "predicate: ${{ vars.RESOLVED_MODELS_JSON }}" not in text
 
 
-def test_resolved_model_manifest_embedded_python_has_valid_syntax() -> None:
+def test_resolved_model_manifest_embedded_python_writes_attested_bytes(
+    tmp_path: Path,
+) -> None:
     workflow = cast(dict[str, Any], yaml.safe_load(WORKFLOW.read_text(encoding="utf-8")))
     steps = workflow["jobs"]["build-scan-attest"]["steps"]
     materialize = next(
@@ -250,7 +256,31 @@ def test_resolved_model_manifest_embedded_python_has_valid_syntax() -> None:
     match = re.fullmatch(r"python3 - <<'PY'\n(?P<source>.*)\nPY\n?", materialize["run"], re.DOTALL)
 
     assert match is not None
-    compile(match.group("source"), "container-supply-chain:resolved-models", "exec")
+    source = match.group("source")
+    compile(source, "container-supply-chain:resolved-models", "exec")
+    (tmp_path / "services/assets").mkdir(parents=True)
+    output = tmp_path / "github-output"
+    payload = {
+        "schema_version": "1.0.0",
+        "capabilities": [],
+        "mixed_model_mode": "hil-only",
+    }
+    subprocess.run(  # noqa: S603 - executes the tracked embedded workflow script
+        [sys.executable, "-c", source],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "EVENT_NAME": "workflow_dispatch",
+            "GITHUB_OUTPUT": str(output),
+            "RESOLVED_MODELS_JSON": json.dumps(payload),
+        },
+        check=True,
+    )
+    digest = output.read_text(encoding="utf-8").strip().removeprefix("digest=")
+    root_artifact = (tmp_path / "resolved-models.json").read_bytes()
+    image_artifact = (tmp_path / "services/assets/resolved-models.json").read_bytes()
+    assert image_artifact == root_artifact
+    assert hashlib.sha256(image_artifact).hexdigest() == digest
 
 
 def test_supply_chain_pins_node_compatible_actions_to_full_shas() -> None:
