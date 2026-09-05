@@ -40,6 +40,10 @@ jobs:
       ENTRA_CONSOLE_API_SCOPE: ${{ vars.ENTRA_CONSOLE_API_SCOPE }}
       CONSOLE_STATIC_WEB_APP_ID: ${{ vars.CONSOLE_STATIC_WEB_APP_ID }}
       CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}
+      FDAI_DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP || vars.OPS_RESOURCE_GROUP_NAME }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
