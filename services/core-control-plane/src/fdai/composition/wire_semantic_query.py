@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-import httpx
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
     QueryNodeKind,
@@ -204,9 +201,8 @@ from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
-from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-from ._helpers import Container
+from .semantic_query_azure_composition import compose_azure_semantic_query_runtime
 from .semantic_query_health_values import (
     resource_health_state_values as _resource_health_state_values,
 )
@@ -734,69 +730,6 @@ def build_semantic_query_runtime(
         executor_factory=executor_for,
         purpose=purpose,
         function_bindings=function_registry.binding_authorities,
-    )
-
-
-def compose_azure_semantic_query_runtime(
-    *,
-    container: Container,
-    ontology_release: OntologyRelease | None,
-    ontology_store: OntologyInstanceStore | None,
-    identity: WorkloadIdentity | None,
-    http_client: httpx.AsyncClient | None,
-    endpoint: str | None,
-    endpoint_resolver: Callable[[str], str] | None,
-    catalog_root: Path,
-    owner_loop: asyncio.AbstractEventLoop,
-    purpose: str = "operations-review",
-    catalog_index: CatalogSemanticIndex | None = None,
-    catalog_digest: str | None = None,
-    topology_reader: TopologyHistoryReader | None = None,
-    metric_registry: MetricSemanticRegistry | None = None,
-    metric_window_provider: MetricWindowProvider | None = None,
-    incident_evidence_reader: IncidentEvidenceReader | None = None,
-    read_investigation_provider: ReadInvestigationProvider | None = None,
-    resource_health_reader: ResourceHealthCollectionReader | None = None,
-    resource_event_reader: ResourceEventCollectionReader | None = None,
-    service_health_reader: ServiceHealthReader | None = None,
-    state_transition_reader: StateTransitionStore | None = None,
-    vm_process_cpu_reader: VmProcessCpuReader | None = None,
-    pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
-    graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
-    resource_freshness_seconds: int | None = None,
-) -> SemanticQueryRuntimeComposition:
-    """Compose Azure semantic querying over optional exact Rule retrieval."""
-
-    from .semantic_query_azure_composition import (
-        compose_azure_semantic_query_runtime as compose_azure,
-    )
-
-    return compose_azure(
-        container=container,
-        ontology_release=ontology_release,
-        ontology_store=ontology_store,
-        identity=identity,
-        http_client=http_client,
-        endpoint=endpoint,
-        endpoint_resolver=endpoint_resolver,
-        catalog_root=catalog_root,
-        owner_loop=owner_loop,
-        purpose=purpose,
-        catalog_index=catalog_index,
-        catalog_digest=catalog_digest,
-        topology_reader=topology_reader,
-        metric_registry=metric_registry,
-        metric_window_provider=metric_window_provider,
-        incident_evidence_reader=incident_evidence_reader,
-        read_investigation_provider=read_investigation_provider,
-        resource_health_reader=resource_health_reader,
-        resource_event_reader=resource_event_reader,
-        service_health_reader=service_health_reader,
-        state_transition_reader=state_transition_reader,
-        vm_process_cpu_reader=vm_process_cpu_reader,
-        pod_log_evidence_reader=pod_log_evidence_reader,
-        graph_live_refresh_provider=graph_live_refresh_provider,
-        resource_freshness_seconds=resource_freshness_seconds,
     )
 
 

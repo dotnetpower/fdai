@@ -391,8 +391,10 @@ same hold preserves the measured change and attaches no evidence to synthesized 
 hypothesis summaries. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
 digests. Structured diagnostics record only the planning stage, candidate index, failure class,
-and input-free validation locations; they omit operator text and provider details. The public composition facade delegates Azure-specific model and catalog binding to
-`semantic_query_azure_composition.py` while remaining below the enforced 800-line limit. Its module
+and input-free validation locations; they omit operator text and provider details. The public
+composition facade directly re-exports Azure-specific model and catalog binding from
+`semantic_query_azure_composition.py`, and the package layout gate keeps `wire_semantic_query.py`
+below the enforced 800-line limit. Its module
 contract retains the `composition`, `seam`, and `container` anchors enforced by the package layout
 gate. The validated `llm.mode` string selects Azure semantic composition by value, consistent with
 every other LLM binder. The ObjectSet handler is rebuilt for each request role,

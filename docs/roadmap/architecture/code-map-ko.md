@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c710e73db7b12c0f5f8f585b6a8522301f82519e
+translation_source_sha: 4a645c9197007a1d5282353878028e51ff59e521
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -375,8 +375,9 @@ Metric comparison이 완료되면 같은 hold가 측정 변화를 보존하고 �
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개
-조립 파사드는 Azure 전용 모델 및 카탈로그 연결을 `semantic_query_azure_composition.py`에 위임하면서
-강제 적용되는 800줄 한도 아래를 유지합니다. 모듈 계약은 패키지 배치 게이트가 강제하는
+조립 파사드는 Azure 전용 모델 및 카탈로그 연결을 `semantic_query_azure_composition.py`에서 직접
+다시 내보내며, 패키지 배치 게이트는 `wire_semantic_query.py`를 강제 적용되는 800줄 한도 아래로
+유지합니다. 모듈 계약은 패키지 배치 게이트가 강제하는
 `composition`, `seam` 및 `container` 기준점을 보존합니다. 검증된 `llm.mode` 문자열은 다른 LLM
 연결기와 동일하게 값 비교로 Azure 의미 조립을 선택합니다.
 ObjectSet 핸들러는 각 요청 역할에 맞게 다시 만들어지므로 읽기 담당이 Owner 가시성을 상속하지 않고
