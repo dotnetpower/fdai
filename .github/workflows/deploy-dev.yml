@@ -133,6 +133,7 @@ jobs:
   terraform:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
+    environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     # Declared budget. Without it the only bound is the six-hour runner default, which cannot tell
     # a stalled provider from a slow apply and holds the single deploy runner meanwhile.
     timeout-minutes: 180
@@ -238,6 +239,9 @@ jobs:
           workflow-path: .github/workflows/deploy-dev.yml
           origin-url: ${{ github.server_url }}/${{ github.repository }}.git
           github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          environment: ${{ inputs.apply && inputs.environment || '' }}
+          required-approvals: "1"
       - name: Prepare self-hosted runner workspace
         working-directory: ${{ runner.temp }}
         run: |

@@ -12,8 +12,20 @@ inputs:
     description: Authenticated repository Git URL.
     required: true
   github-token:
-    description: Token used only to fetch protected repository objects.
+    description: Token used only to fetch protected repository objects and policy.
     required: true
+  repository:
+    description: Repository that owns the optional deployment Environment.
+    required: false
+    default: ""
+  environment:
+    description: Optional deployment Environment to verify.
+    required: false
+    default: ""
+  required-approvals:
+    description: Required reviewer approvals when an Environment is provided.
+    required: false
+    default: "1"
 
 runs:
   using: composite
@@ -60,3 +72,37 @@ runs:
           echo "workflow controls differ from protected origin/main." >&2
           exit 1
         }
+    - name: Verify protected environment policy
+      if: ${{ inputs.environment != '' }}
+      shell: bash
+      env:
+        TARGET_REPOSITORY: ${{ inputs.repository }}
+        TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REQUIRED_APPROVALS: ${{ inputs.required-approvals }}
+      run: |
+        set -euo pipefail
+        [[ "$TARGET_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || {
+         echo "repository must identify one GitHub repository." >&2
+         exit 1
+        }
+        [[ "$TARGET_ENVIRONMENT" =~ ^(dev|staging|prod)$ ]] || {
+         echo "environment is unsupported." >&2
+         exit 1
+        }
+        [[ "$REQUIRED_APPROVALS" == "1" ]] || {
+         echo "GitHub Environment supports exactly one required approval." >&2
+         exit 1
+        }
+        payload="$RUNNER_TEMP/fdai-environment-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+        trap 'rm -f -- "$payload"' EXIT
+        curl --fail --silent --show-error \
+         --retry 2 --retry-delay 1 --retry-all-errors \
+         --connect-timeout 10 --max-time 30 \
+         --header "Accept: application/vnd.github+json" \
+         --header "Authorization: Bearer $GITHUB_TOKEN" \
+         --header "X-GitHub-Api-Version: 2022-11-28" \
+         "$GITHUB_API_URL/repos/$TARGET_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
+         > "$payload"
+        python3 "${{ github.action_path }}/verify_environment.py" \
+         "$payload" --required-approvals "$REQUIRED_APPROVALS"

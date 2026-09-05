@@ -16,9 +16,10 @@ def test_protected_workflow_exposes_request_bound_status_metadata() -> None:
     assert "name: deployment-plan-metadata-${{ inputs.request_id }}" in source
     assert "path: infra/plan-metadata.json" in source
     assert "retention-days: 1" in source
-    assert "Verify protected environment approval policy" not in source
-    assert "environment: ${{ inputs.apply" not in source
-    assert "GH_TOKEN: ${{ github.token }}" in source
+    assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in source
+    assert "environment: ${{ inputs.apply && inputs.environment || '' }}" in source
+    assert "verify-protected-workflow-source" in source
+    assert "github-token: ${{ github.token }}" in source
 
 
 def test_exact_apply_still_restores_the_private_binary_plan() -> None:
