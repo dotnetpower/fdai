@@ -429,6 +429,10 @@ def test_core_service_apply_request_preserves_independent_human_approval() -> No
 
 
 def test_apply_job_enforces_the_selected_protected_environment() -> None:
+    assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _WORKFLOW
+    assert "Verify protected environment approval policy before mutation" in _WORKFLOW
+    assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _WORKFLOW
+    assert '"$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py"' in _WORKFLOW
     assert (
         "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _LEGACY_WORKFLOW
     )

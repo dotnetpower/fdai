@@ -70,9 +70,9 @@ jobs:
   request:
     if: >-
       github.ref == 'refs/heads/main' &&
-      (inputs.operation == 'rca-reader-apply' ||
+      (inputs.operation == 'core-service-apply' ||
+       inputs.operation == 'rca-reader-apply' ||
        inputs.operation == 'operational-history-apply' ||
-       inputs.operation == 'core-service-apply' ||
        inputs.commit_sha == github.sha)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -140,6 +140,13 @@ jobs:
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
         run: |
           set -euo pipefail
+          verify_environment() {
+            gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
+              > "$RUNNER_TEMP/environment.json"
+            python3 \
+              .fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py \
+              "$RUNNER_TEMP/environment.json" --required-approvals 1
+          }
           case "$OPERATION" in
             console-publish)
               target_workflow=publish-console.yml
@@ -241,11 +248,7 @@ jobs:
                 echo "Protected apply plan digest is invalid." >&2
                 exit 1
               }
-              gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
-                > "$RUNNER_TEMP/environment.json"
-              python3 \
-                .fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py \
-                "$RUNNER_TEMP/environment.json" --required-approvals 1
+              verify_environment
               gh api --method POST \
                 "repos/$GITHUB_REPOSITORY/actions/workflows/deploy-dev.yml/dispatches" \
                 -f ref=main \

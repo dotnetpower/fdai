@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: e47914fe8719e9af302ce2efe07c2a8617a5c4d6
+translation_source_sha: 7dcfbfca57688799531850bbf74d28b010b80f40
 translation_revised: 2026-09-05
 ---
 # 배포 리소스 규약
@@ -34,7 +34,9 @@ Job을 rollback과 함께 갱신한 뒤 schema migration을 실행합니다. 일
 readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목록의 작업과 정확한 revision을
 검증한 뒤 repository 자동화 identity로 Console 게시 또는 catalog 새로 고침을 제출합니다. 같은
 요청 경계는 Environment 정책을 검증한 후 exact protected RCA reader apply 또는 검증 재개
-좌표만 제출할 수 있습니다. `fdaictl`은 exclusive RCA apply를 이 요청 경계를 통해 라우팅합니다.
+좌표나 유효 기간이 남은 Core model-binding service plan 하나만 제출할 수 있습니다. Core 경로는
+제출 전에 service와 전환 모드를 고정하고 정확한 실행, 시도, digest, image 및 아티팩트 metadata를
+검증합니다. `fdaictl`은 exclusive RCA apply를 이 요청 경계를 통해 라우팅합니다.
 관련 없는 커밋으로 `main`이 전진해도 plan revision이 여전히 ancestor이고 보호된 요청 control이
 같을 때만 유효 기간이 남은 plan을 사용할 수 있습니다. 따라서 사람 유지관리자는 자체 검토 또는
 관리자 우회를 활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.

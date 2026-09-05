@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 1d529ddf243ecae9e42774c6651f7c3e86603d6e
+translation_source_sha: e0522e972d7a3c1c467da6a78315d2f29d8617d9
 translation_revised: 2026-09-05
 ---
 # 운영 배포 강화
@@ -23,12 +23,14 @@ translation_revised: 2026-09-05
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
 | Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-security` 작업은 하나의 필수 CI 결과 아래에서 고정 버전 Checkov 및 Trivy 검사를 실행합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
+| Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | Core 전용 bot 소유 service apply 요청을 추가했습니다. 요청은 제출 전에 정확한 실행 및 시도 provenance, 유효 기간이 남은 plan 아티팩트 하나, 커밋 및 context digest, digest로 고정된 Core image, model-binding 모드를 검사합니다. Service apply는 선택한 Environment에 결속하고 변경 전에 승인 정책을 다시 검사합니다. | `current change`, 보호 요청 및 service workflow, `verify_core_apply_request.py`, 집중 검증기 및 workflow 검사 | 병합 revision의 필수 CI와 supply-chain 검사를 통과한 뒤 bot이 요청하고 별도 사람이 승인한 exact apply 증적 하나를 보존합니다. |
 | 2026-09-05 | implemented | 보호된 `main`의 Environment validator blob을 runner 임시 저장소에 복사해 exact revision checkout 이후에도 보존하고, apply 측 정책 검사를 요청 검증과 통합해 배포 workflow의 56-step 검토 예산을 유지했습니다. | `current change`, deploy workflow diet, 보호된 workflow 및 CI 계약 검사 | 독립 승인 exact apply 증적을 하나 보존합니다. |
 | 2026-09-05 | implemented | 독립된 인프라 PR workflow를 하나의 필수 CI 그래프에 통합했습니다. Terraform 보안 검사는 경로 범위를 유지하며 공유 유효성 검사 작업은 이제 scenario-lab 루트도 다룹니다. | `current change`, `.github/workflows/ci.yml`, `resolve_test_scope.py`, 집중 CI 범위, 보안 검사 및 scenario-lab 계약 테스트 | 아래에 나열된 정확한 보호 운영 및 drift 근거를 보존합니다. |
 | 2026-09-05 | implemented | Service 적용 후 스키마를 변경하는 카탈로그 수명 주기 회귀를 직렬화하고 forward Core 마이그레이션으로 root 소유 T2 lookup index를 복원했습니다. 조정되지 않은 만료가 진행 중인 receipt 또는 보존 근거를 무효화하므로 만료되지 않는 서명 secret 두 개에는 resource-local Checkov 예외를 적용합니다. | `current change`, 집중 마이그레이션 계약, 일회용 PostgreSQL 수명 주기 검사 및 finding 0건의 Checkov | 배포 전에 exact green required CI 및 supply-chain 증적을 보존합니다. |

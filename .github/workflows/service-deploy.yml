@@ -93,6 +93,7 @@ concurrency:
 jobs:
   protected-service-deploy:
     if: github.ref == 'refs/heads/main'
+    environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     runs-on: [self-hosted, fdai-deploy]
     environment: ${{ (inputs.apply || inputs.migrate_state) && inputs.environment || 'plan-only' }}
     # Declared budget. Without it the only bound is the six-hour runner default, which cannot
@@ -277,6 +278,19 @@ jobs:
 
       - name: Install pinned GitHub CLI
         run: bash "$TRUSTED_CONTROLS/scripts/deployment/azure/install-pinned-github-cli.sh"
+
+      - name: Verify protected environment approval policy before mutation
+        if: ${{ inputs.apply }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
+            > "$RUNNER_TEMP/environment.json"
+          python3 \
+            "$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py" \
+            "$RUNNER_TEMP/environment.json" --required-approvals 1
 
       - name: Install pinned uv for service migrations
         if: ${{ inputs.apply }}
