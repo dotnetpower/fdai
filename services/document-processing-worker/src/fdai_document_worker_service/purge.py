@@ -76,7 +76,7 @@ class PostgresDocumentPurgeVerifier:
             version_row = await (
                 await connection.execute(
                     "SELECT upload_id, "
-                    "COALESCE((payload->'retention'->>'legal_hold')::boolean, TRUE) "
+                    "COALESCE((payload->'retention'->>'legal_hold')::boolean, FALSE) "
                     "FROM document_version WHERE document_id = %s AND version_id = %s",
                     (document_id, version_id),
                 )
