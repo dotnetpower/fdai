@@ -193,6 +193,20 @@ def test_diagnostic_rejects_verdict_that_conflicts_with_atomic_score() -> None:
         )
 
 
+def test_diagnostic_rejects_non_hex_trace_digest() -> None:
+    with pytest.raises(ValueError, match="trace digest MUST be SHA-256"):
+        PantheonTurnDiagnostic(
+            case_id="case-1",
+            agent="Njord",
+            locale="en",
+            score=30,
+            verdict=PantheonDiagnosticVerdict.PASS,
+            results=(),
+            hard_zero_violations=(),
+            trace_receipt_digest="z" * 64,
+        )
+
+
 def test_required_t2_needs_budget_metering_and_preserves_t1_on_failure() -> None:
     result = evaluate_pantheon_turn(
         case=_case(t2_expectation=T2Expectation.REQUIRED),

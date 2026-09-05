@@ -125,7 +125,9 @@ class PantheonTurnDiagnostic:
             raise ValueError("Pantheon diagnostic results MUST contain item ids 1 through 30")
         if self.results and self.score != sum(item.passed for item in self.results):
             raise ValueError("Pantheon diagnostic score MUST equal its atomic item results")
-        if len(self.trace_receipt_digest) != 64:
+        if len(self.trace_receipt_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in self.trace_receipt_digest
+        ):
             raise ValueError("Pantheon diagnostic trace digest MUST be SHA-256")
         expected_verdict = _diagnostic_verdict(
             score=self.score,
