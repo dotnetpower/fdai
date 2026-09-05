@@ -45,6 +45,10 @@ on:
         description: "Allow only the reviewed non-secret PostgreSQL host environment binding."
         type: boolean
         default: false
+      degraded_recovery:
+        description: "Allow the running degraded Operator revision as an exact rollback baseline."
+        type: boolean
+        default: false
       model_binding_transition:
         description: "Bind the Core runtime to the resolved-model artifact attested in its image."
         type: boolean
@@ -135,6 +139,7 @@ jobs:
           MIGRATE_STATE: ${{ inputs.migrate_state }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
+          DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
@@ -186,6 +191,13 @@ jobs:
               || "$OPERATOR_CHANNEL_EDGE_TRANSITION" != "none" ) ]]; then
             echo "Database host binding cannot be combined with state migration, initial cutover, or channel-edge transition." >&2
             exit 1
+          fi
+          if [[ "$DEGRADED_RECOVERY" == "true" ]]; then
+            [[ "${{ inputs.service }}" == "operator-service" \
+              && "$DATABASE_HOST_BINDING" == "true" ]] || {
+              echo "Degraded recovery is valid only for Operator database host binding." >&2
+              exit 1
+            }
           fi
           if [[ "$MODEL_BINDING_TRANSITION" == "true" ]]; then
             [[ "${{ inputs.service }}" == "core-control-plane" ]] || {
@@ -581,6 +593,7 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
+          DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
@@ -599,6 +612,9 @@ jobs:
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
+          recovery_args=()
+          [[ "$DEGRADED_RECOVERY" == "true" ]] \
+            && recovery_args+=(--degraded-recovery)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition --resolved-models-digest "$RESOLVED_MODELS_DIGEST")
@@ -613,6 +629,7 @@ jobs:
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
+            "${recovery_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}"
 
@@ -706,6 +723,7 @@ jobs:
             echo "- Service: \`${{ inputs.service }}\`"
             echo "- Environment: \`${{ inputs.environment }}\`"
             echo "- Deployment mode: \`${{ inputs.sharepoint_connector_transition != 'none' && format('sharepoint-connector-{0}', inputs.sharepoint_connector_transition) || inputs.database_host_binding && inputs.model_binding_transition && 'database-host-binding+model-binding' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
+            echo "- Degraded recovery baseline: \`${{ inputs.degraded_recovery }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
             echo "- Plan run attempt: \`$GITHUB_RUN_ATTEMPT\`"
@@ -792,6 +810,7 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
+          DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
@@ -803,6 +822,9 @@ jobs:
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
+          recovery_args=()
+          [[ "$DEGRADED_RECOVERY" == "true" ]] \
+            && recovery_args+=(--degraded-recovery)
           model_args=()
           [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
             && model_args+=(--model-binding-transition)
@@ -834,6 +856,7 @@ jobs:
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
+            "${recovery_args[@]}" \
             "${model_args[@]}" \
             "${sharepoint_args[@]}" >/dev/null
           terraform -chdir="$TERRAFORM_ROOT" show \
@@ -970,6 +993,8 @@ jobs:
 
       - name: Capture pre-apply rollback snapshot
         if: ${{ inputs.apply }}
+        env:
+          DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}
         run: |
           set -euo pipefail
           bundle="$RUNNER_TEMP/service-plan-bundle"
@@ -1003,12 +1028,16 @@ jobs:
               --only-show-errors \
               --output json >"$rollback_dir/ready-revision.json"
           fi
+          recovery_args=()
+          [[ "$DEGRADED_RECOVERY" == "true" ]] \
+            && recovery_args+=(--allow-degraded-current)
           rollback_revision="$(
             python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
               select-baseline \
               --app "$rollback_dir/app.json" \
               --current-revision "$rollback_dir/current-revision.json" \
-              --ready-revision "$rollback_dir/ready-revision.json"
+              --ready-revision "$rollback_dir/ready-revision.json" \
+              "${recovery_args[@]}"
           )"
           if [[ "$rollback_revision" == "$current_revision" ]]; then
             cp "$rollback_dir/current-revision.json" "$rollback_dir/revision.json"
@@ -1262,6 +1291,7 @@ jobs:
           resource_id="$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")"
           resource_group="$(jq -er '.resource_group' "$rollback_dir/snapshot.json")"
           service_name="$(jq -er '.service_name' "$rollback_dir/snapshot.json")"
+          allow_degraded_baseline="$(jq -er '.degraded_baseline' "$rollback_dir/snapshot.json")"
           rollback_health_deadline=$((SECONDS + 1200))
           rollback_health_converged=false
           while ((SECONDS < rollback_health_deadline)); do
@@ -1282,11 +1312,20 @@ jobs:
               else error("Container App ingress configuration is invalid")
               end
             ' "$rollback_dir/app-after.json")"
-            if jq -e --argjson requires_health_state "$requires_health_state" '
+            if jq -e \
+              --argjson requires_health_state "$requires_health_state" \
+              --argjson allow_degraded_baseline "$allow_degraded_baseline" '
                 .properties.provisioningState == "Provisioned"
                 and .properties.active == true
                 and (
                   .properties.healthState == "Healthy"
+                  or (
+                    $allow_degraded_baseline
+                    and .properties.healthState == "Unhealthy"
+                    and .properties.runningState == "Degraded"
+                    and (.properties.replicas | type) == "number"
+                    and .properties.replicas >= 1
+                  )
                   or (
                     ($requires_health_state | not)
                     and .properties.healthState == null
@@ -1304,7 +1343,7 @@ jobs:
             sleep 5
           done
           if [[ "$rollback_health_converged" != true ]]; then
-            echo "rollback revision did not reach the healthy contract within 1200s." >&2
+            echo "rollback revision did not reach the restorable contract within 1200s." >&2
             exit 1
           fi
           az account show --only-show-errors --output json >"$rollback_dir/account-after.json"

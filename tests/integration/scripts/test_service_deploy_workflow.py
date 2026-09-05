@@ -878,6 +878,17 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert '--pantheon-object-topic "$pantheon_object_topic"' in _WORKFLOW
 
 
+def test_service_workflow_seals_degraded_operator_recovery() -> None:
+    assert "degraded_recovery:" in _WORKFLOW
+    assert "Degraded recovery is valid only for Operator database host binding." in _WORKFLOW
+    assert _WORKFLOW.count("DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}") == 4
+    assert _WORKFLOW.count("recovery_args+=(--degraded-recovery)") == 2
+    assert _WORKFLOW.count('"${recovery_args[@]}"') == 3
+    assert "--allow-degraded-current" in _WORKFLOW
+    assert "allow_degraded_baseline" in _WORKFLOW
+    assert "rollback revision did not reach the restorable contract" in _WORKFLOW
+
+
 def test_service_workflow_seals_native_sharepoint_connector_transition() -> None:
     assert "sharepoint_connector_transition:" in _WORKFLOW
     assert (

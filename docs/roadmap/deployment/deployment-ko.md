@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 932f2e8dc366b5dfffce0b02c42d951a53d28b60
+translation_source_sha: e6715cc592b202baab1675f4d81fa7a299f47ff0
 translation_revised: 2026-09-05
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-05
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
 | 독립 서비스 롤백 기준 | implemented | 현재 변경의 `deployment_recovery.py`, 공유 서비스 Container App 모듈 및 집중 service-deploy 롤백 검사 | 적용 전 수집은 비정상 또는 비활성 개정 번호를 차단하고, 각 서비스는 복구를 위해 비활성 개정 번호 1개를 보존합니다. 성공한 protected 롤백 증적은 아직 필요합니다. |
+| 성능 저하 상태의 Operator 복구 기준 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `deployment_recovery.py`, `plan_bundle.py` 및 집중 복구 검사 | 명시적 모드는 봉인된 데이터베이스 연결 복구에 실행 중인 비정상 Operator 개정 번호만 사용할 수 있습니다. 통제된 적용 근거는 아직 필요합니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -52,6 +53,7 @@ translation_revised: 2026-09-05
 | 2026-08-25 | implemented | Protected Core apply가 Terraform 전에 statement deadline에 도달한 뒤 canonical Incident migration의 projection별 audit scan을 index 기반 lifecycle interval로 교체했습니다. Historical as-of identity와 runtime trigger 계약은 바뀌지 않습니다. | 실패한 apply `32825805596`, `current change`, 집중 migration 계약 및 일회용 PostgreSQL 테스트 4개 통과, 5초 statement budget 안에서 무관한 audit row 20,000개와 projection version 2,002개 검증 | Exact protected Core 계획을 다시 만들고 적용한 뒤 migration, 상태 및 peer 격리 증적을 보존합니다. |
 | 2026-08-25 | implemented | 실패한 Core 개정 번호가 다음 적용의 복구 출처가 되고 비활성 개정 번호 보존 수가 0이라 즉시 제거되면서 드러난 롤백 기준 결함을 닫았습니다. 이제 스냅샷 수집은 정상인 활성 개정 번호를 요구하고, 공유 서비스 모듈은 비활성 개정 번호 1개를 보존하며, 계획 가드는 일회성 `0 -> 1` 보존 강화만 허용합니다. | 실패한 Core 적용 `32839129965` 및 `32842018230`, `current change`, 집중 롤백 기준 및 보존 가드 검사 | 독립 서비스 배포 상태를 다시 `validated`로 올리기 전에 정상 Core 기준 하나를 복원하고 zero-destroy protected 계획, 성공한 exact 적용 및 검증된 자동 롤백 증적을 보존합니다. |
 | 2026-08-26 | implemented | 중지된 개발 PostgreSQL server를 복구한 뒤 준비 상태가 다시 열리면서 서로 독립적인 Core crash 경로 두 개가 드러났습니다. 이제 consumer progress는 commit과 highwater 관측 사이의 partition 회수를 허용하고, 새 Core migration은 detached background-task 조정기에 소유 테이블 3개의 정확한 접근 권한을 부여합니다. | Live revision `ca-fdai-dev-krc-core--p20260825121110`, `current change`, 집중 Event Bus race 및 migration grant 회귀 검사 3개 통과 | 정확히 증명된 이미지를 게시하고 보호된 workflow를 통해 정상 Core 기준 하나를 복원한 뒤, provider-schema 적용 전에 crash-free 상태 및 rollback 보존 근거를 보존합니다. |
+| 2026-09-05 | implemented | Azure에 별도의 정상 개정 번호가 없을 때 Operator 데이터베이스 연결 복구에 사용하는 봉인된 성능 저하 복구 경계를 추가했습니다. 기준 개정 번호는 활성, 프로비저닝 완료, 실행 중, 정확히 복원 가능한 상태여야 하며 이 모드는 보호된 Terraform 계획의 범위를 넓히지 않습니다. | `current change`, 집중 계획 묶음, 작업 흐름, 기준 선택, 스냅샷 및 롤백 검사 | 정확한 protected Operator 적용 1회를 실행하고 상태 및 롤백 경계 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
@@ -123,6 +125,15 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   모두 차단합니다. 모든 primary container 환경 비교는 정확한 이름과 binding map을 사용하므로
   Terraform 목록 순서만 바뀌어도 잘못된 drift 결과가 생기지 않습니다. 차단 결과는 변경된
   binding 이름만 보고하고 값은 기록하지 않습니다.
+- **성능 저하 상태의 Operator 복구 기준**: `degraded_recovery`는 Operator
+  `database_host_binding` 계획에만 함께 사용할 수 있습니다. 이 모드는 허용되는 Terraform
+  변경 범위를 넓히지 않습니다. Azure에 별도의 정상 개정 번호가 없으면 적용 전 수집은 현재
+  개정 번호가 활성 상태이고, 프로비저닝을 완료했으며, 복제본 하나 이상으로 실행 중이고, 이미
+  비정상 상태로 표시된 경우에만 해당 개정 번호를 사용할 수 있습니다. 계획과 컨텍스트는 명시적
+  복구 의도를 봉인합니다. 적용 또는 상태 검증이 실패하면 롤백은 수집한 이미지, 컨테이너,
+  sidecar, 시크릿 참조, 신원 및 플랫폼 계약을 정확히 복원합니다. 성능 저하 상태의 롤백은 복원된
+  개정 번호가 동일하게 범위가 제한된 실행 상태에 도달한 경우에만 수락합니다. 배포는 계속 실패
+  상태로 남고 롤백 근거를 보존합니다.
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본

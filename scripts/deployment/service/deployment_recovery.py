@@ -266,13 +266,32 @@ def _health_state_is_accepted(app: dict[str, Any], revision_properties: dict[str
     )
 
 
+def _degraded_current_is_accepted(app: dict[str, Any], revision_properties: dict[str, Any]) -> bool:
+    """Accept only a running ingress revision whose readiness is already unhealthy."""
+    properties = app.get("properties")
+    configuration = properties.get("configuration") if isinstance(properties, dict) else None
+    ingress = configuration.get("ingress") if isinstance(configuration, dict) else None
+    replicas = revision_properties.get("replicas")
+    return (
+        isinstance(ingress, dict)
+        and revision_properties.get("provisioningState") == "Provisioned"
+        and revision_properties.get("healthState") == "Unhealthy"
+        and revision_properties.get("runningState") == "Degraded"
+        and revision_properties.get("active") is True
+        and isinstance(replicas, int)
+        and not isinstance(replicas, bool)
+        and replicas >= 1
+    )
+
+
 def select_rollback_baseline(
     *,
     app: dict[str, Any],
     current_revision: dict[str, Any],
     ready_revision: dict[str, Any],
+    allow_degraded_current: bool = False,
 ) -> str:
-    """Select the current healthy revision or Azure's exact last-ready fallback."""
+    """Select a healthy baseline or an explicitly allowed running degraded current revision."""
 
     properties = app.get("properties")
     if not isinstance(properties, dict):
@@ -295,6 +314,8 @@ def select_rollback_baseline(
         or ready_name == latest_name
         or ready_revision.get("name") != ready_name
     ):
+        if allow_degraded_current and _degraded_current_is_accepted(app, current_properties):
+            return latest_name
         raise DeploymentRecoveryError("no distinct last-ready rollback revision is available")
     ready_properties = ready_revision.get("properties")
     if (
@@ -448,13 +469,26 @@ def capture_snapshot(
         raise DeploymentRecoveryError(
             "rollback snapshot revision is neither current nor the distinct last-ready revision"
         )
+    service = _required(context, "service", label="service")
     revision_properties = revision.get("properties")
+    degraded_recovery = context.get("degraded_recovery") is True
+    degraded_current_revision = (
+        degraded_recovery
+        and service == "operator-service"
+        and context.get("deployment_mode") == "database-host-binding"
+        and current_revision
+        and isinstance(revision_properties, dict)
+        and _degraded_current_is_accepted(app, revision_properties)
+    )
     invalid_current_revision = not isinstance(revision_properties, dict) or (
         current_revision
         and (
             revision_properties.get("provisioningState") != "Provisioned"
             or revision_properties.get("active") is not True
-            or not _health_state_is_accepted(app, revision_properties)
+            or (
+                not _health_state_is_accepted(app, revision_properties)
+                and not degraded_current_revision
+            )
         )
     )
     invalid_last_ready_revision = not isinstance(revision_properties, dict) or (
@@ -466,7 +500,6 @@ def capture_snapshot(
     )
     if invalid_current_revision or invalid_last_ready_revision:
         raise DeploymentRecoveryError("rollback snapshot revision is not healthy and active")
-    service = _required(context, "service", label="service")
     allow_legacy_sidecar_probes = context.get("deployment_mode") == "initial-cutover"
     containers = _revision_container_contracts(
         revision,
@@ -496,6 +529,7 @@ def capture_snapshot(
         "previous_containers": containers,
         "previous_sidecar_contracts": sidecar_contracts,
         "legacy_sidecar_probe_rollback": legacy_sidecar_probe_rollback,
+        "degraded_baseline": degraded_current_revision,
         "previous_secrets": _key_vault_secrets(app),
         "platform_rollback_required": authority_fallback == "core-in-process",
     }
@@ -532,7 +566,7 @@ def validate_rollback(
     app: dict[str, Any],
     revision: dict[str, Any],
 ) -> None:
-    """Require a new healthy revision running the exact captured image after rollback."""
+    """Require a new restorable revision running the exact captured configuration."""
     expected_subscription = _required(snapshot, "subscription_id", label="subscription id")
     if str(account.get("id", "")).lower() != expected_subscription.lower():
         raise DeploymentRecoveryError("rollback subscription does not match snapshot")
@@ -551,12 +585,18 @@ def validate_rollback(
     revision_properties = revision.get("properties")
     if revision.get("name") != latest_revision or not isinstance(revision_properties, dict):
         raise DeploymentRecoveryError("rollback evidence is not for the recovery revision")
+    degraded_baseline = snapshot.get("degraded_baseline")
+    if not isinstance(degraded_baseline, bool):
+        raise DeploymentRecoveryError("rollback snapshot degraded baseline flag is invalid")
+    accepted_health = _health_state_is_accepted(app, revision_properties) or (
+        degraded_baseline and _degraded_current_is_accepted(app, revision_properties)
+    )
     if (
         revision_properties.get("provisioningState") != "Provisioned"
-        or not _health_state_is_accepted(app, revision_properties)
+        or not accepted_health
         or revision_properties.get("active") is not True
     ):
-        raise DeploymentRecoveryError("rollback revision is not healthy and active")
+        raise DeploymentRecoveryError("rollback revision is not restorable and active")
     service = _required(snapshot, "service", label="service")
     containers = _revision_container_contracts(
         revision,
@@ -605,6 +645,7 @@ def main() -> int:
     select_baseline.add_argument("--app", type=Path, required=True)
     select_baseline.add_argument("--current-revision", type=Path, required=True)
     select_baseline.add_argument("--ready-revision", type=Path, required=True)
+    select_baseline.add_argument("--allow-degraded-current", action="store_true")
     rollback = commands.add_parser("rollback-command")
     rollback.add_argument("--snapshot", type=Path, required=True)
     rollback.add_argument("--revision-suffix", required=True)
@@ -639,6 +680,7 @@ def main() -> int:
                     app=_object(args.app),
                     current_revision=_object(args.current_revision),
                     ready_revision=_object(args.ready_revision),
+                    allow_degraded_current=args.allow_degraded_current,
                 )
             )
         elif args.command == "rollback-command":
