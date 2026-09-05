@@ -43,6 +43,7 @@ from .resource_metric_queries import (
 from .resource_state_queries import resource_state_function_type
 from .service_health_queries import service_health_function_type
 from .state_transitions import resource_state_transitions_function_type
+from .subscription_scope_queries import subscription_scope_function_type
 from .vm_process_evidence import vm_process_cpu_function_type
 
 
@@ -81,6 +82,7 @@ def operational_function_types(
         resource_state_function_type(),
         resource_state_transitions_function_type(),
         service_health_function_type(),
+        subscription_scope_function_type(),
         error_activity_correlation_function_type(),
         target_health_assessment_function_type(),
         vm_process_cpu_function_type(),

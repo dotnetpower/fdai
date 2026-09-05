@@ -24,6 +24,9 @@ from fdai_operator_service.families.conversation.presentation_planner import (
     analyze_evidence_shape,
     plan_presentation,
 )
+from fdai_operator_service.families.conversation.subscription_scope_presentation import (
+    subscription_scope_artifact,
+)
 
 _MAX_COLUMNS = 6
 _MAX_CELL_CHARS = 512
@@ -93,6 +96,7 @@ _OUTPUT_SHAPES = frozenset(
         "resource_state_list",
         "resource_state_transitions",
         "resource_target_candidates",
+        "subscription_scope_identity",
         "subscription_service_health",
         "target_error_activity_correlation",
         "target_health_assessment",
@@ -150,6 +154,13 @@ def compile_presentation_artifact_v2(
         )
     if len(outputs) != 1 or not isinstance(outputs[0], Mapping):
         return None
+    if output_shape == "subscription_scope_identity":
+        return subscription_scope_artifact(
+            output=cast(Mapping[str, object], outputs[0]),
+            evidence_refs=cast(list[str], evidence_refs),
+            locale=locale,
+            verified=_semantic_is_verified(semantic),
+        )
     if output_shape == "subscription_service_health":
         return _service_health_artifact(
             output=cast(Mapping[str, object], outputs[0]),

@@ -98,6 +98,7 @@ class EvidenceAuthority(StrEnum):
     SERVER_OPERATIONAL_METRICS = "server_operational_metrics"
     SERVER_OPERATIONAL_STATE_HISTORY = "server_operational_state_history"
     SERVER_RESOURCE_HEALTH = "server_resource_health"
+    SERVER_SUBSCRIPTION_SCOPE = "server_subscription_scope"
     SERVER_SUBSCRIPTION_HEALTH = "server_subscription_health"
 
 

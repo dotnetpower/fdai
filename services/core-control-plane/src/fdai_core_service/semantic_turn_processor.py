@@ -81,6 +81,9 @@ from .semantic_relationship_projection import (
 from .semantic_service_health_answer import (
     render_service_health_answer as _render_service_health_answer,
 )
+from .semantic_subscription_scope_answer import (
+    render_subscription_scope_answer as _render_subscription_scope_answer,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
@@ -3080,6 +3083,13 @@ def _render_general_query_answer(
     )
     if resource_condition_answer is not None:
         return resource_condition_answer
+    subscription_scope_answer = _render_subscription_scope_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if subscription_scope_answer is not None:
+        return subscription_scope_answer
     service_health_answer = _render_service_health_answer(
         outputs,
         korean=korean,

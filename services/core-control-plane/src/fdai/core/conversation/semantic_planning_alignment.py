@@ -33,6 +33,7 @@ _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "resource_metric_list": frozenset({"query.resource_metric_inventory"}),
     "resource_state_list": frozenset({"query.resource_state_inventory"}),
     "resource_state_transitions": frozenset({"query.resource_state_transitions"}),
+    "subscription_scope_identity": frozenset({"query.subscription_scope_identity"}),
     "subscription_service_health": frozenset({"query.subscription_service_health"}),
     "target_activity": frozenset({"query.resource_activity"}),
     "target_current_state": frozenset({"query.resource_current_state"}),
@@ -62,6 +63,7 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "resource_state_transitions": frozenset({QueryNodeKind.FUNCTION}),
     "resource_condition_sections": frozenset({QueryNodeKind.FUNCTION}),
     "resource_target_candidates": frozenset({QueryNodeKind.OBJECT_SET}),
+    "subscription_scope_identity": frozenset({QueryNodeKind.FUNCTION}),
     "subscription_service_health": frozenset({QueryNodeKind.FUNCTION}),
     "target_resource_metric_series": frozenset({QueryNodeKind.FUNCTION}),
     "temporal_comparison": frozenset(

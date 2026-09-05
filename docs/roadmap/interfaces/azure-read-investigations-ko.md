@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 1b6754d1fabc07aed9337d5cf602c64fa59cc59b
-translation_revised: 2026-09-02
+translation_source_sha: 0f582a973dc5dba2726fac1ab89f1e8647d6d181
+translation_revised: 2026-09-05
 ---
 
 # Azure 읽기 조사
@@ -243,22 +243,21 @@ resource-group-bound 참조를 계속 제공합니다. 이 래퍼는 `azure.netw
 
 ### 구독 범위 신원
 
-Command Deck 도구 `query_subscription_scope`는 "현재 Azure 구독은?" 같은 질문을 narrator-model
-분류 전에 처리합니다. Health 일괄 점검과 동일한 읽기 담당 신원을 사용하여 Azure Resource
-Manager에서 구성된 구독의 display 이름과 상태를 읽습니다. 브라우저 입력은 다른
-구독을 선택하거나 구성된 범위를 확장할 수 없습니다.
-
-결정론적 최종 답변은 display 이름, 상태, 관측 시간과 앞 4자 및 뒤 4자만 유지한
-masked 구독 ID를 포함합니다. 프로바이더 실패는 사용 불가 답변을 생성하며 생성된
-구독 상세로 대체 경로하지 않습니다.
+스키마로 검증한 의미 판정은 "현재 Azure 구독은?" 같은 질문에
+`subscription_scope_identity` 출력을 선택할 수 있습니다. 결정론적 플래너는 입력이 없는
+`query.subscription_scope_identity` Function 노드를 만들며 키워드, 구, 토큰 또는 정규식
+라우터는 발화를 해석하지 않습니다. Azure 어댑터는 다른 구독 읽기와 같은 읽기 담당 신원으로
+서버에 구성된 구독만 읽습니다. 브라우저나 모델 출력은 다른 구독을 선택하거나 범위를 넓힐 수
+없습니다. 최종 답변에는 표시 이름, 상태, 관측 시각, 근거 다이제스트 및 앞 4자와 뒤 4자만
+유지한 구독 ID가 포함됩니다. 프로바이더 실패는 명시적으로 사용 불가이며 구독 상세를 만들지 않습니다.
 
 ### 구독 상태 일괄 점검
 
 Command Deck 도구 `query_subscription_health`는 명시적인 구독 점검, 일반적인
 service-outage 질문 또는 카탈로그 의미가 Resource Health를 요구하는 일반적인 리소스 수집
-질문을 처리합니다. 결정론적 라우팅이 narrator-model 분류 전에 이 읽기를 선택합니다.
-범위는 서버의 구독과 resource-group 허용 목록에서만 가져오며 브라우저 입력은
-이를 넓힐 수 없습니다. 프로바이더는 다음 범위가 제한된 단계를 수행합니다.
+질문을 처리합니다. 스키마로 검증한 의미 판정이 타입이 지정된 상태 출력을 선택한 다음 결정론적
+플래닝이 읽기를 연결합니다. 범위는 서버의 구독과 resource-group 허용 목록에서만 가져오며
+브라우저 입력은 이를 넓힐 수 없습니다. 프로바이더는 다음 범위가 제한된 단계를 수행합니다.
 
 프로바이더에는 조립에서 고정되는 두 가지 모드가 있습니다. `resource_groups`가 기본값이며
 구성된 허용 목록을 `Resources`와 `HealthResources` 모두에 적용합니다. `subscription`은 조회
