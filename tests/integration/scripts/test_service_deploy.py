@@ -1812,7 +1812,7 @@ def test_plan_guard_rejects_fields_rollback_cannot_prove(
         )
 
 
-def test_plan_guard_allows_only_minimum_rollback_revision_retention(
+def test_plan_guard_allows_only_bounded_rollback_revision_retention(
     guard: ModuleType,
 ) -> None:
     plan = _plan(
@@ -1829,10 +1829,21 @@ def test_plan_guard_allows_only_minimum_rollback_revision_retention(
         image_ref="image",
     )
 
-    for unsupported in (0, 2, 50):
+    expanded = copy.deepcopy(plan)
+    expanded_change = expanded["resource_changes"][0]["change"]  # type: ignore[index]
+    expanded_change["before"]["max_inactive_revisions"] = 1
+    expanded_change["after"]["max_inactive_revisions"] = 2
+    guard.validate_plan(
+        expanded,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+    for unsupported in (0, 1, 3, 50):
         changed = copy.deepcopy(plan)
         changed_change = changed["resource_changes"][0]["change"]  # type: ignore[index]
-        changed_change["before"]["max_inactive_revisions"] = 1
+        changed_change["before"]["max_inactive_revisions"] = 2
         changed_change["after"]["max_inactive_revisions"] = unsupported
         with pytest.raises(guard.PlanGuardError, match="rollback revision retention drift"):
             guard.validate_plan(
@@ -2973,6 +2984,72 @@ def test_ingress_health_rejects_absent_azure_health_state(recovery: ModuleType) 
             app=app,
             revision=revision,
             previous_revision="example--old",
+        )
+
+
+def test_recovery_selects_distinct_last_ready_revision_when_current_is_unhealthy(
+    recovery: ModuleType,
+) -> None:
+    context, _, account, app, current = _health_evidence()
+    app["properties"]["latestReadyRevisionName"] = "example--ready"  # type: ignore[index]
+    current["properties"].update(  # type: ignore[union-attr]
+        {"healthState": None, "runningState": "Activating", "replicas": 1}
+    )
+    ready = copy.deepcopy(current)
+    ready["name"] = "example--ready"
+    ready["properties"].update(  # type: ignore[union-attr]
+        {"active": False, "healthState": "Healthy", "runningState": "Stopped", "replicas": 0}
+    )
+
+    assert (
+        recovery.select_rollback_baseline(
+            app=app,
+            current_revision=current,
+            ready_revision=ready,
+        )
+        == "example--ready"
+    )
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=ready,
+        rollback_contract={"authority_fallback": ""},
+    )
+    assert snapshot["previous_revision"] == "example--ready"
+
+
+def test_recovery_keeps_healthy_current_revision_as_rollback_baseline(
+    recovery: ModuleType,
+) -> None:
+    _, _, _, app, current = _health_evidence()
+    app["properties"]["latestReadyRevisionName"] = "example--ready"  # type: ignore[index]
+    ready = copy.deepcopy(current)
+    ready["name"] = "example--ready"
+    ready["properties"]["active"] = False  # type: ignore[index]
+
+    assert (
+        recovery.select_rollback_baseline(
+            app=app,
+            current_revision=current,
+            ready_revision=ready,
+        )
+        == "example--new"
+    )
+
+
+def test_recovery_rejects_unhealthy_last_ready_revision(recovery: ModuleType) -> None:
+    _, _, _, app, current = _health_evidence()
+    app["properties"]["latestReadyRevisionName"] = "example--ready"  # type: ignore[index]
+    current["properties"]["healthState"] = "Unhealthy"  # type: ignore[index]
+    ready = copy.deepcopy(current)
+    ready["name"] = "example--ready"
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="last-ready.*not healthy"):
+        recovery.select_rollback_baseline(
+            app=app,
+            current_revision=current,
+            ready_revision=ready,
         )
 
 
