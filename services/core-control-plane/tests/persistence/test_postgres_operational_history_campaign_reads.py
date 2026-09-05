@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fdai.core.ontology_platform.operational_history_lifecycle import build_correction_receipt
+from fdai.delivery.operational_history_archive import OperationalArchiveArtifact, _sha256
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryConfig,
     PostgresOperationalHistoryStore,
@@ -189,3 +190,37 @@ async def test_latest_correction_returns_the_persisted_receipt() -> None:
     assert receipt.correction_partition_id == PARTITION
     assert receipt.projection_watermark == 11
     assert receipt.complete is True
+
+
+async def test_phase_artifact_lookup_uses_the_exact_storage_reference() -> None:
+    storage_ref = "operational-history/oi16-certification-campaign/example/pre_restart.json"
+    body = {
+        "artifact_digest": DIGEST,
+        "storage_ref": storage_ref,
+        "manifest_digest": PARTITION,
+        "scope_refs": [SCOPE],
+        "allowed_purposes": ["oi16-dev-synthetic-certification"],
+        "byte_count": 128,
+        "created_at": NOW.isoformat(),
+    }
+    artifact = OperationalArchiveArtifact(
+        artifact_digest=DIGEST,
+        storage_ref=storage_ref,
+        manifest_digest=PARTITION,
+        scope_refs=(SCOPE,),
+        allowed_purposes=("oi16-dev-synthetic-certification",),
+        byte_count=128,
+        created_at=NOW,
+        digest=_sha256(body),
+    )
+    record = {**body, "digest": artifact.digest}
+    connection = _Connection({"WHERE storage_ref=%s": [{"record": record}]})
+
+    persisted = await _store(connection).get_archive_artifact_by_storage_ref(storage_ref)
+
+    assert persisted == artifact
+    query, params = next(
+        item for item in connection.executions if "WHERE storage_ref=%s" in item[0]
+    )
+    assert "ORDER BY created_at DESC LIMIT 1" in query
+    assert params == (storage_ref,)

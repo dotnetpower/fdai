@@ -90,7 +90,12 @@ async def run_phase(options: CampaignRunOptions, environ: Mapping[str, str]) -> 
             ),
             http_client=http_client,
         )
-        phases = CampaignPhaseStore(artifacts=artifacts, metadata=history, scope=binding.scope)
+        phases = CampaignPhaseStore(
+            artifacts=artifacts,
+            manifests=archives,
+            metadata=history,
+            scope=binding.scope,
+        )
         prior = await _prior_phase(phases, options, binding.campaign_id)
         repository = PostgresOperationalHistoryLifecycleRepository(dsn=dsn)
         journal = PostgresInventoryObservationJournal(

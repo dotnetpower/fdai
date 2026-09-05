@@ -66,7 +66,9 @@ from fdai.delivery.operational_history_certification_campaign import (
     binding_from_env,
     write_manifest,
 )
-from fdai.delivery.operational_history_certification_campaign_phase_store import CampaignPhaseStore
+from fdai.delivery.operational_history_certification_campaign_phase_store import (
+    CampaignPhaseStore,
+)
 from fdai.delivery.operational_history_certification_campaign_release import (
     PROJECTION_UNAVAILABLE,
     RELEASE_VERIFIED,
@@ -81,6 +83,10 @@ from fdai.delivery.operational_history_certification_cli import (
     build_certification_from_manifest,
 )
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
+from fdai.delivery.persistence.postgres_operational_archive import (
+    PostgresOperationalArchiveStore,
+    PostgresOperationalArchiveStoreConfig,
+)
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryConfig,
     PostgresOperationalHistoryStore,
@@ -487,6 +493,9 @@ async def _persist_merged(
     history = PostgresOperationalHistoryStore(
         config=PostgresOperationalHistoryConfig(dsn=_dsn(environ))
     )
+    archives = PostgresOperationalArchiveStore(
+        config=PostgresOperationalArchiveStoreConfig(dsn=_dsn(environ))
+    )
     async with httpx.AsyncClient() as http_client:
         artifacts = AzureBlobOperationalHistoryArtifactStore(
             config=AzureBlobOperationalHistoryConfig(container_url=container_url),
@@ -495,7 +504,12 @@ async def _persist_merged(
             ),
             http_client=http_client,
         )
-        store = CampaignPhaseStore(artifacts=artifacts, metadata=history, scope=scope)
+        store = CampaignPhaseStore(
+            artifacts=artifacts,
+            manifests=archives,
+            metadata=history,
+            scope=scope,
+        )
         artifact = await store.put(
             manifest, campaign_id=campaign_id, phase=CampaignPhase.MERGED, now=now
         )

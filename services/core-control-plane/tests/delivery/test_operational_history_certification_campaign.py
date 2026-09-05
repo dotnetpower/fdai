@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fdai.core.ontology_platform.archive_manifest import ArchiveManifest, ArchiveVerificationReceipt
 from fdai.core.ontology_platform.operational_history_certification import (
     OperationalHistoryScenario,
     OperationalHistoryScenarioStatus,
@@ -588,26 +589,46 @@ class _FakeArtifacts:
         return self.blobs.get(storage_ref)
 
 
-class _FakeMetadata:
-    """In-memory stand-in for the synthetic-scope archive artifact index."""
+class _FakeManifests:
+    def __init__(self) -> None:
+        self.rows: dict[str, ArchiveManifest] = {}
+        self.verifications: list[ArchiveVerificationReceipt] = []
 
+    async def put_manifest(self, manifest: ArchiveManifest) -> bool:
+        inserted = manifest.digest not in self.rows
+        self.rows[manifest.digest] = manifest
+        return inserted
+
+    async def append_verification(self, receipt: ArchiveVerificationReceipt) -> bool:
+        self.verifications.append(receipt)
+        return True
+
+
+class _FakeMetadata:
     def __init__(self) -> None:
         self.rows: dict[str, OperationalArchiveArtifact] = {}
 
     async def put_archive_artifact(self, artifact: OperationalArchiveArtifact) -> bool:
-        inserted = artifact.manifest_digest not in self.rows
-        self.rows[artifact.manifest_digest] = artifact
+        inserted = artifact.storage_ref not in self.rows
+        self.rows[artifact.storage_ref] = artifact
         return inserted
 
-    async def get_archive_artifact(self, manifest_digest: str) -> OperationalArchiveArtifact | None:
-        return self.rows.get(manifest_digest)
+    async def get_archive_artifact_by_storage_ref(
+        self, storage_ref: str
+    ) -> OperationalArchiveArtifact | None:
+        return self.rows.get(storage_ref)
 
 
 def _phase_store(
-    artifacts: _FakeArtifacts, metadata: _FakeMetadata, *, scope_ref: str = SCOPE_REF
+    artifacts: _FakeArtifacts,
+    manifests: _FakeManifests,
+    metadata: _FakeMetadata,
+    *,
+    scope_ref: str = SCOPE_REF,
 ) -> CampaignPhaseStore:
     return CampaignPhaseStore(
         artifacts=artifacts,
+        manifests=manifests,
         metadata=metadata,
         scope=SyntheticScope(environment="dev", scope_ref=scope_ref),
     )
@@ -631,42 +652,49 @@ async def test_phase_artifact_round_trips_through_the_synthetic_scope() -> None:
     manifest = await OperationalHistoryCertificationCampaign(
         probes=_FakeProbes(_all_passing()), binding=_binding()
     ).run(now=NOW)
-    artifacts, metadata = _FakeArtifacts(), _FakeMetadata()
-    store = _phase_store(artifacts, metadata)
+    artifacts, manifests, metadata = _FakeArtifacts(), _FakeManifests(), _FakeMetadata()
+    store = _phase_store(artifacts, manifests, metadata)
     artifact = await store.put(
         manifest, campaign_id=CAMPAIGN_ID, phase=CampaignPhase.PRE_RESTART, now=NOW
     )
     assert artifact.scope_refs == (SCOPE_REF,)
     assert artifact.allowed_purposes == (CAMPAIGN_PURPOSE,)
+    assert manifests.verifications[-1].verified is True
     assert await store.get(campaign_id=CAMPAIGN_ID, phase=CampaignPhase.PRE_RESTART) == manifest
     assert await store.get(campaign_id=CAMPAIGN_ID, phase=CampaignPhase.POST_RESTART) is None
 
 
 async def test_phase_artifact_bound_to_another_scope_is_denied() -> None:
-    artifacts, metadata = _FakeArtifacts(), _FakeMetadata()
-    await _phase_store(artifacts, metadata, scope_ref=SCOPE_REF + "-other").put(
-        {"schema_version": "1.0.0"},
+    artifacts, manifests, metadata = _FakeArtifacts(), _FakeManifests(), _FakeMetadata()
+    await _phase_store(artifacts, manifests, metadata, scope_ref=SCOPE_REF + "-other").put(
+        {"schema_version": "1.0.0", "ontology_release_digest": RELEASE},
         campaign_id=CAMPAIGN_ID,
         phase=CampaignPhase.PRE_RESTART,
         now=NOW,
     )
     with pytest.raises(PermissionError, match="bound to another scope"):
-        await _phase_store(artifacts, metadata).get(
+        await _phase_store(artifacts, manifests, metadata).get(
             campaign_id=CAMPAIGN_ID, phase=CampaignPhase.PRE_RESTART
         )
 
 
 async def test_tampered_phase_artifact_fails_closed() -> None:
-    artifacts, metadata = _FakeArtifacts(), _FakeMetadata()
-    store = _phase_store(artifacts, metadata)
+    artifacts, manifests, metadata = _FakeArtifacts(), _FakeManifests(), _FakeMetadata()
+    store = _phase_store(artifacts, manifests, metadata)
     artifact = await store.put(
-        {"schema_version": "1.0.0"},
+        {"schema_version": "1.0.0", "ontology_release_digest": RELEASE},
         campaign_id=CAMPAIGN_ID,
         phase=CampaignPhase.PRE_RESTART,
         now=NOW,
     )
-    artifacts.blobs[artifact.storage_ref] = b'{"schema_version":"1.0.0","x":"y"}\n'
+    original = artifacts.blobs[artifact.storage_ref]
+    artifacts.blobs[artifact.storage_ref] = original + b" "
     with pytest.raises(ValueError, match="byte count does not match"):
+        await store.get(campaign_id=CAMPAIGN_ID, phase=CampaignPhase.PRE_RESTART)
+    tampered = bytearray(original)
+    tampered[-2] = ord(" ")
+    artifacts.blobs[artifact.storage_ref] = bytes(tampered)
+    with pytest.raises(ValueError, match="content does not match"):
         await store.get(campaign_id=CAMPAIGN_ID, phase=CampaignPhase.PRE_RESTART)
     artifacts.blobs.pop(artifact.storage_ref)
     with pytest.raises(LookupError, match="no stored content"):
@@ -674,15 +702,15 @@ async def test_tampered_phase_artifact_fails_closed() -> None:
 
 
 async def test_unsanitized_phase_manifest_is_never_persisted() -> None:
-    artifacts, metadata = _FakeArtifacts(), _FakeMetadata()
+    artifacts, manifests, metadata = _FakeArtifacts(), _FakeManifests(), _FakeMetadata()
     with pytest.raises(ValueError, match="not sanitized"):
-        await _phase_store(artifacts, metadata).put(
+        await _phase_store(artifacts, manifests, metadata).put(
             {"scope": "/subscriptions/0000/resourceGroups/rg-live"},
             campaign_id=CAMPAIGN_ID,
             phase=CampaignPhase.PRE_RESTART,
             now=NOW,
         )
-    assert artifacts.blobs == {} and metadata.rows == {}
+    assert artifacts.blobs == {} and manifests.rows == {} and metadata.rows == {}
 
 
 def test_cli_accepts_the_protected_job_invocation(tmp_path: Path) -> None:

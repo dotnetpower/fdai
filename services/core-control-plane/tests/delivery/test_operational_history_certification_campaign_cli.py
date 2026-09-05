@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from fdai.core.ontology_platform.archive_manifest import ArchiveManifest, ArchiveVerificationReceipt
 from fdai.core.ontology_platform.operational_history_certification import (
     OperationalHistoryProtectedBinding,
     OperationalHistoryScenario,
@@ -32,9 +33,7 @@ from fdai.delivery.operational_history_certification_campaign_cli import (
     options_from_args,
     protected_binding_from_env,
 )
-from fdai.delivery.operational_history_certification_campaign_phase_store import (
-    CampaignPhaseStore,
-)
+from fdai.delivery.operational_history_certification_campaign_phase_store import CampaignPhaseStore
 from fdai.delivery.operational_history_certification_campaign_release import (
     PROJECTION_CONFLICTED,
     PROJECTION_MATCHED,
@@ -151,18 +150,32 @@ class _Artifacts:
         return self.blobs.get(storage_ref)
 
 
-class _Index:
-    """In-memory stand-in for the synthetic archive artifact index."""
+class _Manifests:
+    def __init__(self) -> None:
+        self.rows: dict[str, ArchiveManifest] = {}
+        self.verifications: list[ArchiveVerificationReceipt] = []
 
+    async def put_manifest(self, manifest: ArchiveManifest) -> bool:
+        self.rows[manifest.digest] = manifest
+        return True
+
+    async def append_verification(self, receipt: ArchiveVerificationReceipt) -> bool:
+        self.verifications.append(receipt)
+        return True
+
+
+class _Index:
     def __init__(self) -> None:
         self.rows: dict[str, OperationalArchiveArtifact] = {}
 
     async def put_archive_artifact(self, artifact: OperationalArchiveArtifact) -> bool:
-        self.rows[artifact.manifest_digest] = artifact
+        self.rows[artifact.storage_ref] = artifact
         return True
 
-    async def get_archive_artifact(self, manifest_digest: str) -> OperationalArchiveArtifact | None:
-        return self.rows.get(manifest_digest)
+    async def get_archive_artifact_by_storage_ref(
+        self, storage_ref: str
+    ) -> OperationalArchiveArtifact | None:
+        return self.rows.get(storage_ref)
 
 
 class _Sink:
@@ -170,10 +183,12 @@ class _Sink:
 
     def __init__(self) -> None:
         self.artifacts = _Artifacts()
+        self.manifests = _Manifests()
         self.index = _Index()
         self.calls: list[tuple[str, CampaignPhase]] = []
         self._store = CampaignPhaseStore(
             artifacts=self.artifacts,
+            manifests=self.manifests,
             metadata=self.index,
             scope=SyntheticScope(environment="dev", scope_ref=SCOPE_REF),
         )
@@ -620,6 +635,7 @@ async def test_blocked_finalization_preserves_no_merged_artifact(
     )
     assert sink.calls == []
     assert sink.artifacts.blobs == {}
+    assert sink.manifests.rows == {}
     assert sink.index.rows == {}
     assert certifier.calls == []
     assert not (tmp_path / "receipt.json").exists()
@@ -639,6 +655,8 @@ async def test_passing_evidence_preserves_the_merged_artifact_before_certifying(
         _manifest(), _options(tmp_path), _env(), now=NOW, sink=sink, certify=certifier
     )
     assert sink.calls == [(CAMPAIGN_ID, CampaignPhase.MERGED)]
+    assert sink.manifests.rows
+    assert sink.index.rows
     assert certifier.calls
     assert summary["reason_codes"] == []
     assert summary["finalized"] is True

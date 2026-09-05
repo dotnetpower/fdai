@@ -437,6 +437,34 @@ class PostgresOperationalHistoryStore:
             digest=_text(record, "digest"),
         )
 
+    async def get_archive_artifact_by_storage_ref(
+        self,
+        storage_ref: str,
+    ) -> OperationalArchiveArtifact | None:
+        if not storage_ref:
+            raise ValueError("operational archive storage reference MUST NOT be empty")
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT record FROM operational_archive_artifact "
+                "WHERE storage_ref=%s ORDER BY created_at DESC LIMIT 1",
+                (storage_ref,),
+            )
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        record = _mapping(row["record"])
+        return OperationalArchiveArtifact(
+            artifact_digest=_text(record, "artifact_digest"),
+            storage_ref=_text(record, "storage_ref"),
+            manifest_digest=_text(record, "manifest_digest"),
+            scope_refs=_tuple(record, "scope_refs"),
+            allowed_purposes=_tuple(record, "allowed_purposes"),
+            byte_count=_integer(record, "byte_count"),
+            created_at=_timestamp(record, "created_at"),
+            digest=_text(record, "digest"),
+        )
+
     async def is_archive_verified(self, manifest_digest: str) -> bool:
         async with await self._connect() as connection:
             await self._set_timeout(connection)
