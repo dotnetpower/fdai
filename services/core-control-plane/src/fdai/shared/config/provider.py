@@ -65,6 +65,7 @@ _ENV_VAR_MAP: tuple[tuple[str, tuple[str, ...], bool], ...] = (
     ("AUTONOMY_MODE_DEFAULT", ("runtime", "autonomy_mode_default"), False),
     ("LLM_MODE", ("llm", "mode"), False),
     ("LLM_RESOLVED_MODELS_PATH", ("llm", "resolved_models_path"), False),
+    ("LLM_RESOLVED_MODELS_SHA256", ("llm", "resolved_models_sha256"), False),
     ("T1_SIMILARITY_THRESHOLD", ("llm", "t1_similarity_threshold"), False),
     ("T1_MIN_SUCCESS_RATE", ("llm", "t1_min_success_rate"), False),
     (

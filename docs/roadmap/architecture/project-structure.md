@@ -131,6 +131,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying
   the reviewed secondary profile. Semantic pre-frame selection keeps summaries, traces, and
   ownership frames typed separately; compatibility facades retain stable imports.
+- **resolved-model startup has one revision owner**: the runtime owner loads one immutable artifact,
+  verifies its deployment digest before parsing, and publishes the same revision to lifecycle review
+  and capability binding. Trusted pull request observations bind proposal and decision digests before
+  the decision enters the state store. An expired proposal can hold a capability before binding, but
+  it cannot rewrite the model mapping or grant approval or execution authority.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from

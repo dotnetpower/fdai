@@ -226,6 +226,18 @@ Core code depends only on the capability contract. `resolved-models.json` is loa
 Key Vault at startup; a stale reference (deployment deleted or 404) **fail-closes to HIL**,
 not to a different capability.
 
+One asynchronous startup owner loads the artifact once and publishes an immutable revision to
+both lifecycle evaluation and capability binding. Core and Operator compare the artifact bytes
+with `LLM_RESOLVED_MODELS_SHA256` before constructing a model adapter. The lifecycle side also
+canonicalizes those bytes to the source digest carried by proposal schema v3.
+
+Only a trusted pull-request observation with a valid head revision, recomputed proposal digest,
+and `activation_authority: false` can enter evaluation. The owner recomputes the decision digest
+and persists the decision idempotently before exposing any capability. An expired, unmerged
+proposal for the current source contributes a pre-binding hold set. A held capability is
+unavailable to the binder without rewriting the resolved mapping, granting mapping authority, or
+granting execution authority. A stale-source proposal contributes no hold.
+
 ```python
 # core/tiers/t2-reasoning/reasoner.py (illustrative)
 primary   = client.for_capability("t2.reasoner.primary")

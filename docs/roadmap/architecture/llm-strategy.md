@@ -412,9 +412,16 @@ corresponding protocols. Otherwise the existing single-route behavior remains un
 
 ### Reconciler Job
 
-The planned weekly Job watches newer preferred families, deprecations within 60 days, and measured capacity or quality drift. It opens only a bounded issue or draft PR and an A2 alert; it never changes the live mapping.
-Proposal schema v2 compares SKU and effective capacity unit/value in addition to family, publisher, and status, so an in-place scale or replacement cannot be misclassified as no change.
-An expired unmerged replacement lowers the capability to human review, and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
+The scheduled weekly Job watches newer preferred families, deprecations, and measured capacity or
+quality drift. It emits sanitized proposal schema v3 evidence, uses the proposal digest for
+idempotency, and opens only a draft PR; it never changes the live mapping. Provider failure produces
+an authority-free abstention instead of a draft.
+
+Schema v3 compares SKU and effective capacity unit/value in addition to family, publisher, and
+status, so an in-place scale or replacement cannot be misclassified as no change. Trusted PR
+lifecycle observation verifies the proposal and decision digests. An expired unmerged replacement
+holds only its affected capabilities before binding, and any accepted registry change still needs
+Owner review plus frozen-scenario shadow replay.
 
 ### Mixed-Model Family Strategies
 

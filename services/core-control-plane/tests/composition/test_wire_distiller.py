@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -138,7 +139,13 @@ def _container(resolved: ResolvedModels):  # type: ignore[no-untyped-def]
             },
             "postgres": {"host": "postgres.example.com", "database": "fdai"},
             "runtime": {"env": "dev"},
-            "llm": {"mode": "azure", "resolved_models_path": resolved.to_json()},
+            "llm": {
+                "mode": "azure",
+                "resolved_models_path": resolved.to_json(),
+                "resolved_models_sha256": hashlib.sha256(
+                    resolved.to_json().strip().encode("utf-8")
+                ).hexdigest(),
+            },
         }
     )
     return default_container(config)

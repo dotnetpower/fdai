@@ -111,6 +111,7 @@ class LlmConfig(_ConfigBase):
 
     mode: Annotated[str, Field(pattern=r"^(local-fake|azure)$")] = LlmMode.LOCAL_FAKE
     resolved_models_path: Annotated[str, Field(min_length=1)] | None = None
+    resolved_models_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
     capabilities: tuple[str, ...] = _DEFAULT_LLM_CAPABILITIES
     t1_similarity_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.8
     t1_min_success_rate: Annotated[float, Field(ge=0.0, le=1.0)] = 0.9
@@ -142,6 +143,11 @@ class LlmConfig(_ConfigBase):
             raise ValueError(
                 "llm.mode='azure' requires llm.resolved_models_path - cannot "
                 "load Azure adapters without the resolver output"
+            )
+        if self.mode == LlmMode.AZURE and not self.resolved_models_sha256:
+            raise ValueError(
+                "llm.mode='azure' requires llm.resolved_models_sha256 - cannot "
+                "bind an unversioned resolver output"
             )
         if len(set(self.capabilities)) != len(self.capabilities):
             raise ValueError("llm.capabilities MUST NOT contain duplicates")

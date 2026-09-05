@@ -175,7 +175,10 @@ def bind_azure_llm_bindings(
             "bind_azure_llm_bindings requires llm.resolved_models_path (validated earlier)"
         )
 
-    resolved = _load_resolved_models(container.config.llm.resolved_models_path)
+    resolved = _load_resolved_models(
+        container.config.llm.resolved_models_path,
+        expected_digest=container.config.llm.resolved_models_sha256,
+    )
     embedding_cap = _capability(resolved, "t1.embedding")
     primary_cap = _capability(resolved, "t2.reasoner.primary")
     secondary_cap = _capability(resolved, "t2.reasoner.secondary")

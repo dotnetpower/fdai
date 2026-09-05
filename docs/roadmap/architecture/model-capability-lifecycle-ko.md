@@ -1,8 +1,8 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: 8b9927800b58cc643f25ba3e7fdc637e1488e887
-translation_revised: 2026-08-29
+translation_source_sha: 981932ae6ea22c9070d997a022bb5aa4e09d48c8
+translation_revised: 2026-09-05
 ---
 # 모델 기능 수명 주기
 
@@ -218,6 +218,18 @@ CI 배포 단계가 모든 T2 케이스를 조용히 HIL로 보내는 reasoning 
 
 코어 코드는 기능 계약에만 의존. `resolved-models.json` 은 시작 시 Key Vault에서 로드;
 stale 참조(배포 삭제 또는 404) 는 다른 기능이 아니라 **HIL로 fail-close**.
+
+하나의 비동기 시작 소유자가 산출물을 한 번만 불러오고 불변 리비전을 수명 주기 평가와 기능
+연결에 함께 게시합니다. 코어와 Operator는 모델 어댑터를 만들기 전에 산출물 바이트를
+`LLM_RESOLVED_MODELS_SHA256`과 비교합니다. 수명 주기 경계는 같은 바이트를 정규화하여 제안
+스키마 v3가 운반하는 원본 다이제스트와 비교합니다.
+
+유효한 헤드 리비전, 다시 계산한 제안 다이제스트, `activation_authority: false`를 갖춘 신뢰할
+수 있는 PR 관찰만 평가에 들어갈 수 있습니다. 소유자는 기능을 노출하기 전에 결정 다이제스트를
+다시 계산하고 결정을 멱등으로 영속화합니다. 현재 원본에 대한 만료되고 병합되지 않은 제안은
+연결 전 보류 집합에 포함됩니다. 보류된 기능은 해석된 매핑을 다시 쓰거나 매핑 권한 또는 실행
+권한을 부여하지 않은 채 연결기에서 사용할 수 없게 됩니다. 오래된 원본의 제안은 보류를
+만들지 않습니다.
 
 ```python
 # core/tiers/t2-reasoning/reasoner.py (illustrative)

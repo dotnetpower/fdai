@@ -102,7 +102,10 @@ def compose_azure_semantic_query_runtime(
     if identity is None or http_client is None:
         return _unavailable("semantic_model_transport_unavailable")
     try:
-        resolved = _load_resolved_models(container.config.llm.resolved_models_path)
+        resolved = _load_resolved_models(
+            container.config.llm.resolved_models_path,
+            expected_digest=container.config.llm.resolved_models_sha256,
+        )
         t1_candidates = t1_model_targets(
             resolved,
             endpoint=endpoint,

@@ -107,6 +107,11 @@
           "minLength": 1,
           "description": "Filesystem path or KV secret name pointing at the resolved-models.json emitted by the bootstrap resolver. REQUIRED when mode=azure."
         },
+        "resolved_models_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Exact lowercase SHA-256 revision of the resolved-model source. REQUIRED when mode=azure."
+        },
         "capabilities": {
           "type": "array",
           "items": {

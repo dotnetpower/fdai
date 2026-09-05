@@ -10,6 +10,7 @@ def test_default_llm_config_is_local_fake() -> None:
     cfg = LlmConfig()
     assert cfg.mode == LlmMode.LOCAL_FAKE
     assert cfg.resolved_models_path is None
+    assert cfg.resolved_models_sha256 is None
     # Default capabilities MUST include the four core ones so the composition
     # root does not have to fabricate a fallback list.
     assert "t1.embedding" in cfg.capabilities
@@ -22,8 +23,17 @@ def test_azure_mode_requires_resolved_models_path() -> None:
         LlmConfig(mode=LlmMode.AZURE)
 
 
-def test_azure_mode_with_path_is_accepted() -> None:
-    cfg = LlmConfig(mode=LlmMode.AZURE, resolved_models_path="kv://resolved-models")
+def test_azure_mode_requires_resolved_models_digest() -> None:
+    with pytest.raises(ValueError, match="resolved_models_sha256"):
+        LlmConfig(mode=LlmMode.AZURE, resolved_models_path="kv://resolved-models")
+
+
+def test_azure_mode_with_source_revision_is_accepted() -> None:
+    cfg = LlmConfig(
+        mode=LlmMode.AZURE,
+        resolved_models_path="kv://resolved-models",
+        resolved_models_sha256="a" * 64,
+    )
     assert cfg.resolved_models_path == "kv://resolved-models"
 
 

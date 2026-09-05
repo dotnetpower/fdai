@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7db6aa6033f7e9388b71a3a0896626f4bf5fba44
+translation_source_sha: 945dc1996c75ef0ba945866256a18e73201f3c1d
 translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
@@ -125,6 +125,11 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
   충족하지 못하게 합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
   호환성 facade는 안정적인 import를 유지합니다.
+- **해석된 모델 시작에는 개정 번호 소유자 하나만 있음**: 런타임 소유자는 변경할 수 없는 산출물
+  하나를 로드하고 구문 분석 전에 배포 다이제스트를 검증하며, 같은 개정 번호를 수명 주기 검토와
+  기능 바인딩에 게시합니다. 신뢰할 수 있는 PR 관측은 결정을 상태 저장소에 기록하기
+  전에 제안 및 결정 다이제스트를 결속합니다. 만료된 제안은 바인딩 전에 기능을 보류할 수 있지만
+  모델 매핑을 다시 쓰거나 승인 또는 실행 권한을 부여할 수 없습니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,

@@ -107,7 +107,12 @@ async def bind_azure_ontology_distiller_from_catalog(
     resolved_path = container.config.llm.resolved_models_path
     if resolved_path is None:
         raise LlmBindingsUnavailableError("Azure LLM wiring requires resolved model bindings")
-    state = ontology_council_binding_state(_load_resolved_models(resolved_path))
+    state = ontology_council_binding_state(
+        _load_resolved_models(
+            resolved_path,
+            expected_digest=container.config.llm.resolved_models_sha256,
+        )
+    )
     system_prompt = ""
     prompt_digest = ""
     schema_digest = ""
@@ -175,7 +180,10 @@ def bind_azure_ontology_distiller(
         raise ValueError("bind_azure_ontology_distiller requires llm.resolved_models_path")
     if not endpoint:
         raise ValueError("bind_azure_ontology_distiller requires a non-empty endpoint")
-    resolved = _load_resolved_models(container.config.llm.resolved_models_path)
+    resolved = _load_resolved_models(
+        container.config.llm.resolved_models_path,
+        expected_digest=container.config.llm.resolved_models_sha256,
+    )
     state = ontology_council_binding_state(resolved)
     if state == OntologyCouncilBindingState.ABSENT:
         return container
