@@ -1642,6 +1642,52 @@ def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> 
         )
 
 
+def test_plan_guard_allows_operator_runtime_bindings_with_database_host(
+    guard: ModuleType,
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    expected = {
+        "FDAI_HIL_DECISION_TOPIC": "fdai.hil.decisions",
+        "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": ("operator.incident-intervention.requests"),
+        "FDAI_NOTIFICATION_RECEIPT_TOPIC": "fdai.notifications.delivery-receipts",
+        "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID": (
+            "operator-read-investigation-completion-v1"
+        ),
+        "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC": ("core.read-investigation.completions"),
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": ("operator.read-investigation.requests"),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+    }
+    for name in ("POSTGRES_HOST", *expected):
+        _remove_environment_binding(plan, name)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.append({"name": "POSTGRES_HOST", "value": "db.example.com"})
+    after_environment.extend({"name": name, "value": value} for name, value in expected.items())
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        database_host_binding=True,
+    )
+
+    next(item for item in after_environment if item["name"] == "FDAI_SEMANTIC_TURN_REQUEST_TOPIC")[
+        "value"
+    ] = "unreviewed.topic"
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            database_host_binding=True,
+        )
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [

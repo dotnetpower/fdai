@@ -70,6 +70,18 @@ _MODEL_BINDING_ENVIRONMENT = frozenset(
         "LLM_RESOLVED_MODELS_SHA256",
     }
 )
+_OPERATOR_RUNTIME_BINDINGS = {
+    "FDAI_HIL_DECISION_TOPIC": "fdai.hil.decisions",
+    "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": "operator.incident-intervention.requests",
+    "FDAI_NOTIFICATION_RECEIPT_TOPIC": "fdai.notifications.delivery-receipts",
+    "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID": (
+        "operator-read-investigation-completion-v1"
+    ),
+    "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC": "core.read-investigation.completions",
+    "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
+    "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+    "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+}
 _SHAREPOINT_CONNECTOR_ENVIRONMENT = frozenset(
     {
         "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF",
@@ -607,7 +619,19 @@ def _guard_database_host_binding(
         if _environment_binding(before_environment.get(name))
         != _environment_binding(after_environment.get(name))
     }
-    unexpected = sorted(changed_names.difference({"POSTGRES_HOST"} | additional_allowed_names))
+    operator_runtime_bindings = {
+        name
+        for name in changed_names
+        if contract.service == "operator-service"
+        and _environment_binding(after_environment.get(name))
+        == (_OPERATOR_RUNTIME_BINDINGS.get(name), None)
+        and name in _OPERATOR_RUNTIME_BINDINGS
+    }
+    unexpected = sorted(
+        changed_names.difference(
+            {"POSTGRES_HOST"} | additional_allowed_names | operator_runtime_bindings
+        )
+    )
     host_binding = _environment_binding(after_environment.get("POSTGRES_HOST"))
     violations: list[str] = []
     if unexpected:
