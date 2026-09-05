@@ -534,7 +534,8 @@ a:hover {
 }
 .document-upload-policy,
 .document-drop-zone,
-.document-upload-list {
+.document-upload-list,
+.document-library {
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -558,6 +559,7 @@ a:hover {
 }
 .document-upload-settings label { display: flex; flex-direction: column; gap: 6px; }
 .document-upload-settings label > span { color: var(--fg-muted); font-size: 12px; font-weight: 600; }
+.document-upload-settings label > small { color: var(--fg-muted); line-height: 1.4; }
 .document-upload-settings input,
 .document-upload-settings select {
   min-height: 38px;
@@ -621,6 +623,46 @@ a:hover {
 .document-upload-error,
 .document-upload-notice { overflow-wrap: anywhere; }
 .document-upload-notice { color: var(--warning, #8a5a00) !important; }
+.document-library-head,
+.document-library-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(180px, .65fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.document-library-head { align-items: start; }
+.document-library-head > div { grid-column: 1 / -2; }
+.document-library-head h3,
+.document-library-head p { margin: 0; }
+.document-library-head p,
+.document-library-head > span,
+.document-library-state,
+.document-library-row small,
+.document-library-size { color: var(--fg-muted); }
+.document-library-head p { margin-top: 6px; }
+.document-library-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.document-library-row:first-of-type { margin-top: 16px; }
+.document-library-name,
+.document-library-meta { min-width: 0; }
+.document-library-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.document-library-row .status {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 11px;
+}
+.document-library-row .status-ready,
+.document-library-row .status-ready_with_warnings { color: var(--success, #217a4b); }
+.document-library-row .status-held { color: var(--warning, #8a5a00); }
+.document-library-row .status-failed { color: var(--danger, #b3261e); }
+.document-library-state { margin-bottom: 0; }
 
 @media (max-width: 760px) {
   .document-upload-list-head { align-items: flex-start; flex-direction: column; }
@@ -632,6 +674,10 @@ a:hover {
     min-height: 44px;
     justify-self: stretch;
   }
+  .document-library-head,
+  .document-library-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .document-library-head > div { grid-column: 1 / -1; }
+  .document-library-meta { grid-column: 1 / -1; }
 }
 
 .knowledge-route { gap: 32px; }

@@ -22,6 +22,22 @@ export interface UploadSession {
   readonly failure_code?: string | null;
 }
 
+export interface DocumentVersionSummary {
+  readonly document_id: string;
+  readonly version_id: string;
+  readonly source_name: string;
+  readonly size_bytes: number;
+  readonly media_type: string;
+  readonly state: string;
+  readonly classification: string;
+  readonly purposes: readonly string[];
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly active: boolean;
+  readonly available: boolean;
+  readonly warnings: readonly string[];
+}
+
 export interface HandoverDraftResult {
   readonly upload_id: string;
   readonly document_id: string;
@@ -114,6 +130,18 @@ export class IngestionApiClient {
     return this.#json<UploadSession>(`/ingestion/uploads/${encodeURIComponent(uploadId)}`, {
       method: "GET",
     });
+  }
+
+  async listDocuments(collectionId: string, limit = 100): Promise<readonly DocumentVersionSummary[]> {
+    const params = new URLSearchParams({
+      collection_id: collectionId,
+      limit: String(limit),
+    });
+    const response = await this.#json<{ readonly items: readonly DocumentVersionSummary[] }>(
+      `/documents?${params.toString()}`,
+      { method: "GET" },
+    );
+    return response.items;
   }
 
   async handoverDraft(uploadId: string): Promise<HandoverDraftResult> {

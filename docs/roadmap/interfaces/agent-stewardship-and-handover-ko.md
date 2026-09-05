@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: d4102cade9973aec21747de72aa7c9ed2c21cc9d
+translation_source_sha: 5244a30d4c09a9354a49e737d3b571f65caf1ed9
 translation_revised: 2026-09-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -69,6 +69,8 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
    Platform 커넥터를 포함한 다른 인제스트 경로는 별도 인증기와 서버 소유 문서 정책을
    사용합니다. 결과 문서가 일반 `handover_bootstrap` 파이프라인에 독립적으로 진입하지
    않는 한 담당 체계 웹후크를 호출하거나 담당 매핑을 만들 수 없습니다.
+   컬렉션 문서 목록 경로는 읽기 전용이며 인수인계 용도를 선택하거나 웹후크를 호출하거나
+   담당 체계 초안을 만들 수 없습니다.
 6. **모든 변경은 통보되고 감사되어야 한다.** Core는 recipient와 감사 페이로드를 결정론적으로
   계산합니다. 실제 운영 PR/병합 통합은 이 기본 요소를 알림/감사 어댑터에 배선해야 합니다.
 7. **자율 운영은 담당 체계의 대안입니다.** `accept_autonomous`는 에이전트에 accountable 소유자가

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { PageHeader } from "../components/ui";
@@ -6,6 +7,7 @@ import { usePublishViewContext } from "../deck/context";
 import {
   IngestionApiClient,
   IngestionApiError,
+  type DocumentVersionSummary,
   type HandoverDraftResult,
   type IngestionCapabilities,
 } from "../ingestion-api";
@@ -15,6 +17,10 @@ import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18
 import { openDeckWithContext } from "../deck/open-deck";
 import { addHandoverEvidence, fetchHandoverGoal } from "../handover-api";
 import { handoverText } from "../deck/handover-i18n";
+
+const DocumentLibrary = lazy(async () => ({
+  default: (await import("./document-library")).DocumentLibrary,
+}));
 
 interface Props { readonly client: OperatorApiClient }
 
@@ -124,6 +130,10 @@ export function DocumentIngestionRoute({ client }: Props) {
   const [consent, setConsent] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [documents, setDocuments] = useState<readonly DocumentVersionSummary[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [documentsRevision, setDocumentsRevision] = useState(0);
   const handover = handoverUploadContext(
     typeof window === "undefined" ? "" : window.location.search,
   );
@@ -143,6 +153,42 @@ export function DocumentIngestionRoute({ client }: Props) {
     return () => { cancelled = true; };
   }, [api]);
 
+  useEffect(() => {
+    const selectedCollection = collection.trim();
+    if (!selectedCollection) {
+      setDocuments([]);
+      setDocumentsLoading(false);
+      setDocumentsError(null);
+      return;
+    }
+    let cancelled = false;
+    setDocuments([]);
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    const timer = globalThis.setTimeout(() => {
+      void api.listDocuments(selectedCollection).then(
+        (items) => {
+          if (!cancelled) {
+            setDocuments(items);
+            setDocumentsLoading(false);
+          }
+        },
+        (error: unknown) => {
+          if (!cancelled) {
+            setDocumentsError(
+              error instanceof Error ? error.message : knowledgeText("libraryUnavailable"),
+            );
+            setDocumentsLoading(false);
+          }
+        },
+      );
+    }, 250);
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(timer);
+    };
+  }, [api, collection, documentsRevision]);
+
   usePublishViewContext(
     () => buildDocumentViewSnapshot({
       routeLabel: t("route.documents"),
@@ -156,6 +202,13 @@ export function DocumentIngestionRoute({ client }: Props) {
         state: row.state,
         ...(row.uploadId ? { uploadId: row.uploadId } : {}),
       })),
+      documents: documents.map((document) => ({
+        documentId: document.document_id,
+        versionId: document.version_id,
+        name: document.source_name,
+        size: document.size_bytes,
+        state: document.state,
+      })),
       capabilities: capabilities ? {
         supportedFormats: capabilities.supported_formats,
         maxFileSize: capabilities.max_file_size,
@@ -165,7 +218,7 @@ export function DocumentIngestionRoute({ client }: Props) {
       capabilitiesAvailable: capabilities !== null && capabilityError === null,
       capturedAt: new Date().toISOString(),
     }),
-    [capabilities, capabilityError, collection, consent, purpose, rows, storageMode],
+    [capabilities, capabilityError, collection, consent, documents, purpose, rows, storageMode],
   );
 
   const addFiles = (files: FileList | readonly File[]) => {
@@ -271,6 +324,7 @@ export function DocumentIngestionRoute({ client }: Props) {
               : {}),
             ...(draft ? { draft } : {}),
           });
+          setDocumentsRevision((current) => current + 1);
         } catch (error) {
           updateRow(row.key, {
             state: "failed",
@@ -301,6 +355,9 @@ export function DocumentIngestionRoute({ client }: Props) {
           }
 
         : { state: "failed", error: uploadTerminalError(completed) });
+      if (completed.state === "ready" || completed.state === "ready_with_warnings") {
+        setDocumentsRevision((current) => current + 1);
+      }
     } catch (error) {
       updateRow(row.key, {
         state: "failed",
@@ -322,7 +379,7 @@ export function DocumentIngestionRoute({ client }: Props) {
   const formats = capabilities
     ? documentFormatLabels(capabilities.supported_formats)
     : t("documents.loadingCapabilities");
-  const maxSize = capabilities ? formatBytes(capabilities.max_file_size) : "-";
+  const maxSize = capabilities ? formatDocumentBytes(capabilities.max_file_size) : "-";
 
   return (
     <div class="stack document-ingestion-route">
@@ -343,6 +400,7 @@ export function DocumentIngestionRoute({ client }: Props) {
         <label>
           <span>{t("documents.collection")}</span>
           <input value={collection} maxLength={256} disabled={uploading} onInput={(event) => { setCollection(event.currentTarget.value); setConsent(false); }} />
+          <small>{knowledgeText("collectionHint")}</small>
         </label>
         <label>
           <span>{t("documents.purpose")}</span>
@@ -401,7 +459,7 @@ export function DocumentIngestionRoute({ client }: Props) {
           </div>
           {rows.map((row) => (
             <div class="document-upload-row" key={row.key}>
-              <div><strong>{row.file.name}</strong><small>{formatBytes(row.file.size)}</small></div>
+              <div><strong>{row.file.name}</strong><small>{formatDocumentBytes(row.file.size)}</small></div>
               <span class={`status status-${row.state}`}>{t(`documents.state.${row.state}`)}</span>
               {row.error ? <small class="document-upload-error">{row.error}</small> : null}
               {row.notice ? <small class="document-upload-notice">{row.notice}</small> : null}
@@ -430,6 +488,15 @@ export function DocumentIngestionRoute({ client }: Props) {
           ))}
         </section>
       ) : null}
+
+      <Suspense fallback={<p role="status">{knowledgeText("libraryLoading")}</p>}>
+        <DocumentLibrary
+          collection={collection.trim() || t("documents.collectionFallback")}
+          documents={documents}
+          loading={documentsLoading}
+          error={documentsError}
+        />
+      </Suspense>
     </div>
   );
 }
@@ -487,7 +554,7 @@ export async function sha256(file: File): Promise<string> {
   return hasher.digest("hex");
 }
 
-function formatBytes(value: number): string {
+function formatDocumentBytes(value: number): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MiB`;

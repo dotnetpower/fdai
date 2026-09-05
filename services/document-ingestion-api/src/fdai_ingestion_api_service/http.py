@@ -16,6 +16,7 @@ from fdai_service_contracts import (
     DocumentPurpose,
     DocumentSearch,
     DocumentState,
+    DocumentVersion,
     ProviderUnavailableError,
     SourceStorageMode,
 )
@@ -256,7 +257,7 @@ def build_app(
             collection_id=collection_id,
             limit=limit,
         )
-        return JSONResponse({"items": [item.model_dump(mode="json") for item in items]})
+        return JSONResponse({"items": [_document_summary(item) for item in items]})
 
     async def delete_version(request: Request) -> Response:
         principal = authorize(request, _CONTRIBUTOR_ROLES)
@@ -612,6 +613,25 @@ def _create_request(
             body.get("supersedes_version_id"), "supersedes_version_id"
         ),
     )
+
+
+def _document_summary(version: DocumentVersion) -> dict[str, object]:
+    """Return list metadata without source hashes, uploader ids, or access memberships."""
+    return {
+        "document_id": str(version.document_id),
+        "version_id": str(version.version_id),
+        "source_name": version.source_name,
+        "size_bytes": version.size_bytes,
+        "media_type": version.media_type,
+        "state": version.state.value,
+        "classification": version.classification,
+        "purposes": [purpose.value for purpose in version.purposes],
+        "created_at": version.created_at.isoformat(),
+        "updated_at": version.updated_at.isoformat(),
+        "active": version.active,
+        "available": version.available,
+        "warnings": list(version.warnings),
+    }
 
 
 async def _json_body(request: Request) -> dict[str, Any]:

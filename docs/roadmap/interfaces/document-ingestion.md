@@ -55,6 +55,8 @@ durable metadata. Uploading to a collection does not create a physical folder or
 collection. Production deployments control the allowed collection ids and reader groups through
 server-owned policy. Moving or renaming a collection is an administrative policy and migration
 operation rather than a file-browser action.
+When the selected collection changes, the Console clears the prior collection's rows before loading
+the next authorized projection so stale metadata never appears under a different scope.
 
 The surface shows these facts before upload:
 

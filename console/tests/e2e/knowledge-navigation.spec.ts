@@ -45,9 +45,34 @@ test("navigates the Knowledge domain without implying unavailable connectors are
 });
 
 test("uploads a document without overriding collection reader policy", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   let createPayload: Record<string, unknown> | null = null;
   let createAttempts = 0;
   let statusChecks = 0;
+  await page.context().route("http://127.0.0.1:8011/documents?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        items: [{
+          document_id: "document-library-1",
+          version_id: "version-library-1",
+          source_name: "persisted-guide.txt",
+          size_bytes: 17,
+          media_type: "text/plain",
+          state: "ready",
+          classification: "unclassified",
+          purposes: ["knowledge_base"],
+          created_at: "2026-09-05T03:00:00Z",
+          updated_at: "2026-09-05T03:01:00Z",
+          active: true,
+          available: true,
+          warnings: [],
+        }],
+      }),
+    });
+  });
   await page.context().route("http://127.0.0.1:8011/ingestion/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -123,6 +148,9 @@ test("uploads a document without overriding collection reader policy", async ({ 
   });
 
   await page.goto("/documents");
+  await expect(page.getByText("persisted-guide.txt")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("persisted-guide.txt")).toBeVisible();
   const filePicker = page.getByRole("button", { name: "Choose files" });
   await expect(filePicker).toBeVisible();
   await expect(filePicker).toHaveCSS("display", "flex");
@@ -153,6 +181,18 @@ test("uploads a document without overriding collection reader policy", async ({ 
     collection_id: "shared-knowledge",
     access_descriptor_ref: "collection:shared-knowledge",
   });
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 993, height: 641 });
+  await expect(page.getByText("persisted-guide.txt")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".document-library-row")).toHaveCSS(
+    "grid-template-columns",
+    /.+ .+/,
+  );
+  await expectNoHorizontalOverflow(page);
 });
 
 function uploadSession(state: string, failureCode: string | null = null) {

@@ -8,6 +8,14 @@ export interface DocumentUploadViewRow {
   readonly uploadId?: string;
 }
 
+export interface DocumentLibraryViewRow {
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly name: string;
+  readonly size: number;
+  readonly state: string;
+}
+
 export interface DocumentCapabilityView {
   readonly supportedFormats: readonly string[];
   readonly maxFileSize: number;
@@ -22,12 +30,14 @@ export interface DocumentViewInput {
   readonly storageMode: string;
   readonly consent: boolean;
   readonly uploads: readonly DocumentUploadViewRow[];
+  readonly documents?: readonly DocumentLibraryViewRow[];
   readonly capabilities: DocumentCapabilityView | null;
   readonly capabilitiesAvailable: boolean;
   readonly capturedAt: string;
 }
 
 export function buildDocumentViewSnapshot(input: DocumentViewInput): ViewSnapshot {
+  const documents = input.documents ?? [];
   const ready = input.uploads.filter((upload) => upload.state === "ready").length;
   const failed = input.uploads.filter((upload) => upload.state === "failed").length;
   const queued = input.uploads.filter((upload) => upload.state === "queued").length;
@@ -68,6 +78,7 @@ export function buildDocumentViewSnapshot(input: DocumentViewInput): ViewSnapsho
       { key: "queued_files", label: "Files ready to upload", value: queued, group: "status" },
       { key: "ready_files", label: "Files ready to use", value: ready, group: "status" },
       { key: "failed_files", label: "Failed files", value: failed, group: "status" },
+      { key: "stored_documents", label: "Documents in collection", value: documents.length, group: "status" },
       { key: "capabilities_available", label: "Upload service available", value: input.capabilitiesAvailable, group: "limits" },
       { key: "supported_formats", label: "Supported formats", value: formats, group: "limits" },
       { key: "max_file_size_bytes", label: "Maximum file size in bytes", value: input.capabilities?.maxFileSize ?? null, group: "limits" },
@@ -157,6 +168,13 @@ export function buildDocumentViewSnapshot(input: DocumentViewInput): ViewSnapsho
         size: upload.size,
         state: upload.state,
         upload_id: upload.uploadId ?? null,
+      })),
+      documents: documents.map((document) => ({
+        document_id: document.documentId,
+        version_id: document.versionId,
+        name: document.name,
+        size: document.size,
+        state: document.state,
       })),
     },
   };

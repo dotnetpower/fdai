@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 3e3afe9d0d8266b5accd9205b08531ad01abec99
+translation_source_sha: eaa7615478cbcfc8d0b8ef990ccad1be81269cab
 translation_revised: 2026-09-05
 ---
 # 문서 인제스트와 투입 구역
@@ -57,6 +57,8 @@ DevOps는 서버가 소유하는 커넥터 계약에서 구성, 동기화 및 �
 폴더가 생성되거나 해당 컬렉션에 대한 접근 권한이 부여되지는 않습니다. 운영 배포에서는
 서버 소유 정책으로 허용된 컬렉션 ID와 읽기 그룹을 관리합니다. 컬렉션 이동이나 이름
 변경은 파일 브라우저 작업이 아니라 관리자 정책 및 마이그레이션 작업입니다.
+선택한 컬렉션이 바뀌면 Console은 다음 권한 적용 변환 결과를 불러오기 전에 이전 컬렉션의
+행을 지웁니다. 따라서 오래된 메타데이터가 다른 범위 아래에 표시되지 않습니다.
 
 업로드 전에 다음 정보를 표시합니다.
 

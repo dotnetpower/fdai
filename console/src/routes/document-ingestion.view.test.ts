@@ -120,6 +120,13 @@ describe("Documents ViewSnapshot", () => {
       storageMode: "managed_copy",
       consent: false,
       uploads: [],
+      documents: [{
+        documentId: "document-1",
+        versionId: "version-1",
+        name: "persisted-guide.txt",
+        size: 512,
+        state: "ready",
+      }],
       capabilities: {
         supportedFormats: ["text", "ooxml", "pdf-detect-only"],
         maxFileSize: 25 * 1024 * 1024,
@@ -141,8 +148,18 @@ describe("Documents ViewSnapshot", () => {
       expect.objectContaining({ key: "supported_formats", label: "Supported formats", value: "text, ooxml, pdf-detect-only" }),
       expect.objectContaining({ key: "shared_visibility_confirmed", label: "Shared visibility confirmed", value: false }),
       expect.objectContaining({ key: "max_batch_count", value: 10 }),
+      expect.objectContaining({ key: "stored_documents", value: 1 }),
     ]));
     expect(snapshot.records?.sections).toHaveLength(3);
+    expect(snapshot.records?.documents).toEqual([
+      {
+        document_id: "document-1",
+        version_id: "version-1",
+        name: "persisted-guide.txt",
+        size: 512,
+        state: "ready",
+      },
+    ]);
     expect(snapshot.records?.controls).toEqual(expect.arrayContaining([
       expect.objectContaining({ control: "choose_files", label: "Choose files", enabled: true }),
       expect.objectContaining({

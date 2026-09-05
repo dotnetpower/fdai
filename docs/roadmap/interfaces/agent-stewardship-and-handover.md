@@ -71,6 +71,8 @@ the two are resolved and validated independently.
   server-owned document policy. They cannot call the stewardship webhook or create an ownership
   mapping unless a resulting document independently enters the normal `handover_bootstrap`
   pipeline.
+  The collection document-list route is read-only and cannot select a handover purpose, invoke the
+  webhook, or create a stewardship draft.
 6. **Every change must be notified and audited.** Core deterministically computes recipients and
   the audit payload. Live PR/merge integration must bind those primitives to notification and
   audit adapters.

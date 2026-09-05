@@ -240,6 +240,30 @@ class MemoryMetadata:
     async def list_versions(self, document_id: UUID) -> tuple[DocumentVersion, ...]:
         return tuple(value for (owner, _), value in self.versions.items() if owner == document_id)
 
+    async def list_collection_versions(
+        self, collection_id: str, *, limit: int
+    ) -> tuple[DocumentVersion, ...]:
+        latest: dict[UUID, DocumentVersion] = {}
+        for version in self.versions.values():
+            if (
+                version.access.collection_id != collection_id
+                or version.state is DocumentState.DELETED
+            ):
+                continue
+            current = latest.get(version.document_id)
+            if current is None or (version.updated_at, version.version_id) > (
+                current.updated_at,
+                current.version_id,
+            ):
+                latest[version.document_id] = version
+        return tuple(
+            sorted(
+                latest.values(),
+                key=lambda item: (item.updated_at, item.document_id, item.version_id),
+                reverse=True,
+            )[:limit]
+        )
+
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
         return tuple(value for value in self.uploads.values() if value.state.value == state)[:limit]
 
@@ -2107,6 +2131,17 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         assert completed.status_code == 202
         assert completed.json()["state"] == "received"
         assert client.get(f"/ingestion/uploads/{upload_id}").json()["state"] == "received"
+        listed = client.get("/documents", params={"collection_id": "shared"})
+        assert listed.status_code == 200
+        assert [(item["source_name"], item["state"]) for item in listed.json()["items"]] == [
+            ("note.txt", "received")
+        ]
+        assert not {
+            "source_sha256",
+            "uploader_id",
+            "access",
+            "retention",
+        }.intersection(listed.json()["items"][0])
     assert [event.payload["action"] for event in metadata.events] == [
         "upload.created",
         "document.received",
