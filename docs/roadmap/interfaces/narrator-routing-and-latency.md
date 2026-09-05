@@ -169,9 +169,9 @@ evidence.
 - **Resolved model delivery**: day zero supports a filesystem path or inline JSON environment or
   secret reference. The service-owned async Key Vault source adapter now validates official Azure
   vault origins and audiences, exact secret identity, size, JSON structure, enabled and expiration
-  state, and a total deadline without exposing the value. Startup binding remains deferred until an
-  asynchronous owner can publish one immutable source revision to both capability binding and
-  lifecycle-hold evaluation.
+  state, and a total deadline without exposing the value. Focused lifecycle composition constructs
+  that source, and the application lifespan invokes one asynchronous owner to publish an immutable
+  source revision to capability binding and lifecycle-hold evaluation before later services start.
 - **Local model fixture**: an Ollama or LM Studio fixture is not currently included. Any such
   fixture would be an explicit model binding and would not redefine the interactive local profile.
 - **Reconciler delivery**: the weekly workflow retains sanitized evidence and opens an idempotent

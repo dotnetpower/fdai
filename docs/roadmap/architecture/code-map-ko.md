@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b347f00b36fb28cbc895fc1d6d7df1fd9d6b365d
+translation_source_sha: 85b61240b7bb3451ac68d0178bd1eff12a47f762
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -22,8 +22,9 @@ translation_revised: 2026-09-05
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
   저장소 검사를 소유합니다.
-- **Operator 시작 리비전 경계:** 운영 Operator 조립은 Cost Governance 변환 결과 또는
-  다른 수명 주기 bridge를 시작하기 전에 불변 해석 모델 다이제스트를 검증합니다. 이 경계는
+- **Operator 시작 리비전 경계:** 운영 Operator 조립은 해석 모델 출처 구성을 수명 주기 전용
+  모듈에 위임하고 Cost Governance 변환 결과 또는 다른 수명 주기 bridge를 시작하기 전에 불변
+  다이제스트를 검증합니다. 이 경계는
   매핑, 평가 또는 실행 권한을 부여하지 않습니다. 시작에 실패하면 조립은 획득한 모든 서비스
   정리를 시도하고 원래 실패와 함께 정리 오류를 보고합니다.
 

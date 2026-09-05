@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: fbb4c6fdc2b4bb7ee0750b6d188a2bc3ca04e91c
+translation_source_sha: 22a315ae20ebf76a8a289222b8aa257193c23f1d
 translation_revised: 2026-09-05
 ---
 # 서술기 라우팅과 지연 시간
@@ -167,8 +167,9 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - **모델 해석 결과 전달**: 초기에는 파일 시스템 경로 또는 인라인 JSON 환경 변수/시크릿 참조를
   지원합니다. 서비스 소유 비동기 Key Vault 출처 어댑터는 이제 공식 Azure vault origin과
   audience, 정확한 secret 신원, 크기, JSON 구조, 활성화 및 만료 상태, 전체 마감을 검증하면서
-  값을 노출하지 않습니다. 하나의 변경 불가능한 출처 개정을 기능 바인딩과 수명 주기 보류 평가에
-  함께 발행할 비동기 소유자가 생길 때까지 시작 바인딩은 보류됩니다.
+  값을 노출하지 않습니다. 수명 주기 전용 조립이 이 출처를 구성하고 애플리케이션 lifespan이
+  하나의 비동기 소유자를 호출합니다. 이 소유자는 후속 서비스를 시작하기 전에 기능 바인딩과
+  수명 주기 보류 평가에 변경 불가능한 출처 리비전 하나를 발행합니다.
 - **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
   명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
 - **조정기 전달**: 주간 workflow는 정제된 근거를 보존하고 검토가 필요할 때 멱등적 초안 PR을

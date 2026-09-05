@@ -144,11 +144,6 @@ class LlmConfig(_ConfigBase):
                 "llm.mode='azure' requires llm.resolved_models_path - cannot "
                 "load Azure adapters without the resolver output"
             )
-        if self.mode == LlmMode.AZURE and not self.resolved_models_sha256:
-            raise ValueError(
-                "llm.mode='azure' requires llm.resolved_models_sha256 - cannot "
-                "bind an unversioned resolver output"
-            )
         if len(set(self.capabilities)) != len(self.capabilities):
             raise ValueError("llm.capabilities MUST NOT contain duplicates")
         for cap in self.capabilities:

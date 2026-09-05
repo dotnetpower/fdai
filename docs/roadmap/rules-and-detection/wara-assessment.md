@@ -147,7 +147,8 @@ projection absence renders as unavailable; malformed or unexpected responses rem
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
 The shared Operator composition can add a principal-scoped conversation document reader without
 changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
-The same composition starts its resolved-model revision fence before the WARA projection bridge.
+It delegates resolved-model source construction to focused lifecycle composition and starts the
+resulting revision fence before the WARA projection bridge.
 A model digest mismatch therefore blocks all later lifecycle services without changing WARA
 evidence, assessment, projection, or remediation authority. Startup failure cleanup attempts every
 acquired service, so one failing close cannot leave an earlier WARA dependency running.

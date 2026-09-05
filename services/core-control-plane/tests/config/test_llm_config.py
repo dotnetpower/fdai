@@ -23,9 +23,10 @@ def test_azure_mode_requires_resolved_models_path() -> None:
         LlmConfig(mode=LlmMode.AZURE)
 
 
-def test_azure_mode_requires_resolved_models_digest() -> None:
-    with pytest.raises(ValueError, match="resolved_models_sha256"):
-        LlmConfig(mode=LlmMode.AZURE, resolved_models_path="kv://resolved-models")
+def test_azure_mode_can_defer_digest_validation_to_production_startup() -> None:
+    cfg = LlmConfig(mode=LlmMode.AZURE, resolved_models_path="kv://resolved-models")
+
+    assert cfg.resolved_models_sha256 is None
 
 
 def test_azure_mode_with_source_revision_is_accepted() -> None:
