@@ -574,6 +574,8 @@ r_{next}>r \Longrightarrow d(M_{r_{next}}) \ne d(M_r)
 $$
 
 A stage mismatch, an already consumed digest, or missing measurement identity blocks advancement.
+The transition contract accepts only a same-stage hold, the next declared canary stage, or rollback;
+callers cannot construct a direct shadow-to-active skip.
 Repeated intake can replay the recorded transition, but it cannot reuse one shadow or canary result
 to advance through later traffic stages.
 

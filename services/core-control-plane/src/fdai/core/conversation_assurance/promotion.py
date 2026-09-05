@@ -149,6 +149,12 @@ class PolicyTransition:
 
     def __post_init__(self) -> None:
         _require_digest("policy transition evidence_digest", self.evidence_digest)
+        allowed = {self.from_stage, PolicyStage.ROLLED_BACK}
+        next_stage = _NEXT_STAGE.get(self.from_stage)
+        if next_stage is not None:
+            allowed.add(next_stage)
+        if self.to_stage not in allowed:
+            raise ValueError("policy transition MUST follow the staged promotion graph")
 
 
 def evaluate_policy_transition(

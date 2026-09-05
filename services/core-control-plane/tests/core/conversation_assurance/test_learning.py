@@ -290,6 +290,17 @@ async def test_candidate_store_rejects_stale_transition() -> None:
         )
 
 
+def test_policy_transition_rejects_direct_shadow_to_active_skip() -> None:
+    with pytest.raises(ValueError, match="staged promotion graph"):
+        PolicyTransition(
+            candidate_id="candidate-1",
+            from_stage=PolicyStage.SHADOW,
+            to_stage=PolicyStage.ACTIVE,
+            reasons=("invalid_skip",),
+            evidence_digest="e" * 64,
+        )
+
+
 async def test_candidate_store_rejects_reused_trial_evidence() -> None:
     store = InMemoryConversationPolicyCandidateStore()
     candidate = _candidate()
