@@ -183,7 +183,10 @@ async def test_query_orders_oldest_first_and_bounds_by_id_tiebreak() -> None:
 
     body = captured[0].content.decode("utf-8")
     assert "order by changeTime asc, id asc" in body
-    assert "id > 'change-9'" in body
+    assert "strcmp(tostring(id), 'change-9') > 0" in body
+    assert "changeType = tostring(properties.changeType)" in body
+    assert "targetResourceId = tostring(properties.targetResourceId)" in body
+    assert "targetResourceType = tostring(properties.targetResourceType)" in body
 
 
 @pytest.mark.asyncio
@@ -928,7 +931,7 @@ async def test_forward_resumes_from_the_persisted_cursor() -> None:
     finally:
         await client.aclose()
 
-    assert "id > 'c1'" in seen_cursors[0]
+    assert "strcmp(tostring(id), 'c1') > 0" in seen_cursors[0]
 
 
 @pytest.mark.asyncio

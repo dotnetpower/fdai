@@ -335,11 +335,16 @@ class AzureResourceChangeFeed:
                 raise ArgResourceChangeError("illegal character in resourcechanges cursor id")
             predicate = (
                 f"| where changeTime > datetime('{lower_ts.isoformat()}') "
-                f"or (changeTime == datetime('{lower_ts.isoformat()}') and id > '{lower_id}') "
+                "or (changeTime == "
+                f"datetime('{lower_ts.isoformat()}') "
+                f"and strcmp(tostring(id), '{lower_id}') > 0) "
             )
         return (
             "resourcechanges "
-            "| extend changeTime = todatetime(properties.changeAttributes.timestamp) "
+            "| extend changeTime = todatetime(properties.changeAttributes.timestamp), "
+            "changeType = tostring(properties.changeType), "
+            "targetResourceId = tostring(properties.targetResourceId), "
+            "targetResourceType = tostring(properties.targetResourceType) "
             f"{predicate}"
             "| order by changeTime asc, id asc "
             "| project id, changeTime, changeType, targetResourceId, targetResourceType"
