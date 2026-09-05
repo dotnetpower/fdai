@@ -32,6 +32,7 @@ from fdai.shared.providers.inventory_observation import (
 
 INVENTORY_OBSERVATION_WATERMARK_KEY: Final[str] = "inventory-observation:watermarks"
 _MAX_REPLAY_OBSERVATIONS = 4096
+_MAX_CHANGE_BATCH = 1024
 _WRITE_BATCH_SIZE = 1000
 
 
@@ -54,8 +55,14 @@ class InventorySnapshotObservationAppendResult:
 class PostgresInventoryObservationJournal:
     """Append immutable observations and maintain rebuildable shadow projections."""
 
-    def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
+    def __init__(
+        self,
+        *,
+        config: PostgresInventorySnapshotStoreConfig,
+        allow_oi16_synthetic: bool = False,
+    ) -> None:
         self._config = config
+        self._allow_oi16_synthetic = allow_oi16_synthetic
 
     async def append_change(
         self,
@@ -65,7 +72,11 @@ class PostgresInventoryObservationJournal:
         """Append one normalized change inside the caller's overlay transaction."""
 
         result = await _append_records(connection, observations)
-        await bind_observation_lifecycle(connection, observations)
+        await bind_observation_lifecycle(
+            connection,
+            observations,
+            allow_oi16_synthetic=self._allow_oi16_synthetic,
+        )
         for item in observations:
             if (
                 item.subject_kind is InventoryObservationSubjectKind.OBJECT
@@ -97,6 +108,25 @@ class PostgresInventoryObservationJournal:
                     ),
                 )
         return result
+
+    async def append_change_batch(
+        self,
+        observations: Sequence[NormalizedInventoryObservation],
+    ) -> InventoryObservationAppendResult:
+        """Append one bounded normalized change inside its own transaction.
+
+        :meth:`append_change` deliberately joins the caller's overlay transaction. A
+        caller that owns no overlay still MUST NOT reach the journal tables directly,
+        so this method opens exactly one transaction and delegates every write and
+        every replay check to the same append path the overlay uses.
+        """
+
+        if len(observations) > _MAX_CHANGE_BATCH:
+            raise ValueError("inventory observation change batch exceeds its bound")
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                return await self.append_change(connection, observations)
 
     async def mark_overlay_projected(
         self,
@@ -152,7 +182,11 @@ class PostgresInventoryObservationJournal:
                     scope_refs=tuple(str(value) for value in snapshot["scopes"]),
                 )
                 result = await _append_records(connection, records)
-                await bind_observation_lifecycle(connection, records)
+                await bind_observation_lifecycle(
+                    connection,
+                    records,
+                    allow_oi16_synthetic=self._allow_oi16_synthetic,
+                )
                 high_watermark = result.high_watermark
                 metadata = _mapping(snapshot["metadata"])
                 covered_types = tuple(str(value) for value in snapshot["resource_types"])
@@ -184,7 +218,11 @@ class PostgresInventoryObservationJournal:
                     )
                     if confirmations:
                         confirmed = await _append_records(connection, confirmations)
-                        await bind_observation_lifecycle(connection, confirmations)
+                        await bind_observation_lifecycle(
+                            connection,
+                            confirmations,
+                            allow_oi16_synthetic=self._allow_oi16_synthetic,
+                        )
                         high_watermark = max(high_watermark, confirmed.high_watermark)
                     if pending:
                         await connection.execute(

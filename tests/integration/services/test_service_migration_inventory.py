@@ -125,6 +125,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "inventory_resource_incarnation",
         "operational_archive_artifact",
         "operational_history_certification_receipt",
+        "operational_history_recovery_rehearsal",
         "operational_retention_policy",
         "operational_state_transition",
         "operational_state_transition_batch",
@@ -1493,6 +1494,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         / "branches/core-control-plane/versions/20260906_core_operational_history_lifecycle.py"
     )
     history_lifecycle_migration = inventory_module.load_revision_metadata(history_lifecycle_path)
+    certification_support_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260907_core_oi16_certification_support.py"
+    )
+    certification_support_migration = inventory_module.load_revision_metadata(
+        certification_support_path
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1517,6 +1525,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(state_transition_migration.owned_tables)
         | set(observation_journal_migration.owned_tables)
         | set(history_lifecycle_migration.owned_tables)
+        | set(certification_support_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import tempfile
@@ -13,6 +14,7 @@ from pathlib import Path
 
 from fdai.core.ontology_platform.operational_history_certification import (
     OperationalHistoryCertificationReceipt,
+    OperationalHistoryProtectedBinding,
     OperationalHistoryScenario,
     OperationalHistoryScenarioResult,
     OperationalHistoryScenarioStatus,
@@ -33,11 +35,26 @@ def build_certification_from_manifest(
     source_revision: str,
     ontology_release_digest: str,
     deployment_receipt_digest: str | None = None,
+    protected_binding: OperationalHistoryProtectedBinding | None = None,
 ) -> OperationalHistoryCertificationReceipt:
     """Validate exact scenario evidence and build a no-authority receipt."""
 
     if manifest.get("schema_version") != "1.0.0":
         raise ValueError("operational history certification manifest schema is unsupported")
+    source_revision_digest = "sha256:" + hashlib.sha256(source_revision.encode()).hexdigest()
+    if manifest.get("source_revision_digest") != source_revision_digest:
+        raise ValueError(
+            "operational history certification source revision does not match manifest"
+        )
+    if manifest.get("ontology_release_digest") != ontology_release_digest:
+        raise ValueError(
+            "operational history certification ontology release does not match manifest"
+        )
+    if protected_binding is not None:
+        if manifest.get("campaign_id") != protected_binding.campaign_request_id:
+            raise ValueError("protected campaign request does not match certification manifest")
+        if manifest.get("phase") != "merged":
+            raise ValueError("protected certification requires merged restart-phase evidence")
     window_start = _timestamp(manifest.get("window_start"), "window_start")
     window_end = _timestamp(manifest.get("window_end"), "window_end")
     recorded_at = _timestamp(manifest.get("recorded_at"), "recorded_at")
@@ -76,7 +93,7 @@ def build_certification_from_manifest(
                 reason_codes=reasons,
             )
         )
-    return build_operational_history_certification(
+    receipt = build_operational_history_certification(
         results,
         source_revision=source_revision,
         ontology_release_digest=ontology_release_digest,
@@ -84,7 +101,11 @@ def build_certification_from_manifest(
         window_end=window_end,
         recorded_at=recorded_at,
         deployment_receipt_digest=deployment_receipt_digest,
+        protected_binding=protected_binding,
     )
+    if manifest.get("deterministic_complete") is not receipt.deterministic_complete:
+        raise ValueError("operational history certification completeness conflicts with manifest")
+    return receipt
 
 
 async def run(
@@ -95,6 +116,7 @@ async def run(
     ontology_release_digest: str,
     dsn: str,
     deployment_receipt_digest: str | None = None,
+    protected_binding: OperationalHistoryProtectedBinding | None = None,
 ) -> dict[str, object]:
     """Build, persist, and privately write one certification receipt."""
 
@@ -104,19 +126,25 @@ async def run(
         source_revision=source_revision,
         ontology_release_digest=ontology_release_digest,
         deployment_receipt_digest=deployment_receipt_digest,
+        protected_binding=protected_binding,
     )
-    store = PostgresOperationalHistoryStore(
-        config=PostgresOperationalHistoryConfig(
-            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+    persisted = False
+    if receipt.operationally_validated:
+        store = PostgresOperationalHistoryStore(
+            config=PostgresOperationalHistoryConfig(
+                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+            )
         )
-    )
-    await store.append_certification(receipt)
-    _write_private(output_path, certification_record(receipt))
+        persisted = await store.append_certification(receipt)
+        if not persisted:
+            persisted = True
+        _write_private(output_path, certification_record(receipt))
     return {
         "receipt_digest": receipt.digest,
         "deterministic_complete": receipt.deterministic_complete,
         "operationally_validated": receipt.operationally_validated,
-        "output": str(output_path),
+        "persisted": persisted,
+        "output": str(output_path) if receipt.operationally_validated else None,
     }
 
 
@@ -127,10 +155,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--ontology-release-digest", required=True)
     parser.add_argument("--deployment-receipt-digest")
+    parser.add_argument("--required-ci-run-id", type=int)
+    parser.add_argument("--runtime-image-revision")
+    parser.add_argument("--runtime-image-digest")
+    parser.add_argument("--runtime-attestation-digest")
+    parser.add_argument("--deployment-revision")
+    parser.add_argument("--deployment-apply-run-id", type=int)
+    parser.add_argument("--campaign-run-id", type=int)
+    parser.add_argument("--campaign-request-id")
     args = parser.parse_args(argv)
     dsn = os.environ.get("FDAI_DATABASE_URL", "").strip()
     if not dsn:
         parser.error("FDAI_DATABASE_URL is required")
+    protected_binding = _protected_binding(args)
     summary = asyncio.run(
         run(
             evidence_path=args.evidence,
@@ -139,10 +176,11 @@ def main(argv: list[str] | None = None) -> int:
             ontology_release_digest=args.ontology_release_digest,
             dsn=dsn,
             deployment_receipt_digest=args.deployment_receipt_digest,
+            protected_binding=protected_binding,
         )
     )
     print(json.dumps(summary, sort_keys=True))
-    return 0 if summary["deterministic_complete"] else 1
+    return 0 if summary["operationally_validated"] else 1
 
 
 def _read_manifest(path: Path) -> Mapping[str, object]:
@@ -204,6 +242,36 @@ def _string_tuple(value: object, name: str) -> tuple[str, ...]:
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise ValueError(f"operational history certification {name} MUST be a string array")
     return tuple(sorted(set(value)))
+
+
+def _protected_binding(args: argparse.Namespace) -> OperationalHistoryProtectedBinding | None:
+    values = (
+        args.deployment_receipt_digest,
+        args.required_ci_run_id,
+        args.runtime_image_revision,
+        args.runtime_image_digest,
+        args.runtime_attestation_digest,
+        args.deployment_revision,
+        args.deployment_apply_run_id,
+        args.campaign_run_id,
+        args.campaign_request_id,
+    )
+    if not any(value is not None for value in values):
+        return None
+    if any(value is None for value in values):
+        raise ValueError("protected certification binding arguments MUST be supplied together")
+    return OperationalHistoryProtectedBinding(
+        source_revision=args.source_revision,
+        required_ci_run_id=args.required_ci_run_id,
+        runtime_image_revision=args.runtime_image_revision,
+        runtime_image_digest=args.runtime_image_digest,
+        runtime_attestation_digest=args.runtime_attestation_digest,
+        deployment_revision=args.deployment_revision,
+        deployment_apply_run_id=args.deployment_apply_run_id,
+        deployment_receipt_digest=args.deployment_receipt_digest,
+        campaign_run_id=args.campaign_run_id,
+        campaign_request_id=args.campaign_request_id,
+    )
 
 
 if __name__ == "__main__":

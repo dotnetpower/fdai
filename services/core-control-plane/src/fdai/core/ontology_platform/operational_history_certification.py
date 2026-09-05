@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -35,6 +36,40 @@ class OperationalHistoryScenarioStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalHistoryProtectedBinding:
+    """Protected workflow evidence that authorizes an operational validation claim."""
+
+    source_revision: str
+    required_ci_run_id: int
+    runtime_image_revision: str
+    runtime_image_digest: str
+    runtime_attestation_digest: str
+    deployment_revision: str
+    deployment_apply_run_id: int
+    deployment_receipt_digest: str
+    campaign_run_id: int
+    campaign_request_id: str
+
+    def __post_init__(self) -> None:
+        _revision(self.source_revision, "protected source revision")
+        _revision(self.runtime_image_revision, "protected runtime image revision")
+        if self.runtime_image_revision != self.source_revision:
+            raise ValueError("protected runtime image revision does not match source revision")
+        _digest(self.runtime_image_digest, "protected runtime image digest")
+        _digest(self.runtime_attestation_digest, "protected runtime attestation digest")
+        _revision(self.deployment_revision, "protected deployment revision")
+        _digest(self.deployment_receipt_digest, "protected deployment receipt digest")
+        if (
+            self.required_ci_run_id < 1
+            or self.deployment_apply_run_id < 1
+            or self.campaign_run_id < 1
+        ):
+            raise ValueError("protected workflow run ids MUST be positive")
+        if re.fullmatch(r"certify-history-[0-9a-f]{48}", self.campaign_request_id) is None:
+            raise ValueError("protected certification campaign request id is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +108,7 @@ class OperationalHistoryCertificationReceipt:
     scenario_results: tuple[OperationalHistoryScenarioResult, ...]
     deterministic_complete: bool
     deployment_receipt_digest: str | None
+    protected_binding: OperationalHistoryProtectedBinding | None
     operationally_validated: bool
     observation_authority: Literal[False]
     mutation_authority: Literal[False]
@@ -99,9 +135,14 @@ class OperationalHistoryCertificationReceipt:
             raise ValueError("deterministic certification completeness is inconsistent")
         if self.deployment_receipt_digest is not None:
             _digest(self.deployment_receipt_digest, "deployment receipt digest")
-        if self.operationally_validated is not (
-            all_passed and self.deployment_receipt_digest is not None
-        ):
+        if self.protected_binding is not None:
+            if self.protected_binding.source_revision != self.source_revision:
+                raise ValueError("protected binding source revision does not match certification")
+            if self.protected_binding.deployment_receipt_digest != self.deployment_receipt_digest:
+                raise ValueError(
+                    "protected binding deployment receipt does not match certification"
+                )
+        if self.operationally_validated is not (all_passed and self.protected_binding is not None):
             raise ValueError("operational certification validation is inconsistent")
         if any(
             value is not False
@@ -201,6 +242,7 @@ def build_operational_history_certification(
     window_end: datetime,
     recorded_at: datetime,
     deployment_receipt_digest: str | None = None,
+    protected_binding: OperationalHistoryProtectedBinding | None = None,
 ) -> OperationalHistoryCertificationReceipt:
     """Build a replay-stable receipt without inventing deployment validation."""
 
@@ -216,7 +258,8 @@ def build_operational_history_certification(
         "scenario_results": ordered,
         "deterministic_complete": all_passed,
         "deployment_receipt_digest": deployment_receipt_digest,
-        "operationally_validated": all_passed and deployment_receipt_digest is not None,
+        "protected_binding": protected_binding,
+        "operationally_validated": all_passed and protected_binding is not None,
         "observation_authority": False,
         "mutation_authority": False,
         "execution_authority": False,
@@ -273,6 +316,7 @@ def _receipt_body_from_values(values: Mapping[str, object]) -> dict[str, object]
         ],
         "deterministic_complete": values["deterministic_complete"],
         "deployment_receipt_digest": values["deployment_receipt_digest"],
+        "protected_binding": _protected_binding_record(values["protected_binding"]),
         "operationally_validated": values["operationally_validated"],
         "observation_authority": False,
         "mutation_authority": False,
@@ -297,6 +341,25 @@ def _recovery_body_from_values(values: Mapping[str, object]) -> dict[str, object
     }
 
 
+def _protected_binding_record(value: object) -> dict[str, object] | None:
+    if value is None:
+        return None
+    if not isinstance(value, OperationalHistoryProtectedBinding):
+        raise ValueError("protected certification binding has an invalid type")
+    return {
+        "source_revision": value.source_revision,
+        "required_ci_run_id": value.required_ci_run_id,
+        "runtime_image_revision": value.runtime_image_revision,
+        "runtime_image_digest": value.runtime_image_digest,
+        "runtime_attestation_digest": value.runtime_attestation_digest,
+        "deployment_revision": value.deployment_revision,
+        "deployment_apply_run_id": value.deployment_apply_run_id,
+        "deployment_receipt_digest": value.deployment_receipt_digest,
+        "campaign_run_id": value.campaign_run_id,
+        "campaign_request_id": value.campaign_request_id,
+    }
+
+
 def _timestamp(value: object) -> str:
     if not isinstance(value, datetime):
         raise ValueError("certification timestamp MUST be datetime")
@@ -306,6 +369,11 @@ def _timestamp(value: object) -> str:
 def _digest(value: str, name: str) -> None:
     if not value.startswith("sha256:") or len(value) != 71:
         raise ValueError(f"{name} MUST be canonical SHA-256")
+
+
+def _revision(value: str, name: str) -> None:
+    if re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        raise ValueError(f"{name} MUST be an exact lowercase commit SHA")
 
 
 def _sha256(value: Mapping[str, object]) -> str:
@@ -320,6 +388,7 @@ def _sha256(value: Mapping[str, object]) -> str:
 
 __all__ = [
     "OperationalHistoryCertificationReceipt",
+    "OperationalHistoryProtectedBinding",
     "OperationalHistoryRecoveryReceipt",
     "OperationalHistoryScenario",
     "OperationalHistoryScenarioResult",

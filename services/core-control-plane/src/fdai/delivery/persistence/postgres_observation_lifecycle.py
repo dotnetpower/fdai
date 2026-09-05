@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -27,10 +28,15 @@ from fdai.shared.providers.inventory_observation import (
     NormalizedInventoryObservation,
 )
 
+_OI16_SYNTHETIC_SCOPE = re.compile(r"^synthetic/oi16-certification/[0-9a-f]{48}$")
+_OI16_SYNTHETIC_FACT_FAMILY = "oi16_synthetic_full_observation"
+
 
 async def bind_observation_lifecycle(
     connection: psycopg.AsyncConnection[Any],
     observations: Sequence[NormalizedInventoryObservation],
+    *,
+    allow_oi16_synthetic: bool = False,
 ) -> None:
     """Atomically bind each retained observation to exact lifecycle identities."""
 
@@ -44,7 +50,10 @@ async def bind_observation_lifecycle(
     )
     for observation in ordered:
         watermark = await _watermark(connection, observation.observation_id)
-        policy_digest = await _policy_digest(connection, _fact_family(observation))
+        policy_digest = await _policy_digest(
+            connection,
+            _fact_family(observation, allow_oi16_synthetic=allow_oi16_synthetic),
+        )
         late = await _is_late(connection, observation)
         partition = await _partition(
             connection,
@@ -421,7 +430,11 @@ async def _is_late(
     )
 
 
-def _fact_family(observation: NormalizedInventoryObservation) -> str:
+def _fact_family(
+    observation: NormalizedInventoryObservation,
+    *,
+    allow_oi16_synthetic: bool = False,
+) -> str:
     if observation.subject_kind is InventoryObservationSubjectKind.RELATIONSHIP:
         return "relationship_observation"
     if observation.observation_kind is InventoryObservationKind.CHANGE_HINT:
@@ -430,6 +443,12 @@ def _fact_family(observation: NormalizedInventoryObservation) -> str:
         return "partial_observation"
     if observation.observation_kind is InventoryObservationKind.TOMBSTONE:
         return "confirmed_tombstone" if observation.tombstone_confirmed else "tombstone_candidate"
+    if (
+        allow_oi16_synthetic
+        and observation.scope_ref is not None
+        and _OI16_SYNTHETIC_SCOPE.fullmatch(observation.scope_ref) is not None
+    ):
+        return _OI16_SYNTHETIC_FACT_FAMILY
     return "full_observation"
 
 
@@ -464,8 +483,14 @@ async def close_observation_corrections(
     generation: str,
     projection_watermark: int,
     closed_at: datetime,
+    scope_ref: str | None = None,
 ) -> None:
-    """Close correction partitions only after the ontology projection advances."""
+    """Close correction partitions only after the ontology projection advances.
+
+    ``scope_ref`` narrows the closure to one exact observation scope. The production
+    projection path leaves it unset so every replayed correction closes, while a
+    bounded caller can close only the corrections it actually replayed.
+    """
 
     manifest_cursor = await connection.execute(
         "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
@@ -478,8 +503,9 @@ async def close_observation_corrections(
     cursor = await connection.execute(
         "SELECT partition_id, correction_of FROM inventory_observation_partition "
         "WHERE partition_kind='correction' AND state='correction_pending' "
-        "AND last_watermark<=%s ORDER BY partition_id FOR UPDATE",
-        (projection_watermark,),
+        "AND last_watermark<=%s AND (%s::text IS NULL OR scope_ref=%s) "
+        "ORDER BY partition_id FOR UPDATE",
+        (projection_watermark, scope_ref, scope_ref),
     )
     for row in await cursor.fetchall():
         partition_id = str(row["partition_id"])

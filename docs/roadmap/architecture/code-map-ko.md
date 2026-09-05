@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: de8d30286954339c385b9d34bede38d0f4e88a60
+translation_source_sha: e1706afe253eb1830d90bfb684c8c22d864a7d3d
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -92,6 +92,12 @@ overlay를 현재 조회 경로로 유지하면서 Core 소유의 추가 전용 
 partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
 의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,
 principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule에 결속합니다.
+OI-16 보호 certification campaign은 `delivery/operational_history_certification_campaign*.py`에
+있으며, 정확한 synthetic retention 및 추가 전용 recovery schema는
+`20260907_core_oi16_certification_support.py`에 있습니다. 공유 journal은 synthetic purge
+retention을 기본으로 비활성화하며 검증된 개발 campaign만 이를 활성화합니다. 보호된 workflow는
+certification writer가 증적을 추가하기 전에 13개 시나리오 결과를 정확한 CI, runtime image
+attestation, 배포 근거 및 별도 사람 승인에 결속합니다.
 
 프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
 `composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator

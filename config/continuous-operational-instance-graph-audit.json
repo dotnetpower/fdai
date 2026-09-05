@@ -589,6 +589,11 @@
         },
         {
           "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/operational_history_certification_campaign.py",
+          "symbol": "OperationalHistoryCertificationCampaign"
+        },
+        {
+          "state": "bound",
           "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_pressure.py",
           "symbol": "assess_storage_pressure"
         },
@@ -596,6 +601,11 @@
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_retention.py",
           "symbol": "load_retention_policy_registry"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260907_core_oi16_certification_support.py",
+          "symbol": "upgrade"
         }
       ],
       "tests": [
@@ -607,7 +617,10 @@
         "services/core-control-plane/tests/delivery/test_operational_history_lifecycle_runner.py",
         "services/core-control-plane/tests/delivery/test_operational_history_policy.py",
         "services/core-control-plane/tests/delivery/test_operational_history_certification_cli.py",
+        "services/core-control-plane/tests/delivery/test_operational_history_certification_campaign.py",
         "services/core-control-plane/tests/core/ontology_platform/test_operational_history_certification.py",
+        "tests/integration/scripts/test_operational_history_certification_workflow.py",
+        "tests/integration/services/test_oi16_certification_support_migration.py",
         "tests/integration/test_operational_instance_retention.py",
         "tests/integration/services/test_service_migration_inventory.py",
         "tests/integration/infra/test_operational_history_lifecycle_job.py"

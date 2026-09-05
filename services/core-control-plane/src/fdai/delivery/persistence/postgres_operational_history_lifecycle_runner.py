@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -40,6 +42,54 @@ from fdai.core.ontology_platform.operational_history_retention import (
     RetentionDeletionMethod,
 )
 
+_STORAGE_RELATIONS = (
+    "inventory_observation_journal",
+    "inventory_observation_lifecycle_binding",
+    "inventory_observation_partition",
+    "inventory_observation_checkpoint",
+    "operational_archive_artifact",
+)
+_CAMPAIGN_ID_PATTERN = re.compile(r"^certify-history-[0-9a-f]{48}$")
+_SYNTHETIC_SCOPE_PATTERN = re.compile(r"^synthetic/oi16-certification/[0-9a-f]{48}$")
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeStorageSample:
+    """One bounded physical measurement of an observation scope's footprint."""
+
+    table_bytes: int
+    index_bytes: int
+    wal_bytes: int
+    partition_count: int
+    purge_backlog: int
+    change_count: int
+
+    def __post_init__(self) -> None:
+        if (
+            min(
+                self.table_bytes,
+                self.index_bytes,
+                self.wal_bytes,
+                self.partition_count,
+                self.purge_backlog,
+                self.change_count,
+            )
+            < 0
+        ):
+            raise ValueError("operational history storage measurements MUST NOT be negative")
+
+    def record(self) -> dict[str, int]:
+        """Return the sanitized numeric body used as bounded storage evidence."""
+
+        return {
+            "table_bytes": self.table_bytes,
+            "index_bytes": self.index_bytes,
+            "wal_bytes": self.wal_bytes,
+            "partition_count": self.partition_count,
+            "purge_backlog": self.purge_backlog,
+            "change_count": self.change_count,
+        }
+
 
 class PostgresOperationalHistoryLifecycleRepository:
     """Read lifecycle evidence and commit exact monotonic state transitions."""
@@ -72,17 +122,73 @@ class PostgresOperationalHistoryLifecycleRepository:
         )
 
     async def list_partitions(
-        self, *, limit: int, now: datetime
+        self, *, limit: int, now: datetime, scope_ref: str | None = None
     ) -> tuple[ObservationPartition, ...]:
+        """List retained partitions, optionally restricted to one exact scope.
+
+        ``scope_ref`` filters inside the query rather than after the ``LIMIT``. A
+        caller that owns a bounded scope would otherwise have its own rows crowded
+        out of the result by unrelated partitions and would read that crowding as
+        missing evidence.
+        """
+
         rows = await self._all(
             "SELECT partition_id, scope_ref, interval_start, interval_end, "
             "first_watermark, last_watermark, partition_kind, state, correction_of, "
             "retention_policy_digest, created_at FROM inventory_observation_partition "
             "WHERE state <> 'purged' AND (state <> 'open' OR interval_end <= %s) "
+            "AND (%s::text IS NULL OR scope_ref = %s) "
             "ORDER BY interval_start, partition_id LIMIT %s",
-            (now, limit),
+            (now, scope_ref, scope_ref, limit),
         )
         return tuple(_partition(row) for row in rows)
+
+    async def measure_scope_storage(self, *, scope_ref: str) -> ScopeStorageSample:
+        """Measure the bounded physical footprint one observation scope occupies.
+
+        Table and index bytes are read per relation rather than from the whole
+        database, so an unrelated table cannot make a synthetic scope look bounded or
+        unbounded. The write-ahead log position is a database-wide counter: it is
+        reported as an absolute byte offset so a caller can difference two samples
+        and bound the log a replay actually produced.
+        """
+
+        if not scope_ref:
+            raise ValueError("operational history storage scope MUST NOT be empty")
+        row = await self._one(
+            "SELECT "
+            "COALESCE(SUM(pg_table_size(relation.oid)), 0) AS table_bytes, "
+            "COALESCE(SUM(pg_indexes_size(relation.oid)), 0) AS index_bytes "
+            "FROM unnest(%s::text[]) AS name "
+            "JOIN pg_class AS relation ON relation.relname = name "
+            "JOIN pg_namespace AS space ON space.oid = relation.relnamespace "
+            "AND space.nspname = 'public'",
+            (list(_STORAGE_RELATIONS),),
+        )
+        wal = await self._one(
+            "SELECT pg_wal_lsn_diff(CASE WHEN pg_is_in_recovery() "
+            "THEN pg_last_wal_replay_lsn() ELSE pg_current_wal_lsn() END, '0/0')::bigint "
+            "AS wal_bytes",
+            (),
+        )
+        scope = await self._one(
+            "SELECT COUNT(*) AS partition_count, "
+            "COUNT(*) FILTER (WHERE state='purge_eligible') AS purge_backlog, "
+            "COALESCE((SELECT COUNT(*) FROM inventory_observation_lifecycle_binding AS binding "
+            "JOIN inventory_observation_partition AS owned "
+            "ON owned.partition_id=binding.partition_id "
+            "WHERE owned.scope_ref=%s), 0) AS change_count "
+            "FROM inventory_observation_partition WHERE scope_ref=%s",
+            (scope_ref, scope_ref),
+        )
+        return ScopeStorageSample(
+            table_bytes=int(row["table_bytes"]),
+            index_bytes=int(row["index_bytes"]),
+            wal_bytes=int(wal["wal_bytes"]),
+            partition_count=int(scope["partition_count"]),
+            purge_backlog=int(scope["purge_backlog"]),
+            change_count=int(scope["change_count"]),
+        )
 
     async def latest_checkpoint(self, partition_id: str) -> ObservationCheckpoint | None:
         row = await self._optional_one(
@@ -98,6 +204,17 @@ class PostgresOperationalHistoryLifecycleRepository:
             "WHERE manifest.record->'source_partitions' @> %s::jsonb "
             "ORDER BY manifest.created_at DESC LIMIT 1",
             (Jsonb([{"partition_id": partition_id}]),),
+        )
+        return None if row is None else _manifest(_mapping(row["record"]))
+
+    async def latest_manifest_by_digest(self, manifest_digest: str) -> ArchiveManifest | None:
+        """Return one exact archive manifest by its content-addressed identity."""
+
+        if not manifest_digest:
+            raise ValueError("archive manifest digest MUST NOT be empty")
+        row = await self._optional_one(
+            "SELECT record FROM operational_archive_manifest WHERE manifest_digest=%s",
+            (manifest_digest,),
         )
         return None if row is None else _manifest(_mapping(row["record"]))
 
@@ -222,6 +339,64 @@ class PostgresOperationalHistoryLifecycleRepository:
 
     async def archive_records(self, partition_id: str) -> tuple[Mapping[str, object], ...]:
         return tuple(await self._journal_records(partition_id))
+
+    async def restore_recovery_records(
+        self,
+        *,
+        campaign_id: str,
+        scope_ref: str,
+        partition_id: str,
+        records: Sequence[Mapping[str, object]],
+        recovered_at: datetime,
+    ) -> tuple[Mapping[str, object], ...]:
+        """Restore bounded synthetic archive records into the isolated recovery table."""
+
+        if (
+            _CAMPAIGN_ID_PATTERN.fullmatch(campaign_id) is None
+            or _SYNTHETIC_SCOPE_PATTERN.fullmatch(scope_ref) is None
+            or not _is_digest(partition_id)
+            or not 1 <= len(records) <= 64
+        ):
+            raise ValueError("operational history recovery rehearsal is outside its bound")
+        rows: list[tuple[object, ...]] = []
+        for record in records:
+            observation_id = str(record.get("observation_id", ""))
+            content_digest = str(record.get("content_digest", ""))
+            if (
+                str(record.get("scope_ref", "")) != scope_ref
+                or not _is_digest(observation_id)
+                or not _is_digest(content_digest)
+            ):
+                raise ValueError("operational history recovery record is not synthetic and exact")
+            rows.append(
+                (
+                    campaign_id,
+                    scope_ref,
+                    partition_id,
+                    observation_id,
+                    content_digest,
+                    Jsonb(dict(record)),
+                    recovered_at,
+                )
+            )
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_timeout(connection)
+            for row in rows:
+                await connection.execute(
+                    "INSERT INTO operational_history_recovery_rehearsal "
+                    "(campaign_id, scope_ref, partition_id, observation_id, content_digest, "
+                    "record, recovered_at) VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (campaign_id, observation_id) DO NOTHING",
+                    row,
+                )
+            cursor = await connection.execute(
+                "SELECT record FROM operational_history_recovery_rehearsal "
+                "WHERE campaign_id=%s AND partition_id=%s "
+                "ORDER BY observation_id LIMIT 64",
+                (campaign_id, partition_id),
+            )
+            restored = await cursor.fetchall()
+        return tuple(_mapping(row["record"]) for row in restored)
 
     async def transition(
         self,
@@ -479,4 +654,4 @@ def _is_digest(value: str) -> bool:
     )
 
 
-__all__ = ["PostgresOperationalHistoryLifecycleRepository"]
+__all__ = ["PostgresOperationalHistoryLifecycleRepository", "ScopeStorageSample"]

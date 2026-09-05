@@ -31,6 +31,9 @@ from fdai.core.ontology_platform.operational_history_retention import (
     ObservationRetentionPolicy,
 )
 from fdai.delivery.operational_history_archive import OperationalArchiveArtifact
+from fdai.delivery.persistence.postgres_observation_lifecycle import (
+    close_observation_corrections,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +120,56 @@ class PostgresOperationalHistoryStore:
                 Jsonb(record),
             ),
         )
+
+    async def list_incarnations(
+        self,
+        resource_ref: str,
+        *,
+        limit: int = 16,
+    ) -> tuple[ResourceIncarnation, ...]:
+        """Return every persisted incarnation of one exact resource, oldest first."""
+
+        if not resource_ref or not 1 <= limit <= 256:
+            raise ValueError("operational history incarnation query is outside its bound")
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT record FROM inventory_resource_incarnation "
+                "WHERE resource_ref=%s ORDER BY opened_at, incarnation_id LIMIT %s",
+                (resource_ref, limit),
+            )
+            rows = await cursor.fetchall()
+        return tuple(_incarnation(_mapping(row["record"])) for row in rows)
+
+    async def close_scope_corrections(
+        self,
+        *,
+        scope_ref: str,
+        generation: str,
+        projection_watermark: int,
+        closed_at: datetime,
+    ) -> None:
+        """Close correction partitions inside one exact scope and nothing beyond it.
+
+        This is deliberately narrower than
+        :meth:`PostgresInventoryObservationJournal.mark_ontology_projected`. It never
+        advances a global journal or ontology watermark and never touches another
+        scope's pending corrections, so a bounded scope can record durable closure
+        evidence without claiming that a broad production projection advanced.
+        """
+
+        if not scope_ref or projection_watermark < 0:
+            raise ValueError("operational history scope correction closure is outside its bound")
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await close_observation_corrections(
+                    connection,
+                    generation=generation,
+                    projection_watermark=projection_watermark,
+                    closed_at=closed_at,
+                    scope_ref=scope_ref,
+                )
 
     async def put_partition(self, partition: ObservationPartition) -> bool:
         record = _partition_record(partition)
@@ -244,6 +297,37 @@ class PostgresOperationalHistoryStore:
                 Jsonb(record),
                 receipt.closed_at,
             ),
+        )
+
+    async def latest_correction(
+        self, correction_partition_id: str
+    ) -> ObservationCorrectionReceipt | None:
+        """Return the newest durable closure receipt for one correction partition."""
+
+        if not correction_partition_id:
+            raise ValueError("correction partition identity MUST NOT be empty")
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT record FROM inventory_observation_correction_receipt "
+                "WHERE correction_partition_id=%s ORDER BY closed_at DESC, receipt_id DESC LIMIT 1",
+                (correction_partition_id,),
+            )
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        record = _mapping(row["record"])
+        return ObservationCorrectionReceipt(
+            receipt_id=_text(record, "receipt_id"),
+            correction_partition_id=_text(record, "correction_partition_id"),
+            affected_checkpoint_ids=_tuple(record, "affected_checkpoint_ids"),
+            correction_manifest_digest=_text(record, "correction_manifest_digest"),
+            replay_receipt_digest=_text(record, "replay_receipt_digest"),
+            resulting_graph_digest=_text(record, "resulting_graph_digest"),
+            projection_watermark=_integer(record, "projection_watermark"),
+            closed_at=_timestamp(record, "closed_at"),
+            complete=bool(record["complete"]),
+            digest=_text(record, "digest"),
         )
 
     async def put_archive_artifact(self, artifact: OperationalArchiveArtifact) -> bool:
@@ -448,6 +532,25 @@ def _incarnation_record(value: ResourceIncarnation) -> dict[str, object]:
         "closing_observation_id": value.closing_observation_id,
         "digest": value.digest,
     }
+
+
+def _incarnation(raw: dict[str, object]) -> ResourceIncarnation:
+    return ResourceIncarnation(
+        incarnation_id=_text(raw, "incarnation_id"),
+        resource_ref=_text(raw, "resource_ref"),
+        resource_type=_text(raw, "resource_type"),
+        provider_identity=_text(raw, "provider_identity"),
+        lifecycle_boundary_ref=_text(raw, "lifecycle_boundary_ref"),
+        opened_at=_timestamp(raw, "opened_at"),
+        closed_at=None if raw.get("closed_at") is None else _timestamp(raw, "closed_at"),
+        opening_observation_id=_text(raw, "opening_observation_id"),
+        closing_observation_id=(
+            None
+            if raw.get("closing_observation_id") is None
+            else _text(raw, "closing_observation_id")
+        ),
+        digest=_text(raw, "digest"),
+    )
 
 
 def _partition_record(value: ObservationPartition) -> dict[str, object]:

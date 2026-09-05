@@ -21,6 +21,7 @@ _WORKFLOWS = (
     "infra-drift.yml",
     "model-lifecycle-reconcile.yml",
     "model-settings-projection.yml",
+    "operational-history-certification.yml",
     "service-deploy.yml",
     "sre-demo-lab.yml",
 )

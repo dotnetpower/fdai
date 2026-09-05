@@ -1,0 +1,487 @@
+name: operational-history-certification
+run-name: "certify-history-${{ inputs.commit_sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Existing dev environment that holds the isolated certification scope."
+        type: choice
+        options: [dev]
+        required: true
+      commit_sha:
+        description: "Exact protected-main source and runtime image revision."
+        type: string
+        required: true
+      request_id:
+        description: "Stable certify-history request id shared by every campaign phase."
+        type: string
+        required: true
+      runtime_image_revision:
+        description: "Exact attested runtime image source revision."
+        type: string
+        required: true
+      deployment_revision:
+        description: "Exact OI-15 protected deployment revision."
+        type: string
+        required: true
+      deployment_receipt_digest:
+        description: "Exact OI-15 apply-receipt.json content digest."
+        type: string
+        required: true
+      deployment_apply_run_id:
+        description: "Exact successful OI-15 apply workflow run."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  attestations: read
+  checks: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: operational-history-certification-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'github-actions[bot]' &&
+      inputs.environment == 'dev' &&
+      inputs.runtime_image_revision == inputs.commit_sha
+    runs-on: [self-hosted, fdai-deploy]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 90
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      CAMPAIGN_REQUEST_ID: ${{ inputs.request_id }}
+      RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
+      DEPLOYMENT_REVISION: ${{ inputs.deployment_revision }}
+      DEPLOYMENT_RECEIPT_DIGEST: ${{ inputs.deployment_receipt_digest }}
+      DEPLOYMENT_APPLY_RUN_ID: ${{ inputs.deployment_apply_run_id }}
+
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/operational-history-certification.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact protected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+
+      - name: Verify required CI for exact revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RUNTIME_IMAGE_REVISION" == "$TARGET_COMMIT_SHA" ]]
+          [[ "$CAMPAIGN_REQUEST_ID" =~ ^certify-history-[0-9a-f]{48}$ ]]
+          [[ "$DEPLOYMENT_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DEPLOYMENT_RECEIPT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$DEPLOYMENT_APPLY_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+
+          checks="$RUNNER_TEMP/required-ci.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+            > "$checks"
+          required="$(jq -c \
+            '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
+             sort_by(.completed_at) | last // empty' "$checks")"
+          [[ -n "$required" ]] || {
+            echo "the exact source revision has no successful required CI check" >&2
+            exit 1
+          }
+          required_url="$(jq -r '.details_url' <<< "$required")"
+          required_ci_run_id="$(sed -nE 's#^.*/actions/runs/([0-9]+)(/.*)?$#\1#p' <<< "$required_url")"
+          [[ "$required_ci_run_id" =~ ^[1-9][0-9]*$ ]] || {
+            echo "required CI check is not bound to an Actions run" >&2
+            exit 1
+          }
+
+          echo "Verify OI-15 apply receipt artifact"
+          apply_run="$RUNNER_TEMP/deployment-apply-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOYMENT_APPLY_RUN_ID" > "$apply_run"
+          jq -e \
+            --arg revision "$DEPLOYMENT_REVISION" \
+            '.conclusion == "success" and .head_sha == $revision and
+             .path == ".github/workflows/deploy-dev.yml"' \
+            "$apply_run" >/dev/null
+          artifacts="$RUNNER_TEMP/deployment-apply-artifacts.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOYMENT_APPLY_RUN_ID/artifacts?per_page=100" \
+            > "$artifacts"
+          apply_artifact="$(jq -c \
+            '[.artifacts[] |
+              select((.name | startswith("deployment-apply-receipt-")) and (.expired | not))] |
+             if length == 1 then .[0] else empty end' "$artifacts")"
+          [[ -n "$apply_artifact" ]] || {
+            echo "the OI-15 apply run has no unique unexpired receipt artifact" >&2
+            exit 1
+          }
+          apply_artifact_name="$(jq -r '.name' <<< "$apply_artifact")"
+          apply_dir="$RUNNER_TEMP/oi15-apply-receipt"
+          mkdir -p "$apply_dir"
+          gh run download "$DEPLOYMENT_APPLY_RUN_ID" --name "$apply_artifact_name" --dir "$apply_dir"
+          apply_receipt="$(find "$apply_dir" -type f -name apply-receipt.json -print)"
+          [[ "$(wc -l <<< "$apply_receipt")" -eq 1 && -f "$apply_receipt" ]]
+          observed_receipt_digest="sha256:$(sha256sum "$apply_receipt" | cut -d' ' -f1)"
+          [[ "$observed_receipt_digest" == "$DEPLOYMENT_RECEIPT_DIGEST" ]] || {
+            echo "the OI-15 apply receipt content digest does not match the protected input" >&2
+            exit 1
+          }
+          jq -e --argjson run_id "$DEPLOYMENT_APPLY_RUN_ID" \
+            '.schema_version == "fdai.deployment-apply-receipt.v1" and
+             .status == "applied" and (.workflow_run_id | tonumber) == $run_id' \
+            "$apply_receipt" >/dev/null
+
+          {
+            echo "REQUIRED_CI_RUN_ID=$required_ci_run_id"
+            echo "OI15_APPLY_RECEIPT_FILE=$apply_receipt"
+          } >> "$GITHUB_ENV"
+
+      - name: Bind stable deployment identity
+        env:
+          EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$EXPECTED_AZURE_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Verify attested deployed runtime image
+        working-directory: infra
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp backend.azurerm.tf.example backend.tf
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${TARGET_ENVIRONMENT}.tfstate"
+
+          resource_group="$(terraform output -raw resource_group_name)"
+          job_id="$(terraform output -raw operational_history_lifecycle_job_id)"
+          container_url="$(terraform output -raw operational_history_container_url)"
+          postgres_fqdn="$(terraform output -raw postgres_fqdn)"
+          [[ "$job_id" == /subscriptions/*/resourceGroups/*/providers/Microsoft.App/jobs/* ]]
+          [[ "$container_url" == https://*.blob.core.windows.net/* ]]
+          [[ "$postgres_fqdn" == *.postgres.database.azure.com ]]
+          job_name="${job_id##*/}"
+          postgres_server="${postgres_fqdn%%.*}"
+
+          job_json="$RUNNER_TEMP/operational-history-job.json"
+          az containerapp job show --ids "$job_id" --output json > "$job_json"
+          runtime_image="$(jq -r \
+            '.properties.template.containers[] |
+             select(.name == "operational-history-lifecycle") | .image' "$job_json")"
+          mi_client_id="$(jq -r \
+            '.properties.template.containers[] |
+             select(.name == "operational-history-lifecycle") |
+             .env[] | select(.name == "FDAI_MI_CLIENT_ID") | .value' "$job_json")"
+          [[ "$runtime_image" =~ @sha256:[0-9a-f]{64}$ ]]
+          [[ "$mi_client_id" =~ ^[0-9a-fA-F-]{36}$ ]]
+          runtime_image_digest="${runtime_image##*@}"
+
+          registry="${runtime_image%%/*}"
+          az acr login --name "${registry%%.*}" --only-show-errors >/dev/null
+          attestations="$RUNNER_TEMP/runtime-image-attestations.json"
+          timeout 60s gh attestation verify "oci://${runtime_image}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            --format json > "$attestations"
+          python3 - "$attestations" "$TARGET_COMMIT_SHA" <<'PY'
+          import json
+          import sys
+
+          def contains(value, expected):
+              if value == expected:
+                  return True
+              if isinstance(value, dict):
+                  return any(contains(item, expected) for item in value.values())
+              if isinstance(value, list):
+                  return any(contains(item, expected) for item in value)
+              return False
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              attestations = json.load(stream)
+          if not contains(attestations, sys.argv[2]):
+              raise SystemExit("runtime image attestation is not bound to the exact source revision")
+          PY
+          runtime_attestation_digest="sha256:$(sha256sum "$attestations" | cut -d' ' -f1)"
+
+          {
+            echo "CAMPAIGN_JOB_NAME=$job_name"
+            echo "CAMPAIGN_RESOURCE_GROUP=$resource_group"
+            echo "CAMPAIGN_CONTAINER_URL=$container_url"
+            echo "CAMPAIGN_MI_CLIENT_ID=$mi_client_id"
+            echo "POSTGRES_SERVER_NAME=$postgres_server"
+            echo "RUNTIME_IMAGE=$runtime_image"
+            echo "RUNTIME_IMAGE_DIGEST=$runtime_image_digest"
+            echo "RUNTIME_ATTESTATION_DIGEST=$runtime_attestation_digest"
+          } >> "$GITHUB_ENV"
+
+      - name: Run bounded synthetic campaign before restart
+        env:
+          CAMPAIGN_PHASE: before-restart
+        run: |
+          set -euo pipefail
+          # The campaign records scenario_evidence_unavailable instead of inferring success.
+          campaign_args="-m fdai.delivery.operational_history_certification_campaign \
+            --phase ${CAMPAIGN_PHASE} --campaign-id ${CAMPAIGN_REQUEST_ID} \
+            --output /tmp/oi16-before.json --source-revision ${TARGET_COMMIT_SHA}"
+          execution="$(az containerapp job start \
+            --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+            --image "$RUNTIME_IMAGE" \
+            --command python \
+            --args="$campaign_args" \
+            --env-vars \
+              FDAI_ENV=dev \
+              FDAI_OPERATIONAL_HISTORY_SYNTHETIC_SCOPE="synthetic/oi16-certification/${CAMPAIGN_REQUEST_ID#certify-history-}" \
+              FDAI_DATABASE_URL=secretref:operational-history-dsn \
+              FDAI_OPERATIONAL_HISTORY_CONTAINER_URL="$CAMPAIGN_CONTAINER_URL" \
+              FDAI_MI_CLIENT_ID="$CAMPAIGN_MI_CLIENT_ID" \
+            --query name --output tsv)"
+          [[ -n "$execution" ]]
+          deadline=$((SECONDS + 1800))
+          while ((SECONDS < deadline)); do
+            status="$(az containerapp job execution show \
+              --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+              --job-execution-name "$execution" --query properties.status --output tsv)"
+            [[ "$status" != "Succeeded" ]] || exit 0
+            [[ "$status" != "Failed" ]] || exit 1
+            sleep 10
+          done
+          echo "before-restart campaign exceeded its 1800-second deadline" >&2
+          exit 1
+
+      - name: Restart database and verify the independent Azure effect
+        run: |
+          set -euo pipefail
+          resource_id="$(az postgres flexible-server show \
+            --resource-group "$CAMPAIGN_RESOURCE_GROUP" --name "$POSTGRES_SERVER_NAME" \
+            --query id --output tsv)"
+          started_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          az postgres flexible-server restart \
+            --resource-group "$CAMPAIGN_RESOURCE_GROUP" --name "$POSTGRES_SERVER_NAME" \
+            --only-show-errors
+          deadline=$((SECONDS + 1200))
+          while ((SECONDS < deadline)); do
+            state="$(az postgres flexible-server show --ids "$resource_id" \
+              --query state --output tsv)"
+            [[ "$state" != "Ready" ]] || break
+            sleep 10
+          done
+          [[ "${state:-}" == "Ready" ]] || {
+            echo "database did not recover within the 1200-second deadline" >&2
+            exit 1
+          }
+          activity="$RUNNER_TEMP/database-restart-activity.json"
+          for _ in $(seq 1 12); do
+            az monitor activity-log list --resource-id "$resource_id" \
+              --start-time "$started_at" --offset 1h --max-events 50 --output json > "$activity"
+            if jq -e \
+              '[.[] |
+                select((.operationName.value | ascii_downcase | contains("restart")) and
+                       .status.value == "Succeeded")] | length == 1' \
+              "$activity" >/dev/null; then
+              break
+            fi
+            sleep 10
+          done
+          restart_receipt="$RUNNER_TEMP/database-restart-receipt.json"
+          python3 - "$activity" "$restart_receipt" <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              events = [
+                  event
+                  for event in json.load(stream)
+                  if "restart" in event["operationName"]["value"].lower()
+                  and event["status"]["value"] == "Succeeded"
+              ]
+          if len(events) != 1:
+              raise SystemExit("missing or ambiguous restart effect")
+          event = events[0]
+          effect = "|".join((event["correlationId"], event["eventTimestamp"]))
+          receipt = {
+              "schema_version": "fdai.oi16.database-restart-receipt.v1",
+              "request_id": os.environ["CAMPAIGN_REQUEST_ID"],
+              "source_revision": os.environ["TARGET_COMMIT_SHA"],
+              "status": "succeeded",
+              "observed_at": event["eventTimestamp"],
+              "effect_digest": "sha256:" + hashlib.sha256(effect.encode()).hexdigest(),
+          }
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          PY
+          restart_receipt_digest="sha256:$(sha256sum "$restart_receipt" | cut -d' ' -f1)"
+          {
+            echo "RESTART_RECEIPT_DIGEST=$restart_receipt_digest"
+            echo "RESTART_RECEIPT_FILE=$restart_receipt"
+          } >> "$GITHUB_ENV"
+
+      - name: Run after-restart campaign and persist certification
+        env:
+          CAMPAIGN_PHASE: after-restart
+        run: |
+          set -euo pipefail
+          campaign_args="-m fdai.delivery.operational_history_certification_campaign \
+            --phase ${CAMPAIGN_PHASE} --campaign-id ${CAMPAIGN_REQUEST_ID} \
+            --output /tmp/oi16-merged.json --source-revision ${TARGET_COMMIT_SHA} \
+            --restart-receipt-digest ${RESTART_RECEIPT_DIGEST} \
+            --finalize --receipt-output /tmp/oi16-certification-receipt.json"
+          execution="$(az containerapp job start \
+            --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+            --image "$RUNTIME_IMAGE" \
+            --command python \
+            --args="$campaign_args" \
+            --env-vars \
+              FDAI_ENV=dev \
+              FDAI_OPERATIONAL_HISTORY_SYNTHETIC_SCOPE="synthetic/oi16-certification/${CAMPAIGN_REQUEST_ID#certify-history-}" \
+              FDAI_DATABASE_URL=secretref:operational-history-dsn \
+              FDAI_OPERATIONAL_HISTORY_CONTAINER_URL="$CAMPAIGN_CONTAINER_URL" \
+              FDAI_MI_CLIENT_ID="$CAMPAIGN_MI_CLIENT_ID" \
+              FDAI_REQUIRED_CI_RUN_ID="$REQUIRED_CI_RUN_ID" \
+              FDAI_RUNTIME_IMAGE_REVISION="$RUNTIME_IMAGE_REVISION" \
+              FDAI_RUNTIME_IMAGE_DIGEST="$RUNTIME_IMAGE_DIGEST" \
+              FDAI_RUNTIME_ATTESTATION_DIGEST="$RUNTIME_ATTESTATION_DIGEST" \
+              FDAI_DEPLOYMENT_REVISION="$DEPLOYMENT_REVISION" \
+              FDAI_DEPLOYMENT_APPLY_RUN_ID="$DEPLOYMENT_APPLY_RUN_ID" \
+              FDAI_DEPLOYMENT_RECEIPT_DIGEST="$DEPLOYMENT_RECEIPT_DIGEST" \
+              FDAI_CAMPAIGN_RUN_ID="$GITHUB_RUN_ID" \
+            --query name --output tsv)"
+          [[ -n "$execution" ]]
+          deadline=$((SECONDS + 1800))
+          while ((SECONDS < deadline)); do
+            status="$(az containerapp job execution show \
+              --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+              --job-execution-name "$execution" --query properties.status --output tsv)"
+            if [[ "$status" == "Succeeded" ]]; then
+              summary="$RUNNER_TEMP/oi16-certification-summary.json"
+              logs="$RUNNER_TEMP/oi16-after-restart.log"
+              for _ in $(seq 1 12); do
+                az containerapp job logs show \
+                  --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+                  --execution "$execution" --container operational-history-lifecycle \
+                  --tail 100 --format text > "$logs"
+                if python3 - "$logs" "$summary" <<'PY'
+          import json
+          import os
+          import sys
+
+          matches = []
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              for line in stream:
+                  start = line.find('{"campaign_id"')
+                  if start < 0:
+                      continue
+                  try:
+                      value = json.loads(line[start:])
+                  except json.JSONDecodeError:
+                      continue
+                  if (
+                      value.get("campaign_id") == os.environ["CAMPAIGN_REQUEST_ID"]
+                      and value.get("campaign_run_id") == int(os.environ["GITHUB_RUN_ID"])
+                      and value.get("finalized") is True
+                      and value.get("operationally_validated") is True
+                      and value.get("persisted") is True
+                  ):
+                      matches.append(value)
+          if len(matches) != 1:
+              raise SystemExit(1)
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              json.dump(matches[0], stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          PY
+                then
+                  {
+                    echo "CAMPAIGN_SUMMARY_FILE=$summary"
+                    echo "CERTIFICATION_RECEIPT_DIGEST=$(jq -r '.receipt_digest' "$summary")"
+                    echo "MERGED_ARTIFACT_DIGEST=$(jq -r '.merged_artifact_digest' "$summary")"
+                  } >> "$GITHUB_ENV"
+                  exit 0
+                fi
+                sleep 10
+              done
+              echo "successful campaign execution emitted no exact finalized summary" >&2
+              exit 1
+            fi
+            [[ "$status" != "Failed" ]] || exit 1
+            sleep 10
+          done
+          echo "after-restart campaign exceeded its 1800-second deadline" >&2
+          exit 1
+
+      - name: Preserve private sanitized campaign artifact
+        env:
+          ARTIFACT_PATH: ${{ runner.temp }}/oi16-certification-artifact.json
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open(os.environ["RESTART_RECEIPT_FILE"], encoding="utf-8") as stream:
+              restart_receipt = json.load(stream)
+          with open(os.environ["CAMPAIGN_SUMMARY_FILE"], encoding="utf-8") as stream:
+              campaign_summary = json.load(stream)
+          receipt = {
+              "schema_version": "fdai.oi16.protected-campaign.v1",
+              "source_revision": os.environ["TARGET_COMMIT_SHA"],
+              "required_ci_run_id": int(os.environ["REQUIRED_CI_RUN_ID"]),
+              "runtime_image_revision": os.environ["RUNTIME_IMAGE_REVISION"],
+              "runtime_image_digest": os.environ["RUNTIME_IMAGE_DIGEST"],
+              "runtime_attestation_digest": os.environ["RUNTIME_ATTESTATION_DIGEST"],
+              "deployment_revision": os.environ["DEPLOYMENT_REVISION"],
+              "deployment_apply_run_id": int(os.environ["DEPLOYMENT_APPLY_RUN_ID"]),
+              "deployment_receipt_digest": os.environ["DEPLOYMENT_RECEIPT_DIGEST"],
+              "campaign_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "campaign_request_id": os.environ["CAMPAIGN_REQUEST_ID"],
+              "restart_receipt_digest": os.environ["RESTART_RECEIPT_DIGEST"],
+              "database_restart": restart_receipt,
+              "certification_receipt_digest": os.environ["CERTIFICATION_RECEIPT_DIGEST"],
+              "merged_artifact_digest": os.environ["MERGED_ARTIFACT_DIGEST"],
+              "campaign_summary": campaign_summary,
+              "status": "persisted",
+              "operationally_validated": True,
+              "private_manifest_phase": "merged",
+          }
+          with open(os.environ["ARTIFACT_PATH"], "w", encoding="utf-8") as stream:
+              json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          os.chmod(os.environ["ARTIFACT_PATH"], 0o600)
+          PY
+
+      - name: Upload private sanitized campaign artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: operational-history-certification-${{ inputs.request_id }}
+          path: ${{ runner.temp }}/oi16-certification-artifact.json
+          if-no-files-found: error
+          retention-days: 90

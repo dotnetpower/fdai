@@ -7,16 +7,47 @@ from types import MethodType
 from typing import Any
 
 from fdai.delivery.persistence.postgres_observation_lifecycle import (
+    _fact_family,
     close_observation_corrections,
 )
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryConfig,
     PostgresOperationalHistoryStore,
 )
+from fdai.shared.providers.inventory_observation import (
+    InventoryMutationKind,
+    InventoryObservationKind,
+    InventoryObservationSubjectKind,
+    NormalizedInventoryObservation,
+)
 
 NOW = datetime(2026, 9, 5, tzinfo=UTC)
 DIGEST_A = "sha256:" + "a" * 64
 DIGEST_B = "sha256:" + "b" * 64
+
+
+def _full_observation(*, scope_ref: str) -> NormalizedInventoryObservation:
+    return NormalizedInventoryObservation.create(
+        idempotency_key=f"event:{scope_ref}",
+        subject_kind=InventoryObservationSubjectKind.OBJECT,
+        observation_kind=InventoryObservationKind.FULL,
+        mutation_kind=InventoryMutationKind.UPSERT,
+        subject_ref=f"{scope_ref}/resource-1",
+        subject_type="compute.vm",
+        properties={"state": "ready"},
+        property_mask=("state",),
+        properties_complete=True,
+        links_complete=True,
+        tombstone_confirmed=False,
+        source_identity="test.inventory",
+        source_event_id=f"event:{scope_ref}",
+        source_revision="revision-1",
+        effective_at=NOW,
+        observed_at=NOW,
+        evidence_cutoff=NOW,
+        recorded_at=NOW,
+        scope_ref=scope_ref,
+    )
 
 
 class _Cursor:
@@ -103,3 +134,69 @@ async def test_concrete_source_purger_calls_only_database_gate() -> None:
     assert purge_calls == [
         ("SELECT fdai_purge_observation_partition(%s) AS deleted_rows", (DIGEST_B,))
     ]
+
+
+async def test_scope_filtered_closure_narrows_to_one_observation_scope() -> None:
+    connection = _Connection()
+
+    await close_observation_corrections(
+        connection,  # type: ignore[arg-type]
+        generation="generation-3",
+        projection_watermark=11,
+        closed_at=NOW,
+        scope_ref="synthetic/oi16-certification/campaign-a",
+    )
+
+    selection = next(
+        params for query, params in connection.executions if "partition_kind='correction'" in query
+    )
+    assert isinstance(selection, tuple)
+    assert selection == (
+        11,
+        "synthetic/oi16-certification/campaign-a",
+        "synthetic/oi16-certification/campaign-a",
+    )
+
+
+async def test_unscoped_closure_keeps_the_production_projection_behavior() -> None:
+    connection = _Connection()
+
+    await close_observation_corrections(
+        connection,  # type: ignore[arg-type]
+        generation="generation-4",
+        projection_watermark=12,
+        closed_at=NOW,
+    )
+
+    selection = next(
+        params for query, params in connection.executions if "partition_kind='correction'" in query
+    )
+    assert selection == (12, None, None)
+
+
+async def test_scope_correction_closure_refuses_an_empty_scope() -> None:
+    store = PostgresOperationalHistoryStore(
+        config=PostgresOperationalHistoryConfig(dsn="postgresql://unused")
+    )
+
+    try:
+        await store.close_scope_corrections(
+            scope_ref="", generation="g", projection_watermark=1, closed_at=NOW
+        )
+    except ValueError as error:
+        assert "outside its bound" in str(error)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("empty scope MUST be refused")
+
+
+def test_only_oi16_synthetic_full_observations_select_the_purge_fact_family() -> None:
+    synthetic = _full_observation(
+        scope_ref="synthetic/oi16-certification/0123456789abcdef0123456789abcdef0123456789abcdef"
+    )
+    malformed = _full_observation(scope_ref="synthetic/oi16-certification/not-exact")
+    ordinary = _full_observation(scope_ref="provider/subscription/example")
+
+    assert _fact_family(synthetic) == "full_observation"
+    assert _fact_family(synthetic, allow_oi16_synthetic=True) == "oi16_synthetic_full_observation"
+    assert _fact_family(malformed, allow_oi16_synthetic=True) == "full_observation"
+    assert _fact_family(ordinary) == "full_observation"

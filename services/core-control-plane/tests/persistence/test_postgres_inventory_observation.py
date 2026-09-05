@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
+from types import MethodType
 from typing import Any
 
 import pytest
-from fdai.delivery.persistence.postgres_inventory_observation import _append_records
+from fdai.delivery.persistence.postgres_inventory_observation import (
+    InventoryObservationAppendResult,
+    PostgresInventoryObservationJournal,
+    _append_records,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
+)
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
     InventoryObservationKind,
@@ -35,6 +44,17 @@ class _Cursor:
 class _Connection:
     def __init__(self, retained: dict[str, object]) -> None:
         self._retained = retained
+        self.transactions = 0
+
+    async def __aenter__(self) -> _Connection:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+    def transaction(self) -> _Connection:
+        self.transactions += 1
+        return self
 
     def cursor(self) -> _Cursor:
         return _Cursor([])
@@ -87,3 +107,49 @@ async def test_idempotency_key_rejects_changed_observation_content() -> None:
 
     with pytest.raises(ValueError, match="idempotency key changed content"):
         await _append_records(connection, (changed,))  # type: ignore[arg-type]
+
+
+async def test_bounded_change_batch_owns_one_transaction_and_delegates() -> None:
+    observation = _observation({"sku": "one"})
+    connection = _Connection(
+        {
+            "watermark": 7,
+            "idempotency_key": observation.idempotency_key,
+            "subject_kind": observation.subject_kind.value,
+            "subject_ref": observation.subject_ref,
+            "content_digest": observation.content_digest,
+        }
+    )
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+    calls: list[Sequence[NormalizedInventoryObservation]] = []
+
+    async def connect(_self: object) -> _Connection:
+        return connection
+
+    async def append_change(
+        _self: object,
+        _connection: object,
+        observations: Sequence[NormalizedInventoryObservation],
+    ) -> InventoryObservationAppendResult:
+        calls.append(observations)
+        return InventoryObservationAppendResult(7, 0)
+
+    journal._connect = MethodType(connect, journal)  # type: ignore[method-assign]
+    journal.append_change = MethodType(append_change, journal)  # type: ignore[method-assign]
+
+    result = await journal.append_change_batch((observation,))
+
+    assert result == InventoryObservationAppendResult(7, 0)
+    assert calls == [(observation,)]
+    assert connection.transactions == 1
+
+
+async def test_bounded_change_batch_refuses_an_unbounded_batch() -> None:
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    with pytest.raises(ValueError, match="exceeds its bound"):
+        await journal.append_change_batch([_observation({"sku": "one"})] * 1025)

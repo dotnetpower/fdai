@@ -336,6 +336,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "issue-lifecycle.yml",
         "model-lifecycle-reconcile.yml",
         "model-settings-projection.yml",
+        "operational-history-certification.yml",
         "pages.yml",
         "publish-console.yml",
         "refresh-catalogs.yml",

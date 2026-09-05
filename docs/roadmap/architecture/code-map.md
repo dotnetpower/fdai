@@ -92,6 +92,13 @@ checks.
 partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
 certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob
 artifacts, principal-scoped reads, a database-owned purge gate, and a fixed shadow schedule.
+The OI-16 protected certification campaign lives in
+`delivery/operational_history_certification_campaign*.py`, with its exact synthetic retention and
+append-only recovery schema in `20260907_core_oi16_certification_support.py`. The shared journal
+keeps synthetic purge retention disabled by default; only a validated dev campaign enables it.
+The protected workflow binds all 13 scenario results to exact CI, runtime-image attestation,
+deployment evidence, and separate human approval before the certification writer can append a
+receipt.
 
 Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
 into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the
