@@ -29,6 +29,11 @@ _RCA_READER_IDENTITY = frozenset(
         "azurerm_role_assignment.rca_monitoring_reader",
     }
 )
+_OPERATIONAL_HISTORY_PREFIXES = (
+    "module.operational_history_storage[0].",
+    "azurerm_private_endpoint.operational_history_blob[0]",
+    "module.compute.azurerm_container_app_job.operational_history_lifecycle[0]",
+)
 
 
 def changed_addresses(plan: dict[str, Any]) -> frozenset[str]:
@@ -166,6 +171,18 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "operational-history":
+        unexpected = sorted(
+            address
+            for address in changed
+            if not any(address.startswith(prefix) for prefix in _OPERATIONAL_HISTORY_PREFIXES)
+        )
+        if unexpected:
+            raise ValueError(
+                "Operational-history plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "model-binding":
         if resolved_models is None:
             raise ValueError("model-binding mode requires resolved models")
@@ -202,6 +219,7 @@ def main() -> int:
             "monitoring",
             "model-binding",
             "rca-reader-identity",
+            "operational-history",
         ),
         required=True,
     )

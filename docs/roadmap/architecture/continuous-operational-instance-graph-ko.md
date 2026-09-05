@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4ae2ff1b47e5efdb055d4f669f1077bdde1aee44
+translation_source_sha: 5c6e064c1d19c8399c4474296d9847ab82e73e75
 translation_revised: 2026-09-05
 ---
 # 지속형 운영 인스턴스 그래프
@@ -345,7 +345,7 @@ binding을
 | 적응형 일정 관리 | implemented | 검증된 source policy와 순수 reducer가 freshness, lag, demand, provider pressure, `Retry-After`, 남은 budget, concurrency, circuit-open 상태, recovery probe를 사용합니다. PostgreSQL은 durable due 상태를 제공하고 principal-safe health projection은 다음 bounded action을 노출합니다. |
 | Retention 및 hold | implemented | Archive purge coordinator는 정확한 verification, restore sampling, retention 또는 legal hold 평가가 통과하기 전까지 삭제를 차단합니다. Append-only PostgreSQL receipt는 blocked, pending, failed, successful, retry 결과를 보존합니다. |
 | 타입 지정 rollup | implemented | Fact별 policy가 gauge, counter, categorical state, relationship change, evidence health를 분리해 집계하면서 source와 generation 계보, bitemporal 범위, 누락 구간, 관측된 0, 충돌, 완전성, 병합 가능한 count와 sum을 보존합니다. Percentile은 unavailable로 유지합니다. |
-| Archive lifecycle | in-progress | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 고정 shadow schedule이 구현됐습니다. 전용 runtime Job 조립과 보호된 배포 증적은 열려 있습니다. |
+| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 배포 및 certification 증적은 별도 운영 근거로 남습니다. |
 
 ## 구현 상태
 
@@ -375,6 +375,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | OI-15 runtime 조립을 완료했습니다. 전용 Container Apps Job은 실행기 권한이 없는 inventory identity, Core database secret, 비공개 versioned Blob 저장소, 범위가 제한된 partition 선택, append-only 수명 주기 이벤트, checkpoint, archive 쓰기 및 읽기 검증, restore sampling, hold, 저장소 압력 보고 및 database purge gate를 사용합니다. 예약 실행은 shadow-only이며 enforce는 외부 증적을 요구하고 purge할 수 없습니다. Certify는 database gate를 실행하기 전에 외부 증적을 요구합니다. | `current change`, 수명 주기 runner와 PostgreSQL repository, 전용 storage/private endpoint/Job Terraform, 보호된 bounded-plan 입력 및 집중 runner, workflow, CLI, Terraform 검사 | 정확한 보호 계획을 적용하고 성공한 shadow Job 증적을 보존한 뒤 OI-16 certification을 실행합니다. |
 | 2026-09-05 | in-progress | 비공개 네트워크 Resource Graph 변경 가속기, payload 없는 내구성 인벤토리 무효화 SSE, 표시되는 15초 fallback 카운트다운이 있는 Console 즉시 재검증을 추가했습니다. | `current change`, 요청된 중지 전에 출처 어댑터 검사 38개, Operator SSE 검사 140개, Console SSE 및 카운트다운 검사 112개가 통과했습니다. | 공유 main checkout을 동기화하고, 통합 집중 검사와 깨끗한 빌드 검증을 실행하고, 통합 차이를 비평하고, 로컬 상태 전환 시간 증적을 보존합니다. |
 | 2026-09-05 | implemented | Tombstone을 명시적으로 타입 지정한 뒤 sparse 속성의 부정 계약을 명확히 했습니다. `properties_complete=false`인 삭제는 `observation_kind=partial`을 명시하지 않으면 tombstone입니다. 부정 테스트는 이제 데이터베이스 접근 전에 허용되지 않는 partial-delete 조합을 검사합니다. | `current change`, `test_inventory_live_evidence.py`, 집중 partial 및 tombstone 의미 검사 5개, Ruff, formatting 통과 | 보호된 배포 plan 전에 정확한 보정 리비전의 필수 CI를 다시 실행합니다. |
 | 2026-09-05 | implemented | 관측 원장 도입 이전의 활성 snapshot에도 migration-safe shadow 이중 기록을 적용하도록 복구했습니다. 변환기는 누락된 legacy 범위를 단일 활성 범위에서만 해석하고, sparse 객체와 관계를 결속하기 전에 결정론적 기준 수명 인스턴스를 생성하며, tombstone 우선 순서를 단조롭게 유지하고, root rollback 검사를 서비스 소유 migration 데이터베이스와 격리합니다. | `current change`, PostgreSQL delta 및 수명 주기 어댑터, CI 데이터베이스 순서, migration inventory 및 작업 흐름 계약. 새 pgvector 검사에서 root 테스트 13개와 service-only skip 25개 이후 서비스 소유 테스트 31개가 통과했고, 작업 흐름 및 migration 계약 123개, 집중 OI 및 배포 CLI 검사 187개, Ruff, formatting, strict mypy가 통과했습니다. | 보호된 plan과 apply, 전용 OI-15 runtime Job, OI-16 운영 certification 증적은 계속 열려 있습니다. |
@@ -507,12 +508,11 @@ purge가 연결되지 않았습니다. 위의 제한된 이력 설계와 OI-13�
   case 또는 legal-hold 고정을 완료합니다. 선행 원장 및 변환 결과 watermark gate는 이제 대기
   중인 관측과 확인되지 않은 tombstone이 원본 완전성을 낮추게 합니다. 수락된 모든 보정이 영향
   범위를 무효화한 뒤 결정론적으로 닫아야 완료됩니다.
-- [ ] `OI-15`는 배포 보존 정책 레지스트리, 시간과 범위 partition, 검증된 checkpoint,
+- [x] `OI-15`는 배포 보존 정책 레지스트리, 시간과 범위 partition, 검증된 checkpoint,
   production archive writer와 principal 범위 reader, 구체적인 source purger, 예약 수명 주기
-  조정 및 저장소 압력 저하 동작을 결속합니다. 이러한 코드 표면과 고정 shadow schedule은
-  구현됐지만 전용 runtime Job은 아직 조립되지 않았습니다. 해당 binding과 archive 또는 복원
-  gate 실패가 배포 경로에서 source partition을 보존하고 완전성에 의존하는 작업을 차단해야
-  완료됩니다.
+  조정 및 저장소 압력 저하 동작을 결속합니다. 전용 runtime Job은 실행기 권한이 없는 inventory
+  identity로 이 표면을 조립합니다. Shadow, enforce, certify, archive 중단, restore 실패, hold 및
+  purge 검사는 실패한 gate가 source partition을 보존하고 완전성 의존 작업을 차단함을 입증합니다.
 - [ ] `OI-16`은 고정된 개정 하나에서 안정 상태 저장소 증가 제한, exact warm replay, archive
   복원, 안전한 partition purge, N/N-1 schema replay, database 복구, hold 적용 및 false-complete
   0건을 입증하는 운영 증적을 보존합니다. 중복, 지연, 삭제, 재생성, 프로바이더 실패, database

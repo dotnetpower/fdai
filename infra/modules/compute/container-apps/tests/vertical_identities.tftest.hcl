@@ -41,6 +41,41 @@ variables {
   ]
 }
 
+run "operational_history_job_is_shadow_and_non_executor" {
+  command = plan
+
+  variables {
+    operational_history_lifecycle_cron_expression = "0 * * * *"
+    operational_history_lifecycle_job_name        = "caj-fdai-example-history"
+    operational_history_container_url             = "https://example.blob.core.windows.net/operational-history"
+    state_store_dsn_secret_id                     = "https://example.vault.azure.net/secrets/state-store-dsn"
+  }
+
+  assert {
+    condition = (
+      azurerm_container_app_job.operational_history_lifecycle[0].identity[0].identity_ids == toset([var.inventory_identity_id]) &&
+      azurerm_container_app_job.operational_history_lifecycle[0].template[0].container[0].args == tolist(["--mode", "shadow"])
+    )
+    error_message = "scheduled operational-history lifecycle must remain shadow-only under the inventory identity"
+  }
+
+  assert {
+    condition = {
+      for env in azurerm_container_app_job.operational_history_lifecycle[0].template[0].container[0].env :
+      env.name => env.value if env.value != null
+    }["FDAI_OPERATIONAL_HISTORY_MODE"] == "shadow"
+    error_message = "scheduled operational-history lifecycle must not receive enforce or certify authority"
+  }
+
+  assert {
+    condition = (
+      azurerm_container_app_job.operational_history_lifecycle[0].schedule_trigger_config[0].replica_completion_count == 1 &&
+      azurerm_container_app_job.operational_history_lifecycle[0].schedule_trigger_config[0].parallelism == 1
+    )
+    error_message = "operational-history lifecycle must execute one serial replica per schedule"
+  }
+}
+
 run "legacy_workflow_retains_vertical_identity_catalog" {
   command = plan
 

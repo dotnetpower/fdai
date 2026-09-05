@@ -54,6 +54,22 @@ def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
         )
 
 
+def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> None:
+    storage = "module.operational_history_storage[0].azurerm_storage_account.case_history"
+    endpoint = "azurerm_private_endpoint.operational_history_blob[0]"
+    job = "module.compute.azurerm_container_app_job.operational_history_lifecycle[0]"
+
+    assert enforce(
+        _plan(storage, endpoint, job),
+        mode="operational-history",
+    ) == frozenset({storage, endpoint, job})
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(
+            _plan(storage, "module.compute.azurerm_container_app.core"),
+            mode="operational-history",
+        )
+
+
 def test_model_scope_uses_non_hil_sealed_capabilities() -> None:
     allowed = 'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.embedding"]'
     resolved = {

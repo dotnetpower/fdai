@@ -40,6 +40,12 @@ variable "browser_evidence_cleanup_job_name" {
   type        = string
 }
 
+variable "operational_history_lifecycle_job_name" {
+  description = "Container Apps Job name for operational-history lifecycle coordination."
+  type        = string
+  default     = ""
+}
+
 variable "rule_watcher_cron_expression" {
   description = "Cron for the rule watcher job. Daily at 03:00 UTC; the CLI filters by manifest cadence so weekly / monthly sources fire from the same job."
   type        = string
@@ -266,6 +272,29 @@ variable "browser_evidence_cleanup_limit" {
     condition     = var.browser_evidence_cleanup_limit >= 1 && var.browser_evidence_cleanup_limit <= 500 && floor(var.browser_evidence_cleanup_limit) == var.browser_evidence_cleanup_limit
     error_message = "browser_evidence_cleanup_limit must be an integer in [1, 500]."
   }
+}
+
+variable "operational_history_lifecycle_cron_expression" {
+  description = "UTC cron for shadow operational-history lifecycle coordination. Empty disables the Job."
+  type        = string
+  default     = ""
+}
+
+variable "operational_history_lifecycle_max_partitions" {
+  description = "Maximum operational-history partitions examined by one bounded Job pass."
+  type        = number
+  default     = 32
+
+  validation {
+    condition     = var.operational_history_lifecycle_max_partitions >= 1 && var.operational_history_lifecycle_max_partitions <= 256 && floor(var.operational_history_lifecycle_max_partitions) == var.operational_history_lifecycle_max_partitions
+    error_message = "operational_history_lifecycle_max_partitions must be an integer in [1, 256]."
+  }
+}
+
+variable "operational_history_container_url" {
+  description = "Private Azure Blob container URL for immutable operational-history archives."
+  type        = string
+  default     = ""
 }
 
 variable "observation_campaign_cron_expression" {

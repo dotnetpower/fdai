@@ -20,7 +20,7 @@ _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
-_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:rca-)?[0-9a-f]{48}$")
+_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:history-|rca-)?[0-9a-f]{48}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _BOOL_INPUTS = (
     "deploy_console",
@@ -28,6 +28,7 @@ _BOOL_INPUTS = (
     "deploy_document_ingestion",
     "deploy_isolated_executor",
     "deploy_monitoring",
+    "deploy_operational_history",
     "deploy_operator_api",
 )
 _EXPIRES_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -58,6 +59,7 @@ class DeploymentSelection:
     deploy_document_ingestion: bool = False
     deploy_isolated_executor: bool = False
     deploy_monitoring: bool = False
+    deploy_operational_history: bool = False
     deploy_operator_api: bool = True
     deploy_rca_reader_identity: bool = False
     runtime_image_revision: str = ""
@@ -68,6 +70,7 @@ class DeploymentSelection:
             self.deploy_dev_operations_gateway,
             self.deploy_document_ingestion,
             self.deploy_isolated_executor,
+            self.deploy_operational_history,
             self.deploy_operator_api,
         )
         if self.deploy_monitoring and not any(application_targets) and self.runtime_image_revision:
@@ -226,6 +229,8 @@ def dispatch_plan(
     )
     if selection.deploy_rca_reader_identity:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-rca-", 1)
+    elif selection.deploy_operational_history:
+        bounded_request_id = bounded_request_id.replace("plan-", "plan-history-", 1)
     _dispatch(
         repository=repository,
         environment=environment,
@@ -293,6 +298,8 @@ def dispatch_apply(
     )
     if selection.deploy_rca_reader_identity:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-rca-", 1)
+    elif selection.deploy_operational_history:
+        bounded_request_id = bounded_request_id.replace("apply-", "apply-history-", 1)
     _dispatch(
         repository=repository,
         environment=environment,
@@ -420,7 +427,14 @@ def workflow_status(
 def _request_binding_from_id(request_id_value: str) -> str:
     """Return the target/context binding embedded in one validated request id."""
 
-    for prefix in ("plan-rca-", "apply-rca-", "plan-", "apply-"):
+    for prefix in (
+        "plan-history-",
+        "apply-history-",
+        "plan-rca-",
+        "apply-rca-",
+        "plan-",
+        "apply-",
+    ):
         if request_id_value.startswith(prefix):
             return request_id_value.removeprefix(prefix)[:24]
     raise ValueError("request_id is invalid")
@@ -511,7 +525,7 @@ def _dispatch(
         **{
             key: str(value).lower()
             for key, value in selection.to_mapping().items()
-            if key != "deploy_rca_reader_identity"
+            if key not in {"deploy_operational_history", "deploy_rca_reader_identity"}
         },
     }
     if apply:

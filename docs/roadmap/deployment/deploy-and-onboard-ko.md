@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e733f77bf41b5b29402e39592866a434a9791dd2
+translation_source_sha: 2556ece21373ba60309629ec1b86ab1b49020d6e
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -283,9 +283,15 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 12 | **ADLS Gen2 문서 계정** (**명시적 선택**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | 비공개 격리 구역, 변경할 수 없는 통제된 버전, derived 묶음 | 비공개 모드에서 Shared Key와 공개 접근 비활성화; soft 삭제 + 수명 주기; `blob`과 `dfs` 비공개 엔드포인트 |
 | 13 | **Case-history Blob 계정** (`enable_case_history`) | StorageV2 Standard ZRS | 재생 및 통제된 Norns 분석용 내용 기반 주소를 가진 prediction/인시던트 사례 개정 번호 | Shared Key 비활성화, 비공개 컨테이너, versioning, 변경 피드, soft 삭제, 범위가 제한된 old-version 수명 주기, Defender scanner private-link 접근, 전용 case-history UAMI 데이터 역할, `blob` 비공개 엔드포인트. 실행기 MI에는 Blob 역할을 부여하지 않습니다. |
 | 14 | **문서 인제스트 Container Apps** (**명시적 선택**) | Consumption, 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 규모되는 안전성 검사, 추출, pgvector 인덱싱, 수명 주기 이벤트 | API, 워커, 이행 UAMI를 분리합니다. 워커만 Event Hubs 수신과 OCR 권한을 받으며 런타임 신원에는 실행기 권한이 없습니다. |
-| 15 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `fdai.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
-| 16 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
-| 17 | **OHL scale-out evidence VM Scale Set + proposal Job** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1`, manual Consumption Job | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target 및 normal-ingress shadow proposal | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. Proposal UAMI에는 ACR pull과 primary Event Hub send만 있습니다. Protected provider staging은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
+| 15 | **운영 이력 archive + lifecycle Job** (**명시적 선택**) | 비공개 versioned Blob 저장소 + Consumption 예약 Job | checkpoint, archive, 검증, restore sample, hold, 저장소 압력 및 database gate 기반 purge 조정 | 예약 실행은 inventory identity를 사용하는 shadow-only입니다. Enforce와 certify는 외부 증적을 요구하며 certify만 database purge gate에 도달할 수 있습니다. |
+| 16 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `fdai.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
+| 17 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
+| 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1`, manual Consumption Job | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target 및 normal-ingress shadow proposal | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. Proposal UAMI에는 ACR pull과 primary Event Hub send만 있습니다. Protected provider staging은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
+보호된 `history-` 요청 모드는 workflow 입력을 추가하지 않고 초기 범위 제한 운영 이력 계획과
+적용을 활성화합니다. Workflow는 sibling job environment 값 대신 이 요청 prefix에서 활성화
+flag와 범위 제한 Terraform target을 직접 파생합니다. 이후 일반 배포 계획이 명시적 선택 리소스의
+제거를 제안하지 않고 보존하도록 해당 계획 전에 `ENABLE_OPERATIONAL_HISTORY` repository 변수를
+`true`로 설정합니다.
 로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
 filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
 사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는
