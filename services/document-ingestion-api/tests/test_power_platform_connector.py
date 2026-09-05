@@ -13,6 +13,7 @@ from fdai_ingestion_api_service.adapters.sharepoint import SharePointDeltaItem
 from fdai_ingestion_api_service.adapters.sharepoint_state import (
     ConnectorBindingConflictError,
     ConnectorDocumentBinding,
+    _validate_cancellation_revision,
 )
 from fdai_ingestion_api_service.auth import (
     AuthenticationError,
@@ -743,6 +744,12 @@ async def test_background_reconciliation_drains_cancellation_pages() -> None:
     assert state.pending == ["etag-64"]
     assert await connector.reconcile_cancellations(actor_id="reconciler") == 1
     assert state.pending == []
+
+
+@pytest.mark.parametrize("revision", ["", "x" * 513])
+def test_cancellation_revision_is_bounded(revision: str) -> None:
+    with pytest.raises(ValueError, match=r"\[1, 512\]"):
+        _validate_cancellation_revision(revision)
 
 
 def test_connector_authentication_separates_source_and_api_tenants() -> None:

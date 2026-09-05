@@ -297,6 +297,7 @@ class PostgresSharePointDeltaStore:
         source_item_id: str,
         source_revision: str,
     ) -> None:
+        _validate_cancellation_revision(source_revision)
         await connection.execute(
             "INSERT INTO document_connector_cancellation "
             "(connector_id, source_item_id, source_revision) VALUES (%s, %s, %s) "
@@ -632,6 +633,11 @@ def _boolean(payload: dict[str, object], key: str) -> bool:
     if not isinstance(value, bool):
         raise RuntimeError(f"SharePoint cursor {key} is invalid")
     return value
+
+
+def _validate_cancellation_revision(source_revision: str) -> None:
+    if not 0 < len(source_revision) <= 512:
+        raise ValueError("connector cancellation revision MUST be in [1, 512] characters")
 
 
 def _deletion_event(

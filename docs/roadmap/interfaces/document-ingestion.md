@@ -512,7 +512,8 @@ carry a monotonic per-item sequence and stream through the normal managed-copy l
 events use the durable source-item binding and remain pending while legal hold applies. Superseded
 or compare-and-swap-losing uploads enter an idempotent cancellation table. Requests and a production
 background reconciler drain bounded pages until each displaced version reaches cancellation or
-lineage deletion.
+lineage deletion. Cancellation revisions are unique per connector item and limited to 512
+characters before durable insertion.
 
 | Method and path | Purpose |
 |-----------------|---------|
@@ -565,7 +566,7 @@ deduplication slot, and continues on the next bounded interval instead of termin
 | Artifact/index/embedding timeout | Preserve the accepted source in quarantine, remove partial derived/index data, record `indexing_failed`, and emit a bounded stage diagnostic. |
 | ACL source unavailable | Fail closed for reads and retrieval until authorization can be re-established. |
 | Index deletion failure | Keep the document unavailable, retry deletion, and report `deletion_pending`. |
-| Superseded-version cleanup failure | Keep one idempotent cancellation row per source revision. Each connector request drains a bounded page, and the API background reconciler retries bounded source-item pages when no new source event arrives. |
+| Superseded-version cleanup failure | Keep one idempotent cancellation row per source revision. Revision keys retain the 512-character source bound. Each connector request drains a bounded page, and the API background reconciler retries bounded source-item pages when no new source event arrives. |
 | Queue overload | Apply admission control and per-collection fairness; operational event processing keeps priority. |
 
 ## Observability and audit
