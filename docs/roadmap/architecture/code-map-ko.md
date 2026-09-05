@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c0bdb01ceba30fb3a1e770c33feaec2ca6f0721b
+translation_source_sha: d31a88b3bb4f48ef68f1b26a4c18c5bcad33ee2f
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -48,8 +48,8 @@ translation_revised: 2026-09-05
 문서 인제스트 API는 FDAI-native 교차 테넌트 SharePoint 커넥터도 소유합니다. Federated
 Managed Identity가 대상 테넌트의 Microsoft Graph 토큰을 얻고, 영속 delta 및 인제스트
 어댑터가 변경 파일을 서버 소유 문서 정책에 연결합니다. Power Platform은 런타임 의존성이
-아닙니다. 이 서비스는 선택적 비용 거버넌스 패키지를 가져오거나 비용 권한을 변경하지
-않습니다.
+아닙니다. 루트 Terraform은 커넥터 설정을 문서 인제스트 모듈을 통해서만 전달합니다. 서비스
+조립과 루트 조립은 선택적 비용 거버넌스 패키지를 가져오거나 비용 권한을 변경하지 않습니다.
 
 ## Core 컨트롤 플레인 지도
 

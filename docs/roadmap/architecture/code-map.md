@@ -45,8 +45,9 @@ retired top-level application tree.
 The Document Ingestion API also owns the FDAI-native cross-tenant SharePoint connector. Its
 federated managed identity obtains Microsoft Graph tokens in the target tenant, while its durable
 delta and intake adapters map changed files to server-owned document policy. Power Platform is not
-a runtime dependency. The service doesn't import the optional Cost Governance package or change
-cost authority.
+a runtime dependency. Root Terraform forwards connector settings only through the document
+ingestion module; neither service composition nor root composition imports the optional Cost
+Governance package or changes cost authority.
 
 ## Core Control Plane map
 
