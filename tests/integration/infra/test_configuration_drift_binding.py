@@ -1,5 +1,6 @@
 """Infrastructure contract for opt-in Azure configuration drift binding."""
 
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -18,7 +19,7 @@ _MODULE_VARIABLES = (
 def test_configuration_drift_is_explicitly_opt_in() -> None:
     assert 'variable "configuration_drift"' in _SERVICE_VARIABLES
     assert 'variable "configuration_drift"' in _MODULE_VARIABLES
-    assert "configuration_drift = var.configuration_drift" in _SERVICE_MAIN
+    assert re.search(r"configuration_drift\s*=\s*var\.configuration_drift", _SERVICE_MAIN)
     assert "!var.configuration_drift.enabled ? [] : [" in _MODULE_MAIN
     assert "FDAI_CONFIGURATION_DRIFT_ENABLED" in _MODULE_MAIN
 
