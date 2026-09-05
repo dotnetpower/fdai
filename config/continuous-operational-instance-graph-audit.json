@@ -579,7 +579,7 @@
         },
         {
           "state": "bound",
-          "path": "infra/modules/compute/container-apps/operational_history_lifecycle_job.tf",
+          "path": "infra/operational_history_lifecycle_job.tf",
           "symbol": "azurerm_container_app_job.operational_history_lifecycle"
         },
         {

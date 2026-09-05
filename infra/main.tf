@@ -1422,8 +1422,13 @@ resource "azurerm_private_endpoint" "operational_history_blob" {
   name                = "pe-oh-blob-${var.workload}${local.full_suffix}"
   location            = var.region
   resource_group_name = module.resource_group.name
-  subnet_id           = module.network[0].pe_subnet_id
-  tags                = merge(local.tags, { "fdai:component" = "operational-history" })
+  subnet_id = format(
+    "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/snet-pe",
+    data.azurerm_client_config.current.subscription_id,
+    module.resource_group.name,
+    "vnet-${var.workload}${local.full_suffix}",
+  )
+  tags = merge(local.tags, { "fdai:component" = "operational-history" })
 
   private_service_connection {
     name                           = "pe-oh-blob-${var.workload}${local.full_suffix}-psc"
@@ -1433,8 +1438,14 @@ resource "azurerm_private_endpoint" "operational_history_blob" {
   }
 
   private_dns_zone_group {
-    name                 = "default"
-    private_dns_zone_ids = [module.case_history_blob_private_endpoint[0].private_dns_zone_id]
+    name = "default"
+    private_dns_zone_ids = [
+      format(
+        "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net",
+        data.azurerm_client_config.current.subscription_id,
+        module.resource_group.name,
+      )
+    ]
   }
 
   lifecycle {
@@ -2135,9 +2146,6 @@ module "compute" {
   browser_evidence_cleanup_job_name = (
     "caj-${var.workload}${local.full_suffix}-browser-gc"
   )
-  operational_history_lifecycle_job_name = (
-    "caj-${var.workload}${local.full_suffix}-history"
-  )
   location                    = var.region
   resource_group_name         = module.resource_group.name
   log_workspace_id            = module.log_analytics.workspace_id
@@ -2290,21 +2298,10 @@ module "compute" {
   inventory_kubernetes_audience            = var.inventory_kubernetes_audience
   browser_evidence_cleanup_cron_expression = var.browser_evidence_cleanup_cron_expression
   browser_evidence_cleanup_limit           = var.browser_evidence_cleanup_limit
-  operational_history_lifecycle_cron_expression = (
-    var.enable_operational_history ? var.operational_history_lifecycle_cron_expression : ""
-  )
-  operational_history_lifecycle_max_partitions = (
-    var.operational_history_lifecycle_max_partitions
-  )
-  operational_history_container_url = (
-    var.enable_operational_history
-    ? module.operational_history_storage[0].container_url
-    : ""
-  )
-  observation_campaign_cron_expression = var.observation_campaign_cron_expression
-  wara_assessment_cron_expression      = var.wara_assessment_cron_expression
-  wara_assessment_workload_ids         = var.wara_assessment_workload_ids
-  wara_assessment_workload_tags        = var.wara_assessment_workload_tags
+  observation_campaign_cron_expression     = var.observation_campaign_cron_expression
+  wara_assessment_cron_expression          = var.wara_assessment_cron_expression
+  wara_assessment_workload_ids             = var.wara_assessment_workload_ids
+  wara_assessment_workload_tags            = var.wara_assessment_workload_tags
   wara_assessment_inventory_freshness_seconds = (
     var.wara_assessment_inventory_freshness_seconds
   )
