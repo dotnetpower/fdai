@@ -33,12 +33,21 @@ _PYTHON_FILES = frozenset(
         ".github/workflows/ci.yml",
     }
 )
+_TERRAFORM_PREFIXES = ("infra/",)
+_TERRAFORM_FILES = frozenset(
+    {
+        ".github/workflows/ci.yml",
+    }
+)
 
 
-def classify_paths(paths: list[str]) -> tuple[bool, bool]:
+def classify_paths(paths: list[str]) -> tuple[bool, bool, bool]:
     python = any(path.startswith(_PYTHON_PREFIXES) or path in _PYTHON_FILES for path in paths)
     docs = any(path.startswith("docs/") or path in {"README.md", "README-ko.md"} for path in paths)
-    return python, docs
+    terraform = any(
+        path.startswith(_TERRAFORM_PREFIXES) or path in _TERRAFORM_FILES for path in paths
+    )
+    return python, docs, terraform
 
 
 def _changed_paths(diff_range: str) -> list[str]:
@@ -56,11 +65,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--range", required=True, dest="diff_range")
     args = parser.parse_args()
-    python, docs = classify_paths(_changed_paths(args.diff_range))
+    python, docs, terraform = classify_paths(_changed_paths(args.diff_range))
     output = Path(os.environ["GITHUB_OUTPUT"])
     with output.open("a", encoding="utf-8") as stream:
         stream.write(f"python={str(python).lower()}\n")
         stream.write(f"docs={str(docs).lower()}\n")
+        stream.write(f"terraform={str(terraform).lower()}\n")
     return 0
 
 

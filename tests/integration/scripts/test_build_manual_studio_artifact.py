@@ -65,7 +65,7 @@ def test_console_static_publish_workflow_requires_exact_green_main_revision() ->
     assert "inputs.commit_sha == github.sha" in workflow
     assert "runs-on: [self-hosted, fdai-deploy]" in workflow
     assert 'select(.name == "required")' in workflow
-    assert "verify-github-environment.py" in workflow
+    assert "verify-github-environment.py" not in workflow
     assert "login-deploy-identity.sh" in workflow
     assert "terraform init -input=false" in workflow
     assert "CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}" in workflow

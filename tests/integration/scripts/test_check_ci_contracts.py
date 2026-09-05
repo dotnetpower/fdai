@@ -239,7 +239,7 @@ def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
     assert "  push:" not in workflow
     assert "    runs-on:\n      - self-hosted\n      - ${{ vars.DEVBOX_RUNNER_LABEL }}" in workflow
     assert "Verify protected workflow source" in workflow
-    assert "PROTECTED_WORKFLOW_PATH: .github/workflows/devbox-smoke.yml" in workflow
+    assert "workflow-path: .github/workflows/devbox-smoke.yml" in workflow
     assert "ref: ${{ inputs.commit_sha }}" in workflow
     assert "secrets." not in workflow
     assert 'runner_root="$(dirname "$(dirname "$RUNNER_WORKSPACE")")"' in workflow
@@ -277,8 +277,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "pages.yml",
         "publish-console.yml",
         "refresh-catalogs.yml",
-        "request-catalog-refresh.yml",
-        "request-console-publish.yml",
+        "request-protected-operation.yml",
         "remote-evidence-attest.yml",
         "service-deploy.yml",
         "sre-demo-lab.yml",
@@ -494,6 +493,20 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     assert "inputs: audit-requirements.txt" in audit_job
 
 
+def test_ci_migrates_service_database_before_integration_tests() -> None:
+    workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+    steps = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]["db-migrations"][
+        "steps"
+    ]
+    step_names = [step["name"] for step in steps]
+
+    assert step_names.index("Run service-owned migrations") < step_names.index(
+        "Run integration test suite"
+    )
+    integration_step = next(step for step in steps if step["name"] == "Run integration test suite")
+    assert integration_step["env"]["FDAI_DATABASE_URL"] == "${{ env.FDAI_SERVICE_DATABASE_URL }}"
+
+
 def test_ci_required_status_aggregates_every_execution_job() -> None:
     workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
     jobs = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]
@@ -531,10 +544,12 @@ def test_container_supply_chain_builds_only_service_owned_dockerfiles() -> None:
 
 
 def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
-    workflow = (
-        Path(__file__).resolve().parents[3] / ".github" / "workflows" / "infra-lint.yml"
-    ).read_text(encoding="utf-8")
+    workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
 
+    assert "terraform-security:" in workflow
+    assert "needs.changes.outputs.terraform == 'true'" in workflow
     assert "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra" in workflow
     assert "checkov -d infra --quiet --compact --framework terraform" in workflow
     assert "--baseline" not in workflow

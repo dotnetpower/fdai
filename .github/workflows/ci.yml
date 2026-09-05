@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       python: ${{ steps.scope.outputs.python }}
+      terraform: ${{ steps.scope.outputs.terraform }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -115,15 +116,7 @@ jobs:
         run: python3 scripts/quality/ci/materialize-resolved-models.py
 
       - name: Install OPA (Rego runner)
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
-            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
-          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
-            | sha256sum -c -
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/opa
+        uses: ./.github/actions/setup-opa
 
       - name: Run regression shard
         run: bash scripts/quality/ci/run-python-tests.sh
@@ -160,16 +153,7 @@ jobs:
         run: python3 scripts/quality/ci/check-ci-contracts.py
 
       - name: Install OPA (Rego runner)
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
-            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
-          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
-            | sha256sum -c -
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/opa
-          opa version
+        uses: ./.github/actions/setup-opa
 
       - name: Focused safety-core coverage
         run: bash scripts/quality/ci/run-python-tests.sh
@@ -383,16 +367,7 @@ jobs:
             --trusted-app-id "$TRUSTED_APP_ID"
 
       - name: Install OPA (Rego runner)
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
-            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
-          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
-            | sha256sum -c -
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/opa
-          opa version
+        uses: ./.github/actions/setup-opa
 
       - name: Run catalog and governance runtime checks
         env:
@@ -440,8 +415,22 @@ jobs:
             uv run python scripts/catalog/sync-rule-semantics.py --check
           run_check "Chaos scenario catalog" \
             bash scripts/catalog/check-chaos-scenarios.sh
-          run_check "Exemption artifacts" validate_exemptions
-          run_check "Governance transitions" validate_governance_transitions
+          echo "::group::Exemption artifacts"
+          validate_exemptions
+          result=$?
+          echo "::endgroup::"
+          if (( result != 0 )); then
+            echo "::error::Exemption artifacts failed with exit code $result"
+            failed=1
+          fi
+          echo "::group::Governance transitions"
+          validate_governance_transitions
+          result=$?
+          echo "::endgroup::"
+          if (( result != 0 )); then
+            echo "::error::Governance transitions failed with exit code $result"
+            failed=1
+          fi
           exit "$failed"
 
   evaluation-packages:
@@ -551,7 +540,9 @@ jobs:
           changed=$(printf '%s\n%s' "$changed" "$added_to_frozen" | sed '/^$/d')
           if [[ -n "$changed" ]]; then
             echo "Frozen scenario files modified or deleted:"
-            printf '  - %s\n' $changed
+            while IFS= read -r file; do
+              printf '  - %s\n' "$file"
+            done <<< "$changed"
             echo ""
             echo "Frozen versions are immutable - create a new version directory instead."
             exit 1
@@ -619,20 +610,7 @@ jobs:
           PY
 
       - name: Install OPA (Rego runner)
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
-            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
-          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
-            | sha256sum -c -
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/opa
-
-      - name: Run integration test suite
-        env:
-          FDAI_PYTEST_MODE: integration
-        run: bash scripts/quality/ci/run-python-tests.sh
+        uses: ./.github/actions/setup-opa
 
       - name: Run service-owned migrations
         run: |
@@ -658,6 +636,12 @@ jobs:
                 --rollback-reference \
                   "git:${GITHUB_SHA}:service-migrations/branches/${service}/adoption.json#rollback"
           done
+
+      - name: Run integration test suite
+        env:
+          FDAI_PYTEST_MODE: integration
+          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
+        run: bash scripts/quality/ci/run-python-tests.sh
 
       - name: Run service-owned database tests
         env:
@@ -755,6 +739,38 @@ jobs:
           terraform -chdir=bootstrap init -backend=false -input=false
           terraform -chdir=bootstrap test
 
+      - name: terraform validate (scenario lab)
+        run: |
+          terraform -chdir=scenario-lab init -backend=false -input=false
+          terraform -chdir=scenario-lab validate
+
+  terraform-security:
+    name: Terraform security scan
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pinned scanners
+        env:
+          TRIVY_VERSION: "0.72.0"
+          CHECKOV_VERSION: "3.2.256"
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin trivy
+          pipx install "checkov==${CHECKOV_VERSION}"
+
+      - name: Trivy Terraform misconfiguration scan
+        run: trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra
+
+      - name: Checkov Terraform scan
+        run: checkov -d infra --quiet --compact --framework terraform
+
   required:
     name: required
     if: always()
@@ -775,6 +791,7 @@ jobs:
       - db-migrations
       - provider-contracts-docker
       - terraform-validate
+      - terraform-security
     runs-on: ubuntu-24.04
     steps:
       - name: Require every CI job to pass or skip

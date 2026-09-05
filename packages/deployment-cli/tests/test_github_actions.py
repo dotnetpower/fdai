@@ -175,75 +175,26 @@ def test_replan_attempts_use_distinct_request_ids() -> None:
     assert first.request_id != second.request_id
 
 
-def test_apply_rejects_unsupported_quorum_or_self_reviewable_environment() -> None:
-    class EnvironmentRunner(RecordingRunner):
-        def __init__(
-            self,
-            *,
-            reviewer_count: int,
-            prevent_self_review: bool,
-            admin_bypass: bool = False,
-        ) -> None:
-            super().__init__()
-            self.reviewer_count = reviewer_count
-            self.prevent_self_review = prevent_self_review
-            self.admin_bypass = admin_bypass
+def test_apply_dispatches_without_any_environment_approval_lookup() -> None:
+    runner = RecordingRunner()
 
-        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
-            self.calls.append(arguments)
-            if arguments[:1] == ("api",):
-                return CommandResult(
-                    0,
-                    json.dumps(
-                        {
-                            "can_admins_bypass": self.admin_bypass,
-                            "protection_rules": [
-                                {
-                                    "type": "required_reviewers",
-                                    "prevent_self_review": self.prevent_self_review,
-                                    "reviewers": [
-                                        {"reviewer": {"id": index + 1}}
-                                        for index in range(self.reviewer_count)
-                                    ],
-                                }
-                            ],
-                        }
-                    ),
-                )
-            return CommandResult(0, "")
+    dispatch_apply(
+        repository="example/fdai",
+        environment="staging",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.quorum",
+        plan_id="plan-99-2",
+        plan_digest="d" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=False,
+        selection=DeploymentSelection(),
+        run=runner,
+    )
 
-    common = {
-        "repository": "example/fdai",
-        "environment": "staging",
-        "commit_sha": _COMMIT,
-        "target_binding": _TARGET,
-        "region": _REGION,
-        "approval_quorum": 1,
-        "run_id": "run.quorum",
-        "plan_id": "plan-99-2",
-        "plan_digest": "d" * 64,
-        "plan_expires_at": _FUTURE_EXPIRY,
-        "resume_verification": False,
-        "selection": DeploymentSelection(),
-    }
-    with pytest.raises(ValueError, match="exactly one"):
-        dispatch_apply(
-            **{**common, "approval_quorum": 2},
-            run=EnvironmentRunner(reviewer_count=2, prevent_self_review=True),
-        )
-    with pytest.raises(ValueError, match="required_reviewers_missing"):
-        dispatch_apply(**common, run=EnvironmentRunner(reviewer_count=0, prevent_self_review=True))
-    with pytest.raises(ValueError, match="self_review"):
-        dispatch_apply(**common, run=EnvironmentRunner(reviewer_count=2, prevent_self_review=False))
-    with pytest.raises(ValueError, match="admin_bypass"):
-        dispatch_apply(
-            **common,
-            run=EnvironmentRunner(
-                reviewer_count=1,
-                prevent_self_review=True,
-                admin_bypass=True,
-            ),
-        )
+    assert not [call for call in runner.calls if call[:1] == ("api",)]
 
 
 def test_status_requires_one_exact_run_title() -> None:

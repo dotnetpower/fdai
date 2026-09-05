@@ -21,6 +21,9 @@ from scripts.quality.architecture.verify_remote_github_evidence import (
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = (_ROOT / ".github/workflows/remote-evidence-attest.yml").read_text(encoding="utf-8")
+_PROTECTED_WORKFLOW_ACTION = (
+    _ROOT / ".github/actions/verify-protected-workflow-source/action.yml"
+).read_text(encoding="utf-8")
 
 
 class _Client:
@@ -297,7 +300,8 @@ def test_remote_evidence_workflow_is_read_only_and_pinned() -> None:
     assert "id-token: write" in _WORKFLOW
     assert "packages: read" in _WORKFLOW
     assert "PYTHONPATH: ${{ github.workspace }}" in _WORKFLOW
-    assert "diff --brief" in _WORKFLOW
+    assert "workflow-path: .github/workflows/remote-evidence-attest.yml" in _WORKFLOW
+    assert 'git -C "$guard_repo" diff --quiet' in _PROTECTED_WORKFLOW_ACTION
     assert "diff --quiet" not in _WORKFLOW
     assert "verify_remote_github_evidence.py" in _WORKFLOW
     assert "check-remote-service-evidence.py" in _WORKFLOW

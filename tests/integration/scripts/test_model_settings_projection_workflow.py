@@ -10,6 +10,9 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_PATH = ROOT / ".github/workflows/model-settings-projection.yml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
+PROTECTED_WORKFLOW_ACTION = (
+    ROOT / ".github/actions/verify-protected-workflow-source/action.yml"
+).read_text(encoding="utf-8")
 
 
 def test_projection_workflow_is_protected_and_exact_revision() -> None:
@@ -19,9 +22,9 @@ def test_projection_workflow_is_protected_and_exact_revision() -> None:
     assert "workflow_dispatch" in parsed[True]
     assert "commit_sha" in parsed[True]["workflow_dispatch"]["inputs"]
     assert "runs-on: [self-hosted, fdai-deploy]" in WORKFLOW
-    assert "TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}" in WORKFLOW
-    assert "PROTECTED_WORKFLOW_PATH: .github/workflows/model-settings-projection.yml" in WORKFLOW
-    assert 'git -C "$guard_repo" diff --quiet' in WORKFLOW
+    assert "target-commit-sha: ${{ inputs.commit_sha }}" in WORKFLOW
+    assert "workflow-path: .github/workflows/model-settings-projection.yml" in WORKFLOW
+    assert 'git -C "$guard_repo" diff --quiet' in PROTECTED_WORKFLOW_ACTION
 
 
 def test_projection_workflow_requires_three_way_active_digest_cas() -> None:

@@ -41,10 +41,13 @@ _CONSOLE_PUBLISHER = (_ROOT / "scripts/deployment/azure/publish-console.sh").rea
 _GH_INSTALLER = (_ROOT / "scripts/deployment/azure/install-pinned-github-cli.sh").read_text(
     encoding="utf-8"
 )
+_PROTECTED_WORKFLOW_ACTION = (
+    _ROOT / ".github/actions/verify-protected-workflow-source/action.yml"
+).read_text(encoding="utf-8")
 _CONSOLE_PUBLISH_WORKFLOW = (_ROOT / ".github/workflows/publish-console.yml").read_text(
     encoding="utf-8"
 )
-_CONSOLE_REQUEST_WORKFLOW = (_ROOT / ".github/workflows/request-console-publish.yml").read_text(
+_CONSOLE_REQUEST_WORKFLOW = (_ROOT / ".github/workflows/request-protected-operation.yml").read_text(
     encoding="utf-8"
 )
 _CATALOG_REFRESH = (_ROOT / "scripts/deployment/azure/refresh-authoritative-catalogs.sh").read_text(
@@ -158,6 +161,14 @@ def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
     assert "- name: Verify exact Azure context and bind governed inputs" in _LEGACY_WORKFLOW
     assert "materialize-document-ocr-proposal.sh" in _LEGACY_WORKFLOW
     assert "resolve-document-ocr-desired-state.sh" in _LEGACY_WORKFLOW
+    assert "- name: Bind document OCR proposal" not in _LEGACY_WORKFLOW
+    assert "- name: Resolve document OCR desired state" not in _LEGACY_WORKFLOW
+    assert _LEGACY_WORKFLOW.index("Verify exact Azure context") < _LEGACY_WORKFLOW.index(
+        "materialize-document-ocr-proposal.sh"
+    )
+    assert _LEGACY_WORKFLOW.index("Initialize Terraform remote state") < _LEGACY_WORKFLOW.index(
+        "resolve-document-ocr-desired-state.sh"
+    )
     assert "TF_VAR_enable_document_intelligence=%s" in _OCR_RESOLVER
     assert "TF_VAR_document_ocr_provider=%s" in _OCR_RESOLVER
 
@@ -186,10 +197,7 @@ def test_platform_workflow_stays_within_dispatch_input_limit() -> None:
 
 
 def test_platform_protected_source_guard_is_valid_bash() -> None:
-    script = _LEGACY_WORKFLOW.split("- name: Verify protected workflow source", maxsplit=1)[
-        1
-    ].split("- name: Prepare self-hosted runner workspace", maxsplit=1)[0]
-    script = script.split("run: |", maxsplit=1)[1]
+    script = _PROTECTED_WORKFLOW_ACTION.split("run: |", maxsplit=1)[1]
     bash = shutil.which("bash")
 
     assert bash is not None
@@ -327,7 +335,11 @@ def test_console_release_request_uses_bot_as_deployment_requester() -> None:
     assert "actions: write" in _CONSOLE_REQUEST_WORKFLOW
     assert "Verify protected workflow source" in _CONSOLE_REQUEST_WORKFLOW
     assert "Verify required CI" in _CONSOLE_REQUEST_WORKFLOW
-    assert "actions/workflows/publish-console.yml/dispatches" in _CONSOLE_REQUEST_WORKFLOW
+    assert "console-publish)" in _CONSOLE_REQUEST_WORKFLOW
+    assert "target_workflow=publish-console.yml" in _CONSOLE_REQUEST_WORKFLOW
+    assert '"repos/$GITHUB_REPOSITORY/actions/workflows/$target_workflow/dispatches"' in (
+        _CONSOLE_REQUEST_WORKFLOW
+    )
     assert '"inputs[commit_sha]=$TARGET_COMMIT_SHA"' in _CONSOLE_REQUEST_WORKFLOW
 
 
@@ -565,11 +577,16 @@ def test_legacy_platform_disables_all_migrated_service_apps() -> None:
 
 def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:
     uses = re.findall(r"^\s*uses:\s+([^\s#]+)", _WORKFLOW, re.MULTILINE)
+    remote_uses = [value for value in uses if not value.startswith("./")]
+    local_uses = [value for value in uses if value.startswith("./")]
 
-    assert uses
-    assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in uses)
+    assert remote_uses
+    assert local_uses == [
+        "./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source"
+    ]
+    assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in remote_uses)
     for action, sha in _ACTION_PINS.items():
-        assert f"{action}@{sha}" in uses
+        assert f"{action}@{sha}" in remote_uses
 
 
 def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> None:
@@ -577,9 +594,9 @@ def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> Non
     assert "if: ${{ !inputs.apply && !inputs.migrate_state }}" in _WORKFLOW
     assert "if: ${{ inputs.apply }}" in _WORKFLOW
     assert "apply and migrate_state are mutually exclusive." in _WORKFLOW
-    assert "service-state-migration-{0}" in _WORKFLOW
-    assert "service-initial-cutover-{0}" in _WORKFLOW
-    assert "inputs.apply && format('service-apply-{0}'" in _WORKFLOW
+    assert "service-state-migration-{0}" not in _WORKFLOW
+    assert "service-initial-cutover-{0}" not in _WORKFLOW
+    assert "inputs.apply && format('service-apply-{0}'" not in _WORKFLOW
     for coordinate in ("PLAN_RUN_ID", "PLAN_RUN_ATTEMPT", "PLAN_DIGEST", "CONTEXT_DIGEST"):
         assert f'[[ "${coordinate}" =~' in _WORKFLOW
     assert "migrate_state and initial_cutover are mutually exclusive." in _WORKFLOW
@@ -634,7 +651,9 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
     assert '"+refs/heads/main:refs/remotes/origin/main"' in _WORKFLOW
     assert 'git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor' in _WORKFLOW
     assert '"$COMMIT_SHA" refs/remotes/origin/main' in _WORKFLOW
-    assert 'git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA"' in _WORKFLOW
+    assert 'git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA"' in (
+        _PROTECTED_WORKFLOW_ACTION
+    )
     assert "TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" not in _WORKFLOW
     assert 'TRUSTED_CONTROLS="$GITHUB_WORKSPACE/trusted-controls"' in _WORKFLOW
     assert (
@@ -790,7 +809,7 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert '"${resolved_model_args[@]}"' in _WORKFLOW
     assert "--model-binding-transition" in _WORKFLOW
     assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') >= 4
-    assert "service-model-binding-apply-{0}" in _WORKFLOW
+    assert "service-model-binding-apply-{0}" not in _WORKFLOW
     assert "database-host-binding+model-binding" in _WORKFLOW
     assert 'name = "LLM_RESOLVED_MODELS_PATH"' in _CORE_TERRAFORM
     assert 'name = "LLM_RESOLVED_MODELS_SHA256"' in _CORE_TERRAFORM

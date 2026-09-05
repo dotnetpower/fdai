@@ -29,9 +29,10 @@ application features, it remains enabled and participates in the complete non-de
 The protected Console release workflow binds an exact CI-verified Core image, updates the existing
 catalog materialization Job with rollback, runs schema migration, and verifies the selected
 revision's immutable Rule and Ontology projections through PostgreSQL readback before publishing the
-matching Console artifact. A separate request workflow validates the exact revision and dispatches
-the protected release with the repository automation identity. The human maintainer can then approve
-that bot-owned deployment without enabling self-review or administrator bypass.
+matching Console artifact. One shared request workflow validates an allowlisted operation and the
+exact revision, then dispatches either Console publication or catalog refresh with the repository
+automation identity. The human maintainer can then approve that bot-owned deployment without
+enabling self-review or administrator bypass.
 
 ## Implementation status
 

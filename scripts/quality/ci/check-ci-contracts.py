@@ -67,6 +67,9 @@ PRIVILEGED_COMMAND_RE = re.compile(
     r"az\s+\S+\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
 )
 PROTECTED_WORKFLOW_GUARD = "Verify protected workflow source"
+PROTECTED_WORKFLOW_ACTION_USE = (
+    "uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source"
+)
 UV_SETUP_BLOCK_RE = re.compile(
     r"(?ms)^\s+- name: [^\n]+\n"
     r"\s+uses: astral-sh/setup-uv@[^\n]+.*?(?=^\s+- name:|\Z)"
@@ -321,6 +324,18 @@ def _is_privileged_workflow(content: str) -> bool:
 def _validate_privileged_workflow_guards() -> list[str]:
     """Require protected source provenance before privileged repository code executes."""
     errors: list[str] = []
+    action_path = (
+        REPO_ROOT / ".github" / "actions" / "verify-protected-workflow-source" / "action.yml"
+    )
+    action = action_path.read_text(encoding="utf-8") if action_path.is_file() else ""
+    action_fragments = (
+        "+refs/heads/main:refs/remotes/origin/main",
+        'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+        '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+        '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+        "diff --quiet",
+    )
+    action_checked = False
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         content = path.read_text(encoding="utf-8")
         if not _is_privileged_workflow(content):
@@ -335,24 +350,32 @@ def _validate_privileged_workflow_guards() -> list[str]:
         )
         if event_scoped_issue_mutation:
             continue
+        if PROTECTED_WORKFLOW_ACTION_USE in content and not action_checked:
+            for fragment in action_fragments:
+                if fragment not in action:
+                    errors.append(
+                        ".github/actions/verify-protected-workflow-source/action.yml "
+                        f"lacks protected-source guard: {fragment}"
+                    )
+            action_checked = True
         common_fragments = (
+            "Checkout protected workflow verifier",
             PROTECTED_WORKFLOW_GUARD,
-            "refs/heads/main:refs/remotes/origin/main",
-            'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+            "ref: main",
+            "sparse-checkout: .github/actions/verify-protected-workflow-source",
+            "path: .fdai-protected-workflow-verifier",
+            PROTECTED_WORKFLOW_ACTION_USE,
+            "target-commit-sha:",
+            f"workflow-path: {relative}",
+            "origin-url: ${{ github.server_url }}/${{ github.repository }}.git",
+            "github-token: ${{ github.token }}",
         )
         for fragment in common_fragments:
             if fragment not in content:
                 errors.append(
                     f"{relative} is privileged and lacks protected-source guard: {fragment}"
                 )
-        exact_source_fragments = (
-            f"PROTECTED_WORKFLOW_PATH: {relative}",
-            '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
-            '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
-        )
-        has_exact_source_guard = all(
-            fragment in content for fragment in exact_source_fragments
-        ) and any(flag in content for flag in ("diff --brief", "diff -q", "diff --quiet"))
+        has_exact_source_guard = all(fragment in content for fragment in common_fragments)
         protected_controls_fragments = (
             "path: trusted-controls",
             "ref: main",
@@ -368,10 +391,12 @@ def _validate_privileged_workflow_guards() -> list[str]:
                 f"{relative} is privileged and lacks a complete exact-source or "
                 "protected-controls guard"
             )
-        guard_index = content.find(PROTECTED_WORKFLOW_GUARD)
-        action_index = content.find("uses:")
-        if guard_index >= 0 and action_index >= 0 and guard_index > action_index:
-            errors.append(f"{relative} executes a remote action before its protected-source guard")
+        verifier_checkout_index = content.find("- name: Checkout protected workflow verifier")
+        guard_index = content.find(f"- name: {PROTECTED_WORKFLOW_GUARD}")
+        if verifier_checkout_index < 0 or guard_index < verifier_checkout_index:
+            errors.append(
+                f"{relative} does not load the protected verifier before its source guard"
+            )
         if "workflow_dispatch:" in content or "workflow_call:" in content:
             if "commit_sha:" not in content:
                 errors.append(f"{relative} must accept an exact commit_sha for privileged dispatch")

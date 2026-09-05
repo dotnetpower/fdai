@@ -1,0 +1,62 @@
+name: Verify protected workflow source
+description: "Verify an exact commit and workflow definition against protected origin/main."
+
+inputs:
+  target-commit-sha:
+    description: Exact commit to verify.
+    required: true
+  workflow-path:
+    description: Repository-relative workflow path that must match protected main.
+    required: true
+  origin-url:
+    description: Authenticated repository Git URL.
+    required: true
+  github-token:
+    description: Token used only to fetch protected repository objects.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify exact protected source
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        TARGET_COMMIT_SHA: ${{ inputs.target-commit-sha }}
+        PROTECTED_WORKFLOW_PATH: ${{ inputs.workflow-path }}
+        PROTECTED_ORIGIN_URL: ${{ inputs.origin-url }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+        [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+          echo "target commit must be a lowercase 40-character git SHA." >&2
+          exit 1
+        }
+        [[ "$PROTECTED_WORKFLOW_PATH" =~ ^[.]github/workflows/[A-Za-z0-9._-]+[.]ya?ml$ ]] || {
+          echo "workflow path must identify a workflow under .github/workflows." >&2
+          exit 1
+        }
+        guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+        rm -rf -- "$guard_repo"
+        git init --bare "$guard_repo" >/dev/null
+        trap 'rm -rf -- "$guard_repo"' EXIT
+        auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+        echo "::add-mask::$auth_header"
+        GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.extraheader \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+          git -C "$guard_repo" fetch --force --no-tags \
+            "$PROTECTED_ORIGIN_URL" \
+            "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+        unset auth_header
+        git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+          refs/remotes/origin/main || {
+          echo "target commit must be an ancestor of protected origin/main." >&2
+          exit 1
+        }
+        git -C "$guard_repo" diff --quiet \
+          "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+          "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH" || {
+          echo "workflow controls differ from protected origin/main." >&2
+          exit 1
+        }

@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 3947b07d224cb14d737e74c29c9358add4c7ad8d
+translation_source_sha: 31c5dda10925334c3997a66dc27ffdfabeba7946
 translation_revised: 2026-09-05
 ---
 # 운영 배포 강화
@@ -20,8 +20,8 @@ translation_revised: 2026-09-05
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
-| 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
-| Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/infra-lint.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | Checkov와 Trivy에 Low를 초과하는 활성 점검 결과가 없습니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
+| 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
+| Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-security` 작업은 하나의 필수 CI 결과 아래에서 고정 버전 Checkov 및 Trivy 검사를 실행합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
@@ -29,6 +29,7 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | implemented | 독립된 인프라 PR workflow를 하나의 필수 CI 그래프에 통합했습니다. Terraform 보안 검사는 경로 범위를 유지하며 공유 유효성 검사 작업은 이제 scenario-lab 루트도 다룹니다. | `current change`, `.github/workflows/ci.yml`, `resolve_test_scope.py`, 집중 CI 범위, 보안 검사 및 scenario-lab 계약 테스트 | 아래에 나열된 정확한 보호 운영 및 drift 근거를 보존합니다. |
 | 2026-09-04 | implemented | 실제 계획에서 split Core 서비스가 누락된 platform 출력을 올바르게 차단하고 일반 platform 계획에 관련 없는 destructive drift가 있음을 확인한 뒤, RCA reader identity만 위한 exact-context bounded bootstrap을 추가했습니다. 기존 요청 필드를 사용하므로 workflow는 GitHub의 25개 입력 한도를 유지합니다. | `current change`, deployment CLI, 요청 검증, 계획 범위 및 workflow 집중 검사 105개 통과, Ruff 및 strict mypy 통과 | 보호된 계획과 exact apply를 실행한 뒤 split Core 서비스 계획에서 결과 출력을 사용합니다. |
 | 2026-08-26 | implemented | 해석되지 않는 Functions 배포 액션을 인증된 Azure CLI `config-zip` 경로로 교체했습니다. 개발 operations gateway는 원격 빌드를 유지하고 관리 ID 실행기의 게시 작업을 900초로 제한합니다. | `current change`, 집중 배포 workflow 검사 93개 통과, CI 계약 통과 | 정확히 커밋된 workflow에서 보호된 gateway 게시 증적 하나를 보존합니다. |
 | 2026-08-26 | implemented | 예약된 인프라 drift에 읽기 전용 실행기 저장소 상태 검사를 추가하고 임시 실행기 프로파일의 구성된 할당 해제와 수동 할당 해제를 모두 차단했습니다. | `current change`; 실행기 상태 스크립트, drift workflow, 수명 주기 도우미 및 집중 계약 검사 14개. | 실제 실행기의 blue/green 교체를 완료하고 성공한 예약 상태 검사 증적 하나를 보존합니다. |
@@ -145,10 +146,11 @@ Terraform이 stack을 직접 생성하도록 합니다.
 
 ## 지속적인 인프라 검사
 
-CI는 자격 증명 없는 gate 두 개를 추가합니다. [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)은
-모든 인프라 PR에서 format, validation, Trivy 및 Checkov를 실행합니다. Scanner는 리포지토리 전체
-finding baseline을 사용하지 않습니다. 의도적 예외는 정확한 리소스 옆에서 운영 gate, 구현된 제어,
-provider 제한 또는 관리형 서비스 제약을 설명합니다.
+필수 [`CI` workflow](../../../.github/workflows/ci.yml)는 platform, bootstrap 및 scenario-lab
+루트에서 Terraform format과 validation을 실행합니다. 경로 범위가 지정된 `terraform-security`
+작업은 인프라 또는 해당 CI 제어가 변경될 때만 Trivy와 Checkov를 실행합니다. Scanner는 리포지토리
+전체 finding baseline을 사용하지 않습니다. 의도적 예외는 정확한 리소스 옆에서 운영 gate,
+구현된 제어, provider 제한 또는 관리형 서비스 제약을 설명합니다.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스
 다섯 개 및 bootstrap 상태 루트에 대해 scheduled `plan -detailed-exitcode`를 실행합니다. 루트가
 없거나 읽을 수 없거나 변경되면 실패 시 차단하므로 green은 일곱 루트를 모두 다룹니다.

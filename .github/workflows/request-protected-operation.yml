@@ -1,0 +1,94 @@
+name: request-protected-operation
+run-name: "request-${{ inputs.operation }}-${{ inputs.environment }}-${{ inputs.commit_sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Protected operation to request."
+        type: choice
+        options: [console-publish, catalog-refresh]
+        required: true
+      environment:
+        description: "Existing environment targeted by the protected operation."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+      commit_sha:
+        description: "Exact CI-verified commit from protected main."
+        type: string
+        required: true
+
+permissions:
+  actions: write
+  checks: read
+  contents: read
+
+jobs:
+  request:
+    if: github.ref == 'refs/heads/main' && inputs.commit_sha == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/request-protected-operation.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact protected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+
+      - name: Verify required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact commit does not have a successful required CI check." >&2
+            exit 1
+          }
+
+      - name: Request bot-owned protected operation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          case "$OPERATION" in
+            console-publish)
+              target_workflow=publish-console.yml
+              ;;
+            catalog-refresh)
+              target_workflow=refresh-catalogs.yml
+              ;;
+            *)
+              echo "unsupported protected operation: $OPERATION" >&2
+              exit 1
+              ;;
+          esac
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$target_workflow/dispatches" \
+            -f ref=main \
+            -f "inputs[environment]=$TARGET_ENVIRONMENT" \
+            -f "inputs[commit_sha]=$TARGET_COMMIT_SHA"

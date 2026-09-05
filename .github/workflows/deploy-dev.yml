@@ -136,7 +136,6 @@ jobs:
     # Declared budget. Without it the only bound is the six-hour runner default, which cannot tell
     # a stalled provider from a slow apply and holds the single deploy runner meanwhile.
     timeout-minutes: 180
-    environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
       run:
         working-directory: infra
@@ -225,53 +224,20 @@ jobs:
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
     steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
       - name: Verify protected workflow source
-        working-directory: ${{ runner.temp }}
-        env:
-          TARGET_COMMIT_SHA: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
-          GITHUB_TOKEN: ${{ github.token }}
-          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          PROTECTED_WORKFLOW_PATH: .github/workflows/deploy-dev.yml
-        run: |
-          set -euo pipefail
-          if [[ ! "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "caller commit must be a lowercase 40-character git SHA" >&2
-            exit 1
-          fi
-          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
-          rm -rf -- "$guard_repo"
-          git init --bare "$guard_repo" >/dev/null
-          trap 'rm -rf -- "$guard_repo"' EXIT
-          if [[ -n "$GITHUB_TOKEN" ]]; then
-            auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-            echo "::add-mask::$auth_header"
-            GIT_CONFIG_COUNT=1 \
-              GIT_CONFIG_KEY_0=http.extraheader \
-              GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
-              git -C "$guard_repo" fetch --force --no-tags \
-                "$PROTECTED_ORIGIN_URL" \
-                "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
-            unset auth_header
-          else
-            git -C "$guard_repo" fetch --force --no-tags \
-              "$PROTECTED_ORIGIN_URL" \
-              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
-          fi
-          if ! git -C "$guard_repo" cat-file -e "${TARGET_COMMIT_SHA}^{commit}"; then
-            echo "caller commit is not present in protected origin/main history" >&2
-            exit 1
-          fi
-          if ! git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
-            refs/remotes/origin/main; then
-            echo "caller commit is not an ancestor of protected origin/main" >&2
-            exit 1
-          fi
-          if ! git -C "$guard_repo" diff --quiet \
-            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
-            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"; then
-            echo "deploy workflow controls differ from protected origin/main" >&2
-            exit 1
-          fi
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
+          workflow-path: .github/workflows/deploy-dev.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
       - name: Prepare self-hosted runner workspace
         working-directory: ${{ runner.temp }}
         run: |
@@ -334,14 +300,6 @@ jobs:
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: python3 scripts/deployment/azure/validate_deploy_request.py
-      - name: Verify protected environment approval policy
-        if: ${{ inputs.apply }}
-        working-directory: ${{ github.workspace }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/environments/${{ inputs.environment }}" > "$RUNNER_TEMP/environment.json"
-          python3 scripts/deployment/azure/verify-github-environment.py "$RUNNER_TEMP/environment.json" --required-approvals 1
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
@@ -358,34 +316,7 @@ jobs:
           PROD_ALERT_EMAIL: ${{ inputs.production_alert_email }}
           PROD_MONTHLY_BUDGET_AMOUNT: ${{ inputs.production_monthly_budget }}
           PROD_BUDGET_ALERT_EMAILS_JSON: ${{ vars.PRODUCTION_BUDGET_ALERT_EMAILS_JSON || '[]' }}
-        run: |
-          if [[ ! "$PROD_CORE_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]]; then
-            echo "PROD_CORE_IMAGE must be digest-pinned." >&2
-            exit 1
-          fi
-          if [[ -z "$PROD_ALERT_EMAIL" ]]; then
-            echo "production_alert_email is required." >&2
-            exit 1
-          fi
-          if [[ ! "$PROD_MONTHLY_BUDGET_AMOUNT" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
-            echo "PROD_MONTHLY_BUDGET_AMOUNT must be positive." >&2
-            exit 1
-          fi
-          python3 -c 'import json, os; value=json.loads(os.environ["PROD_BUDGET_ALERT_EMAILS_JSON"]); assert isinstance(value, list) and value and all(isinstance(item, str) and item for item in value)'
-          {
-            echo "TF_VAR_core_image=$PROD_CORE_IMAGE"
-            echo "TF_VAR_enable_resource_locks=true"
-            echo "TF_VAR_kv_purge_protection_enabled=true"
-            echo "TF_VAR_kv_soft_delete_retention_days=90"
-            echo "TF_VAR_postgres_backup_retention_days=35"
-            echo "TF_VAR_postgres_geo_redundant_backup=true"
-                        echo "TF_VAR_postgres_high_availability_mode=ZoneRedundant"
-            echo "TF_VAR_acr_sku=Premium"
-            echo "TF_VAR_enable_monitoring=true"
-            echo "TF_VAR_alert_email=$PROD_ALERT_EMAIL"
-            echo "TF_VAR_monthly_budget_amount=$PROD_MONTHLY_BUDGET_AMOUNT"
-            echo "TF_VAR_budget_alert_emails=$PROD_BUDGET_ALERT_EMAILS_JSON"
-          } >> "$GITHUB_ENV"
+        run: bash ../scripts/deployment/azure/bind-production-terraform-inputs.sh
       - name: Verify exact Azure context and bind governed inputs
         # The job defaults to `infra`, so a repository-root script path only
         # resolves from the workspace root.

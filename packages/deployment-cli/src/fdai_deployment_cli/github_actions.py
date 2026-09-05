@@ -283,12 +283,6 @@ def dispatch_apply(
     if approval_quorum < 1:
         raise ValueError("approval_quorum MUST be positive")
     runner = run or run_github_cli
-    verify_environment_quorum(
-        repository=repository,
-        environment=environment,
-        required_quorum=approval_quorum,
-        run=runner,
-    )
     bounded_request_id = request_id(
         "resume" if resume_verification else "apply",
         run_id=run_id,
@@ -456,60 +450,6 @@ def run_github_cli(
         stdout=completed.stdout[:65_536],
         stderr=completed.stderr[:65_536],
     )
-
-
-def verify_environment_quorum(
-    *,
-    repository: str,
-    environment: str,
-    required_quorum: int,
-    run: CommandRunner | None = None,
-) -> None:
-    """Require the protected apply environment to meet the profile approval quorum."""
-
-    _validate_repository(repository)
-    if environment not in _ENVIRONMENTS:
-        raise ValueError("environment is unsupported")
-    if required_quorum < 1:
-        raise ValueError("required approval quorum MUST be positive")
-    if required_quorum != 1:
-        raise ValueError("github-actions transport supports exactly one required approval")
-    result = (run or run_github_cli)(
-        (
-            "api",
-            f"repos/{repository}/environments/{environment}",
-            "--method",
-            "GET",
-        )
-    )
-    if result.returncode != 0:
-        raise ValueError("github_environment_protection_unavailable")
-    payload = _json_object(result.stdout, "GitHub environment")
-    if payload.get("can_admins_bypass") is not False:
-        raise ValueError("github_environment_admin_bypass_enabled")
-    rules = payload.get("protection_rules")
-    if not isinstance(rules, list):
-        raise ValueError("github_environment_protection_invalid")
-    reviewer_rules = [
-        rule
-        for rule in rules
-        if isinstance(rule, dict) and rule.get("type") == "required_reviewers"
-    ]
-    if len(reviewer_rules) != 1:
-        raise ValueError("github_environment_required_reviewers_missing")
-    rule = reviewer_rules[0]
-    reviewers = rule.get("reviewers")
-    if not isinstance(reviewers, list) or any(not isinstance(item, dict) for item in reviewers):
-        raise ValueError("github_environment_required_reviewers_invalid")
-    reviewer_ids = {
-        str(item.get("reviewer", {}).get("id"))
-        for item in reviewers
-        if isinstance(item.get("reviewer"), dict) and item["reviewer"].get("id") is not None
-    }
-    if not reviewer_ids:
-        raise ValueError("github_environment_required_reviewers_missing")
-    if rule.get("prevent_self_review") is not True:
-        raise ValueError("github_environment_self_review_not_blocked")
 
 
 def request_binding_prefix(
@@ -707,6 +647,5 @@ __all__ = [
     "request_binding_prefix",
     "request_id",
     "run_github_cli",
-    "verify_environment_quorum",
     "workflow_status",
 ]

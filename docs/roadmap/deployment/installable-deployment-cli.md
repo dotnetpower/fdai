@@ -512,10 +512,10 @@ bootstrap selection are sealed identically into plan and apply. The RCA selectio
 source revision is also sealed into the fingerprint; planning promotes and verifies that Core image, while
 apply restores the digest-pinned plan. Any changed input invalidates the plan before Terraform runs.
 
-Before apply, the client verifies that the target GitHub Environment has required reviewers and
-blocks self-review and administrator bypass. GitHub Environment protection requires one approval from its reviewer set; it
-does not implement an N-of-M quorum. A profile whose `approval_quorum` is greater than one therefore
-fails closed on this transport until an external quorum authority is integrated.
+Apply dispatch carries no GitHub Environment approval gate. The client does not inspect required
+reviewers, self-review, or administrator bypass, and the protected workflows bind no deployment
+environment, so an authorized dispatch applies immediately. A profile `approval_quorum` value is
+still required to be positive but no longer selects an external approver on this transport.
 
 The current client supports `dev` and `staging`. It rejects `prod` because the production image,
 alert destination, and budget inputs are not yet part of the client context digest. Production
@@ -558,13 +558,12 @@ pass:
 - `--plan-expires-at` (from sanitized `deploy status` plan metadata) passes deterministic UTC
   client-side expiry enforcement before dispatch;
 - the preflight report has no enforce-mode blocker;
-- the caller requested apply explicitly and satisfies the workflow approval policy;
+- the caller requested apply explicitly;
 - the runner identity and backend configuration match the recorded plan context.
 
 The CLI repeats its tool, authentication, and target checks and dispatches the reviewed plan id and
 digest with the same computed context. The apply workflow independently reloads the workflow-owned
-metadata, verifies context and logical expiry, and uses the target GitHub
-Environment for external approval and audit history. It skips `terraform plan`, restores the exact
+metadata and verifies context and logical expiry. It skips `terraform plan`, restores the exact
 binary and metadata from private Blob storage, verifies all digests, ids, status, timestamps, and
 commit, and then creates an immutable `apply-claim.json` before `terraform apply`. A duplicate or
 failed prior claim blocks automatic retry. A successful run writes an immutable

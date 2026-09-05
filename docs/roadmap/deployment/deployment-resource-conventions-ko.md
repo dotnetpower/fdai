@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 95be4fa0c9552d088bc31c11c9c2c5e5aed40228
-translation_revised: 2026-09-03
+translation_source_sha: 87b7b51f5799a57234bfef8b24a66b19543122e7
+translation_revised: 2026-09-05
 ---
 # 배포 리소스 규약
 
@@ -31,9 +31,9 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 보호된 Console release workflow는 CI로 검증된 정확한 Core image를 연결하고 기존 catalog 구체화
 Job을 rollback과 함께 갱신한 뒤 schema migration을 실행합니다. 일치하는 Console 산출물을
 게시하기 전에 선택한 revision의 변경할 수 없는 Rule 및 Ontology 변환 결과를 PostgreSQL
-readback으로 검증합니다. 별도의 요청 workflow는 정확한 revision을 검증하고 repository 자동화
-identity로 보호된 release를 제출합니다. 따라서 사람 유지관리자는 자체 검토 또는 관리자 우회를
-활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.
+readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목록의 작업과 정확한 revision을
+검증한 뒤 repository 자동화 identity로 Console 게시 또는 catalog 새로 고침을 제출합니다. 따라서
+사람 유지관리자는 자체 검토 또는 관리자 우회를 활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.
 
 ## 구현 상태
 

@@ -11,7 +11,7 @@ replaced wholesale (see the loader tests for the exact semantics).
 > [`../action-types-custom/`](../action-types-custom/README.md) instead;
 > an overlay whose `name` has no upstream match is a fatal load error.
 
-**Upstream ships this directory empty** — the fork model in
+**Upstream ships this directory empty** - the fork model in
 [../../.github/instructions/generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)
 says customer-specific tightening belongs in a downstream fork.
 Overlay precedence lives at
@@ -27,7 +27,7 @@ ceiling_by_tier:
 ```
 
 Only include the fields you want changed. Omit `schema_version`,
-`operation`, `promotion_gate`, etc. — those inherit from upstream.
+`operation`, `promotion_gate`, etc. - those inherit from upstream.
 
 Rules:
 

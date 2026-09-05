@@ -52,6 +52,8 @@ def test_upgrade_creates_append_only_evidence_and_mutable_projections(
     assert "CREATE TABLE inventory_observation_checkpoint" in sql
     assert "CREATE TABLE operational_archive_artifact" in sql
     assert "operational history lifecycle evidence is append-only" in sql
+    assert ":false" not in sql
+    assert "'deletion_authority', FALSE" in sql
     assert "GRANT UPDATE ON TABLE" in sql
 
 

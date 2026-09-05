@@ -82,14 +82,12 @@ def test_scenario_lab_keeps_secrets_inside_the_sensitive_runner_output() -> None
 
 def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    infra_lint = (REPO_ROOT / ".github" / "workflows" / "infra-lint.yml").read_text(
-        encoding="utf-8"
-    )
+    ci_workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
     assert "options: [plan, apply, destroy]" in workflow
     assert "default: plan" in workflow
-    assert "commit_sha must be an ancestor of protected origin/main" in workflow
-    assert "scenario-lab workflow controls differ from protected origin/main" in workflow
+    assert "Checkout protected workflow verifier" in workflow
+    assert "workflow-path: .github/workflows/sre-demo-lab.yml" in workflow
     assert (
         "environment: ${{ inputs.action == 'plan' && 'plan-only' || 'scenario-lab' }}" in workflow
     )
@@ -184,7 +182,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "retention-days: 30" in workflow
     assert "az account show --query user.name" not in workflow
     assert "login-deploy-identity.sh" in workflow
-    assert "infra/scenario-lab" in infra_lint
+    assert "terraform -chdir=scenario-lab validate" in ci_workflow
     assert "infra/scenario-lab/backend.tf" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
 
 

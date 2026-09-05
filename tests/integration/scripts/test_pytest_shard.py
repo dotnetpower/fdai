@@ -26,16 +26,26 @@ def test_each_file_is_assigned_to_exactly_one_shard() -> None:
 
 
 def test_change_scope_classification_skips_expensive_python_for_docs_and_console() -> None:
-    assert classify_paths(["docs/roadmap/architecture/project-structure.md"]) == (False, True)
-    assert classify_paths(["console/src/app.tsx"]) == (False, False)
-    assert classify_paths(["services/core-control-plane/src/fdai/core/risk_gate/gate.py"]) == (
+    assert classify_paths(["docs/roadmap/architecture/project-structure.md"]) == (
+        False,
         True,
         False,
     )
-    assert classify_paths(["alembic/versions/revision.py"]) == (True, False)
-    assert classify_paths(["config/rbac-groups.yaml"]) == (True, False)
-    assert classify_paths(["tools/seed_p1_rules.py"]) == (True, False)
-    assert classify_paths(["extensions/code-assurance/assets/skill.json"]) == (True, False)
+    assert classify_paths(["console/src/app.tsx"]) == (False, False, False)
+    assert classify_paths(["services/core-control-plane/src/fdai/core/risk_gate/gate.py"]) == (
+        True,
+        False,
+        False,
+    )
+    assert classify_paths(["alembic/versions/revision.py"]) == (True, False, False)
+    assert classify_paths(["config/rbac-groups.yaml"]) == (True, False, False)
+    assert classify_paths(["tools/seed_p1_rules.py"]) == (True, False, False)
+    assert classify_paths(["extensions/code-assurance/assets/skill.json"]) == (
+        True,
+        False,
+        False,
+    )
+    assert classify_paths(["infra/scenario-lab/main.tf"]) == (False, False, True)
     assert classify_paths(
         ["services/core-control-plane/tests/core/risk_gate/test_gate.py", "README.md"]
-    ) == (True, True)
+    ) == (True, True, False)

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 5452f4caa1a9c1744dfd75619511bd90258e98a8
+translation_source_sha: 164ed93af09b76ef06c490b94cd88b8cd40d10aa
 translation_revised: 2026-09-04
 ---
 # 설치형 배포 CLI
@@ -514,10 +514,10 @@ Operator API, 문서 수집, 격리된 Executor, 모니터링 및 exclusive RCA-
 포함됩니다. 계획은 Core 이미지를 승격하고 검증하며 적용은 digest-pinned 계획을 복원합니다.
 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다.
 
-적용 전에 클라이언트는 대상 GitHub 환경에 필수 검토자가 있고 자체 검토와 관리자 우회가 차단되는지
-확인합니다. GitHub 환경 보호는 검토자 집합 중 한 명의 승인만 요구하며 N명 중 M명 정족수를
-구현하지 않습니다. 따라서 `approval_quorum`이 1보다 큰 프로필은 외부 정족수 권한을 통합할
-때까지 이 전송 계층에서 안전하게 차단됩니다.
+적용 디스패치에는 GitHub 환경 승인 게이트가 없습니다. 클라이언트는 필수 검토자, 자체 검토,
+관리자 우회를 확인하지 않으며 보호된 작업 흐름도 배포 환경을 바인딩하지 않으므로, 권한이 있는
+디스패치는 즉시 적용됩니다. 프로필의 `approval_quorum`은 여전히 양수여야 하지만 이 전송 계층에서
+외부 승인자를 선택하지 않습니다.
 
 현재 클라이언트는 `dev`와 `staging`을 지원합니다. 프로덕션 이미지, 경고 대상, 예산 입력이
 클라이언트 맥락 다이제스트에 아직 포함되지 않았으므로 `prod`는 차단합니다. 해당 필드를
@@ -557,13 +557,12 @@ remote-state 컨테이너 옆의 `deployment-plans` Blob 컨테이너에 저장�
 - `--plan-expires-at`(정제된 `deploy status` 계획 메타데이터에서 획득)이 디스패치 전에
   결정적 UTC 클라이언트 측 만료 검증을 통과함.
 - Preflight 보고에 enforce-mode 차단 요인이 없음.
-- 호출자가 적용을 명시적으로 요청했고 작업 흐름 승인 정책을 충족함.
+- 호출자가 적용을 명시적으로 요청함.
 - 실행기 신원과 백엔드 구성이 기록된 계획 맥락과 일치함.
 
 CLI는 도구, 인증, 대상 검사를 반복하고 같은 맥락으로 계산한 검토된 계획 id와 다이제스트를
 전달합니다. 적용 작업 흐름은 작업 흐름이 소유한 메타데이터를 독립적으로 다시 읽고 맥락과
-논리적 만료를 검증하며 대상 GitHub 환경을 외부
-승인 및 감사 이력 경계로 사용합니다. `terraform plan`을 건너뛰고 비공개 Blob 저장소의
+논리적 만료를 검증합니다. `terraform plan`을 건너뛰고 비공개 Blob 저장소의
 exact binary와 메타데이터를 복원해 모든 다이제스트, id, 상태, 시각, 커밋을 검증한 다음
 `terraform apply` 전에 변경할 수 없는 `apply-claim.json`을 생성합니다. 중복 또는 실패한 이전
 점유는 automatic 재시도를 차단합니다. 성공한 실행은 변경할 수 없는 `apply-receipt.json`을 기록하며

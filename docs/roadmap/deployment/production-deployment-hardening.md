@@ -17,8 +17,8 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
-| Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; stable deploy identity helper; runner posture script; CI contract tests | Protected workflows select one bootstrap-owned UAMI and verify its token `oid`. Drift checks cover every state root and reject missing state, unexpected runner storage, or non-local placement. |
-| Baseline-free Terraform security scanning | implemented | `.github/workflows/infra-lint.yml`; inline Checkov and Trivy exceptions; focused infrastructure tests | Checkov and Trivy report no active finding above Low. Every intentional exception is attached to one resource and cites its compensating control or managed-service constraint. A new detected issue blocks CI until the source fixes it or records a narrow reviewed exception. |
+| Credential-free infrastructure and drift guards | implemented | `.github/workflows/ci.yml`; `.github/workflows/infra-drift.yml`; stable deploy identity helper; runner posture script; CI contract tests | Required CI validates every Terraform root without credentials. Protected workflows select one bootstrap-owned UAMI and verify its token `oid`. Drift checks cover every state root and reject missing state, unexpected runner storage, or non-local placement. |
+| Baseline-free Terraform security scanning | implemented | `.github/workflows/ci.yml`; inline Checkov and Trivy exceptions; focused infrastructure tests | The path-scoped `terraform-security` job runs pinned Checkov and Trivy scans under the single required CI result. Every intentional exception is attached to one resource and cites its compensating control or managed-service constraint. A new detected issue blocks CI until the source fixes it or records a narrow reviewed exception. |
 | Bounded split-service prerequisite bootstrap | implemented | `deploy-dev.yml`; `enforce_plan_scope.py`; deployment CLI and workflow contract tests | A request-bound `plan-rca-*` or `apply-rca-*` mode can create only the dedicated Activity Log RCA reader identity and its Monitoring Reader role before the split Core service consumes the platform output. |
 | Exact-revision protected production apply evidence | in-progress | [Deploy and Onboard](deploy-and-onboard.md#implementation-status) | Code and plan guards exist, but this owner document does not retain one current production apply proving every control together. |
 
@@ -26,6 +26,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | implemented | Folded the standalone infrastructure PR workflow into the single required CI graph. Terraform security scanning remains path-scoped, and the shared validation job now covers the scenario-lab root. | `current change`; `.github/workflows/ci.yml`; `resolve_test_scope.py`; focused CI scope, security-scan, and scenario-lab contract tests. | Retain the exact protected production and drift evidence listed below. |
 | 2026-09-04 | implemented | Added an exact-context bounded bootstrap for the RCA reader identity after live planning proved that the split Core service correctly refused a missing platform output and the general platform plan contained unrelated destructive drift. The mode uses the existing request field, so the workflow remains within GitHub's 25-input limit. | `current change`; focused deployment CLI, request validation, plan-scope, and workflow checks passed 105 cases; Ruff and strict mypy passed. | Run the protected plan and exact apply, then consume the resulting output in the split Core service plan. |
 | 2026-08-26 | implemented | Replaced the unresolved Functions deployment action with the authenticated Azure CLI `config-zip` path. The development operations gateway keeps remote build enabled and bounds the publish operation to 900 seconds on the managed-identity runner. | `current change`; focused deployment workflow checks passed 93 cases; CI contracts passed. | Retain one protected gateway publish receipt from the exact committed workflow. |
 | 2026-08-26 | implemented | Added a read-only runner storage posture check to scheduled infrastructure drift and blocked both configured and manual deallocation of the ephemeral runner profile. | `current change`; runner posture script, drift workflow, lifecycle helper, and 14 focused contract checks. | Complete the blue/green live runner replacement and retain one successful scheduled posture receipt. |
@@ -142,8 +143,9 @@ applied; new environments should let Terraform create the stack directly.
 
 ## Continuous infrastructure checks
 
-CI adds two credential-free guards: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
-runs format, validation, Trivy, and Checkov on every infrastructure PR. The scanners use no
+The required [`CI` workflow](../../../.github/workflows/ci.yml) runs Terraform format and validation
+for the platform, bootstrap, and scenario-lab roots. Its path-scoped `terraform-security` job runs
+Trivy and Checkov only when infrastructure or its CI controls change. The scanners use no
 repository-wide finding baseline. An intentional exception stays beside its exact resource and
 names the production gate, implemented control, provider limitation, or managed-service constraint.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) runs scheduled

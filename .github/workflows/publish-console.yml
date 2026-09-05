@@ -29,7 +29,6 @@ jobs:
     if: github.ref == 'refs/heads/main' && inputs.commit_sha == github.sha
     runs-on: [self-hosted, fdai-deploy]
     timeout-minutes: 30
-    environment: ${{ inputs.environment }}
     env:
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
@@ -45,43 +44,21 @@ jobs:
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP || vars.OPS_RESOURCE_GROUP_NAME }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
     steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
       - name: Verify protected workflow source
-        working-directory: ${{ runner.temp }}
-        env:
-          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
-          GITHUB_TOKEN: ${{ github.token }}
-          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          PROTECTED_WORKFLOW_PATH: .github/workflows/publish-console.yml
-        run: |
-          set -euo pipefail
-          if [[ ! "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "commit_sha must be a lowercase 40-character git SHA." >&2
-            exit 1
-          fi
-          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
-          rm -rf -- "$guard_repo"
-          git init --bare "$guard_repo" >/dev/null
-          trap 'rm -rf -- "$guard_repo"' EXIT
-          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-          echo "::add-mask::$auth_header"
-          GIT_CONFIG_COUNT=1 \
-            GIT_CONFIG_KEY_0=http.extraheader \
-            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
-            git -C "$guard_repo" fetch --force --no-tags \
-              "$PROTECTED_ORIGIN_URL" \
-              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
-          unset auth_header
-          if ! git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
-            refs/remotes/origin/main; then
-            echo "commit_sha is not an ancestor of protected origin/main." >&2
-            exit 1
-          fi
-          if ! git -C "$guard_repo" diff --quiet \
-            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
-            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"; then
-            echo "publish workflow controls differ from protected origin/main." >&2
-            exit 1
-          fi
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/publish-console.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
 
       - name: Prepare self-hosted runner workspace
         working-directory: ${{ runner.temp }}
@@ -124,16 +101,6 @@ jobs:
             echo "the exact commit does not have a successful required CI check." >&2
             exit 1
           }
-
-      - name: Verify protected environment approval policy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/environments/${{ inputs.environment }}" \
-            > "$RUNNER_TEMP/environment.json"
-          python3 scripts/deployment/azure/verify-github-environment.py \
-            "$RUNNER_TEMP/environment.json" --required-approvals 1
 
       - name: Verify exact Azure context and deploy identity
         run: >-
