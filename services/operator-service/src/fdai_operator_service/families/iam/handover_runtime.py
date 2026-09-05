@@ -81,6 +81,57 @@ class HandoverEvidenceVerifier(Protocol):
     ) -> bool: ...
 
 
+class HandoverActivityGuard(Protocol):
+    """Report whether proactive handover can interrupt the current workload."""
+
+    async def may_invite(self) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PostgresHandoverActivityGuard:
+    """Suppress invitations while any incident or human approval is active."""
+
+    dsn: str
+    connect_timeout_s: int = 10
+    statement_timeout_ms: int = 10_000
+
+    async def may_invite(self) -> bool:
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                self.dsn,
+                connect_timeout=self.connect_timeout_s,
+            ) as connection:
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (f"{self.statement_timeout_ms}ms",),
+                )
+                row = await (
+                    await connection.execute(
+                        """
+                        SELECT
+                            EXISTS (
+                                SELECT 1
+                                  FROM operator_incident_projection
+                                 WHERE valid_to_seq IS NULL
+                                   AND has_incident_activity
+                                   AND LOWER(projected_state) NOT IN (
+                                       'closed', 'resolved', 'mitigated'
+                                   )
+                            ) AS incident_busy,
+                            EXISTS (
+                                SELECT 1
+                                  FROM state_kv
+                                 WHERE key LIKE 'hil_park:%'
+                                   AND value ->> 'status' = 'pending'
+                            ) AS approval_busy
+                        """
+                    )
+                ).fetchone()
+        except psycopg.Error:
+            return False
+        return row is not None and row[0] is False and row[1] is False
+
+
 @dataclass(frozen=True, slots=True)
 class PostgresHandoverEvidenceVerifier:
     """Read only the exact document version needed for a handover receipt."""
@@ -127,6 +178,7 @@ class ProactiveHandoverRuntime:
     ownership: ProjectionReader
     directory: HumanIdentityDirectory
     evidence_verifier: HandoverEvidenceVerifier
+    activity_guard: HandoverActivityGuard
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 
     async def invitation_for_session(
@@ -136,6 +188,8 @@ class ProactiveHandoverRuntime:
         roles: frozenset[OperatorRole],
         session_id: str,
     ) -> JsonMapping | None:
+        if not await self.activity_guard.may_invite():
+            return None
         now = _aware(self.clock())
         agents, source_revision = await self._mapped_agents(subject_ref=subject_ref, roles=roles)
         invitation_key = f"{_INVITATION_PREFIX}{_digest(f'{subject_ref}\0{session_id}')}"
@@ -194,7 +248,7 @@ class ProactiveHandoverRuntime:
         goal = await self._read(f"{_GOAL_PREFIX}{goal_id}")
         if goal is None:
             raise IamNotFoundError(f"handover goal {goal_id!r} was not found")
-        return goal
+        return await self._refresh_evidence(goal)
 
     async def submit(self, command: HandoverGoalCommand) -> JsonMapping:
         current = dict(await self.get_goal(command.goal_id))
@@ -394,6 +448,63 @@ class ProactiveHandoverRuntime:
         matched.sort(key=lambda item: (item[0], item[1]))
         return tuple(name for _duty, name in matched), source_revision
 
+    async def _refresh_evidence(self, goal: dict[str, object]) -> dict[str, object]:
+        evidence = _sequence(goal.get("evidence"), "handover goal evidence")
+        if not evidence or goal.get("state") == "stale":
+            return goal
+        subject_ref = goal.get("subject_ref")
+        if not isinstance(subject_ref, str) or not subject_ref:
+            raise IamUnavailableError("handover goal subject is malformed")
+        for raw in evidence:
+            item = _mapping(raw, "handover goal evidence")
+            evidence_ref = item.get("evidence_ref")
+            digest = item.get("digest")
+            if (
+                not isinstance(evidence_ref, str)
+                or _DOCUMENT_REF.fullmatch(evidence_ref) is None
+                or not isinstance(digest, str)
+                or _SHA256.fullmatch(digest) is None
+            ):
+                raise IamUnavailableError("handover goal evidence is malformed")
+            _, document_id, version_id = evidence_ref.split(":", 2)
+            admitted = await self.evidence_verifier.verify(
+                principal_id=subject_ref,
+                document_id=UUID(document_id),
+                version_id=UUID(version_id),
+                source_sha256=digest,
+            )
+            if admitted:
+                continue
+            revision = _positive_int(goal, "revision")
+            updated = {
+                **goal,
+                "state": "stale",
+                "revision": revision + 1,
+                "stale_reason": "document_evidence_unavailable",
+                "updated_at": _aware(self.clock()).isoformat(),
+            }
+            try:
+                await self.store.append_revisioned_proposal(
+                    family="iam",
+                    operation="handover.evidence.stale",
+                    principal_id=None,
+                    idempotency_key=f"handover-stale:{goal['goal_id']}:{revision}",
+                    payload={
+                        "goal_id": goal["goal_id"],
+                        "reason": "document_evidence_unavailable",
+                        "execution_authority": False,
+                    },
+                    state_key=f"{_GOAL_PREFIX}{goal['goal_id']}",
+                    state_value=updated,
+                    expected_revision=revision,
+                )
+                return updated
+            except PostgresProposalConflict:
+                return await self._read_required(f"{_GOAL_PREFIX}{goal['goal_id']}")
+            except PostgresFamilyStoreUnavailable as exc:
+                raise IamUnavailableError("handover goal state is unavailable") from exc
+        return goal
+
     async def _claim_week(self, *, subject_ref: str, session_id: str, now: datetime) -> bool:
         week = f"{now.isocalendar().year}-W{now.isocalendar().week:02d}"
         subject_hash = _digest(subject_ref)
@@ -468,7 +579,7 @@ def _new_goal(
         "agent_name": agent_name,
         "scope_ref": "scope://stewardship/current",
         "source_revision": source_revision,
-        "prompt_ref": "handover.goal.default-v1",
+        "prompt_ref": f"handover.goal.{agent_name.casefold()}-v1",
         "priority": 100,
         "state": "not_started",
         "revision": 1,
@@ -611,6 +722,7 @@ def _digest(value: str) -> str:
 
 
 __all__ = [
+    "PostgresHandoverActivityGuard",
     "PostgresHandoverEvidenceVerifier",
     "ProactiveHandoverRuntime",
 ]

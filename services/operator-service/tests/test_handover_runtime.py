@@ -142,12 +142,22 @@ class EvidenceVerifier:
         return self.admitted
 
 
+class ActivityGuard:
+    def __init__(self, *, allowed: bool = True) -> None:
+        self.allowed = allowed
+
+    async def may_invite(self) -> bool:
+        return self.allowed
+
+
 def _runtime(
     *,
     store: MemoryStore | None = None,
     active: bool = True,
     mapped: bool = True,
     raw: bool = False,
+    evidence_verifier: EvidenceVerifier | None = None,
+    may_invite: bool = True,
 ) -> tuple[ProactiveHandoverRuntime, MemoryStore, OwnershipReader]:
     resolved_store = store or MemoryStore()
     reader = OwnershipReader(active=active, mapped=mapped, raw=raw)
@@ -156,7 +166,8 @@ def _runtime(
             store=resolved_store,
             ownership=reader,
             directory=IdentityDirectory(active=active),
-            evidence_verifier=EvidenceVerifier(),
+            evidence_verifier=evidence_verifier or EvidenceVerifier(),
+            activity_guard=ActivityGuard(allowed=may_invite),
             clock=lambda: _NOW,
         ),
         resolved_store,
@@ -182,6 +193,7 @@ async def test_invitation_is_bound_to_active_accountable_owner_and_replays() -> 
     assert first == replay
     assert first is not None
     assert first["agent_name"] == "Muninn"
+    assert first["prompt_ref"] == "handover.goal.muninn-v1"
     assert first["source_revision"] == "revision-7"
     assert first["execution_authority"] is False
     assert len(reader.queries) == 2
@@ -216,6 +228,7 @@ async def test_cached_invitation_is_hidden_after_identity_deactivation() -> None
         ownership=OwnershipReader(active=False),
         directory=IdentityDirectory(active=False),
         evidence_verifier=EvidenceVerifier(),
+        activity_guard=ActivityGuard(),
         clock=lambda: _NOW,
     )
 
@@ -333,6 +346,7 @@ async def test_evidence_must_be_admitted_by_authoritative_metadata() -> None:
         ownership=reader,
         directory=IdentityDirectory(active=True),
         evidence_verifier=EvidenceVerifier(admitted=False),
+        activity_guard=ActivityGuard(),
         clock=lambda: _NOW,
     )
     invitation = await runtime.invitation_for_session(
@@ -387,3 +401,51 @@ async def test_conversation_target_is_resolved_from_goal_and_bound_to_session() 
     assert bound == replay
     assert bound.body["prompt"] == "@Muninn What should I document?"
     assert bound.body["target_agent"] == "Muninn"
+
+
+@pytest.mark.asyncio
+async def test_invitation_is_suppressed_while_incident_or_approval_work_is_active() -> None:
+    runtime, store, reader = _runtime(may_invite=False)
+
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+
+    assert invitation is None
+    assert store.states == {}
+    assert reader.queries == []
+
+
+@pytest.mark.asyncio
+async def test_removed_document_marks_goal_stale_before_review() -> None:
+    verifier = EvidenceVerifier()
+    runtime, _store, _reader = _runtime(evidence_verifier=verifier)
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    await runtime.submit(
+        HandoverGoalCommand(
+            principal=IamPrincipal(
+                oid=_SUBJECT,
+                roles=frozenset({OperatorRole.READER}),
+            ),
+            goal_id=goal_id,
+            operation="evidence",
+            expected_revision=1,
+            evidence_ref=_EVIDENCE_REF,
+            digest="a" * 64,
+            kind="document",
+        )
+    )
+    verifier.admitted = False
+
+    stale = await runtime.get_goal(goal_id)
+
+    assert stale["state"] == "stale"
+    assert stale["stale_reason"] == "document_evidence_unavailable"

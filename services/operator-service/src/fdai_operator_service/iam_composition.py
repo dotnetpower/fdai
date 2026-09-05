@@ -40,6 +40,7 @@ from fdai_operator_service.families.conversation.channel_edge.teams_auth import 
 from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
 from fdai_operator_service.families.iam.handover_runtime import (
+    PostgresHandoverActivityGuard,
     PostgresHandoverEvidenceVerifier,
     ProactiveHandoverRuntime,
 )
@@ -288,6 +289,11 @@ def build_postgres_iam_bindings(
         ownership=PostgresOperationsAdapters(store),
         directory=directory,
         evidence_verifier=PostgresHandoverEvidenceVerifier(
+            dsn=environment.database_url,
+            connect_timeout_s=environment.database_connect_timeout_s,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+        ),
+        activity_guard=PostgresHandoverActivityGuard(
             dsn=environment.database_url,
             connect_timeout_s=environment.database_connect_timeout_s,
             statement_timeout_ms=environment.database_statement_timeout_ms,
