@@ -48,6 +48,18 @@ def host_hydrator() -> ModuleType:
 
 
 @pytest.fixture(scope="module")
+def console_hydrator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "focused_hydrate_console_origin", _SCRIPTS / "hydrate_console_origin.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
 def topic_hydrator() -> ModuleType:
     spec = importlib.util.spec_from_file_location(
         "focused_hydrate_event_topic", _SCRIPTS / "hydrate_event_topic.py"
@@ -247,6 +259,67 @@ def test_rejects_invalid_authoritative_database_host(
             service="core-control-plane",
             environment="dev",
             database_host=database_host,
+        )
+
+
+def test_hydrates_operator_console_origin_from_platform_output(
+    console_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "cors_allow_origins": "",
+                }
+            }
+        }
+    }
+
+    hydrated = console_hydrator.hydrate_console_origin(
+        payload,
+        service="operator-service",
+        environment="dev",
+        console_hostname="example.azurestaticapps.net.",
+    )
+
+    assert (
+        hydrated["environments"]["dev"]["operator-service"]["cors_allow_origins"]
+        == "https://example.azurestaticapps.net"
+    )
+    assert payload["environments"]["dev"]["operator-service"]["cors_allow_origins"] == ""
+
+
+@pytest.mark.parametrize(
+    "console_hostname",
+    [
+        "",
+        "https://example.azurestaticapps.net",
+        "example.com",
+        "example..azurestaticapps.net",
+    ],
+)
+def test_rejects_invalid_authoritative_console_hostname(
+    console_hydrator: ModuleType,
+    console_hostname: str,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "cors_allow_origins": "",
+                }
+            }
+        }
+    }
+
+    with pytest.raises(console_hydrator.ConsoleOriginError, match="Console hostname"):
+        console_hydrator.hydrate_console_origin(
+            payload,
+            service="operator-service",
+            environment="dev",
+            console_hostname=console_hostname,
         )
 
 

@@ -28,7 +28,8 @@ bindings through configuration (see
 | Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding. Governed apply evidence remains open. |
 | Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
 | Independent-service rollback baseline | implemented | `deployment_recovery.py`, the shared service Container App module, and focused service-deploy rollback checks in the current change | Pre-apply capture rejects an unhealthy or inactive revision, and each service retains one inactive revision for recovery. A successful protected rollback receipt remains open. |
-| Degraded Operator recovery baseline | implemented | `.github/workflows/service-deploy.yml`, `deployment_recovery.py`, `plan_bundle.py`, and focused recovery checks in the current change | The explicit mode can use only a running unhealthy Operator revision for a sealed database-binding repair. Governed apply evidence remains open. |
+| Degraded Operator recovery baseline | validated | Protected plan `33957891101`, exact apply `33957993467`, and focused recovery checks | The explicit mode used the running unhealthy Operator revision as a sealed rollback baseline and restored a healthy service. |
+| Authoritative Operator Console origin | implemented | `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py`, and focused hydration and plan checks in the current change | Planning derives the single HTTPS CORS origin from platform state. Governed apply and browser evidence remain open. |
 | Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
 | Browser-evidence retention Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks (`4 passed`) and `terraform validate` | The opt-in scheduled Job uses a non-executor identity and bounded one-shot cleanup. Governed apply and run receipts are not retained. |
 | Automated promotion and progressive delivery | not-started | Target design in this document | Automated dev -> staging -> prod promotion, traffic-split canaries, SLO rollback, and console blue/green are not implemented. |
@@ -50,6 +51,7 @@ bindings through configuration (see
 | 2026-08-25 | implemented | Closed a rollback-baseline gap exposed when one failed Core revision became the next apply's recovery source and was immediately purged under zero inactive-revision retention. Snapshot capture now requires a healthy active revision, the shared service module retains one inactive revision, and the plan guard permits only the one-time `0 -> 1` retention hardening. | Failed Core applies `32839129965` and `32842018230`; `current change`; focused rollback-baseline and retention guard checks. | Restore one healthy Core baseline, then retain a zero-destroy protected plan, successful exact apply, and verified automatic rollback receipt before restoring the independent-service deployment claim to `validated`. |
 | 2026-08-26 | implemented | Recovery from a stopped development PostgreSQL server exposed two independent Core crash paths after readiness reopened. Consumer progress now tolerates partition revocation between commit and highwater observation, and a new Core migration grants the detached background-task coordinator exact access to its three tables. | Live revision `ca-fdai-dev-krc-core--p20260825121110`; `current change`; focused Event Bus race and migration grant regressions passed 3 cases. | Publish an exact attested image, restore one healthy Core baseline through the protected workflow, and retain crash-free health plus rollback-retention evidence before any provider-schema apply. |
 | 2026-09-05 | implemented | Added a sealed degraded-recovery boundary for an Operator database-binding repair when Azure has no distinct healthy revision. The baseline must remain active, provisioned, running, and exactly restorable; the mode does not widen the guarded Terraform plan. | `current change`; focused plan-bundle, workflow, baseline-selection, snapshot, and rollback checks. | Run one exact protected Operator apply and retain its health and rollback-boundary evidence. |
+| 2026-09-05 | implemented | Validated degraded Operator recovery, then added authoritative Console-origin hydration after live browser preflight exposed an empty CORS binding. The database-binding guard accepts only one normalized Static Web Apps HTTPS origin and still rejects unrelated environment changes. | Protected plan `33957891101`; exact apply `33957993467`; `current change`; focused hydration, guard, and workflow checks. | Apply the Console-origin binding and retain authenticated browser evidence. |
 ### Remaining work
 
 - [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
@@ -110,15 +112,17 @@ prod topology so shadow evaluation is representative.
   by its production entry point. For example, Core binds the Azure tenant, subscription, region,
   PostgreSQL host, and database before the protected plan can pass startup validation.
 - **Bounded database host binding**: after initial cutover, the explicit `database_host_binding`
-  mode may add or replace only the non-secret `POSTGRES_HOST` environment binding while preserving
-  resource identity, command, other environment values, workload identity, platform, sidecars,
-  secrets, and rollback fields. Existing
+  mode may add or replace only the non-secret `POSTGRES_HOST` environment binding and the canonical
+  runtime bindings described below while preserving resource identity, command, unrelated
+  environment values, workload identity, platform, sidecars, secrets, and rollback fields. Existing
   Operator workloads with the historical `-readapi` suffix remain eligible for an in-place update,
   while newly declared Operator resources continue to use `-operator-api`. During input
   materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
-  output and overwrites only `database.host`. It also resolves the canonical primary ingress,
-  pipeline-stage, and Pantheon-object topics from platform state and overwrites only their owned
-  `event_topics` fields for Core, Operator, and the document services. The write-only service
+  output and overwrites only `database.host`. For Operator, it resolves `console_default_hostname`
+  and replaces `cors_allow_origins` with that single normalized Static Web Apps HTTPS origin. It
+  also resolves the canonical primary ingress, pipeline-stage, and Pantheon-object topics from
+  platform state and overwrites only their owned `event_topics` fields for Core, Operator, and the
+  document services. The write-only service
   tfvars secret remains the source for DSN references, roles, and other inputs. Core may also add
   the canonical `fdai.notifications.delivery-receipts` topic once; the guard requires that exact
   non-secret value and rejects every accompanying command, identity, or environment change. All

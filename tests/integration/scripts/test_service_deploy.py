@@ -1659,12 +1659,18 @@ def test_plan_guard_allows_operator_runtime_bindings_with_database_host(
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
     }
-    for name in ("POSTGRES_HOST", *expected):
+    for name in ("POSTGRES_HOST", "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS", *expected):
         _remove_environment_binding(plan, name)
     after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
         "container"
     ][0]["env"]
     after_environment.append({"name": "POSTGRES_HOST", "value": "db.example.com"})
+    after_environment.append(
+        {
+            "name": "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS",
+            "value": "https://example.azurestaticapps.net",
+        }
+    )
     after_environment.extend({"name": name, "value": value} for name, value in expected.items())
 
     guard.validate_plan(
@@ -1679,6 +1685,47 @@ def test_plan_guard_allows_operator_runtime_bindings_with_database_host(
         "value"
     ] = "unreviewed.topic"
     with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            database_host_binding=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "console_origin",
+    [
+        "",
+        "http://example.azurestaticapps.net",
+        "https://example.com",
+        "https://example.azurestaticapps.net/",
+        "https://one.azurestaticapps.net,https://two.azurestaticapps.net",
+    ],
+)
+def test_plan_guard_rejects_invalid_operator_console_origin(
+    guard: ModuleType,
+    console_origin: str,
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    _remove_environment_binding(plan, "POSTGRES_HOST")
+    _remove_environment_binding(plan, "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS")
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.extend(
+        (
+            {"name": "POSTGRES_HOST", "value": "db.example.com"},
+            {
+                "name": "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS",
+                "value": console_origin,
+            },
+        )
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="invalid Console origin"):
         guard.validate_plan(
             plan,
             service="operator-service",

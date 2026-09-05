@@ -515,6 +515,18 @@ jobs:
             echo "Platform state returned an invalid database hostname." >&2
             exit 1
           }
+          console_hostname=""
+          if [[ "$SERVICE" == "operator-service" ]]; then
+            console_hostname="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw console_default_hostname
+            )"
+            [[ "$console_hostname" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.azurestaticapps\\.net$ \
+              && ${#console_hostname} -le 253 \
+              && "$console_hostname" != *..* ]] || {
+              echo "Platform state returned an invalid Console hostname." >&2
+              exit 1
+            }
+          fi
           event_topic="$(
             terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \
               | jq -er '[.[] | select(. == "fdai.change.events")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical change-events topic") end'
@@ -566,6 +578,10 @@ jobs:
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --database-host "$database_host" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_console_origin.py" \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --console-hostname "$console_hostname" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_event_topic.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

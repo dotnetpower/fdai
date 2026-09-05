@@ -550,6 +550,17 @@ def _valid_https_origin(value: str) -> bool:
     )
 
 
+def _valid_console_origin(value: str) -> bool:
+    """Return whether a value is one exact Static Web Apps HTTPS origin."""
+    if not _valid_https_origin(value) or value != value.strip().rstrip("/"):
+        return False
+    parsed = urlsplit(value)
+    hostname = parsed.hostname
+    return (
+        hostname is not None and hostname.endswith(".azurestaticapps.net") and parsed.port is None
+    )
+
+
 def _valid_web_search_domains(value: str) -> bool:
     domains = [] if value == "" else value.split(",")
     return (
@@ -627,6 +638,19 @@ def _guard_database_host_binding(
         == (_OPERATOR_RUNTIME_BINDINGS.get(name), None)
         and name in _OPERATOR_RUNTIME_BINDINGS
     }
+    console_origin_binding = _environment_binding(
+        after_environment.get("FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS")
+    )
+    console_origin, console_origin_secret = console_origin_binding or (None, None)
+    console_origin_changed = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS" in changed_names
+    valid_console_origin = (
+        contract.service == "operator-service"
+        and isinstance(console_origin, str)
+        and console_origin_secret is None
+        and _valid_console_origin(console_origin)
+    )
+    if console_origin_changed and valid_console_origin:
+        operator_runtime_bindings.add("FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS")
     unexpected = sorted(
         changed_names.difference(
             {"POSTGRES_HOST"} | additional_allowed_names | operator_runtime_bindings
@@ -639,6 +663,8 @@ def _guard_database_host_binding(
             f"database host binding changes unapproved environment at {address}: "
             f"unexpected={unexpected}"
         )
+    if console_origin_changed and not valid_console_origin:
+        violations.append(f"database host binding has invalid Console origin at {address}")
     if (
         host_binding is None
         or not isinstance(host_binding[0], str)

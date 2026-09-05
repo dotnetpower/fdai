@@ -867,6 +867,10 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert "scripts/deployment/service/hydrate_database_host.py" in _WORKFLOW
     assert '--database-host "$database_host"' in _WORKFLOW
     assert "Platform state returned an invalid database hostname." in _WORKFLOW
+    assert "output -raw console_default_hostname" in _WORKFLOW
+    assert "scripts/deployment/service/hydrate_console_origin.py" in _WORKFLOW
+    assert '--console-hostname "$console_hostname"' in _WORKFLOW
+    assert "Platform state returned an invalid Console hostname." in _WORKFLOW
     assert "output -json event_bus_topics" in _WORKFLOW
     assert 'select(. == "fdai.change.events")' in _WORKFLOW
     assert "scripts/deployment/service/hydrate_event_topic.py" in _WORKFLOW

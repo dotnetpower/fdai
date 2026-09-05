@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: e6715cc592b202baab1675f4d81fa7a299f47ff0
+translation_source_sha: 888ac784b7e034fb70ae8d638a14300994f62fca
 translation_revised: 2026-09-05
 ---
 
@@ -32,7 +32,8 @@ translation_revised: 2026-09-05
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
 | 독립 서비스 롤백 기준 | implemented | 현재 변경의 `deployment_recovery.py`, 공유 서비스 Container App 모듈 및 집중 service-deploy 롤백 검사 | 적용 전 수집은 비정상 또는 비활성 개정 번호를 차단하고, 각 서비스는 복구를 위해 비활성 개정 번호 1개를 보존합니다. 성공한 protected 롤백 증적은 아직 필요합니다. |
-| 성능 저하 상태의 Operator 복구 기준 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `deployment_recovery.py`, `plan_bundle.py` 및 집중 복구 검사 | 명시적 모드는 봉인된 데이터베이스 연결 복구에 실행 중인 비정상 Operator 개정 번호만 사용할 수 있습니다. 통제된 적용 근거는 아직 필요합니다. |
+| 성능 저하 상태의 Operator 복구 기준 | validated | Protected 계획 `33957891101`, 정확한 적용 `33957993467` 및 집중 복구 검사 | 명시적 모드는 실행 중인 비정상 Operator 개정 번호를 봉인된 롤백 기준으로 사용해 서비스를 정상 상태로 복원했습니다. |
+| 권위 있는 Operator Console origin | implemented | 현재 변경의 `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py` 및 집중 hydration과 계획 검사 | 계획은 플랫폼 상태에서 단일 HTTPS CORS origin을 가져옵니다. 통제된 적용과 브라우저 근거는 아직 필요합니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -54,6 +55,7 @@ translation_revised: 2026-09-05
 | 2026-08-25 | implemented | 실패한 Core 개정 번호가 다음 적용의 복구 출처가 되고 비활성 개정 번호 보존 수가 0이라 즉시 제거되면서 드러난 롤백 기준 결함을 닫았습니다. 이제 스냅샷 수집은 정상인 활성 개정 번호를 요구하고, 공유 서비스 모듈은 비활성 개정 번호 1개를 보존하며, 계획 가드는 일회성 `0 -> 1` 보존 강화만 허용합니다. | 실패한 Core 적용 `32839129965` 및 `32842018230`, `current change`, 집중 롤백 기준 및 보존 가드 검사 | 독립 서비스 배포 상태를 다시 `validated`로 올리기 전에 정상 Core 기준 하나를 복원하고 zero-destroy protected 계획, 성공한 exact 적용 및 검증된 자동 롤백 증적을 보존합니다. |
 | 2026-08-26 | implemented | 중지된 개발 PostgreSQL server를 복구한 뒤 준비 상태가 다시 열리면서 서로 독립적인 Core crash 경로 두 개가 드러났습니다. 이제 consumer progress는 commit과 highwater 관측 사이의 partition 회수를 허용하고, 새 Core migration은 detached background-task 조정기에 소유 테이블 3개의 정확한 접근 권한을 부여합니다. | Live revision `ca-fdai-dev-krc-core--p20260825121110`, `current change`, 집중 Event Bus race 및 migration grant 회귀 검사 3개 통과 | 정확히 증명된 이미지를 게시하고 보호된 workflow를 통해 정상 Core 기준 하나를 복원한 뒤, provider-schema 적용 전에 crash-free 상태 및 rollback 보존 근거를 보존합니다. |
 | 2026-09-05 | implemented | Azure에 별도의 정상 개정 번호가 없을 때 Operator 데이터베이스 연결 복구에 사용하는 봉인된 성능 저하 복구 경계를 추가했습니다. 기준 개정 번호는 활성, 프로비저닝 완료, 실행 중, 정확히 복원 가능한 상태여야 하며 이 모드는 보호된 Terraform 계획의 범위를 넓히지 않습니다. | `current change`, 집중 계획 묶음, 작업 흐름, 기준 선택, 스냅샷 및 롤백 검사 | 정확한 protected Operator 적용 1회를 실행하고 상태 및 롤백 경계 근거를 보존합니다. |
+| 2026-09-05 | implemented | 성능 저하 상태의 Operator 복구를 검증한 다음, 실제 브라우저 preflight에서 빈 CORS 연결을 확인한 뒤 권위 있는 Console origin hydration을 추가했습니다. 데이터베이스 연결 검증기는 정규화된 단일 Static Web Apps HTTPS origin만 수락하고 관련 없는 환경 변경은 계속 차단합니다. | Protected 계획 `33957891101`, 정확한 적용 `33957993467`, `current change`, 집중 hydration, 검증기 및 작업 흐름 검사 | Console origin 연결을 적용하고 인증된 브라우저 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
@@ -112,14 +114,15 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   모든 환경 값이 포함됩니다. 예를 들어 Core는 protected 계획이 시작 검증을
   통과하기 전에 Azure 테넌트, 구독, 지역, PostgreSQL 호스트 및 데이터베이스를 연결합니다.
 - **범위가 제한된 데이터베이스 호스트 연결**: 최초 전환 뒤 명시적
-  `database_host_binding` 모드는 리소스 신원, 명령, 다른 환경 값, 워크로드 신원,
+  `database_host_binding` 모드는 리소스 신원, 명령, 관련 없는 환경 값, 워크로드 신원,
   플랫폼, sidecar, 시크릿 및 롤백 필드를 유지하면서 비밀이 아닌 `POSTGRES_HOST` 환경
-  연결만 추가하거나 바꿀 수 있습니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
+  연결과 아래의 정본 런타임 연결만 추가하거나 바꿀 수 있습니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
   in-place 갱신 대상으로 유지하고 새 Operator 리소스는 계속 `-operator-api`를 사용합니다.
   입력을 구체화할 때 작업 흐름은 플랫폼 상태의 `postgres_fqdn` 출력에서 호스트 이름을
-  확인하고 `database.host`만 덮어씁니다. 또한 플랫폼 상태에서 정본 기본 유입, pipeline-stage
-  및 Pantheon-object 토픽을 확인하고 Core, Operator 및 document service의 소유 `event_topics`
-  필드만 덮어씁니다. 쓰기 전용 service tfvars 시크릿은 DSN 참조, 역할 및 기타 입력의 출처로
+  확인하고 `database.host`만 덮어씁니다. Operator의 경우 `console_default_hostname`을 확인하고
+  `cors_allow_origins`를 정규화된 단일 Static Web Apps HTTPS origin으로 바꿉니다. 또한 플랫폼
+  상태에서 정본 기본 유입, pipeline-stage 및 Pantheon-object 토픽을 확인하고 Core, Operator 및
+  document service의 소유 `event_topics` 필드만 덮어씁니다. 쓰기 전용 service tfvars 시크릿은 DSN 참조, 역할 및 기타 입력의 출처로
   남습니다. Core는 정본 `fdai.notifications.delivery-receipts` 토픽을 한 번 추가할 수 있습니다.
   Guard는 비밀이 아닌 이 정확한 값만 허용하고 함께 발생하는 명령, 신원 또는 다른 환경 변경을
   모두 차단합니다. 모든 primary container 환경 비교는 정확한 이름과 binding map을 사용하므로
