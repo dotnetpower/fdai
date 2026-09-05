@@ -3038,6 +3038,83 @@ def test_recovery_keeps_healthy_current_revision_as_rollback_baseline(
     )
 
 
+def test_recovery_requires_explicit_mode_for_running_degraded_current_revision(
+    recovery: ModuleType,
+) -> None:
+    _, _, _, app, current = _health_evidence()
+    current["properties"].update(  # type: ignore[union-attr]
+        {"healthState": "Unhealthy", "runningState": "Degraded", "replicas": 1}
+    )
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="no distinct last-ready"):
+        recovery.select_rollback_baseline(
+            app=app,
+            current_revision=current,
+            ready_revision=current,
+        )
+
+    assert (
+        recovery.select_rollback_baseline(
+            app=app,
+            current_revision=current,
+            ready_revision=current,
+            allow_degraded_current=True,
+        )
+        == "example--new"
+    )
+
+
+def test_recovery_snapshots_and_restores_explicit_degraded_operator_baseline(
+    recovery: ModuleType,
+) -> None:
+    context, _, account, app, revision = _health_evidence()
+    revision["properties"].update(  # type: ignore[union-attr]
+        {"healthState": "Unhealthy", "runningState": "Degraded", "replicas": 1}
+    )
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="healthy and active"):
+        recovery.capture_snapshot(
+            context=context,
+            account=account,
+            app=app,
+            revision=revision,
+            rollback_contract={"authority_fallback": ""},
+        )
+
+    context.update(
+        {
+            "deployment_mode": "database-host-binding",
+            "degraded_recovery": True,
+        }
+    )
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": ""},
+    )
+    assert snapshot["degraded_baseline"] is True
+
+    app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
+    revision["name"] = "example--recovery"
+    recovery.validate_rollback(
+        snapshot=snapshot,
+        account=account,
+        app=app,
+        revision=revision,
+    )
+
+    revision["properties"]["runningState"] = "ActivationFailed"  # type: ignore[index]
+    with pytest.raises(recovery.DeploymentRecoveryError, match="restorable and active"):
+        recovery.validate_rollback(
+            snapshot=snapshot,
+            account=account,
+            app=app,
+            revision=revision,
+        )
+
+
 def test_recovery_rejects_unhealthy_last_ready_revision(recovery: ModuleType) -> None:
     _, _, _, app, current = _health_evidence()
     app["properties"]["latestReadyRevisionName"] = "example--ready"  # type: ignore[index]
@@ -3549,7 +3626,9 @@ def test_plan_bundle_round_trip_and_tamper_rejection(bundle: ModuleType, tmp_pat
     assert verified == created
     sealed_context = json.loads(context.read_text(encoding="utf-8"))
     assert created["deployment_mode"] == "standard"
+    assert created["degraded_recovery"] is False
     assert sealed_context["deployment_mode"] == "standard"
+    assert sealed_context["degraded_recovery"] is False
     assert sealed_context["tenant_id"] == "example-tenant"
     assert sealed_context["subscription_id"] == "example-subscription"
     assert sealed_context["backend"] == {
@@ -3635,6 +3714,110 @@ def test_plan_bundle_binds_initial_cutover_mode(bundle: ModuleType, tmp_path: Pa
             plan_run_id="123",
             now=now + timedelta(minutes=5),
             **coordinates,
+        )
+
+
+def test_plan_bundle_binds_explicit_degraded_operator_recovery(
+    bundle: ModuleType, tmp_path: Path
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 9, 5, 8, 0, tzinfo=UTC)
+    image = _image("fdai-operator-service")
+    _write_plan_json(plan_json, image=image)
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        database_host_binding=True,
+        degraded_recovery=True,
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "database-host-binding"
+    assert created["degraded_recovery"] is True
+    assert json.loads(context.read_text(encoding="utf-8"))["degraded_recovery"] is True
+
+    with pytest.raises(bundle.PlanBundleError, match="exact apply input"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            database_host_binding=True,
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+    verified = bundle.verify_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        plan_digest=created["plan_digest"],
+        context_digest=created["context_digest"],
+        plan_run_id="123",
+        database_host_binding=True,
+        degraded_recovery=True,
+        now=now + timedelta(minutes=5),
+        **coordinates,
+    )
+    assert verified == created
+
+
+def test_plan_bundle_rejects_degraded_recovery_outside_operator_binding(
+    bundle: ModuleType, tmp_path: Path
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    image = _image("fdai-operator-service")
+    _write_plan_json(plan_json, image=image)
+
+    with pytest.raises(
+        bundle.PlanBundleError,
+        match="valid only for Operator database host binding",
+    ):
+        bundle.create_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            workflow_run_id="123",
+            degraded_recovery=True,
+            now=datetime(2026, 9, 5, 8, 0, tzinfo=UTC),
+            **_bundle_coordinates(),
         )
 
 

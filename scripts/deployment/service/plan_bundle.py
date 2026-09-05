@@ -18,7 +18,7 @@ from sidecar_contract import (
     planned_observable_probes,
 )
 
-_SCHEMA_VERSION = "fdai.service-deployment-plan.v5"
+_SCHEMA_VERSION = "fdai.service-deployment-plan.v6"
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
@@ -282,6 +282,7 @@ def _deployment_context(
     attestation_signer_workflow: str,
     initial_cutover: bool,
     database_host_binding: bool,
+    degraded_recovery: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
     sharepoint_connector_transition: str = "none",
@@ -295,6 +296,10 @@ def _deployment_context(
         operator_channel_edge_transition=operator_channel_edge_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
     )
+    if degraded_recovery and (
+        service != "operator-service" or deployment_mode != "database-host-binding"
+    ):
+        raise PlanBundleError("degraded recovery is valid only for Operator database host binding")
     context = {
         "service": service,
         "environment": environment,
@@ -326,6 +331,7 @@ def _deployment_context(
         },
         "trusted_controls": {"commit_sha": controls_commit_sha},
         "deployment_mode": deployment_mode,
+        "degraded_recovery": degraded_recovery,
     }
     plan_payload = _read_object(plan_json)
     edge_address = "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
@@ -444,6 +450,7 @@ def create_bundle(
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
     database_host_binding: bool = False,
+    degraded_recovery: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
     sharepoint_connector_transition: str = "none",
@@ -477,6 +484,7 @@ def create_bundle(
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
         database_host_binding=database_host_binding,
+        degraded_recovery=degraded_recovery,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
@@ -508,6 +516,7 @@ def create_bundle(
         "controls_commit_sha": controls_commit_sha,
         "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
+        "degraded_recovery": degraded_recovery,
         "deployment_mode": _deployment_mode(
             service=service,
             initial_cutover=initial_cutover,
@@ -549,6 +558,7 @@ def verify_bundle(
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
     database_host_binding: bool = False,
+    degraded_recovery: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
     sharepoint_connector_transition: str = "none",
@@ -589,6 +599,7 @@ def verify_bundle(
         "controls_commit_sha": controls_commit_sha,
         "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
+        "degraded_recovery": degraded_recovery,
         "deployment_mode": _deployment_mode(
             service=service,
             initial_cutover=initial_cutover,
@@ -626,6 +637,7 @@ def verify_bundle(
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
         database_host_binding=database_host_binding,
+        degraded_recovery=degraded_recovery,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
@@ -662,6 +674,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--attestation-signer-workflow", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
+    parser.add_argument("--degraded-recovery", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
@@ -709,6 +722,7 @@ def main() -> int:
         "attestation_signer_workflow": args.attestation_signer_workflow,
         "initial_cutover": args.initial_cutover,
         "database_host_binding": args.database_host_binding,
+        "degraded_recovery": args.degraded_recovery,
         "model_binding_transition": args.model_binding_transition,
         "operator_channel_edge_transition": args.operator_channel_edge_transition,
         "sharepoint_connector_transition": args.sharepoint_connector_transition,

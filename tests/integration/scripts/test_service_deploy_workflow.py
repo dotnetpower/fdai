@@ -878,6 +878,27 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert '--pantheon-object-topic "$pantheon_object_topic"' in _WORKFLOW
 
 
+def test_service_workflow_seals_degraded_operator_recovery() -> None:
+    guard_step = _WORKFLOW.split(
+        "      - name: Create and guard service plan",
+        maxsplit=1,
+    )[1].split("      - name: Capture peer states after plan", maxsplit=1)[0]
+    seal_step = _WORKFLOW.split(
+        "      - name: Seal plan artifact and context",
+        maxsplit=1,
+    )[1].split("      - name: Upload protected service plan", maxsplit=1)[0]
+    assert "degraded_recovery:" in _WORKFLOW
+    assert "Degraded recovery is valid only for Operator database host binding." in _WORKFLOW
+    assert _WORKFLOW.count("DEGRADED_RECOVERY: ${{ inputs.degraded_recovery }}") == 4
+    assert _WORKFLOW.count("recovery_args+=(--degraded-recovery)") == 2
+    assert _WORKFLOW.count('"${recovery_args[@]}"') == 3
+    assert "--degraded-recovery" not in guard_step
+    assert "--degraded-recovery" in seal_step
+    assert "--allow-degraded-current" in _WORKFLOW
+    assert "allow_degraded_baseline" in _WORKFLOW
+    assert "rollback revision did not reach the restorable contract" in _WORKFLOW
+
+
 def test_service_workflow_seals_native_sharepoint_connector_transition() -> None:
     assert "sharepoint_connector_transition:" in _WORKFLOW
     assert (
