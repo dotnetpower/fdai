@@ -178,9 +178,11 @@
           "services/document-ingestion-api/tests/test_ingestion_service_behavior.py"
         ],
         "integration": [
+          "services/document-ingestion-api/tests/test_adls_resumable_upload.py",
           "services/document-ingestion-api/tests/test_document_search.py",
           "services/document-ingestion-api/tests/test_ingestion_service_composition.py",
-          "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py"
+          "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py",
+          "services/document-ingestion-api/tests/test_sharepoint_delta_sync.py"
         ],
         "smoke": []
       }
@@ -200,7 +202,9 @@
           "services/document-processing-worker/tests/test_ingestion_handover_parity.py",
           "services/document-processing-worker/tests/test_pdf_isolation.py"
         ],
-        "integration": [],
+        "integration": [
+          "services/document-processing-worker/tests/test_purview_rms_protection.py"
+        ],
         "smoke": [
           "services/document-processing-worker/tests/test_health.py"
         ]

@@ -1001,7 +1001,7 @@ async def test_realtime_overlay_rejects_dangling_relationship() -> None:
         ),
     )
 
-    with pytest.raises(ValueError, match="endpoint has no current incarnation"):
+    with pytest.raises(ValueError, match="inventory relationship endpoint is missing"):
         await projector(
             {
                 "event_id": "event-dangling-link",

@@ -612,6 +612,11 @@ jobs:
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
 
+      - name: Run integration test suite
+        env:
+          FDAI_PYTEST_MODE: integration
+        run: bash scripts/quality/ci/run-python-tests.sh
+
       - name: Run service-owned migrations
         run: |
           set -euo pipefail
@@ -636,12 +641,6 @@ jobs:
                 --rollback-reference \
                   "git:${GITHUB_SHA}:service-migrations/branches/${service}/adoption.json#rollback"
           done
-
-      - name: Run integration test suite
-        env:
-          FDAI_PYTEST_MODE: integration
-          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
-        run: bash scripts/quality/ci/run-python-tests.sh
 
       - name: Run service-owned database tests
         env:
