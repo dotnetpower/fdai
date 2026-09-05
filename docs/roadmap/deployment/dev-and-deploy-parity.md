@@ -218,12 +218,8 @@ directories remain disabled for FDAI, so the same instruction or tool hook canno
 through multiple discovery paths. The dedicated `git: auto-pull` task owns background remote sync;
 VS Code built-in autofetch remains disabled in this workspace.
 
-The workspace associates `.github/workflows/deploy-dev.yml` and local composite action metadata
-with the plain YAML language mode. Local `action.yml` and `action.yaml` files also receive the
-GitHub Action JSON schema, so editor completion and structural validation remain available without
-extension diagnostics. The extension can still report unresolved-action and dynamic `GITHUB_ENV`
-context errors for the deployment workflow when the referenced tag and next-step value are valid.
-Remote tag checks, repository workflow contracts, and GitHub Actions runtime remain authoritative.
+The workspace treats `.github/workflows/deploy-dev.yml` and local composite action metadata as plain YAML and applies the GitHub Action JSON schema to local `action.yml` and `action.yaml` files.
+Editor completion and structural validation remain available without extension diagnostics; remote tag checks, repository workflow contracts, and GitHub Actions runtime remain authoritative.
 
 Workspace settings contain only resource-scoped Pylance controls. Machine-scoped Node.js settings
 are absent because the shared Remote WSL server cannot isolate them by profile. The profile keeps HashiCorp Terraform as the single language server, and workstation
