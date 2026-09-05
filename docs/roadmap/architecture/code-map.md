@@ -602,7 +602,7 @@ Content-addressed live evidence also binds the exact service and observation kin
 
 The package test tree validates SDK behavior. Cross-service N/N-1 and topology checks remain under
 [root integration tests](../../../tests/integration/).
-Deployable service images share pinned Alpine Python, OpenSSL, SQLite, and util-linux runtime packages; the image contract keeps all six Dockerfiles on exact versions available from the selected Alpine repository.
+Deployable service images share pinned Alpine Python, OpenSSL, SQLite, and util-linux runtime packages; the image contract and Trivy gate keep all six Dockerfiles on exact available versions without known blocked vulnerabilities.
 The document worker adds only its owned Tesseract language data and OCR dependencies.
 
 ## Other repository owners
