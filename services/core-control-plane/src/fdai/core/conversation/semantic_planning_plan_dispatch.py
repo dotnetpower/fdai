@@ -69,6 +69,7 @@ from .semantic_resource_metric_planning import (
 from .semantic_resource_state_planning import compile_resource_state_plan
 from .semantic_service_health_planning import compile_service_health_plan
 from .semantic_state_transition_planning import compile_resource_state_transition_plan
+from .semantic_subscription_scope_planning import compile_subscription_scope_plan
 from .semantic_target_candidate_planning import (
     build_resource_target_candidates_fallback,
     compile_resource_target_candidates_plan,
@@ -276,6 +277,15 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_target_current_state"
+    if plan is None:
+        plan = compile_subscription_scope_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_subscription_scope_identity"
     if plan is None:
         plan = compile_service_health_plan(
             frame=frame,

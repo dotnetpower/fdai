@@ -378,6 +378,10 @@ receipts through StateStore. Each actual invocation receives one opaque `correla
 its live and durable activity lifecycle, while opaque requester and conversation references keep the
 logical question `idempotency_key` stable across retries. Separate invocations do not reuse the
 correlation.
+Current-subscription identity follows the same FunctionType boundary. Schema-validated semantic
+judgment selects a no-input plan, and composition registers its Azure reader only when the
+server-configured subscription, read identity, and HTTP transport are available. The verified
+result contains a masked identifier and content digest; provider failure remains unavailable.
 The public composition facade exports only the optional resource-state composer; implementation
 types remain in the focused binder so the facade stays below its structural ceiling.
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface

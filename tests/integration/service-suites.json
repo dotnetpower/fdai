@@ -55,6 +55,7 @@
           "services/core-control-plane/tests/test_semantic_assurance_projection.py",
           "services/core-control-plane/tests/test_semantic_presentation_wiring.py",
           "services/core-control-plane/tests/test_semantic_query_progress.py",
+          "services/core-control-plane/tests/test_semantic_subscription_scope_answer.py",
           "services/core-control-plane/tests/test_semantic_turn_processor.py",
           "services/core-control-plane/tests/verticals"
         ],
@@ -98,6 +99,7 @@
           "services/operator-service/tests/test_slack_webhook_diagnostics.py",
           "services/operator-service/tests/test_presentation_artifact_v3.py",
           "services/operator-service/tests/test_stream_shutdown.py",
+          "services/operator-service/tests/test_subscription_scope_presentation.py",
           "services/operator-service/tests/test_teams_workflow_binding.py",
           "services/operator-service/tests/test_teams_workflow_diagnostics.py",
           "services/operator-service/tests/test_wara_projection.py"

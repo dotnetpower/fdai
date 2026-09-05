@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 78617f0909d43af09904a102fd491fa1794feda8
+translation_source_sha: 2bcdfe5d1b703df6c9f7cbb76e2ad067fff83d48
 translation_revised: 2026-09-05
 ---
 # FDAI Console 대화
@@ -209,7 +209,7 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 | `query_audit(filters)` | 구조화된 감사 조회: 이벤트 id, 행위자, 결정, 모드, 시간 구간 별. Paginate. | 읽기 담당 | `StateStore.query_audit()` |
 | `query_llm_usage(group_by, lookback_days, usage_scope)` | 1-90일의 범위가 제한된 구간에서 일, 모델, 워크로드 범위 또는 모드별로 측정된 LLM 토큰 사용량을 읽습니다. 독립적인 Operator 서비스는 SELECT-only 런타임 역할로 `llm_invocation`에서 동일한 token-only 변환 결과를 제공하며 기록 및 대화 원장은 500개로 제한하지만 집계 개수는 정확하게 유지합니다. Operator-chat 기록으로 좁힐 수 있고, 측정된 가격 근거 없이 금액을 추정하지 않으며, 결정론적 산문, 표 또는 chart 출력을 반환합니다. `LlmCostPanel`은 `conversation_tool`로 이 도구를 선언하며 chat-enabled 조립에 선언된 기능이 없으면 시작이 실패합니다. | 읽기 담당 | `MeteringReader` |
 | `query_inventory(resource_type, filter)` | 서버가 소유한 Azure 인벤토리 개수, 목록, 타입, 위치, resource-group, 이름, 상태, 관계 조회입니다. 스키마로 검증한 `inventory-query-language.yaml` 카탈로그가 자연어 용어, 상태와 연산 의미, 근거 권한, 그룹화, 변환 결과, 범위 기본값, 최신성 요구사항을 소유하고, Python은 질문별 별칭 없이 범용 토큰 matching과 타입이 지정된 조회 assembly만 수행합니다. Resource 타입은 별도의 정본 resource-type 카탈로그에서 가져옵니다. 타입이 지정된 조회가 근거 수집 전에 범위, 그룹화, 변환 결과, 워크로드 의도, state-history 의도, 최신성을 소유하므로 렌더러는 프롬프트를 다시 해석하지 않습니다. 한정되지 않은 화면 간 인벤토리 읽기는 서버가 소유한 구독 루트를 사용하고, current-view 표현을 명시하면 활성 아키텍처 화면을 유지합니다. Current-state 질문은 프로바이더 refresh barrier를 기다리고 stale 근거로 확정 답변을 하는 대신 사용 불가를 반환합니다. Degraded 또는 사용 불가 리소스 질문은 카탈로그 권한에 따라 `query_subscription_health`로 경로되며, 구체적인 resource-family 필터가 유지되어 다른 타입의 발견 사항을 제외합니다. 결과는 제한된 허용 목록 필드, 정확한 범위, 스냅샷 출처/최신성 및 모든 조건식에 일치하는 기록만 노출합니다. 명시적 semantic 상태 그룹은 서로 분리되고 근거 있는 zero-result 그룹도 표시할 수 있습니다. 상태 필터 답변은 정규화된 현재 operational 상태가 배포 또는 활동 로그 실패의 부재를 증명하지 않는다는 한계도 표시합니다. 스트림은 민감정보 제거된 서버 범위와 범위가 제한된 결과 메타데이터가 포함된 verifier-accepted 정본 `query_inventory` 연산을 노출합니다. 프로바이더 실패는 사용 불가로 표시합니다. 서버가 소유한 워크로드 프로바이더가 인벤토리와 일치하는 클러스터에 명시적으로 연결되지 않으면 AKS 결과는 클러스터 리소스만 포함합니다. 유효한 연결은 범위가 제한된 배포와 Pod 준비 상태를 추가하고, 일치하는 다른 클러스터는 명시적인 커버리지 공백으로 유지합니다. 현재 스냅샷은 워크로드가 해당 상태로 전이된 시각을 증명하지 않으며, Kubernetes 이벤트 또는 다른 이력 권한이 연결될 때까지 답변은 그 transition 시간을 미확정으로 유지합니다. | 읽기 담당 | `InventoryGraphProvider`, `KubernetesWorkloadProvider` |
-| `query_subscription_scope()` | Current-subscription 신원 질문에 대해 server-configured 구독의 display 이름과 상태를 Azure Resource Manager에서 읽습니다. 결정론적 답변은 구독 ID를 마스킹하고 관측 시간을 포함하며 caller-supplied 범위를 허용하지 않습니다. | 읽기 담당 | `SubscriptionScopeProvider` |
+| `query_subscription_scope()` | 스키마로 검증한 의미 판정이 `subscription_scope_identity`를 선택한 뒤 서버에 구성된 구독을 Azure Resource Manager에서 입력 없이 결정론적으로 읽습니다. 검증된 답변은 표시 이름, 상태, 관측 시각, 근거 다이제스트 및 마스킹한 구독 ID를 포함하며 브라우저나 모델 출력은 범위를 제공할 수 없습니다. | 읽기 담당 | `SubscriptionScopeProvider` |
 | `query_subscription_health()` | 명시적인 구독 점검, 일반적인 service-outage 질문 및 카탈로그가 선택한 degraded 또는 사용 불가 리소스 collection에 대해 server-configured Azure 읽기 담당 범위를 점검합니다. 프로바이더는 resource-group 허용 목록을 기본으로 사용하며, 조립이 소유하는 명시적인 구독 모드는 interactive 로컬 상태 범위를 구독 인벤토리와 맞춥니다. Resource Graph 인벤토리와 Resource Health를 조회하고, ARG가 비어 있으면 구성된 범위의 현재 Resource Health 상태로 대체 경로한 다음 범위가 제한된 representative 메트릭을 확인합니다. 근거 있는 빈 그룹을 포함한 요청 상태 그룹을 보존합니다. Resource Health display 이름이 없으면 범위가 검증된 대상에서 이름, 프로바이더 타입 및 리소스 그룹을 정규화하고 raw 대상 ID는 노출하지 않습니다. Caller-supplied 범위 또는 모드를 허용하지 않고 발견 사항, cause 분류, 커버리지 공백, 최신성 및 잘림을 반환합니다. | 읽기 담당 | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS 준비 상태 판정을 읽고 6축 커버리지 공백과 권한 상한을 반환합니다. Azure를 탐색하거나 준비 상태를 다시 계산하지 않습니다. | 읽기 담당 | `DetectionReadinessReader` |
 | `query_t2_recovery()` | 서버 StateStore에서 정제된 proposer 시도 증적을 읽습니다. 프로바이더 오류 텍스트를 노출하지 않고 retained 시도 개수, 복구 상태, 경로 역할, 실패 등급, 관측 시간 및 명시적인 legacy-detail 공백을 반환합니다. | 읽기 담당 | `T2RecoveryStateReader` |
@@ -274,8 +274,8 @@ Catalog-owned `inventory_coverage` 결과는 확인한 프로바이더 타입과
 분리해 보고합니다. 완전한 atomic 스냅샷은 skipped 0 및 실패한 0을 증명할 수 있지만,
 잘린 스냅샷은 skipped 커버리지를 알 수 없음으로 유지합니다. Operational-state 한계는
 별도 커버리지 등급이며 인벤토리 읽기 실패로 바꾸지 않습니다.
-명시적인 구독 또는 platform-health 의도는 semantic 에이전트 또는 공개 웹 계획보다
-결정론적 도구 precedence를 가집니다. Resource Health cause 분류는 서술 전에
+스키마로 검증한 의미 판정이 구독 또는 platform-health를 선택하면 결정론적 도구 플래닝은
+공개 웹 계획보다 우선합니다. Resource Health cause 분류는 서술 전에
 platform 영향과 customer-initiated 상태를 분리합니다. Broad platform-impact 읽기는 대표
 메트릭을 끄고 활성 서비스 Health 이벤트와 impacted 리소스를 조회하며 장애를 planned
 maintenance 및 참고용과 분리합니다. 누락된 가용성 cause는 범위가 제한된 Resource Health

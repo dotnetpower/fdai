@@ -178,6 +178,7 @@ class SemanticOutputShape(StrEnum):
     RESOURCE_STATE_LIST = "resource_state_list"
     RESOURCE_STATE_TRANSITIONS = "resource_state_transitions"
     RESOURCE_TARGET_CANDIDATES = "resource_target_candidates"
+    SUBSCRIPTION_SCOPE_IDENTITY = "subscription_scope_identity"
     SUBSCRIPTION_SERVICE_HEALTH = "subscription_service_health"
     TARGET_ACTIVITY = "target_activity"
     TARGET_CURRENT_STATE = "target_current_state"

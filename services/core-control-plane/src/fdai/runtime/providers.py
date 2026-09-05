@@ -528,6 +528,28 @@ def _build_service_health_reader(
     )
 
 
+def _build_subscription_scope_reader(
+    *,
+    identity: Any = None,
+    http_client: Any = None,
+) -> Any:
+    """Bind subscription identity only from the server-configured Azure scope."""
+
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if identity is None or http_client is None or not subscription_id:
+        return None
+    from fdai.delivery.azure.subscription_scope import (
+        AzureSubscriptionScopeConfig,
+        AzureSubscriptionScopeReader,
+    )
+
+    return AzureSubscriptionScopeReader(
+        identity=identity,
+        http_client=http_client,
+        config=AzureSubscriptionScopeConfig(subscription_id=subscription_id),
+    )
+
+
 def _build_vm_process_cpu_reader(
     *,
     identity: Any = None,

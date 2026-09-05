@@ -239,21 +239,21 @@ end-to-end reachability.
 
 ### Subscription scope identity
 
-The Command Deck tool `query_subscription_scope` handles questions such as "What is the current
-Azure subscription?" before narrator-model classification. It reads the configured subscription's
-display name and state from Azure Resource Manager with the same Reader identity used by the health
-sweep. Browser input cannot select another subscription or widen the configured scope.
-
-The deterministic terminal answer includes the display name, state, observation time, and a
-masked subscription ID that retains only four leading and four trailing characters. Provider
-failure produces an unavailable answer and does not fall back to generated subscription details.
+Schema-validated semantic judgment can select the `subscription_scope_identity` output for questions
+such as "What is the current Azure subscription?" The deterministic planner then emits a no-input
+`query.subscription_scope_identity` Function node; no keyword, phrase, token, or regular-expression
+router interprets the utterance. The Azure adapter reads only the server-configured subscription
+with the same Reader identity used by other subscription reads. Browser or model output cannot
+select another subscription or widen the scope. The terminal answer includes display name, state,
+observation time, evidence digest, and a subscription ID with only four leading and four trailing
+characters. Provider failure is explicitly unavailable and never generates subscription details.
 
 ### Subscription health sweep
 
 The Command Deck tool `query_subscription_health` handles an explicit subscription check, a
 general service-outage question, or a generic resource collection question whose catalog semantics
-require Resource Health. Deterministic routing selects this read before narrator-model
-classification. Scope comes only from the server's subscription and resource-group allowlist.
+require Resource Health. Schema-validated semantic judgment selects the typed health output, then
+deterministic planning binds the read. Scope comes only from the server's subscription and resource-group allowlist.
 Browser input cannot widen it. The provider performs these bounded steps:
 
 The provider has two immutable composition modes. `resource_groups` is the default and applies the

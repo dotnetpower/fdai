@@ -25,6 +25,7 @@ from fdai.core.ontology_platform.resource_event_queries import ResourceEventColl
 from fdai.core.ontology_platform.resource_health_queries import ResourceHealthCollectionReader
 from fdai.core.ontology_platform.service_health_queries import ServiceHealthReader
 from fdai.core.ontology_platform.state_transitions import StateTransitionStore
+from fdai.core.ontology_platform.subscription_scope_queries import SubscriptionScopeReader
 from fdai.core.ontology_platform.vm_process_evidence import VmProcessCpuReader
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -77,6 +78,7 @@ def compose_azure_semantic_query_runtime(
     read_investigation_provider: ReadInvestigationProvider | None = None,
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
+    subscription_scope_reader: SubscriptionScopeReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
     state_transition_reader: StateTransitionStore | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
@@ -170,6 +172,7 @@ def compose_azure_semantic_query_runtime(
             read_investigation_provider=read_investigation_provider,
             resource_health_reader=resource_health_reader,
             resource_event_reader=resource_event_reader,
+            subscription_scope_reader=subscription_scope_reader,
             service_health_reader=service_health_reader,
             state_transition_reader=state_transition_reader,
             vm_process_cpu_reader=vm_process_cpu_reader,

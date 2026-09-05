@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ffc314466b1649acf64a8dde3c5879780f55646b
+translation_source_sha: 901f470c06c2a5d58eab71ca2d1892081766ac6b
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -362,6 +362,10 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 저장합니다. 실제 호출마다 실시간 및 영속 활동 수명 주기에서 공유하는 불투명한
 `correlation_ref` 하나를 받고, 불투명한 요청자 및 대화 참조는 재시도 간 논리적 질문
 `idempotency_key`를 안정적으로 유지합니다. 별도 호출은 상관관계 값을 재사용하지 않습니다.
+현재 구독 신원도 같은 FunctionType 경계를 따릅니다. 스키마로 검증한 의미 판정이 입력 없는
+플랜을 선택하고 조립은 서버에 구성된 구독, 읽기 신원 및 HTTP 전송 계층이 있을 때만 Azure
+읽기 담당을 등록합니다. 검증된 결과에는 마스킹한 식별자와 content 다이제스트만 포함하며
+프로바이더 실패는 사용 불가로 유지합니다.
 공개 조립 파사드는 선택적 resource-state composer만 내보냅니다. 구현 타입은 focused binder에
 유지해 파사드가 structural 상한 아래에 머물도록 합니다.
 플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다.
