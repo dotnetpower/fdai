@@ -612,6 +612,13 @@ jobs:
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
 
+      - name: Run legacy migration downgrade tests
+        env:
+          FDAI_PYTEST_MODE: integration
+        run: >-
+          uv run pytest -q --no-cov
+          services/core-control-plane/tests/persistence/test_migrations_integration.py
+
       - name: Run service-owned migrations
         run: |
           set -euo pipefail
@@ -637,10 +644,19 @@ jobs:
                   "git:${GITHUB_SHA}:service-migrations/branches/${service}/adoption.json#rollback"
           done
 
+      - name: Run serial service migration lifecycle tests
+        env:
+          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
+          FDAI_SERIAL_MIGRATION_TESTS: "1"
+        run: >-
+          uv run pytest -q --no-cov
+          services/core-control-plane/tests/persistence/test_catalog_lifecycle_integration.py
+
       - name: Run integration test suite
         env:
           FDAI_PYTEST_MODE: integration
           FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
+          FDAI_SERVICE_MIGRATIONS_READY: "1"
         run: bash scripts/quality/ci/run-python-tests.sh
 
       - name: Run service-owned database tests

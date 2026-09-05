@@ -57,6 +57,8 @@ EXPECTED_TABLES = {
 
 
 def _requires_live_db() -> str:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") == "1":
+        pytest.skip("legacy migration downgrade tests run before service-owned migrations")
     url = os.environ.get("FDAI_DATABASE_URL")
     if not url:
         pytest.skip("FDAI_DATABASE_URL is unset")

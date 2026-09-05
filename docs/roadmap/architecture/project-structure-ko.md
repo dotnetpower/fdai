@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9b907505e831e6c4d2885fd604ba1df19f122a7c
+translation_source_sha: e6a98a144c588bb5f2e339f264bc2960277305e5
 translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
@@ -57,7 +57,7 @@ translation_revised: 2026-09-05
 - **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 서비스 계약 SDK는 배포 권한이 없는 수정
   버전 기반 공급자 정책을 소유합니다. 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure
   어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집
-  서비스가 다른 서비스 구현을 가져오지 않습니다.
+  서비스가 다른 서비스 구현을 가져오지 않습니다. 서비스 마이그레이션 CI는 적용 전에 legacy downgrade 검사를 실행하고 스키마를 변경하는 수명 주기 검사를 직렬화하며 나머지 통합 검사는 적용된 스키마에서 실행합니다. 로컬 composite action은 저장소 코드이므로 원격 action SHA 구문에서 제외하고 모든 원격 action은 계속 고정합니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,

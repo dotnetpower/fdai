@@ -258,7 +258,8 @@ def test_supply_chain_pins_node_compatible_actions_to_full_shas() -> None:
     uses = re.findall(r"^\s*uses:\s+([^\s#]+)", text, re.MULTILINE)
 
     assert uses
-    assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in uses)
+    remote_uses = [value for value in uses if not value.startswith("./")]
+    assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in remote_uses)
     for action, sha in ACTION_PINS.items():
         assert f"{action}@{sha}" in uses
 
