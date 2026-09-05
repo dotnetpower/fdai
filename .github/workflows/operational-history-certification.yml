@@ -168,7 +168,7 @@ jobs:
             "$ARM_SUBSCRIPTION_ID" "$EXPECTED_AZURE_TENANT_ID" \
             "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
-      - name: Verify attested deployed runtime image
+      - name: Verify exact attested runtime image
         working-directory: infra
         env:
           GH_TOKEN: ${{ github.token }}
@@ -193,21 +193,65 @@ jobs:
 
           job_json="$RUNNER_TEMP/operational-history-job.json"
           az containerapp job show --ids "$job_id" --output json > "$job_json"
-          runtime_image="$(jq -r \
+          deployed_image="$(jq -r \
             '.properties.template.containers[] |
              select(.name == "operational-history-lifecycle") | .image' "$job_json")"
           mi_client_id="$(jq -r \
             '.properties.template.containers[] |
              select(.name == "operational-history-lifecycle") |
              .env[] | select(.name == "FDAI_MI_CLIENT_ID") | .value' "$job_json")"
-          [[ "$runtime_image" =~ @sha256:[0-9a-f]{64}$ ]]
+          [[ "$deployed_image" =~ @sha256:[0-9a-f]{64}$ ]]
           [[ "$mi_client_id" =~ ^[0-9a-fA-F-]{36}$ ]]
-          runtime_image_digest="${runtime_image##*@}"
 
-          registry="${runtime_image%%/*}"
+          registry="${deployed_image%%/*}"
+          [[ "$deployed_image" =~ ^[^/]+/fdai@sha256:[0-9a-f]{64}$ ]]
           az acr login --name "${registry%%.*}" --only-show-errors >/dev/null
+          runtime_image_digest="$(
+            az acr manifest list-metadata \
+              --registry "${registry%%.*}" \
+              --name fdai \
+              --query "[?tags != null && contains(tags, 'sha-${TARGET_COMMIT_SHA}')].digest | [0]" \
+              --output tsv --only-show-errors
+          )"
+          [[ "$runtime_image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "the exact source revision is not available in the deployment registry" >&2
+            exit 1
+          }
+          runtime_image="${registry}/fdai@${runtime_image_digest}"
+
+          source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"
+          netrc_file="$(mktemp "$RUNNER_TEMP/oi16-ghcr-netrc.XXXXXX")"
+          chmod 0600 "$netrc_file"
+          trap 'rm -f -- "$netrc_file"' EXIT
+          printf 'machine ghcr.io\nlogin %s\npassword %s\n' \
+            "$GITHUB_ACTOR" "$GH_TOKEN" > "$netrc_file"
+          registry_token="$(
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \
+              --netrc-file "$netrc_file" \
+              "https://ghcr.io/token?scope=repository:${source_repository}:pull" \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])'
+          )"
+          echo "::add-mask::$registry_token"
+          source_digest="$(
+            curl --fail --silent --show-error --head --retry 3 --retry-delay 2 \
+              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \
+              -H "Authorization: Bearer $registry_token" \
+              -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+              "https://ghcr.io/v2/${source_repository}/manifests/sha-${TARGET_COMMIT_SHA}" \
+              | tr -d '\r' \
+              | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}'
+          )"
+          unset registry_token
+          [[ "$source_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$runtime_image_digest" == "$source_digest" ]] || {
+            echo "the deployment registry digest does not match the exact Core image" >&2
+            exit 1
+          }
+
           attestations="$RUNNER_TEMP/runtime-image-attestations.json"
-          timeout 60s gh attestation verify "oci://${runtime_image}" \
+          timeout 60s gh attestation verify \
+            "oci://ghcr.io/${source_repository}@${source_digest}" \
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             --format json > "$attestations"

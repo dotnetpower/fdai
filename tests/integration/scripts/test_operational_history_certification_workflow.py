@@ -24,7 +24,7 @@ def test_certification_binds_every_authoritative_revision() -> None:
         "deployment_receipt_digest",
         "deployment_apply_run_id",
         "Verify required CI for exact revision",
-        "Verify attested deployed runtime image",
+        "Verify exact attested runtime image",
         "Verify OI-15 apply receipt artifact",
     ):
         assert value in _WORKFLOW
@@ -54,3 +54,11 @@ def test_campaign_job_arguments_are_one_azure_cli_value() -> None:
         )
         == 2
     )
+
+
+def test_campaign_resolves_the_exact_acr_revision_instead_of_trusting_job_configuration() -> None:
+    assert "contains(tags, 'sha-${TARGET_COMMIT_SHA}')" in _WORKFLOW
+    assert 'runtime_image="${registry}/fdai@${runtime_image_digest}"' in _WORKFLOW
+    assert 'source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"' in _WORKFLOW
+    assert '[[ "$runtime_image_digest" == "$source_digest" ]]' in _WORKFLOW
+    assert 'runtime_image_digest="${runtime_image##*@}"' not in _WORKFLOW
