@@ -7,7 +7,7 @@ on:
       operation:
         description: "Protected operation to request."
         type: choice
-        options: [console-publish, catalog-refresh]
+        options: [console-publish, catalog-refresh, rca-reader-apply]
         required: true
       environment:
         description: "Existing environment targeted by the protected operation."
@@ -18,6 +18,27 @@ on:
         description: "Exact CI-verified commit from protected main."
         type: string
         required: true
+      request_id:
+        description: "Exact apply request id for an RCA reader apply."
+        type: string
+        required: false
+      context_digest:
+        description: "Deployment context SHA-256 for an RCA reader apply."
+        type: string
+        required: false
+      plan_id:
+        description: "Protected plan id for an RCA reader apply."
+        type: string
+        required: false
+      plan_digest:
+        description: "Protected plan SHA-256 for an RCA reader apply."
+        type: string
+        required: false
+      resume_verification:
+        description: "Resume verification without repeating an accepted RCA reader apply."
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   actions: write
@@ -26,7 +47,9 @@ permissions:
 
 jobs:
   request:
-    if: github.ref == 'refs/heads/main' && inputs.commit_sha == github.sha
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (inputs.operation == 'rca-reader-apply' || inputs.commit_sha == github.sha)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -51,6 +74,13 @@ jobs:
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 1
+      - name: Checkout protected Environment verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: scripts/deployment/azure/verify-github-environment.py
+          path: .fdai-protected-environment-verifier
 
       - name: Verify required CI
         env:
@@ -73,6 +103,11 @@ jobs:
           OPERATION: ${{ inputs.operation }}
           TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          APPLY_REQUEST_ID: ${{ inputs.request_id }}
+          APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
+          APPLY_PLAN_ID: ${{ inputs.plan_id }}
+          APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          RESUME_VERIFICATION: ${{ inputs.resume_verification }}
         run: |
           set -euo pipefail
           case "$OPERATION" in
@@ -81,6 +116,47 @@ jobs:
               ;;
             catalog-refresh)
               target_workflow=refresh-catalogs.yml
+              ;;
+            rca-reader-apply)
+              [[ "$TARGET_ENVIRONMENT" != "prod" ]] || {
+                echo "RCA reader apply is unavailable for production." >&2
+                exit 1
+              }
+              [[ "$APPLY_REQUEST_ID" =~ ^apply-rca-[0-9a-f]{48}$ ]] || {
+                echo "RCA reader apply request id is invalid." >&2
+                exit 1
+              }
+              [[ "$APPLY_CONTEXT_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+                echo "RCA reader context digest is invalid." >&2
+                exit 1
+              }
+              [[ "$APPLY_PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]] || {
+                echo "RCA reader plan id is invalid." >&2
+                exit 1
+              }
+              [[ "$APPLY_PLAN_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+                echo "RCA reader plan digest is invalid." >&2
+                exit 1
+              }
+              gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
+                > "$RUNNER_TEMP/environment.json"
+              python3 \
+                .fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py \
+                "$RUNNER_TEMP/environment.json" --required-approvals 1
+              gh api --method POST \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/deploy-dev.yml/dispatches" \
+                -f ref=main \
+                -f "inputs[environment]=$TARGET_ENVIRONMENT" \
+                -f "inputs[apply]=true" \
+                -f "inputs[request_id]=$APPLY_REQUEST_ID" \
+                -f "inputs[context_digest]=$APPLY_CONTEXT_DIGEST" \
+                -f "inputs[commit_sha]=$TARGET_COMMIT_SHA" \
+                -f "inputs[plan_id]=$APPLY_PLAN_ID" \
+                -f "inputs[plan_digest]=$APPLY_PLAN_DIGEST" \
+                -f "inputs[resume_verification]=$RESUME_VERIFICATION" \
+                -f "inputs[deploy_console]=false" \
+                -f "inputs[deploy_operator_api]=false"
+              exit 0
               ;;
             *)
               echo "unsupported protected operation: $OPERATION" >&2

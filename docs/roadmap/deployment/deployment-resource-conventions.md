@@ -31,7 +31,11 @@ catalog materialization Job with rollback, runs schema migration, and verifies t
 revision's immutable Rule and Ontology projections through PostgreSQL readback before publishing the
 matching Console artifact. One shared request workflow validates an allowlisted operation and the
 exact revision, then dispatches either Console publication or catalog refresh with the repository
-automation identity. The human maintainer can then approve that bot-owned deployment without
+automation identity. The same request boundary can dispatch only the exact protected RCA reader
+apply or verification-resume coordinates after verifying the Environment policy. `fdaictl` routes
+the exclusive RCA apply through that request boundary. A still-valid plan remains eligible when
+unrelated commits advance `main` only if its revision remains an ancestor and the protected request
+controls remain identical. The human maintainer can then approve that bot-owned deployment without
 enabling self-review or administrator bypass.
 
 ## Implementation status

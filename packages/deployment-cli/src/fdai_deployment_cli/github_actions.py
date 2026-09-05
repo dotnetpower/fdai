@@ -519,10 +519,23 @@ def _dispatch(
             raise ValueError("exact apply requires plan id and digest")
         fields["plan_id"] = plan_id
         fields["plan_digest"] = plan_digest
+    workflow = "deploy-dev.yml"
+    if apply and selection.deploy_rca_reader_identity:
+        workflow = "request-protected-operation.yml"
+        fields = {
+            "operation": "rca-reader-apply",
+            "environment": environment,
+            "commit_sha": commit_sha,
+            "request_id": request_id_value,
+            "context_digest": context_digest,
+            "plan_id": fields["plan_id"],
+            "plan_digest": fields["plan_digest"],
+            "resume_verification": str(resume_verification).lower(),
+        }
     arguments = [
         "workflow",
         "run",
-        "deploy-dev.yml",
+        workflow,
         "--repo",
         repository,
         "--ref",

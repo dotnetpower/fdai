@@ -343,6 +343,52 @@ def test_console_release_request_uses_bot_as_deployment_requester() -> None:
     assert '"inputs[commit_sha]=$TARGET_COMMIT_SHA"' in _CONSOLE_REQUEST_WORKFLOW
 
 
+def test_rca_reader_apply_request_is_bot_owned_and_exact_plan_bound() -> None:
+    assert "rca-reader-apply)" in _CONSOLE_REQUEST_WORKFLOW
+    assert (
+        "inputs.operation == 'rca-reader-apply' || inputs.commit_sha == github.sha"
+        in _CONSOLE_REQUEST_WORKFLOW
+    )
+    assert (
+        ".fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py"
+    ) in _CONSOLE_REQUEST_WORKFLOW
+    assert _CONSOLE_REQUEST_WORKFLOW.index("Checkout exact protected revision") < (
+        _CONSOLE_REQUEST_WORKFLOW.index("Checkout protected Environment verifier")
+    )
+    assert "^apply-rca-[0-9a-f]{48}$" in _CONSOLE_REQUEST_WORKFLOW
+    assert "^plan-[1-9][0-9]*-[1-9][0-9]*$" in _CONSOLE_REQUEST_WORKFLOW
+    assert "actions/workflows/deploy-dev.yml/dispatches" in _CONSOLE_REQUEST_WORKFLOW
+    for field in (
+        "apply",
+        "request_id",
+        "context_digest",
+        "commit_sha",
+        "plan_id",
+        "plan_digest",
+        "resume_verification",
+        "deploy_console",
+        "deploy_operator_api",
+    ):
+        assert f'"inputs[{field}]=' in _CONSOLE_REQUEST_WORKFLOW
+
+
+def test_apply_job_enforces_the_selected_protected_environment() -> None:
+    assert (
+        "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _LEGACY_WORKFLOW
+    )
+    assert "Verify protected environment approval policy before mutation" in _LEGACY_WORKFLOW
+    assert "actions: read" in _LEGACY_WORKFLOW
+    assert 'if [[ "$APPLY" == "true" ]]' in _LEGACY_WORKFLOW
+    assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _LEGACY_WORKFLOW
+    assert '"$RUNNER_TEMP/verify-github-environment.py"' in _LEGACY_WORKFLOW
+    assert _LEGACY_WORKFLOW.index("Checkout protected workflow verifier") < (
+        _LEGACY_WORKFLOW.index("- name: Checkout\n")
+    )
+    assert _LEGACY_WORKFLOW.index("HEAD:scripts/deployment/azure/verify-github-environment.py") < (
+        _LEGACY_WORKFLOW.index("- name: Checkout\n")
+    )
+
+
 def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]

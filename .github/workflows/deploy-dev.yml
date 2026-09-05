@@ -123,6 +123,7 @@ on:
         type: string
         required: false
 permissions:
+  actions: read
   attestations: read
   contents: read
   packages: read
@@ -133,6 +134,7 @@ jobs:
   terraform:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
+    environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     # Declared budget. Without it the only bound is the six-hour runner default, which cannot tell
     # a stalled provider from a slow apply and holds the single deploy runner meanwhile.
     timeout-minutes: 180
@@ -249,6 +251,10 @@ jobs:
           azure_config_dir="$RUNNER_TEMP/azure-cli"
           mkdir -p "$azure_config_dir"
           echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
+          git -C "$GITHUB_WORKSPACE/.fdai-protected-workflow-verifier" show \
+            "HEAD:scripts/deployment/azure/verify-github-environment.py" \
+            > "$RUNNER_TEMP/verify-github-environment.py"
+          chmod 0600 "$RUNNER_TEMP/verify-github-environment.py"
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -267,6 +273,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           APPLY: ${{ inputs.apply }}
+          GH_TOKEN: ${{ github.token }}
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           REQUEST_ID: ${{ inputs.request_id }}
@@ -299,7 +306,17 @@ jobs:
           VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
-        run: python3 scripts/deployment/azure/validate_deploy_request.py
+        run: |
+          set -euo pipefail
+          python3 scripts/deployment/azure/validate_deploy_request.py
+          if [[ "$APPLY" == "true" ]]; then
+            # Verify protected environment approval policy before mutation.
+            policy="$RUNNER_TEMP/environment-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+            trap 'rm -f -- "$policy"' EXIT
+            gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" > "$policy"
+            python3 "$RUNNER_TEMP/verify-github-environment.py" \
+              "$policy" --required-approvals 1
+          fi
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
