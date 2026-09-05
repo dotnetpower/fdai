@@ -203,6 +203,39 @@ test("streams only after verification and respects a collapsed investigation at 
   await expect(frame.locator(".ex-search-match")).toBeInViewport();
 });
 
+test("retains reading position and focus when an inspected record becomes terminal", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  const frame = await openAdaptiveChat(page);
+  await frame.getByRole("button", { name: "Replay investigation", exact: true }).click();
+  await frame.locator("#ex-preview-controls > summary").click();
+  await advanceToStage(page, frame, "verifying");
+  const firstStep = frame.locator("#ex-run .ex-step").first();
+  await firstStep.locator("xpath=ancestor::details[contains(@class, 'ex-session')]").evaluate((element: HTMLDetailsElement) => {
+    element.open = true;
+    element.dataset.userExpanded = "true";
+  });
+  await firstStep.locator(".ex-step-toggle").click();
+  const copy = firstStep.getByRole("button", { name: "Copy", exact: true });
+  await copy.focus();
+  await frame.locator(".ex-thread").evaluate((element) => {
+    const first = element.querySelector(".ex-step-toggle")!;
+    element.scrollTop += first.getBoundingClientRect().top - element.getBoundingClientRect().top - 24;
+  });
+  const before = await firstStep.locator(".ex-step-toggle").evaluate((element) =>
+    element.getBoundingClientRect().top - document.querySelector(".ex-thread")!.getBoundingClientRect().top,
+  );
+  await advanceToStage(page, frame, "complete");
+  await page.clock.runFor(32);
+  const after = await firstStep.locator(".ex-step-toggle").evaluate((element) =>
+    element.getBoundingClientRect().top - document.querySelector(".ex-thread")!.getBoundingClientRect().top,
+  );
+  expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
+  await expect(copy).toBeFocused();
+  await expect(frame.locator(".ex-observed")).toHaveAttribute("open", "");
+  await frame.locator(".ex-observed > summary").click();
+  await expect(frame.locator(".ex-thread")).not.toHaveAttribute("style", /--ex-reading-tail/);
+});
+
 test("keeps the adaptive mock shell stateful and production-shaped", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "One browser covers the ordered viewport sequence.");
   await page.emulateMedia({ reducedMotion: "reduce" });

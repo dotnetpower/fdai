@@ -38,6 +38,7 @@ function lazyRoute<K extends string, M extends Record<K, ComponentType<PanelProp
 }
 
 const DashboardRoute = lazyRoute(() => import("./routes/dashboard"), "DashboardRoute");
+const DashboardV2Route = lazyRoute(() => import("./routes/dashboard-v2"), "DashboardV2Route");
 const LiveRoute = lazyRoute(() => import("./routes/live"), "LiveRoute");
 const IncidentsRoute = lazyRoute(() => import("./routes/incidents"), "IncidentsRoute");
 const AgentsRoute = lazyRoute(() => import("./routes/agents"), "AgentsRoute");
@@ -521,6 +522,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
   },
   // ── Overview ────────────────────────────────────────────────────────
   DASHBOARD_PANEL,
+  {
+    id: "dashboard-v2",
+    label: t("nav.panel.dashboardV2"),
+    subtitle: t("nav.panelSub.dashboardV2"),
+    group: "overview",
+    component: DashboardV2Route,
+  },
   {
     id: "operating-outcomes",
     label: t("nav.panel.operatingOutcomes"),

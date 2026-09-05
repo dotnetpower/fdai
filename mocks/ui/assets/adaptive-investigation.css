@@ -40,7 +40,12 @@
   outline-offset: -2px;
 }
 .ex-thread .ex-user-message, .ex-thread .ex-stream-answer p { font-size: var(--cs-type-body-size); line-height: var(--cs-type-body-line-height); }
-.ex-thread .ex-user-bubble { background: color-mix(in srgb, var(--cs-steel) 9%, var(--cs-card)); border-radius: var(--cs-radius); }
+.ex-thread .ex-user-bubble { background: var(--cs-question-bg); border-radius: var(--cs-radius); }
+.ex-workbench[data-shell="workspace"] .ex-thread { padding: 24px max(var(--chat-gutter), calc((100% - var(--chat-reading-width)) / 2)) calc(32px + var(--ex-reading-tail, 0px)); overflow-anchor: none; }
+.ex-workbench[data-shell="workspace"] .ex-turn.is-bragi { width: 100%; }
+.ex-workbench .ex-composer { padding-inline: max(var(--chat-gutter), calc((100% - var(--chat-reading-width)) / 2)); }
+.ex-agent-name { font-size: var(--cs-type-body-size); }
+.ex-agent-head { gap: 8px; margin-bottom: 12px; }
 .ex-stream-answer p:first-child { font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); }
 .ex-agent-source { padding: 0; border: 0; background: transparent; font: var(--cs-type-label-size) var(--cs-font); color: var(--cs-text-soft); }
 .ex-workbench:is([data-stage="pending"], [data-stage="preparing"], [data-stage="investigating"], [data-stage="verifying"], [data-stage="answering"]) .ex-thread > .is-bragi > .ex-turn-body > .ex-turn-foot { visibility: hidden; }
@@ -81,7 +86,7 @@
 .ex-plan > summary { min-height: 36px; padding-block: 6px; cursor: pointer; }
 .ex-plan ol { padding-left: 20px; }
 .ex-session { margin: 0; }
-.ex-session.is-running { padding: 8px 12px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: color-mix(in srgb, var(--cs-shade) 55%, var(--cs-card)); }
+.ex-session.is-running { padding: 8px 12px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-shade); }
 .ex-session.is-running .ex-step:not(.is-active):not(.is-complete) { display: none; }
 .ex-session-head { min-height: 44px; padding: 8px 0; cursor: pointer; list-style: none; }
 .ex-session-head::-webkit-details-marker { display: none; }
@@ -109,6 +114,7 @@
 .ex-step-duration { font-size: var(--cs-type-label-size); font-family: var(--cs-font); }
 .ex-step.is-active .ex-step-title::after { content: none; }
 .ex-step-detail { transition: none; }
+.ex-step-detail.is-open { max-height: none; height: auto; }
 .ex-terminal { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--cs-type-label-size); }
 .ex-output.is-entering { animation: none; }
 .ex-result-line { gap: 8px 16px; }
@@ -116,7 +122,14 @@
 .ex-result-dot { display: none; }
 .ex-final { animation: none; }
 .ex-final.is-visible, .ex-final-reveal.is-visible { opacity: 1; transform: none; animation: none; }
-.ex-final-copy { max-width: 76ch; }
+.ex-final-copy { max-width: 100%; }
+.ex-stream-answer { max-width: 76ch; }
+.ex-final-copy code { color: var(--cs-text); }
+.ex-record-note, .ex-unverified-phase-copy small { font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.ex-observed-stage strong, .ex-observed-stage small { font-size: var(--cs-type-label-size); }
+.ex-observed-stage[data-state="not-observed"] .ex-observed-stage-mark { background: var(--cs-shade); color: var(--cs-text-soft); border-color: var(--cs-hairline); }
+.ex-observed-stage[data-state="unverified"] .ex-observed-stage-mark { background: var(--cs-attention-bg); color: var(--cs-terracotta); border-color: var(--cs-hairline); }
+.ex-session-head:hover, .ex-observed > summary:hover, .ex-model-call > summary:hover { background: var(--cs-shade); }
 .ex-observed.cs-run-record { margin-top: 20px; border: 0; border-top: 1px solid var(--cs-hairline); border-radius: 0; background: transparent; }
 .ex-observed > summary { padding-inline: 0; grid-template-columns: minmax(150px, auto) minmax(0, 1fr) auto 14px; }
 .ex-observed-kicker, .ex-observed-glyph { display: none; }
@@ -135,7 +148,7 @@
 .cs-embedded .ex-page-header { margin-bottom: 0; }
 @media (max-width: 900px) {
   .ex-controls { display: flex; }
-  .ex-workbench[data-shell="workspace"] .ex-thread { padding-inline: 20px; }
+  .ex-workbench[data-shell="workspace"] .ex-thread { padding-inline: var(--chat-gutter); }
   .ex-promotion-meta { display: none; }
 }
 @media (max-width: 720px) {

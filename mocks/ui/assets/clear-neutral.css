@@ -1,0 +1,53 @@
+/* Mock-only palette. Production keeps the shared Calm Slate foundation unchanged. */
+[data-chat-theme="clear-neutral"] {
+  --cs-bg: #f8f8f8;
+  --cs-card: #ffffff;
+  --cs-shade: #f5f5f5;
+  --cs-hairline: #e3e3e3;
+  --cs-text: #262626;
+  --cs-text-soft: #666666;
+  --cs-navy: #404040;
+  --cs-steel: #2563eb;
+  --cs-sage: #15803d;
+  --cs-terracotta: #b45309;
+  --cs-dusty-red: #c62828;
+  --cs-teal: #0f766e;
+  --cs-plum: #7c3aed;
+  --cs-question-bg: #f2f2f2;
+  --cs-success-bg: #f0fdf4;
+  --cs-attention-bg: #fff7ed;
+  --cs-failure-bg: #fef2f2;
+}
+
+body[data-chat-theme="clear-neutral"] {
+  --ex-ink: var(--cs-text);
+  --ex-muted: var(--cs-text-soft);
+  --ex-line: var(--cs-hairline);
+  --ex-canvas: var(--cs-shade);
+  --ex-blue: var(--cs-steel);
+  --ex-green: var(--cs-sage);
+  --chat-reading-width: 856px;
+  --chat-gutter: 32px;
+  color: var(--cs-text);
+  background: var(--cs-card);
+}
+
+body[data-chat-theme="clear-neutral"] :is(button, a, summary, input, textarea, select):focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+body[data-chat-theme="clear-neutral"] :is(button, input, textarea, select):disabled {
+  opacity: 1;
+  color: var(--cs-text-soft);
+  background: var(--cs-shade);
+  cursor: not-allowed;
+}
+body[data-chat-theme="clear-neutral"] .cs-control-button.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cs-steel) 88%, black);
+}
+@media (max-width: 920px) {
+  body[data-chat-theme="clear-neutral"] { --chat-gutter: 24px; }
+}
+@media (max-width: 680px) {
+  body[data-chat-theme="clear-neutral"] { --chat-gutter: 16px; }
+}

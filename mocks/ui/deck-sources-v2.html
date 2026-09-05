@@ -505,11 +505,12 @@
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
   </style>
-  <link rel="stylesheet" href="assets/adaptive-investigation.css?v=focused-chat-v2" />
+  <link rel="stylesheet" href="assets/adaptive-investigation.css?v=neutral-chat-v3" />
   <link rel="stylesheet" href="assets/adaptive-prompt-viewer.css?v=inline-v2" />
+  <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
   <script src="assets/adaptive-prompt-viewer.js?v=inline-v2" defer></script>
 </head>
-<body data-preserve-page-title>
+<body data-preserve-page-title data-chat-theme="clear-neutral">
   <main class="cs-container cs-page ex-page">
     <header class="ex-page-header">
       <details class="ex-preview-controls" id="ex-preview-controls">
@@ -1262,6 +1263,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         observed.open = false;
       }
       function completeFinalAnswer() {
+        var readingPosition = captureReadingPosition();
         finalParagraphs.forEach(function (paragraph, index) { paragraph.innerHTML = finalParagraphHtml[index]; });
         finalAnswer.classList.remove("is-streaming");
         workbench.dataset.outcome = "verified";
@@ -1271,6 +1273,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         finalReveal.hidden = false;
         finalReveal.classList.add("is-visible");
         preserveRunRecord("Investigation record", "6 simulated activities / 3 phases", "Fixture 9.0 s");
+        restoreReadingPosition(readingPosition);
       }
       function completeCompactAnswer() {
         finalParagraphs.forEach(function (paragraph, index) { paragraph.textContent = compactAnswer[index]; });
@@ -1501,6 +1504,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       function reset() {
         runToken += 1;
         clearWaits();
+        transcript.style.removeProperty("--ex-reading-tail");
         selectLifecycle();
         investigation.insertBefore(runHost, investigation.querySelector(".ex-plan"));
         investigation.open = true;
@@ -1532,6 +1536,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       function completePhase(phaseNode, phase) {
+        var readingPosition = captureReadingPosition();
         phaseNode.dataset.state = "complete";
         var stepsHost = phaseNode.querySelector(".ex-steps");
         Array.prototype.forEach.call(stepsHost.children, function (step, index) {
@@ -1549,6 +1554,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         session.querySelector(".ex-session-meta").textContent = phase.elapsed;
         session.querySelector(".ex-session-badge").textContent = "Checked";
         if (session.dataset.userExpanded !== "true" && !session.querySelector('[data-user-expanded="true"]')) session.open = false;
+        restoreReadingPosition(readingPosition);
       }
 
       function preserveRunRecord(title, summary, duration) {
@@ -1561,8 +1567,41 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         observed.open = keepOpen;
       }
 
+      function captureReadingPosition() {
+        if (!investigation.open || !runHost.querySelector('[data-user-expanded="true"]')) return null;
+        var viewport = transcript.getBoundingClientRect();
+        var anchor = Array.prototype.find.call(runHost.querySelectorAll(".ex-step-toggle, .ex-terminal"), function (node) {
+          var rect = node.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 && rect.bottom > viewport.top && rect.top < viewport.bottom;
+        });
+        if (!anchor) return null;
+        return {
+          anchor: anchor,
+          offset: anchor.getBoundingClientRect().top - viewport.top,
+          focus: runHost.contains(document.activeElement) ? document.activeElement : null
+        };
+      }
+
+      function restoreReadingPosition(position) {
+        if (!position) return;
+        var token = runToken;
+        requestAnimationFrame(function () {
+          if (token !== runToken || !position.anchor.isConnected) return;
+          var delta = position.anchor.getBoundingClientRect().top - transcript.getBoundingClientRect().top - position.offset;
+          // Collapsing completed work can shorten the scroll range below the retained reading anchor.
+          var shortfall = transcript.scrollTop + delta - (transcript.scrollHeight - transcript.clientHeight);
+          if (shortfall > 0) {
+            var tail = parseFloat(transcript.style.getPropertyValue("--ex-reading-tail")) || 0;
+            transcript.style.setProperty("--ex-reading-tail", (tail + Math.ceil(shortfall)) + "px");
+          }
+          transcript.scrollTop += delta;
+          if (position.focus) position.focus.focus({ preventScroll: true });
+        });
+      }
+
       function stopRun() {
         if (stopReplay.disabled) return;
+        var readingPosition = captureReadingPosition();
         runToken += 1;
         clearWaits();
         answerPreparing.classList.remove("is-active", "is-settled");
@@ -1589,6 +1628,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         finalReveal.hidden = false;
         finalReveal.classList.add("is-visible");
         preserveRunRecord("Partial investigation record", runHost.querySelectorAll(".ex-step.is-complete").length + " of 6 activities checked / verification incomplete", "Stopped");
+        restoreReadingPosition(readingPosition);
       }
 
       function completeRun() {
@@ -1831,6 +1871,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
 
       document.getElementById("ex-replay").addEventListener("click", run);
       stopReplay.addEventListener("click", stopRun);
+      observed.addEventListener("toggle", function () {
+        if (!observed.open) transcript.style.removeProperty("--ex-reading-tail");
+      });
       resultLine.addEventListener("click", function (event) {
         if (event.target.closest("[data-show-record]")) observed.open = true;
       });

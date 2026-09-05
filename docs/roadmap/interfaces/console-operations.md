@@ -468,6 +468,29 @@ execution model. Console schemas may display their resolved values but cannot su
 override them. A missing exact reference, plan digest, stop condition, impact limit, lock scope, or
 rollback contract makes the request ineligible for execution.
 
+## Resource-first Dashboard preview
+
+The [Dashboard mock](../../../mocks/ui/dashboard.html) is a synthetic presentation study, not a
+production inventory reader. Its local fixture adapter covers 24, 100, 1,000, and 10,000 resources.
+
+| Concern | Preview and adoption contract |
+|---------|-------------------------------|
+| Large scopes | Above 48 resources, start with a dense individual-resource honeycomb. Smaller examples start comfortable. Groups remain an optional subscription/resource-group drill-down, not a replacement for the resource overview. |
+| Rendering bound | Dense cells are 24 by 28 px. The available width selects up to 34 columns and 14 rows, at most 476 records per page. Comfortable and list views retain a 48-record bound; group summaries retain six. Only the active page/view is rendered. These presentation limits are not server capacity claims. |
+| Counts and selection | Separate observed inventory, filter matches, and displayed records. Legend counts cover the filtered scope before the state filter. Keep selected identity and evidence when it is off-page or outside filters; changing the example generation clears selection. |
+| Type discovery | The searchable combobox matches labels, explicit aliases, and Azure-native type names. Draft text does not change the applied filter; a listed selection or explicit clear does. At most 12 suggestions are rendered, with total matches disclosed. Counts cover received subscription/group/search scope before type/state filters. Catalog entries with zero observations are not evidence of absence outside that scope. Preserve keyboard, IME, touch, and Escape cancellation when adopting the picker. |
+| Inspection and input | Hover or keyboard focus reveals same-snapshot state, scope, and observation timing in a hoverable, Escape-dismissible preview. Click or Enter pins a nonmodal Inspector without moving the map or stealing focus. Arrow/Home/End navigation uses one map tab stop. Narrow or coarse-pointer views use targets of at least 44 px and a dismissible nonmodal pinned panel. |
+| Evidence states | Keep operating state, availability, and observation coverage independent. Partial inventory has an unknown full total. Stale observations cannot establish current state. Loading starts with a skeleton; read failure is not zero; an empty inventory is distinct from no filter matches. |
+| Exceptions and history | Authored highlights remain independent of map filters and are not a complete queue. Sample events and historical performance keep their own time windows. An event whose resource is absent from received inventory cannot select an invented record. |
+
+Production adoption needs an authenticated, server-scoped read projection with same-snapshot
+aggregates, stable ordering, snapshot-bound page cursors, and explicit freshness and completeness.
+Search should reach the authorized result set rather than only the current page. Expired snapshots
+and out-of-order responses need explicit recovery without mixing generations. The browser does not
+derive scope authority, health, or permission from filters. Replace the local generator and in-memory
+aggregation; never import synthetic fixtures into the interactive Console. Local browser checks prove
+presentation mechanics, not server capacity or live operational readiness.
+
 ## Console shape
 
 The current `Operations` navigation group remains the single product surface. Add or refine these

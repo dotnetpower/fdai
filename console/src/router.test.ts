@@ -24,6 +24,9 @@ describe("clean console routes", () => {
   });
   test("maps internal panel ids to user-facing kebab-case paths", () => {
     expect(panelPath("dashboard")).toBe("/overview");
+    expect(panelPath("dashboard-v2")).toBe("/dashboard-v2");
+    expect(parseConsoleRoute("/dashboard-v2").panelId).toBe("dashboard-v2");
+    expect(parseConsoleRoute("/overview").panelId).toBe("dashboard");
     expect(panelPath("hil-queue")).toBe("/approvals");
     expect(panelPath("agent-activity")).toBe("/agent-activity");
     expect(panelPath("handover")).toBe("/agent-oversight");

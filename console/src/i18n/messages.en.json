@@ -90,6 +90,7 @@
   },
   "route": {
     "dashboard": "Dashboard",
+    "dashboardV2": "Dashboard v2",
     "hilQueue": "Approvals",
     "blastRadius": "Impact scope",
     "audit": "Audit log",
@@ -198,6 +199,7 @@
       "browserEvidence": "Browser evidence",
       "forecastLearning": "Forecast learning",
       "dashboard": "Dashboard",
+      "dashboardV2": "Dashboard v2",
       "operatingOutcomes": "Operating outcomes",
       "controlAssurance": "Control assurance",
       "verticalOutcomes": "Vertical outcomes",
@@ -253,6 +255,7 @@
       "browserEvidence": "Immutable redacted evidence from allowlisted browser captures",
       "forecastLearning": "Prediction closure, miss origin, publication, and retention evidence",
       "dashboard": "Healthy, risk, and cost, sourced from the audit log",
+      "dashboardV2": "Resource state and evidence from the inventory projection",
       "operatingOutcomes": "Trends, baselines, and contributors for core operating metrics",
       "controlAssurance": "Guard evidence, release blockers, and promotion readiness",
       "verticalOutcomes": "Resilience, Change Safety, and Cost Governance results",

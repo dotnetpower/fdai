@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "reviewed_at": "2026-09-01",
   "status_vocabulary": ["Documented", "Review required"],
   "deprecated_aliases": ["cs-btn", "cs-input", "cs-select", "cs-segmented", "cs-switch"],
@@ -13,11 +13,28 @@
     "whole_card": {"visual_size": "content driven", "focus_contract": "single native action"}
   },
   "inline_style_policy": {
-    "scopes": ["tabs-meters", "data-views"],
+    "scopes": ["tabs-meters", "data-views", "colors"],
     "allowed_properties": ["--*", "width", "height", "background-*"],
-    "reason": "Chart geometry is data encoding. Layout, typography, spacing, and interaction styling remain in shared CSS."
+    "reason": "Chart geometry and palette swatches encode data. Layout, typography, spacing, and interaction styling remain in shared CSS."
   },
   "components": [
+    {
+      "id": "colors",
+      "category": "foundations",
+      "view": "colors",
+      "view_label": "Colors",
+      "level": "foundation",
+      "owner": "Console design system",
+      "api": "cp-scheme / --cp-* (mock only)",
+      "source": "mocks/ui/assets/palette-comparison.css",
+      "routes": [{"label": "Adaptive chat mock", "href": "deck-sources-v2.html"}],
+      "states": ["current light palette", "candidate light palette", "copy success", "clipboard unavailable", "contrast pass", "contrast below target"],
+      "interaction_roles": ["standard_action"],
+      "use_when": "Compare the same chat, buttons, and status labels in current and candidate colors before changing shared tokens.",
+      "do_not": "Do not infer runtime status from specimen colors or apply this candidate to production implicitly.",
+      "responsive": "Stack the two palettes when the container is narrow; preserve visible HEX values and copy targets.",
+      "a11y": "Label swatches, expose computed contrast and failures as text, and keep both sample palettes light when the surrounding gallery theme changes."
+    },
     {
       "id": "display",
       "category": "foundations",

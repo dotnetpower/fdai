@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v26" />
+  <link rel="stylesheet" href="assets/palette-comparison.css?v=neutral-v2" />
+  <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -48,6 +50,72 @@
     </div>
     <div class="cs-gallery-error" role="alert" hidden data-gallery-error></div>
     <noscript><p class="cs-gallery-error">The component registry requires JavaScript. No specimen status is inferred without it.</p></noscript>
+
+    <section class="cs-section" id="colors" aria-labelledby="colors-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title">
+          <h2 id="colors-title">Colors</h2>
+          <p class="cs-desc">Compare Calm Slate with neutral surfaces and crisp accents. Color belongs on actions and status, not large backgrounds.</p>
+        </div>
+      </div>
+      <div class="cp-toolbar">
+        <div role="group" aria-label="Palette comparison view">
+          <button class="cs-control-button" type="button" data-palette-view="compare" aria-pressed="true">Compare</button>
+          <button class="cs-control-button" type="button" data-palette-view="current" aria-pressed="false">Current</button>
+          <button class="cs-control-button" type="button" data-palette-view="fresh" aria-pressed="false">Clear neutral</button>
+        </div>
+        <span>Light palettes · Preview only</span>
+      </div>
+      <p class="cp-scope-note">Only the samples below change. Shared Console tokens, the gallery theme, and runtime state stay unchanged.</p>
+      <div class="cp-comparison" data-palette-layout="compare">
+        <section class="cp-scheme" data-palette="current" aria-label="Current Calm Slate palette">
+          <header class="cp-scheme-heading"><div><span>Current</span><h3>Calm Slate</h3></div><span class="cp-version">Shared light tokens</span></header>
+          <div class="cp-accent-strip" aria-label="Current accent colors"></div>
+          <div class="cp-sample"></div>
+        </section>
+        <section class="cp-scheme" data-palette="fresh" data-chat-theme="clear-neutral" aria-label="Clear neutral candidate palette">
+          <header class="cp-scheme-heading"><div><span>Candidate</span><h3>Clear neutral</h3></div><span class="cp-version">Neutral surfaces</span></header>
+          <div class="cp-accent-strip" aria-label="Candidate accent colors"></div>
+          <div class="cp-sample"></div>
+        </section>
+      </div>
+      <details class="cp-details" open>
+        <summary>Palette tokens <span>HEX values · Click to copy</span></summary>
+        <table class="cp-token-table">
+          <caption class="cs-sr-only">Current and candidate palette values. Every HEX button copies only that color.</caption>
+          <thead><tr><th scope="col">Role / token</th><th scope="col">Current</th><th scope="col">Clear neutral</th></tr></thead>
+          <tbody id="cp-token-rows"></tbody>
+        </table>
+      </details>
+      <details class="cp-details">
+        <summary>Text contrast <span>Measured color pairs</span></summary>
+        <p class="cp-scope-note">Normal text needs at least 4.5:1. These checks cover the listed pairs, not an accessibility certification. A low ratio stays visible rather than being rounded into a pass.</p>
+        <table class="cp-contrast-table">
+          <caption class="cs-sr-only">WCAG relative-luminance contrast for the sample text and backgrounds.</caption>
+          <thead><tr><th scope="col">Text / background</th><th scope="col">Current</th><th scope="col">Clear neutral</th></tr></thead>
+          <tbody id="cp-contrast-rows"></tbody>
+        </table>
+      </details>
+      <p id="cp-copy-status" role="status" aria-live="polite"></p>
+      <template id="cp-sample-template">
+        <article class="cp-chat" aria-label="Synthetic incident chat sample">
+          <header class="cp-chat-heading"><strong>API health investigation</strong><span>Sample</span></header>
+          <div class="cp-chat-body">
+            <p class="cp-question">Why is the health check failing?</p>
+            <p class="cp-narrator"><strong>Bragi</strong><span>Read-only analysis</span></p>
+            <h4>The validator rejects a healthy response.</h4>
+            <p class="cp-answer">The sample returned HTTP 204. The validator expects 200; customer impact is not established.</p>
+            <div class="cp-observation"><span class="cp-dot" aria-hidden="true"></span><strong>Checking response handling</strong><span>In progress</span></div>
+            <details class="cp-evidence"><summary>View evidence</summary><p>Synthetic record: response 204, expected 200. No provider request or resource change is performed.</p></details>
+            <div class="cp-sample-actions"><button class="cs-control-button cp-primary" type="button" data-show-sample-evidence>Review evidence</button><span>Current status unknown</span></div>
+          </div>
+          <footer class="cp-status-samples" aria-label="Independent semantic color examples">
+            <span class="cp-status cp-positive">Verified</span><span class="cp-status cp-attention">Review needed</span><span class="cp-status cp-negative">Failed</span>
+            <small>Color examples, not this incident's outcome</small>
+          </footer>
+        </article>
+      </template>
+    </section>
 
     <!-- KPI cards -->
     <section class="cs-section" id="display" aria-labelledby="display-title">
@@ -1024,6 +1092,7 @@
     <div class="cs-container"><span>FDAI UI kit - Calm Slate theme.</span></div>
   </footer>
   <script src="assets/calm-slate.js?v=shared-primitives-v10"></script>
+  <script src="assets/palette-comparison.js?v=neutral-v2"></script>
   <script>
     (async function () {
       var index = document.querySelector(".cs-gallery-index");
@@ -1202,24 +1271,9 @@
         });
       }
 
-      function relativeLuminance(color) {
-        var values = color.match(/\d+(?:\.\d+)?/g);
-        if (!values || values.length < 3) return 0;
-        return values.slice(0, 3).map(Number).map(function (value) {
-          var channel = value / 255;
-          return channel <= .03928 ? channel / 12.92 : Math.pow((channel + .055) / 1.055, 2.4);
-        }).reduce(function (sum, value, index) {
-          return sum + value * [.2126, .7152, .0722][index];
-        }, 0);
-      }
-
       function contrastRatio() {
         var styles = getComputedStyle(document.body);
-        var foreground = relativeLuminance(styles.color);
-        var background = relativeLuminance(styles.backgroundColor);
-        var light = Math.max(foreground, background);
-        var dark = Math.min(foreground, background);
-        return ((light + .05) / (dark + .05)).toFixed(1) + ":1 text contrast";
+        return window.FdaiPalette.contrastRatio(styles.color, styles.backgroundColor).toFixed(1) + ":1 text contrast";
       }
 
       function updateQuality(documented, reviewRequired) {
@@ -1362,7 +1416,7 @@
       window.addEventListener("hashchange", syncHashTarget);
       allSections.forEach(function (section) { section.hidden = true; });
       try {
-        var response = await fetch("assets/component-registry.json?v=7");
+        var response = await fetch("assets/component-registry.json?v=8");
         if (!response.ok) throw new Error("Registry request failed with status " + response.status);
         var payload = await response.json();
         if (!payload || !Array.isArray(payload.components)) throw new Error("Registry payload is invalid");

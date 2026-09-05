@@ -32,7 +32,7 @@ describe("panel navigation placement", () => {
 
   test("uses stable domain groups for every visible panel", () => {
     expect(panelsInGroup("overview").map((panel) => panel.id)).toEqual([
-      "dashboard", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost", "cost-governance",
+      "dashboard", "dashboard-v2", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost", "cost-governance",
     ]);
     expect(panelsInGroup("agents").map((panel) => panel.id)).toEqual([
       "agents", "pantheon", "agent-activity",
