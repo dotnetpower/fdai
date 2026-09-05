@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: e134ebbe4f5caec3753058a286ff90c1df73d2a1
+translation_source_sha: 02f8abbd8fcb3728b853640ccfcab11caadb81d1
 translation_revised: 2026-09-06
 ---
 # 대화 품질 보증
@@ -39,7 +39,7 @@ translation_revised: 2026-09-06
 | Watchdog 답변 게이트 v2 | implemented | [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py), [`test_conversation_assurance_answer_gate.py`](../../../tests/integration/scripts/test_conversation_assurance_answer_gate.py) | 10개 루브릭 구조는 적용 가능한 항목 수를 분모로 사용하며, 6개 답변 루브릭과 선언된 각 객관적 오라클은 별도 필수 게이트를 구성합니다. 객관적으로 결정 가능한 개수는 현재 권위 소스에서 계산한 기대값과 구조화된 답변 값을 비교합니다. 제품 기술 검증과 품질 보증 성공은 별도 필드로 유지하며 v1 원장 행은 변경하지 않습니다. |
 | Watchdog hardening 격리 | implemented | 로컬 watchdog 안전 계약 테스트 및 `conversational-assurance` skill | 후보 생성 전에 실패를 분류하고 코드 결함만 hardening에 진입할 수 있습니다. 단계별 집중 검사가 전체 저장소 후보 게이트를 대체하며 검증된 브랜치만 검토용으로 보존합니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
-| Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 진단 케이스는 일관된 handoff 담당자, 고유한 기여자 및 범위가 제한된 의미 임계값을 요구합니다. 진단 결과는 정확히 30개인 모든 원자 루브릭의 정식 순서, boolean 결과, 사유 및 소문자 SHA-256 추적 다이제스트를 요구합니다. 원자 점수 또는 하드 제로 상태와 충돌하는 집계 결정을 수락하지 않으며, 하드 제로 권한 위반은 집계 점수보다 우선합니다. |
+| Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 진단 케이스는 일관된 handoff 담당자, 고유한 기여자 및 범위가 제한된 의미 임계값을 요구합니다. 독립 의미 검토는 공백이 아닌 신원과 모델 계열 및 엄격한 boolean 결과를 요구합니다. 진단 결과는 정확히 30개인 모든 원자 루브릭의 정식 순서, boolean 결과, 사유 및 소문자 SHA-256 추적 다이제스트를 요구합니다. 원자 점수 또는 하드 제로 상태와 충돌하는 집계 결정을 수락하지 않으며, 하드 제로 권한 위반은 집계 점수보다 우선합니다. |
 | 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고, 서버 소유 추적을 만들고, 서로 다른 모델 계열의 의미 검토를 사용하며, 상관관계가 연결된 진단을 PostgreSQL에 추가합니다. 비공개 로컬 캠페인 원장은 다이제스트로 연결된 추적을 평가와 분리해 보존하고, 하나의 정리된 리비전에서 정확히 230개 사례를 다룬 경우에만 집계 근거를 생성합니다. 라이브 캠페인 근거는 아직 보존하지 않았습니다. |
 
 ### 구현 이력

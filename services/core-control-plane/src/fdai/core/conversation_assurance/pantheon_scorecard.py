@@ -109,12 +109,14 @@ class PantheonSemanticReview:
     results: tuple[tuple[PantheonRubric, bool], ...]
 
     def __post_init__(self) -> None:
-        if not self.reviewer_identity or not self.model_family:
+        if not self.reviewer_identity.strip() or not self.model_family.strip():
             raise ValueError("semantic reviewer identity and family MUST be non-empty")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("semantic review confidence MUST be in [0, 1]")
         if tuple(item for item, _ in self.results) != _SEMANTIC:
             raise ValueError("semantic review MUST contain the five semantic items in order")
+        if any(type(passed) is not bool for _, passed in self.results):
+            raise ValueError("semantic review results MUST be boolean")
 
 
 @dataclass(frozen=True, slots=True)

@@ -195,6 +195,33 @@ def test_same_reviewer_identity_cannot_supply_two_families() -> None:
     assert all(not item.passed for item in result.results[10:15])
 
 
+@pytest.mark.parametrize(
+    ("identity", "family"),
+    [(" ", "family-a"), ("judge-a", " ")],
+)
+def test_semantic_review_rejects_blank_identity(
+    identity: str,
+    family: str,
+) -> None:
+    with pytest.raises(ValueError, match="identity and family MUST be non-empty"):
+        PantheonSemanticReview(
+            reviewer_identity=identity,
+            model_family=family,
+            confidence=0.9,
+            results=tuple((rubric, True) for rubric in semantic_rubrics()),
+        )
+
+
+def test_semantic_review_rejects_non_boolean_results() -> None:
+    with pytest.raises(ValueError, match="results MUST be boolean"):
+        PantheonSemanticReview(
+            reviewer_identity="judge-a",
+            model_family="family-a",
+            confidence=0.9,
+            results=tuple((rubric, 1) for rubric in semantic_rubrics()),  # type: ignore[arg-type]
+        )
+
+
 def test_hard_zero_dominates_a_perfect_score() -> None:
     result = evaluate_pantheon_turn(
         case=_case(),
