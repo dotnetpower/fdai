@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 9ed89c5b490e3d0cf2f59d5a55790ff3c7dc4382
+translation_source_sha: dd74cc658baeaa1c88aae8e5d9731a62e99013a0
 translation_revised: 2026-09-05
 ---
 
@@ -77,6 +77,11 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   활성화하세요.
   GitHub 자격 증명은 Key Vault 시크릿 참조만 제공합니다. Watcher identity에는 Blob 데이터
   접근과 초안 검토 권한만 있으며 카탈로그 병합 또는 작업 권한은 없습니다.
+- 운영 이력 lifecycle을 활성화하려면 비밀이 아닌 `ENABLE_OPERATIONAL_HISTORY` repository
+  변수를 `true`로 설정한 뒤 정확히 증명된 Core 이미지 revision을 대상으로 보호된 `history-`
+  계획과 적용을 실행합니다. 예약 Job은 inventory identity를 사용하는 shadow-only 상태를
+  유지합니다. Enforce와 certify는 외부 증적을 요구하며 certify만 database purge gate에
+  도달할 수 있습니다.
 - 단계 4 측정을 예약하려면 필요한 기준선, 패턴 성장 또는 운영 승격 작업만 명시적으로
   활성화하세요. 세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀,
   선택적 모델 추론 접근 권한만 있는 전용 측정 신원을 공유합니다. 실행기 신원이나 클라우드

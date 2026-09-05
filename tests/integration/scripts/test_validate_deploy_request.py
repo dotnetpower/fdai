@@ -26,6 +26,7 @@ _CONTEXT = hashlib.sha256(
         '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
         '"deploy_document_ingestion":false,'
         '"deploy_isolated_executor":false,"deploy_monitoring":false,'
+        '"deploy_operational_history":false,'
         '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
         '"document_ocr_action":"preserve",'
         '"runtime_image_revision":""}}'
@@ -65,6 +66,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "DEPLOY_DOCUMENT_INGESTION": "false",
         "DOCUMENT_OCR_ACTION": "preserve",
         "DEPLOY_MONITORING": "false",
+        "DEPLOY_OPERATIONAL_HISTORY": "false",
         "RCA_READER_IDENTITY_ONLY": "false",
         "RUNTIME_IMAGE_REVISION": "",
         "REQUEST_ID": "",
@@ -285,6 +287,36 @@ def test_monitoring_only_rejects_runtime_image_but_full_plan_can_preserve_it() -
         )
 
 
+def test_operational_history_deployment_is_exclusive_and_context_bound() -> None:
+    values = _request(
+        DEPLOY_OPERATIONAL_HISTORY="true",
+        COMMIT_SHA=_COMMIT,
+        RUNTIME_IMAGE_REVISION="a" * 40,
+    )
+    context = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    values.update(
+        REQUEST_ID=f"plan-{prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+
+    validate(values, checkout_commit=_COMMIT)
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(
+            _request(
+                DEPLOY_OPERATIONAL_HISTORY="true",
+                DEPLOY_OPERATOR_API="true",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
 def test_document_intelligence_round_trip_updates_context_digest() -> None:
     values = _request(DEPLOY_DOCUMENT_INTELLIGENCE="true", COMMIT_SHA=_COMMIT)
     context = _MODULE._deployment_context_digest(values)
@@ -434,6 +466,7 @@ def _gateway_context() -> str:
             '{"deploy_console":false,"deploy_dev_operations_gateway":true,'
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":false,"deploy_monitoring":false,'
+            '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
             '"runtime_image_revision":""}}'
@@ -498,6 +531,7 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":true,"deploy_monitoring":false,'
+            '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
             '"runtime_image_revision":"' + image_revision + '"}}'

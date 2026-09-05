@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -49,6 +49,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     deploy_core_model_quorum = _enabled(values, "DEPLOY_CORE_MODEL_QUORUM")
     deploy_executor = _enabled(values, "DEPLOY_ISOLATED_EXECUTOR")
     deploy_ohl = _enabled(values, "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET")
+    deploy_operational_history = _enabled(values, "DEPLOY_OPERATIONAL_HISTORY")
     promote_image = _enabled(values, "PROMOTE_RUNTIME_IMAGE")
     verify_effect = _enabled(values, "VERIFY_EXECUTOR_EFFECT")
     cutover = _enabled(values, "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY")
@@ -77,7 +78,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
             "when deploy_console is enabled"
         )
-    if re.fullmatch(r"(?:plan|apply)-(?:rca-)?[0-9a-f]{48}", request_id):
+    if re.fullmatch(r"(?:plan|apply)-(?:history-|rca-)?[0-9a-f]{48}", request_id):
         if values.get("TARGET_ENVIRONMENT") == "prod":
             raise ValueError("fdaictl production deployment inputs are not implemented")
         _require_match(
@@ -98,6 +99,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         )
         request_suffix = request_id.removeprefix("plan-").removeprefix("apply-")
         request_suffix = request_suffix.removeprefix("rca-")
+        request_suffix = request_suffix.removeprefix("history-")
         if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
         unsupported = (
@@ -173,7 +175,33 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
         "DEPLOY_DOCUMENT_INGESTION",
         "DEPLOY_MONITORING",
+        "DEPLOY_OPERATIONAL_HISTORY",
     )
+    if deploy_operational_history:
+        operational_history_mixed = (
+            "DEPLOY_CONSOLE",
+            "DEPLOY_CORE_MODEL_QUORUM",
+            "DEPLOY_OPERATOR_API",
+            "DEPLOY_ISOLATED_EXECUTOR",
+            "DEPLOY_DEV_OPERATIONS_GATEWAY",
+            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+            "DEPLOY_DOCUMENT_INGESTION",
+            "DEPLOY_MONITORING",
+            "DEPLOY_DESIGN_MOCKS",
+            "DEPLOY_OPERATOR_CHANNEL_EDGE",
+            "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
+            "VERIFY_EXECUTOR_EFFECT",
+            "MODEL_BINDING_ONLY",
+        )
+        if (
+            any(_enabled(values, key) for key in operational_history_mixed)
+            or document_ocr_action != "preserve"
+            or validate_chatops
+            or rca_reader_identity
+        ):
+            raise ValueError(
+                "operational-history deployment cannot be combined with another target"
+            )
     if ocr_policy_only:
         if document_ocr_action != "preserve":
             raise ValueError("document OCR proposal requests must derive their action from policy")
@@ -198,7 +226,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             raise ValueError("core model quorum deployment is restricted to dev")
         if not request_id:
             raise ValueError("core model quorum deployment requires a protected request")
-        mixed = (
+        core_model_quorum_mixed = (
             "DEPLOY_CONSOLE",
             "DEPLOY_OPERATOR_API",
             "DEPLOY_ISOLATED_EXECUTOR",
@@ -213,8 +241,9 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "MODEL_BINDING_ONLY",
         )
         if (
-            any(_enabled(values, key) for key in mixed)
+            any(_enabled(values, key) for key in core_model_quorum_mixed)
             or document_ocr_action != "preserve"
+            or deploy_operational_history
             or values.get("RUNTIME_IMAGE_REVISION", "")
         ):
             raise ValueError(
@@ -237,6 +266,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
                 "DEPLOY_DEV_OPERATIONS_GATEWAY",
                 "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
                 "DEPLOY_DOCUMENT_INGESTION",
+                "DEPLOY_OPERATIONAL_HISTORY",
             )
         )
         or document_ocr_action != "preserve"
@@ -261,14 +291,14 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     if model_only:
         if not request_id:
             raise ValueError("model-binding deployment requires a protected request")
-        mixed = (
+        model_binding_mixed = (
             *targets,
             "DEPLOY_DESIGN_MOCKS",
             "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
             "PROMOTE_RUNTIME_IMAGE",
             "VERIFY_EXECUTOR_EFFECT",
         )
-        if any(_enabled(values, key) for key in mixed):
+        if any(_enabled(values, key) for key in model_binding_mixed):
             raise ValueError(
                 "model-binding deployment cannot be combined with another bounded operation"
             )
@@ -369,6 +399,7 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
                 "deploy_document_ingestion": _enabled(values, "DEPLOY_DOCUMENT_INGESTION"),
                 "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
                 "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
+                "deploy_operational_history": _enabled(values, "DEPLOY_OPERATIONAL_HISTORY"),
                 "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
                 "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
                 "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),

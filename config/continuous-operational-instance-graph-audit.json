@@ -520,7 +520,7 @@
     {
       "id": "archive-lifecycle",
       "family": "archive",
-      "state": "in-progress",
+      "state": "implemented",
       "owner": {
         "status": "assigned",
         "path": "services/core-control-plane/src/fdai/core/ontology_platform/archive_manifest.py",
@@ -569,6 +569,21 @@
         },
         {
           "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/operational_history_lifecycle_runner.py",
+          "symbol": "OperationalHistoryLifecycleRunner"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_history_lifecycle_runner.py",
+          "symbol": "PostgresOperationalHistoryLifecycleRepository"
+        },
+        {
+          "state": "bound",
+          "path": "infra/modules/compute/container-apps/operational_history_lifecycle_job.tf",
+          "symbol": "azurerm_container_app_job.operational_history_lifecycle"
+        },
+        {
+          "state": "bound",
           "path": "services/core-control-plane/src/fdai/core/ontology_platform/operational_history_certification.py",
           "symbol": "build_operational_history_certification"
         },
@@ -589,13 +604,15 @@
         "services/core-control-plane/tests/delivery/test_operational_history_archive.py",
         "services/core-control-plane/tests/delivery/azure/test_operational_history_archive.py",
         "services/core-control-plane/tests/delivery/test_operational_history_lifecycle.py",
+        "services/core-control-plane/tests/delivery/test_operational_history_lifecycle_runner.py",
         "services/core-control-plane/tests/delivery/test_operational_history_policy.py",
         "services/core-control-plane/tests/delivery/test_operational_history_certification_cli.py",
         "services/core-control-plane/tests/core/ontology_platform/test_operational_history_certification.py",
         "tests/integration/test_operational_instance_retention.py",
-        "tests/integration/services/test_service_migration_inventory.py"
+        "tests/integration/services/test_service_migration_inventory.py",
+        "tests/integration/infra/test_operational_history_lifecycle_job.py"
       ],
-      "missing_binding": "The production writer, principal-scoped reader, database-gated source purger, lifecycle planner, and fixed shadow schedule exist. A dedicated runtime Job does not yet compose Azure Blob writes, checkpoints, verification, restore sampling, and purge, and no protected deployment certification receipt exists."
+      "missing_binding": null
     }
   ]
 }

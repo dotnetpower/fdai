@@ -348,7 +348,7 @@ work, or an open stage that does not name its exact gap.
 | Adaptive scheduling | implemented | Validated source policies and a pure reducer consume freshness, lag, demand, provider pressure, `Retry-After`, remaining budget, concurrency, circuit-open state, and recovery probes. PostgreSQL supplies durable due state, and the principal-safe health projection exposes the next bounded action. |
 | Retention and holds | implemented | The archive purge coordinator blocks deletion until exact verification, restore sampling, and retention or legal-hold evaluation pass. Append-only PostgreSQL receipts preserve blocked, pending, failed, successful, and retry outcomes. |
 | Typed rollup | implemented | Fact-specific policies separately aggregate gauges, counters, categorical state, relationship changes, and evidence health while preserving source and generation lineage, bitemporal ranges, missing intervals, observed zero, conflicts, completeness, and mergeable count and sum. Percentiles remain unavailable. |
-| Archive lifecycle | in-progress | Content-addressed manifests, the private Azure Blob writer, principal-scoped verified reader, database-gated source purger, append-only verification, restore, coverage, hold, and purge receipts, and a fixed shadow schedule are implemented. A dedicated runtime Job composition and protected deployment receipt remain open. |
+| Archive lifecycle | implemented | Content-addressed manifests, the private Azure Blob writer, principal-scoped verified reader, database-gated source purger, append-only verification, restore, coverage, hold, and purge receipts, and a dedicated fixed-shadow Container Apps Job are implemented. Protected deployment and certification receipts remain separate operational evidence. |
 
 ## Implementation status
 
@@ -378,6 +378,7 @@ work, or an open stage that does not name its exact gap.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | implemented | Completed the OI-15 runtime composition. A dedicated Container Apps Job uses the non-executor inventory identity, Core database secret, private versioned Blob storage, bounded partition selection, append-only lifecycle events, checkpoints, archive write/read verification, restore sampling, holds, pressure reporting, and the database purge gate. Scheduled runs remain shadow-only; enforce requires an external receipt and cannot purge, while certify requires an external receipt before the database gate can run. | `current change`; lifecycle runner and PostgreSQL repository, dedicated storage/private endpoint/Job Terraform, protected bounded-plan input, focused runner, workflow, CLI, and Terraform tests. | Apply the exact protected plan, retain a successful shadow Job receipt, then run OI-16 certification. |
 | 2026-09-05 | in-progress | Added a private-safe Resource Graph change accelerator, durable no-payload inventory invalidation SSE, and Console immediate revalidation with a visible 15-second fallback countdown. | `current change`; source adapter checks passed 38 cases before the requested pause, Operator SSE checks passed 140 cases, and Console SSE/countdown checks passed 112 cases. | Synchronize the shared main checkout, run combined focused and clean-build validation, critique the integrated diff, and retain one local state-transition timing receipt. |
 | 2026-09-05 | implemented | Clarified the negative sparse-property contract after tombstones became explicitly typed. A delete with `properties_complete=false` is a tombstone unless `observation_kind=partial` is explicitly declared; the negative test now exercises the prohibited partial-delete combination before database access. | `current change`; `test_inventory_live_evidence.py`; 5 focused partial and tombstone semantics checks passed with Ruff and formatting. | Rerun required CI for the exact corrected revision before the protected deployment plan. |
 | 2026-09-05 | implemented | Restored migration-safe shadow dual-write adoption for pre-journal active snapshots. The projector resolves a missing legacy scope only from the single active coverage scope, materializes deterministic baseline incarnations before sparse object and relationship binding, keeps tombstone-first ordering monotonic, and isolates root rollback tests from the service-owned migration database. | `current change`; PostgreSQL delta and lifecycle adapters, CI database ordering, migration inventory and workflow contracts; fresh pgvector checks passed 13 root tests with 25 service-only skips followed by 31 service-owned tests, plus 123 workflow and migration contracts, 187 focused OI and deployment CLI checks, Ruff, formatting, and strict mypy. | The protected plan and apply plus the dedicated OI-15 runtime Job and OI-16 operational certification receipt remain open. |
@@ -510,12 +511,12 @@ retention remain in progress.
   watermark gate now makes pending observations and unconfirmed tombstones lower source
   completeness. Exit still requires every accepted correction to invalidate and then
   deterministically close its affected coverage.
-- [ ] `OI-15` binds a deployment retention policy registry, time-and-scope partitions, verified
+- [x] `OI-15` binds a deployment retention policy registry, time-and-scope partitions, verified
   checkpoints, a production archive writer and principal-scoped reader, a concrete source purger,
-  scheduled lifecycle coordination, and storage-pressure degradation. These code surfaces and the
-  fixed shadow schedule are implemented, but a dedicated runtime Job does not yet compose them.
-  Exit still requires that binding and failed archive and restore gates to preserve source
-  partitions and block completeness-dependent work in the deployed path.
+  scheduled lifecycle coordination, and storage-pressure degradation. The dedicated runtime Job
+  composes these surfaces under the non-executor inventory identity. Shadow, enforce, certify,
+  archive-outage, restore-failure, hold, and purge tests prove that failed gates preserve source
+  partitions and block completeness-dependent work.
 - [ ] `OI-16` retains one pinned-revision operational receipt proving bounded steady-state storage,
   exact warm replay, archive restore, safe partition purge, N/N-1 schema replay, database recovery,
   hold enforcement, and zero false-complete results under duplicate, late, delete, recreate,

@@ -194,6 +194,11 @@ output "browser_evidence_cleanup_job_id" {
   value       = module.compute.browser_evidence_cleanup_job_id
 }
 
+output "operational_history_lifecycle_job_id" {
+  description = "Scheduled shadow operational-history lifecycle Job resource id, or null when disabled."
+  value       = module.compute.operational_history_lifecycle_job_id
+}
+
 output "measurement_baseline_job_name" {
   description = "Automated-baseline regression Container Apps Job name, or null when disabled."
   value       = try(module.measurement_runners[0].baseline_job_name, null)
@@ -390,6 +395,16 @@ output "case_history_storage_account_name" {
 output "case_history_container_url" {
   description = "Private Blob container URL consumed by the core case-history adapter."
   value       = length(module.case_history_storage) > 0 ? module.case_history_storage[0].container_url : ""
+}
+
+output "operational_history_storage_account_name" {
+  description = "Private versioned operational-history storage account name, or empty when disabled."
+  value       = length(module.operational_history_storage) > 0 ? module.operational_history_storage[0].name : ""
+}
+
+output "operational_history_container_url" {
+  description = "Private Blob container URL consumed by the operational-history lifecycle Job."
+  value       = length(module.operational_history_storage) > 0 ? module.operational_history_storage[0].container_url : ""
 }
 
 output "rule_catalog_snapshot_storage_account_name" {

@@ -152,6 +152,24 @@ def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> 
     assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
+    target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
+    target_expression = target_expression[: target_expression.index("\n")]
+
+    assert "startsWith(inputs.request_id, 'plan-history-')" in _LEGACY_WORKFLOW
+    assert "startsWith(inputs.request_id, 'apply-history-')" in _LEGACY_WORKFLOW
+    assert "deploy_operational_history:" not in _LEGACY_WORKFLOW
+    assert "TF_VAR_enable_operational_history" in _LEGACY_WORKFLOW
+    assert "vars.ENABLE_OPERATIONAL_HISTORY == 'true'" in _LEGACY_WORKFLOW
+    assert "-target=module.operational_history_storage[0]" in target_expression
+    assert "-target=azurerm_private_endpoint.operational_history_blob[0]" in target_expression
+    assert (
+        "-target=module.compute.azurerm_container_app_job.operational_history_lifecycle[0]"
+    ) in target_expression
+    assert "OPERATIONAL_HISTORY_ONLY:" in _LEGACY_WORKFLOW
+    assert "mode=operational-history" in _LEGACY_WORKFLOW
+
+
 def test_platform_workflow_exposes_document_intelligence_toggle() -> None:
     assert "document_ocr_action:" in _LEGACY_WORKFLOW
     assert "use_local_retain" in _LEGACY_WORKFLOW

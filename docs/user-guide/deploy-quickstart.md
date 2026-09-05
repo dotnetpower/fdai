@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: e733f77bf41b5b29402e39592866a434a9791dd2 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 6145b1def51799cf0063221b356bb6481623aac6 }]
 ---
 
 # Deploy Quickstart
@@ -88,6 +88,11 @@ Terraform remains an expert path.
   (`stewardship`) GitOps binding together.
   Supply only the Key Vault secret reference for the GitHub credential. The watcher identity
   receives Blob data access and draft-review authority, but no catalog merge or action authority.
+- To enable the operational-history lifecycle, set the non-secret
+  `ENABLE_OPERATIONAL_HISTORY` repository variable to `true`, then dispatch the protected
+  `history-` plan and apply for the exact attested Core image revision. The scheduled Job remains
+  shadow-only under the inventory identity. Enforce and certify require external receipts, and
+  only certify can reach the database purge gate.
 - To schedule Phase 4 measurement, explicitly enable only the required baseline, pattern-growth, or
   operational-promotion job. All three are disabled by default and share a dedicated measurement
   identity with image-pull, state-secret, and optional model-inference access. They never receive

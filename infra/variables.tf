@@ -653,6 +653,23 @@ variable "browser_evidence_cleanup_limit" {
   }
 }
 
+variable "operational_history_lifecycle_cron_expression" {
+  description = "UTC cron for the shadow operational-history lifecycle Job. Empty disables the Job and its archive storage."
+  type        = string
+  default     = "0 * * * *"
+}
+
+variable "operational_history_lifecycle_max_partitions" {
+  description = "Maximum operational-history partitions examined by one bounded Job pass."
+  type        = number
+  default     = 32
+
+  validation {
+    condition     = var.operational_history_lifecycle_max_partitions >= 1 && var.operational_history_lifecycle_max_partitions <= 256 && floor(var.operational_history_lifecycle_max_partitions) == var.operational_history_lifecycle_max_partitions
+    error_message = "operational_history_lifecycle_max_partitions must be an integer in [1, 256]."
+  }
+}
+
 variable "observation_campaign_cron_expression" {
   description = "Cron for the due-checked permission-aware observation campaign. Empty disables the job."
   type        = string
@@ -1329,6 +1346,43 @@ variable "case_history_version_retention_days" {
   validation {
     condition     = var.case_history_version_retention_days >= var.case_history_deletion_days
     error_message = "case_history_version_retention_days MUST be >= case_history_deletion_days."
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Operational history - private, versioned Blob archive.
+# ---------------------------------------------------------------------------
+variable "enable_operational_history" {
+  description = "Provision the operational-history archive and its scheduled shadow lifecycle Job."
+  type        = bool
+  default     = true
+}
+
+variable "operational_history_replication_type" {
+  description = "StorageV2 standard replication type for operational-history archives."
+  type        = string
+  default     = "ZRS"
+}
+
+variable "operational_history_soft_delete_retention_days" {
+  description = "Soft-delete retention for operational-history archive blobs and containers."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.operational_history_soft_delete_retention_days >= 7 && var.operational_history_soft_delete_retention_days <= 365
+    error_message = "operational_history_soft_delete_retention_days MUST be in [7, 365]."
+  }
+}
+
+variable "operational_history_version_retention_days" {
+  description = "Retention for superseded operational-history Blob versions."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.operational_history_version_retention_days >= var.operational_history_soft_delete_retention_days
+    error_message = "operational_history_version_retention_days MUST be >= operational_history_soft_delete_retention_days."
   }
 }
 

@@ -674,6 +674,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "deploy_document_ingestion": True,
                 "deploy_isolated_executor": False,
                 "deploy_monitoring": False,
+                "deploy_operational_history": False,
                 "deploy_operator_api": True,
                 "deploy_rca_reader_identity": False,
                 "document_ocr_action": "preserve",
@@ -725,6 +726,35 @@ def test_gateway_selection_round_trip() -> None:
     workflow_calls = [call for call in runner.calls if call[:2] == ("workflow", "run")]
     fields = _fields(workflow_calls[0])
     assert fields["deploy_dev_operations_gateway"] == "true"
+
+
+def test_operational_history_selection_round_trip() -> None:
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operational_history=True,
+        deploy_operator_api=False,
+    )
+
+    receipt = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.operational-history",
+        selection=selection,
+        run=runner,
+    )
+
+    fields = _fields(next(call for call in runner.calls if call[:2] == ("workflow", "run")))
+    assert "deploy_operational_history" not in fields
+    assert receipt.request_id.startswith("plan-history-")
+    assert receipt.context_digest == deployment_context_digest(
+        environment="dev",
+        commit_sha=_COMMIT,
+        selection=selection,
+    )
     assert fields["deploy_console"] == "false"
     assert fields["deploy_operator_api"] == "false"
 
