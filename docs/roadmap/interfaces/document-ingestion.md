@@ -92,11 +92,7 @@ Replacement creates an immutable version and moves the active pointer only after
 **Critique.** That creates a hierarchy outside collection policy, retention, version lineage, and
 source protection. One badge also blurs upload, safety, extraction, and index readiness.
 
-**Revised design.** Server-owned collections act as top-level folders and can't be moved or renamed
-in Console. Same-name uploads collapse into an expandable group after search and index filtering.
-Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings` display
-**Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures display
-**Not indexed**.
+**Revised design.** Server-owned collections act as top-level folders and can't be moved or renamed in Console. Same-name uploads collapse into an expandable group after search and index filtering. Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings` display **Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures display **Not indexed**.
 
 Each content action rechecks current metadata and authorization:
 
