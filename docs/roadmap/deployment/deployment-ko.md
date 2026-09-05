@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: cac159a490f7d07d24d70d162555506019a1fcc1
+translation_source_sha: 5302acd646e969893e1e71863896156d2f8bf427
 translation_revised: 2026-09-05
 ---
 
@@ -33,7 +33,7 @@ translation_revised: 2026-09-05
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
 | 독립 서비스 롤백 기준 | implemented | 현재 변경의 `deployment_recovery.py`, 공유 서비스 Container App 모듈 및 집중 service-deploy 롤백 검사 | 적용 전 수집은 비정상 또는 비활성 개정 번호를 차단하고, 각 서비스는 복구를 위해 비활성 개정 번호 1개를 보존합니다. 성공한 protected 롤백 증적은 아직 필요합니다. |
 | 성능 저하 상태의 Operator 복구 기준 | validated | Protected 계획 `33957891101`, 정확한 적용 `33957993467` 및 집중 복구 검사 | 명시적 모드는 실행 중인 비정상 Operator 개정 번호를 봉인된 롤백 기준으로 사용해 서비스를 정상 상태로 복원했습니다. |
-| 권위 있는 Operator Console origin | implemented | 현재 변경의 `hydrate_console_origin.py`, `.github/workflows/service-deploy.yml`, `guard_plan.py` 및 집중 hydration과 계획 검사 | 계획은 보호된 Console 게시 연결에서 단일 HTTPS CORS origin을 가져옵니다. 통제된 적용과 브라우저 근거는 아직 필요합니다. |
+| 권위 있는 Operator Console origin | validated | Protected 계획 `33959768010`, 적용 `33959860773` 및 이슈 #414의 인증된 브라우저 근거 | 계획은 보호된 Console 게시 연결에서 단일 HTTPS CORS origin을 가져옵니다. 적용과 상태 검증은 성공했으며, 동시에 Core 상태가 이동해 peer 격리 증적만 생성되지 않았습니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -56,6 +56,7 @@ translation_revised: 2026-09-05
 | 2026-08-26 | implemented | 중지된 개발 PostgreSQL server를 복구한 뒤 준비 상태가 다시 열리면서 서로 독립적인 Core crash 경로 두 개가 드러났습니다. 이제 consumer progress는 commit과 highwater 관측 사이의 partition 회수를 허용하고, 새 Core migration은 detached background-task 조정기에 소유 테이블 3개의 정확한 접근 권한을 부여합니다. | Live revision `ca-fdai-dev-krc-core--p20260825121110`, `current change`, 집중 Event Bus race 및 migration grant 회귀 검사 3개 통과 | 정확히 증명된 이미지를 게시하고 보호된 workflow를 통해 정상 Core 기준 하나를 복원한 뒤, provider-schema 적용 전에 crash-free 상태 및 rollback 보존 근거를 보존합니다. |
 | 2026-09-05 | implemented | Azure에 별도의 정상 개정 번호가 없을 때 Operator 데이터베이스 연결 복구에 사용하는 봉인된 성능 저하 복구 경계를 추가했습니다. 기준 개정 번호는 활성, 프로비저닝 완료, 실행 중, 정확히 복원 가능한 상태여야 하며 이 모드는 보호된 Terraform 계획의 범위를 넓히지 않습니다. | `current change`, 집중 계획 묶음, 작업 흐름, 기준 선택, 스냅샷 및 롤백 검사 | 정확한 protected Operator 적용 1회를 실행하고 상태 및 롤백 경계 근거를 보존합니다. |
 | 2026-09-05 | implemented | 성능 저하 상태의 Operator 복구를 검증한 다음, 실제 브라우저 preflight에서 빈 CORS 연결을 확인한 뒤 권위 있는 Console origin hydration을 추가했습니다. 데이터베이스 연결 검증기는 정규화된 단일 Static Web Apps HTTPS origin만 수락하고 관련 없는 환경 변경은 계속 차단합니다. | Protected 계획 `33957891101`, 정확한 적용 `33957993467`, `current change`, 집중 hydration, 검증기 및 작업 흐름 검사 | Console origin 연결을 적용하고 인증된 브라우저 근거를 보존합니다. |
+| 2026-09-05 | validated | 보호된 Console origin을 적용하고 인증된 Help drawer 검증을 완료했습니다. Drawer는 경고나 가로 overflow 없이 여정 단계 5개, manual card 11개 및 로드된 cover image 22개를 표시했고, 선택한 동일 origin manual은 HTTP 200을 반환했습니다. | Protected 계획 `33959768010`, 적용 `33959860773`, 이슈 #414 브라우저 근거. 적용과 상태 검증 단계는 성공했으며, peer 격리 중 Core 상태 serial이 53에서 54로 동시에 증가해 최종 workflow만 실패했습니다. | Operator Console origin 연결에 남은 작업이 없습니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
