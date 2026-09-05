@@ -102,6 +102,18 @@ def _observed(value: bool = True) -> tuple[tuple[PantheonRubric, bool], ...]:
     return tuple((rubric, value) for rubric in required_observed_rubrics())
 
 
+def _atomic_results() -> tuple[PantheonRubricResult, ...]:
+    return tuple(
+        PantheonRubricResult(
+            item_id=index,
+            rubric=rubric,
+            passed=True,
+            reason="observed_pass",
+        )
+        for index, rubric in enumerate(PantheonRubric, start=1)
+    )
+
+
 def test_census_has_exact_bilingual_230_case_contract() -> None:
     census = build_pantheon_census(PANTHEON_SPECS)
 
@@ -206,7 +218,7 @@ def test_diagnostic_rejects_verdict_that_conflicts_with_atomic_score() -> None:
             locale="en",
             score=30,
             verdict=PantheonDiagnosticVerdict.FAIL,
-            results=(),
+            results=_atomic_results(),
             hard_zero_violations=(),
             trace_receipt_digest=_DIGEST,
         )
@@ -220,7 +232,7 @@ def test_diagnostic_rejects_non_hex_trace_digest() -> None:
             locale="en",
             score=30,
             verdict=PantheonDiagnosticVerdict.PASS,
-            results=(),
+            results=_atomic_results(),
             hard_zero_violations=(),
             trace_receipt_digest="z" * 64,
         )
@@ -245,6 +257,20 @@ def test_diagnostic_rejects_repeated_rubrics_with_complete_item_ids() -> None:
             score=30,
             verdict=PantheonDiagnosticVerdict.PASS,
             results=repeated,
+            hard_zero_violations=(),
+            trace_receipt_digest=_DIGEST,
+        )
+
+
+def test_diagnostic_rejects_missing_atomic_results() -> None:
+    with pytest.raises(ValueError, match="item ids 1 through 30"):
+        PantheonTurnDiagnostic(
+            case_id="case-1",
+            agent="Njord",
+            locale="en",
+            score=30,
+            verdict=PantheonDiagnosticVerdict.PASS,
+            results=(),
             hard_zero_violations=(),
             trace_receipt_digest=_DIGEST,
         )

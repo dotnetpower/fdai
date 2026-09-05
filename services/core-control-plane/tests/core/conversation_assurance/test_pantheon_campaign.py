@@ -10,6 +10,8 @@ from fdai.core.conversation_assurance import (
     PantheonCampaignController,
     PantheonCensusCase,
     PantheonDiagnosticVerdict,
+    PantheonRubric,
+    PantheonRubricResult,
     PantheonTurnDiagnostic,
     PrivateJsonlLedger,
     T2Expectation,
@@ -33,13 +35,22 @@ def _case(index: int) -> PantheonCensusCase:
 
 
 def _diagnostic(case: PantheonCensusCase) -> PantheonTurnDiagnostic:
+    results = tuple(
+        PantheonRubricResult(
+            item_id=index,
+            rubric=rubric,
+            passed=True,
+            reason="observed_pass",
+        )
+        for index, rubric in enumerate(PantheonRubric, start=1)
+    )
     return PantheonTurnDiagnostic(
         case_id=case.case_id,
         agent="Odin",
         locale=case.locale,
         score=30,
         verdict=PantheonDiagnosticVerdict.PASS,
-        results=(),
+        results=results,
         hard_zero_violations=(),
         trace_receipt_digest="a" * 64,
     )

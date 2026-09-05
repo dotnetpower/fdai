@@ -150,11 +150,11 @@ class PantheonTurnDiagnostic:
     def __post_init__(self) -> None:
         if not 0 <= self.score <= 30:
             raise ValueError("Pantheon diagnostic score MUST be in [0, 30]")
-        if self.results and tuple(item.item_id for item in self.results) != tuple(range(1, 31)):
+        if tuple(item.item_id for item in self.results) != tuple(range(1, 31)):
             raise ValueError("Pantheon diagnostic results MUST contain item ids 1 through 30")
-        if self.results and tuple(item.rubric for item in self.results) != tuple(PantheonRubric):
+        if tuple(item.rubric for item in self.results) != tuple(PantheonRubric):
             raise ValueError("Pantheon diagnostic results MUST follow the canonical rubric order")
-        if self.results and self.score != sum(item.passed for item in self.results):
+        if self.score != sum(item.passed for item in self.results):
             raise ValueError("Pantheon diagnostic score MUST equal its atomic item results")
         if len(self.trace_receipt_digest) != 64 or any(
             character not in "0123456789abcdef" for character in self.trace_receipt_digest
