@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2e39b98a0f840fbcc0e0f2194394159bee40edcb
+translation_source_sha: 660c5d797204dad5fd3daa38d6423f318ce1c033
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -47,6 +47,9 @@ translation_revised: 2026-09-06
 | 서비스 계약 | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [계약 테스트](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
 | 선택적 비용 거버넌스 패키지 | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [패키지 테스트](../../../extensions/cost-governance/tests/) 및 [레거시 자문 가드 커버리지](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 only |
+
+공유 인수인계 아티팩트는 계산된 편의 필드를 직렬화된 API 및 저장소 프로젝션에서 제외합니다.
+따라서 서비스 로컬 파생 속성이 서비스 간 연결 계약을 변경할 수 없습니다.
 
 문서 인제스트 API는 FDAI-native 교차 테넌트 SharePoint 커넥터도 소유합니다. Federated
 Managed Identity가 대상 테넌트의 Microsoft Graph 토큰을 얻고, 영속 delta 및 인제스트

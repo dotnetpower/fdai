@@ -46,6 +46,9 @@ retired top-level application tree.
 | Optional Cost Governance package | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [Package tests](../../../extensions/cost-governance/tests/) and [legacy advisory guard coverage](../../../extensions/cost-governance/tests/test_legacy_advisory_guards.py) | `fdai-cost-governance` |
 | Cross-service integration | Not applicable | [Root integration tests](../../../tests/integration/) | Virtual root only |
 
+Shared handover artifacts exclude computed convenience fields from their serialized API and storage
+projection, so service-local derived properties cannot change the cross-service wire contract.
+
 The Document Ingestion API also owns the FDAI-native cross-tenant SharePoint connector. Its
 federated managed identity obtains Microsoft Graph tokens in the target tenant, while its durable
 delta and intake adapters map changed files to server-owned document policy. Power Platform is not

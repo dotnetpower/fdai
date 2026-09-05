@@ -8,14 +8,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-_ARTIFACT_COMPUTED_FIELD_EXCLUDE = {
-    "draft": {
-        "mappings": {"__all__": {"person": {"unresolved"}}},
-        "abstained": {"__all__": {"person": {"unresolved"}}},
-        "unresolved_people": {"__all__": {"unresolved"}},
-    }
-}
-
 
 class HandoverContract(BaseModel):
     """Immutable validated base for cross-service handover records."""
@@ -137,7 +129,7 @@ class HandoverDraftArtifact(HandoverContract):
 
     def to_dict(self) -> dict[str, object]:
         """Return the JSON-compatible API projection."""
-        return self.model_dump(mode="json", exclude=_ARTIFACT_COMPUTED_FIELD_EXCLUDE)
+        return self.model_dump(mode="json", exclude_computed_fields=True)
 
 
 class StewardshipMergeRecord(HandoverContract):
