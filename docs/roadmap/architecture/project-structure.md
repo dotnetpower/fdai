@@ -66,6 +66,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   worker, identity-health worker, and content-free knowledge lifecycle worker. Operator reads only
   revision-matched unexpired health. Content-addressed receipts and Saga audit make retries safe
   without granting merge, RBAC, approval, or executor authority to a worker or publisher.
+  Independent Core deployment receives the GitOps token only as a platform-exported Key Vault
+  reference validated by the protected service workflow.
 - **observation-mode ARB composition**: `core/architecture_review/observation_loop.py` owns the
   provider-neutral Change -> authenticated context -> evidence bundle -> scenario -> DecisionCase
   and ImpactEnvelope composition. Forseti is the only publisher of its observation verdict on the

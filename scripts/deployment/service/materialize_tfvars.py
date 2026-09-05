@@ -214,6 +214,7 @@ def select_tfvars(
     model_endpoints: object = None,
     web_search_requested: bool = False,
     web_search_allowed_domains: list[str] | None = None,
+    stewardship_gitops: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -246,6 +247,10 @@ def select_tfvars(
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
+    if service == "core-control-plane":
+        materialized["stewardship_gitops"] = copy.deepcopy(stewardship_gitops or {})
+    elif stewardship_gitops is not None:
+        raise TfvarsError("stewardship GitOps binding is valid only for core-control-plane")
     return materialized
 
 
@@ -305,11 +310,20 @@ def main() -> int:
             model_endpoints=json.loads(os.environ.get("MODEL_ENDPOINTS_JSON", "")),
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
+            stewardship_gitops=_optional_object_environment("STEWARDSHIP_GITOPS_JSON"),
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:
         parser.error(str(exc))
     return 0
+
+
+def _optional_object_environment(name: str) -> dict[str, Any] | None:
+    raw = os.environ.get(name, "null")
+    value = json.loads(raw)
+    if value is not None and not isinstance(value, dict):
+        raise TfvarsError(f"{name} must contain a JSON object or null")
+    return value
 
 
 if __name__ == "__main__":

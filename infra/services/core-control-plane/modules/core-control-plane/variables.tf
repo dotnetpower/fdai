@@ -60,6 +60,16 @@ variable "teams_notification_binding" {
   default = {}
 }
 
+variable "stewardship_gitops" {
+  type = object({
+    enabled         = optional(bool, false)
+    owner           = optional(string, "")
+    repo            = optional(string, "")
+    token_secret_id = optional(string, "")
+  })
+  sensitive = true
+}
+
 variable "teams_approval_destination" {
   type = object({
     team_id      = string

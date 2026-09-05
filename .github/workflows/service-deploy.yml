@@ -548,6 +548,7 @@ jobs:
           )"
           observation_context_binding="null"
           rca_reader_identity_binding="null"
+          stewardship_gitops_binding="null"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             observation_context_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
@@ -579,6 +580,23 @@ jobs:
               echo "Platform state returned an invalid RCA reader identity." >&2
               exit 1
             }
+            stewardship_gitops_binding="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -json stewardship_gitops_binding 2>/dev/null || printf 'null\n'
+            )"
+            jq -e '
+              . == null or (
+                type == "object" and
+                keys == ["enabled", "owner", "repo", "token_secret_id"] and
+                .enabled == true and
+                (.owner | type == "string" and length > 0) and
+                (.repo | type == "string" and length > 0) and
+                (.token_secret_id | type == "string" and startswith("/subscriptions/"))
+              )
+            ' <<<"$stewardship_gitops_binding" >/dev/null || {
+              echo "Platform state returned an invalid stewardship GitOps binding." >&2
+              exit 1
+            }
           fi
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
@@ -604,6 +622,7 @@ jobs:
                 --environment "${{ inputs.environment }}" \
                 --identity-json "$rca_reader_identity_binding" \
             | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
+              STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

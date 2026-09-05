@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e402d2c9f0a8d39fb4c575d9196477c2cab9012f
+translation_source_sha: 1bdad4b24c8ae2adaded3f3bff105ca3b5dd3300
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -541,7 +541,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | env | 로컬 | 로컬 전용 명시적 활성화입니다. 설정하면 컨트롤 플레인이 평문 endpoint 값 대신 공유 루프백 데이터베이스에서 암호화된 Operator 소유 Teams 바인딩 레코드를 읽습니다. 설정하지 않으면 저장된 바인딩은 아무것도 전달하지 않습니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_SEMANTIC_TURN_REQUEST_TOPIC` / `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC` | env | 배포 / 업스트림 | Operator 의미 전송 계층 구성입니다. 세 값은 모두 함께 설정하며 부분 구성은 시작을 차단합니다. 요청과 변환 결과 값은 프로비저닝된 `operator-core-request` 및 `core-operator-projection` 개체를 지정합니다. 선택 항목인 `FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID`와 `FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID`는 안정적인 서비스 기본값을 재정의합니다. `FDAI_COMMAND_MI_CLIENT_ID`는 `OAUTHBEARER`용 명령 신원을 선택하며 연결 문자열 또는 shared 키는 지원하지 않습니다. 로컬 preparation은 Terraform 출력에 같은 토픽이 이미 있을 때만 값을 복사하고 해당 실행에서는 dev-only 서술기를 비활성화합니다. |
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | 배포 | `gitops-pr` 어댑터 대상 repo 설정 (GitHub App / Azure DevOps). 인증 시크릿 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
-| `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
+| `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결입니다. 플랫폼은 활성화된 담당 체계 대상과 토큰 시크릿 ID를 `stewardship_gitops_binding`으로 내보냅니다. 보호된 서비스 워크플로는 이 객체를 검증하고 독립 Core 서비스에는 Key Vault 참조만 주입합니다. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | 배포 | 5개 human 역할 의 Entra ID 그룹 객체 id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 그룹 = 역할 미할당. |
 | `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` | env | 배포 | 모든 deployed 환경에서 `1`로 설정하여 자리 표시자 관리자/담당자 id가 시작을 차단하게 합니다. 이 준비 상태 게이트는 포크 여부와 독립적입니다. |
 | `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | upstream / 배포 | 준비 상태 이후 실행되는 Entra 생존 관찰과 내용이 없는 인수인계 공백, 후보, 철회 이벤트의 Core 서비스 주기입니다. Terraform 기본값은 3600초와 60초입니다. 병합, IAM, 승인, 실행 권한을 부여하지 않습니다. |

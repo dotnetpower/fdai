@@ -2501,6 +2501,37 @@ def test_tfvars_selects_one_service_and_reserves_image(tfvars: ModuleType, tmp_p
         tfvars.select_tfvars(payload, service="operator-service", environment="dev")
 
 
+def test_tfvars_binds_platform_owned_stewardship_gitops_only_to_core(
+    tfvars: ModuleType,
+) -> None:
+    payload = {"environments": {"dev": {"core-control-plane": {"name": "core"}}}}
+    binding = {
+        "enabled": True,
+        "owner": "example",
+        "repo": "fdai",
+        "token_secret_id": "/subscriptions/example/secrets/gitops",
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        stewardship_gitops=binding,
+    )
+
+    assert selected["stewardship_gitops"] == binding
+    binding["repo"] = "changed"
+    assert selected["stewardship_gitops"]["repo"] == "fdai"
+
+    with pytest.raises(tfvars.TfvarsError, match="only for core-control-plane"):
+        tfvars.select_tfvars(
+            {"environments": {"dev": {"operator-service": {"name": "operator"}}}},
+            service="operator-service",
+            environment="dev",
+            stewardship_gitops={"enabled": False},
+        )
+
+
 def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
     tfvars: ModuleType,
 ) -> None:

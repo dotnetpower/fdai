@@ -1,6 +1,7 @@
 locals {
   teams_notification_enabled      = var.teams_notification_binding.enabled
   teams_notification_endpoint_env = "FDAI_TEAMS_NOTIFICATION_ENDPOINT"
+  stewardship_gitops_enabled      = var.stewardship_gitops.enabled
   teams_notification_bindings_json = jsonencode({
     (var.teams_notification_binding.channel_id) = {
       kind         = "teams_workflow"
@@ -42,6 +43,10 @@ module "container_app" {
     name                = "teams-notification-endpoint"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.teams_notification_binding.endpoint_secret_id
+    }] : [], local.stewardship_gitops_enabled ? [{
+    name                = "stewardship-gitops-token"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.stewardship_gitops.token_secret_id
   }] : [])
   environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
@@ -93,6 +98,11 @@ module "container_app" {
     # runtime refuses the seeded placeholder value.
     { name = "FDAI_NOTIFICATION_BINDINGS_JSON", value = local.teams_notification_bindings_json },
     { name = local.teams_notification_endpoint_env, secret_name = "teams-notification-endpoint" },
+    ], !local.stewardship_gitops_enabled ? [] : [
+    { name = "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", value = "true" },
+    { name = "FDAI_GITOPS_OWNER", value = var.stewardship_gitops.owner },
+    { name = "FDAI_GITOPS_REPO", value = var.stewardship_gitops.repo },
+    { name = "FDAI_GITOPS_TOKEN", secret_name = "stewardship-gitops-token" },
     ], var.teams_approval_destination.team_id == "" ? [] : [
     { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.teams_approval_destination.team_id },
     { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e1706afe253eb1830d90bfb684c8c22d864a7d3d
+translation_source_sha: 2e39b98a0f840fbcc0e0f2194394159bee40edcb
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -27,6 +27,9 @@ translation_revised: 2026-09-06
   다이제스트를 검증합니다. 이 경계는
   매핑, 평가 또는 실행 권한을 부여하지 않습니다. 시작에 실패하면 조립은 획득한 모든 서비스
   정리를 시도하고 원래 실패와 함께 정리 오류를 보고합니다.
+- **플랫폼-서비스 바인딩:** 루트 Terraform은 검토된 비밀이 아닌 대상과 Key Vault 시크릿
+  참조를 내보냅니다. 보호된 서비스 배포는 독립 배포 서비스에 전달하기 전에 이 객체를
+  검증합니다. 서비스 tfvars 페이로드는 플랫폼 소유 담당 체계 GitOps 바인딩을 대체할 수 없습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

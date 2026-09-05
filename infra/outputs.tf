@@ -174,6 +174,16 @@ output "ohl_observation_context_binding" {
   } : null
 }
 
+output "stewardship_gitops_binding" {
+  description = "Deployment-owned review-only stewardship GitOps binding. Null when disabled."
+  value = var.enable_stewardship_governance ? {
+    enabled         = true
+    owner           = var.gitops_owner
+    repo            = var.gitops_repo
+    token_secret_id = azurerm_key_vault_secret.gitops_token[0].resource_versionless_id
+  } : null
+}
+
 output "email_communication_service_id" {
   description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
   value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""

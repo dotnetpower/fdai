@@ -2022,6 +2022,13 @@ resource "azurerm_role_assignment" "core_teams_notification_secret_reader" {
   principal_id         = module.identity.principal_id
 }
 
+resource "azurerm_role_assignment" "core_gitops_secret_reader" {
+  count                = var.enable_stewardship_governance ? 1 : 0
+  scope                = azurerm_key_vault_secret.gitops_token[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+}
+
 resource "azurerm_key_vault_secret" "notification_receipt_secret" {
   # checkov:skip=CKV_AZURE_41:Receipt publishers and verifiers require coordinated HMAC rotation; an uncoordinated fixed expiry would reject valid delivery evidence.
   count        = var.enable_operator_api && var.notification_receipt_secret != "" ? 1 : 0

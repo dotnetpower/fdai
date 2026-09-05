@@ -131,6 +131,27 @@ variable "teams_approval_destination" {
   }
 }
 
+variable "stewardship_gitops" {
+  description = "Platform-owned Key Vault reference and target for review-only stewardship PRs."
+  type = object({
+    enabled         = optional(bool, false)
+    owner           = optional(string, "")
+    repo            = optional(string, "")
+    token_secret_id = optional(string, "")
+  })
+  default   = {}
+  sensitive = true
+
+  validation {
+    condition = !var.stewardship_gitops.enabled || (
+      trimspace(var.stewardship_gitops.owner) != "" &&
+      trimspace(var.stewardship_gitops.repo) != "" &&
+      trimspace(var.stewardship_gitops.token_secret_id) != ""
+    )
+    error_message = "Enabled stewardship GitOps requires owner, repo, and token_secret_id."
+  }
+}
+
 variable "database" {
   description = "Role-scoped database secret reference supplied by the state-store state owner."
   type = object({

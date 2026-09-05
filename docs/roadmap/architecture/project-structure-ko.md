@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3def773774ff05b5c19cd0709a2941394c2dec2c
+translation_source_sha: ad93a69657b7876624dc1c173a8b31b830680b35
 translation_revised: 2026-09-05
 ---
 # 프로젝트 구조
@@ -63,6 +63,8 @@ translation_revised: 2026-09-05
   GitOps 게시기, 서명 병합 결과 워커, 신원 상태 워커, 내용이 없는 지식 수명 주기 워커를 연결합니다.
   Operator는 리비전이 일치하고 만료되지 않은 상태만 읽습니다. 내용 기반 증적과 Saga 감사를
   사용하므로 재시도가 안전하며, 워커나 게시기에 병합, RBAC, 승인 또는 실행기 권한을 부여하지 않습니다.
+  독립 Core 배포는 보호된 서비스 워크플로가 검증한 플랫폼 출력 Key Vault 참조로만 GitOps 토큰을
+  받습니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
