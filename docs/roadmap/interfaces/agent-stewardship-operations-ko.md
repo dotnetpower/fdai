@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: b41213a694af9d238dfbe8b64d520402f792b6df
-translation_revised: 2026-09-05
+translation_source_sha: 37289029a24afea654c170083e3b338da37b4344
+translation_revised: 2026-09-06
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -44,7 +44,7 @@ Handover-map 스키마와 소유권 개념은
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 시작 바인딩과 읽기 전용 변환 결과 | implemented | `services/operator-service/src/fdai_operator_service/`; `services/operator-service/tests/test_operator_operations_family.py`; `tests/integration/infra/test_operator_api_stewardship.py`; 집중 Operator 및 Terraform 테스트 (15 passed) | 경로와 배포 바인딩이 있습니다. 소스 배선만으로 실제 배포 준비 상태가 입증되지는 않습니다. |
-| Terraform 바인딩 완전성 검사 | implemented | `infra/production-gates.tf`; `infra/modules/operator-api/container-app/main.tf`; `tests/integration/infra/test_operator_api_stewardship.py` | 운영 구성은 신원을 배포 소유로 유지하면서 관리자와 자율 운영이 아닌 모든 에이전트 바인딩을 요구합니다. |
+| Terraform 바인딩 완전성 검사 | implemented | `infra/production-gates.tf`; `.github/workflows/deploy-dev.yml`; `tests/integration/infra/test_operator_api_stewardship.py`; `tests/integration/infra/test_core_stewardship_gitops.py` | 운영 구성은 신원과 GitOps 자격 증명을 배포 소유로 유지하면서 관리자와 자율 운영이 아닌 모든 에이전트 바인딩을 요구합니다. |
 | 안내형 등록과 근거 기반 영속 초안 | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; 집중 콘솔 테스트 (21 passed); 집중 수집 전달 테스트 (9 passed) | SPA는 관리형 업로드를 제출하고 워커는 검토 전용 초안을 저장합니다. 어느 효과도 활성 지도를 변경하지 않습니다. |
 | 멱등적 초안 거버넌스 PR 전달 | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); 집중 담당 체계 및 런타임 테스트 | 런타임은 영속 `handover_draft:*` 레코드를 읽고, 신원 재정의를 허용하지 않은 상태에서 각 완전한 후보를 검증한 다음 구성된 `RemediationPrPublisher`를 통해 게시합니다. PR 참조 또는 차단 결과는 Saga 감사와 함께 원자적으로 기록합니다. 내용 기반 증적을 사용하므로 재시작과 재처리가 안전합니다. 관리형 배포 증적은 별도 근거로 남습니다. |
 | 서명된 병합 수신과 후속 담당 체계 효과 | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; 집중 병합 및 소유권 조정 테스트 | 서명된 수신 경로는 비활성 근거를 저장합니다. Core는 병합된 map을 검증하고 영향받는 에이전트와 새 수신자를 계산하며, 영속 알림 라우터를 통해 전달합니다. 다이제스트가 일치하는 배정 제안만 진행하고 재처리해도 동일한 shadow IAM 요청을 게시하며 Saga 증적 하나를 기록합니다. |
@@ -60,6 +60,7 @@ Handover-map 스키마와 소유권 개념은
 | 2026-08-16 | in-progress | 내용 기반 키, 검토 전용 렌더링, 닫힘 실패 초안 검증을 갖춘 인수인계 산출물에서 `RemediationPrPublisher`로 이어지는 멱등 경로를 조립했습니다. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py`가 모호한 전송 실패 이후 초안 PR 하나를 재사용하는 재시도와 PR 본문의 제한된 경고 렌더링을 포함해 집중 테스트 9개를 통과했습니다. | 운영 조립에 서비스를 연결하고 병합 후 소유권 효과와 예약 신원 상태 검사를 완료해야 합니다. |
 | 2026-09-05 | in-progress | 영속 인수인계 초안을 처리하는 운영 런타임 워커를 추가했습니다. 잘못된 후보가 이후 레코드를 차단하지 않으며, 추적된 YAML을 검증할 때 런타임 신원 재정의를 무시하고, 이전 직렬화 초안과 호환되며, 내용 기반 증적과 Saga 감사를 한 번만 기록합니다. | `current change`; `stewardship_governance.py`; 집중 담당 체계, 런타임 거버넌스, 부트스트랩 테스트 149개와 Ruff, strict mypy 통과. | 실제 초안 PR 증적을 보존한 후 병합 결과와 예약 신원 상태 검사를 완료합니다. |
 | 2026-09-05 | implemented | 서명된 병합 근거를 영향받는 소유자 알림, 일치하는 배정 결과, 재처리해도 동일한 shadow IAM 요청, 예약 Entra 생존 관찰과 연결했습니다. 소유권, IAM, 승인, 실행 권한은 계속 분리됩니다. | `current change`; 집중 Core 및 Operator 테스트; Core 서비스 Terraform 검증. | 관리형 배포, 재시작, 알림, Graph 복구, 승격 근거를 보존합니다. |
+| 2026-09-06 | implemented | 보호된 플랫폼 워크플로를 배포 소유의 담당 체계 활성화 플래그, GitOps 대상, GitHub 자격 증명 및 병합 웹후크 시크릿에 연결했습니다. 명시적 저장소 변수를 활성화하기 전에는 비활성 상태를 유지합니다. | `current change`; `deploy-dev.yml`; 집중 Core 담당 체계 GitOps 워크플로 테스트. | 공급자 호스팅 GitHub App 토큰, 웹후크 시크릿 및 ChatOps 채널 시크릿을 구성한 뒤 관리형 계획, 적용 및 종단 간 초안 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -224,6 +225,10 @@ GitHub App 또는 토큰에는 어댑터가 필요한 repository 내용, pull-re
 부여하는 것이 좋습니다. Pull-request event용 GitHub webhook을 구성하고 published 인제스트 게이트웨이
 경로를 가리키세요. 수명이 짧은 installation 토큰은 배포 구성으로 rotate하고 커밋
 또는 로그하지 마세요.
+
+보호된 워크플로는 저장소 Variables에서 `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`,
+`GITOPS_REPO`를 읽고 저장소 Secrets에서 `GITOPS_TOKEN`, `GITHUB_WEBHOOK_SECRET`을 읽습니다.
+이 값과 기존 ChatOps 시크릿을 구성하기 전에는 활성화를 비활성 상태로 유지하세요.
 
 ## 실패 및 복구
 

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 943a5c4cafa1f9659ab14823caea67949628f2be
+translation_source_sha: 5d02a28bda52892c5da089afc34adce418277266
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -544,7 +544,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | 배포 | `gitops-pr` 어댑터 대상 repo 설정 (GitHub App / Azure DevOps). 인증 시크릿 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결입니다. 플랫폼은 활성화된 담당 체계 대상과 토큰 시크릿 ID를 `stewardship_gitops_binding`으로 내보냅니다. 보호된 서비스 워크플로는 이 객체를 검증하고 독립 Core 서비스에는 Key Vault 참조만 주입합니다. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | 배포 | 5개 human 역할 의 Entra ID 그룹 객체 id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 그룹 = 역할 미할당. |
-| `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | 배포 / 업스트림 | 자리 표시자 신원이 시작을 차단하도록 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`로 설정합니다. Terraform은 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, 선택적인 Key Vault 기반 GitOps/웹후크 입력과 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 준비 상태 기반 Entra 상태 및 내용이 없는 인수인계 수명 주기 간격도 공급합니다. 간격 기본값은 3600초와 60초이며 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. |
+| `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | 배포 / 업스트림 | 자리 표시자 신원이 시작을 차단하도록 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`로 설정합니다. 보호된 워크플로는 저장소 Variables에서 `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`, `GITOPS_REPO`를 읽고 저장소 Secrets에서 `GITOPS_TOKEN`, `GITHUB_WEBHOOK_SECRET`을 읽습니다. Terraform은 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, 선택적인 Key Vault 기반 GitOps/웹후크 입력과 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 준비 상태 기반 Entra 상태 및 내용이 없는 인수인계 수명 주기 간격도 공급합니다. 간격 기본값은 3600초와 60초이며 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. |
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | 배포 | 프로덕션 Operator API Entra JWT 검증기 (`EntraJwtVerifier`) 필수: 배포 테넌트 id와 `fdai-api` App ID URI (`api://<fdai-api-guid>`). [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | 배포 | 선택 검증기 오버라이드; 기본값은 테넌트 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | 업스트림 | Operator API onboarding 탐색 입력. ARG를 사용해 프로비저닝된 리소스 집합 및 실행기 Event Hubs / Key Vault 역할을 검증합니다. |

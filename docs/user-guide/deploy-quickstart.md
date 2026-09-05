@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 943a5c4cafa1f9659ab14823caea67949628f2be }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5d02a28bda52892c5da089afc34adce418277266 }]
 ---
 
 # Deploy Quickstart

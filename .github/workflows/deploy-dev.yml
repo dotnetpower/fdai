@@ -10,12 +10,14 @@ run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, 
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE,
+#       ENABLE_STEWARDSHIP_GOVERNANCE, GITOPS_OWNER, GITOPS_REPO,
 #       PRODUCTION_BUDGET_ALERT_EMAILS_JSON (required when deploy_console=true),
 #       Feature-specific variables are documented by their workflow inputs and
 #       docs/roadmap/deployment/deploy-and-onboard.md.
 #   - Repo secrets:
 #       POSTGRES_ADMIN_LOGIN, POSTGRES_ADMIN_PASSWORD,
-#       CHATOPS_WEBHOOK_URL, CHATOPS_WEBHOOK_SECRET
+#       CHATOPS_WEBHOOK_URL, CHATOPS_WEBHOOK_SECRET,
+#       GITOPS_TOKEN, GITHUB_WEBHOOK_SECRET
 # Default run is plan-only (shadow). Set the `apply` input to true to enforce.
 on:
   workflow_dispatch:
@@ -201,8 +203,11 @@ jobs:
       TF_VAR_rbac_break_glass_group_id: ${{ vars.RBAC_BREAK_GLASS_GROUP_ID }}
       TF_VAR_operator_api_cors_allow_origins: ${{ vars.OPERATOR_API_CORS_ALLOW_ORIGINS }}
       TF_VAR_operator_api_iam_directory_provider: ${{ inputs.deploy_operator_api && 'entra' || '' }}
+      TF_VAR_enable_stewardship_governance: ${{ vars.ENABLE_STEWARDSHIP_GOVERNANCE == 'true' }}
       TF_VAR_stewardship_maintainers: ${{ vars.STEWARDSHIP_MAINTAINERS }}
       TF_VAR_stewardship_agent_bindings: "${{ vars.STEWARDSHIP_AGENT_BINDINGS_JSON || '{}' }}"
+      TF_VAR_gitops_owner: ${{ vars.GITOPS_OWNER }}
+      TF_VAR_gitops_repo: ${{ vars.GITOPS_REPO }}
       TF_VAR_ingestion_image: ${{ vars.INGESTION_IMAGE }}
       TF_VAR_clamav_image: ${{ vars.CLAMAV_IMAGE || 'clamav/clamav:stable' }}
       TF_VAR_ingestion_cors_allow_origins: ${{ vars.INGESTION_CORS_ALLOW_ORIGINS }}
@@ -227,6 +232,8 @@ jobs:
       TF_VAR_enable_chatops_hil: ${{ secrets.CHATOPS_WEBHOOK_URL != '' && secrets.CHATOPS_WEBHOOK_SECRET != '' }}
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
+      TF_VAR_gitops_token: ${{ secrets.GITOPS_TOKEN }}
+      TF_VAR_github_webhook_secret: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
     steps:
       - name: Checkout protected workflow verifier
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
