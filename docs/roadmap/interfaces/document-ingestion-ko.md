@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: eb7e4d1db6e057ea0e95bb7bdb6859d014eab87e
+translation_source_sha: 76116153a9eb4c7ea818aa3b709c9b2951ae5e04
 translation_revised: 2026-09-05
 ---
 # 문서 인제스트와 투입 구역
@@ -503,6 +503,9 @@ federated assertion을 얻고 Microsoft 365 테넌트 애플리케이션이 발�
 managed-copy 수명 주기로 보냅니다. 삭제 이벤트는 영속 원본 항목 binding을 사용하고 legal
 hold가 적용되는 동안 대기 상태를 유지합니다. 대체되었거나 compare-and-swap에서 밀린
 업로드는 멱등적인 취소 테이블에 들어가며 운영 조정기가 제한된 페이지로 수렴시킵니다.
+결속 트랜잭션은 `source_revision`과 `source_sequence`가 여전히 해당 항목을 소유하는지 먼저
+확인한 다음 대체된 `bound_source_revision`을 취소 대기열에 넣습니다. 따라서 뒤처진 복제본이
+더 새로운 최종 버전을 취소 대상으로 등록할 수 없습니다.
 Native ordering epoch는 delta 순서를 폐기된 push connector 이름 공간과 분리합니다.
 Graph가 delta 토큰을 만료시키면 커넥터는 잘못된 연속 URL을 반복하지 않고 reset을 revision
 펜스로 기록한 뒤 다음 주기에 전체 delta를 다시 시작합니다. 마지막 페이지는 새 resync
