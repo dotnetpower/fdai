@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c49046410b1dd7e43fff0c2e26a98a403de8991d
+translation_source_sha: 67966d798bc4756c494d059ca84d2513dc8e2150
 translation_revised: 2026-09-05
 ---
 
@@ -152,6 +152,11 @@ Resource 수를 보조 기술을 위해 카드에, 그리고 짧은 표시로 �
 상태 정보가 없다고 보고하며, Inspector는 위치와 리소스 그룹의 부재도 같은 방식으로 보고합니다.
 Kubernetes 워크로드는 둘 다 가진 적이 없기 때문입니다. "관측되지 않음"은 관측 시각이 없는
 출처처럼 실제로 관측을 반환하지 않은 경우에만 남습니다.
+
+확장 가능한 인프라는 관측된 용량을 Resource 카드와 Inspector에 표시합니다. AKS AgentPool은
+`properties.count`를 노드 수로 표시하고 VM Scale Set은 `sku.capacity`를 인스턴스 수로
+표시합니다. Console은 누락되었거나 잘못된 용량을 0으로 바꾸지 않고 표시하지 않습니다. 또한
+AgentPool 용량을 Ready 상태인 Kubernetes Node 수로 다시 해석하지 않습니다.
 
 Deployment 카드는 롤아웃 건강을 담지 않습니다. 진실한 롤아웃 판정은 Pod 소유 경로와 evidence
 참조, 신선도를 필요로 하며 그것들이 판단을 받치지 못하면 근거 부족 또는 근거 충돌로 귀착합니다.

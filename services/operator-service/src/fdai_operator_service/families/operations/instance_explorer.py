@@ -488,7 +488,7 @@ def _resource_projection(
     root_id: str | None,
 ) -> dict[str, object]:
     properties = resource.properties
-    return {
+    projection: dict[str, object] = {
         "id": resource.resource_id,
         "object_type": "Resource",
         "resource_type": resource.resource_type,
@@ -500,6 +500,27 @@ def _resource_projection(
         "last_seen": resource.last_seen.isoformat() if resource.last_seen else None,
         "selected": root_id is not None and resource.resource_id == root_id,
     }
+    capacity = _resource_capacity(resource.resource_type, properties)
+    if capacity is not None:
+        projection["capacity"] = capacity
+    return projection
+
+
+def _resource_capacity(resource_type: str, properties: Mapping[str, object]) -> int | None:
+    """Return one observed scalable-resource capacity from allowlisted provider fields."""
+
+    candidate: object | None = None
+    if resource_type == "kubernetes-node-pool":
+        nested = properties.get("properties")
+        if isinstance(nested, Mapping):
+            candidate = nested.get("count")
+    elif resource_type == "compute.vm-scale-set":
+        sku = properties.get("sku")
+        if isinstance(sku, Mapping):
+            candidate = sku.get("capacity")
+    if isinstance(candidate, bool) or not isinstance(candidate, int) or candidate < 0:
+        return None
+    return candidate
 
 
 def _resource_status(properties: Mapping[str, object]) -> str | None:

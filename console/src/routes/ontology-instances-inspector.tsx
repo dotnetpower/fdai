@@ -12,6 +12,7 @@ import type {
 } from "./ontology-instances.model";
 import {
   groupOntologyInstanceRelationships,
+  ontologyInstanceCapacityKind,
   ontologyInstanceNetworkPaths,
   ontologyInstancePresentationLinks,
   ontologyInstanceStatusTone,
@@ -81,6 +82,7 @@ function InstanceOverview({
   readonly data: OntologyInstanceExploration;
   readonly root: OntologyInstanceResource;
 }) {
+  const capacityKind = ontologyInstanceCapacityKind(root.resource_type);
   return (
     <section class="ontology-instance-inspector-section">
       <span class="eyebrow">Resource</span>
@@ -94,6 +96,14 @@ function InstanceOverview({
       </div>
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
+        {root.capacity === null || root.capacity === undefined || capacityKind === null ? null : (
+          <div>
+            <dt>{t(capacityKind === "node"
+              ? "ontology.instances.nodeCount"
+              : "ontology.instances.instanceCount")}</dt>
+            <dd><strong>{formatNumber(root.capacity)}</strong></dd>
+          </div>
+        )}
         <div><dt>{t("ontology.instances.location")}</dt><dd>{root.location ?? t("ontology.instances.notReported")}</dd></div>
         <div><dt>{t("ontology.instances.resourceGroup")}</dt><dd>{root.resource_group ?? t("ontology.instances.notReported")}</dd></div>
         <div><dt>{t("ontology.instances.lastSeen")}</dt><dd>{root.last_seen ? formatDateTime(root.last_seen) : t("ontology.instances.notObserved")}</dd></div>

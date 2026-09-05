@@ -152,6 +152,11 @@ report that no state is reported instead, and the Inspector reports an absent lo
 group the same way, because a Kubernetes workload never carried either. "Not observed" is kept for a
 source that genuinely returned no observation, such as one with no observation time.
 
+Scalable infrastructure keeps its observed capacity on the Resource card and in the Inspector. An
+AKS AgentPool labels `properties.count` as node count, while a VM Scale Set labels `sku.capacity` as
+instance count. The Console omits missing or invalid capacity instead of substituting zero, and it
+does not reinterpret AgentPool capacity as a count of Ready Kubernetes Nodes.
+
 A Deployment card does not carry rollout health. A truthful rollout disposition needs the Pod
 ownership path, evidence references, and freshness, and it resolves to insufficient or conflicting
 evidence when those do not support a verdict, so a single word on a card would drop exactly the

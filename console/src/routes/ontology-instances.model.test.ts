@@ -100,6 +100,27 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.links).toHaveLength(1);
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
     expect(decoded.relationship_coverage).toBeNull();
+    expect(decoded.resources[0]?.capacity).toBeNull();
+  });
+
+  it("accepts an observed scalable-resource capacity", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "kubernetes-node-pool";
+    resources[1]!.capacity = 2;
+
+    expect(decodeOntologyInstanceExploration(value).resources[1]?.capacity).toBe(2);
+
+    resources[1]!.capacity = -1;
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "Resource capacity MUST be a non-negative integer",
+    );
+
+    resources[1]!.resource_type = "compute.container-app-environment";
+    resources[1]!.capacity = 2;
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "Resource capacity MUST use a supported scalable Resource type",
+    );
   });
 
   describe("ontology instance status tone", () => {

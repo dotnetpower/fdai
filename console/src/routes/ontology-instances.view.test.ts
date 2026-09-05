@@ -68,8 +68,11 @@ describe("Ontology Instances view controls", () => {
   it("shows semantic status badges and visible-tab automatic refresh state", () => {
     expect(graphSource).toContain("ontologyInstanceStatusTone");
     expect(graphSource).toContain("ontology-instance-state-badge");
+    expect(graphSource).toContain("ontology.instances.nodeCountShort");
+    expect(graphSource).toContain("ontology.instances.instanceCountShort");
     expect(inspectorSource).toContain("<StatusPill");
     expect(inspectorSource).toContain("ontologyInstanceStatusTone(root.status)");
+    expect(inspectorSource).toContain("ontology.instances.nodeCount");
     expect(instancesSource).toContain("installOntologyInstanceRefresh");
     expect(instancesSource).toContain("useOntologyInvalidationStream");
     expect(instancesSource).toContain("formatOntologyRefreshCountdown");

@@ -24,6 +24,7 @@ from fdai_operator_service.families.operations.contracts import (
 )
 from fdai_operator_service.families.operations.instance_explorer import (
     _relationship_evidence_projection,
+    _resource_capacity,
     _resource_status,
     project_inventory_instance,
     project_inventory_instances,
@@ -666,6 +667,25 @@ def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> Non
     assert _resource_status({"ready_status": "Unknown"}) == "Ready unknown"
     assert _resource_status({"provisioningState": "Succeeded"}) == "Succeeded"
     assert _resource_status({"name": "kube-system"}) is None
+
+
+def test_scalable_resource_capacity_uses_only_allowlisted_fields() -> None:
+    assert (
+        _resource_capacity(
+            "kubernetes-node-pool",
+            {"properties": {"count": 2}},
+        )
+        == 2
+    )
+    assert _resource_capacity("compute.vm-scale-set", {"sku": {"capacity": 3}}) == 3
+    assert (
+        _resource_capacity(
+            "kubernetes-node-pool",
+            {"properties": {"count": -1}},
+        )
+        is None
+    )
+    assert _resource_capacity("compute.vm", {"sku": {"capacity": 3}}) is None
 
 
 async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identity(

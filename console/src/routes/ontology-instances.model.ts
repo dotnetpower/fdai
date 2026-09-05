@@ -8,11 +8,22 @@ export interface OntologyInstanceResource {
   readonly location: string | null;
   readonly resource_group: string | null;
   readonly status: string | null;
+  readonly capacity?: number | null;
   readonly last_seen: string | null;
   readonly selected: boolean;
 }
 
 export type OntologyInstanceStatusTone = "neutral" | "success" | "warning" | "danger";
+export type OntologyInstanceCapacityKind = "node" | "instance";
+
+/** Names the only scalable Resource types whose provider capacity is projected. */
+export function ontologyInstanceCapacityKind(
+  resourceType: string,
+): OntologyInstanceCapacityKind | null {
+  if (resourceType === "kubernetes-node-pool") return "node";
+  if (resourceType === "compute.vm-scale-set") return "instance";
+  return null;
+}
 
 /** Maps exact provider state text to presentation tone without changing the state value. */
 export function ontologyInstanceStatusTone(status: string | null): OntologyInstanceStatusTone {
@@ -1020,14 +1031,22 @@ function decodeRelationshipDropClassification(
 function decodeResource(value: unknown): OntologyInstanceResource {
   const record = objectRecord(value, "Resource instance");
   if (record.object_type !== "Resource") throw new Error("instance object_type MUST be Resource");
+  const resourceType = requiredString(record.resource_type, "Resource type", 256);
+  const capacityKind = ontologyInstanceCapacityKind(resourceType);
+  if (record.capacity !== undefined && record.capacity !== null && capacityKind === null) {
+    throw new Error("Resource capacity MUST use a supported scalable Resource type");
+  }
   return {
     id: requiredString(record.id, "Resource id", 1024),
     object_type: "Resource",
-    resource_type: requiredString(record.resource_type, "Resource type", 256),
+    resource_type: resourceType,
     name: nullableString(record.name, "Resource name", 512),
     location: nullableString(record.location, "Resource location", 128),
     resource_group: nullableString(record.resource_group, "Resource group", 256),
     status: nullableString(record.status, "Resource status", 128),
+    capacity: record.capacity === undefined || record.capacity === null
+      ? null
+      : nonNegativeInteger(record.capacity, "Resource capacity"),
     last_seen: nullableTimestamp(record.last_seen, "Resource last seen"),
     selected: boolean(record.selected, "Resource selected"),
   };

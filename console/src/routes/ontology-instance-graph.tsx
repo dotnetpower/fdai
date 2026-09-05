@@ -24,6 +24,7 @@ import {
 import { nestInstanceContainment } from "./ontology-instance-boxes";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 import {
+  ontologyInstanceCapacityKind,
   ontologyInstancePresentationCoverage,
   ontologyInstanceStatusTone,
   ontologyInstanceTrafficDirection,
@@ -509,7 +510,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 ? t("ontology.instances.nodeOmittedChildren", { count: String(omittedChildren) })
                 : null,
             ].filter((notice): notice is string => notice !== null).join(", ") || null;
-            const typeCaption = node.clusterManaged
+            const baseTypeCaption = node.clusterManaged
               ? t("ontology.instances.nodeClusterManaged", { type: resource.resource_type })
               : node.distance > 1
                 ? t("ontology.instances.nodeIndirectHops", {
@@ -517,6 +518,21 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                   count: String(node.distance),
                 })
                 : resource.resource_type;
+            const capacityKind = ontologyInstanceCapacityKind(resource.resource_type);
+            const capacityCaption = resource.capacity === null
+              || resource.capacity === undefined
+              || capacityKind === null
+              ? null
+              : capacityKind === "node"
+                ? t("ontology.instances.nodeCountShort", {
+                  count: formatNumber(resource.capacity),
+                })
+                : t("ontology.instances.instanceCountShort", {
+                  count: formatNumber(resource.capacity),
+                });
+            const typeCaption = capacityCaption === null
+              ? baseTypeCaption
+              : `${baseTypeCaption} - ${capacityCaption}`;
             // Absent status means no state is projected for this class, not an observation that found none.
             const stateText = resource.status ?? t("ontology.instances.stateNotReported");
             const stateTone = ontologyInstanceStatusTone(resource.status);
