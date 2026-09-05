@@ -58,6 +58,19 @@ def test_hydrates_exact_platform_reader_identity() -> None:
     }
 
 
+def test_preserves_core_defaults_when_platform_reader_is_unavailable() -> None:
+    module = _module()
+
+    hydrated = module.hydrate_rca_reader_identity(
+        _payload(),
+        service="core-control-plane",
+        environment="dev",
+        identity=None,
+    )
+
+    assert hydrated == _payload()
+
+
 def test_rejects_non_dedicated_identity() -> None:
     module = _module()
     with pytest.raises(module.RcaReaderIdentityError, match="dedicated RCA reader"):

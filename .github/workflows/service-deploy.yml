@@ -529,13 +529,15 @@ jobs:
             }
             rca_reader_identity_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
-                output -json rca_reader_identity
+                output -json rca_reader_identity 2>/dev/null || printf 'null\n'
             )"
             jq -e '
-              type == "object" and
-              keys == ["client_id", "principal_id", "resource_id"] and
-              all(.[]; type == "string" and length > 0) and
-              (.resource_id | ascii_downcase | endswith("-rca-reader"))
+              . == null or (
+                type == "object" and
+                keys == ["client_id", "principal_id", "resource_id"] and
+                all(.[]; type == "string" and length > 0) and
+                (.resource_id | ascii_downcase | endswith("-rca-reader"))
+              )
             ' <<<"$rca_reader_identity_binding" >/dev/null || {
               echo "Platform state returned an invalid RCA reader identity." >&2
               exit 1

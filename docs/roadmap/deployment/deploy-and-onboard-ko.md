@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 19b3bd20e0692923fa8bfad3be030894f614c9bf
+translation_source_sha: 0098831831bdba0b65bf2b024c7dd0ce230148dc
 translation_revised: 2026-09-05
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -274,7 +274,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 5 | **Event Grid 인벤토리 system 토픽 + 구독 + Diagnostic Settings** | global 구독 이벤트 전달 / Log Analytics | Resource 쓰기/삭제를 `fdai.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure 정본 lowercase 타입으로 tracked 토픽 하나를 adopt하고 send-only 인벤토리 UAMI를 할당하며 dedicated system-topic 구독 API를 사용합니다. 발견이 모호하면 계획을 차단합니다. |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo 백업 | 감사 + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | Terraform은 `vector`와 `pg_trgm`을 허용 목록하고 운영은 `ZoneRedundant` HA를 요구하며, 로컬 Compose는 별도 bind-mounted initializer 없이 같은 Alembic-owned `vector` 확장을 사용합니다. |
 | 7 | **Key Vault** | Standard | **Container Apps native 시크릿 + Key Vault 참조**로 소비되는 시크릿 백엔드 - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 시크릿 SDK 호출 안 함 |
-| 8 | **User-assigned Managed Identity** | - | 실행기와 별도 범위의 읽기 신원, [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | 실행기는 작업 허용 목록을 유지합니다. 인벤토리와 RCA는 서로 다른 읽기 전용 신원을 사용하며 split 서비스 hydration은 platform이 내보낸 RCA reader만 허용합니다. |
+| 8 | **User-assigned Managed Identity** | - | 실행기와 별도 범위의 읽기 신원, [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | 실행기는 작업 허용 목록을 유지합니다. 인벤토리와 RCA는 서로 다른 읽기 전용 신원을 사용합니다. Split 서비스 hydration은 선택적 platform 출력이 없으면 비활성 기본값을 유지하고, 값이 있으면 platform이 내보낸 RCA reader만 허용합니다. |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **기본 30일 보존** | traces / metrics / logs / audit-forward | `appi-*` 리소스가 workspace에 바인딩되며 보존은 배포 후 **UI에서 설정 가능** |
 | 10 | **Container Registry (ACR)** | Basic (나중에 geo-replication 필요 시 Standard) | 서명된 이미지 + 빌드 증명 | 다이제스트로 고정, 변경 가능한 태그 절대 아님 |
 | 11 | **Azure OpenAI 계정 + Foundry 계정/project** (**명시적 선택**, `var.enable_llm`) | Standard | T1 임베딩 + T2 mixed-model 배포 및 100K TPM의 전용 GPT-4.1-nano 웹 검색 프롬프트 에이전트 | 프로비저닝에는 deployer 권한과 리전 계열 용량이 필요하며, 그렇지 않으면 해당 기능이 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. 웹 검색을 활성화하면 Terraform이 배포 지역에 별도 `AIServices` Foundry 계정, project 및 `t1.web_search` 배포를 만들고 deployer와 활성화된 Operator API 신원에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 도구 준비 상태 탐색 전에 정확한 도메인 허용 목록으로 `fdai-web-search`를 조정합니다. 비공개 모드는 `privatelink.services.ai.azure.com`을 추가하며 테넌트 정책이 소유하는 거부 ACL 세부 정보는 Terraform이 보존합니다. |

@@ -39,6 +39,8 @@ def hydrate_rca_reader_identity(
     hydrated = copy.deepcopy(payload)
     if service != "core-control-plane":
         return hydrated
+    if identity is None:
+        return hydrated
     if not isinstance(identity, dict) or set(identity) != {
         "client_id",
         "principal_id",
