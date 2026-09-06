@@ -89,6 +89,7 @@ def _excerpt() -> GovernedDocumentExcerpt:
         ("source_name", "", "bounded"),
         ("text", "", "text"),
         ("content_digest", "sha256:bad", "digest"),
+        ("content_digest", "sha256:" + ("z" * 64), "digest"),
         ("evidence_ref", "document:invalid", "evidence ref"),
         ("document_revision", "version:invalid", "revision"),
         ("score", float("nan"), "score"),
@@ -148,6 +149,7 @@ def test_collection_rejects_invalid_bounds_order_and_provenance() -> None:
         ({**base, "limitation": "unexpected"}, "inconsistent"),
         ({**base, "index_generation": ""}, "index_generation"),
         ({**base, "access_scope_digest": "invalid"}, "SHA-256"),
+        ({**base, "access_scope_digest": "sha256:" + ("z" * 64)}, "SHA-256"),
     )
 
     for values, message in invalid:

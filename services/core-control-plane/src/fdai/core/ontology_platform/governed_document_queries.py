@@ -34,6 +34,7 @@ GOVERNED_DOCUMENT_EVIDENCE_MODES = frozenset({"optional", "required", "explicit"
 GOVERNED_DOCUMENT_MAX_EXCERPTS = 8
 _MAX_EXCERPT_BYTES = 8_192
 _MAX_REF_LENGTH = 512
+_DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
 _EVIDENCE_REF = re.compile(r"document:sha256:[a-f0-9]{64}")
 _DOCUMENT_REVISION = re.compile(
     r"version:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:"
@@ -69,7 +70,7 @@ class GovernedDocumentExcerpt:
                 raise ValueError(f"governed document {name} MUST be bounded and non-empty")
         if not self.text or len(self.text.encode("utf-8")) > _MAX_EXCERPT_BYTES:
             raise ValueError("governed document excerpt text MUST be bounded and non-empty")
-        if not self.content_digest.startswith("sha256:") or len(self.content_digest) != 71:
+        if _DIGEST.fullmatch(self.content_digest) is None:
             raise ValueError("governed document content digest MUST be SHA-256")
         if _EVIDENCE_REF.fullmatch(self.evidence_ref) is None:
             raise ValueError("governed document evidence ref MUST be content-addressed")
@@ -111,10 +112,7 @@ class GovernedDocumentCollection:
         ):
             if not value.strip() or len(value) > _MAX_REF_LENGTH:
                 raise ValueError(f"governed document {name} MUST be bounded and non-empty")
-        if (
-            not self.access_scope_digest.startswith("sha256:")
-            or len(self.access_scope_digest) != 71
-        ):
+        if _DIGEST.fullmatch(self.access_scope_digest) is None:
             raise ValueError("governed document access scope digest MUST be SHA-256")
 
 

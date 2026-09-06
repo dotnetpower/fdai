@@ -96,6 +96,8 @@ The PostgreSQL adapter reports `index_completeness_unverified` until a complete 
 index generation is available.
 Focused governed-query contract tests exercise every excerpt, collection, authorization, input,
 and reader-bound failure branch without granting execution authority.
+Content and access-scope digests require exact lowercase hexadecimal SHA-256 identities; matching
+length alone is not accepted.
 Projection regressions also keep the immutable source digest separate from the exact redacted,
 escaped, and display-truncated representation digest.
 

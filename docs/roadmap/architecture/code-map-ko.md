@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b43b4d1cea848478c22bdef0f2487542b2d585ca
+translation_source_sha: ec3c45e41efcf68bb72c210c6a0148f3bd1d89ec
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -97,6 +97,8 @@ PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세�
 `index_completeness_unverified`를 보고합니다.
 관리 문서 조회 계약 집중 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한,
 입력 및 reader 한도 실패 분기를 모두 검증합니다.
+콘텐츠 및 접근 범위 digest는 정확한 소문자 16진수 SHA-256 신원을 요구하며 길이만 같으면
+수락하지 않습니다.
 Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을
 적용한 정확한 표현 digest를 분리합니다.
 
