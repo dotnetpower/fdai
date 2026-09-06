@@ -153,6 +153,12 @@ describe("parseIntentGraphEvidence", () => {
       evidence_mode: "operational_grounded",
       goals: [{ ...receipt, evidence_refs: ["x".repeat(513)] }],
     })).toBeUndefined();
+    expect(parseIntentGraphEvidence({
+      schema_version: 2,
+      status: "completed",
+      evidence_mode: "operational_grounded",
+      goals: [{ ...receipt, authority: "user_asserted" }],
+    })).toBeUndefined();
   });
 
   it("accepts governed document evidence without granting action authority", () => {

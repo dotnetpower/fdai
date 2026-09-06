@@ -56,6 +56,8 @@ The Console accepts only Core-projected version 2 intent evidence, displays exac
 citations and incomplete-coverage limits, and never treats document text as instructions or
 current operational state. Missing optional document evidence remains a partial answer only when
 independent operational evidence completed; required or explicit document evidence stays held.
+Unknown evidence authority values and unsupported intent-evidence versions are discarded rather
+than downgraded or displayed.
 The Process journal can also project an adaptive Investigation Room. Operator rechecks the Process
 revision and nested content digests before returning it, and the Console validates the same identity
 before rendering bounded rounds, competing hypotheses, evidence gaps, and terminal status. The room
