@@ -16,6 +16,7 @@ from fdai.core.conversation.conversation_preflight import (
     OperationalSignal,
     SocialAct,
     SocialResponseNarratorBinding,
+    operational_target_is_generic,
     preflight_operational_judgment,
 )
 from fdai.core.conversation.model_observation import (
@@ -527,6 +528,19 @@ def test_preflight_gateway_rejects_generic_product_targets() -> None:
     )
 
     assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "the APIM gateway",
+        "selected backend",
+        "현재 GPT model",
+        "Azure API Management service.",
+    ),
+)
+def test_operational_target_generic_gate_normalizes_qualifiers(value: str) -> None:
+    assert operational_target_is_generic(value)
 
 
 def test_preflight_gateway_requires_explicit_time_target() -> None:

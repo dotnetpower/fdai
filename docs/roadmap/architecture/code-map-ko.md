@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c32267842688191ec7d2ce40217e285fb930935b
+translation_source_sha: 3b61ea07b6a99a69a4ba72d782ef2baa677ba878
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -66,8 +66,9 @@ Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 �
 로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
 commit을 일괄 수행합니다. Multiplex된 논리 consumer는 관련 없는 물리 이벤트마다 broker commit을
 수행하지 않고 건너뛸 수 있으며, 처리 도중 닫힌 이벤트는 재전달 대상 상태로 유지합니다.
-APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 정확한 운영 대상이 될 수 없습니다. Frame 또는
-provider 작업 전에 Resource 신원 명확화를 요구합니다.
+APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 "the", "selected", "해당" 같은 한정사가
+붙어도 정확한 운영 대상이 될 수 없습니다. Frame 또는 provider 작업 전에 Resource 신원 명확화를
+요구합니다.
 한 시간 운영 단축 경로는 과거를 명시하는 원문 문구만 수락합니다. 방향이 없거나 미래를 나타내는
 문구는 과거 lookback으로 바꾸지 않고 전체 의미 판단을 유지합니다.
 Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간

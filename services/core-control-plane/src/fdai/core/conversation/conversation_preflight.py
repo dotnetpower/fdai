@@ -79,15 +79,23 @@ _ONE_HOUR_EXPRESSIONS = frozenset(
 _GENERIC_OPERATIONAL_TARGETS = frozenset(
     {
         "api management",
+        "api management service",
         "apim",
         "apim gateway",
+        "apim service",
         "application gateway",
         "appgw",
+        "azure api management",
+        "azure api management gateway",
+        "azure api management service",
+        "azure application gateway",
         "backend",
+        "backend service",
         "deployment",
         "gateway",
         "gpt",
         "gpt deployment",
+        "gpt model",
         "model",
         "selected deployment",
         "selected gateway",
@@ -541,7 +549,13 @@ def _preflight_input_digest(utterance: str) -> str:
 
 def operational_target_is_generic(value: str) -> bool:
     """Return whether source text names only a generic operational category."""
-    return " ".join(value.casefold().split()) in _GENERIC_OPERATIONAL_TARGETS
+    normalized = " ".join(value.casefold().split()).strip(".,:;!?()[]{}")
+    prefixes = ("the ", "this ", "selected ", "current ", "해당 ", "선택한 ", "현재 ")
+    while normalized.startswith(prefixes):
+        normalized = normalized.removeprefix(
+            next(prefix for prefix in prefixes if normalized.startswith(prefix))
+        )
+    return normalized in _GENERIC_OPERATIONAL_TARGETS
 
 
 def _reject_operational_promotion(reason: str) -> SemanticJudgmentProposal | None:
