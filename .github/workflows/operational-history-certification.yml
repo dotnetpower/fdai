@@ -486,10 +486,22 @@ jobs:
             if [[ "$status" == "Succeeded" ]]; then
               summary="$RUNNER_TEMP/oi16-certification-summary.json"
               logs="$RUNNER_TEMP/oi16-after-restart.log"
+              replica="$(
+                az containerapp job replica list \
+                  --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+                  --execution "$execution" --query '[0].name' --output tsv
+              )"
+              container="$(
+                az containerapp job replica list \
+                  --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+                  --execution "$execution" \
+                  --query '[0].properties.containers[0].name' --output tsv
+              )"
+              [[ -n "$replica" && -n "$container" ]]
               for _ in $(seq 1 12); do
                 az containerapp job logs show \
                   --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
-                  --execution "$execution" --container operational-history-lifecycle \
+                  --execution "$execution" --replica "$replica" --container "$container" \
                   --tail 100 --format text > "$logs"
                 if python3 - "$logs" "$summary" <<'PY'
           import json

@@ -60,6 +60,9 @@ def test_campaign_derives_canonical_release_and_reads_final_summary_after_restar
     after = _WORKFLOW.index("- name: Run after-restart campaign and persist certification")
     summary = _WORKFLOW.index('summary="$RUNNER_TEMP/oi16-certification-summary.json"')
     assert summary > after
+    assert "az containerapp job replica list" in _WORKFLOW
+    assert '--replica "$replica" --container "$container"' in _WORKFLOW
+    assert "--container operational-history-lifecycle" not in _WORKFLOW
 
 
 def test_campaign_job_arguments_are_one_azure_cli_value() -> None:

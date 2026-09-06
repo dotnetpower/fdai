@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: fbca027635f43098b967e374f7a1a98c1c3bf985
+translation_source_sha: 7341e05afc2c955a4105c0b74285660e97b76fee
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -177,7 +177,7 @@ OI-16 보호 certification campaign은 `delivery/operational_history_certificati
 `20260907_core_oi16_certification_support.py`에 있습니다. 공유 journal은 synthetic purge
 retention을 기본으로 비활성화하며 검증된 개발 campaign만 이를 활성화합니다. 보호된 workflow는
 certification writer가 증적을 추가하기 전에 13개 시나리오 결과를 정확한 CI, runtime image
-attestation, 배포 근거 및 별도 사람 승인에 결속합니다. 비공개 Blob 모듈은 이전 배포자 역할을 보존하면서 안정적인 runner를 별도 Terraform 주소에 추가하므로, 인증 계획은 역할 교체와 삭제를 차단합니다.
+attestation, 배포 근거 및 별도 사람 승인에 결속한 뒤 실행의 실제 replica 및 container 신원에서 최종 요약을 읽습니다. 비공개 Blob 모듈은 이전 배포자 역할을 보존하면서 안정적인 runner를 별도 Terraform 주소에 추가하므로, 인증 계획은 역할 교체와 삭제를 차단합니다.
 
 프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립은 `composition/wire_azure_prompts.py`에 둡니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, `adaptive_model_targets.py`는 적응형 답변과 선택형 `wire_t1_routing.py` 지연 시간 프로브가 함께 쓰는 작성, 검토 및 선택적 보강 대상을 배선 모듈 간 가져오기 없이 해석합니다. [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다.
 리비전 기반 대화 설정은 Operator 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다. IAM 조립은 최상위 모듈 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. Core는 범위가 제한된 T1 측정값을 권한 없는 상태 변환 결과에 기록합니다. Operator 대화 어댑터는 해당 상태만 읽고 Console 상태 표시에 앞서 엔드포인트 세부 정보를 제거하며, 기존 의미 런타임 facade를 통해 판독기를 가져와 최상위 조립을 고유 서비스 가져오기 39개로 유지합니다. 적응형 답변은 독립적으로 구성된 T1 작성 및 검토 모델을 사용하고 선택적 보강에만 T2를 사용합니다. 프롬프트 ablation은 선택적 제외 항목을 재실행을 위해 기록하며, 버전 협상을 적용한 적응형 `1.6.0` 전송은 의미 처리 근거를 보존합니다.
