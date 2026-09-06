@@ -359,6 +359,32 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
     assert observation.relationship_drops == ()
     assert observation.state_base_generation == "snapshot-0"
     assert observation.state_base_generation_checked is True
+    migrated_manifest = {
+        **prior_manifest,
+        "schema_version": "1.3.0",
+        "generation": generation,
+        "manifest_digest": "sha256:" + "f" * 64,
+        "complete": True,
+        "relationship_complete": True,
+        "link_content": [],
+    }
+    migrated_replay = build_projection_replay_observation(
+        generation=generation,
+        recorded_at=NOW,
+        metadata={},
+        prior_manifest=migrated_manifest,
+        records=records,
+    )
+    assert migrated_replay.complete is True
+    assert migrated_replay.relationship_drops == ()
+    with pytest.raises(ValueError, match="incomplete for projection replay"):
+        build_projection_replay_observation(
+            generation=generation,
+            recorded_at=NOW,
+            metadata={},
+            prior_manifest={**migrated_manifest, "relationship_complete": False},
+            records=records,
+        )
     assert (
         projection_freshness_ceiling(
             {
