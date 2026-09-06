@@ -76,6 +76,53 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
     assert resources[0].props["parent_id"] == links[0].from_id
 
 
+async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
+    deployment_id = (
+        "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+        "Microsoft.CognitiveServices/accounts/ai-example/deployments/gpt-example"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": deployment_id,
+                        "name": "gpt-example",
+                        "sku": {"name": "GlobalStandard", "capacity": 50},
+                        "properties": {
+                            "provisioningState": "Succeeded",
+                            "model": {
+                                "format": "OpenAI",
+                                "name": "gpt-5.4",
+                                "version": "2026-09-01",
+                            },
+                        },
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        resources, _links = await query("llm-model-deployment")
+
+    deployment = resources[0]
+    assert deployment.resource_id == to_neutral_id(deployment_id)
+    assert deployment.props["model_name"] == "gpt-5.4"
+    assert deployment.props["model_version"] == "2026-09-01"
+    assert deployment.props["provisioning_state"] == "Succeeded"
+    assert deployment.props["sku_name"] == "GlobalStandard"
+    assert deployment.props["capacity_units"] == 50
+    assert deployment.props["parent_id"].endswith("microsoft.cognitiveservices/accounts/ai-example")
+
+
 async def test_arm_fallback_lists_private_dns_zone_group_children() -> None:
     requested_paths: list[str] = []
 

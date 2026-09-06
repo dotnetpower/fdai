@@ -118,38 +118,6 @@ def _gateway_config() -> AzureGatewayDirectApiConfig:
     )
 
 
-def _model_deployment_request(mode: Mode) -> DirectApiRequest:
-    return DirectApiRequest(
-        action_id=UUID("00000000-0000-0000-0000-000000000002"),
-        idempotency_key="model-deployment-one",
-        action_type_name="ops.deploy-model",
-        rule_ids=("operator.request.ops.deploy-model",),
-        resource_ref=(
-            "/resourcegroups/example/providers/microsoft.cognitiveservices/accounts/"
-            "aoai-app/deployments/gpt-5-4-global-50k"
-        ),
-        arguments={
-            "resource_group": "example",
-            "account_name": "aoai-app",
-            "deployment_name": "gpt-5-4-global-50k",
-            "model_name": "gpt-5.4",
-            "model_version": "2026-09-01",
-            "sku_name": "GlobalStandard",
-            "capacity_tpm": 50_000,
-            "reason": "add a governed reasoning deployment",
-        },
-        labels=("enforce",) if mode is Mode.ENFORCE else ("shadow",),
-        mode=mode,
-        metadata={
-            "audit_ref": "action:model-deployment-one",
-            "stop_condition": "provider_api_error_streak",
-            "rollback_ref": "scripted",
-            "max_resources": "1",
-            "executor_identity_ref": "identity/finops",
-        },
-    )
-
-
 async def test_gateway_plans_before_enforce_mutation() -> None:
     operations: list[str] = []
 
@@ -192,56 +160,6 @@ async def test_gateway_plans_before_enforce_mutation() -> None:
         "azure.operation.status",
         "azure.operation.plan",
         "azure.compute.vm.start",
-    ]
-
-
-async def test_gateway_routes_model_deployment_to_finops_and_reports_name() -> None:
-    operations: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        operation = request.url.path.rsplit("/", 1)[-1]
-        operations.append(operation)
-        if operation == "azure.operation.status":
-            return httpx.Response(
-                404,
-                json={
-                    "status": "failed",
-                    "code": "idempotency_not_found",
-                    "detail": "operation record was not found",
-                },
-            )
-        if operation == "azure.operation.plan":
-            return httpx.Response(
-                200,
-                json={
-                    "operation_id": operation,
-                    "status": "succeeded",
-                    "result": {"dry_run_receipt": "dry-run-model"},
-                },
-            )
-        return httpx.Response(
-            200,
-            json={
-                "operation_id": operation,
-                "status": "succeeded",
-                "result": {"deployment_name": "gpt-5-4-global-50k"},
-            },
-        )
-
-    identity = _Identity("finops-token")
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        receipt = await AzureGatewayDirectApiExecutor(
-            config=_gateway_config(),
-            identities={"identity/finops": identity},
-            http_client=client,
-        ).execute(_model_deployment_request(Mode.ENFORCE))
-
-    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
-    assert receipt.detail == "model deployment gpt-5-4-global-50k completed"
-    assert operations == [
-        "azure.operation.status",
-        "azure.operation.plan",
-        "azure.cognitiveservices.model-deployment.create",
     ]
 
 

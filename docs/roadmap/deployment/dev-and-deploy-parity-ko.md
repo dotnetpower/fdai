@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: abd34fc70b2d399daa957d7eb45e5b11d67db59a
+translation_source_sha: d6cf39bd05e323f221d8d30c80743539d0ae321b
 translation_revised: 2026-09-06
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -559,13 +559,7 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 - 신규: `infra/modules/llm/azure-openai/`.
   - `main.tf`: `azurerm_cognitive_account` (종류=`OpenAI`) + 입력 변수의
     `resolved_capabilities` 로부터 N개 `azurerm_cognitive_deployment`.
-  - `variables.tf`: `enable_llm` (기본값 `false` - 최소 배포도 성공하도록),
-    `resolved_capabilities` (해석기로부터의 객체 목록), 명시적인
-    `llm_public_network_access_enabled` 선택 항목을 제공합니다. 공용 액세스는 기본적으로
-    비활성화됩니다. 이를 활성화하는 환경은 기본 거부 네트워크 ACL과 명시적인 신뢰 원본 규칙을
-    유지하는 것이 좋습니다. 키 인증은 계속 비활성화됩니다.
-    보호된 개발 워크플로는 리포지토리 변수 `LLM_PUBLIC_NETWORK_ACCESS_ENABLED=true`를 이 입력에
-    연결합니다.
+  - `variables.tf`: `enable_llm` (기본값 `false` - 최소 배포도 성공하도록), `resolved_capabilities` (해석기로부터의 객체 목록), 명시적인 `llm_public_network_access_enabled` 선택 항목을 제공합니다. 공용 액세스는 기본적으로 비활성화됩니다. 리포지토리 변수 `LLM_PUBLIC_NETWORK_ACCESS_ENABLED=true`로 활성화하는 환경은 기본 거부 네트워크 ACL과 명시적인 신뢰 원본 규칙을 유지하는 것이 좋으며 키 인증은 계속 비활성화됩니다.
   - `outputs.tf`: `endpoint`, `deployments` 지도, `resource_id`.
 - 역할 배정: 실행기 MI → 계정의 `Cognitive Services OpenAI User`.
 - 루트 `infra/main.tf` 에서 `var.enable_llm` 조건부로 모듈 wire.

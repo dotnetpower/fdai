@@ -3188,6 +3188,44 @@ def test_stated_subtype_wins_over_its_broader_category_group() -> None:
     assert predicates == [{"property": "type", "operator": "equals", "equals": "mysql-server"}]
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show the deployed LLMs.",
+        "List the GPT models.",
+        "배포된 LLM 목록을 보여줘.",
+        "GPT 모델 목록을 알려줘.",
+    ),
+)
+def test_llm_inventory_phrases_select_model_deployment_instances(utterance: str) -> None:
+    deployment_group = PropertyValueGroup(
+        id="llm-model-deployment",
+        values=("llm-model-deployment",),
+        terms=tuple(
+            sorted(
+                (
+                    "deployed LLMs",
+                    "GPT models",
+                    "배포된 LLM 목록",
+                    "GPT 모델 목록",
+                )
+            )
+        ),
+    )
+    manifest, definition = _typed_fixture(groups=(deployment_group,))
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, utterance)
+
+    assert predicates == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "llm-model-deployment",
+        }
+    ]
+
+
 def test_a_term_inside_a_longer_word_does_not_ground_a_filter() -> None:
     manifest, definition = _typed_fixture(groups=(_VM_GROUP,))
     model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))

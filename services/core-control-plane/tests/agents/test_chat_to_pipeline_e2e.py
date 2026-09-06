@@ -58,6 +58,8 @@ class _ActionJudgmentModel:
             if folded.startswith("restart")
             else ("encrypt", "remediate.enable-encryption")
             if folded.startswith("encrypt")
+            else ("deploy", "ops.deploy-model")
+            if folded.startswith("deploy")
             else ("provision", "ops.provision-cluster")
         )
         action_start = folded.index(source_action)
@@ -207,10 +209,16 @@ def test_rbac_denies_request_and_raises_security_event() -> None:
     assert h.bragi_published() == []
 
 
-def test_unmapped_command_abstains_without_submitting() -> None:
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "provision a new cluster",
+        "deploy a GPT model",
+    ),
+)
+def test_unmapped_command_abstains_without_submitting(prompt: str) -> None:
     h = _Harness()
-    # 'provision' is a command verb but maps to no ActionType -> abstain.
-    turn = h.ask("provision a new cluster")
+    turn = h.ask(prompt)
     assert turn.answer["submitted"] is False
     assert turn.answer["abstain_reason"] == "unmapped_action_intent"
     # Nothing entered the pipeline.

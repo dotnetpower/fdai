@@ -84,3 +84,16 @@ def test_shipped_vocabulary_exposes_each_type_request_term() -> None:
     assert resource_group.values == ("resource-group",)
     assert "resource group" in resource_group.terms
     assert "리소스그룹" in resource_group.terms
+
+
+def test_shipped_vocabulary_maps_llm_inventory_phrases_to_deployments() -> None:
+    domain = _domain()
+    deployment = next(group for group in domain.groups if group.id == "llm-model-deployment")
+
+    assert deployment.values == ("llm-model-deployment",)
+    assert {
+        "deployed LLMs",
+        "GPT models",
+        "배포된 LLM 목록",
+        "GPT 모델 목록",
+    } <= set(deployment.terms)

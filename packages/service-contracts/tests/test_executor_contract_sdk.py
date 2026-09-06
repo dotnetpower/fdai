@@ -164,20 +164,6 @@ def test_executor_contract_canonicalizes_azure_operation_targets() -> None:
             "rule_name": "Allow-HTTPS",
         },
     )
-    deployment = resolve_azure_operation_target(
-        "ops.deploy-model",
-        {
-            "resource_group": "Example",
-            "account_name": "AOAI-App",
-            "deployment_name": "GPT-5.4-Global-50K",
-            "model_name": "gpt-5.4",
-            "model_version": "2026-09-01",
-            "sku_name": "GlobalStandard",
-            "capacity_tpm": 50_000,
-            "reason": "add a governed reasoning deployment",
-        },
-    )
-
     assert vm.operation_id == "azure.compute.vm.start"
     assert vm.resource_ref == (
         "/resourcegroups/example/providers/microsoft.compute/virtualmachines/vm-app"
@@ -185,9 +171,4 @@ def test_executor_contract_canonicalizes_azure_operation_targets() -> None:
     assert rule.resource_ref == (
         "/resourcegroups/example/providers/microsoft.network/"
         "networksecuritygroups/nsg-app/securityrules/allow-https"
-    )
-    assert deployment.operation_id == "azure.cognitiveservices.model-deployment.create"
-    assert deployment.resource_ref == (
-        "/resourcegroups/example/providers/microsoft.cognitiveservices/accounts/"
-        "aoai-app/deployments/gpt-5.4-global-50k"
     )

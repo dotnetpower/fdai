@@ -107,37 +107,6 @@ run "a_dev_plan_with_private_networking_is_accepted" {
   }
 }
 
-run "model_deployment_permission_is_account_scoped" {
-  command = plan
-
-  variables {
-    env                           = "dev"
-    enable_private_networking     = true
-    enable_dev_operations_gateway = true
-    enable_llm                    = true
-  }
-
-  assert {
-    condition = (
-      length(azurerm_role_definition.dev_gateway_model_deployment) == 1 &&
-      toset(azurerm_role_definition.dev_gateway_model_deployment[0].permissions[0].actions) == toset([
-        "Microsoft.CognitiveServices/accounts/deployments/read",
-        "Microsoft.CognitiveServices/accounts/deployments/write",
-        "Microsoft.CognitiveServices/accounts/deployments/delete",
-      ])
-    )
-    error_message = "model deployment permission MUST contain only deployment lifecycle actions at the Azure AI account scope"
-  }
-
-  assert {
-    condition = (
-      length(azurerm_role_assignment.dev_gateway_model_deployment) == 1 &&
-      azurerm_role_assignment.dev_gateway_model_deployment[0].principal_type == "ServicePrincipal"
-    )
-    error_message = "the development operations gateway executor MUST receive the account-scoped model deployment role"
-  }
-}
-
 run "an_evidence_target_without_the_gateway_is_refused" {
   command = plan
 

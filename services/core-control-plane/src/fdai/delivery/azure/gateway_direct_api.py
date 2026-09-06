@@ -30,7 +30,6 @@ _ACTION_OPERATIONS = {
     "ops.scale-out": "azure.compute.vmss.scale",
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
-    "ops.deploy-model": "azure.cognitiveservices.model-deployment.create",
 }
 
 
@@ -238,21 +237,6 @@ def _arguments(
     required: tuple[str, ...]
     if operation_id == "azure.compute.vmss.scale":
         return _vmss_scale_arguments(raw, resource_ref=resource_ref)
-    if operation_id == "azure.cognitiveservices.model-deployment.create":
-        required = (
-            "resource_group",
-            "account_name",
-            "deployment_name",
-            "model_name",
-            "model_version",
-            "sku_name",
-            "capacity_tpm",
-            "reason",
-        )
-        model_arguments = {key: raw[key] for key in required if key in raw}
-        if len(model_arguments) != len(required):
-            raise DirectApiPreconditionError("model deployment arguments are incomplete")
-        return model_arguments
     if operation_id.startswith("azure.compute.vm."):
         required = ("resource_group", "vm_name")
     elif operation_id == "azure.network.nsg.rule.delete":
@@ -358,16 +342,10 @@ def _result(body: Mapping[str, object], *, expected_operation: str) -> Mapping[s
 
 
 def _success_receipt(request: DirectApiRequest) -> DirectApiReceipt:
-    deployment_name = request.arguments.get("deployment_name")
-    detail = (
-        f"model deployment {deployment_name} completed"
-        if request.action_type_name == "ops.deploy-model" and isinstance(deployment_name, str)
-        else "gateway mutation completed"
-    )
     return DirectApiReceipt(
         outcome=DirectApiOutcome.SUCCEEDED,
         receipt_ref=f"gateway:{request.idempotency_key}",
-        detail=detail,
+        detail="gateway mutation completed",
     )
 
 

@@ -85,28 +85,31 @@ guarantees rot. The provisioning model below keeps the capability→concrete-mod
 **automatic at bootstrap and reviewed at update time**, with model changes flowing through
 the same shadow-before-enforce discipline as any other change.
 
-### Conversational Global Standard Deployment
+### Deployed Model Discovery
 
-An authenticated Owner can ask FDAI Console to prepare one `ops.deploy-model` action draft. The
-draft identifies the signed-in account for review, pins the Azure AI account, deployment name,
-model family and version, `GlobalStandard` SKU, and requested TPM, and then waits for explicit
-confirmation. The Operator API submits only the typed request. A separate approver and the FinOps
-executor identity remain responsible for authorization and provider mutation.
+FDAI is designed for environments where infrastructure as code owns resource creation. A
+conversation that asks FDAI to deploy a new model or cloud resource is unsupported and cannot
+produce an ActionType, action draft, or provider mutation. Authorized operators can instead ask
+which LLM or GPT deployments already exist.
 
-Standard deployment capacity uses 1,000 TPM units. For example, a 50-unit Azure capacity request is
-represented as `capacity_tpm: 50000`; `capacity_tpm: 50` is invalid. Before apply, the development
-operations gateway verifies that the account exists, the deployment name is unused, and the
-regional Global Standard quota has at least the requested units. Apply uses create-only semantics
-and a dry-run-bound idempotency key. Completion is reported only after a separate ARM read confirms
-the exact deployment name, model version, SKU, capacity, and `Succeeded` provisioning state.
+The read-only inventory registers `Microsoft.CognitiveServices/accounts/deployments` as
+`llm-model-deployment` and maps each child to its `llm-endpoint` parent. The normal scheduled Azure
+Resource Graph collection, ontology projection, and semantic query path can therefore return only
+deployments visible to the caller's existing scope. Freshness, completeness, and source limitations
+remain explicit, and the observation grants no deployment, inference, approval, or execution
+authority.
 
-Terraform grants the development operations gateway a custom account-scoped role containing only
-model deployment read, write, and delete actions when both the gateway and Azure OpenAI are enabled.
-It doesn't grant account creation, role-assignment, inference, or subscription-wide authority.
+Each deployment instance preserves the deployment name, model name, model version, model format,
+SKU name, provider capacity units, and provisioning state as readable facts while retaining the
+bounded raw provider bag for evidence review. FDAI does not convert provider capacity units into TPM
+without a model-specific quota contract.
 
-The deployment child resource is registered as `llm-model-deployment`, so the existing inventory
-and Azure Resource Graph change feed can record later configuration changes. This tracking is
-observational; it doesn't convert deployment completion or correlation into proof of causation.
+Requests such as "show deployed LLMs", "list GPT models", `배포된 LLM 목록`, and
+`GPT 모델 목록` resolve to this resource type. The inventory resource-change feed is enabled by
+default and coalesces changed resources within the configured minimum interval. Complete
+reconciliation runs on its separately configured interval to repair missed events and confirm
+deletions. A deployment that narrows `FDAI_INVENTORY_RESOURCE_TYPES` must include
+`llm-model-deployment` to retain this view.
 
 ### Capability Preferences Registry
 

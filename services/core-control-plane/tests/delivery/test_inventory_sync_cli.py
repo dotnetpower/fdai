@@ -175,6 +175,7 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.attempt_deadline_seconds == 1500
     assert config.arg_requests_per_second == 3.0
     assert config.recovery_delta_enabled is True
+    assert config.resource_change_feed_enabled is True
     assert config.kubernetes_api_server is None
     assert config.kubernetes_cluster_ref is None
     assert config.kubernetes_token_path is None
@@ -183,6 +184,20 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.kubernetes_auth_mode is None
     assert config.snapshot_policy("arg").max_requests_per_window == 180
     assert config.collection_policy is not None
+
+
+def test_default_inventory_scope_includes_llm_model_deployments() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+
+    resource_types = _resolve_resource_types(config, _vocabulary())
+
+    assert "llm-endpoint" in resource_types
+    assert "llm-model-deployment" in resource_types
 
 
 def test_inventory_run_exposes_pre_promotion_single_writer_enrichment() -> None:

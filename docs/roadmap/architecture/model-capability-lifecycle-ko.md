@@ -1,7 +1,7 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: de012e03a7a0e1ea3d746d68424e419b3c3e6eab
+translation_source_sha: 897b4aa0929aa96f9c41d48274824f6868c70a92
 translation_revised: 2026-09-06
 ---
 # 모델 기능 수명 주기
@@ -87,27 +87,29 @@ Signed 자체 호스팅 등록은 injected `Ed25519SignedRegistrationSource`를 
 기능→구체-모델 매핑을 **부트스트랩에서 자동, 업데이트 시 리뷰** 로 유지, 다른 어떤 변경
 처럼 모델 변경이 shadow-before-enforce 원칙을 통해 흐르도록.
 
-### 대화를 통한 Global Standard 배포
+### 배포된 모델 검색
 
-인증된 Owner는 FDAI Console에서 `ops.deploy-model` 작업 초안을 준비하도록 요청할 수 있습니다.
-초안은 검토할 로그인 계정을 표시하고 Azure AI 계정, 배포 이름, 모델 계열과 버전,
-`GlobalStandard` SKU, 요청 TPM을 고정한 뒤 명시적 확인을 기다립니다. Operator API는 형식이
-지정된 요청만 제출합니다. 권한 부여와 공급자 변경은 별도 승인자와 FinOps 실행기 ID가 담당합니다.
+FDAI는 코드형 인프라가 리소스 생성을 소유하는 환경을 대상으로 합니다. FDAI에 새 모델이나
+클라우드 리소스를 배포하라는 대화 요청은 지원되지 않으며 ActionType, 작업 초안 또는 공급자
+변경을 만들 수 없습니다. 권한이 있는 운영자는 대신 이미 존재하는 LLM 또는 GPT 배포를
+조회할 수 있습니다.
 
-Standard 배포 용량은 1,000 TPM 단위를 사용합니다. 예를 들어 Azure 용량 50단위 요청은
-`capacity_tpm: 50000`으로 표현하며 `capacity_tpm: 50`은 유효하지 않습니다. 적용 전에 개발
-운영 게이트웨이는 계정이 존재하고 배포 이름이 사용되지 않았으며 지역별 Global Standard
-할당량에 요청 단위 이상이 남아 있는지 검증합니다. 적용에는 생성 전용 의미 체계와 시험 실행에
-연결된 멱등성 키를 사용합니다. 별도의 ARM 읽기에서 정확한 배포 이름, 모델 버전, SKU, 용량,
-`Succeeded` 프로비저닝 상태를 확인한 후에만 완료를 보고합니다.
+읽기 전용 인벤토리는 `Microsoft.CognitiveServices/accounts/deployments`를
+`llm-model-deployment`로 등록하고 각 하위 리소스를 상위 `llm-endpoint`에 매핑합니다. 따라서
+일반적인 예약 Azure Resource Graph 수집, 온톨로지 변환 결과 및 의미 쿼리 경로는 호출자의 기존
+범위에서 볼 수 있는 배포만 반환할 수 있습니다. 최신성, 완전성 및 출처 제한은 명시적으로
+유지되며 이 관찰은 배포, 추론, 승인 또는 실행 권한을 부여하지 않습니다.
 
-게이트웨이와 Azure OpenAI가 모두 사용 설정된 경우 Terraform은 개발 운영 게이트웨이에 모델
-배포 읽기, 쓰기, 삭제 작업만 포함하는 계정 범위 사용자 지정 역할을 부여합니다. 계정 생성,
-역할 할당, 추론, 구독 전체 권한은 부여하지 않습니다.
+각 배포 인스턴스는 배포 이름, 모델 이름, 모델 버전, 모델 형식, SKU 이름, 공급자 용량 단위,
+프로비저닝 상태를 읽기 가능한 사실로 유지하고 근거 검토를 위한 범위가 제한된 원시 공급자
+속성도 보존합니다. FDAI는 모델별 할당량 계약 없이 공급자 용량 단위를 TPM으로 변환하지
+않습니다.
 
-배포 하위 리소스는 `llm-model-deployment`로 등록되므로 기존 인벤토리와 Azure Resource Graph
-변경 피드가 이후 구성 변경을 기록할 수 있습니다. 이 추적은 관찰 결과이며 배포 완료나 상관관계를
-인과관계의 증명으로 바꾸지 않습니다.
+"배포된 LLM 목록", "GPT 모델 목록", `show deployed LLMs`, `list GPT models` 같은 요청은
+이 리소스 타입으로 해석됩니다. 인벤토리 리소스 변경 피드는 기본적으로 사용 설정되며 구성된
+최소 간격 안에서 변경된 리소스를 병합합니다. 완전한 조정은 별도로 구성된 간격에 실행되어 누락된
+이벤트를 복구하고 삭제를 확인합니다. 배포에서 `FDAI_INVENTORY_RESOURCE_TYPES`를 좁히는 경우
+이 보기를 유지하려면 `llm-model-deployment`를 포함해야 합니다.
 
 ### 기능 선호 레지스트리
 

@@ -230,6 +230,77 @@ async def test_sql_database_projects_logical_server_containment() -> None:
 
 
 @pytest.mark.asyncio
+async def test_llm_model_deployment_projects_model_state_and_endpoint_containment() -> None:
+    endpoint_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.CognitiveServices/accounts/ai-example"
+    )
+    deployment_id = f"{endpoint_id}/deployments/gpt-example"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=deployment_id,
+                        arm_type="Microsoft.CognitiveServices/accounts/deployments",
+                        extra={
+                            "sku": {"name": "GlobalStandard", "capacity": 50},
+                            "properties": {
+                                "provisioningState": "Succeeded",
+                                "model": {
+                                    "format": "OpenAI",
+                                    "name": "gpt-5.4",
+                                    "version": "2026-09-01",
+                                },
+                            },
+                        },
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        result = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()("llm-model-deployment")
+
+    assert len(result.resources) == 1
+    deployment = result.resources[0]
+    assert deployment.type == "llm-model-deployment"
+    assert deployment.props["parent_id"] == to_neutral_id(endpoint_id)
+    assert deployment.props["sku"] == {"name": "GlobalStandard", "capacity": 50}
+    assert deployment.props["model_name"] == "gpt-5.4"
+    assert deployment.props["model_version"] == "2026-09-01"
+    assert deployment.props["model_format"] == "OpenAI"
+    assert deployment.props["provisioning_state"] == "Succeeded"
+    assert deployment.props["sku_name"] == "GlobalStandard"
+    assert deployment.props["capacity_units"] == 50
+    assert deployment.props["properties"]["provisioningState"] == "Succeeded"
+    assert deployment.props["properties"]["model"] == {
+        "format": "OpenAI",
+        "name": "gpt-5.4",
+        "version": "2026-09-01",
+    }
+    link = next(
+        item
+        for item in result.links
+        if item.mapping_evidence is not None
+        and item.mapping_evidence.mapping_id == "azure.cognitive-account-contains-model-deployment"
+    )
+    assert (link.from_id, link.from_type) == (to_neutral_id(endpoint_id), "llm-endpoint")
+    assert (link.link_type, link.to_id, link.to_type) == (
+        "contains",
+        to_neutral_id(deployment_id),
+        "llm-model-deployment",
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("resource_type", "parent_arm_type", "child_segment", "mapping_id"),
     [

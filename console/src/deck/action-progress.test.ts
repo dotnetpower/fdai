@@ -52,27 +52,6 @@ describe("action progress", () => {
     expect(result.text).toContain("Saga · audit: complete · outcome=executed");
   });
 
-  test("reports the verified deployment name after audit completes", () => {
-    const events = new Map<LiveStageName, LiveStageEvent>([
-      [
-        "execute",
-        stage("execute", "done", {
-          deployment_name: "gpt-5-4-global-50k",
-          outcome: "dispatched",
-        }),
-      ],
-      ["audit", stage("audit", "done", { outcome: "executed" })],
-    ]);
-
-    const result = formatActionProgress("model-deploy-1", events);
-
-    expect(result.terminal).toBe(true);
-    expect(result.text).toContain(
-      "deployment_name=gpt-5-4-global-50k · outcome=dispatched",
-    );
-    expect(result.text).toContain("Deployment completed: gpt-5-4-global-50k.");
-  });
-
   test("reports timeout separately from a terminal abort", async () => {
     vi.useFakeTimers();
     const request = watchActionProgress(

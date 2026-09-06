@@ -21,6 +21,10 @@ from fdai.delivery.azure.arg_projection import (
 )
 from fdai.delivery.azure.arg_relationships import project_provider_relationships
 from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
+from fdai.delivery.azure.model_deployment import (
+    MODEL_DEPLOYMENT_RESOURCE_TYPE,
+    model_deployment_summary,
+)
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     load_provider_relationship_mapping_catalog,
 )
@@ -489,14 +493,14 @@ def _map_arm_row(
     parent_provider_id: str | None = None,
 ) -> ResourceRecord:
     arm_id = str(row["id"])
-    props = truncate_props(
-        {
-            key: row[key]
-            for key in ("name", "location", "tags", "properties", "managedBy")
-            if row.get(key) is not None
-        },
-        max_bytes=max_props_bytes,
-    )
+    raw_props = {
+        key: row[key]
+        for key in ("name", "location", "sku", "tags", "properties", "managedBy")
+        if row.get(key) is not None
+    }
+    if resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
+        raw_props.update(model_deployment_summary(row))
+    props = truncate_props(raw_props, max_bytes=max_props_bytes)
     # Lifted after truncation so the containment anchor survives a large
     # vendor payload; `Resource.parent_id` is what scoped questions read.
     parent_id: str | None
@@ -504,6 +508,7 @@ def _map_arm_row(
         parent_id = to_neutral_id(parent_provider_id)
     elif resource_type in {
         _AKS_AGENT_POOL_RESOURCE_TYPE,
+        MODEL_DEPLOYMENT_RESOURCE_TYPE,
         _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
     }:
         parent_id = to_neutral_id(arm_id.rsplit("/", 2)[0])

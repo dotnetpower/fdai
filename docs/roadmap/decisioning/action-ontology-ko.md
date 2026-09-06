@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 69079993d377cf17a744226ea488a692a283ab42
+translation_source_sha: 06ebe1e6066add4421daf4234586eea3448066f6
 translation_revised: 2026-09-06
 ---
 
@@ -310,10 +310,8 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `ops.flush-cache` - Redis / CDN 캐시 플러시.
 - `ops.drain-connection` - 부하 balancer 백엔드 의 연결 배출.
 - `ops.rotate-cert` - TLS cert 회전 (App 게이트웨이 / Front Door).
-- `ops.failover-primary` - 복제 리소스에서 장애 조치 트리거. 더 큰 계층 로
-  장애 조치 시 `cost_impact_monthly` 선언 MUST.
+- `ops.failover-primary` - 복제 리소스에서 장애 조치 트리거. 더 큰 계층으로 장애 조치할 때는 `cost_impact_monthly` 선언이 필요합니다.
 - `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤 T2 제안자 역할 하나를 검증된 보조 경로로 전환합니다. Shadow-first를 유지하고 사람 승인을 요구하며 전환 후 검증이 실패하면 이전 경로를 복원합니다.
-- `ops.deploy-model` - 정확한 계정, 배포 이름, TPM 할당량으로 버전이 고정된 Global Standard 모델 배포 하나를 만듭니다. Owner가 요청을 제출하고 별도 승인자가 승인하며 FinOps 실행기가 할당량, 시험 실행 연결, ARM 읽기 결과를 검증합니다.
 - `ops.apply-human-access` - 검토된 FDAI 역할 그룹 멤버 자격 부여를 계획합니다. Direct 어댑터는
   별도 승격 전까지 관찰 모드를 유지합니다.
 - `ops.revoke-human-access` - 검토된 대체 담당 범위 케이스가 준비될 때까지 역할 그룹 멤버 자격
@@ -333,6 +331,8 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - 개발 operations 게이트웨이를 통해
   범위가 제한된 NSG 룰 하나를 생성, 교체 또는 삭제합니다. 삭제는 Owner-tier 승인이 필요하며 복구는
   별도로 통제된 state-forward 액션입니다.
+
+리소스 프로비저닝은 운영자 요청 ActionType이 아닙니다. FDAI는 코드형 인프라가 리소스 생성을 소유하는 환경을 대상으로 하므로 모델 배포나 클라우드 리소스 생성을 요청하는 대화는 지원되지 않으며 아무것도 제출하지 않습니다. 같은 대화 화면에서 권한이 있는 인벤토리를 조회하여 이미 존재하는 리소스를 확인할 수 있습니다.
 
 **버티컬 매핑.** 각 ops ActionType 은 소유 버티컬 로 태깅되어
 [verticals](../../../services/core-control-plane/src/fdai/core/verticals) 가 점유 하고 버티컬 룰이

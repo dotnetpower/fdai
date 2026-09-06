@@ -441,7 +441,26 @@ types:
     category: compute
     description: Version-pinned model deployment with a provider SKU and assigned throughput.
     azure_arm_type: Microsoft.CognitiveServices/accounts/deployments
-    query_terms: [model deployment, model deployments, Global Standard, TPM, 모델 배포, 글로벌 표준]
+    query_terms:
+      - model deployment
+      - model deployments
+      - deployed LLM
+      - deployed LLMs
+      - LLM deployment
+      - LLM deployments
+      - GPT model
+      - GPT models
+      - deployed GPT model
+      - Global Standard
+      - TPM
+      - 모델 배포
+      - 배포된 LLM
+      - 배포된 LLM 목록
+      - LLM 배포
+      - GPT 모델
+      - GPT 모델 목록
+      - 배포된 GPT 모델
+      - 글로벌 표준
     typical_parents: [llm-endpoint]
   - id: event-hub
     category: compute

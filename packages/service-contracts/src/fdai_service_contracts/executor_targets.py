@@ -11,7 +11,6 @@ _ACTION_OPERATIONS = {
     "ops.deallocate-vm": "azure.compute.vm.deallocate",
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
-    "ops.deploy-model": "azure.cognitiveservices.model-deployment.create",
 }
 _TARGET_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$")
 
@@ -49,17 +48,6 @@ def _normalize_arguments(
     required: tuple[str, ...]
     if operation_id.startswith("azure.compute.vm."):
         required = ("resource_group", "vm_name")
-    elif operation_id == "azure.cognitiveservices.model-deployment.create":
-        required = (
-            "resource_group",
-            "account_name",
-            "deployment_name",
-            "model_name",
-            "model_version",
-            "sku_name",
-            "capacity_tpm",
-            "reason",
-        )
     elif operation_id == "azure.network.nsg.rule.delete":
         required = ("resource_group", "nsg_name", "rule_name")
     else:
@@ -82,13 +70,6 @@ def _canonical_resource_ref(
         return (
             f"/resourcegroups/{resource_group}/providers/"
             f"microsoft.compute/virtualmachines/{vm_name}"
-        )
-    if operation_id == "azure.cognitiveservices.model-deployment.create":
-        account_name = _target_segment(arguments, "account_name")
-        deployment_name = _target_segment(arguments, "deployment_name")
-        return (
-            f"/resourcegroups/{resource_group}/providers/"
-            f"microsoft.cognitiveservices/accounts/{account_name}/deployments/{deployment_name}"
         )
     nsg_name = _target_segment(arguments, "nsg_name")
     rule_name = _target_segment(arguments, "rule_name")

@@ -126,6 +126,10 @@ from fdai.delivery.azure.inventory import (
     ResourceQueryResult,
     ScopeCoverageFn,
 )
+from fdai.delivery.azure.model_deployment import (
+    MODEL_DEPLOYMENT_RESOURCE_TYPE,
+    model_deployment_summary,
+)
 from fdai.delivery.inventory_schedule import (
     VM_SHUTDOWN_SCHEDULE_TYPE,
     project_vm_shutdown_schedule,
@@ -650,6 +654,8 @@ class AzureArgQueryFactory:
         ):
             if key in row and row[key] is not None:
                 props[key] = row[key]
+        if resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
+            props.update(model_deployment_summary(row))
         if status := resource_operational_status(row):
             props["status"] = status
         if resource_type == VM_SHUTDOWN_SCHEDULE_TYPE:

@@ -116,6 +116,59 @@ def test_complete_observation_projects_typed_objects_and_links() -> None:
     assert vm.properties["parent_id"] == "rg-1"
 
 
+def test_llm_deployment_projects_as_an_ontology_resource_instance() -> None:
+    deployment_id = (
+        "/subscriptions/example/resourcegroups/rg-example/providers/"
+        "microsoft.cognitiveservices/accounts/ai-example/deployments/gpt-example"
+    )
+    endpoint_id = (
+        "/subscriptions/example/resourcegroups/rg-example/providers/"
+        "microsoft.cognitiveservices/accounts/ai-example"
+    )
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-llm-1",
+        resources=(
+            ResourceRecord(
+                resource_id=deployment_id,
+                type="llm-model-deployment",
+                props={
+                    "name": "gpt-example",
+                    "parent_id": endpoint_id,
+                    "model_name": "gpt-5.4",
+                    "model_version": "2026-09-01",
+                    "provisioning_state": "Succeeded",
+                    "sku_name": "GlobalStandard",
+                    "capacity_units": 50,
+                    "sku": {"name": "GlobalStandard", "capacity": 50},
+                    "properties": {
+                        "provisioningState": "Succeeded",
+                        "model": {
+                            "format": "OpenAI",
+                            "name": "gpt-5.4",
+                            "version": "2026-09-01",
+                        },
+                    },
+                },
+            ),
+        ),
+        links=(),
+    )
+
+    deployment = projection.objects[0]
+    assert deployment.object_type == "Resource"
+    assert deployment.properties["type"] == "llm-model-deployment"
+    assert deployment.properties["name"] == "gpt-example"
+    assert deployment.properties["parent_id"] == endpoint_id
+    provider = deployment.properties["properties"]
+    assert provider["model_name"] == "gpt-5.4"
+    assert provider["model_version"] == "2026-09-01"
+    assert provider["provisioning_state"] == "Succeeded"
+    assert provider["sku_name"] == "GlobalStandard"
+    assert provider["capacity_units"] == 50
+    assert provider["properties"]["provisioningState"] == "Succeeded"
+    assert provider["properties"]["model"]["name"] == "gpt-5.4"
+
+
 def test_reviewed_resource_types_project_verified_classification_links() -> None:
     mapping_digest = "sha256:" + ("a" * 64)
     projection = build_inventory_ontology_projection(
