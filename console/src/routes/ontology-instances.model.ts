@@ -107,9 +107,6 @@ export function ontologyInstanceNodeState(
   ) {
     return { axis: "availability", fact: states.availability };
   }
-  if (states.operational.reason === "provider_operational_state_not_exposed") {
-    return { axis: "operational", fact: states.operational };
-  }
   if (states.provisioning.value !== null) {
     return { axis: "provisioning", fact: states.provisioning };
   }

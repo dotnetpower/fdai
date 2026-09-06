@@ -139,10 +139,11 @@ the exact ResourceTypes whose ARM type is supported:
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
 - Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown
   from the machine reason. Legacy generations can still identify an unbound source explicitly.
-- Compact ontology graph nodes use an exact operational value first. An exact availability value
-  may lead when operation is not applicable or the provider exposes no operational state. A missing
-  applicable operational value remains visible and cannot be hidden by availability. The selected
-  axis stays in the label, and provisioning success never becomes operational success or health.
+- Compact ontology graph nodes use an exact operational value first. When operation is not
+  applicable or the provider exposes no operational state, an exact availability value or useful
+  availability evidence gap leads, followed by an exact provisioning value. A missing applicable
+  operational value remains visible and cannot be hidden by availability. The selected axis stays
+  in the label, and provisioning success never becomes operational success or health.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.

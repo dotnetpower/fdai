@@ -270,6 +270,14 @@ describe("decodeOntologyInstanceExploration", () => {
       ))).toEqual({ axis: "availability", fact: fact("Available", null) });
     });
 
+    it("shows provisioning when the provider exposes no operational or availability value", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({ axis: "provisioning", fact: fact("Succeeded", null) });
+    });
+
     it("keeps exact unknown availability visible ahead of an operational evidence gap", () => {
       expect(ontologyInstanceNodeState(resource(
         fact(null, "provider_operational_state_not_exposed"),
@@ -286,6 +294,17 @@ describe("decodeOntologyInstanceExploration", () => {
       ))).toEqual({
         axis: "operational",
         fact: fact(null, "state_not_applicable"),
+      });
+    });
+
+    it("keeps provider-unavailable operation when no other axis has a useful fact", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact(null, "state_not_recorded"),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({
+        axis: "operational",
+        fact: fact(null, "provider_operational_state_not_exposed"),
       });
     });
   });

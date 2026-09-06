@@ -271,6 +271,43 @@ def test_kubernetes_unknown_readiness_remains_a_recorded_state() -> None:
     assert states["operational"]["source_path"] == "ready_status"
 
 
+def test_private_endpoint_approval_does_not_become_operational_health() -> None:
+    properties = {
+        "properties": {
+            "provisioningState": "Succeeded",
+            "privateLinkServiceConnections": [
+                {
+                    "properties": {
+                        "privateLinkServiceConnectionState": {
+                            "status": "Approved",
+                        }
+                    }
+                }
+            ],
+        }
+    }
+    states = recorded_resource_states(
+        properties,
+        resource_type="network.private-endpoint",
+        now=NOW,
+    )
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="private-endpoint-1",
+            resource_type="network.private-endpoint",
+            properties=properties,
+            last_seen=None,
+        ),
+        root_id=None,
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] is None
+    assert states["operational"]["reason"] == "provider_operational_state_not_exposed"
+    assert states["provisioning"]["value"] == "Succeeded"
+    assert projected["status"] is None
+
+
 def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome() -> None:
     vocabulary = (
         Path(__file__).resolve().parents[3] / "rule-catalog" / "vocabulary" / "resource-types.yaml"

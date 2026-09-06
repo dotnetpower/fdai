@@ -86,9 +86,10 @@ the remaining bounded-response types through an explicit disclosure. Expanding o
 legend does not remove links, change counts, or narrow the Inspector.
 Compact graph nodes keep an exact operational value first. If operation is not applicable or the
 provider exposes no operational state, the node selects an exact availability value or evidence
-gap, then a provisioning value, and names that axis. A missing applicable operational value remains
-visible. This is presentation precedence only; it does not merge axes or infer operational success
-or health from availability or provisioning.
+gap, then an exact provisioning value before the unavailable operational placeholder, and names
+that axis. A missing applicable operational value remains visible. This is presentation precedence
+only; it does not merge axes or infer operational success or health from availability or
+provisioning.
 
 The Resource directory is bounded, so an unsearched page is never a complete inventory. Dashboard v2
 reads recorded state only when the active inventory matches the committed ontology manifest, rejects
