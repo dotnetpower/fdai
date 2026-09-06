@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,6 +11,7 @@ from typing import TYPE_CHECKING
 import httpx
 import yaml
 
+from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.ontology_platform import (
     MetricSemanticRegistry,
     MetricWindowProvider,
@@ -49,10 +51,14 @@ from ._helpers import Container
 from .resolved_models_revision import resolved_models_for_binding
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 from .semantic_query_value_domains import resource_type_value_domains
+from .wire_adaptive_conversation import build_adaptive_conversation_service
 
 if TYPE_CHECKING:
+    from fdai.core.conversation.adaptive_service import AdaptiveConversationService
+
     from .wire_semantic_query import SemanticQueryRuntimeComposition
 
+_LOGGER = logging.getLogger(__name__)
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
 
@@ -97,12 +103,10 @@ def compose_azure_semantic_query_runtime(
         return _unavailable("semantic_llm_mode_unavailable")
     if container.config.llm.resolved_models_path is None:
         return _unavailable("semantic_resolved_models_unavailable")
-    if ontology_release is None:
-        return _unavailable("semantic_ontology_release_unavailable")
-    if ontology_store is None:
-        return _unavailable("semantic_ontology_store_unavailable")
     if identity is None or http_client is None:
         return _unavailable("semantic_model_transport_unavailable")
+    adaptive_service: AdaptiveConversationService | None = None
+    audiences: tuple[str, ...] = ()
     try:
         resolved = resolved_models_for_binding(container)
         t1_candidates = t1_model_targets(
@@ -119,6 +123,25 @@ def compose_azure_semantic_query_runtime(
             endpoint_resolver=endpoint_resolver,
             held_capabilities=container.held_model_capabilities,
         )
+        audiences = tuple(
+            dict.fromkeys(target.auth_audience for target in (*t1_candidates, *t2_candidates))
+        )
+        adaptive_service = build_adaptive_conversation_service(
+            resolved=resolved,
+            identity=identity,
+            http_client=http_client,
+            endpoint=endpoint,
+            endpoint_resolver=endpoint_resolver,
+            catalog_root=catalog_root,
+            held_capabilities=container.held_model_capabilities,
+        )
+        if ontology_release is None or ontology_store is None:
+            reason = (
+                "semantic_ontology_release_unavailable"
+                if ontology_release is None
+                else "semantic_ontology_store_unavailable"
+            )
+            return _advisory_or_unavailable(adaptive_service, reason, audiences)
         prompts = FileSystemPromptRegistry(catalog_root)
         frame_system_prompt = prompts.get_base(_FRAME_CAPABILITY).body
         plan_system_prompt = prompts.get_base(_PLAN_CAPABILITY).body
@@ -153,6 +176,7 @@ def compose_azure_semantic_query_runtime(
         )
         runtime = build_semantic_query_runtime(
             model=t1_model,
+            adaptive_service=adaptive_service,
             escalation_model=t2_model,
             semantic_judgment=(
                 container.llm_bindings.conversation_semantic_judgment_factory(owner_loop)
@@ -183,14 +207,40 @@ def compose_azure_semantic_query_runtime(
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,
         )
-    except (OSError, LookupError, TypeError, ValueError):
-        return _unavailable("semantic_composition_invalid")
+    except (OSError, LookupError, TypeError, ValueError) as exc:
+        _LOGGER.warning(
+            "semantic_operational_composition_invalid",
+            extra={"failure_type": type(exc).__name__},
+        )
+        return _advisory_or_unavailable(
+            adaptive_service,
+            "semantic_composition_invalid",
+            audiences,
+        )
     return SemanticQueryRuntimeComposition(
         runtime=runtime,
         unavailable_reason=None,
-        model_auth_audiences=tuple(
-            dict.fromkeys(target.auth_audience for target in (*t1_candidates, *t2_candidates))
+        model_auth_audiences=audiences,
+    )
+
+
+def _advisory_or_unavailable(
+    service: AdaptiveConversationService | None,
+    reason: str,
+    audiences: tuple[str, ...],
+) -> SemanticQueryRuntimeComposition:
+    """Keep an independently valid answer service while every operational request holds."""
+    from .wire_semantic_query import SemanticQueryRuntimeComposition
+
+    if service is None:
+        return _unavailable(reason)
+    return SemanticQueryRuntimeComposition(
+        runtime=SemanticConversationRuntime(
+            adaptive_service=service,
+            verified_unavailable_reason=reason,
         ),
+        unavailable_reason=None,
+        model_auth_audiences=audiences,
     )
 
 

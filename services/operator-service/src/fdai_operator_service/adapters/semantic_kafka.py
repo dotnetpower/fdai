@@ -20,7 +20,10 @@ from fdai_service_contracts.semantic_turn import (
 )
 from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
-from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V15
+from fdai_operator_service.contract_codecs import (
+    CORE_REQUEST_PRODUCER_V15,
+    CORE_REQUEST_PRODUCER_V16,
+)
 
 MAX_SEMANTIC_MESSAGE_BYTES = 1_000_000
 _TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
@@ -241,8 +244,13 @@ class OperatorSemanticKafkaBus:
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
+        request_codec = (
+            CORE_REQUEST_PRODUCER_V16
+            if payload.get("schema_version") == "1.6.0"
+            else CORE_REQUEST_PRODUCER_V15
+        )
         encoded = (
-            CORE_REQUEST_PRODUCER_V15.encode(payload)
+            request_codec.encode(payload)
             if topic == self._config.request_topic
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )

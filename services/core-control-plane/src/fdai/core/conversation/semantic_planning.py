@@ -107,6 +107,7 @@ _SAFE_VALIDATION_REASONS = frozenset(
         "function dependencies MUST all have argument bindings",
         "function node omits required arguments",
         "function node supplies unknown arguments",
+        "ontology relationship endpoints must exist in the principal manifest",
         "query node arguments do not match the closed schema",
     }
 )
@@ -260,6 +261,7 @@ class SemanticPlanningService:
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        conversation_profile: Mapping[str, str] | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -272,6 +274,10 @@ class SemanticPlanningService:
         preflight_social_act = SocialAct.NONE
         preflight_vetoes_direct = False
         preflight_ran = False
+        response_profile = dict(_DIRECT_RESPONSE_PROFILE)
+        if conversation_profile is not None:
+            response_profile["identity"] = conversation_profile["identity"]
+            response_profile["role"] = conversation_profile["role"]
         unbound_conversation = bound_incident is None and bound_investigation_continuation is None
 
         def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
@@ -292,7 +298,7 @@ class SemanticPlanningService:
                 utterance=utterance,
                 context=context,
                 locale=locale,
-                direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+                direct_response_profile=response_profile,
             )
             model_observations.extend(preflight.observations)
             preflight_vetoes_direct = preflight.failure_kind == "malformed"
@@ -327,7 +333,7 @@ class SemanticPlanningService:
                 locale=locale,
                 social_act=proposal.social_act,
                 continued=proposal.context_dependency is ContextDependency.SOCIAL_CONTINUITY,
-                direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+                direct_response_profile=response_profile,
             )
             model_observations.extend(narrated.observations)
             response = narrated.draft
@@ -382,7 +388,7 @@ class SemanticPlanningService:
                     allow_escalation=False,
                     bound_subject_types=bound_subject_types,
                     locale=locale,
-                    direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+                    direct_response_profile=response_profile,
                 )
                 model_observations.extend(judgment_result.observations)
                 judgment_posture = (

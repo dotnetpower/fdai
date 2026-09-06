@@ -13,7 +13,8 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
-from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V14
+from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolution
+from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V16
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationEventStream,
@@ -49,6 +50,8 @@ from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
     OperationalEvidenceProjection,
+    OperatorPrincipalKind,
+    OperatorRole,
     RuleSearchProjection,
     SemanticInvestigationContinuation,
     SemanticQueryProgress,
@@ -56,7 +59,12 @@ from fdai_service_contracts import (
     SemanticTurnRequest,
     SemanticTurnResult,
 )
-from pydantic import ValidationError
+from fdai_service_contracts.adaptive_answer import AdaptiveAgentName
+from fdai_service_contracts.adaptive_relationship import (
+    AdaptiveRelationshipProof,
+    AdaptiveRelationshipUnknownReason,
+)
+from pydantic import TypeAdapter, ValidationError
 
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
@@ -71,6 +79,19 @@ _MAX_ANSWER_CHUNK_CHARS = 64
 _MAX_TRACKED_PROGRESS_REQUESTS = 256
 _MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
 _LOGGER = logging.getLogger(__name__)
+_RELATIONSHIP_REASON = TypeAdapter(AdaptiveRelationshipUnknownReason)
+
+
+class DialogueRelationshipResolver(Protocol):
+    """Read current relationship facts for a fixed authenticated principal and target."""
+
+    async def resolve(
+        self,
+        *,
+        principal_id: str,
+        roles: frozenset[OperatorRole],
+        target_agent: AdaptiveAgentName,
+    ) -> AdaptiveRelationshipResolution: ...
 
 
 class SemanticTurnStore(Protocol):
@@ -595,7 +616,7 @@ class SemanticTurnProjectionConsumer:
 
     async def consume(self, payload: Mapping[str, object]) -> StoredSemanticResult:
         """Reject malformed or evidence-incomplete results before durable projection."""
-        decoded = CORE_PROJECTION_CONSUMER_V14.decode_mapping(payload)
+        decoded = CORE_PROJECTION_CONSUMER_V16.decode_mapping(payload)
         semantic_payload = decoded.get("semantic_result")
         extension_payload = decoded.get("payload")
         if not isinstance(extension_payload, dict):
@@ -666,6 +687,7 @@ class SemanticTurnBridge:
         publisher: SemanticTurnEventPublisher | None = None,
         result_source: SemanticTurnResultSource | None = None,
         builder: SemanticTurnEnvelopeBuilder | None = None,
+        relationship_resolver: DialogueRelationshipResolver | None = None,
         worker_id: str = "operator-semantic-turn",
         request_topic: str = SEMANTIC_REQUEST_TOPIC,
         result_topic: str = SEMANTIC_RESULT_TOPIC,
@@ -686,6 +708,8 @@ class SemanticTurnBridge:
         self._publisher = publisher
         self._result_source = result_source
         self._builder = builder or SemanticTurnEnvelopeBuilder()
+        self._relationship_resolver = relationship_resolver
+        self._acceptance_started = False
         self._consumer = SemanticTurnProjectionConsumer(store)
         self._progress_relay = _SemanticProgressRelay()
         self._drainer = (
@@ -701,10 +725,23 @@ class SemanticTurnBridge:
         self._retry_seconds = retry_seconds
         self._tasks: tuple[asyncio.Task[None], ...] = ()
 
+    def bind_relationship_resolver(self, resolver: DialogueRelationshipResolver) -> None:
+        """Bind composition-owned readers once, before request acceptance or startup."""
+        if self._relationship_resolver is not None or self._acceptance_started or self._tasks:
+            raise RuntimeError("relationship resolver MUST be bound once before bridge use")
+        self._relationship_resolver = resolver
+
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Accept one authorized stream proposal and persist a typed held fallback if unbound."""
+        self._acceptance_started = True
         envelope = self._builder.build(proposal)
         semantic = SemanticTurnRequest.model_validate(envelope["semantic_turn"])
+        relationship = await self._resolve_relationship(semantic)
+        envelope = self._builder.build(
+            proposal,
+            relationship_proof=relationship.proof,
+            relationship_unknown_reason=relationship.reason,
+        )
         continuation = await self._store.latest_semantic_investigation_continuation(
             principal_id=proposal.scope.subject_id,
             session_id=semantic.session_id,
@@ -720,6 +757,8 @@ class SemanticTurnBridge:
             envelope = self._builder.build(
                 proposal,
                 investigation_continuation=continuation,
+                relationship_proof=relationship.proof,
+                relationship_unknown_reason=relationship.reason,
             )
         source_request_id = _source_request_id(proposal.body.get("source_request_id"))
         if source_request_id == envelope["request_id"]:
@@ -814,6 +853,7 @@ class SemanticTurnBridge:
 
     async def start(self) -> None:
         """Start one publisher drainer and one result consumer when transport is injected."""
+        self._acceptance_started = True
         if self._tasks or self._drainer is None or self._result_source is None:
             return
         self._tasks = (
@@ -828,6 +868,61 @@ class SemanticTurnBridge:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _resolve_relationship(
+        self, request: SemanticTurnRequest
+    ) -> AdaptiveRelationshipResolution:
+        if request.principal.principal_kind is not OperatorPrincipalKind.HUMAN:
+            return AdaptiveRelationshipResolution(
+                request.target_agent,
+                "unknown",
+                "human_principal_required",
+                None,
+            )
+        if self._relationship_resolver is None:
+            return AdaptiveRelationshipResolution(
+                request.target_agent,
+                "unknown",
+                "resolver_unavailable",
+                None,
+            )
+        try:
+            async with asyncio.timeout(5):
+                resolution = await self._relationship_resolver.resolve(
+                    principal_id=request.principal.subject_id,
+                    roles=frozenset(request.principal.roles),
+                    target_agent=request.target_agent,
+                )
+            proof = resolution.proof
+            if resolution.target_agent != request.target_agent:
+                raise ValueError("relationship resolution target mismatch")
+            if resolution.status != "matched" or proof is None:
+                return AdaptiveRelationshipResolution(
+                    request.target_agent,
+                    "unknown",
+                    _RELATIONSHIP_REASON.validate_python(resolution.reason),
+                    None,
+                )
+            if (
+                not isinstance(proof, AdaptiveRelationshipProof)
+                or proof.principal_id != request.principal.subject_id
+                or proof.target_agent != request.target_agent
+            ):
+                raise ValueError("relationship proof binding mismatch")
+            return resolution
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - failed optional context cannot assert a relationship
+            _LOGGER.info(
+                "semantic_relationship_unknown",
+                extra={"target_agent": request.target_agent, "reason": "resolver_unavailable"},
+            )
+            return AdaptiveRelationshipResolution(
+                request.target_agent,
+                "unknown",
+                "resolver_unavailable",
+                None,
+            )
 
     async def _run_drainer(self) -> None:
         if self._drainer is None:

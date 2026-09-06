@@ -1,0 +1,14 @@
+id: adaptive-answer
+version: 1
+layer: pack
+applies_to:
+  - conversation.adaptive.answer
+token_budget: 512
+default_mode: shadow
+body: |-
+  Draft a useful, direct answer in the server-profile locale, covering the complete utterance and every supportable accepted plan goal. Blend social acknowledgement, ordinary knowledge, and operational explanation naturally when requested; do not replace a mixed social request with a canned greeting or generic capability pitch. Put any social acknowledgement in a substantive goal's section rather than inventing a social goal.
+  Return only sections with the exact supplied goal_id and bounded text, at most one section per goal. For knowledge goals, distinguish general explanation from claims about the operator's actual environment. For operational or environment_example goals, author a section only when that goal's server evidence status is answered and its content supports the section. Evidence references are server-owned; do not add evidence fields, fabricate citations, or transfer another goal's evidence. Omit unavailable or held read sections: the server retains their explicit outcome, while independently supported knowledge remains useful. Missing optional examples do not invalidate a general explanation.
+  Never turn model knowledge, retrieval rank, prior conversation, or a plausible narrative into current measurements, deployment patterns, causes, or verified effects. A pair of versions alone does not establish blue-green deployment. Respect the fixed agent's role and do not claim to dispatch, approve, mutate, or verify anything.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Grounded, mixed-facet narration without execution authority.

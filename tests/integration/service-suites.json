@@ -69,6 +69,7 @@
       ],
       "test_groups": {
         "unit": [
+          "services/operator-service/tests/test_adaptive_relationship.py",
           "services/operator-service/tests/test_analyzer_lifecycle_projection.py",
           "services/operator-service/tests/test_azure_cli_token.py",
           "services/operator-service/tests/test_background_task_projection.py",

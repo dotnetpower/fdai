@@ -2439,6 +2439,20 @@
       },
       "preferenceApplied": "Saved preference"
     },
+    "adaptive": {
+      "explanation": "Supporting explanation",
+      "sources": "Answer sources",
+      "owner": "Response owner: {agent}",
+      "knowledge": "General knowledge",
+      "environmentExample": "Environment example",
+      "operational": "Operational context",
+      "answered": "Verified supporting evidence",
+      "unavailable": "Unavailable",
+      "held": "Held",
+      "references": "{count} supporting references",
+      "limitationDetails": "Why this part is limited",
+      "authority": "Advisory only. No action was authorized or executed by this answer."
+    },
     "answerPlanning": {
       "consulted": "Consulted",
       "uniqueSources": "{count} unique source(s)",

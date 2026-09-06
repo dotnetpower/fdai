@@ -15,7 +15,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 POLICY_PATH = REPO_ROOT / "packages" / "service-contracts" / "contract-generation.json"
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.1.0"
 _IDENTIFIER_PARTS = re.compile(r"[^A-Za-z0-9]+")
 
 
@@ -294,6 +294,21 @@ def _schema_entries(
             prior = entries.setdefault(key, entry)
             if prior[2] != path:
                 raise GenerationError(f"{contract['id']} {schema_ref['version']} is ambiguous")
+        accepted = contract.get("consumer_accepts")
+        if not isinstance(accepted, Mapping):
+            raise GenerationError(f"{contract['id']} consumer_accepts must be an object")
+        for versions in accepted.values():
+            if not isinstance(versions, list):
+                raise GenerationError(f"{contract['id']} consumer versions must be an array")
+            for version in versions:
+                if not isinstance(version, str):
+                    raise GenerationError(f"{contract['id']} consumer version is invalid")
+                _version_suffix(version)
+                key = (contract["id"], version)
+                if key in entries:
+                    continue
+                path = manifest_path.parent / "schemas" / contract["id"] / f"{version}.json"
+                entries[key] = (contract["id"], version, path, _json_object(path))
     return tuple(entries[key] for key in sorted(entries))
 
 

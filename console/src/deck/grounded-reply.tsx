@@ -17,6 +17,8 @@
 import { lazy, Suspense } from "preact/compat";
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
+import type { AdaptiveAnswer } from "./adaptive-answer";
+import { AdaptiveAnswerSources } from "./adaptive-answer-sources";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t, tForLocale } from "../i18n";
 import { routeHref } from "../router";
@@ -71,6 +73,7 @@ export function GroundedReply({
   streaming,
   verification,
   semanticReceipt,
+  adaptiveAnswer,
   confirmed,
   verificationProgress,
   answerPlanning,
@@ -90,6 +93,7 @@ export function GroundedReply({
   readonly streaming: boolean;
   readonly verification: AnswerVerification | undefined;
   readonly semanticReceipt: SemanticProjectionReceipt | undefined;
+  readonly adaptiveAnswer?: AdaptiveAnswer;
   readonly confirmed: ConfirmedAnswerSegment | undefined;
   readonly verificationProgress: VerificationProgress | undefined;
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
@@ -244,6 +248,18 @@ export function GroundedReply({
           />
         )}
       </div>
+
+      {!streaming && adaptiveAnswer ? (
+        <section aria-label={t("deck.adaptive.explanation")}>
+          {adaptiveAnswer.answer !== text ? (
+            <>
+              <h4>{t("deck.adaptive.explanation")}</h4>
+              <RichContent text={adaptiveAnswer.answer} />
+            </>
+          ) : null}
+          <AdaptiveAnswerSources answer={adaptiveAnswer} />
+        </section>
+      ) : null}
 
       {!streaming && documentArtifact ? (
         <Suspense fallback={null}>

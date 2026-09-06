@@ -1,4 +1,5 @@
 import type { Answer } from "./answerer";
+import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse } from "./adaptive-answer";
 import {
   citationsForVerification,
   createBackendRequestPayload,
@@ -401,6 +402,22 @@ export async function askBackendStream(
   buffer += decoder.decode();
   if (buffer.trim().length > 0) handleFrame(buffer);
   const done: Record<string, unknown> = doneData ?? {};
+  const advisoryAnswer = parseAdvisoryResponse(done, requestId);
+  const adaptiveAnswer = advisoryAnswer ?? parseActionDraftExplanation(done, requestId);
+  if (hasAdvisoryResponse(done) && adaptiveAnswer === undefined) {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("invalid advisory response");
+  }
+  if (advisoryAnswer && (
+    protocolError !== null || errored || interrupted || sequenceGap ||
+    confirmedSegment !== undefined || pendingRevisions.length > 0
+  )) {
+    if (sequenceGap) sequenceGapCount += 1;
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable("invalid advisory stream");
+  }
   const verification = parseAnswerVerification(done.verification);
   const parsedSemanticReceipt = parseSemanticProjectionReceipt(done.semantic_receipt);
   const semanticReceipt = parsedSemanticReceipt?.request_id === requestId
@@ -481,7 +498,7 @@ export async function askBackendStream(
       pendingRevision.status,
     );
   }
-  if (confirmedSegment !== undefined) callbacks.onConfirmed?.(confirmedSegment);
+  if (confirmedSegment !== undefined && !advisoryAnswer) callbacks.onConfirmed?.(confirmedSegment);
 
   const model = typeof done.model === "string" ? done.model : "llm";
   const latencyMs = typeof done.latency_ms === "number" && Number.isFinite(done.latency_ms)
@@ -523,13 +540,14 @@ export async function askBackendStream(
   );
   const base: Answer & { readonly source: string } = {
     text: finalText,
-    citations: directResponse ? [] : citationsForVerification(snapshot, verification),
+    citations: directResponse || advisoryAnswer ? [] : citationsForVerification(snapshot, verification),
     followUps: [],
     source,
     ...(verification ? { verification } : {}),
   };
   return {
     ...base,
+    ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
     ...(router ? { router } : {}),
     ...(delegation ? { delegation } : {}),
     ...(answerPlan ? { answerPlan } : {}),
@@ -538,7 +556,7 @@ export async function askBackendStream(
     ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
     ...(presentationArtifact ? { presentationArtifact } : {}),
     ...(documentArtifact ? { documentArtifact } : {}),
-    ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
+    ...(confirmedSegment && !advisoryAnswer ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
@@ -557,7 +575,7 @@ export async function askBackendStream(
   };
 }
 
-function parseActionDraft(value: unknown): ActionDraft | undefined {
+export function parseActionDraft(value: unknown): ActionDraft | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
   const record = value as Record<string, unknown>;
   if (

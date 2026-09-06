@@ -11,6 +11,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
+from fdai_service_contracts.adaptive_answer import AdaptiveAgentName, AdaptiveAnswer
+from fdai_service_contracts.adaptive_relationship import (
+    AdaptiveRelationshipProof,
+    AdaptiveRelationshipUnknownReason,
+)
 from fdai_service_contracts.ontology_query import (
     GoalTaskReceipt,
     QueryContract,
@@ -157,6 +162,7 @@ class SemanticTurnDisposition(StrEnum):
 
     ANSWERED = "answered"
     DIRECT_RESPONSE = "direct_response"
+    ADVISORY_RESPONSE = "advisory_response"
     HELD = "held"
     CLARIFICATION = "clarification"
     UNSUPPORTED = "unsupported"
@@ -181,6 +187,7 @@ class SemanticPlanningProfile(StrEnum):
 SemanticRoute = Literal[
     "verified_query_plan",
     "semantic_direct_response",
+    "semantic_advisory_response",
     "semantic_clarification",
     "semantic_unsupported",
     "semantic_action_draft",
@@ -195,6 +202,7 @@ SemanticUnavailableReason = Literal[
 _SEMANTIC_ROUTE_BY_DISPOSITION: dict[SemanticTurnDisposition, SemanticRoute] = {
     SemanticTurnDisposition.ANSWERED: "verified_query_plan",
     SemanticTurnDisposition.DIRECT_RESPONSE: "semantic_direct_response",
+    SemanticTurnDisposition.ADVISORY_RESPONSE: "semantic_advisory_response",
     SemanticTurnDisposition.CLARIFICATION: "semantic_clarification",
     SemanticTurnDisposition.UNSUPPORTED: "semantic_unsupported",
     SemanticTurnDisposition.ACTION_DRAFT: "semantic_action_draft",
@@ -403,7 +411,16 @@ class SemanticTurnRequest(QueryContract):
     planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
     include_model_trace: bool = False
     cancelled: bool = False
+    target_agent: AdaptiveAgentName = "Bragi"
+    relationship_proof: AdaptiveRelationshipProof | None = None
+    relationship_unknown_reason: AdaptiveRelationshipUnknownReason | None = None
     execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _relationship_observation_is_unambiguous(self) -> SemanticTurnRequest:
+        if self.relationship_proof is not None and self.relationship_unknown_reason is not None:
+            raise ValueError("relationship proof and unknown reason MUST be mutually exclusive")
+        return self
 
 
 class OperationalEvidenceProjection(QueryContract):
@@ -579,6 +596,7 @@ class SemanticTurnResult(QueryContract):
     checks_total: Annotated[int, Field(ge=0, le=64)] = 0
     answer: Annotated[str, Field(min_length=1, max_length=64_000)] | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
+    adaptive_answer: AdaptiveAnswer | None = None
     assurance_observation: SemanticAssuranceObservation | None = None
     execution_authority: Literal[False] = False
 
@@ -612,6 +630,26 @@ class SemanticTurnResult(QueryContract):
         ):
             raise ValueError("answered semantic results MUST carry complete verified evidence")
         direct_response = self.disposition is SemanticTurnDisposition.DIRECT_RESPONSE
+        advisory_response = self.disposition is SemanticTurnDisposition.ADVISORY_RESPONSE
+        if advisory_response and self.adaptive_answer is None:
+            raise ValueError("advisory responses MUST carry an adaptive answer")
+        if self.adaptive_answer is not None and self.disposition not in {
+            SemanticTurnDisposition.ADVISORY_RESPONSE,
+            SemanticTurnDisposition.ACTION_DRAFT,
+        }:
+            raise ValueError("only advisory responses or action drafts may carry adaptive answers")
+        if advisory_response and (
+            self.adaptive_answer is None
+            or self.answer != self.adaptive_answer.answer
+            or any(item is not None for item in exact)
+            or self.intent_graph is not None
+            or self.intent_graph_evidence is not None
+            or self.evidence_refs
+            or self.checks_completed != 0
+            or self.checks_total != 0
+            or self.assurance_observation is not None
+        ):
+            raise ValueError("advisory support MUST remain goal-local with an exact answer")
         if direct_response != (self.direct_response_intent is not None):
             raise ValueError(
                 "direct response semantic results MUST carry exactly one direct answer intent"

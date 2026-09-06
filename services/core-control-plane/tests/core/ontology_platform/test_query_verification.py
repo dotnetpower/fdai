@@ -20,6 +20,7 @@ from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     kubernetes_pod_recovery_function_type,
 )
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
+from fdai.core.ontology_platform.relationship_queries import ontology_relationships_function_type
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyObjectType,
@@ -142,6 +143,42 @@ def test_verifier_accepts_typed_object_projection_and_aggregation() -> None:
     )
 
     assert verifier.verify(plan, manifest=manifest) is plan
+
+
+@pytest.mark.parametrize(
+    "object_types", [["BlueGreen", "Canary"], ["Resource"], ["Resource", "Unknown"]]
+)
+def test_relationship_function_requires_manifest_bound_endpoints(object_types: list[str]) -> None:
+    resource = _resource()
+    function = ontology_relationships_function_type()
+    release = build_ontology_release(object_types=(resource,), function_types=(function,))
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        functions=(function,),
+    )
+    node = OntologyQueryNode(
+        node_id="relationships",
+        kind=QueryNodeKind.FUNCTION,
+        output_kind="json",
+        arguments_json=canonical_json(
+            {
+                "function_name": function.name,
+                "arguments": {"object_types": object_types, "limit": 10},
+                "dependency_arguments": {},
+            }
+        ),
+    )
+    plan = _plan((node,), release_digest=release.digest, manifest_digest=manifest.manifest_digest)
+    verifier = OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,))
+    if object_types == ["Resource"]:
+        assert verifier.verify(plan, manifest=manifest) is plan
+    else:
+        with pytest.raises(ValueError, match="endpoints must exist"):
+            verifier.verify(plan, manifest=manifest)
 
 
 def test_verifier_validates_object_set_aggregate_fields() -> None:

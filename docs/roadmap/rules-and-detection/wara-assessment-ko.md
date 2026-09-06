@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 3b92e399f22e8cbcbddcbb5f271aea0ae8d9cd1b
-translation_revised: 2026-09-05
+translation_source_sha: 75676af9a3039b1b1d25e606ded5c811f1772973
+translation_revised: 2026-09-06
 ---
 # WARA 근거 기반 평가
 
@@ -239,6 +239,10 @@ WARA 근거를 충족하거나, 넓히거나, 대체할 수 없습니다.
 소비자 그룹 및 PostgreSQL 변환 결과를 사용하며 어떤 프로필도 프로바이더 근거를 대체하지 않습니다.
 공유 Operator Kafka 어댑터는 같은 물리 전송 계층에 알림 증적 논리 레코드도 게시할 수 있습니다.
 토픽 필터링은 해당 레코드를 WARA 소비자에서 분리하며 평가 권한을 부여하지 않습니다.
+
+공유 대화 전송 계층은 적응형 요청과 변환 결과 버전 `1.6.0`도 받습니다. 일반 설명과 목표별
+근거는 참고용이며 WARA 관측값, 평가 증적 또는 충족 결과가 아닙니다. 기본 대화 담당 관계
+연결은 WARA 범위, 소비자 필터링, 근거 승인 또는 shadow 전용 평가 수명 주기를 바꾸지 않습니다.
 
 ## 관련 문서
 

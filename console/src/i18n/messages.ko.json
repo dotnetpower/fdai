@@ -2439,6 +2439,20 @@
       },
       "preferenceApplied": "저장된 선호"
     },
+    "adaptive": {
+      "explanation": "보충 설명",
+      "sources": "답변 출처",
+      "owner": "답변 담당: {agent}",
+      "knowledge": "일반 지식",
+      "environmentExample": "현재 환경의 예시",
+      "operational": "운영 맥락",
+      "answered": "검증된 뒷받침 근거",
+      "unavailable": "확인할 수 없음",
+      "held": "보류됨",
+      "references": "뒷받침 근거 {count}개",
+      "limitationDetails": "이 부분의 답변이 제한된 이유",
+      "authority": "참고용 답변입니다. 이 답변으로 작업이 승인되거나 실행되지 않았습니다."
+    },
     "answerPlanning": {
       "consulted": "참여 에이전트",
       "uniqueSources": "고유 출처 {count}개",

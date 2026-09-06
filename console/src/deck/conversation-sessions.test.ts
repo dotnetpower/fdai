@@ -38,6 +38,21 @@ const GENERAL: ConversationSummary = {
 };
 
 describe("conversation index", () => {
+  it.each(["General", "Restart the service", "Explain :general:conversation:"] as const)(
+    "restores an older general cache without using its title: %s",
+    (label) => {
+      const general = {
+        ...GENERAL, key: newGeneralConversationKey("scope", "cached"),
+        kind: "screen-thread" as const, label,
+      };
+      const restored = parseConversationIndex(serializeConversationIndex([general]))[0];
+      expect(conversationContextMode(restored)).toBe("general");
+      expect(conversationContextMode({ ...GENERAL, label })).toBe("screen");
+      expect(conversationContextMode({ ...general, contextMode: "screen" })).toBe("screen");
+      expect(conversationFallbackForRoute([general], "scope", "/overview")).toBeUndefined();
+    },
+  );
+
   it("retains explicit general context independently of the creation route", () => {
     const general = {
       ...GENERAL,

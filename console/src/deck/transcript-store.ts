@@ -12,6 +12,8 @@
  * transcript rather than throwing into the render path.
  */
 
+import { parseAdaptiveAnswer, type AdaptiveAnswer } from "./adaptive-answer";
+import { semanticUnavailable } from "./backend-unavailable";
 import {
   parseAnswerPlan,
   parseAnswerPlanning,
@@ -126,6 +128,7 @@ export interface PersistedTurn {
   readonly intentGraphEvidence?: import("./backend-types").IntentGraphEvidence;
   readonly evidenceMode?: import("./backend-types").IntentEvidenceMode;
   readonly semanticReceipt?: SemanticProjectionReceipt;
+  readonly adaptiveAnswer?: AdaptiveAnswer;
   readonly conversationBinding?: IncidentConversationBinding;
 }
 
@@ -183,6 +186,9 @@ export function serializeTurns(
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
       const semanticReceipt = parseSemanticProjectionReceipt(t.semanticReceipt);
+      const adaptiveAnswer = parseAdaptiveAnswer(
+        t.adaptiveAnswer, semanticReceipt?.disposition === "action_draft" ? undefined : t.text,
+      );
       const conversationBinding = normalizeIncidentBinding(t.conversationBinding);
       const presentationArtifact = verification && t.presentationArtifact
         ? parsePresentationArtifact(
@@ -230,6 +236,7 @@ export function serializeTurns(
           evidenceMode: intentGraphEvidence.evidence_mode,
         } : {}),
         ...(semanticReceipt ? { semanticReceipt } : {}),
+        ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
         ...(conversationBinding ? { conversationBinding } : {}),
       };
     });
@@ -297,6 +304,23 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
     const semanticReceipt = parseSemanticProjectionReceipt(rec.semanticReceipt);
+    const draftExplanation = semanticReceipt?.disposition === "action_draft";
+    const adaptiveAnswer = parseAdaptiveAnswer(rec.adaptiveAnswer, draftExplanation ? undefined : rec.text);
+    if (!draftExplanation && (
+      rec.adaptiveAnswer !== undefined || rec.source === "semantic-advisory-response"
+    ) && (
+      !adaptiveAnswer || rec.source !== "semantic-advisory-response" ||
+      ["verification", "semanticReceipt", "presentationArtifact", "documentArtifact",
+        "intentGraph", "intentGraphEvidence", "actionDraft"].some((key) => rec[key] != null)
+    )) {
+      const unavailable = semanticUnavailable("invalid advisory response");
+      out.push({
+        id: rec.id, role: rec.role, at: rec.at,
+        text: unavailable.text, source: unavailable.source, terminal: true,
+        ...(boundedTimestamp(rec.recordedAt) ? { recordedAt: rec.recordedAt } : {}),
+      });
+      continue;
+    }
     const conversationBinding = normalizeIncidentBinding(rec.conversationBinding);
     const attachments = parseTurnAttachments(rec.attachments);
     const turn: PersistedTurn = {
@@ -342,6 +366,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
         evidenceMode: intentGraphEvidence.evidence_mode,
       } : {}),
       ...(semanticReceipt ? { semanticReceipt } : {}),
+      ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
       ...(conversationBinding ? { conversationBinding } : {}),
     };
     out.push(turn);

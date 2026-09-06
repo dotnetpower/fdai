@@ -109,7 +109,7 @@ deployment evidence, and separate human approval before the certification writer
 receipt.
 
 Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
-into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the
+into `composition/wire_azure_prompts.py`; [adaptive composition](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py) binds role-aware stages, [answers](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py) share [nested provider budgets](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py), and [Operator relationship resolution](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py) supplies expiring no-authority context. Revisioned conversation settings are written by the
 Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at
 startup. Prompt ablation removes only optional context and records every exclusion for replay.
 Question campaign wording uses `core/conversation/question_candidates.py` as the server-owned

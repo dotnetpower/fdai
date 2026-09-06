@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 626efb116e452519f653294e33cb190a31a7458a
-translation_revised: 2026-09-02
+translation_source_sha: 9bc7120e203de5cb96261028af68e52b1568ab57
+translation_revised: 2026-09-06
 ---
 
 # 진화하는 시스템 프롬프트
@@ -21,12 +21,30 @@ trust 라우팅을 확장합니다.
 > 기본 비활성 가짜를 배포합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
+## 적응형 대화 조립
+
+적응형 대화는 카탈로그가 소유한 `adaptive-common` 기본 지침 하나와 계획, 답변, 검토, 보강,
+재검증 팩 중 정확히 하나를 사용합니다. 각 턴은 고정된 Pantheon 역할 하나와 언어를 추가하며,
+사용자와 도구 문장은 신뢰하지 않는 데이터 묶음에 유지합니다. 서버는 명시적으로 선택한 에이전트와
+선택적 담당 관계를 별도로 확인합니다. Operator는 현재 소유권과 디렉터리 근거를 검증하고 만료형
+증명을 사용자와 대상에 결속하며, Core는 역할 기반 대화 전에 이를 다시 확인합니다.
+신원 식별자와 원본 리비전 문자열은 시스템 지침에 넣지 않습니다. 관계가 불명확하거나 만료되어도
+선택한 역할은 유지하되 검증된 관계로 표현하지 않습니다.
+
+배포 조립은 모델이나 엔드포인트를 하드코딩하지 않고 결정된 모델 슬롯을 사용합니다. 작성기와
+검토기는 독립적으로 구성된 모델이어야 하며 선택적 보강 한 번도 독립 검토를 다시 거칩니다.
+no-T2 요청 프로필은 기존 비적응형 경로를 유지합니다. 모든 단계는 동일한 실행 권한 없음 경계를
+보존합니다. 스키마, 바이트, 시간, 호출, 토큰 예산을 적용하며 선택적 조회는 유용한 답변과 검토에
+필요한 시간과 호출 2회를 남겨 둡니다. 내부 조회 모델 요청도 같은 사용량 제한과 취소 범위를
+따릅니다. 역할 프로필과 모델 추적은 운영 근거와 분리하며 전체 답변의 검증 배지를 만들 수 없습니다.
+
 ## 구현 상태
 
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 적응형 역할 및 담당 관계 프롬프트 조립 | implemented | `adaptive_prompt.py`, `wire_adaptive_conversation.py`, `adaptive_relationship.py`, 조립 검사 20개와 연결된 역할 및 증명 검사 통과 | 공통 단계 정책, 고정된 선택 역할 및 권한 없는 현재 담당 관계를 사용합니다. 최종 오프라인 검증과 집중 비평 11회의 근거는 계층형 대화 계획에 기록했습니다. |
 | 카탈로그 레지스트리, 작성기, 도구 및 런타임 스킬 | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | 카탈로그 로드, 결정론적 레이어 조립, 도구 매니페스트, 스킬, canary 및 시작 대체 경로에 집중 테스트가 있습니다. |
 | 경로별 대화 prompt | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, 집중 composer 및 Azure adapter 검사 | 시작 시 compact T1 preflight와 전체 운영 의미 판단을 별도로 조립합니다. 조건에 맞는 순수 social 턴은 compact prompt와 schema만 사용합니다. 혼합, 맥락 의존, 모호함 및 운영 턴은 기능을 인식하는 전체 prompt로 계속 진행됩니다. |
 | 승인된 외부 skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | GitHub delivery 어댑터는 불변 commit을 해석하고 범위가 제한된 exact 파일만 반환합니다. Fetch는 prompt eligibility를 부여하지 않으며 격리, publisher 검증, 승인, disabled-first installation이 계속 권위 있는 경계입니다. |
@@ -39,6 +57,8 @@ trust 라우팅을 확장합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 독립적으로 검토된 답변과 프로바이더의 사용량 제한 전파를 포함한 고정 역할 및 담당 관계 조립을 완료했습니다. 운영 카탈로그가 잘못되어도 독립적으로 유효한 일반 설명 서비스는 유지합니다. | `current change`; 조립 검사 20개와 연결된 Python 검사 653개 통과. 집중 비평 11회는 계층형 대화 계획에 기록했습니다. | 실제 모델 품질과 승격 근거에는 별도 승인이 필요합니다. |
+| 2026-09-06 | in-progress | 적응형 공통 단계 정책, 고정 역할 조립, 만료되는 담당 관계 맥락 및 내부 프로바이더의 사용량 제한 전파를 추가했습니다. | `current change`; `test_wire_adaptive_conversation.py` 19개와 `test_adaptive_provider_budget.py` 10개가 통과했습니다. | 계층형 대화 계획에서 연결 비평 근거를 완료합니다. 실제 승격을 주장하지 않습니다. |
 | 2026-09-02 | implemented | 답변 연속성 및 프롬프트 ablation 구획을 추가했습니다. 구현은 보장되는 종결 응답의 유용성을 사실 검증과 분리하고, 권한에 영향을 주는 프롬프트 레이어를 ablation에서 보호하고, 제외 항목을 재실행 시 볼 수 있게 하며, 리비전으로 보호된 설정을 단일 시작 스냅샷으로 적용합니다. 10회의 비평 및 강화 라운드에서 Medium 결함 4개와 Low 결함 5개를 닫았고 마지막 라운드에는 Low 초과 지적이 없었습니다. | `current change`, 집중 Python 검사 312개, 콘솔 검사 6개, 작업 범위 Ruff, 소스 파일 18개의 strict mypy 및 문서 gate가 통과했습니다. | 런타임 검증을 주장하기 전에 통제된 shadow 근거를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 8에서 대화 사전 검사 관점 23개를 검토하고 social profile 범위 검사를 안전한 대체 경계 안으로 옮겼습니다. 이제 너무 큰 profile은 narrator 호출 전에 보류되며 turn 밖으로 예외를 전파하지 않습니다. | `current change`; 집중 대화 사전 검사 테스트. | 관리되는 실제 social 응답 근거를 보존합니다. |
 | 2026-08-28 | implemented | Temperature 0인 social 분류, temperature 0.3인 페르소나 narration 및 전체 운영 의미 판단을 별도의 조립 prompt 기능으로 분리했습니다. Social narration은 공통 base와 greeting, thanks, farewell 또는 self-introduction용 타입 기반 enforce pack 하나를 조합합니다. 분류기와 narrator는 온톨로지 기능 카탈로그를 받지 않고 narrator는 운영 맥락도 받지 않으며, social 문장은 narrator schema만 전달할 수 있습니다. | `current change`, 집중 prompt, adapter, routing 및 processor 검사 608개 통과, 인증된 자기소개 변형은 이전 전체 social 입력 5,819토큰과 비교해 두 호출에서 전체 약 1.7K-1.9K토큰을 사용했습니다. 조립 검사는 act pack이 서로 섞이지 않음을 입증합니다. | 인증된 pack별 waterfall 근거를 보존하고 더 큰 이중 언어 corpus에서 충돌률, 적절성 및 지연을 측정합니다. |
