@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 81ec1365ceaa8146abbd6d8dbc0c03ecdcdbbda0
+translation_source_sha: aa7bec5262e2a1ce5ea289f8432c6d0a9e7d1475
 translation_revised: 2026-09-06
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -22,6 +22,10 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 캐시가 답변 없는 사용자 질문으로 끝나면 불완전하므로 서버 조회를 생략하지 않습니다.
 저장된 최종 결과는 같은 검증된 표현 경로로 표시하며 질문을 다시 보내거나 모델을 호출하거나
 이력을 다시 쓰지 않습니다. 복원 중 새 입력이나 세션 전환이 발생하면 화면을 덮어쓰지 않습니다.
+
+검증된 자문 최종 응답은 완성된 원문을 즉시 표시합니다. 서버가 검토를 마친 뒤 인위적인 타자
+효과를 다시 재생하지 않습니다. 일반 스트리밍 조각은 기존 표시 속도와 순서를 유지하며 잘못된
+자문 메타데이터는 이 빠른 경로를 선택할 수 없습니다.
 
 ## 구현 상태
 

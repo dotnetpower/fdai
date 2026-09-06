@@ -596,6 +596,7 @@ export function useCommandDeckSubmit({
         if (shouldFlushStreamPaintSynchronously(
           document.visibilityState,
           document.hasFocus(),
+          reply.adaptiveAnswer !== undefined,
         )) {
           visibleAcc = reply.text;
         } else {

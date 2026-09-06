@@ -19,8 +19,9 @@ export function drainTerminalReveal(queue: string[]): string {
 export function shouldFlushStreamPaintSynchronously(
   visibilityState: string,
   focused: boolean,
+  validatedAdvisory: boolean = false,
 ): boolean {
-  return visibilityState === "hidden" || !focused;
+  return validatedAdvisory || visibilityState === "hidden" || !focused;
 }
 
 /** Drain every paced delta when no visible frame can be relied on. */

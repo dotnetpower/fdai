@@ -22,6 +22,10 @@ incomplete and must not suppress that read. Recovery renders the stored terminal
 same validated presenter; it never resends the question, creates a model call, or rewrites history.
 New input or a session switch invalidates an in-flight restoration before it can replace the view.
 
+Validated advisory terminals render their complete canonical text immediately. They do not replay
+an artificial typewriter after the server has already completed review. Ordinary streamed deltas
+retain their pacing and ordering, and malformed advisory metadata cannot select this fast path.
+
 ## Implementation status
 
 ### Implementation scope
