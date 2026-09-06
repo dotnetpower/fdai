@@ -26,6 +26,7 @@ from fdai.shared.providers.document_ingestion import (
     DocumentAccessDeniedError,
     DocumentNotFoundError,
 )
+from fdai.shared.providers.knowledge import KnowledgeChunk
 
 AT = datetime(2026, 9, 5, tzinfo=UTC)
 RELEASE = f"sha256:{'a' * 64}"
@@ -194,3 +195,77 @@ def test_read_store_decodes_current_document_service_payload() -> None:
         invalid = {**payload, **updates}
         with pytest.raises(DocumentNotFoundError, match="active governed knowledge"):
             _document_version(invalid)
+
+
+async def test_postgres_governed_search_never_claims_unverified_completeness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = PostgresGovernedDocumentReadStore(
+        config=PostgresGovernedDocumentReadConfig(dsn="postgresql://reader@example/fdai")
+    )
+    hit = KnowledgeChunk(
+        doc_id="governed:doc:version",
+        chunk_id="chunk-1",
+        text="Recovery evidence",
+        source_ref="document://doc/versions/version#unit-1",
+        metadata={},
+        score=0.9,
+    )
+
+    async def search_snapshot(
+        query: str,
+        *,
+        collection_id: str,
+        allowed_access_refs: frozenset[str],
+        k: int,
+    ) -> tuple[tuple[KnowledgeChunk, ...], str]:
+        assert (query, collection_id, allowed_access_refs, k) == (
+            "recovery",
+            "operations",
+            frozenset({"collection:operations"}),
+            8,
+        )
+        return (hit,), "10:20:"
+
+    monkeypatch.setattr(store, "_search_snapshot", search_snapshot)
+
+    result = await store.search_governed(
+        "recovery",
+        collection_id="operations",
+        allowed_access_refs=frozenset({"collection:operations"}),
+        k=8,
+    )
+
+    assert result.hits == (hit,)
+    assert result.index_generation.startswith("postgres-document-index:sha256:")
+    assert result.complete is False
+    assert result.limitation == "index_completeness_unverified"
+
+
+@pytest.mark.parametrize(
+    ("query", "collection_id", "access_refs", "limit"),
+    (
+        ("", "operations", frozenset({"collection:operations"}), 1),
+        ("recovery", "", frozenset({"collection:operations"}), 1),
+        ("recovery", "operations", frozenset(), 1),
+        ("recovery", "operations", frozenset({"collection:operations"}), 0),
+        ("recovery", "operations", frozenset({"collection:operations"}), 21),
+    ),
+)
+async def test_postgres_search_rejects_invalid_bounds_before_connecting(
+    query: str,
+    collection_id: str,
+    access_refs: frozenset[str],
+    limit: int,
+) -> None:
+    store = PostgresGovernedDocumentReadStore(
+        config=PostgresGovernedDocumentReadConfig(dsn="postgresql://reader@example/fdai")
+    )
+
+    with pytest.raises(ValueError, match="inputs"):
+        await store._search_snapshot(  # noqa: SLF001
+            query,
+            collection_id=collection_id,
+            allowed_access_refs=access_refs,
+            k=limit,
+        )
