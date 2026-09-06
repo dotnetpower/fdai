@@ -361,6 +361,7 @@ class PostgresOperationalHistoryStore:
         receipt: OperationalHistoryCertificationReceipt,
     ) -> bool:
         record = certification_record(receipt)
+        scenario_results = _certification_scenario_projection(record)
         return await self._put(
             table="operational_history_certification_receipt",
             id_column="receipt_digest",
@@ -376,7 +377,7 @@ class PostgresOperationalHistoryStore:
                 receipt.digest,
                 receipt.source_revision,
                 receipt.operationally_validated,
-                Jsonb(record["scenario_results"]),
+                Jsonb(scenario_results),
                 Jsonb(record),
                 receipt.recorded_at,
             ),
@@ -531,6 +532,25 @@ class PostgresOperationalHistoryStore:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+
+def _certification_scenario_projection(
+    record: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    """Index immutable ordered results for the database's object-valued projection column."""
+
+    results = record.get("scenario_results")
+    if not isinstance(results, list):
+        raise ValueError("certification scenario results MUST be an array")
+    projection: dict[str, dict[str, object]] = {}
+    for result in results:
+        if not isinstance(result, dict):
+            raise ValueError("certification scenario result MUST be an object")
+        scenario = result.get("scenario")
+        if not isinstance(scenario, str) or not scenario or scenario in projection:
+            raise ValueError("certification scenario identity is missing or duplicated")
+        projection[scenario] = result
+    return projection
 
 
 def _policy_record(value: ObservationRetentionPolicy) -> dict[str, object]:

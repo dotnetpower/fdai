@@ -16,6 +16,7 @@ from fdai.delivery.operational_history_archive import OperationalArchiveArtifact
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryConfig,
     PostgresOperationalHistoryStore,
+    _certification_scenario_projection,
 )
 from fdai.delivery.persistence.postgres_operational_history_lifecycle_runner import (
     PostgresOperationalHistoryLifecycleRepository,
@@ -81,6 +82,18 @@ def _store(connection: _Connection) -> PostgresOperationalHistoryStore:
 
     store._connect = MethodType(connect, store)  # type: ignore[method-assign]
     return store
+
+
+def test_certification_scenarios_use_the_object_valued_database_projection() -> None:
+    first = {"scenario": "archive_outage", "status": "passed"}
+    second = {"scenario": "bounded_storage", "status": "passed"}
+
+    assert _certification_scenario_projection({"scenario_results": [first, second]}) == {
+        "archive_outage": first,
+        "bounded_storage": second,
+    }
+    with pytest.raises(ValueError, match="missing or duplicated"):
+        _certification_scenario_projection({"scenario_results": [first, first]})
 
 
 async def test_partition_scope_filter_is_applied_inside_the_bounded_query() -> None:

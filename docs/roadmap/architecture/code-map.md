@@ -176,7 +176,7 @@ the active generation only when its content, coverage, freshness, and watermarks
 `operational_history_lifecycle.py` and `operational_history_certification.py` own incarnation,
 partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
 certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob
-artifacts, principal-scoped reads, a database-owned purge gate, and a fixed shadow schedule.
+artifacts, principal-scoped reads, a database-owned purge gate, and a fixed shadow schedule. The immutable receipt keeps ordered scenario results, while its PostgreSQL projection keys the same results by scenario to satisfy the object-valued storage contract.
 The OI-16 protected certification campaign lives in
 `delivery/operational_history_certification_campaign*.py`, with its exact synthetic retention and
 append-only recovery schema in `20260907_core_oi16_certification_support.py`. The shared journal

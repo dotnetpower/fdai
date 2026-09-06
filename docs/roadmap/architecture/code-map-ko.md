@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dfa004d876f1578df7a2f5f6c58b056339ee53d8
+translation_source_sha: fbca027635f43098b967e374f7a1a98c1c3bf985
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -171,7 +171,7 @@ content, coverage, freshness 및 watermark가 동일할 때만 active generation
 `operational_history_lifecycle.py`와 `operational_history_certification.py`는 수명 인스턴스,
 partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
 의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,
-principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule에 결속합니다.
+principal 범위 조회, database 소유 purge gate 및 고정 shadow schedule에 결속합니다. 변경할 수 없는 증적은 순서가 지정된 scenario 결과를 유지하고, PostgreSQL 변환 결과는 같은 결과를 scenario별로 키를 지정해 객체 값 저장 계약을 충족합니다.
 OI-16 보호 certification campaign은 `delivery/operational_history_certification_campaign*.py`에
 있으며, 정확한 synthetic retention 및 추가 전용 recovery schema는
 `20260907_core_oi16_certification_support.py`에 있습니다. 공유 journal은 synthetic purge
