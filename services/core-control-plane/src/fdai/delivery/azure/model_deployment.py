@@ -58,10 +58,9 @@ def _tokens_per_minute(properties: object) -> int | None:
         if not isinstance(rule, Mapping):
             continue
         key = rule.get("key")
-        if (
-            not isinstance(key, str)
-            or _RATE_KEY_SEPARATOR.sub("", key.casefold()) not in _TOKEN_RATE_KEYS
-        ):
+        if not isinstance(key, str):
+            continue
+        if _RATE_KEY_SEPARATOR.sub("", key.casefold()) not in _TOKEN_RATE_KEYS:
             continue
         count = rule.get("count")
         renewal_period = rule.get("renewalPeriod")
@@ -75,10 +74,10 @@ def _tokens_per_minute(properties: object) -> int | None:
             or count <= 0
             or renewal_period <= 0
         ):
-            continue
+            return None
         per_minute = float(count) * 60 / float(renewal_period)
         if not per_minute.is_integer() or per_minute > 2_147_483_647:
-            continue
+            return None
         observed.add(int(per_minute))
     return next(iter(observed)) if len(observed) == 1 else None
 

@@ -59,6 +59,21 @@ def test_conflicting_token_rates_do_not_publish_a_tpm_value() -> None:
     assert "capacity_tpm_source" not in summary
 
 
+def test_malformed_recognized_token_rate_invalidates_tpm_evidence() -> None:
+    row = _row(token_count=50_000)
+    properties = row["properties"]
+    assert isinstance(properties, dict)
+    rate_limits = properties["rateLimits"]
+    assert isinstance(rate_limits, list)
+    rate_limits.append({"key": "tokens", "count": "60000", "renewalPeriod": 60})
+
+    summary = model_deployment_summary(row)
+
+    assert summary["capacity_units"] == 50
+    assert "capacity_tpm" not in summary
+    assert "capacity_tpm_source" not in summary
+
+
 def test_capacity_units_alone_do_not_invent_tpm() -> None:
     row = _row(token_count=50_000)
     properties = row["properties"]
