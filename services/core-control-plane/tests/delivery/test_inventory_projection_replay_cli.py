@@ -25,7 +25,7 @@ NOW = datetime(2026, 9, 6, tzinfo=UTC)
 class _Projector:
     def __init__(self, result: InventoryOntologyProjectionResult) -> None:
         self.result = result
-        self.calls: list[tuple[str, int | None, int | None]] = []
+        self.calls: list[tuple[str, int | None, int | None, bool]] = []
 
     async def apply(
         self,
@@ -34,10 +34,16 @@ class _Projector:
         journal_high_watermark: int | None = None,
         projection_high_watermark: int | None = None,
         fail_before_incomplete_status: bool = False,
+        allow_legacy_identity_migration: bool = False,
     ) -> InventoryOntologyProjectionResult:
         assert fail_before_incomplete_status is True
         self.calls.append(
-            (observation.generation, journal_high_watermark, projection_high_watermark)
+            (
+                observation.generation,
+                journal_high_watermark,
+                projection_high_watermark,
+                allow_legacy_identity_migration,
+            )
         )
         return self.result
 
@@ -117,7 +123,7 @@ async def test_replay_verifies_exact_release_and_watermark_fence() -> None:
         source_revision=REVISION,
     )
 
-    assert projector.calls == [("snapshot-active", 17, 17)]
+    assert projector.calls == [("snapshot-active", 17, 17, False)]
     assert summary["prior_ontology_release_digest"] == prior_release
     assert summary["ontology_release_digest"] == RELEASE
     assert summary["ontology_release_changed"] is True
@@ -172,5 +178,39 @@ async def test_replay_rejects_a_regressed_bootstrap_fence() -> None:
             replay,
             projector=_Projector(_result()),
             state=_State(prior),
+            source_revision=REVISION,
+        )
+
+
+async def test_replay_migrates_only_an_exact_identity_only_manifest() -> None:
+    replay = _replay()
+    projector = _Projector(_result())
+    prior_release = "sha256:" + "c" * 64
+    legacy = {
+        "schema_version": "1.1.0",
+        "generation": "snapshot-active",
+        "ontology_release_digest": prior_release,
+        "complete": True,
+        "dropped_reasons": [],
+        "object_ids": ["resource-a"],
+        "link_keys": [],
+    }
+
+    summary = await run_once(
+        replay,
+        projector=projector,
+        state=_State(legacy, _manifest()),
+        source_revision=REVISION,
+    )
+
+    assert projector.calls == [("snapshot-active", 17, 17, True)]
+    assert summary["prior_ontology_release_digest"] == prior_release
+
+    legacy["object_ids"] = ["resource-b", "resource-a"]
+    with pytest.raises(ValueError, match="legacy object identities"):
+        await run_once(
+            replay,
+            projector=_Projector(_result()),
+            state=_State(legacy, _manifest()),
             source_revision=REVISION,
         )

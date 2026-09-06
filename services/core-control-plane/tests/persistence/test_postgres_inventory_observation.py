@@ -438,6 +438,132 @@ def test_active_snapshot_bootstrap_rehydrates_the_verified_observation() -> None
     assert observation.links[0].observation_metadata == link_metadata
 
 
+def test_active_snapshot_bootstrap_cross_checks_identity_only_legacy_evidence() -> None:
+    generation = "snapshot-legacy"
+    observation = build_active_snapshot_observation(
+        snapshot={
+            "id": generation,
+            "completed_at": NOW,
+            "metadata": {
+                "provider_scope_coverage": {
+                    "provider_identity_complete": True,
+                },
+            },
+        },
+        resource_rows=(
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {"state": "ready"},
+                "provider_ref": "provider/resource-a",
+                "last_seen": NOW,
+            },
+            {
+                "resource_id": "resource-b",
+                "resource_type": "network.interface",
+                "props": {},
+                "provider_ref": "provider/resource-b",
+                "last_seen": None,
+            },
+        ),
+        link_rows=(
+            {
+                "from_id": "resource-b",
+                "from_type": "network.interface",
+                "link_type": "attached_to",
+                "to_id": "resource-a",
+                "to_type": "compute.vm",
+                "props": {},
+            },
+        ),
+        prior_manifest={
+            "schema_version": "1.1.0",
+            "generation": generation,
+            "ontology_release_digest": "sha256:" + "a" * 64,
+            "complete": True,
+            "dropped_reasons": [],
+            "object_ids": ["resource-a", "resource-b"],
+            "link_keys": [["resource-b", "attached_to", "resource-a"]],
+        },
+    )
+
+    metadata = observation.links[0].observation_metadata
+    assert metadata is not None
+    assert metadata.verified is True
+    assert metadata.verification_method == "deterministic-cross-check"
+    assert metadata.inventory_generation == generation
+    assert metadata.state_fact.source_identity == "inventory-snapshot"
+    assert observation.relationship_drops == ()
+
+
+@pytest.mark.parametrize(
+    ("provider_complete", "manifest_complete", "link_key", "extra_field", "message"),
+    [
+        (False, True, ["resource-a", "depends_on", "resource-b"], False, "provider identity"),
+        (True, False, ["resource-a", "depends_on", "resource-b"], False, "manifest is incomplete"),
+        (True, True, ["resource-b", "depends_on", "resource-a"], False, "relationship identities"),
+        (True, True, ["resource-a", "depends_on", "resource-b"], True, "manifest shape"),
+    ],
+)
+def test_active_snapshot_bootstrap_rejects_incomplete_legacy_evidence(
+    provider_complete: bool,
+    manifest_complete: bool,
+    link_key: list[str],
+    extra_field: bool,
+    message: str,
+) -> None:
+    prior_manifest = {
+        "schema_version": "1.1.0",
+        "generation": "snapshot-legacy",
+        "ontology_release_digest": "sha256:" + "a" * 64,
+        "complete": manifest_complete,
+        "dropped_reasons": [],
+        "object_ids": ["resource-a", "resource-b"],
+        "link_keys": [link_key],
+    }
+    if extra_field:
+        prior_manifest["unexpected"] = True
+    with pytest.raises(ValueError, match=message):
+        build_active_snapshot_observation(
+            snapshot={
+                "id": "snapshot-legacy",
+                "completed_at": NOW,
+                "metadata": {
+                    "provider_scope_coverage": {
+                        "provider_identity_complete": provider_complete,
+                    },
+                },
+            },
+            resource_rows=(
+                {
+                    "resource_id": "resource-a",
+                    "resource_type": "compute.vm",
+                    "props": {},
+                    "provider_ref": None,
+                    "last_seen": NOW,
+                },
+                {
+                    "resource_id": "resource-b",
+                    "resource_type": "compute.vm",
+                    "props": {},
+                    "provider_ref": None,
+                    "last_seen": NOW,
+                },
+            ),
+            link_rows=(
+                {
+                    "from_id": "resource-a",
+                    "from_type": "compute.vm",
+                    "link_type": "depends_on",
+                    "to_id": "resource-b",
+                    "to_type": "compute.vm",
+                    "props": {},
+                },
+            ),
+            prior_manifest=prior_manifest,
+        )
+
+
 async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstrap_fence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

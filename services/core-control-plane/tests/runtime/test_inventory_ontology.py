@@ -627,6 +627,85 @@ async def test_legacy_manifest_cannot_cross_ontology_releases() -> None:
         ).apply(observation)
 
 
+async def test_identity_only_manifest_requires_an_exact_explicit_release_migration() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    observation = _observation(generation="snapshot-legacy", resource_ids=("vm-1",))
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="vm-1",
+            object_type="Resource",
+            properties={"id": "vm-1", "type": "compute.vm", "name": "vm-1"},
+        )
+    )
+    manifest = {
+        "schema_version": "1.1.0",
+        "generation": observation.generation,
+        "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
+        "complete": True,
+        "dropped_reasons": [],
+        "object_ids": ["vm-1"],
+        "link_keys": [],
+    }
+    await status.write_state(INVENTORY_ONTOLOGY_MANIFEST_KEY, manifest)
+    next_release = "sha256:" + "b" * 64
+
+    with pytest.raises(ValueError, match="cannot cross ontology releases"):
+        await _projector(
+            store,
+            status,
+            ontology_release_digest=next_release,
+        ).apply(observation)
+
+    result = await _projector(
+        store,
+        status,
+        ontology_release_digest=next_release,
+    ).apply(observation, allow_legacy_identity_migration=True)
+
+    assert result.complete is True
+    upgraded = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert upgraded is not None
+    assert upgraded["schema_version"] == "1.3.0"
+
+
+async def test_identity_only_manifest_migration_rejects_changed_identities() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    await status.write_state(
+        INVENTORY_ONTOLOGY_MANIFEST_KEY,
+        {
+            "schema_version": "1.1.0",
+            "generation": "snapshot-legacy",
+            "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
+            "complete": True,
+            "dropped_reasons": [],
+            "object_ids": ["vm-1"],
+            "link_keys": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="projection identities changed"):
+        await _projector(
+            store,
+            status,
+            ontology_release_digest="sha256:" + "b" * 64,
+        ).apply(
+            _observation(generation="snapshot-legacy", resource_ids=("vm-2",)),
+            allow_legacy_identity_migration=True,
+        )
+
+    with pytest.raises(ValueError, match="projection generation changed"):
+        await _projector(
+            store,
+            status,
+            ontology_release_digest="sha256:" + "b" * 64,
+        ).apply(
+            _observation(generation="snapshot-current", resource_ids=("vm-1",)),
+            allow_legacy_identity_migration=True,
+        )
+
+
 async def test_manifest_digest_binds_object_and_link_properties() -> None:
     store = _store()
     status = InMemoryStateStore()

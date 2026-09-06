@@ -43,6 +43,7 @@ INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
 _MANIFEST_SCHEMA_VERSION = "1.3.0"
 _LEGACY_MANIFEST_SCHEMA_VERSION = "1.2.0"
+_IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION = "1.1.0"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 _REVISION_READ_BATCH_SIZE = 1_000
@@ -82,6 +83,7 @@ class _OwnedIdentities:
     generation: str | None = None
     manifest_digest: str | None = None
     content_digest: str | None = None
+    identity_only_manifest: bool = False
 
 
 class InventoryOntologyProjector:
@@ -120,6 +122,7 @@ class InventoryOntologyProjector:
         journal_high_watermark: int | None = None,
         projection_high_watermark: int | None = None,
         fail_before_incomplete_status: bool = False,
+        allow_legacy_identity_migration: bool = False,
     ) -> InventoryOntologyProjectionResult:
         """Serialize and atomically replace the owned subgraph for one generation."""
 
@@ -138,6 +141,7 @@ class InventoryOntologyProjector:
                     journal_high_watermark=journal_high_watermark,
                     projection_high_watermark=projection_high_watermark,
                     fail_before_incomplete_status=fail_before_incomplete_status,
+                    allow_legacy_identity_migration=allow_legacy_identity_migration,
                 )
             async with self._projection_lock.acquire(_PROJECTION_LOCK_ID):
                 return await self._apply_locked(
@@ -145,6 +149,7 @@ class InventoryOntologyProjector:
                     journal_high_watermark=journal_high_watermark,
                     projection_high_watermark=projection_high_watermark,
                     fail_before_incomplete_status=fail_before_incomplete_status,
+                    allow_legacy_identity_migration=allow_legacy_identity_migration,
                 )
 
     async def _apply_locked(
@@ -154,6 +159,7 @@ class InventoryOntologyProjector:
         journal_high_watermark: int | None,
         projection_high_watermark: int | None,
         fail_before_incomplete_status: bool,
+        allow_legacy_identity_migration: bool,
     ) -> InventoryOntologyProjectionResult:
         """Build and commit one generation while the projection lock is held.
 
@@ -208,7 +214,18 @@ class InventoryOntologyProjector:
                 journal_high_watermark=journal_high_watermark,
                 projection_high_watermark=projection_high_watermark,
             )
-        previous = await self._read_manifest()
+        previous = await self._read_manifest(
+            allow_legacy_identity_migration=allow_legacy_identity_migration
+        )
+        if previous.identity_only_manifest:
+            if previous.generation != projection.generation:
+                raise ValueError("legacy inventory ontology projection generation changed")
+            object_ids = tuple(record.id for record in projection.objects)
+            link_keys = tuple(
+                (record.from_id, record.link_type, record.to_id) for record in projection.links
+            )
+            if object_ids != previous.object_ids or link_keys != previous.link_keys:
+                raise ValueError("legacy inventory ontology projection identities changed")
         object_content, link_content = _projection_content(projection)
         current_manifest_digest = _manifest_digest(
             generation=projection.generation,
@@ -385,12 +402,20 @@ class InventoryOntologyProjector:
             pinned.append(replace(record, revision=current.revision))
         return tuple(pinned)
 
-    async def _read_manifest(self) -> _OwnedIdentities:
+    async def _read_manifest(
+        self,
+        *,
+        allow_legacy_identity_migration: bool = False,
+    ) -> _OwnedIdentities:
         raw = await self._status_store.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
         if not isinstance(raw, dict):
             return _OwnedIdentities((), ())
         schema_version = raw.get("schema_version")
-        if schema_version not in {_LEGACY_MANIFEST_SCHEMA_VERSION, _MANIFEST_SCHEMA_VERSION}:
+        if schema_version not in {
+            _IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION,
+            _LEGACY_MANIFEST_SCHEMA_VERSION,
+            _MANIFEST_SCHEMA_VERSION,
+        }:
             raise ValueError("inventory ontology manifest schema version is unsupported")
         previous_release_digest = raw.get("ontology_release_digest")
         if (
@@ -400,6 +425,12 @@ class InventoryOntologyProjector:
             raise ValueError("inventory ontology manifest release digest is invalid")
         release_changed = previous_release_digest != self._ontology_release_digest
         if release_changed and schema_version == _LEGACY_MANIFEST_SCHEMA_VERSION:
+            raise ValueError("legacy inventory ontology manifest cannot cross ontology releases")
+        if (
+            release_changed
+            and schema_version == _IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION
+            and not allow_legacy_identity_migration
+        ):
             raise ValueError("legacy inventory ontology manifest cannot cross ontology releases")
         if not isinstance(raw.get("generation"), str) or not raw["generation"].strip():
             raise ValueError("inventory ontology manifest generation is invalid")
@@ -426,6 +457,28 @@ class InventoryOntologyProjector:
         )
         if len(link_keys) != len(link_values) or link_keys != canonical_link_keys:
             raise ValueError("inventory ontology manifest link keys are invalid")
+        if schema_version == _IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION:
+            if (
+                set(raw)
+                != {
+                    "schema_version",
+                    "generation",
+                    "ontology_release_digest",
+                    "complete",
+                    "dropped_reasons",
+                    "object_ids",
+                    "link_keys",
+                }
+                or raw.get("complete") is not True
+                or raw.get("dropped_reasons") != []
+            ):
+                raise ValueError("identity-only inventory ontology manifest is incomplete")
+            return _OwnedIdentities(
+                object_ids,
+                link_keys,
+                generation=raw["generation"],
+                identity_only_manifest=True,
+            )
         if schema_version == _LEGACY_MANIFEST_SCHEMA_VERSION:
             return _OwnedIdentities(
                 object_ids,

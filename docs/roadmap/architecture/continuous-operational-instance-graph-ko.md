@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: fcf16f42bef3f1da4b9cd96cbc80791794f0f31c
+translation_source_sha: 6b66c3d684a92294854a6ce90c84c3cb7bb3779f
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -380,6 +380,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 배포된 스키마 `1.1.0` 인벤토리 매니페스트를 위한 명시적인 신원 전용 이행 경로를 추가했습니다. 이 경로는 정규화되고 중복되지 않는 신원, 완전한 프로바이더 신원 범위, 기록된 누락 없음, 스냅샷과 매니페스트의 정확한 객체 일치, 레거시 매니페스트에 포함된 모든 스냅샷 관계를 갖춘 하나의 완전한 활성 세대만 허용합니다. 불변 스냅샷 행과 내용 주소가 지정된 레거시 매니페스트에서 타입이 지정된 관계 검증을 도출한 뒤, 새 변환 결과가 모든 레거시 객체 및 관계 신원을 재현해야 매니페스트를 교체합니다. 스키마 `1.2.0`은 계속 온톨로지 release를 교차할 수 없으며, 형식이 잘못되었거나 혼합되었거나 불완전하거나 상충하는 근거는 차단됩니다. | `current change`, 활성 스냅샷, 재현 CLI 및 온톨로지 변환기 집중 테스트 50개가 통과했고 Ruff, formatter 및 strict mypy 검사도 통과했습니다. 보호된 campaign `34014240389`은 정확한 image를 검증한 뒤 배포된 활성 스냅샷에 최신 변환 완전성 메타데이터가 없어서 시나리오 수집 전에 중단됐으며 certification 증적이나 artifact를 저장하지 않았습니다. | 수정된 정확한 image를 게시하고 attest한 뒤 독립 승인을 받은 새 campaign을 실행합니다. 13개 시나리오가 모두 통과하지 않으면 `operationally_validated=false`를 유지합니다. |
 | 2026-09-06 | implemented | 정규화된 journal 행이 생기기 전에 만들어진 active generation도 provider-free ontology release migration으로 처리하도록 강화했습니다. Migration은 promotion lock 아래에서 완전한 active snapshot만 복원하고, 기존 safe-to-retry dual-write 경로로 journal에 기록하며, 단조 증가하는 journal fence를 전진시킨 뒤 새 ontology release에서도 관측 내용이 바뀌지 않았는지 검증합니다. 관계 메타데이터 누락, 불완전한 범위, 변경된 generation, 감소한 fence 또는 변경된 내용은 certification 시나리오 실행 전에 migration을 계속 차단합니다. | `current change`, snapshot bootstrap, journal replay, replay CLI 및 ontology projector 집중 테스트 42개와 Ruff 및 strict mypy가 통과했습니다. 보호된 campaign `34011288621`은 정확한 image를 검증한 뒤 `active inventory snapshot has no replayable journal records`로 시나리오 수집 전에 안전하게 중단됐으며 certification 증적이나 artifact를 저장하지 않았습니다. | 강화된 정확한 image를 게시하고 attest한 뒤 독립 승인을 받은 새 campaign을 실행합니다. 13개 시나리오가 모두 통과하지 않으면 `operationally_validated=false`를 유지합니다. |
 | 2026-09-06 | implemented | OI-16 근거 수집 전에 실행하는 provider-free inventory ontology release migration을 보호된 경로로 추가했습니다. 불변 journal record에서 active promoted observation을 재구성하고 이전 current-schema manifest의 generation, content, freshness 및 watermark fence를 사용합니다. Legacy reviewed relationship drop을 복원하며 불완전하거나 변경된 content는 durable write 전에 차단합니다. Migration은 이전 release와 결과 release를 모두 기록하고 기존 사람 승인 dev campaign 경계 안에서 실행됩니다. | `current change`, 집중 inventory synchronization, journal replay, projector, replay CLI, workflow, Ruff, strict mypy, actionlint 및 package build 검사. | 정확한 image를 publish 및 attest하고 보호된 migration을 실행한 뒤 새로운 격리 13/13 campaign이 통과해야 OI-16 검증 상태를 변경합니다. |
 | 2026-09-06 | validated | Azure 인벤토리에서 온톨로지 변환 결과, Operator 조회 모델, Console 표시까지 기록된 운영 상태 경로를 완성했습니다. 리소스별 공급자 필드 3개는 정확한 값을 유지하고 모든 표준 ResourceType에는 검토된 상태 누락 결과가 있습니다. | `current change`, 집중 backend 검사 268개, 집중 Console 검사 85개, 타입 검사, 프로덕션 빌드, 범위가 제한된 실제 ARG 수집 1회, 로컬 PostgreSQL 검사 및 인증된 표준 포트 브라우저 검사가 통과했습니다. | 범위가 제한된 기록 상태 변환 결과에는 남은 작업이 없습니다. |
@@ -546,8 +547,8 @@ purge가 연결되지 않았습니다. 위의 제한된 이력 설계와 OI-13�
   재시작 및 archive 중단 시나리오를 포함해야 합니다. 개발 전용 synthetic campaign, bot 요청
   기반 보호 workflow, 정확한 provenance 결속, 비공개 단계 근거 및 gate가 적용된 증적 writer는
   구현됐습니다. 모든 시나리오가 통과하지 않으면 `operationally_validated=true`를 보고하거나
-  증적을 저장할 수 없습니다. 독립 승인을 받은 campaign `34011288621`은 시나리오 수집 전에
-  legacy active snapshot journal 선행 조건에서 중단됐으므로 운영 증적은 열려 있습니다.
+  증적을 저장할 수 없습니다. 독립 승인을 받은 campaign `34014240389`은 시나리오 수집 전에
+  스키마 `1.1.0` 활성 스냅샷 호환성 경계에서 중단됐으므로 운영 증적은 열려 있습니다.
 - [x] 표준 로컬 프로필에 `analyzer: run continuously (local)`을 제공합니다. 배포 one-shot
   analyzer CLI, 로컬 런타임 환경, 인벤토리 대상 검색, 메트릭 매핑, 멱등성 키, 이벤트 계약 및
   shadow 상태를 재사용하며 analyzer 로직을 중복하지 않습니다.
