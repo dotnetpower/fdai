@@ -36,7 +36,7 @@ def _verify(token: str) -> Mapping[str, object]:
         "approver": [OperatorRole.APPROVER.value],
         "owner": [OperatorRole.OWNER.value],
     }.get(token, [])
-    return {"oid": f"{token}-operator", "roles": roles}
+    return {"oid": f"{token}-operator", "idtyp": "user", "roles": roles}
 
 
 def _client(overrides: Mapping[str, str] | None = None) -> TestClient:

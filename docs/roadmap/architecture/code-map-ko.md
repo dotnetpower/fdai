@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dc69a8a16825df4f6455edd37c31d8e83546ac1f
+translation_source_sha: b151092b417559566d2115c0348fc2afaadab33b
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -91,6 +91,14 @@ Terraform 보안 검사는 각 Key Vault secret에 만료일 또는 명시적인
 Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니다.
 `wire_semantic_query.py`는 기존 공개 가져오기를 유지하면서 해당 생성자를 직접 다시
 내보내며, 일반 배선 모듈은 적용되는 800줄 상한 아래를 유지합니다.
+관리되는 대화형 문서 검색은 의미 판단과 계획 모듈,
+`core/knowledge/governed_document_reader.py`, 읽기 전용
+`query.governed_documents` FunctionType, Operator 신원 projection, Console 근거 decoder에
+걸쳐 있습니다. 문서 메타데이터는 온톨로지로 관리하지만 발췌문 텍스트는 신뢰할 수 없는
+데이터로 유지하며 지시 또는 실행 권한을 부여할 수 없습니다. 필수 검색은 불완전한 범위에서
+안전하게 종료하고, 선택적 검색은 독립 운영 근거가 완료되지 않으면 부분 상태로 남습니다.
+PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세대를 사용할 수 있을 때까지
+`index_completeness_unverified`를 보고합니다. 집중 계약 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한, 입력 및 reader 한도 실패를 모두 검증합니다. 콘텐츠 및 접근 범위 digest는 길이만 같은 값이 아니라 정확한 소문자 16진수 SHA-256 신원을 요구합니다. Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을 적용한 정확한 표현 digest를 분리합니다.
 
 의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유

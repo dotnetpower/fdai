@@ -26,6 +26,7 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
+from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
 from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import (
     CausalEvidenceJoin,
@@ -63,6 +64,7 @@ from fdai_service_contracts import (
 from fdai_service_contracts.codec import MAX_WIRE_BYTES
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
+    QueryNodeKind,
     TaskStatus,
     content_digest,
 )
@@ -121,6 +123,9 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_evidence_authority_conflict",
     "semantic_evidence_authority_missing",
     "semantic_current_relationship_mapping_unavailable",
+    "semantic_governed_documents_unavailable",
+    "semantic_governed_documents_incomplete",
+    "semantic_governed_documents_empty",
 }
 _SEMANTIC_PLANNER_UNAVAILABLE_REASONS = {
     "semantic_frame_unavailable",
@@ -1007,7 +1012,11 @@ def _principal(request: SemanticTurnRequest) -> Principal:
     if not ordinary_roles:
         raise SemanticTurnRejectedError("semantic_break_glass_only")
     selected = ordinary_roles[-1]
-    return Principal(id=request.principal.subject_id, role=_ROLE_MAP[selected])
+    return Principal(
+        id=request.principal.subject_id,
+        role=_ROLE_MAP[selected],
+        groups=frozenset(request.principal.groups),
+    )
 
 
 def _prior_turns(
@@ -1306,6 +1315,7 @@ def _project_runtime_result(
         execution_receipt_digest=execution_receipt_digest,
     )
     checks_total = len(execution.receipts)
+    checks_completed = sum(receipt.status is TaskStatus.COMPLETED for receipt in execution.receipts)
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
         return _evidence_incomplete(
@@ -1341,6 +1351,17 @@ def _project_runtime_result(
             "relationship_projection_rejected",
             result=result,
         ), model_extensions
+    evidence_requirements = tuple(getattr(frame, "evidence_requirements", ()))
+    optional_document_node_ids = (
+        tuple(
+            node.node_id
+            for node in getattr(plan, "nodes", ())
+            if node.kind is QueryNodeKind.FUNCTION
+            and node.arguments.get("function_name") == "query.governed_documents"
+        )
+        if "governed_documents.optional" in evidence_requirements
+        else ()
+    )
     answer, technical_details = _render_query_answer(
         request,
         execution,
@@ -1348,12 +1369,14 @@ def _project_runtime_result(
         output_shape=frame.output_shape,
         subject_constraints=tuple(frame.subject_constraints),
         measure_concepts=tuple(frame.measure_concepts),
+        evidence_requirements=evidence_requirements,
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
         incident_evidence=incident_evidence,
         incident_node_id=incident_node_id,
         ontology_relationships=relationships,
         ontology_relationships_node_id=relationships_node_id,
+        optional_document_node_ids=optional_document_node_ids,
     )
     if answer is None or technical_details is None:
         return _evidence_incomplete(
@@ -1363,7 +1386,11 @@ def _project_runtime_result(
         ), model_extensions
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
-        reason_code="semantic_answer_verified",
+        reason_code=(
+            "semantic_answer_partial"
+            if optional_document_evidence_degraded(planning, execution)
+            else "semantic_answer_verified"
+        ),
         semantic_route="verified_query_plan",
         session_id=request.session_id,
         turn_id=request.turn_id,
@@ -1375,7 +1402,7 @@ def _project_runtime_result(
         intent_graph=result.intent_graph,
         intent_graph_evidence=result.intent_graph_evidence,
         evidence_refs=evidence_refs,
-        checks_completed=checks_total,
+        checks_completed=checks_completed,
         checks_total=checks_total,
         answer=answer,
         assurance_observation=project_semantic_assurance(
@@ -2320,11 +2347,14 @@ def _verified_plan_failure(
         return "manifest_digest_mismatch"
     if execution.plan_digest != getattr(plan, "plan_digest", None):
         return "plan_digest_mismatch"
-    if execution.status != "completed":
+    optional_document_degraded = optional_document_evidence_degraded(planning, execution)
+    if execution.status != "completed" and not optional_document_degraded:
         return "execution_not_completed"
     if not execution.receipts:
         return "no_receipts"
-    if any(receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts):
+    if not optional_document_degraded and any(
+        receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts
+    ):
         return "receipt_not_completed"
     if not _projected_answer_evidence_is_complete(result, execution):
         return "intent_graph_evidence_mismatch"
@@ -2358,12 +2388,23 @@ def _projected_answer_evidence_is_complete(
         return False
     graph_goals = graph.get("goals")
     evidence_goals = evidence.get("goals")
+    optional_document_degraded = optional_document_evidence_degraded(
+        result.planning,
+        execution,
+    )
+    expected_status = "partial" if optional_document_degraded else "completed"
+    expected_mode = "partial" if optional_document_degraded else None
     if (
         graph.get("schema_version") != 2
         or graph.get("action_posture") != "advise_only"
         or evidence.get("schema_version") not in {1, 2}
-        or evidence.get("status") != "completed"
-        or evidence.get("evidence_mode") != "operational_grounded"
+        or evidence.get("status") != expected_status
+        or (expected_mode is not None and evidence.get("evidence_mode") != expected_mode)
+        or (
+            expected_mode is None
+            and evidence.get("evidence_mode")
+            not in {"operational_grounded", "document_grounded", "mixed_grounded"}
+        )
         or not isinstance(graph_goals, list)
         or not isinstance(evidence_goals, list)
         or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
@@ -2390,7 +2431,7 @@ def _projected_answer_evidence_is_complete(
             or evidence_goal.get("intent") != graph_goal.get("intent")
             or evidence_goal.get("capability") != graph_goal.get("capability")
             or evidence_goal.get("task_id") != receipt.task_id
-            or evidence_goal.get("status") != "completed"
+            or evidence_goal.get("status") != receipt.status.value
             or evidence_goal.get("authority")
             != (receipt.authority.value if receipt.authority is not None else None)
             or not isinstance(evidence_refs, list)
@@ -2440,12 +2481,14 @@ def _render_query_answer(
     output_shape: str,
     subject_constraints: tuple[str, ...] = (),
     measure_concepts: tuple[str, ...] = (),
+    evidence_requirements: tuple[str, ...] = (),
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
     incident_node_id: str | None = None,
     ontology_relationships: dict[str, object] | None = None,
     ontology_relationships_node_id: tuple[str, ...] | None = None,
+    optional_document_node_ids: tuple[str, ...] = (),
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
     projected_rule_search = False
@@ -2455,6 +2498,11 @@ def _render_query_answer(
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
         if result is None:
+            if (
+                node_id in optional_document_node_ids
+                and "governed_documents.optional" in evidence_requirements
+            ):
+                continue
             return None, None
         if isinstance(result.value, dict):
             if incident_evidence is not None and node_id == incident_node_id:
@@ -2556,6 +2604,11 @@ def _render_query_answer(
             "output_shape": output_shape,
             **({"measure_concepts": list(measure_concepts)} if measure_concepts else {}),
             **(
+                {"evidence_requirements": list(evidence_requirements)}
+                if evidence_requirements
+                else {}
+            ),
+            **(
                 {"presentation_semantics": presentation_semantics}
                 if (
                     presentation_semantics := project_presentation_semantics(
@@ -2584,6 +2637,7 @@ def _render_query_answer(
                 output_shape=output_shape,
                 subject_constraints=subject_constraints,
                 measure_concepts=measure_concepts,
+                evidence_requirements=evidence_requirements,
             )
         )
     )
@@ -2631,6 +2685,16 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    if values.get("record_kind") == "excerpt" and isinstance(values.get("text"), str):
+        original_text = values["text"]
+        displayed_text = _redact_answer_scalar("text", original_text)
+        projected["text"] = displayed_text
+        rendered_text, _display_truncated = _bounded_document_text(
+            str(displayed_text),
+            maximum=1_200,
+        )
+        projected["display_content_digest"] = content_digest({"text": rendered_text})
+        projected["redaction_applied"] = displayed_text != original_text
     current: list[Mapping[str, object]] = [values]
     for _depth in range(2):
         nested = [
@@ -3085,6 +3149,7 @@ def _render_general_query_answer(
     output_shape: str | None = None,
     subject_constraints: tuple[str, ...] = (),
     measure_concepts: tuple[str, ...] = (),
+    evidence_requirements: tuple[str, ...] = (),
 ) -> str:
     """Report what was verified without naming the plan that produced it.
 
@@ -3093,6 +3158,47 @@ def _render_general_query_answer(
     result contains and leaves the machinery in technical details.
     """
     korean = request.locale.casefold().startswith("ko")
+    document_section = _render_governed_document_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if document_section is not None:
+        if output_shape == "governed_document_excerpts":
+            return document_section
+        operational_outputs = [
+            output for output in outputs if not _is_governed_document_output(output)
+        ]
+        if operational_outputs:
+            operational_answer = _render_general_query_answer(
+                request,
+                operational_outputs,
+                output_shape=output_shape,
+                subject_constraints=subject_constraints,
+                measure_concepts=measure_concepts,
+                evidence_requirements=(),
+            )
+            return f"{operational_answer}\n\n{document_section}"
+    elif any(requirement == "governed_documents.optional" for requirement in evidence_requirements):
+        unavailable = (
+            "## 문서 근거 범위\n\n"
+            "관리되는 문서 검색 기능을 사용할 수 없어 다른 검증된 근거만 사용했습니다."
+            if korean
+            else (
+                "## Document evidence coverage\n\n"
+                "Governed document retrieval was unavailable, so this answer uses only "
+                "the other verified evidence."
+            )
+        )
+        operational_answer = _render_general_query_answer(
+            request,
+            outputs,
+            output_shape=output_shape,
+            subject_constraints=subject_constraints,
+            measure_concepts=measure_concepts,
+            evidence_requirements=(),
+        )
+        return f"{operational_answer}\n\n{unavailable}"
     target_candidates_answer = _render_target_candidates_answer(
         outputs,
         korean=korean,
@@ -3244,6 +3350,240 @@ def _render_general_query_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _render_governed_document_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    document_outputs = [output for output in outputs if _is_governed_document_output(output)]
+    if not document_outputs:
+        return None
+    if len(document_outputs) != 1:
+        return (
+            "## 문서 근거를 검증할 수 없음\n\n문서 검색 출력이 하나보다 많아 답변을 보류했습니다."
+            if korean
+            else (
+                "## Document evidence could not be verified\n\n"
+                "More than one document retrieval output was returned."
+            )
+        )
+    document_output = document_outputs[0]
+    rows = document_output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return None
+    source_complete = document_output.get("source_complete")
+    source_limitation = document_output.get("source_truncation_reason")
+    projection_truncated = document_output.get("display_truncated")
+    if (
+        not isinstance(source_complete, bool)
+        or not isinstance(projection_truncated, bool)
+        or (
+            not source_complete
+            and (
+                not isinstance(source_limitation, str)
+                or not source_limitation
+                or len(source_limitation) > 128
+            )
+        )
+        or (source_complete and source_limitation is not None)
+    ):
+        return None
+    summary = rows[0].get("values") if isinstance(rows[0], Mapping) else None
+    if not isinstance(summary, Mapping) or summary.get("record_kind") != "summary":
+        return None
+    excerpts = [
+        values
+        for row in rows[1:]
+        if isinstance(row, Mapping)
+        and isinstance((values := row.get("values")), Mapping)
+        and values.get("record_kind") == "excerpt"
+    ]
+    if len(excerpts) != len(rows) - 1:
+        return None
+    heading = (
+        f"## 관리되는 문서 근거 {len(excerpts)}건"
+        if korean
+        else f"## {len(excerpts)} governed document excerpts"
+    )
+    lines = [heading, ""]
+    if not source_complete:
+        lines.extend(
+            [
+                (
+                    "문서 근거 범위가 불완전합니다. 이 발췌문을 전체 결과로 해석하면 안 됩니다. "
+                    f"제한: `{_inline_code(str(source_limitation))}`"
+                    if korean
+                    else (
+                        "Document coverage is incomplete. Do not treat these excerpts as "
+                        "exhaustive. "
+                        f"Limitation: `{_inline_code(str(source_limitation))}`"
+                    )
+                ),
+                "",
+            ]
+        )
+    if projection_truncated:
+        lines.extend(
+            [
+                (
+                    "표시 한도로 일부 문서 행이 생략됐습니다. 기술 상세에서 범위가 제한된 행을 "
+                    "확인할 수 있습니다."
+                    if korean
+                    else (
+                        "Some document rows were omitted by the display limit. "
+                        "Bounded rows remain available in technical details."
+                    )
+                ),
+                "",
+            ]
+        )
+    if not excerpts:
+        lines.append(
+            (
+                "접근 가능한 범위에서 관련 발췌문을 찾지 못했습니다. "
+                "이는 문서가 없다는 증거가 아닙니다."
+            )
+            if korean
+            else (
+                "No admissible excerpt was found in the authorized scope. "
+                "This does not prove that no relevant document exists."
+            )
+        )
+    for excerpt in excerpts:
+        source_name = excerpt.get("source_name")
+        locator = excerpt.get("locator")
+        revision = excerpt.get("document_revision")
+        evidence_ref = excerpt.get("evidence_ref")
+        text = excerpt.get("text")
+        display_content_digest = excerpt.get("display_content_digest")
+        redaction_applied = excerpt.get("redaction_applied")
+        if (
+            not isinstance(source_name, str)
+            or not source_name
+            or not isinstance(locator, str)
+            or not locator
+            or not isinstance(revision, str)
+            or not revision
+            or not isinstance(evidence_ref, str)
+            or not evidence_ref
+            or not isinstance(text, str)
+            or not text
+            or not isinstance(display_content_digest, str)
+            or not display_content_digest.startswith("sha256:")
+            or not isinstance(redaction_applied, bool)
+        ):
+            return None
+        rendered_text, display_truncated = _bounded_document_text(text, maximum=1_200)
+        lines.extend(
+            [
+                f"### {_escape_document_text(source_name, maximum=512)}",
+                "",
+                (
+                    f"- 위치: `{_inline_code(locator)}`"
+                    if korean
+                    else f"- Location: `{_inline_code(locator)}`"
+                ),
+                (
+                    f"- 문서 개정: `{_inline_code(revision)}`"
+                    if korean
+                    else f"- Document revision: `{_inline_code(revision)}`"
+                ),
+                (
+                    f"- 근거 참조: `{_inline_code(evidence_ref)}`"
+                    if korean
+                    else f"- Evidence reference: `{_inline_code(evidence_ref)}`"
+                ),
+                (
+                    f"- 표시 콘텐츠 다이제스트: `{_inline_code(display_content_digest)}`"
+                    if korean
+                    else (f"- Display content digest: `{_inline_code(display_content_digest)}`")
+                ),
+                *(
+                    [
+                        (
+                            "- 표시 내용은 민감 값 규칙에 따라 제거되었습니다."
+                            if korean
+                            else "- Display text was redacted by the sensitive-value policy."
+                        )
+                    ]
+                    if redaction_applied
+                    else []
+                ),
+                *(
+                    [
+                        (
+                            "- 표시 길이 제한으로 발췌문 일부만 보입니다. "
+                            "전체 허용 본문은 기술 상세에 남아 있습니다."
+                            if korean
+                            else (
+                                "- The excerpt is display-truncated. The complete admissible "
+                                "text remains in technical details."
+                            )
+                        )
+                    ]
+                    if display_truncated
+                    else []
+                ),
+                "",
+                f"> {rendered_text}",
+                "",
+            ]
+        )
+    lines.append(
+        "`instruction_authority=false`, `execution_authority=false`입니다."
+        if korean
+        else "The excerpts carry `instruction_authority=false` and `execution_authority=false`."
+    )
+    if output_shape != "governed_document_excerpts":
+        lines.insert(
+            2,
+            (
+                "이 문서 근거는 운영 관측을 보완하며 현재 상태의 권위를 대체하지 않습니다."
+                if korean
+                else (
+                    "This document evidence supplements operational observations and does not "
+                    "replace current-state authority."
+                )
+            ),
+        )
+        lines.insert(3, "")
+    return "\n".join(lines)
+
+
+def _is_governed_document_output(output: Mapping[str, object]) -> bool:
+    rows = output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return False
+    first = rows[0]
+    return (
+        isinstance(first, Mapping)
+        and isinstance((values := first.get("values")), Mapping)
+        and values.get("record_kind") == "summary"
+        and "access_scope_digest" in values
+        and "index_generation" in values
+        and "retrieval_mode" in values
+    )
+
+
+def _escape_document_text(value: str, *, maximum: int) -> str:
+    bounded = " ".join(value.split())[:maximum]
+    escaped = bounded.replace("\\", "\\\\")
+    for character in "`*_{}[]<>()#+-.!|":
+        escaped = escaped.replace(character, f"\\{character}")
+    return escaped
+
+
+def _bounded_document_text(value: str, *, maximum: int) -> tuple[str, bool]:
+    normalized = " ".join(value.split())
+    truncated = len(normalized) > maximum
+    return _escape_document_text(normalized, maximum=maximum), truncated
+
+
+def _inline_code(value: str) -> str:
+    return value.replace("`", "'").replace("\r", " ").replace("\n", " ")[:512]
 
 
 def _render_state_transition_answer(
@@ -4789,6 +5129,23 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
 
 
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
+    document_messages = {
+        "semantic_governed_documents_unavailable": (
+            "관리되는 문서 검색 기능을 사용할 수 없어 요청을 보류했습니다.",
+            "The request was held because governed document retrieval is unavailable.",
+        ),
+        "semantic_governed_documents_incomplete": (
+            "문서 검색 범위가 불완전하여 요청을 보류했습니다.",
+            "The request was held because governed document retrieval was incomplete.",
+        ),
+        "semantic_governed_documents_empty": (
+            "접근 가능한 범위에서 관련 문서 발췌문을 찾지 못해 요청을 보류했습니다.",
+            "The request was held because no admissible document excerpt was found.",
+        ),
+    }
+    if reason_code in document_messages:
+        korean_message, english_message = document_messages[reason_code]
+        return korean_message if locale.casefold().startswith("ko") else english_message
     if reason_code == "semantic_model_identity_unavailable":
         return (
             "모델 인증을 확인할 수 없어 요청을 보류했습니다. 인증을 복구한 후 다시 시도해 주세요."
@@ -4819,7 +5176,7 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
         "action_draft": "The request produced a review-only action draft.",
         "cancelled": "The request was cancelled.",
     }
-    korean = {
+    korean_messages = {
         "answered": "검증된 결과를 준비했습니다.",
         "direct_response": "직접 답변을 준비했습니다.",
         "held": "검증된 근거를 사용할 수 없어 요청을 보류했습니다.",
@@ -4828,7 +5185,7 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
         "action_draft": "요청을 검토 전용 작업 초안으로 만들었습니다.",
         "cancelled": "요청이 취소되었습니다.",
     }
-    selected = korean if locale.casefold().startswith("ko") else messages
+    selected = korean_messages if locale.casefold().startswith("ko") else messages
     return f"{selected.get(disposition, selected['held'])} ({reason_code})"
 
 

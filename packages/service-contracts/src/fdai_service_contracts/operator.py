@@ -48,10 +48,15 @@ class OperatorPrincipal:
     subject_id: str
     roles: frozenset[OperatorRole]
     principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
+    groups: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.subject_id.strip():
             raise ValueError("operator principal subject_id must be non-empty")
+        if len(self.groups) > 64 or any(
+            not group.strip() or len(group) > 256 for group in self.groups
+        ):
+            raise ValueError("operator principal groups must contain at most 64 bounded values")
 
 
 @dataclass(frozen=True, slots=True)

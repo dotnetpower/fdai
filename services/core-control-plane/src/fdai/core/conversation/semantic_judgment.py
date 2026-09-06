@@ -84,6 +84,7 @@ SemanticJudgmentObservation = ConversationModelObservation
 SemanticJudgmentModelResponse = ConversationModelResponse
 _COLLECTION_FUNCTION_INTENTS = frozenset(
     {
+        "query.governed_documents",
         "query.resource_health_inventory",
         "query.resource_state_inventory",
         "query.subscription_scope_identity",

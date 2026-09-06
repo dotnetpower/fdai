@@ -62,6 +62,7 @@ class QueryNodeKind(StrEnum):
 class GoalEvidenceMode(StrEnum):
     SCREEN = "screen"
     CATALOG = "catalog"
+    DOCUMENT = "document"
     OPERATIONAL = "operational"
     WEB = "web"
     MODEL_KNOWLEDGE = "model_knowledge"
@@ -70,6 +71,7 @@ class GoalEvidenceMode(StrEnum):
 
 class AnswerEvidenceMode(StrEnum):
     SCREEN_GROUNDED = "screen_grounded"
+    DOCUMENT_GROUNDED = "document_grounded"
     OPERATIONAL_GROUNDED = "operational_grounded"
     WEB_GROUNDED = "web_grounded"
     MIXED_GROUNDED = "mixed_grounded"
@@ -98,6 +100,7 @@ class EvidenceAuthority(StrEnum):
     SERVER_OPERATIONAL_METRICS = "server_operational_metrics"
     SERVER_OPERATIONAL_STATE_HISTORY = "server_operational_state_history"
     SERVER_RESOURCE_HEALTH = "server_resource_health"
+    SERVER_GOVERNED_DOCUMENT = "server_governed_document"
     SERVER_SUBSCRIPTION_SCOPE = "server_subscription_scope"
     SERVER_SUBSCRIPTION_HEALTH = "server_subscription_health"
 

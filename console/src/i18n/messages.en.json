@@ -2982,6 +2982,7 @@
       },
       "evidenceMode": {
         "screen_grounded": "screen grounded",
+        "document_grounded": "document grounded",
         "operational_grounded": "operationally grounded",
         "web_grounded": "web grounded",
         "mixed_grounded": "mixed grounding",

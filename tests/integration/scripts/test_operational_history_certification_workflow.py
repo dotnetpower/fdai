@@ -23,13 +23,28 @@ def test_certification_binds_every_authoritative_revision() -> None:
         "deployment_revision",
         "deployment_receipt_digest",
         "deployment_apply_run_id",
+        "deployment_plan_id",
         "Verify required CI for exact revision",
         "Verify exact attested runtime image",
-        "Verify OI-15 apply receipt artifact",
+        "Verify OI-15 durable apply receipt",
     ):
         assert value in _WORKFLOW
     assert "Install pinned GitHub CLI" in _WORKFLOW
     assert "scripts/deployment/azure/install-pinned-github-cli.sh" in _WORKFLOW
+
+
+def test_certification_uses_the_exact_durable_receipt_after_artifact_expiry() -> None:
+    login = _WORKFLOW.index("- name: Bind stable deployment identity")
+    receipt = _WORKFLOW.index("- name: Verify OI-15 durable apply receipt")
+    assert receipt > login
+    assert '--name "${TARGET_ENVIRONMENT}/${DEPLOYMENT_PLAN_ID}/apply-receipt.json"' in _WORKFLOW
+    assert "--container-name deployment-plans" in _WORKFLOW
+    assert "--auth-mode login" in _WORKFLOW
+    assert ".plan_id == $plan_id" in _WORKFLOW
+    assert "(.workflow_run_id | tonumber) == $run_id" in _WORKFLOW
+    assert 'case "$apply_artifact_count" in' in _WORKFLOW
+    assert "Operational-history deployment plan id is invalid." in _REQUEST
+    assert '-f "inputs[deployment_plan_id]=$DEPLOYMENT_PLAN_ID"' in _REQUEST
 
 
 def test_certification_is_dev_only_and_fail_closed() -> None:

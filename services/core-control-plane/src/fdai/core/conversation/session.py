@@ -71,10 +71,15 @@ class Principal:
     id: str
     role: Role
     display_name: str = ""
+    groups: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.id:
             raise ValueError("Principal.id MUST be non-empty")
+        if len(self.groups) > 64 or any(
+            not group.strip() or len(group) > 256 for group in self.groups
+        ):
+            raise ValueError("Principal.groups MUST contain at most 64 bounded values")
 
 
 TurnDirection = Literal["inbound", "outbound", "tool_call", "tool_result", "system"]

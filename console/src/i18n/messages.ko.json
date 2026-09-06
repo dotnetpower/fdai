@@ -2982,6 +2982,7 @@
       },
       "evidenceMode": {
         "screen_grounded": "화면 근거",
+        "document_grounded": "문서 근거",
         "operational_grounded": "운영 근거",
         "web_grounded": "웹 근거",
         "mixed_grounded": "혼합 근거",

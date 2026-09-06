@@ -13,12 +13,15 @@ from typing import Any, Literal
 
 from fdai_service_contracts.adaptive_answer import AdaptiveAnswer
 from fdai_service_contracts.ontology_query import (
+    AnswerEvidenceMode,
     EvidenceAuthority,
     IntentGraphEvidence,
     QueryNodeKind,
+    TaskStatus,
     project_intent_graph,
     project_intent_graph_evidence,
 )
+from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
 
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExecution
 from fdai.core.ontology_platform.query_execution import QueryProgressObserver
@@ -29,6 +32,7 @@ from .adaptive_models import AdaptiveEvidence
 from .adaptive_service import AdaptiveConversationService, AdaptiveDeferred, AdaptiveUnavailable
 from .adaptive_wait import await_adaptive_call
 from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
+from .semantic_governed_document_planning import document_evidence_mode
 from .semantic_planning import SemanticPlanningService
 from .semantic_planning_cascade import NO_T2_ESCALATION_POLICY, SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
@@ -200,10 +204,26 @@ class SemanticConversationRuntime:
             result = await verified(question)
             if result.disposition != "answered" or result.execution is None:
                 return AdaptiveEvidence(status="held", limitation=result.reason)
+            degraded_optional_document = optional_document_evidence_degraded(
+                result.planning,
+                result.execution,
+            )
+            document_output_ids = (
+                {
+                    node.node_id
+                    for node in result.planning.plan.nodes
+                    if node.kind is QueryNodeKind.FUNCTION
+                    and node.arguments.get("function_name") == "query.governed_documents"
+                }
+                if degraded_optional_document and result.planning.plan is not None
+                else set()
+            )
             values: list[object] = []
             refs: list[str] = []
             authorities: list[EvidenceAuthority] = []
             for node_id in result.execution.output_node_ids:
+                if node_id in document_output_ids:
+                    continue
                 node = result.execution.results.get(node_id)
                 if node is None:
                     return AdaptiveEvidence(status="unavailable", limitation="missing_query_output")
@@ -235,6 +255,7 @@ class SemanticConversationRuntime:
                 status="answered",
                 content=content,
                 evidence_refs=references,
+                limitation=result.reason if degraded_optional_document else None,
                 authorities=tuple(dict.fromkeys(authorities)),
             )
 
@@ -405,6 +426,14 @@ class SemanticConversationRuntime:
             execution=execution,
             frame=planning.frame,
         )
+        optional_document_degraded = optional_document_evidence_degraded(planning, execution)
+        if optional_document_degraded:
+            evidence = evidence.model_copy(
+                update={
+                    "status": "partial",
+                    "evidence_mode": AnswerEvidenceMode.PARTIAL,
+                }
+            )
         disposition: Literal["answered", "held", "cancelled"]
         reason = f"semantic_execution_{execution.status}"
         if execution.status == "completed":
@@ -426,10 +455,28 @@ class SemanticConversationRuntime:
                 elif _query_output_incomplete(planning, execution):
                     disposition = "held"
                     reason = "semantic_evidence_incomplete"
+                elif (
+                    document_hold_reason := _required_document_hold_reason(
+                        planning,
+                        execution,
+                    )
+                ) is not None:
+                    disposition = "held"
+                    reason = document_hold_reason
+                elif optional_document_degraded:
+                    disposition = "answered"
+                    reason = (
+                        "semantic_optional_governed_documents_incomplete"
+                        if _governed_document_node_ids(planning)
+                        else "semantic_optional_governed_documents_unavailable"
+                    )
                 else:
                     disposition = "answered"
         elif execution.status == "cancelled":
             disposition = "cancelled"
+        elif optional_document_degraded:
+            disposition = "answered"
+            reason = "semantic_optional_governed_documents_unavailable"
         else:
             disposition = "held"
         return SemanticTurnResult(
@@ -483,10 +530,124 @@ def _query_output_incomplete(
         or frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
     ):
         return False
+    document_node_ids = {
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
+    }
     return any(
         isinstance(result.value, QueryTable) and not result.value.complete
         for node_id in plan.output_node_ids
+        if node_id not in document_node_ids
         if (result := execution.results.get(node_id)) is not None
+    )
+
+
+def _required_document_hold_reason(
+    planning: SemanticPlanningOutcome,
+    execution: QueryPlanExecution,
+) -> str | None:
+    frame = planning.frame
+    plan = planning.plan
+    if frame is None or plan is None:
+        return None
+    mode = document_evidence_mode(frame)
+    if mode not in {
+        SemanticDocumentEvidenceMode.REQUIRED,
+        SemanticDocumentEvidenceMode.EXPLICIT,
+    }:
+        return None
+    document_node_ids = tuple(
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
+    )
+    if len(document_node_ids) != 1:
+        return "semantic_governed_documents_unavailable"
+    result = execution.results.get(document_node_ids[0])
+    if result is None or not isinstance(result.value, QueryTable):
+        return "semantic_governed_documents_unavailable"
+    if not result.value.complete:
+        return "semantic_governed_documents_incomplete"
+    excerpt_count = sum(row.values.get("record_kind") == "excerpt" for row in result.value.rows)
+    if excerpt_count == 0:
+        return "semantic_governed_documents_empty"
+    return None
+
+
+def optional_document_evidence_degraded(
+    planning: SemanticPlanningOutcome,
+    execution: QueryPlanExecution,
+) -> bool:
+    """Allow a failed independent optional document branch to remain partial."""
+
+    frame = planning.frame
+    plan = planning.plan
+    if (
+        frame is None
+        or plan is None
+        or document_evidence_mode(frame) is not SemanticDocumentEvidenceMode.OPTIONAL
+        or execution.status == "cancelled"
+    ):
+        return False
+    document_nodes = tuple(
+        node for node in plan.nodes if node.node_id in _governed_document_node_ids(planning)
+    )
+    if len(document_nodes) > 1 or (document_nodes and document_nodes[0].depends_on):
+        return False
+    if not document_nodes:
+        return (
+            execution.status == "completed"
+            and bool(execution.receipts)
+            and all(
+                receipt.status is TaskStatus.COMPLETED
+                and receipt.evidence_refs
+                and receipt.goal_id in execution.results
+                for receipt in execution.receipts
+            )
+        )
+    document_task_id = f"query:{document_nodes[0].node_id}"
+    receipts = {receipt.task_id: receipt for receipt in execution.receipts}
+    document_receipt = receipts.get(document_task_id)
+    if document_receipt is None:
+        return False
+    remaining = tuple(
+        receipt for receipt in execution.receipts if receipt.task_id != document_task_id
+    )
+    independent_operational_evidence = bool(remaining) and all(
+        receipt.status is TaskStatus.COMPLETED
+        and receipt.evidence_refs
+        and receipt.goal_id in execution.results
+        for receipt in remaining
+    )
+    if not independent_operational_evidence:
+        return False
+    if document_receipt.status is TaskStatus.COMPLETED:
+        document_result = execution.results.get(document_nodes[0].node_id)
+        return (
+            execution.status == "completed"
+            and document_result is not None
+            and isinstance(document_result.value, QueryTable)
+            and not document_result.value.complete
+        )
+    return execution.status != "completed" and document_receipt.status in {
+        TaskStatus.FAILED,
+        TaskStatus.TIMED_OUT,
+        TaskStatus.UNAVAILABLE,
+    }
+
+
+def _governed_document_node_ids(planning: SemanticPlanningOutcome) -> frozenset[str]:
+    plan = planning.plan
+    if plan is None:
+        return frozenset()
+    return frozenset(
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
     )
 
 
@@ -510,6 +671,7 @@ def _terminal(
 
 __all__ = [
     "bind_semantic_query_progress_observer",
+    "optional_document_evidence_degraded",
     "SemanticConversationRuntime",
     "SemanticTurnResult",
 ]
