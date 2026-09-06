@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: e809c9d4c55e6767cb0168d135e430b529332f1d
-translation_revised: 2026-09-05
+translation_source_sha: 1132e95150d9ffa5e840ef60cc89e64f9a01be7a
+translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
 
@@ -20,7 +20,7 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 
 | 구분 | 기록된 필드 | 추론하지 않는 내용 |
 |------|-------------|--------------------|
-| 운영 | 명시된 서비스, 전원, 단계, 준비 또는 실행 상태입니다. 중첩된 `runningStatus`와 `powerState.code`도 보존합니다. | 프로비저닝 성공을 실행 중으로 바꾸지 않습니다. Enabled, Online, Active는 기록된 의미를 유지합니다. |
+| 운영 | 명시된 서비스, 전원, 단계, 준비, 실행, 연결, 접근 또는 링크 상태입니다. 중첩된 `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, `virtualNetworkLinkState`도 보존합니다. | 프로비저닝 성공을 실행 중으로 바꾸지 않습니다. Enabled, Online, Active, Attached, Completed는 기록된 의미를 유지합니다. |
 | 프로비저닝 | 명시된 `provisioningState`입니다. | 생성 성공은 가용성을 증명하지 않습니다. |
 | 가용성 | 명시된 가용성 근거입니다. | Running과 Succeeded는 서비스 정상을 증명하지 않습니다. |
 
@@ -44,13 +44,19 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 늦은 기준 시점으로 대체하지 않습니다. 시각 형식이나 순서가 올바르지 않으면 알 수 없음으로
 유지합니다.
 
-운영 상태 적용 여부는 명시적이고 보수적으로 처리합니다. 현재 검토된 출처 계약에는 Container
-Apps와 Jobs의 `runningStatus`, AKS 노드 풀의 `powerState.code`, Application Gateway의
-`operationalState`, DNS Resolver의 `dnsResolverState`가 포함됩니다. 이 유형에서 값이 없으면
-`state_source_not_recorded`로 표시합니다. 다른 표준 유형은
-`state_applicability_unknown`, `unclassified-resource`는
-`resource_type_unclassified`로 유지합니다. 이 이유 중 어느 것도 적용 대상 아님을 뜻하지
-않습니다.
+운영 상태 적용 여부는 명시적이고 보수적으로 처리합니다. 표준 ResourceType 80개는 모두 다음
+결과 중 하나로 검토되었습니다.
+
+| 결과 | 의미 |
+|------|------|
+| `state_source_not_recorded` | 유형에 명시적인 공급자 또는 Kubernetes 상태 계약이 있지만 선택한 세대에 사용할 수 있는 값이 없습니다. 서비스, 전원, 준비, 데이터베이스, 메시지 브로커, 디스크, 스냅샷 접근, 프라이빗 DNS 링크 상태가 포함됩니다. |
+| `provider_operational_state_not_exposed` | 리소스에 운영상 고려할 상태는 있지만 현재 공급자 인벤토리 계약이 리소스별 운영 상태를 제공하지 않습니다. Application Insights와 Log Analytics가 이 결과를 사용합니다. 프로비저닝 상태나 존재 여부로 누락된 공급자 신호를 대체하지 않습니다. |
+| `state_not_applicable` | 검토된 유형이 구성, ID, 그룹 또는 집계 정의이므로 하나의 운영 상태 값이 적용되지 않습니다. |
+| `resource_type_unclassified` | 공급자 유형에 검토된 표준 ResourceType 매핑이 없습니다. |
+| `state_applicability_unknown` | 하위 포크의 사용자 지정 유형을 아직 검토하지 않았습니다. 표준 유형에는 이 대체 결과를 사용하지 않습니다. |
+
+정확한 값이 있으면 누락 값 분류보다 우선합니다. 메타데이터 누락, 오래된 근거, 충돌은 값의 출처,
+관측 시각, 기록 시각, 최신성 또는 완전성을 바꾸지 않고 유지된 값을 설명합니다.
 
 ## 일괄 조회와 일관성
 
@@ -78,6 +84,9 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
 - 온톨로지 디렉터리와 탐색 기록에도 같은 `states` 필드를 추가합니다.
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
+- 값이 없으면 기계 판독용 이유에 따라 기록 없음, 사용 불가, 적용 대상 아님 또는 적용 여부 알 수
+  없음으로 표시합니다. 따라서 Application Insights와 Log Analytics는 일반적인 기록 없음 대신
+  공급자 인벤토리 제한을 표시합니다.
 - Dashboard는 출처를 `inventory_snapshot_resource`로 표시하고, 알 수 없음 기록을 기계 판독용
   이유별로 집계하며, 공통 주기와 브라우저 복귀 및 인벤토리 변경 알림에 따라 새로 고칩니다.
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.
@@ -88,7 +97,7 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 
 각 브라우저 화면에서 공급자 원시 속성을 해석하면 정규화가 중복되고 출처의 의미가 사라집니다.
 이미 저장된 사실을 얻으려고 Azure나 모델을 다시 호출해도 조회 계약 문제는 해결되지 않습니다.
-모든 알 수 없음을 정상이나 적용 대상 아님으로 바꾸면 누락된 근거를 숨깁니다.
+모든 알 수 없음을 정상, 실행 중 또는 적용 대상 아님으로 바꾸면 누락된 근거를 숨깁니다.
 리소스별 호출은 범위가 제한된 일괄 조회를 대체하지 않습니다.
 
 ## 관련 문서

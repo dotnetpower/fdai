@@ -8,6 +8,8 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 
 > **Authority boundary:** Observed provider state remains a projection. An action can request a provider, Git, ledger, or FDAI-owned state change, but it cannot make an external fact true by
 > editing the ontology graph.
+> Missing operational state also remains evidence-qualified: provisioning success and existence
+> never become health, running state, or availability.
 >
 > **Safety boundary:** Functions plan, query, derive, or validate. Only Thor executes an approved
 > `MutationPlan`, and every external effect closes through independent reconciliation.

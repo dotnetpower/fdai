@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 488994d093e8cf3c83d36d065c7d47900745cc5a
-translation_revised: 2026-09-05
+translation_source_sha: 3938b8fb5d548f55f503cca045430501a349af07
+translation_revised: 2026-09-06
 ---
 # 온톨로지 구조 모델
 
@@ -378,7 +378,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
-| 실제 운영 인스턴스 표시 | validated | `ontology-instance-refresh.ts`, Operator 용량 허용 목록, 온톨로지 인스턴스 경로, 그래프, Inspector, 스타일, 이중 언어 카탈로그, 집중 검사 및 인증된 브라우저 검사 | 표시 중인 선택 인스턴스 화면은 15초마다 그리고 브라우저가 다시 활성화될 때 재검증합니다. 의미가 있는 텍스트 배지는 정확한 프로바이더 상태를 유지하고 NodePool 및 VMSS 카드는 검토된 프로바이더 용량만 표시합니다. 새로 고침 실패 시 마지막 검증 응답과 명시적인 경고를 유지합니다. |
+| 실제 운영 인스턴스 표시 | validated | `ontology-instance-refresh.ts`, Operator 용량 및 운영 상태 허용 목록, 온톨로지 인스턴스 경로, 그래프, Inspector, 스타일, 이중 언어 카탈로그, 집중 검사, 실제 ARG 수집 및 인증된 브라우저 검사 | 표시 중인 선택 인스턴스 화면은 15초마다 그리고 브라우저가 다시 활성화될 때 재검증합니다. 의미가 있는 텍스트 배지는 정확한 프로바이더 상태를 유지하고 사용 불가, 적용 대상 아님, 기록되지 않은 값을 구분합니다. NodePool 및 VMSS 카드는 검토된 프로바이더 용량만 표시합니다. 새로 고침 실패 시 마지막 검증 응답과 명시적인 경고를 유지합니다. |
 | 내구성 있는 인스턴스 무효화 전달 | validated | Operator 인벤토리 관측 재현, `/ontology/instances/stream`, Console SSE 소비자, 단조 증가 폴링 카운트다운, 인증된 AKS 전환 근거 | AKS 시작 중 SSE가 연결 상태를 유지했고 VM 및 NIC 토폴로지가 추가되고 클러스터가 `Stopped`에서 `Running`으로 전환됐습니다. 커밋된 watermark마다 권위 있는 데이터를 다시 읽었습니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 거버넌스 만료 액션 연결 | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; 집중 수명 주기 및 ActionType 카탈로그 검사 | 정확한 배정 연결과 예외 개정은 등록된 ActionType 하나를 위한 런타임 근거입니다. 새 LinkType을 만들거나 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
@@ -389,6 +389,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | validated | 표준 ResourceType 80개 전체에 닫힌 운영 상태 적용 가능성 분류를 추가하고 그래프와 Inspector가 같은 이유 기반 값 레이블을 사용하도록 했습니다. | `current change`, 집중 backend 및 Console 검사, 타입 검사, 프로덕션 빌드, 실제 ARG 승격, 인증된 Application Insights, Log Analytics, 디스크 및 Resource Group 브라우저 검사가 통과했습니다. | 하위 포크의 사용자 지정 ResourceType은 자체 카탈로그 변경 전까지 명시적인 미검토 상태로 유지합니다. |
 | 2026-09-05 | validated | AKS AgentPool과 VM Scale Set을 위한 검토된 용량 변환 결과 및 표시를 추가했습니다. API는 `properties.count`와 `sku.capacity`만 읽고 그래프와 Inspector는 자식 준비 상태를 추론하지 않은 채 노드 수 또는 인스턴스 수로 표시합니다. 비평에서 지원되지 않는 유형의 값을 잘못 표시하던 경로를 Console 디코더에서 차단했습니다. | `current change`; 집중 Operator 검사 10개와 집중 Console 검사 102개, Ruff, strict mypy, Console 타입 검사 및 프로덕션 빌드가 통과했습니다. 인증된 AKS 그래프는 `nodepool1`을 `노드 2개`, 해당 VMSS를 `인스턴스 2개`로 표시했고 NodePool Inspector는 활성 프로바이더 스냅샷의 노드 수 `2`를 보고했습니다. | 이후 확장 작업에서 프로바이더 변경부터 화면 반영까지의 시간을 측정한 증적을 보존합니다. Kubernetes Node 준비 상태는 별도의 런타임 근거로 유지합니다. |
 | 2026-09-05 | in-progress | 내구성 있는 인벤토리 무효화 SSE와 선택한 인스턴스 즉시 재검증을 추가하고, 스트림을 사용할 수 없을 때 단조 증가 카운트다운을 표시했습니다. | `current change`, 요청된 동기화 중지 전에 Operator SSE 검사 140개와 Console SSE 및 카운트다운 검사 112개가 통과했습니다. | main을 동기화하고 깨끗한 통합 타입 검사와 빌드를 실행한 뒤 로컬 상태 전환 시간 증적 하나를 보존합니다. |
 | 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 두 객체 유형 모두 `id: {type: string, required: true}`를 선언하며 수명 주기 분류에는 이미 포함되어 있었지만 인터페이스 구현 레지스트리에서 누락되어 있었습니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 범위가 제한된 구조 작업은 남아 있지 않습니다. |

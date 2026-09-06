@@ -32,7 +32,7 @@ import httpx
 import pytest
 import yaml
 from fdai.delivery.azure import arg_transport
-from fdai.delivery.azure.arg_projection import to_neutral_id
+from fdai.delivery.azure.arg_projection import resource_operational_status, to_neutral_id
 from fdai.delivery.azure.arg_query import (
     ArgQueryError,
     AzureArgQueryFactory,
@@ -162,6 +162,21 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
         resources, _ = await factory.build_query_fn()("postgresql-server")
 
     assert resources[0].props["status"] == "Stopped"
+
+
+@pytest.mark.parametrize(
+    ("properties", "expected"),
+    [
+        ({"diskState": "Reserved"}, "Reserved"),
+        ({"snapshotAccessState": "Available"}, "Available"),
+        ({"virtualNetworkLinkState": "Completed"}, "Completed"),
+    ],
+)
+def test_inventory_retains_resource_specific_operational_state(
+    properties: dict[str, object],
+    expected: str,
+) -> None:
+    assert resource_operational_status({"properties": properties}) == expected
 
 
 @pytest.mark.asyncio
