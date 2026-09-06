@@ -175,8 +175,10 @@ def test_verifier_and_claim_failures_are_sanitized() -> None:
     def unavailable(_token: str) -> dict[str, object]:
         raise RuntimeError("provider detail")
 
-    with pytest.raises(AuthenticationError, match="RuntimeError"):
+    with pytest.raises(AuthenticationError) as raised:
         OperatorAuthenticator(verifier=unavailable, group_ids={}).authenticate("Bearer token")
+    assert str(raised.value) == "token verification failed: RuntimeError"
+    assert "provider detail" not in str(raised.value)
     with pytest.raises(AuthenticationError, match="missing non-empty oid"):
         _authenticator({"idtyp": "user", "roles": ["Reader"]}).authenticate("Bearer token")
     with pytest.raises(AuthenticationError, match="authorized party"):
