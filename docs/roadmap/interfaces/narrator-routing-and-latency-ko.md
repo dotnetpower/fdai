@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 8e827cd69904198775777207c7a4be2af33faa6c
+translation_source_sha: d81dec6bdf32f91e21a27407afae7ac29bfee9fe
 translation_revised: 2026-09-06
 ---
 # 서술기 라우팅과 지연 시간
@@ -76,9 +76,11 @@ Core는 버전이 지정된 `conversation:t1-mini-routing:v1` StateStore 변환 
 공유 작업 흐름 권한은 포함하지 않습니다.
 
 Operator는 구조와 최신성을 한도 안에서 검증한 뒤에만 이 변환 결과를 읽고, `model`과
-`router`만 `/chat/health`에 추가합니다. 라우팅 데이터가 없거나 잘못되었거나 만료되어도 의미
-전송의 사용 가능 상태를 바꾸거나 모델이 정상이라고 꾸며낼 수 없습니다. 상태의 사용 가능 여부는
-의미 브리지의 전송 준비 상태를 뜻하며, 추론 성공이나 검증된 답변을 뜻하지 않습니다.
+`router`만 `/chat/health`에 추가합니다. 응답 묶음에는 바이너리 문서나 본문 없음도 포함될 수
+있으므로 상태 판독기는 알 수 없는 입력을 받아 객체가 아닌 값을 모두 거부합니다. 라우팅 데이터가
+없거나 잘못되었거나 만료되어도 의미 전송의 사용 가능 상태를 바꾸거나 모델이 정상이라고 꾸며낼 수
+없습니다. 상태의 사용 가능 여부는 의미 브리지의 전송 준비 상태를 뜻하며, 추론 성공이나 검증된
+답변을 뜻하지 않습니다.
 
 Console의 모델 배지는 `T1`과 변환 결과의 배포 이름을 표시합니다. 도구 설명은 후보별 처리 시간,
 표본 수 및 측정 완료, 오래됨, 미측정, 실패 상태를 구분합니다. Command Deck이 열려 있고 화면에
@@ -323,6 +325,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 대화 응답 묶음에 바이너리 본문과 본문 없음이 추가된 뒤 T1 상태 경계를 바로잡았습니다. 상태 파서는 알 수 없는 입력을 받고 객체가 아닌 값을 거부하며, 의미 런타임 facade는 Operator 조립이 이미 사용하는 판독기를 명시적으로 내보냅니다. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py` 및 집중 strict mypy, Operator, 서비스 suite 검사입니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
 | 2026-09-06 | implemented | T1 상태 판독기를 기존 의미 런타임 facade를 통해 가져오도록 구성해 로컬 및 배포 Operator 조립이 같은 바인딩을 유지하면서 최상위 모듈이 검토된 fanout 상한 아래에 머물게 했습니다. | `current change`; Operator 경계 검사에서 고유 가져오기 39개를 확인했고 조립 및 T1 상태 집중 검사 92개와 Ruff가 통과했습니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
 | 2026-09-05 | implemented | 인시던트 및 적응형 답변을 개선하고 완료 후에도 조사 기록을 유지하며, 대화를 막지 않는 인라인 합성 Markdown 프롬프트 보기를 추가했습니다. | `current change`; 위에 나열한 시안 Playwright 파일 세 개의 집중 시나리오, 공용 스타일 검사, Console 타입 검사를 통과했습니다. | 프로덕션 도입에는 별도 검토와 인증 및 권한 범위에 맞는 근거가 필요합니다. 런타임 프롬프트 수집을 구현했다고 주장하지 않습니다. |
 | 2026-09-02 | implemented | T2를 개인화하거나 작업 권한을 부여하지 않으면서 리비전으로 보호된 답변 연속성 및 프롬프트 ablation 설정, 시작 시 일관된 Core 스냅샷, 지역화된 콘솔 control을 추가했습니다. | `current change`, 프롬프트 조립 구현 기록의 집중 Core, Operator 및 콘솔 검사입니다. | 런타임 검증을 주장하기 전에 통제된 shadow 캠페인을 보존합니다. |

@@ -102,6 +102,11 @@ def test_missing_core_projection_preserves_unknown_model():
     assert t1_model_health({}, now=NOW) == {"model": None}
 
 
+@pytest.mark.parametrize("value", [None, b"not-a-health-projection"])
+def test_non_object_response_cannot_be_a_model_health_projection(value):
+    assert t1_model_health(value, now=NOW) == {"model": None}
+
+
 async def test_semantic_health_reads_the_core_projection_without_enabling_legacy_stream():
     class Store:
         async def read_state(self, key):
