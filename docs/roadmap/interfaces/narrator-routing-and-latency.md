@@ -131,9 +131,9 @@ failing mid-processing preserves at-least-once redelivery.
 Warm standard Browser Entra measurements reached 3.810 seconds for one F1 answer token and 4.254
 seconds for one exact F2 answer token. Both used one preflight model call. These samples do not
 qualify the SLO distribution. F1 still lacked its requested document, and targetless F3/F4
-clarifications emitted no answer token. After Core restart, `control_loop_ready` preceded the
-semantic logical consumer start by about 28 seconds; cold-start requests remain outside the
-qualified path until readiness includes that consumer.
+clarifications emitted no answer token. Core restart readiness now waits for both a post-launch
+semantic logical consumer and a fresh Pantheon heartbeat. A retained restart emitted `ready` after
+both markers, and its first exact F2 request emitted an answer token in 3.948 seconds.
 
 Console starter questions expose only this contract-covered function-backed set. They ask for
 current server-owned evidence instead of browser-authored screen summaries, tier estimates, pending
@@ -346,6 +346,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Made Core restart readiness require a post-launch semantic consumer and fresh Pantheon heartbeat rather than accepting a previous process's heartbeat. | `current change`; 46 focused launcher/workflow tests passed. A retained restart emitted `ready` after both markers and its first F2 answer token at 3.948 seconds. | Retain a bilingual latency distribution; one sample is not SLO qualification. |
 | 2026-09-07 | in-progress | Reduced the preflight body to about 654 estimated tokens while retaining exact schema names. Warm F1/F2 variants used one preflight call and met the 5-second answer-token gate. | Standard Browser Entra F1/F2 timings were 3.810/4.254 seconds. | Retain a bilingual distribution and make Core readiness include the semantic consumer, which started about 28 seconds after `control_loop_ready`. |
 | 2026-09-07 | implemented | Batched local PLAINTEXT Kafka consumer commits by the existing record and time bounds instead of committing every multiplexed physical event. Preserved commit-after-processing and redelivery on mid-processing close. | `current change`; focused Event Bus and multiplex tests passed. | Restart the standard Core and retain F1-F4 answer-token TTFT after the logical consumer catches up. |
 | 2026-09-07 | implemented | Added a live operational-conversation qualification gate that measures the first `onToken` callback independently from status and terminal timing and fails above 5 seconds. | `current change`; Console typecheck passed. | Run the gate after the complete standard stack starts from one exact source revision. |

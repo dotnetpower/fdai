@@ -1,7 +1,7 @@
 ---
 title: 운영 진단 대화
 translation_of: operational-diagnostic-conversations.md
-translation_source_sha: ad3423cf33a6c0bdd2276a2576e0ff0ac12f65f9
+translation_source_sha: 512e6a133c36888d564aac9bb643dee81a6e9534
 translation_revised: 2026-09-07
 ---
 
@@ -28,8 +28,9 @@ translation_revised: 2026-09-07
 > Browser Entra 세션에서 F1 변형 하나는 3.810초, 정확한 F2 변형 하나는 4.254초에 첫 답변 token을
 > 보냈으며 둘 다 compact preflight 모델만 한 번 호출했습니다. F1은 여전히 문서 artifact를 만들지
 > 못했습니다. 정확한 리소스 신원이 없는 F3 및 F4 요청은 provider 읽기 없이 명확화로 종료됐으며,
-> 명확화 문장은 답변 token gate를 충족하지 않습니다. 다시 시작한 Core의 semantic 논리 consumer가
-> `control_loop_ready`보다 약 28초 늦게 시작한 문제도 있어 cold-start TTFT는 아직 검증되지 않았습니다.
+> 명확화 문장은 답변 token gate를 충족하지 않습니다. 이제 재시작 readiness는 시작 이후의 semantic
+> consumer와 새로운 heartbeat를 기다립니다. 보존된 `ready` marker 직후 첫 번째 정확한 F2 요청은
+> 3.948초에 답변 token을 보냈습니다.
 
 ## 설계 한눈에 보기
 

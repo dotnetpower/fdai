@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3172fab1286e3490a029e9e4bcedf08cc8221843
+translation_source_sha: e11dbbc5d15b9ae950ff1c30a2dc53a7e7c87223
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -68,6 +68,9 @@ commit을 일괄 수행합니다. Multiplex된 논리 consumer는 관련 없는 
 수행하지 않고 건너뛸 수 있으며, 처리 도중 닫힌 이벤트는 재전달 대상 상태로 유지합니다.
 APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 정확한 운영 대상이 될 수 없습니다. Frame 또는
 provider 작업 전에 Resource 신원 명확화를 요구합니다.
+Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
+모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
+만들 수 없습니다.
 원본 발화에 근거한 Resource 이름 또는 ID가 없는 구성과 게이트웨이 비교는 frame 모델이나
 프로바이더 I/O 전에 타입이 지정된 `resource_identity` 명확화로 중단합니다.
 정확한 대상과 1시간 기간을 포함한 수락된 구성 판단은 F2 frame을 결정론적으로 만들고 범용 frame

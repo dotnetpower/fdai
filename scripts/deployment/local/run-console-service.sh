@@ -233,6 +233,7 @@ cleanup_launch_marker() {
 }
 trap cleanup_launch_marker EXIT
 
+readiness_started_at="$(date --utc '+%Y-%m-%dT%H:%M:%S.%6N+00:00')"
 FDAI_LOCAL_SERVICE_LAUNCH_MARKER="$launch_marker" "${runner[@]}" &
 runner_pid="$!"
 launch_deadline=$((SECONDS + readiness_budget_seconds))
@@ -270,6 +271,10 @@ if (( remaining_budget_seconds <= 1 )); then
   exit 124
 fi
 probe_wait_seconds=$((remaining_budget_seconds - 1))
+readiness_args=()
+if [[ "$service" == "core-runtime" && "$launch_event" == "starting" ]]; then
+  readiness_args+=(--core-ready-after "$readiness_started_at")
+fi
 "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/run-bounded-command.py" \
   --label "$service-readiness" \
@@ -280,7 +285,8 @@ probe_wait_seconds=$((remaining_budget_seconds - 1))
   "$repo_root/scripts/automation/developer-workflow.py" \
   local-services \
   --wait-seconds "$probe_wait_seconds" \
-  --only "$service" >/dev/null &
+  --only "$service" \
+  "${readiness_args[@]}" >/dev/null &
 readiness_pid="$!"
 
 completed_pid=""

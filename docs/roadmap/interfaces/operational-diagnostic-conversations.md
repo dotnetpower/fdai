@@ -25,9 +25,9 @@ from interactive evidence, and configuration correlation from a proven cause.
 > F1 variant emitted its first answer token in 3.810 seconds and one exact F2 variant in 4.254
 > seconds, each with only the compact preflight model call. F1 still produced no document artifact.
 > F3 and F4 requests without exact resource identities returned clarification without provider
-> reads; clarification text does not satisfy the answer-token gate. A restarted Core also started
-> its semantic logical consumer about 28 seconds after `control_loop_ready`, so cold-start TTFT
-> remains unqualified.
+> reads; clarification text does not satisfy the answer-token gate. Restart readiness now waits for
+> a post-launch semantic consumer and fresh heartbeat. The first exact F2 request after the retained
+> `ready` marker emitted its answer token in 3.948 seconds.
 
 ## Design at a glance
 

@@ -67,6 +67,9 @@ bounds as the cloud SASL path. Multiplexed logical consumers can skip unrelated 
 without one broker commit per event, while mid-processing closure remains eligible for redelivery.
 Generic product labels such as APIM, gateway, backend, and GPT never satisfy an exact operational
 target. They require Resource identity clarification before frame or provider work.
+For a restarted Core, the standard launcher emits `ready` only after a post-launch semantic
+consumer and fresh Pantheon heartbeat are both visible. A previous process's heartbeat cannot make
+the replacement process ready.
 Configuration and gateway comparisons without a source-grounded Resource name or id stop with
 typed `resource_identity` clarification before frame-model or provider I/O.
 An accepted exact-target one-hour configuration judgment builds the F2 frame deterministically and

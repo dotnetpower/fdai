@@ -36,6 +36,7 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
 
     assert 'if [[ "$service" == "core-runtime" ]]' in script
     assert "digest_inputs+=(rule-catalog)" in script
+    assert '--core-ready-after "$readiness_started_at"' in script
 
 
 def _operator_restart_repo(tmp_path: Path) -> Path:

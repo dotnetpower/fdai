@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: e306e30364248384539e67d8ef298e41cc1a4608
+translation_source_sha: 4547887a6bc7e6c2ebd13eaf24790ac52dc04486
 translation_revised: 2026-09-07
 ---
 # 서술기 라우팅과 지연 시간
@@ -129,8 +129,9 @@ PLAINTEXT consumer는 클라우드 SASL consumer와 같은 범위가 제한된 �
 준비된 표준 Browser Entra 측정에서 F1 답변 token 하나는 3.810초, 정확한 F2 답변 token 하나는
 4.254초에 도달했습니다. 둘 다 preflight 모델 호출 한 번만 사용했습니다. 이 표본만으로 SLO 분포가
 검증되지는 않습니다. F1은 요청한 문서가 없었고 대상이 없는 F3/F4 명확화는 답변 token을 보내지
-않았습니다. Core를 다시 시작한 뒤 `control_loop_ready`보다 semantic 논리 consumer 시작이 약 28초
-늦었습니다. Readiness에 이 consumer를 포함하기 전까지 cold-start 요청은 검증된 경로가 아닙니다.
+않았습니다. 이제 Core 재시작 readiness는 시작 이후의 semantic 논리 consumer와 새로운 Pantheon
+heartbeat를 모두 기다립니다. 보존된 재시작은 두 marker 뒤에 `ready`를 보냈고, 직후 첫 번째 정확한
+F2 요청은 3.948초에 답변 token을 보냈습니다.
 
 Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표시합니다. 의미 런타임이 아직 증명할 수 없는
 브라우저 작성 화면 요약, tier 추정, 대기 중인 결정 또는 비용 기회 대신 서버 소유의 현재 근거를
@@ -340,6 +341,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 이전 프로세스의 heartbeat를 수락하는 대신 Core 재시작 readiness가 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat를 요구하도록 했습니다. | `current change`; 집중 launcher/workflow 테스트 46개 통과, 보존된 재시작이 두 marker 뒤 `ready`를 보냈고 첫 F2 답변 token은 3.948초였습니다. | 이중 언어 지연 분포를 보존합니다. 표본 하나는 SLO 검증이 아닙니다. |
 | 2026-09-07 | in-progress | 정확한 schema 이름을 유지하면서 preflight 본문을 추정 약 654토큰으로 줄였습니다. 준비된 F1/F2 변형은 preflight를 한 번 호출하고 5초 답변 token gate를 충족했습니다. | 표준 Browser Entra F1/F2 시간은 3.810/4.254초였습니다. | 이중 언어 분포를 보존하고 `control_loop_ready`보다 약 28초 늦게 시작한 semantic consumer를 Core readiness에 포함합니다. |
 | 2026-09-07 | implemented | Multiplex된 모든 물리 이벤트마다 commit하는 대신 기존 레코드 및 시간 상한으로 로컬 PLAINTEXT Kafka consumer commit을 일괄 처리했습니다. 처리 후 commit과 처리 도중 닫힐 때의 재전달을 보존했습니다. | `current change`; 집중 Event Bus 및 multiplex 테스트 통과 | 표준 Core를 다시 시작하고 논리 consumer가 backlog를 따라잡은 뒤 F1-F4 답변 token TTFT를 보존합니다. |
 | 2026-09-07 | implemented | 첫 `onToken` callback을 상태 및 최종 timing과 별도로 측정하고 5초를 넘으면 실패하는 실제 운영 대화 qualification gate를 추가했습니다. | `current change`; Console 타입 검사가 통과했습니다. | 전체 표준 스택을 하나의 정확한 소스 리비전에서 시작한 뒤 gate를 실행합니다. |

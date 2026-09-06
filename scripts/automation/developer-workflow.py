@@ -36,6 +36,9 @@ from scripts.automation.developer_workflow_repository import (
 from scripts.automation.developer_workflow_repository import (
     validation_diagnostic as _validation_diagnostic,
 )
+from scripts.automation.developer_workflow_runtime import (
+    _core_runtime_ready_after,
+)
 from scripts.automation.developer_workflow_runtime import (  # noqa: E402
     browser_runner_diagnostic as _browser_runner_diagnostic,
 )
@@ -141,13 +144,27 @@ def local_services_report(
     *,
     wait_seconds: float,
     selected_names: tuple[str, ...] = (),
+    core_ready_after: datetime | None = None,
 ) -> dict[str, Any]:
     """Wait for the standard local Console topology without changing process state."""
     diagnostic: Callable[[Path], dict[str, Any]] = _local_services_diagnostic
+    if core_ready_after is not None:
+
+        def fresh_core_diagnostic(target: Path) -> dict[str, Any]:
+            return _local_services_diagnostic(
+                target,
+                core_probe=lambda root: _core_runtime_ready_after(
+                    root,
+                    not_before=core_ready_after,
+                ),
+            )
+
+        diagnostic = fresh_core_diagnostic
     if selected_names:
+        complete_diagnostic = diagnostic
 
         def selected_diagnostic(target: Path) -> dict[str, Any]:
-            return _select_local_services(_local_services_diagnostic(target), selected_names)
+            return _select_local_services(complete_diagnostic(target), selected_names)
 
         diagnostic = selected_diagnostic
     return {
@@ -327,6 +344,11 @@ def _parser() -> argparse.ArgumentParser:
     local_services_parser.add_argument("--json", action="store_true", dest="as_json")
     local_services_parser.add_argument("--wait-seconds", type=float, default=15.0)
     local_services_parser.add_argument(
+        "--core-ready-after",
+        type=_aware_datetime,
+        default=None,
+    )
+    local_services_parser.add_argument(
         "--only",
         action="append",
         choices=LOCAL_SERVICE_NAMES,
@@ -358,13 +380,18 @@ def main(argv: list[str] | None = None) -> int:
                 flush=True,
             )
         if arguments.selected_names:
-            report = local_services_report(
-                Path.cwd(),
-                wait_seconds=arguments.wait_seconds,
-                selected_names=tuple(arguments.selected_names),
-            )
+            kwargs: dict[str, Any] = {
+                "wait_seconds": arguments.wait_seconds,
+                "selected_names": tuple(arguments.selected_names),
+            }
+            if arguments.core_ready_after is not None:
+                kwargs["core_ready_after"] = arguments.core_ready_after
+            report = local_services_report(Path.cwd(), **kwargs)
         else:
-            report = local_services_report(Path.cwd(), wait_seconds=arguments.wait_seconds)
+            kwargs = {"wait_seconds": arguments.wait_seconds}
+            if arguments.core_ready_after is not None:
+                kwargs["core_ready_after"] = arguments.core_ready_after
+            report = local_services_report(Path.cwd(), **kwargs)
         renderer = _render_local_services
     elif arguments.command == "resume":
         report = resume_report(Path.cwd())
@@ -384,6 +411,16 @@ def main(argv: list[str] | None = None) -> int:
         print(renderer(report))
     blocking_commands = {"delegation-preflight", "local-services", "preflight"}
     return 1 if arguments.command in blocking_commands and report["status"] != "ok" else 0
+
+
+def _aware_datetime(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("timestamp must use ISO 8601") from exc
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError("timestamp must include a timezone")
+    return parsed
 
 
 if __name__ == "__main__":

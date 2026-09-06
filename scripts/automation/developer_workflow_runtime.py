@@ -138,27 +138,64 @@ def _core_heartbeat_ready(
     root: Path,
     *,
     now: datetime | None = None,
+    not_before: datetime | None = None,
 ) -> bool:
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None or (not_before is not None and not_before.tzinfo is None):
+        raise ValueError("core readiness times MUST be timezone-aware")
+    for line in reversed(_core_log_lines(root)):
+        if "pantheon_heartbeat" not in line:
+            continue
+        observed = _log_timestamp(line)
+        if observed is None:
+            continue
+        if not_before is not None and observed < not_before.astimezone(UTC):
+            continue
+        age_seconds = (current - observed.astimezone(UTC)).total_seconds()
+        return -1.0 <= age_seconds <= CORE_HEARTBEAT_MAX_AGE_SECONDS
+    return False
+
+
+def _core_runtime_ready_after(
+    root: Path,
+    *,
+    not_before: datetime,
+    now: datetime | None = None,
+) -> bool:
+    """Require fresh Core life and the latency-critical semantic consumer."""
+    if not_before.tzinfo is None:
+        raise ValueError("core readiness lower bound MUST be timezone-aware")
+    semantic_ready = any(
+        "event_bus_consumer_started" in line
+        and "fdai-core-semantic-turn." in line
+        and (observed := _log_timestamp(line)) is not None
+        and observed >= not_before.astimezone(UTC)
+        for line in _core_log_lines(root)
+    )
+    return semantic_ready and _core_heartbeat_ready(
+        root,
+        now=now,
+        not_before=not_before,
+    )
+
+
+def _core_log_lines(root: Path) -> tuple[str, ...]:
     log_file = root / ".fdai" / "logs" / "core-runtime.log"
     try:
         with log_file.open("rb") as handle:
             handle.seek(max(0, log_file.stat().st_size - CORE_LOG_TAIL_BYTES))
             tail = handle.read(CORE_LOG_TAIL_BYTES).decode("utf-8", errors="replace")
     except OSError:
-        return False
-    current = now or datetime.now(UTC)
-    for line in reversed(tail.splitlines()):
-        if "pantheon_heartbeat" not in line:
-            continue
-        try:
-            observed = datetime.fromisoformat(line.split(" ", 1)[0])
-        except (ValueError, IndexError):
-            continue
-        if observed.tzinfo is None:
-            continue
-        age_seconds = (current - observed.astimezone(UTC)).total_seconds()
-        return -1.0 <= age_seconds <= CORE_HEARTBEAT_MAX_AGE_SECONDS
-    return False
+        return ()
+    return tuple(tail.splitlines())
+
+
+def _log_timestamp(line: str) -> datetime | None:
+    try:
+        observed = datetime.fromisoformat(line.split(" ", 1)[0])
+    except (ValueError, IndexError):
+        return None
+    return observed.astimezone(UTC) if observed.tzinfo is not None else None
 
 
 def local_services_diagnostic(
