@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from fdai.core.conversation.semantic_governed_document_planning import (
     append_governed_document_plan,
     apply_document_evidence_requirement,
@@ -239,6 +240,54 @@ def test_none_document_judgment_removes_untrusted_frame_requirement() -> None:
     assert document_evidence_mode(updated_frame) is None
 
 
+def test_missing_or_none_judgment_without_document_requirement_is_a_noop() -> None:
+    proposal = _proposal(
+        output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+        requirements=("authoritative_service_health",),
+    )
+    frame = build_semantic_frame(proposal, utterance=UTTERANCE, context=())
+    none_judgment = SemanticJudgmentProposal(
+        primary_intent="query.subscription_service_health",
+        targets=(),
+        requested_facets=(),
+        confidence=0.95,
+        ambiguous=False,
+        document_evidence_mode=SemanticDocumentEvidenceMode.NONE,
+        action_subject="none",
+    )
+
+    assert apply_document_evidence_requirement(
+        proposal,
+        frame,
+        judgment=None,
+        utterance=UTTERANCE,
+        context=(),
+    ) == (proposal, frame)
+    assert apply_document_evidence_requirement(
+        proposal,
+        frame,
+        judgment=none_judgment,
+        utterance=UTTERANCE,
+        context=(),
+    ) == (proposal, frame)
+
+
+def test_document_compiler_ignores_non_document_output_shape() -> None:
+    proposal = _proposal(output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH)
+    frame = build_semantic_frame(proposal, utterance=UTTERANCE, context=())
+
+    assert (
+        compile_governed_document_plan(
+            frame=frame,
+            utterance=UTTERANCE,
+            manifest=_manifest(),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
+        is None
+    )
+
+
 def test_schema_validated_judgment_selects_document_plan_without_second_model_call() -> None:
     model = _FrameModel()
     judgment = SemanticJudgmentBoundary(
@@ -314,6 +363,135 @@ def test_append_document_plan_recomputes_digest_and_keeps_existing_output() -> N
     assert augmented.output_node_ids == ("governed-documents",)
 
 
+def test_append_noops_without_document_mode_and_for_explicit_document_plan() -> None:
+    explicit_frame = build_semantic_frame(_proposal(), utterance=UTTERANCE, context=())
+    base = compile_governed_document_plan(
+        frame=explicit_frame,
+        utterance=UTTERANCE,
+        manifest=_manifest(),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+        purpose="operations-review",
+    )
+    assert base is not None
+    no_document_frame = build_semantic_frame(
+        _proposal(
+            output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+            requirements=("authoritative_service_health",),
+        ),
+        utterance=UTTERANCE,
+        context=(),
+    )
+
+    assert (
+        append_governed_document_plan(
+            base,
+            frame=no_document_frame,
+            utterance=UTTERANCE,
+            manifest=_manifest(),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
+        is base
+    )
+    assert (
+        append_governed_document_plan(
+            base,
+            frame=explicit_frame,
+            utterance=UTTERANCE,
+            manifest=_manifest(),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
+        is base
+    )
+
+
+def test_append_reports_optional_binding_unavailable() -> None:
+    explicit_frame = build_semantic_frame(_proposal(), utterance=UTTERANCE, context=())
+    base = compile_governed_document_plan(
+        frame=explicit_frame,
+        utterance=UTTERANCE,
+        manifest=_manifest(),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+        purpose="operations-review",
+    )
+    assert base is not None
+    optional_frame = build_semantic_frame(
+        _proposal(
+            output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+            requirements=("governed_documents.optional",),
+        ),
+        utterance=UTTERANCE,
+        context=(),
+    )
+
+    assert (
+        append_governed_document_plan(
+            base.model_copy(update={"nodes": (), "output_node_ids": ()}),
+            frame=optional_frame,
+            utterance=UTTERANCE,
+            manifest=_manifest(bound=False),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("defect", ("duplicate", "mismatch", "reserved_id"))
+def test_append_rejects_conflicting_existing_document_nodes(defect: str) -> None:
+    explicit_frame = build_semantic_frame(_proposal(), utterance=UTTERANCE, context=())
+    base = compile_governed_document_plan(
+        frame=explicit_frame,
+        utterance=UTTERANCE,
+        manifest=_manifest(),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+        purpose="operations-review",
+    )
+    assert base is not None
+    optional_frame = build_semantic_frame(
+        _proposal(
+            output_shape=SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+            requirements=("governed_documents.optional",),
+        ),
+        utterance=UTTERANCE,
+        context=(),
+    )
+    if defect == "duplicate":
+        second = base.nodes[0].model_copy(update={"node_id": "second-documents"})
+        plan = base.model_copy(
+            update={
+                "nodes": (*base.nodes, second),
+                "output_node_ids": (*base.output_node_ids, second.node_id),
+            }
+        )
+    elif defect == "mismatch":
+        plan = base
+    else:
+        non_document = base.nodes[0].model_copy(
+            update={
+                "arguments_json": canonical_json(
+                    {
+                        "function_name": "query.other",
+                        "arguments": {},
+                        "dependency_arguments": {},
+                    }
+                )
+            }
+        )
+        plan = base.model_copy(update={"nodes": (non_document,)})
+
+    with pytest.raises(ValueError, match="multiple|does not match|already contains"):
+        append_governed_document_plan(
+            plan,
+            frame=optional_frame,
+            utterance=UTTERANCE,
+            manifest=_manifest(),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
+
+
 def test_append_reuses_matching_document_function_with_a_different_node_id() -> None:
     explicit = _proposal()
     explicit_frame = build_semantic_frame(explicit, utterance=UTTERANCE, context=())
@@ -365,3 +543,37 @@ def test_append_reuses_matching_document_function_with_a_different_node_id() -> 
     )
 
     assert reused is existing_plan
+
+
+@pytest.mark.parametrize(
+    "requirements",
+    (
+        ("governed_documents.optional", "governed_documents.required"),
+        ("governed_documents.invalid",),
+        ("governed_documents.none",),
+    ),
+)
+def test_document_mode_rejects_noncanonical_frame_requirements(
+    requirements: tuple[str, ...],
+) -> None:
+    frame = build_semantic_frame(
+        _proposal(requirements=requirements),
+        utterance=UTTERANCE,
+        context=(),
+    )
+
+    with pytest.raises(ValueError, match="at most one|invalid|omit"):
+        document_evidence_mode(frame)
+
+
+def test_document_plan_rejects_blank_search_query() -> None:
+    frame = build_semantic_frame(_proposal(), utterance=UTTERANCE, context=())
+
+    with pytest.raises(ValueError, match="search query"):
+        compile_governed_document_plan(
+            frame=frame,
+            utterance=" ",
+            manifest=_manifest(),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
