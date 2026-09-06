@@ -559,7 +559,12 @@ Each work item below reflects what actually landed - code, tests, and gate cover
   - `main.tf`: `azurerm_cognitive_account` (kind=`OpenAI`) + N
     `azurerm_cognitive_deployment` from `resolved_capabilities`.
   - `variables.tf`: `enable_llm` (default `false` so bare-minimum deploys still succeed),
-    `resolved_capabilities` (object list from resolver).
+    `resolved_capabilities` (object list from resolver), and the explicit
+    `llm_public_network_access_enabled` opt-in. Public access stays disabled by default. An
+    environment that enables it should retain a deny-by-default network ACL with explicit trusted
+    source rules; key authentication remains disabled.
+    The protected dev workflow maps repository variable
+    `LLM_PUBLIC_NETWORK_ACCESS_ENABLED=true` to this input.
   - `outputs.tf`: `endpoint`, `deployments` map, `resource_id`.
 - Role assignment: executor MI → `Cognitive Services OpenAI User` on the account.
 - Root `infra/main.tf` wires the module conditionally on `var.enable_llm`.

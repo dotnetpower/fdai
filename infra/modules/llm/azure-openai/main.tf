@@ -6,7 +6,7 @@ resource "azurerm_cognitive_account" "primary" {
   kind                          = "OpenAI"
   sku_name                      = var.sku_name
   custom_subdomain_name         = var.name
-  public_network_access_enabled = false
+  public_network_access_enabled = var.public_network_access_enabled
   local_auth_enabled            = false
   tags                          = var.tags
 
@@ -14,9 +14,8 @@ resource "azurerm_cognitive_account" "primary" {
     type = "SystemAssigned"
   }
 
-  # Public access remains disabled by Terraform. Tenant policy may add a deny
-  # ACL and approved operator IPs; those policy-owned details must not create
-  # an endless apply/remove cycle.
+  # Tenant policy may add a deny ACL and approved operator IPs. Those
+  # policy-owned details must not create an endless apply/remove cycle.
   lifecycle {
     ignore_changes = [network_acls]
   }

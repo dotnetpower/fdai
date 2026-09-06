@@ -19,6 +19,12 @@ variable "sku_name" {
   default     = "S0"
 }
 
+variable "public_network_access_enabled" {
+  description = "Allow the Azure OpenAI public endpoint. Defaults to false; callers that enable it should retain a deny-by-default network ACL with explicit trusted-source rules."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Resource tags."
   type        = map(string)

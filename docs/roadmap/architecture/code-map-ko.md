@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 19205f683161cb1b93ff6bd60f90ee65bf28e47f
+translation_source_sha: bd05139ac5c7dbadcb4ce08fe0400a564de4a546
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -31,6 +31,10 @@ translation_revised: 2026-09-06
   내보냅니다. 보호된 서비스 배포는 전달 전에 이를 검증하며 봇 소유 래퍼는 정확한 Core 또는
   Document Ingestion API 계획만 수락합니다. 전환 플래그는 결합된 Core 바인딩을 포함해 봉인된
   모드에서 도출하며 서비스 tfvars는 플랫폼 소유권이나 사람 승인을 대체할 수 없습니다.
+- **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스를
+  비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로
+  유지하는 환경에 명시적인 공용 액세스 선택 항목 하나를 제공합니다. 이 옵션은 키 인증을
+  활성화하지 않습니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은

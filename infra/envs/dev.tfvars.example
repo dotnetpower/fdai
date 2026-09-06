@@ -41,6 +41,7 @@ additional_tags = {
 # Variables; never commit populated tenant ids here.
 # enable_document_ingestion       = true
 # enable_llm                      = true
+# llm_public_network_access_enabled = true # Keep a deny-by-default ACL with trusted-source rules.
 # ingestion_embedding_capability = "t1.embedding"
 # ingestion_cors_allow_origins    = "https://console.example.com"
 # clamav_image                    = "clamav/clamav:stable" # digest-pin outside dev

@@ -176,6 +176,7 @@ jobs:
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') || startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') || inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+      TF_VAR_llm_public_network_access_enabled: ${{ vars.LLM_PUBLIC_NETWORK_ACCESS_ENABLED == 'true' }}
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
       MODEL_BINDING_POLICY_JSON: ""
       MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}

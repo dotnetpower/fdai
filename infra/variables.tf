@@ -229,6 +229,12 @@ variable "enable_llm" {
   default     = false
 }
 
+variable "llm_public_network_access_enabled" {
+  description = "Explicitly enable the Azure OpenAI public endpoint. The default remains private; when enabled, use tenant policy or an independently managed deny-by-default ACL to restrict trusted source addresses."
+  type        = bool
+  default     = false
+}
+
 variable "t1_similarity_threshold" {
   description = "Cosine-similarity floor for T1 learned-action reuse."
   type        = number

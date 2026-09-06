@@ -2433,10 +2433,11 @@ module "llm_azure_openai" {
   count  = var.enable_llm ? 1 : 0
   source = "./modules/llm/azure-openai"
 
-  name                  = local.openai_model_account_name
-  location              = var.region
-  resource_group_name   = module.resource_group.name
-  executor_principal_id = module.identity.principal_id
+  name                          = local.openai_model_account_name
+  location                      = var.region
+  resource_group_name           = module.resource_group.name
+  executor_principal_id         = module.identity.principal_id
+  public_network_access_enabled = var.llm_public_network_access_enabled
   additional_user_principal_ids = (
     merge(
       var.enable_llm && var.pattern_growth_measurement_enabled

@@ -28,6 +28,10 @@ retired top-level application tree.
   secret references. Protected service deployment validates those objects before delivery, and the
   bot-owned wrapper accepts only an exact Core or Document Ingestion API plan. Transition flags come
   from its sealed mode, including combined Core bindings; service tfvars cannot replace ownership or approval.
+- **Model network policy:** `infra/modules/llm/azure-openai/` keeps public access disabled by default.
+  The root module and protected dev workflow expose one explicit public-access opt-in for
+  environments that independently retain deny-by-default trusted-source ACLs. The option never
+  enables key authentication.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
