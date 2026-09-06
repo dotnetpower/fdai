@@ -82,6 +82,8 @@ strong default; **MAY** is optional.
 - Any new fail-fast rule MUST come with a resolver test; any new finding MUST come
   with a coverage test. Run `scripts/governance/check-stewardship.sh` and
   `pytest services/core-control-plane/tests/core/stewardship/` before proposing the change complete.
+- `check-stewardship.sh` MUST fail closed when its tracked config, Python runtime, or YAML parser is
+  unavailable. A skipped structural check is not stewardship validation evidence.
 - Editing the shipped `config/agent-stewardship.yaml` in production is a
   governance draft-PR flow (console is read-only); it notifies the affected
   stewards + maintainer and writes a Saga audit entry.

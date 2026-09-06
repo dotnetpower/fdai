@@ -19,9 +19,9 @@
 # enforced by check-guids.sh and by the resolver when
 # FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1, so it is not repeated here.
 #
-# Exit codes: 0 clean / skip, 1 on any violation.
+# Exit codes: 0 clean, 1 on any violation or unavailable validation prerequisite.
 
-set -uo pipefail
+set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
@@ -29,8 +29,8 @@ cd "$repo_root"
 FILE="config/agent-stewardship.yaml"
 
 if [[ ! -f "$FILE" ]]; then
-    echo "check-stewardship: $FILE not present - skipping."
-    exit 0
+    echo "check-stewardship: $FILE not present." >&2
+    exit 1
 fi
 
 # --- Guard 1: no ActionType role field may be declared -----------------------
@@ -42,8 +42,8 @@ fi
 
 # --- Guards 2 + 3: structural validation via a tiny Python shim ---------------
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "check-stewardship: python3 not found - skipping structural check." >&2
-    exit 0
+    echo "check-stewardship: python3 is required for structural validation." >&2
+    exit 1
 fi
 
 python3 - "$FILE" <<'PY'
@@ -52,8 +52,8 @@ import sys
 try:
     import yaml
 except ModuleNotFoundError:
-    print("check-stewardship: PyYAML unavailable - skipping structural check.")
-    sys.exit(0)
+    print("check-stewardship: PyYAML is required for structural validation.", file=sys.stderr)
+    sys.exit(1)
 
 # The 15 pantheon names. Parity with PANTHEON_NAMES is enforced by
 # services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py; this list is the CI-side

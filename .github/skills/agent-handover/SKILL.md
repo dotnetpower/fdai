@@ -77,7 +77,8 @@ bus-factor 1).
 ## Verification checklist (must pass before handover is "done")
 
 - [ ] `bash scripts/governance/check-stewardship.sh` is green (15 agents, maintainer floor,
-      no forbidden role fields).
+      no forbidden role fields). A missing tracked config, Python runtime, or PyYAML parser is a
+      failed gate, never a skipped success.
 - [ ] `pytest services/core-control-plane/tests/core/stewardship/ -q --no-cov` passes.
 - [ ] `python -c "from pathlib import Path; from fdai.core.stewardship import
       load_stewardship_from_yaml, build_coverage_report as r;
