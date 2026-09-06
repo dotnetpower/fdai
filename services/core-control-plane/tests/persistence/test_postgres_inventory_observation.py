@@ -13,6 +13,8 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
     _append_records,
+    _retained_generation_watermark,
+    _snapshot_recovery_observation,
 )
 from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     build_projection_replay_observation,
@@ -87,6 +89,30 @@ class _Connection:
         if "SELECT COUNT(*) AS pending" in query:
             return _Cursor([{"pending": 0}])
         return _Cursor([])
+
+
+class _GenerationWatermarkConnection:
+    def __init__(self, watermark: int) -> None:
+        self.watermark = watermark
+        self.params: object = None
+
+    async def execute(self, query: str, params: object = None) -> _Cursor:
+        assert "MAX(watermark)" in query
+        self.params = params
+        return _Cursor([{"watermark": self.watermark}])
+
+
+async def test_retained_generation_watermark_includes_confirmation_rows() -> None:
+    connection = _GenerationWatermarkConnection(23)
+
+    assert (
+        await _retained_generation_watermark(
+            connection,  # type: ignore[arg-type]
+            generation="snapshot-1",
+        )
+        == 23
+    )
+    assert connection.params == ("snapshot-1", "snapshot:snapshot-1")
 
 
 def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:
@@ -295,6 +321,7 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
     )
     metadata = {
         "projection_complete": True,
+        "state_base_generation": "snapshot-0",
         "relationship_drop_classifications": [],
         "relationship_coverage": {
             "total_candidates": 1,
@@ -330,13 +357,19 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
     assert observation.resources[1].last_seen is None
     assert observation.links[0].observation_metadata == link_metadata
     assert observation.relationship_drops == ()
+    assert observation.state_base_generation == "snapshot-0"
+    assert observation.state_base_generation_checked is True
     assert (
         projection_freshness_ceiling(
             {
                 "object_content": [
                     {
                         "properties": {
-                            "properties": {STATE_FACT_METADATA_PROPERTY: state_fact.to_mapping()}
+                            "properties": {
+                                STATE_FACT_METADATA_PROPERTY: {
+                                    "availabilityState": state_fact.to_mapping()
+                                }
+                            }
                         }
                     },
                     {"properties": {"properties": {}}},
@@ -345,6 +378,89 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
         )
         == 300
     )
+
+
+def test_snapshot_recovery_rebuilds_generation_before_journal_append() -> None:
+    state_fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="provider-v1",
+        effective_at=NOW,
+        recorded_at=NOW,
+        evidence_cutoff=NOW,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory-receipt",),
+    )
+    link_metadata = LinkObservationMetadata(
+        state_fact=state_fact,
+        verification_method="provider-readback",
+        verified=True,
+        verifier_identity="inventory-verifier",
+        verifier_revision="verifier-v1",
+        verification_receipt_ref="verification-receipt",
+        inventory_generation="snapshot-1",
+        mapping_id="mapping-1",
+        mapping_revision="revision-1",
+        source_schema_version="provider-v1",
+        source_schema_digest="sha256:" + "1" * 64,
+    )
+    provider_evidence = {"mapping_id": "mapping-1", "mapping_revision": "revision-1"}
+    observation = _snapshot_recovery_observation(
+        generation="snapshot-1",
+        recorded_at=NOW,
+        metadata={
+            "state_base_generation": "snapshot-0",
+            "relationship_drop_classifications": [],
+            "relationship_coverage": {
+                "total_candidates": 1,
+                "materialized": 1,
+                "reviewed_unavailable": 0,
+                "unclassified": 0,
+                "complete": True,
+            },
+        },
+        prior_manifest={"object_content": [], "dropped_reasons": []},
+        resource_rows=(
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {"availabilityState": "Available"},
+                "provider_ref": (
+                    "/subscriptions/example/resourceGroups/example/providers/example/one"
+                ),
+                "last_seen": NOW,
+            },
+            {
+                "resource_id": "resource-b",
+                "resource_type": "compute.vm",
+                "props": {},
+                "provider_ref": None,
+                "last_seen": NOW,
+            },
+        ),
+        link_rows=(
+            {
+                "from_id": "resource-a",
+                "from_type": "compute.vm",
+                "link_type": "depends_on",
+                "to_id": "resource-b",
+                "to_type": "compute.vm",
+                "props": {
+                    "provider_relationship_evidence": provider_evidence,
+                    LINK_OBSERVATION_METADATA_PROPERTY: link_metadata.to_mapping(),
+                },
+            },
+        ),
+    )
+
+    assert observation.generation == "snapshot-1"
+    assert observation.resources[0].props["availabilityState"] == "Available"
+    assert observation.links[0].link_props["provider_relationship_evidence"] == provider_evidence
+    assert observation.state_base_generation == "snapshot-0"
+    assert observation.state_base_generation_checked is True
 
 
 def test_active_snapshot_bootstrap_rehydrates_the_verified_observation() -> None:

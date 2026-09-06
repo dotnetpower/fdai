@@ -10,6 +10,7 @@ from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.providers.state_evidence import (
     STATE_FACT_METADATA_PROPERTY,
     StateFactMetadata,
+    state_fact_metadata_values,
 )
 
 from .archive_retention import ArchiveHistoryStatus
@@ -112,7 +113,7 @@ def _decision(
     live_read_budget_ms: int,
     projection_budget_ms: int,
 ) -> GraphEvidenceRefreshDecision:
-    metadata = _resource_state_metadata(secured)
+    metadata, covered_resource_count = _resource_state_metadata(secured)
     resource_count = sum(
         record.object_type == "Resource" for record in secured.materialization.graph.objects
     )
@@ -129,7 +130,7 @@ def _decision(
             graph_available=True,
             graph_freshness=freshness,
             graph_complete=secured.receipt.complete
-            and len(metadata) == resource_count
+            and covered_resource_count == resource_count
             and all(item.completeness == 1.0 for item in metadata),
             graph_truncated=secured.receipt.truncated,
             graph_synthetic=any(item.synthetic for item in metadata),
@@ -156,8 +157,9 @@ def _selects_resources(definition: ObjectSetDefinition) -> bool:
 
 def _resource_state_metadata(
     secured: SecuredObjectSetQueryResult,
-) -> tuple[StateFactMetadata, ...]:
+) -> tuple[tuple[StateFactMetadata, ...], int]:
     metadata: list[StateFactMetadata] = []
+    covered_resource_count = 0
     for record in secured.materialization.graph.objects:
         if record.object_type != "Resource":
             continue
@@ -169,8 +171,9 @@ def _resource_state_metadata(
             continue
         if not isinstance(raw, Mapping):
             raise ValueError("Resource state fact metadata MUST be an object")
-        metadata.append(StateFactMetadata.from_mapping(raw))
-    return tuple(metadata)
+        metadata.extend(state_fact_metadata_values(raw))
+        covered_resource_count += 1
+    return tuple(metadata), covered_resource_count
 
 
 def _freshness(

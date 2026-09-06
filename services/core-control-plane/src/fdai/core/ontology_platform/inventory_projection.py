@@ -359,7 +359,7 @@ def _add_observed_state(
         return
     if has_state:
         properties["state"] = state
-    properties[STATE_FACT_METADATA_PROPERTY] = StateFactMetadata(
+    state_metadata = StateFactMetadata(
         lane=StateFactLane.OBSERVED,
         authority=StateFactAuthority.PROVIDER,
         source_identity="inventory-provider",
@@ -373,6 +373,14 @@ def _add_observed_state(
         conflicts=conflicts,
         evidence_refs=(f"inventory-generation:{generation}",),
     ).to_mapping()
+    existing_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if isinstance(existing_metadata, Mapping) and "lane" not in existing_metadata:
+        properties[STATE_FACT_METADATA_PROPERTY] = {
+            **existing_metadata,
+            "state": state_metadata,
+        }
+    else:
+        properties[STATE_FACT_METADATA_PROPERTY] = state_metadata
 
 
 def _operational_state(properties: Mapping[str, object]) -> str | None:
@@ -456,6 +464,7 @@ def _build_links(
             continue
         link_props = normalize_json_value(dict(record.link_props), path=f"inventory.{link_type}")
         properties = dict(link_props) if isinstance(link_props, Mapping) else {}
+        properties.pop("provider_relationship_evidence", None)
         properties[LINK_OBSERVATION_METADATA_PROPERTY] = normalize_json_value(
             metadata.to_mapping(),
             path=f"inventory.{link_type}.{LINK_OBSERVATION_METADATA_PROPERTY}",

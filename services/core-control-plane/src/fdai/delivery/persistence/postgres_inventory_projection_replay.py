@@ -29,7 +29,7 @@ from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
     STATE_FACT_METADATA_PROPERTY,
     LinkObservationMetadata,
-    StateFactMetadata,
+    state_fact_metadata_values,
 )
 
 MAX_ACTIVE_PROJECTION_OBSERVATIONS: Final[int] = 250_000
@@ -97,6 +97,12 @@ def build_projection_replay_observation(
         complete=True,
         relationship_drops=projection_replay_drops(metadata, prior_manifest),
         recorded_at=recorded_at,
+        state_base_generation=(
+            str(metadata["state_base_generation"])
+            if metadata.get("state_base_generation") is not None
+            else None
+        ),
+        state_base_generation_checked="state_base_generation" in metadata,
     )
     expected_coverage = _mapping(metadata.get("relationship_coverage"))
     if dict(compute_relationship_coverage(observation).to_metadata()) != dict(expected_coverage):
@@ -205,7 +211,9 @@ def projection_freshness_ceiling(manifest: Mapping[str, Any]) -> int:
             continue
         if not isinstance(state_fact, Mapping):
             raise ValueError("inventory projection replay state fact is invalid")
-        ceilings.add(StateFactMetadata.from_mapping(state_fact).freshness_ceiling_seconds)
+        ceilings.update(
+            fact.freshness_ceiling_seconds for fact in state_fact_metadata_values(state_fact)
+        )
     if not ceilings:
         return DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS
     if len(ceilings) != 1:

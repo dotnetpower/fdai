@@ -11,6 +11,9 @@ import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
 
+from fdai.delivery.persistence.postgres_inventory_observation import (
+    advance_ontology_projection,
+)
 from fdai.delivery.persistence.postgres_ontology_records import (
     _link_from_row,
     _next_endpoint,
@@ -51,6 +54,7 @@ from fdai.shared.providers.ontology_instance import (
 
 _resolve_inventory_graph_source_coverage = resolve_inventory_graph_source_coverage
 _SUBGRAPH_REPLACEMENT_LOCK: Final[int] = 8_419_450_001
+_INVENTORY_STATE_BATCH_SIZE: Final[int] = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +160,69 @@ class PostgresOntologyInstanceStore:
                         )
                     releases[digest] = release
         self._releases = releases
+
+    async def read_inventory_state_base(
+        self,
+        *,
+        object_ids: tuple[str, ...],
+        expected_generation: str | None,
+    ) -> tuple[OntologyObjectRecord, ...]:
+        """Read a manifest-fenced prior Resource generation for transition derivation."""
+
+        if object_ids != tuple(sorted(set(object_ids))) or len(object_ids) > 50_000:
+            raise ValueError("inventory state base object ids MUST be unique, ordered, and bounded")
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                cursor = await connection.execute(
+                    "SELECT key, value FROM state_kv "
+                    "WHERE key=ANY(%s::text[]) ORDER BY key FOR SHARE",
+                    (
+                        [
+                            "inventory-ontology:manifest",
+                            "inventory-ontology:status",
+                        ],
+                    ),
+                )
+                rows = {str(row["key"]): row["value"] for row in await cursor.fetchall()}
+                manifest = rows.get("inventory-ontology:manifest")
+                status = rows.get("inventory-ontology:status")
+                if expected_generation is None:
+                    if manifest is not None or (
+                        status is not None and not _unavailable_inventory_projection_status(status)
+                    ):
+                        raise ValueError("inventory ontology state base appeared after enrichment")
+                    return ()
+                if not isinstance(manifest, dict) or not isinstance(status, dict):
+                    raise ValueError("inventory ontology state base is unavailable")
+                if not _inventory_state_base_available(
+                    manifest,
+                    status,
+                    expected_generation=expected_generation,
+                ):
+                    raise ValueError("inventory ontology state base generation is incomplete")
+                owned_ids = _inventory_manifest_object_ids(manifest)
+                objects: list[OntologyObjectRecord] = []
+                for start in range(0, len(object_ids), _INVENTORY_STATE_BATCH_SIZE):
+                    selected = tuple(
+                        object_id
+                        for object_id in object_ids[start : start + _INVENTORY_STATE_BATCH_SIZE]
+                        if object_id in owned_ids
+                    )
+                    if not selected:
+                        continue
+                    object_cursor = await connection.execute(
+                        "SELECT id, object_type, properties, revision, "
+                        "type_version, catalog_digest FROM ontology_resource "
+                        "WHERE object_type='Resource' AND id=ANY(%s::text[]) "
+                        "ORDER BY id",
+                        (list(selected),),
+                    )
+                    objects.extend(
+                        _object_from_row(row, releases=self._releases)
+                        for row in await object_cursor.fetchall()
+                    )
+                return tuple(objects)
 
     async def upsert_object(
         self,
@@ -342,6 +409,7 @@ class PostgresOntologyInstanceStore:
         previous_link_keys: Sequence[tuple[str, str, str]] = (),
         _state_updates: Mapping[str, Mapping[str, Any]] | None = None,
         _expected_active_generation: str | None = None,
+        _observation_projection_watermark: int | None = None,
     ) -> None:
         normalized_objects = tuple(
             normalize_object_record(pin_object_record(item, self._release)) for item in objects
@@ -477,6 +545,16 @@ class PostgresOntologyInstanceStore:
                             canonical_json_mapping(value, path=f"state_updates.{key}")[1],
                         ),
                     )
+                if _observation_projection_watermark is not None:
+                    if _expected_active_generation is None:
+                        raise ValueError(
+                            "ontology projection watermark requires an active generation"
+                        )
+                    await advance_ontology_projection(
+                        connection,
+                        generation=_expected_active_generation,
+                        watermark=_observation_projection_watermark,
+                    )
 
     async def replace_subgraph_with_state(
         self,
@@ -487,6 +565,7 @@ class PostgresOntologyInstanceStore:
         previous_link_keys: Sequence[tuple[str, str, str]],
         state_updates: Mapping[str, Mapping[str, Any]],
         expected_active_generation: str,
+        observation_projection_watermark: int | None = None,
     ) -> None:
         """Atomically replace a subgraph and advance its state commit markers."""
 
@@ -497,6 +576,7 @@ class PostgresOntologyInstanceStore:
             previous_link_keys=previous_link_keys,
             _state_updates=state_updates,
             _expected_active_generation=expected_active_generation,
+            _observation_projection_watermark=observation_projection_watermark,
         )
 
     async def write_state_if_active_generation(
@@ -877,6 +957,43 @@ class PostgresOntologyInstanceStore:
         return tuple(
             _link_from_row(row, releases=self._releases) for row in await cursor.fetchall()
         )
+
+
+def _inventory_state_base_available(
+    manifest: Mapping[str, Any],
+    status: Mapping[str, Any],
+    *,
+    expected_generation: str,
+) -> bool:
+    if manifest.get("generation") != expected_generation or manifest.get("complete") is not True:
+        return False
+    return (
+        status.get("generation") == expected_generation
+        and status.get("status") == "available"
+        and status.get("complete") is True
+    ) or _unavailable_inventory_projection_status(status)
+
+
+def _unavailable_inventory_projection_status(value: object) -> bool:
+    return (
+        isinstance(value, Mapping)
+        and value.get("status") == "unavailable"
+        and value.get("complete") is False
+    )
+
+
+def _inventory_manifest_object_ids(manifest: Mapping[str, Any]) -> frozenset[str]:
+    content = manifest.get("object_content")
+    if not isinstance(content, list):
+        raise ValueError("inventory ontology manifest object ownership is unavailable")
+    identifiers: list[str] = []
+    for item in content:
+        if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+            raise ValueError("inventory ontology manifest object ownership is malformed")
+        identifiers.append(str(item["id"]))
+    if len(identifiers) != len(set(identifiers)):
+        raise ValueError("inventory ontology manifest object ownership is duplicated")
+    return frozenset(identifiers)
 
 
 __all__ = ["PostgresOntologyInstanceStore", "PostgresOntologyInstanceStoreConfig"]

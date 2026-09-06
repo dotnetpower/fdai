@@ -26,6 +26,7 @@ from fdai.shared.providers.inventory import (
     INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX,
     InventoryBatch,
     LinkRecord,
+    ResourceRecord,
 )
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
@@ -196,12 +197,32 @@ class PostgresInventorySnapshotStore:
                 await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
                 await self._require_collecting(connection, attempt_id)
                 active_cursor = await connection.execute(
-                    "SELECT s.started_at, s.observation_kind, s.metadata "
+                    "SELECT a.snapshot_id, s.started_at, s.observation_kind, s.metadata "
                     "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                     "WHERE a.singleton=TRUE FOR UPDATE"
                 )
                 active = await active_cursor.fetchone()
                 candidate_started = manifest.started_at or completed
+                state_base_generation = manifest.metadata.get("state_base_generation")
+                state_base_checked = "state_base_generation" in manifest.metadata
+                if (
+                    state_base_checked
+                    and state_base_generation is not None
+                    and (
+                        not isinstance(state_base_generation, str)
+                        or not state_base_generation.strip()
+                        or len(state_base_generation) > 256
+                    )
+                ):
+                    raise ValueError("inventory state base generation is malformed")
+                if state_base_checked and (
+                    (state_base_generation is None and active is not None)
+                    or (
+                        state_base_generation is not None
+                        and (active is None or active["snapshot_id"] != state_base_generation)
+                    )
+                ):
+                    raise ValueError("inventory state base generation changed before promotion")
                 if active is not None:
                     if candidate_started < active["started_at"]:
                         raise ValueError("inventory candidate is older than the active snapshot")
@@ -299,6 +320,49 @@ class PostgresInventorySnapshotStore:
             )
             row = await cursor.fetchone()
         return str(row["snapshot_id"]) if row is not None else None
+
+    async def read_active_resources(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        """Read exact prior Resources for monotonic state enrichment."""
+
+        if resource_ids != tuple(sorted(set(resource_ids))) or len(resource_ids) > 1000:
+            raise ValueError("active Resource ids MUST be unique, ordered, and bounded")
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                active_cursor = await connection.execute(
+                    "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR SHARE"
+                )
+                active = await active_cursor.fetchone()
+                if active is None:
+                    return None, {}
+                snapshot_id = str(active["snapshot_id"])
+                if not resource_ids:
+                    return snapshot_id, {}
+                cursor = await connection.execute(
+                    "SELECT resource_id, resource_type, props, provider_ref, last_seen "
+                    "FROM inventory_snapshot_resource "
+                    "WHERE snapshot_id=%s AND resource_id=ANY(%s::text[]) "
+                    "ORDER BY resource_id",
+                    (snapshot_id, list(resource_ids)),
+                )
+                rows = await cursor.fetchall()
+        resources = {
+            str(row["resource_id"]): ResourceRecord(
+                resource_id=str(row["resource_id"]),
+                type=str(row["resource_type"]),
+                props=dict(row["props"]),
+                provider_ref=(
+                    str(row["provider_ref"]) if row["provider_ref"] is not None else None
+                ),
+                last_seen=(row["last_seen"].isoformat() if row["last_seen"] is not None else None),
+            )
+            for row in rows
+        }
+        return snapshot_id, resources
 
     async def _require_collecting(
         self, connection: psycopg.AsyncConnection[Any], attempt_id: str

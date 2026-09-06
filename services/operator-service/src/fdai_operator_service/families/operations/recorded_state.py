@@ -31,6 +31,7 @@ _OPERATIONAL_PATHS = (
     "instanceView.powerState.code",
     "extended.instanceView.powerState.code",
 )
+_AVAILABILITY_PATHS = ("availabilityState",)
 OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
     "app-service-plan": ("powerState", "status"),
     "compute.container-app": ("runningStatus",),
@@ -71,6 +72,7 @@ OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
     {
         "action-group",
         "alert-rule",
+        "application-insights",
         "authorization.role-assignment",
         "certificate",
         "compute.vm-scale-set",
@@ -84,17 +86,16 @@ OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
         "kubernetes.ingress-class",
         "kubernetes.namespace",
         "kubernetes.service",
+        "log-workspace",
         "managed-identity",
         "network.private-dns-zone-group",
         "resource-group",
     }
 )
-RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES = frozenset(
-    {
-        "application-insights",
-        "log-workspace",
-    }
-)
+AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
+    "log-workspace": _AVAILABILITY_PATHS,
+}
+AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset({"application-insights"})
 PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
     {
         "api-gateway",
@@ -202,7 +203,7 @@ def recorded_resource_states(
         ),
         "availability": _fact(
             properties,
-            ("availabilityState",),
+            _AVAILABILITY_PATHS,
             evaluated_at,
             resource_type=resource_type,
             observation=observation,
@@ -228,14 +229,15 @@ def _fact(
         "conflicts": [],
         "reason": _missing_reason(resource_type, paths),
     }
+    selected_paths = _applicable_paths(resource_type, paths)
     for prefix in ("", "properties.", "properties.properties."):
-        for path in paths:
+        for path in selected_paths:
             source_path = prefix + path
             value = _at(properties, source_path)
             if (
                 not isinstance(value, str)
                 or not value.strip()
-                or value.strip().casefold() == "unknown"
+                or (value.strip().casefold() == "unknown" and paths != _AVAILABILITY_PATHS)
             ):
                 continue
             if len(value) > MAX_STATE_VALUE_CHARS or any(ord(char) < 32 for char in value):
@@ -266,6 +268,19 @@ def _fact(
     return result
 
 
+def _applicable_paths(
+    resource_type: str | None,
+    paths: tuple[str, ...],
+) -> tuple[str, ...]:
+    if resource_type is None:
+        return paths
+    if paths == _OPERATIONAL_PATHS:
+        return OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE.get(resource_type, ())
+    if paths == _AVAILABILITY_PATHS:
+        return AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE.get(resource_type, ())
+    return paths
+
+
 def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
     if resource_type == "unclassified-resource":
         return "resource_type_unclassified"
@@ -274,11 +289,14 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
             return "state_source_not_recorded"
         if resource_type in OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
             return "state_not_applicable"
-        if resource_type in RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES:
-            return "resource_health_projection_not_bound"
         if resource_type in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES:
             return "provider_operational_state_not_exposed"
         return "state_applicability_unknown"
+    if paths == _AVAILABILITY_PATHS and resource_type is not None:
+        if resource_type in AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE:
+            return "state_source_not_recorded"
+        if resource_type in AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
+            return "state_not_applicable"
     return "state_not_recorded"
 
 

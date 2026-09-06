@@ -117,6 +117,7 @@ class _AtomicOntologyStore(InMemoryOntologyInstanceStore):
         )
         super().__init__(object_types=catalog.object_types, link_types=catalog.link_types)
         self._status = status
+        self.projection_watermarks: list[tuple[str, int]] = []
 
     async def replace_subgraph_with_state(
         self,
@@ -127,6 +128,7 @@ class _AtomicOntologyStore(InMemoryOntologyInstanceStore):
         previous_link_keys: tuple[tuple[str, str, str], ...],
         state_updates: dict[str, dict[str, object]],
         expected_active_generation: str,
+        observation_projection_watermark: int | None = None,
     ) -> None:
         assert expected_active_generation
         prior_objects = deepcopy(self._objects)
@@ -141,6 +143,10 @@ class _AtomicOntologyStore(InMemoryOntologyInstanceStore):
             )
             for key, value in state_updates.items():
                 await self._status.write_state(key, value)
+            if observation_projection_watermark is not None:
+                self.projection_watermarks.append(
+                    (expected_active_generation, observation_projection_watermark)
+                )
         except Exception:
             self._objects = prior_objects
             self._links = prior_links
@@ -188,7 +194,7 @@ def _projector(
     )
 
 
-async def test_projection_advances_journal_watermark_only_after_graph_commit() -> None:
+async def test_projection_advances_journal_watermark_with_graph_commit() -> None:
     status = InMemoryStateStore()
     store = _AtomicOntologyStore(status)
     journal = _RecordingObservationJournal()
@@ -205,7 +211,8 @@ async def test_projection_advances_journal_watermark_only_after_graph_commit() -
         projection_high_watermark=6,
     )
 
-    assert journal.calls == [("snapshot-watermark", 6)]
+    assert journal.calls == []
+    assert store.projection_watermarks == [("snapshot-watermark", 6)]
     assert result.journal_high_watermark == 7
     assert result.projection_high_watermark == 6
     manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)

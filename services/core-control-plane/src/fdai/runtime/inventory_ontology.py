@@ -281,6 +281,7 @@ class InventoryOntologyProjector:
                     INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
                 },
                 expected_active_generation=projection.generation,
+                observation_projection_watermark=projection_high_watermark,
             )
         else:
             if not self._allow_non_atomic_store:
@@ -301,7 +302,7 @@ class InventoryOntologyProjector:
                 INVENTORY_ONTOLOGY_STATUS_KEY,
                 status_state,
             )
-        if projection_high_watermark is not None:
+        if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:
                 raise RuntimeError("inventory ontology journal watermark has no durable writer")
             await self._observation_journal.mark_ontology_projected(

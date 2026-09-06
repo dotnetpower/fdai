@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Any, Self
 
 STATE_FACT_METADATA_PROPERTY = "state_fact_metadata"
+STATE_FACT_EQUAL_TIME_CONFLICT = "equal_time_conflict"
 LINK_OBSERVATION_METADATA_PROPERTY = "link_observation_metadata"
 TRUSTED_LINK_VERIFICATION_METHODS = frozenset(
     {"deterministic-cross-check", "independent-source", "provider-readback"}
@@ -175,6 +176,23 @@ class StateFactMetadata:
             conflicts=_string_tuple(value, "conflicts"),
             evidence_refs=_string_tuple(value, "evidence_refs"),
         )
+
+
+def state_fact_metadata_values(value: Mapping[str, Any]) -> tuple[StateFactMetadata, ...]:
+    """Decode either one legacy flat fact or a property-keyed fact collection."""
+
+    if "lane" in value:
+        return (StateFactMetadata.from_mapping(value),)
+    if not value:
+        raise ValueError("state fact metadata collection MUST NOT be empty")
+    facts: list[StateFactMetadata] = []
+    for property_name, raw in sorted(value.items()):
+        if not isinstance(property_name, str) or not property_name:
+            raise ValueError("state fact metadata property name MUST be non-empty text")
+        if not isinstance(raw, Mapping):
+            raise ValueError("state fact metadata property value MUST be an object")
+        facts.append(StateFactMetadata.from_mapping(raw))
+    return tuple(facts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,9 +399,11 @@ def _string_tuple(value: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
 __all__ = [
     "LINK_OBSERVATION_METADATA_PROPERTY",
     "STATE_FACT_METADATA_PROPERTY",
+    "STATE_FACT_EQUAL_TIME_CONFLICT",
     "TRUSTED_LINK_VERIFICATION_METHODS",
     "LinkObservationMetadata",
     "StateFactAuthority",
     "StateFactLane",
     "StateFactMetadata",
+    "state_fact_metadata_values",
 ]

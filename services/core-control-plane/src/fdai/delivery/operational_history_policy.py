@@ -85,6 +85,9 @@ class ConfiguredInventoryObservationJournal:
             watermark=watermark,
         )
 
+    async def load_pending_promoted_snapshot(self) -> PromotedInventoryObservation | None:
+        return await self._journal.load_pending_promoted_snapshot()
+
     async def _persist_policies(self, recorded_at: datetime) -> None:
         for policy in self._policies:
             await self._history.put_retention_policy(policy, recorded_at=recorded_at)

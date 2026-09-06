@@ -349,6 +349,15 @@ The pre-scan count is labeled as an estimate because resources can change during
 promotion, and independent active-generation readback. If the count changes, the display can show
 more observed resources than the original estimate without claiming more than 100 percent.
 
+The same inventory attempt can enrich reviewed Resource types with exact provider state before
+promotion. The active snapshot generation is captured before enrichment and compared again inside
+the promotion lock. A concurrent promotion blocks the stale candidate rather than mixing current
+identity with older state. State transitions can advance from a complete Resource observation even
+when an unrelated relationship remains incomplete.
+If history or ontology projection fails after promotion, the normalized journal retains the active
+generation. The next inventory attempt replays it under the coordinator lock before starting a new
+scan.
+
 Genesis always scans the exact target subscription root with no resource-type filter. A narrowed
 scope is available only for later operator-requested refreshes and cannot satisfy onboarding.
 The runtime rejects resource-type subset promotion before the global active snapshot or ontology

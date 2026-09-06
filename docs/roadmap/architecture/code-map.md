@@ -159,6 +159,13 @@ public imports, deterministic gate order, and read-only authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.
+Periodic inventory reconciliation also enriches reviewed Resource types with exact provider state.
+The inventory coordinator serializes collection, promotion, transition publication, and ontology
+projection under one advisory lock. Log Analytics availability comes from its ARM Resource Health
+endpoint, while Application Insights remains explicitly not applicable. Operator and conversational
+readers consume the resulting generation-fenced fact without deriving health from provisioning.
+The normalized observation journal replays any active generation whose history or ontology
+projection did not finish before the coordinator admits another promotion.
 Topology endpoint clarification normalization lives in
 `semantic_planning_topology_normalization.py`; the compatibility facade preserves public imports,
 deterministic gate order, and read-only authority.

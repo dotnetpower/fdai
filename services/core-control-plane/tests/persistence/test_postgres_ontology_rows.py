@@ -55,6 +55,46 @@ def test_inventory_graph_source_coverage_requires_exact_complete_generation() ->
     assert generation == "generation-2"
 
 
+def test_state_base_uses_complete_manifest_during_new_unavailable_generation() -> None:
+    manifest = {
+        "generation": "generation-1",
+        "complete": True,
+        "object_content": [{"id": "owned-resource"}],
+    }
+
+    assert postgres_ontology._inventory_state_base_available(
+        manifest,
+        {
+            "generation": "generation-2",
+            "status": "unavailable",
+            "complete": False,
+        },
+        expected_generation="generation-1",
+    )
+    assert postgres_ontology._inventory_manifest_object_ids(manifest) == frozenset(
+        {"owned-resource"}
+    )
+
+
+def test_state_base_rejects_foreign_or_duplicate_manifest_ownership() -> None:
+    assert postgres_ontology._inventory_manifest_object_ids(
+        {
+            "object_content": [
+                {"id": "owned-resource"},
+            ]
+        }
+    ) == frozenset({"owned-resource"})
+    with pytest.raises(ValueError, match="duplicated"):
+        postgres_ontology._inventory_manifest_object_ids(
+            {
+                "object_content": [
+                    {"id": "owned-resource"},
+                    {"id": "owned-resource"},
+                ]
+            }
+        )
+
+
 def test_inventory_graph_source_coverage_rejects_pending_reconciliation() -> None:
     complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
         active_generation="generation-2",

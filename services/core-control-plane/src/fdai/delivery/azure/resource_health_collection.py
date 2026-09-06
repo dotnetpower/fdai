@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -254,12 +253,11 @@ class AzureResourceHealthCollectionReader:
 
 
 def _health_query(arm_ids: tuple[str, ...], *, row_limit: int) -> str:
-    values = json.dumps(arm_ids, separators=(",", ":"))
+    values = ", ".join(_kusto_literal(value) for value in arm_ids)
     return (
-        f"let targetResourceIds = dynamic({values}); "
         "HealthResources "
         "| where type =~ 'microsoft.resourcehealth/availabilitystatuses' "
-        "| where tostring(properties['targetResourceId']) in~ (targetResourceIds) "
+        f"| where tostring(properties['targetResourceId']) in~ ({values}) "
         "| project targetResourceId=tostring(properties['targetResourceId']), "
         "availabilityState=tostring(properties['availabilityState']), "
         "reasonType=tostring(properties['reasonType']), "
@@ -267,6 +265,10 @@ def _health_query(arm_ids: tuple[str, ...], *, row_limit: int) -> str:
         "reportedTime=tostring(properties['reportedTime']) "
         f"| take {row_limit}"
     )
+
+
+def _kusto_literal(value: str) -> str:
+    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
 def _chunks(values: tuple[str, ...], size: int) -> tuple[tuple[str, ...], ...]:
