@@ -321,13 +321,13 @@
       note: "Overrides are revisioned settings. This static specimen does not save or change runtime behavior.",
       kpis: [["Settings", "6", "allowlisted"], ["Overrides", "2", "current principal"], ["Restart required", "1", "pending"], ["Unavailable", "1", "source gap"]],
       sections: [
-        { title: "Runtime policy settings", type: "table", columns: ["Setting", "Environment value", "Override", "Status", "Effect"], rows: [
+        { id: "runtime-policy-settings", title: "Runtime policy settings", type: "table", columns: ["Setting", "Environment value", "Override", "Status", "Effect"], rows: [
           ["Evidence freshness", "15 min", "10 min", status("Overridden", "info"), "Next request"],
           ["Investigation budget", "90 s", "-", status("Inherited", "success"), "Current"],
           ["Audit retention", "365 days", "730 days", status("Restart required", "warning"), "After restart"],
           ["Verbose provider logs", "Off", "-", status("Unavailable", "neutral"), "No change"]
         ] },
-        { title: "Edit an allowlisted override", type: "form", fields: [["Setting", "select", ["Evidence freshness", "Investigation budget", "Audit retention"], 5], ["Override value", "text", "10 min", 4], ["Revision", "text", "12", 3]], action: "Save revisioned override" }
+        { id: "runtime-override-editor", title: "Edit an allowlisted override", type: "form", fields: [["Setting", "select", ["Evidence freshness", "Investigation budget", "Audit retention"], 5], ["Override value", "text", "10 min", 4], ["Revision", "text", "12", 3]], action: "Save revisioned override" }
       ]
     }
   };
@@ -454,7 +454,7 @@
     if (section.type === "bars") body = renderBars(section.items);
     if (section.type === "network") body = renderNetwork(section.items);
     if (section.type === "tabs") body = renderTabs(section);
-    return '<section class="cp-section"><header class="cp-section-head"><div><h2>' +
+    return '<section class="cp-section"' + (section.id ? ' id="' + escapeHtml(section.id) + '"' : "") + '><header class="cp-section-head"><div><h2>' +
       escapeHtml(section.title) + "</h2>" + (section.description ? "<p>" + escapeHtml(section.description) + "</p>" : "") +
       "</div>" + (section.count ? '<span class="cp-section-count">' + escapeHtml(section.count) + "</span>" : "") +
       "</header>" + body + "</section>";

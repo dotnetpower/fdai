@@ -11,6 +11,9 @@ import sys
 from collections.abc import Mapping
 from typing import Any, Protocol
 
+from fdai.core.ontology_platform.inventory_projection import (
+    DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
+)
 from fdai.delivery.inventory_change_acceleration import load_resource_type_registry
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence import (
@@ -59,6 +62,7 @@ class ProjectionReplayProjector(Protocol):
         journal_high_watermark: int | None = None,
         projection_high_watermark: int | None = None,
         fail_before_incomplete_status: bool = False,
+        allow_legacy_identity_migration: bool = False,
     ) -> InventoryOntologyProjectionResult: ...
 
 
@@ -80,12 +84,15 @@ async def run_once(
     if _SHA40.fullmatch(source_revision) is None:
         raise ValueError("inventory projection replay source revision must be a git SHA")
     before = await state.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
-    before_objects, before_links, prior_release = _comparable_manifest(before, replay)
+    before_objects, before_links, prior_release, legacy_identity_migration = _comparable_manifest(
+        before, replay
+    )
     result = await projector.apply(
         replay.observation,
         journal_high_watermark=replay.journal_high_watermark,
         projection_high_watermark=replay.projection_high_watermark,
         fail_before_incomplete_status=True,
+        allow_legacy_identity_migration=legacy_identity_migration,
     )
     if result.status is not InventoryOntologyProjectionStatus.AVAILABLE or not result.complete:
         raise ValueError("inventory projection replay did not produce complete evidence")
@@ -138,14 +145,25 @@ async def _run_from_env(source_revision: str, environ: Mapping[str, str]) -> dic
     journal = PostgresInventoryObservationJournal(
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )
-    active_snapshot = await PostgresInventorySnapshotReplayLoader(
-        config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
-    ).load()
-    append = await journal.append_promoted_snapshot(active_snapshot)
-    replay = await journal.load_active_projection_replay(
-        journal_high_watermark=append.journal_high_watermark,
-        projection_high_watermark=append.projection_high_watermark,
-    )
+    current_manifest = await state.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    replay_watermarks = _manifest_replay_watermarks(current_manifest)
+    if replay_watermarks is None:
+        active_snapshot = await PostgresInventorySnapshotReplayLoader(
+            config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
+        ).load()
+        append = await journal.append_promoted_snapshot(active_snapshot)
+        replay = InventoryProjectionReplayInput(
+            observation=active_snapshot,
+            journal_high_watermark=append.journal_high_watermark,
+            projection_high_watermark=append.projection_high_watermark,
+            freshness_ceiling_seconds=DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
+        )
+    else:
+        journal_high_watermark, projection_high_watermark = replay_watermarks
+        replay = await journal.load_active_projection_replay(
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
+        )
     await ontology_store.sync_catalog()
     projector = InventoryOntologyProjector(
         store=ontology_store,
@@ -190,9 +208,21 @@ def _text_digest(value: str) -> str:
 def _comparable_manifest(
     value: object,
     replay: InventoryProjectionReplayInput,
-) -> tuple[int, int, str]:
+) -> tuple[int, int, str, bool]:
     if not isinstance(value, Mapping):
         raise ValueError("inventory projection replay pre-manifest is unavailable")
+    if value.get("schema_version") == "1.1.0":
+        object_count, link_count = _legacy_identity_counts(value)
+        prior_release = value.get("ontology_release_digest")
+        if (
+            value.get("generation") != replay.observation.generation
+            or not isinstance(prior_release, str)
+            or _DIGEST.fullmatch(prior_release) is None
+            or value.get("complete") is not True
+            or value.get("dropped_reasons") != []
+        ):
+            raise ValueError("inventory projection replay legacy manifest is not comparable")
+        return object_count, link_count, prior_release, True
     object_content = value.get("object_content")
     link_content = value.get("link_content")
     prior_release = value.get("ontology_release_digest")
@@ -209,7 +239,41 @@ def _comparable_manifest(
         or prior_projection_watermark > replay.projection_high_watermark
     ):
         raise ValueError("inventory projection replay pre-manifest is not comparable")
-    return len(object_content), len(link_content), prior_release
+    return len(object_content), len(link_content), prior_release, False
+
+
+def _legacy_identity_counts(value: Mapping[str, object]) -> tuple[int, int]:
+    if set(value) != {
+        "schema_version",
+        "generation",
+        "ontology_release_digest",
+        "complete",
+        "dropped_reasons",
+        "object_ids",
+        "link_keys",
+    }:
+        raise ValueError("inventory projection replay legacy manifest shape is invalid")
+    object_values = value.get("object_ids")
+    link_values = value.get("link_keys")
+    if not isinstance(object_values, list) or not isinstance(link_values, list):
+        raise ValueError("inventory projection replay legacy identities are invalid")
+    object_ids = tuple(object_values)
+    if any(not isinstance(item, str) or not item for item in object_ids) or object_ids != tuple(
+        sorted(set(object_ids))
+    ):
+        raise ValueError("inventory projection replay legacy object identities are invalid")
+    link_keys = tuple(
+        tuple(item)
+        for item in link_values
+        if isinstance(item, list)
+        and len(item) == 3
+        and all(isinstance(part, str) and part for part in item)
+    )
+    if len(link_keys) != len(link_values) or link_keys != tuple(
+        sorted(set(link_keys), key=lambda item: (item[1], item[0], item[2]))
+    ):
+        raise ValueError("inventory projection replay legacy relationship identities are invalid")
+    return len(object_ids), len(link_keys)
 
 
 def _prior_manifest_watermarks(value: Mapping[str, object]) -> tuple[int, int]:
@@ -228,6 +292,14 @@ def _prior_manifest_watermarks(value: Mapping[str, object]) -> tuple[int, int]:
     ):
         raise ValueError("inventory projection replay pre-manifest watermarks are invalid")
     return journal, projection
+
+
+def _manifest_replay_watermarks(value: object) -> tuple[int, int] | None:
+    if not isinstance(value, Mapping):
+        raise ValueError("inventory projection replay pre-manifest is unavailable")
+    if value.get("schema_version") == "1.1.0":
+        return None
+    return _prior_manifest_watermarks(value)
 
 
 __all__ = ["ProjectionManifestReader", "ProjectionReplayProjector", "main", "run_once"]

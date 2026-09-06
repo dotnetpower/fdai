@@ -1,10 +1,10 @@
 /* Shared by the seven Settings mocks and their component-gallery specimens. */
+html:has(body.cs-settings-neutral) { scrollbar-gutter: stable; }
 .cs-settings-neutral {
   --cs-control-height-compact: var(--cs-control-height);
   --cs-type-body-size: 14px;
   --cs-type-section-title-size: 20px;
-  --cs-settings-body-inset: 24px;
-  --cs-settings-section-rule: #d4d4d4;
+  --cs-settings-body-inset: 0px;
   --cs-settings-control-width: 320px;
   --cs-settings-control-border: #8c8c8c;
   --cs-settings-muted: #525252;
@@ -25,9 +25,9 @@
 .cs-settings-neutral :is(.cs-settings-section-head, .cp-section-head) {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  margin-bottom: 8px;
-  padding: 0 0 16px;
-  border-bottom: 1px solid var(--cs-settings-section-rule);
+  margin-bottom: 16px;
+  padding: 0;
+  border-bottom: 0;
 }
 .cs-settings-neutral .cs-settings-section-head > div {
   width: 100%;
@@ -64,18 +64,34 @@
 .cs-settings-neutral .cs-settings-card:last-child {
   border-bottom: 0;
 }
+.cs-settings-neutral .cs-settings-card > .cs-control-button { flex-shrink: 0; }
 .cs-settings-neutral :is(.cs-setting-row, .cs-settings-card, .cs-settings-option-card, .cp-table td, .cs-table td) {
   overflow-wrap: anywhere;
 }
 .cs-settings-neutral .cs-setting-row {
   grid-template-columns: minmax(0, 1fr) var(--cs-settings-control-width);
   gap: 24px;
-  min-height: 88px;
+  min-height: 80px;
   padding: 16px 0;
   border-top: 0;
   border-bottom: 1px solid var(--cs-hairline);
 }
 .cs-settings-neutral .cs-setting-row:last-child { border-bottom: 0; }
+.cs-settings-neutral .cs-settings-facts .cs-setting-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
+  min-height: 72px;
+  padding-block: 12px;
+}
+.cs-settings-neutral .cs-settings-facts .cs-setting-row > :last-child {
+  justify-self: end;
+  text-align: right;
+}
+.cs-settings-neutral .cs-settings-facts .cs-setting-row > code {
+  padding: 0;
+  background: transparent;
+  font-size: var(--cs-type-compact-size);
+  overflow-wrap: anywhere;
+}
 .cs-settings-neutral .cs-setting-row > div:first-child > strong {
   font-size: var(--cs-type-body-size);
   font-weight: 500;
@@ -100,8 +116,9 @@
   font-size: var(--cs-type-body-size);
 }
 .cs-settings-neutral .cs-settings-scope {
+  padding: 0;
   border-color: transparent;
-  background: var(--cs-shade);
+  background: transparent;
   font-size: var(--cs-type-label-size);
   line-height: var(--cs-type-label-line-height);
   color: var(--cs-settings-muted);
@@ -128,18 +145,30 @@
   border-color: var(--cs-settings-control-border);
 }
 .cs-settings-neutral :is(input, textarea)::placeholder { color: var(--cs-settings-muted); }
+.cs-settings-neutral .cs-settings-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
 .cs-settings-neutral .cs-settings-option-card {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   padding: 16px;
 }
 .cs-settings-neutral .cs-settings-option-card header {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
 }
 .cs-settings-neutral .cs-settings-option-card header > div {
   min-width: 0;
 }
 .cs-settings-neutral .cs-settings-option-card strong {
   font-size: var(--cs-type-panel-title-size);
+}
+.cs-settings-neutral .cs-settings-option-card .cs-control-button {
+  align-self: flex-start;
+  margin-top: auto;
 }
 .cs-settings-neutral .cs-control-button {
   max-width: 100%;
@@ -244,9 +273,11 @@
 .cs-settings-neutral :is(.cs-status.err, .cp-status.is-danger) { color: var(--cs-dusty-red); }
 .cs-settings-neutral .cp-status.is-info { color: var(--cs-steel); }
 .cs-settings-neutral .cp-kpis {
-  border-color: var(--cs-hairline);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 0;
   background: var(--cs-bg);
 }
+.cs-settings-neutral .cp-kpi { padding: 16px; border: 0; }
 .cs-settings-neutral .cp-kpi strong { font-size: var(--cs-type-page-title-size); }
 .cs-settings-neutral :is(.cs-table, .cp-table) {
   table-layout: fixed;
@@ -261,8 +292,27 @@
   border-color: var(--cs-hairline);
   color: var(--cs-settings-muted);
   font-size: var(--cs-type-compact-size);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
   white-space: normal;
 }
+.cs-settings-neutral .cs-table th:first-child { width: 32%; }
+.cs-settings-neutral .cp-table { min-width: 0; }
+.cs-settings-neutral .cp-table-wrap { border: 0; border-radius: 0; }
+.cs-settings-neutral .cp-table caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.cs-settings-neutral .cp-table th:first-child { width: 26%; }
+.cs-settings-neutral .cp-table th:nth-child(2) { width: 20%; }
+.cs-settings-neutral .cp-table th:nth-child(3) { width: 12%; }
+.cs-settings-neutral .cp-table th:nth-child(4) { width: 24%; }
+.cs-settings-neutral .cp-table th:nth-child(5) { width: 18%; }
 .cs-settings-neutral .cp-section-head { grid-template-columns: minmax(0, 1fr); }
 .cs-settings-neutral .cp-tabs {
   gap: 8px;
@@ -304,10 +354,39 @@
   color: var(--cs-settings-muted);
   font-size: var(--cs-type-compact-size);
 }
+.cs-settings-neutral .cs-settings-filter-bar {
+  gap: 12px 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-shade);
+}
+.cs-settings-neutral .cs-settings-filter-bar label {
+  flex: 1 1 180px;
+  max-width: none;
+}
 
-@container (max-width: 760px) {
-  .cs-settings-neutral .cs-settings-card-grid { grid-template-columns: minmax(0, 1fr); }
-  .cs-settings-neutral .cp-field { grid-column: 1 / -1; }
+/* The legacy Settings shell stacks policy tables before this compact layout needs to. */
+@container (min-width: 621px) {
+  .cs-settings-neutral .cp-table { display: table; }
+  .cs-settings-neutral .cp-table tbody { display: table-row-group; }
+  .cs-settings-neutral .cp-table thead {
+    display: table-header-group;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+  .cs-settings-neutral .cp-table tr { display: table-row; border: 0; border-radius: 0; }
+  .cs-settings-neutral .cp-table td,
+  .cs-settings-neutral .cp-table td:first-child {
+    display: table-cell;
+    padding: 11px 12px;
+    border-top: 1px solid var(--cs-hairline);
+  }
+  .cs-settings-neutral .cp-table tbody tr:first-child td { border-top: 0; }
+  .cs-settings-neutral .cp-table td::before { content: none; }
 }
 @container (max-width: 680px) {
   .cs-settings-neutral .cs-setting-row {
@@ -316,9 +395,21 @@
   }
   .cs-settings-neutral .cs-setting-row > :last-child { justify-self: start; }
   .cs-settings-neutral .cs-settings-toggle { justify-content: flex-start; }
+  .cs-settings-neutral .cs-settings-facts .cs-setting-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cs-settings-neutral .cs-settings-facts .cs-setting-row > :last-child {
+    justify-self: start;
+    text-align: left;
+  }
 }
 @container (max-width: 620px) {
+  .cs-settings-neutral .cp-field { grid-column: 1 / -1; }
+  .cs-settings-neutral .cs-settings-card-grid { grid-template-columns: minmax(0, 1fr); }
   .cs-settings-neutral .cs-domain-meta { flex-direction: column; gap: 4px; }
+  .cs-settings-neutral .cp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-settings-neutral .cs-table tbody td { display: block; }
+  .cs-settings-neutral .cs-table tbody td::before { display: block; margin-bottom: 6px; }
 }
 @container (max-width: 300px) {
   .cs-settings-neutral .cs-control-segmented.is-five {
@@ -326,11 +417,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-@media (max-width: 680px) {
-  .cs-settings-neutral { --cs-settings-body-inset: 16px; }
-}
 @media (max-width: 520px) {
-  .cs-settings-neutral { --cs-settings-body-inset: 8px; }
   .cs-settings-specimen { padding: 16px; }
 }
 @media (pointer: coarse), (max-width: 520px) {

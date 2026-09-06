@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.ontology_query import OntologyQueryPlan, SemanticOperation
+from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
@@ -22,6 +23,11 @@ from .semantic_contextual_resource_planning import compile_contextual_resource_p
 from .semantic_current_state_planning import compile_target_current_state_plan
 from .semantic_error_activity_planning import compile_target_error_activity_plan
 from .semantic_gateway_diagnostic_planning import compile_gateway_diagnostic_plan
+from .semantic_governed_document_planning import (
+    append_governed_document_plan,
+    compile_governed_document_plan,
+    document_evidence_mode,
+)
 from .semantic_health_planning import compile_target_health_plan
 from .semantic_impact_planning import compile_target_impact_plan
 from .semantic_ingress_planning import compile_target_ingress_plan
@@ -159,16 +165,33 @@ def dispatch_semantic_plan(
     else:
         plan = None
     if frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
-        plan = anchored_incident_plan_builder(
-            bound_incident=bound_incident,
+        plan = compile_governed_document_plan(
             frame=frame,
-            descriptors=descriptors,
+            utterance=utterance,
             manifest=manifest,
-            principal=principal,
+            verifier=verifier,
             purpose=purpose,
-            evaluation_time=evaluation_time,
         )
-        plan_source = "bound_incident" if plan is not None else "proposed"
+        if plan is not None:
+            plan_source = "server_governed_documents"
+        elif frame.output_shape == SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                "semantic_governed_documents_unavailable",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+            )
+        else:
+            plan = anchored_incident_plan_builder(
+                bound_incident=bound_incident,
+                frame=frame,
+                descriptors=descriptors,
+                manifest=manifest,
+                principal=principal,
+                purpose=purpose,
+                evaluation_time=evaluation_time,
+            )
+            plan_source = "bound_incident" if plan is not None else "proposed"
     if plan is None:
         plan = build_inventory_document_plan(
             frame=frame,
@@ -574,6 +597,31 @@ def dispatch_semantic_plan(
             manifest_digest=manifest.manifest_digest,
             frame=frame,
         )
+    verify_model_operands = plan_source == "proposed"
+    mode = document_evidence_mode(frame)
+    if mode is not None and frame.output_shape != SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+        augmented = append_governed_document_plan(
+            plan,
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            purpose=purpose,
+        )
+        if augmented is None:
+            if mode in {
+                SemanticDocumentEvidenceMode.REQUIRED,
+                SemanticDocumentEvidenceMode.EXPLICIT,
+            }:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_governed_documents_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+        else:
+            plan = augmented
+            plan_source = f"{plan_source}+governed_documents"
     if any(node.kind.value == "object_set" for node in plan.nodes):
         execution_time = now()
         if execution_time.tzinfo is None:
@@ -601,7 +649,7 @@ def dispatch_semantic_plan(
                 "semantic_plan_filter_grounded",
                 extra={"grounded_properties": ",".join(grounded)},
             )
-        if plan_source == "proposed":
+        if verify_model_operands:
             verify_stated_value_filter_operands(
                 plan,
                 utterance=utterance,

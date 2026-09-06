@@ -45,6 +45,15 @@ class SemanticJudgmentTier(StrEnum):
     T2 = "t2"
 
 
+class SemanticDocumentEvidenceMode(StrEnum):
+    """How governed document evidence participates in one accepted meaning."""
+
+    NONE = "none"
+    OPTIONAL = "optional"
+    REQUIRED = "required"
+    EXPLICIT = "explicit"
+
+
 class SemanticTarget(QueryContract):
     """One source-grounded entity or target proposed from bounded text."""
 
@@ -115,6 +124,10 @@ class SemanticJudgmentProposal(QueryContract):
     ] = ()
     clarification: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     direct_response: SemanticDirectResponseDraft | None = None
+    document_evidence_mode: SemanticDocumentEvidenceMode = Field(
+        default=SemanticDocumentEvidenceMode.NONE,
+        exclude_if=lambda mode: mode is SemanticDocumentEvidenceMode.NONE,
+    )
     discourse_mode: SemanticDiscourseMode = SemanticDiscourseMode.DIRECT
     action_posture: Literal["advise_only", "draft_only"] = "advise_only"
     action_subject: Literal[
@@ -161,9 +174,26 @@ class SemanticJudgmentProposal(QueryContract):
                 "semantic direct response intent MUST carry exactly one model-authored answer"
             )
         if self.direct_response is not None and (
-            self.ambiguous or self.action_posture != "advise_only" or self.action_subject != "none"
+            self.ambiguous
+            or self.action_posture != "advise_only"
+            or self.action_subject != "none"
+            or self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE
         ):
             raise ValueError("semantic direct response answer MUST remain unambiguous and advisory")
+        if self.ambiguous and self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE:
+            raise ValueError("ambiguous semantic judgment MUST NOT request document evidence")
+        if (
+            self.document_evidence_mode is SemanticDocumentEvidenceMode.EXPLICIT
+            and self.primary_intent != "query.governed_documents"
+        ):
+            raise ValueError(
+                "explicit document evidence requires the governed document query intent"
+            )
+        if (
+            self.primary_intent == "query.governed_documents"
+            and self.document_evidence_mode is not SemanticDocumentEvidenceMode.EXPLICIT
+        ):
+            raise ValueError("governed document query intent requires explicit document evidence")
         return self
 
     @property
@@ -225,6 +255,7 @@ class SemanticJudgmentReceipt(QueryContract):
 
 
 __all__ = [
+    "SemanticDocumentEvidenceMode",
     "SemanticDirectResponseDraft",
     "SemanticDiscourseMode",
     "SemanticJudgmentDisposition",

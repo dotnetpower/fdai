@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 27aa1fc9730138710dcfa19c6b2412475cf797c0
+translation_source_sha: d8adc30bc21aac05580e1910f1ca127a22b749f9
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -101,6 +101,12 @@ Terraform 보안 검사는 각 Key Vault secret에 만료일 또는 명시적인
 Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니다.
 `wire_semantic_query.py`는 기존 공개 가져오기를 유지하면서 해당 생성자를 직접 다시
 내보내며, 일반 배선 모듈은 적용되는 800줄 상한 아래를 유지합니다.
+관리되는 대화형 문서 검색은 의미 판단과 계획 모듈,
+`core/knowledge/governed_document_reader.py`, 읽기 전용
+`query.governed_documents` FunctionType, Operator 신원 projection, Console 근거 decoder에 걸쳐 있습니다.
+문서 메타데이터는 온톨로지로 관리하지만 발췌문은 권한을 부여하지 않습니다. 필수 검색은 불완전한 범위에서 종료하며, 선택적 검색은 근거가 완료되지 않으면 부분 상태로 남습니다. Reader는 모든 온톨로지 편집을 넓히지 않고 문서 인제스트 경로를 사용합니다.
+PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세대를 사용할 수 있을 때까지
+`index_completeness_unverified`를 보고합니다. 집중 계약 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한, 입력 및 reader 한도 실패를 모두 검증합니다. 콘텐츠 및 접근 범위 digest는 길이만 같은 값이 아니라 정확한 소문자 16진수 SHA-256 신원을 요구합니다. Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을 적용한 정확한 표현 digest를 분리합니다.
 
 의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
@@ -122,10 +128,8 @@ retention을 기본으로 비활성화하며 검증된 개발 campaign만 이를
 certification writer가 증적을 추가하기 전에 13개 시나리오 결과를 정확한 CI, runtime image
 attestation, 배포 근거 및 별도 사람 승인에 결속합니다.
 
-프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
-`composition/wire_azure_prompts.py`로 분리합니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다. 리비전 기반 대화 설정은 Operator
-서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
-IAM 조립은 최상위 모듈의 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. 적응형 답변은 독립적으로 구성된 T1 작성 및 검토 모델을 사용하고 선택적 보강에만 T2를 사용합니다. 프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다. 서비스 계약 호환성 매니페스트는 적응형 `1.6.0` 전송에 버전 협상을 적용합니다. 구형 변환은 일반 묶음에만 적용되며 의미 처리 근거를 버릴 수 없습니다.
+프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립은 `composition/wire_azure_prompts.py`에 둡니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, `adaptive_model_targets.py`는 적응형 답변과 선택형 `wire_t1_routing.py` 지연 시간 프로브가 함께 쓰는 작성, 검토 및 선택적 보강 대상을 배선 모듈 간 가져오기 없이 해석합니다. [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다.
+리비전 기반 대화 설정은 Operator 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다. IAM 조립은 최상위 모듈 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. Core는 범위가 제한된 T1 측정값을 권한 없는 상태 변환 결과에 기록합니다. Operator 대화 어댑터는 해당 상태만 읽고 Console 상태 표시에 앞서 엔드포인트 세부 정보를 제거하며, 기존 의미 런타임 facade를 통해 판독기를 가져와 최상위 조립을 고유 서비스 가져오기 39개로 유지합니다. 적응형 답변은 독립적으로 구성된 T1 작성 및 검토 모델을 사용하고 선택적 보강에만 T2를 사용합니다. 프롬프트 ablation은 선택적 제외 항목을 재실행을 위해 기록하며, 버전 협상을 적용한 적응형 `1.6.0` 전송은 의미 처리 근거를 보존합니다.
 질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
@@ -149,9 +153,7 @@ BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존
 신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
 ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
 다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
-검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 builder를 통해
-잔여 frame 모델을 우회합니다. 문서 경로는 초안 전용이며 인증된 principal의 직전 검증 결과에
-원본을 바인딩합니다.
+검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 생성기를 통해 잔여 `frame` 모델을 우회합니다. 문서 초안 작성은 초안 전용이며 인증된 principal의 직전 검증 결과에 원본을 바인딩합니다. 관리형 문서 근거 계획은 스키마로 검증된 근거 모드에서만 `query.governed_documents`를 컴파일합니다. 판독기는 제한된 발췌문을 반환하기 전에 정확한 principal, 그룹, 컬렉션, 목적, 정책, 리비전, 수명 주기 및 완전성을 다시 검증합니다. 필수 또는 명시적 근거가 없으면 안전하게 보류하고, 선택적 근거 실패는 독립 운영 근거가 있는 경우에만 부분 답변으로 명확히 표시합니다. 문서 텍스트는 신뢰하지 않으며 지시 또는 실행 권한을 부여하지 않습니다.
 Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다. 따라서 압축된 EventBus
 레코드가 readiness를 통과한 뒤 필수 runtime task를 종료하지 않습니다.
 의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를
@@ -535,8 +537,8 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
-함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 프레임 모델 요청을 보내지 않고 프레임을 결정론적으로
-만들고 검증합니다. Operator bridge는 변환 결과를 수락하기 전에 계속 요청을 영속화합니다. 요청 누락은
+함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 모델 요청 없이 프레임을 만듭니다.
+`semantic_judgment_rejections.py`는 내용 없는 고정 거부 어휘를 소유해 경계를 제한합니다. Operator bridge는 변환 결과 전에 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.

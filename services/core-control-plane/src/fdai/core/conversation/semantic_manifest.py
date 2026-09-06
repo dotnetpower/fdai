@@ -86,6 +86,7 @@ def semantic_principal_scope_digest(*, principal: Principal, purpose: str) -> st
             "principal_id": principal.id,
             "role": canonical_ordinary_role(principal.role.value),
             "purpose": purpose,
+            "groups": sorted(principal.groups),
         }
     )
 

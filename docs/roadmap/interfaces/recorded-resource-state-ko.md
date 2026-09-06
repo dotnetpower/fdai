@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 01cee372de0a5b5d62cf6a6ce183ef9431ab29b2
+translation_source_sha: 55ce74260dff9d5c60165c24ef9bdb901b44d041
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -154,6 +154,9 @@ ResourceType을 선언합니다.
   인증으로 대체한 결과는 표준 운영자 화면을 검증하지 않습니다.
 - frontend 또는 Operator API를 교체한 뒤에는 표준 화면에서 선택한 축 레이블을 다시 검증합니다.
   따라서 유용한 가용성이나 프로비저닝 사실이 적용 대상이 아닌 운영 축 뒤에 다시 숨지 않습니다.
+- 확장된 Resource Health 검증은 ResourceType별 대상, 값 및 메타데이터 수를 비교합니다. 공급자가
+  모델링하지 않은 대상은 명시적으로 유지하며, 간단한 노드에 운영 상태를 표시하려면 독립적인 운영
+  사실이 필요합니다.
 
 ## 채택하지 않은 대안
 

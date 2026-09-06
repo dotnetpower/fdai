@@ -101,6 +101,14 @@ abstentions separately.
 Azure semantic query construction lives in `semantic_query_azure_composition.py`.
 `wire_semantic_query.py` directly re-exports that constructor while retaining the established
 public import, and the general wiring module stays below the enforced 800-line ceiling.
+Governed conversational document retrieval spans the semantic judgment and planning modules,
+`core/knowledge/governed_document_reader.py`, the read-only
+`query.governed_documents` FunctionType, Operator identity projection, and Console evidence
+decoding. Document metadata remains ontology-governed, while excerpt text stays untrusted and cannot
+grant authority. Required retrieval fails closed on incomplete coverage; optional retrieval remains
+partial unless evidence completes. Its reader uses the document-ingestion route without widening every ontology edit.
+The PostgreSQL adapter reports `index_completeness_unverified` until a complete provider-owned
+index generation is available. Focused contract tests cover every excerpt, collection, authorization, input, and reader-bound failure without granting execution authority. Content and access-scope digests require exact lowercase hexadecimal SHA-256 identities, not matching length alone. Projection regressions keep the immutable source digest separate from the exact redacted, escaped, and display-truncated representation digest.
 
 Semantic resource-health planning now keeps collection health, exact resource identity, explicit
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves
@@ -123,10 +131,8 @@ The protected workflow binds all 13 scenario results to exact CI, runtime-image 
 deployment evidence, and separate human approval before the certification writer can append a
 receipt.
 
-Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
-into `composition/wire_azure_prompts.py`; [adaptive composition](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py) binds role-aware stages, [answers](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py) share [nested provider budgets](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py), and [Operator relationship resolution](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py) supplies expiring no-authority context. Revisioned conversation settings are written by the
-Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at
-startup. IAM composition binds the dialogue relationship adapters without expanding root imports. Adaptive answers use independent configured T1 author/reviewer models, with T2 only for optional refinement. Prompt ablation removes only optional context and records every exclusion for replay. The service-contract compatibility manifest classifies adaptive `1.6.0` wires as version-negotiated; legacy translation covers generic envelopes only and cannot discard semantic evidence.
+Prompt composition keeps role and safety layers in `core/prompts/` and Azure startup assembly in `composition/wire_azure_prompts.py`. [Adaptive composition](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py) binds role-aware stages, while `adaptive_model_targets.py` resolves the shared author, reviewer, and optional refinement targets for both adaptive answers and the opt-in `wire_t1_routing.py` latency probe without cross-wire imports. [Answers](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py) share [nested provider budgets](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py), and [Operator relationship resolution](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py) supplies expiring no-authority context.
+Revisioned conversation settings are written by the Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at startup. IAM composition binds dialogue relationship adapters without expanding root imports. Core records bounded T1 measurements in a no-authority state projection; the Operator conversation adapter reads only that state, removes endpoint details before Console health presentation, and imports the reader through the existing semantic runtime facade so root composition stays at 39 unique service imports. Adaptive answers use independent configured T1 author/reviewer models, with T2 only for optional refinement. Prompt ablation records every optional exclusion for replay, and version-negotiated adaptive `1.6.0` wires preserve semantic evidence.
 Question campaign wording uses `core/conversation/question_candidates.py` as the server-owned
 semantic boundary. Azure and explicit Copilot generators receive the complete immutable case but
 can return only a `question` field. Core binds the case before independent semantic review, so
@@ -149,9 +155,7 @@ receipts before answering. Service-to-Agent ownership uses one exact-release, pr
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.
-Validated `Document` judgments and exact named resource-group membership bypass the residual frame
-model through deterministic builders. The document path remains draft-only and binds its source to
-the authenticated principal's preceding verified result.
+Validated `Document` judgments and exact named resource-group membership bypass the residual frame model through deterministic builders. Document drafting remains draft-only and binds its source to the authenticated principal's preceding verified result. Governed-document evidence planning separately compiles `query.governed_documents` only from a schema-validated evidence mode. Its reader revalidates the exact principal, groups, collection, purpose, policy, revision, lifecycle, and completeness before returning bounded excerpts. Required or explicit evidence fails closed; optional failure can produce only a labeled partial answer backed by independent operational evidence. Document text remains untrusted and grants no instruction or execution authority.
 The Core package pins the Snappy codec used by Kafka consumers so compressed EventBus records do
 not pass readiness and then terminate a required runtime task.
 Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
@@ -559,8 +563,8 @@ execution handler.
 Interactive conversation planning uses one schema-validated semantic judgment before capability
 selection. When that boundary accepts an unambiguous collection-level Resource state,
 Resource Health, or Service Health function that is present in the principal-scoped manifest, Core
-builds and verifies the frame deterministically instead of issuing a second frame-model request.
-The Operator bridge still persists the request before accepting its projection. A missing request
+builds the frame without a second model request. `semantic_judgment_rejections.py` owns the stable
+content-free rejection vocabulary and keeps the boundary below its limit. The Operator bridge persists the request before accepting its projection. A missing request
 can retry as a bounded visibility race, while a permanent projection identity conflict is
 quarantined once without churning the consumer group. Model timing includes completed judgment,
 frame, and plan calls; end-to-end turn timing remains the broader latency authority.

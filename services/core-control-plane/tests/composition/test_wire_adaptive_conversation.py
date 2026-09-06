@@ -321,13 +321,13 @@ async def test_non_independent_optional_t2_disables_refinement_not_t1() -> None:
 
 
 async def test_invalid_optional_t2_does_not_disable_t1(monkeypatch: pytest.MonkeyPatch) -> None:
-    from fdai.composition import wire_adaptive_conversation
+    from fdai.composition import adaptive_model_targets
 
     def invalid_target(*args: Any, **kwargs: Any) -> None:
         assert args[1] == "t2.reasoner.primary"
         raise ValueError("Synthetic unconfigured endpoint reference")
 
-    monkeypatch.setattr(wire_adaptive_conversation, "_resolve_target", invalid_target)
+    monkeypatch.setattr(adaptive_model_targets, "resolve_target", invalid_target)
     dependencies = await _build()
     assert dependencies is not None
     assert dependencies.refinement_available is False

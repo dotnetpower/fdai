@@ -644,6 +644,7 @@ export interface OperatorCoreRequestV1_6_0SemanticTurnPrincipal {
   readonly subject_id: string;
   readonly principal_kind?: "human" | "workload";
   readonly roles: ReadonlyArray<"Reader" | "Contributor" | "Approver" | "Owner" | "BreakGlass">;
+  readonly groups?: ReadonlyArray<string>;
 }
 
 export interface OperatorCoreRequestV1_6_0SemanticTurnBoundContext {

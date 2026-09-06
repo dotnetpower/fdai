@@ -95,7 +95,7 @@ class Consumer:
 
 def _request() -> dict[str, object]:
     return {
-        "schema_version": "1.5.0",
+        "schema_version": "1.6.0",
         "request_id": "00000000-0000-0000-0000-000000000001",
         "correlation_id": "correlation-1",
         "idempotency_key": "request-1",

@@ -51,6 +51,7 @@ _STORAGE_RELATIONS = (
 )
 _CAMPAIGN_ID_PATTERN = re.compile(r"^certify-history-[0-9a-f]{48}$")
 _SYNTHETIC_SCOPE_PATTERN = re.compile(r"^synthetic/oi16-certification/[0-9a-f]{48}$")
+_SYNTHETIC_SCOPE_LIKE = "synthetic/oi16-certification/%"
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,12 +107,38 @@ class PostgresOperationalHistoryLifecycleRepository:
         row = await self._one(
             "SELECT pg_database_size(current_database()) AS database_bytes, "
             "COUNT(*) FILTER (WHERE state='purge_eligible') AS purge_backlog, "
-            "COALESCE((SELECT GREATEST(0, "
-            "(value->>'journal_high_watermark')::bigint - "
-            "(value->>'ontology_projection_watermark')::bigint) "
-            "FROM state_kv WHERE key='inventory-observation:watermarks'), 0) "
+            "COALESCE((WITH projection_state AS (SELECT "
+            "COALESCE((watermarks.value->>'ontology_projection_watermark')::bigint, 0) "
+            "AS watermark, "
+            "NULLIF(watermarks.value->>'ontology_generation', '') AS generation, "
+            "COALESCE((manifest.value->>'journal_high_watermark')::bigint, "
+            "(watermarks.value->>'ontology_projection_watermark')::bigint, 0) "
+            "AS projected_journal_watermark "
+            "FROM state_kv watermarks LEFT JOIN state_kv manifest "
+            "ON manifest.key='inventory-ontology:manifest' AND "
+            "manifest.value->>'generation'=watermarks.value->>'ontology_generation' "
+            "WHERE watermarks.key='inventory-observation:watermarks'), "
+            "active_snapshot AS (SELECT snapshot.id, snapshot.started_at, "
+            "snapshot.scopes, snapshot.metadata FROM inventory_active active "
+            "JOIN inventory_snapshot snapshot ON snapshot.id=active.snapshot_id "
+            "WHERE active.singleton=TRUE AND snapshot.status='active'), "
+            "active_scopes AS (SELECT jsonb_array_elements_text(scopes) AS scope_ref "
+            "FROM active_snapshot) "
+            "SELECT COUNT(*) FROM inventory_observation_journal pending "
+            "LEFT JOIN projection_state ON TRUE "
+            "LEFT JOIN active_snapshot ON TRUE "
+            "WHERE pending.watermark>COALESCE(projection_state.watermark, 0) "
+            "AND (projection_state.generation IS NULL OR "
+            "pending.source_revision IS DISTINCT FROM projection_state.generation OR "
+            "pending.watermark>projection_state.projected_journal_watermark) "
+            "AND NOT (projection_state.generation=active_snapshot.id AND "
+            "active_snapshot.metadata->>'coverage_scope'='full_provider_scope' AND "
+            "active_snapshot.metadata->>'projection_complete'='true' AND "
+            "pending.scope_ref IN (SELECT scope_ref FROM active_scopes) AND "
+            "pending.effective_at<=active_snapshot.started_at) "
+            "AND (pending.scope_ref IS NULL OR pending.scope_ref NOT LIKE %s)), 0) "
             "AS projection_lag FROM inventory_observation_partition",
-            (),
+            (_SYNTHETIC_SCOPE_LIKE,),
         )
         return assess_storage_pressure(
             policy,

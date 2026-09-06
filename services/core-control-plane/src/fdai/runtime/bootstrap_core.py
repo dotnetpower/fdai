@@ -157,6 +157,7 @@ class CoreRuntime:
             runtime_settings=self.runtime_settings,
             discovery_activation=self.discovery_activation,
             semantic_turn_binding=self.semantic.semantic_turn_binding,
+            t1_mini_probe=self.semantic.t1_mini_probe,
             divergence_ledger=self.pantheon.divergence_ledger,
             pantheon_runtime=self.pantheon.runtime,
             pantheon_heartbeat=self.pantheon.heartbeat,

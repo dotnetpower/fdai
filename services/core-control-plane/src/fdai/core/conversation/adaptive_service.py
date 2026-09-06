@@ -61,6 +61,7 @@ class AdaptiveUnavailable:
 class _Budget:
     policy: AdaptivePolicy
     clock: Callable[[], float] = time.monotonic
+    model: AdaptiveModel | None = None
     started: float = field(init=False)
     calls: int = 0
     tokens: int = 0
@@ -120,12 +121,14 @@ class AdaptiveConversationService:
         prompts: Mapping[str, str],
         policy: AdaptivePolicy = DEFAULT_ADAPTIVE_POLICY,
         clock: Callable[[], float] = time.monotonic,
+        model_factory: Callable[[], AdaptiveModel | None] | None = None,
     ) -> None:
         if any(
             not prompts.get(stage) for stage in ("plan", "answer", "review", "refine", "verify")
         ):
             raise ValueError("adaptive prompts require every bounded stage")
         self._model = model
+        self._model_factory = model_factory
         self._profiles = profile_resolver
         self._prompts = dict(prompts)
         self._policy = policy
@@ -155,7 +158,11 @@ class AdaptiveConversationService:
     ) -> AdaptiveOutcome | AdaptiveUnavailable | AdaptiveDeferred | None:
         """Return advisory output or defer a non-advisory turn to the governed runtime."""
         profile = self._profiles(target_agent, locale, relationship)
-        budget = _Budget(self._policy, clock=self._clock)
+        model = self._model_factory() if self._model_factory is not None else self._model
+        if model is None:
+            _LOGGER.warning("adaptive_t1_pair_unavailable")
+            return AdaptiveUnavailable("adaptive_t1_pair_unavailable", ())
+        budget = _Budget(self._policy, clock=self._clock, model=model)
         payload: dict[str, object] = {
             "utterance": utterance,
             "history": list(history[-8:]),
@@ -473,7 +480,7 @@ class AdaptiveConversationService:
             return None
         try:
             result = await await_adaptive_call(
-                self._model.complete(
+                (budget.model if budget.model is not None else self._model).complete(
                     stage=stage,
                     system_prompt=prompt,
                     payload=payload,

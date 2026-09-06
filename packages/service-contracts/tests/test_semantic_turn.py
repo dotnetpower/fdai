@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -13,11 +14,35 @@ from fdai_service_contracts import (
     RuleSearchReceipt,
     SemanticAssuranceObservation,
     SemanticInvestigationContinuation,
+    SemanticTurnPrincipal,
+    SemanticTurnRequest,
     SemanticTurnResult,
+    OperatorRole,
     query_content_digest,
     rule_search_query_digest,
 )
 from pydantic import ValidationError
+
+
+def test_empty_principal_groups_are_omitted_for_legacy_serialization() -> None:
+    now = datetime(2026, 9, 6, tzinfo=UTC)
+    request = SemanticTurnRequest(
+        utterance="Show current evidence.",
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-a",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=0,
+        locale="en",
+        purpose="operations-review",
+        deadline_at=now + timedelta(seconds=30),
+    )
+
+    principal = request.model_dump(mode="json")["principal"]
+    assert isinstance(principal, dict)
+    assert "groups" not in principal
 
 
 def _projection_payload() -> dict[str, Any]:

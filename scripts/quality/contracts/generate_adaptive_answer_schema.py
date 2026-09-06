@@ -89,14 +89,16 @@ def render_request_schema() -> str:
         " and explicit unknown reasons convey no execution authority."
     )
     schema["properties"]["schema_version"] = {"const": "1.6.0"}
-    schema["properties"]["semantic_turn"]["properties"]["target_agent"] = (
-        SemanticTurnRequest.model_json_schema()["properties"]["target_agent"]
-    )
     request_model = SemanticTurnRequest.model_json_schema()
+    semantic = schema["properties"]["semantic_turn"]
+    semantic["properties"]["target_agent"] = request_model["properties"]["target_agent"]
+    semantic["properties"]["principal"]["properties"]["groups"] = {
+        **request_model["$defs"]["SemanticTurnPrincipal"]["properties"]["groups"],
+        "uniqueItems": True,
+    }
     schema["properties"]["semantic_turn"]["properties"]["relationship_proof"] = request_model[
         "properties"
     ]["relationship_proof"]
-    semantic = schema["properties"]["semantic_turn"]
     semantic["properties"]["relationship_unknown_reason"] = request_model["properties"][
         "relationship_unknown_reason"
     ]

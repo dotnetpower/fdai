@@ -7663,6 +7663,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Backend status badge (invoke bar + overlay header) ------------------- */
 .deck-backend {
   display: inline-flex;
+  min-width: 0;
+  max-width: min(28ch, 40vw);
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
@@ -7677,12 +7679,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-backend-invoke { font-size: 10.5px; }
 .deck-backend-header { margin-left: 8px; }
 .deck-backend-dot {
+  flex: 0 0 6px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--fg-muted);
 }
 .deck-backend-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--fg-muted);
 }
@@ -8141,16 +8146,22 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-backend-header.deck-backend-ready {
-  width: 24px;
-  height: 24px;
+  min-height: 24px;
   box-sizing: border-box;
-  justify-content: center;
   margin-left: 2px;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
+  padding: 2px 8px;
 }
-.deck-backend-header.deck-backend-ready .deck-backend-label { display: none; }
+.deck-backend-header.deck-backend-ready .deck-backend-label { display: block; }
+@media (min-width: 641px) {
+  .deck-backend-header.deck-backend-ready {
+    max-width: min(40ch, 40vw);
+  }
+  .deck-backend-header.deck-backend-ready .deck-backend-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 
 .deck-source-readiness {
   min-width: 0;
@@ -12748,9 +12759,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   }
   .deck-backend-label {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
   .deck-transcript-inner { padding: 16px 12px 72px; }
   .deck-overlay-mode-workspace .deck-transcript-inner.is-empty-conversation {

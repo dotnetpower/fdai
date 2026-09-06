@@ -51,6 +51,14 @@ import { isSemanticDirectResponseSource } from "./backend-normalizers";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
 import type { TurnAttachment } from "./turn-attachments";
 import { presentationTimestamp, presentationTimeZoneLabel } from "./presentation-value";
+import {
+  backendBadgeLabel,
+  backendMeasurementExpiry,
+  backendTooltipView,
+  routerTooltip,
+} from "./backend-health-presentation";
+export { backendTooltip, backendTooltipView, routerTooltip } from "./backend-health-presentation";
+export type { BackendTooltipView } from "./backend-health-presentation";
 
 export interface Turn {
   readonly id: string;
@@ -137,91 +145,12 @@ function agentIconUrl(name: string): string {
   return `url("${base}agent-icons/${name.toLowerCase()}.svg")`;
 }
 
-interface BackendTooltipCandidateView {
-  readonly deployment: string;
-  readonly p50: string;
-  readonly p95: string;
-  readonly samples: number;
-  readonly selected: boolean;
-}
-
-export interface BackendTooltipView {
-  readonly mode: string;
-  readonly endpoint: string | null;
-  readonly router: {
-    readonly deployment: string;
-    readonly reason: string;
-    readonly candidates: readonly BackendTooltipCandidateView[];
-  } | null;
-  readonly visionRouter?: {
-    readonly deployment: string;
-    readonly candidates: readonly BackendTooltipCandidateView[];
-  };
-}
-
-export function backendTooltipView(health: BackendHealth): BackendTooltipView {
-  const router = health.router;
-  const vision = router?.vision;
-  return {
-    mode: health.mode,
-    endpoint: health.endpoint,
-    router: router ? {
-      deployment: router.chose,
-      reason: router.reason.trim(),
-      candidates: router.candidates.map((candidate) => ({
-        deployment: candidate.deployment,
-        p50: candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`,
-        p95: candidate.p95_ms === null ? "-" : `${Math.round(candidate.p95_ms)}ms`,
-        samples: candidate.samples,
-        selected: candidate.deployment === router.chose,
-      })),
-    } : null,
-    ...(vision?.available && vision.chose
-      ? {
-          visionRouter: {
-            deployment: vision.chose,
-            candidates: vision.candidates.map((candidate) => ({
-              deployment: candidate.deployment,
-              p50: candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`,
-              p95: candidate.p95_ms === null ? "-" : `${Math.round(candidate.p95_ms)}ms`,
-              samples: candidate.samples,
-              selected: candidate.deployment === vision.chose,
-            })),
-          },
-        }
-      : {}),
-  };
-}
-
-export function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
-  if (!router) return undefined;
-  const lines = router.candidates.map((candidate) => {
-    const p50 = candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`;
-    const p95 = candidate.p95_ms === null ? "-" : `${Math.round(candidate.p95_ms)}ms`;
-    const marker = candidate.deployment === router.chose ? "* " : "  ";
-    return `${marker}${candidate.deployment} · p50 ${p50} · p95 ${p95} · n=${candidate.samples}`;
-  });
-  const choice = t("deck.tooltip.routerChoice", {
-    reason: router.reason,
-    deployment: router.chose,
-    candidates: lines.join("\n"),
-  });
-  return router.reason.trim() ? choice : choice.replace(" ()", "").replace("()", "");
-}
-
-export function backendTooltip(health: BackendHealth): string {
-  const base = t("deck.tooltip.chatMode", {
-    mode: health.mode,
-    endpoint: health.endpoint ? ` · ${health.endpoint}` : "",
-  });
-  const routed = routerTooltip(health.router);
-  return routed ? `${base}\n${routed}` : base;
-}
-
 function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
   const view = backendTooltipView(health);
   return (
     <span class="deck-backend-tooltip">
+      <strong>{view.model ? t("deck.backend.t1Model", { model: view.model }) : t("deck.backend.modelUnknown")}</strong>
+      <span>{t("deck.backend.t1Scope")}</span>
       <span class="deck-backend-tooltip-context">
         <span>{t("deck.tooltip.chatMode", { mode: "", endpoint: "" }).trim()}</span>
         <strong>{view.mode}</strong>
@@ -234,6 +163,15 @@ function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
             <strong>{view.router.deployment}</strong>
             {view.router.reason ? <small>{view.router.reason}</small> : null}
           </span>
+          {view.router.updatedAt ? (
+            <span>{t("deck.backend.updatedAt", { time: view.router.updatedAt })}</span>
+          ) : <span>{t("deck.backend.measurement.unknown")}</span>}
+          {view.router.expiresAt ? (
+            <span>{t("deck.backend.expiresAt", { time: view.router.expiresAt })}</span>
+          ) : null}
+          {view.router.intervalSeconds ? (
+            <span>{t("deck.backend.probeInterval", { seconds: view.router.intervalSeconds })}</span>
+          ) : null}
           <span class="deck-backend-tooltip-candidates">
             {view.router.candidates.map((candidate) => (
               <span
@@ -242,7 +180,7 @@ function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
                 aria-current={candidate.selected ? "true" : undefined}
               >
                 <span class="deck-backend-tooltip-marker" aria-hidden="true" />
-                <code>{candidate.deployment}</code>
+                <code>{candidate.deployment}<small> {candidate.status}</small></code>
                 <span><small>p50</small>{candidate.p50}</span>
                 <span><small>p95</small>{candidate.p95}</span>
                 <span><small>n</small>{candidate.samples}</span>
@@ -265,7 +203,7 @@ function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
                 aria-current={candidate.selected ? "true" : undefined}
               >
                 <span class="deck-backend-tooltip-marker" aria-hidden="true" />
-                <code>{candidate.deployment}</code>
+                <code>{candidate.deployment}<small> {candidate.status}</small></code>
                 <span><small>p50</small>{candidate.p50}</span>
                 <span><small>p95</small>{candidate.p95}</span>
                 <span><small>n</small>{candidate.samples}</span>
@@ -774,6 +712,14 @@ export function BackendBadge({
   readonly health: BackendHealth | null;
   readonly placement: "invoke" | "header";
 }) {
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    const now = Date.now();
+    const expires = backendMeasurementExpiry(health?.router, now);
+    if (expires === null) return;
+    const timer = window.setTimeout(() => setClock((value) => value + 1), Math.min(expires - now, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [health, clock]);
   if (health === null) {
     return (
       <Tooltip content={t("deck.tooltip.backendProbing")}>
@@ -785,7 +731,7 @@ export function BackendBadge({
     );
   }
   if (health.available) {
-    const label = t("deck.backend.connected");
+    const label = backendBadgeLabel(health);
     return (
       <Tooltip content={<BackendTooltipContent health={health} />} variant="backend">
         <span class={`deck-backend deck-backend-${placement} deck-backend-ready`}>

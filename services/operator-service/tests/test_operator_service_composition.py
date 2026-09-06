@@ -194,7 +194,7 @@ def _verify(token: str) -> Mapping[str, object]:
         roles = [OperatorRole.APPROVER.value]
     else:
         roles = []
-    return {"oid": "operator", "roles": roles}
+    return {"oid": "operator", "idtyp": "user", "roles": roles}
 
 
 def _client(
@@ -754,7 +754,11 @@ def test_llm_usage_requires_one_bounded_timezone_aware_range() -> None:
 def test_mapping_shaped_roles_claim_does_not_grant_operator_access() -> None:
     def verify_mapping_role(token: str) -> Mapping[str, object]:
         del token
-        return {"oid": "operator", "roles": {OperatorRole.OWNER.value: True}}
+        return {
+            "oid": "operator",
+            "idtyp": "user",
+            "roles": {OperatorRole.OWNER.value: True},
+        }
 
     composition = ProductionOperatorComposition(
         verifier_factory=lambda environment: verify_mapping_role,

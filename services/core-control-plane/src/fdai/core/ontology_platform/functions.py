@@ -41,8 +41,11 @@ class FunctionInvocationContext(ContractBase):
     caller_role: CeilingRole = CeilingRole.READER
     purposes: tuple[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")], ...] = ()
     evidence_refs: tuple[Annotated[str, Field(min_length=1, max_length=512)], ...] = ()
+    principal_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    principal_groups: tuple[Annotated[str, Field(min_length=1, max_length=256)], ...] = ()
+    principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
 
-    @field_validator("purposes", "evidence_refs", mode="after")
+    @field_validator("purposes", "evidence_refs", "principal_groups", mode="after")
     @classmethod
     def _deduplicate_bounded_context(
         cls,
@@ -65,6 +68,7 @@ class FunctionInvocationReceipt(ContractBase):
     caller_agent: str
     caller_role: CeilingRole
     purposes: tuple[str, ...] = ()
+    principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
     input_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     output_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     seed: int | None = None
@@ -270,6 +274,8 @@ class OntologyFunctionRegistry:
                 "caller_role": invocation_context.caller_role.value,
                 "purposes": list(invocation_context.purposes),
                 "evidence_refs": list(invocation_context.evidence_refs),
+                "principal_scope_digest": invocation_context.principal_scope_digest,
+                "principal_groups": sorted(invocation_context.principal_groups),
             }
         ).removeprefix("sha256:")
         identity = ontology_function_digest(
@@ -285,6 +291,7 @@ class OntologyFunctionRegistry:
             caller_agent=invocation_context.caller_agent,
             caller_role=invocation_context.caller_role,
             purposes=invocation_context.purposes,
+            principal_scope_digest=invocation_context.principal_scope_digest,
             input_digest=input_digest,
             output_digest=output_digest,
             seed=seed,

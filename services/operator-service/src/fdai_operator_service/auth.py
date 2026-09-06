@@ -98,7 +98,11 @@ class OperatorAuthenticator:
         self,
         authorization_header: str | None,
     ) -> VerifiedOperatorIdentity:
-        """Return server-derived authority plus the verified client binding."""
+        """Return server-derived authority plus the verified client binding.
+
+        Verified delegated scopes allow an omitted optional ``idtyp`` claim.
+        Explicit application identities retain the Reader-only workload gate.
+        """
         if self.local_principal is not None:
             expected = f"{_BEARER_PREFIX}{self.local_session_token}"
             if authorization_header is not None and hmac.compare_digest(
@@ -123,10 +127,18 @@ class OperatorAuthenticator:
 
         claimed_roles = _parse_roles(claims.get("roles"))
         principal_kind = _principal_kind(claims)
+        group_overage = _has_group_overage(claims)
+        if group_overage:
+            raise AuthenticationError("invalid claims: group overage cannot establish exact groups")
+        groups = _parse_groups(claims.get("groups"))
         if principal_kind is OperatorPrincipalKind.WORKLOAD:
             if claimed_roles != frozenset({OperatorRole.READER}):
                 raise AuthenticationError(
                     "invalid claims: workload principals require the Reader App Role"
+                )
+            if groups:
+                raise AuthenticationError(
+                    "invalid claims: workload principals MUST NOT carry group claims"
                 )
             return VerifiedOperatorIdentity(
                 principal=OperatorPrincipal(
@@ -136,10 +148,7 @@ class OperatorAuthenticator:
                 ),
                 authorized_party=_authorized_party(claims),
             )
-        if not claimed_roles and _has_group_overage(claims):
-            raise AuthenticationError("invalid claims: group overage tokens require FDAI App Roles")
         if not claimed_roles:
-            groups = frozenset(_string_items(claims.get("groups")))
             claimed_roles = frozenset(
                 role for role, group_id in self.group_ids.items() if group_id in groups
             )
@@ -148,6 +157,7 @@ class OperatorAuthenticator:
                 subject_id=subject_id,
                 roles=claimed_roles,
                 principal_kind=principal_kind,
+                groups=groups,
             ),
             authorized_party=_authorized_party(claims),
         )
@@ -198,6 +208,21 @@ def _string_items(raw: object) -> Iterable[str]:
                 yield value
 
 
+def _parse_groups(raw: object) -> frozenset[str]:
+    if raw is None:
+        return frozenset()
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes, bytearray)):
+        raise AuthenticationError("invalid claims: groups must be an array")
+    groups: list[str] = []
+    for value in raw:
+        if not isinstance(value, str) or not value.strip() or len(value) > 256:
+            raise AuthenticationError("invalid claims: groups contain a malformed value")
+        groups.append(value)
+    if len(groups) > 64 or len(groups) != len(set(groups)):
+        raise AuthenticationError("invalid claims: groups exceed bounds or contain duplicates")
+    return frozenset(groups)
+
+
 def _has_group_overage(claims: Mapping[str, object]) -> bool:
     if claims.get("hasgroups") is True:
         return True
@@ -206,11 +231,17 @@ def _has_group_overage(claims: Mapping[str, object]) -> bool:
 
 
 def _principal_kind(claims: Mapping[str, object]) -> OperatorPrincipalKind:
+    """Classify verified claims; optional idtyp requires delegated-scope evidence."""
     identity_type = claims.get("idtyp")
-    if identity_type is None or identity_type == "user":
+    if identity_type == "user":
         return OperatorPrincipalKind.HUMAN
     if identity_type == "app":
         return OperatorPrincipalKind.WORKLOAD
+    if identity_type is None:
+        delegated_scopes = claims.get("scp")
+        if isinstance(delegated_scopes, str) and delegated_scopes.strip():
+            return OperatorPrincipalKind.HUMAN
+        raise AuthenticationError("invalid claims: missing principal type")
     raise AuthenticationError("invalid claims: unsupported principal type")
 
 

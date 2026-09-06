@@ -179,7 +179,11 @@ def _client(
     include_analytics: bool = False,
 ) -> TestClient:
     authenticator = OperatorAuthenticator(
-        verifier=lambda token: {"oid": "reader-id", "roles": [role.value]},
+        verifier=lambda token: {
+            "oid": "reader-id",
+            "idtyp": "user",
+            "roles": [role.value],
+        },
         group_ids={},
     )
     return TestClient(

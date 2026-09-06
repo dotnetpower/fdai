@@ -109,6 +109,18 @@
                   "BreakGlass"
                 ]
               }
+            },
+            "groups": {
+              "default": [],
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 64,
+              "title": "Groups",
+              "type": "array",
+              "uniqueItems": true
             }
           }
         },

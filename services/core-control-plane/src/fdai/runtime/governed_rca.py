@@ -9,6 +9,10 @@ from datetime import UTC, datetime
 from typing import cast
 
 from fdai.composition import Container
+from fdai.core.knowledge.governed_document_reader import (
+    AuthorizedGovernedDocumentReader,
+    RoleScopedDocumentScopeResolver,
+)
 from fdai.core.rca.governed_document_evidence import GovernedDocumentEvidenceReadAdapter
 from fdai.core.rca.governed_knowledge_evidence import (
     GovernedKnowledgeBindings,
@@ -26,6 +30,7 @@ from fdai.shared.providers.document_ingestion import (
     DocumentAccessProvider,
     DocumentMetadataStore,
     DocumentSearch,
+    GovernedDocumentSearch,
 )
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -74,6 +79,17 @@ def bind_governed_rca_from_environment(
     _LOGGER.info("governed_rca_ready")
     return replace(
         container,
+        governed_document_reader=AuthorizedGovernedDocumentReader(
+            search=cast(GovernedDocumentSearch, store),
+            metadata=cast(DocumentMetadataStore, store),
+            access=cast(DocumentAccessProvider, store),
+            scopes=RoleScopedDocumentScopeResolver(
+                collection_id=context_config.collection_id,
+                allowed_access_refs=context_config.allowed_access_refs,
+            ),
+            clock=lambda: datetime.now(tz=UTC),
+            retrieval_mode="lexical",
+        ),
         governed_knowledge=GovernedKnowledgeBindings(
             gatherer=GovernedKnowledgeEvidenceGatherer(reader=reader),
             context_provider=RuntimeGovernedRcaContextProvider(config=context_config),

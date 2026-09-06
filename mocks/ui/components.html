@@ -8,8 +8,10 @@
   <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
   <link rel="stylesheet" href="assets/palette-comparison.css?v=neutral-v2" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
-  <link rel="stylesheet" href="assets/settings-neutral.css?v=1" />
-  <link rel="stylesheet" href="assets/settings-iam.css?v=1" />
+  <link rel="stylesheet" href="assets/settings-neutral.css?v=4" />
+  <link rel="stylesheet" href="assets/settings-teams-workflow.css?v=2" />
+  <link rel="stylesheet" href="assets/settings-iam.css?v=workspace-v2" />
+  <link rel="stylesheet" href="assets/settings-workspace.css?v=4" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -1066,7 +1068,7 @@
       </div>
       <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
         <p class="cs-settings-preview-note">Clear neutral / light specimen. Synthetic candidates and a read-only allowlist.</p>
-        <div class="cs-settings-toolbar"><label>Search catalog<input class="cs-settings-input cs-control-input" type="search" placeholder="Family or version" disabled /></label><button class="cs-control-button" type="button" disabled>Refresh catalog</button></div>
+        <div class="cs-settings-toolbar cs-settings-filter-bar"><label>Search catalog<input class="cs-settings-input cs-control-input" type="search" placeholder="Family or version" disabled /></label><label>Availability<select class="cs-settings-input cs-control-select" disabled><option>All candidates</option><option>Current</option><option>Preview</option></select></label><button class="cs-control-button" type="button" disabled>Refresh catalog</button></div>
         <div class="cs-settings-card-grid">
           <article class="cs-settings-option-card"><header><div><strong>GPT 5.4</strong><small>Microsoft</small></div><span class="cs-status ok">Current</span></header><dl><div><dt>SKU</dt><dd>Global standard</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl><button class="cs-control-button" type="button" disabled>Use in draft</button></article>
           <article class="cs-settings-option-card"><header><div><strong>Claude Sonnet 4.6</strong><small>Anthropic</small></div><span class="cs-status ok">Current</span></header><dl><div><dt>SKU</dt><dd>Provisioned throughput</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl><button class="cs-control-button" type="button" disabled>Use in draft</button></article>
@@ -1128,7 +1130,7 @@
         <p class="cs-settings-preview-note">Clear neutral / light specimen. Synthetic evidence states, not live health checks.</p>
         <section class="cs-settings-section" aria-labelledby="sample-diagnostic-results">
           <header class="cs-settings-section-head"><h3 id="sample-diagnostic-results">Runtime and delivery</h3><p>Color stays on the observed status, never the section edge.</p></header>
-          <div class="cs-settings-list">
+          <div class="cs-settings-list cs-settings-facts">
             <div class="cs-setting-row"><div><strong>Operator API liveness</strong><small>Observed response at 2026-09-06T02:00:00Z.</small></div><span class="cs-status ok">Available</span></div>
             <div class="cs-setting-row"><div><strong>GitHub App</strong><small>No recent delivery probe has run.</small></div><span class="cs-status idle">Not probed</span></div>
             <div class="cs-setting-row"><div><strong>Automation</strong><small>No authoritative source is bound.</small></div><span class="cs-status idle">Unknown</span></div>
@@ -1143,6 +1145,18 @@
             <div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading diagnostic evidence"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div>
             <div class="cs-state-block is-empty"><div class="cs-state-content"><strong>No matching records</strong><p>Change the scope filter to review other evidence.</p></div></div>
           </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="cs-section" id="settings-teams-workflow" aria-labelledby="settings-teams-workflow-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title"><h2 id="settings-teams-workflow-title">Teams Workflows setup</h2><p class="cs-desc">Account separation, illustrated setup, write-only binding, and a secret-free test receipt.</p></div>
+      </div>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+        <section class="cs-settings-section" aria-labelledby="sample-teams-workflow">
+          <header class="cs-settings-section-head"><h3 id="sample-teams-workflow">Connect and test Teams Workflows</h3><p>Expand the guide and example receipt. This specimen never accepts or sends a real URL.</p></header>
+          <div data-teams-workflow-preview><div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading Teams Workflows preview"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div></div>
         </section>
       </div>
     </section>
@@ -1239,7 +1253,8 @@
   </footer>
   <script src="assets/calm-slate.js?v=shared-primitives-v10"></script>
   <script src="assets/palette-comparison.js?v=neutral-v2"></script>
-  <script src="assets/settings-iam.js?v=2" type="module"></script>
+  <script src="assets/settings-iam.js?v=workspace-v3" type="module"></script>
+  <script src="assets/settings-teams-workflow.js?v=2" type="module"></script>
   <script>
     (async function () {
       var index = document.querySelector(".cs-gallery-index");
@@ -1563,7 +1578,7 @@
       window.addEventListener("hashchange", syncHashTarget);
       allSections.forEach(function (section) { section.hidden = true; });
       try {
-        var response = await fetch("assets/component-registry.json?v=9");
+        var response = await fetch("assets/component-registry.json?v=11");
         if (!response.ok) throw new Error("Registry request failed with status " + response.status);
         var payload = await response.json();
         if (!payload || !Array.isArray(payload.components)) throw new Error("Registry payload is invalid");

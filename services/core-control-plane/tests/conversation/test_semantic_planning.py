@@ -47,6 +47,10 @@ from fdai.core.ontology_platform import (
 from fdai.core.ontology_platform.contextual_resource_queries import (
     contextual_resource_function_type,
 )
+from fdai.core.ontology_platform.governed_document_queries import (
+    GOVERNED_DOCUMENT_FUNCTION_NAME,
+    governed_document_function_type,
+)
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.core.ontology_platform.query_execution import QueryNodeProgress
 from fdai.core.ontology_platform.resource_event_queries import (
@@ -97,9 +101,14 @@ from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
     QueryNodeKind,
     TaskStatus,
+    canonical_json,
     content_digest,
 )
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal, SemanticTarget
+from fdai_service_contracts.semantic_judgment import (
+    SemanticDocumentEvidenceMode,
+    SemanticJudgmentProposal,
+    SemanticTarget,
+)
 from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -952,6 +961,7 @@ def _typed_fixture(
     include_state_transitions: bool = False,
     include_service_health: bool = False,
     include_contextual_resource: bool = False,
+    include_governed_document: bool = False,
     include_parent_id: bool = False,
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
@@ -970,6 +980,7 @@ def _typed_fixture(
         function
         for function in (
             contextual_resource_function_type() if include_contextual_resource else None,
+            governed_document_function_type() if include_governed_document else None,
             resource_event_function_type() if include_resource_event else None,
             resource_health_function_type() if include_resource_health else None,
             resource_metric_function_type() if include_resource_metric else None,
@@ -1382,6 +1393,60 @@ def test_named_group_judgment_stabilizes_repeated_membership_frames(
     ]
     assert model.frame_calls == 0
     assert model.plan_calls == 0
+
+
+def test_named_group_normalization_preserves_required_document_evidence() -> None:
+    utterance = "rg-example 리소스 그룹의 런북 요구 사항과 리소스를 알려줘"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        extra_values=("authorization.role-assignment",),
+        include_governed_document=True,
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value="rg-example",
+                source_start=0,
+                source_end=len("rg-example"),
+            ),
+        ),
+        requested_facets=("details", "name_filter"),
+        document_evidence_mode=SemanticDocumentEvidenceMode.REQUIRED,
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "rg-example"],
+            measure_concepts=["parent_id", "type"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert "governed_documents.required" in outcome.frame.evidence_requirements
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[-1].arguments["function_name"] == GOVERNED_DOCUMENT_FUNCTION_NAME
 
 
 def test_document_judgment_builds_action_draft_without_frame_model_call() -> None:
@@ -2716,6 +2781,67 @@ def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:
         frame=outcome.frame,
         plan=outcome.plan,
     ) == (None, "verified")
+    document_node = OntologyQueryNode(
+        node_id="governed-documents",
+        kind=QueryNodeKind.FUNCTION,
+        arguments_json=canonical_json(
+            {
+                "function_name": "query.governed_documents",
+                "arguments": {"query": "recovery", "evidence_mode": "optional"},
+                "dependency_arguments": {},
+            }
+        ),
+        output_kind="query.table",
+    )
+    document_plan = outcome.plan.model_copy(
+        update={
+            "nodes": (*outcome.plan.nodes, document_node),
+            "output_node_ids": (*outcome.plan.output_node_ids, document_node.node_id),
+            "plan_digest": DIGEST,
+        }
+    )
+    document_frame = outcome.frame.model_copy(
+        update={
+            "evidence_requirements": (
+                *outcome.frame.evidence_requirements,
+                "governed_documents.optional",
+            )
+        }
+    )
+    document_receipt = GoalTaskReceipt(
+        task_id="query:governed-documents",
+        goal_id="governed-documents",
+        intent="function",
+        capability="query.function",
+        evidence_mode=GoalEvidenceMode.DOCUMENT,
+        status=TaskStatus.COMPLETED,
+        duration_ms=1,
+        evidence_refs=("document:sha256:" + ("d" * 64),),
+        authority=EvidenceAuthority.SERVER_GOVERNED_DOCUMENT,
+        started_at=NOW,
+        completed_at=NOW,
+    )
+    document_execution = replace(
+        execution,
+        plan_digest=document_plan.plan_digest,
+        results=MappingProxyType(
+            {
+                **dict(execution.results),
+                document_node.node_id: QueryNodeResult(
+                    value={},
+                    evidence_refs=document_receipt.evidence_refs,
+                    authority=document_receipt.authority,
+                ),
+            }
+        ),
+        receipts=(*execution.receipts, document_receipt),
+        output_node_ids=document_plan.output_node_ids,
+    )
+    assert resolve_execution_authority(
+        document_execution,
+        frame=document_frame,
+        plan=document_plan,
+    ) == (None, "verified")
     evidence = build_intent_graph_evidence(
         graph=outcome.intent_graph,
         plan=outcome.plan,
@@ -3205,6 +3331,56 @@ def test_property_filter_rejects_unstated_declared_value_operand() -> None:
 
     outcome = _service(model, manifest).plan(
         utterance="List this group's resources with type, region, and state.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 1
+
+
+def test_optional_document_augmentation_still_rejects_unstated_filter_operand() -> None:
+    manifest, definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP),
+        include_governed_document=True,
+    )
+    narrowed = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(
+                    property="type",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals="resource-group",
+                ),
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(narrowed),
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(),
+        requested_facets=("details",),
+        document_evidence_mode=SemanticDocumentEvidenceMode.OPTIONAL,
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance="Show typed resources and consult the runbook.",
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
         purpose="operations-review",

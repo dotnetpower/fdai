@@ -6,8 +6,15 @@ from collections.abc import Sequence
 from typing import Any
 
 from fdai_service_contracts.ontology_query import SemanticOperation, SemanticProblemFrame
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
+from fdai_service_contracts.semantic_judgment import (
+    SemanticDocumentEvidenceMode,
+    SemanticJudgmentProposal,
+)
 
+from fdai.core.ontology_platform.governed_document_queries import (
+    GOVERNED_DOCUMENT_FUNCTION_NAME,
+    GOVERNED_DOCUMENT_MEASURE_CONCEPT,
+)
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.service_health_queries import SERVICE_HEALTH_FUNCTION_NAME
@@ -42,6 +49,26 @@ def build_function_backed_summary_frame(
         if descriptor.get("kind") == "function" and isinstance(descriptor.get("name"), str)
     }
     intents = (judgment.primary_intent, *judgment.secondary_intents)
+    if judgment.primary_intent == GOVERNED_DOCUMENT_FUNCTION_NAME:
+        if (
+            GOVERNED_DOCUMENT_FUNCTION_NAME not in available_functions
+            or judgment.document_evidence_mode is not SemanticDocumentEvidenceMode.EXPLICIT
+        ):
+            return None
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=(),
+            measure_concepts=(GOVERNED_DOCUMENT_MEASURE_CONCEPT,),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS,
+            evidence_requirements=(f"governed_documents.{judgment.document_evidence_mode.value}",),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
     if judgment.primary_intent == SERVICE_HEALTH_FUNCTION_NAME:
         if SERVICE_HEALTH_FUNCTION_NAME not in available_functions:
             return None

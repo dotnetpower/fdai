@@ -72,6 +72,11 @@ from fdai.core.ontology_platform.gateway_diagnostics import (
     GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
     gateway_diagnostic_function,
 )
+from fdai.core.ontology_platform.governed_document_queries import (
+    GOVERNED_DOCUMENT_FUNCTION_NAME,
+    GovernedDocumentReader,
+    governed_document_function,
+)
 from fdai.core.ontology_platform.graph_query_refresh import (
     BoundedGraphLiveRefreshProvider,
     SecuredGraphEvidenceQueryRefresher,
@@ -276,6 +281,7 @@ def build_semantic_query_runtime(
     resource_freshness_seconds: int | None = None,
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
     adaptive_service: AdaptiveConversationService | None = None,
+    governed_document_reader: GovernedDocumentReader | None = None,
 ) -> SemanticConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -363,6 +369,16 @@ def build_semantic_query_runtime(
                 index=catalog_index,
                 catalog_digest=catalog_digest,
             ),
+        )
+    if governed_document_reader is not None:
+        governed_document_declaration = declarations[GOVERNED_DOCUMENT_FUNCTION_NAME]
+        function_registry.register_contextual(
+            governed_document_declaration,
+            governed_document_function(
+                ontology_release,
+                reader=governed_document_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_GOVERNED_DOCUMENT,
         )
     contextual_declaration = declarations[CONTEXTUAL_RESOURCE_FUNCTION_NAME]
     function_registry.register_contextual(
@@ -769,6 +785,12 @@ def build_semantic_query_runtime(
                         caller_agent="Bragi",
                         caller_role=role,
                         purposes=(purpose,),
+                        principal_ref=principal.id,
+                        principal_groups=tuple(sorted(principal.groups)),
+                        principal_scope_digest=semantic_principal_scope_digest(
+                            principal=principal,
+                            purpose=purpose,
+                        ),
                     ),
                     receipt_authority=receipt_authority,
                     allow_presentation_read_dependencies=True,

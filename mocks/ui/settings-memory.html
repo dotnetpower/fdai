@@ -5,12 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Operator memory - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
-  <link rel="stylesheet" href="assets/settings-neutral.css?v=1" />
+  <link rel="stylesheet" href="assets/settings-neutral.css?v=4" />
+  <link rel="stylesheet" href="assets/settings-workspace.css?v=4" />
   <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
+  <script src="assets/settings-pages.js?v=1" type="module"></script>
 </head>
 <body class="cs-settings-neutral" data-chat-theme="clear-neutral">
-  <main class="cs-container cs-page cs-settings-page">
+  <main class="cs-container cs-page cs-settings-page" data-settings-profile="memory">
     <div class="cs-page-header cs-mb-24">
       <div class="cs-eyebrow">Governed guidance</div>
       <h1>Operator memory</h1>
@@ -22,21 +25,19 @@
         <h2 id="memory-filter">Scope filter</h2>
         <p>Filter without changing the stored records.</p>
       </header>
-      <div class="cs-settings-list">
-        <div class="cs-setting-row">
-          <div><strong>Scope kind</strong><small>Limit results to one supported boundary.</small></div>
-          <select class="cs-settings-input cs-control-select" aria-label="Scope kind">
+      <div class="cs-settings-toolbar cs-settings-filter-bar" role="group" aria-label="Memory scope filters">
+        <label>Scope kind
+          <select class="cs-settings-input cs-control-select">
             <option>All scope kinds</option>
             <option>resource-group</option>
             <option>resource</option>
           </select>
-        </div>
-        <div class="cs-setting-row">
-          <div><strong>Scope reference</strong><small>Optional exact scope reference.</small></div>
-          <input class="cs-settings-input cs-control-input" placeholder="Enter a scope reference" aria-label="Scope reference" />
-        </div>
+        </label>
+        <label>Scope reference
+          <input class="cs-settings-input cs-control-input" placeholder="Optional exact scope reference" />
+        </label>
+        <button class="cs-control-button" type="button">Apply filter</button>
       </div>
-      <div class="cs-settings-actions"><button class="cs-control-button" type="button">Apply filter</button></div>
     </section>
 
     <section class="cs-settings-section" aria-labelledby="memory-compactions">

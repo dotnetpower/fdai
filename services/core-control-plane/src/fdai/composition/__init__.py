@@ -305,6 +305,7 @@ from .wire_semantic_query import (  # noqa: E402
     build_semantic_query_runtime,
     compose_azure_semantic_query_runtime,
 )
+from .wire_t1_routing import build_t1_mini_probe  # noqa: E402
 from .wire_trajectory import TrajectoryRuntime, wire_trajectory_runtime  # noqa: E402
 
 __all__ = [
@@ -328,6 +329,7 @@ __all__ = [
     "bind_azure_devops_change_feed",
     "bind_github_change_feed",
     "build_semantic_query_runtime",
+    "build_t1_mini_probe",
     "compose_azure_semantic_query_runtime",
     "compose_resource_state_shadow_hook",
     "default_container",

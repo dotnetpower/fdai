@@ -257,6 +257,40 @@ class DocumentSearch(Protocol):
     ) -> Sequence[KnowledgeChunk]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class GovernedDocumentSearchResult:
+    """Provider-attested governed index snapshot and bounded candidate page."""
+
+    hits: tuple[KnowledgeChunk, ...]
+    index_generation: str
+    complete: bool
+    limitation: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.index_generation.strip() or len(self.index_generation) > 512:
+            raise ValueError("governed document index generation MUST be bounded")
+        if self.complete and self.limitation is not None:
+            raise ValueError("complete governed document search MUST NOT have a limitation")
+        if not self.complete and (
+            self.limitation is None or not self.limitation.strip() or len(self.limitation) > 128
+        ):
+            raise ValueError("incomplete governed document search MUST have a bounded limitation")
+
+
+@runtime_checkable
+class GovernedDocumentSearch(Protocol):
+    """Return candidates only with provider-owned index completeness evidence."""
+
+    async def search_governed(
+        self,
+        query: str,
+        *,
+        collection_id: str,
+        allowed_access_refs: frozenset[str],
+        k: int = 5,
+    ) -> GovernedDocumentSearchResult: ...
+
+
 @runtime_checkable
 class DocumentReadyConsumer(Protocol):
     @property

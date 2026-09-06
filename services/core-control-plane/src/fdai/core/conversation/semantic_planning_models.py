@@ -164,6 +164,7 @@ class SemanticOutputShape(StrEnum):
     CAUSAL_EVIDENCE = "causal_evidence"
     EVIDENCE_VALIDATION = "evidence_validation"
     GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
+    GOVERNED_DOCUMENT_EXCERPTS = "governed_document_excerpts"
     INCIDENT_EVIDENCE = "incident_evidence"
     INVENTORY_IMPACT = "inventory_impact"
     ONTOLOGY_DECLARATION = "ontology_declaration"

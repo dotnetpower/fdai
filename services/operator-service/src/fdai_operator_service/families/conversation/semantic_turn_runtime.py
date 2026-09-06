@@ -36,6 +36,10 @@ from fdai_operator_service.families.conversation.semantic_turn import SemanticTu
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data as _done_event_data,
 )
+from fdai_operator_service.families.conversation.t1_model_health import (
+    T1ModelHealthReader,
+    t1_model_health,
+)
 from fdai_operator_service.postgres_family_store import (
     SemanticTurnClaim,
     StoredSemanticResult,
@@ -1077,6 +1081,7 @@ class SemanticTurnConversationAdapters:
     fallback_outbox: ConversationProposalOutbox
     fallback_streams: ConversationStreamReader
     document_exporter: ConversationDocumentExporter | None = None
+    t1_model_health_reader: T1ModelHealthReader | None = None
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
         """Serve bridge-owned health and delegate every durable projection read."""
@@ -1091,11 +1096,16 @@ class SemanticTurnConversationAdapters:
         if query.operation != "chat.health":
             return await self.fallback_projections.read(query)
         health = self.bridge.health()
+        routing = (
+            await self.t1_model_health_reader.read()
+            if self.t1_model_health_reader is not None
+            else (await self.fallback_projections.read(query)).body
+        )
         return ConversationResponse(
             body={
                 "available": health["available"],
                 "mode": health["mode"],
-                "model": None,
+                **t1_model_health(routing),
                 "endpoint": None,
                 "semantic_bridge": health,
             },

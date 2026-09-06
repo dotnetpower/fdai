@@ -56,9 +56,10 @@ function initialize(mount, template) {
     name.append(element("strong", role.name, "iam-role-name"));
     const capabilities = element("td", "");
     capabilities.dataset.label = "Capabilities";
-    capabilities.append(element("p", role.description, "iam-role-description"));
     const details = element("details", "", "iam-details iam-role-capabilities");
-    details.append(element("summary", role.capabilities.length + (role.capabilities.length === 1 ? " capability" : " capabilities")));
+    const summary = element("summary", "");
+    summary.append(element("span", role.description, "iam-role-description"), element("span", role.capabilities.length + (role.capabilities.length === 1 ? " capability" : " capabilities"), "iam-role-count"));
+    details.append(summary);
     const list = element("ul", "", "iam-capability-list");
     list.append(...role.capabilities.map(capability));
     details.append(list);
@@ -181,6 +182,7 @@ function initialize(mount, template) {
     const tab = tabs.find((item) => item.dataset.iamTab === id);
     if (focus && tab && !tab.disabled) tab.focus();
     publishTab(id, push && changed);
+    if (changed && push && routeMode) window.scrollTo({ top: 0, behavior: "instant" });
   }
 
   function clearRoster() {
@@ -263,7 +265,7 @@ async function loadPreview() {
     mount.replaceChildren(loading);
   });
   try {
-    const response = await fetch("assets/settings-iam-content.html?v=2");
+    const response = await fetch("assets/settings-iam-content.html?v=workspace-v2");
     if (!response.ok) throw new Error("IAM preview template returned HTTP " + response.status);
     const html = await response.text();
     const template = new DOMParser().parseFromString(html, "text/html").querySelector("[data-iam-content]");

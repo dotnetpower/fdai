@@ -106,7 +106,7 @@ test("accepts an evidence-bound ontology query done frame", async () => {
           action_posture: "advise_only",
         },
         intent_graph_evidence: {
-          schema_version: 1,
+          schema_version: 2,
           status: "completed",
           evidence_mode: "operational_grounded",
           goals: [{

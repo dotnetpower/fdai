@@ -54,6 +54,7 @@ from .semantic_query_value_domains import resource_type_value_domains
 from .wire_adaptive_conversation import build_adaptive_conversation_service
 
 if TYPE_CHECKING:
+    from fdai.core.conversation.adaptive_prompt import AdaptiveModel
     from fdai.core.conversation.adaptive_service import AdaptiveConversationService
 
     from .wire_semantic_query import SemanticQueryRuntimeComposition
@@ -91,6 +92,7 @@ def compose_azure_semantic_query_runtime(
     pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
+    adaptive_model_factory: Callable[[], AdaptiveModel | None] | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -134,6 +136,7 @@ def compose_azure_semantic_query_runtime(
             endpoint_resolver=endpoint_resolver,
             catalog_root=catalog_root,
             held_capabilities=container.held_model_capabilities,
+            model_factory=adaptive_model_factory,
         )
         if ontology_release is None or ontology_store is None:
             reason = (
@@ -203,6 +206,7 @@ def compose_azure_semantic_query_runtime(
             pod_log_evidence_reader=pod_log_evidence_reader,
             graph_live_refresh_provider=graph_live_refresh_provider,
             resource_freshness_seconds=resource_freshness_seconds,
+            governed_document_reader=container.governed_document_reader,
             property_values=_resource_type_property_values(catalog_root),
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,

@@ -8,6 +8,10 @@ from typing import Any
 
 import pytest
 from fdai.core.ontology_platform.operational_history_lifecycle import build_correction_receipt
+from fdai.core.ontology_platform.operational_history_pressure import (
+    StoragePressureLevel,
+    StoragePressurePolicy,
+)
 from fdai.delivery.operational_history_archive import OperationalArchiveArtifact, _sha256
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryConfig,
@@ -103,6 +107,40 @@ async def test_partition_query_without_a_scope_stays_unfiltered() -> None:
         item for item in connection.executions if "inventory_observation_partition" in item[0]
     )
     assert params == (NOW, None, None, 8)
+
+
+async def test_pressure_lag_excludes_projected_generation_and_certification_scope() -> None:
+    connection = _Connection(
+        {
+            "pg_database_size": [
+                {
+                    "database_bytes": 1024,
+                    "purge_backlog": 1,
+                    "projection_lag": 648,
+                }
+            ]
+        }
+    )
+    policy = StoragePressurePolicy(
+        warning_bytes=10 * 1024**3,
+        critical_bytes=20 * 1024**3,
+        hard_bytes=30 * 1024**3,
+        max_purge_backlog=256,
+        max_projection_lag=1000,
+    )
+
+    assessment = await _repository(connection).assess_pressure(policy)
+
+    assert assessment.level is StoragePressureLevel.NORMAL
+    query, params = connection.executions[-1]
+    assert "pending.source_revision IS DISTINCT FROM projection_state.generation" in query
+    assert "pending.watermark>projection_state.projected_journal_watermark" in query
+    assert "manifest.value->>'journal_high_watermark'" in query
+    assert "active_snapshot.metadata->>'coverage_scope'='full_provider_scope'" in query
+    assert "active_snapshot.metadata->>'projection_complete'='true'" in query
+    assert "pending.effective_at<=active_snapshot.started_at" in query
+    assert "pending.scope_ref NOT LIKE %s" in query
+    assert params == ("synthetic/oi16-certification/%",)
 
 
 async def test_scope_storage_measures_tables_indexes_wal_and_change_count() -> None:

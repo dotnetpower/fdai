@@ -650,6 +650,7 @@ class OperatorCoreRequestV1_6_0SemanticTurnPrincipal(TypedDict):
     subject_id: str
     principal_kind: NotRequired[Literal['human', 'workload']]
     roles: tuple[Literal['Reader', 'Contributor', 'Approver', 'Owner', 'BreakGlass'], ...]
+    groups: NotRequired[tuple[str, ...]]
 
 
 class OperatorCoreRequestV1_6_0SemanticTurnBoundContext(TypedDict):
