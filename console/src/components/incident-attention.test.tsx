@@ -20,6 +20,7 @@ describe("incident attention", () => {
     expect(incidentDeckDetail(incident())).toMatchObject({
       sessionKey: "incident:corr-1",
       onlyWhenIdle: true,
+      newConversation: true,
       prompt: "Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step.",
       submitPrompt: true,
       binding: {

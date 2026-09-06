@@ -114,23 +114,63 @@ describe("grounded reply presentation", () => {
     }
   });
 
+  it("preserves the server's actionable planner-unavailable hold", () => {
+    const unavailable = {
+      ...verification("server_read_model"),
+      status: "unverified" as const,
+      reason_code: "semantic_runtime_unavailable",
+    };
+    const receipt: SemanticProjectionReceipt = {
+      schema_version: "2.0.0",
+      projection_id: "semantic-projection-runtime",
+      request_id: "semantic-request-runtime",
+      disposition: "held",
+      reason_code: "semantic_runtime_unavailable",
+      unavailable_reason: "semantic_planner_unavailable",
+      execution_authority: false,
+    };
+    const answer = [
+      "Confirmed status: the semantic runtime is unavailable.",
+      "Safe next step: restore the required FDAI component, then retry.",
+      "This authorizes no change. (semantic_runtime_unavailable)",
+    ].join("\n");
+
+    expect(primaryAnswerText(answer, unavailable, receipt)).toBe(
+      [
+        "Confirmed status: the semantic runtime is unavailable.",
+        "Safe next step: restore the required FDAI component, then retry.",
+        "This authorizes no change.",
+      ].join("\n"),
+    );
+  });
+
   it("directs model identity failures to authentication recovery", () => {
     const unavailable = {
       ...verification("server_read_model"),
       status: "unverified" as const,
       reason_code: "semantic_model_identity_unavailable",
     };
+    const receipt: SemanticProjectionReceipt = {
+      schema_version: "2.0.0",
+      projection_id: "semantic-projection-identity",
+      request_id: "semantic-request-identity",
+      disposition: "held",
+      reason_code: "semantic_model_identity_unavailable",
+      unavailable_reason: "semantic_planner_unavailable",
+      execution_authority: false,
+    };
 
     expect(primaryAnswerText(
       "Model authentication is unavailable.",
       unavailable,
+      receipt,
     )).toBe(
       "Model authentication is unavailable. Restore the configured Azure identity, then retry this question.",
     );
 
     setLocale("ko");
     try {
-      expect(primaryAnswerText("모델 인증을 사용할 수 없습니다.", unavailable)).toBe(
+      expect(primaryAnswerText("모델 인증을 사용할 수 없습니다.", unavailable, receipt)).toBe(
         "모델 인증을 사용할 수 없습니다. 구성된 Azure ID를 복구한 후 이 질문을 다시 시도해 주세요.",
       );
     } finally {
