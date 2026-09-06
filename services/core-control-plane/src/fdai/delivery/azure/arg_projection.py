@@ -110,8 +110,11 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         nested.get("runningStatus"),
         nested.get("operationalState"),
         nested.get("dnsResolverState"),
+        nested.get("diskState"),
+        nested.get("snapshotAccessState"),
         nested.get("userVisibleState"),
         nested.get("resourceState"),
+        nested.get("virtualNetworkLinkState"),
     ):
         state = _state_text(value)
         if state is not None:

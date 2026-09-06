@@ -219,6 +219,9 @@ def test_resource_status_is_projected_as_observed_state_evidence() -> None:
         ({"properties": {"runningStatus": "Running"}}, "Running"),
         ({"properties": {"operationalState": "Started"}}, "Started"),
         ({"properties": {"dnsResolverState": "Connected"}}, "Connected"),
+        ({"properties": {"diskState": "Reserved"}}, "Reserved"),
+        ({"properties": {"snapshotAccessState": "Available"}}, "Available"),
+        ({"properties": {"virtualNetworkLinkState": "Completed"}}, "Completed"),
         ({"properties": {"powerState": {"code": "Stopped"}}}, "Stopped"),
     ],
 )

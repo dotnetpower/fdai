@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from fdai_operator_service.families.operations.contracts import InventoryInstanceResource
 from fdai_operator_service.families.operations.instance_explorer import _resource_projection
 from fdai_operator_service.families.operations.recorded_state import (
+    OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
+    OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     RecordedStateObservation,
     recorded_resource_states,
 )
@@ -151,11 +156,69 @@ def test_unclassified_resource_missing_state_has_a_distinct_reason() -> None:
     assert states["operational"]["reason"] == "resource_type_unclassified"
 
 
-def test_missing_state_separates_reviewed_source_contract_from_unknown_applicability() -> None:
+def test_missing_state_separates_source_provider_and_applicability_outcomes() -> None:
     mapped = recorded_resource_states({}, resource_type="compute.container-app", now=NOW)
-    unresolved = recorded_resource_states({}, resource_type="object-storage", now=NOW)
+    provider_unavailable = recorded_resource_states(
+        {},
+        resource_type="application-insights",
+        now=NOW,
+    )
+    not_applicable = recorded_resource_states({}, resource_type="resource-group", now=NOW)
+    unresolved = recorded_resource_states({}, resource_type="downstream.custom", now=NOW)
     assert mapped["operational"]["reason"] == "state_source_not_recorded"
+    assert provider_unavailable["operational"]["reason"] == "provider_operational_state_not_exposed"
+    assert not_applicable["operational"]["reason"] == "state_not_applicable"
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
+
+
+def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome() -> None:
+    vocabulary = (
+        Path(__file__).resolve().parents[3] / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    ).read_text(encoding="utf-8")
+    canonical = set(
+        re.findall(
+            r"^  - id: ([a-z][a-z0-9.-]+)$",
+            vocabulary.split("types:\n", maxsplit=1)[1],
+            flags=re.MULTILINE,
+        )
+    )
+    classified = (
+        set(OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+        | OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+        | PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+        | {"unclassified-resource"}
+    )
+    assert classified == canonical
+    assert len(classified) == 80
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "path", "value"),
+    [
+        ("disk", "diskState", "Reserved"),
+        ("disk-snapshot", "snapshotAccessState", "Available"),
+        ("network.private-dns-zone-link", "virtualNetworkLinkState", "Completed"),
+    ],
+)
+def test_resource_specific_state_paths_are_retained(
+    resource_type: str,
+    path: str,
+    value: str,
+) -> None:
+    fact = recorded_resource_states(
+        {"properties": {path: value}},
+        resource_type=resource_type,
+        observation=RecordedStateObservation(
+            generation="generation-1",
+            observed_at=datetime(2026, 9, 5, 0, 0, tzinfo=UTC),
+            recorded_at=datetime(2026, 9, 5, 0, 1, tzinfo=UTC),
+        ),
+        now=NOW,
+    )["operational"]
+    assert fact["value"] == value
+    assert fact["source_path"] == f"properties.{path}"
+    assert fact["freshness"] == "fresh"
+    assert fact["completeness"] == 1.0
 
 
 @pytest.mark.parametrize("value", [None, "", "unknown", "Unknown", " unknown ", {}, True])

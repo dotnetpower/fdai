@@ -18,7 +18,7 @@ axes. Both Console screens consume the same versioned shape.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|
-| Operational | Explicit service, power, phase, readiness, or running state, including retained nested `runningStatus` and `powerState.code`. | Provisioning success does not become running. Enabled, Online, and Active keep their recorded meaning. |
+| Operational | Explicit service, power, phase, readiness, running, attachment, access, or link state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, and Completed keep their recorded meaning. |
 | Provisioning | Explicit `provisioningState`. | Successful creation does not establish availability. |
 | Availability | Explicit availability evidence. | Running and Succeeded do not establish healthy service. |
 
@@ -43,12 +43,20 @@ retained value from the immutable Resource `last_seen` timestamp and the snapsho
 It preserves `last_seen` as effective time and never substitutes the later cutoff for that time.
 Malformed or reversed timestamps remain unknown.
 
-Operational applicability is explicit and conservative. The reviewed source contract currently
-covers Container Apps and Jobs `runningStatus`, AKS node pool `powerState.code`, Application Gateway
-`operationalState`, and DNS Resolver `dnsResolverState`. A missing value for one of these types is
-`state_source_not_recorded`. Other canonical types remain `state_applicability_unknown`, and
-`unclassified-resource` remains `resource_type_unclassified`. None of these reasons is equivalent to
-not-applicable.
+Operational applicability is explicit and conservative. Every one of the 80 canonical ResourceType
+values has one reviewed outcome:
+
+| Outcome | Meaning |
+|---------|---------|
+| `state_source_not_recorded` | The type has an explicit provider or Kubernetes state contract, but the selected generation contains no usable value. This includes service, power, readiness, database, broker, disk, snapshot-access, and private-DNS-link states. |
+| `provider_operational_state_not_exposed` | The resource can have operational concerns, but its current provider inventory contract exposes no per-resource operational state. Application Insights and Log Analytics use this outcome. Provisioning state and existence do not replace the missing provider signal. |
+| `state_not_applicable` | The reviewed type is a configuration, identity, grouping, or aggregate definition with no single operational-state value. |
+| `resource_type_unclassified` | The provider type has no reviewed canonical ResourceType mapping. |
+| `state_applicability_unknown` | A downstream custom type has not been reviewed. Canonical types do not use this fallback. |
+
+Exact values always win over the missing-value classification. Missing metadata, stale evidence, and
+conflicts continue to qualify the retained value without changing its source, observation time,
+recording time, freshness, or completeness.
 
 ## Batch query and consistency
 
@@ -76,6 +84,9 @@ Display filters and local pages operate on this received set; the server query r
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
 - Ontology directory and exploration records expose the same additive `states` field.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
+- Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown from
+  the machine reason. Application Insights and Log Analytics therefore identify the provider
+  inventory limitation instead of displaying a generic Not recorded value.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
@@ -86,8 +97,9 @@ Display filters and local pages operate on this received set; the server query r
 
 Reading raw provider properties in each browser view duplicates normalization and loses source
 semantics. Re-querying Azure or invoking a model to rediscover already stored facts adds latency
-without repairing the read contract. Replacing every unknown with healthy or not-applicable hides
-missing evidence. Per-resource requests are not a substitute for bounded batch reads.
+without repairing the read contract. Replacing every unknown with healthy, running, or
+not-applicable hides missing evidence. Per-resource requests are not a substitute for bounded batch
+reads.
 
 ## Related docs
 

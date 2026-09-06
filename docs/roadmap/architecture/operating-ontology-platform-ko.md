@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 22b0ed08d14b6fbed25ff021bf620bc82ad67236
-translation_revised: 2026-09-03
+translation_source_sha: f55111c907fa5a0d47fc5d4eef88c1a863cbb731
+translation_revised: 2026-09-06
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -14,6 +14,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > **권한 경계:** 관측된 프로바이더 상태는 변환 결과로 유지됩니다. 액션은 프로바이더, Git,
 > 원장 또는 FDAI-owned 상태 변경을 요청할 수 있지만 온톨로지 그래프를 편집하여 외부 사실을
 > 참으로 만들 수 없습니다.
+> 운영 상태가 없을 때도 근거 설명을 유지합니다. 프로비저닝 성공과 존재 여부를 정상, 실행 상태
+> 또는 가용성으로 바꾸지 않습니다.
 >
 > **안전 경계:** 함수는 계획, 조회, derive 또는 validate만 수행합니다. Thor만 승인된
 > `MutationPlan`을 실행하며 모든 외부 효과는 독립 조정으로 종료합니다.

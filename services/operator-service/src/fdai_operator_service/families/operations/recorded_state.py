@@ -21,20 +21,109 @@ _OPERATIONAL_PATHS = (
     "runningStatus",
     "operationalState",
     "dnsResolverState",
+    "diskState",
     "resourceState",
+    "snapshotAccessState",
     "userVisibleState",
+    "virtualNetworkLinkState",
     "powerState.code",
     "powerState",
     "instanceView.powerState.code",
     "extended.instanceView.powerState.code",
 )
 OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
+    "app-service-plan": ("powerState", "status"),
     "compute.container-app": ("runningStatus",),
     "compute.container-app-job": ("runningStatus",),
+    "compute.function": ("state",),
+    "compute.vm": (
+        "powerState",
+        "instanceView.powerState.code",
+        "extended.instanceView.powerState.code",
+    ),
+    "compute.vm-shutdown-schedule": ("status",),
+    "compute.web-app": ("state",),
+    "disk": ("diskState",),
+    "disk-snapshot": ("snapshotAccessState", "diskState"),
+    "event-hub": ("status",),
+    "kubernetes-cluster": ("powerState",),
+    "kubernetes.daemon-set": ("ready_status",),
+    "kubernetes.deployment": ("ready_status",),
+    "kubernetes.job": ("phase",),
+    "kubernetes.node": ("ready_status",),
     "kubernetes-node-pool": ("powerState.code",),
+    "kubernetes.pod": ("phase",),
+    "kubernetes.replica-set": ("ready_status",),
+    "kubernetes.stateful-set": ("ready_status",),
+    "mysql-server": ("state",),
     "network.application-gateway": ("operationalState",),
     "network.dns-resolver": ("dnsResolverState",),
+    "network.private-dns-zone-link": ("virtualNetworkLinkState",),
+    "postgresql-server": ("state",),
+    "redis-enterprise": ("resourceState",),
+    "service-bus-namespace": ("status",),
+    "sql-database": ("status",),
+    "sql-server": ("state",),
+    "subscription": ("state",),
+    "workflow.logic-app": ("state",),
 }
+OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
+    {
+        "action-group",
+        "alert-rule",
+        "authorization.role-assignment",
+        "certificate",
+        "compute.vm-scale-set",
+        "data-collection-rule",
+        "diagnostic-settings",
+        "email-domain",
+        "kubernetes.cron-job",
+        "kubernetes.endpoint-slice",
+        "kubernetes.endpoints",
+        "kubernetes.ingress",
+        "kubernetes.ingress-class",
+        "kubernetes.namespace",
+        "kubernetes.service",
+        "managed-identity",
+        "network.private-dns-zone-group",
+        "resource-group",
+    }
+)
+PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
+    {
+        "api-gateway",
+        "application-insights",
+        "cache",
+        "communication-service",
+        "compute.container-app-environment",
+        "container-registry",
+        "data-collection-endpoint",
+        "email-service",
+        "event-grid-topic",
+        "file-share",
+        "llm-endpoint",
+        "log-workspace",
+        "metrics-workspace",
+        "network.dns-resolver-inbound-endpoint",
+        "network.dns-zone",
+        "network.firewall",
+        "network.interface",
+        "network.load-balancer",
+        "network.nat-gateway",
+        "network.nsg",
+        "network.private-dns-zone",
+        "network.private-endpoint",
+        "network.public-ip",
+        "network.route-table",
+        "network.subnet",
+        "network.virtual-network-gateway",
+        "network.vnet",
+        "nosql-database",
+        "object-storage",
+        "secret-store",
+        "static-web-app",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,11 +265,13 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
     if resource_type == "unclassified-resource":
         return "resource_type_unclassified"
     if paths == _OPERATIONAL_PATHS and resource_type is not None:
-        return (
-            "state_source_not_recorded"
-            if resource_type in OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
-            else "state_applicability_unknown"
-        )
+        if resource_type in OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE:
+            return "state_source_not_recorded"
+        if resource_type in OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
+            return "state_not_applicable"
+        if resource_type in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES:
+            return "provider_operational_state_not_exposed"
+        return "state_applicability_unknown"
     return "state_not_recorded"
 
 

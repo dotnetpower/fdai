@@ -1,6 +1,10 @@
 import type { RecordedResourceStates, RecordedStateAxis } from "../recorded-resource-state";
 import { getLocale } from "../i18n";
-import { recordedText } from "./recorded-state-text";
+import {
+  recordedStateReasonText,
+  recordedStateValueText,
+  recordedText,
+} from "./recorded-state-text";
 import "./recorded-state-facts.css";
 
 function time(value: string | null): string {
@@ -16,8 +20,9 @@ export function RecordedStateFacts({ states }: { readonly states: RecordedResour
     <p>{recordedText("boundary")}</p>
     {(["operational", "provisioning", "availability"] as const).map((axis: RecordedStateAxis) => {
       const fact = states[axis];
+      const reason = fact.reason === null ? null : recordedStateReasonText(fact.reason);
       return <div class="recorded-state-axis" data-state-axis={axis} key={axis}>
-        <div><span>{recordedText(axis)}</span><strong>{fact.value ?? recordedText("missing")}</strong></div>
+        <div><span>{recordedText(axis)}</span><strong>{recordedStateValueText(fact)}</strong></div>
         <span class="recorded-state-freshness">{recordedText("freshness")}: {recordedText(fact.freshness)}</span>
         <details><summary>{recordedText("evidence")}</summary><dl>
           <div><dt>{recordedText("source")}</dt><dd>{fact.source_path ?? recordedText("unknown")}</dd></div>
@@ -25,7 +30,10 @@ export function RecordedStateFacts({ states }: { readonly states: RecordedResour
           <div><dt>{recordedText("recorded")}</dt><dd>{time(fact.recorded_at)}</dd></div>
           <div><dt>{recordedText("completeness")}</dt><dd>{fact.completeness === null ? recordedText("unknown") : `${Math.round(fact.completeness * 100)}%`}</dd></div>
           {fact.conflicts.length > 0 && <div><dt>{recordedText("conflicts")}</dt><dd>{fact.conflicts.join(", ")}</dd></div>}
-          {fact.reason && <div><dt>{recordedText("reason")}</dt><dd>{fact.reason}</dd></div>}
+          {fact.reason && <div><dt>{recordedText("reason")}</dt><dd>
+            {reason === null ? null : <><span>{reason}</span>{" "}</>}
+            <code>{fact.reason}</code>
+          </dd></div>}
         </dl></details>
       </div>;
     })}
