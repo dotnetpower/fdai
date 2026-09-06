@@ -376,6 +376,8 @@ describe("durable conversation hydration", () => {
     expect(shouldHydrateServerTurns(false, 0)).toBe(false);
     expect(shouldHydrateServerTurns(true, 0)).toBe(true);
     expect(shouldHydrateServerTurns(true, 1)).toBe(false);
+    expect(shouldHydrateServerTurns(true, 1, true)).toBe(true);
+    expect(shouldHydrateServerTurns(false, 1, true)).toBe(false);
   });
 
   it("rebuilds navigation for legacy and stable server conversations", () => {

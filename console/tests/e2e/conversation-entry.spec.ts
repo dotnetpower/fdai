@@ -212,6 +212,70 @@ for (const { locale, catalog } of [{ locale: "en", catalog: en }, { locale: "ko"
     expect(requests[1]?.view_context).not.toHaveProperty("routeId");
   });
 
+  test(`recovers ${locale} stored answers when cache contains only the question`, async ({ page }) => {
+    const answer = locale === "ko" ? "저장된 비교 답변입니다." : "This is the stored comparison.";
+    const adaptive = {
+      answer, role_agent: "Bragi", quality_status: "limited", refinements: 1,
+      execution_authority: false,
+      goals: [{
+        goal_id: "explain", kind: "knowledge", required: true,
+        status: "answered", evidence_refs: [], limitation: null,
+      }],
+    };
+    const requests = await openConsole(page, locale, (request) => ({
+      v: 1, seq: 1, revision: 0, request_id: request.request_id,
+      status: "advisory_response", source: "semantic-advisory-response",
+      answer, adaptive_answer: adaptive, execution_authority: false,
+    }));
+    await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+    await page.getByRole("button", {
+      name: catalog.deck.generalStarters.compare.label, exact: true,
+    }).click();
+    await expect(page.getByText(answer, { exact: true })).toBeVisible();
+    await page.locator(".deck-header-history").click();
+    const savedTitle = await page.locator(
+      ".deck-conversation-select[aria-current='true'] .deck-conversation-title",
+    ).innerText();
+    await page.reload();
+    const cached = await page.evaluate((text) => {
+      const key = Object.keys(localStorage).find((name) =>
+        name.startsWith("fdai.deck.transcript.v1") &&
+        (localStorage.getItem(name) ?? "").includes(text));
+      if (!key) throw new Error("Expected isolated cached transcript");
+      const turns = JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{
+        id: string; role: string; text: string; recordedAt: string;
+      }>;
+      localStorage.setItem(key, JSON.stringify(turns.filter((turn) => turn.role === "operator")));
+      return turns;
+    }, answer);
+    let recoveryReads = 0;
+    await page.route("**/me/conversations/*/turns?**", async (route) => {
+      recoveryReads += 1;
+      const pathname = new URL(route.request().url()).pathname;
+      const conversationId = decodeURIComponent(pathname.split("/").at(-2) ?? "");
+      await route.fulfill({ json: { turns: cached.map((turn, index) => ({
+        turn_id: turn.id, conversation_id: conversationId, turn_index: index,
+        role: turn.role === "operator" ? "operator" : "assistant",
+        content: turn.text, recorded_at: turn.recordedAt,
+        metadata: turn.role === "operator" ? {} : {
+          source: "semantic-advisory-response",
+          replay_payload: JSON.stringify({
+            status: "advisory_response", source: "semantic-advisory-response",
+            answer, adaptive_answer: adaptive, execution_authority: false,
+          }),
+        },
+      })) } });
+    });
+    await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+    await page.locator(".deck-header-history").click();
+    await page.locator(".deck-conversation-select").filter({
+      has: page.getByText(savedTitle, { exact: true }),
+    }).click();
+    await expect(page.getByText(answer, { exact: true })).toBeVisible();
+    expect(recoveryReads).toBeGreaterThan(0);
+    expect(requests).toHaveLength(1);
+  });
+
   for (const [key, starter] of Object.entries(catalog.deck.generalStarters)) {
     test(`sends ${locale} ${key} starter immediately through normal submission`, async ({ page }) => {
       const requests = await openConsole(page, locale);
