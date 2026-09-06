@@ -46,9 +46,9 @@ Two Terraform layers plus a runner VM.
 - ops resource group + VNet with `snet-runner` + `snet-pe` subnets
 - state Storage account (private) + blob private endpoint +
   `privatelink.blob.core.windows.net` private DNS zone
-- runner VM (Ubuntu, `Standard_B1s` or `B2s`, system managed
-  identity, **no public IP**), cloud-init installs Terraform + Azure
-  CLI + GitHub Actions runner
+- runner VM (Ubuntu, sustained `Standard_D4ds_v5`, stable deploy UAMI,
+  **no public IP**) with a local `ResourceDisk` ephemeral OS disk;
+  cloud-init installs Terraform + Azure CLI + GitHub Actions runner
 - Runner MI role assignments:
   - **Contributor** + **User Access Administrator** on the app RG
     (UAA is required to create role assignments during the app
@@ -89,18 +89,24 @@ Two Terraform layers plus a runner VM.
 
 ## Runner Lifecycle
 
-- Runner VM stays running only while a deploy is active. To save
-  cost, deallocate when idle:
+- Inspect `storageProfile.osDisk.diffDiskSettings.option` before changing power state.
+  The reviewed `Local` ephemeral runner **must remain allocated** because deallocation,
+  redeploy, host movement, or auto-shutdown resets its OS and GitHub registration.
+- An allocated ephemeral runner can be powered off when every registered slot is idle.
+  This preserves the local disk but does not stop compute billing:
   ```
-  az vm deallocate -g <ops-rg> -n <runner-vm-name>
+  az vm stop -g <ops-rg> -n <runner-vm-name>
   ```
-- Start it before a CI run:
+- A managed-OS runner may be deallocated only after the storage-posture check confirms
+  that it is not the reviewed ephemeral profile.
+- Start a powered-off runner before a CI run:
   ```
   az vm start -g <ops-rg> -n <runner-vm-name>
   ```
 - The VM registers one to five independent systemd runner slots labeled
-  `self-hosted,fdai-deploy`. Slots use separate work directories and the same system MI, so
-  service-specific concurrency groups can run in parallel without changing the Azure principal.
+  `self-hosted,fdai-deploy`. Slots use separate work directories and the same stable deploy UAMI.
+  Service plans and read-only checks can run in parallel. Service apply and state-migration runs
+  serialize per environment so peer-isolation evidence always has one writer.
 
 ## Standard Deploy Flow
 
@@ -117,7 +123,7 @@ Two Terraform layers plus a runner VM.
    profiles are present (default + a customer profile under
    `$HOME/.azure-customer`), check the customer one with
    `AZURE_CONFIG_DIR=$HOME/.azure-customer az account show`.
-3. **Start the runner** if deallocated.
+3. **Start the runner** if powered off.
 4. **Plan-only run**:
    ```
    gh workflow run deploy-dev.yml
@@ -134,8 +140,9 @@ Two Terraform layers plus a runner VM.
   existing SPA redirect URIs, and adds the deployed HTTPS origin. A missing
   variable, tenant mismatch, or Graph authorization failure blocks the run.
 7. **Post-apply audit**: read the runner's audit log (via
-   `az vm run-command` + `journalctl`); confirm no secrets landed
-   in logs; deallocate the runner.
+   `az vm run-command` + `journalctl`) and confirm no secrets landed
+   in logs. When all slots are idle, power off the reviewed ephemeral
+   runner without deallocation. Deallocate only a verified managed-OS profile.
 
 ## Secret Hygiene
 

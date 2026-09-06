@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 82ff2bffb785e2eea580929cc83dda836fd5cbf4
+translation_source_sha: 205711cd37d36c67da7e8975931bfa50fd66f085
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -77,9 +77,9 @@ GitHub에 등록된 실행기가 GitHub, 관리 평면, 신원 평면에 도달�
   `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트 로 프론트;
 - 현재 및 후보 실행기 VM과 수명 주기가 분리된 **안정적인 배포용 사용자 할당 Managed Identity(UAMI)**. Bootstrap은 정확한 역할 매니페스트를 소유하며 client ID와 principal ID를 별도로 출력합니다.
 - 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
-  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 작업 디렉터리는 분리하고 안정적인 UAMI를 공유합니다. 이 신원은 앱 RG에
-  `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에
-  `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
+  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다.
+  UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`,
+  상태 계정에 `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션
 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을

@@ -121,12 +121,13 @@ plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement
 managed OS disk. A mismatch fails the workflow with the blue/green recovery action; the check never
 changes the VM or fights a tenant policy in place.
 
-Independent service workflows use a concurrency group per service and environment. Set
-`runner_parallelism` from 1 through 5, or run
+Independent service plans use a concurrency group per service and environment. Mutating apply and
+state-migration runs use one environment-wide concurrency group so two service writers cannot make
+peer-isolation evidence ambiguous. Set `runner_parallelism` from 1 through 5, or run
 `register-runner.sh <owner>/<repo> <ops-rg> <vm> <user> <parallelism>`, to register that many
 isolated runner slots on the same VM. The slots have distinct runner names and work directories
-but share the VM managed identity, so a protected plan and its exact apply keep one Azure
-principal. Keep the default of 1 unless measured workflow concurrency justifies more slots. Review
+but share the VM managed identity, so parallel plans and nonmutating checks keep one Azure
+principal. Keep the default of 1 unless measured read-only concurrency justifies more slots. Review
 CPU and memory contention before increasing `runner_parallelism`.
 
 ## Configuration tests

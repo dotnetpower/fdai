@@ -99,7 +99,9 @@ def test_workflow_has_closed_five_service_input_and_runner() -> None:
     for service in services:
         assert f"          - {service}\n" in _WORKFLOW
     assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in _WORKFLOW
-    assert "group: service-deploy-${{ inputs.service }}-${{ inputs.environment }}" in _WORKFLOW
+    assert "format('service-apply-{0}', inputs.environment)" in _WORKFLOW
+    assert "format('service-deploy-{0}-{1}', inputs.service, inputs.environment)" in _WORKFLOW
+    assert "(inputs.apply || inputs.migrate_state)" in _WORKFLOW
 
 
 def test_legacy_platform_cannot_recreate_migrated_core() -> None:

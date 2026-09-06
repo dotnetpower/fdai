@@ -87,7 +87,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: service-deploy-${{ inputs.service }}-${{ inputs.environment }}
+  group: ${{ (inputs.apply || inputs.migrate_state) && format('service-apply-{0}', inputs.environment) || format('service-deploy-{0}-{1}', inputs.service, inputs.environment) }}
   cancel-in-progress: false
 
 jobs:

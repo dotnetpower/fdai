@@ -73,9 +73,9 @@ jumpbox rather than a registered runner, and the tenant supplies its own approve
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
 - a **stable deploy user-assigned managed identity (UAMI)** whose lifecycle is independent of the current and candidate runner VMs. Bootstrap owns its exact role manifest and outputs separate client and principal IDs;
 - a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D4ds_v5` compute and a `Local` `ResourceDisk` ephemeral OS.
-  VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Each slot has a separate work directory but shares the stable UAMI, which holds
-  `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG,
-  `Storage Blob Data Contributor` on state, and only subscription-scoped `EventGrid Contributor`.
+  VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Slots share the stable UAMI. Plans and read-only checks use service-specific locks, while apply and state migration share one environment writer lock.
+  The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
+  the ops RG, `Storage Blob Data Contributor` on state, and only subscription-scoped `EventGrid Contributor`.
   During migration, the current VM keeps its system identity alongside the UAMI, but workflows never select an identity implicitly. Each run clears the Azure CLI account cache, logs in with the configured UAMI client ID, and proves the exact repository-configured subscription, tenant, and ARM token `oid` before any storage, plan, or apply step.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so
   root-owned action residue cannot block the exact-commit clean step. That step creates the Azure
