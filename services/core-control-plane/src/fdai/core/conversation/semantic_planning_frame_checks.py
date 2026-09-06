@@ -131,10 +131,12 @@ from .semantic_planning_frame import (
 from .semantic_planning_frame import (
     resource_target_clarification as _resource_target_clarification,
 )
+from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_frame_normalization import (
     build_inventory_document_frame as _build_inventory_document_frame,
 )
 from .semantic_planning_models import (
+    ClarificationRequirement,
     SemanticFrameProposal,
     SemanticOutputShape,
     SemanticPlanningDisposition,
@@ -161,6 +163,40 @@ def deterministic_pre_frame_outcome(
 ) -> SemanticPlanningOutcome | None:
     """Return deterministic short-circuit outcomes before model frame proposal."""
 
+    if (
+        judgment is not None
+        and judgment.primary_intent
+        in {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
+        and judgment.action_posture == "advise_only"
+        and not judgment.ambiguous
+        and not judgment.unresolved_terms
+        and not any(target.kind in {"resource", "resource_id"} for target in judgment.targets)
+    ):
+        output_shape = (
+            SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
+            if judgment.primary_intent == "query.gateway_diagnostic_evidence"
+            else SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES
+        )
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=output_shape,
+            evidence_requirements=(),
+            unresolved_terms=("resource_identity",),
+            clarification_requirements=(ClarificationRequirement.RESOURCE_IDENTITY,),
+            clarification=_clarification(("resource_identity",)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
     incident_metric_comparison = _build_bound_incident_metric_comparison_frame(
         judgment,
         bound_incident=bound_incident,

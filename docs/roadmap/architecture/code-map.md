@@ -56,6 +56,8 @@ Core conversation routing runs compact preflight on the first turn, bypasses ada
 planning for explicit operational requests, and narrows accepted inventory, configuration, and
 gateway intents to reviewed descriptor slices. Azure semantic planning selects the dedicated
 operational frame prompt and enforces the complete 64 KiB request ceiling.
+Configuration and gateway comparisons without a source-grounded Resource name or id stop with
+typed `resource_identity` clarification before frame-model or provider I/O.
 See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
 for scenario acceptance, checkpoint evidence, and the unfinished live/hardening qualification.
 

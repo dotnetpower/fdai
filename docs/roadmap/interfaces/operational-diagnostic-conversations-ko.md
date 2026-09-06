@@ -1,7 +1,7 @@
 ---
 title: 운영 진단 대화
 translation_of: operational-diagnostic-conversations.md
-translation_source_sha: c17db2071bb567a0fd76bf3447a1027f85069abd
+translation_source_sha: b72b1327b6858558918d86141cbc959e666bc191
 translation_revised: 2026-09-07
 ---
 
@@ -68,6 +68,8 @@ translation_revised: 2026-09-07
 - **모호성:** 확인되지 않은 배포, 백엔드, 컬렉션, 표준 시간대 또는 "전후"의 의미를
   명확히 요청합니다. 해결되지 않으면 형식이 지정된 사유로 보류합니다. 이름이나 모델
   키워드로 추측하지 않습니다.
+  원본 발화에 근거한 Resource 이름 또는 ID가 없는 구성이나 게이트웨이 비교는 frame 모델이나
+  프로바이더 I/O 전에 `resource_identity` 명확화를 반환합니다.
 - **정확한 시간:** 절대 시작/종료 시각, 표준 시간대, 집계 구간, 경계의 의미를 기록합니다.
   유효 시각, 이벤트 시각, 관찰 시각, 기록 시각을 구분합니다. 정렬된 동일 길이 구간을
   비교하고 오래된 샘플, 누락, 늦게 도착한 관찰, 기준 구간 선택을 밝힙니다.
