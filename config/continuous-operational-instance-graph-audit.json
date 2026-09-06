@@ -2,6 +2,42 @@
   "schema_version": "1.0.0",
   "package_id": "OI-01",
   "design_owner": "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+  "operational_validation": {
+    "state": "unavailable",
+    "source_revision": "344d7cbf56ede974cea97aa5a742fb203494cf44",
+    "required_ci_run_id": 33999441973,
+    "runtime_image_attestation_run_id": 33999441974,
+    "campaign_request_run_id": 33999842911,
+    "campaign_run_id": 33999858271,
+    "passed_scenarios": [
+      "archive_outage",
+      "archive_restore",
+      "bounded_storage",
+      "database_recovery",
+      "database_restart",
+      "delete_recreate",
+      "duplicate_delivery",
+      "hold_enforcement",
+      "provider_failure",
+      "safe_partition_purge",
+      "schema_replay",
+      "warm_replay"
+    ],
+    "unavailable_scenarios": {
+      "late_observation": [
+        "prior_phase_evidence_unavailable"
+      ]
+    },
+    "reason_codes": [
+      "evidence_not_deterministic_complete",
+      "ontology_release_projection_conflicted",
+      "scenario_evidence_digests_missing",
+      "scenario_evidence_unavailable"
+    ],
+    "operationally_validated": false,
+    "receipt_digest": null,
+    "private_artifact_digest": null
+  },
   "stages": [
     {
       "id": "provider-push-ingress",
