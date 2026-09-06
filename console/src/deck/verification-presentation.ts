@@ -4,6 +4,7 @@ import type { AnswerVerification } from "./backend";
 export type VerificationIssueKind =
   | "contextRequired"
   | "modelIdentityUnavailable"
+  | "plannerUnavailable"
   | "sourceUnavailable"
   | "invalidQuery"
   | "visionUnverified"
@@ -30,6 +31,13 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
   const reason = reasonCode?.toLowerCase() ?? "";
   if (reason === "semantic_model_identity_unavailable") {
     return "modelIdentityUnavailable";
+  }
+  if (
+    reason === "semantic_frame_unavailable" ||
+    reason === "semantic_planning_failed" ||
+    reason === "semantic_runtime_unavailable"
+  ) {
+    return "plannerUnavailable";
   }
   if (reason === "vision_interpretation_unverified") {
     return "visionUnverified";

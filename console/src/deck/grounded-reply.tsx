@@ -465,11 +465,6 @@ export function primaryAnswerText(
   if (verification?.status === "unverified") {
     const clarification = text.trim();
     if (
-      preservesPlannerUnavailableAnswer(verification, semanticReceipt)
-    ) {
-      return stripReasonSuffix(clarification, verification.reason_code);
-    }
-    if (
       preservesTypedEvidenceHold(verification, semanticReceipt)
     ) {
       return clarification;
@@ -495,19 +490,6 @@ function stripReasonSuffix(text: string, reason: string | null): string {
   return suffix && trimmed.endsWith(suffix)
     ? trimmed.slice(0, -suffix.length).trimEnd()
     : text;
-}
-
-function preservesPlannerUnavailableAnswer(
-  verification: AnswerVerification,
-  semanticReceipt: SemanticProjectionReceipt | undefined,
-): boolean {
-  return (
-    verification.reason_code !== "semantic_model_identity_unavailable" &&
-    semanticReceipt?.disposition === "held" &&
-    semanticReceipt.unavailable_reason === "semantic_planner_unavailable" &&
-    semanticReceipt.reason_code === verification.reason_code &&
-    semanticReceipt.execution_authority === false
-  );
 }
 
 function preservesTypedEvidenceHold(

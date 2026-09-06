@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4285197aaa78337eb7d1fa7331540dc9b499dd6c
+translation_source_sha: 19205f683161cb1b93ff6bd60f90ee65bf28e47f
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -475,7 +475,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console Process 컨트롤 | 엄격한 principal 범위 Process 및 전환 디코더, 현지화된 현재 단계 요구 사항, 리비전 결속 재개/취소/재시도 요청, 명시적인 성공 아님 수락 | [컨트롤 디코더](../../../console/src/routes/processes.control.ts), [컨트롤 패널](../../../console/src/routes/process-control-panel.tsx), [요청 클라이언트](../../../console/src/routes/processes.transitions.ts), [브라우저 계약](../../../console/tests/e2e/workflow-process-transitions.spec.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
-| FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트 및 알림 레이블은 기본 이중 언어 카탈로그에 둡니다. 경로별 Teams 통합 및 선택적 Cost Governance 레이블은 지연 로드되는 경로 카탈로그에 유지하므로 전문 지침이 진입 번들 예산을 사용하거나 패키지를 활성화하지 않습니다. 기본 카탈로그를 변경하면 question bank 다이제스트를 다시 생성합니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [경로 카탈로그](../../../console/src/routes/i18n/) |
+| FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트, 알림 및 플래너 사용 불가 복구 레이블은 기본 이중 언어 카탈로그에 둡니다. 경로별 Teams 통합 및 선택적 Cost Governance 레이블은 지연 로드되는 경로 카탈로그에 유지하므로 전문 지침이 진입 번들 예산을 사용하거나 패키지를 활성화하지 않습니다. 기본 카탈로그를 변경하면 question bank 다이제스트를 다시 생성합니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [경로 카탈로그](../../../console/src/routes/i18n/) |
 | FDAI Console 경로 로드 | 이름이 지정된 경로 내보내기는 하나의 형식 안전 지연 로드 어댑터를 사용하고, 공유 경로 모듈은 하나의 로더를 재사용합니다. 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 경로 격리를 약화하지 않으면서 원시 크기와 gzip 예산을 모두 적용합니다. | [패널 레지스트리](../../../console/src/panels.tsx), [진입 번들 검사](../../../console/scripts/check-entry-bundle.mjs) |
 | FDAI Console Dashboard v2와 기록된 Resource 상태 | 별도 리소스 중심 `/dashboard-v2` 경로에 표시량이 제한된 허니콤, 하나의 활성 미리 보기, 유형 자동완성, 기존 온톨로지 인스턴스 읽기 구성요소의 운영, 프로비저닝, 가용성 기록을 함께 제공합니다. 서버 페이지는 인벤토리 세대를 커밋된 온톨로지 매니페스트에 결속하고, 불변 스냅샷 시각으로 검토된 공급자 상태 경로를 설명하며, 서로 다른 알 수 없음 원인을 유지합니다. Dashboard와 Instances 화면은 공통 디코더와 상태 표시 구성요소를 사용합니다. 기존 Dashboard와 Cost Governance 경로는 유지하며 인증된 런타임 검증은 별도로 남아 있습니다. | [경로](../../../console/src/routes/dashboard-v2.tsx), [공통 디코더](../../../console/src/recorded-resource-state.ts), [상태 API](../../../services/operator-service/src/fdai_operator_service/families/operations/instance_states.py), [기록 상태 설계](../interfaces/recorded-resource-state-ko.md), [적용 기록](../../roadmap-implementation/interfaces/console-operations.md) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |

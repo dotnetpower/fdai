@@ -2691,6 +2691,7 @@
       "clarificationPrompt": {
         "contextRequired": "Which target do you mean? Name the resource, incident, or time range to continue.",
         "modelIdentityUnavailable": "Model authentication is unavailable. Restore the configured Azure identity, then retry this question.",
+        "plannerUnavailable": "Semantic planning is unavailable. Restore model connectivity or the semantic runtime, then retry this question.",
         "sourceUnavailable": "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
         "invalidQuery": "How should I narrow this read? Specify the target and the condition to check.",
         "visionUnverified": "What part of the image should I verify first? Point to the object or value that matters.",
@@ -2713,6 +2714,7 @@
         "corrected": "Corrected",
         "contextRequired": "Context required",
         "modelIdentityUnavailable": "Model authentication unavailable",
+        "plannerUnavailable": "Semantic planning unavailable",
         "sourceUnavailable": "Source unavailable",
         "invalidQuery": "Invalid query",
         "visionUnverified": "Image interpretation",
@@ -2731,6 +2733,7 @@
         "consistentNoClaims": "Consistent with {scope} (no structured claims)",
         "contextRequired": "Required conversation context is missing{claims}",
         "modelIdentityUnavailable": "The configured model identity could not be verified{claims}",
+        "plannerUnavailable": "The semantic planner did not produce a verified read plan{claims}",
         "sourceUnavailable": "An authoritative source is unavailable{claims}",
         "invalidQuery": "The read query failed strict validation{claims}",
         "visionUnverified": "Image interpretation is grounded in the current attachment but is not independently verified",

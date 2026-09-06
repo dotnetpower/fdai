@@ -29,6 +29,7 @@ describe("verification presentation", () => {
       "modelIdentityUnavailable",
       "Model authentication unavailable",
     ],
+    ["semantic_frame_unavailable", "plannerUnavailable", "Semantic planning unavailable"],
     ["capability_invalid_arguments", "invalidQuery", "Invalid query"],
     ["provider_unavailable", "sourceUnavailable", "Source unavailable"],
     ["screen_claim_mismatch", "unsupportedClaim", "Unsupported claim"],
@@ -52,7 +53,7 @@ describe("verification presentation", () => {
     ["semantic_evidence_held", "sourceUnavailable"],
     ["semantic_deadline_exceeded", "sourceUnavailable"],
     ["semantic_result_store_unavailable", "sourceUnavailable"],
-    ["semantic_runtime_unavailable", "sourceUnavailable"],
+    ["semantic_runtime_unavailable", "plannerUnavailable"],
     ["semantic_transport_unavailable", "sourceUnavailable"],
   ] as const)("maps conversation hold %s to %s", (reason, kind) => {
     expect(verificationIssueKind(reason)).toBe(kind);

@@ -94,11 +94,11 @@ describe("grounded reply presentation", () => {
     const unavailable = {
       ...verification("server_read_model"),
       status: "unverified" as const,
-      reason_code: "semantic_runtime_unavailable",
+      reason_code: "provider_unavailable",
     };
 
     expect(primaryAnswerText(
-      "Verified evidence is unavailable. (semantic_runtime_unavailable)",
+      "Verified evidence is unavailable. (provider_unavailable)",
       unavailable,
     )).toBe(
       "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
@@ -114,7 +114,7 @@ describe("grounded reply presentation", () => {
     }
   });
 
-  it("preserves the server's actionable planner-unavailable hold", () => {
+  it("renders an actionable planner-unavailable recovery step", () => {
     const unavailable = {
       ...verification("server_read_model"),
       status: "unverified" as const,
@@ -136,11 +136,7 @@ describe("grounded reply presentation", () => {
     ].join("\n");
 
     expect(primaryAnswerText(answer, unavailable, receipt)).toBe(
-      [
-        "Confirmed status: the semantic runtime is unavailable.",
-        "Safe next step: restore the required FDAI component, then retry.",
-        "This authorizes no change.",
-      ].join("\n"),
+      "Semantic planning is unavailable. Restore model connectivity or the semantic runtime, then retry this question.",
     );
   });
 
