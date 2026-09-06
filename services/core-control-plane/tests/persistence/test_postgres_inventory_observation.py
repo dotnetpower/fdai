@@ -13,9 +13,11 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
     _append_records,
-    _projection_freshness_ceiling,
-    _projection_replay_drops,
-    _projection_replay_observation,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_replay import (
+    build_projection_replay_observation,
+    projection_freshness_ceiling,
+    projection_replay_drops,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
@@ -312,7 +314,7 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
         ],
     }
 
-    observation = _projection_replay_observation(
+    observation = build_projection_replay_observation(
         generation=generation,
         recorded_at=NOW,
         metadata=metadata,
@@ -326,7 +328,7 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
     assert observation.links[0].observation_metadata == link_metadata
     assert observation.relationship_drops == ()
     assert (
-        _projection_freshness_ceiling(
+        projection_freshness_ceiling(
             {
                 "object_content": [
                     {
@@ -366,7 +368,7 @@ def _projection_record(generation: str, resource_id: str) -> NormalizedInventory
 
 
 def test_projection_replay_recovers_legacy_verifier_drop_counts() -> None:
-    drops = _projection_replay_drops(
+    drops = projection_replay_drops(
         {
             "relationship_drop_classifications": [],
             "relationship_coverage": {

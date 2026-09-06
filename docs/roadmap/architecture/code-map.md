@@ -91,13 +91,11 @@ Semantic resource-health planning now keeps collection health, exact resource id
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves
 provider completeness and reason codes, while the Operator presentation and Console dashboard keep
 partial or unavailable observations visible instead of substituting generic inventory rows.
-Inventory change ingestion now uses the typed `inventory_observation.py` contract and dual-writes
-the Core-owned append-only PostgreSQL observation journal while the existing overlay remains the
-current read path. Journal replay applies explicit property masks, keeps operation status separate
-from resource state, and exposes journal and ontology projection watermarks to source-completeness
-checks. `inventory_projection_replay_cli.py` can migrate the same active generation to the exact
-source catalog release only when the current manifest, reconstructed content, relationship coverage,
-freshness ceiling, and watermarks remain identical.
+Inventory change ingestion uses the typed `inventory_observation.py` contract and dual-writes the
+append-only PostgreSQL journal while the overlay remains the current read path. Journal replay keeps
+operation status separate and exposes projection watermarks to completeness checks. The bounded
+`postgres_inventory_projection_replay.py` helper lets `inventory_projection_replay_cli.py` migrate
+the active generation only when its content, coverage, freshness, and watermarks remain identical.
 `operational_history_lifecycle.py` and `operational_history_certification.py` own incarnation,
 partition, correction, checkpoint, pin, retention, pressure, recovery, and pinned-revision
 certification semantics. Delivery adapters bind those records to PostgreSQL, verified private Blob

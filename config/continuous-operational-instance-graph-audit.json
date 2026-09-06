@@ -274,6 +274,11 @@
         },
         {
           "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_projection_replay.py",
+          "symbol": "build_projection_replay_observation"
+        },
+        {
+          "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology_source_coverage.py",
           "symbol": "resource_graph_source_coverage"
         }

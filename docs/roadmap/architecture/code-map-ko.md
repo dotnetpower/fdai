@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 148bfeaad84621784d5278357b581276f953798e
+translation_source_sha: 53849ee3bed272db3aac21a09e92e9d9b1084e5b
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -92,13 +92,11 @@ Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
 코드를 보존하며, Operator 표현 및 콘솔 대시보드는 일반 인벤토리 행으로 대체하지 않고
 부분적이거나 사용할 수 없는 관측을 표시합니다.
-Inventory 변경 수집은 이제 타입이 지정된 `inventory_observation.py` 계약을 사용하고, 기존
-overlay를 현재 조회 경로로 유지하면서 Core 소유의 추가 전용 PostgreSQL 관측 원장에 이중
-기록합니다. 원장 replay는 명시적인 속성 마스크를 적용하고 작업 상태를 리소스 상태와 분리하며,
-원본 완전성 검사에 원장 및 온톨로지 변환 결과 watermark를 제공합니다.
-`inventory_projection_replay_cli.py`는 current manifest, 재구성 content, 관계 coverage, freshness
-ceiling 및 watermark가 동일할 때만 같은 active generation을 정확한 source catalog release로
-migration할 수 있습니다.
+Inventory 변경 수집은 타입이 지정된 `inventory_observation.py` 계약을 사용하고 overlay를 현재
+조회 경로로 유지하면서 추가 전용 PostgreSQL 원장에 이중 기록합니다. 원장 replay는 작업 상태를
+분리하고 완전성 검사에 projection watermark를 제공합니다. 범위가 제한된
+`postgres_inventory_projection_replay.py` helper를 통해 `inventory_projection_replay_cli.py`는
+content, coverage, freshness 및 watermark가 동일할 때만 active generation을 migration합니다.
 `operational_history_lifecycle.py`와 `operational_history_certification.py`는 수명 인스턴스,
 partition, correction, checkpoint, pin, 보존, 저장소 압력, recovery 및 고정 개정 certification
 의미를 소유합니다. Delivery adapter는 이러한 레코드를 PostgreSQL, 검증된 비공개 Blob artifact,
