@@ -48,7 +48,9 @@ The semantic compilers bind these reads to declared FunctionTypes; intrinsic Obj
 IDs and endpoint-only typed-path receipts prevent a downstream backend read from using
 the carried gateway root. Azure native metric templates remain in delivery adapters.
 Operator's `document_export.py` renders the same verified inventory result, not a prior
-unrelated turn. See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
+unrelated turn. Its response envelope can contain binary documents; `t1_model_health.py`
+validates raw projection input and never treats binary or absent content as model health.
+See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
 for scenario acceptance, checkpoint evidence, and the unfinished live/hardening qualification.
 
 | Owner | Source | Tests | Distribution |
