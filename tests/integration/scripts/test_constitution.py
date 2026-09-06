@@ -50,6 +50,10 @@ def test_agent_contract_requires_local_first_commits() -> None:
 
     assert "every agent-authored commit MUST originate in the" in normalized
     assert "create a remote-only commit" in normalized
+    assert "create_or_update_file" in normalized
+    assert "push_files" in normalized
+    assert "MUST NOT substitute for the local commit" in normalized
+    assert "only after the local commit exists" in normalized
     assert "verify the remote ref resolves to the expected local commit" in normalized
 
 

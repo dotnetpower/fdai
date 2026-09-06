@@ -72,7 +72,9 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    deterministic preflight. Load the [`commit-readiness` skill](skills/commit-readiness/SKILL.md)
    only after a hook failure or when one task-owned path mixes unrelated edits. Git, hook, signing,
    or push failures MUST NOT interrupt unfinished implementation. Never create a remote-only commit.
-   Push only when requested, then verify the remote ref resolves to the expected local commit.
+   GitHub content APIs such as `create_or_update_file` and `push_files`, and cloud coding agents,
+   MUST NOT substitute for the local commit. Push only when requested and only after the local
+   commit exists, then verify the remote ref resolves to the expected local commit.
 6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
    post-validation phase. Deployment and release target a pushed SHA with required CI and protected
    preflight; local validation receipts never grant authority.
