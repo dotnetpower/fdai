@@ -94,11 +94,9 @@ public import, and the general wiring module stays below the enforced 800-line c
 Governed conversational document retrieval spans the semantic judgment and planning modules,
 `core/knowledge/governed_document_reader.py`, the read-only
 `query.governed_documents` FunctionType, Operator identity projection, and Console evidence
-decoding. Document metadata remains ontology-governed, while excerpt text stays untrusted and
-cannot grant instruction or execution authority. Required retrieval fails closed on incomplete
-coverage; optional retrieval remains partial unless independent operational evidence completes.
-The governed document reader and its PostgreSQL adapter use the document-ingestion design route;
-they do not add document-ingestion context to every ontology query edit.
+decoding. Document metadata remains ontology-governed, while excerpt text stays untrusted and cannot
+grant authority. Required retrieval fails closed on incomplete coverage; optional retrieval remains
+partial unless evidence completes. Its reader uses the document-ingestion route without widening every ontology edit.
 The PostgreSQL adapter reports `index_completeness_unverified` until a complete provider-owned
 index generation is available. Focused contract tests cover every excerpt, collection, authorization, input, and reader-bound failure without granting execution authority. Content and access-scope digests require exact lowercase hexadecimal SHA-256 identities, not matching length alone. Projection regressions keep the immutable source digest separate from the exact redacted, escaped, and display-truncated representation digest.
 
@@ -559,10 +557,8 @@ execution handler.
 Interactive conversation planning uses one schema-validated semantic judgment before capability
 selection. When that boundary accepts an unambiguous collection-level Resource state,
 Resource Health, or Service Health function that is present in the principal-scoped manifest, Core
-builds and verifies the frame deterministically instead of issuing a second frame-model request.
-`semantic_judgment_rejections.py` owns the stable rejection vocabulary that is safe to place in
-content-free telemetry, keeping the judgment boundary below its structural limit.
-The Operator bridge still persists the request before accepting its projection. A missing request
+builds the frame without a second model request. `semantic_judgment_rejections.py` owns the stable
+content-free rejection vocabulary and keeps the boundary below its limit. The Operator bridge persists the request before accepting its projection. A missing request
 can retry as a bounded visibility race, while a permanent projection identity conflict is
 quarantined once without churning the consumer group. Model timing includes completed judgment,
 frame, and plan calls; end-to-end turn timing remains the broader latency authority.
