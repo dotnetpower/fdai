@@ -5,12 +5,18 @@ from __future__ import annotations
 from fdai.delivery.azure.model_deployment import model_deployment_summary
 
 
-def _row(*, token_count: int, renewal_period: int = 60) -> dict[str, object]:
+def _row(
+    *,
+    token_count: int,
+    renewal_period: int = 60,
+    current_capacity: int = 50,
+) -> dict[str, object]:
     return {
         "name": "gpt-example",
         "sku": {"name": "GlobalStandard", "capacity": 50},
         "properties": {
             "provisioningState": "Succeeded",
+            "currentCapacity": current_capacity,
             "model": {
                 "format": "OpenAI",
                 "name": "gpt-5.4",
@@ -42,6 +48,21 @@ def test_changed_provider_token_rate_changes_observed_tpm() -> None:
 
     assert before["capacity_tpm"] == 50_000
     assert after["capacity_tpm"] == 60_000
+
+
+def test_capacity_transition_separates_requested_and_current_units() -> None:
+    summary = model_deployment_summary(_row(token_count=50_000, current_capacity=40))
+
+    assert summary["capacity_units"] == 50
+    assert summary["current_capacity_units"] == 40
+    assert summary["capacity_transitioning"] is True
+
+
+def test_equal_requested_and_current_capacity_is_not_transitioning() -> None:
+    summary = model_deployment_summary(_row(token_count=50_000))
+
+    assert summary["current_capacity_units"] == 50
+    assert summary["capacity_transitioning"] is False
 
 
 def test_conflicting_token_rates_do_not_publish_a_tpm_value() -> None:

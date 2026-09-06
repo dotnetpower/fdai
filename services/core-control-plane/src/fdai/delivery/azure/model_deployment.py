@@ -42,11 +42,32 @@ def model_deployment_summary(row: Mapping[str, Any]) -> dict[str, object]:
     capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
     if isinstance(capacity, int) and not isinstance(capacity, bool) and capacity >= 0:
         summary["capacity_units"] = capacity
+    current_capacity = _current_capacity_units(properties)
+    if current_capacity is not None:
+        summary["current_capacity_units"] = current_capacity
+        if isinstance(capacity, int) and not isinstance(capacity, bool):
+            summary["capacity_transitioning"] = current_capacity != capacity
     capacity_tpm = _tokens_per_minute(properties)
     if capacity_tpm is not None:
         summary["capacity_tpm"] = capacity_tpm
         summary["capacity_tpm_source"] = "properties.rateLimits"
     return summary
+
+
+def _current_capacity_units(properties: object) -> int | None:
+    if not isinstance(properties, Mapping):
+        return None
+    current = properties.get("currentCapacity")
+    if not isinstance(current, int) or isinstance(current, bool):
+        scale_settings = properties.get("scaleSettings")
+        current = (
+            scale_settings.get("activeCapacity") if isinstance(scale_settings, Mapping) else None
+        )
+    return (
+        current
+        if isinstance(current, int) and not isinstance(current, bool) and current >= 0
+        else None
+    )
 
 
 def _tokens_per_minute(properties: object) -> int | None:

@@ -100,8 +100,10 @@ remain explicit, and the observation grants no deployment, inference, approval, 
 authority.
 
 Each deployment instance preserves the deployment name, model name, model version, model format,
-SKU name, provider capacity units, and provisioning state as readable facts while retaining the
-bounded raw provider bag for evidence review. When the provider returns one unambiguous token
+SKU name, requested provider capacity units, current provider capacity units, transition state, and
+provisioning state as readable facts while retaining the bounded raw provider bag for evidence
+review. `sku.capacity` remains the requested value; `properties.currentCapacity`, or the legacy
+active-capacity field, supplies the current value. When the provider returns one unambiguous token
 rate-limit rule, FDAI normalizes its count and renewal period to `capacity_tpm` and records
 `properties.rateLimits` as the source. Missing, malformed, fractional, or conflicting token rules
 leave TPM unknown. FDAI never converts `sku.capacity` into TPM.

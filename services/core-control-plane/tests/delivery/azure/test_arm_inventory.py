@@ -93,6 +93,7 @@ async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
                         "sku": {"name": "GlobalStandard", "capacity": 50},
                         "properties": {
                             "provisioningState": "Succeeded",
+                            "currentCapacity": 40,
                             "rateLimits": [{"key": "token", "count": 50_000, "renewalPeriod": 60}],
                             "model": {
                                 "format": "OpenAI",
@@ -121,6 +122,8 @@ async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
     assert deployment.props["provisioning_state"] == "Succeeded"
     assert deployment.props["sku_name"] == "GlobalStandard"
     assert deployment.props["capacity_units"] == 50
+    assert deployment.props["current_capacity_units"] == 40
+    assert deployment.props["capacity_transitioning"] is True
     assert deployment.props["capacity_tpm"] == 50_000
     assert deployment.props["capacity_tpm_source"] == "properties.rateLimits"
     assert deployment.props["parent_id"].endswith("microsoft.cognitiveservices/accounts/ai-example")

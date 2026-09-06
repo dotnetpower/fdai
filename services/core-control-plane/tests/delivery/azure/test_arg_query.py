@@ -249,6 +249,7 @@ async def test_llm_model_deployment_projects_model_state_and_endpoint_containmen
                             "sku": {"name": "GlobalStandard", "capacity": 50},
                             "properties": {
                                 "provisioningState": "Succeeded",
+                                "currentCapacity": 50,
                                 "rateLimits": [
                                     {"key": "token", "count": 50_000, "renewalPeriod": 60}
                                 ],
@@ -283,6 +284,8 @@ async def test_llm_model_deployment_projects_model_state_and_endpoint_containmen
     assert deployment.props["provisioning_state"] == "Succeeded"
     assert deployment.props["sku_name"] == "GlobalStandard"
     assert deployment.props["capacity_units"] == 50
+    assert deployment.props["current_capacity_units"] == 50
+    assert deployment.props["capacity_transitioning"] is False
     assert deployment.props["capacity_tpm"] == 50_000
     assert deployment.props["capacity_tpm_source"] == "properties.rateLimits"
     assert deployment.props["properties"]["provisioningState"] == "Succeeded"

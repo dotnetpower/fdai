@@ -23,6 +23,8 @@ def test_model_deployment_summary_is_readable_without_raw_provider_bags() -> Non
                     "provisioning_state": "Succeeded",
                     "sku_name": "GlobalStandard",
                     "capacity_units": 50,
+                    "current_capacity_units": 40,
+                    "capacity_transitioning": True,
                     "capacity_tpm": 50_000,
                     "capacity_tpm_source": "properties.rateLimits",
                     "properties": {"provider_internal": "not-presented"},
@@ -41,11 +43,13 @@ def test_model_deployment_summary_is_readable_without_raw_provider_bags() -> Non
         "model_format": "OpenAI",
         "sku_name": "GlobalStandard",
         "capacity_units": 50,
+        "current_capacity_units": 40,
+        "capacity_transitioning": True,
         "capacity_tpm": 50_000,
         "capacity_tpm_source": "properties.rateLimits",
         "type": "llm-model-deployment",
     }
-    assert ordered_columns(tuple(row))[:10] == [
+    assert ordered_columns(tuple(row))[:12] == [
         "name",
         "provisioning_state",
         "model_name",
@@ -53,6 +57,8 @@ def test_model_deployment_summary_is_readable_without_raw_provider_bags() -> Non
         "model_format",
         "sku_name",
         "capacity_units",
+        "current_capacity_units",
+        "capacity_transitioning",
         "capacity_tpm",
         "capacity_tpm_source",
         "type",
