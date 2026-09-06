@@ -75,6 +75,13 @@ explanation usable; missing required operational evidence remains an explicit he
 Environment examples use only the ordinary principal-scoped verified read runtime. A pair of
 versions alone is not proof of blue-green deployment, and configuration is not proof of execution.
 
+The `1.6.0` request and projection contracts use `version-negotiated` compatibility, not
+`additive-ignore-unknown`: conditional relationship and advisory evidence checks stay enforced.
+The legacy translator and its matrix proof cover generic non-semantic envelopes only; semantic
+requests and advisory results cannot be downgraded. Upgrade accepting consumers before enabling
+these payloads. Offline compatibility fixtures exercise the declared producer version and do not
+replace live rollout evidence.
+
 The common conversation policy, exactly one server-owned Pantheon role, locale, and verified
 relationship context select bounded stage-specific prompt layers. User prose, prior turns,
 attachments, and tool output remain data rather than system instructions. Mapping a human to an

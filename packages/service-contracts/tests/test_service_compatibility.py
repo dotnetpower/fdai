@@ -211,6 +211,35 @@ def test_matrix_covers_every_release_pair_for_every_contract() -> None:
     ]
 
 
+@pytest.mark.parametrize("contract_id", ["operator-core-request", "core-operator-projection"])
+def test_adaptive_wire_negotiates_versions_without_dropping_semantic_fields(
+    contract_id: str,
+) -> None:
+    checker = _checker_module()
+    contract = next(item for item in _manifest()["contracts"] if item["id"] == contract_id)
+    fixture = next(
+        item["payload"]
+        for item in _fixture_array("wire-payloads.json")
+        if item["contract_id"] == contract_id and item["producer_release"] == "N"
+    )
+    assert contract["compatibility_policy"] == "version-negotiated"
+    assert fixture["schema_version"] == contract["producer_schemas"]["N"]["version"] == "1.6.0"
+    producer = checker._load_symbol(contract["producer_codecs"]["N"])
+    consumer = checker._load_symbol(contract["consumer_codecs"]["N"])
+    previous = checker._load_symbol(contract["consumer_codecs"]["N-1"])
+    encoded = producer.encode(fixture)
+    assert consumer.decode(encoded) == fixture
+    with pytest.raises(CompatibilityError, match="rejects version"):
+        previous.decode(encoded)
+    translator = checker._load_translator(contract["translators"]["N->N-1"])
+    assert previous.decode_mapping(translator(fixture))["schema_version"] == "1.0.0"
+    semantic_field = (
+        "semantic_turn" if contract_id == "operator-core-request" else "semantic_result"
+    )
+    with pytest.raises(CompatibilityError, match="cannot be downgraded"):
+        translator({**fixture, semantic_field: {}})
+
+
 def test_semantic_turn_contract_requires_verified_evidence_for_answer() -> None:
     from fdai_service_contracts import (
         OperatorRole,

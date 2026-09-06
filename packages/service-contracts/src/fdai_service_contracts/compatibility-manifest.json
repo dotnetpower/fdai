@@ -72,8 +72,8 @@
       "owner": "operator-service",
       "producer": "operator-service",
       "consumer": "core-control-plane",
-      "compatibility_policy": "additive-ignore-unknown",
-      "compatibility_notes": "Canonical dialogue targets, server-verified relationship proofs, and explicit relationship unknown reasons require schema 1.6.0. Requests without these extensions retain schema 1.5.0; older consumer-accepted schemas remain supported unchanged. Deploy accepting Core consumers before enabling 1.6.0 producers; semantic requests have no lossless downgrade to 1.0.0.",
+      "compatibility_policy": "version-negotiated",
+      "compatibility_notes": "Canonical dialogue targets, server-verified relationship proofs, and explicit relationship unknown reasons require schema 1.6.0. Requests without these extensions retain schema 1.5.0; older consumer-accepted schemas remain supported unchanged. The N->N-1 translator supports only generic non-semantic envelopes. Deploy accepting Core consumers before enabling 1.6.0 semantic producers; semantic requests have no lossless downgrade to 1.0.0.",
       "producer_schemas": {
         "N-1": {"version": "1.0.0", "path": "schemas/operator-core-request/1.0.0.json"},
         "N": {"version": "1.6.0", "path": "schemas/operator-core-request/1.6.0.json"}
@@ -97,8 +97,8 @@
       "owner": "core-control-plane",
       "producer": "core-control-plane",
       "consumer": "operator-service",
-      "compatibility_policy": "additive-ignore-unknown",
-      "compatibility_notes": "Advisory responses and draft advisory attachments require schema 1.6.0. Closed 1.4.0 consumers reject the new disposition; it is not losslessly downgradable to an operational or social response. Ordinary projections retain schema 1.4.0. Deploy accepting Operator consumers before enabling advisory production.",
+      "compatibility_policy": "version-negotiated",
+      "compatibility_notes": "Advisory responses and draft advisory attachments require schema 1.6.0. Conditional evidence constraints are not an additive-ignore-unknown contract. Closed 1.4.0 consumers reject the new disposition; it is not losslessly downgradable to an operational or social response. The N->N-1 translator supports only generic non-semantic envelopes. Ordinary projections retain schema 1.4.0. Deploy accepting Operator consumers before enabling advisory production.",
       "producer_schemas": {
         "N-1": {"version": "1.0.0", "path": "schemas/core-operator-projection/1.0.0.json"},
         "N": {"version": "1.6.0", "path": "schemas/core-operator-projection/1.6.0.json"}
