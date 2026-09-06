@@ -209,6 +209,43 @@ def deterministic_pre_frame_outcome(
             frame=build_semantic_frame(proposal, utterance=utterance, context=context),
             clarification=proposal.clarification,
         )
+    gateway_shape_issue = (
+        _gateway_target_shape_issue(judgment)
+        if judgment is not None
+        and judgment.primary_intent == "query.gateway_diagnostic_evidence"
+        and any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        else None
+    )
+    if gateway_shape_issue is not None:
+        requirement = (
+            ClarificationRequirement.TEMPORAL_SCOPE
+            if gateway_shape_issue == "temporal_scope"
+            else ClarificationRequirement.SUBJECT
+        )
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE,
+            evidence_requirements=(),
+            unresolved_terms=(gateway_shape_issue,),
+            clarification_requirements=(requirement,),
+            clarification=_clarification((gateway_shape_issue,)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
     if (
         judgment is not None
         and judgment.primary_intent == "query.resource_configuration_changes"
@@ -523,6 +560,7 @@ def _normalize_gateway_diagnostic_time_scope(
         or judgment is None
         or judgment.primary_intent != "query.gateway_diagnostic_evidence"
         or proposal.output_shape is not SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
+        or _gateway_target_shape_issue(judgment) is not None
         or not any(
             target.kind == "time_range"
             and target.canonical_value == "duration.PT1H"
@@ -565,6 +603,43 @@ def _normalize_gateway_diagnostic_time_scope(
         }
     )
     return normalized, build_semantic_frame(normalized, utterance=utterance, context=context)
+
+
+def _gateway_target_shape_issue(judgment: Any) -> str | None:
+    allowed = {
+        "resource",
+        "resource_id",
+        "time_range",
+        "backend",
+        "backend_id",
+        "backend_name",
+        "model",
+    }
+    if any(target.kind not in allowed for target in judgment.targets):
+        return "subject"
+    resources = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"resource", "resource_id"}
+        and not operational_target_is_generic(target.value)
+    )
+    if len(resources) != 1:
+        return "subject"
+    times = tuple(target for target in judgment.targets if target.kind == "time_range")
+    if (
+        len(times) != 1
+        or times[0].canonical_value != "duration.PT1H"
+        or not operational_time_is_past_hour(times[0].value)
+    ):
+        return "temporal_scope"
+    backend_targets = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"backend", "backend_id", "backend_name", "model"}
+    )
+    if len(backend_targets) > 1:
+        return "subject"
+    return None
 
 
 def deterministic_pre_frame_selection(

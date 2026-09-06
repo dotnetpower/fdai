@@ -88,6 +88,8 @@ It also rebuilds the gateway root and optional backend constraint from the judgm
 targets. A model frame cannot substitute a backend as the gateway root, and the fast path accepts
 at most one backend-or-model filter. Path-shaped backend ARM targets bind to `Backend.id`, not
 `Backend.name`.
+Gateway judgments require exactly one Resource and one explicitly past time target, at most one
+backend-or-model target, and no other target kind. Invalid cardinality clarifies before frame I/O.
 Only an accepted semantic judgment can drive these frame normalizations; ambiguous, low-confidence,
 or otherwise rejected proposals cannot rewrite frame scope or identity.
 Configuration and gateway operational output shapes also require an accepted judgment for the same

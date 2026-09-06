@@ -2079,6 +2079,51 @@ def test_future_hour_judgment_requires_temporal_clarification(
     assert outcome.frame.unresolved_terms == ("temporal_scope",)
 
 
+def test_gateway_judgment_with_multiple_time_targets_requires_clarification() -> None:
+    utterance = "Compare agw-prod over the last hour and previous hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=26,
+                source_end=35,
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="previous hour",
+                canonical_value="duration.PT1H",
+                source_start=40,
+                source_end=53,
+            ),
+        ),
+        requested_facets=("latency",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("temporal_scope",)
+
+
 @pytest.mark.parametrize(
     "utterance",
     (
