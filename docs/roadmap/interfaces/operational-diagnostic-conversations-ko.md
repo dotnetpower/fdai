@@ -1,7 +1,7 @@
 ---
 title: 운영 진단 대화
 translation_of: operational-diagnostic-conversations.md
-translation_source_sha: 41d6018f1ad30b4a1ca4ea496d70b3a78c2cbad1
+translation_source_sha: 768318d11bd5cd9986ade367cb939108b1e2c46c
 translation_revised: 2026-09-07
 ---
 
@@ -34,6 +34,10 @@ translation_revised: 2026-09-07
 >
 > **하드닝 완료:** 반복 캠페인을 R55까지 계속했습니다. 마지막 통합 테스트 333개, 대상 Ruff,
 > strict mypy 및 R55 독립 검토 결과, 변경한 개선 경로에는 Medium 이상 문제가 남지 않았습니다.
+>
+> **최신 전체 스택 근거:** F1은 3.315초에 답변 token을 보냈지만 `conflicting` 근거와 문서 artifact
+> 없음 상태를 유지했습니다. F2는 4.376초에 답변 token을 보냈지만 `incomplete` 이력을 유지했습니다.
+> 인증 inventory graph에 AppGW 또는 APIM target이 없어 정확한 F3/F4 검증은 실행하지 않았습니다.
 
 ## 설계 한눈에 보기
 

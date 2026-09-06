@@ -32,6 +32,11 @@ from interactive evidence, and configuration correlation from a proven cause.
 > **Hardening closeout:** The repeated campaign continued through R55. The final combined 333-case
 > cohort, targeted Ruff, strict mypy, and the R55 independent review found no remaining
 > Medium-or-higher issue in the edited improvement paths.
+>
+> **Latest full-stack evidence:** F1 emitted an answer token in 3.315 seconds but retained
+> `conflicting` evidence and no document artifact. F2 emitted in 4.376 seconds but retained
+> `incomplete` history. The authenticated inventory graph contained no AppGW or APIM target, so
+> exact F3/F4 validation did not run.
 
 ## Design at a glance
 
