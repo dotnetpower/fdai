@@ -145,12 +145,13 @@ async def _run_from_env(source_revision: str, environ: Mapping[str, str]) -> dic
     journal = PostgresInventoryObservationJournal(
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )
-    active_snapshot = await PostgresInventorySnapshotReplayLoader(
-        config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
-    ).load()
-    append = await journal.append_promoted_snapshot(active_snapshot)
     current_manifest = await state.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
-    if isinstance(current_manifest, Mapping) and current_manifest.get("schema_version") == "1.1.0":
+    replay_watermarks = _manifest_replay_watermarks(current_manifest)
+    if replay_watermarks is None:
+        active_snapshot = await PostgresInventorySnapshotReplayLoader(
+            config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
+        ).load()
+        append = await journal.append_promoted_snapshot(active_snapshot)
         replay = InventoryProjectionReplayInput(
             observation=active_snapshot,
             journal_high_watermark=append.journal_high_watermark,
@@ -158,9 +159,10 @@ async def _run_from_env(source_revision: str, environ: Mapping[str, str]) -> dic
             freshness_ceiling_seconds=DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
         )
     else:
+        journal_high_watermark, projection_high_watermark = replay_watermarks
         replay = await journal.load_active_projection_replay(
-            journal_high_watermark=append.journal_high_watermark,
-            projection_high_watermark=append.projection_high_watermark,
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
         )
     await ontology_store.sync_catalog()
     projector = InventoryOntologyProjector(
@@ -290,6 +292,14 @@ def _prior_manifest_watermarks(value: Mapping[str, object]) -> tuple[int, int]:
     ):
         raise ValueError("inventory projection replay pre-manifest watermarks are invalid")
     return journal, projection
+
+
+def _manifest_replay_watermarks(value: object) -> tuple[int, int] | None:
+    if not isinstance(value, Mapping):
+        raise ValueError("inventory projection replay pre-manifest is unavailable")
+    if value.get("schema_version") == "1.1.0":
+        return None
+    return _prior_manifest_watermarks(value)
 
 
 __all__ = ["ProjectionManifestReader", "ProjectionReplayProjector", "main", "run_once"]

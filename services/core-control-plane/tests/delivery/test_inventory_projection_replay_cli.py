@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from fdai.delivery.inventory_projection_replay_cli import run_once
+from fdai.delivery.inventory_projection_replay_cli import _manifest_replay_watermarks, run_once
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryProjectionReplayInput,
@@ -202,7 +202,6 @@ async def test_replay_migrates_only_an_exact_identity_only_manifest() -> None:
         state=_State(legacy, _manifest()),
         source_revision=REVISION,
     )
-
     assert projector.calls == [("snapshot-active", 17, 17, True)]
     assert summary["prior_ontology_release_digest"] == prior_release
 
@@ -214,3 +213,16 @@ async def test_replay_migrates_only_an_exact_identity_only_manifest() -> None:
             state=_State(legacy, _manifest()),
             source_revision=REVISION,
         )
+
+
+def test_replay_bootstraps_only_the_identity_only_manifest() -> None:
+    assert _manifest_replay_watermarks({"schema_version": "1.1.0"}) is None
+    assert _manifest_replay_watermarks(
+        {
+            "schema_version": "1.3.0",
+            "journal_high_watermark": 2200,
+            "projection_high_watermark": 1402,
+        }
+    ) == (2200, 1402)
+    with pytest.raises(ValueError, match="pre-manifest is unavailable"):
+        _manifest_replay_watermarks(None)
