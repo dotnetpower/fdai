@@ -21,6 +21,12 @@ variable "deployer_principal_id" {
   type        = string
 }
 
+variable "legacy_deployer_principal_id" {
+  description = "Optional prior deployer object id retained during an additive role handoff."
+  type        = string
+  default     = ""
+}
+
 variable "runtime_principal_id" {
   description = "Object id of the FDAI runtime managed identity."
   type        = string

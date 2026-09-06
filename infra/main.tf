@@ -1336,6 +1336,7 @@ module "operational_history_storage" {
   resource_group_name           = module.resource_group.name
   location                      = var.region
   deployer_principal_id         = data.azurerm_client_config.current.object_id
+  legacy_deployer_principal_id  = var.operational_history_legacy_deployer_principal_id
   runtime_principal_id          = module.inventory_identity.principal_id
   log_analytics_workspace_id    = module.log_analytics.workspace_id
   container_name                = "operational-history"

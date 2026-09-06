@@ -28,7 +28,9 @@ the bounded `module.monitoring` target only when it is the sole selected feature
 application features, it remains enabled and participates in the complete non-destructive plan.
 The operational-history-only plan includes the application resource group's historical moved
 address so Terraform can reconcile that no-op state transition before evaluating only the history
-storage, private endpoint, and lifecycle Job targets.
+storage, private endpoint, and lifecycle Job targets. During deployer identity migration, the
+module preserves the previous data-owner assignment and adds the stable runner assignment at a
+separate address. Replacing either assignment remains a destructive plan and is blocked.
 The protected Console release workflow binds an exact CI-verified Core image, updates the existing
 catalog materialization Job with rollback, runs schema migration, and verifies the selected
 revision's immutable Rule and Ontology projections through PostgreSQL readback before publishing the
@@ -71,6 +73,7 @@ enabling self-review or administrator bypass.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Changed the operational-history deployer role transition from replacement to an additive assignment that preserves the previous principal. Any later retirement remains destructive and blocked from the certification plan. | `current change`; failed protected plan `34042602702`; `deploy-dev.yml`; case-history module; focused Terraform, deployment workflow, destructive-guard, and plan-scope checks. | Produce a fresh zero-destroy protected plan before any certification campaign, then retire the legacy principal only through a separate reviewed plan. |
 | 2026-09-07 | implemented | Kept the protected operational-history plan usable after the application resource group moved behind the shared resource-group module. The bounded target set now includes only that moved address plus the existing history storage, private endpoint, and lifecycle Job targets. | `current change`; failed protected plan `34041699943`; `deploy-dev.yml`; focused deployment workflow and plan-scope checks. | Produce a fresh zero-destroy protected plan before any certification campaign. |
 | 2026-08-30 | implemented | Separated read-only bootstrap reconciliation, approved foundation mutation, and application plan-only execution so planning cannot create protected state containers. | `current change`; focused deployment CLI and workflow checks; issue `#400` | Retain the approved foundation apply, remote-state handoff, and zero-change readback receipts. |
 | 2026-08-28 | implemented | Added an isolated private AIServices account/project/deployment module for publisher-qualified partner models. | `current change`; module format, validate, and Terraform test (`1 passed`). | Compose the module in the root with private endpoint/DNS and endpoint-specific runtime binding before activation. |
