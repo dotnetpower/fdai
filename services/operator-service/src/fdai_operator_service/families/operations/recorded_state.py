@@ -89,10 +89,15 @@ OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
         "resource-group",
     }
 )
+RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES = frozenset(
+    {
+        "application-insights",
+        "log-workspace",
+    }
+)
 PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
     {
         "api-gateway",
-        "application-insights",
         "cache",
         "communication-service",
         "compute.container-app-environment",
@@ -103,7 +108,6 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
         "file-share",
         "llm-endpoint",
         "llm-model-deployment",
-        "log-workspace",
         "metrics-workspace",
         "network.dns-resolver-inbound-endpoint",
         "network.dns-zone",
@@ -270,6 +274,8 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
             return "state_source_not_recorded"
         if resource_type in OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
             return "state_not_applicable"
+        if resource_type in RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES:
+            return "resource_health_projection_not_bound"
         if resource_type in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES:
             return "provider_operational_state_not_exposed"
         return "state_applicability_unknown"

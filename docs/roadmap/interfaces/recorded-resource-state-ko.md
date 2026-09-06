@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: d498c1f801d93966f2b3e323f7998d8fc6bec440
+translation_source_sha: fd2a0e37b510723a8467270f677c11a00ade5912
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -50,7 +50,8 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 | 결과 | 의미 |
 |------|------|
 | `state_source_not_recorded` | 유형에 명시적인 공급자 또는 Kubernetes 상태 계약이 있지만 선택한 세대에 사용할 수 있는 값이 없습니다. 서비스, 전원, 준비, 데이터베이스, 메시지 브로커, 디스크, 스냅샷 접근, 프라이빗 DNS 링크 상태가 포함됩니다. |
-| `provider_operational_state_not_exposed` | 리소스에 운영상 고려할 상태는 있지만 현재 공급자 인벤토리 계약이 리소스별 운영 상태를 제공하지 않습니다. Application Insights와 Log Analytics가 이 결과를 사용합니다. 프로비저닝 상태나 존재 여부로 누락된 공급자 신호를 대체하지 않습니다. |
+| `resource_health_projection_not_bound` | ARG 인벤토리가 리소스별 운영 상태를 제공하지 않으므로 Application Insights와 Log Analytics에는 Azure Resource Health가 필요합니다. 이 출처는 기록 상태 변환 결과에 연결되어 있지 않습니다. 프로비저닝 상태나 존재 여부로 대체하지 않습니다. |
+| `provider_operational_state_not_exposed` | 리소스에 운영상 고려할 상태는 있지만 현재 공급자 인벤토리 계약이 리소스별 운영 상태를 제공하지 않고 이 변환 결과에 검토된 대체 출처도 없습니다. |
 | `state_not_applicable` | 검토된 유형이 구성, ID, 그룹 또는 집계 정의이므로 하나의 운영 상태 값이 적용되지 않습니다. |
 | `resource_type_unclassified` | 공급자 유형에 검토된 표준 ResourceType 매핑이 없습니다. |
 | `state_applicability_unknown` | 하위 포크의 사용자 지정 유형을 아직 검토하지 않았습니다. 표준 유형에는 이 대체 결과를 사용하지 않습니다. |
@@ -84,9 +85,9 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
 - 온톨로지 디렉터리와 탐색 기록에도 같은 `states` 필드를 추가합니다.
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
-- 값이 없으면 기계 판독용 이유에 따라 기록 없음, 사용 불가, 적용 대상 아님 또는 적용 여부 알 수
-  없음으로 표시합니다. 따라서 Application Insights와 Log Analytics는 일반적인 기록 없음 대신
-  공급자 인벤토리 제한을 표시합니다.
+- 값이 없으면 기계 판독용 이유에 따라 기록 없음, 상태 원본 미연결, 사용 불가, 적용 대상 아님 또는
+  적용 여부 알 수 없음으로 표시합니다. 따라서 Application Insights와 Log Analytics는 일반적인
+  사용 불가 대신 연결되지 않은 Azure Resource Health 출처를 표시합니다.
 - Dashboard는 출처를 `inventory_snapshot_resource`로 표시하고, 알 수 없음 기록을 기계 판독용
   이유별로 집계하며, 공통 주기와 브라우저 복귀 및 인벤토리 변경 알림에 따라 새로 고칩니다.
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.

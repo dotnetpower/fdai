@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: ad391320e31d42b94f239229f9303c8a627b63af
+translation_source_sha: 5b874aee2f28cf550c46f57419bf2d6ac65d715d
 translation_revised: 2026-09-06
 ---
 # 서비스 승격과 데이터 소유권
@@ -53,6 +53,7 @@ translation_revised: 2026-09-06
 |------|------|------|------|-----------|
 | 2026-09-06 | validated | 서비스, 작성자 또는 서비스 간 구현 가져오기를 추가하지 않고 기존 Core, delivery, Operator 및 Console 소유권에 이유 기반 기록 Resource 상태를 추가했습니다. | `current change`, 집중 경계 검사, 로컬 PostgreSQL로 실제 ARG 수집 및 인증된 표준 포트 브라우저 검증이 통과했습니다. | 범위가 제한된 이 읽기 경로에는 서비스 승격 작업이 남아 있지 않습니다. |
 | 2026-09-06 | validated | 서비스 또는 작성자 소유권을 바꾸지 않고 새로 병합된 `llm-model-deployment` 유형을 기존 Operator 읽기 변환 결과에 분류했습니다. | `current change`, 병합된 main 스냅샷에서 정확한 카탈로그 일치와 집중 backend 검사 268개가 통과했습니다. | 이후 ResourceType을 추가할 때는 같은 읽기 계약을 갱신해야 합니다. |
+| 2026-09-06 | implemented | Application Insights와 Log Analytics에서 연결되지 않은 Azure Resource Health 출처를 일반적인 공급자 사용 불가와 구분했습니다. | `current change`, 공급자 호출, 영속성 또는 권한을 추가하지 않고 기존 Operator 읽기 변환 결과와 Console 지역화를 변경했습니다. | 가용성 값을 표시하기 전에 별도로 검토한 출처 바인딩으로 Resource Health 관측을 영속화해야 합니다. |
 | 2026-08-31 | implemented | Pod 수명 주기 탐지 축약을 Core에 두고 Operator 서비스에는 `runtime:detection-lifecycle:`에 대한 검증 프로젝션만 남겼습니다. 그 결과 이슈 #291을 위해 추가한 보고 표면은 서비스 경계를 넘지 않았고 공유 모듈도 추가하지 않았습니다. | `current change`, `check-independent-services` OK(services=5, service_forbidden=0), `check-operator-api-boundaries` OK, 집중 Python 테스트 122건 통과. 여기에는 하나의 리비전에 고정된 서비스 간 증명 8건이 포함됩니다. | 실제 Pod 수명 주기 근거는 여전히 `FDAI_POD_LIFECYCLE_EVIDENCE_JSON` 구성 이음새로만 Core에 도달합니다. |
 | 2026-08-14 | validated | 원장 도입 이전의 설계 이력을 재구성하지 않고 완료된 5개 서비스 근거와 보류된 향후 후보를 분리해 기록했습니다. | `current change`; 구현 범위 표에 인용한 머신 매니페스트, 서비스 migration 가지, 공유 계약 및 보존된 전이 근거입니다. | 관찰 가능한 강제 트리거와 완전한 점수표 근거가 생긴 보류 후보만 다시 평가합니다. |
 | 2026-08-15 | validated | Norns가 소유하는 객체 이름을 `PatternObservation`에서 `Pattern`으로 변경해 에이전트 스펙, 등록된 토픽, 판테온 표, Console 에이전트 계약이 하나의 기록을 가리키게 했습니다. | `current change`, `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`, 집중 판테온 레이아웃, 문서 파리티, 카탈로그 테스트 통과 | 아직 어느 것도 이 기록을 생산하지 않으며, 발행 또는 폐기는 prediction-learning 원장에서 추적합니다. |

@@ -22,6 +22,7 @@ describe("recorded state text", () => {
   test.each([
     ["state_source_not_recorded", "Not recorded"],
     ["provider_operational_state_not_exposed", "Unavailable"],
+    ["resource_health_projection_not_bound", "State source not connected"],
     ["state_not_applicable", "Not applicable"],
     ["state_applicability_unknown", "Applicability unknown"],
     ["resource_type_unclassified", "Unavailable"],
@@ -40,6 +41,9 @@ describe("recorded state text", () => {
   test("explains reviewed unavailability while preserving machine reasons separately", () => {
     expect(recordedStateReasonText("provider_operational_state_not_exposed")).toBe(
       "The provider inventory does not expose operational state for this resource type.",
+    );
+    expect(recordedStateReasonText("resource_health_projection_not_bound")).toBe(
+      "Azure Resource Health is not connected to recorded resource state for this resource type.",
     );
     expect(recordedStateReasonText("state_metadata_invalid")).toBeNull();
   });

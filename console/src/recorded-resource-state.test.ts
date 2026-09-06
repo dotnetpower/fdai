@@ -16,6 +16,7 @@ describe("recorded resource state decoder", () => {
   test.each([
     "state_source_not_recorded",
     "provider_operational_state_not_exposed",
+    "resource_health_projection_not_bound",
     "state_not_applicable",
     "state_applicability_unknown",
     "resource_type_unclassified",

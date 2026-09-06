@@ -49,7 +49,8 @@ reviewed outcome:
 | Outcome | Meaning |
 |---------|---------|
 | `state_source_not_recorded` | The type has an explicit provider or Kubernetes state contract, but the selected generation contains no usable value. This includes service, power, readiness, database, broker, disk, snapshot-access, and private-DNS-link states. |
-| `provider_operational_state_not_exposed` | The resource can have operational concerns, but its current provider inventory contract exposes no per-resource operational state. Application Insights and Log Analytics use this outcome. Provisioning state and existence do not replace the missing provider signal. |
+| `resource_health_projection_not_bound` | Application Insights and Log Analytics require Azure Resource Health because ARG inventory exposes no per-resource operational state. That source is not connected to the recorded-state projection. Provisioning state and existence do not replace it. |
+| `provider_operational_state_not_exposed` | The resource can have operational concerns, but its current provider inventory contract exposes no per-resource operational state and has no reviewed alternate source in this projection. |
 | `state_not_applicable` | The reviewed type is a configuration, identity, grouping, or aggregate definition with no single operational-state value. |
 | `resource_type_unclassified` | The provider type has no reviewed canonical ResourceType mapping. |
 | `state_applicability_unknown` | A downstream custom type has not been reviewed. Canonical types do not use this fallback. |
@@ -84,9 +85,10 @@ Display filters and local pages operate on this received set; the server query r
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
 - Ontology directory and exploration records expose the same additive `states` field.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
-- Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown from
-  the machine reason. Application Insights and Log Analytics therefore identify the provider
-  inventory limitation instead of displaying a generic Not recorded value.
+- Missing values render as Not recorded, State source not connected, Unavailable, Not applicable,
+  or Applicability unknown from the machine reason. Application Insights and Log Analytics
+  therefore identify the unbound Azure Resource Health source instead of displaying a generic
+  unavailable value.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
