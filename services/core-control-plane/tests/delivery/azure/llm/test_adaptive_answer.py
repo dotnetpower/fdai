@@ -131,6 +131,21 @@ async def test_strict_output_keeps_untrusted_prose_out_of_system_and_measures_us
     assert result.observation.trace_call["kind"] == "adaptive-answer"
 
 
+@pytest.mark.parametrize("valid", [True, False])
+async def test_unbound_provider_schema_support_still_validates_output_locally(valid: bool) -> None:
+    config = _config(primary=replace(_target("primary"), structured_output=False))
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert "response_format" not in body
+        assert json.loads(body["messages"][1]["content"])["output_schema"] == SCHEMA
+        proposal = PROPOSAL if valid else {**PROPOSAL, "execution_authority": True}
+        return httpx.Response(200, json=_envelope(json.dumps(proposal)))
+
+    result = await _call(respond, config=config)
+    assert (result is not None) is valid
+
+
 @pytest.mark.parametrize(
     ("stage", "escalated", "deployment"),
     [
