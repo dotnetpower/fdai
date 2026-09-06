@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import TypeVar
 
 from fdai_service_contracts.adaptive_answer import AdaptiveAnswer, AdaptiveGoalResult
@@ -32,6 +33,12 @@ _LOGGER = logging.getLogger(__name__)
 _Candidate = TypeVar("_Candidate", bound=BaseModel)
 EvidenceReader = Callable[[str], Awaitable[AdaptiveEvidence]]
 ProfileResolver = Callable[[str, str, Mapping[str, object] | None], ConversationProfile]
+
+
+@lru_cache(maxsize=8)
+def _stage_schema_json(shape: type[BaseModel]) -> str:
+    """Cache only immutable schema text; each provider receives its own decoded value."""
+    return json.dumps(shape.model_json_schema(), separators=(",", ":"), ensure_ascii=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,7 +266,7 @@ class AdaptiveConversationService:
                     status="unavailable",
                     limitation="environment_example_requires_runtime_evidence",
                 )
-        payload["plan"] = plan.model_dump(mode="json")
+        payload["plan"] = plan.model_dump(mode="json", exclude={"draft"})
         payload["evidence"] = {
             key: {
                 "status": item.status,
@@ -270,10 +277,17 @@ class AdaptiveConversationService:
             }
             for key, item in evidence.items()
         }
-        draft = await self._stage("answer", AdaptiveDraft, profile, payload, budget, cancelled)
+        draft = plan.draft or await self._stage(
+            "answer", AdaptiveDraft, profile, payload, budget, cancelled
+        )
         if draft is None:
             return self._limited(plan, profile, evidence, budget, "adaptive_answer_unavailable")
-        review_payload = {**payload, "draft": draft.model_dump(mode="json")}
+        review_context = (
+            {key: value for key, value in payload.items() if key != "history"}
+            if plan.context_dependency == "none"
+            else payload
+        )
+        review_payload = {**review_context, "draft": draft.model_dump(mode="json")}
         review = await self._stage(
             "review",
             AdaptiveReview,
@@ -286,11 +300,19 @@ class AdaptiveConversationService:
         safe = self._safe(draft, review, valid_ids)
         complete = safe and self._complete(draft, review, plan, evidence)
         refinements = 0
+        refinement_fits = (
+            budget.remaining >= 2 * self._policy.per_stage_seconds
+            and budget.calls + 2 <= self._policy.max_calls
+            and budget.tokens + 2 * self._policy.reserved_output_tokens <= self._policy.max_tokens
+        )
+        if not complete and allow_refinement and not refinement_fits:
+            _LOGGER.info("adaptive_refinement_budget_exhausted")
         if (
             not complete
             and allow_refinement
             and self._policy.refinement_enabled
             and review is not None
+            and refinement_fits
         ):
             review_payload["critique"] = review.model_dump(mode="json")
             calls_before = budget.calls
@@ -308,7 +330,7 @@ class AdaptiveConversationService:
                     "verify",
                     AdaptiveReview,
                     profile,
-                    {**payload, "draft": improved.model_dump(mode="json")},
+                    {**review_context, "draft": improved.model_dump(mode="json")},
                     budget,
                     cancelled,
                 )
@@ -387,14 +409,46 @@ class AdaptiveConversationService:
         budget: _Budget,
         cancelled: asyncio.Event | None,
     ) -> _Candidate | None:
+        started = self._clock()
+        status = "failed"
+        try:
+            result = await self._invoke_stage(stage, shape, profile, payload, budget, cancelled)
+            status = "completed" if result is not None else "unavailable"
+            return result
+        except asyncio.CancelledError:
+            status = "cancelled"
+            raise
+        finally:
+            _LOGGER.info(
+                "adaptive_stage_completed",
+                extra={
+                    "stage": stage,
+                    "status": status,
+                    "duration_ms": round(max(0, self._clock() - started) * 1000),
+                    "remaining_ms": round(max(0, budget.remaining) * 1000),
+                    "calls": budget.calls,
+                },
+            )
+
+    async def _invoke_stage(
+        self,
+        stage: str,
+        shape: type[_Candidate],
+        profile: ConversationProfile,
+        payload: Mapping[str, object],
+        budget: _Budget,
+        cancelled: asyncio.Event | None,
+    ) -> _Candidate | None:
         if cancelled is not None and cancelled.is_set():
             raise asyncio.CancelledError
         prompt = compose_adaptive_prompt(profile, stage, self._prompts[stage])
-        schema = shape.model_json_schema()
+        schema = json.loads(_stage_schema_json(shape))
         encoded = json.dumps({"input": payload, "schema": schema}, ensure_ascii=False)
         size = len(encoded.encode()) + len(prompt.encode())
         try:
-            reservation = budget.reserve(size, budget.policy.reserved_output_tokens, 0)
+            reservation = budget.reserve(
+                size, budget.policy.reserved_output_tokens, 1 if stage == "refine" else 0
+            )
         except AdaptiveBudgetExceededError:
             _LOGGER.warning("adaptive_stage_budget_denied", extra={"stage": stage})
             return None

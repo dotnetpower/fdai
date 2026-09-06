@@ -8,6 +8,7 @@ import logging
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, cast
 
 import httpx
@@ -186,15 +187,13 @@ class AzureOpenAIAdaptiveModel:
             len(system_prompt.encode("utf-8")) > self._config.max_system_tokens
         ):
             raise ValueError("adaptive system prompt is empty or exceeds budget")
-        schema_copy = _load_json(_dump_json(dict(schema)))
-        if not isinstance(schema_copy, dict) or schema_copy.get("type") != "object":
-            raise ValueError("adaptive output schema MUST describe an object")
-        _local_schema_references(schema_copy)
-        Draft202012Validator.check_schema(schema_copy)
-        response_format = (
-            _strict_response_format(schema_copy, name=f"adaptive-{stage}")
-            if selected.structured_output
-            else None
+        schema_text = _dump_json(dict(schema))
+        if len(schema_text.encode("utf-8")) > self._config.max_request_bytes:
+            raise ValueError("adaptive schema exceeds request byte budget")
+        schema_copy, response_format, validator, strict_validator = _prepared_schema(
+            schema_text,
+            stage,
+            selected.structured_output,
         )
         user_payload: dict[str, object] = {"untrusted_input": dict(payload)}
         if response_format is None:
@@ -217,6 +216,11 @@ class AzureOpenAIAdaptiveModel:
                 selected.family, temperature=0.0, max_tokens=self._config.max_tokens
             ),
         }
+        if stage in {"review", "verify"} and selected.family.strip().lower() in {
+            "gpt-5-mini",
+            "gpt-5.4-mini",
+        }:
+            body["reasoning_effort"] = "low"
         if response_format is not None:
             body["response_format"] = response_format
         if request.model_body_field is not None:
@@ -246,10 +250,9 @@ class AzureOpenAIAdaptiveModel:
                 raw.extend(chunk)
         envelope = _load_json(bytes(raw))
         proposal, content, usage = _parse_response(envelope)
-        Draft202012Validator(schema_copy).validate(proposal)
-        if response_format is not None:
-            strict_schema = cast(Mapping[str, Any], response_format["json_schema"])["schema"]
-            Draft202012Validator(strict_schema).validate(proposal)
+        validator.validate(proposal)
+        if strict_validator is not None:
+            strict_validator.validate(proposal)
         trace_call = complete_model_trace(
             trace_start,
             call_id=f"adaptive-{stage}",
@@ -266,6 +269,31 @@ class AzureOpenAIAdaptiveModel:
                 trace_call=trace_call,
             ),
         )
+
+
+@lru_cache(maxsize=16)
+def _prepared_schema(
+    schema_text: str,
+    stage: str,
+    structured_output: bool,
+) -> tuple[
+    dict[str, Any], dict[str, Any] | None, Draft202012Validator, Draft202012Validator | None
+]:
+    """Reuse bounded schema preparation only; no prompt, token, or response is cached."""
+    schema = _load_json(schema_text)
+    if not isinstance(schema, dict) or schema.get("type") != "object":
+        raise ValueError("adaptive output schema MUST describe an object")
+    _local_schema_references(schema)
+    Draft202012Validator.check_schema(schema)
+    response_format = (
+        _strict_response_format(schema, name=f"adaptive-{stage}") if structured_output else None
+    )
+    strict = (
+        Draft202012Validator(cast(Mapping[str, Any], response_format["json_schema"])["schema"])
+        if response_format is not None
+        else None
+    )
+    return schema, response_format, Draft202012Validator(schema), strict
 
 
 def _parse_response(value: object) -> tuple[dict[str, object], str, Mapping[str, object] | None]:

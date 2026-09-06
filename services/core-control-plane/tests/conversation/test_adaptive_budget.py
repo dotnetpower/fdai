@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 
 import pytest
@@ -41,6 +42,168 @@ class _TimedModel(_Model):
     async def complete(self, **kwargs) -> ConversationModelResponse | None:
         self.clock.value += 15 if kwargs["stage"] == "plan" else 10
         return await super().complete(**kwargs)
+
+
+async def test_stage_timing_reports_real_elapsed_work_without_prompt_content(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    clock = _Clock()
+    service = AdaptiveConversationService(
+        model=_TimedModel(clock, plan=_plan(), answer=_draft(), review=_review()),
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+        clock=clock,
+    )
+    with caplog.at_level(logging.INFO):
+        await service.respond(
+            utterance="PRIVATE-QUESTION-CONTENT",
+            history=(),
+            locale="en",
+            target_agent="Bragi",
+            relationship=None,
+            read_evidence=_unavailable,
+        )
+    records = [r for r in caplog.records if r.message == "adaptive_stage_completed"]
+    assert [r.stage for r in records] == ["plan", "answer", "review"]
+    assert [r.duration_ms for r in records] == [15000, 10000, 10000]
+    assert [r.remaining_ms for r in records] == [45000, 35000, 25000]
+    assert all(r.status == "completed" for r in records)
+    assert "PRIVATE-QUESTION-CONTENT" not in caplog.text
+
+
+async def test_schema_cache_reuses_compilation_without_sharing_mutable_provider_input() -> None:
+    from fdai.core.conversation.adaptive_service import _stage_schema_json
+
+    from tests.conversation.test_adaptive_service import _run
+
+    _stage_schema_json.cache_clear()
+    model = _Model(plan=_plan(), answer=_draft(), review=_review())
+    await _run(model)
+    assert _stage_schema_json.cache_info().misses == 3
+    model.calls[0]["schema"]["properties"].clear()
+    await _run(model)
+    assert _stage_schema_json.cache_info().misses == 3
+    assert _stage_schema_json.cache_info().hits == 3
+    assert "goals" in model.calls[3]["schema"]["properties"]
+
+
+async def test_initial_knowledge_draft_removes_one_call_but_keeps_independent_review() -> None:
+    from tests.conversation.test_adaptive_service import _run
+
+    model = _Model(plan={**_plan(), "draft": _draft()}, review=_review())
+    result = await _run(model)
+    assert isinstance(result, AdaptiveOutcome)
+    assert "canary" in result.answer.answer
+    assert [call["stage"] for call in model.calls] == ["plan", "review"]
+    assert "draft" not in model.calls[1]["payload"]["plan"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"route": "legacy", "action_requested": True},
+        {"context_dependency": "pending_decision"},
+        {
+            "goals": [
+                {
+                    "goal_id": "explain",
+                    "kind": "knowledge",
+                    "question": "Explain",
+                    "required": True,
+                },
+                {
+                    "goal_id": "example",
+                    "kind": "environment_example",
+                    "question": "Example",
+                    "required": False,
+                },
+            ]
+        },
+        {"draft": {"sections": [{"goal_id": "wrong", "text": "Unsupported"}]}},
+    ],
+)
+def test_initial_draft_cannot_bypass_evidence_or_action_boundaries(change) -> None:
+    from fdai.core.conversation.adaptive_models import AdaptivePlan
+
+    with pytest.raises(ValueError):
+        AdaptivePlan.model_validate({**_plan(), "draft": _draft(), **change})
+
+
+@pytest.mark.parametrize("dependency", ["none", "active_thread"])
+async def test_review_context_omits_history_only_after_typed_independence(dependency: str) -> None:
+    model = _Model(
+        plan={**_plan(), "context_dependency": dependency},
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    service = AdaptiveConversationService(model=model, profile_resolver=_profile, prompts=_PROMPTS)
+    history = ({"role": "user", "content": "Earlier context " * 100},)
+    result = await service.respond(
+        utterance="Compare rollout strategies",
+        history=history,
+        locale="en",
+        target_agent="Bragi",
+        relationship=None,
+        read_evidence=_unavailable,
+    )
+    assert isinstance(result, AdaptiveOutcome)
+    for call in model.calls:
+        if call["stage"] in {"plan", "answer"}:
+            assert call["payload"]["history"] == list(history)
+        else:
+            assert ("history" in call["payload"]) is (dependency == "active_thread")
+            assert call["payload"]["utterance"] == "Compare rollout strategies"
+            assert call["payload"]["draft"]["sections"]
+
+
+async def test_optional_refinement_does_not_spend_the_required_verification_window() -> None:
+    clock = _Clock()
+    model = _TimedModel(
+        clock,
+        plan=_plan(),
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    service = AdaptiveConversationService(
+        model=model,
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+        clock=clock,
+    )
+    result = await service.respond(
+        utterance="Compare",
+        history=(),
+        locale="en",
+        target_agent="Bragi",
+        relationship=None,
+        read_evidence=_unavailable,
+    )
+    assert isinstance(result, AdaptiveOutcome)
+    assert result.answer.quality_status == "limited"
+    assert "canary" in result.answer.answer
+    assert clock.value == 35
+    assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
+
+
+@pytest.mark.parametrize("max_calls", [3, 4])
+async def test_refinement_requires_two_remaining_calls(max_calls: int) -> None:
+    from tests.conversation.test_adaptive_service import _run
+
+    model = _Model(
+        plan=_plan(),
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    result = await _run(model, policy=AdaptivePolicy(max_calls=max_calls))
+    assert isinstance(result, AdaptiveOutcome)
+    assert result.answer.refinements == 0
+    assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
 
 
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:

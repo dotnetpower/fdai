@@ -146,6 +146,53 @@ async def test_unbound_provider_schema_support_still_validates_output_locally(va
     assert (result is not None) is valid
 
 
+async def test_prepared_schema_cache_never_skips_validation_of_a_later_response() -> None:
+    from fdai.delivery.azure.llm.adaptive_answer import _prepared_schema
+
+    _prepared_schema.cache_clear()
+    assert await _call(lambda request: httpx.Response(200, json=_envelope())) is not None
+    assert (
+        await _call(
+            lambda request: httpx.Response(
+                200,
+                json=_envelope(json.dumps({**PROPOSAL, "execution_authority": True})),
+            )
+        )
+        is None
+    )
+    assert _prepared_schema.cache_info().misses == 1
+    assert _prepared_schema.cache_info().hits == 1
+
+
+@pytest.mark.parametrize(
+    ("stage", "family", "expected"),
+    [
+        ("review", "gpt-5-mini", "low"),
+        ("verify", "gpt-5.4-mini", "low"),
+        ("answer", "gpt-5-mini", None),
+        ("refine", "gpt-5.6-sol", None),
+        ("review", "gpt-4o-mini", None),
+    ],
+)
+async def test_short_review_effort_does_not_change_author_or_t2_reasoning(
+    stage: str,
+    family: str,
+    expected: str | None,
+) -> None:
+    target = _target("reviewer", family)
+    config = _config(reviewer=target)
+    if stage == "answer":
+        config = _config(primary=_target("primary", family))
+    elif stage == "refine":
+        config = _config(escalation=_target("escalation", family))
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content).get("reasoning_effort") == expected
+        return httpx.Response(200, json=_envelope())
+
+    assert await _call(respond, config=config, stage=stage, escalated=stage == "refine") is not None
+
+
 @pytest.mark.parametrize(
     ("stage", "escalated", "deployment"),
     [

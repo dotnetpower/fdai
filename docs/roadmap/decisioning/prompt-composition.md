@@ -48,6 +48,24 @@ output is used when configured; otherwise the exact schema accompanies the reque
 application validates returned JSON against it. This does not relax evidence verification or the
 separate mixed-publisher operational T2 quality gate.
 
+### Latency budget
+
+The latency work preserves independent review and the no-execution boundary. Removing validation
+would make a fast response untrustworthy, so the revised approach reduces redundant model work,
+schema preparation, irrelevant context, avoidable refinement, and post-validation display waits.
+The v2 planning pack may include a candidate draft only for a complete knowledge-only plan, reducing
+the ordinary model path from three calls to two. Operational reads still precede operational
+prose. Only independently supported sections may be published. Optional refinement must leave
+time and call capacity for independent verification. Short review stages may use explicitly
+supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);
+authoring, other families, and T2 reasoning settings remain unchanged.
+
+Content-free stage logs report elapsed time, remaining time, status, and physical-call count.
+Schema text and prepared-validator caches are bounded and contain no user input; every response
+still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
+adding another token cache. Offline request-count and clock tests prove mechanism changes, not
+live model quality or a production speedup. New live comparisons require explicit authorization.
+
 ## Implementation status
 
 ### Implementation scope

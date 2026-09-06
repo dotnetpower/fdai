@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d13b6bfb8deedc04586321d27553254e7fd3ba1f
+translation_source_sha: a647f26b441a340573a0ae0e6c8e3e7fcff2c220
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -122,7 +122,7 @@ IAM 조립은 최상위 모듈의 의존성을 늘리지 않고 대화 담당 �
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
 생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
-적응형 프롬프트 타입은 공개 에이전트 및 모델 인터페이스를 사용합니다. `families/conversation/conversation_history.py`는 모델을 재호출하지 않고 사용자 범위의 저장된 답변을 복원합니다. 질문 모음은 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
+지식 전용 적응형 계획은 후보 초안을 포함합니다. 독립 검토는 무관한 이력을 제외하며 선택적 보강은 재검증 시간과 호출 수를 확보해야 합니다. 단계는 불변 스키마를 캐시하고 경과 시간 한도를 보여 줍니다. 프롬프트 타입은 공개 에이전트 및 모델 인터페이스를 사용합니다. `families/conversation/conversation_history.py`는 모델을 재호출하지 않고 사용자 범위의 저장된 답변을 복원합니다. 질문 모음은 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
 Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.
