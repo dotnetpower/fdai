@@ -29,6 +29,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Read one chronological bounded tail across the previous and current Core logs so rotation cannot split required readiness markers. | `current change`; focused rotation regression passed. | Multiple full rotations remain fail-closed. |
 | 2026-09-07 | implemented | Expanded the bounded readiness tail from 64 KiB to 1 MiB after a retained restart proved startup output could evict the semantic-consumer marker. | `current change`; large-log marker regression passed. | Move to a structured readiness projection if the bounded log contract grows again. |
 | 2026-09-07 | implemented | Required the fresh restart heartbeat to occur after the new semantic consumer marker rather than merely after launch. | `current change`; focused ordering regression passed. | Retain a bilingual latency distribution. |
 | 2026-09-07 | implemented | Bound Core restart readiness to both a post-launch semantic consumer and a fresh Pantheon heartbeat. | `current change`; 46 focused tests; retained marker ordering; first post-ready F2 answer token at 3.948 seconds. | Retain a bilingual latency distribution. |

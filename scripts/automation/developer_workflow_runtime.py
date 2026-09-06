@@ -185,12 +185,15 @@ def _core_runtime_ready_after(
 
 def _core_log_lines(root: Path) -> tuple[str, ...]:
     log_file = root / ".fdai" / "logs" / "core-runtime.log"
-    try:
-        with log_file.open("rb") as handle:
-            handle.seek(max(0, log_file.stat().st_size - CORE_LOG_TAIL_BYTES))
-            tail = handle.read(CORE_LOG_TAIL_BYTES).decode("utf-8", errors="replace")
-    except OSError:
-        return ()
+    chunks: list[bytes] = []
+    for candidate in (log_file.with_name(f"{log_file.name}.1"), log_file):
+        try:
+            with candidate.open("rb") as handle:
+                handle.seek(max(0, candidate.stat().st_size - CORE_LOG_TAIL_BYTES))
+                chunks.append(handle.read(CORE_LOG_TAIL_BYTES))
+        except OSError:
+            continue
+    tail = b"".join(chunks)[-CORE_LOG_TAIL_BYTES:].decode("utf-8", errors="replace")
     return tuple(tail.splitlines())
 
 
