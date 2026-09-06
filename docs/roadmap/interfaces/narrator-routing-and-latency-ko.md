@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: cfd129efee4a98b8bd4d880c6c8167681243ebfc
+translation_source_sha: 7609d427bf9113bd629bbe61747ac369b4e7b51a
 translation_revised: 2026-09-07
 ---
 # 서술기 라우팅과 지연 시간
@@ -341,6 +341,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 자세한 시작 출력으로 semantic consumer marker가 기존 64KiB tail 밖으로 밀려난 뒤, 범위가 제한된 Core readiness 로그 window를 1MiB로 늘렸습니다. | `current change`; 64KiB를 넘는 중간 출력에서도 marker 순서를 보존하는 회귀 테스트를 추가했습니다. | 시작 출력이 새 상한에 가까워지면 구조화된 readiness projection을 권장합니다. |
 | 2026-09-07 | implemented | 수락하는 새로운 Pantheon heartbeat가 시작 이후 semantic consumer marker보다 뒤에 오도록 재시작 readiness 순서를 결속했습니다. | `current change`; 집중 developer-workflow 테스트에서 시작 이후지만 consumer보다 이른 heartbeat와 이후의 유효한 heartbeat를 확인했습니다. | 이중 언어 지연 분포를 보존합니다. |
 | 2026-09-07 | implemented | 이전 프로세스의 heartbeat를 수락하는 대신 Core 재시작 readiness가 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat를 요구하도록 했습니다. | `current change`; 집중 launcher/workflow 테스트 46개 통과, 보존된 재시작이 두 marker 뒤 `ready`를 보냈고 첫 F2 답변 token은 3.948초였습니다. | 이중 언어 지연 분포를 보존합니다. 표본 하나는 SLO 검증이 아닙니다. |
 | 2026-09-07 | in-progress | 정확한 schema 이름을 유지하면서 preflight 본문을 추정 약 654토큰으로 줄였습니다. 준비된 F1/F2 변형은 preflight를 한 번 호출하고 5초 답변 token gate를 충족했습니다. | 표준 Browser Entra F1/F2 시간은 3.810/4.254초였습니다. | 이중 언어 분포를 보존하고 `control_loop_ready`보다 약 28초 늦게 시작한 semantic consumer를 Core readiness에 포함합니다. |
