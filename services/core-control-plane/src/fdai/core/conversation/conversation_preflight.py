@@ -11,7 +11,11 @@ from types import MappingProxyType
 from typing import Annotated, Any, Literal, Protocol
 
 from fdai_service_contracts.ontology_query import QueryContract, canonical_json, content_digest
-from fdai_service_contracts.semantic_judgment import SemanticDirectResponseDraft
+from fdai_service_contracts.semantic_judgment import (
+    SemanticDirectResponseDraft,
+    SemanticJudgmentProposal,
+    SemanticTarget,
+)
 from pydantic import Field, ValidationError, model_validator
 
 from .model_observation import ConversationModelObservation, ConversationModelResponse
@@ -21,6 +25,59 @@ _MAX_CONTEXT_ITEMS = 4
 _MAX_CONTEXT_CHARS = 4_000
 _MAX_PROFILE_BYTES = 16_384
 _MAX_SCHEMA_ATTEMPTS = 2
+_OPERATIONAL_PROMOTION_CONFIDENCE = 0.9
+_INVENTORY_FACETS = frozenset(
+    {"resource_inventory", "subscription", "complete_content", "download"}
+)
+_CONFIGURATION_FACETS = frozenset(
+    {
+        "before_after",
+        "capacity_units",
+        "configuration_changes",
+        "historical_coverage",
+        "last_hour",
+        "tpm",
+    }
+)
+_GATEWAY_FACETS = frozenset(
+    {
+        "apim",
+        "application_gateway",
+        "backend",
+        "backend_connect_time",
+        "backend_response_code",
+        "before_after",
+        "configuration_changes",
+        "first_byte_time",
+        "gateway_response_code",
+        "gpt",
+        "http_status",
+        "last_byte_time",
+        "last_hour",
+        "latency",
+        "status_429",
+        "status_500",
+        "status_503",
+        "topology",
+        "total_time",
+    }
+)
+_ONE_HOUR_EXPRESSIONS = frozenset(
+    {
+        "1 hour",
+        "1시간",
+        "60 minutes",
+        "last hour",
+        "one hour",
+        "past hour",
+        "previous hour",
+        "지난 1시간",
+        "지난 한 시간",
+        "최근 1시간",
+        "최근 한 시간",
+        "한 시간",
+    }
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -74,6 +131,15 @@ class ContextDependency(StrEnum):
     AMBIGUOUS = "ambiguous"
 
 
+class OperationalPreflightFamily(StrEnum):
+    """Small reviewed operational family set that can skip full judgment."""
+
+    NONE = "none"
+    INVENTORY_DOCUMENT = "inventory_document"
+    RESOURCE_CONFIGURATION_CHANGES = "resource_configuration_changes"
+    GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
+
+
 class ConversationPreflightProposal(QueryContract):
     """Untrusted compact route proposal without user-facing response prose."""
 
@@ -81,6 +147,9 @@ class ConversationPreflightProposal(QueryContract):
     social_act: SocialAct
     operational_signal: OperationalSignal
     context_dependency: ContextDependency
+    operational_family: OperationalPreflightFamily = OperationalPreflightFamily.NONE
+    operational_targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=4)] = ()
+    operational_facets: Annotated[tuple[str, ...], Field(max_length=24)] = ()
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
     authority: Literal["candidate_only"] = "candidate_only"
     execution_authority: Literal[False] = False
@@ -89,6 +158,13 @@ class ConversationPreflightProposal(QueryContract):
     def _route_is_consistent(self) -> ConversationPreflightProposal:
         if not math.isfinite(self.confidence):
             raise ValueError("conversation preflight confidence MUST be finite")
+        known_operational = self.operational_family is not OperationalPreflightFamily.NONE
+        if known_operational != bool(self.operational_targets or self.operational_facets):
+            raise ValueError("known operational preflight family requires typed details")
+        if known_operational and self.operational_signal is not OperationalSignal.EXPLICIT:
+            raise ValueError("operational preflight family requires an explicit operational signal")
+        if len(self.operational_facets) != len(set(self.operational_facets)):
+            raise ValueError("operational preflight facets MUST be unique")
         return self
 
 
@@ -148,6 +224,10 @@ class ConversationPreflightResult:
     observations: tuple[ConversationModelObservation, ...] = ()
     attempted: bool = False
     failure_kind: Literal["provider_unavailable", "malformed"] | None = None
+    input_digest: str | None = None
+    proposal_digest: str | None = None
+    model_config_digest: str | None = None
+    prompt_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +322,10 @@ class ConversationPreflightBoundary:
                 proposal=proposal,
                 observations=tuple(observations),
                 attempted=True,
+                input_digest=_preflight_input_digest(utterance),
+                proposal_digest=content_digest(proposal.model_dump(mode="json")),
+                model_config_digest=self._binding.model_config_digest,
+                prompt_digest=self._binding.prompt_digest,
             )
         raise RuntimeError("conversation preflight attempt bound is unreachable")
 
@@ -305,6 +389,99 @@ class ConversationPreflightBoundary:
         )
 
 
+def preflight_operational_judgment(
+    result: ConversationPreflightResult,
+    *,
+    utterance: str,
+) -> SemanticJudgmentProposal | None:
+    """Promote a bounded preflight family to candidate judgment after source checks."""
+    proposal = result.proposal
+    if (
+        proposal is None
+        or not result.attempted
+        or result.failure_kind is not None
+        or proposal.operational_family is OperationalPreflightFamily.NONE
+        or proposal.operational_signal is not OperationalSignal.EXPLICIT
+        or proposal.context_dependency is not ContextDependency.NONE
+        or proposal.confidence < _OPERATIONAL_PROMOTION_CONFIDENCE
+        or result.input_digest != _preflight_input_digest(utterance)
+        or result.proposal_digest != content_digest(proposal.model_dump(mode="json"))
+        or result.model_config_digest is None
+        or result.prompt_digest is None
+    ):
+        return None
+    for target in proposal.operational_targets:
+        if utterance[target.source_start : target.source_end] != target.value:
+            return None
+        if target.kind == "resource" and target.canonical_value not in {
+            "Resource.id",
+            "Resource.name",
+        }:
+            return None
+        if target.kind == "time_range":
+            if (
+                target.canonical_value != "duration.PT1H"
+                or " ".join(target.value.casefold().split()) not in _ONE_HOUR_EXPRESSIONS
+            ):
+                return None
+        if target.kind not in {"resource", "time_range", "backend", "model"}:
+            return None
+    primary_intent = {
+        OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
+        OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES: (
+            "query.resource_configuration_changes"
+        ),
+        OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE: (
+            "query.gateway_diagnostic_evidence"
+        ),
+    }.get(proposal.operational_family)
+    target_kinds = tuple(target.kind for target in proposal.operational_targets)
+    facets = frozenset(proposal.operational_facets)
+    if proposal.operational_family is OperationalPreflightFamily.INVENTORY_DOCUMENT:
+        family_valid = not target_kinds and facets == _INVENTORY_FACETS
+    elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES:
+        family_valid = (
+            target_kinds.count("resource") == 1
+            and target_kinds.count("time_range") == 1
+            and len(target_kinds) == 2
+            and next(
+                target.canonical_value
+                for target in proposal.operational_targets
+                if target.kind == "resource"
+            )
+            == "Resource.name"
+            and bool(facets)
+            and facets <= _CONFIGURATION_FACETS
+        )
+    else:
+        family_valid = (
+            target_kinds.count("resource") == 1
+            and target_kinds.count("time_range") <= 1
+            and target_kinds.count("backend") <= 1
+            and target_kinds.count("model") <= 1
+            and len(target_kinds) == len(set(target_kinds))
+            and bool(facets)
+            and facets <= _GATEWAY_FACETS
+        )
+    if primary_intent is None or not family_valid:
+        return None
+    return SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=proposal.operational_targets,
+        requested_facets=proposal.operational_facets,
+        confidence=proposal.confidence,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+
+def _preflight_input_digest(utterance: str) -> str:
+    return content_digest({"utterance": utterance})
+
+
 def _bounded_context(context: Sequence[str]) -> tuple[str, ...]:
     selected: list[str] = []
     total = 0
@@ -358,10 +535,12 @@ __all__ = [
     "ConversationPreflightProposal",
     "ConversationPreflightResult",
     "DIRECT_SOCIAL_ACTS",
+    "OperationalPreflightFamily",
     "OperationalSignal",
     "SOCIAL_NARRATOR_CAPABILITY_IDS",
     "SocialResponseNarratorBinding",
     "SocialResponseNarratorModel",
     "SocialResponseNarratorResult",
     "SocialAct",
+    "preflight_operational_judgment",
 ]

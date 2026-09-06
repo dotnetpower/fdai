@@ -56,6 +56,10 @@ Core conversation routing runs compact preflight on the first turn, bypasses ada
 planning for explicit operational requests, and narrows accepted inventory, configuration, and
 gateway intents to reviewed descriptor slices. Azure semantic planning selects the dedicated
 operational frame prompt and enforces the complete 64 KiB request ceiling.
+For exact F1-F4 shapes, preflight can also supply provenance-bound candidate meaning and remove one
+serial full-judgment call. Core verifies current-input digests, source spans, confidence, context
+independence, family shape, and the principal manifest before reusing it. Other requests keep full
+semantic judgment.
 Configuration and gateway comparisons without a source-grounded Resource name or id stop with
 typed `resource_identity` clarification before frame-model or provider I/O.
 An accepted exact-target one-hour configuration judgment builds the F2 frame deterministically and

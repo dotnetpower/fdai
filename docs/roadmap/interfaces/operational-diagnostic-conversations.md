@@ -19,6 +19,8 @@ from interactive evidence, and configuration correlation from a proven cause.
 > governed frame prompt. Known operational families now use a separate 2,173-character prompt, while
 > the legacy general prompt has a 33,000-character ceiling. First-turn explicit operational requests
 > also bypass the 11-16 second adaptive planning stage and narrow 308 descriptors to at most five.
+> A verified compact preflight can now replace the second, full semantic-judgment model call for
+> F1-F4 only when current-input provenance, source spans, confidence, and family shape all pass.
 > These checks do not establish an
 > end-to-end pass. The retained
 > standard interactive document request still produced an action draft without an artifact in about
@@ -31,6 +33,12 @@ typed goal, target, authorized scope, time, and output shape to secured `ObjectS
 (permission-filtered collections), typed-path receipts (evidence for allowed property traversal),
 and `MetricWindowProvider` (the existing authoritative metric-window interface). Verify evidence
 before the existing conversation presentation and document exporter render it.
+
+For the three reviewed planner shapes that cover F1-F4, compact preflight can supply the same
+candidate-only judgment fields. Core accepts that shortcut only for an explicit,
+context-independent request with at least 0.90 confidence, current utterance and proposal digests,
+exact source spans, and a family-specific target and facet allowlist. Any mismatch uses the full
+semantic judgment path. The shortcut grants no capability or execution authority.
 
 ## Scenario acceptance criteria
 

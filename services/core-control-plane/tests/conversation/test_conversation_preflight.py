@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -10,14 +11,19 @@ from fdai.core.conversation.conversation_preflight import (
     ConversationPreflightBinding,
     ConversationPreflightBoundary,
     ConversationPreflightProposal,
+    ConversationPreflightResult,
+    OperationalPreflightFamily,
     OperationalSignal,
     SocialAct,
     SocialResponseNarratorBinding,
+    preflight_operational_judgment,
 )
 from fdai.core.conversation.model_observation import (
     ConversationModelObservation,
     ConversationModelResponse,
 )
+from fdai_service_contracts.ontology_query import content_digest
+from fdai_service_contracts.semantic_judgment import SemanticTarget
 
 DIGEST = "sha256:" + ("a" * 64)
 
@@ -184,6 +190,181 @@ def test_accepts_mixed_route_without_generating_text() -> None:
     assert result.proposal is not None
     assert result.proposal.social_act is SocialAct.GREETING
     assert result.proposal.operational_signal is OperationalSignal.MIXED
+
+
+def test_promotes_source_grounded_operational_family_to_candidate_judgment() -> None:
+    utterance = "Compare narrator-gpt-5-4-mini configuration changes for the last hour."
+    target = "narrator-gpt-5-4-mini"
+    start = utterance.index(target)
+    time_value = "last hour"
+    time_start = utterance.index(time_value)
+    result = ConversationPreflightResult(
+        proposal=ConversationPreflightProposal(
+            social_act=SocialAct.NONE,
+            operational_signal=OperationalSignal.EXPLICIT,
+            context_dependency=ContextDependency.NONE,
+            operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+            operational_targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value=target,
+                    canonical_value="Resource.name",
+                    source_start=start,
+                    source_end=start + len(target),
+                ),
+                SemanticTarget(
+                    kind="time_range",
+                    value=time_value,
+                    canonical_value="duration.PT1H",
+                    source_start=time_start,
+                    source_end=time_start + len(time_value),
+                ),
+            ),
+            operational_facets=("configuration_changes",),
+            confidence=0.99,
+        ),
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=None,
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+    result = replace(
+        result,
+        proposal_digest=content_digest(result.proposal.model_dump(mode="json")),
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_configuration_changes"
+    assert judgment.targets == result.proposal.operational_targets
+    assert judgment.execution_authority is False
+
+
+def test_preflight_operational_judgment_rejects_nonmatching_source_span() -> None:
+    utterance = "actual-appgw latency"
+    result = ConversationPreflightResult(
+        proposal=ConversationPreflightProposal(
+            social_act=SocialAct.NONE,
+            operational_signal=OperationalSignal.EXPLICIT,
+            context_dependency=ContextDependency.NONE,
+            operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+            operational_targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value="invented-appgw",
+                    canonical_value="Resource.name",
+                    source_start=0,
+                    source_end=14,
+                ),
+            ),
+            operational_facets=("latency",),
+            confidence=0.99,
+        ),
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=None,
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+    result = replace(
+        result,
+        proposal_digest=content_digest(result.proposal.model_dump(mode="json")),
+    )
+
+    assert (
+        preflight_operational_judgment(
+            result,
+            utterance=utterance,
+        )
+        is None
+    )
+
+
+def test_preflight_operational_judgment_requires_current_provenance_and_confidence() -> None:
+    utterance = "Document every resource in the current subscription."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.INVENTORY_DOCUMENT,
+        operational_facets=(
+            "resource_inventory",
+            "subscription",
+            "complete_content",
+            "download",
+        ),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert (
+        preflight_operational_judgment(
+            replace(result, input_digest=content_digest({"utterance": "stale"})),
+            utterance=utterance,
+        )
+        is None
+    )
+    low_confidence = proposal.model_copy(update={"confidence": 0.89})
+    assert (
+        preflight_operational_judgment(
+            replace(
+                result,
+                proposal=low_confidence,
+                proposal_digest=content_digest(low_confidence.model_dump(mode="json")),
+            ),
+            utterance=utterance,
+        )
+        is None
+    )
+
+
+def test_preflight_operational_judgment_rejects_false_one_hour_canonicalization() -> None:
+    utterance = "Compare deployment-a configuration changes for the last day."
+    resource = "deployment-a"
+    period = "last day"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=resource,
+                canonical_value="Resource.name",
+                source_start=utterance.index(resource),
+                source_end=utterance.index(resource) + len(resource),
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value=period,
+                canonical_value="duration.PT1H",
+                source_start=utterance.index(period),
+                source_end=utterance.index(period) + len(period),
+            ),
+        ),
+        operational_facets=("configuration_changes",),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
 def test_malformed_response_falls_through_after_one_attempt() -> None:

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any
@@ -21,7 +21,9 @@ from fdai_service_contracts.ontology_query import (
 )
 from fdai_service_contracts.semantic_judgment import (
     SemanticDiscourseMode,
+    SemanticJudgmentDisposition,
     SemanticJudgmentProposal,
+    SemanticJudgmentTier,
 )
 from pydantic import ValidationError
 
@@ -34,6 +36,7 @@ from .conversation_preflight import (
     ConversationPreflightResult,
     OperationalSignal,
     SocialAct,
+    preflight_operational_judgment,
 )
 from .intent_graph import build_intent_graph
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
@@ -84,6 +87,17 @@ from .semantic_planning_support import (
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _JudgmentDecision:
+    proposal: SemanticJudgmentProposal | None
+    disposition: SemanticJudgmentDisposition
+    tier: SemanticJudgmentTier | None
+    observations: tuple[SemanticJudgmentObservation, ...] = ()
+    accepted: bool = False
+
+
 _OPERATIONAL_DESCRIPTOR_NAMES = {
     "create.document": frozenset({"Resource"}),
     "query.resource_configuration_changes": frozenset(
@@ -302,6 +316,7 @@ class SemanticPlanningService:
             response_profile["role"] = conversation_profile["role"]
         unbound_conversation = bound_incident is None and bound_investigation_continuation is None
         supplied_preflight_consumed = False
+        effective_preflight_result: ConversationPreflightResult | None = None
 
         def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
             updated = outcome
@@ -314,7 +329,7 @@ class SemanticPlanningService:
 
         def run_preflight(context: Sequence[str]) -> SemanticPlanningOutcome | None:
             nonlocal preflight_ran, preflight_social_act, preflight_vetoes_direct
-            nonlocal supplied_preflight_consumed
+            nonlocal effective_preflight_result, supplied_preflight_consumed
             if self._semantic_judgment is None:
                 return None
             preflight_ran = True
@@ -328,6 +343,7 @@ class SemanticPlanningService:
                     locale=locale,
                     direct_response_profile=response_profile,
                 )
+            effective_preflight_result = preflight
             model_observations.extend(preflight.observations)
             preflight_vetoes_direct = preflight.failure_kind == "malformed"
             proposal = preflight.proposal
@@ -396,6 +412,7 @@ class SemanticPlanningService:
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
             semantic_judgment = None
+            judgment_decision: _JudgmentDecision | None = None
             if self._semantic_judgment is not None:
                 judgment_capabilities = _semantic_judgment_capabilities(descriptors)
                 bound_subject_types = (
@@ -408,59 +425,86 @@ class SemanticPlanningService:
                     )
                     else ()
                 )
-                judgment_result = self._semantic_judgment.judge(
-                    utterance=utterance,
-                    context=context,
-                    capabilities=judgment_capabilities,
-                    allow_escalation=False,
-                    bound_subject_types=bound_subject_types,
-                    locale=locale,
-                    direct_response_profile=response_profile,
+                promoted_preflight = (
+                    preflight_operational_judgment(
+                        effective_preflight_result,
+                        utterance=utterance,
+                    )
+                    if effective_preflight_result is not None
+                    else None
                 )
-                model_observations.extend(judgment_result.observations)
+                if promoted_preflight is not None:
+                    _LOGGER.info(
+                        "semantic_planning_judgment_reused_preflight",
+                        extra={"primary_intent": promoted_preflight.primary_intent},
+                    )
+                    judgment_decision = _JudgmentDecision(
+                        proposal=promoted_preflight,
+                        disposition=SemanticJudgmentDisposition.ACCEPTED,
+                        tier=SemanticJudgmentTier.T1,
+                        accepted=True,
+                    )
+                else:
+                    judgment_result = self._semantic_judgment.judge(
+                        utterance=utterance,
+                        context=context,
+                        capabilities=judgment_capabilities,
+                        allow_escalation=False,
+                        bound_subject_types=bound_subject_types,
+                        locale=locale,
+                        direct_response_profile=response_profile,
+                    )
+                    judgment_decision = _JudgmentDecision(
+                        proposal=judgment_result.proposal,
+                        disposition=judgment_result.receipt.disposition,
+                        tier=judgment_result.receipt.tier,
+                        observations=judgment_result.observations,
+                        accepted=judgment_result.accepted,
+                    )
+                model_observations.extend(judgment_decision.observations)
                 judgment_posture = (
-                    judgment_result.proposal.action_posture
-                    if judgment_result.proposal is not None
-                    else judgment_result.receipt.disposition.value
+                    judgment_decision.proposal.action_posture
+                    if judgment_decision.proposal is not None
+                    else judgment_decision.disposition.value
                 )
                 _LOGGER.info(
                     f"semantic_planning_judgment_{judgment_posture}",
                     extra={
-                        "disposition": judgment_result.receipt.disposition.value,
+                        "disposition": judgment_decision.disposition.value,
                         "tier": (
-                            judgment_result.receipt.tier.value
-                            if judgment_result.receipt.tier is not None
+                            judgment_decision.tier.value
+                            if judgment_decision.tier is not None
                             else None
                         ),
                         "action_posture": judgment_posture,
                         "primary_intent": (
-                            judgment_result.proposal.primary_intent
-                            if judgment_result.proposal is not None
+                            judgment_decision.proposal.primary_intent
+                            if judgment_decision.proposal is not None
                             else None
                         ),
                         "secondary_intents": (
-                            ",".join(judgment_result.proposal.secondary_intents)
-                            if judgment_result.proposal is not None
+                            ",".join(judgment_decision.proposal.secondary_intents)
+                            if judgment_decision.proposal is not None
                             else ""
                         ),
                         "discourse_mode": (
-                            judgment_result.proposal.discourse_mode.value
-                            if judgment_result.proposal is not None
+                            judgment_decision.proposal.discourse_mode.value
+                            if judgment_decision.proposal is not None
                             else None
                         ),
                         "requested_facets": (
-                            ",".join(judgment_result.proposal.requested_facets)
-                            if judgment_result.proposal is not None
+                            ",".join(judgment_decision.proposal.requested_facets)
+                            if judgment_decision.proposal is not None
                             else ""
                         ),
                         "target_count": (
-                            len(judgment_result.proposal.targets)
-                            if judgment_result.proposal is not None
+                            len(judgment_decision.proposal.targets)
+                            if judgment_decision.proposal is not None
                             else 0
                         ),
                         "target_kinds": (
-                            ",".join(target.kind for target in judgment_result.proposal.targets)
-                            if judgment_result.proposal is not None
+                            ",".join(target.kind for target in judgment_decision.proposal.targets)
+                            if judgment_decision.proposal is not None
                             else ""
                         ),
                         "canonical_target_types": (
@@ -468,26 +512,26 @@ class SemanticPlanningService:
                                 sorted(
                                     {
                                         target.canonical_value
-                                        for target in judgment_result.proposal.targets
+                                        for target in judgment_decision.proposal.targets
                                         if target.canonical_value is not None
                                     }
                                 )
                             )
-                            if judgment_result.proposal is not None
+                            if judgment_decision.proposal is not None
                             else ""
                         ),
                     },
                 )
-                if judgment_result.accepted and judgment_result.proposal is not None:
-                    semantic_judgment = judgment_result.proposal.model_dump(mode="json")
+                if judgment_decision.accepted and judgment_decision.proposal is not None:
+                    semantic_judgment = judgment_decision.proposal.model_dump(mode="json")
                     descriptors = _descriptors_for_judgment(
                         descriptors,
-                        judgment_result.proposal,
+                        judgment_decision.proposal,
                     )
                     _LOGGER.info(
                         "semantic_descriptor_selection_completed",
                         extra={
-                            "primary_intent": judgment_result.proposal.primary_intent,
+                            "primary_intent": judgment_decision.proposal.primary_intent,
                             "descriptor_count": len(descriptors),
                             "descriptor_bytes": len(
                                 json.dumps(
@@ -502,13 +546,13 @@ class SemanticPlanningService:
                     )
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             judgment_proposal = (
-                judgment_result.proposal if self._semantic_judgment is not None else None
+                judgment_decision.proposal if judgment_decision is not None else None
             )
             direct_response = _direct_response(
-                judgment_result.proposal
-                if self._semantic_judgment is not None
-                and judgment_result.accepted
-                and judgment_result.proposal is not None
+                judgment_decision.proposal
+                if judgment_decision is not None
+                and judgment_decision.accepted
+                and judgment_decision.proposal is not None
                 else None
             )
             if direct_response is not None:
@@ -542,9 +586,7 @@ class SemanticPlanningService:
             stage = "frame_proposal"
             frame_result = deterministic_pre_frame_selection(
                 judgment=judgment_proposal,
-                judgment_accepted=(
-                    self._semantic_judgment is not None and judgment_result.accepted
-                ),
+                judgment_accepted=judgment_decision is not None and judgment_decision.accepted,
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,

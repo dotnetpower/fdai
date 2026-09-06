@@ -10,6 +10,14 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
+from fdai.core.conversation.conversation_preflight import (
+    ContextDependency,
+    ConversationPreflightProposal,
+    ConversationPreflightResult,
+    OperationalPreflightFamily,
+    OperationalSignal,
+    SocialAct,
+)
 from fdai.core.conversation.coordinator import ConversationCoordinator, CoordinatorConfig
 from fdai.core.conversation.intent_graph import (
     build_intent_graph_evidence,
@@ -1547,6 +1555,58 @@ def test_inventory_document_judgment_reads_current_inventory_without_model_plan(
     assert definition.include_relationships is False
     assert definition.limit == 1000
     assert outcome.execution_authority is False
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_inventory_preflight_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _fixture()
+    model = _Model(frame=None, plan=None)
+    utterance = "Prepare a complete downloadable inventory for the current subscription."
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("full semantic judgment must be skipped")
+
+    preflight = ConversationPreflightResult(
+        proposal=ConversationPreflightProposal(
+            social_act=SocialAct.NONE,
+            operational_signal=OperationalSignal.EXPLICIT,
+            context_dependency=ContextDependency.NONE,
+            operational_family=OperationalPreflightFamily.INVENTORY_DOCUMENT,
+            operational_facets=(
+                "resource_inventory",
+                "subscription",
+                "complete_content",
+                "download",
+            ),
+            confidence=0.99,
+        ),
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+    assert preflight.proposal is not None
+    preflight = replace(
+        preflight,
+        proposal_digest=content_digest(preflight.proposal.model_dump(mode="json")),
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_list"
     assert model.frame_calls == model.plan_calls == 0
 
 

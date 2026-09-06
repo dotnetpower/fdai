@@ -3,8 +3,9 @@
 This ledger owns delivery status for the bilingual operational diagnostic conversation contract.
 It separates coordinating-session reports from retained final-snapshot and interactive evidence.
 
-> **Evidence boundary:** The implementation checkpoint is `6ba5c91d3`. The current hardening change
-> is uncommitted and isolated from unrelated work. Exact focused results below were run against that
+> **Evidence boundary:** Checkpoint `6ba5c91d3` is already merged into local `main`, followed by the
+> latency checkpoints recorded below. The current hardening change is uncommitted and isolated from
+> unrelated work. Exact focused results below were run against that
 > working tree and use `current change` rather than a guessed commit. Component checks do not certify
 > the standard interactive runtime or provider evidence.
 
@@ -20,7 +21,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | Scoped configuration comparison | implemented | `current change`; source-isolation, time-boundary, capacity-semantics, and configuration-plan cases in the 43-case matrix and final component slice | Values, object scope, history references, and aggregate provenance remain filtered before presentation. Interactive history evidence remains open. |
 | Compound gateway metric/configuration wiring | implemented | `current change`; gateway compiler, reducer, APIM status, deadline, and scoped configuration tests in the 742-test slice | Component composition is complete. Standard interactive metric and configuration evidence remains open. |
 | Standard interactive acceptance | in-progress | Reported document request: action draft, no artifact, about 39.9 seconds. Reported gateway question: held with `semantic_frame_unavailable`. | Neither observation is an answer-quality pass; no successful interactive evidence is claimed for any of the four families. |
-| Formal critique and hardening | implemented | `current change`; R01-R12 below; 43 focused cases and 1,237 expanded component cases passed | Four Medium findings were fixed. No unresolved Medium-or-higher component finding was confirmed. Interactive gaps remain outside this claim. |
+| Formal critique and hardening | implemented | `current change`; R01-R22 below; the latest 177 focused cases, targeted Ruff, and strict mypy passed | Seven additional Medium findings were fixed in R13-R22. No unresolved Medium-or-higher finding is known in this component change. Interactive gaps remain outside this claim. |
 
 ### Implementation history
 
@@ -30,6 +31,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | 2026-09-07 | implemented | Revalidated the merged checkpoint, completed R01-R12, added all six APIM gateway/backend status observations, removed provider response bodies from Metrics API errors, bypassed adaptive planning for explicit operational turns, and separated known operational framing into a 2,173-character prompt with a 64 KiB complete-request ceiling. | `current change`; 43 hardening cases, 137 gateway/metric tests, 1,237 final component tests, Console typecheck, targeted Ruff, and strict mypy passed. | Retain successful standard interactive evidence for all four families and the F1 download. |
 | 2026-09-07 | implemented | Held configuration and gateway comparisons for exact Resource identity before frame planning when typed judgment supplied no source-grounded Resource name or id. | `current change`; 210 focused semantic planning tests, targeted Ruff, and strict mypy passed. | Re-run F2-F4 with exact deployment or gateway identity and retain the 5-second TTFT result. |
 | 2026-09-07 | implemented | Built the exact-target one-hour F2 configuration frame directly from accepted typed judgment instead of allowing the frame model to degrade it to a generic property listing. | `current change`; 176 focused semantic planning tests, targeted Ruff, and strict mypy passed. | Retain an F2 standard-stack receipt with complete configuration history and answer TTFT at or below 5 seconds. |
+| 2026-09-07 | implemented | Added a provenance-bound operational-family proposal to compact preflight and reused it as candidate-only judgment for verified F1-F4 requests, removing one serial model call. Added fail-closed confidence, context, family-shape, source-span, one-hour, and Resource identity checks. | `current change`; 177 conversation, prompt-registry, and adapter tests passed with targeted Ruff and strict mypy. | Restart the standard local Core and retain authenticated F1-F4 answer-token TTFT, evidence, and artifact outcomes. |
 
 ### Remaining work
 
@@ -47,15 +49,16 @@ It separates coordinating-session reports from retained final-snapshot and inter
   draft and gateway semantic-frame hold; do not infer a pass from component checks.
 - [ ] Retain safe negative outcomes for ambiguity, missing/denied evidence, pagination limits,
   stale history, unavailable metric dimensions, zero versus no samples, and no-mutation boundaries.
-- [x] Completed R01-R11 below and fixed all three accepted Medium findings.
+- [x] Completed R01-R22 below and fixed all accepted Medium findings.
 - [ ] Before claiming all gaps closed, confirm every family meets its contract, all accepted
   findings are resolved, and final-snapshot and standard interactive evidence are retained.
 
 ## Formal critique and hardening rounds
 
-Each round reviewed checkpoint `6ba5c91d3` plus the current isolated hardening change. R01-R10 used
+R01-R12 reviewed checkpoint `6ba5c91d3` plus its isolated hardening change. R01-R10 used
 one exact 43-case pytest invocation and passed in 0.69 seconds. R11 used 41 prompt/composition cases
-and a bounded live Core startup.
+and a bounded live Core startup. R13-R22 reviewed the preflight judgment reuse change and concluded
+with 177 focused cases, targeted Ruff, and strict mypy.
 
 | Round | Hypothesis and result | Resolution | Focused evidence | Remaining blocker |
 |-------|-----------------------|------------|------------------|-------------------|
@@ -71,6 +74,16 @@ and a bounded live Core startup.
 | R10 | Compound reads might overclaim causation, mutate state, retry, or leak pending work after deadlines. No defect was reproduced. | Rejected; outputs retain `execution_authority=false`, no causal support, finite concurrency, and cancellation. | Gateway deadline and no-retry cases passed. | Standard interactive compound answers remain open. |
 | R11 | The final runtime composition might reject the newly governed prompts despite component tests. **Medium confirmed:** the 32,865-character frame prompt exceeded the 32,768-character adapter limit and disabled operational semantic composition. | Restored immutable v40, allowed its exact legacy size under a 33,000-character ceiling, and added a 2,173-character prompt selected only for accepted operational families. | Prompt selection, request-budget, and scenario cases passed. | The already-running standard Core has not been restarted; standard browser validation remains open. |
 | R12 | First-turn operational requests might pay for adaptive explanation planning and then send the complete 308-descriptor manifest to frame planning. **Medium confirmed:** live evidence showed 11-16 seconds in adaptive planning and a 248,854-byte complete descriptor payload. | Run compact preflight on the first turn, bypass adaptive planning for explicit/contextual operational signals, then narrow F1/F2/F3-F4 to 1/3/5 descriptors and the compact operational frame prompt. | 1,237 expanded component tests, targeted Ruff, and strict mypy passed. | Standard-stack TTFT and transport qualification remain open. |
+| R13 | A low-confidence family proposal might be treated as accepted operational meaning. **Medium confirmed.** | Required confidence of at least 0.90 before promotion. | Low-confidence negative case passed in the 177-test slice. | Live confidence distribution remains unmeasured. |
+| R14 | A context-dependent or mixed proposal might skip the full judgment needed to resolve prior meaning. **Medium confirmed.** | Restricted promotion to explicit, context-independent requests. | Schema and promotion negative paths passed. | Contextual requests still pay for full judgment by design. |
+| R15 | A family label with missing or extra targets and facets might silently drop requested meaning. **Medium confirmed.** | Added exact inventory, configuration, and gateway target/facet shapes with reviewed allowlists. | Family-shape and planner cases passed. | Unsupported facets use full judgment. |
+| R16 | Reused meaning might bypass the principal capability manifest or ordinary plan verifier. No defect was reproduced. | Rejected after tracing promotion through descriptor selection, manifest-owned declarations, deterministic frame checks, and the existing verifier. | Inventory integration test fails if full judgment runs and still produces the verified server-owned plan. | Standard interactive principal receipt remains open. |
+| R17 | Arbitrary text such as "last day" might be labeled `duration.PT1H`. **Medium confirmed.** | Required an exact source span and a deterministic supported one-hour expression before accepting the typed canonical duration. | False-canonicalization case passed. | Other intervals use full judgment. |
+| R18 | A stale or constructed preflight result might be reused for another utterance. **Medium confirmed.** | Bound successful results to input, proposal, model-config, and prompt digests and rechecked them before promotion. | Stale-input and changed-proposal cases passed. | Runtime receipt retention remains part of interactive evidence. |
+| R19 | An ARM resource ID might be passed to the F2 compiler as `Resource.name`. **Medium confirmed.** | Required `Resource.name` for F2; gateway diagnostics retain explicit `Resource.name` or `Resource.id`. | Canonical target checks and configuration planner tests passed. | F2 ID support requires an explicit compiler extension. |
+| R20 | The expanded compact prompt might erase the model-call latency gain. No defect was reproduced. | Retained the complete prompt and generated schema at about 1.5K estimated tokens, below the removed full judgment prompt alone. | Prompt-registry and adapter tests passed; local size measurement recorded. | Standard answer-token TTFT remains open. |
+| R21 | Prompt v2 might regress v1 social ambiguity rules. **Medium confirmed.** | Restored conversation-interface, acknowledgement, quoted-social, and uncertainty rules in compact form. | Prompt registry and conversation preflight cases passed. | Live multilingual variation remains open. |
+| R22 | Normalizing full and preflight judgments might reject a valid accepted test boundary. A compatibility defect was reproduced in focused tests, but no production enum path was affected. | Preserved the boundary's explicit `accepted` decision instead of inferring it from a synthetic receipt. | All 177 focused cases passed after the fix. | No Medium-or-higher blocker remains from this round. |
 
 R01-R10 do not authorize live mutations. Authorized live reads and model questions remain bounded;
 TPM reduction and chaos injection remain outside scope. Stop the attempt on unexpected model
