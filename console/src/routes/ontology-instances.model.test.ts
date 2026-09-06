@@ -10,6 +10,7 @@ import {
   ontologyInstanceAksLanes,
   ontologyInstanceContextIdentity,
   ontologyInstanceNetworkPaths,
+  ontologyInstanceNodeState,
   ontologyInstancePresentationCoverage,
   ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
@@ -138,6 +139,89 @@ describe("decodeOntologyInstanceExploration", () => {
       [null, "neutral"],
     ] as const)("maps %s without rewriting the provider state", (status, expected) => {
       expect(ontologyInstanceStatusTone(status)).toBe(expected);
+    });
+  });
+
+  describe("ontology instance node state", () => {
+    const fact = (value: string | null, reason: string | null) => ({
+      value,
+      source_path: value === null ? null : "properties.state",
+      observed_at: null,
+      recorded_at: null,
+      freshness: "unknown" as const,
+      completeness: null,
+      conflicts: [],
+      reason,
+    });
+    const resource = (
+      operational: ReturnType<typeof fact>,
+      provisioning: ReturnType<typeof fact>,
+      availability: ReturnType<typeof fact>,
+    ) => ({
+      ...decodeOntologyInstanceExploration(payload()).resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational,
+        provisioning,
+        availability,
+      },
+    });
+
+    it("keeps applicable operational state as the primary graph label", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact("Running", null),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({ axis: "operational", fact: fact("Running", null) });
+    });
+
+    it("shows exact availability when operation is not applicable", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({ axis: "availability", fact: fact("Available", null) });
+    });
+
+    it("keeps an applicable availability evidence gap ahead of provisioning", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact("Succeeded", null),
+        fact(null, "state_source_not_recorded"),
+      ))).toEqual({
+        axis: "availability",
+        fact: fact(null, "state_source_not_recorded"),
+      });
+    });
+
+    it("shows provisioning without recasting it as operation or health", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact("Succeeded", null),
+        fact(null, "state_not_applicable"),
+      ))).toEqual({ axis: "provisioning", fact: fact("Succeeded", null) });
+    });
+
+    it("keeps an applicable operational evidence gap ahead of provisioning", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({
+        axis: "operational",
+        fact: fact(null, "provider_operational_state_not_exposed"),
+      });
+    });
+
+    it("keeps not-applicable operation when no other axis has a useful fact", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "state_not_applicable"),
+        fact(null, "state_not_recorded"),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({
+        axis: "operational",
+        fact: fact(null, "state_not_applicable"),
+      });
     });
   });
 

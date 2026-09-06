@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 1673e1e534cff0374f3480c51a3c18486a029c52
-translation_revised: 2026-09-05
+translation_source_sha: 7c3b2f5f78ea2a286a16bc86b8542442b68ababe
+translation_revised: 2026-09-06
 ---
 
 # 콘솔 운영
@@ -83,6 +83,10 @@ Operations는 기존 객체와 링크를 재사용합니다.
 관계 범례는 기본적으로 `contains`, `attached_to`, `depends_on`을 표시하고 명시적인 펼치기
 컨트롤을 통해 범위가 제한된 응답의 나머지 유형을 제공합니다. 범례를 펼치거나 접어도 링크를
 제거하거나 개수를 바꾸거나 Inspector의 범위를 줄이지 않습니다.
+간단한 그래프 노드는 운영 축이 적용되는 동안 해당 축을 유지합니다. 운영 축이 명시적으로 적용
+대상이 아니면 적용 가능한 가용성 값이나 근거 누락을 선택하고, 그다음 프로비저닝 값을 사용하며
+선택한 축을 표시합니다. 이는 화면 표현 우선순위일 뿐이며 축을 합치거나 프로비저닝에서 운영 성공
+또는 정상 상태를 추론하지 않습니다.
 
 Resource 목록에는 상한이 있으므로 검색하지 않은 페이지는 완전한 인벤토리가 아닙니다. Dashboard
 v2는 현재 인벤토리가 커밋된 온톨로지 매니페스트와 일치할 때만 기록 상태를 읽고, 서로 다른 세대의

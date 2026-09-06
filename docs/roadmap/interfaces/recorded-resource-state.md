@@ -125,6 +125,10 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
 - Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown
   from the machine reason. Legacy generations can still identify an unbound source explicitly.
+- Compact ontology graph nodes use the operational axis while it applies. When operation is
+  explicitly not applicable, a node shows an applicable availability fact or evidence gap first,
+  then an exact provisioning fact, with the selected axis in the label. This fallback changes
+  presentation only; provisioning success never becomes operational success or health.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.

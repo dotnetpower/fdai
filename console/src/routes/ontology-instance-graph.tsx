@@ -26,6 +26,7 @@ import { nestInstanceContainment } from "./ontology-instance-boxes";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 import {
   ontologyInstanceCapacityKind,
+  ontologyInstanceNodeState,
   ontologyInstancePresentationCoverage,
   ontologyInstanceStatusTone,
   ontologyInstanceTrafficDirection,
@@ -534,13 +535,14 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             const typeCaption = capacityCaption === null
               ? baseTypeCaption
               : `${baseTypeCaption} - ${capacityCaption}`;
-            // Absent status means no state is projected for this class, not an observation that found none.
-            const fact = resource.states?.operational;
-            const stateText = fact
-              ? `${recordedText("operational")}: ${recordedStateValueText(fact)}`
+            const state = ontologyInstanceNodeState(resource);
+            const stateText = state
+              ? `${recordedText(state.axis)}: ${recordedStateValueText(state.fact)}`
               : resource.status ?? t("ontology.instances.stateNotReported");
-            const stateTone = fact
-              ? fact.freshness === "stale" || fact.conflicts.length > 0 ? "warning" : "neutral"
+            const stateTone = state
+              ? state.fact.freshness === "stale" || state.fact.conflicts.length > 0
+                ? "warning"
+                : "neutral"
               : ontologyInstanceStatusTone(resource.status);
             return (
               <g

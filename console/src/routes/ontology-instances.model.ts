@@ -1,6 +1,11 @@
 import type { ViewContextIdentity } from "../deck/context";
 import { isOperationalResourceType } from "../resource-presentation";
-import { decodeRecordedResourceStates, type RecordedResourceStates } from "../recorded-resource-state";
+import {
+  decodeRecordedResourceStates,
+  type RecordedResourceStates,
+  type RecordedStateAxis,
+  type RecordedStateFact,
+} from "../recorded-resource-state";
 
 export interface OntologyInstanceResource {
   readonly id: string;
@@ -18,6 +23,10 @@ export interface OntologyInstanceResource {
 
 export type OntologyInstanceStatusTone = "neutral" | "success" | "warning" | "danger";
 export type OntologyInstanceCapacityKind = "node" | "instance";
+export interface OntologyInstanceNodeState {
+  readonly axis: RecordedStateAxis;
+  readonly fact: RecordedStateFact;
+}
 
 /** Names the only scalable Resource types whose provider capacity is projected. */
 export function ontologyInstanceCapacityKind(
@@ -64,6 +73,34 @@ export function ontologyInstanceStatusTone(status: string | null): OntologyInsta
     "available",
   ].some((value) => normalized.includes(value))) return "success";
   return "neutral";
+}
+
+/** Selects the most relevant recorded axis for a compact graph label without merging facts. */
+export function ontologyInstanceNodeState(
+  resource: OntologyInstanceResource,
+): OntologyInstanceNodeState | null {
+  const states = resource.states;
+  if (states === undefined) return null;
+  if (
+    states.operational.value !== null
+    || states.operational.reason !== "state_not_applicable"
+  ) {
+    return { axis: "operational", fact: states.operational };
+  }
+  if (
+    states.availability.value !== null
+    || (
+      states.availability.reason !== null
+      && states.availability.reason !== "state_not_recorded"
+      && states.availability.reason !== "state_not_applicable"
+    )
+  ) {
+    return { axis: "availability", fact: states.availability };
+  }
+  if (states.provisioning.value !== null) {
+    return { axis: "provisioning", fact: states.provisioning };
+  }
+  return { axis: "operational", fact: states.operational };
 }
 
 /** Returns whether a Resource is meaningful as an operator-selected graph root. */
