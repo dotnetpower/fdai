@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 8b8a3c81be4caf564dfdab6dffe2a041fa3339d8
+translation_source_sha: 6308715f1f6ca93e894f9dc48d1e1b9d030ba565
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -141,6 +141,8 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
 - 리소스 확인과 선택은 승인 또는 실행 권한을 부여하지 않습니다.
 - 런타임 화면 근거에는 현재 인증된 5273 Browser Entra 세션이 필요합니다. 만료된 캡처나 테스트
   인증으로 대체한 결과는 표준 운영자 화면을 검증하지 않습니다.
+- frontend 또는 Operator API를 교체한 뒤에는 표준 화면에서 선택한 축 레이블을 다시 검증합니다.
+  따라서 유용한 가용성이나 프로비저닝 사실이 적용 대상이 아닌 운영 축 뒤에 다시 숨지 않습니다.
 
 ## 채택하지 않은 대안
 

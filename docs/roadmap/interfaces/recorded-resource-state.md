@@ -141,6 +141,9 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - Resource inspection and selection do not grant approval or execution authority.
 - Runtime screen evidence requires a current authenticated 5273 Browser Entra session. An expired
   capture or test-authenticated replacement does not validate the standard operator screen.
+- After a frontend or Operator API replacement, runtime validation rechecks the selected axis label
+  on the standard page so a useful availability or provisioning fact cannot regress behind an
+  inapplicable operational axis.
 
 ## Rejected alternatives
 
