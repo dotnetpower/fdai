@@ -158,6 +158,54 @@ async def test_review_context_omits_history_only_after_typed_independence(depend
             assert call["payload"]["draft"]["sections"]
 
 
+async def test_optional_refinement_does_not_spend_the_required_verification_window() -> None:
+    clock = _Clock()
+    model = _TimedModel(
+        clock,
+        plan=_plan(),
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    service = AdaptiveConversationService(
+        model=model,
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+        clock=clock,
+    )
+    result = await service.respond(
+        utterance="Compare",
+        history=(),
+        locale="en",
+        target_agent="Bragi",
+        relationship=None,
+        read_evidence=_unavailable,
+    )
+    assert isinstance(result, AdaptiveOutcome)
+    assert result.answer.quality_status == "limited"
+    assert "canary" in result.answer.answer
+    assert clock.value == 35
+    assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
+
+
+@pytest.mark.parametrize("max_calls", [3, 4])
+async def test_refinement_requires_two_remaining_calls(max_calls: int) -> None:
+    from tests.conversation.test_adaptive_service import _run
+
+    model = _Model(
+        plan=_plan(),
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    result = await _run(model, policy=AdaptivePolicy(max_calls=max_calls))
+    assert isinstance(result, AdaptiveOutcome)
+    assert result.answer.refinements == 0
+    assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
+
+
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:
     clock = _Clock()
     plan = _plan(example=True)

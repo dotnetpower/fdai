@@ -300,11 +300,19 @@ class AdaptiveConversationService:
         safe = self._safe(draft, review, valid_ids)
         complete = safe and self._complete(draft, review, plan, evidence)
         refinements = 0
+        refinement_fits = (
+            budget.remaining >= 2 * self._policy.per_stage_seconds
+            and budget.calls + 2 <= self._policy.max_calls
+            and budget.tokens + 2 * self._policy.reserved_output_tokens <= self._policy.max_tokens
+        )
+        if not complete and allow_refinement and not refinement_fits:
+            _LOGGER.info("adaptive_refinement_budget_exhausted")
         if (
             not complete
             and allow_refinement
             and self._policy.refinement_enabled
             and review is not None
+            and refinement_fits
         ):
             review_payload["critique"] = review.model_dump(mode="json")
             calls_before = budget.calls
@@ -438,7 +446,9 @@ class AdaptiveConversationService:
         encoded = json.dumps({"input": payload, "schema": schema}, ensure_ascii=False)
         size = len(encoded.encode()) + len(prompt.encode())
         try:
-            reservation = budget.reserve(size, budget.policy.reserved_output_tokens, 0)
+            reservation = budget.reserve(
+                size, budget.policy.reserved_output_tokens, 1 if stage == "refine" else 0
+            )
         except AdaptiveBudgetExceededError:
             _LOGGER.warning("adaptive_stage_budget_denied", extra={"stage": stage})
             return None
