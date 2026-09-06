@@ -89,21 +89,26 @@ export function ontologyInstanceNodeState(
 ): OntologyInstanceNodeState | null {
   const states = resource.states;
   if (states === undefined) return null;
-  if (
-    states.operational.value !== null
-    || states.operational.reason !== "state_not_applicable"
-  ) {
+  if (states.operational.value !== null) {
     return { axis: "operational", fact: states.operational };
   }
+  const operationCanFallBack = states.operational.reason === "state_not_applicable"
+    || states.operational.reason === "provider_operational_state_not_exposed";
+  if (!operationCanFallBack) {
+    return { axis: "operational", fact: states.operational };
+  }
+  if (states.availability.value !== null) {
+    return { axis: "availability", fact: states.availability };
+  }
   if (
-    states.availability.value !== null
-    || (
-      states.availability.reason !== null
-      && states.availability.reason !== "state_not_recorded"
-      && states.availability.reason !== "state_not_applicable"
-    )
+    states.availability.reason !== null
+    && states.availability.reason !== "state_not_recorded"
+    && states.availability.reason !== "state_not_applicable"
   ) {
     return { axis: "availability", fact: states.availability };
+  }
+  if (states.operational.reason === "provider_operational_state_not_exposed") {
+    return { axis: "operational", fact: states.operational };
   }
   if (states.provisioning.value !== null) {
     return { axis: "provisioning", fact: states.provisioning };

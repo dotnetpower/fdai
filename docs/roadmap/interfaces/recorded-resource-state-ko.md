@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 6308715f1f6ca93e894f9dc48d1e1b9d030ba565
+translation_source_sha: 01cee372de0a5b5d62cf6a6ce183ef9431ab29b2
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -100,15 +100,26 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
 세대를 먼저 재실행한 후 새 세대를 수집하거나 승격합니다. 따라서 일시적인 이력 실패가 영구적인
 상태 전이 누락을 만들지 않습니다.
 
-첫 번째 검토된 대체 출처는 `log-workspace` 가용성을 위한 Azure Resource Health입니다.
+검토된 대체 가용성 출처는 Azure Resource Health입니다. 공통 계약은 ARM 유형이 지원되는 정확한
+ResourceType을 선언합니다.
 
-- `log-workspace`에는 하나의 운영 실행 상태가 없습니다. 운영 축은 적용 대상이 아니며 가용성 축은
-  정확한 ARM Resource Health 상태를 사용합니다.
+- 컴퓨팅 및 런타임 범위에는 App Service 계획, Azure Cache for Redis, Functions, 가상 머신,
+  VM scale set, Web Apps 및 AKS 클러스터가 포함됩니다.
+- 데이터 및 플랫폼 범위에는 경고 규칙, API Management, Event Hubs, Azure AI 서비스 계정,
+  Log Analytics 및 메트릭 작업 영역, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis Enterprise,
+  Key Vault, Service Bus 및 Storage 계정이 포함됩니다.
+- 네트워크 범위에는 Application Gateway, DNS Resolver 및 인바운드 엔드포인트, DNS 영역,
+  Azure Firewall, Load Balancer, NAT Gateway 및 Virtual Network Gateway가 포함됩니다.
+- `log-workspace`와 일부 플랫폼 유형에는 하나의 운영 실행 상태가 없습니다. 운영 축은 적용 대상이
+  아니거나 공급자가 제공하지 않은 상태를 유지하고, 가용성 축은 정확한 ARM Resource Health
+  상태를 사용합니다.
 - `application-insights`에는 직접 Resource Health 상태가 없습니다. 운영 및 가용성 축은 적용
   대상이 아닙니다. 기반 Log Analytics 작업 영역은 별도의 관련 Resource로 유지하며 해당 상태를
   Application Insights에 복사하지 않습니다.
 - 실패, 권한 부족, 잘못된 형식, 일부 범위 또는 오래된 상태 조회는 정확한 출처 제한을 기록합니다.
   `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
+- 정확한 조회는 대상 200개와 동시성 8로 제한합니다. 이전의 설명 가능한 사실은 세대가 일치하는
+  batch로 읽고, 대상 상한이나 공급자를 사용할 수 없을 때 유지합니다.
 - 하나의 공통 서비스 계약인 `fdai_service_contracts.recorded_resource_state`가 Core 온톨로지
   변환과 Operator 조회에 사용할 검토된 ResourceType별 경로 허용 목록을 정의합니다. 각 변환은
   루트와 지원되는 중첩 속성 소유자에 이 허용 목록을 적용한 후 저장 값을 확인하며, 기존 최상위
@@ -128,10 +139,10 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
 - 값이 없으면 기계 판독용 이유에 따라 기록 없음, 사용 불가, 적용 대상 아님 또는 적용 여부 알 수
   없음으로 표시합니다. 이전 세대는 연결되지 않은 출처를 계속 명시적으로 표시할 수 있습니다.
-- 온톨로지 그래프의 간단한 노드 레이블은 운영 축이 적용될 때 해당 축을 사용합니다. 운영 축이
-  명시적으로 적용 대상이 아니면 적용 가능한 가용성 사실이나 근거 누락을 먼저 표시하고, 그다음
-  정확한 프로비저닝 사실을 선택하며 레이블에 선택한 축을 밝힙니다. 이 대체 표시는 화면 표현만
-  바꾸며 프로비저닝 성공을 운영 성공이나 정상 상태로 바꾸지 않습니다.
+- 온톨로지 그래프의 간단한 노드 레이블은 정확한 운영 값을 먼저 사용합니다. 운영 축이 적용 대상이
+  아니거나 공급자가 운영 상태를 제공하지 않으면 정확한 가용성 값을 먼저 표시할 수 있습니다.
+  적용 가능한 운영 값의 누락은 계속 드러나며 가용성으로 숨길 수 없습니다. 레이블은 선택한 축을
+  밝히고, 프로비저닝 성공을 운영 성공이나 정상 상태로 바꾸지 않습니다.
 - Dashboard는 출처를 `inventory_snapshot_resource`로 표시하고, 알 수 없음 기록을 기계 판독용
   이유별로 집계하며, 공통 주기와 브라우저 복귀 및 인벤토리 변경 알림에 따라 새로 고칩니다.
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.

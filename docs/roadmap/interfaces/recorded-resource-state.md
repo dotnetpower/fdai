@@ -100,15 +100,26 @@ If history publication fails, ontology projection does not advance. The next rec
 that pending active generation under the same coordinator lock before collecting or promoting a new
 generation, so a transient history failure cannot create a permanent transition gap.
 
-The first reviewed alternate source is Azure Resource Health for `log-workspace` availability:
+The reviewed alternate availability source is Azure Resource Health. The shared contract declares
+the exact ResourceTypes whose ARM type is supported:
 
-- `log-workspace` has no single operational running state. Its operational axis is not applicable,
-  while its availability axis uses the exact ARM Resource Health status.
+- Compute and runtime coverage includes App Service plans, Azure Cache for Redis, Functions, virtual
+  machines, VM scale sets, Web Apps, and AKS clusters.
+- Data and platform coverage includes alert rules, API Management, Event Hubs, Azure AI service
+  accounts, Log Analytics and metrics workspaces, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis
+  Enterprise, Key Vault, Service Bus, and Storage accounts.
+- Network coverage includes Application Gateway, DNS Resolver and inbound endpoints, DNS zones,
+  Azure Firewall, Load Balancer, NAT Gateway, and Virtual Network Gateway.
+- `log-workspace` and several platform types have no single operational running state. Their
+  operational axis remains not applicable or not exposed, while availability uses the exact ARM
+  Resource Health status.
 - `application-insights` has no direct Resource Health status. Its operational and availability
   axes are not applicable. The backing Log Analytics workspace remains a separate related Resource;
   its health is never copied onto Application Insights.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
+- Exact reads are bounded to 200 targets with concurrency eight. Prior qualified facts are read in
+  generation-consistent batches and retained when the target bound or provider is unavailable.
 - One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the
   reviewed ResourceType path allowlist for both Core ontology projection and Operator reads. Each
   projection applies that allowlist to root and supported nested property owners before inspecting
@@ -128,10 +139,10 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
 - Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown
   from the machine reason. Legacy generations can still identify an unbound source explicitly.
-- Compact ontology graph nodes use the operational axis while it applies. When operation is
-  explicitly not applicable, a node shows an applicable availability fact or evidence gap first,
-  then an exact provisioning fact, with the selected axis in the label. This fallback changes
-  presentation only; provisioning success never becomes operational success or health.
+- Compact ontology graph nodes use an exact operational value first. An exact availability value
+  may lead when operation is not applicable or the provider exposes no operational state. A missing
+  applicable operational value remains visible and cannot be hidden by availability. The selected
+  axis stays in the label, and provisioning success never becomes operational success or health.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.

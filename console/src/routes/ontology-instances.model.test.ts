@@ -253,13 +253,29 @@ describe("decodeOntologyInstanceExploration", () => {
 
     it("keeps an applicable operational evidence gap ahead of provisioning", () => {
       expect(ontologyInstanceNodeState(resource(
-        fact(null, "provider_operational_state_not_exposed"),
+        fact(null, "state_source_not_recorded"),
         fact("Succeeded", null),
-        fact(null, "state_not_recorded"),
+        fact("Available", null),
       ))).toEqual({
         axis: "operational",
-        fact: fact(null, "provider_operational_state_not_exposed"),
+        fact: fact(null, "state_source_not_recorded"),
       });
+    });
+
+    it("shows exact availability ahead of an operational evidence gap", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact("Available", null),
+      ))).toEqual({ axis: "availability", fact: fact("Available", null) });
+    });
+
+    it("keeps exact unknown availability visible ahead of an operational evidence gap", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact("Unknown", null),
+      ))).toEqual({ axis: "availability", fact: fact("Unknown", null) });
     });
 
     it("keeps not-applicable operation when no other axis has a useful fact", () => {

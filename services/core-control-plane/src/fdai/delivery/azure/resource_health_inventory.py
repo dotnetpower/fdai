@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -13,6 +14,9 @@ from typing import Final, Protocol
 from urllib.parse import unquote, urlparse
 
 import httpx
+from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+)
 
 from fdai.delivery.inventory_sync import (
     InventoryProjectionSourceState,
@@ -32,7 +36,9 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 RESOURCE_HEALTH_INVENTORY_SOURCE_NAME: Final = "azure_resource_health"
 _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
 _API_VERSION: Final = "2025-05-01"
-_RESOURCE_TYPES: Final = frozenset({"log-workspace"})
+_RESOURCE_TYPES: Final = frozenset(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+_RESOURCE_HEALTH_EVIDENCE_REF = re.compile(r"azure-resource-health:sha256:[0-9a-f]{64}")
+_PREVIOUS_STATE_READ_BATCH = 1000
 _STATES: Final = {
     "available": "Available",
     "degraded": "Degraded",
@@ -49,8 +55,8 @@ class AzureResourceHealthInventoryConfig:
     endpoint: str = "https://management.azure.com"
     audience: str = _MANAGEMENT_AUDIENCE
     timeout_seconds: float = 10.0
-    max_targets: int = 100
-    max_concurrency: int = 4
+    max_targets: int = 200
+    max_concurrency: int = 8
     max_response_bytes: int = 64 * 1024
     freshness_ceiling_seconds: int = 300
     max_clock_skew_seconds: float = 10.0
@@ -105,7 +111,7 @@ class ResourceHealthPreviousStateReader(Protocol):
 
 
 class AzureResourceHealthInventoryEnricher:
-    """Add exact workspace availability without changing Resource identity or configuration."""
+    """Add reviewed exact availability without changing Resource identity or configuration."""
 
     def __init__(
         self,
@@ -134,13 +140,8 @@ class AzureResourceHealthInventoryEnricher:
         )
         if not observation.complete:
             return self._unavailable(observation, reason="inventory_generation_incomplete")
-        base_resource_ids = (
-            tuple(item.resource_id for item in targets)
-            if len(targets) <= self._config.max_targets
-            else ()
-        )
         base_generation, previous = (
-            await self._previous_state_reader.read_active_resources(resource_ids=base_resource_ids)
+            await self._read_previous(targets)
             if self._previous_state_reader is not None
             else (None, {})
         )
@@ -157,7 +158,7 @@ class AzureResourceHealthInventoryEnricher:
             )
         if len(targets) > self._config.max_targets:
             return self._unavailable(
-                base_observation,
+                _retain_previous_health(base_observation, previous),
                 reason="resource_health_target_limit",
                 coverage={"targets": len(targets)},
             )
@@ -245,6 +246,29 @@ class AzureResourceHealthInventoryEnricher:
             observed_at=completed_at,
             coverage=counts,
         )
+
+    async def _read_previous(
+        self,
+        targets: tuple[ResourceRecord, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        """Read prior facts in bounded batches and reject a cross-generation result."""
+
+        if self._previous_state_reader is None:
+            return None, {}
+        generation: str | None = None
+        previous: dict[str, ResourceRecord] = {}
+        resource_ids = tuple(item.resource_id for item in targets)
+        if not resource_ids:
+            return await self._previous_state_reader.read_active_resources(resource_ids=())
+        for index in range(0, len(resource_ids), _PREVIOUS_STATE_READ_BATCH):
+            batch_generation, batch = await self._previous_state_reader.read_active_resources(
+                resource_ids=resource_ids[index : index + _PREVIOUS_STATE_READ_BATCH]
+            )
+            if index > 0 and batch_generation != generation:
+                return None, {}
+            generation = batch_generation
+            previous.update(batch)
+        return generation, previous
 
     async def _read(self, resource: ResourceRecord, *, token: str) -> _HealthFact | str:
         provider_ref = resource.provider_ref
@@ -377,16 +401,22 @@ def _fact(payload: object, *, resource_id: str) -> _HealthFact | str:
     if state is None or effective_at is None:
         return "response_invalid"
     reason_kind = _machine_token(properties.get("reasonType"), fallback="status_only")
-    material = f"{resource_id}|{state}|{reason_kind}|{effective_at.isoformat()}"
     return _HealthFact(
         state=state,
         reason_kind=reason_kind,
         effective_at=effective_at,
-        evidence_ref=f"azure-resource-health:sha256:{hashlib.sha256(material.encode()).hexdigest()}",
+        evidence_ref=_evidence_ref(
+            resource_id=resource_id,
+            state=state,
+            reason_kind=reason_kind,
+            effective_at=effective_at,
+        ),
     )
 
 
 def _allowed_arm_id(value: str, *, subscriptions: tuple[str, ...]) -> bool:
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        return False
     parsed = urlparse(value)
     if (
         not value.startswith("/")
@@ -401,7 +431,13 @@ def _allowed_arm_id(value: str, *, subscriptions: tuple[str, ...]) -> bool:
     if not raw_parts or any(not part for part in raw_parts):
         return False
     decoded_parts = tuple(unquote(part) for part in raw_parts)
-    if any(part in {".", ".."} or "/" in part or "\\" in part for part in decoded_parts):
+    if any(
+        part in {".", ".."}
+        or "/" in part
+        or "\\" in part
+        or any(ord(character) < 32 or ord(character) == 127 for character in part)
+        for part in decoded_parts
+    ):
         return False
     parts = tuple(raw_parts)
     return (
@@ -426,7 +462,18 @@ def _timestamp(value: object) -> datetime | None:
 def _machine_token(value: object, *, fallback: str) -> str:
     if not isinstance(value, str) or not value.strip():
         return fallback
-    return "_".join(value.casefold().replace("-", " ").split())[:64] or fallback
+    return re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")[:64] or fallback
+
+
+def _evidence_ref(
+    *,
+    resource_id: str,
+    state: str,
+    reason_kind: str,
+    effective_at: datetime,
+) -> str:
+    material = f"{resource_id}|{state}|{reason_kind}|{effective_at.isoformat()}"
+    return f"azure-resource-health:sha256:{hashlib.sha256(material.encode()).hexdigest()}"
 
 
 def _prior_health_resource(
@@ -439,14 +486,34 @@ def _prior_health_resource(
         metadata_root.get("availabilityState") if isinstance(metadata_root, Mapping) else None
     )
     state = resource.props.get("availabilityState")
-    if not isinstance(state, str) or not isinstance(metadata_value, Mapping):
+    if (
+        not isinstance(state, str)
+        or state not in _STATES.values()
+        or not isinstance(metadata_value, Mapping)
+    ):
+        return None
+    reason_kind = resource.props.get("availabilityReasonKind")
+    if (
+        not isinstance(reason_kind, str)
+        or not reason_kind
+        or _machine_token(reason_kind, fallback="") != reason_kind
+    ):
         return None
     try:
         metadata = StateFactMetadata.from_mapping(metadata_value)
-    except (TypeError, ValueError):
+    except (OverflowError, TypeError, ValueError):
         return None
+    expected_evidence_ref = _evidence_ref(
+        resource_id=resource.resource_id,
+        state=state,
+        reason_kind=reason_kind,
+        effective_at=metadata.effective_at,
+    )
     if (
         metadata.source_identity != "azure-resource-health"
+        or _RESOURCE_HEALTH_EVIDENCE_REF.fullmatch(metadata.source_revision) is None
+        or metadata.evidence_refs != (metadata.source_revision,)
+        or metadata.source_revision != expected_evidence_ref
         or metadata.lane is not StateFactLane.OBSERVED
         or metadata.authority is not StateFactAuthority.PROVIDER
         or metadata.synthetic

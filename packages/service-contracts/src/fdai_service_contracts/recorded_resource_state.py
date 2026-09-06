@@ -123,7 +123,35 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
     }
 )
 AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
+    "alert-rule": AVAILABILITY_STATE_PATHS,
+    "api-gateway": AVAILABILITY_STATE_PATHS,
+    "app-service-plan": AVAILABILITY_STATE_PATHS,
+    "cache": AVAILABILITY_STATE_PATHS,
+    "compute.function": AVAILABILITY_STATE_PATHS,
+    "compute.vm": AVAILABILITY_STATE_PATHS,
+    "compute.vm-scale-set": AVAILABILITY_STATE_PATHS,
+    "compute.web-app": AVAILABILITY_STATE_PATHS,
+    "event-hub": AVAILABILITY_STATE_PATHS,
+    "kubernetes-cluster": AVAILABILITY_STATE_PATHS,
+    "llm-endpoint": AVAILABILITY_STATE_PATHS,
     "log-workspace": AVAILABILITY_STATE_PATHS,
+    "metrics-workspace": AVAILABILITY_STATE_PATHS,
+    "mysql-server": AVAILABILITY_STATE_PATHS,
+    "network.application-gateway": AVAILABILITY_STATE_PATHS,
+    "network.dns-resolver": AVAILABILITY_STATE_PATHS,
+    "network.dns-resolver-inbound-endpoint": AVAILABILITY_STATE_PATHS,
+    "network.dns-zone": AVAILABILITY_STATE_PATHS,
+    "network.firewall": AVAILABILITY_STATE_PATHS,
+    "network.load-balancer": AVAILABILITY_STATE_PATHS,
+    "network.nat-gateway": AVAILABILITY_STATE_PATHS,
+    "network.virtual-network-gateway": AVAILABILITY_STATE_PATHS,
+    "nosql-database": AVAILABILITY_STATE_PATHS,
+    "object-storage": AVAILABILITY_STATE_PATHS,
+    "postgresql-server": AVAILABILITY_STATE_PATHS,
+    "redis-enterprise": AVAILABILITY_STATE_PATHS,
+    "secret-store": AVAILABILITY_STATE_PATHS,
+    "service-bus-namespace": AVAILABILITY_STATE_PATHS,
+    "sql-database": AVAILABILITY_STATE_PATHS,
 }
 AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset({"application-insights"})
 

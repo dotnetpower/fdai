@@ -84,10 +84,11 @@ and `Succeeded` describes provisioning completion rather than inference health o
 The relationship legend shows `contains`, `attached_to`, and `depends_on` by default and exposes
 the remaining bounded-response types through an explicit disclosure. Expanding or collapsing the
 legend does not remove links, change counts, or narrow the Inspector.
-Compact graph nodes keep the operational axis while it applies. If operation is explicitly not
-applicable, the node selects an applicable availability value or evidence gap, then a provisioning
-value, and names that axis. This is presentation precedence only; it does not merge axes or infer
-operational success or health from provisioning.
+Compact graph nodes keep an exact operational value first. If operation is not applicable or the
+provider exposes no operational state, the node selects an exact availability value or evidence
+gap, then a provisioning value, and names that axis. A missing applicable operational value remains
+visible. This is presentation precedence only; it does not merge axes or infer operational success
+or health from availability or provisioning.
 
 The Resource directory is bounded, so an unsearched page is never a complete inventory. Dashboard v2
 reads recorded state only when the active inventory matches the committed ontology manifest, rejects

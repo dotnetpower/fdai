@@ -323,7 +323,8 @@ def test_resource_specific_state_paths_are_retained(
     assert fact["completeness"] == 1.0
 
 
-def test_log_workspace_availability_preserves_resource_health_evidence() -> None:
+@pytest.mark.parametrize("resource_type", AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+def test_resource_health_availability_preserves_exact_evidence(resource_type: str) -> None:
     metadata = _metadata(
         source_identity="azure-resource-health",
         source_revision="azure-resource-health:sha256:" + "1" * 64,
@@ -338,11 +339,10 @@ def test_log_workspace_availability_preserves_resource_health_evidence() -> None
             "availabilityState": "Available",
             "state_fact_metadata": {"availabilityState": metadata},
         },
-        resource_type="log-workspace",
+        resource_type=resource_type,
         now=NOW,
     )
 
-    assert states["operational"]["reason"] == "state_not_applicable"
     assert states["availability"] == {
         "value": "Available",
         "source_path": "availabilityState",
@@ -358,7 +358,7 @@ def test_log_workspace_availability_preserves_resource_health_evidence() -> None
             "availabilityState": "Unknown",
             "state_fact_metadata": {"availabilityState": metadata},
         },
-        resource_type="log-workspace",
+        resource_type=resource_type,
         now=NOW,
     )
     assert unknown["availability"]["value"] == "Unknown"
