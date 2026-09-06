@@ -128,13 +128,11 @@ class AzureWireOverrides:
     monitor_queries: Mapping[str, MetricKqlTemplate] | None = None
     metrics_api_queries: Mapping[str, Any] | None = None
     """Optional override for the Azure Monitor Metrics REST API template
-    map (``metric_name`` -> ``MetricsApiTemplate``). Only consulted when
-    ``monitor_workspace_id`` is set (which is the "we have Azure Monitor
-    telemetry" trigger; the Metrics API and AML KQL share the same
-    identity so both bind together). Defaults to the shipped
+    map (``metric_name`` -> ``MetricsApiTemplate``). Native resource metrics
+    use the configured Azure identity without a Log Analytics workspace.
+    Defaults to the shipped
     :func:`~fdai.delivery.azure.metrics_api_queries.azure_metrics_api_queries`
-    catalog so a workspace-set fork gets the 4-metric ~1-3 min Metrics
-    API route by default. The ``Any`` type keeps this module free of
+    catalog. The ``Any`` type keeps this module free of
     the ``metrics_api`` import at annotation time; the composition
     step below validates the shape by construction."""
     prometheus_base_url: str | None = None
@@ -154,7 +152,7 @@ class AzureWireOverrides:
             )
         if not isinstance(self.answer_continuity_enabled, bool):
             raise ValueError("AzureWireOverrides.answer_continuity_enabled MUST be a boolean")
-        # A caller that passes queries without a workspace id has almost
+        # A caller that passes Logs queries without a workspace id has almost
         # certainly forgotten the workspace and would silently get a
         # NoopMetricProvider; fail-closed at build time so the misconfig
         # never reaches an Azure-mode deploy.
@@ -163,12 +161,6 @@ class AzureWireOverrides:
                 "AzureWireOverrides.monitor_queries requires "
                 "monitor_workspace_id - queries without a workspace bind "
                 "nothing"
-            )
-        if self.metrics_api_queries is not None and not self.monitor_workspace_id:
-            raise ValueError(
-                "AzureWireOverrides.metrics_api_queries requires "
-                "monitor_workspace_id - the Metrics API route is only "
-                "bound when Azure Monitor telemetry is enabled"
             )
         # Symmetric guard for the Prometheus route.
         if self.prometheus_queries is not None and not self.prometheus_base_url:

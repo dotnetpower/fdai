@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -338,9 +339,7 @@ async def test_over_max_points_fails_closed() -> None:
 
 
 async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
-    """Coverage: the shipped templates all pass their post-init
-    validators, and their metric-names correspond to a real analyzer
-    metric so a lookup miss never occurs at runtime."""
+    """Every shipped template serves a reviewed concept or a legacy analyzer."""
     from fdai.delivery.azure.demo_queries import (
         METRIC_CONTAINER_APP_MEMORY_PERCENT,
         METRIC_CONTAINER_APP_REQUEST_TIMEOUTS,
@@ -349,10 +348,16 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
         sre_demo_analyzer_queries,
     )
     from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
+    from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
 
     shipped = azure_metrics_api_queries()
+    registry = load_metric_semantic_registry(
+        Path(__file__).resolve().parents[5] / "rule-catalog/vocabulary/metric-semantics.yaml"
+    )
     assert set(shipped) - {METRIC_SERVICE_REQUEST_DURATION_MS} <= (
-        set(sre_demo_analyzer_queries()) | set(resource_metric_queries())
+        set(sre_demo_analyzer_queries())
+        | set(resource_metric_queries())
+        | {item.provider_metric for item in registry.definitions.values()}
     ), "every Metrics API template MUST be an analyzer or reviewed semantic metric"
     assert shipped[METRIC_SERVICE_REQUEST_DURATION_MS].azure_metric_name == "ResponseTime"
     assert shipped[METRIC_SERVICE_REQUEST_DURATION_MS].aggregation == "Average"
@@ -364,4 +369,4 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     assert timeout.azure_metric_name == "ResiliencyRequestTimeouts"
     assert timeout.aggregation == "Total"
     assert timeout.interval == "PT5M"
-    assert len(shipped) == 8
+    assert len(shipped) == 33

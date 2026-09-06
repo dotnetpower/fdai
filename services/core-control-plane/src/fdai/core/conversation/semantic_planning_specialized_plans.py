@@ -39,6 +39,57 @@ _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 _RESOURCE_GROUP_MEMBER_EXCLUDED_TYPES = ("authorization.role-assignment",)
 
 
+def build_inventory_document_plan(
+    *,
+    frame: SemanticProblemFrame,
+    manifest: QueryManifest,
+    verifier: OntologyQueryPlanVerifier,
+    principal: Principal,
+    purpose: str,
+    evaluation_time: datetime,
+) -> OntologyQueryPlan | None:
+    """Read the secured inventory once; exhaustion remains an incomplete source."""
+
+    if (
+        frame.operation is not SemanticOperation.SELECT
+        or frame.output_shape != SemanticOutputShape.RESOURCE_LIST
+        or frame.subject_constraints != ("Resource",)
+        or set(frame.measure_concepts) != {"complete_content", "download"}
+        or frame.temporal_scope
+        or frame.unresolved_terms
+    ):
+        return None
+    proposal = QueryPlanProposal(
+        nodes=(
+            QueryNodeProposal(
+                node_id="inventory-document",
+                kind=QueryNodeKind.OBJECT_SET,
+                arguments={
+                    "definition": {
+                        "selector": {"kind": "object_type", "name": "Resource"},
+                        "as_of": evaluation_time.astimezone(UTC).isoformat(),
+                        "purpose": purpose,
+                        "include_relationships": False,
+                        "limit": 1000,
+                    }
+                },
+                output_kind="query.table",
+            ),
+        ),
+        output_node_ids=("inventory-document",),
+    )
+    plan = _build_plan(
+        proposal,
+        frame=frame,
+        manifest=manifest,
+        principal=principal,
+        purpose=purpose,
+        evaluation_time=evaluation_time,
+    )
+    verifier.verify(plan, manifest=manifest)
+    return plan
+
+
 def build_anchored_incident_plan(
     *,
     verifier: OntologyQueryPlanVerifier,
@@ -225,5 +276,6 @@ def build_stated_value_filter_plan(
 
 __all__ = [
     "build_anchored_incident_plan",
+    "build_inventory_document_plan",
     "build_stated_value_filter_plan",
 ]

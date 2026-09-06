@@ -130,6 +130,9 @@ from .semantic_planning_frame import (
 from .semantic_planning_frame import (
     resource_target_clarification as _resource_target_clarification,
 )
+from .semantic_planning_frame_normalization import (
+    build_inventory_document_frame as _build_inventory_document_frame,
+)
 from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
@@ -389,6 +392,7 @@ def deterministic_pre_frame_outcome(
 def deterministic_pre_frame_selection(
     *,
     judgment: Any,
+    judgment_accepted: bool = False,
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
@@ -397,6 +401,15 @@ def deterministic_pre_frame_selection(
 ) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
     """Build accepted typed function or relationship frames before model proposal."""
 
+    inventory_document = _build_inventory_document_frame(
+        judgment=judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
+    if inventory_document is not None:
+        proposal, frame = inventory_document
+        return proposal, frame, None
     document_draft = _build_document_draft_frame(
         judgment=judgment,
         utterance=utterance,

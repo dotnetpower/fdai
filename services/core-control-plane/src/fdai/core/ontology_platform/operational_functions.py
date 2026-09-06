@@ -10,6 +10,7 @@ from .catalog_queries import catalog_search_rules_function_type
 from .contextual_resource_queries import contextual_resource_function_type
 from .declaration_queries import ontology_declaration_function_type
 from .evidence_health_queries import ontology_evidence_health_function_type
+from .gateway_diagnostics import gateway_diagnostic_function_type
 from .incident_queries import incident_evidence_function_type
 from .inventory_impact_queries import inventory_impact_function_type
 from .kubernetes_pod_diagnosis_queries import kubernetes_pod_diagnosis_function_type
@@ -28,6 +29,8 @@ from .relationship_queries import ontology_relationships_function_type
 from .release_diff_queries import ontology_release_diff_function_type
 from .resource_activity_queries import resource_activity_function_type
 from .resource_class_closure import resource_class_closure_function_type
+from .resource_configuration_queries import resource_configuration_function_type
+from .resource_configuration_snapshots import resource_configuration_snapshot_function_type
 from .resource_current_state_queries import resource_current_state_function_type
 from .resource_error_activity_correlation_queries import (
     error_activity_correlation_function_type,
@@ -55,6 +58,7 @@ def operational_function_types(
     combined = tuple(catalog_functions) + (
         catalog_search_rules_function_type(),
         contextual_resource_function_type(),
+        gateway_diagnostic_function_type(),
         incident_evidence_function_type(),
         inventory_impact_function_type(),
         kubernetes_pod_diagnosis_function_type(),
@@ -74,6 +78,8 @@ def operational_function_types(
         pod_telemetry_function_type(),
         resource_activity_function_type(),
         resource_current_state_function_type(),
+        resource_configuration_function_type(),
+        resource_configuration_snapshot_function_type(),
         resource_event_function_type(),
         resource_health_function_type(),
         resource_ingress_function_type(),

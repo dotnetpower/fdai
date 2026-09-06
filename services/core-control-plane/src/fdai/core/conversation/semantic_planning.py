@@ -495,6 +495,9 @@ class SemanticPlanningService:
             stage = "frame_proposal"
             frame_result = deterministic_pre_frame_selection(
                 judgment=judgment_proposal,
+                judgment_accepted=(
+                    self._semantic_judgment is not None and judgment_result.accepted
+                ),
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,

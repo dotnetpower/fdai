@@ -191,6 +191,11 @@ class OntologyInstancePathDefinition(ContractBase):
 class ObjectSetDefinition(ContractBase):
     selector: ObjectSelector
     predicates: Annotated[tuple[ObjectPredicate, ...], Field(max_length=_MAX_PREDICATES)] = ()
+    object_ids: tuple[Annotated[str, Field(min_length=1, max_length=512)], ...] | None = Field(
+        default=None,
+        max_length=_MAX_ROOT_IDS,
+        exclude_if=lambda value: value is None,
+    )
     traversal: ObjectTraversal | None = None
     root_ids: Annotated[
         tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
@@ -207,6 +212,11 @@ class ObjectSetDefinition(ContractBase):
 
     @model_validator(mode="after")
     def _traversal_requires_roots(self) -> ObjectSetDefinition:
+        if self.object_ids is not None:
+            if self.traversal is not None or self.root_ids:
+                raise ValueError("explicit object ids MUST NOT be combined with traversal roots")
+            if len(self.object_ids) != len(set(self.object_ids)):
+                raise ValueError("explicit object ids MUST be unique")
         if self.traversal is not None and not self.root_ids:
             raise ValueError("object-set traversal requires root_ids")
         if self.traversal is None and self.root_ids:

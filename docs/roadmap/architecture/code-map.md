@@ -41,6 +41,16 @@ and owning designs. Use it instead of the retired top-level application tree.
 
 ## Physical service ownership
 
+Operational diagnostic conversations retain the existing service boundary. Core's
+`gateway_diagnostics.py` and `resource_configuration_{queries,snapshots,projection}.py`
+own bounded metric comparisons and reviewed, scope-filtered historical facts.
+The semantic compilers bind these reads to declared FunctionTypes; intrinsic ObjectSet
+IDs and endpoint-only typed-path receipts prevent a downstream backend read from using
+the carried gateway root. Azure native metric templates remain in delivery adapters.
+Operator's `document_export.py` renders the same verified inventory result, not a prior
+unrelated turn. See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
+for scenario acceptance, checkpoint evidence, and the unfinished live/hardening qualification.
+
 | Owner | Source | Tests | Distribution |
 |-------|--------|-------|--------------|
 | Core Control Plane | [fdai](../../../services/core-control-plane/src/fdai/) and [fdai_core_service](../../../services/core-control-plane/src/fdai_core_service/) | [Core tests](../../../services/core-control-plane/tests/) | `fdai-core-control-plane` |

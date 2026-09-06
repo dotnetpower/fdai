@@ -1,5 +1,59 @@
 schema_version: "1.0.0"
 definitions:
+  - concept_id: api_gateway.duration
+    provider_metric: api_gateway.duration
+    canonical_unit: ms
+    aggregation: average
+    description: API gateway request duration, including backend time, averaged across observed buckets.
+    monotonic: false
+  - concept_id: api_gateway.backend.duration
+    provider_metric: api_gateway.backend.duration
+    canonical_unit: ms
+    aggregation: average
+    description: API gateway backend request duration averaged across observed buckets.
+    monotonic: false
+  - concept_id: api_gateway.request.count
+    provider_metric: api_gateway.request.count
+    canonical_unit: count
+    aggregation: sum
+    description: Requests observed by the API gateway in the bounded window.
+    monotonic: true
+  - concept_id: api_gateway.response.429.count
+    provider_metric: api_gateway.response.429.count
+    canonical_unit: count
+    aggregation: sum
+    description: API gateway responses with status 429, without attributing them to a specific policy.
+    monotonic: true
+  - concept_id: api_gateway.response.500.count
+    provider_metric: api_gateway.response.500.count
+    canonical_unit: count
+    aggregation: sum
+    description: API gateway responses with status 500, distinct from backend response status.
+    monotonic: true
+  - concept_id: api_gateway.response.503.count
+    provider_metric: api_gateway.response.503.count
+    canonical_unit: count
+    aggregation: sum
+    description: API gateway responses with status 503, without asserting their cause.
+    monotonic: true
+  - concept_id: api_gateway.backend.response.429.count
+    provider_metric: api_gateway.backend.response.429.count
+    canonical_unit: count
+    aggregation: sum
+    description: Backend responses with status 429 observed by the API gateway.
+    monotonic: true
+  - concept_id: api_gateway.backend.response.500.count
+    provider_metric: api_gateway.backend.response.500.count
+    canonical_unit: count
+    aggregation: sum
+    description: Backend responses with status 500 observed by the API gateway.
+    monotonic: true
+  - concept_id: api_gateway.backend.response.503.count
+    provider_metric: api_gateway.backend.response.503.count
+    canonical_unit: count
+    aggregation: sum
+    description: Backend responses with status 503 observed by the API gateway.
+    monotonic: true
   - concept_id: database.mysql.active_connections
     provider_metric: active_connections
     canonical_unit: count
@@ -42,6 +96,96 @@ definitions:
     aggregation: count
     description: Observed network-topology change events in the bounded window.
     monotonic: false
+  - concept_id: gateway.total_time
+    provider_metric: gateway.total_time
+    canonical_unit: ms
+    aggregation: average
+    description: Gateway-observed total request-response time including backend time, not gateway processing alone.
+    monotonic: false
+  - concept_id: gateway.backend.connect_time
+    provider_metric: gateway.backend.connect_time
+    canonical_unit: ms
+    aggregation: average
+    description: Time to establish a connection from the gateway to its backend.
+    monotonic: false
+  - concept_id: gateway.backend.first_byte_time
+    provider_metric: gateway.backend.first_byte_time
+    canonical_unit: ms
+    aggregation: average
+    description: Gateway-observed backend first-byte response time, distinct from last-byte response time.
+    monotonic: false
+  - concept_id: gateway.backend.last_byte_time
+    provider_metric: gateway.backend.last_byte_time
+    canonical_unit: ms
+    aggregation: average
+    description: Gateway-observed backend last-byte response time, not a first-byte measurement.
+    monotonic: false
+  - concept_id: gateway.backend.healthy_host_count
+    provider_metric: gateway.backend.healthy_host_count
+    canonical_unit: count
+    aggregation: average
+    description: Average healthy backend host count reported by the gateway, not a minimum.
+    monotonic: false
+  - concept_id: gateway.backend.unhealthy_host_count
+    provider_metric: gateway.backend.unhealthy_host_count
+    canonical_unit: count
+    aggregation: average
+    description: Average unhealthy backend host count reported by the gateway.
+    monotonic: false
+  - concept_id: gateway.response.5xx.count
+    provider_metric: gateway.response.5xx.count
+    canonical_unit: count
+    aggregation: sum
+    description: Gateway responses in the 5xx status group, without asserting backend causation.
+    monotonic: true
+  - concept_id: gateway.backend.response.5xx.count
+    provider_metric: gateway.backend.response.5xx.count
+    canonical_unit: count
+    aggregation: sum
+    description: Backend responses in the 5xx status group observed by the gateway.
+    monotonic: true
+  - concept_id: model.request.count
+    provider_metric: model.request.count
+    canonical_unit: count
+    aggregation: sum
+    description: Model requests observed for the exact account or verified deployment in the bounded window.
+    monotonic: true
+  - concept_id: model.response.429.count
+    provider_metric: model.response.429.count
+    canonical_unit: count
+    aggregation: sum
+    description: Model request responses with status 429, without inferring quota or a throttling cause.
+    monotonic: true
+  - concept_id: model.response.500.count
+    provider_metric: model.response.500.count
+    canonical_unit: count
+    aggregation: sum
+    description: Model request responses with status 500 in the bounded window.
+    monotonic: true
+  - concept_id: model.response.503.count
+    provider_metric: model.response.503.count
+    canonical_unit: count
+    aggregation: sum
+    description: Model request responses with status 503 in the bounded window.
+    monotonic: true
+  - concept_id: model.time_to_response
+    provider_metric: model.time_to_response
+    canonical_unit: ms
+    aggregation: average
+    description: Provider-observed model time to response averaged across observed buckets.
+    monotonic: false
+  - concept_id: model.time_to_last_byte
+    provider_metric: model.time_to_last_byte
+    canonical_unit: ms
+    aggregation: average
+    description: Provider-observed model time to last token averaged across observed buckets.
+    monotonic: false
+  - concept_id: model.token.count
+    provider_metric: model.token.count
+    canonical_unit: count
+    aggregation: sum
+    description: Observed processed token consumption, not allocated TPM or a conversion from capacity units.
+    monotonic: true
   - concept_id: pod.restart.history
     provider_metric: k8s.pod.restarts
     canonical_unit: count

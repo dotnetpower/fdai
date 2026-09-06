@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -1422,6 +1423,140 @@ def test_document_judgment_builds_action_draft_without_frame_model_call() -> Non
     assert outcome.execution_authority is False
     assert model.frame_calls == 0
     assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "구독에 배포된 리소스 상세 정보를 문서화하자.",
+        "현재 구독의 리소스를 빠짐없이 정리해서 내려받을 문서로 작성해 주세요.",
+        "리소스 현황 문서가 필요해. 이 구독에 있는 것들을 자세히 정리해 줘.",
+        "배포 자산별 세부 정보가 담긴 구독 인벤토리 문서를 부탁드립니다.",
+        "Document the deployed resources in the current subscription.",
+        "Prepare a downloadable inventory covering every resource in this subscription.",
+        "Can you write up the details of our authorized subscription's deployed assets?",
+        "I need the subscription resource inventory as a complete document.",
+    ),
+)
+def test_inventory_document_judgment_reads_current_inventory_without_model_plan(
+    utterance: str,
+) -> None:
+    """Synthetic judgments exercise paraphrase-independent dispatch, not live model quality."""
+    manifest, _definition = _fixture()
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("download", "subscription", "complete_content", "resource_inventory"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(model, manifest, semantic_judgment=_JudgmentBoundary(judgment)).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_list"
+    assert set(outcome.frame.measure_concepts) == {"complete_content", "download"}
+    assert outcome.plan is not None
+    assert len(outcome.plan.nodes) == 1
+    node = outcome.plan.nodes[0]
+    assert node.kind is QueryNodeKind.OBJECT_SET
+    definition = ObjectSetDefinition.model_validate(json.loads(node.arguments_json)["definition"])
+    assert definition.selector.name == "Resource"
+    assert definition.predicates == ()
+    assert definition.include_relationships is False
+    assert definition.limit == 1000
+    assert outcome.execution_authority is False
+    assert model.frame_calls == model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"primary_intent": "query.governed_documents"},
+        {"action_posture": "draft_only", "action_subject": "Document"},
+        {"secondary_intents": ("execute.action",)},
+        {"requested_facets": ("resource_inventory", "subscription", "download", "upload")},
+        {"discourse_mode": "quoted"},
+        {
+            "targets": (
+                SemanticTarget(
+                    kind="resource_group",
+                    value="example",
+                    source_start=0,
+                    source_end=7,
+                ),
+            )
+        },
+    ),
+)
+def test_inventory_document_frame_does_not_drop_distinct_meaning(
+    updates: dict[str, object],
+) -> None:
+    from fdai.core.conversation.semantic_planning_frame_normalization import (
+        build_inventory_document_frame,
+    )
+
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("resource_inventory", "subscription", "complete_content", "download"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    ).model_copy(update=updates)
+
+    assert (
+        build_inventory_document_frame(
+            judgment=judgment,
+            utterance="example",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+        )
+        is None
+    )
+
+
+def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
+    from fdai.core.conversation.semantic_planning_frame_checks import (
+        deterministic_pre_frame_selection,
+    )
+
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("resource_inventory", "subscription", "complete_content", "download"),
+        confidence=0.2,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    assert (
+        deterministic_pre_frame_selection(
+            judgment=judgment,
+            judgment_accepted=False,
+            utterance="Document the subscription inventory.",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(

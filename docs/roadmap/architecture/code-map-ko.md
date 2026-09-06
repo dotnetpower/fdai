@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dc69a8a16825df4f6455edd37c31d8e83546ac1f
+translation_source_sha: 27aa1fc9730138710dcfa19c6b2412475cf797c0
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -42,6 +42,16 @@ translation_revised: 2026-09-06
 > [보관된 코드 맵 구현 원장](../../roadmap-implementation/architecture/code-map.md)에 보존합니다.
 
 ## 물리 서비스 소유권
+
+운영 진단 대화는 기존 서비스 경계를 유지합니다. Core의 `gateway_diagnostics.py`와
+`resource_configuration_{queries,snapshots,projection}.py`는 범위가 제한된 메트릭 비교와
+허용된 범위로 필터링한 과거 구성 사실을 담당합니다. 의미 컴파일러는 이 조회를 선언된
+FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 증적은 백엔드 조회가
+이전 게이트웨이 루트를 대상으로 실행되는 것을 방지합니다. Azure 기본 메트릭 템플릿은
+전달 어댑터에 유지합니다. Operator의 `document_export.py`는 무관한 이전 대화가 아니라
+현재 검증된 인벤토리 결과를 문서로 변환합니다.
+[운영 진단 대화](../interfaces/operational-diagnostic-conversations-ko.md)에서 시나리오 수락 기준,
+체크포인트 근거, 아직 완료되지 않은 실환경 검증과 하드닝을 확인하세요.
 
 | 소유자 | 출처 | 테스트 | 분포 |
 |--------|--------|------|--------------|

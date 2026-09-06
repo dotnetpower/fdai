@@ -31,6 +31,7 @@ _EXACT_RESOURCE_TARGET_OUTPUTS = frozenset(
     {
         SemanticOutputShape.CAUSAL_EVIDENCE,
         SemanticOutputShape.INVENTORY_IMPACT,
+        SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE,
         SemanticOutputShape.TARGET_ACTIVITY,
         SemanticOutputShape.TARGET_CURRENT_STATE,
         SemanticOutputShape.TARGET_ERROR_ACTIVITY_CORRELATION,

@@ -1202,6 +1202,89 @@ def test_resource_event_answer_discloses_latest_bounded_display() -> None:
     assert "most recent 8 in chronological order" in answer
 
 
+@pytest.mark.parametrize(
+    ("document_requested", "source_complete", "wide", "expected_rows"),
+    (
+        (True, True, False, 80),
+        (False, True, False, 20),
+        (True, False, False, 80),
+        (True, True, True, None),
+    ),
+)
+def test_inventory_document_projection_preserves_rows_and_explicit_limits(
+    document_requested: bool,
+    source_complete: bool,
+    wide: bool,
+    expected_rows: int | None,
+) -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    rows = tuple(
+        QueryRow.from_values(
+            f"resource-{index}",
+            {
+                "id": f"resource-{index}",
+                "object_type": "Resource",
+                "properties": {
+                    "name": "x" * 2000 if wide else f"example-{index}",
+                    "type": "compute.vm",
+                    "parent_id": "example-group",
+                    "properties": {"password": "synthetic-value", "nested": {"hidden": True}},
+                },
+            },
+        )
+        for index in range(80)
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "inventory": QueryNodeResult(
+                    value=QueryTable(
+                        rows=rows,
+                        complete=source_complete,
+                        truncation_reason=None if source_complete else "source_incomplete",
+                    ),
+                    evidence_refs=("inventory:verified",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("inventory",),
+    )
+
+    answer, details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="resource_list",
+        subject_constraints=("Resource",),
+        measure_concepts=("complete_content", "download") if document_requested else (),
+    )
+
+    assert answer is not None and details is not None
+    outputs = cast(list[dict[str, object]], details["outputs"])
+    output = outputs[0]
+    context = cast(dict[str, object], details["presentation_context"])
+    assert (context.get("document_kind") == "inventory") is document_requested
+    assert output["total_rows"] == 80
+    assert output["source_complete"] is source_complete
+    if expected_rows is None:
+        assert 0 < cast(int, output["returned_rows"]) < 80
+        assert output["display_truncated"] is True
+    else:
+        assert output["returned_rows"] == expected_rows
+        assert output["display_truncated"] is (expected_rows < 80)
+    projected_rows = cast(list[dict[str, object]], output["rows"])
+    values = cast(dict[str, object], projected_rows[0]["values"])
+    assert "properties" not in values
+    assert "password" not in values
+    if document_requested:
+        assert values["type"] == "compute.vm"
+        assert values["parent_id"] == "example-group"
+
+
 def test_error_activity_answer_separates_windows_gaps_and_causation() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

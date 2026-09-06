@@ -279,6 +279,36 @@ class SecuredTypedPathNodeHandler:
                 raise QueryNodeHeldError("typed_path_step_incomplete")
             if not current.rows:
                 break
+        if self._receipt_authority is not None and current.complete:
+            # A downstream query_result must identify path endpoints, not its carried root.
+            endpoint_ids = tuple(row.row_id for row in current.rows)
+            output = await self._gateway.materialize(
+                ObjectSetDefinition(
+                    selector=path.steps[-1].selector,
+                    object_ids=endpoint_ids,
+                    as_of=path.as_of,
+                    purpose=path.purpose,
+                    limit=path.limit,
+                    include_relationships=False,
+                ),
+                projection_request=self._request,
+            )
+            if not output.receipt.complete or {
+                item.id for item in output.materialization.graph.objects
+            } != set(endpoint_ids):
+                raise QueryNodeHeldError("typed_path_endpoint_projection_changed")
+            await _issue_secured_result(
+                self._receipt_authority, output, provider=self._decision_evidence
+            )
+            evidence_refs = [
+                ref for ref in evidence_refs if not ref.startswith("ontology-object-set-output:")
+            ]
+            evidence_refs.append(
+                f"ontology-object-set-output:{output.receipt.projected_result_digest}"
+            )
+        elif self._receipt_authority is not None:
+            # Retaining a root's output marker would turn an incomplete traversal into a root read.
+            raise QueryNodeHeldError("typed_path_endpoint_projection_incomplete")
         return QueryNodeResult(
             value=current,
             evidence_refs=tuple(dict.fromkeys(evidence_refs)),

@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from fdai.core.ontology_platform.metric_semantics import (
     CausalJoinStatus,
     join_causal_evidence,
@@ -22,6 +23,83 @@ from fdai.shared.providers.metric import (
 
 ROOT = Path(__file__).resolve().parents[4]
 NOW = datetime(2026, 8, 10, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("concept", "metric", "aggregation", "dimension", "value"),
+    [
+        ("gateway.total_time", "ApplicationGatewayTotalTime", "Average", None, None),
+        ("gateway.backend.connect_time", "BackendConnectTime", "Average", None, None),
+        ("gateway.backend.first_byte_time", "BackendFirstByteResponseTime", "Average", None, None),
+        ("gateway.backend.last_byte_time", "BackendLastByteResponseTime", "Average", None, None),
+        ("gateway.backend.healthy_host_count", "HealthyHostCount", "Average", None, None),
+        ("gateway.backend.unhealthy_host_count", "UnhealthyHostCount", "Average", None, None),
+        ("gateway.response.5xx.count", "ResponseStatus", "Total", "HttpStatusGroup", "5xx"),
+        (
+            "gateway.backend.response.5xx.count",
+            "BackendResponseStatus",
+            "Total",
+            "HttpStatusGroup",
+            "5xx",
+        ),
+        ("api_gateway.duration", "Duration", "Average", None, None),
+        ("api_gateway.backend.duration", "BackendDuration", "Average", None, None),
+        ("api_gateway.request.count", "Requests", "Total", None, None),
+        ("api_gateway.response.429.count", "Requests", "Total", "GatewayResponseCode", "429"),
+        ("api_gateway.response.500.count", "Requests", "Total", "GatewayResponseCode", "500"),
+        ("api_gateway.response.503.count", "Requests", "Total", "GatewayResponseCode", "503"),
+        (
+            "api_gateway.backend.response.429.count",
+            "Requests",
+            "Total",
+            "BackendResponseCode",
+            "429",
+        ),
+        (
+            "api_gateway.backend.response.500.count",
+            "Requests",
+            "Total",
+            "BackendResponseCode",
+            "500",
+        ),
+        (
+            "api_gateway.backend.response.503.count",
+            "Requests",
+            "Total",
+            "BackendResponseCode",
+            "503",
+        ),
+        ("model.request.count", "AzureOpenAIRequests", "Total", None, None),
+        ("model.response.429.count", "AzureOpenAIRequests", "Total", "StatusCode", "429"),
+        ("model.response.500.count", "AzureOpenAIRequests", "Total", "StatusCode", "500"),
+        ("model.response.503.count", "AzureOpenAIRequests", "Total", "StatusCode", "503"),
+        ("model.time_to_response", "AzureOpenAITimeToResponse", "Average", None, None),
+        ("model.time_to_last_byte", "AzureOpenAITTLTInMS", "Average", None, None),
+        ("model.token.count", "TokenTransaction", "Total", None, None),
+    ],
+)
+def test_gateway_and_model_concepts_bind_reviewed_native_metrics(
+    concept: str,
+    metric: str,
+    aggregation: str,
+    dimension: str | None,
+    value: str | None,
+) -> None:
+    from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
+
+    registry = load_metric_semantic_registry(ROOT / "rule-catalog/vocabulary/metric-semantics.yaml")
+    definition = registry.resolve(concept)
+    template = azure_metrics_api_queries()[definition.provider_metric]
+    assert definition.provider_metric == concept
+    assert template.azure_metric_name == metric
+    assert template.aggregation == aggregation
+    assert definition.aggregation.value == ("sum" if aggregation == "Total" else "average")
+    assert definition.canonical_unit == ("count" if concept.endswith("count") else "ms")
+    assert template.resource_type is not None
+    assert template.deployment_scope is concept.startswith("model.")
+    assert [(item.name, item.value) for item in template.dimension_filters] == (
+        [(dimension, value)] if dimension else []
+    )
 
 
 def test_shipped_metric_semantics_load_without_language_aliases() -> None:
