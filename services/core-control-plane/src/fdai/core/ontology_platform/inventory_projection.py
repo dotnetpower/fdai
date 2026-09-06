@@ -372,20 +372,32 @@ def _add_observed_state(
         return
     if has_state:
         properties["state"] = state
-    state_metadata = StateFactMetadata(
-        lane=StateFactLane.OBSERVED,
-        authority=StateFactAuthority.PROVIDER,
-        source_identity="inventory-provider",
-        source_revision=generation,
-        effective_at=observed_at,
-        recorded_at=observed_at,
-        evidence_cutoff=observed_at,
-        freshness_ceiling_seconds=freshness_ceiling_seconds,
-        completeness=0.0 if conflicts else 1.0,
-        synthetic=False,
-        conflicts=conflicts,
-        evidence_refs=(f"inventory-generation:{generation}",),
-    ).to_mapping()
+    retained_metadata = (
+        _operational_state_metadata(
+            properties,
+            resource_type=resource_type,
+            state=state,
+        )
+        if state is not None and not conflicts
+        else None
+    )
+    state_metadata = (
+        retained_metadata
+        or StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="inventory-provider",
+            source_revision=generation,
+            effective_at=observed_at,
+            recorded_at=observed_at,
+            evidence_cutoff=observed_at,
+            freshness_ceiling_seconds=freshness_ceiling_seconds,
+            completeness=0.0 if conflicts else 1.0,
+            synthetic=False,
+            conflicts=conflicts,
+            evidence_refs=(f"inventory-generation:{generation}",),
+        ).to_mapping()
+    )
     existing_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
     if isinstance(existing_metadata, Mapping) and "lane" not in existing_metadata:
         properties[STATE_FACT_METADATA_PROPERTY] = {
@@ -422,6 +434,49 @@ def _operational_state_candidates(
                 if candidate not in candidates:
                     candidates.append(candidate)
     return tuple(candidates)
+
+
+def _operational_state_metadata(
+    properties: Mapping[str, object],
+    *,
+    resource_type: str,
+    state: str,
+) -> dict[str, object] | None:
+    paths = operational_state_paths(resource_type)
+    root_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if isinstance(root_metadata, Mapping) and "lane" in root_metadata:
+        return _canonical_state_metadata(root_metadata)
+    for prefix in ("", "properties.", "properties.properties."):
+        owner = _state_owner(properties, prefix)
+        if owner is None:
+            continue
+        owner_metadata = owner.get(STATE_FACT_METADATA_PROPERTY)
+        for path in paths:
+            value = _state_value_at(owner, path)
+            if not isinstance(value, str) or value.strip() != state:
+                continue
+            candidates: list[object] = []
+            if isinstance(root_metadata, Mapping):
+                candidates.extend((root_metadata.get(prefix + path), root_metadata.get(path)))
+            if isinstance(owner_metadata, Mapping) and "lane" not in owner_metadata:
+                candidates.append(owner_metadata.get(path))
+            for candidate in candidates:
+                canonical = _canonical_state_metadata(candidate)
+                if canonical is not None:
+                    return canonical
+    return None
+
+
+def _state_owner(
+    properties: Mapping[str, object],
+    prefix: str,
+) -> Mapping[str, object] | None:
+    current: object = properties
+    for part in prefix.removesuffix(".").split(".") if prefix else ():
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current if isinstance(current, Mapping) else None
 
 
 def _adjudicate_operational_state(

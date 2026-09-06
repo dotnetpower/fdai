@@ -325,7 +325,7 @@ def _qualify_metadata(
         and cutoff is not None
         and ceiling is not None
     ):
-        age = (now - observed).total_seconds()
+        age = (now - cutoff).total_seconds()
         result["freshness"] = "stale" if age > ceiling else "fresh"
     if result["conflicts"]:
         result["reason"] = "state_conflicting"

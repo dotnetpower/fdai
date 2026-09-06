@@ -19,7 +19,9 @@ and owning designs. Use it instead of the retired top-level application tree.
   that registry before inspecting provider properties. Root and supported nested metadata owners
   retain only canonical metadata paired with a present allowlisted value. Unsupported flat
   metadata, generic `status`, and `provisioningState` cannot create an operational fact for an
-  inapplicable type.
+  inapplicable type. Azure state enrichers run before promotion, preserve one pinned base generation,
+  and can add only reviewed facts. Static Web Apps use the exact `builds/default` child
+  `BuildStatus`; canonical ontology projection keeps that child source and effective time.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,

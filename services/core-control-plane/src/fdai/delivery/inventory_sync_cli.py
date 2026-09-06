@@ -19,6 +19,10 @@ from fdai.delivery.azure.resource_health_inventory import (
     AzureResourceHealthInventoryConfig,
     AzureResourceHealthInventoryEnricher,
 )
+from fdai.delivery.azure.static_web_app_inventory import (
+    AzureStaticWebAppInventoryConfig,
+    AzureStaticWebAppInventoryEnricher,
+)
 from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
 )
@@ -348,9 +352,21 @@ async def run(
             ),
             previous_state_reader=durable_store,
         )
+        static_web_app_enricher = AzureStaticWebAppInventoryEnricher(
+            identity=identity,
+            http_client=client,
+            config=AzureStaticWebAppInventoryConfig(
+                subscription_ids=config.scopes,
+                endpoint=config.management_endpoint,
+                audience=config.management_audience,
+                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            ),
+            previous_state_reader=durable_store,
+        )
         effective_enricher = SequentialInventoryPromotionEnricher(
             promotion_enricher or UnavailableRuntimeCallInventoryEnricher(),
             resource_health_enricher,
+            static_web_app_enricher,
             kubernetes_enricher,
         )
         event_bus, event_topic = _build_job_event_bus(identity)

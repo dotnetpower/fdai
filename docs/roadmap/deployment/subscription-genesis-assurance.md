@@ -169,6 +169,11 @@ unmapped provider types, extension resources, and separately bounded child-resou
 ARM and Kubernetes. A source limit does not turn into successful truncation: the run emits a
 stable blocker with the observed limit and required next action.
 
+Reviewed state enrichers run after complete collection and before promotion. Each exact child read
+uses the same signed target, response, concurrency, and deadline bounds, and it can add only typed
+provider evidence. The enrichment chain pins one active base generation; a changed pin blocks
+promotion instead of combining retained state from different generations.
+
 The count phase and collection phase are not transactionally consistent because Azure resources can
 change. Progress therefore presents the denominator as an estimate and completeness from the final
 provider coverage receipt. Deletes or creates during collection either reconcile in the same

@@ -232,6 +232,16 @@ def test_resource_type_applicability_rejects_unreviewed_supplied_state() -> None
             "properties.powerState.code",
             "PowerState/deallocated",
         ),
+        (
+            "static-web-app",
+            {
+                "status": "Running",
+                "provisioningState": "Succeeded",
+                "staticSiteEnvironmentStatus": "Ready",
+            },
+            "staticSiteEnvironmentStatus",
+            "Ready",
+        ),
     ],
 )
 def test_operational_state_and_legacy_status_share_resource_type_paths(
@@ -466,7 +476,7 @@ def test_staleness_and_incomplete_metadata_do_not_erase_values() -> None:
     assert partial["reason"] == "state_metadata_incomplete"
 
 
-def test_recent_cutoff_cannot_refresh_an_old_effective_state() -> None:
+def test_recent_cutoff_confirms_an_old_effective_state_without_rewriting_time() -> None:
     fact = _state(
         {
             "state": "Running",
@@ -478,7 +488,30 @@ def test_recent_cutoff_cannot_refresh_an_old_effective_state() -> None:
         }
     )
     assert fact["value"] == "Running"
-    assert fact["freshness"] == "stale"
+    assert fact["observed_at"] == "2026-09-04T00:00:00+00:00"
+    assert fact["freshness"] == "fresh"
+    assert fact["reason"] is None
+
+
+def test_static_web_app_ready_uses_current_evidence_cutoff_for_freshness() -> None:
+    states = recorded_resource_states(
+        {
+            "staticSiteEnvironmentStatus": "Ready",
+            "state_fact_metadata": {
+                "staticSiteEnvironmentStatus": _metadata(
+                    source_identity="azure-static-web-app-default-environment",
+                    effective_at="2026-08-01T00:00:00+00:00",
+                )
+            },
+        },
+        resource_type="static-web-app",
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] == "Ready"
+    assert states["operational"]["observed_at"] == "2026-08-01T00:00:00+00:00"
+    assert states["operational"]["freshness"] == "fresh"
+    assert states["operational"]["reason"] is None
 
 
 @pytest.mark.parametrize(

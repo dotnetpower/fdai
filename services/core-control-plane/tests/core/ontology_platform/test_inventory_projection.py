@@ -370,6 +370,51 @@ def test_resource_health_availability_metadata_reaches_ontology_instance() -> No
     )
 
 
+def test_static_web_app_environment_metadata_reaches_ontology_instance() -> None:
+    source_revision = "azure-static-web-app-environment:sha256:" + "1" * 64
+    environment_metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="azure-static-web-app-default-environment",
+        source_revision=source_revision,
+        effective_at=OBSERVED_AT,
+        recorded_at=OBSERVED_AT,
+        evidence_cutoff=OBSERVED_AT,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=(source_revision,),
+    )
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="static-web-app-1",
+                type="static-web-app",
+                props={
+                    "status": "Running",
+                    "staticSiteEnvironmentStatus": "Ready",
+                    "state_fact_metadata": {
+                        "staticSiteEnvironmentStatus": environment_metadata.to_mapping(),
+                    },
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["state"] == "Ready"
+    assert provider["staticSiteEnvironmentStatus"] == "Ready"
+    metadata = provider["state_fact_metadata"]
+    assert StateFactMetadata.from_mapping(metadata["staticSiteEnvironmentStatus"]) == (
+        environment_metadata
+    )
+    assert StateFactMetadata.from_mapping(metadata["state"]).source_identity == (
+        "azure-static-web-app-default-environment"
+    )
+
+
 @pytest.mark.parametrize(
     "resource_type",
     ["application-insights", "log-workspace", "resource-group"],

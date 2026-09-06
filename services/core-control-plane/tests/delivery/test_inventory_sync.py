@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from fdai.delivery.inventory_sync import (
     InventorySyncCoordinator,
     PromotedInventoryObservation,
     _ObservationAccumulator,
+    _validate_resource_state_enrichment,
     compute_relationship_coverage,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
@@ -668,6 +670,144 @@ async def test_promotion_enrichment_stages_provider_availability_without_replaci
     assert observed[0].resources[0].props["name"] == "workspace"
     assert observed[0].resources[0].props["availabilityState"] == "Available"
     assert store.promoted_manifests[0].metadata["state_base_generation"] == "snapshot-0"
+
+
+async def test_promotion_enrichment_stages_reviewed_static_web_app_operational_state() -> None:
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    class _Enricher:
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            assert observation.recorded_at is not None
+            resource = observation.resources[0]
+            source_revision = "azure-static-web-app-environment:sha256:" + "1" * 64
+            props = {
+                **resource.props,
+                "staticSiteEnvironmentStatus": "Ready",
+                "state_fact_metadata": {
+                    "staticSiteEnvironmentStatus": StateFactMetadata(
+                        lane=StateFactLane.OBSERVED,
+                        authority=StateFactAuthority.PROVIDER,
+                        source_identity="azure-static-web-app-default-environment",
+                        source_revision=source_revision,
+                        effective_at=observation.recorded_at,
+                        recorded_at=observation.recorded_at,
+                        evidence_cutoff=observation.recorded_at,
+                        freshness_ceiling_seconds=300,
+                        completeness=1.0,
+                        synthetic=False,
+                        evidence_refs=(source_revision,),
+                    ).to_mapping()
+                },
+            }
+            return replace(
+                observation,
+                resources=(replace(resource, props=props),),
+                state_base_generation="snapshot-0",
+                state_base_generation_checked=True,
+            )
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    resource = ResourceRecord(
+        resource_id="static-web-app-1",
+        type="static-web-app",
+        props={"name": "static-web-app"},
+        provider_ref=(
+            "/subscriptions/example/resourceGroups/example/providers/Microsoft.Web/staticSites/one"
+        ),
+        last_seen="2026-09-06T00:00:00+00:00",
+    )
+    await InventorySyncCoordinator(
+        store=store,
+        promotion_enricher=_Enricher(),
+        promotion_observer=_record,
+    ).run([_source("arg", _Inventory([InventoryBatch(resources=(resource,), final=True)]))])
+
+    staged = [
+        item
+        for batch in store.batches["attempt-1"]
+        for item in batch.resources
+        if item.resource_id == "static-web-app-1"
+    ]
+    assert len(staged) == 2
+    assert staged[-1].props["staticSiteEnvironmentStatus"] == "Ready"
+    assert observed[0].resources[0].props["staticSiteEnvironmentStatus"] == "Ready"
+
+
+@pytest.mark.parametrize(
+    ("source_revision", "evidence_refs"),
+    [
+        ("not-content-addressed", ("not-content-addressed",)),
+        (
+            "azure-static-web-app-environment:sha256:" + "1" * 64,
+            ("azure-static-web-app-environment:sha256:" + "2" * 64,),
+        ),
+    ],
+)
+def test_state_enrichment_rejects_unbound_evidence(
+    source_revision: str,
+    evidence_refs: tuple[str, ...],
+) -> None:
+    observed_at = datetime(2026, 9, 6, tzinfo=UTC)
+    original = ResourceRecord(resource_id="static-web-app-1", type="static-web-app")
+    candidate = replace(
+        original,
+        props={
+            "staticSiteEnvironmentStatus": "Ready",
+            "state_fact_metadata": {
+                "staticSiteEnvironmentStatus": StateFactMetadata(
+                    lane=StateFactLane.OBSERVED,
+                    authority=StateFactAuthority.PROVIDER,
+                    source_identity="azure-static-web-app-default-environment",
+                    source_revision=source_revision,
+                    effective_at=observed_at,
+                    recorded_at=observed_at,
+                    evidence_cutoff=observed_at,
+                    freshness_ceiling_seconds=300,
+                    completeness=1.0,
+                    synthetic=False,
+                    evidence_refs=evidence_refs,
+                ).to_mapping()
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="authoritative provider evidence"):
+        _validate_resource_state_enrichment(original, candidate)
+
+
+def test_state_enrichment_rejects_an_availability_reason_without_state() -> None:
+    original = ResourceRecord(resource_id="static-web-app-1", type="static-web-app")
+    candidate = replace(
+        original,
+        props={
+            "availabilityReasonKind": "status_only",
+            "staticSiteEnvironmentStatus": "Ready",
+            "state_fact_metadata": {
+                "staticSiteEnvironmentStatus": StateFactMetadata(
+                    lane=StateFactLane.OBSERVED,
+                    authority=StateFactAuthority.PROVIDER,
+                    source_identity="azure-static-web-app-default-environment",
+                    source_revision="azure-static-web-app-environment:sha256:" + "1" * 64,
+                    effective_at=datetime(2026, 9, 6, tzinfo=UTC),
+                    recorded_at=datetime(2026, 9, 6, tzinfo=UTC),
+                    evidence_cutoff=datetime(2026, 9, 6, tzinfo=UTC),
+                    freshness_ceiling_seconds=300,
+                    completeness=1.0,
+                    synthetic=False,
+                    evidence_refs=("azure-static-web-app-environment:sha256:" + "1" * 64,),
+                ).to_mapping()
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="reason requires availability state"):
+        _validate_resource_state_enrichment(original, candidate)
 
 
 async def test_promotion_enrichment_cannot_add_a_dangling_endpoint() -> None:

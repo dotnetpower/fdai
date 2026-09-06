@@ -15,6 +15,7 @@ from fdai.delivery.inventory_sync import (
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventorySnapshot
 from fdai.delivery.kubernetes_inventory import (
     KubernetesInventoryEnricher,
+    SequentialInventoryPromotionEnricher,
     UnavailableKubernetesInventoryEnricher,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
@@ -205,3 +206,52 @@ async def test_unconfigured_source_stays_quiet_without_an_observed_cluster(
 
     assert result.source_states[-1].reason == "kubernetes_source_unconfigured"
     assert caplog.records == []
+
+
+async def test_sequential_enrichment_rejects_a_changed_pinned_state_generation() -> None:
+    class PinGeneration:
+        def __init__(self, generation: str) -> None:
+            self.generation = generation
+
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            return replace(
+                observation,
+                state_base_generation=self.generation,
+                state_base_generation_checked=True,
+            )
+
+    enricher = SequentialInventoryPromotionEnricher(
+        PinGeneration("generation-0"),
+        PinGeneration("generation-2"),
+    )
+
+    with pytest.raises(ValueError, match="preserve the pinned state generation"):
+        await enricher.enrich(_observation())
+
+
+async def test_sequential_enrichment_preserves_one_pinned_state_generation() -> None:
+    class PreserveGeneration:
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            return (
+                replace(
+                    observation,
+                    state_base_generation="generation-0",
+                    state_base_generation_checked=True,
+                )
+                if not observation.state_base_generation_checked
+                else observation
+            )
+
+    result = await SequentialInventoryPromotionEnricher(
+        PreserveGeneration(),
+        PreserveGeneration(),
+    ).enrich(_observation())
+
+    assert result.state_base_generation == "generation-0"
+    assert result.state_base_generation_checked is True

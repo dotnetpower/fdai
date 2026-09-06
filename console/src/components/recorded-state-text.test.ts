@@ -21,11 +21,11 @@ function missingFact(reason: string): RecordedStateFact {
 describe("recorded state text", () => {
   test.each([
     ["state_source_not_recorded", "Not recorded"],
-    ["provider_operational_state_not_exposed", "Unavailable"],
+    ["provider_operational_state_not_exposed", "Not provided"],
     ["resource_health_projection_not_bound", "State source not connected"],
     ["state_not_applicable", "Not applicable"],
     ["state_applicability_unknown", "Applicability unknown"],
-    ["resource_type_unclassified", "Unavailable"],
+    ["resource_type_unclassified", "Unclassified"],
   ])("distinguishes %s from a generic missing record", (reason, expected) => {
     expect(recordedStateValueText(missingFact(reason))).toBe(expected);
   });

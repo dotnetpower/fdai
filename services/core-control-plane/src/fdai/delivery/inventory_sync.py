@@ -659,7 +659,7 @@ def _validate_resource_state_enrichment(
     original: ResourceRecord,
     enriched: ResourceRecord,
 ) -> None:
-    """Allow only a provider-observed availability fact on an existing Resource."""
+    """Allow only reviewed provider-observed state facts on an existing Resource."""
 
     if (
         enriched.resource_id != original.resource_id
@@ -676,11 +676,16 @@ def _validate_resource_state_enrichment(
         if enriched_props.get(key) != value:
             raise ValueError("inventory state enrichment MUST preserve provider properties")
     allowed = {"availabilityState", "availabilityReasonKind", STATE_FACT_METADATA_PROPERTY}
+    if original.type == "static-web-app":
+        allowed.add("staticSiteEnvironmentStatus")
     if set(enriched_props) - set(original_props) - allowed:
         raise ValueError("inventory state enrichment added an unsupported property")
-    state = enriched_props.get("availabilityState")
-    if not isinstance(state, str) or not state.strip():
-        raise ValueError("inventory state enrichment MUST supply availabilityState")
+    if (
+        "availabilityReasonKind" in enriched_props
+        and "availabilityReasonKind" not in original_props
+        and "availabilityState" not in enriched_props
+    ):
+        raise ValueError("inventory availability reason requires availability state")
     metadata = enriched_props.get(STATE_FACT_METADATA_PROPERTY)
     if not isinstance(metadata, Mapping):
         raise ValueError("inventory state enrichment MUST supply keyed state metadata")
@@ -690,21 +695,82 @@ def _validate_resource_state_enrichment(
             raise ValueError("inventory provider state metadata is malformed")
         if any(metadata.get(key) != value for key, value in original_metadata.items()):
             raise ValueError("inventory state enrichment MUST preserve existing state metadata")
-    availability_metadata = metadata.get("availabilityState")
-    if not isinstance(availability_metadata, Mapping):
-        raise ValueError("inventory availability metadata is missing")
-    fact = StateFactMetadata.from_mapping(availability_metadata)
+    original_metadata_keys = (
+        set(original_metadata) if isinstance(original_metadata, Mapping) else set()
+    )
+    allowed_metadata_keys = original_metadata_keys | {
+        key for key in ("availabilityState", "staticSiteEnvironmentStatus") if key in enriched_props
+    }
+    if set(metadata) - allowed_metadata_keys:
+        raise ValueError("inventory state enrichment added unsupported state metadata")
+    if "availabilityState" in enriched_props:
+        _validate_provider_state_fact(
+            state=enriched_props["availabilityState"],
+            metadata=metadata.get("availabilityState"),
+            source_identity="azure-resource-health",
+            source_revision_prefix="azure-resource-health:sha256:",
+            allowed_states={"Available", "Degraded", "Unavailable", "Unknown"},
+        )
+    if "staticSiteEnvironmentStatus" in enriched_props:
+        if original.type != "static-web-app":
+            raise ValueError("Static Web App state enrichment requires a Static Web App Resource")
+        _validate_provider_state_fact(
+            state=enriched_props["staticSiteEnvironmentStatus"],
+            metadata=metadata.get("staticSiteEnvironmentStatus"),
+            source_identity="azure-static-web-app-default-environment",
+            source_revision_prefix="azure-static-web-app-environment:sha256:",
+            allowed_states={
+                "WaitingForDeployment",
+                "Uploading",
+                "Deploying",
+                "Ready",
+                "Failed",
+                "Deleting",
+                "Detached",
+            },
+        )
+    reviewed_state_keys = ("availabilityState", "staticSiteEnvironmentStatus")
+    if not any(key in enriched_props for key in reviewed_state_keys):
+        raise ValueError("inventory state enrichment MUST supply one reviewed state fact")
+
+
+def _validate_provider_state_fact(
+    *,
+    state: object,
+    metadata: object,
+    source_identity: str,
+    source_revision_prefix: str,
+    allowed_states: set[str],
+) -> None:
+    if not isinstance(state, str) or not state.strip():
+        raise ValueError("inventory state enrichment MUST supply a bounded state")
+    if state not in allowed_states:
+        raise ValueError("inventory state enrichment supplied an unsupported state")
+    if not isinstance(metadata, Mapping):
+        raise ValueError("inventory state metadata is missing")
+    fact = StateFactMetadata.from_mapping(metadata)
     evidence_shape_valid = (fact.completeness == 1.0 and not fact.conflicts) or (
         fact.completeness == 0.0 and fact.conflicts == (STATE_FACT_EQUAL_TIME_CONFLICT,)
     )
     if (
         fact.lane is not StateFactLane.OBSERVED
         or fact.authority is not StateFactAuthority.PROVIDER
-        or fact.source_identity != "azure-resource-health"
+        or fact.source_identity != source_identity
+        or not _content_addressed_revision(fact.source_revision, source_revision_prefix)
+        or fact.evidence_refs != (fact.source_revision,)
         or fact.synthetic
         or not evidence_shape_valid
     ):
-        raise ValueError("inventory availability metadata is not authoritative provider evidence")
+        raise ValueError("inventory state metadata is not authoritative provider evidence")
+
+
+def _content_addressed_revision(value: str, prefix: str) -> bool:
+    digest = value.removeprefix(prefix)
+    return (
+        value.startswith(prefix)
+        and len(digest) == 64
+        and all(character in "0123456789abcdef" for character in digest)
+    )
 
 
 __all__ = [

@@ -18,6 +18,7 @@ OPERATIONAL_STATE_PATHS = (
     "diskState",
     "resourceState",
     "snapshotAccessState",
+    "staticSiteEnvironmentStatus",
     "userVisibleState",
     "virtualNetworkLinkState",
     "powerState.code",
@@ -61,6 +62,7 @@ OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] =
     "service-bus-namespace": ("status",),
     "sql-database": ("status",),
     "sql-server": ("state",),
+    "static-web-app": ("staticSiteEnvironmentStatus",),
     "subscription": ("state",),
     "workflow.logic-app": ("state",),
 }
@@ -119,7 +121,6 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
         "nosql-database",
         "object-storage",
         "secret-store",
-        "static-web-app",
     }
 )
 AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {

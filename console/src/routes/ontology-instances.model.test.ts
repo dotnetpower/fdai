@@ -224,6 +224,14 @@ describe("decodeOntologyInstanceExploration", () => {
       ))).toEqual({ axis: "operational", fact: fact("Running", null) });
     });
 
+    it("shows an exact Static Web App default-environment Ready state", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact("Ready", null),
+        fact(null, "state_not_recorded"),
+        fact(null, "state_not_recorded"),
+      ))).toEqual({ axis: "operational", fact: fact("Ready", null) });
+    });
+
     it("shows exact availability when operation is not applicable", () => {
       expect(ontologyInstanceNodeState(resource(
         fact(null, "state_not_applicable"),

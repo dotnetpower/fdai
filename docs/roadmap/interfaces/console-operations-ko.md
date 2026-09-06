@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: e9598f396e93f1e859f881cee806d32d5c83c011
-translation_revised: 2026-09-06
+translation_source_sha: e97bf242c9bb3a977e82921d28cdfbc6bce6e670
+translation_revised: 2026-09-07
 ---
 
 # 콘솔 운영
@@ -41,6 +41,11 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 Operator API는 mechanical 중계로 유지합니다. FDAI Console과 운영자 클라이언트가 공유하는
 비특권 HTTP 백엔드이며 Thor의 실행기 신원을 받지 않습니다. 오케스트레이터, 숨은 에이전트 또는
 범용 작업 흐름 엔진이 되지 않으며 에이전트는 서로 직접 호출하지 않습니다.
+
+기록된 Resource 상태 화면은 브라우저에서 공급자 원시 필드를 해석하지 않고 공유하는 독립 상태
+축을 사용합니다. 따라서 정확한 Static Web App 기본 환경 `BuildStatus`를 운영 값으로 표시하고,
+검토된 값이 없으면 기록 없음으로 유지합니다. 프로비저닝 성공이나 공급자 요청 성공을 운영 성공으로
+바꾸지 않습니다.
 
 ## 제품 용어
 

@@ -19,7 +19,7 @@ axes. Both Console screens consume the same versioned shape.
 
 | Axis | Recorded fields | Not inferred |
 |------|-----------------|--------------|
-| Operational | Explicit service, power, phase, readiness, running, attachment, access, or link state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, and Completed keep their recorded meaning. |
+| Operational | Explicit service, power, phase, readiness, running, attachment, access, link, or Static Web App default-environment state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, Completed, and Ready keep their recorded meaning. |
 | Provisioning | Explicit `provisioningState`. | Successful creation does not establish availability. |
 | Availability | Explicit availability evidence. | Running and Succeeded do not establish healthy service. |
 
@@ -38,6 +38,11 @@ Stale or conflicting values remain visible as recorded values with qualification
 remains unknown; it never becomes an invented observation receipt. A missing value is not automatically
 not-applicable. The display projection is not a replacement for the existing decision-critical
 ontology query verifier or its receipts.
+
+Freshness measures the age of the evidence cutoff, not the age of the state transition. A current
+provider read can therefore confirm a state whose effective time is older without rewriting that
+effective time. A retained fact keeps its earlier evidence cutoff and becomes stale when that
+confirmation exceeds the declared ceiling.
 
 For active snapshots created before property-level metadata was recorded, the read model qualifies a
 retained value from the immutable Resource `last_seen` timestamp and the snapshot completion cutoff.
@@ -116,6 +121,14 @@ the exact ResourceTypes whose ARM type is supported:
 - `application-insights` has no direct Resource Health status. Its operational and availability
   axes are not applicable. The backing Log Analytics workspace remains a separate related Resource;
   its health is never copied onto Application Insights.
+- The reviewed alternate operational source for `static-web-app` is the exact
+  `Microsoft.Web/staticSites/builds/default` child resource. The inventory promotion enricher reads
+  API version `2023-12-01` and records the documented `BuildStatus` enumeration as
+  `staticSiteEnvironmentStatus`, including deployment, ready, failed, deleting, and detached states.
+  Preview environments never override the default environment.
+- Static Web App state metadata keeps the provider `lastUpdatedOn` value as effective time, falling
+  back to `createdTimeUtc` only when needed. The collection completion remains the recorded time and
+  evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
 - Exact reads are bounded to 200 targets with concurrency eight. Prior qualified facts are read in
@@ -137,13 +150,18 @@ the exact ResourceTypes whose ARM type is supported:
   Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
   raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
-- Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown
-  from the machine reason. Legacy generations can still identify an unbound source explicitly.
+- Missing values render as Not recorded, Not provided, Unclassified, Not applicable, or
+  Applicability unknown from the machine reason. `Not provided` describes the evidence contract,
+  not resource availability. Legacy generations can still identify an unbound source explicitly.
 - Compact ontology graph nodes use an exact operational value first. When operation is not
   applicable or the provider exposes no operational state, an exact availability value or useful
   availability evidence gap leads, followed by an exact provisioning value. A missing applicable
   operational value remains visible and cannot be hidden by availability. The selected axis stays
   in the label, and provisioning success never becomes operational success or health.
+- A Static Web App with an exact default-environment fact shows that exact operational value, such
+  as `Operational: Ready`, `Operational: Deploying`, or `Operational: Failed`. If that reviewed
+  source has no recorded value, the label is Not recorded. Not provided is reserved for
+  ResourceTypes with no reviewed operational source.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
@@ -161,7 +179,7 @@ the exact ResourceTypes whose ARM type is supported:
   compact node can show operation.
 - Runtime primary-state validation includes configuration Resources with no operational or
   availability source. These nodes show exact provisioning when present and retain explicit
-  unavailable only when every recorded axis lacks a useful exact fact.
+  evidence-gap labeling only when every recorded axis lacks a useful exact fact.
 
 ## Rejected alternatives
 

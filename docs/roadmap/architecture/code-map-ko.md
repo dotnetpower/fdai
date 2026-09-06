@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b16daaa026ea111466bea12982c357f3bcdbc35d
-translation_revised: 2026-09-06
+translation_source_sha: 7bfa8da6734f2ff58a1092f88d9f746e81fa3483
+translation_revised: 2026-09-07
 ---
 # 코드 맵
 
@@ -21,7 +21,10 @@ translation_revised: 2026-09-06
   ResourceType 경로 레지스트리를 소유합니다. Core 온톨로지 변환과 Operator 조회 모델은 공급자
   속성을 확인하기 전에 이 레지스트리를 사용합니다. 루트와 지원되는 중첩 메타데이터 소유자는 실제
   허용 값과 연결된 표준 메타데이터만 유지합니다. 지원되지 않는 flat 메타데이터, 일반 `status`,
-  `provisioningState`는 적용 대상이 아닌 유형의 운영 사실을 만들 수 없습니다.
+  `provisioningState`는 적용 대상이 아닌 유형의 운영 사실을 만들 수 없습니다. Azure 상태 보강기는
+  승격 전에 실행하고 고정된 기준 세대 하나를 유지하며 검토된 사실만 추가할 수 있습니다. Static Web
+  App은 정확한 `builds/default` 하위 리소스의 `BuildStatus`를 사용하며, 표준 온톨로지 변환은 이
+  하위 리소스의 출처와 실제 적용 시각을 유지합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및

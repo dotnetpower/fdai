@@ -45,7 +45,15 @@ class SequentialInventoryPromotionEnricher:
     ) -> PromotedInventoryObservation:
         current = observation
         for enricher in self._enrichers:
+            previous = current
             current = await enricher.enrich(current)
+            if previous.state_base_generation_checked and (
+                not current.state_base_generation_checked
+                or current.state_base_generation != previous.state_base_generation
+            ):
+                raise ValueError(
+                    "sequential inventory enrichment MUST preserve the pinned state generation"
+                )
         return current
 
 

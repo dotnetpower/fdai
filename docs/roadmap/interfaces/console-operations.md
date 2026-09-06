@@ -40,6 +40,11 @@ FDAI Console and operator clients. It does not become an orchestrator, a hidden 
 workflow engine, and it never receives Thor's executor identity. Agents do not call each other
 directly.
 
+Recorded Resource state views consume the shared independent state axes rather than interpreting
+raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`
+therefore appears as its operational value, while a missing reviewed value remains Not recorded.
+Provisioning success and a successful provider request never become operational success.
+
 ## Product vocabulary
 
 Use one product name and plain operational labels:
