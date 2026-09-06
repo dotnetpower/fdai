@@ -481,7 +481,10 @@ def preflight_operational_judgment(
                 return _reject_operational_promotion("unsupported_time_canonicalization")
         if target.kind not in {"resource", "time_range", "backend", "model"}:
             return _reject_operational_promotion("unsupported_target_kind")
-        if target.kind != "time_range" and operational_target_is_generic(target.value):
+        if target.kind != "time_range" and (
+            any(character.isspace() for character in target.value)
+            or operational_target_is_generic(target.value)
+        ):
             return _reject_operational_promotion("generic_target_identity")
         normalized_targets.append(target)
     primary_intent = {

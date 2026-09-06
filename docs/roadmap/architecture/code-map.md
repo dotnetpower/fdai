@@ -69,6 +69,8 @@ Generic product labels such as APIM, gateway, backend, and GPT never satisfy an 
 target, including when a determiner such as "the" or "selected" is attached. They require Resource
 identity clarification before frame or provider work. Possessive forms such as "our gateway" and
 "my APIM service", and deictic forms such as "that gateway", remain generic as well.
+Fast-path identity targets are token-like names without whitespace or exact ARM IDs. Natural-language
+identity phrases retain full judgment even when they are not in the reviewed generic-label set.
 The one-hour operational shortcut accepts only explicitly past source wording. Directionless or
 future wording retains full semantic judgment instead of becoming a historical lookback.
 Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway
