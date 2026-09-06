@@ -74,6 +74,11 @@ fail closed. Local launches still import only service-owned distributions, and t
 Executor remains a durable shadow consumer without managed-resource identity. The compound doesn't
 start static design mocks or fixture applications.
 
+The task-backed `console: start full stack` supervisor additionally starts the continuous inventory
+reconciliation and observation campaign modes from the Core distribution. Local readiness and the
+10-minute watchdog include both jobs, so a stopped inventory producer makes the stack unavailable
+and triggers bounded recovery instead of leaving Live connected without new control-loop input.
+
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document
 Ingestion API, Document Processing Worker, and Isolated Executor, and local event transport uses Docker
@@ -347,10 +352,11 @@ file creation when they differ. Both profiles execute the same explicitly typed 
 derives a non-identifying consumer instance hash from the local user and host so concurrent developers never join the same Event Hubs Kafka
 consumer group. Automation can set `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20 characters
 when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups use that instance, while deployed Operator
-request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The generic Live stage hub
-remains future-only. The Agent hub retains one latest validated `agent.state` event per agent and seeds those values while registering each
-new subscriber under the same lock. This bounded process-local snapshot hydrates a refresh without polling, but it is not durable history
-replay and disappears when the Operator process restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently
+request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The Live stage hub retains
+at most 256 accepted frames for 60 seconds and replays them in observed order to a new subscriber. The Agent hub retains one latest
+validated `agent.state` event per agent and seeds those values while registering each new subscriber under the same lock. These bounded
+process-local snapshots hydrate a refresh without polling, but they are not durable history replay and disappear when the Operator process
+restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently
 running Operator process or replica so each hub consumes the complete `fdai.pipeline.stages` stream. Its default preserves single-process
 compatibility only. The isolated E2E launcher always replaces an inherited value with a UUID-scoped group and never joins the group used by
 the browser-serving Operator.

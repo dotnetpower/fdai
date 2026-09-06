@@ -59,6 +59,32 @@ async def test_live_stream_hub_replays_latest_event_by_key_to_late_subscriber() 
     await subscription.aclose()
 
 
+async def test_live_stream_hub_replays_latest_source_observation() -> None:
+    hub = LiveStreamHub()
+    source = LiveStreamEvent(
+        event_id="source:runtime-observed",
+        event_type="source",
+        payload={
+            "status": "ready",
+            "source": "runtime-observed",
+            "ts": datetime.now(UTC).isoformat(),
+        },
+    )
+
+    await hub.publish_source(source)
+    subscription = hub.subscribe()
+
+    assert await anext(subscription) == source
+    await subscription.aclose()
+
+
+async def test_live_stream_hub_rejects_stage_as_source_observation() -> None:
+    hub = LiveStreamHub()
+
+    with pytest.raises(ValueError, match="event_type=source"):
+        await hub.publish_source(LiveStreamEvent(event_id="event-1", payload={}))
+
+
 async def test_live_stream_hub_does_not_replay_without_latest_key() -> None:
     hub = LiveStreamHub()
     await hub.publish(LiveStreamEvent(event_id="event-1", payload={"sequence": 1}))
@@ -66,6 +92,58 @@ async def test_live_stream_hub_does_not_replay_without_latest_key() -> None:
 
     with pytest.raises(TimeoutError):
         await asyncio.wait_for(anext(subscription), timeout=0.01)
+
+
+async def test_live_stream_hub_replays_only_bounded_recent_events() -> None:
+    now = 0.0
+    hub = LiveStreamHub(
+        replay_capacity=2,
+        replay_window_seconds=60.0,
+        clock=lambda: now,
+    )
+    first = LiveStreamEvent(event_id="event-1", payload={"sequence": 1})
+    second = LiveStreamEvent(event_id="event-2", payload={"sequence": 2})
+    third = LiveStreamEvent(event_id="event-3", payload={"sequence": 3})
+
+    await hub.publish(first)
+    now = 10.0
+    await hub.publish(second)
+    now = 20.0
+    await hub.publish(third)
+    subscription = hub.subscribe()
+
+    assert await anext(subscription) == second
+    assert await anext(subscription) == third
+    await subscription.aclose()
+
+    now = 81.0
+    expired_subscription = hub.subscribe()
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(anext(expired_subscription), timeout=0.01)
+
+
+def test_live_stream_hub_replay_configuration_fails_closed() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        LiveStreamHub(replay_capacity=1)
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        LiveStreamHub(
+            latest_key=lambda event: event.event_id,
+            replay_capacity=1,
+            replay_window_seconds=60.0,
+        )
+
+
+async def test_live_stream_hub_rejects_replay_configuration_after_subscription() -> None:
+    hub = LiveStreamHub()
+    subscription = hub.subscribe()
+    waiting = asyncio.create_task(anext(subscription))
+    await asyncio.sleep(0)
+
+    with pytest.raises(RuntimeError, match="before subscription"):
+        hub.enable_recent_replay(capacity=1, window_seconds=60.0)
+
+    waiting.cancel()
+    await asyncio.gather(waiting, return_exceptions=True)
 
 
 async def test_agent_stream_hub_only_replays_agent_state() -> None:
@@ -161,11 +239,6 @@ async def test_live_stage_kafka_relay_publishes_then_commits() -> None:
     consumer = FakeConsumer()
     hub = LiveStreamHub()
     agent_hub = LiveStreamHub()
-    subscription = hub.subscribe()
-    agent_subscription = agent_hub.subscribe()
-    waiting = asyncio.create_task(anext(subscription))
-    waiting_for_agent = asyncio.create_task(anext(agent_subscription))
-    await asyncio.sleep(0)
     relay = LiveStageKafkaRelay(
         config=LiveStageKafkaConfig(
             bootstrap_servers="127.0.0.1:19092",
@@ -176,6 +249,11 @@ async def test_live_stage_kafka_relay_publishes_then_commits() -> None:
         credential=None,
         consumer_factory=lambda: consumer,  # type: ignore[arg-type]
     )
+    subscription = hub.subscribe()
+    agent_subscription = agent_hub.subscribe()
+    waiting = asyncio.create_task(anext(subscription))
+    waiting_for_agent = asyncio.create_task(anext(agent_subscription))
+    await asyncio.sleep(0)
     payload = {
         "event_id": "event-1",
         "correlation_id": "correlation-1",
@@ -222,6 +300,64 @@ async def test_live_stage_kafka_relay_publishes_then_commits() -> None:
     assert consumer.stopped
 
 
+async def test_live_stage_kafka_relay_publishes_runtime_source_readiness() -> None:
+    class FakeConsumer:
+        def __init__(self) -> None:
+            self.messages: asyncio.Queue[object] = asyncio.Queue()
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            return await self.messages.get()
+
+        async def commit(self) -> None:
+            return None
+
+    consumer = FakeConsumer()
+    hub = LiveStreamHub()
+    relay = LiveStageKafkaRelay(
+        config=LiveStageKafkaConfig(
+            bootstrap_servers="127.0.0.1:19092",
+            security_protocol="PLAINTEXT",
+        ),
+        hub=hub,
+        agent_hub=LiveStreamHub(),
+        credential=None,
+        consumer_factory=lambda: consumer,  # type: ignore[arg-type]
+    )
+    subscription = hub.subscribe()
+    waiting = asyncio.create_task(anext(subscription))
+    await asyncio.sleep(0)
+
+    await relay.start()
+    await consumer.messages.put(
+        SimpleNamespace(
+            value=json.dumps(
+                {
+                    "type": "agent.runtime-state",
+                    "agent": "Huginn",
+                    "state": "watching",
+                    "ts": datetime.now(UTC).isoformat(),
+                    "correlation_id": None,
+                    "detail": "Runtime agent initialized",
+                    "source": "runtime-observed",
+                }
+            ).encode("utf-8")
+        )
+    )
+
+    source = await asyncio.wait_for(waiting, timeout=0.5)
+    assert source.event_type == "source"
+    assert source.payload["status"] == "ready"
+    assert source.payload["source"] == "runtime-observed"
+    await subscription.aclose()
+    await relay.aclose()
+
+
 async def test_live_stream_keepalive_does_not_close_subscription() -> None:
     async def connected() -> bool:
         return False
@@ -235,4 +371,32 @@ async def test_live_stream_keepalive_does_not_close_subscription() -> None:
     assert (await anext(chunks)).startswith(b"event: hello\n")
     assert await asyncio.wait_for(anext(chunks), timeout=0.1) == b": keepalive\n\n"
     assert await asyncio.wait_for(anext(chunks), timeout=0.1) == b": keepalive\n\n"
+    await chunks.aclose()
+
+
+async def test_live_stream_replays_recent_stage_to_late_subscriber() -> None:
+    async def connected() -> bool:
+        return False
+
+    hub = LiveStreamHub(replay_capacity=2, replay_window_seconds=60.0)
+    event = LiveStreamEvent(
+        event_id="event-1",
+        payload={
+            "event_id": "event-1",
+            "correlation_id": "correlation-1",
+            "stage": "audit",
+            "phase": "done",
+            "source": "runtime-observed",
+            "ts": datetime.now(UTC).isoformat(),
+        },
+    )
+    await hub.publish(event)
+    chunks = _live_chunks(
+        hub=hub,
+        is_disconnected=connected,
+        keepalive_seconds=60.0,
+    )
+
+    assert (await anext(chunks)).startswith(b"event: hello\n")
+    assert await asyncio.wait_for(anext(chunks), timeout=0.1) == _encode_event(event)
     await chunks.aclose()

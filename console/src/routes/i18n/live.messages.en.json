@@ -6,7 +6,7 @@
   "freezeTitle": "Freeze the live view",
   "resumeTitle": "Resume the live view",
   "context": {"devTitle": "Local ControlLoop: no managed-resource changes", "source": "Source", "window": "Window"},
-  "scope": {"label": "Live observation scope", "mode": "Mode", "readOnly": "Read-only", "source": "Source", "evidence": "Evidence", "observed": "Authoritative stage source observed", "notReady": "No authoritative stage frame observed - not valid as live readiness evidence"},
+  "scope": {"label": "Live observation scope", "mode": "Mode", "readOnly": "Read-only", "source": "Source", "evidence": "Evidence", "observed": "Authoritative runtime source observed", "notReady": "No authoritative runtime source observed - not valid as live readiness evidence"},
   "lead": "See what needs attention now, follow each control-loop stage, and open recorded evidence. This surface observes; it never executes.",
   "health": {"label": "Live observation health", "stream": "Stream", "lastEvent": "Last event", "environment": "Environment", "presentation": "Presentation", "backlog": "Frame continuity", "complete": "No overflow detected", "dropped": "{count} old frame(s) dropped at the bounded buffer", "notObserved": "Not observed", "devLocal": "Local ControlLoop", "configuredRuntime": "Configured runtime", "following": "Following live", "frozen": "Frozen - {count} frame(s) queued"},
   "status": {"idle": "Idle", "connecting": "Connecting", "open": "Live", "connected": "Connected", "awaitingSource": "Awaiting source", "closed": "Closed", "unsupported": "SSE unsupported"},
@@ -24,7 +24,7 @@
     "mode": {"pending": "Pending means policy and execution mode have not been observed.", "shadow": "Shadow mode evaluates and records without changing the target.", "enforce": "Enforce mode can dispatch only after policy, safety, and authority checks; dispatch does not prove effect success.", "gated": "Gated means the current decision path blocks dispatch until its required review or approval is satisfied."}
   },
   "filter": {"all": "All", "hil": "Approval", "deny": "Denied", "failed": "Failed", "stuck": "Stuck"},
-  "empty": {"connectedTitle": "No events in view", "disconnectedTitle": "No live signal", "connected": "Authoritative source observed. Waiting for the next control-plane event.", "awaitingSource": "The SSE connection is open, but no authoritative stage frame has been observed. Check Core Runtime and stage-topic readiness.", "connecting": "Connecting to the live event stream.", "idle": "Live observation is idle while this view is not connected.", "unavailable": "Live observation is unavailable. Use History for recorded outcomes."},
+  "empty": {"connectedTitle": "No events in view", "disconnectedTitle": "No live signal", "connected": "Authoritative runtime source observed. There is no current control-loop work.", "awaitingSource": "The SSE connection is open, but no authoritative runtime source has been observed. Check Core Runtime and stage-topic readiness.", "connecting": "Connecting to the live event stream.", "idle": "Live observation is idle while this view is not connected.", "unavailable": "Live observation is unavailable. Use History for recorded outcomes."},
   "selectionWaiting": "Waiting for event {event} to appear in the live stream.",
   "selectionUnavailable": "Event {event} is not available in the current bounded live window.",
   "selectionOpenAudit": "Open the audit log",

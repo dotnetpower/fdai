@@ -399,12 +399,16 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
         core_probe=lambda _root: True,
-        process_records=[(repo, [".venv/bin/python", "-m", "fdai"])],
+        process_records=[
+            (repo, [".venv/bin/python", "-m", "fdai"]),
+            (repo, [".venv/bin/python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
+            (repo, [".venv/bin/python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
+        ],
     )
 
     assert result["status"] == "warning"
-    assert result["service_count"] == 6
-    assert result["ready_count"] == 4
+    assert result["service_count"] == 8
+    assert result["ready_count"] == 6
     assert result["unavailable_services"] == [
         "document-ingestion-api",
         "isolated-executor",
@@ -427,7 +431,11 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
-        process_records=[(tmp_path / "other", ["python", "-m", "fdai"])],
+        process_records=[
+            (tmp_path / "other", ["python", "-m", "fdai"]),
+            (repo, ["python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
+            (repo, ["python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
+        ],
     )
 
     assert result["status"] == "warning"
@@ -472,8 +480,40 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         "document-ingestion-api",
         "document-processing-worker",
         "isolated-executor",
+        "inventory-reconciliation",
+        "observation-campaign",
     ]
-    assert result["unavailable_services"] == ["core-runtime", "document-ingestion-api"]
+    assert result["unavailable_services"] == [
+        "core-runtime",
+        "document-ingestion-api",
+        "inventory-reconciliation",
+        "observation-campaign",
+    ]
+
+
+def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
+    module = _load_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    (repo / ".fdai").mkdir()
+
+    result = module._local_services_diagnostic(
+        repo,
+        probe=lambda _url: True,
+        core_probe=lambda _root: True,
+        process_records=[(repo, ["python", "-m", "fdai"])],
+    )
+
+    assert result["unavailable_services"] == [
+        "inventory-reconciliation",
+        "observation-campaign",
+    ]
 
 
 def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
@@ -513,7 +553,7 @@ def test_local_service_wait_retries_until_the_complete_topology_is_ready(
     reports = iter(
         (
             {"status": "warning", "unavailable_services": ["operator-api"]},
-            {"status": "ok", "ready_count": 6, "service_count": 6, "unavailable_services": []},
+            {"status": "ok", "ready_count": 8, "service_count": 8, "unavailable_services": []},
         )
     )
     clock = iter((0.0, 0.0, 0.25))
@@ -543,8 +583,8 @@ def test_local_services_command_fails_for_an_incomplete_topology(
         "local_services_report",
         lambda _root, *, wait_seconds: {
             "attempt_count": 3,
-            "ready_count": 5,
-            "service_count": 6,
+            "ready_count": 7,
+            "service_count": 8,
             "status": "warning",
             "unavailable_services": ["operator-api"],
         },
@@ -567,10 +607,10 @@ def test_local_services_json_omits_text_progress(
         "local_services_report",
         lambda _root, *, wait_seconds: {
             "attempt_count": 1,
-            "ready_count": 6,
+            "ready_count": 8,
             "read_only": True,
             "schema_version": 1,
-            "service_count": 6,
+            "service_count": 8,
             "status": "ok",
             "unavailable_services": [],
         },
@@ -588,8 +628,8 @@ def test_local_services_report_can_scope_readiness_to_core_runtime(
         module,
         "_local_services_diagnostic",
         lambda _root: {
-            "ready_count": 5,
-            "service_count": 6,
+            "ready_count": 7,
+            "service_count": 8,
             "services": [
                 {"name": "core-runtime", "ready": False},
                 {"name": "operator-api", "ready": True},
