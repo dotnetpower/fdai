@@ -155,6 +155,9 @@ the exact ResourceTypes whose ARM type is supported:
 - After a frontend or Operator API replacement, runtime validation rechecks the selected axis label
   on the standard page so a useful availability or provisioning fact cannot regress behind an
   inapplicable operational axis.
+- Expanded Resource Health validation compares target, value, and metadata counts by ResourceType.
+  Provider-unmodeled targets stay explicit and require an independent operational fact before a
+  compact node can show operation.
 
 ## Rejected alternatives
 
