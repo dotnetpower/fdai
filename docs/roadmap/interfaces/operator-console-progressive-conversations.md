@@ -26,6 +26,11 @@ Validated advisory terminals render their complete canonical text immediately. T
 an artificial typewriter after the server has already completed review. Ordinary streamed deltas
 retain their pacing and ordering, and malformed advisory metadata cannot select this fast path.
 
+The Operator signals waiting streams after a terminal result is validated and durably committed.
+Bounded terminal markers prevent a commit-before-wait race from adding the one-second replay poll.
+The signal carries no answer or authority: readers still load the authoritative result, and polling
+remains the recovery path when notifications are absent.
+
 ## Implementation status
 
 ### Implementation scope

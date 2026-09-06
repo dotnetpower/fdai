@@ -175,6 +175,17 @@ class _SemanticProgressRelay:
     def __init__(self) -> None:
         self._updates: OrderedDict[str, deque[SemanticQueryProgress]] = OrderedDict()
         self._signals: dict[str, asyncio.Event] = {}
+        self._terminals: OrderedDict[str, None] = OrderedDict()
+
+    def terminal_committed(self, request_id: str) -> None:
+        """Wake readers only after terminal validation and durable persistence succeed."""
+        self._terminals[request_id] = None
+        self._terminals.move_to_end(request_id)
+        if len(self._terminals) > _MAX_TRACKED_PROGRESS_REQUESTS:
+            self._terminals.popitem(last=False)
+        signal = self._signals.get(request_id)
+        if signal is not None:
+            signal.set()
 
     def consume(self, payload: Mapping[str, object]) -> bool:
         """Validate and retain one monotonic update, ignoring stale redelivery."""
@@ -205,6 +216,7 @@ class _SemanticProgressRelay:
         """Drop transient updates once durable terminal replay is authoritative."""
         self._updates.pop(request_id, None)
         self._signals.pop(request_id, None)
+        self._terminals.pop(request_id, None)
 
     async def wait_for_update(
         self,
@@ -214,11 +226,11 @@ class _SemanticProgressRelay:
         timeout: float,
     ) -> None:
         """Wake one active stream as soon as a newer progress record arrives."""
-        if self.after(request_id, progress_sequence):
+        if request_id in self._terminals or self.after(request_id, progress_sequence):
             return
         signal = self._signals.setdefault(request_id, asyncio.Event())
         signal.clear()
-        if self.after(request_id, progress_sequence):
+        if request_id in self._terminals or self.after(request_id, progress_sequence):
             return
         try:
             await asyncio.wait_for(signal.wait(), timeout=timeout)
@@ -952,7 +964,7 @@ class SemanticTurnBridge:
                 ):
                     quarantine_key = _projection_quarantine_key(payload)
                     try:
-                        await self._consumer.consume(payload)
+                        committed = await self._consumer.consume(payload)
                     except (ContractValidationError, ValidationError, ValueError):
                         await self._quarantine(quarantine_key)
                     except SemanticTurnRequestAbsentError:
@@ -985,6 +997,7 @@ class SemanticTurnBridge:
                         await self._quarantine(quarantine_key)
                     else:
                         conflicts.pop(quarantine_key, None)
+                        self._progress_relay.terminal_committed(committed.request_id)
             except SemanticTurnRequestAbsentError:
                 _LOGGER.info(
                     "semantic_projection_conflict_retrying",
