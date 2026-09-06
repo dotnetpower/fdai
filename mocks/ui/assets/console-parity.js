@@ -325,7 +325,7 @@
           ["Evidence freshness", "15 min", "10 min", status("Overridden", "info"), "Next request"],
           ["Investigation budget", "90 s", "-", status("Inherited", "success"), "Current"],
           ["Audit retention", "365 days", "730 days", status("Restart required", "warning"), "After restart"],
-          ["Verbose provider logs", "Off", "-", status("Unavailable", "danger"), "No change"]
+          ["Verbose provider logs", "Off", "-", status("Unavailable", "neutral"), "No change"]
         ] },
         { title: "Edit an allowlisted override", type: "form", fields: [["Setting", "select", ["Evidence freshness", "Investigation budget", "Audit retention"], 5], ["Override value", "text", "10 min", 4], ["Revision", "text", "12", 3]], action: "Save revisioned override" }
       ]

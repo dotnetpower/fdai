@@ -18,6 +18,8 @@ export const DECK_STATE_EVENT = "fdai:deck:state";
 /** Cancelable request used by Activity Bar group navigation. */
 export const DECK_WORKSPACE_NAVIGATION_EVENT = "fdai:deck:workspace-navigation";
 
+export type DeckContextMode = "screen" | "general";
+
 export interface IncidentConversationBinding {
   readonly kind: "incident";
   readonly incidentId: string;
@@ -57,10 +59,13 @@ export interface DeckOpenDetail {
   readonly binding?: IncidentConversationBinding;
   /** Refuse automatic session switching while a turn or unsent draft is active. */
   readonly onlyWhenIdle?: boolean;
+  /** Presentation and submission context selected by the invoking surface. */
+  readonly contextMode?: DeckContextMode;
 }
 
 let deckOpenListenerReady = false;
 let deckOpen = false;
+let deckContextMode: DeckContextMode = "screen";
 let pendingDeckToggle = false;
 const MAX_PENDING_DECK_OPENS = 8;
 let pendingDeckOpens: DeckOpenDetail[] = [];
@@ -72,6 +77,10 @@ export function isDeckOpenListenerReady(): boolean {
 
 export function isDeckOpen(): boolean {
   return deckOpen;
+}
+
+export function isGeneralDeckOpen(): boolean {
+  return deckOpen && deckContextMode === "general";
 }
 
 export function setDeckOpenListenerReady(ready: boolean): void {
@@ -93,10 +102,14 @@ export function clearPendingDeckOpenRequests(): void {
   pendingDeckToggle = false;
 }
 
-export function publishDeckOpenState(open: boolean): void {
+export function publishDeckOpenState(
+  open: boolean,
+  contextMode: DeckContextMode = deckContextMode,
+): void {
   deckOpen = open;
+  deckContextMode = contextMode;
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
-  window.dispatchEvent(new CustomEvent(DECK_STATE_EVENT, { detail: { open } }));
+  window.dispatchEvent(new CustomEvent(DECK_STATE_EVENT, { detail: { open, contextMode } }));
 }
 
 export function requestDeckToggle(): void {

@@ -43,6 +43,7 @@ import { useViewContext } from "./context";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationTrajectoryView } from "./conversation-trajectory-view";
 import { ConversationTurnAttachments } from "./conversation-turn-attachments";
+import type { DeckContextMode } from "./open-deck";
 import { GroundedReply } from "./grounded-reply";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
@@ -804,11 +805,13 @@ export function BackendBadge({
 export function IntroPanel({
   snapshot,
   routeLabel,
+  contextMode,
   onPick,
   children,
 }: {
   readonly snapshot: ReturnType<typeof useViewContext>;
   readonly routeLabel: string;
+  readonly contextMode: DeckContextMode;
   readonly onPick: (suggestion: string) => void;
   readonly children?: ComponentChildren;
 }) {
@@ -817,10 +820,12 @@ export function IntroPanel({
   const screenPrompt = t("deck.starterSuggestions.screen");
   const situationalPrompt = suggestions.find((suggestion) => suggestion !== screenPrompt) ??
     t("deck.starterSuggestions.tierMix");
-  const cards = [
-    { key: "situation", label: routeLabel, prompt: situationalPrompt, icon: "attention" },
-    ...verticals.map((vertical) => ({ ...vertical, icon: vertical.key })),
-  ] as const;
+  const cards = contextMode === "general"
+    ? verticals.map((vertical) => ({ ...vertical, icon: vertical.key }))
+    : [
+      { key: "situation", label: routeLabel, prompt: situationalPrompt, icon: "attention" },
+      ...verticals.map((vertical) => ({ ...vertical, icon: vertical.key })),
+    ];
   return (
     <div class="deck-intro deck-intro-cards">
       <h2 class="deck-intro-title">{t("deck.emptyTitle", { route: routeLabel })}</h2>
@@ -840,17 +845,19 @@ export function IntroPanel({
             </span>
           </button>
         ))}
-        <button
-          type="button"
-          class="deck-intro-card is-feature"
-          onClick={() => onPick(screenPrompt)}
-        >
-          <IntroCardIcon kind="checklist" />
-          <span class="deck-intro-card-copy">
-            <span class="deck-intro-card-label">{routeLabel}</span>
-            <strong>{screenPrompt}</strong>
-          </span>
-        </button>
+        {contextMode === "screen" ? (
+          <button
+            type="button"
+            class="deck-intro-card is-feature"
+            onClick={() => onPick(screenPrompt)}
+          >
+            <IntroCardIcon kind="checklist" />
+            <span class="deck-intro-card-copy">
+              <span class="deck-intro-card-label">{routeLabel}</span>
+              <strong>{screenPrompt}</strong>
+            </span>
+          </button>
+        ) : null}
       </div>
       {children}
     </div>

@@ -1,4 +1,4 @@
-import { conversationPath, type ConversationSummary } from "./conversation-sessions";
+import { conversationContextMode, conversationPath, type ConversationSummary } from "./conversation-sessions";
 
 interface ConversationNavigationActions {
   readonly navigate: (path: string) => void;
@@ -32,6 +32,7 @@ export function selectConversationWithRoute(
   actions: ConversationNavigationActions,
 ): void {
   const changesRoute = conversation.kind !== "agent" &&
+    conversationContextMode(conversation) === "screen" &&
     conversation.originPath !== conversationPath(currentPathname);
   if (!changesRoute && conversation.key === activeKey) {
     actions.focus();

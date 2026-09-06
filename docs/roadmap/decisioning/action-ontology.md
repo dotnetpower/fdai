@@ -325,8 +325,8 @@ Operator-requested runtime actions. Shipped Day 1:
 - `ops.rotate-cert` - rotate a TLS cert (App Gateway / Front Door).
 - `ops.failover-primary` - trigger a failover on a replicated resource.
   MUST declare `cost_impact_monthly` when failover targets a larger tier.
-- `ops.switch-t2-proposer-route` - switch one T2 proposer role to a verified secondary route after Heimdall confirms every in-request candidate failed.
-  It stays shadow-first, requires human approval, and restores the prior route when post-switch verification fails.
+- `ops.switch-t2-proposer-route` - switch one T2 proposer role to a verified secondary route after Heimdall confirms every in-request candidate failed. It stays shadow-first, requires human approval, and restores the prior route when post-switch verification fails.
+- `ops.deploy-model` - create one version-pinned Global Standard model deployment with an exact account, deployment name, and TPM allocation. An Owner submits the request, a distinct approver authorizes it, and the FinOps executor verifies quota, dry-run binding, and ARM readback.
 - `ops.apply-human-access` - plan one reviewed FDAI role-group membership grant. The direct
   adapter remains in observation mode until a separate promotion.
 - `ops.revoke-human-access` - hold one role-group membership removal until a reviewed replacement-

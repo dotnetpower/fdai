@@ -194,14 +194,16 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).not.toContain(".deck-overlay-mode-dock .deck-transcript-tools { display: none; }");
   });
 
-  test("keeps route and freshness metadata out of the composer", () => {
+  test("shows only explicitly selected screen context in the composer", () => {
     expect(source).not.toContain('class="deck-composer-scope"');
     expect(styles).not.toContain(".deck-composer-scope");
     expect(source).toContain("<CommandDeckHeader");
     expect(source).toContain("routeLabel={routeLabel}");
     expect(source).not.toContain('class="deck-digest-header"');
     expect(source).toContain('placeholder={t("deck.inputPlaceholder")}');
-    expect(source).toContain('aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}');
+    expect(source).toContain('t("deck.inputPlaceholderContext", { route: routeLabel })');
+    expect(source).toContain('class="deck-composer-context"');
+    expect(source).toContain("onClick={snapshot ? onRemoveScreen : onAttachScreen}");
   });
 
   test("anchors the latest-message action above the composer", () => {

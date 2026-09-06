@@ -85,6 +85,29 @@ guarantees rot. The provisioning model below keeps the capability→concrete-mod
 **automatic at bootstrap and reviewed at update time**, with model changes flowing through
 the same shadow-before-enforce discipline as any other change.
 
+### Conversational Global Standard Deployment
+
+An authenticated Owner can ask FDAI Console to prepare one `ops.deploy-model` action draft. The
+draft identifies the signed-in account for review, pins the Azure AI account, deployment name,
+model family and version, `GlobalStandard` SKU, and requested TPM, and then waits for explicit
+confirmation. The Operator API submits only the typed request. A separate approver and the FinOps
+executor identity remain responsible for authorization and provider mutation.
+
+Standard deployment capacity uses 1,000 TPM units. For example, a 50-unit Azure capacity request is
+represented as `capacity_tpm: 50000`; `capacity_tpm: 50` is invalid. Before apply, the development
+operations gateway verifies that the account exists, the deployment name is unused, and the
+regional Global Standard quota has at least the requested units. Apply uses create-only semantics
+and a dry-run-bound idempotency key. Completion is reported only after a separate ARM read confirms
+the exact deployment name, model version, SKU, capacity, and `Succeeded` provisioning state.
+
+Terraform grants the development operations gateway a custom account-scoped role containing only
+model deployment read, write, and delete actions when both the gateway and Azure OpenAI are enabled.
+It doesn't grant account creation, role-assignment, inference, or subscription-wide authority.
+
+The deployment child resource is registered as `llm-model-deployment`, so the existing inventory
+and Azure Resource Graph change feed can record later configuration changes. This tracking is
+observational; it doesn't convert deployment completion or correlation into proof of causation.
+
 ### Capability Preferences Registry
 
 Upstream defines the *capabilities* and a **preference list per capability**; a fork

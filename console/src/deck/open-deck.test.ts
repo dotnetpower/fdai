@@ -5,6 +5,7 @@ import {
   DECK_STATE_EVENT,
   DECK_TOGGLE_EVENT,
   isDeckOpen,
+  isGeneralDeckOpen,
   isDeckOpenListenerReady,
   DECK_WORKSPACE_NAVIGATION_EVENT,
   installWorkspaceDeckNavigationHandler,
@@ -197,19 +198,21 @@ describe("Activity Bar Deck controls", () => {
     expect(toggle).not.toHaveBeenCalled();
   });
 
-  it("publishes the current open state", () => {
-    const dispatched: FakeCustomEvent<{ open: boolean }>[] = [];
+  it("publishes the current open state and context mode", () => {
+    const dispatched: FakeCustomEvent<{ open: boolean; contextMode: string }>[] = [];
     vi.stubGlobal("CustomEvent", FakeCustomEvent);
     vi.stubGlobal("window", {
-      dispatchEvent: (event: FakeCustomEvent<{ open: boolean }>) => dispatched.push(event),
+      dispatchEvent: (event: FakeCustomEvent<{ open: boolean; contextMode: string }>) =>
+        dispatched.push(event),
     });
 
-    publishDeckOpenState(true);
+    publishDeckOpenState(true, "general");
 
     expect(isDeckOpen()).toBe(true);
+    expect(isGeneralDeckOpen()).toBe(true);
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]?.type).toBe(DECK_STATE_EVENT);
-    expect(dispatched[0]?.detail.open).toBe(true);
+    expect(dispatched[0]?.detail).toEqual({ open: true, contextMode: "general" });
   });
 });
 

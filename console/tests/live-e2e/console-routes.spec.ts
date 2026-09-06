@@ -155,7 +155,7 @@ async function openCommandDeck(page: Page) {
   await waitForPanel(page);
   const deck = page.getByRole("complementary", { name: "Command deck" });
   if (!(await deck.isVisible())) {
-    await page.getByRole("button", { name: "Open command deck" }).click();
+    await page.locator(".deck-invoke").click();
   }
   await expect(deck).toBeVisible();
   return deck;

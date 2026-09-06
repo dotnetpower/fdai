@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: fb1c86117d6d0b59d2a2170a6ae714fc2417d904
-translation_revised: 2026-09-01
+translation_source_sha: 69079993d377cf17a744226ea488a692a283ab42
+translation_revised: 2026-09-06
 ---
 
 # 액션 온톨로지
@@ -312,8 +312,8 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `ops.rotate-cert` - TLS cert 회전 (App 게이트웨이 / Front Door).
 - `ops.failover-primary` - 복제 리소스에서 장애 조치 트리거. 더 큰 계층 로
   장애 조치 시 `cost_impact_monthly` 선언 MUST.
-- `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤 T2 제안자 역할 하나를 검증된 보조 경로로 전환합니다.
-  Shadow-first를 유지하고 사람 승인을 요구하며 전환 후 검증이 실패하면 이전 경로를 복원합니다.
+- `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤 T2 제안자 역할 하나를 검증된 보조 경로로 전환합니다. Shadow-first를 유지하고 사람 승인을 요구하며 전환 후 검증이 실패하면 이전 경로를 복원합니다.
+- `ops.deploy-model` - 정확한 계정, 배포 이름, TPM 할당량으로 버전이 고정된 Global Standard 모델 배포 하나를 만듭니다. Owner가 요청을 제출하고 별도 승인자가 승인하며 FinOps 실행기가 할당량, 시험 실행 연결, ARM 읽기 결과를 검증합니다.
 - `ops.apply-human-access` - 검토된 FDAI 역할 그룹 멤버 자격 부여를 계획합니다. Direct 어댑터는
   별도 승격 전까지 관찰 모드를 유지합니다.
 - `ops.revoke-human-access` - 검토된 대체 담당 범위 케이스가 준비될 때까지 역할 그룹 멤버 자격

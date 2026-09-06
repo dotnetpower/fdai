@@ -27,6 +27,7 @@ export function CommandDeckHeader({
   onToggleConversations,
   onSelectLayout,
   onClose,
+  closeLabel = t("deck.close"),
 }: {
   readonly conversationTitle: string;
   readonly routeLabel: string;
@@ -49,6 +50,7 @@ export function CommandDeckHeader({
   readonly onToggleConversations: () => void;
   readonly onSelectLayout: (mode: DeckLayoutMode) => void;
   readonly onClose: () => void;
+  readonly closeLabel?: string;
 }) {
   return (
     <div class="deck-header cs-deck-workspace-header">
@@ -186,8 +188,8 @@ export function CommandDeckHeader({
             </button>
           </Tooltip>
         </div>
-        <Tooltip content={t("deck.close")}>
-          <button type="button" class="deck-close" onClick={onClose} aria-label={t("deck.close")}>
+        <Tooltip content={closeLabel}>
+          <button type="button" class="deck-close" onClick={onClose} aria-label={closeLabel}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6 L18 18 M18 6 L6 18" /></svg>
           </button>
         </Tooltip>

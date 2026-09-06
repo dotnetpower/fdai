@@ -1,4 +1,4 @@
-import type { IncidentConversationBinding } from "./open-deck";
+import type { DeckContextMode, IncidentConversationBinding } from "./open-deck";
 import { PANTHEON_NAME_SET } from "../pantheon-names";
 import type { ConversationSummaryPayload } from "../user-context-client";
 
@@ -64,6 +64,11 @@ export function newConversationKey(
   return userConversationKey(userScope, `${namespace}:${nonce}`);
 }
 
+/** Preserve general-conversation identity even when only durable history remains. */
+export function newGeneralConversationKey(userScope: string, nonce: string = newId()): string {
+  return userConversationKey(userScope, `general:conversation:${nonce}`);
+}
+
 /** Accept only fixed Pantheon names as browser-side agent target hints. */
 export function normalizeAgentTarget(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -80,6 +85,7 @@ export interface ConversationSummary {
   readonly key: string;
   readonly label: string;
   readonly kind: "screen-default" | "screen-thread" | "agent";
+  readonly contextMode?: DeckContextMode;
   readonly agent?: string;
   readonly originPath: string;
   readonly originLabel: string;
@@ -95,6 +101,12 @@ export interface ConversationGroups {
   readonly current: readonly ConversationSummary[];
   readonly other: readonly ConversationSummary[];
   readonly agents: readonly ConversationSummary[];
+}
+
+/** Legacy screen threads keep their original context; agent bindings never inherit a screen. */
+export function conversationContextMode(summary: ConversationSummary | undefined): DeckContextMode {
+  return summary?.contextMode ??
+    (summary?.agent || summary?.binding ? "general" : "screen");
 }
 
 export function screenConversationSummary(
@@ -127,6 +139,7 @@ export function manualConversationSummary(
     key,
     label,
     kind: "screen-thread",
+    contextMode: "general",
     originPath: conversationPath(pathname),
     originLabel: routeLabel,
     createdAt: now,
@@ -147,6 +160,9 @@ export function serverConversationSummary(
   );
   return {
     key: record.conversation_id,
+    ...(record.conversation_id.includes(":general:conversation:")
+      ? { contextMode: "general" as const }
+      : {}),
     label: agentName ?? record.first_operator_question ?? routeLabel,
     kind: agentName ? "agent" : isScreenConversationKey(record.conversation_id)
       ? "screen-default"
@@ -202,6 +218,9 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
       key: record.key,
       label: record.label,
       kind,
+      ...(record.contextMode === "general" || record.contextMode === "screen"
+        ? { contextMode: record.contextMode }
+        : {}),
       originPath,
       originLabel,
       createdAt,
@@ -340,7 +359,8 @@ export function conversationFallbackForRoute(
     (item) => item.key === defaultKey ||
       (item.kind === "screen-default" && item.originPath === currentPath),
   ) ??
-    conversations.find((item) => item.kind !== "agent" && item.originPath === currentPath);
+    conversations.find((item) => conversationContextMode(item) === "screen" &&
+      item.kind !== "agent" && item.originPath === currentPath);
 }
 
 /** Deduplicate, sort newest-first, and cap the browser index. */

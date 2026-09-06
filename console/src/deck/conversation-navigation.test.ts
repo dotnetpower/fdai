@@ -78,6 +78,19 @@ describe("conversation route selection", () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it("restores general conversations without navigating to their creation screen", () => {
+    const navigate = vi.fn();
+    const activate = vi.fn();
+    selectConversationWithRoute(
+      { ...PREVIOUS, kind: "screen-thread", contextMode: "general" },
+      "/agents",
+      "another-key",
+      { navigate, activate, focus: vi.fn() },
+    );
+    expect(navigate).not.toHaveBeenCalled();
+    expect(activate).toHaveBeenCalledOnce();
+  });
+
   it("marks only the synchronous conversation route event as suppressed", () => {
     const navigating = { current: false };
     const observed: boolean[] = [];

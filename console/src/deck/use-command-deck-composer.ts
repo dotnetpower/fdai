@@ -57,7 +57,7 @@ export function regenerationSubmission(
       text: previous.text,
       options: {
         historyTurns: turns.slice(0, index),
-        ...(previous.requestSnapshot ? { snapshot: previous.requestSnapshot } : {}),
+        snapshot: previous.requestSnapshot ?? null,
         ...(answer?.semanticReceipt?.disposition === "answered"
           ? { requestId: answer.semanticReceipt.request_id }
           : {}),

@@ -19,8 +19,8 @@ describe("Command Deck header layout", () => {
   });
 
   test("uses the shared localized tooltip for the close control", () => {
-    expect(source).toContain('<Tooltip content={t("deck.close")}>');
-    expect(source).toContain('class="deck-close" onClick={onClose} aria-label={t("deck.close")}');
+    expect(source).toContain('<Tooltip content={closeLabel}>');
+    expect(source).toContain('class="deck-close" onClick={onClose} aria-label={closeLabel}');
     expect(source).toContain('class="deck-window-controls"');
     expect(styles).toContain(".deck-window-controls {\n  grid-area: window;");
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-header \{[^}]*padding: 6px 12px 6px max\(20px, calc\(\(100% - 1100px\) \/ 2\)\);/s);

@@ -1,16 +1,16 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a0e52bde1e9da4d22c75e2e93a18496d9bc9cb06
-translation_revised: 2026-09-05
+translation_source_sha: da4fc6ddff0a7bd479256c1bcc27152f997eeb13
+translation_revised: 2026-09-06
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
 ## 탐색 컨텍스트
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
-Activity Bar 하단 유틸리티 영역의 아이콘 전용 대화 컨트롤은 경로나 Explorer 상태를 바꾸지 않고 현재 화면의 Command Deck을 열고 닫습니다. 컨트롤의 `aria-pressed` 상태는 Deck의 열림 여부를 나타내며 기존 하단 실행 표시줄과 `Ctrl+K` 또는 `/` 단축키는 계속 사용할 수 있습니다.
+좌측 메뉴의 대화 버튼은 경로나 탐색 패널을 바꾸지 않고 일반 대화를 열거나 이어갑니다. `aria-pressed` 상태는 일반 대화만 나타냅니다. 하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 엽니다. 일반 대화는 전체 작업 영역, 화면 대화는 우측 패널이 기본값입니다. 마우스를 올리거나 키보드 포커스를 주면 좌측 툴팁은 오른쪽에, 하단 툴팁은 위쪽에 표시하며 참고 맥락과 실제 열기 또는 닫기 동작을 안내합니다. 초안 보존과 명시적 화면 추가는 [대화 수명 주기](operator-console-progressive-conversations-ko.md#command-deck-작업-영역-수명-주기)에서 정의합니다.
 다른 화면의 cached 대화 선택은 범위가 제한된 exception입니다. Console은 대화 출처로 이동할 때 conversation-owned synchronous 경로 이벤트만 suppress한 뒤 대화 기록을 활성화합니다. Transient default-session 전환 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
-Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.
+일반 대화, 같은 화면의 대화, 에이전트 대화는 화면 이동 없이 전환합니다.
 이미 활성인 same-screen 대화를 다시 선택하면 focus만 복원하며 최신 in-memory 턴 위에 sessionStorage 대화 기록을 다시 로드하지 않습니다.
 비활성 대화를 선택하면 browser-local 읽음 확인만 기록하고 활동 시각은 변경하지 않으므로 이력 순서가 유지됩니다. principal 범위로 한정된 `내 대화`, `읽지 않음` 및 `즐겨찾기` 필터는 browser-local 탐색 메타데이터만 사용하며 즐겨찾기 전환은 서버 활동, 근거 또는 정렬을 변경하지 않습니다. 대화 제목은 관찰된 활동이 저장된 읽기 시각보다
 최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 서버

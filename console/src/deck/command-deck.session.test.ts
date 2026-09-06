@@ -48,6 +48,13 @@ describe("Deck scheduled work", () => {
 });
 
 describe("Deck regeneration", () => {
+  test("replays an unscoped question without inheriting a later screen attachment", () => {
+    const replay = regenerationSubmission([
+      { id: "q", role: "operator", text: "Explain SLOs", at: "10:00:00" },
+      { id: "a", role: "deck", text: "An SLO is a target.", at: "10:00:01" },
+    ], 1);
+    expect(replay?.options.snapshot).toBeNull();
+  });
   test("freezes the view snapshot before route refresh can mutate it", () => {
     const source = {
       routeId: "agent-activity",

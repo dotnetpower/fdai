@@ -1,0 +1,89 @@
+.deck-invoke-anchor {
+  position: fixed;
+  left: var(--rail-width, 88px);
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  height: var(--deck-invoke-height, 44px);
+}
+.deck-general-intro {
+  width: min(100%, 760px);
+  margin: auto;
+  padding: 24px 0;
+  text-align: center;
+}
+.deck-general-intro h2 {
+  margin: 0 0 16px;
+  color: var(--fg);
+  font-size: var(--cs-type-page-title-size);
+  line-height: var(--cs-type-page-title-line-height);
+  font-weight: 650;
+}
+.deck-general-intro > p {
+  margin: 0 0 32px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+.deck-general-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.deck-general-suggestions button,
+.deck-context-control {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+  cursor: pointer;
+}
+.deck-general-suggestions button:hover,
+.deck-context-control:hover {
+  background: var(--bg);
+  color: var(--fg);
+}
+.deck-general-suggestions button:focus-visible,
+.deck-context-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.deck-composer-context {
+  display: flex;
+  justify-content: flex-start;
+  width: min(100%, 900px);
+  margin: 0 auto 8px;
+  text-align: left;
+}
+.deck-context-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+.deck-context-control span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.deck-context-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.deck-general-intro .deck-input-row.is-centered {
+  margin-bottom: 24px;
+}
+.deck-overlay-mode-workspace .deck-general-intro .deck-input-row.is-centered .deck-composer-inner {
+  border-radius: var(--cs-radius);
+  box-shadow: none;
+}
+@media (max-width: 720px) {
+  .deck-general-intro { padding: 16px 0; }
+  .deck-general-suggestions button,
+  .deck-context-control { min-height: var(--cs-control-height-touch); }
+}

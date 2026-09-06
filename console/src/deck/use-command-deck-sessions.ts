@@ -19,7 +19,7 @@ import {
   markConversationRead,
   manualConversationSummary,
   mergeConversationActivity,
-  newConversationKey,
+  newGeneralConversationKey,
   parseConversationIndex,
   screenConversationKey,
   screenConversationSummary,
@@ -235,6 +235,7 @@ export function useCommandDeckSessionState(
 
 interface SessionControllerOptions {
   readonly userScope: string;
+  readonly draft: string;
   readonly routeLabel: string | undefined;
   readonly indexKey: string;
   readonly conversations: readonly ConversationSummary[];
@@ -264,6 +265,7 @@ interface SessionControllerOptions {
 
 export function useCommandDeckSessionController({
   userScope,
+  draft,
   routeLabel,
   indexKey,
   conversations,
@@ -285,6 +287,10 @@ export function useCommandDeckSessionController({
   streamContextTurn,
   updateConversationIndex,
 }: SessionControllerOptions) {
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const draftsRef = useRef(new Map<string, string>());
+  const historiesRef = useRef(new Map<string, typeof EMPTY_HISTORY>());
   const hydrateDurableTurns = useCallback(async (key: string): Promise<void> => {
     if (sessionKeyRef.current !== key || turnsRef.current.length > 0) return;
     const summary = conversations.find((item) => item.key === key);
@@ -346,6 +352,13 @@ export function useCommandDeckSessionController({
     hydrate = register,
     openingBriefing?: string,
   ) => {
+    if (key !== sessionKeyRef.current) {
+      draftsRef.current.set(sessionKeyRef.current, draftRef.current);
+      historiesRef.current.set(sessionKeyRef.current, historyRef.current);
+      const nextDraft = draftsRef.current.get(key) ?? "";
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+    }
     if (key !== sessionKeyRef.current) cancelActiveRequest();
     if (key !== sessionKeyRef.current) resetComposerAttachments();
     const store = sessionStore();
@@ -374,7 +387,7 @@ export function useCommandDeckSessionController({
     if (shouldHydrateServerTurns(hydrate, next.length)) void hydrateDurableTurns(key);
     setSearchQuery("");
     setActiveSearchMatch(0);
-    historyRef.current = EMPTY_HISTORY;
+    historyRef.current = historiesRef.current.get(key) ?? EMPTY_HISTORY;
     const existing = conversations.find((item) => item.key === key);
     const now = new Date().toISOString();
     const baseSummary = metadata ?? existing ?? {
@@ -412,6 +425,7 @@ export function useCommandDeckSessionController({
     sessionMetadataRef,
     setActiveSearchMatch,
     setConversationHydration,
+    setDraft,
     setSearchQuery,
     setSessionKey,
     setSessionLabel,
@@ -422,11 +436,11 @@ export function useCommandDeckSessionController({
   ]);
 
   const startNewConversation = useCallback(() => {
-    const key = newConversationKey(userScope);
+    const key = newGeneralConversationKey(userScope);
     const summary = manualConversationSummary(
       key,
       currentPathname(),
-      routeLabel ?? currentPathname(),
+      t("deck.general"),
       new Date().toISOString(),
       t("deck.newConversation"),
     );
@@ -447,6 +461,8 @@ export function useCommandDeckSessionController({
       /* best-effort */
     }
     sessionIdsRef.current.delete(conversation.key);
+    draftsRef.current.delete(conversation.key);
+    historiesRef.current.delete(conversation.key);
     setConversations(remaining);
     if (removingActive) {
       const routeKey = screenConversationKey(userScope, currentPathname());

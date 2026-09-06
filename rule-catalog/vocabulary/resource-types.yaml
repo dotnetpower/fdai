@@ -437,6 +437,12 @@ types:
     description: Managed language-model inference endpoint with quota and rate limits.
     azure_arm_type: Microsoft.CognitiveServices/accounts
     typical_parents: [resource-group]
+  - id: llm-model-deployment
+    category: compute
+    description: Version-pinned model deployment with a provider SKU and assigned throughput.
+    azure_arm_type: Microsoft.CognitiveServices/accounts/deployments
+    query_terms: [model deployment, model deployments, Global Standard, TPM, 모델 배포, 글로벌 표준]
+    typical_parents: [llm-endpoint]
   - id: event-hub
     category: compute
     description: Managed event-streaming namespace used for durable message ingress and delivery.

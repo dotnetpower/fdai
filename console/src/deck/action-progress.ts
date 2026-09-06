@@ -40,6 +40,7 @@ export function formatActionProgress(
 ): ActionProgressSnapshot {
   const lines = [`Tracking ${correlationId}`];
   let terminal = false;
+  let completedDeployment: string | null = null;
   for (const stage of STAGE_ORDER) {
     const event = events.get(stage);
     if (!event) continue;
@@ -50,9 +51,19 @@ export function formatActionProgress(
         : event.phase;
     const detail = progressDetail(event.detail);
     lines.push(`- ${STAGE_AGENT[stage]} · ${stage}: ${state}${detail ? ` · ${detail}` : ""}`);
+    if (
+      stage === "execute"
+      && event.phase === "done"
+      && typeof event.detail?.deployment_name === "string"
+    ) {
+      completedDeployment = event.detail.deployment_name;
+    }
     if (stage === "audit" && (event.phase === "done" || event.phase === "failed")) {
       terminal = true;
     }
+  }
+  if (terminal && completedDeployment !== null) {
+    lines.push(`Deployment completed: ${completedDeployment}.`);
   }
   return { text: lines.join("\n"), terminal };
 }
@@ -102,6 +113,14 @@ export async function watchActionProgress(
 
 function progressDetail(detail: Record<string, unknown> | undefined): string {
   if (!detail) return "";
+  const deploymentName = detail["deployment_name"];
+  const outcome = detail["outcome"];
+  if (typeof deploymentName === "string" && deploymentName) {
+    return (
+      `deployment_name=${deploymentName}`
+      + (typeof outcome === "string" && outcome ? ` · outcome=${outcome}` : "")
+    );
+  }
   for (const key of ["outcome", "gate_decision", "decision", "routed_to", "mode"]) {
     const value = detail[key];
     if (typeof value === "string" && value) return `${key}=${value}`;

@@ -1,0 +1,230 @@
+/* Shared by the seven Settings mocks and their component-gallery specimens. */
+.cs-settings-neutral {
+  color: var(--cs-text);
+  background: var(--cs-card);
+}
+
+.cs-settings-specimen {
+  container-type: inline-size;
+  padding: 24px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+}
+
+.cs-settings-neutral :is(.cs-settings-section-head p, .cs-setting-row small, .cs-settings-card small, .cp-form-note, .cs-readonly-banner) {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.cs-settings-neutral :is(.cs-settings-section-head h2, .cs-settings-section-head h3, .cp-section-head h2) {
+  margin: 0;
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
+.cs-settings-neutral :is(.cs-setting-row, .cs-settings-card, .cs-settings-option-card, .cp-table td, .cs-table td) {
+  overflow-wrap: anywhere;
+}
+.cs-settings-neutral .cs-setting-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+}
+.cs-settings-neutral .cs-setting-row > :last-child {
+  max-width: 100%;
+  min-width: 0;
+}
+.cs-settings-neutral .cs-settings-input {
+  width: 260px;
+  max-width: 100%;
+}
+.cs-settings-neutral .cs-settings-scope {
+  border-color: transparent;
+  background: var(--cs-shade);
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-label-line-height);
+}
+.cs-settings-neutral :is(.cs-settings-card small, .cs-settings-option-card small, .cs-settings-option-card dt, .cs-domain-meta, .cs-control-action-copy small) {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.cs-settings-neutral .cs-settings-option-card {
+  gap: 16px;
+  padding: 16px;
+}
+.cs-settings-neutral .cs-settings-option-card header {
+  flex-wrap: wrap;
+}
+.cs-settings-neutral .cs-settings-option-card header > div {
+  min-width: 0;
+}
+.cs-settings-neutral .cs-settings-option-card strong {
+  font-size: var(--cs-type-panel-title-size);
+}
+.cs-settings-neutral .cs-control-button {
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+  text-align: center;
+}
+.cs-settings-neutral .cs-control-button:hover:not(:disabled):not(.is-primary):not(.is-danger) {
+  background: var(--cs-shade);
+  border-color: var(--cs-hairline);
+}
+.cs-settings-neutral :is(button, input, select, textarea):disabled {
+  opacity: 1;
+  border-color: var(--cs-hairline);
+  background: var(--cs-shade);
+  color: var(--cs-text-soft);
+  cursor: not-allowed;
+}
+.cs-settings-neutral :is(button, a, summary, input, select, textarea):focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+.cs-settings-neutral .cs-settings-input:focus {
+  box-shadow: none;
+}
+.cs-settings-neutral .cs-control-segmented {
+  height: auto;
+  background: var(--cs-shade);
+}
+.cs-settings-neutral .cs-control-segmented > button:is(.is-active, [aria-pressed="true"]) {
+  background: var(--cs-card);
+  color: var(--cs-steel);
+  box-shadow: inset 0 0 0 1px var(--cs-hairline);
+  font-weight: 600;
+}
+.cs-settings-neutral .cs-setting-row .cs-settings-language {
+  width: 240px;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--cs-radius);
+}
+.cs-settings-neutral .cs-settings-language > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--cs-control-height);
+  padding: 6px 12px;
+  border-radius: var(--cs-radius-sm);
+  font-weight: 600;
+}
+.cs-settings-neutral .cs-settings-language > button:hover:not([aria-pressed="true"]) {
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+.cs-language-check {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  visibility: hidden;
+}
+[aria-pressed="true"] > .cs-language-check { visibility: visible; }
+.cs-settings-neutral .cs-control-switch-track {
+  flex-shrink: 0;
+  background: var(--cs-shade);
+}
+.cs-settings-neutral .cs-control-switch input:checked + .cs-control-switch-track {
+  border-color: var(--cs-steel);
+  background: var(--cs-steel);
+}
+.cs-settings-neutral .cs-control-switch input:checked + .cs-control-switch-track::after {
+  background: var(--cs-card);
+}
+.cs-settings-neutral .cs-control-switch input:focus-visible + .cs-control-switch-track {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 3px;
+}
+.cs-settings-neutral :is(.cs-status, .cp-status) {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 500;
+  white-space: normal;
+}
+.cs-settings-neutral :is(.cs-status, .cp-status)::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  background: currentColor;
+}
+.cs-settings-neutral :is(.cs-status.ok, .cp-status.is-success) { color: var(--cs-sage); }
+.cs-settings-neutral :is(.cs-status.wait, .cp-status.is-warning) { color: var(--cs-terracotta); }
+.cs-settings-neutral :is(.cs-status.err, .cp-status.is-danger) { color: var(--cs-dusty-red); }
+.cs-settings-neutral .cp-status.is-info { color: var(--cs-steel); }
+.cs-settings-neutral .cp-kpis {
+  border-color: var(--cs-hairline);
+  background: var(--cs-bg);
+}
+.cs-settings-neutral .cp-kpi strong { font-size: var(--cs-type-page-title-size); }
+.cs-settings-neutral :is(.cs-table, .cp-table) { table-layout: fixed; }
+.cs-settings-neutral :is(.cs-table thead th, .cp-table th) {
+  background: var(--cs-bg);
+  border-color: var(--cs-hairline);
+  font-size: var(--cs-type-label-size);
+  white-space: normal;
+}
+.cs-settings-neutral .cp-section-head { grid-template-columns: minmax(0, 1fr); }
+.cs-settings-neutral .cp-tabs {
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+}
+.cs-settings-neutral .cp-tab {
+  padding: 6px 12px;
+  height: auto;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+}
+.cs-settings-neutral .cp-tab[aria-selected="true"] {
+  border-color: var(--cs-hairline);
+  background: var(--cs-shade);
+  color: var(--cs-steel);
+}
+.cs-settings-neutral .cp-tab:hover { background: var(--cs-shade); }
+.cs-settings-neutral .cp-form { background: var(--cs-card); }
+.cs-settings-neutral .cp-field :is(input, select) { background: var(--cs-card); }
+.cs-settings-neutral .cs-domain-add .cs-settings-input,
+.cs-settings-neutral .cs-settings-toolbar .cs-settings-input { width: 100%; }
+.cs-settings-neutral .cs-settings-briefing-create .cs-settings-input { width: 88px; }
+.cs-settings-preview-note {
+  margin: 0 0 16px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+@container (max-width: 760px) {
+  .cs-settings-neutral .cs-setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .cs-settings-neutral .cs-setting-row > :last-child { justify-self: stretch; }
+  .cs-settings-neutral .cs-setting-row .cs-settings-language { justify-self: start; }
+  .cs-settings-neutral .cs-settings-toggle { justify-content: flex-start; }
+  .cs-settings-neutral .cs-settings-segmented.is-five { min-width: 0; }
+  .cs-settings-neutral .cs-settings-segmented { grid-auto-columns: minmax(0, 1fr); }
+  .cs-settings-neutral .cs-settings-input { width: 100%; }
+  .cs-settings-neutral .cs-settings-card-grid { grid-template-columns: minmax(0, 1fr); }
+  .cs-settings-neutral .cp-field { grid-column: 1 / -1; }
+}
+@container (max-width: 620px) {
+  .cs-settings-neutral .cs-control-button { min-height: var(--cs-control-height-touch); }
+  .cs-settings-neutral .cs-settings-language > button { min-height: var(--cs-control-height-touch); }
+  .cs-settings-neutral .cs-domain-meta { flex-direction: column; gap: 4px; }
+}
+@media (max-width: 520px) {
+  .cs-settings-specimen { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-settings-neutral .cs-control-switch-track::after { transition: none; }
+}

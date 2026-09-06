@@ -27,9 +27,9 @@ describe("Command Deck composer sizing", () => {
 });
 
 describe("general Command Deck opening", () => {
-  it("starts a fresh conversation instead of restoring the route default", () => {
+  it("opens general and screen conversations through separate entry handlers", () => {
     const start = source.indexOf("const openGeneralDeck = useCallback");
-    const end = source.indexOf("  useEffect(() => {\n    const handler", start);
+    const end = source.indexOf("  const openScreenDeck", start);
     const openGeneralDeck = source.slice(start, end);
 
     expect(start).toBeGreaterThanOrEqual(0);
@@ -160,10 +160,10 @@ describe("shouldDeferDeckOpen", () => {
   it("submits only an explicitly marked context prompt", () => {
     expect(source).toContain("detail?.submitPrompt === true");
     expect(source).toContain(
-      "submitPrompt(seed, incidentBinding ? { snapshot: null } : undefined)",
+      'submitPrompt(seed, requestedMode === "general" ? { snapshot: null } : undefined)',
     );
     expect(commandDeckSource).toContain(
-      "submitPrompt: (text, options) => void submit(text, options)",
+      "submitPrompt: (text, options) => void submitForContext(text, options)",
     );
   });
 

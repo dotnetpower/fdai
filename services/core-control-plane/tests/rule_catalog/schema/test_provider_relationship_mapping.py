@@ -108,7 +108,7 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 95
+    assert len(loaded.mappings) == 96
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
@@ -140,6 +140,7 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     }
     assert referenced_to_owner == {
         "azure.aks-contains-agent-pool",
+        "azure.cognitive-account-contains-model-deployment",
         "azure.communication-email-service-contains-domain",
         "azure.dns-resolver-contains-inbound-endpoint",
         "azure.private-endpoint-contains-dns-zone-group",

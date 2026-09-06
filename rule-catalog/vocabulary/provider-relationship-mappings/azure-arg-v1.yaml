@@ -326,6 +326,19 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.cognitive-account-contains-model-deployment
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.CognitiveServices/accounts/deployments]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.CognitiveServices/accounts]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.vm-scale-set-contains-vm
     provider: azure
     source_identity: azure-resource-manager-compute
@@ -1335,6 +1348,6 @@ mappings:
 
 review:
   reviewer_identity: fdai-provider-relationship-review
-  reviewed_at: 2026-08-12T00:00:00Z
+  reviewed_at: 2026-09-06T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:680d02a534ffce25d129f03afe27e88f1763f64eb693ae33024e1fbfc1b9f97e
+  content_hash: sha256:5d848db47ed91576a2ab1f0c884947a8cd22aab437f1881a877f3f320377d09c

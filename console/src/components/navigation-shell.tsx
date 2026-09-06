@@ -2,8 +2,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import type { OperatorApiClient } from "../api";
 import {
   DECK_STATE_EVENT,
-  isDeckOpen,
+  isGeneralDeckOpen,
   requestDeckToggle,
+  type DeckContextMode,
 } from "../deck/open-deck";
 import { t } from "../i18n";
 import {
@@ -74,7 +75,7 @@ export function NavigationShell({
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activityBarMenu, setActivityBarMenu] = useState<ActivityBarMenuPosition | null>(null);
-  const [deckOpen, setDeckOpen] = useState(isDeckOpen);
+  const [generalDeckOpen, setGeneralDeckOpen] = useState(isGeneralDeckOpen);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const activityBarMenuRef = useRef<HTMLDivElement | null>(null);
   const activityBarMenuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -123,7 +124,11 @@ export function NavigationShell({
 
   useEffect(() => {
     const onDeckState = (event: Event) => {
-      setDeckOpen((event as CustomEvent<{ readonly open: boolean }>).detail.open);
+      const detail = (event as CustomEvent<{
+        readonly open: boolean;
+        readonly contextMode: DeckContextMode;
+      }>).detail;
+      setGeneralDeckOpen(detail.open && detail.contextMode === "general");
     };
     window.addEventListener(DECK_STATE_EVENT, onDeckState);
     return () => window.removeEventListener(DECK_STATE_EVENT, onDeckState);
@@ -455,12 +460,15 @@ export function NavigationShell({
             </Tooltip>
           </li>
           <li>
-            <Tooltip content={deckOpen ? t("deck.close") : t("deck.invoke")} placement="right">
+            <Tooltip
+              content={generalDeckOpen ? t("deck.generalClose") : t("deck.generalOpenHint")}
+              placement="right"
+            >
               <button
                 type="button"
-                class={`activity-bar-button ${deckOpen ? "active" : ""}`}
-                aria-label={deckOpen ? t("deck.close") : t("deck.invoke")}
-                aria-pressed={deckOpen}
+                class={`activity-bar-button ${generalDeckOpen ? "active" : ""}`}
+                aria-label={generalDeckOpen ? t("deck.generalClose") : t("deck.generalOpen")}
+                aria-pressed={generalDeckOpen}
                 onClick={requestDeckToggle}
               >
                 <span aria-hidden="true">{chatIcon()}</span>

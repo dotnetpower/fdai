@@ -77,6 +77,22 @@ describe("verificationLabel", () => {
 });
 
 describe("grounded reply presentation", () => {
+  it("shows the signed-in account and server authority boundary on action drafts", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    const account = component.indexOf('t("deck.actionDraft.account")');
+    const authority = component.indexOf('t("deck.actionDraft.authorityNote")');
+    const confirm = component.indexOf('t("deck.actionDraft.confirm")');
+
+    expect(component).toContain("getDeckUser()");
+    expect(account).toBeGreaterThan(-1);
+    expect(authority).toBeGreaterThan(account);
+    expect(confirm).toBeGreaterThan(authority);
+  });
+
   it("preserves the server's concrete semantic clarification question", () => {
     const clarification = {
       ...verification("ontology-query"),

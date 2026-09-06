@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: d412511fcacc29ea71cb13b502e4a6c9cb1e7ca3
+translation_source_sha: 4c495ccf051aa010334bdd93a5cec12ba2cd41be
 translation_revised: 2026-09-06
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -28,6 +28,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 | 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
 | 계약으로 검증된 시작 질문 | 구현됨 | `intro-suggestions.ts`, 이중 언어 Console 카탈로그, `semantic_operational_summary_planning.py`, 질문 은행 산출물, 집중 Core, Console 및 질문 은행 검사 | 비어 있는 Deck에는 검토된 Resource 상태, Resource Health, Service Health 질문 5개만 표시합니다. 수락되고 모호하지 않은 타입 기반 함수 intent는 두 번째 모델 호출 없이 결정론적으로 검증된 프레임을 재사용할 수 있습니다. 구현되지 않은 화면 요약, tier 구성, 승인, 실패 원인, 기회 질문은 준비된 예시로 표시하지 않습니다. |
 | 인시던트 바인딩 맥락 격리 | 구현됨 | `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 및 인증된 Browser Entra 요청 확인 | 자동 인시던트 조사는 Dashboard 사실이나 레코드 없이 정확한 인시던트 바인딩을 제출합니다. 검증된 답변은 `query.incident_evidence`를 읽습니다. 경로 메타데이터는 표현 맥락으로만 남고 답변 근거가 되지 않습니다. |
+| 일반 대화와 현재 화면 대화 분리 | 구현됨 | `conversation-context.ts`, `general-conversation-intro.tsx`, `command-deck.tsx`, `navigation-shell.tsx`, `conversation-entry.spec.ts`, 집중 Deck 검사 | 좌측 메뉴는 현재 탭의 일반 대화를 열거나 이어가고 하단과 키보드 진입점은 현재 화면의 별도 대화를 선택합니다. 일반 질문에는 명시적으로 추가한 화면만 포함합니다. 초안, 저장한 맥락, 배치 설정은 각각 유지합니다. 작업 초안의 로그인 검토 힌트와 별도 실행기 권한도 유지합니다. |
 | Operator 대화 SSE 종료 | 구현됨 | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | 애플리케이션 종료와 호출자 취소는 모두 진행 중인 source 읽기를 취소하고 기다린 뒤 스트림을 닫습니다. 유휴 source는 정상 종료를 막거나 분리된 읽기 task를 남길 수 없습니다. |
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
@@ -46,6 +47,8 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | 구현됨 | 일반 대화 시작 화면과 명시적 화면 추가 기능을 완성했습니다. 다시 열 때 별도 초안을 보존하고 일반 이력은 화면을 이동하지 않으며 두 전송 경로는 선택한 스냅샷을 사용합니다. 답변 재생성도 화면 없는 요청을 그대로 유지합니다. | `current change`, `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`, 집중 단위 검사와 합성 브라우저 검사 | 이 UI 검증에서는 모델 답변이나 리소스 실행을 호출하지 않았습니다. |
+| 2026-09-06 | 구현됨 | 일반 Deck과 현재 화면 Deck 진입을 분리하고 경로 스냅샷이 일반 제출에 들어가지 않게 했으며 작업 초안에 로그인 계정과 서버 재검증 경계를 표시했습니다. | `current change`, 집중 Deck, 탐색, 근거 기반 답변, 카탈로그 및 타입 검사 | 두 진입 모드의 인증된 Browser 증적을 보존하기 전에는 배포 검증을 주장하지 않습니다. |
 | 2026-09-06 | 구현됨 | 정확한 인시던트 바인딩과 최소한의 요청 메타데이터를 유지하면서 자동 인시던트 바인딩 조사 요청에서 활성 패널 스냅샷을 제외했습니다. | `current change`, `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 38개 통과, 인증된 Browser Entra 요청 확인에서 검증된 인시던트 근거 반환 | 이 범위가 제한된 맥락 격리 변경에 남은 작업이 없습니다. |
 | 2026-09-05 | 구현됨 | 선제적 웹 담당 업무 인수인계 대화, 리비전 기반 목표 제어, 매핑된 에이전트 후속 라우팅, 관리되는 문서 근거 연결을 추가했습니다. | `current change`; 집중 Operator 및 Console 테스트, Console typecheck, Console build. | 인증된 배포 증적을 보존하고 서버 소유 인시던트 및 승인 작업 중 억제를 추가합니다. |
 | 2026-09-05 | 구현됨 | 인수인계 대상 선택을 브라우저 작성 프롬프트 라우팅에서 서버가 검증한 주체, 목표, 세션 바인딩으로 이동하고 근거 검토 전에 권위 있는 문서 승인을 요구했습니다. | `current change`; 집중 Operator, Console, migration inventory 테스트가 통과했습니다. | 인증된 배포 증적을 보존하고 서버 소유 인시던트 및 승인 작업 중 억제를 추가합니다. |
@@ -128,17 +131,19 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 ## Command Deck 작업 영역 수명 주기
 
-Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 대화는 현재 경로, 화면 근거 설명,
-운영 영역 빠른 시작 및 범위가 제한된 추천 질문과 함께 작성기 하나를 중앙에 배치합니다. 첫 운영자
-턴 이후 또는 영속 대화를 명시적으로 복원하면 작성기는 대화 기록 하단으로 돌아갑니다. 대화 이력은
-항상 표시되는 열이 아니라 간결한 헤더 동작이며, 새 대화를 시작하면 이력 패널을 닫습니다. 현재 화면
-스냅샷은 내부 답변 근거로 유지하고 운영자에게 별도 패널로 표시하지 않습니다.
+좌측 메뉴는 기본적으로 전체 작업 영역에 일반 대화를 엽니다. 빈 화면에는 "무엇을 도와드릴까요?",
+입력창 하나, 질문을 전송하지 않고 초안에 채우는 작은 예시 버튼 세 개를 표시합니다.
+하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 우측 패널에 엽니다.
+각 진입점은 배치 선택을 따로 기억합니다. 일반 대화는 현재 화면의 근거를 자동으로 포함하지 않습니다.
+"현재 화면 추가"를 선택하면 스냅샷을 저장하고 제거 가능한 "참고 화면" 칩으로 표시합니다.
+화면을 제거하면 이후 질문에만 적용되며 이미 보낸 메시지는 유지합니다.
 
-일반 Deck 열기는 새로운 principal 범위 대화를 시작합니다. 이전 대화는 명시적으로 선택할 때만
-복원하고, 에이전트와 인시던트 진입점은 연결된 세션을 유지합니다. Deck 헤더는 활성 대화 제목과
-경로 맥락을 먼저 표시하고 턴이 있을 때만 대화 기록 검색을 노출하며, 정상 연결 상태는 툴팁이 있는
-상태 정보로 줄여 표시합니다. 화면 헤더는 스냅샷 개수나 freshness 컨트롤을 반복하지 않고 경로 맥락만
-유지합니다. 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다.
+일반 대화를 다시 열면 현재 탭의 일반 대화와 작성 중인 입력을 복원합니다. "새 대화"는 사용자별
+일반 대화 키를 새로 만들며, 이력 선택은 명시적으로 수행하고 에이전트와 인시던트의 연결은 유지합니다.
+두 진입점을 오갈 때 초안, 이력, 선택한 화면 맥락을 각각 보존합니다. 다른 메뉴로 이동해도 열린
+플로팅 대화의 참고 화면은 바뀌지 않습니다. 일반 대화 이력을 선택해도 생성 당시 화면으로 이동하지
+않습니다. 질문을 보내면 입력창은 대화 하단으로 이동합니다. 헤더는 대화와 참고 맥락을 구분하며
+검색과 이력을 간결하게 표시합니다. 화면 맥락은 힌트일 뿐이며 근거, 권한, 실행 검증은 서버가 담당합니다.
 
 ## 의미 최종 표현 계획
 

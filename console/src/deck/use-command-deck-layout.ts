@@ -4,6 +4,7 @@ import {
   parseDeckLayoutMode,
   type DeckLayoutMode,
 } from "./command-deck-session";
+import type { DeckContextMode } from "./open-deck";
 
 const DECK_LAYOUT_KEY = "fdai.deck.layout.v1";
 const DECK_DOCK_WIDTH_KEY = "fdai.deck.dock-width.v1";
@@ -45,9 +46,12 @@ export function commandDeckLayoutStyle(
   return {};
 }
 
-export function useCommandDeckLayout(open: boolean) {
-  const [layoutMode, setLayoutMode] = useState<DeckLayoutMode>(() =>
-    parseDeckLayoutMode(preferenceStore()?.getItem(DECK_LAYOUT_KEY) ?? null));
+export function useCommandDeckLayout(open: boolean, contextMode: DeckContextMode) {
+  const [layouts, setLayouts] = useState<Record<DeckContextMode, DeckLayoutMode>>(() => ({
+    general: parseDeckLayoutMode(preferenceStore()?.getItem(`${DECK_LAYOUT_KEY}.general`) ?? "workspace"),
+    screen: parseDeckLayoutMode(preferenceStore()?.getItem(`${DECK_LAYOUT_KEY}.screen`) ?? "dock"),
+  }));
+  const layoutMode = layouts[contextMode];
   const [floatingPosition, setFloatingPosition] = useState(initialFloatingPosition);
   const [dockWidth, setDockWidth] = useState(initialDockWidth);
   const [dockResizing, setDockResizing] = useState(false);
@@ -55,13 +59,13 @@ export function useCommandDeckLayout(open: boolean) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
   const selectLayoutMode = useCallback((mode: DeckLayoutMode) => {
-    setLayoutMode(mode);
+    setLayouts((current) => ({ ...current, [contextMode]: mode }));
     try {
-      preferenceStore()?.setItem(DECK_LAYOUT_KEY, mode);
+      preferenceStore()?.setItem(`${DECK_LAYOUT_KEY}.${contextMode}`, mode);
     } catch {
       /* best-effort preference */
     }
-  }, []);
+  }, [contextMode]);
 
   const deckStyle = useMemo(() => {
     return commandDeckLayoutStyle(layoutMode, floatingPosition, dockWidth);

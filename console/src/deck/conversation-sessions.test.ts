@@ -7,6 +7,8 @@ import {
   conversationIndexKeyFor,
   conversationFallbackForRoute,
   newConversationKey,
+  newGeneralConversationKey,
+  conversationContextMode,
   normalizeAgentTarget,
   conversationPath,
   conversationUserScope,
@@ -36,6 +38,27 @@ const GENERAL: ConversationSummary = {
 };
 
 describe("conversation index", () => {
+  it("retains explicit general context independently of the creation route", () => {
+    const general = {
+      ...GENERAL,
+      key: newGeneralConversationKey("scope", "first"),
+      kind: "screen-thread" as const,
+      contextMode: "general" as const,
+    };
+    expect(parseConversationIndex(serializeConversationIndex([general]))).toEqual([general]);
+    expect(conversationContextMode(general)).toBe("general");
+    expect(conversationContextMode(GENERAL)).toBe("screen");
+    expect(conversationFallbackForRoute([general], "scope", "/overview")).toBeUndefined();
+    expect(conversationContextMode(serverConversationSummary({
+      conversation_id: general.key,
+      channel_id: "web",
+      started_at: general.createdAt,
+      last_active: general.updatedAt,
+      status: "active",
+      latest_operator_turn_id: null,
+      first_operator_question: null,
+    }, "/audit", "Audit"))).toBe("general");
+  });
   it("round-trips valid summaries and skips malformed entries", () => {
     const raw = JSON.stringify([
       GENERAL,

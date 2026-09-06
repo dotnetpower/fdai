@@ -20,6 +20,7 @@ import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t, tForLocale } from "../i18n";
 import { routeHref } from "../router";
+import { getDeckUser } from "./deck-user";
 import type {
   ActionDraft,
   AnswerPlanningMetadata,
@@ -103,6 +104,8 @@ export function GroundedReply({
   readonly onRegenerate?: () => void;
 }) {
   const parsedSource = parseReplySource(source);
+  const deckUser = getDeckUser();
+  const draftAccount = deckUser?.username ?? deckUser?.name ?? deckUser?.accountId ?? null;
   const [open, setOpen] = useState(false);
   const [copied, showCopied] = useTransientFlag(1500);
   const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
@@ -252,6 +255,12 @@ export function GroundedReply({
         <section class="deck-action-draft" aria-label={t("deck.actionDraft.title")}>
           <strong>{t("deck.actionDraft.title")}</strong>
           <dl>
+            {draftAccount ? (
+              <div>
+                <dt>{t("deck.actionDraft.account")}</dt>
+                <dd>{draftAccount}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>{t("deck.actionDraft.action")}</dt>
               <dd>{actionDraft.actionType}</dd>
@@ -261,6 +270,7 @@ export function GroundedReply({
               <dd><code>{JSON.stringify(actionDraft.arguments)}</code></dd>
             </div>
           </dl>
+          <p>{t("deck.actionDraft.authorityNote")}</p>
           {draftResult ? <p role="status">{draftResult}</p> : null}
           {draftState === "cancelled" ? (
             <p role="status">{t("deck.actionDraft.cancelled")}</p>

@@ -379,7 +379,7 @@ const timeSeriesPresentation = {
 test("keeps English workspace starter cards inside their bounds", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
-    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+    localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
   });
   await installOperatorApiFixture(page);
 
@@ -390,7 +390,7 @@ test("keeps English workspace starter cards inside their bounds", async ({ page 
   ]) {
     await page.setViewportSize(viewport);
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
-    await page.getByRole("button", { name: "Open command deck" }).click();
+    await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
     const introCardOverflow = await workspace.locator(".deck-intro-card").evaluateAll((cards) =>
       cards.map((card) => ({
@@ -409,7 +409,7 @@ test("keeps English workspace starter cards inside their bounds", async ({ page 
 test("anchors the latest-message action above the composer", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
-    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+    localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
   });
   await installOperatorApiFixture(page, {
     answer: "The verified request count changed from one to three and then two.",
@@ -417,7 +417,7 @@ test("anchors the latest-message action above the composer", async ({ page }, te
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
 
   const workspace = page.getByRole("dialog", { name: "Command deck" });
   await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
@@ -474,7 +474,7 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
-    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+    localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
   });
   await installOperatorApiFixture(page, {
     answer: "세 시점의 검증된 요청 수는 1, 3, 2입니다.",
@@ -488,7 +488,7 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
   ]) {
     await page.setViewportSize(viewport);
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
-    await page.getByRole("button", { name: "Open command deck" }).click();
+    await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
     await workspace.getByRole("toolbar", { name: "Workspace tools" })
       .getByRole("button", { name: /New conversation/ }).click();
@@ -565,7 +565,7 @@ test("defaults to the right dock and restores the last display mode", async ({ p
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
 
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   let deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck).toHaveClass(/deck-overlay-mode-dock/);
   await deck.getByRole("button", { name: "Full workspace" }).click();
@@ -597,22 +597,22 @@ test("defaults to the right dock and restores the last display mode", async ({ p
 
   await deck.getByRole("button", { name: "Floating panel" }).click();
   await expect(deck).toHaveClass(/deck-overlay-mode-floating/);
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("fdai.deck.layout.v1")))
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("fdai.deck.layout.v1.screen")))
     .toBe("floating");
-  await deck.getByRole("button", { name: "Close command deck" }).click();
+  await deck.getByRole("button", { name: "Close screen conversation" }).click();
   await page.reload();
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck).toHaveClass(/deck-overlay-mode-floating/);
 
   await deck.getByRole("button", { name: "Full workspace" }).click();
   let workspace = page.getByRole("dialog", { name: "Command deck" });
   await expect(workspace).toHaveClass(/deck-overlay-mode-workspace/);
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("fdai.deck.layout.v1")))
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("fdai.deck.layout.v1.screen")))
     .toBe("workspace");
-  await workspace.getByRole("button", { name: "Close command deck" }).click();
+  await workspace.getByRole("button", { name: "Close screen conversation" }).click();
   await page.reload();
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   workspace = page.getByRole("dialog", { name: "Command deck" });
   await expect(workspace).toHaveClass(/deck-overlay-mode-workspace/);
 });
@@ -628,7 +628,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
 
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   const dock = page.getByRole("complementary", { name: "Command deck" });
   await dock.getByRole("button", { name: "Full workspace" }).click();
   const workspace = page.getByRole("dialog", { name: "Command deck" });
@@ -884,7 +884,7 @@ test("pretty-prints nested serialized JSON in the model trace", async ({ page },
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
 
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   const dock = page.getByRole("complementary", { name: "Command deck" });
   await dock.getByRole("button", { name: "Full workspace" }).click();
   const workspace = page.getByRole("dialog", { name: "Command deck" });
@@ -945,7 +945,7 @@ test("keeps a standalone direct-response model trace compact", async ({ page }, 
   });
   await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
 
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   const deck = page.getByRole("complementary", { name: "Command deck" });
   await deck.getByPlaceholder(/Ask anything/i).fill("Hello");
   await deck.getByRole("button", { name: "Send" }).click();
@@ -974,7 +974,7 @@ test("keeps a standalone direct-response model trace compact", async ({ page }, 
 
 test("keeps completed observed work compact across supported viewports", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+    localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
   });
   await installOperatorApiFixture(page, { executionTimeline: true });
 
@@ -985,7 +985,7 @@ test("keeps completed observed work compact across supported viewports", async (
   ]) {
     await page.setViewportSize(viewport);
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
-    await page.getByRole("button", { name: "Open command deck" }).click();
+    await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
     await workspace.getByRole("toolbar", { name: "Workspace tools" })
       .getByRole("button", { name: /New conversation/ }).click();
@@ -1070,11 +1070,11 @@ test("keeps completed observed work compact across supported viewports", async (
 test("uses shared preparation geometry before the terminal answer", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(() => {
-    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+    localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
   });
   await installOperatorApiFixture(page, { streamDelayMs: 1000 });
   await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   const workspace = page.getByRole("dialog", { name: "Command deck" });
   await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
   await workspace.getByRole("button", { name: "Send" }).click();
@@ -1129,7 +1129,7 @@ test("keeps responsive table labels visual-only at 320px", async ({ page }) => {
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
 
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   const deck = page.getByRole("complementary", { name: "Command deck" });
   await deck.getByPlaceholder(/Ask anything/i).fill("Show the evidence as a table");
   await deck.getByRole("button", { name: "Send" }).click();
@@ -1244,7 +1244,7 @@ test("renders a sent image inside the operator turn without caching its bytes", 
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
-  await page.getByRole("button", { name: "Open command deck" }).click();
+  await page.locator(".deck-invoke").click();
   const deck = page.getByRole("complementary", { name: "Command deck" });
   await deck.locator('input[type="file"]').setInputFiles({
     name: "screenshot.png",

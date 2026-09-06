@@ -30,6 +30,8 @@ else:
 _ARM_AUDIENCE = "https://management.azure.com"
 _NETWORK_API_VERSION = "2025-05-01"
 _COMPUTE_API_VERSION = "2025-04-01"
+_COGNITIVE_SERVICES_API_VERSION = "2024-10-01"
+_COGNITIVE_SERVICES_USAGE_API_VERSION = "2023-05-01"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$")
 _MUTATION_OPERATIONS = frozenset(
     {
@@ -38,6 +40,7 @@ _MUTATION_OPERATIONS = frozenset(
         "azure.compute.vm.start",
         "azure.compute.vm.deallocate",
         "azure.compute.vmss.scale",
+        "azure.cognitiveservices.model-deployment.create",
     }
 )
 _EXECUTOR_VERTICAL_ORDER = ("change", "resilience", "finops")
@@ -47,6 +50,7 @@ _OPERATION_VERTICALS = {
     "azure.compute.vm.start": "resilience",
     "azure.compute.vm.deallocate": "finops",
     "azure.compute.vmss.scale": "finops",
+    "azure.cognitiveservices.model-deployment.create": "finops",
 }
 
 
@@ -67,6 +71,8 @@ class GatewayPrincipal:
 @dataclass(frozen=True, slots=True)
 class _ArmSubmission:
     status_url: str
+    verification_path: str | None = None
+    verification_expected: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +292,7 @@ class OperationsGateway:
             "azure.compute.vm.start": self._start_vm,
             "azure.compute.vm.deallocate": self._deallocate_vm,
             "azure.compute.vmss.scale": self._scale_vmss,
+            "azure.cognitiveservices.model-deployment.create": self._deploy_model,
         }
         handler = handlers.get(operation_id)
         if handler is None:
@@ -355,6 +362,16 @@ class OperationsGateway:
                         "_provider_operation_url": result.status_url,
                         "_resource_key": resource_key,
                         "_lease_id": lease_id,
+                        **(
+                            {"_verification_path": result.verification_path}
+                            if result.verification_path is not None
+                            else {}
+                        ),
+                        **(
+                            {"_verification_expected": result.verification_expected}
+                            if result.verification_expected is not None
+                            else {}
+                        ),
                     },
                 }
                 lease_transferred = True
@@ -422,6 +439,12 @@ class OperationsGateway:
         status_url = result.get("_provider_operation_url") if isinstance(result, Mapping) else None
         resource_key = result.get("_resource_key") if isinstance(result, Mapping) else None
         lease_id = result.get("_lease_id") if isinstance(result, Mapping) else None
+        verification_path = (
+            result.get("_verification_path") if isinstance(result, Mapping) else None
+        )
+        verification_expected = (
+            result.get("_verification_expected") if isinstance(result, Mapping) else None
+        )
         if not isinstance(status_url, str):
             raise GatewayError(409, "operation_not_async", "operation has no asynchronous status")
         if not isinstance(resource_key, str) or not isinstance(lease_id, str):
@@ -432,11 +455,33 @@ class OperationsGateway:
             raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
         provider_status = await self._poll_arm_status(status_url)
         normalized = _normalize_provider_status(provider_status)
+        status_result: Mapping[str, object] = {
+            "provider_status": provider_status,
+            "status": normalized,
+        }
         if normalized in {"succeeded", "failed"}:
+            if normalized == "succeeded" and verification_path is not None:
+                if not isinstance(verification_path, str) or not isinstance(
+                    verification_expected, Mapping
+                ):
+                    raise GatewayError(
+                        503,
+                        "idempotency_unavailable",
+                        "operation verification state is malformed",
+                    )
+                observed = await self._arm(
+                    "GET",
+                    verification_path,
+                    api_version=_COGNITIVE_SERVICES_API_VERSION,
+                )
+                status_result = self._verify_model_deployment_observation(
+                    observed,
+                    verification_expected,
+                )
             terminal_response = {
                 "operation_id": record.get("operation_id", "azure.operation.status"),
                 "status": normalized,
-                "result": {"provider_status": provider_status, "status": normalized},
+                "result": status_result,
             }
             try:
                 await self._idempotency.update_response(idempotency_key, terminal_response)
@@ -446,7 +491,7 @@ class OperationsGateway:
         return {
             "operation_id": "azure.operation.status",
             "status": normalized,
-            "result": {"provider_status": provider_status, "status": normalized},
+            "result": status_result,
         }
 
     async def _operation_plan(
@@ -553,6 +598,11 @@ class OperationsGateway:
         if operation_id == "azure.compute.vmss.scale":
             _, _, vmss_name = self._vmss_target(payload)
             target = f"vmss/{vmss_name}"
+        elif operation_id == "azure.cognitiveservices.model-deployment.create":
+            target = (
+                f"cognitive/{_identifier(payload, 'account_name')}/"
+                f"deployment/{_identifier(payload, 'deployment_name')}"
+            )
         elif operation_id.startswith("azure.compute.vm."):
             target = f"vm/{_identifier(payload, 'vm_name')}"
         else:
@@ -572,6 +622,8 @@ class OperationsGateway:
         elif operation_id == "azure.compute.vmss.scale":
             _integer(payload, "replica_count", minimum=1, maximum=1000)
             _scale_reason(payload)
+        elif operation_id == "azure.cognitiveservices.model-deployment.create":
+            self._model_deployment_arguments(payload)
 
     async def _preflight_mutation(
         self,
@@ -579,6 +631,9 @@ class OperationsGateway:
         payload: Mapping[str, object],
     ) -> None:
         subscription, group = self._scope(payload)
+        if operation_id == "azure.cognitiveservices.model-deployment.create":
+            await self._preflight_model_deployment(payload)
+            return
         if operation_id == "azure.compute.vmss.scale":
             _, group, vmss_name = self._vmss_target(payload)
             path = (
@@ -837,6 +892,229 @@ class OperationsGateway:
             request_headers={"If-Match": etag},
         )
 
+    async def _deploy_model(self, payload: Mapping[str, object]) -> object:
+        subscription, group = self._scope(payload)
+        arguments = self._model_deployment_arguments(payload)
+        account_name = str(arguments["account_name"])
+        deployment_name = str(arguments["deployment_name"])
+        path = (
+            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+            f"Microsoft.CognitiveServices/accounts/{account_name}/deployments/{deployment_name}"
+        )
+        expected = {
+            "deployment_name": deployment_name,
+            "model_name": arguments["model_name"],
+            "model_version": arguments["model_version"],
+            "sku_name": arguments["sku_name"],
+            "capacity_tpm": arguments["capacity_tpm"],
+        }
+        response = await self._arm(
+            "PUT",
+            path,
+            api_version=_COGNITIVE_SERVICES_API_VERSION,
+            json_body={
+                "sku": {
+                    "name": arguments["sku_name"],
+                    "capacity": _integer(
+                        arguments,
+                        "capacity_tpm",
+                        minimum=1000,
+                        maximum=10_000_000,
+                    )
+                    // 1000,
+                },
+                "properties": {
+                    "model": {
+                        "format": "OpenAI",
+                        "name": arguments["model_name"],
+                        "version": arguments["model_version"],
+                    }
+                },
+            },
+            executor=True,
+            request_headers={"If-None-Match": "*"},
+        )
+        if isinstance(response, _ArmSubmission):
+            return _ArmSubmission(
+                status_url=response.status_url,
+                verification_path=path,
+                verification_expected=expected,
+            )
+        observed = await self._arm(
+            "GET",
+            path,
+            api_version=_COGNITIVE_SERVICES_API_VERSION,
+        )
+        return self._verify_model_deployment_observation(observed, expected)
+
+    async def _preflight_model_deployment(self, payload: Mapping[str, object]) -> None:
+        subscription, group = self._scope(payload)
+        arguments = self._model_deployment_arguments(payload)
+        account_name = str(arguments["account_name"])
+        deployment_name = str(arguments["deployment_name"])
+        account_path = (
+            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+            f"Microsoft.CognitiveServices/accounts/{account_name}"
+        )
+        account = await self._arm(
+            "GET",
+            account_path,
+            api_version=_COGNITIVE_SERVICES_API_VERSION,
+        )
+        if not isinstance(account, Mapping) or account.get("kind") not in {"OpenAI", "AIServices"}:
+            raise GatewayError(
+                409,
+                "account_kind_unsupported",
+                "target account is not an Azure OpenAI or AI Services account",
+            )
+        location = account.get("location")
+        if not isinstance(location, str) or _IDENTIFIER.fullmatch(location) is None:
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure AI account location was missing",
+            )
+        deployment_path = f"{account_path}/deployments/{deployment_name}"
+        existing = await self._arm(
+            "GET",
+            deployment_path,
+            api_version=_COGNITIVE_SERVICES_API_VERSION,
+            not_found_none=True,
+        )
+        if existing is not None:
+            raise GatewayError(
+                409,
+                "deployment_name_conflict",
+                "model deployment name already exists",
+            )
+        usages = await self._arm(
+            "GET",
+            (
+                f"/subscriptions/{subscription}/providers/Microsoft.CognitiveServices/"
+                f"locations/{location}/usages"
+            ),
+            api_version=_COGNITIVE_SERVICES_USAGE_API_VERSION,
+        )
+        self._validate_model_quota(arguments, usages)
+
+    def _model_deployment_arguments(
+        self,
+        payload: Mapping[str, object],
+    ) -> dict[str, object]:
+        capacity_tpm = _integer(payload, "capacity_tpm", minimum=1000, maximum=10_000_000)
+        if capacity_tpm % 1000 != 0:
+            raise GatewayError(
+                400,
+                "capacity_invalid",
+                "Global Standard capacity_tpm MUST use 1,000 TPM units",
+            )
+        reason = _bounded(payload, "reason", maximum=200)
+        if len(reason) < 10:
+            raise GatewayError(400, "reason_invalid", "deployment reason is too short")
+        return {
+            "account_name": _identifier(payload, "account_name"),
+            "deployment_name": _identifier(payload, "deployment_name"),
+            "model_name": _identifier(payload, "model_name"),
+            "model_version": _identifier(payload, "model_version"),
+            "sku_name": _choice(payload, "sku_name", {"GlobalStandard"}),
+            "capacity_tpm": capacity_tpm,
+            "reason": reason,
+        }
+
+    def _validate_model_quota(
+        self,
+        arguments: Mapping[str, object],
+        usages: object,
+    ) -> None:
+        values = usages.get("value") if isinstance(usages, Mapping) else None
+        if not isinstance(values, list):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure model quota response was not a list",
+            )
+        model_name = str(arguments["model_name"]).casefold()
+        sku_name = str(arguments["sku_name"]).casefold()
+        requested_units = (
+            _integer(arguments, "capacity_tpm", minimum=1000, maximum=10_000_000) // 1000
+        )
+        for entry in values:
+            if not isinstance(entry, Mapping):
+                continue
+            name = entry.get("name")
+            metric = name.get("value") if isinstance(name, Mapping) else name
+            if not isinstance(metric, str):
+                continue
+            prefix = f"openai.{sku_name}."
+            if not metric.casefold().startswith(prefix):
+                continue
+            family = metric[len(prefix) :].casefold()
+            if family != model_name:
+                continue
+            limit = entry.get("limit")
+            current = entry.get("currentValue", 0)
+            if (
+                isinstance(limit, int)
+                and not isinstance(limit, bool)
+                and isinstance(current, int)
+                and not isinstance(current, bool)
+                and limit - current >= requested_units
+            ):
+                return
+            raise GatewayError(
+                409,
+                "quota_insufficient",
+                "available Global Standard quota is below the requested TPM",
+            )
+        raise GatewayError(
+            409,
+            "model_sku_unavailable",
+            "the requested model has no Global Standard quota in the account region",
+        )
+
+    def _verify_model_deployment_observation(
+        self,
+        observed: object,
+        expected: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        if not isinstance(observed, Mapping):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "model deployment readback was not an object",
+            )
+        sku = observed.get("sku")
+        properties = observed.get("properties")
+        model = properties.get("model") if isinstance(properties, Mapping) else None
+        expected_capacity_units = (
+            _integer(expected, "capacity_tpm", minimum=1000, maximum=10_000_000) // 1000
+        )
+        if (
+            observed.get("name") != expected["deployment_name"]
+            or not isinstance(sku, Mapping)
+            or sku.get("name") != expected["sku_name"]
+            or sku.get("capacity") != expected_capacity_units
+            or not isinstance(model, Mapping)
+            or model.get("format") != "OpenAI"
+            or model.get("name") != expected["model_name"]
+            or model.get("version") != expected["model_version"]
+            or not isinstance(properties, Mapping)
+            or properties.get("provisioningState") != "Succeeded"
+        ):
+            raise GatewayError(
+                409,
+                "effect_verification_failed",
+                "model deployment readback did not match the approved plan",
+            )
+        return {
+            "status": "succeeded",
+            "deployment_name": expected["deployment_name"],
+            "model_name": expected["model_name"],
+            "model_version": expected["model_version"],
+            "sku_name": expected["sku_name"],
+            "capacity_tpm": expected["capacity_tpm"],
+        }
+
     def _validate_vmss_scale_observation(
         self,
         payload: Mapping[str, object],
@@ -908,6 +1186,7 @@ class OperationsGateway:
         json_body: Mapping[str, object] | None = None,
         executor: bool = False,
         request_headers: Mapping[str, str] | None = None,
+        not_found_none: bool = False,
     ) -> object:
         token_provider = self._executor_tokens if executor else self._reader_tokens
         token = await token_provider.get_token(_ARM_AUDIENCE)
@@ -927,6 +1206,8 @@ class OperationsGateway:
                 break
             await self._sleep(_retry_after_seconds(response))
         if response.status_code == 404:
+            if not_found_none:
+                return None
             raise GatewayError(404, "azure_resource_not_found", "Azure resource was not found")
         if response.status_code == 412:
             raise GatewayError(

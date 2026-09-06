@@ -1,6 +1,7 @@
 import { Fragment, type RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import {
   PREFERENCES_CHANGED_EVENT,
@@ -35,14 +36,17 @@ import {
   saveConversationWidth,
 } from "./conversation-sidebar-width";
 import type { useViewContext } from "./context";
+import type { DeckContextMode } from "./open-deck";
 import { fetchHandoverGoal, updateHandoverGoal } from "../handover-api";
 import { handoverText } from "./handover-i18n";
 import { PendingReplyIndicator, RetrievalTrace } from "./retrieval-trace";
 import { SourceReadinessStrip } from "./source-readiness-view";
 import "./conversation-sidebar.css";
+import { GeneralConversationIntro } from "./general-conversation-intro";
 
 interface CommandDeckViewProps {
   readonly open: boolean;
+  readonly contextMode: DeckContextMode;
   readonly layoutMode: DeckLayoutMode;
   readonly dragging: boolean;
   readonly routeLabel: string;
@@ -60,6 +64,9 @@ interface CommandDeckViewProps {
   readonly currentPath: string;
   readonly turns: readonly Turn[];
   readonly snapshot: ReturnType<typeof useViewContext>;
+  readonly canAttachScreen: boolean;
+  readonly onAttachScreen: () => void;
+  readonly onRemoveScreen: () => void;
   readonly pending: boolean;
   readonly retrievalProgress: VerificationProgress | null;
   readonly stuck: boolean;
@@ -103,6 +110,7 @@ interface CommandDeckViewProps {
 
 export function CommandDeckView({
   open,
+  contextMode,
   layoutMode,
   dragging,
   routeLabel,
@@ -120,6 +128,9 @@ export function CommandDeckView({
   currentPath,
   turns,
   snapshot,
+  canAttachScreen,
+  onAttachScreen,
+  onRemoveScreen,
   pending,
   retrievalProgress,
   stuck,
@@ -216,8 +227,13 @@ export function CommandDeckView({
     }
   };
   const conversationTitle = emptyConversation
-    ? t("deck.newConversation")
+    ? t(contextMode === "general" && !sessionLabel ? "deck.generalTitle" : "deck.newConversation")
     : activeConversation?.label ?? sessionLabel ?? t("deck.label");
+  const contextLabel = contextMode === "general" ? t("deck.general") :
+    snapshot?.routeLabel ?? t("deck.noScreenContext");
+  const closeLabel = t(sessionLabel || activeConversation?.binding
+    ? "deck.close"
+    : contextMode === "general" ? "deck.generalClose" : "deck.screenClose");
   const activeOperatorIndex = turns.reduce(
     (latest, turn, index) => turn.role === "operator" ? index : latest,
     -1,
@@ -255,7 +271,12 @@ export function CommandDeckView({
   const composer = (
     <DeckComposer
       centered={centeredEmptyState}
-      routeLabel={routeLabel}
+      routeLabel={contextLabel}
+      contextMode={contextMode}
+      snapshot={snapshot}
+      canAttachScreen={canAttachScreen && !sessionLabel && !activeConversation?.binding}
+      onAttachScreen={onAttachScreen}
+      onRemoveScreen={onRemoveScreen}
       sessionKey={sessionKey}
       {...(handoverGoalId ? { handoverGoalId } : {})}
       {...(activeConversation?.agent ? { handoverAgent: activeConversation.agent } : {})}
@@ -311,7 +332,8 @@ export function CommandDeckView({
           </button>
           <CommandDeckHeader
             conversationTitle={conversationTitle}
-            routeLabel={routeLabel}
+            routeLabel={contextLabel}
+            closeLabel={closeLabel}
             sessionLabel={sessionLabel}
             health={health}
             searchAvailable={!emptyConversation}
@@ -338,7 +360,7 @@ export function CommandDeckView({
           </div>
 
           <div class="deck-source-readiness-slot cs-deck-source-readiness-slot">
-            <SourceReadinessStrip client={client} />
+            {contextMode === "screen" || !emptyConversation ? <SourceReadinessStrip client={client} /> : null}
           </div>
 
           <div
@@ -410,8 +432,20 @@ export function CommandDeckView({
                   onRetry={onRetryConversation}
                 />
               ) : null}
-              {emptyConversation ? (
-                <IntroPanel snapshot={snapshot} routeLabel={routeLabel} onPick={onSubmit}>
+              {emptyConversation && contextMode === "general" && !sessionLabel ? (
+                <GeneralConversationIntro onPick={(prompt) => {
+                  onDraftInput(prompt);
+                  inputRef.current?.focus();
+                }}>
+                  {centeredEmptyState ? composer : null}
+                </GeneralConversationIntro>
+              ) : emptyConversation ? (
+                <IntroPanel
+                  snapshot={snapshot}
+                  routeLabel={contextLabel}
+                  contextMode={contextMode}
+                  onPick={onSubmit}
+                >
                   {centeredEmptyState ? composer : null}
                 </IntroPanel>
               ) : null}
@@ -495,6 +529,11 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
   | "onInputKeyDown"
   | "onStopStream"
   | "sessionKey"
+  | "contextMode"
+  | "snapshot"
+  | "canAttachScreen"
+  | "onAttachScreen"
+  | "onRemoveScreen"
 > & {
   readonly centered: boolean;
   readonly routeLabel: string;
@@ -509,6 +548,11 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
 function DeckComposer({
   centered,
   routeLabel,
+  contextMode,
+  snapshot,
+  canAttachScreen,
+  onAttachScreen,
+  onRemoveScreen,
   sessionKey,
   handoverGoalId,
   handoverAgent,
@@ -537,6 +581,26 @@ function DeckComposer({
         onSubmit(draft);
       }}
     >
+      {snapshot || canAttachScreen ? (
+        <div class="deck-composer-context">
+          <Tooltip content={snapshot ? t("deck.removeScreenHint") : t("deck.attachScreenHint")} placement="top">
+            <button
+              type="button"
+              class="deck-context-control"
+              disabled={inFlight}
+              onClick={snapshot ? onRemoveScreen : onAttachScreen}
+              aria-label={snapshot
+                ? t("deck.removeScreen", { route: snapshot.routeLabel })
+                : t("deck.attachScreen")}
+            >
+              <span>{snapshot
+                ? t("deck.attachedScreen", { route: snapshot.routeLabel })
+                : t("deck.attachScreen")}</span>
+              <span aria-hidden="true">{snapshot ? "×" : "+"}</span>
+            </button>
+          </Tooltip>
+        </div>
+      ) : null}
       <div class="deck-composer-inner cs-deck-composer-grid">
         {slashSuggestions.length > 0 ? (
           <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
@@ -580,7 +644,9 @@ function DeckComposer({
           ref={inputRef}
           class="deck-input cs-deck-composer-input"
           placeholder={t("deck.inputPlaceholder")}
-          aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}
+          aria-label={contextMode === "general"
+            ? t("deck.inputPlaceholder")
+            : t("deck.inputPlaceholderContext", { route: routeLabel })}
           value={draft}
           rows={1}
           onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}

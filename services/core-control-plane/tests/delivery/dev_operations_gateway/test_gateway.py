@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Mapping
 from typing import cast
 
@@ -505,6 +506,140 @@ async def test_vmss_scale_plan_rejects_missing_reason() -> None:
 
     assert caught.value.status_code == 400
     assert caught.value.code == "argument_invalid"
+
+
+async def test_model_deployment_plans_quota_then_verifies_exact_readback() -> None:
+    requests: list[httpx.Request] = []
+    created = False
+    status_url = (
+        "https://management.azure.com/subscriptions/sub-example/providers/"
+        "Microsoft.CognitiveServices/locations/eastus2/operations/model-deploy"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal created
+        requests.append(request)
+        path = request.url.path
+        if str(request.url) == status_url:
+            return httpx.Response(200, json={"status": "Succeeded"})
+        if path.endswith("/accounts/aoai-app") and request.method == "GET":
+            return httpx.Response(200, json={"kind": "OpenAI", "location": "eastus2"})
+        if path.endswith("/locations/eastus2/usages"):
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "name": {"value": "OpenAI.GlobalStandard.gpt-5.4"},
+                            "currentValue": 20,
+                            "limit": 100,
+                        }
+                    ]
+                },
+            )
+        if path.endswith("/deployments/gpt-5-4-global-50k"):
+            if request.method == "PUT":
+                body = json.loads(request.content)
+                assert body["sku"] == {"name": "GlobalStandard", "capacity": 50}
+                assert body["properties"]["model"] == {
+                    "format": "OpenAI",
+                    "name": "gpt-5.4",
+                    "version": "2026-09-01",
+                }
+                assert request.headers["If-None-Match"] == "*"
+                created = True
+                return httpx.Response(202, headers={"Azure-AsyncOperation": status_url})
+            if not created:
+                return httpx.Response(404, json={"error": {"code": "NotFound"}})
+            return httpx.Response(
+                200,
+                json={
+                    "name": "gpt-5-4-global-50k",
+                    "sku": {"name": "GlobalStandard", "capacity": 50},
+                    "properties": {
+                        "provisioningState": "Succeeded",
+                        "model": {
+                            "format": "OpenAI",
+                            "name": "gpt-5.4",
+                            "version": "2026-09-01",
+                        },
+                    },
+                },
+            )
+        raise AssertionError(f"unexpected Azure request: {request.method} {path}")
+
+    ledger = _Ledger()
+    arguments = {
+        "resource_group": "rg-example",
+        "account_name": "aoai-app",
+        "deployment_name": "gpt-5-4-global-50k",
+        "model_name": "gpt-5.4",
+        "model_version": "2026-09-01",
+        "sku_name": "GlobalStandard",
+        "capacity_tpm": 50_000,
+        "reason": "add a governed reasoning deployment",
+    }
+    principal = GatewayPrincipal("principal-finops", frozenset())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=ledger,
+        )
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.cognitiveservices.model-deployment.create",
+                "arguments": arguments,
+                "safety": {
+                    key: value
+                    for key, value in _safety("operation:model-deploy").items()
+                    if key != "dry_run_receipt"
+                },
+            },
+            principal,
+        )
+        dry_run_receipt = cast(Mapping[str, object], plan["result"])["dry_run_receipt"]
+        result = await gateway.invoke(
+            "azure.cognitiveservices.model-deployment.create",
+            {
+                **arguments,
+                "safety": {
+                    **_safety("operation:model-deploy"),
+                    "dry_run_receipt": dry_run_receipt,
+                },
+            },
+            principal,
+        )
+        terminal = await gateway.invoke(
+            "azure.operation.status",
+            {
+                "idempotency_key": "operation:model-deploy",
+                "operation_id": "azure.cognitiveservices.model-deployment.create",
+            },
+            principal,
+        )
+
+    assert result["status"] == "submitted"
+    assert terminal["status"] == "succeeded"
+    assert terminal["result"] == {
+        "status": "succeeded",
+        "deployment_name": "gpt-5-4-global-50k",
+        "model_name": "gpt-5.4",
+        "model_version": "2026-09-01",
+        "sku_name": "GlobalStandard",
+        "capacity_tpm": 50_000,
+    }
+    assert [request.method for request in requests] == [
+        "GET",
+        "GET",
+        "GET",
+        "PUT",
+        "GET",
+        "GET",
+    ]
 
 
 @pytest.mark.parametrize(

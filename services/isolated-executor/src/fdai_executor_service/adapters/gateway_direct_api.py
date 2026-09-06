@@ -29,6 +29,7 @@ _ACTION_IDENTITY_REFS = {
     "ops.deallocate-vm": "identity/finops",
     "ops.upsert-network-rule": "identity/change",
     "ops.delete-network-rule": "identity/change",
+    "ops.deploy-model": "identity/finops",
 }
 _EXECUTOR_IDENTITY_REFS = frozenset({"identity/change", "identity/resilience", "identity/finops"})
 
@@ -360,16 +361,25 @@ def _success_receipt(
     *,
     already_applied: bool = False,
 ) -> DirectApiReceipt:
+    deployment_name = request.arguments.get("deployment_name")
+    if request.action_type_name == "ops.deploy-model" and isinstance(deployment_name, str):
+        detail = (
+            f"model deployment {deployment_name} was already applied"
+            if already_applied
+            else f"model deployment {deployment_name} completed"
+        )
+    else:
+        detail = (
+            "durable gateway status confirms mutation already applied"
+            if already_applied
+            else "gateway mutation completed"
+        )
     return DirectApiReceipt(
         outcome=(
             DirectApiOutcome.ALREADY_APPLIED if already_applied else DirectApiOutcome.SUCCEEDED
         ),
         receipt_ref=f"gateway:{request.idempotency_key}",
-        detail=(
-            "durable gateway status confirms mutation already applied"
-            if already_applied
-            else "gateway mutation completed"
-        ),
+        detail=detail,
     )
 
 

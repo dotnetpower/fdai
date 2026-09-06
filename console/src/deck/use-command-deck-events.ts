@@ -10,11 +10,13 @@ import {
   publishDeckOpenState,
   setDeckOpenListenerReady,
   installWorkspaceDeckNavigationHandler,
+  type DeckContextMode,
   type DeckOpenDetail,
   type IncidentConversationBinding,
 } from "./open-deck";
 import {
   newConversationKey,
+  newGeneralConversationKey,
   normalizeAgentTarget,
   normalizeIncidentBinding,
   screenConversationKey,
@@ -26,6 +28,7 @@ import { currentPathname } from "./use-command-deck-sessions";
 
 interface EventsOptions {
   readonly open: boolean;
+  readonly contextMode: DeckContextMode;
   readonly layoutMode: DeckLayoutMode;
   readonly routeLabel: string | undefined;
   readonly userScope: string;
@@ -43,6 +46,7 @@ interface EventsOptions {
   readonly setDraft: (value: string) => void;
   readonly setSearchQuery: (value: string) => void;
   readonly setSrStatus: (value: string) => void;
+  readonly setContextMode: (value: DeckContextMode) => void;
   readonly submitPrompt: (
     text: string,
     options?: { readonly snapshot?: null },
@@ -91,6 +95,8 @@ export function resolveDeckOpenSession(
       ? newConversationKey(userScope, null, nonce)
     : requestedKey
       ? userConversationKey(userScope, requestedKey)
+      : detail?.contextMode === "general"
+        ? newGeneralConversationKey(userScope, nonce)
       : screenConversationKey(userScope, pathname);
   const label = !invalidFreshTarget && typeof detail?.sessionLabel === "string"
     ? detail.sessionLabel
@@ -119,6 +125,7 @@ export function shouldDeferDeckOpen(
 export function useCommandDeckEvents(options: EventsOptions) {
   const {
     open,
+    contextMode,
     layoutMode,
     routeLabel,
     userScope,
@@ -136,6 +143,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     setDraft,
     setSearchQuery,
     setSrStatus,
+    setContextMode,
     submitPrompt,
     updateConversationIndex,
     cancelActiveRequest,
@@ -177,13 +185,30 @@ export function useCommandDeckEvents(options: EventsOptions) {
     openDeck();
   }, [openDeck, startNewConversation]);
 
+  const openScreenDeck = useCallback(() => {
+    const key = screenConversationKey(userScope, currentPathname());
+    if (key !== sessionKeyRef.current) {
+      switchSession(
+        key,
+        null,
+        undefined,
+        routeLabelRef.current ?? currentPathname(),
+        "screen-default",
+      );
+    }
+    setContextMode("screen");
+    openDeck();
+  }, [openDeck, sessionKeyRef, setContextMode, switchSession, userScope]);
+
   const layoutModeRef = useRef(layoutMode);
   const openRef = useRef(open);
+  const contextModeRef = useRef(contextMode);
   const routeLabelRef = useRef<string | undefined>(routeLabel);
-  useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
-  useEffect(() => { openRef.current = open; }, [open]);
-  useEffect(() => { routeLabelRef.current = routeLabel; }, [routeLabel]);
-  useEffect(() => { publishDeckOpenState(open); }, [open]);
+  layoutModeRef.current = layoutMode;
+  openRef.current = open;
+  contextModeRef.current = contextMode;
+  routeLabelRef.current = routeLabel;
+  useEffect(() => { publishDeckOpenState(open, contextMode); }, [contextMode, open]);
   useEffect(() => () => publishDeckOpenState(false), []);
 
   useEffect(() => {
@@ -194,22 +219,22 @@ export function useCommandDeckEvents(options: EventsOptions) {
         target?.isContentEditable === true;
       if ((event.key === "k" || event.key === "K") && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        if (open) {
+        if (openRef.current) {
           if (searchRef.current) {
             searchRef.current.focus();
             searchRef.current.select();
           } else {
             focusInput();
           }
-        } else openGeneralDeck();
+        } else openScreenDeck();
         return;
       }
-      if (!inField && event.key === "/" && !open) {
+      if (!inField && event.key === "/" && !openRef.current) {
         event.preventDefault();
-        openGeneralDeck();
+        openScreenDeck();
         return;
       }
-      if (event.key === "Escape" && open) {
+      if (event.key === "Escape" && openRef.current) {
         event.preventDefault();
         if (document.activeElement === searchRef.current) {
           setSearchQuery("");
@@ -233,8 +258,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     closeDeck,
     focusInput,
     inFlightRef,
-    open,
-    openGeneralDeck,
+    openScreenDeck,
     searchRef,
     setSearchQuery,
     setSrStatus,
@@ -252,7 +276,9 @@ export function useCommandDeckEvents(options: EventsOptions) {
       const briefing = typeof detail?.openingBriefing === "string"
         ? detail.openingBriefing.trim()
         : "";
-      const incidentBinding = normalizeIncidentBinding(detail.binding) ?? undefined;
+      const incidentBinding = normalizeIncidentBinding(detail?.binding) ?? undefined;
+      const requestedMode = detail?.contextMode === "general" ||
+        incidentBinding !== undefined || detail?.targetAgent ? "general" : "screen";
       const { key, label, contextAgent, kind, hydrateDurable } = resolveDeckOpenSession(
         detail,
         userScope,
@@ -279,10 +305,11 @@ export function useCommandDeckEvents(options: EventsOptions) {
           note || undefined,
         );
       }
+      setContextMode(requestedMode);
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {
         if (detail?.submitPrompt === true) {
-          submitPrompt(seed, incidentBinding ? { snapshot: null } : undefined);
+          submitPrompt(seed, requestedMode === "general" ? { snapshot: null } : undefined);
         } else {
           setDraft(seed);
           historyRef.current = recordHistory(historyRef.current, seed);
@@ -291,7 +318,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
       openDeck();
     };
     const onToggleDeck = () => {
-      if (openRef.current) closeDeck();
+      if (openRef.current && contextModeRef.current === "general") closeDeck();
       else openGeneralDeck();
     };
     window.addEventListener(DECK_OPEN_EVENT, onOpenDeck);
@@ -311,6 +338,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     openGeneralDeck,
     sessionKeyRef,
     setDraft,
+    setContextMode,
     submitPrompt,
     streamContextTurn,
     switchSession,
@@ -330,16 +358,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
         return;
       }
       if (!openRef.current) return;
-      const key = screenConversationKey(userScope, currentPathname());
-      if (sessionKeyRef.current !== key) {
-        switchSession(
-          key,
-          null,
-          undefined,
-          routeLabelRef.current ?? currentPathname(),
-          "screen-default",
-        );
-      }
+      // A floating conversation keeps its original context until an explicit entry switch.
     };
     window.addEventListener("popstate", switchToCurrentRoute);
     window.addEventListener("fdai:route-changed", switchToCurrentRoute);
@@ -347,7 +366,14 @@ export function useCommandDeckEvents(options: EventsOptions) {
       window.removeEventListener("popstate", switchToCurrentRoute);
       window.removeEventListener("fdai:route-changed", switchToCurrentRoute);
     };
-  }, [closeDeck, conversationRouteNavigationRef, sessionKeyRef, switchSession, userScope]);
+  }, [
+    closeDeck,
+    conversationRouteNavigationRef,
+    sessionKeyRef,
+    setContextMode,
+    switchSession,
+    userScope,
+  ]);
 
   useEffect(() => {
     if (!open || layoutMode !== "workspace") return;
@@ -363,5 +389,5 @@ export function useCommandDeckEvents(options: EventsOptions) {
     return () => document.removeEventListener("focusin", onFocusIn);
   }, [inputRef, layoutMode, open, overlayRef]);
 
-  return { openGeneralDeck };
+  return { openGeneralDeck, openScreenDeck };
 }

@@ -1,23 +1,13 @@
 /**
- * CommandDeck - a screen-aware conversational surface.
- *
- * Design goals (deliberately NOT a corner bubble):
- * - Always visible as a slim bar pinned to the bottom of the viewport,
- *   inviting a question. Cmd+K / Ctrl+K / `/` focuses it.
- * - On focus it expands into a full-viewport overlay split into two
- *   columns: the transcript on the left, the "what I see" digest on
- *   the right. This is the "overwhelming" gesture - the deck is not a
- *   pop-up, it is the operator workspace momentarily.
- * - The right column shows the current ViewSnapshot, so the operator
- *   literally sees what the assistant grounds its answers on. Nothing
- *   hidden.
+ * CommandDeck - general conversations from the rail, screen conversations from
+ * the bottom launcher or keyboard. Each session retains its explicit context.
  * - Read-only for questions; for an explicit operator command it submits a
  *   PROPOSAL to the typed pipeline (POST /chat/action) - it never executes.
  *   Nothing changes until Forseti judges the proposal and an approver signs
  *   off a high-risk one (execution is shadow-first, RBAC server-enforced).
  */
 
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { t } from "../i18n";
 import { offerProactiveHandover } from "../handover-invitation";
@@ -36,6 +26,7 @@ export {
   type DeckLayoutMode,
 } from "./command-deck-session";
 import {
+  conversationContextMode,
   conversationUserScope,
 } from "./conversation-sessions";
 import {
@@ -64,9 +55,13 @@ import {
   useCommandDeckSessionController,
   useCommandDeckSessionState,
 } from "./use-command-deck-sessions";
+import type { DeckContextMode } from "./open-deck";
+import type { CommandDeckSubmitOptions } from "./use-command-deck-submit";
+import { ConversationContextStore, type ConversationContext } from "./conversation-context";
 
 export function CommandDeck({ client }: { readonly client: OperatorApiClient }) {
   const snapshot = useViewContext();
+  const snapshotPath = useMemo(() => currentPathname(), [snapshot]);
   const deckUser = getDeckUser();
   const userScope = conversationUserScope(
     deckUser?.accountId ?? deckUser?.username ?? deckUser?.name ?? null,
@@ -81,18 +76,11 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     });
   }, [client]);
   const [open, setOpen] = useState(false);
-  const {
-    deckStyle,
-    dockWidth,
-    dragging,
-    layoutMode,
-    onDockResizeKeyDown,
-    onOverlayKeyDown,
-    overlayRef,
-    selectLayoutMode,
-    startDockResize,
-    startFloatingDrag,
-  } = useCommandDeckLayout(open);
+  const contextStoreRef = useRef(new ConversationContextStore());
+  const [context, setContext] = useState<ConversationContext>({ mode: "screen", snapshot: null });
+  const contextRef = useRef(context);
+  const contextMode = context.mode;
+  const generalSessionRef = useRef<string | null>(null);
   const [draft, setDraft] = useState("");
   // Highlighted row in the "/" slash-command palette (keyboard navigable).
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
@@ -122,6 +110,20 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     loadMoreConversations,
     updateConversationIndex,
   } = useCommandDeckSessionState(userScope, snapshot?.routeLabel ?? currentPathname());
+  const entryMode = contextMode === "general" && !sessionLabel &&
+    !sessionMetadataRef.current.get(sessionKey)?.binding ? "general" : "screen";
+  const {
+    deckStyle,
+    dockWidth,
+    dragging,
+    layoutMode,
+    onDockResizeKeyDown,
+    onOverlayKeyDown,
+    overlayRef,
+    selectLayoutMode,
+    startDockResize,
+    startFloatingDrag,
+  } = useCommandDeckLayout(open, entryMode);
   const [pending, setPending] = useState(false);
   const [retrievalProgress, setRetrievalProgress] =
     useState<VerificationProgress | null>(null);
@@ -185,6 +187,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     switchSession,
   } = useCommandDeckSessionController({
     userScope,
+    draft,
     routeLabel: snapshot?.routeLabel,
     indexKey,
     conversations,
@@ -206,6 +209,23 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     streamContextTurn,
     updateConversationIndex,
   });
+
+  const activateContext = useCallback((mode: DeckContextMode) => {
+    const key = sessionKeyRef.current;
+    const metadata = sessionMetadataRef.current.get(key);
+    const sameRoute = snapshotPath === currentPathname() &&
+      (!metadata || metadata.originPath === currentPathname());
+    const previousSnapshot = [...turnsRef.current].reverse()
+      .find((turn) => turn.role === "operator")?.requestSnapshot;
+    const selected = contextStoreRef.current.activate(
+      key, mode, sameRoute ? snapshot : previousSnapshot ?? null,
+    );
+    contextRef.current = selected;
+    setContext(selected);
+    if (mode === "general" && !metadata?.agent && !metadata?.binding) {
+      generalSessionRef.current = key;
+    }
+  }, [snapshot, snapshotPath]);
 
   const submit = useCommandDeckSubmit({
     snapshot,
@@ -231,8 +251,37 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     revealCompletedWork,
   });
 
-  const { openGeneralDeck } = useCommandDeckEvents({
+  const submitForContext = useCallback((
+    text: string,
+    options: CommandDeckSubmitOptions = {},
+  ) => {
+    return submit(text, {
+      ...options,
+      snapshot: options.snapshot === undefined ? contextRef.current.snapshot : options.snapshot,
+    });
+  }, [submit]);
+
+  const startGeneralConversation = useCallback(() => {
+    startNewConversation();
+    activateContext("general");
+  }, [activateContext, startNewConversation]);
+
+  const resumeGeneralConversation = useCallback(() => {
+    const key = generalSessionRef.current;
+    if (key === null) {
+      startGeneralConversation();
+      return;
+    }
+    if (key !== sessionKeyRef.current) {
+      const metadata = sessionMetadataRef.current.get(key);
+      switchSession(key, null, undefined, metadata?.label, "screen-thread", false, metadata, undefined, false);
+    }
+    activateContext("general");
+  }, [activateContext, startGeneralConversation, switchSession]);
+
+  const { openGeneralDeck, openScreenDeck } = useCommandDeckEvents({
     open,
+    contextMode: entryMode,
     layoutMode,
     routeLabel: snapshot?.routeLabel,
     userScope,
@@ -250,13 +299,14 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     setDraft,
     setSearchQuery,
     setSrStatus,
-    submitPrompt: (text, options) => void submit(text, options),
+    setContextMode: activateContext,
+    submitPrompt: (text, options) => void submitForContext(text, options),
     updateConversationIndex,
     cancelActiveRequest,
     closeDeck,
     focusInput,
     openDeck,
-    startNewConversation,
+    startNewConversation: resumeGeneralConversation,
     streamContextTurn,
     switchSession,
   });
@@ -289,8 +339,8 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     setTurns,
     setSlashActiveIndex,
     setSrStatus,
-    submit,
-    startNewConversation,
+    submit: submitForContext,
+    startNewConversation: startGeneralConversation,
     clearTurns,
     closeDeck,
     cancelActiveRequest,
@@ -301,9 +351,21 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
   return (
     <CommandDeckView
       open={open}
+      contextMode={contextMode}
       layoutMode={layoutMode}
       dragging={dragging}
       routeLabel={routeLabel}
+      onAttachScreen={() => {
+        const selected = contextStoreRef.current.attach(sessionKey, snapshot);
+        contextRef.current = selected;
+        setContext(selected);
+      }}
+      onRemoveScreen={() => {
+        const selected = contextStoreRef.current.attach(sessionKey, null);
+        contextRef.current = selected;
+        setContext(selected);
+      }}
+      canAttachScreen={snapshot !== null && snapshotPath === currentPathname()}
       health={health}
       client={client}
       sessionLabel={sessionLabel}
@@ -317,7 +379,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       sessionKey={sessionKey}
       currentPath={currentPathname()}
       turns={turns}
-      snapshot={snapshot}
+      snapshot={context.snapshot}
       pending={pending}
       retrievalProgress={retrievalProgress}
       stuck={stuck}
@@ -332,7 +394,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       searchRef={searchRef}
       scrollerRef={scrollerRef}
       inputRef={inputRef}
-      onInvoke={open ? closeDeck : openGeneralDeck}
+      onInvoke={open ? closeDeck : openScreenDeck}
       onClose={closeDeck}
       onOpenGeneral={openGeneralDeck}
       onOverlayKeyDown={onOverlayKeyDown}
@@ -344,11 +406,16 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
         setActiveSearchMatch(0);
       }}
       onMoveSearch={moveSearch}
-      onNewConversation={startNewConversation}
+      onNewConversation={startGeneralConversation}
       onLoadMoreConversations={loadMoreConversations}
       onRetryConversation={() => void hydrateDurableTurns(sessionKey)}
       onSelectLayout={selectLayoutMode}
-      onRemoveConversation={removeCachedConversation}
+      onRemoveConversation={(conversation) => {
+        contextStoreRef.current.remove(conversation.key);
+        if (generalSessionRef.current === conversation.key) generalSessionRef.current = null;
+        removeCachedConversation(conversation);
+        activateContext(conversationContextMode(sessionMetadataRef.current.get(sessionKeyRef.current)));
+      }}
       onToggleFavorite={(conversation) => {
         updateConversationIndex({
           ...conversation,
@@ -362,18 +429,18 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
             conversationRouteNavigationRef,
             navigate,
           ),
-          activate: (selected) => switchSession(
-            selected.key,
-            selected.agent ?? null,
-            undefined,
-            selected.label,
-            selected.kind,
-          ),
+          activate: (selected) => {
+            switchSession(
+              selected.key, selected.agent ?? null, undefined, selected.label,
+              selected.kind, true, selected,
+            );
+            activateContext(conversationContextMode(selected));
+          },
           focus: focusInput,
         });
       }}
       onTranscriptScroll={onTranscriptScroll}
-      onSubmit={submit}
+      onSubmit={(text) => void submitForContext(text)}
       onRegenerate={regenerateAt}
       onJumpToLatest={jumpToLatest}
       onRunSlashCommand={runSlashCommand}

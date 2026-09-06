@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v26" />
+  <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
   <link rel="stylesheet" href="assets/palette-comparison.css?v=neutral-v2" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
+  <link rel="stylesheet" href="assets/settings-neutral.css?v=1" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -1001,6 +1003,156 @@
       </div>
     </section>
 
+    <section class="cs-section" id="settings-preferences" aria-labelledby="settings-preferences-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title"><h2 id="settings-preferences-title">Settings preferences</h2><p class="cs-desc">Scoped preference rows, explicit save state, and account records in Clear neutral.</p></div>
+      </div>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+        <p class="cs-settings-preview-note">Clear neutral / light specimen. Controls are local samples, not saved account settings.</p>
+        <section class="cs-settings-section" aria-labelledby="sample-appearance">
+          <header class="cs-settings-section-head"><div><h3 id="sample-appearance">Appearance</h3><span class="cs-settings-scope">This browser</span></div><p>Compact choices stay close together at every viewport width.</p></header>
+          <div class="cs-settings-list">
+            <div class="cs-setting-row">
+              <div><strong>Language</strong><small>Preview the selection without changing the gallery language.</small></div>
+              <div class="cs-settings-language cs-control-segmented" role="group" aria-label="Sample language" data-cs-segmented>
+                <button class="is-active" type="button" aria-pressed="true"><span>English</span><svg class="cs-language-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8 3 3 6-6" /></svg></button>
+                <button type="button" aria-pressed="false"><span>Korean</span><svg class="cs-language-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8 3 3 6-6" /></svg></button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="cs-settings-section" aria-labelledby="sample-account">
+          <header class="cs-settings-section-head"><div><h3 id="sample-account">User context</h3><span class="cs-settings-scope">Your account</span></div><p>Keep the label, explanation, and bounded control aligned.</p></header>
+          <div class="cs-settings-list">
+            <div class="cs-setting-row">
+              <div><strong>Answer detail</strong><small>Explicit requests in the current turn still win.</small></div>
+              <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Sample answer detail" data-cs-segmented>
+                <button type="button" aria-pressed="false">Brief</button><button class="is-active" type="button" aria-pressed="true">Standard</button><button type="button" aria-pressed="false">Deep</button>
+              </div>
+            </div>
+            <div class="cs-setting-row">
+              <div><strong>Apply saved answer preferences</strong><small>Disabling defaults does not delete the profile.</small></div>
+              <label class="cs-settings-toggle cs-control-switch"><input type="checkbox" checked aria-label="Apply sample answer preferences" /><span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span><strong>Use saved defaults</strong></label>
+            </div>
+            <div class="cs-setting-row"><div><strong>Timezone</strong><small>IANA timezone used by recurring briefings.</small></div><input class="cs-settings-input cs-control-input" value="Asia/Seoul" aria-label="Sample timezone" /></div>
+          </div>
+          <div class="cs-settings-save-bar cs-control-action-bar"><div class="cs-control-action-copy"><strong>Save unavailable in this specimen</strong><small>Preview values never leave this page.</small></div><button class="cs-control-button is-primary" type="button" disabled>Save user context</button></div>
+        </section>
+        <section class="cs-settings-section" aria-labelledby="sample-account-records">
+          <header class="cs-settings-section-head"><div><h3 id="sample-account-records">Account records</h3><span class="cs-settings-scope">Your account</span></div><p>Schedules and saved facts retain their time and provenance.</p></header>
+          <div class="cs-settings-briefing-create"><label>Daily hour<input class="cs-settings-input cs-control-input" type="number" min="0" max="23" value="7" /></label><span>Asia/Seoul</span><button class="cs-control-button" type="button" disabled>Add briefing</button></div>
+          <article class="cs-settings-card"><div><strong>Daily major issues</strong><small>0 7 * * * - Asia/Seoul - next 2026-09-07T07:00:00+09:00</small></div><button class="cs-control-button" type="button" disabled>Remove briefing</button></article>
+          <article class="cs-settings-card"><div><strong>Preferred maintenance window</strong><small>Source turn-018 - expires 2026-10-01T00:00:00Z</small></div><button class="cs-control-button" type="button" disabled>Remove memory</button></article>
+        </section>
+      </div>
+    </section>
+
+    <section class="cs-section" id="settings-catalog" aria-labelledby="settings-catalog-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title"><h2 id="settings-catalog-title">Settings model catalog</h2><p class="cs-desc">Candidate metadata, availability, and a domain allowlist compose existing controls without implying execution authority.</p></div>
+      </div>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+        <p class="cs-settings-preview-note">Clear neutral / light specimen. Synthetic candidates and a read-only allowlist.</p>
+        <div class="cs-settings-toolbar"><label>Search catalog<input class="cs-settings-input cs-control-input" type="search" placeholder="Family or version" disabled /></label><button class="cs-control-button" type="button" disabled>Refresh catalog</button></div>
+        <div class="cs-settings-card-grid">
+          <article class="cs-settings-option-card"><header><div><strong>GPT 5.4</strong><small>Microsoft</small></div><span class="cs-status ok">Current</span></header><dl><div><dt>SKU</dt><dd>Global standard</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl><button class="cs-control-button" type="button" disabled>Use in draft</button></article>
+          <article class="cs-settings-option-card"><header><div><strong>Claude Sonnet 4.6</strong><small>Anthropic</small></div><span class="cs-status ok">Current</span></header><dl><div><dt>SKU</dt><dd>Provisioned throughput</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl><button class="cs-control-button" type="button" disabled>Use in draft</button></article>
+          <article class="cs-settings-option-card"><header><div><strong>Gemini 3.1 Pro</strong><small>Google</small></div><span class="cs-status wait">Preview</span></header><dl><div><dt>SKU</dt><dd>Unavailable</dd></div><div><dt>Quota</dt><dd>Not measured</dd></div></dl><button class="cs-control-button" type="button" disabled>Unavailable</button></article>
+        </div>
+        <section class="cs-settings-section" aria-labelledby="sample-domain-policy">
+          <header class="cs-settings-section-head"><div><h3 id="sample-domain-policy">Web search</h3><span class="cs-settings-scope">Environment</span></div><p>Availability is distinct from execution authority.</p></header>
+          <div class="cs-domain-editor">
+            <div><strong>Allowed domains</strong><small>Approved public hosts only. Schemes, paths, ports, and wildcards are rejected.</small></div>
+            <div class="cs-domain-list cs-control-policy-list" role="list"><div class="cs-control-policy-row" role="listitem"><code>example.com</code><span class="cs-control-policy-state">Approved</span><button class="cs-control-button is-quiet is-compact" type="button" disabled>Remove</button></div></div>
+            <div class="cs-domain-add"><input class="cs-settings-input cs-control-input" aria-label="Sample approved host" placeholder="example.org" /><button class="cs-control-button" type="button" disabled>Add domain</button></div>
+            <div class="cs-domain-meta"><span>Deployment allowlist only - no execution authority</span><span>1 of 100 hosts</span></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="cs-section" id="settings-policy" aria-labelledby="settings-policy-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title"><h2 id="settings-policy-title">Settings policy overrides</h2><p class="cs-desc">Environment values, override provenance, effect timing, and revisioned editing remain visibly distinct.</p></div>
+      </div>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+        <div class="cs-readonly-banner"><strong>Read-only specimen.</strong> Preview controls do not save or change runtime behavior.</div>
+        <div class="cp-table-wrap"><table class="cp-table"><caption>Runtime policy settings</caption><thead><tr><th scope="col">Setting</th><th scope="col">Environment value</th><th scope="col">Override</th><th scope="col">Status</th><th scope="col">Effect</th></tr></thead><tbody>
+          <tr><td data-label="Setting">Evidence freshness</td><td data-label="Environment value">15 min</td><td data-label="Override">10 min</td><td data-label="Status"><span class="cp-status is-info">Overridden</span></td><td data-label="Effect">Next request</td></tr>
+          <tr><td data-label="Setting">Investigation budget</td><td data-label="Environment value">90 s</td><td data-label="Override">-</td><td data-label="Status"><span class="cp-status is-success">Inherited</span></td><td data-label="Effect">Current</td></tr>
+          <tr><td data-label="Setting">Audit retention</td><td data-label="Environment value">365 days</td><td data-label="Override">730 days</td><td data-label="Status"><span class="cp-status is-warning">Restart required</span></td><td data-label="Effect">After restart</td></tr>
+          <tr><td data-label="Setting">Verbose provider logs</td><td data-label="Environment value">Off</td><td data-label="Override">-</td><td data-label="Status"><span class="cp-status is-neutral">Unavailable</span></td><td data-label="Effect">No change</td></tr>
+        </tbody></table></div>
+        <section class="cs-settings-section" aria-labelledby="sample-override-editor">
+          <header class="cs-settings-section-head"><h3 id="sample-override-editor">Edit an allowlisted override</h3><p>Current revision is required before a real save.</p></header>
+          <div class="cp-form" role="group" aria-label="Sample override editor">
+            <p class="cp-form-note">Synthetic values only. Submission is unavailable in the gallery.</p>
+            <div class="cp-field"><label for="sample-policy-setting">Setting</label><select class="cs-control-select" id="sample-policy-setting"><option>Evidence freshness</option><option>Investigation budget</option><option>Audit retention</option></select></div>
+            <div class="cp-field"><label for="sample-policy-value">Override value</label><input class="cs-control-input" id="sample-policy-value" value="10 min" /></div>
+            <div class="cp-field"><label for="sample-policy-revision">Revision</label><input class="cs-control-input" id="sample-policy-revision" value="12" readonly /></div>
+            <div class="cp-form-actions"><button class="cs-control-button is-primary" type="button" disabled>Save revisioned override</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="cs-section" id="settings-access" aria-labelledby="settings-access-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title"><h2 id="settings-access-title">Settings access workspace</h2><p class="cs-desc">A compact summary and keyboard-accessible tabs separate assigned roles, people, capabilities, and pending requests.</p></div>
+      </div>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+        <div class="cs-readonly-banner"><strong>Read-only specimen.</strong> Reviewing access does not grant it. A protected deployer applies access and a fresh probe verifies it.</div>
+        <section class="cp-kpis" aria-label="Sample access summary">
+          <article class="cp-kpi"><span>Assigned roles</span><strong>2</strong><small>current principal</small></article><article class="cp-kpi"><span>Capabilities</span><strong>18</strong><small>effective</small></article><article class="cp-kpi"><span>Pending requests</span><strong>4</strong><small>requires review</small></article><article class="cp-kpi"><span>Expiring soon</span><strong>1</strong><small>within 7 days</small></article>
+        </section>
+        <div class="cp-tabs" role="tablist" aria-label="Sample identity workspace" data-cs-tabs>
+          <button class="cp-tab" id="sample-access-tab" type="button" role="tab" aria-selected="true" aria-controls="sample-access-panel" data-cs-tab="sample-access-panel">My access</button>
+          <button class="cp-tab" id="sample-users-tab" type="button" role="tab" aria-selected="false" aria-controls="sample-users-panel" data-cs-tab="sample-users-panel" tabindex="-1">Users</button>
+          <button class="cp-tab" id="sample-roles-tab" type="button" role="tab" aria-selected="false" aria-controls="sample-roles-panel" data-cs-tab="sample-roles-panel" tabindex="-1">Roles</button>
+          <button class="cp-tab" id="sample-requests-tab" type="button" role="tab" aria-selected="false" aria-controls="sample-requests-panel" data-cs-tab="sample-requests-panel" tabindex="-1">Requests</button>
+        </div>
+        <div class="cs-tabpanel cs-active" id="sample-access-panel" role="tabpanel" aria-labelledby="sample-access-tab">
+          <div class="cp-table-wrap"><table class="cp-table"><caption>Assigned roles</caption><thead><tr><th scope="col">Role</th><th scope="col">Scope</th><th scope="col">Granted</th><th scope="col">Expires</th></tr></thead><tbody><tr><td data-label="Role">Operator</td><td data-label="Scope">example-scope</td><td data-label="Granted">2026-08-01</td><td data-label="Expires">2026-11-01</td></tr></tbody></table></div>
+        </div>
+        <div class="cs-tabpanel" id="sample-users-panel" role="tabpanel" aria-labelledby="sample-users-tab" hidden>
+          <div class="cp-table-wrap"><table class="cp-table"><caption>User directory</caption><thead><tr><th scope="col">Principal</th><th scope="col">Roles</th><th scope="col">State</th><th scope="col">Last verified</th></tr></thead><tbody><tr><td data-label="Principal"><code>operator@example.com</code></td><td data-label="Roles">2</td><td data-label="State"><span class="cp-status is-success">Active</span></td><td data-label="Last verified">5 min ago</td></tr></tbody></table></div>
+        </div>
+        <div class="cs-tabpanel" id="sample-roles-panel" role="tabpanel" aria-labelledby="sample-roles-tab" hidden>
+          <div class="cp-table-wrap"><table class="cp-table"><caption>Role definitions</caption><thead><tr><th scope="col">Role</th><th scope="col">Capabilities</th><th scope="col">Assignments</th><th scope="col">Boundary</th></tr></thead><tbody><tr><td data-label="Role">Operator</td><td data-label="Capabilities">18</td><td data-label="Assignments">4</td><td data-label="Boundary">No execution identity</td></tr></tbody></table></div>
+        </div>
+        <div class="cs-tabpanel" id="sample-requests-panel" role="tabpanel" aria-labelledby="sample-requests-tab" hidden>
+          <div class="cp-table-wrap"><table class="cp-table"><caption>Pending access requests</caption><thead><tr><th scope="col">Requester</th><th scope="col">Role</th><th scope="col">Scope</th><th scope="col">State</th></tr></thead><tbody><tr><td data-label="Requester"><code>reviewer@example.com</code></td><td data-label="Role">Evidence reader</td><td data-label="Scope">incident-42</td><td data-label="State"><span class="cp-status is-warning">Pending</span></td></tr></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-section" id="settings-diagnostics" aria-labelledby="settings-diagnostics-title">
+      <div class="cs-section-head">
+        <div class="cs-section-title"><h2 id="settings-diagnostics-title">Settings diagnostic evidence</h2><p class="cs-desc">Integration readiness and runtime checks distinguish observations, source gaps, failures, and loading.</p></div>
+      </div>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+        <p class="cs-settings-preview-note">Clear neutral / light specimen. Synthetic evidence states, not live health checks.</p>
+        <section class="cs-settings-section" aria-labelledby="sample-diagnostic-results">
+          <header class="cs-settings-section-head"><h3 id="sample-diagnostic-results">Runtime and delivery</h3><p>Color stays on the observed status, never the section edge.</p></header>
+          <div class="cs-settings-list">
+            <div class="cs-setting-row"><div><strong>Operator API liveness</strong><small>Observed response at 2026-09-06T02:00:00Z.</small></div><span class="cs-status ok">Available</span></div>
+            <div class="cs-setting-row"><div><strong>GitHub App</strong><small>No recent delivery probe has run.</small></div><span class="cs-status idle">Not probed</span></div>
+            <div class="cs-setting-row"><div><strong>Automation</strong><small>No authoritative source is bound.</small></div><span class="cs-status idle">Unknown</span></div>
+            <div class="cs-setting-row"><div><strong>Access request</strong><small>Requires independent human review.</small></div><span class="cs-status wait">Pending review</span></div>
+            <div class="cs-setting-row"><div><strong>Delivery probe</strong><small>The sample endpoint rejected the request.</small></div><span class="cs-status err">Failed</span></div>
+            <div class="cs-setting-row"><div><strong>Principal</strong><small>The human identity remains distinct from the executor.</small></div><code>operator@example.com</code></div>
+          </div>
+        </section>
+        <section class="cs-settings-section" aria-labelledby="sample-diagnostic-boundaries">
+          <header class="cs-settings-section-head"><h3 id="sample-diagnostic-boundaries">Evidence boundaries</h3><p>Missing rows and pending reads are not healthy results.</p></header>
+          <div class="cs-state-grid">
+            <div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading diagnostic evidence"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div>
+            <div class="cs-state-block is-empty"><div class="cs-state-content"><strong>No matching records</strong><p>Change the scope filter to review other evidence.</p></div></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <section class="cs-section" id="page-context-notifications" aria-labelledby="page-context-notifications-title">
       <div class="cs-section-head">
         <span class="cs-badge-num" aria-hidden="true">21</span>
@@ -1416,7 +1568,7 @@
       window.addEventListener("hashchange", syncHashTarget);
       allSections.forEach(function (section) { section.hidden = true; });
       try {
-        var response = await fetch("assets/component-registry.json?v=8");
+        var response = await fetch("assets/component-registry.json?v=9");
         if (!response.ok) throw new Error("Registry request failed with status " + response.status);
         var payload = await response.json();
         if (!payload || !Array.isArray(payload.components)) throw new Error("Registry payload is invalid");

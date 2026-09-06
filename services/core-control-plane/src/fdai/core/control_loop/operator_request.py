@@ -207,12 +207,26 @@ async def process_operator_request(
         correlation_id=correlation_id,
     )
     succeeded = _is_execution_success(result)
+    receipt_ref = getattr(result, "receipt_ref", None)
+    result_detail = getattr(result, "reason", None)
     await host._emit_stage(
         event_id=event_id,
         correlation_id=correlation_id,
         stage=StageName.EXECUTE,
         phase=StagePhase.DONE if succeeded else StagePhase.FAILED,
-        detail={"action_type": action.action_type, "mode": action.mode.value},
+        detail={
+            "action_type": action.action_type,
+            "mode": action.mode.value,
+            "outcome": result.outcome.value,
+            **({"receipt_ref": receipt_ref} if receipt_ref is not None else {}),
+            **({"result_detail": result_detail} if result_detail is not None else {}),
+            **(
+                {"deployment_name": action.params["deployment_name"]}
+                if action.action_type == "ops.deploy-model"
+                and isinstance(action.params.get("deployment_name"), str)
+                else {}
+            ),
+        },
         error=None if succeeded else getattr(result, "reason", None) or "execution_failed",
     )
     return await _finish(

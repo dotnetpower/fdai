@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { Tooltip } from "../components/tooltip";
 import type { BackendHealth } from "./backend";
 import { BackendBadge } from "./command-deck-presenters";
 
@@ -14,11 +15,17 @@ export function CommandDeckLauncher({
   readonly onInvoke: () => void;
 }) {
   return (
+    <Tooltip
+      content={open ? undefined : t("deck.screenOpenHint", { route: routeLabel })}
+      placement="top"
+      anchorClassName="deck-invoke-anchor"
+    >
     <button
       type="button"
       class={`deck-invoke ${open ? "deck-invoke-open" : ""}`}
       onClick={onInvoke}
-      aria-label={open ? t("deck.close") : t("deck.open")}
+      aria-label={open ? t("deck.screenClose") : t("deck.screenOpen", { route: routeLabel })}
+      aria-expanded={open}
     >
       <span class="deck-invoke-glyph" aria-hidden="true">
         <svg viewBox="0 0 16 16" width="14" height="14">
@@ -40,5 +47,6 @@ export function CommandDeckLauncher({
       </kbd>
       <kbd class="deck-invoke-kbd">/</kbd>
     </button>
+    </Tooltip>
   );
 }

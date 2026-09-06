@@ -26,6 +26,7 @@ context cannot appear as incident evidence.
 | Direct-response lifecycle suppression | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), and focused Operator and Console checks | Operator does not inspect operator text or predict terminal disposition when a stream opens. A model-selected typed direct response emits `done` alone. Console shows an ephemeral compact pending row immediately after submit, expands to the detailed preparation trace only after an observed progress frame, and removes both on a direct terminal response. The browser interpolates only presentation geometry and terminal-only text reveal; it does not invent lifecycle content. |
 | Contract-backed starter questions | implemented | `intro-suggestions.ts`; bilingual Console catalogs; `semantic_operational_summary_planning.py`; question-bank artifacts; focused Core, Console, and question-bank checks | The empty Deck exposes five reviewed Resource state, Resource Health, and Service Health questions. An accepted unambiguous typed function intent can reuse a deterministic verified frame without a second model call. Unimplemented screen-summary, tier-mix, approval, failure-cause, and opportunity questions are not presented as ready examples. |
 | Incident-bound context isolation | implemented | `command-deck.tsx`; `use-command-deck-events.ts`; focused Console checks and authenticated Browser Entra request inspection | An automatic incident investigation submits the exact incident binding without Dashboard facts or records. The verified answer reads `query.incident_evidence`; route metadata remains presentation context and never becomes answer evidence. |
+| General and current-screen conversation separation | implemented | `conversation-context.ts`; `general-conversation-intro.tsx`; `command-deck.tsx`; `navigation-shell.tsx`; `conversation-entry.spec.ts`; focused Deck checks | The Activity Bar opens or resumes the tab's general conversation, while the bottom and keyboard launchers select the current screen's separate conversation. General questions omit screen evidence unless explicitly attached. Drafts, captured context, and layout preferences remain separate. Action drafts retain the signed-in review hint and separate executor authority. |
 | Operator conversation SSE shutdown | implemented | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | Application shutdown and caller cancellation both cancel and await the in-flight source read before the stream closes. An idle source cannot block graceful shutdown or keep a detached read task alive. |
 | Channel-neutral terminal reduction | implemented | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | Focused contract tests passed 36 cases. Teams and Slack preserve the same canonical answer, limitations, evidence references, `execution_authority=false`, and monotonic confirmed update through durable replay. No production A3 publisher or governed channel runtime receipt is claimed. |
 | Drawer presentation and new-conversation identity | in-progress | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | The Console creates a fresh session independently of persisted drawer visibility, and the live test now isolates the request in a new conversation. A passing authenticated runtime receipt is still required. |
@@ -44,6 +45,8 @@ context cannot appear as incident evidence.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Completed the general welcome and explicit screen-context UX. Reopening preserves separate drafts, general history never navigates, both submission paths use the selected snapshot, and regeneration preserves an unscoped request. | `current change`; `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`; focused unit and synthetic browser checks. | Model answers and resource execution were not invoked by this UI validation. |
+| 2026-09-06 | implemented | Separated general and current-screen Deck entry, prevented route snapshots from entering general submissions, and exposed the signed-in account plus server revalidation boundary on action drafts. | `current change`; focused Deck, navigation, grounded-reply, catalog, and type checks. | Retain an authenticated Browser receipt for both entry modes before claiming deployed validation. |
 | 2026-09-06 | implemented | Excluded the active panel snapshot from automatic incident-bound investigation requests while retaining the exact incident binding and minimal request metadata. | `current change`; `command-deck.tsx`; `use-command-deck-events.ts`; focused Console checks passed 38 cases; authenticated Browser Entra request inspection returned verified incident evidence. | No remaining work for this bounded context-isolation change. |
 | 2026-09-05 | implemented | Added the proactive web ownership-handover conversation, revisioned goal controls, mapped-agent follow-up routing, and governed document evidence association. | `current change`; focused Operator and Console tests, Console typecheck, and Console build. | Retain an authenticated deployment receipt and add server-owned incident and approval suppression. |
 | 2026-09-05 | implemented | Moved handover target selection from browser-authored prompt routing to a server-verified principal, goal, and session binding, and required authoritative document admission before evidence review. | `current change`; focused Operator, Console, and migration inventory tests passed. | Retain an authenticated deployment receipt and add server-owned incident and approval suppression. |
@@ -128,19 +131,20 @@ context cannot appear as incident evidence.
 
 ## Command Deck workspace lifecycle
 
-Full-workspace web chat opens transcript-first. A fresh empty conversation centers one composer
-with the current route, screen-grounding statement, operating-domain quick starts, and bounded
-suggestions. After the first operator turn or an explicit durable restore, the composer returns to
-the bottom of the transcript. Conversation history is a compact header action rather than a
-permanent column, and starting a new conversation closes it. The current-screen snapshot remains
-internal answer grounding and doesn't render as a separate operator panel.
+The Activity Bar opens a general conversation in the full workspace by default. Its empty state
+shows "How can I help?", one composer, and three compact examples that fill a draft without sending.
+The bottom launcher and `Ctrl+K` or `/` open a separate current-screen conversation in the right dock.
+Each entry remembers its own layout choice. General conversations never inherit route evidence.
+An explicit Add current screen control captures a snapshot; a removable Reference screen chip shows
+that selection. Removing it affects future questions, not messages already sent.
 
-A general Deck open starts a fresh user-scoped conversation. Past conversations restore only after
-explicit selection, while agent and incident entry points retain their bound session. The Deck
-header leads with the active conversation title and route context, exposes transcript search only
-when turns exist, and reduces healthy connectivity to a tooltip-backed status datum. The screen
-header keeps the route context visible without repeating snapshot counts or freshness controls.
-The composer keeps only attachments, question entry, and send or stop.
+Reopening the general entry resumes the tab's general conversation and unsent text. New conversation
+allocates a fresh user-scoped general key; history selection remains explicit, and agent and incident
+entries retain their bindings. Switching entries preserves separate drafts, history, and captured
+screen context. Route navigation never retargets an open floating conversation. General history does
+not navigate to its creation screen. After a sent turn, the composer returns to the transcript bottom.
+The header separates conversation identity from context and keeps search and history compact.
+Screen context remains a hint: the server still owns evidence, authorization, and execution checks.
 
 ## Semantic terminal presentation plan
 
