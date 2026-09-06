@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bb7a54226edf64a6e7c7d3d04e48af679e8bcdf3
+translation_source_sha: 5447238123a0db60e31682e1c972dca7f6cb590b
 translation_revised: 2026-09-07
 ---
 # 콘솔 근거 및 복원력
@@ -219,12 +219,7 @@ LLM 비용은 측정된 호출, 토큰, chat 비율 및 최근 호출 근거를 
 
 ## 로딩 표현
 
-모든 경로, 패널 및 범위가 제한된 내용 영역은 첫 로딩 프레임부터 골격을 렌더링합니다. 공통 골격은 spinner-only 및 text-only 대기를 대체하며, 경로는 최종 배치 dimension을 유지하는 고유 형태를 제공할 수 있습니다.
-대시보드는 자세 블록 다음에 메트릭, 분포, attention 및 버티컬 자리 표시자를 사용하므로 로딩 중에도 보고가 축소되지 않습니다. 하나의 screen-reader 상태가 로딩을 알리고 decorative 블록은 숨깁니다. Reduced motion에서는 shimmer가 멈추지만 정적 골격은 계속 표시됩니다.
-공통 대체 경로는 heading, summary-card 및 body-panel 자리 표시자를 사용합니다. 소유 경로 형태는 더 정확한 최종 배치를 유지할 때만 이 대체 경로를 대체합니다.
-
-HTML 문서가 콘솔 stylesheet를 direct 의존성으로 소유하므로 authentication, 경로, 컴포넌트 및 JavaScript hot 갱신 중에도 mount된 SPA의 배치와 테마가 사라지지 않습니다. Vite는 같은 문서 링크를 fingerprinted 운영 CSS asset으로 변환합니다.
-개발에서는 기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe 파일 읽기 담당으로 처리하여 editor의 임시 빈 스냅샷이 전체 stylesheet를 대체하지 못하게 합니다.
+[Console 로딩 표현 참조](../../reference/console-loading-presentation-ko.md)에서 골격, 동작 감소, 스타일시트 및 hot-update 동작을 정의합니다.
 
 ## Localization 경계
 

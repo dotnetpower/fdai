@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 93c5efb310124b331f9580e209ac1f68762255d1
+translation_source_sha: c638e0ecfdb26bbd998d6578169e260e7f2ea815
 translation_revised: 2026-09-07
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -621,16 +621,10 @@ Future 작업으로 유지. 전체 설계는 이미
 [llm-strategy.md § 조정기 작업](../architecture/llm-strategy-ko.md#reconciler-job) 에 있음;
 `infra/modules/compute/container-apps-job/` 재사용 + Python 엔트리로 shipping.
 
-## Fork-Side 오버라이드 지점
+## 포크 측 재정의
 
-위 모든 게 customer-agnostic 유지. 포크는 `core/` 를 안 건드리고 커스텀:
-
-- 리전/컴플라이언스 오버라이드 있는 자체 `llm-registry.yaml` 제공.
-- 포크의 구독을 가리키는 `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` env 제공.
-  **이 리포는 그 값들을 절대 저장 안 함.**
-- 추가 LLM 프로바이더 (예: Anthropic 직접 API) 등록: 조립 루트에서 포크 소유
-  `CrossCheckModel` 구현 바인딩 - [llm-strategy.md § Mixed-Model 계열 Strategies](../architecture/llm-strategy-ko.md#mixed-model-family-strategies)
-  의 `azure-foundry` / `external` / `hil-only` 토글.
+[배포 포크 재정의 참조](../../reference/deployment-fork-overrides-ko.md)를 사용해 테넌트 값과
+프로바이더별 바인딩을 업스트림 저장소 밖에 유지합니다.
 
 ## 검증 게이트
 

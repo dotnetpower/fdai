@@ -620,17 +620,10 @@ Kept as future work. Full design already in
 [llm-strategy.md § Reconciler Job](../architecture/llm-strategy.md#reconciler-job); ships as a
 `infra/modules/compute/container-apps-job/` reuse plus a Python entry point.
 
-## Fork-Side Override Points
+## Fork-side overrides
 
-Everything above stays customer-agnostic. A fork customises without touching `core/` by:
-
-- Providing its own `llm-registry.yaml` with region/compliance overrides.
-- Supplying `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` env pointing at the fork's
-  subscription. **This repo never stores those values.**
-- Registering additional LLM providers (e.g. Anthropic direct API) by binding a fork-owned
-  `CrossCheckModel` implementation in its composition root - the `azure-foundry` /
-  `external` / `hil-only` toggle in
-  [llm-strategy.md § Mixed-Model Family Strategies](../architecture/llm-strategy.md#mixed-model-family-strategies).
+Use the [deployment fork override reference](../../reference/deployment-fork-overrides.md) to keep
+tenant values and provider-specific bindings outside the upstream repository.
 
 ## Verification Gates
 
