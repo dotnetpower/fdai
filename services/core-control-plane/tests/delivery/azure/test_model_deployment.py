@@ -74,6 +74,20 @@ def test_malformed_recognized_token_rate_invalidates_tpm_evidence() -> None:
     assert "capacity_tpm_source" not in summary
 
 
+def test_oversized_rate_limit_collection_does_not_publish_tpm() -> None:
+    row = _row(token_count=50_000)
+    properties = row["properties"]
+    assert isinstance(properties, dict)
+    properties["rateLimits"] = [
+        {"key": "token", "count": 50_000, "renewalPeriod": 60} for _ in range(65)
+    ]
+
+    summary = model_deployment_summary(row)
+
+    assert summary["capacity_units"] == 50
+    assert "capacity_tpm" not in summary
+
+
 def test_capacity_units_alone_do_not_invent_tpm() -> None:
     row = _row(token_count=50_000)
     properties = row["properties"]

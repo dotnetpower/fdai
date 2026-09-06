@@ -18,6 +18,8 @@ _TOKEN_RATE_KEYS = frozenset(
     }
 )
 _RATE_KEY_SEPARATOR = re.compile(r"[^a-z0-9]+")
+_MAX_RATE_RULES = 64
+_MAX_RATE_KEY_CHARS = 128
 
 
 def model_deployment_summary(row: Mapping[str, Any]) -> dict[str, object]:
@@ -51,14 +53,14 @@ def _tokens_per_minute(properties: object) -> int | None:
     if not isinstance(properties, Mapping):
         return None
     rate_limits = properties.get("rateLimits")
-    if not isinstance(rate_limits, list):
+    if not isinstance(rate_limits, list) or len(rate_limits) > _MAX_RATE_RULES:
         return None
     observed: set[int] = set()
     for rule in rate_limits:
         if not isinstance(rule, Mapping):
             continue
         key = rule.get("key")
-        if not isinstance(key, str):
+        if not isinstance(key, str) or len(key) > _MAX_RATE_KEY_CHARS:
             continue
         if _RATE_KEY_SEPARATOR.sub("", key.casefold()) not in _TOKEN_RATE_KEYS:
             continue
