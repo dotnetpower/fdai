@@ -68,7 +68,7 @@ without one broker commit per event, while mid-processing closure remains eligib
 Generic product labels such as APIM, gateway, backend, and GPT never satisfy an exact operational
 target, including when a determiner such as "the" or "selected" is attached. They require Resource
 identity clarification before frame or provider work. Possessive forms such as "our gateway" and
-"my APIM service" remain generic as well.
+"my APIM service", and deictic forms such as "that gateway", remain generic as well.
 The one-hour operational shortcut accepts only explicitly past source wording. Directionless or
 future wording retains full semantic judgment instead of becoming a historical lookback.
 Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway

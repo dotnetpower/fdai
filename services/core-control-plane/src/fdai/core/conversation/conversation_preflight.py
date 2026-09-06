@@ -552,7 +552,13 @@ def operational_target_is_generic(value: str) -> bool:
     normalized = " ".join(value.casefold().split()).strip(".,:;!?()[]{}")
     prefixes = (
         "the ",
+        "a ",
+        "an ",
         "this ",
+        "that ",
+        "these ",
+        "those ",
+        "some ",
         "selected ",
         "current ",
         "our ",
@@ -561,6 +567,9 @@ def operational_target_is_generic(value: str) -> bool:
         "their ",
         "its ",
         "해당 ",
+        "이 ",
+        "그 ",
+        "저 ",
         "선택한 ",
         "현재 ",
         "우리 ",

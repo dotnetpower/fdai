@@ -537,8 +537,11 @@ def test_preflight_gateway_rejects_generic_product_targets() -> None:
         "selected backend",
         "our gateway",
         "my APIM service",
+        "that gateway",
+        "an Application Gateway",
         "현재 GPT model",
         "우리 게이트웨이",
+        "그 APIM service",
         "Azure API Management service.",
     ),
 )
