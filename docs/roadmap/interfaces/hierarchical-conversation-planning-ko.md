@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 658cb5a936ed156b30f55c12eb4d68b47ec90efa
+translation_source_sha: 38aae36548cd94af148f9ecb6891b3bc31d3345e
 translation_revised: 2026-09-07
 ---
 
@@ -59,6 +59,8 @@ preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의
 유효해야 합니다. 한 시간 대상은 과거를 명시하는 원문 표현도 필요합니다. 방향이 없거나 미래를
 나타내는 문구는 전체 의미 판단을 유지합니다. F2는 결정론적 compiler가
 `Resource.name`으로 필터링하므로 ARM 리소스 ID가 아니라 배포 이름만 허용합니다.
+Gateway preflight 재사용도 과거 1시간 target 하나를 명시해야 합니다. 그렇지 않으면 compiler 기본
+window를 수락하지 않고 전체 의미 판단에서 요청 기간을 해석합니다.
 
 혼합, 맥락 의존, 모호함, 낮은 확신도, 오래됨, 잘못된 형식 또는 지원되지 않는 preflight는 모두 전체
 의미 판단으로 계속 진행됩니다. 의미가 검증된 preflight 또는 전체 의미 판단 중 어느 경로에서

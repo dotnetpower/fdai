@@ -59,6 +59,8 @@ current utterance and proposal digests, and valid for the family-specific shape.
 also require an explicitly past source expression; directionless or future wording retains full
 judgment. F2 accepts a deployment name, not an ARM resource ID,
 because its deterministic compiler filters `Resource.name`.
+Gateway preflight reuse also requires one explicit past-hour target; otherwise full judgment must
+resolve the requested interval instead of accepting the compiler's default window.
 
 Every other mixed, contextual, ambiguous, low-confidence, stale, malformed, or unsupported
 preflight continues to full semantic judgment. Whether meaning came from verified preflight or full

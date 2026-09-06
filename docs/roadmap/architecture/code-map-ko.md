@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 10536f861e3b07e1bff691d42e6ddb559b97ed75
+translation_source_sha: c32267842688191ec7d2ce40217e285fb930935b
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -70,6 +70,8 @@ APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 정확한 운영 �
 provider 작업 전에 Resource 신원 명확화를 요구합니다.
 한 시간 운영 단축 경로는 과거를 명시하는 원문 문구만 수락합니다. 방향이 없거나 미래를 나타내는
 문구는 과거 lookback으로 바꾸지 않고 전체 의미 판단을 유지합니다.
+Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간
+target을 요구합니다.
 Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
 모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
 만들 수 없습니다.

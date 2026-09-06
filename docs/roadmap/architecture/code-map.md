@@ -69,6 +69,8 @@ Generic product labels such as APIM, gateway, backend, and GPT never satisfy an 
 target. They require Resource identity clarification before frame or provider work.
 The one-hour operational shortcut accepts only explicitly past source wording. Directionless or
 future wording retains full semantic judgment instead of becoming a historical lookback.
+Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway
+compiler's default window.
 For a restarted Core, the standard launcher emits `ready` only after a post-launch semantic
 consumer and fresh Pantheon heartbeat are both visible. A previous process's heartbeat cannot make
 the replacement process ready.

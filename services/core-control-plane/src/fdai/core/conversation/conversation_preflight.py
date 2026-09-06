@@ -505,7 +505,7 @@ def preflight_operational_judgment(
     else:
         family_valid = (
             target_kinds.count("resource") == 1
-            and target_kinds.count("time_range") <= 1
+            and target_kinds.count("time_range") == 1
             and target_kinds.count("backend") <= 1
             and target_kinds.count("model") <= 1
             and len(target_kinds) == len(set(target_kinds))

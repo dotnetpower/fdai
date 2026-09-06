@@ -529,6 +529,36 @@ def test_preflight_gateway_rejects_generic_product_targets() -> None:
     assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
+def test_preflight_gateway_requires_explicit_time_target() -> None:
+    utterance = "Compare agw-example and backend latency."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value="agw-example",
+                source_start=8,
+                source_end=19,
+            ),
+        ),
+        operational_facets=("application_gateway", "backend", "latency"),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
 def test_malformed_response_falls_through_after_one_attempt() -> None:
     observation = ConversationModelObservation(
         model="preflight-mini",
