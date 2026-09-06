@@ -1,5 +1,7 @@
 """Implementation-free service identity and release contracts."""
 
+from fdai_service_contracts.adaptive_answer import AdaptiveAnswer, AdaptiveGoalResult
+from fdai_service_contracts.adaptive_relationship import AdaptiveRelationshipProof
 from fdai_service_contracts.audit import (
     AUDIT_APPEND_LOCK_KEY,
     AUDIT_GENESIS_HASH,
@@ -10,6 +12,19 @@ from fdai_service_contracts.azure_monitor import (
     AzureMonitorEvent,
     AzureMonitorNormalizationError,
     normalize_common_alert_schema,
+)
+from fdai_service_contracts.background_task_projection import (
+    BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP,
+    BACKGROUND_TASK_PROJECTION_TOPIC,
+    BackgroundTaskProjectionBudget,
+    BackgroundTaskProjectionEnvelope,
+    BackgroundTaskProjectionUsage,
+    background_task_completion_subsequence,
+    background_task_projection_digest,
+    background_task_projection_id,
+    background_task_snapshot_sequence,
+    build_background_task_progress,
+    build_background_task_snapshot,
 )
 from fdai_service_contracts.baseline_cohort import (
     MINIMUM_COHORT_SAMPLE_SIZE,
@@ -29,19 +44,6 @@ from fdai_service_contracts.baseline_cohort import (
     evaluate_cohort_claim,
     missing_cohort_claim,
 )
-from fdai_service_contracts.background_task_projection import (
-    BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP,
-    BACKGROUND_TASK_PROJECTION_TOPIC,
-    BackgroundTaskProjectionBudget,
-    BackgroundTaskProjectionEnvelope,
-    BackgroundTaskProjectionUsage,
-    background_task_completion_subsequence,
-    background_task_projection_digest,
-    background_task_projection_id,
-    background_task_snapshot_sequence,
-    build_background_task_progress,
-    build_background_task_snapshot,
-)
 from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
 from fdai_service_contracts.compatibility import (
     CompatibilityError,
@@ -59,11 +61,11 @@ from fdai_service_contracts.compatibility import (
 from fdai_service_contracts.cost_governance import (
     DISCLOSURE_PRESETS,
     CostAccessGrant,
+    CostAmountPrecision,
     CostAnalyticsBudget,
     CostAnalyticsProjection,
     CostAnalyticsRecommendation,
     CostAnalyticsTrendPoint,
-    CostAmountPrecision,
     CostDisclosureCeiling,
     CostDisclosurePolicy,
     CostGovernanceAvailability,
@@ -303,13 +305,6 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph,
     project_intent_graph_evidence,
 )
-from fdai_service_contracts.operational_coverage import (
-    OperationalCoverageCount,
-    OperationalCoverageDisposition,
-    OperationalCoverageDomain,
-    OperationalCoverageReceipt,
-    operational_coverage_receipt_digest,
-)
 from fdai_service_contracts.ontology_query import (
     canonical_json as canonical_query_json,
 )
@@ -322,6 +317,13 @@ from fdai_service_contracts.operational_activity import (
     OperationalActivityKind,
     OperationalActivityStatus,
     OperationalFreshness,
+)
+from fdai_service_contracts.operational_coverage import (
+    OperationalCoverageCount,
+    OperationalCoverageDisposition,
+    OperationalCoverageDomain,
+    OperationalCoverageReceipt,
+    operational_coverage_receipt_digest,
 )
 from fdai_service_contracts.operator import (
     AgentActivityQuery,
@@ -343,9 +345,9 @@ from fdai_service_contracts.operator import (
     OperatorReadModel,
     OperatorRole,
     OperatorTokenVerifier,
-    canonical_ordinary_role,
     PageProjection,
     ReadDataSource,
+    canonical_ordinary_role,
 )
 from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP,
@@ -389,6 +391,7 @@ from fdai_service_contracts.schema import (
 )
 from fdai_service_contracts.semantic_turn import (
     MAX_SEMANTIC_EVIDENCE_REFS,
+    SEMANTIC_PROGRESS_TOPIC,
     OperationalEvidenceProjection,
     RuleSearchCandidate,
     RuleSearchProjection,
@@ -399,19 +402,18 @@ from fdai_service_contracts.semantic_turn import (
     SemanticAssuranceObservation,
     SemanticAssurancePath,
     SemanticAssurancePathStep,
-    SemanticInvestigationContinuation,
     SemanticBoundContext,
     SemanticDirectResponseIntent,
+    SemanticInvestigationContinuation,
     SemanticPlanningProfile,
-    SemanticQueryProgress,
     SemanticPriorTurn,
+    SemanticQueryProgress,
     SemanticRoute,
     SemanticTurnDisposition,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
     SemanticTurnResult,
     SemanticUnavailableReason,
-    SEMANTIC_PROGRESS_TOPIC,
     context_selection_digest,
     rule_search_query_digest,
 )
@@ -427,6 +429,9 @@ from fdai_service_contracts.transition import (
 )
 
 __all__ = [
+    "AdaptiveAnswer",
+    "AdaptiveGoalResult",
+    "AdaptiveRelationshipProof",
     "AUDIT_APPEND_LOCK_KEY",
     "AUDIT_GENESIS_HASH",
     "AccessDescriptor",

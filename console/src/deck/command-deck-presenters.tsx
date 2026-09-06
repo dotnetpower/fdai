@@ -92,6 +92,7 @@ export interface Turn {
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;
   readonly semanticReceipt?: SemanticProjectionReceipt;
+  readonly adaptiveAnswer?: import("./adaptive-answer").AdaptiveAnswer;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
   readonly requestSnapshot?: import("./context").ViewSnapshot;
   readonly agent?: string;
@@ -611,7 +612,8 @@ export function TurnBubble({
   const isInvestigationFinalAnswer = isDeck && investigationFlowEnd &&
     !isActivity && !isProgressMessage;
   const isSemanticDirectResponse = isSemanticDirectResponseSource(turn.source);
-  const showReplySource = turn.source && turn.source !== "semantic-direct-response";
+  const showReplySource = turn.source && turn.source !== "semantic-direct-response" &&
+    turn.source !== "semantic-advisory-response";
   return (
     <article
       id={`deck-turn-${turn.id}`}
@@ -682,6 +684,7 @@ export function TurnBubble({
           streaming={turn.streaming === true}
           verification={turn.verification}
           semanticReceipt={turn.semanticReceipt}
+          {...(turn.adaptiveAnswer ? { adaptiveAnswer: turn.adaptiveAnswer } : {})}
           confirmed={turn.confirmed}
           verificationProgress={turn.verificationProgress}
           answerPlanning={turn.answerPlanning}

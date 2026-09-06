@@ -17,6 +17,7 @@ describe("backendHistoryForTurns", () => {
     expect(backendHistoryForTurns(turns)).toEqual([{
       role: "assistant",
       content: "Context for a conversation about the FDAI agent Heimdall.",
+      source: "context",
     }]);
     expect(turns[0]?.text).toBe("Heimdall is analyzing discovery signals.");
   });

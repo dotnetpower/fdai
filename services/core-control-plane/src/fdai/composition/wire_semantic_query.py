@@ -12,6 +12,7 @@ from fdai_service_contracts.ontology_query import (
     content_digest,
 )
 
+from fdai.core.conversation.adaptive_service import AdaptiveConversationService
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.conversation.semantic_manifest import (
     CatalogQueryManifestProvider,
@@ -262,6 +263,7 @@ def build_semantic_query_runtime(
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
+    adaptive_service: AdaptiveConversationService | None = None,
 ) -> SemanticConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -746,6 +748,7 @@ def build_semantic_query_runtime(
         executor_factory=executor_for,
         purpose=purpose,
         function_bindings=function_registry.binding_authorities,
+        adaptive_service=adaptive_service,
     )
 
 

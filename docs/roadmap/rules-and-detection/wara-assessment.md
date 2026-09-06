@@ -244,6 +244,11 @@ The shared Operator Kafka adapter may also publish notification-receipt logical 
 physical transport. Topic filtering keeps those records outside the WARA consumer and grants no
 assessment authority.
 
+The shared conversation transport also accepts adaptive request and projection version `1.6.0`.
+Its general explanations and goal-local support remain advisory, not WARA observations, assessment
+receipts, or satisfaction results. Default conversation relationship binding does not change WARA
+scope, consumer filtering, evidence admission, or the shadow-only assessment lifecycle.
+
 ## Related docs
 
 | To learn about | Read |

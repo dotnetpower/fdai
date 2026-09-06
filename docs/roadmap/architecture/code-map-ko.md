@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 53849ee3bed272db3aac21a09e92e9d9b1084e5b
+translation_source_sha: 12649016a4428678827b21d493a552c4614a6224
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -109,7 +109,7 @@ certification writer가 증적을 추가하기 전에 13개 시나리오 결과�
 attestation, 배포 근거 및 별도 사람 승인에 결속합니다.
 
 프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
-`composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
+`composition/wire_azure_prompts.py`로 분리합니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다. 리비전 기반 대화 설정은 Operator
 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
 프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
 질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로

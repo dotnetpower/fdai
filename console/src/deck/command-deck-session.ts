@@ -1,4 +1,6 @@
 import type { ConversationTurnPayload } from "../user-context-client";
+import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse, type AdaptiveAnswer } from "./adaptive-answer";
+import { semanticUnavailable } from "./backend-unavailable";
 import type {
   AnswerPlanMetadata,
   AnswerPlanningMetadata,
@@ -38,6 +40,7 @@ const MAX_SESSION_ID_CHARS = 200;
 const MAX_REPLAY_PAYLOAD_CHARS = 512 * 1024;
 
 export interface RestoredTurn {
+  readonly adaptiveAnswer?: AdaptiveAnswer;
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
@@ -81,6 +84,22 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ? turn.recorded_at
     : at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const replay = parseReplayPayload(turn);
+  const advisoryAnswer = parseAdvisoryResponse(replay);
+  const adaptiveAnswer = advisoryAnswer ?? parseActionDraftExplanation(replay);
+  if (!advisoryAnswer && (
+    hasAdvisoryResponse(replay) || turn.metadata.source === "semantic-advisory-response"
+  )) {
+    const unavailable = semanticUnavailable("invalid advisory response");
+    return {
+      id: turn.turn_id,
+      role: turn.role === "operator" ? "operator" : "deck",
+      text: unavailable.text,
+      source: unavailable.source,
+      at: time,
+      recordedAt: turn.recorded_at,
+      terminal: true,
+    };
+  }
   const router = parseRouter(replay?.router);
   const verification = parseAnswerVerification(replay?.verification);
   const delegation = parseDelegation(replay?.delegation);
@@ -99,9 +118,9 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     verification,
   );
   const semanticReceipt = parseSemanticProjectionReceipt(replay?.semantic_receipt);
-  const source = turn.metadata.source ?? replaySource(replay) ??
+  const source = (advisoryAnswer ? "semantic-advisory-response" : turn.metadata.source) ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
-  const agent = turn.metadata.agent ?? delegation?.primary_agent;
+  const agent = adaptiveAnswer?.role_agent ?? turn.metadata.agent ?? delegation?.primary_agent;
   const attachments = parseTurnAttachmentMetadata(
     turn.metadata.attachments,
     turn.conversation_id,
@@ -113,6 +132,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     at: time,
     recordedAt: turn.recorded_at,
     terminal: true,
+    ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(source ? { source } : {}),
     ...(agent ? { agent } : {}),
@@ -204,9 +224,9 @@ export function matchingTurnIndexes(
 }
 
 export function replyAgent(
-  reply: Pick<ProgressiveAnswer, "delegation" | "verification">,
+  reply: Pick<ProgressiveAnswer, "delegation" | "verification" | "adaptiveAnswer">,
 ): string {
-  return reply.delegation?.primary_agent ?? "Bragi";
+  return reply.adaptiveAnswer?.role_agent ?? reply.delegation?.primary_agent ?? "Bragi";
 }
 
 export function provisionalReplyAgent(targetAgent: string | undefined): string {

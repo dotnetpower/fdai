@@ -1,0 +1,763 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/core-operator-projection/1.6.0",
+  "title": "CoreOperatorProjectionEnvelope",
+  "description": "Transport-facing bounded projection metadata with an optional verified semantic result, direct conversational response, and content-free assurance observation. It carries no Core implementation object or authority. Advisory responses carry goal-local support, not query receipts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_id",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "status",
+    "recorded_at",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.6.0"
+    },
+    "projection_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "available",
+        "unavailable",
+        "answered",
+        "direct_response",
+        "held",
+        "clarification",
+        "unsupported",
+        "action_draft",
+        "cancelled",
+        "advisory_response"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evidence_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "semantic_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "reason_code",
+        "session_id",
+        "turn_id",
+        "turn_sequence",
+        "evidence_refs",
+        "checks_completed",
+        "checks_total",
+        "execution_authority"
+      ],
+      "properties": {
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "answered",
+            "direct_response",
+            "held",
+            "clarification",
+            "unsupported",
+            "action_draft",
+            "cancelled",
+            "advisory_response"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "semantic_route": {
+          "type": "string",
+          "enum": [
+            "verified_query_plan",
+            "semantic_direct_response",
+            "semantic_clarification",
+            "semantic_unsupported",
+            "semantic_action_draft",
+            "semantic_cancellation",
+            "semantic_advisory_response"
+          ]
+        },
+        "unavailable_reason": {
+          "type": "string",
+          "enum": [
+            "authoritative_evidence_unavailable",
+            "historical_evidence_unavailable",
+            "semantic_planner_unavailable"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "turn_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "turn_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ontology_release_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "principal_manifest_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "plan_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "execution_receipt_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "intent_graph": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "intent_graph_evidence": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "checks_completed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "checks_total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64000
+        },
+        "direct_response_intent": {
+          "enum": [
+            "greeting",
+            "self_introduction"
+          ]
+        },
+        "assurance_observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "capabilities",
+            "object_types",
+            "link_types",
+            "function_types",
+            "ontology_paths",
+            "fact_kinds",
+            "limitation_kinds",
+            "claim_kinds",
+            "evidence_posture",
+            "authority_posture",
+            "read_performed",
+            "observation_digest",
+            "execution_authority"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "1.0.0"
+            },
+            "frame": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "required": [
+                "operation",
+                "subject_types",
+                "measure_concepts",
+                "temporal_scope",
+                "output_shape",
+                "frame_digest"
+              ],
+              "properties": {
+                "operation": {
+                  "enum": [
+                    "select",
+                    "aggregate",
+                    "compare",
+                    "explain_change",
+                    "validate",
+                    "action_draft"
+                  ]
+                },
+                "subject_types": {
+                  "$ref": "#/$defs/assuranceIdentifiers16"
+                },
+                "measure_concepts": {
+                  "$ref": "#/$defs/assuranceIdentifiers16"
+                },
+                "temporal_scope": {
+                  "enum": [
+                    "none",
+                    "current",
+                    "windowed",
+                    "historical"
+                  ]
+                },
+                "output_shape": {
+                  "$ref": "#/$defs/assuranceIdentifier"
+                },
+                "frame_digest": {
+                  "$ref": "#/$defs/digest"
+                }
+              }
+            },
+            "capabilities": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "object_types": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "link_types": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "function_types": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "ontology_paths": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path_id",
+                  "steps"
+                ],
+                "properties": {
+                  "path_id": {
+                    "$ref": "#/$defs/assuranceIdentifier"
+                  },
+                  "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "from_type",
+                        "link_type",
+                        "direction",
+                        "to_type"
+                      ],
+                      "properties": {
+                        "from_type": {
+                          "$ref": "#/$defs/assuranceIdentifier"
+                        },
+                        "link_type": {
+                          "$ref": "#/$defs/assuranceIdentifier"
+                        },
+                        "direction": {
+                          "enum": [
+                            "outgoing",
+                            "incoming"
+                          ]
+                        },
+                        "to_type": {
+                          "$ref": "#/$defs/assuranceIdentifier"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "fact_kinds": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "limitation_kinds": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "claim_kinds": {
+              "$ref": "#/$defs/assuranceIdentifiers128"
+            },
+            "evidence_posture": {
+              "enum": [
+                "fresh",
+                "stale",
+                "incomplete",
+                "conflicting",
+                "unavailable"
+              ]
+            },
+            "authority_posture": {
+              "enum": [
+                "read_only",
+                "draft_only"
+              ]
+            },
+            "read_performed": {
+              "type": "boolean"
+            },
+            "observation_digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "execution_authority": {
+              "const": false
+            }
+          }
+        },
+        "execution_authority": {
+          "const": false
+        },
+        "adaptive_answer": {
+          "additionalProperties": false,
+          "description": "Bounded advice, not a query execution receipt, approval, or action result.",
+          "properties": {
+            "answer": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "title": "Answer",
+              "type": "string"
+            },
+            "goals": {
+              "items": {
+                "$ref": "#/$defs/AdaptiveGoalResult"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "title": "Goals",
+              "type": "array"
+            },
+            "role_agent": {
+              "enum": [
+                "Odin",
+                "Heimdall",
+                "Huginn",
+                "Forseti",
+                "Var",
+                "Thor",
+                "Vidar",
+                "Saga",
+                "Bragi",
+                "Njord",
+                "Freyr",
+                "Loki",
+                "Mimir",
+                "Norns",
+                "Muninn"
+              ],
+              "title": "Role Agent",
+              "type": "string"
+            },
+            "quality_status": {
+              "enum": [
+                "passed",
+                "limited"
+              ],
+              "title": "Quality Status",
+              "type": "string"
+            },
+            "refinements": {
+              "default": 0,
+              "maximum": 1,
+              "minimum": 0,
+              "title": "Refinements",
+              "type": "integer"
+            },
+            "execution_authority": {
+              "const": false,
+              "default": false,
+              "title": "Execution Authority",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "answer",
+            "goals",
+            "role_agent",
+            "quality_status"
+          ],
+          "title": "AdaptiveAnswer",
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": [
+                "semantic_route"
+              ],
+              "not": {
+                "required": [
+                  "unavailable_reason"
+                ]
+              }
+            },
+            {
+              "required": [
+                "unavailable_reason"
+              ],
+              "not": {
+                "required": [
+                  "semantic_route"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "answered"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "ontology_release_digest",
+              "principal_manifest_digest",
+              "plan_digest",
+              "execution_receipt_digest",
+              "answer"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "direct_response"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "semantic_route",
+              "direct_response_intent",
+              "answer"
+            ],
+            "properties": {
+              "semantic_route": {
+                "const": "semantic_direct_response"
+              },
+              "evidence_refs": {
+                "maxItems": 0
+              },
+              "checks_completed": {
+                "const": 0
+              },
+              "checks_total": {
+                "const": 0
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "ontology_release_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "principal_manifest_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "plan_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "execution_receipt_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "intent_graph"
+                  ]
+                },
+                {
+                  "required": [
+                    "intent_graph_evidence"
+                  ]
+                },
+                {
+                  "required": [
+                    "assurance_observation"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "advisory_response"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "adaptive_answer",
+              "answer",
+              "semantic_route"
+            ],
+            "properties": {
+              "semantic_route": {
+                "const": "semantic_advisory_response"
+              },
+              "evidence_refs": {
+                "maxItems": 0
+              },
+              "checks_completed": {
+                "const": 0
+              },
+              "checks_total": {
+                "const": 0
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "ontology_release_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "principal_manifest_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "plan_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "execution_receipt_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "intent_graph"
+                  ]
+                },
+                {
+                  "required": [
+                    "intent_graph_evidence"
+                  ]
+                },
+                {
+                  "required": [
+                    "assurance_observation"
+                  ]
+                },
+                {
+                  "required": [
+                    "direct_response_intent"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "if": {
+              "properties": {
+                "disposition": {
+                  "const": "action_draft"
+                }
+              }
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "adaptive_answer"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "assuranceIdentifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+    },
+    "assuranceIdentifiers16": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/assuranceIdentifier"
+      }
+    },
+    "assuranceIdentifiers128": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/assuranceIdentifier"
+      }
+    },
+    "AdaptiveGoalResult": {
+      "additionalProperties": false,
+      "description": "Classify one advisory goal without attributing evidence to general knowledge.",
+      "properties": {
+        "goal_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,79}$",
+          "title": "Goal Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "knowledge",
+            "operational",
+            "environment_example"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "answered",
+            "unavailable",
+            "held"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "limitation": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limitation"
+        }
+      },
+      "required": [
+        "goal_id",
+        "kind",
+        "status",
+        "required"
+      ],
+      "title": "AdaptiveGoalResult",
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "advisory_response"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "semantic_result"
+        ],
+        "properties": {
+          "semantic_result": {
+            "properties": {
+              "disposition": {
+                "const": "advisory_response"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

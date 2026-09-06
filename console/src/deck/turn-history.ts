@@ -8,12 +8,17 @@ export function backendHistoryForTurns(turns: readonly Turn[]): BackendTurn[] {
     .map((turn) => ({
       role: turn.role === "operator" ? "user" : "assistant",
       content: turn.groundingText ?? turn.text,
+      ...(turn.source ? { source: turn.source } : {}),
       ...(turn.semanticReceipt?.request_id
         ? {
             semanticRequestId: turn.semanticReceipt.request_id,
             semanticDisposition: turn.semanticReceipt.disposition,
           }
         : {}),
+      ...(turn.adaptiveAnswer ? {
+        adaptiveAnswer: turn.adaptiveAnswer,
+        semanticDisposition: turn.semanticReceipt?.disposition ?? "advisory_response",
+      } : {}),
       ...(turn.resourceContext ? { resourceContext: turn.resourceContext } : {}),
       ...(turn.evidenceFreshnessContext
         ? { evidenceFreshnessContext: turn.evidenceFreshnessContext }

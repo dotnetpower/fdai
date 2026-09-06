@@ -74,6 +74,7 @@ from fdai_core_service.semantic_turn_processor import (
     incident_timeline_rows,
 )
 from fdai_service_contracts import (
+    AdaptiveAnswer,
     OperationalEvidenceProjection,
     RuleSearchReceipt,
     SemanticDirectResponseIntent,
@@ -1592,6 +1593,8 @@ class _Runtime:
         self.bound_resource_contexts: list[BoundResourceContext | None] = []
         self.bound_investigation_continuations: list[BoundInvestigationContinuation | None] = []
         self.escalation_policies: list[SemanticPlanningEscalationPolicy | None] = []
+        self.target_agents: list[str] = []
+        self.relationships: list[Mapping[str, object] | None] = []
 
     async def handle(
         self,
@@ -1600,6 +1603,8 @@ class _Runtime:
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         locale: str = "en",
+        target_agent: str = "Bragi",
+        relationship: Mapping[str, object] | None = None,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_resource_context: BoundResourceContext | None = None,
@@ -1609,6 +1614,8 @@ class _Runtime:
         assert utterance == "Show current operations evidence."
         self.calls += 1
         self.principals.append(principal)
+        self.target_agents.append(target_agent)
+        self.relationships.append(relationship)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
         self.bound_resource_contexts.append(bound_resource_context)
@@ -1659,6 +1666,8 @@ class _ContendedRuntime(_Runtime):
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         locale: str = "en",
+        target_agent: str = "Bragi",
+        relationship: Mapping[str, object] | None = None,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
@@ -1666,6 +1675,8 @@ class _ContendedRuntime(_Runtime):
     ) -> RuntimeSemanticTurnResult:
         self.calls += 1
         self.principals.append(principal)
+        self.target_agents.append(target_agent)
+        self.relationships.append(relationship)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
         self.bound_investigation_continuations.append(bound_investigation_continuation)
@@ -3078,6 +3089,168 @@ async def test_golden_campaign_profile_overrides_aggressive_t2_setting() -> None
 
     assert settings.calls == 0
     assert runtime.escalation_policies == [NO_T2_ESCALATION_POLICY]
+
+
+@pytest.mark.parametrize("target_agent", [None, "Mimir", "Njord"])
+async def test_semantic_processor_preserves_canonical_dialogue_target_without_privileges(
+    target_agent: str | None,
+) -> None:
+    runtime = _Runtime(_runtime_result("held"))
+    request = _request()
+    semantic = cast(dict[str, object], request["semantic_turn"])
+    if target_agent is not None:
+        request["schema_version"] = "1.6.0"
+        semantic["target_agent"] = target_agent
+    await _processor(runtime).process(request)
+    assert runtime.target_agents == [target_agent or "Bragi"]
+    assert runtime.principals[0].id == "operator-1"
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "matched",
+        "collaborator",
+        "unmapped",
+        "resolver_unavailable",
+        "expired",
+        "future",
+        "principal",
+        "target",
+        "workload",
+        "unversioned",
+    ],
+)
+async def test_semantic_processor_rechecks_relationship_proof_before_runtime_profile(
+    state: str,
+) -> None:
+    from fdai.composition.wire_adaptive_conversation import resolve_adaptive_conversation_profile
+    from fdai.core.conversation.adaptive_prompt import ConversationRelationshipKind
+    from fdai_service_contracts import AdaptiveRelationshipProof
+    from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
+
+    request = _request()
+    request["schema_version"] = "1.6.0"
+    semantic = cast(dict[str, object], request["semantic_turn"])
+    semantic["target_agent"] = "Odin"
+    if state == "workload":
+        cast(dict[str, object], semantic["principal"])["principal_kind"] = "workload"
+    if state == "resolver_unavailable":
+        semantic["relationship_unknown_reason"] = "resolver_unavailable"
+    elif state != "unmapped":
+        verified_at = (
+            NOW - timedelta(minutes=2)
+            if state == "expired"
+            else NOW + timedelta(seconds=1)
+            if state == "future"
+            else NOW
+        )
+        semantic["relationship_proof"] = AdaptiveRelationshipProof(
+            target_agent="Bragi" if state == "target" else "Odin",
+            principal_id="another-operator" if state == "principal" else "operator-1",
+            kind="collaborator" if state == "collaborator" else "steward",
+            source_revision="unversioned" if state == "unversioned" else "sha256:example-revision",
+            verified_at=verified_at,
+            expires_at=verified_at + timedelta(seconds=60),
+        ).model_dump(mode="json")
+    runtime = _Runtime()
+    await _processor(runtime).process(
+        ConsumerCodec("operator-core-request", "N", ("1.6.0",)).decode(
+            ProducerCodec("operator-core-request", "N", "1.6.0").encode(request)
+        )
+    )
+    assert runtime.calls == 1
+    assert runtime.target_agents == ["Odin"]
+    assert runtime.principals[0].id == "operator-1"
+    assert runtime.principals[0].role is Role.READER
+    context = runtime.relationships[0]
+    profile = resolve_adaptive_conversation_profile("Odin", "en", context, now=NOW)
+    if state in {"matched", "collaborator"}:
+        assert profile.relationship is not None
+        assert profile.relationship.kind is (
+            ConversationRelationshipKind.COLLABORATOR
+            if state == "collaborator"
+            else ConversationRelationshipKind.STEWARD
+        )
+        assert profile.relationship.source_revision == "sha256:example-revision"
+        assert profile.relationship.is_current_for("Odin", NOW)
+    else:
+        assert context is not None
+        assert context["relationship_status"] == "unknown"
+        assert context["relationship_unknown_reason"] == (
+            "resolver_unavailable"
+            if state == "resolver_unavailable"
+            else "relationship_proof_unavailable"
+            if state == "unmapped"
+            else "proof_revision_unsupported"
+            if state == "unversioned"
+            else "proof_stale_or_mismatched"
+        )
+        assert "verified_relationship" not in context
+        assert profile.relationship is None
+
+
+async def test_action_draft_projection_retains_existing_fields_with_advisory_attachment() -> None:
+    adaptive = AdaptiveAnswer.model_validate(
+        {
+            "answer": "Blue-green deployment separates active and candidate environments.",
+            "goals": [
+                {"goal_id": "concept", "kind": "knowledge", "status": "answered", "required": True}
+            ],
+            "role_agent": "Mimir",
+            "quality_status": "passed",
+        }
+    )
+    result = _runtime_result("action_draft")
+    baseline = _projection(await _processor(_Runtime(result)).process(_request()))
+    projection = _projection(
+        await _processor(_Runtime(replace(result, adaptive_answer=adaptive))).process(_request())
+    )
+    assert projection["schema_version"] == "1.6.0"
+    assert projection["status"] == baseline["status"] == "action_draft"
+    semantic = projection["semantic_result"]
+    assert semantic["adaptive_answer"] == adaptive.model_dump(mode="json", exclude_none=True)
+    assert {key: value for key, value in semantic.items() if key != "adaptive_answer"} == (
+        baseline["semantic_result"]
+    )
+
+
+async def test_advisory_projection_and_replay_preserve_goal_local_support() -> None:
+    adaptive = AdaptiveAnswer.model_validate(
+        {
+            "answer": "An SLO is a measurable service objective.",
+            "goals": [
+                {"goal_id": "concept", "kind": "knowledge", "status": "answered", "required": True},
+                {
+                    "goal_id": "example",
+                    "kind": "environment_example",
+                    "status": "answered",
+                    "required": False,
+                    "evidence_refs": ["inventory:verified-example"],
+                },
+            ],
+            "role_agent": "Bragi",
+            "quality_status": "passed",
+        }
+    )
+    runtime = _Runtime(
+        replace(_runtime_result("held"), disposition="advisory_response", adaptive_answer=adaptive)
+    )
+    processor = _processor(runtime)
+    request = _request()
+    encoded = await processor.process(request)
+    assert await processor.process(request) == encoded
+    assert runtime.calls == 1
+    projection = _projection(encoded)
+    assert projection["schema_version"] == "1.6.0"
+    assert projection["status"] == "advisory_response"
+    semantic = projection["semantic_result"]
+    assert semantic["answer"] == adaptive.answer
+    assert semantic["adaptive_answer"] == adaptive.model_dump(mode="json", exclude_none=True)
+    assert semantic["evidence_refs"] == []
+    assert semantic["checks_total"] == 0
+    assert "execution_receipt_digest" not in semantic
+    assert projection["payload"].get("technical_details") is None
 
 
 async def test_clarification_projection_preserves_specific_question() -> None:

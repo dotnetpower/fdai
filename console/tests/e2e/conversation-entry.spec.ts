@@ -5,21 +5,27 @@ import ko from "../../src/i18n/messages.ko.json" with { type: "json" };
 test.describe.configure({ mode: "serial" });
 
 interface ChatRequest {
+  readonly request_id: string;
   readonly session_id: string;
   readonly prompt: string;
   readonly view_context: Record<string, unknown>;
   readonly history: readonly { readonly content: string }[];
 }
 
-async function openConsole(page: Page, locale = "en") {
+async function openConsole(
+  page: Page,
+  locale = "en",
+  terminal?: (request: ChatRequest) => Record<string, unknown>,
+) {
   const requests: ChatRequest[] = [];
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/chat/stream")) {
-      requests.push(route.request().postDataJSON());
+      const request: ChatRequest = route.request().postDataJSON();
+      requests.push(request);
       await route.fulfill({
         contentType: "text/event-stream",
-        body: `event: done\ndata: ${JSON.stringify({
+        body: `event: done\ndata: ${JSON.stringify(terminal?.(request) ?? {
           seq: 1, revision: 1, answer: "Synthetic test answer.",
           source: "semantic:direct-response", model: "test",
         })}\n\n`,
@@ -120,6 +126,92 @@ test("isolates general and screen drafts, history, context and layout", async ({
 });
 
 for (const { locale, catalog } of [{ locale: "en", catalog: en }, { locale: "ko", catalog: ko }]) {
+  test(`renders and restores ${locale} adaptive sources without a blanket receipt`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const answer = locale === "ko"
+      ? "블루-그린은 트래픽을 한 번에 전환하고, 카나리는 점진적으로 전환합니다."
+      : "Blue-green switches traffic at once; canary shifts traffic gradually.";
+    const requests = await openConsole(page, locale, (request) => ({
+      v: 1, seq: 1, revision: 0, request_id: request.request_id,
+      status: "advisory_response", source: "semantic-advisory-response",
+      answer, execution_authority: false,
+      adaptive_answer: {
+        answer, role_agent: "Bragi", quality_status: "limited", refinements: 0,
+        execution_authority: false,
+        goals: [
+          { goal_id: "explain", kind: "knowledge", required: true,
+            status: "answered", evidence_refs: [], limitation: null },
+          { goal_id: "example", kind: "environment_example", required: false,
+            status: "unavailable", evidence_refs: [],
+            limitation: "adaptive_evidence_budget_exhausted" },
+        ],
+      },
+    }));
+    await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+    await page.getByRole("button", {
+      name: catalog.deck.generalStarters.compare.label, exact: true,
+    }).click();
+    await expect(page.getByText(answer, { exact: true })).toBeVisible();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.view_context).not.toHaveProperty("facts");
+    const sources = page.getByRole("region", { name: catalog.deck.adaptive.sources });
+    await expect(sources.getByText(catalog.deck.adaptive.knowledge, { exact: true })).toBeVisible();
+    await expect(sources.getByText(catalog.deck.adaptive.answered, { exact: true })).toHaveCount(0);
+    const details = sources.locator('[data-goal-id="example"] details');
+    await expect(details.locator("p")).toBeHidden();
+    await details.locator("summary").focus();
+    await page.keyboard.press("Enter");
+    await expect(details.locator("p")).toHaveText("adaptive_evidence_budget_exhausted");
+    await expect(details.locator("p")).toBeVisible();
+
+    await page.locator(".deck-header-history").click();
+    const savedTitle = await page.locator(
+      ".deck-conversation-select[aria-current='true'] .deck-conversation-title",
+    ).innerText();
+    await page.reload();
+    await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+    await page.locator(".deck-header-history").click();
+    await page.locator(".deck-conversation-select").filter({
+      has: page.getByText(savedTitle, { exact: true }),
+    }).click();
+    await expect(page.getByText(answer, { exact: true })).toBeVisible();
+    await expect(sources.getByText(catalog.deck.adaptive.knowledge, { exact: true })).toBeVisible();
+    expect(requests).toHaveLength(1);
+    await expect(page.locator(".deck-overlay")).toHaveClass(/deck-overlay-mode-workspace/);
+    if (await page.locator(".deck-conversations").isVisible()) {
+      await page.locator(".deck-header-history").click();
+    }
+    await details.locator("summary").click();
+    await expect(details.locator("p")).toBeVisible();
+
+    for (const size of [
+      { width: 1440, height: 900 },
+      { width: 993, height: 641 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(size);
+      await sources.scrollIntoViewIfNeeded();
+      const geometry = await sources.evaluate((element) => ({
+        width: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        documentWidth: document.documentElement.clientWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+      }));
+      expect(geometry.width).toBeGreaterThan(0);
+      expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width);
+      expect(geometry.documentScrollWidth).toBeLessThanOrEqual(geometry.documentWidth);
+      await page.screenshot({ path: testInfo.outputPath(`advisory-${locale}-${size.width}.png`) });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await sources.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.locator(".deck-input").fill("Compare again.");
+    await page.locator(".deck-input").press("Enter");
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests[1]?.view_context).not.toHaveProperty("facts");
+    expect(requests[1]?.view_context).not.toHaveProperty("routeId");
+  });
+
   for (const [key, starter] of Object.entries(catalog.deck.generalStarters)) {
     test(`sends ${locale} ${key} starter immediately through normal submission`, async ({ page }) => {
       const requests = await openConsole(page, locale);

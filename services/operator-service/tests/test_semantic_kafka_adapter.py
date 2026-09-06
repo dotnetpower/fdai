@@ -198,6 +198,22 @@ async def test_producer_uses_managed_identity_and_idempotent_sasl_ssl(monkeypatc
     assert producer.stopped == 1
 
 
+async def test_producer_retains_canonical_target_in_v16_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus, _credential = _bus(monkeypatch)
+    request = _request()
+    request["schema_version"] = "1.6.0"
+    semantic = request["semantic_turn"]
+    assert isinstance(semantic, dict)
+    semantic["target_agent"] = "Mimir"
+    await bus.publish("operator.semantic-turn.requests", "request-1", request)
+    await bus.aclose()
+    producer = Producer.latest
+    assert producer is not None
+    assert json.loads(producer.sent[0][2]) == request
+
+
 async def test_producer_allows_only_configured_read_investigation_topic(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
     credential = Credential()

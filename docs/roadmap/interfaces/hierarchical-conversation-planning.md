@@ -58,12 +58,73 @@ is retained only as no-authority planning metadata. Runtime code never substitut
 answer or infers intent from keywords, phrase tables, regular expressions, token matching, or
 hard-coded utterances. No path gains execution authority.
 
+## Adaptive explanation contract
+
+An interactive turn may combine a social act, general knowledge, required operational evidence,
+and optional environment examples. These are separate answer goals, not exclusive chat modes.
+A schema-validated model selects the goals from the complete utterance and bounded history.
+Required knowledge goals cannot select an operational-only route unless a governed action or
+pending decision explicitly owns the handoff. Contradictory plans stop before operational queries.
+Conversation entry mode, keywords, and the selected agent never grant a route or execution authority.
+Pure operational, pending-decision, and incident-bound requests retain the existing verified path.
+
+The adaptive path has a distinct `advisory_response` terminal contract. It does not manufacture
+an operational query receipt for general knowledge. Each goal records its kind, requirement,
+answer status, and server-owned evidence references. Missing optional examples leave the general
+explanation usable; missing required operational evidence remains an explicit held goal.
+Environment examples use only the ordinary principal-scoped verified read runtime. A pair of
+versions alone is not proof of blue-green deployment, and configuration is not proof of execution.
+
+The common conversation policy, exactly one server-owned Pantheon role, locale, and verified
+relationship context select bounded stage-specific prompt layers. User prose, prior turns,
+attachments, and tool output remain data rather than system instructions. Mapping a human to an
+agent changes relevant context, never RBAC, approval, or executor identity. Explicit target and
+durable session binding take precedence over a relationship suggestion.
+
+One independent review checks goal coverage, contradictions, unsupported operational claims,
+and role consistency. A permitted stronger-model refinement can occur at most once, followed by
+independent verification. A model confidence number alone cannot publish an operational claim.
+Time, call-count, input/output, and aggregate token budgets bound the entire adaptive turn.
+Provider rate limits, cancellation, and deadline expiry end the attempt without an unbounded retry.
+Unsafe or unreviewed drafts are not rendered as verified answers.
+
+Design critique: a generic fallback after a failed operational query would hide denials and
+invent evidence. The revised design selects advisory goals before query planning, never converts
+an authorization failure into an ungrounded answer, and preserves the normal action-draft path.
+The shared policy is versioned once, but classifiers, authors, and independent reviewers receive
+different minimal stage inputs. This avoids both contradictory agent copies and a giant universal
+prompt. This implementation starts without any live model invocation or promotion-state change.
+
+### Shared turn limits
+
+The same budget follows verified reads and governed handoffs into their Azure model adapters.
+Each physical request reserves input bytes and output tokens before dispatch, then reconciles
+measured usage. Failed attempts retain their reservation. Read scopes cancel and await active
+provider work; a provider failure cannot start another candidate in that scope.
+
+| Limit | Default |
+|-------|---------|
+| Answer goals and evidence reads | Six goals, at most two read goals |
+| Model calls | Five total, including nested query planning; reads reserve two calls for answer and review |
+| Aggregate tokens | 48000, with conservative pre-dispatch reservations |
+| Time | 60 seconds per turn and 20 seconds per adaptive stage |
+| Stronger-model refinement | At most one, followed by independent verification within the same budget |
+
+Missing ontology state or an invalid operational catalog does not disable an independently valid
+general explanation service. A successful evidence read still
+cannot support prose that the reviewer omitted or rejected. That goal keeps an explicit limitation
+while supported knowledge remains visible. Bounded raw-evidence fallback includes Markdown
+delimiters in its output limit. Governed handoffs retain model observations without counting them twice.
+Outstanding review issues keep quality incomplete even when goal coverage is complete, so a
+permitted refinement is not skipped merely because the reviewer also marked coverage complete.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Adaptive explanations and verified examples | implemented | `current change`; 653 focused Python checks, 209 Console checks, and 10 isolated synthetic browser scenarios passed | General/operational goals, fixed-role prompts, expiring relationship proofs, independent review, bounded refinement, and replay-safe presentation are connected. Live model quality and deployment evidence remain separate. |
 | Compact conversation preflight and social narrator | implemented | `conversation-preflight.v1.yaml`; `conversation-social-narrator.v1.yaml`; act-specific enforce packs; [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py); [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py); focused routing, composition, transport, and prompt tests | A temperature-zero classifier separates greeting, self-introduction, explicit thanks, farewell, acknowledgement, operational, mixed, operational-context, and social-continuity turns before manifest loading. Its schema cannot carry user-facing prose. Eligible social routes compose the common temperature-0.3 persona base with exactly one typed act pack and receive no capability catalog or operational context. The classifier is 531 estimated tokens and 3,599 schema-inclusive system characters; act-specific narrator compositions range from 283-314 estimated tokens and 1,721-1,847 characters. |
 | Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), focused semantic-planning tests | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. T1 is always attempted first. The default typed policy permits one same-stage T2 retry only for T1 unavailability; invalid frames, schemas, builds, and deterministic plan mismatches fail closed. |
 | Owner-controlled aggressive T2 recovery | implemented | `conversation.t2_escalation.aggressive_enabled`; Runtime Settings projection; semantic-turn processor; 640 focused backend checks; Console model test, typecheck, production build, and authenticated Settings save | Development interactive read turns default to one bounded T2 recovery for eligible T1 clarification, unavailability, or rejected frame and plan proposals. Staging and production default off pending promotion evidence. The setting is evaluated per turn without a restart, the original clarification is preserved when T2 remains ambiguous, and Golden campaigns, actions, authorization, evidence verification, and execution authority cannot be widened. |
@@ -82,6 +143,8 @@ hard-coded utterances. No path gains execution authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Completed 11 focused critique and hardening reviews covering evidence, source outages, provider failure, cancellation, budgets, identity, mixed requests, review quality, versioning, replay, and presentation. Identified Medium-or-higher defects were corrected, including catalog outage isolation, missed refinement, contradictory route/goal plans, and restored general conversations acquiring screen context. | `current change`; 653 focused Python checks, 209 Console checks, Console type checks/build, and 10 isolated synthetic E2E scenarios passed. English/Korean desktop, constrained desktop, and mobile views passed horizontal-overflow assertions and screenshot review. | Retain separately authorized live-model and deployment evidence; offline results do not claim promotion or production readiness. |
+| 2026-09-06 | in-progress | Connected adaptive goals, selected-role prompts, trusted relationship proofs, advisory transport, and shared nested-provider limits. | `current change`; `test_adaptive_runtime.py` passed 9 cases, `test_adaptive_provider_budget.py` passed 10 cases, and `test_wire_adaptive_conversation.py` passed 19 cases. | Complete final focused regression and critique evidence before delivery; live model and deployment validation remain separate. |
 | 2026-09-03 | implemented | Registered the extracted Service Health answer renderer as a reviewed presentation-only lexical path. It reads verified machine fields and does not infer operator intent from prose. | `current change`; semantic-routing baseline check and focused Service Health presentation tests. | No remaining work for this audit registration. |
 | 2026-09-03 | implemented | Added a development-default, Owner-controlled aggressive T2 recovery mode with compact typed recovery context and per-turn settings evaluation. The Golden no-T2 profile, action and server-bound holds, deterministic verification, and original clarification fallback remain authoritative. Fixed revisioned Operator settings updates and settings-projection invalidation so a saved toggle applies to later turns without a restart. | `current change`; 640 focused Core, Operator, and local-start checks passed; Console model test, typecheck, and production build passed; focused Ruff and strict mypy passed; authenticated Console save advanced revision 1 to 2 and a live question emitted the typed T2 escalation. | The configured T2 provider returned HTTP 429 during the live recovery, so retain a successful authenticated answer receipt before claiming validated or promoting the staging and production default. |
 | 2026-09-01 | implemented | Verified the bounded semantic normalization on the committed revision through the VPN-routed private Foundry endpoint. The exact ten-case source cohort passed 10/10 with no execution authority, and the stop marker plus existing assurance ledgers were restored to and verified against their original digests. | Source `31002f3db70649ceb6844dc8ea59798ba7aa4d13`; source-bound ledger digest `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`; exact result 10/10. | Propose the bilingual 20-case follow-up without starting it. Keep the 100-case campaign disabled. |
@@ -112,6 +175,8 @@ hard-coded utterances. No path gains execution authority.
 
 ### Remaining work
 
+- [x] Complete the adaptive conversation critique campaign with no unresolved finding above Low;
+  focused implementation and isolated browser evidence are recorded in the current-change history.
 - [ ] Complete release-derived descriptor generations and independently validated atomic activation for
     every readable ontology declaration and runtime availability state.
 - [ ] Bind the remaining temporal, metric-series, evidence-join, causal, relationship-side, and

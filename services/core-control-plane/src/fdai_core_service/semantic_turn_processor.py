@@ -67,10 +67,13 @@ from fdai_service_contracts.ontology_query import (
     content_digest,
 )
 
+from fdai_core_service.dialogue_relationship import runtime_relationship
+
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_PROJECTION_PRODUCER_V14,
-    OPERATOR_REQUEST_CONSUMER_V15,
+    OPERATOR_PROJECTION_PRODUCER_V16,
+    OPERATOR_REQUEST_CONSUMER_V16,
 )
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -151,6 +154,8 @@ class SemanticTurnRuntime(Protocol):
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         locale: str = "en",
+        target_agent: str = "Bragi",
+        relationship: Mapping[str, object] | None = None,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_resource_context: BoundResourceContext | None = None,
@@ -677,6 +682,9 @@ class SemanticTurnProcessor:
         if runtime is None:  # pragma: no cover - guarded by _execute
             raise RuntimeError("semantic runtime is unavailable")
         runtime_kwargs: dict[str, Any] = {}
+        relationship = runtime_relationship(request, now=self._now())
+        if relationship is not None:
+            runtime_kwargs["relationship"] = relationship
         if bound_resource_context is not None:
             runtime_kwargs["bound_resource_context"] = bound_resource_context
         escalation_policy = await self._escalation_policy(request)
@@ -687,6 +695,7 @@ class SemanticTurnProcessor:
             prior_turns=_prior_turns(request, requested_at=requested_at),
             principal=principal,
             locale=request.locale,
+            target_agent=request.target_agent,
             cancelled=runtime_cancelled,
             bound_incident=_bound_incident(request),
             bound_investigation_continuation=_bound_investigation_continuation(request),
@@ -831,7 +840,7 @@ class SemanticTurnProcessor:
                     mode="json"
                 )
         projection = {
-            "schema_version": "1.4.0",
+            "schema_version": ("1.6.0" if result.adaptive_answer is not None else "1.4.0"),
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
@@ -853,7 +862,12 @@ class SemanticTurnProcessor:
             )
             if encoded_size > MAX_WIRE_BYTES:
                 raise _OperationalEvidenceWireBudgetExceededError
-        return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
+        codec = (
+            OPERATOR_PROJECTION_PRODUCER_V16
+            if projection["schema_version"] == "1.6.0"
+            else OPERATOR_PROJECTION_PRODUCER_V14
+        )
+        return codec.encode(projection)
 
     async def _pantheon_assurance_projection(
         self,
@@ -965,7 +979,7 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V15.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V16.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -1136,6 +1150,23 @@ def _project_runtime_result(
     result: RuntimeSemanticTurnResult,
 ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
     model_extensions = _semantic_model_extensions(request, result)
+    if result.disposition == "advisory_response":
+        adaptive_answer = result.adaptive_answer
+        if adaptive_answer is None:
+            return _terminal_result(request, "held", "semantic_runtime_failed"), model_extensions
+        return (
+            ContractSemanticTurnResult(
+                disposition=SemanticTurnDisposition.ADVISORY_RESPONSE,
+                reason_code="semantic_advisory_response",
+                semantic_route="semantic_advisory_response",
+                session_id=request.session_id,
+                turn_id=request.turn_id,
+                turn_sequence=request.turn_sequence,
+                answer=adaptive_answer.answer,
+                adaptive_answer=adaptive_answer,
+            ),
+            model_extensions,
+        )
     if result.disposition == "direct_response":
         intent = result.planning.direct_response_intent
         answer = result.planning.direct_response_answer
@@ -1205,6 +1236,10 @@ def _project_runtime_result(
                 disposition=disposition,
             ),
         )
+        if disposition == "action_draft" and result.adaptive_answer is not None:
+            terminal = ContractSemanticTurnResult.model_validate(
+                {**terminal.model_dump(), "adaptive_answer": result.adaptive_answer}
+            )
         continuation = None
         if result.disposition == "held" and result.execution is not None:
             continuation = _project_investigation_continuation(
@@ -4928,6 +4963,8 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         raise SemanticTurnRejectedError("semantic_idempotency_conflict")
     if loaded.get("schema_version") == "1.3.0":
         return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
+    if loaded.get("schema_version") == "1.6.0":
+        return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
     return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 

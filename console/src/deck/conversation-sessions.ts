@@ -69,6 +69,10 @@ export function newGeneralConversationKey(userScope: string, nonce: string = new
   return userConversationKey(userScope, `general:conversation:${nonce}`);
 }
 
+function isGeneralConversationKey(key: string): boolean {
+  return key.includes(":general:conversation:");
+}
+
 /** Accept only fixed Pantheon names as browser-side agent target hints. */
 export function normalizeAgentTarget(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -103,10 +107,11 @@ export interface ConversationGroups {
   readonly agents: readonly ConversationSummary[];
 }
 
-/** Legacy screen threads keep their original context; agent bindings never inherit a screen. */
+/** Restore explicit general namespaces without treating titles or creation routes as context. */
 export function conversationContextMode(summary: ConversationSummary | undefined): DeckContextMode {
   return summary?.contextMode ??
-    (summary?.agent || summary?.binding ? "general" : "screen");
+    (summary?.agent || summary?.binding || (summary && isGeneralConversationKey(summary.key))
+      ? "general" : "screen");
 }
 
 export function screenConversationSummary(
@@ -160,7 +165,7 @@ export function serverConversationSummary(
   );
   return {
     key: record.conversation_id,
-    ...(record.conversation_id.includes(":general:conversation:")
+    ...(isGeneralConversationKey(record.conversation_id)
       ? { contextMode: "general" as const }
       : {}),
     label: agentName ?? record.first_operator_question ?? routeLabel,

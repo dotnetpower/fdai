@@ -554,6 +554,14 @@ class OntologyQueryPlanVerifier:
                 errors = list(Draft202012Validator(property_schema).iter_errors(value))
                 if errors:
                     raise ValueError("function static argument violates input_schema")
+        if function_name == "query.ontology_relationships":
+            object_types = static_arguments.get("object_types")
+            if not isinstance(object_types, list) or any(
+                ("object", name) not in descriptors for name in object_types
+            ):
+                raise ValueError(
+                    "ontology relationship endpoints must exist in the principal manifest"
+                )
 
     @staticmethod
     def _verify_dependency_fields(

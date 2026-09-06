@@ -13,6 +13,7 @@ from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
     verify_presentation_artifact_v3,
 )
+from fdai_service_contracts import AdaptiveAnswer
 
 MAX_PRESENTATION_FACTS = 256
 MAX_PRESENTATION_TEXT_CHARS = 16_000
@@ -119,6 +120,8 @@ class PresentationEnvelope:
     web_url: str | None = None
     artifact_degraded: bool = False
     execution_authority: Literal[False] = False
+    adaptive_answer: AdaptiveAnswer | None = None
+    locale: Literal["en", "ko"] = "en"
 
     def __post_init__(self) -> None:
         _text(self.canonical_text, MAX_PRESENTATION_TEXT_CHARS, allow_line_breaks=True)
@@ -165,6 +168,45 @@ def normalize_terminal_presentation(
         allow_line_breaks=True,
     )
     status = _text(terminal.get("status"), 64)
+    if status == "advisory_response":
+        adaptive = AdaptiveAnswer.model_validate(terminal.get("adaptive_answer"))
+        if (
+            answer != adaptive.answer
+            or terminal.get("execution_authority") is not False
+            or terminal.get("source") != "semantic-advisory-response"
+            or any(
+                terminal.get(key) is not None
+                for key in (
+                    "verification",
+                    "semantic_receipt",
+                    "presentation_artifact",
+                    "action_draft",
+                    "document_artifact",
+                    "intent_graph",
+                    "intent_graph_evidence",
+                )
+            )
+        ):
+            raise ValueError("advisory presentation MUST retain only goal-local support")
+        return PresentationEnvelope(
+            canonical_text=answer,
+            artifact_version=None,
+            sections=(),
+            limitations=(),
+            evidence_refs=(),
+            authority="no_execution_authority",
+            unavailable=False,
+            web_url=web_url,
+            adaptive_answer=adaptive,
+            locale="ko" if terminal.get("locale") == "ko" else "en",
+        )
+    adaptive_attachment = (
+        AdaptiveAnswer.model_validate(terminal["adaptive_answer"])
+        if status == "action_draft" and terminal.get("adaptive_answer") is not None
+        else None
+    )
+    if terminal.get("adaptive_answer") is not None and adaptive_attachment is None:
+        raise ValueError("only advisory presentation can carry an adaptive answer")
     raw_verification = terminal.get("verification")
     verification = (
         {}
@@ -211,6 +253,8 @@ def normalize_terminal_presentation(
         unavailable=status not in {"answered", "direct_response"},
         web_url=web_url,
         artifact_degraded=degraded,
+        adaptive_answer=adaptive_attachment,
+        locale="ko" if terminal.get("locale") == "ko" else "en",
     )
 
 
@@ -222,8 +266,11 @@ def build_fallback_text(
     sections: list[str] = []
     if envelope.limitations:
         sections.append("Limitations:\n" + "\n".join(f"- {item}" for item in envelope.limitations))
-    evidence = "\n".join(f"- {item}" for item in envelope.evidence_refs) or "- none recorded"
-    sections.append("Evidence:\n" + evidence)
+    if envelope.adaptive_answer is not None:
+        sections.append(_advisory_sources(envelope.adaptive_answer, locale=envelope.locale))
+    if envelope.adaptive_answer is None or envelope.evidence_refs:
+        evidence = "\n".join(f"- {item}" for item in envelope.evidence_refs) or "- none recorded"
+        sections.append("Evidence:\n" + evidence)
     sections.append(f"Authority: {envelope.authority}\nExecution authority: none")
     if envelope.unavailable:
         sections.append("Availability: unavailable")
@@ -234,6 +281,12 @@ def build_fallback_text(
     if available < 1:
         raise PresentationRenderError("mandatory channel presentation text exceeds the limit")
     canonical = envelope.canonical_text
+    if (
+        envelope.adaptive_answer is not None
+        and envelope.adaptive_answer.answer != envelope.canonical_text
+    ):
+        explanation = "보충 설명" if envelope.locale == "ko" else "Supporting explanation"
+        canonical += f"\n\n{explanation}:\n{envelope.adaptive_answer.answer}"
     degraded = envelope.artifact_degraded
     if len(canonical) > available:
         marker = "\n[CHANNEL TEXT TRUNCATED]"
@@ -242,6 +295,31 @@ def build_fallback_text(
         canonical = canonical[: available - len(marker)].rstrip() + marker
         degraded = True
     return canonical + "\n\n" + mandatory, degraded
+
+
+def _advisory_sources(answer: AdaptiveAnswer, *, locale: str) -> str:
+    korean = locale == "ko"
+    kinds = {
+        "knowledge": "일반 지식" if korean else "General knowledge",
+        "environment_example": "현재 환경의 예시" if korean else "Environment example",
+        "operational": "운영 맥락" if korean else "Operational context",
+    }
+    statuses = {
+        "answered": "근거 확인됨" if korean else "Verified support",
+        "unavailable": "확인할 수 없음" if korean else "Unavailable",
+        "held": "보류됨" if korean else "Held",
+    }
+    owner = "응답 담당" if korean else "Response owner"
+    lines = [f"{owner}: {answer.role_agent}"]
+    for goal in answer.goals:
+        label = kinds[goal.kind]
+        if goal.kind != "knowledge" or goal.status != "answered":
+            label += f" - {statuses[goal.status]}"
+        lines.append(f"- [{goal.goal_id}] {label}")
+        if goal.limitation is not None:
+            lines.append(f"  {goal.limitation}")
+        lines.extend(f"  - {ref}" for ref in goal.evidence_refs)
+    return "\n".join(lines)
 
 
 def serialized_size(body: Mapping[str, object]) -> int:

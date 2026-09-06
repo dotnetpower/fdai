@@ -398,10 +398,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
-This repository is the **main project**. Per-customer customization is supplied by **dependency injection**, never by editing `core/` or
-maintaining a divergent copy of it. The upstream repo defines the interfaces and ships generic default implementations; a fork **registers
-its own implementations** at a composition root, so customization is additive and upstream sync stays clean (see the fork model in
-[generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+Upstream defines generic interfaces and working defaults. Forks customize through dependency injection at their own composition root, without editing or copying `core/`; see [the fork model](../../../.github/instructions/generic-scope.instructions.md).
 
 > **Fork maintainers**: start with the procedural walkthrough in
 > [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md). This section is the seam catalog
@@ -420,6 +417,9 @@ its own implementations** at a composition root, so customization is additive an
   prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
+- **Adaptive conversation**: `build_semantic_query_runtime(adaptive_service=...)` accepts an
+  `AdaptiveConversationService` with injected `AdaptiveModel` and `AdaptivePolicy`. Fixed roles,
+  independent review, shared provider budgets, and the verified evidence reader remain required.
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
   graph, owner, policy, dry-run, and safety facts for an immutable operational case. Azure cache
   freshness is evaluated against the current evaluation clock with bounded age and future skew,

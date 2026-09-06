@@ -2,13 +2,13 @@
   "schema_version": "1.0.0",
   "generator": {
     "implementation": "scripts/quality/contracts/generate_service_contracts.py",
-    "version": "1.0.0",
-    "sha256": "sha256:2800b0836754252631a81ebc1862e46477b9436ee596ad510226332043035a44"
+    "version": "1.1.0",
+    "sha256": "sha256:df31274ce34100632970081d0d022087e42d8f6c00bc5df5950cfab78196dc90"
   },
   "source": {
     "manifest": "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json",
     "authority": "JSON Schema Draft 2020-12",
-    "selection": "Every distinct N and N-1 producer schema declared by the compatibility manifest"
+    "selection": "Every distinct N and N-1 producer schema and every consumer-accepted schema version declared by the compatibility manifest"
   },
   "targets": [
     {
