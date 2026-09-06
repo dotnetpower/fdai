@@ -489,7 +489,39 @@ def _normalize_gateway_diagnostic_time_scope(
         )
     ):
         return proposal, frame
-    normalized = proposal.model_copy(update={"temporal_scope": {"window_seconds": 3_600}})
+    resource_targets = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"resource", "resource_id"}
+        and not operational_target_is_generic(target.value)
+    )
+    backend_targets = tuple(
+        target
+        for target in judgment.targets
+        if target.kind in {"backend", "backend_id", "backend_name", "model"}
+    )
+    if len(resource_targets) != 1 or len(backend_targets) > 1:
+        return proposal, frame
+    resource = resource_targets[0]
+    resource_field = (
+        "id" if resource.kind == "resource_id" or resource.value.startswith("/") else "name"
+    )
+    constraints = ["Resource", f"Resource.{resource_field}={resource.value}"]
+    if backend_targets:
+        backend = backend_targets[0]
+        backend_field = {
+            "backend": "name",
+            "backend_id": "id",
+            "backend_name": "name",
+            "model": "model_name",
+        }[backend.kind]
+        constraints.append(f"Backend.{backend_field}={backend.value}")
+    normalized = proposal.model_copy(
+        update={
+            "subject_constraints": tuple(constraints),
+            "temporal_scope": {"window_seconds": 3_600},
+        }
+    )
     return normalized, build_semantic_frame(normalized, utterance=utterance, context=context)
 
 

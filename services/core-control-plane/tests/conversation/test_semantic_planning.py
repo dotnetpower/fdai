@@ -1884,6 +1884,55 @@ def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
 
     assert normalized.temporal_scope == {"window_seconds": 3_600}
     assert normalized_frame.temporal_scope == {"window_seconds": 3_600}
+    assert normalized.subject_constraints == ("Resource", "Resource.name=agw-example")
+
+
+def test_gateway_judgment_replaces_model_substituted_root() -> None:
+    utterance = "Compare agw-prod with backend-prod over the last hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(kind="backend", value="backend-prod", source_start=22, source_end=34),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=44,
+                source_end=53,
+            ),
+        ),
+        requested_facets=("latency", "last_hour"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource", "Resource.name=backend-prod"],
+            temporal_scope={},
+            output_shape="gateway_diagnostic_evidence",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    normalized, normalized_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert normalized.subject_constraints == (
+        "Resource",
+        "Resource.name=agw-prod",
+        "Backend.name=backend-prod",
+    )
+    assert normalized_frame.subject_constraints == normalized.subject_constraints
 
 
 @pytest.mark.parametrize(

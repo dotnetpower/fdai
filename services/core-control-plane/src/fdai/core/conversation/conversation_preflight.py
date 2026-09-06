@@ -518,6 +518,7 @@ def preflight_operational_judgment(
             and target_kinds.count("time_range") == 1
             and target_kinds.count("backend") <= 1
             and target_kinds.count("model") <= 1
+            and target_kinds.count("backend") + target_kinds.count("model") <= 1
             and len(target_kinds) == len(set(target_kinds))
             and bool(facets)
             and facets <= _GATEWAY_FACETS

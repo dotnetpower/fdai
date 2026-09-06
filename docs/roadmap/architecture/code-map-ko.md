@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f209dde856c4df808a9621a108fff2562c1f80e4
+translation_source_sha: 6cbc2c758166657916c49483b9a329ca0e1b1257
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -83,6 +83,9 @@ Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선�
 target을 요구합니다.
 Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합니다. 비어 있거나 다른 모델
 범위가 compiler의 15분 기본값으로 바뀌지 않습니다.
+또한 judgment의 원문 기반 target에서 gateway root와 선택적 backend 제약을 다시 만듭니다. 모델
+frame은 backend를 gateway root로 바꿀 수 없으며 빠른 경로는 backend 또는 model filter 하나만
+수락합니다.
 Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
 모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
 만들 수 없습니다.

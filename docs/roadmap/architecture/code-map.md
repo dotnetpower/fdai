@@ -83,6 +83,9 @@ Gateway preflight reuse requires that past-hour target instead of silently selec
 compiler's default window.
 Core then rewrites the accepted gateway frame to `window_seconds=3600`; an empty or different model
 scope cannot fall back to the compiler's 15-minute default.
+It also rebuilds the gateway root and optional backend constraint from the judgment's source-grounded
+targets. A model frame cannot substitute a backend as the gateway root, and the fast path accepts
+at most one backend-or-model filter.
 For a restarted Core, the standard launcher emits `ready` only after a post-launch semantic
 consumer and fresh Pantheon heartbeat are both visible. A previous process's heartbeat cannot make
 the replacement process ready.
