@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: d6a43df85536c20d6b3af6c7917be5b0a81dd721
+translation_source_sha: 40eac02fce2264b2802d5007b894cf998fe011fd
 translation_revised: 2026-09-06
 ---
 # 폐쇄망 배포
@@ -30,7 +30,7 @@ translation_revised: 2026-09-06
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
 | 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 라이브러리를 포함한 현재 배포판 7개를 해시와 설치 결과 재확인으로 설치합니다. 런타임 서비스는 시작하지 않습니다. |
-| 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 9개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
+| 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
 | Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
 | 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
 
@@ -43,6 +43,7 @@ translation_revised: 2026-09-06
 | 2026-09-06 | implemented | 사전 준비된 이미지로 초기 구성하고 설치 시 공개 설정을 넣는 테넌트 독립 Console 빌드를 추가했습니다. | `current change`; 모의 초기 구성 계획, Python·Console 설정 테스트, Console 타입 검사 및 오프라인 빌드; 이슈 #461 | 실제 최초 설치 실행기, 비공개 이미지 게시, 초기 리소스 검색, 독립적인 Console 재확인을 연결합니다. |
 | 2026-09-06 | implemented | 활성 서비스 환경을 변경하지 않는 고정 런타임 휠 구성 및 인증된 오프라인 지원 환경 설치를 추가했습니다. | `current change`; 집중 구성·설치 테스트와 실제 휠의 네트워크 격리 설치 및 5개 서비스 진입 모듈 로드 성공 | 승인된 마이그레이션과 애플리케이션 실행에 지원 페이로드를 연결하고 실제 Azure 및 Console 증적을 보존합니다. |
 | 2026-09-06 | implemented | 평문 입력이나 새 암호 출력 없이 선택적으로 최초 PostgreSQL 자격 증명을 생성하도록 추가했습니다. | `current change`; 모의 Terraform 검증 9개로 기본 동작, 모호한 입력, 민감성, 실제 상태 저장소 모듈 연결을 확인했습니다. | 승인된 비공개 호스트 적용과 영속 상태 재확인을 보존하며 모의 근거를 클라우드 설치로 해석하지 않습니다. |
+| 2026-09-06 | implemented | CI 호환 계획 검증이 루트 연결을 별도 회귀 테스트로 옮긴 뒤 자격 증명 테스트 근거를 정정했습니다. | `current change`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개가 통과했습니다. | 승인된 비공개 호스트 적용과 영속 상태 재확인을 보존하며 모의 근거를 클라우드 설치로 해석하지 않습니다. |
 
 ### 남은 작업
 

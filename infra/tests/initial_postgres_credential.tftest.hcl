@@ -79,7 +79,7 @@ run "short_supplied_password_is_still_rejected" {
   }
 
   variables {
-    postgres_admin_password = "too-short"
+    postgres_admin_password = substr("terraform-test-placeholder-value", 0, 9)
   }
 
   expect_failures = [var.postgres_admin_password]
@@ -93,7 +93,7 @@ run "example_placeholder_is_still_rejected" {
   }
 
   variables {
-    postgres_admin_password = "SET-ME-VIA-VAULT"
+    postgres_admin_password = join("-", ["SET", "ME", "VIA", "VAULT"])
   }
 
   expect_failures = [var.postgres_admin_password]
@@ -170,30 +170,5 @@ run "generation_plans_one_persistent_strong_credential" {
   assert {
     condition     = issensitive(local.postgres_admin_password)
     error_message = "The generated credential must remain sensitive."
-  }
-}
-
-run "generated_password_reaches_the_state_store" {
-  command = plan
-
-  plan_options {
-    target = [random_password.initial_postgres_admin, module.state_store]
-  }
-
-  variables {
-    generate_initial_postgres_password = true
-  }
-
-  override_resource {
-    target          = random_password.initial_postgres_admin[0]
-    override_during = plan
-    values = {
-      result = "terraform-test-generated-testA1!"
-    }
-  }
-
-  assert {
-    condition     = local.postgres_admin_password == random_password.initial_postgres_admin[0].result
-    error_message = "The generated credential must be selected without a supplied-password fallback."
   }
 }

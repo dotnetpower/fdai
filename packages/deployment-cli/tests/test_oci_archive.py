@@ -320,7 +320,15 @@ def test_member_oversize_is_rejected_before_reading_content(tmp_path: Path) -> N
     fixture = make_archive(tmp_path / "image.tar")
     oversized = tarfile.TarInfo("blobs/sha256/" + "b" * 64)
     oversized.size = offline_kit._MAX_FILE_BYTES + 1
-    write_archive(fixture.path, fixture.entries, extras=[(oversized, b"")])
+    with tarfile.open(fixture.path, "r:") as source:
+        terminator = max(
+            member.offset_data + ((member.size + 511) // 512) * 512
+            for member in source.getmembers()
+        )
+    archive = fixture.path.read_bytes()
+    fixture.path.write_bytes(
+        archive[:terminator] + oversized.tobuf(format=tarfile.USTAR_FORMAT) + bytes(1024)
+    )
     with pytest.raises(OciArchiveError, match="limit"):
         validate_oci_archive(fixture.path, **fixture.expectations())
 

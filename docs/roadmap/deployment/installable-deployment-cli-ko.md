@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d796c5e863a8d244107d710944bfeaf26119f4e9
+translation_source_sha: 220afbe4abe4eaedb823c902b8487edd414e87a4
 translation_revised: 2026-09-06
 ---
 # 설치형 배포 CLI
@@ -103,9 +103,9 @@ Sentinel 검증은 서술자 검사 전에 최종 구성 요소를 비차단 모
 재개를 멈추게 할 수 없습니다.
 생성되는 자식 파일은 상위 디렉터리 서술자를 유지한 배타적 심볼릭 링크 차단 writer를 사용합니다.
 재개 시 최종 항목만 제거하고 `O_EXCL`로 다시 만들므로 링크나 이름 있는 파이프가 쓰기를
-돌릴 수 없습니다. 향후 보호된 실행기는 검증된 단일 플랫폼 OCI 보관 하나를 게시하거나
-명시적 최초 소유자를 대상으로 테넌트에 결속된 Entra 앱과 그룹을 조정할 수 있습니다.
-두 경로 모두 독립적 readback을 요구하고 공개 변경 명령이나 자체 권한을 제공하지 않습니다.
+돌릴 수 없습니다. 향후 보호된 실행기는 검증된 OCI 보관 하나를 게시하거나 테넌트에 결속된
+Entra 객체를 조정할 수 있습니다. 두 경로 모두 readback과 비공개 변경 경계를 요구하며,
+검증은 패키지/루트 수집과 Python 3.13 보관 파싱을 포함합니다.
 release 작업 디렉터리를 만들거나 재개하기 전에 guard는 모든 상위 디렉터리를 root 또는 현재
 UID가 소유하도록 요구합니다. 그룹 또는 전체 쓰기가 가능한 상위 디렉터리에는 sticky bit가
 있어야 하므로 다른 UID가 정리 전에 검증된 작업 디렉터리를 교체할 수 없습니다.

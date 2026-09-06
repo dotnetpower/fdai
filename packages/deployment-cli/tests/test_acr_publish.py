@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib
 import json
 import socket
 import ssl
+import sys
 import threading
 import time
 from collections.abc import Iterable, Mapping
@@ -20,7 +22,14 @@ from fdai_deployment_cli.acr_publish import (
     publish_oci_archive,
 )
 from fdai_deployment_cli.oci_archive import OciArchiveError
-from test_oci_archive import ArchiveFixture, make_archive, write_archive
+
+_TESTS = str(Path(__file__).parent)
+if _TESTS not in sys.path:
+    sys.path.insert(0, _TESTS)
+test_oci_archive = importlib.import_module("test_oci_archive")
+ArchiveFixture = test_oci_archive.ArchiveFixture
+make_archive = test_oci_archive.make_archive
+write_archive = test_oci_archive.write_archive
 
 REGISTRY = "example.azurecr.io"
 REPOSITORY = "fdai/operator-service"

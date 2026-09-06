@@ -37,7 +37,7 @@ The production deployer permission boundary is owned by
 #### What Terraform does not create
 
 Terraform owns the inventory below, but four external inputs must exist before the first apply.
-For a fresh database, supply its administrator password through the protected input or explicitly opt into persistent Terraform generation; enabling generation for an existing server is a separately approved credential change.
+For a fresh database, supply its administrator password through the protected input or explicitly opt into persistent Terraform generation; enabling generation for an existing server is a separately approved credential change. Reference plans stay compatible with Terraform `>= 1.9`, and root wiring is checked separately.
 
 - **The deployer identity and its role-assignment permission.** Creating the executor identity and
   its scoped roles needs User Access Administrator; Contributor alone plans and then fails.
