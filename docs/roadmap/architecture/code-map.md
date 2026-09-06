@@ -90,6 +90,8 @@ at most one backend-or-model filter. Path-shaped backend ARM targets bind to `Ba
 `Backend.name`.
 Only an accepted semantic judgment can drive these frame normalizations; ambiguous, low-confidence,
 or otherwise rejected proposals cannot rewrite frame scope or identity.
+Configuration and gateway operational output shapes also require an accepted judgment for the same
+family. A rejected judgment cannot fall through to a model frame and recover an operational plan.
 For a restarted Core, the standard launcher emits `ready` only after a post-launch semantic
 consumer and fresh Pantheon heartbeat are both visible. A previous process's heartbeat cannot make
 the replacement process ready.

@@ -28,6 +28,7 @@ from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvide
 from fdai.core.conversation.semantic_planning import (
     SemanticPlanningService,
     _descriptors_for_judgment,
+    _operational_frame_matches_accepted_judgment,
     _plan_node_summary,
 )
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
@@ -1765,6 +1766,41 @@ def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
     )
 
     assert _descriptors_for_judgment(descriptors, judgment) is descriptors
+
+
+def test_operational_frame_requires_accepted_matching_judgment() -> None:
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_configuration_changes",
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_configuration_changes",
+        judgment=judgment,
+        judgment_accepted=False,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="gateway_diagnostic_evidence",
+        judgment=judgment,
+        judgment_accepted=True,
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="resource_configuration_changes",
+        judgment=judgment,
+        judgment_accepted=True,
+    )
+    assert _operational_frame_matches_accepted_judgment(
+        output_shape="resource_list",
+        judgment=None,
+        judgment_accepted=False,
+    )
 
 
 @pytest.mark.parametrize(

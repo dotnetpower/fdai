@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ccd3bb6a0057a8d051c7780af4e1d365f1f3c801
+translation_source_sha: 9bcde841745910756ae1ca0158eabc778b54c77a
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -89,6 +89,8 @@ frame은 backend를 gateway root로 바꿀 수 없으며 빠른 경로는 backen
 수락합니다. 경로 형태 backend ARM target은 `Backend.name`이 아니라 `Backend.id`로 결속합니다.
 수락된 semantic judgment만 이러한 frame 정규화를 적용할 수 있습니다. 모호하거나 확신도가 낮거나
 수락되지 않은 제안은 frame 범위나 신원을 다시 쓸 수 없습니다.
+Configuration 및 gateway 운영 output shape는 같은 family의 수락된 judgment도 요구합니다. 수락되지
+않은 judgment는 모델 frame으로 fallback해 운영 plan을 다시 만들 수 없습니다.
 Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
 모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
 만들 수 없습니다.

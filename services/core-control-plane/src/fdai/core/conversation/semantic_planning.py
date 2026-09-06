@@ -117,6 +117,10 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
         }
     ),
 }
+_OPERATIONAL_OUTPUT_INTENTS = {
+    "resource_configuration_changes": "query.resource_configuration_changes",
+    "gateway_diagnostic_evidence": "query.gateway_diagnostic_evidence",
+}
 
 _SAFE_VALIDATION_REASONS = frozenset(
     {
@@ -240,6 +244,18 @@ def _semantic_judgment_capabilities(
             capability["operation"] = operation
         capabilities.append(capability)
     return tuple(capabilities)
+
+
+def _operational_frame_matches_accepted_judgment(
+    *,
+    output_shape: str,
+    judgment: SemanticJudgmentProposal | None,
+    judgment_accepted: bool,
+) -> bool:
+    required_intent = _OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
+    if required_intent is None:
+        return True
+    return judgment_accepted and judgment is not None and judgment.primary_intent == required_intent
 
 
 class SemanticPlanningService:
@@ -629,6 +645,18 @@ class SemanticPlanningService:
                     )
                 )
             proposal, frame, investigation_intent = frame_result
+            if not _operational_frame_matches_accepted_judgment(
+                output_shape=frame.output_shape,
+                judgment=judgment_proposal,
+                judgment_accepted=(judgment_decision is not None and judgment_decision.accepted),
+            ):
+                return finish(
+                    _outcome(
+                        SemanticPlanningDisposition.UNAVAILABLE,
+                        "semantic_operational_judgment_required",
+                        manifest_digest=manifest.manifest_digest,
+                    )
+                )
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
             declared_subject_types = {
