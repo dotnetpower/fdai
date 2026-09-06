@@ -10,7 +10,11 @@ import type { ViewSnapshot } from "./context";
 import { askBackend } from "./backend";
 import { healthUrl, requestHeaders } from "./backend-endpoints";
 import { createBackendHealthProbe } from "./backend-health";
-import { createBackendRequestPayload, snapshotCitations } from "./backend-context";
+import {
+  citationsForVerification,
+  createBackendRequestPayload,
+  snapshotCitations,
+} from "./backend-context";
 import { parseRouter } from "./backend-normalizers";
 import { setChatAuth } from "./auth";
 import { resetConsolePreferences, setConsolePreference } from "../preferences";
@@ -403,6 +407,21 @@ describe("snapshotCitations", () => {
       value: "1 row(s) - direction: incoming; link type: contains; source: example-resource-group; target: kubernetes-cluster",
     });
     expect(citations.at(-1)?.value).not.toContain("nested");
+  });
+
+  test("does not present screen context as evidence for an unverified server hold", () => {
+    expect(citationsForVerification(liveSnap(), {
+      status: "unverified",
+      authority: "unavailable",
+      checks_completed: 0,
+      checks_total: 0,
+      evidence_refs: [],
+      reason_code: "semantic_evidence_held",
+    })).toEqual([]);
+  });
+
+  test("uses screen context only when no server verification result exists", () => {
+    expect(citationsForVerification(liveSnap(), undefined)).toEqual(snapshotCitations(liveSnap()));
   });
 });
 

@@ -225,7 +225,7 @@ export function citationsForVerification(
   snapshot: ViewSnapshot | null,
   verification: AnswerVerification | undefined,
 ): readonly { readonly label: string; readonly value?: string }[] {
-  if (verification && verification.evidence_refs.length > 0) {
+  if (verification) {
     return verification.evidence_refs.map((reference, index) => ({
       label: `evidence.${index + 1}`,
       value: reference,
