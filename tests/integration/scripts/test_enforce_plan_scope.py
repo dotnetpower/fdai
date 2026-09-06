@@ -58,14 +58,20 @@ def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> No
     storage = "module.operational_history_storage[0].azurerm_storage_account.case_history"
     endpoint = "azurerm_private_endpoint.operational_history_blob[0]"
     job = "azurerm_container_app_job.operational_history_lifecycle[0]"
+    ownership = "module.resource_group.terraform_data.ownership"
 
     assert enforce(
-        _plan(storage, endpoint, job),
+        _plan(storage, endpoint, job, ownership),
         mode="operational-history",
-    ) == frozenset({storage, endpoint, job})
+    ) == frozenset({storage, endpoint, job, ownership})
     with pytest.raises(ValueError, match="outside its bounded scope"):
         enforce(
             _plan(storage, "module.compute.azurerm_container_app.core"),
+            mode="operational-history",
+        )
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(
+            _plan(storage, "module.resource_group.azurerm_resource_group.primary[0]"),
             mode="operational-history",
         )
 
