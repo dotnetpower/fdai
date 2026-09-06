@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: a8adcb751900b2987f6232e9ccddb6cc73cd3480
+translation_source_sha: 8e827cd69904198775777207c7a4be2af33faa6c
 translation_revised: 2026-09-06
 ---
 # 서술기 라우팅과 지연 시간
@@ -323,6 +323,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | T1 상태 판독기를 기존 의미 런타임 facade를 통해 가져오도록 구성해 로컬 및 배포 Operator 조립이 같은 바인딩을 유지하면서 최상위 모듈이 검토된 fanout 상한 아래에 머물게 했습니다. | `current change`; Operator 경계 검사에서 고유 가져오기 39개를 확인했고 조립 및 T1 상태 집중 검사 92개와 Ruff가 통과했습니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
 | 2026-09-05 | implemented | 인시던트 및 적응형 답변을 개선하고 완료 후에도 조사 기록을 유지하며, 대화를 막지 않는 인라인 합성 Markdown 프롬프트 보기를 추가했습니다. | `current change`; 위에 나열한 시안 Playwright 파일 세 개의 집중 시나리오, 공용 스타일 검사, Console 타입 검사를 통과했습니다. | 프로덕션 도입에는 별도 검토와 인증 및 권한 범위에 맞는 근거가 필요합니다. 런타임 프롬프트 수집을 구현했다고 주장하지 않습니다. |
 | 2026-09-02 | implemented | T2를 개인화하거나 작업 권한을 부여하지 않으면서 리비전으로 보호된 답변 연속성 및 프롬프트 ablation 설정, 시작 시 일관된 Core 스냅샷, 지역화된 콘솔 control을 추가했습니다. | `current change`, 프롬프트 조립 구현 기록의 집중 Core, Operator 및 콘솔 검사입니다. | 런타임 검증을 주장하기 전에 통제된 shadow 캠페인을 보존합니다. |
 | 2026-08-28 | implemented | Benchmark 기간을 호출자가 작성하지 못하게 하고 PR/카나리/릴리스 환경 불일치를 차단하는 단계 소유자 증적 adapter를 추가했습니다. | `current change`; 집중 Core latency 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 단계 소유자에 증적을 연결하고 통제 근거를 보존해야 합니다. |

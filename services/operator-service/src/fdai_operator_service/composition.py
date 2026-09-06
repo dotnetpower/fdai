@@ -60,8 +60,8 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
     SemanticTurnResultSource,
+    T1ModelHealthReader,
 )
-from fdai_operator_service.families.conversation.t1_model_health import T1ModelHealthReader
 from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
