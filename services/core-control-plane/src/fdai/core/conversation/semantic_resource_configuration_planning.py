@@ -71,8 +71,6 @@ def build_resource_configuration_frame(
     target = resource_targets[0]
     if utterance[target.source_start : target.source_end] != target.value:
         return None
-    if target.value.startswith("/"):
-        return None
     time_targets = tuple(target for target in judgment.targets if target.kind == "time_range")
     lookback_seconds = None
     if (
@@ -85,7 +83,10 @@ def build_resource_configuration_frame(
         return None
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.COMPARE,
-        subject_constraints=("Resource", f"Resource.name={target.value}"),
+        subject_constraints=(
+            "Resource",
+            f"Resource.{'id' if target.value.startswith('/') else 'name'}={target.value}",
+        ),
         measure_concepts=(),
         temporal_scope={"lookback_seconds": lookback_seconds},
         output_shape=SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES,

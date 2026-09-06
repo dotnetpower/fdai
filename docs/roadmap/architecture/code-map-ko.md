@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4ce2a8eb68dc2f333ffb044377909e65b9605734
+translation_source_sha: dab1d1d164b167f18fd35c2f61f279526492382c
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -77,8 +77,9 @@ APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 "the", "selected",
 판단 이후와 configuration 및 gateway 정규화에도 같은 원문 검사를 적용합니다.
 `last_hour` facet은 설명 정보일 뿐이며 해당 원문 기반 `time_range` target 없이는 시간 window를
 설정할 수 없습니다.
-결정론적 F2 compiler는 경로 형태 ARM ID를 `Resource.name`으로 만들지 않고 차단합니다. ID 기반
-요청은 일반 검증 frame 경로를 유지합니다.
+결정론적 F2 compiler는 경로 형태 ARM ID를 `Resource.name`이 아니라 `Resource.id`로 결속합니다.
+원문 기반 시간이 없으면 시간 범위 명확화를 반환하고, 다른 결정론적 F2 구성 실패는 frame 모델로
+fallback하지 않고 보류합니다.
 Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간
 target을 요구합니다.
 Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합니다. 비어 있거나 다른 모델

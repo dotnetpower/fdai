@@ -593,6 +593,20 @@ class SemanticPlanningService:
                 manifest_descriptors=manifest.descriptors,
                 inventory_query_language=self._inventory_query_language,
             )
+            if (
+                frame_result is None
+                and judgment_decision is not None
+                and judgment_decision.accepted
+                and judgment_proposal is not None
+                and judgment_proposal.primary_intent == "query.resource_configuration_changes"
+            ):
+                return finish(
+                    _outcome(
+                        SemanticPlanningDisposition.UNAVAILABLE,
+                        "semantic_configuration_frame_unavailable",
+                        manifest_digest=manifest.manifest_digest,
+                    )
+                )
             if frame_result is None:
                 frame_result = self._cascade.propose_frame(
                     utterance=utterance,

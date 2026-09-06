@@ -173,6 +173,11 @@ def deterministic_pre_frame_outcome(
         and judgment.primary_intent
         in {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
         and any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        and any(
             target.kind == "time_range"
             and target.canonical_value == "duration.PT1H"
             and not operational_time_is_past_hour(target.value)
@@ -190,6 +195,41 @@ def deterministic_pre_frame_outcome(
             measure_concepts=(),
             temporal_scope={},
             output_shape=output_shape,
+            evidence_requirements=(),
+            unresolved_terms=("temporal_scope",),
+            clarification_requirements=(ClarificationRequirement.TEMPORAL_SCOPE,),
+            clarification=_clarification(("temporal_scope",)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
+    if (
+        judgment is not None
+        and judgment.primary_intent == "query.resource_configuration_changes"
+        and any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
+        and not any(
+            target.kind == "time_range"
+            and target.canonical_value == "duration.PT1H"
+            and operational_time_is_past_hour(target.value)
+            for target in judgment.targets
+        )
+    ):
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES,
             evidence_requirements=(),
             unresolved_terms=("temporal_scope",),
             clarification_requirements=(ClarificationRequirement.TEMPORAL_SCOPE,),

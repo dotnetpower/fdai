@@ -154,7 +154,7 @@ def test_last_hour_facet_without_time_target_does_not_build_configuration_frame(
     assert result is None
 
 
-def test_arm_id_does_not_compile_as_resource_name() -> None:
+def test_arm_id_compiles_as_resource_id() -> None:
     target = "/subscriptions/example/resourceGroups/rg/providers/Microsoft.Cognitive/x"
     utterance = f"Compare {target} during the last hour."
     time_value = "last hour"
@@ -189,7 +189,9 @@ def test_arm_id_does_not_compile_as_resource_name() -> None:
         descriptors=tuple(_manifest().descriptors),
     )
 
-    assert result is None
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource", f"Resource.id={target}")
 
 
 def _manifest(*, bound: bool = True, snapshot_bound: bool = True) -> QueryManifest:
