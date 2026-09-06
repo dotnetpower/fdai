@@ -82,7 +82,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   const pendingScrollRef = useRef<{ readonly left: number; readonly top: number } | null>(null);
   const panStateRef = useRef<InstanceGraphPanState | null>(null);
   const [preview, setPreview] = useState<HistoryPreview | null>(null);
-    const [graphTooltip, setGraphTooltip] = useState<InstanceGraphTooltipState | null>(null);
+  const [graphTooltip, setGraphTooltip] = useState<InstanceGraphTooltipState | null>(null);
   const [focusedResourceId, setFocusedResourceId] = useState<string | null>(null);
   const [graphScale, setGraphScale] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
@@ -534,6 +534,28 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             const typeCaption = capacityCaption === null
               ? baseTypeCaption
               : `${baseTypeCaption} - ${capacityCaption}`;
+            const modelDeployment = resource.model_deployment ?? null;
+            const modelTpmCaption = modelDeployment?.capacity_tpm === null
+              || modelDeployment?.capacity_tpm === undefined
+              ? null
+              : t("ontology.instances.modelTpmShort", {
+                count: formatNumber(modelDeployment.capacity_tpm),
+              });
+            const modelCaption = modelDeployment === null
+              ? null
+              : [modelDeployment.model_name, modelTpmCaption]
+                .filter((part): part is string => part !== null)
+                .join(" - ") || null;
+            const nodeCaption = modelCaption ?? typeCaption;
+            const tooltipDetail = modelDeployment === null
+              ? typeCaption
+              : [
+                `${t("ontology.instances.resourceType")}: ${baseTypeCaption}`,
+                `${t("ontology.instances.modelName")}: ${modelDeployment.model_name ?? t("ontology.instances.notReported")}`,
+                `${t("ontology.instances.modelVersion")}: ${modelDeployment.model_version ?? t("ontology.instances.notReported")}`,
+                `${t("ontology.instances.deploymentSku")}: ${modelDeployment.sku_name ?? t("ontology.instances.notReported")}`,
+                `${t("ontology.instances.tokensPerMinute")}: ${modelTpmCaption ?? t("ontology.instances.notReported")}`,
+              ].join(" - ");
             // Absent status means no state is projected for this class, not an observation that found none.
             const fact = resource.states?.operational;
             const stateText = fact
@@ -554,14 +576,14 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 <a
                   class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${nested.nestedIds.has(resource.id) ? " is-nested" : ""}${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
                   href={routeHref("ontology", { params: { view: "instances", instance: resource.id } })}
-                  aria-label={`${displayName}, ${typeCaption}, ${stateText}${nodeNotice ? `, ${nodeNotice}` : ""}`}
+                  aria-label={`${displayName}, ${tooltipDetail}, ${stateText}${nodeNotice ? `, ${nodeNotice}` : ""}`}
                   onPointerEnter={(event) => {
                     setFocusedResourceId(resource.id);
                     setGraphTooltip({
                       x: event.clientX + 12,
                       y: event.clientY + 12,
                       title: displayName,
-                      detail: typeCaption,
+                      detail: tooltipDetail,
                       status: stateText,
                       ...(nodeNotice ? { note: nodeNotice } : {}),
                     });
@@ -570,7 +592,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                     x: event.clientX + 12,
                     y: event.clientY + 12,
                     title: displayName,
-                    detail: typeCaption,
+                    detail: tooltipDetail,
                     status: stateText,
                     ...(nodeNotice ? { note: nodeNotice } : {}),
                   })}
@@ -585,7 +607,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                       x: rect.right + 8,
                       y: rect.top,
                       title: displayName,
-                      detail: typeCaption,
+                      detail: tooltipDetail,
                       status: stateText,
                       ...(nodeNotice ? { note: nodeNotice } : {}),
                     });
@@ -612,7 +634,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                   <foreignObject x="43" y="8" width="121" height="54" aria-hidden="true">
                     <div class="ontology-instance-node-copy">
                       <strong>{displayName}</strong>
-                      <span>{typeCaption}</span>
+                      <span>{nodeCaption}</span>
                       <span class={`ontology-instance-node-state ontology-instance-state-badge is-${stateTone}`}>
                         {stateText}
                       </span>

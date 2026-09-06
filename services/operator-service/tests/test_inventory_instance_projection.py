@@ -23,8 +23,10 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
 )
 from fdai_operator_service.families.operations.instance_explorer import (
+    _model_deployment_projection,
     _relationship_evidence_projection,
     _resource_capacity,
+    _resource_projection,
     _resource_status,
     project_inventory_instance,
     project_inventory_instances,
@@ -715,6 +717,54 @@ def test_scalable_resource_capacity_uses_only_allowlisted_fields() -> None:
         is None
     )
     assert _resource_capacity("compute.vm", {"sku": {"capacity": 3}}) is None
+
+
+def test_model_deployment_projection_allowlists_identity_sku_and_tpm() -> None:
+    properties = {
+        "name": "chat",
+        "model_name": "gpt-5.4",
+        "model_version": "2026-08-01",
+        "sku_name": "GlobalStandard",
+        "capacity_tpm": 50_000,
+        "capacity_tpm_source": "properties.rateLimits",
+        "secret": "must-not-leak",
+        "properties": {"model": {"name": "unreviewed"}},
+    }
+    expected = {
+        "model_name": "gpt-5.4",
+        "model_version": "2026-08-01",
+        "sku_name": "GlobalStandard",
+        "capacity_tpm": 50_000,
+    }
+
+    assert _model_deployment_projection("llm-model-deployment", properties) == expected
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id="endpoint/deployments/chat",
+            resource_type="llm-model-deployment",
+            properties=properties,
+            last_seen=None,
+        ),
+        root_id=None,
+    )
+    assert projected["model_deployment"] == expected
+    assert "secret" not in projected
+    assert "capacity_tpm_source" not in projected
+    assert "properties" not in projected
+    assert _model_deployment_projection("llm-endpoint", properties) is None
+
+
+@pytest.mark.parametrize("capacity_tpm", [-1, True, 1.5, "50000", 2_147_483_648])
+def test_model_deployment_projection_rejects_invalid_tpm(capacity_tpm: object) -> None:
+    assert _model_deployment_projection(
+        "llm-model-deployment",
+        {"capacity_tpm": capacity_tpm},
+    ) == {
+        "model_name": None,
+        "model_version": None,
+        "sku_name": None,
+        "capacity_tpm": None,
+    }
 
 
 async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identity(

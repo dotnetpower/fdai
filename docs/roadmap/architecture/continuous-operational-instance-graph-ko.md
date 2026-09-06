@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: fcf16f42bef3f1da4b9cd96cbc80791794f0f31c
+translation_source_sha: c9813dd27cf7e1378d6bf2674230c3de8b743d43
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -90,6 +90,12 @@ AKS AgentPool 크기는 Resource Graph가 해당 자식을 일반 Resource로 �
 노출합니다. 프로바이더 payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 중인 Console이
 무효화 이벤트를 받으면 범위가 제한된 선택 인스턴스 변환 결과를 다시 읽습니다. SSE는
 `Last-Event-ID`부터 다시 연결하며 폴링은 범위가 제한된 fallback으로 유지합니다.
+
+관측된 모델 배포도 같은 세대와 무효화 경로를 사용합니다. Operator 변환 결과는 추가
+`model_deployment` 객체에서 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 노출합니다.
+Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로바이더 속성을 받지 않고 이 허용
+목록을 사용합니다. 변경된 TPM은 다음 관측이 수락되어 커밋된 뒤에만 표시됩니다. 무효화 이벤트는
+다시 읽기를 앞당기지만 즉시성이나 강한 일관성을 프로바이더 수준에서 보장하지 않습니다.
 
 ### 부하 인식 일정 관리
 

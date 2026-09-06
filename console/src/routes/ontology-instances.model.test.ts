@@ -101,6 +101,55 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
     expect(decoded.relationship_coverage).toBeNull();
     expect(decoded.resources[0]?.capacity).toBeNull();
+    expect(decoded.resources[0]?.model_deployment).toBeNull();
+  });
+
+  it("accepts bounded model deployment details", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.resource_type = "llm-model-deployment";
+    resources[1]!.model_deployment = {
+      model_name: "gpt-5.4",
+      model_version: "2026-08-01",
+      sku_name: "GlobalStandard",
+      capacity_tpm: 50_000,
+    };
+
+    expect(decodeOntologyInstanceExploration(value).resources[1]?.model_deployment).toEqual(
+      resources[1]!.model_deployment,
+    );
+  });
+
+  it.each([-1, true, 1.5, 2_147_483_648])(
+    "rejects invalid model deployment TPM %s",
+    (capacityTpm) => {
+      const value = payload();
+      const resources = value.resources as Record<string, unknown>[];
+      resources[1]!.resource_type = "llm-model-deployment";
+      resources[1]!.model_deployment = {
+        model_name: "gpt-5.4",
+        model_version: "2026-08-01",
+        sku_name: "GlobalStandard",
+        capacity_tpm: capacityTpm,
+      };
+
+      expect(() => decodeOntologyInstanceExploration(value)).toThrow();
+    },
+  );
+
+  it("rejects model deployment details on another Resource type", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[1]!.model_deployment = {
+      model_name: "gpt-5.4",
+      model_version: null,
+      sku_name: null,
+      capacity_tpm: null,
+    };
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "model deployment details MUST use the llm-model-deployment Resource type",
+    );
   });
 
   it("accepts an observed scalable-resource capacity", () => {

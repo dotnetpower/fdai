@@ -84,6 +84,8 @@ function InstanceOverview({
   readonly root: OntologyInstanceResource;
 }) {
   const capacityKind = ontologyInstanceCapacityKind(root.resource_type);
+  const isModelDeployment = root.resource_type === "llm-model-deployment";
+  const modelDeployment = root.model_deployment ?? null;
   return (
     <section class="ontology-instance-inspector-section">
       <span class="eyebrow">Resource</span>
@@ -96,6 +98,35 @@ function InstanceOverview({
       </div>}
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
+        {!isModelDeployment ? null : (
+          <>
+            <div>
+              <dt>{t("ontology.instances.modelName")}</dt>
+              <dd>{modelDeployment?.model_name
+                ? <code>{modelDeployment.model_name}</code>
+                : t("ontology.instances.notReported")}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.modelVersion")}</dt>
+              <dd>{modelDeployment?.model_version
+                ? <code>{modelDeployment.model_version}</code>
+                : t("ontology.instances.notReported")}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.deploymentSku")}</dt>
+              <dd>{modelDeployment?.sku_name
+                ? <code>{modelDeployment.sku_name}</code>
+                : t("ontology.instances.notReported")}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.tokensPerMinute")}</dt>
+              <dd><strong>{modelDeployment?.capacity_tpm === null
+                || modelDeployment?.capacity_tpm === undefined
+                ? t("ontology.instances.notReported")
+                : formatNumber(modelDeployment.capacity_tpm)}</strong></dd>
+            </div>
+          </>
+        )}
         {root.capacity === null || root.capacity === undefined || capacityKind === null ? null : (
           <div>
             <dt>{t(capacityKind === "node"

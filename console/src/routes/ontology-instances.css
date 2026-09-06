@@ -156,7 +156,7 @@
 .ontology-instance-state-badge.is-danger { border-color: color-mix(in srgb, var(--danger) 42%, var(--border)); background: color-mix(in srgb, var(--danger) 11%, var(--bg-elevated)); color: var(--danger); }
 .ontology-instance-overview-status { margin: 0 0 14px; }
 .ontology-instance-overview-status .status-pill { font-size: var(--cs-type-compact-size); font-weight: 800; }
-.ontology-instance-graph-tooltip { display: grid; min-width: 180px; gap: 2px; white-space: normal; }
+.ontology-instance-graph-tooltip { display: grid; min-width: 180px; max-width: min(320px, calc(100vw - 32px)); gap: 2px; overflow-wrap: anywhere; white-space: normal; }
 .ontology-instance-graph-tooltip strong { font-size: var(--cs-type-compact-size); }
 .ontology-instance-graph-tooltip span { color: var(--fg-muted); }
 .ontology-instance-history { min-width: 0; border-top: 1px solid var(--border); background: var(--bg-elevated); }

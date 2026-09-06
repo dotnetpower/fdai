@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 520aee9cef34c1aa434081afb890eea78478ead5
+translation_source_sha: c7f73dfd9f701da855753220c3692fa2974af1bc
 translation_revised: 2026-09-06
 ---
 # 온톨로지 구조 모델
@@ -126,6 +126,12 @@ writer가 리소스와 독립적으로 검증된 링크를 원자적으로 승�
 API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되지 않으면 명시적인 사용
 불가 상태를 기록합니다. 카탈로그 선언은 계속 의미만 정의하며 관찰 또는 실행 권한을 부여하지
 않습니다.
+
+인스턴스 화면은 다른 온톨로지 아이덴티티를 만들지 않고 ResourceType별 읽기 전용 상세 객체를
+연결할 수 있습니다. `llm-model-deployment`에서 Operator 변환 결과는 해당 객체를 정확한
+ResourceType에 결속하고 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용합니다. 다른
+ResourceType은 이 객체를 가질 수 없으며 원시 프로바이더 속성은 Console과 대화 화면 맥락에
+포함되지 않습니다.
 
 ## LinkType 의미
 

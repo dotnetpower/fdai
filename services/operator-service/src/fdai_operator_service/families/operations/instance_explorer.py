@@ -37,6 +37,8 @@ MAX_INSTANCE_LINK_TYPES = 16
 MAX_INSTANCE_RESOURCES = 200
 MAX_INSTANCE_ACTIVITIES = 100
 MAX_INSTANCE_SEARCH_CHARS = 256
+MAX_MODEL_DEPLOYMENT_TPM = 2_147_483_647
+MODEL_DEPLOYMENT_RESOURCE_TYPE = "llm-model-deployment"
 _DEFAULT_LINK_TYPES = (
     "contains",
     "attached_to",
@@ -545,6 +547,9 @@ def _resource_projection(
     capacity = _resource_capacity(resource.resource_type, properties)
     if capacity is not None:
         projection["capacity"] = capacity
+    model_deployment = _model_deployment_projection(resource.resource_type, properties)
+    if model_deployment is not None:
+        projection["model_deployment"] = model_deployment
     return projection
 
 
@@ -576,6 +581,29 @@ def _resource_capacity(resource_type: str, properties: Mapping[str, object]) -> 
     if isinstance(candidate, bool) or not isinstance(candidate, int) or candidate < 0:
         return None
     return candidate
+
+
+def _model_deployment_projection(
+    resource_type: str,
+    properties: Mapping[str, object],
+) -> dict[str, object] | None:
+    """Return only reviewed model-deployment identity and capacity facts."""
+
+    if resource_type != MODEL_DEPLOYMENT_RESOURCE_TYPE:
+        return None
+    capacity_tpm = properties.get("capacity_tpm")
+    return {
+        "model_name": _optional_text(properties.get("model_name")),
+        "model_version": _optional_text(properties.get("model_version")),
+        "sku_name": _optional_text(properties.get("sku_name")),
+        "capacity_tpm": (
+            capacity_tpm
+            if isinstance(capacity_tpm, int)
+            and not isinstance(capacity_tpm, bool)
+            and 0 <= capacity_tpm <= MAX_MODEL_DEPLOYMENT_TPM
+            else None
+        ),
+    }
 
 
 def _resource_status(properties: Mapping[str, object], resource_type: str) -> str | None:

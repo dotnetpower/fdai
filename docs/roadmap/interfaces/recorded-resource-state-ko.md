@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 5947daf77e83c5ba2281e49dbbc815abdc3af130
+translation_source_sha: 659eae6f7b329274bda6f7860a8aacc022a87d0f
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -122,12 +122,17 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
 - 온톨로지 디렉터리와 탐색 기록도 온톨로지가 소유하는 현재 Resource 상태에서 같은 `states` 필드를
   제공합니다.
+- `llm-model-deployment` 기록은 추가 `model_deployment` 객체도 제공할 수 있습니다. Operator 변환
+  결과는 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용하며 원시 프로바이더 속성, 태그,
+  속도 제한 근거 경로 및 자격 증명은 서버에 유지합니다.
 - 공통 Console 구성요소가 출처 값, 시각, 최신성, 완전성, 이유를 보여줍니다.
 - 값이 없으면 기계 판독용 이유에 따라 기록 없음, 사용 불가, 적용 대상 아님 또는 적용 여부 알 수
   없음으로 표시합니다. 이전 세대는 연결되지 않은 출처를 계속 명시적으로 표시할 수 있습니다.
 - Dashboard는 출처를 `inventory_snapshot_resource`로 표시하고, 알 수 없음 기록을 기계 판독용
   이유별로 집계하며, 공통 주기와 브라우저 복귀 및 인벤토리 변경 알림에 따라 새로 고칩니다.
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.
+- 모델 배포의 `Succeeded` 상태는 프로비저닝 완료만 보고합니다. 추론 상태, 요청 성공, 할당량 여유
+  또는 호출자 권한을 입증하지 않습니다.
 - 기존 대시보드와 이전 인스턴스 클라이언트의 경로와 필드는 유지합니다.
 - 리소스 확인과 선택은 승인 또는 실행 권한을 부여하지 않습니다.
 - 런타임 화면 근거에는 현재 인증된 5273 Browser Entra 세션이 필요합니다. 만료된 캡처나 테스트
