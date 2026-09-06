@@ -430,6 +430,28 @@ def deterministic_pre_frame_outcome(
     return None
 
 
+def _normalize_gateway_diagnostic_time_scope(
+    proposal: SemanticFrameProposal,
+    frame: Any,
+    *,
+    judgment: Any,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, Any]:
+    if (
+        judgment is None
+        or judgment.primary_intent != "query.gateway_diagnostic_evidence"
+        or proposal.output_shape is not SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
+        or not any(
+            target.kind == "time_range" and target.canonical_value == "duration.PT1H"
+            for target in judgment.targets
+        )
+    ):
+        return proposal, frame
+    normalized = proposal.model_copy(update={"temporal_scope": {"window_seconds": 3_600}})
+    return normalized, build_semantic_frame(normalized, utterance=utterance, context=context)
+
+
 def deterministic_pre_frame_selection(
     *,
     judgment: Any,
@@ -534,6 +556,13 @@ def normalize_and_gate_frame(
     """Apply deterministic frame normalization and early-return gates in order."""
 
     proposal, frame = _resolve_semantic_judgment_action_draft(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+    )
+    proposal, frame = _normalize_gateway_diagnostic_time_scope(
         proposal,
         frame,
         judgment=judgment,

@@ -31,7 +31,11 @@ from fdai.core.conversation.semantic_planning import (
     _plan_node_summary,
 )
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
-from fdai.core.conversation.semantic_planning_frame_checks import deterministic_pre_frame_outcome
+from fdai.core.conversation.semantic_planning_frame_checks import (
+    _normalize_gateway_diagnostic_time_scope,
+    deterministic_pre_frame_outcome,
+)
+from fdai.core.conversation.semantic_planning_frame_core import build_semantic_frame
 from fdai.core.conversation.semantic_planning_models import (
     BoundResourceContext,
     SemanticFrameProposal,
@@ -1838,6 +1842,48 @@ def test_ambiguous_gateway_judgment_with_generic_resource_skips_frame_model() ->
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
     assert outcome.frame is not None
     assert outcome.frame.unresolved_terms == ("resource_identity",)
+
+
+def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
+    utterance = "Compare agw-example latency over the last hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-example", source_start=8, source_end=19),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=37,
+                source_end=46,
+            ),
+        ),
+        requested_facets=("latency", "last_hour"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            temporal_scope={},
+            output_shape="gateway_diagnostic_evidence",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    normalized, normalized_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert normalized.temporal_scope == {"window_seconds": 3_600}
+    assert normalized_frame.temporal_scope == {"window_seconds": 3_600}
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3b61ea07b6a99a69a4ba72d782ef2baa677ba878
+translation_source_sha: 2d5b3e8cdcedab382ac6c17e4677732d5e42b483
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -73,6 +73,8 @@ APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 "the", "selected",
 문구는 과거 lookback으로 바꾸지 않고 전체 의미 판단을 유지합니다.
 Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간
 target을 요구합니다.
+Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합니다. 비어 있거나 다른 모델
+범위가 compiler의 15분 기본값으로 바뀌지 않습니다.
 Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
 모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
 만들 수 없습니다.
