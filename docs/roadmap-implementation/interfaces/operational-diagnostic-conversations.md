@@ -21,7 +21,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | Scoped configuration comparison | implemented | `current change`; source-isolation, time-boundary, capacity-semantics, and configuration-plan cases in the 43-case matrix and final component slice | Values, object scope, history references, and aggregate provenance remain filtered before presentation. Interactive history evidence remains open. |
 | Compound gateway metric/configuration wiring | implemented | `current change`; gateway compiler, reducer, APIM status, deadline, and scoped configuration tests in the 742-test slice | Component composition is complete. Standard interactive metric and configuration evidence remains open. |
 | Standard interactive acceptance | in-progress | Reported document request: action draft, no artifact, about 39.9 seconds. Reported gateway question: held with `semantic_frame_unavailable`. | Neither observation is an answer-quality pass; no successful interactive evidence is claimed for any of the four families. |
-| Formal critique and hardening | implemented | `current change`; R01-R22 below; the latest 177 focused cases, targeted Ruff, and strict mypy passed | Seven additional Medium findings were fixed in R13-R22. No unresolved Medium-or-higher finding is known in this component change. Interactive gaps remain outside this claim. |
+| Formal critique and hardening | implemented | `current change`; R01-R23 below; the latest 179 focused cases, targeted Ruff, and strict mypy passed | Eight additional Medium findings were fixed in R13-R23. No unresolved Medium-or-higher finding is known in this component change. Interactive gaps remain outside this claim. |
 
 ### Implementation history
 
@@ -32,6 +32,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | 2026-09-07 | implemented | Held configuration and gateway comparisons for exact Resource identity before frame planning when typed judgment supplied no source-grounded Resource name or id. | `current change`; 210 focused semantic planning tests, targeted Ruff, and strict mypy passed. | Re-run F2-F4 with exact deployment or gateway identity and retain the 5-second TTFT result. |
 | 2026-09-07 | implemented | Built the exact-target one-hour F2 configuration frame directly from accepted typed judgment instead of allowing the frame model to degrade it to a generic property listing. | `current change`; 176 focused semantic planning tests, targeted Ruff, and strict mypy passed. | Retain an F2 standard-stack receipt with complete configuration history and answer TTFT at or below 5 seconds. |
 | 2026-09-07 | implemented | Added a provenance-bound operational-family proposal to compact preflight and reused it as candidate-only judgment for verified F1-F4 requests, removing one serial model call. Added fail-closed confidence, context, family-shape, source-span, one-hour, and Resource identity checks. | `current change`; 177 conversation, prompt-registry, and adapter tests passed with targeted Ruff and strict mypy. | Restart the standard local Core and retain authenticated F1-F4 answer-token TTFT, evidence, and artifact outcomes. |
+| 2026-09-07 | implemented | Corrected live-model source-span and canonical-identity assumptions. A mismatched offset is repaired only for one unique exact value in the current utterance, and F2 ARM IDs remain unsupported instead of being queried as names. | `current change`; 179 focused tests passed with targeted Ruff and strict mypy. Standard Browser Entra traces reproduced the pre-fix fallback. | Restart Core and verify that a new exact F2 variant omits the full semantic-judgment call and meets the 5-second answer-token gate. |
 
 ### Remaining work
 
@@ -49,7 +50,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
   draft and gateway semantic-frame hold; do not infer a pass from component checks.
 - [ ] Retain safe negative outcomes for ambiguity, missing/denied evidence, pagination limits,
   stale history, unavailable metric dimensions, zero versus no samples, and no-mutation boundaries.
-- [x] Completed R01-R22 below and fixed all accepted Medium findings.
+- [x] Completed R01-R23 below and fixed all accepted Medium findings.
 - [ ] Before claiming all gaps closed, confirm every family meets its contract, all accepted
   findings are resolved, and final-snapshot and standard interactive evidence are retained.
 
@@ -58,7 +59,8 @@ It separates coordinating-session reports from retained final-snapshot and inter
 R01-R12 reviewed checkpoint `6ba5c91d3` plus its isolated hardening change. R01-R10 used
 one exact 43-case pytest invocation and passed in 0.69 seconds. R11 used 41 prompt/composition cases
 and a bounded live Core startup. R13-R22 reviewed the preflight judgment reuse change and concluded
-with 177 focused cases, targeted Ruff, and strict mypy.
+with 177 focused cases, targeted Ruff, and strict mypy. R23 used retained standard Browser Entra
+trace structure and concluded with 179 focused cases.
 
 | Round | Hypothesis and result | Resolution | Focused evidence | Remaining blocker |
 |-------|-----------------------|------------|------------------|-------------------|
@@ -84,6 +86,7 @@ with 177 focused cases, targeted Ruff, and strict mypy.
 | R20 | The expanded compact prompt might erase the model-call latency gain. No defect was reproduced. | Retained the complete prompt and generated schema at about 1.5K estimated tokens, below the removed full judgment prompt alone. | Prompt-registry and adapter tests passed; local size measurement recorded. | Standard answer-token TTFT remains open. |
 | R21 | Prompt v2 might regress v1 social ambiguity rules. **Medium confirmed.** | Restored conversation-interface, acknowledgement, quoted-social, and uncertainty rules in compact form. | Prompt registry and conversation preflight cases passed. | Live multilingual variation remains open. |
 | R22 | Normalizing full and preflight judgments might reject a valid accepted test boundary. A compatibility defect was reproduced in focused tests, but no production enum path was affected. | Preserved the boundary's explicit `accepted` decision instead of inferring it from a synthetic receipt. | All 177 focused cases passed after the fix. | No Medium-or-higher blocker remains from this round. |
+| R23 | Live preflight might classify F2 but still miss promotion. **Medium confirmed:** the model returned one-based-like offsets and a canonical resource value rather than a property field, so every observed request paid for full judgment. | Corrected only one uniquely occurring model-proposed value to its exact zero-based span, clarified the prompt contract, and rejected F2 ARM IDs by source value rather than misusing `canonical_value`. | Standard Browser Entra traces reproduced both mismatches; 179 focused cases, targeted Ruff, and strict mypy passed. | Re-measure the restarted standard stack; no latency pass is claimed yet. |
 
 R01-R10 do not authorize live mutations. Authorized live reads and model questions remain bounded;
 TPM reduction and chaos injection remain outside scope. Stop the attempt on unexpected model

@@ -367,6 +367,89 @@ def test_preflight_operational_judgment_rejects_false_one_hour_canonicalization(
     assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
+def test_preflight_operational_judgment_repairs_one_unique_source_span() -> None:
+    utterance = "Show deployment-a changes for the past hour."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value="deployment-a",
+                canonical_value="deployment-a",
+                source_start=6,
+                source_end=18,
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="the past hour",
+                canonical_value="duration.PT1H",
+                source_start=31,
+                source_end=44,
+            ),
+        ),
+        operational_facets=("configuration_changes", "last_hour"),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert all(
+        utterance[target.source_start : target.source_end] == target.value
+        for target in judgment.targets
+    )
+
+
+def test_preflight_configuration_rejects_arm_id_as_resource_name() -> None:
+    resource_id = "/subscriptions/example/resourceGroups/rg/providers/Microsoft.Cognitive/x"
+    utterance = f"Show {resource_id} configuration changes for the last hour."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value=resource_id,
+                canonical_value=None,
+                source_start=5,
+                source_end=5 + len(resource_id),
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=utterance.index("last hour"),
+                source_end=utterance.index("last hour") + len("last hour"),
+            ),
+        ),
+        operational_facets=("configuration_changes", "last_hour"),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
 def test_malformed_response_falls_through_after_one_attempt() -> None:
     observation = ConversationModelObservation(
         model="preflight-mini",

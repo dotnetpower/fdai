@@ -71,6 +71,9 @@ _ONE_HOUR_EXPRESSIONS = frozenset(
         "one hour",
         "past hour",
         "previous hour",
+        "the last hour",
+        "the past hour",
+        "the previous hour",
         "지난 1시간",
         "지난 한 시간",
         "최근 1시간",
@@ -410,14 +413,18 @@ def preflight_operational_judgment(
         or result.prompt_digest is None
     ):
         return None
+    normalized_targets: list[SemanticTarget] = []
     for target in proposal.operational_targets:
         if utterance[target.source_start : target.source_end] != target.value:
-            return None
-        if target.kind == "resource" and target.canonical_value not in {
-            "Resource.id",
-            "Resource.name",
-        }:
-            return None
+            source_start = utterance.find(target.value)
+            if source_start < 0 or utterance.find(target.value, source_start + 1) >= 0:
+                return None
+            target = target.model_copy(
+                update={
+                    "source_start": source_start,
+                    "source_end": source_start + len(target.value),
+                }
+            )
         if target.kind == "time_range":
             if (
                 target.canonical_value != "duration.PT1H"
@@ -426,6 +433,7 @@ def preflight_operational_judgment(
                 return None
         if target.kind not in {"resource", "time_range", "backend", "model"}:
             return None
+        normalized_targets.append(target)
     primary_intent = {
         OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
         OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES: (
@@ -435,7 +443,7 @@ def preflight_operational_judgment(
             "query.gateway_diagnostic_evidence"
         ),
     }.get(proposal.operational_family)
-    target_kinds = tuple(target.kind for target in proposal.operational_targets)
+    target_kinds = tuple(target.kind for target in normalized_targets)
     facets = frozenset(proposal.operational_facets)
     if proposal.operational_family is OperationalPreflightFamily.INVENTORY_DOCUMENT:
         family_valid = not target_kinds and facets == _INVENTORY_FACETS
@@ -444,12 +452,11 @@ def preflight_operational_judgment(
             target_kinds.count("resource") == 1
             and target_kinds.count("time_range") == 1
             and len(target_kinds) == 2
-            and next(
-                target.canonical_value
-                for target in proposal.operational_targets
+            and not next(
+                target.value.casefold().startswith("/subscriptions/")
+                for target in normalized_targets
                 if target.kind == "resource"
             )
-            == "Resource.name"
             and bool(facets)
             and facets <= _CONFIGURATION_FACETS
         )
@@ -467,7 +474,7 @@ def preflight_operational_judgment(
         return None
     return SemanticJudgmentProposal(
         primary_intent=primary_intent,
-        targets=proposal.operational_targets,
+        targets=tuple(normalized_targets),
         requested_facets=proposal.operational_facets,
         confidence=proposal.confidence,
         ambiguous=False,

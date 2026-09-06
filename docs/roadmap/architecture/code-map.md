@@ -60,6 +60,8 @@ For exact F1-F4 shapes, preflight can also supply provenance-bound candidate mea
 serial full-judgment call. Core verifies current-input digests, source spans, confidence, context
 independence, family shape, and the principal manifest before reusing it. Other requests keep full
 semantic judgment.
+If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
+value occurs once in the current utterance. Missing or repeated values retain full judgment.
 Configuration and gateway comparisons without a source-grounded Resource name or id stop with
 typed `resource_identity` clarification before frame-model or provider I/O.
 An accepted exact-target one-hour configuration judgment builds the F2 frame deterministically and
