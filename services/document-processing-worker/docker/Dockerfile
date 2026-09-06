@@ -24,6 +24,7 @@ COPY services/core-control-plane/pyproject.toml ./services/core-control-plane/py
 COPY services/operator-service/pyproject.toml ./services/operator-service/pyproject.toml
 COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestion-api/pyproject.toml
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
+COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY services/document-processing-worker/ ./services/document-processing-worker/
 RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \

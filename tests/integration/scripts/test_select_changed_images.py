@@ -41,6 +41,11 @@ def test_runtime_assets_select_only_their_consumers() -> None:
         "cost-governance",
         "document-ingestion-api",
     ]
+    assert _targets(["packages/github-app-auth/src/fdai_github_app_auth/provider.py"]) == [
+        "core-control-plane",
+        "cost-governance",
+        "document-ingestion-api",
+    ]
 
 
 def test_cost_governance_sources_select_the_distribution_profile_only() -> None:

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 69ade5bfef3c2d3d72ae299565e79f886d5914bf
+translation_source_sha: 07c3269a5dcc744cd559e5243d72fc519d4bf7eb
 translation_revised: 2026-09-06
 ---
 

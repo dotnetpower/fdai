@@ -90,6 +90,7 @@ _CORE_PREFIXES = (
     "tests/scenarios/",
 )
 _COST_GOVERNANCE_PREFIX = "extensions/cost-governance/"
+_GITHUB_APP_AUTH_PREFIX = "packages/github-app-auth/"
 
 
 def select_image_targets(changed_paths: Iterable[str]) -> tuple[ImageTarget, ...]:
@@ -105,6 +106,9 @@ def select_image_targets(changed_paths: Iterable[str]) -> tuple[ImageTarget, ...
 
     selected: set[str] = set()
     for path in paths:
+        if path.startswith(_GITHUB_APP_AUTH_PREFIX):
+            selected.update({"core-control-plane", "cost-governance", "document-ingestion-api"})
+            continue
         if path.startswith(_COST_GOVERNANCE_PREFIX):
             selected.add("cost-governance")
             continue

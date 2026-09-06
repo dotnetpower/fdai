@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5fec5c91f162dab2739e6420ca83784a0dfb3c3e
+translation_source_sha: f457fa8ea57a7a9d37570152eb88dd6b8337cdf1
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -17,7 +17,7 @@ translation_revised: 2026-09-06
 
 - **서비스 분포 5개:** 각 런타임 프로세스는 `services/` 아래 패키지 하나를 소유합니다.
 - **공유 패키지 2개:** `packages/service-contracts/`는 구현 없는 wire 계약을 소유하고
-  `packages/github-app-auth/`는 Core와 수집이 사용하는 갱신 가능한 프로바이더 자격 증명을 소유합니다.
+  `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및

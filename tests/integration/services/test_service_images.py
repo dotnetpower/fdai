@@ -38,6 +38,7 @@ IMAGE_AFFECTING_PATHS = {
     "evaluation-sdk/**",
     "extensions/code-assurance/pyproject.toml",
     "extensions/cost-governance/**",
+    "packages/github-app-auth/**",
     "packages/service-contracts/**",
     "policies/**",
     "pyproject.toml",
@@ -112,6 +113,11 @@ def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
             "extensions/cost-governance/pyproject.toml "
             "./extensions/cost-governance/pyproject.toml" in builder
         )
+        assert (
+            "COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml"
+            in builder
+            or "COPY packages/github-app-auth/ ./packages/github-app-auth/" in builder
+        )
         assert "--no-install-package fdai-service-contracts" in builder
         assert f"--no-install-package {distribution}" in builder
         assert "/wheels/fdai_service_contracts-*.whl" in builder
@@ -130,8 +136,13 @@ def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
 
 
 def test_github_services_install_refreshable_app_auth_wheel() -> None:
-    for service in ("core-control-plane", "document-ingestion-api"):
-        builder = _stage(_dockerfile(service).read_text(encoding="utf-8"), "builder")
+    dockerfiles = (
+        _dockerfile("core-control-plane"),
+        _dockerfile("document-ingestion-api"),
+        REPO_ROOT / "extensions" / "cost-governance" / "docker" / "Dockerfile",
+    )
+    for dockerfile in dockerfiles:
+        builder = _stage(dockerfile.read_text(encoding="utf-8"), "builder")
         assert "COPY packages/github-app-auth/ ./packages/github-app-auth/" in builder
         assert "uv build --wheel --package fdai-github-app-auth" in builder
         assert "--no-install-package fdai-github-app-auth" in builder

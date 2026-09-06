@@ -46,17 +46,21 @@ COPY services/operator-service/pyproject.toml ./services/operator-service/pyproj
 COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestion-api/pyproject.toml
 COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
+COPY packages/github-app-auth/ ./packages/github-app-auth/
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY services/core-control-plane/ ./services/core-control-plane/
-RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
+RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
+    && uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && uv build --wheel --package fdai-core-control-plane --out-dir /wheels \
     && uv build --wheel --package fdai-cost-governance --out-dir /wheels \
     && uv sync --frozen --package fdai-cost-governance --no-dev --no-editable \
         --no-install-package fdai \
+        --no-install-package fdai-github-app-auth \
         --no-install-package fdai-service-contracts \
         --no-install-package fdai-core-control-plane \
         --no-install-package fdai-cost-governance \
     && uv pip install --python /app/.venv/bin/python --no-deps \
+        /wheels/fdai_github_app_auth-*.whl \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_core_control_plane-*.whl \
         /wheels/fdai_cost_governance-*.whl \
