@@ -39,7 +39,7 @@ and traces, screenshots, and videos use a slot-scoped output directory. From the
 `npm --prefix console run test:e2e:quick` runs the desktop slice, and the `console: Playwright quick
 (desktop)` VS Code test task exposes the same path. The existing `npm --prefix console run
 test:e2e` command remains the complete desktop and mobile matrix. Settings mock acceptance keeps
-editor text areas at a readable 128-pixel minimum while touch controls retain 44-pixel targets.
+editor text areas at a readable 128-pixel minimum, retains 44-pixel touch targets, and walks all four IAM tabs with their reachable details.
 The complementary `npm --prefix console run test:e2e:live` suite starts an isolated Operator Service
 with production data adapters and test-only identity verification, without route interception. It
 visits every registered Console panel, waits for the panel boundary to settle, rejects browser

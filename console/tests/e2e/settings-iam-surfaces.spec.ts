@@ -77,6 +77,53 @@ test.describe("IAM quiet directory surfaces", () => {
     await page.screenshot({ path: testInfo.outputPath("users-gallery.png") });
   });
 
+  test("wide walkthrough keeps all four tabs readable and their details reachable", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const frame = await openSurface(page, "settings-iam.html");
+    const views = [
+      { name: "My access", id: "my-access" },
+      { name: "Users", id: "users" },
+      { name: "Role definitions", id: "roles" },
+      { name: "Access requests", id: "requests" },
+    ];
+    for (const view of views) {
+      await frame.getByRole("tab", { name: view.name, exact: true }).click();
+      await expect(frame.getByRole("tab", { name: view.name, exact: true })).toHaveAttribute("aria-selected", "true");
+      await expect(frame.getByRole("tabpanel")).toHaveCount(1);
+      await expect(page).toHaveURL(new RegExp(`settings-iam\\.html::${view.id}$`));
+      expect(await frame.getByRole("tabpanel").evaluate((element) =>
+        element.scrollWidth <= element.clientWidth && document.documentElement.scrollWidth <= innerWidth,
+      )).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`tab-${view.id}.png`) });
+      if (view.id === "my-access") {
+        const disclosures = frame.locator(".iam-authority details, .iam-identity-details, .iam-capabilities");
+        for (const disclosure of await disclosures.all()) await disclosure.locator("summary").click();
+        await expect(frame.getByText("Subject ID", { exact: true })).toBeVisible();
+        await expect(frame.locator("[data-current-capabilities] .iam-capability:visible")).toHaveCount(12);
+        await page.screenshot({ path: testInfo.outputPath("identity-expanded.png") });
+        for (const disclosure of await disclosures.all()) await disclosure.locator("summary").click();
+      }
+      if (view.id === "roles") {
+        const owner = frame.locator('[data-role="Owner"]');
+        await owner.locator("summary").click();
+        await expect(owner.locator(".iam-capability:visible")).toHaveCount(12);
+        await page.screenshot({ path: testInfo.outputPath("role-expanded.png") });
+        await owner.locator("summary").click();
+      }
+      if (view.id === "requests") {
+        await frame.locator("[data-request-filter]").selectOption("assignment-pending");
+        await expect(frame.locator("[data-requests] > tr:visible")).toHaveCount(1);
+        await expect(frame.getByText("Assignment pending", { exact: true })).toBeVisible();
+        await frame.locator("[data-request-filter]").selectOption("all");
+        await frame.getByRole("button", { name: "Review", exact: true }).click();
+        const dialog = frame.getByRole("dialog");
+        await expect(dialog.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
+        await expect(dialog.getByRole("button", { name: "Reject", exact: true })).toBeDisabled();
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      }
+    }
+  });
+
   for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
     test(`responsive ${viewport.width} preserves density and readable controls`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);

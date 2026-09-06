@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 296dc27823b915e51fe04225325b6148d512f826
+translation_source_sha: d49eb828fd744d8a6acf4053d69363822168ec3e
 translation_revised: 2026-09-06
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,7 +43,7 @@ Operator API port `8020-8029`와 짝을 이룹니다. Playwright worker는 부�
 실행하며 VS Code의 `console: Playwright quick (desktop)` 테스트 작업도 같은 경로를 제공합니다.
 기존 `npm --prefix console run test:e2e` 명령은 전체 desktop 및 mobile 행렬을 계속 실행합니다.
 Settings 시안 검증은 편집용 텍스트 영역의 최소 높이를 읽기 쉬운 128픽셀로 유지하고 터치
-컨트롤은 44픽셀 대상을 유지합니다.
+컨트롤의 44픽셀 대상을 유지하며 IAM 탭 4개와 세부 정보 접근을 모두 점검합니다.
 이를 보완하는 `npm --prefix console run test:e2e:live` 모음은 경로 interception 없이 운영 데이터
 어댑터와 테스트 전용 신원 검증을 사용하는 격리된 Operator Service를 시작합니다. 등록된 모든
 Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리며, 브라우저 exception, 공유 error
