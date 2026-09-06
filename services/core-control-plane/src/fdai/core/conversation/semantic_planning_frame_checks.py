@@ -514,11 +514,13 @@ def _normalize_gateway_diagnostic_time_scope(
     frame: Any,
     *,
     judgment: Any,
+    judgment_accepted: bool,
     utterance: str,
     context: tuple[str, ...],
 ) -> tuple[SemanticFrameProposal, Any]:
     if (
-        judgment is None
+        not judgment_accepted
+        or judgment is None
         or judgment.primary_intent != "query.gateway_diagnostic_evidence"
         or proposal.output_shape is not SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
         or not any(
@@ -657,6 +659,7 @@ def normalize_and_gate_frame(
     frame: Any,
     investigation_intent: VerifiedInvestigationIntent | None,
     judgment: Any,
+    judgment_accepted: bool,
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
@@ -668,6 +671,7 @@ def normalize_and_gate_frame(
 ):
     """Apply deterministic frame normalization and early-return gates in order."""
 
+    judgment = judgment if judgment_accepted else None
     proposal, frame = _resolve_semantic_judgment_action_draft(
         proposal,
         frame,
@@ -679,6 +683,7 @@ def normalize_and_gate_frame(
         proposal,
         frame,
         judgment=judgment,
+        judgment_accepted=judgment_accepted,
         utterance=utterance,
         context=context,
     )

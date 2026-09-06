@@ -1878,6 +1878,7 @@ def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
         proposal,
         frame,
         judgment=judgment,
+        judgment_accepted=True,
         utterance=utterance,
         context=(),
     )
@@ -1885,6 +1886,17 @@ def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
     assert normalized.temporal_scope == {"window_seconds": 3_600}
     assert normalized_frame.temporal_scope == {"window_seconds": 3_600}
     assert normalized.subject_constraints == ("Resource", "Resource.name=agw-example")
+
+    rejected, rejected_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        judgment_accepted=False,
+        utterance=utterance,
+        context=(),
+    )
+    assert rejected == proposal
+    assert rejected_frame == frame
 
 
 def test_gateway_judgment_replaces_model_substituted_root() -> None:
@@ -1923,6 +1935,7 @@ def test_gateway_judgment_replaces_model_substituted_root() -> None:
         proposal,
         frame,
         judgment=judgment,
+        judgment_accepted=True,
         utterance=utterance,
         context=(),
     )
@@ -1973,6 +1986,7 @@ def test_gateway_judgment_binds_backend_arm_id_as_id() -> None:
         proposal,
         frame,
         judgment=judgment,
+        judgment_accepted=True,
         utterance=utterance,
         context=(),
     )

@@ -660,6 +660,7 @@ class SemanticPlanningService:
                 frame=frame,
                 investigation_intent=investigation_intent,
                 judgment=judgment_proposal,
+                judgment_accepted=(judgment_decision is not None and judgment_decision.accepted),
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,
