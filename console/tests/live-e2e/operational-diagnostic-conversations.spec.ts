@@ -27,6 +27,8 @@ interface DownloadEvidence {
   readonly expectedRows: string | null;
 }
 
+const MAX_ANSWER_TTFT_MS = 5_000;
+
 const EXPECTED_OUTPUT_SHAPE: Readonly<Record<Exclude<Family, "inventory">, string>> = {
   gpt_configuration: "resource_configuration_changes",
   appgw_latency: "gateway_diagnostic_evidence",
@@ -75,11 +77,16 @@ async function submit(page: Page, operationalCase: OperationalCase) {
       });
     }
     const { askBackendStream } = await import("/src/deck/backend-stream.ts");
-    return askBackendStream(prompt, null, [], {
-      onToken: () => undefined,
+    const startedAt = performance.now();
+    let firstTokenMs: number | null = null;
+    const reply = await askBackendStream(prompt, null, [], {
+      onToken: () => {
+        if (firstTokenMs === null) firstTokenMs = performance.now() - startedAt;
+      },
       sessionId,
       semanticPlanningProfile: "interactive",
     });
+    return { reply, firstTokenMs };
   }, {
     prompt: operationalCase.prompt,
     sessionId: randomUUID(),
@@ -155,7 +162,7 @@ test("interactive operational diagnostics retain evidence across varied question
   const resultsPath = testInfo.outputPath("operational-diagnostic-results.json");
   for (const operationalCase of cases) {
     const startedAt = Date.now();
-    const reply = await submit(page, operationalCase);
+    const { reply, firstTokenMs } = await submit(page, operationalCase);
     const receipt = reply.semanticReceipt;
     const frame = receipt?.assurance_observation?.frame;
     const document = reply.documentArtifact;
@@ -164,6 +171,7 @@ test("interactive operational diagnostics retain evidence across varied question
       id: operationalCase.id,
       family: operationalCase.family,
       elapsed_ms: Date.now() - startedAt,
+      first_answer_token_ms: firstTokenMs,
       prompt_sha256: createHash("sha256").update(operationalCase.prompt).digest("hex"),
       answer: reply.text,
       source: reply.source,
@@ -175,6 +183,11 @@ test("interactive operational diagnostics retain evidence across varied question
     await persistResults(resultsPath, results);
 
     expect(receipt?.execution_authority).toBe(false);
+    expect(firstTokenMs, `${operationalCase.id} emitted no answer token`).not.toBeNull();
+    expect(
+      firstTokenMs,
+      `${operationalCase.id} exceeded ${MAX_ANSWER_TTFT_MS}ms answer TTFT`,
+    ).toBeLessThanOrEqual(MAX_ANSWER_TTFT_MS);
     expect(receipt?.disposition, `${operationalCase.id} ${receipt?.reason_code}`).toBe("answered");
     if (operationalCase.family === "inventory") {
       expect(frame?.operation).toBe("select");

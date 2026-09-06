@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: fb583919f8a3bc35b4a5a043af238906e0a78410
+translation_source_sha: a58b5aa0e95f7a211107184d6d989737e565094e
 translation_revised: 2026-09-07
 ---
 # 서술기 라우팅과 지연 시간
@@ -326,6 +326,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 첫 `onToken` callback을 상태 및 최종 timing과 별도로 측정하고 5초를 넘으면 실패하는 실제 운영 대화 qualification gate를 추가했습니다. | `current change`; Console 타입 검사가 통과했습니다. | 전체 표준 스택을 하나의 정확한 소스 리비전에서 시작한 뒤 gate를 실행합니다. |
 | 2026-09-07 | implemented | 첫 번째 턴의 명시적 및 맥락 의존 운영 신호에서 Compact preflight를 Adaptive 계획보다 먼저 실행하고, 의미 판단 뒤 의도 범위 서술자와 전용 제한 frame 프롬프트를 선택하도록 했습니다. | `current change`; 집중 구성 요소 테스트 1,237개, 대상 Ruff, strict mypy가 통과했습니다. | 하나의 일관된 표준 스택 SHA에서 검증된 첫 답변 토큰 지연 시간을 측정합니다. 상태 frame은 5초 TTFT 목표를 충족하지 않습니다. |
 | 2026-09-06 | implemented | 대화 응답 묶음에 바이너리 본문과 본문 없음이 추가된 뒤 T1 상태 경계를 바로잡았습니다. 상태 파서는 알 수 없는 입력을 받고 객체가 아닌 값을 거부하며, 의미 런타임 facade는 Operator 조립이 이미 사용하는 판독기를 명시적으로 내보냅니다. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py` 및 집중 strict mypy, Operator, 서비스 suite 검사입니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
 | 2026-09-06 | implemented | T1 상태 판독기를 기존 의미 런타임 facade를 통해 가져오도록 구성해 로컬 및 배포 Operator 조립이 같은 바인딩을 유지하면서 최상위 모듈이 검토된 fanout 상한 아래에 머물게 했습니다. | `current change`; Operator 경계 검사에서 고유 가져오기 39개를 확인했고 조립 및 T1 상태 집중 검사 92개와 Ruff가 통과했습니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
