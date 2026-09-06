@@ -67,6 +67,7 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
+from fdai_operator_service.model_catalog_composition import build_model_catalog_reader
 from fdai_operator_service.notification_receipt_ingress import (
     NotificationReceiptIngress,
     NotificationReceiptIngressConfig,
@@ -276,7 +277,7 @@ def build_postgres_iam_bindings(
         raise OperatorServiceConfigurationError(
             "handover composition requires the authoritative Operator database"
         )
-    iam = PostgresIamAdapters(store)
+    iam = PostgresIamAdapters(store, model_catalog=build_model_catalog_reader(environment))
     directory = build_iam_directory(environment, teams_http_client) or iam
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
     hil_authority = (

@@ -391,6 +391,12 @@ class DocumentOcrPlanCommand:
     idempotency_key: str
 
 
+class ModelCatalogReader(Protocol):
+    """Read bounded model configuration metadata without inference or apply authority."""
+
+    async def read(self, *, refresh: bool = False) -> JsonMapping: ...
+
+
 class ModelSettingsOutbox(Protocol):
     """Project model settings and persist policy requests without provisioning models."""
 

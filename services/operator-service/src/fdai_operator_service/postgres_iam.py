@@ -42,6 +42,7 @@ from fdai_operator_service.families.iam.contracts import (
     KillSwitchCommand,
     ModelBindingDraftCommand,
     ModelBindingRequestCommand,
+    ModelCatalogReader,
     ModelPreferenceCommand,
     RuntimeSettingsCommand,
     WebSearchSettingsCommand,
@@ -90,6 +91,7 @@ class PostgresIamAdapters:
     """Implement IAM read ports and inert request outboxes over PostgreSQL."""
 
     store: PostgresFamilyStore
+    model_catalog: ModelCatalogReader | None = None
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         """Expose read-only shared state needed by additive IAM projections."""
@@ -448,10 +450,14 @@ class PostgresIamAdapters:
         can_manage: bool = False,
     ) -> JsonMapping:
         """Read model or runtime settings without mutating their policy source."""
-        del refresh_model_catalog
         operation = "model-settings" if principal_id is not None else "runtime-settings"
         payload = await self._projection(operation)
         if principal_id is not None:
+            if self.model_catalog is not None:
+                payload = {
+                    **payload,
+                    "model_catalog": await self.model_catalog.read(refresh=refresh_model_catalog),
+                }
             web_search = payload.get("web_search")
             if not isinstance(web_search, Mapping):
                 raise IamUnavailableError("model settings projection has no web_search object")
