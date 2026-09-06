@@ -77,6 +77,8 @@ becoming a historical lookback. The same source check applies after full judgmen
 configuration and gateway normalization.
 The `last_hour` facet is descriptive only and cannot establish a time window without that grounded
 `time_range` target.
+The deterministic F2 compiler also rejects path-shaped ARM IDs instead of emitting them as
+`Resource.name`; ID-based requests stay on the general verified frame path.
 Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway
 compiler's default window.
 Core then rewrites the accepted gateway frame to `window_seconds=3600`; an empty or different model

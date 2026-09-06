@@ -154,6 +154,44 @@ def test_last_hour_facet_without_time_target_does_not_build_configuration_frame(
     assert result is None
 
 
+def test_arm_id_does_not_compile_as_resource_name() -> None:
+    target = "/subscriptions/example/resourceGroups/rg/providers/Microsoft.Cognitive/x"
+    utterance = f"Compare {target} during the last hour."
+    time_value = "last hour"
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value=target,
+                    source_start=utterance.index(target),
+                    source_end=utterance.index(target) + len(target),
+                ),
+                SemanticTarget(
+                    kind="time_range",
+                    value=time_value,
+                    canonical_value="duration.PT1H",
+                    source_start=utterance.index(time_value),
+                    source_end=utterance.index(time_value) + len(time_value),
+                ),
+            ),
+            requested_facets=("configuration_changes",),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=tuple(_manifest().descriptors),
+    )
+
+    assert result is None
+
+
 def _manifest(*, bound: bool = True, snapshot_bound: bool = True) -> QueryManifest:
     resource = OntologyObjectType(
         schema_version="1.0.0",

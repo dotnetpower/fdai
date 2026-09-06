@@ -71,6 +71,8 @@ def build_resource_configuration_frame(
     target = resource_targets[0]
     if utterance[target.source_start : target.source_end] != target.value:
         return None
+    if target.value.startswith("/"):
+        return None
     time_targets = tuple(target for target in judgment.targets if target.kind == "time_range")
     lookback_seconds = None
     if (
