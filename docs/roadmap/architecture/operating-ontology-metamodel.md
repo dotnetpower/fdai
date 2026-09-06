@@ -87,8 +87,9 @@ orientation, or incomplete coverage produces no link and lowers completeness.
 
 The reviewed `id.providerParent` path is narrower than generic ARM hierarchy inference. It applies
 only to declared nested provider types with an explicit mapping. Current mappings cover SQL
-databases, Communication email domains, DNS resolver inbound endpoints, and AKS AgentPools. The
-reviewed `id.providerRoot` path separately resolves a File Share to its top-level storage account.
+databases, Communication email domains, DNS resolver inbound endpoints, AKS AgentPools, and Azure AI
+model deployments under their accounts. The reviewed `id.providerRoot` path separately resolves a
+File Share to its top-level storage account.
 Top-level resources and malformed provider paths produce no provider-parent or provider-root
 candidate.
 If this exact mapping and a wildcard containment mapping claim the same child, the exact mapping

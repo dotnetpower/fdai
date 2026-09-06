@@ -28,6 +28,7 @@ classes:
       - kubernetes.service
       - kubernetes.stateful-set
       - llm-endpoint
+      - llm-model-deployment
       - static-web-app
       - workflow.logic-app
     specializes: [class.resource]

@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: a1625d9fb452030a4c9b019299cb8ea48b2c0e1f
-translation_revised: 2026-08-31
+translation_source_sha: 94b29b9c43da469f78150ec5434be9fd280b623b
+translation_revised: 2026-09-06
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -90,8 +90,9 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 
 검토된 `id.providerParent` 경로는 일반 ARM 계층 추론보다 범위가 좁습니다. 명시적 mapping을
 가진 선언된 중첩 프로바이더 타입에만 적용합니다. 현재 mapping은 SQL 데이터베이스,
-Communication email domain, DNS resolver inbound endpoint 및 AKS AgentPool을 포함합니다. 검토된
-`id.providerRoot` 경로는 File Share를 최상위 storage account로 별도로 해석합니다. 최상위
+Communication email domain, DNS resolver inbound endpoint, AKS AgentPool 및 상위 계정 아래의
+Azure AI 모델 배포를 포함합니다. 검토된 `id.providerRoot` 경로는 File Share를 최상위 storage
+account로 별도로 해석합니다. 최상위
 리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
 이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
 후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을

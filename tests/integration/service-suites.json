@@ -157,6 +157,7 @@
           "services/operator-service/tests/test_operator_service_full_composition.py",
           "services/operator-service/tests/test_operator_service_postgres.py",
           "services/operator-service/tests/test_operator_signal_shutdown.py",
+          "services/operator-service/tests/test_presentation_rows.py",
           "services/operator-service/tests/test_postgres_background_task_projection.py",
           "services/operator-service/tests/test_background_task_projection_transport.py",
           "services/operator-service/tests/test_postgres_family_store_cancellation.py",

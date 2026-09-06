@@ -61,6 +61,7 @@ export const ARCHITECTURE_RESOURCE_ABBREVIATIONS = {
   "kubernetes.daemon-set": "ds",
   "kubernetes.stateful-set": "sts",
   "llm-endpoint": "oai",
+  "llm-model-deployment": "model",
   "network.vnet": "vnet",
   "network.subnet": "snet",
   "network.nsg": "nsg",
