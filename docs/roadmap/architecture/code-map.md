@@ -94,6 +94,8 @@ cannot grant instruction or execution authority. Required retrieval fails closed
 coverage; optional retrieval remains partial unless independent operational evidence completes.
 The PostgreSQL adapter reports `index_completeness_unverified` until a complete provider-owned
 index generation is available.
+Focused governed-query contract tests exercise every excerpt, collection, authorization, input,
+and reader-bound failure branch without granting execution authority.
 
 Semantic resource-health planning now keeps collection health, exact resource identity, explicit
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves
