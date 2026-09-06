@@ -74,6 +74,10 @@ on:
         description: "OI-15 protected apply workflow run containing the receipt artifact."
         type: string
         required: false
+      deployment_plan_id:
+        description: "OI-15 protected plan id containing the durable apply receipt."
+        type: string
+        required: false
 
 permissions:
   actions: write
@@ -156,6 +160,7 @@ jobs:
           DEPLOYMENT_RECEIPT_DIGEST: ${{ inputs.deployment_receipt_digest }}
           DEPLOYMENT_REVISION: ${{ inputs.deployment_revision }}
           DEPLOYMENT_APPLY_RUN_ID: ${{ inputs.deployment_apply_run_id }}
+          DEPLOYMENT_PLAN_ID: ${{ inputs.deployment_plan_id }}
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
         run: |
           set -euo pipefail
@@ -302,6 +307,10 @@ jobs:
                 echo "Operational-history deployment apply run id is invalid." >&2
                 exit 1
               }
+              [[ "$DEPLOYMENT_PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]] || {
+                echo "Operational-history deployment plan id is invalid." >&2
+                exit 1
+              }
               verify_environment
               gh api --method POST \
                 "repos/$GITHUB_REPOSITORY/actions/workflows/operational-history-certification.yml/dispatches" \
@@ -312,7 +321,8 @@ jobs:
                 -f "inputs[runtime_image_revision]=$APPLY_RUNTIME_IMAGE_REVISION" \
                 -f "inputs[deployment_revision]=$DEPLOYMENT_REVISION" \
                 -f "inputs[deployment_receipt_digest]=$DEPLOYMENT_RECEIPT_DIGEST" \
-                -f "inputs[deployment_apply_run_id]=$DEPLOYMENT_APPLY_RUN_ID"
+                -f "inputs[deployment_apply_run_id]=$DEPLOYMENT_APPLY_RUN_ID" \
+                -f "inputs[deployment_plan_id]=$DEPLOYMENT_PLAN_ID"
               exit 0
               ;;
             operational-history-apply|rca-reader-apply)

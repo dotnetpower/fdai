@@ -33,6 +33,10 @@ on:
         description: "Exact successful OI-15 apply workflow run."
         type: string
         required: true
+      deployment_plan_id:
+        description: "Exact OI-15 protected plan id containing the durable apply receipt."
+        type: string
+        required: true
 
 permissions:
   actions: read
@@ -66,6 +70,7 @@ jobs:
       DEPLOYMENT_REVISION: ${{ inputs.deployment_revision }}
       DEPLOYMENT_RECEIPT_DIGEST: ${{ inputs.deployment_receipt_digest }}
       DEPLOYMENT_APPLY_RUN_ID: ${{ inputs.deployment_apply_run_id }}
+      DEPLOYMENT_PLAN_ID: ${{ inputs.deployment_plan_id }}
 
     steps:
       - name: Checkout protected workflow verifier
@@ -104,6 +109,7 @@ jobs:
           [[ "$DEPLOYMENT_REVISION" =~ ^[0-9a-f]{40}$ ]]
           [[ "$DEPLOYMENT_RECEIPT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$DEPLOYMENT_APPLY_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$DEPLOYMENT_PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]
 
           checks="$RUNNER_TEMP/required-ci.json"
           gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
@@ -122,45 +128,7 @@ jobs:
             exit 1
           }
 
-          echo "Verify OI-15 apply receipt artifact"
-          apply_run="$RUNNER_TEMP/deployment-apply-run.json"
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOYMENT_APPLY_RUN_ID" > "$apply_run"
-          jq -e \
-            --arg revision "$DEPLOYMENT_REVISION" \
-            '.conclusion == "success" and .head_sha == $revision and
-             .path == ".github/workflows/deploy-dev.yml"' \
-            "$apply_run" >/dev/null
-          artifacts="$RUNNER_TEMP/deployment-apply-artifacts.json"
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOYMENT_APPLY_RUN_ID/artifacts?per_page=100" \
-            > "$artifacts"
-          apply_artifact="$(jq -c \
-            '[.artifacts[] |
-              select((.name | startswith("deployment-apply-receipt-")) and (.expired | not))] |
-             if length == 1 then .[0] else empty end' "$artifacts")"
-          [[ -n "$apply_artifact" ]] || {
-            echo "the OI-15 apply run has no unique unexpired receipt artifact" >&2
-            exit 1
-          }
-          apply_artifact_name="$(jq -r '.name' <<< "$apply_artifact")"
-          apply_dir="$RUNNER_TEMP/oi15-apply-receipt"
-          mkdir -p "$apply_dir"
-          gh run download "$DEPLOYMENT_APPLY_RUN_ID" --name "$apply_artifact_name" --dir "$apply_dir"
-          apply_receipt="$(find "$apply_dir" -type f -name apply-receipt.json -print)"
-          [[ "$(wc -l <<< "$apply_receipt")" -eq 1 && -f "$apply_receipt" ]]
-          observed_receipt_digest="sha256:$(sha256sum "$apply_receipt" | cut -d' ' -f1)"
-          [[ "$observed_receipt_digest" == "$DEPLOYMENT_RECEIPT_DIGEST" ]] || {
-            echo "the OI-15 apply receipt content digest does not match the protected input" >&2
-            exit 1
-          }
-          jq -e --argjson run_id "$DEPLOYMENT_APPLY_RUN_ID" \
-            '.schema_version == "fdai.deployment-apply-receipt.v1" and
-             .status == "applied" and (.workflow_run_id | tonumber) == $run_id' \
-            "$apply_receipt" >/dev/null
-
-          {
-            echo "REQUIRED_CI_RUN_ID=$required_ci_run_id"
-            echo "OI15_APPLY_RECEIPT_FILE=$apply_receipt"
-          } >> "$GITHUB_ENV"
+          echo "REQUIRED_CI_RUN_ID=$required_ci_run_id" >> "$GITHUB_ENV"
 
       - name: Bind stable deployment identity
         env:
@@ -170,6 +138,75 @@ jobs:
           bash scripts/deployment/azure/login-deploy-identity.sh \
             "$ARM_SUBSCRIPTION_ID" "$EXPECTED_AZURE_TENANT_ID" \
             "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Verify OI-15 durable apply receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          apply_run="$RUNNER_TEMP/deployment-apply-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOYMENT_APPLY_RUN_ID" > "$apply_run"
+          jq -e \
+            --arg revision "$DEPLOYMENT_REVISION" \
+            '.conclusion == "success" and .head_sha == $revision and
+             .path == ".github/workflows/deploy-dev.yml"' \
+            "$apply_run" >/dev/null
+
+          artifacts="$RUNNER_TEMP/deployment-apply-artifacts.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOYMENT_APPLY_RUN_ID/artifacts?per_page=100" \
+            > "$artifacts"
+          expected_artifact_name="deployment-apply-receipt-${DEPLOYMENT_PLAN_ID}"
+          apply_artifact_count="$(jq --arg name "$expected_artifact_name" \
+            '[.artifacts[] | select(.name == $name and (.expired | not))] |
+             length' "$artifacts")"
+          apply_dir="$RUNNER_TEMP/oi15-apply-receipt"
+          mkdir -p "$apply_dir"
+          case "$apply_artifact_count" in
+            0)
+              apply_receipt="$apply_dir/apply-receipt.json"
+              az storage blob download \
+                --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+                --container-name deployment-plans \
+                --name "${TARGET_ENVIRONMENT}/${DEPLOYMENT_PLAN_ID}/apply-receipt.json" \
+                --file "$apply_receipt" \
+                --auth-mode login \
+                --only-show-errors \
+                --overwrite true \
+                --output none
+              ;;
+            1)
+              apply_artifact_name="$(jq -r --arg name "$expected_artifact_name" \
+                '[.artifacts[] | select(.name == $name and (.expired | not))][0].name' \
+                "$artifacts")"
+              gh run download "$DEPLOYMENT_APPLY_RUN_ID" \
+                --name "$apply_artifact_name" \
+                --dir "$apply_dir"
+              mapfile -t apply_receipts < <(
+                find "$apply_dir" -type f -name apply-receipt.json -print
+              )
+              [[ "${#apply_receipts[@]}" -eq 1 ]]
+              apply_receipt="${apply_receipts[0]}"
+              ;;
+            *)
+              echo "the OI-15 apply run has multiple unexpired receipt artifacts" >&2
+              exit 1
+              ;;
+          esac
+          [[ -f "$apply_receipt" ]]
+          observed_receipt_digest="sha256:$(sha256sum "$apply_receipt" | cut -d' ' -f1)"
+          [[ "$observed_receipt_digest" == "$DEPLOYMENT_RECEIPT_DIGEST" ]] || {
+            echo "the OI-15 apply receipt content digest does not match the protected input" >&2
+            exit 1
+          }
+          jq -e \
+            --arg plan_id "$DEPLOYMENT_PLAN_ID" \
+            --argjson run_id "$DEPLOYMENT_APPLY_RUN_ID" \
+            '.schema_version == "fdai.deployment-apply-receipt.v1" and
+             .plan_id == $plan_id and
+             .status == "applied" and
+             (.workflow_run_id | tonumber) == $run_id' \
+            "$apply_receipt" >/dev/null
+          echo "OI15_APPLY_RECEIPT_FILE=$apply_receipt" >> "$GITHUB_ENV"
 
       - name: Verify exact attested runtime image
         working-directory: infra
