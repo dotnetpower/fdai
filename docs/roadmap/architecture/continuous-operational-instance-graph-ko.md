@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a445630118e9c8588d6d93b65c09594438a5b923
+translation_source_sha: 1b239fd76527be89b9cbe8edaec9d25ed2df86aa
 translation_revised: 2026-09-06
 ---
 # 지속형 운영 인스턴스 그래프
@@ -386,6 +386,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 완전한 활성 프로바이더 스냅샷을 이전 근거를 대체하는 범위 경계로 적용하도록 저장소 pressure의 변환 지연 계산을 수정했습니다. Pressure query는 스냅샷이 `full_provider_scope`, 최신 변환 완전성 및 현재 매니페스트와 같은 세대를 선언할 때만 정확한 활성 scope에서 스냅샷 시작 시각 이전의 레코드를 제외합니다. 현재 세대 행은 매니페스트 journal watermark로 계속 제한하고 이후 행, scope 밖 행, null scope 행 및 certification 이외의 행은 대기 상태로 유지합니다. | `current change`, 집중 pressure 읽기 및 campaign fixture 테스트 37개가 통과했고 Ruff 및 strict mypy 검사도 통과했습니다. Exact-image 프로바이더 refresh가 매니페스트와 일치하고 관계 범위가 완전한 스키마 `1.3.0` 활성 세대를 생성했습니다. 제안 query를 해당 세대에 읽기 전용으로 실행해 변환 지연 5를 측정했으며 정책 한도 1000 미만이었습니다. | 수정된 exact image를 게시하고 attest한 뒤 가져오고, 독립 승인을 받은 새 campaign이 13/13을 통과해야 certification을 저장합니다. |
 | 2026-09-06 | implemented | 한 번의 스키마 `1.1.0` bootstrap을 마친 뒤 변경되지 않은 레거시 스냅샷 메타데이터를 최신 메타데이터로 취급하지 않으면서 exact-release 재현을 반복할 수 있게 했습니다. 이 우회는 같은 세대의 완전한 스키마 `1.3.0` 매니페스트가 유효한 내용 다이제스트, 완전한 관계 상태, 정규 객체 및 link 내용, 빈 누락 사유를 가질 때만 적용됩니다. 메타데이터가 혼합되었거나 매니페스트가 불완전하면 계속 차단되며, projector는 커밋 전에 재구성한 journal 내용을 내용 주소가 지정된 매니페스트와 계속 비교합니다. | `current change`, 집중 journal, 재현 CLI 및 ontology projector 테스트 54개가 통과했습니다. 독립 승인을 받은 campaign `34034548028`은 exact CI, 영속 OI-15 증적, runtime image 및 attestation을 검증한 뒤 현재 매니페스트 재현이 레거시 스냅샷의 `projection_complete`를 계속 요구하여 시나리오 전에 중단됐습니다. | 반복 재현 수정을 게시하고 attest한 뒤 exact image를 가져오고, 독립 승인을 받은 새 campaign을 실행합니다. |
 | 2026-09-06 | implemented | PostgreSQL 인벤토리 journal 레코드 변환과 온톨로지 graph query 읽기를 집중 persistence 모듈로 분리하면서 공개 store와 쓰기 경계는 변경하지 않았습니다. Journal store는 767줄, ontology store는 794줄이며 추출한 두 helper도 구조 실패 임계값보다 작습니다. 오래된 ontology LOC 부채 기준은 늘리지 않고 제거했습니다. | `current change`, 집중 inventory journal, 재현, ontology persistence 및 service-suite 테스트 76개가 통과했고 환경 의존 테스트 6개는 건너뛰었습니다. Ruff, formatter, strict mypy, JSON parsing 및 enforced LOC gate가 통과했습니다. | exact CI에서 구조 분할을 유지하고 수정된 projection backlog 리비전부터 OI-16 certification을 계속합니다. |
 | 2026-09-06 | implemented | 원시 숫자 watermark 차이 대신 실제 대기 중인 journal 레코드를 세도록 운영 변환 지연 계산을 수정했습니다. 현재 온톨로지 세대에서 이미 다룬 레코드는 해당 매니페스트의 journal high-watermark까지만 제외하고, 같은 세대에서 이후에 생긴 레코드는 계속 대기 상태로 셉니다. 격리된 OI-16 synthetic scope는 활성 graph 완전성을 낮추지 않습니다. 매니페스트가 최신 상태가 된 뒤 반복하는 release 이행은 변경되지 않은 레거시 스냅샷 메타데이터를 다시 bootstrap하지 않고 정규화된 journal을 직접 재현합니다. | `current change`, 집중 스냅샷, 재현, 온톨로지, pressure 읽기 및 campaign fixture 테스트 89개가 통과했고 Ruff 및 strict mypy 검사도 통과했습니다. 독립 승인을 받은 campaign `34027297848`은 정확한 변환 이행과 database 재시작 및 시나리오 12개를 통과했지만, 원시 watermark 차이가 2200으로 계산되어 `bounded_storage`가 실패했습니다. 읽기 전용 측정에서 database 크기는 hard 한도 미만, purge backlog는 1, 정확한 매니페스트 범위의 대기 개수는 652로 정책 한도 1000 미만이었습니다. | 수정된 exact image를 게시하고 attest한 뒤 파괴 계획을 적용하지 않고 가져오고, 독립 승인을 받은 새 campaign이 13/13을 통과해야 certification을 저장합니다. |
@@ -558,9 +559,10 @@ purge가 연결되지 않았습니다. 위의 제한된 이력 설계와 OI-13�
   재시작 및 archive 중단 시나리오를 포함해야 합니다. 개발 전용 synthetic campaign, bot 요청
   기반 보호 workflow, 정확한 provenance 결속, 비공개 단계 근거 및 gate가 적용된 증적 writer는
   구현됐습니다. 모든 시나리오가 통과하지 않으면 `operationally_validated=true`를 보고하거나
-  증적을 저장할 수 없습니다. 독립 승인을 받은 campaign `34034548028`은 exact provenance와
-  영속 OI-15 근거를 검증한 뒤 이미 이행된 활성 세대를 반복 재현하는 단계에서 중단됐습니다.
-  스냅샷 메타데이터가 계속 레거시 상태이므로 운영 증적은 열려 있습니다.
+  증적을 저장할 수 없습니다. Campaign `34036290212`은 exact provenance와 영속 OI-15 근거를
+  검증한 뒤 같은 이전 세대가 새 ontology release에서 다른 내용을 만들어 중단됐습니다.
+  이후 exact-image 프로바이더 refresh가 완전한 최신 세대를 생성했지만 새 campaign에서 모든
+  시나리오가 통과할 때까지 운영 증적은 열려 있습니다.
 - [x] 표준 로컬 프로필에 `analyzer: run continuously (local)`을 제공합니다. 배포 one-shot
   analyzer CLI, 로컬 런타임 환경, 인벤토리 대상 검색, 메트릭 매핑, 멱등성 키, 이벤트 계약 및
   shadow 상태를 재사용하며 analyzer 로직을 중복하지 않습니다.
