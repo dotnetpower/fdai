@@ -159,6 +159,9 @@ the exact ResourceTypes whose ARM type is supported:
 - Expanded Resource Health validation compares target, value, and metadata counts by ResourceType.
   Provider-unmodeled targets stay explicit and require an independent operational fact before a
   compact node can show operation.
+- Runtime primary-state validation includes configuration Resources with no operational or
+  availability source. These nodes show exact provisioning when present and retain explicit
+  unavailable only when every recorded axis lacks a useful exact fact.
 
 ## Rejected alternatives
 

@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: c549a05ca01017c805ebe44b847bd2865b69bd44
+translation_source_sha: 7cdb566a379337e6804d79dd0b1920c6703c293c
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -158,6 +158,9 @@ ResourceType을 선언합니다.
 - 확장된 Resource Health 검증은 ResourceType별 대상, 값 및 메타데이터 수를 비교합니다. 공급자가
   모델링하지 않은 대상은 명시적으로 유지하며, 간단한 노드에 운영 상태를 표시하려면 독립적인 운영
   사실이 필요합니다.
+- 런타임 대표 상태 검증에는 운영 또는 가용성 출처가 없는 구성형 Resource도 포함합니다. 이러한
+  노드는 정확한 프로비저닝 값이 있으면 해당 축을 표시하고, 모든 기록 축에 유용한 정확한 사실이
+  없을 때만 명시적인 사용 불가를 유지합니다.
 
 ## 채택하지 않은 대안
 
