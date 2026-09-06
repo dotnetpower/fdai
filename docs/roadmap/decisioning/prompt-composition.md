@@ -60,7 +60,8 @@ time and call capacity for independent verification. Short review stages may use
 supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);
 authoring, other families, and T2 reasoning settings remain unchanged.
 
-Content-free stage logs report elapsed time, remaining time, status, and physical-call count.
+Content-free stage logs report elapsed time, remaining time, status, and reserved call attempts.
+An attempted or reserved stage is not proof that a provider accepted a physical request.
 Schema text and prepared-validator caches are bounded and contain no user input; every response
 still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
 adding another token cache. Offline request-count and clock tests prove mechanism changes, not
