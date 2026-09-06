@@ -166,6 +166,7 @@ def test_platform_workflow_isolates_operational_history_plan_changes() -> None:
     assert "deploy_operational_history:" not in _LEGACY_WORKFLOW
     assert "TF_VAR_enable_operational_history" in _LEGACY_WORKFLOW
     assert "vars.ENABLE_OPERATIONAL_HISTORY == 'true'" in _LEGACY_WORKFLOW
+    assert "-target=module.resource_group.azurerm_resource_group.primary" in target_expression
     assert "-target=module.operational_history_storage[0]" in target_expression
     assert "-target=azurerm_private_endpoint.operational_history_blob[0]" in target_expression
     assert (

@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 7dcfbfca57688799531850bbf74d28b010b80f40
-translation_revised: 2026-09-05
+translation_source_sha: 55f87371ab6917d7f100a70ff2de9d5e01fb355f
+translation_revised: 2026-09-07
 ---
 # 배포 리소스 규약
 
@@ -28,6 +28,8 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 애플리케이션 기능 입력은 전체 계획에서 원하는 플랫폼 상태를 나타냅니다. 모니터링이 유일하게
 선택된 기능일 때만 범위가 제한된 `module.monitoring` 대상을 사용합니다. 애플리케이션 기능과 함께
 선택하면 모니터링을 활성 상태로 유지하고 전체 비파괴 계획에 포함합니다.
+운영 이력 전용 계획에는 애플리케이션 리소스 그룹의 이전 이동 주소를 포함합니다. Terraform은 이
+무변경 상태 전환을 조정한 뒤 이력 저장소, 비공개 엔드포인트 및 수명 주기 Job 대상만 평가합니다.
 보호된 Console release workflow는 CI로 검증된 정확한 Core image를 연결하고 기존 catalog 구체화
 Job을 rollback과 함께 갱신한 뒤 schema migration을 실행합니다. 일치하는 Console 산출물을
 게시하기 전에 선택한 revision의 변경할 수 없는 Rule 및 Ontology 변환 결과를 PostgreSQL
@@ -69,6 +71,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 애플리케이션 리소스 그룹이 공유 리소스 그룹 모듈로 이동한 뒤에도 보호된 운영 이력 계획을 사용할 수 있게 했습니다. 범위가 제한된 대상 집합에는 해당 이동 주소와 기존 이력 저장소, 비공개 엔드포인트 및 수명 주기 Job 대상만 포함합니다. | `current change`, 실패한 보호 계획 `34041699943`, `deploy-dev.yml`, 집중 배포 워크플로 및 계획 범위 검사입니다. | 인증 campaign 전에 destroy가 없는 새 보호 계획을 생성합니다. |
 | 2026-08-30 | implemented | 읽기 전용 초기 구성 조정, 승인된 기반 변경, 애플리케이션 계획 전용 실행을 분리해 계획이 보호된 상태 컨테이너를 만들 수 없도록 했습니다. | `current change`, 집중 배포 CLI 및 워크플로 검사, 이슈 `#400` | 승인된 기반 적용, 원격 상태 인계, 무변경 재확인 증적을 보존해야 합니다. |
 | 2026-08-28 | implemented | 발행기 한정 partner 모델을 위한 격리된 private AIServices account/project/deployment 모듈을 추가했습니다. | `current change`; 모듈 format, validate 및 Terraform 검사(`1 passed`). | 활성화 전에 private endpoint/DNS와 endpoint-specific runtime binding을 사용해 root에 모듈을 조립해야 합니다. |
 | 2026-08-28 | implemented | 발행기 한정 기능을 OpenAI와 Foundry account로 분리하고 조건부 services.ai private endpoint/DNS 조립을 추가했습니다. | `current change`; root Terraform 검사(`5 passed`); 모듈 검사(`1 passed`). | Registry 활성화 전에 각 runtime 기능을 소유 endpoint에 binding해야 합니다. |

@@ -26,6 +26,9 @@ resources as an incidental planning side effect.
 Application feature inputs describe the desired platform state during a full plan. Monitoring uses
 the bounded `module.monitoring` target only when it is the sole selected feature; when combined with
 application features, it remains enabled and participates in the complete non-destructive plan.
+The operational-history-only plan includes the application resource group's historical moved
+address so Terraform can reconcile that no-op state transition before evaluating only the history
+storage, private endpoint, and lifecycle Job targets.
 The protected Console release workflow binds an exact CI-verified Core image, updates the existing
 catalog materialization Job with rollback, runs schema migration, and verifies the selected
 revision's immutable Rule and Ontology projections through PostgreSQL readback before publishing the
@@ -68,6 +71,7 @@ enabling self-review or administrator bypass.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Kept the protected operational-history plan usable after the application resource group moved behind the shared resource-group module. The bounded target set now includes only that moved address plus the existing history storage, private endpoint, and lifecycle Job targets. | `current change`; failed protected plan `34041699943`; `deploy-dev.yml`; focused deployment workflow and plan-scope checks. | Produce a fresh zero-destroy protected plan before any certification campaign. |
 | 2026-08-30 | implemented | Separated read-only bootstrap reconciliation, approved foundation mutation, and application plan-only execution so planning cannot create protected state containers. | `current change`; focused deployment CLI and workflow checks; issue `#400` | Retain the approved foundation apply, remote-state handoff, and zero-change readback receipts. |
 | 2026-08-28 | implemented | Added an isolated private AIServices account/project/deployment module for publisher-qualified partner models. | `current change`; module format, validate, and Terraform test (`1 passed`). | Compose the module in the root with private endpoint/DNS and endpoint-specific runtime binding before activation. |
 | 2026-08-28 | implemented | Split publisher-qualified capabilities between OpenAI and Foundry accounts and added conditional services.ai private endpoint/DNS composition. | `current change`; root Terraform checks (`5 passed`); module test (`1 passed`). | Bind each runtime capability to its owning endpoint before registry activation. |
