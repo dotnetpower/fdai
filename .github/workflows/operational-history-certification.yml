@@ -402,7 +402,7 @@ jobs:
             exit 1
           }
           activity="$RUNNER_TEMP/database-restart-activity.json"
-          for _ in $(seq 1 12); do
+          for _ in $(seq 1 30); do
             az monitor activity-log list --resource-id "$resource_id" \
               --start-time "$started_at" --offset 1h --max-events 50 --output json > "$activity"
             if jq -e \
