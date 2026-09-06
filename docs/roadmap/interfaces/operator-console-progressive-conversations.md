@@ -22,6 +22,7 @@ context cannot appear as incident evidence.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Adaptive answer source and replay presentation | implemented | `adaptive-answer.test.ts` passed 33 cases; `turn-history.test.ts` and `command-deck.session.test.ts` passed 20 cases; Console typecheck and build passed | General knowledge has no blanket query receipt. Goal-local support and separate draft explanations survive streaming and restoration; malformed streams clear unverified text. Browser runtime validation is separate. |
 | General starter immediate submission | implemented | `general-conversation-intro.tsx`; `command-deck-view.tsx`; `conversation-entry.spec.ts` | All three bilingual starters submit the displayed question through the normal context-aware path on pointer or keyboard activation. Tooltips explain immediate submission. Six starter cases and both existing entry scenarios pass with synthetic responses, not live model calls. |
 | Web progressive stream reduction | implemented | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | Focused tests cover ordered frames, replay rejection, branch lifecycle, confirmed revisions, and partial turns. This row does not claim Teams or Slack runtime validation. |
 | Direct-response lifecycle suppression | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), and focused Operator and Console checks | Operator does not inspect operator text or predict terminal disposition when a stream opens. A model-selected typed direct response emits `done` alone. Console shows an ephemeral compact pending row immediately after submit, expands to the detailed preparation trace only after an observed progress frame, and removes both on a direct terminal response. The browser interpolates only presentation geometry and terminal-only text reveal; it does not invent lifecycle content. |
@@ -46,6 +47,9 @@ context cannot appear as incident evidence.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Aligned legacy regression fixtures with hidden direct/advisory route badges and the explicit unknown dialogue relationship contract. | `current change`; 44 presenter/advisory tests and 15 provider-free semantic roundtrip tests passed; all 10 synthetic conversation-entry browser tests passed on the integrated main code. | Live model quality, local startup, and exact-SHA CI remain separate evidence. |
+| 2026-09-06 | implemented | Hardened adaptive source disclosure and restored general-history context. Missing legacy context metadata is recovered from the explicit general namespace, never the title or creation route; resumed requests do not inherit Dashboard facts. | `current change`; 209 focused Console checks, type checks/build, and all 10 isolated conversation-entry E2E scenarios passed. Both locales passed desktop-first 1440/993/390 checks, keyboard disclosure, saved-history restoration, and unscoped follow-up submission. | Browser evidence is synthetic and isolated, not a live Browser Entra or model-validation receipt. |
+| 2026-09-06 | implemented | Added projection 1.6 advisory presentation, localized goal support, selected-agent identity, and replay-safe draft explanations without replacing governed confirmation fields. | `current change`; 33 adaptive answer cases, 20 session/history cases, Console typecheck and production build passed. | Complete connected critique evidence and retain separately authorized browser runtime evidence. |
 | 2026-09-06 | implemented | Registered structured conversation-key restoration as a reviewed non-semantic boundary without changing runtime routing or weakening the lexical detector. | `current change`; `chat-semantic-routing-baseline.json`; semantic-routing tests: 10 passed; session/navigation tests: 33 passed; Console typecheck. | Exact published CI evidence is separate from these focused checks. |
 | 2026-09-06 | implemented | Changed general starter buttons from draft-only insertion to immediate normal submission and added bilingual send-preview tooltips. | `current change`; `conversation-entry.spec.ts`: 8 passed; focused chat/catalog checks: 48 passed; Console typecheck. | No live model or resource-execution validation was requested or performed. |
 | 2026-09-06 | implemented | Completed the general welcome and explicit screen-context UX. Reopening preserves separate drafts, general history never navigates, both submission paths use the selected snapshot, and regeneration preserves an unscoped request. | `current change`; `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`; focused unit and synthetic browser checks. | Model answers and resource execution were not invoked by this UI validation. |
@@ -157,6 +161,17 @@ reviewed `retain` boundary in the semantic-routing baseline. Question text suppl
 title; even action-like wording or namespace text cannot select an agent, incident binding, or mode.
 
 ## Semantic terminal presentation plan
+
+`advisory_response` is carried by projection `1.6.0`, separately from social `direct_response`
+and verified operational `answered`. The Console renders its canonical answer and goal-local
+knowledge, verified-example, or unavailable labels without inventing a whole-response receipt.
+Optional example failure does not replace the explanation with a source-failure answer. A reviewed
+explanation can also accompany an existing `action_draft`; the canonical draft text and any supplied
+confirmation fields remain intact. Stream, JSON, local cache, and durable restoration preserve the
+same adaptive metadata. No new confirmation or execution authority is inferred from advisory text.
+Limitation details use a localized disclosure rather than a raw diagnostic token as the primary
+label. Restored general conversations keep their general context even when an older local index
+omits the explicit mode field; neither titles nor creation routes add screen evidence.
 
 A typed `direct_response` is separate from a verified query answer. It carries one closed answer
 intent, bounded locale-bound text authored by the semantic judgment model, and

@@ -100,17 +100,28 @@ variable "postgres_admin_login" {
 }
 
 variable "postgres_admin_password" {
-  description = "Postgres Flexible Server administrator password. Supplied via tfvars only."
+  description = "Postgres Flexible Server administrator password. Supply through the existing protected input path, or leave null when generate_initial_postgres_password is enabled."
   type        = string
+  default     = null
   sensitive   = true
 
   validation {
     # Reject the tfvars.example placeholder and obvious short strings; this is
     # not a strength policy (Azure enforces its own), just a guard against a
     # 'forgot to replace SET-ME-VIA-VAULT' apply that would 500-error midway.
-    condition     = length(var.postgres_admin_password) >= 12 && var.postgres_admin_password != "SET-ME-VIA-VAULT"
-    error_message = "postgres_admin_password must be at least 12 characters and MUST be replaced from the tfvars.example placeholder."
+    condition = var.generate_initial_postgres_password ? var.postgres_admin_password == null : try(
+      length(var.postgres_admin_password) >= 12 && var.postgres_admin_password != "SET-ME-VIA-VAULT",
+      false,
+    )
+    error_message = "Supply postgres_admin_password with at least 12 characters, replacing the tfvars.example placeholder, or enable generate_initial_postgres_password and leave postgres_admin_password null. Both inputs are not allowed."
   }
+}
+
+variable "generate_initial_postgres_password" {
+  description = "Opt in to persistent initial PostgreSQL password generation during an approved private-host Terraform apply. Intended for fresh deployments; enabling on an existing server is a separately approved credential change, not a migration bypass."
+  type        = bool
+  default     = false
+  nullable    = false
 }
 
 # -----------------------------------------------------------------------

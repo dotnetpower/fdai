@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-import test_offline_prepare
 from fdai_deployment_cli import support_install
 from fdai_deployment_cli.support_install import _validate_requirements, install_support
-from test_offline_prepare import _sign_kit
+
+_TESTS = str(Path(__file__).parent)
+if _TESTS not in sys.path:
+    sys.path.insert(0, _TESTS)
+test_offline_prepare = importlib.import_module("test_offline_prepare")
+_sign_kit = test_offline_prepare._sign_kit
 
 PACKAGES = {
     "fdai-service-contracts",

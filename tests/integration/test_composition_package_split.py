@@ -77,6 +77,8 @@ _EXPECTED_FILES = frozenset(
         "wire_browser_evidence.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
+        # Binds fixed-role adaptive prompts and independent, bounded answer models.
+        "wire_adaptive_conversation.py",
         # Binds the no-authority T1/T2 semantic judgment factory.
         "wire_semantic_judgment.py",
         # Resolves the separate T1 and T2 planning request targets so the

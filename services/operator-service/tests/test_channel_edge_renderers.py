@@ -16,6 +16,7 @@ from fdai_operator_service.families.conversation.channel_edge.renderers import (
     SlackPresentationRenderer,
     TeamsPresentationRenderer,
 )
+from fdai_service_contracts import AdaptiveAnswer
 
 _REF = "ontology-function:verified-output"
 
@@ -114,6 +115,53 @@ def test_direct_response_is_available_without_invented_evidence_authority() -> N
     assert envelope.unavailable is False
     assert envelope.evidence_refs == ()
     assert envelope.authority == "no_execution_authority"
+
+
+@pytest.mark.parametrize(
+    ("locale", "knowledge", "example"),
+    [("en", "General knowledge", "Environment example"), ("ko", "일반 지식", "현재 환경의 예시")],
+)
+def test_advisory_channel_renderers_preserve_goal_local_support(
+    locale: str, knowledge: str, example: str
+) -> None:
+    adaptive = AdaptiveAnswer.model_validate(
+        {
+            "answer": "An SLO is a measurable service objective.",
+            "goals": [
+                {"goal_id": "concept", "kind": "knowledge", "status": "answered", "required": True},
+                {
+                    "goal_id": "example",
+                    "kind": "environment_example",
+                    "status": "answered",
+                    "required": False,
+                    "evidence_refs": [_REF],
+                },
+            ],
+            "role_agent": "Mimir",
+            "quality_status": "passed",
+        }
+    )
+    terminal = {
+        "status": "advisory_response",
+        "source": "semantic-advisory-response",
+        "answer": adaptive.answer,
+        "adaptive_answer": adaptive.model_dump(mode="json"),
+        "execution_authority": False,
+        "locale": locale,
+    }
+    envelope = normalize_terminal_presentation(terminal)
+    assert envelope.adaptive_answer == adaptive
+    assert envelope.unavailable is False
+    assert envelope.evidence_refs == ()
+    for renderer in (SlackPresentationRenderer(), TeamsPresentationRenderer()):
+        rendered = renderer.render(envelope)
+        assert knowledge in rendered.fallback_text
+        assert example in rendered.fallback_text
+        assert _REF in rendered.fallback_text
+        assert "Evidence:\n- none recorded" not in rendered.fallback_text
+        assert "Availability: unavailable" not in rendered.fallback_text
+    with pytest.raises(ValueError, match="goal-local"):
+        normalize_terminal_presentation({**terminal, "verification": {}})
 
 
 def test_malformed_artifact_degrades_to_canonical_text_without_leaking_shape() -> None:

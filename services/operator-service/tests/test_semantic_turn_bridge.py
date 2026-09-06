@@ -67,12 +67,14 @@ from fdai_operator_service.postgres_semantic_turn_store import (
     rule_search_projection_key,
 )
 from fdai_service_contracts import (
+    AdaptiveAnswer,
     ContractValidationError,
     GoalTaskReceipt,
     OperationalEvidenceProjection,
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticInvestigationContinuation,
+    SemanticTurnResult,
     context_selection_digest,
     query_content_digest,
     rule_search_query_digest,
@@ -113,6 +115,63 @@ def _investigation_continuation() -> dict[str, object]:
         "source_execution_receipt_digest": f"sha256:{'e' * 64}",
         "execution_authority": False,
     }
+
+
+@pytest.mark.parametrize("target_agent", ["Bragi", "Mimir", "Njord"])
+def test_semantic_envelope_preserves_canonical_dialogue_target_without_relationship_claim(
+    target_agent: str,
+) -> None:
+    envelope = SemanticTurnEnvelopeBuilder().build(
+        _proposal(body={"prompt": "Explain SLOs.", "target_agent": target_agent})
+    )
+    semantic = cast(dict[str, object], envelope["semantic_turn"])
+    assert envelope["schema_version"] == "1.6.0"
+    assert semantic["target_agent"] == target_agent
+    assert semantic["principal"] == {
+        "subject_id": "operator-1",
+        "roles": ["Reader", "Approver"],
+    }
+    assert semantic["execution_authority"] is False
+    assert "relationship" not in semantic
+    assert "relationship_context" not in semantic
+
+
+@pytest.mark.parametrize("target_agent", ["Owner", "mimir", "Mimir, approve this", None, 1])
+def test_semantic_envelope_rejects_noncanonical_target(target_agent: object) -> None:
+    with pytest.raises(ValueError):
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(
+                body=cast(JsonObject, {"prompt": "Explain SLOs.", "target_agent": target_agent})
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "relationship",
+        "relationship_context",
+        "relationship_proof",
+        "verified_relationship",
+        "dialogue_profile",
+        "relationship_unknown_reason",
+    ],
+)
+@pytest.mark.parametrize("value", [None, {"status": "verified", "subject_id": "operator-1"}])
+def test_semantic_envelope_rejects_client_supplied_relationship_claims(
+    field: str,
+    value: Any,
+) -> None:
+    with pytest.raises(ValueError, match="authoritative server verification"):
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(
+                body={
+                    "prompt": "Explain SLOs.",
+                    "target_agent": "Mimir",
+                    field: value,
+                }
+            )
+        )
 
 
 def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
@@ -679,6 +738,140 @@ class _MemorySemanticStore:
                 key=lambda result: (result.sequence, result.projection_id),
             )
         )[:limit]
+
+
+async def test_relationship_binding_is_sealed_after_startup() -> None:
+    bridge = SemanticTurnBridge(store=_MemorySemanticStore())
+    await bridge.start()
+    with pytest.raises(RuntimeError, match="before bridge use"):
+        bridge.bind_relationship_resolver(cast(Any, object()))
+
+
+@pytest.mark.parametrize("failed", [False, True])
+async def test_bridge_persists_explicit_unknown_when_relationship_resolver_is_unavailable(
+    failed: bool,
+) -> None:
+    class FailedResolver:
+        async def resolve(self, **kwargs: Any) -> Any:
+            raise OSError("provider details must not cross the service boundary")
+
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        relationship_resolver=FailedResolver() if failed else None,
+    )
+    receipt = await bridge.append(_proposal(body={"prompt": "Explain SLOs."}))
+    envelope = store.turns[receipt.proposal_id].envelope
+    semantic = cast(Mapping[str, object], envelope["semantic_turn"])
+    assert envelope["schema_version"] == "1.6.0"
+    assert semantic["relationship_unknown_reason"] == "resolver_unavailable"
+    assert "relationship_proof" not in semantic
+    assert semantic["target_agent"] == "Bragi"
+    assert semantic["execution_authority"] is False
+
+
+@pytest.mark.parametrize("state", ["matched", "unmapped", "stale_directory", "stale_source"])
+async def test_bridge_persists_only_fresh_server_relationship_without_changing_identity(
+    state: str,
+) -> None:
+    from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolver
+    from fdai_operator_service.families.iam.contracts import DirectoryIdentity, DirectoryStatus
+    from fdai_service_contracts import OperatorRole, SemanticTurnRequest
+    from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
+
+    now = datetime(2026, 9, 6, tzinfo=UTC)
+    clock = [now]
+    queries: list[object] = []
+
+    class Ownership:
+        async def read(self, query: Any) -> Mapping[str, object]:
+            queries.append(query)
+            return {
+                "_revision": "sha256:example-revision",
+                "current_ownership": {
+                    "schema_version": "1.0.0",
+                    "authority": "read_only",
+                    "source_revision": "sha256:example-revision",
+                    "directory": {
+                        "availability": "available",
+                        "observed_at": (
+                            now - timedelta(minutes=10) if state == "stale_source" else now
+                        ).isoformat(),
+                    },
+                    "agents": [
+                        {
+                            "name": "Odin",
+                            "subjects": [
+                                {
+                                    "kind": "user",
+                                    "subject_id": "another-operator"
+                                    if state == "unmapped"
+                                    else "operator-1",
+                                    "active": True,
+                                    "resolution": "resolved",
+                                    "responsibility": "accountable",
+                                    "duty": "primary",
+                                }
+                            ],
+                        }
+                    ],
+                },
+            }
+
+    class Directory:
+        async def directory_status(self) -> DirectoryStatus:
+            return DirectoryStatus(
+                "example-directory",
+                "available",
+                now - timedelta(minutes=10) if state == "stale_directory" else now,
+            )
+
+        async def get_by_subject_id(self, subject_id: str) -> DirectoryIdentity:
+            assert subject_id == "operator-1"
+            return DirectoryIdentity(
+                provider="example-directory",
+                subject_id=subject_id,
+                username="display-only@example.com",
+                display_name="Display only",
+                active=True,
+                principal_type="person",
+                roles=("Owner",),
+            )
+
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: clock[0]),
+        relationship_resolver=AdaptiveRelationshipResolver(
+            Ownership(),
+            cast(Any, Directory()),
+            clock=lambda: clock[0],
+        ),
+    )
+    proposal = _proposal(body={"prompt": "Explain SLOs.", "target_agent": "Odin"})
+    receipt = await bridge.append(proposal)
+    envelope = dict(store.turns[receipt.proposal_id].envelope)
+    decoded = ConsumerCodec("operator-core-request", "N", ("1.6.0",)).decode(
+        ProducerCodec("operator-core-request", "N", "1.6.0").encode(envelope)
+    )
+    semantic = SemanticTurnRequest.model_validate(decoded["semantic_turn"])
+    assert semantic.target_agent == "Odin"
+    assert semantic.principal.subject_id == "operator-1"
+    assert set(semantic.principal.roles) == {OperatorRole.READER, OperatorRole.APPROVER}
+    assert semantic.execution_authority is False
+    assert (semantic.relationship_proof is not None) is (state == "matched")
+    if semantic.relationship_proof is not None:
+        assert semantic.relationship_proof.source_revision == "sha256:example-revision"
+        assert semantic.relationship_proof.principal_id == "operator-1"
+        assert semantic.relationship_proof.kind == "steward"
+        assert semantic.relationship_unknown_reason is None
+    else:
+        assert semantic.relationship_unknown_reason is not None
+    assert queries
+    clock[0] += timedelta(seconds=1)
+    duplicate = await bridge.append(proposal)
+    assert duplicate.duplicate is True
+    assert store.turns[receipt.proposal_id].envelope == envelope
 
 
 async def test_bridge_injects_latest_same_principal_session_continuation() -> None:
@@ -2040,6 +2233,109 @@ def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
         "execution_receipt_digest": semantic["execution_receipt_digest"],
         "execution_authority": False,
     }
+
+
+@pytest.mark.parametrize("example_available", [False, True])
+async def test_advisory_stream_and_replay_preserve_goal_metadata_without_blanket_verification(
+    example_available: bool,
+) -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    adaptive = AdaptiveAnswer.model_validate(
+        {
+            "answer": "An SLO is a measurable service objective.",
+            "goals": [
+                {"goal_id": "concept", "kind": "knowledge", "status": "answered", "required": True},
+                {
+                    "goal_id": "example",
+                    "kind": "environment_example",
+                    "status": "answered" if example_available else "unavailable",
+                    "required": False,
+                    "evidence_refs": ["inventory:verified-example"] if example_available else [],
+                    "limitation": None if example_available else "No scoped evidence is available.",
+                },
+            ],
+            "role_agent": "Bragi",
+            "quality_status": "passed" if example_available else "limited",
+        }
+    )
+    projection = _projection(stored_turn.envelope, disposition="direct_response")
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    semantic.pop("direct_response_intent")
+    semantic.update(
+        disposition="advisory_response",
+        reason_code="semantic_advisory_response",
+        semantic_route="semantic_advisory_response",
+        answer=adaptive.answer,
+        adaptive_answer=adaptive.model_dump(mode="json"),
+    )
+    projection.update(
+        schema_version="1.6.0",
+        status="advisory_response",
+        semantic_result=SemanticTurnResult.model_validate(semantic).model_dump(
+            mode="json", exclude_none=True
+        ),
+    )
+    await SemanticTurnProjectionConsumer(store).consume(projection)
+    terminals = []
+    for _ in range(2):
+        stream = await bridge.open(
+            ConversationStreamRequest(
+                operation="chat.stream",
+                scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+                proposal_id=receipt.proposal_id,
+            )
+        )
+        events = [event async for event in stream]
+        assert all(event.event not in {"activity", "verification", "token"} for event in events)
+        terminal = events[-1].data
+        assert terminal["status"] == "advisory_response"
+        assert terminal["source"] == "semantic-advisory-response"
+        assert terminal["answer"] == adaptive.answer
+        assert terminal["adaptive_answer"] == adaptive.model_dump(mode="json")
+        assert "verification" not in terminal
+        assert "semantic_receipt" not in terminal
+        assert "presentation_artifact" not in terminal
+        terminals.append(terminal)
+    assert terminals[0] == terminals[1]
+
+
+def test_action_draft_done_keeps_canonical_draft_fields_with_separate_explanation() -> None:
+    envelope = SemanticTurnEnvelopeBuilder().build(_proposal())
+    projection = _projection(envelope, disposition="action_draft")
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    semantic.pop("unavailable_reason", None)
+    semantic.update(
+        semantic_route="semantic_action_draft",
+        reason_code="semantic_action_draft",
+        answer="Review this action draft before requesting execution.",
+    )
+    baseline = semantic_turn_runtime_module._done_event_data(projection)
+    adaptive = AdaptiveAnswer.model_validate(
+        {
+            "answer": "Blue-green deployment separates active and candidate environments.",
+            "goals": [
+                {"goal_id": "concept", "kind": "knowledge", "status": "answered", "required": True}
+            ],
+            "role_agent": "Mimir",
+            "quality_status": "passed",
+        }
+    )
+    semantic["adaptive_answer"] = adaptive.model_dump(mode="json")
+    projection["schema_version"] = "1.6.0"
+    done = semantic_turn_runtime_module._done_event_data(projection)
+    assert done["status"] == baseline["status"] == "action_draft"
+    assert done["answer"] == baseline["answer"]
+    assert done["verification"] == baseline["verification"]
+    assert done["adaptive_answer"] == adaptive.model_dump(mode="json")
+    assert done["execution_authority"] is False
 
 
 def test_direct_greeting_done_omits_query_verification_and_artifacts() -> None:

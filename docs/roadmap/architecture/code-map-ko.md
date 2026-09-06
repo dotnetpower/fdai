@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d341d1d141e4adde2464d172e3b9561c3c98c796
+translation_source_sha: 5fb1c8466c995adb5923afcab8f637cd24800daf
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -109,16 +109,16 @@ certification writer가 증적을 추가하기 전에 13개 시나리오 결과�
 attestation, 배포 근거 및 별도 사람 승인에 결속합니다.
 
 프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
-`composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
+`composition/wire_azure_prompts.py`로 분리합니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다. 리비전 기반 대화 설정은 Operator
 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
-프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
+IAM 조립은 최상위 모듈의 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. 프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다. 서비스 계약 호환성 매니페스트는 적응형 `1.6.0` 전송에 버전 협상을 적용합니다. 구형 변환은 일반 묶음에만 적용되며 의미 처리 근거를 버릴 수 없습니다.
 질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
 생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
-생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
+적응형 프롬프트 타입은 공개 에이전트 및 모델 인터페이스를 사용합니다. 질문 모음은 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
 Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.

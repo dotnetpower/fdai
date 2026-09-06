@@ -1925,7 +1925,7 @@ module "state_store" {
   resource_group_name    = module.resource_group.name
   tenant_id              = var.tenant_id
   administrator_login    = var.postgres_admin_login
-  administrator_password = var.postgres_admin_password
+  administrator_password = local.postgres_admin_password
   database_name          = var.workload
   tags                   = local.tags
 

@@ -17,12 +17,34 @@ the trust routing in
 > fork-only. Core still ships deny-by-default fakes
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
+## Adaptive conversation assembly
+
+The adaptive conversation uses one catalog-owned `adaptive-common` base and exactly one plan,
+answer, review, refine, or verify pack. A turn adds one fixed Pantheon role and locale; user and
+tool prose remain in the untrusted data envelope. The server resolves the explicitly selected
+agent independently of the optional stewardship relationship. Operator verifies current ownership
+and directory evidence, binds an expiring proof to principal and target, and Core rechecks it before
+each role-aware conversation. Identity identifiers and source-revision text never enter system text.
+Unknown or expired relationships retain the selected role without pretending to be verified.
+
+Production composition consumes resolved model slots rather than hardcoded models or endpoints.
+The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer reuse `t1.judge`,
+review and verify reuse `t2.reasoner.secondary`, and refine reuses `t2.reasoner.primary`.
+They do not create model deployments. Role and lifecycle types use the public agent and model facades.
+The author and reviewer must be independent configured models; one optional refinement re-enters
+independent review. The no-T2 request profile retains the existing non-adaptive path. Every stage
+preserves the same no-execution boundary. Schema, byte, time, call, and token budgets are enforced;
+optional reads reserve time and two calls for a useful answer and review. Nested query-model
+requests share the same turn budget and cancellation scope. The role profile and model traces remain
+separate from operational evidence and cannot produce a whole-answer verification badge.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Adaptive role and relationship prompt assembly | implemented | `adaptive_prompt.py`; `wire_adaptive_conversation.py`; `adaptive_relationship.py`; 20 composition checks and connected role/proof checks passed | Uses one common stage policy, fixed selected role, and current no-authority relationship context. Final offline validation and 11 focused critique reviews are recorded with hierarchical conversation planning. |
 | Catalog registry, composer, tools, and runtime skills | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | Catalog loading, deterministic layer assembly, tool manifests, skills, canaries, and startup fallback have focused coverage. |
 | Route-specific conversation prompts | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; focused composer and Azure adapter checks | Startup composes a compact T1 preflight separately from full operational semantic judgment. Pure eligible social turns use only the compact prompt and schema. Mixed, contextual, ambiguous, and operational turns continue to the full capability-aware prompt. |
 | Approved external skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | The GitHub delivery adapter resolves immutable commits and returns only bounded exact files. Fetch never grants prompt eligibility; quarantine, publisher verification, approval, and disabled-first installation remain authoritative. |
@@ -35,6 +57,8 @@ the trust routing in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Completed fixed-role and relationship composition with independently reviewed answers and provider-budget propagation. Operational catalog failure no longer disables an independently valid general-answer service. | `current change`; 20 composition checks and 653 connected Python checks passed; 11 focused critique reviews are recorded in hierarchical conversation planning. | Live model quality and promotion evidence require separate authorization. |
+| 2026-09-06 | in-progress | Added common adaptive stage policy, fixed-role composition, expiring relationship context, and nested provider budget propagation. | `current change`; `test_wire_adaptive_conversation.py` passed 19 cases and `test_adaptive_provider_budget.py` passed 10 cases. | Finish connected critique evidence in hierarchical conversation planning; no live promotion is claimed. |
 | 2026-09-02 | implemented | Added the answer-continuity and prompt-ablation slice. The implementation separates guaranteed terminal usefulness from factual verification, protects authority-bearing prompt layers from ablation, makes exclusions replay-visible, and applies revision-fenced settings through one startup snapshot. Ten critique and hardening rounds closed four Medium and five Low defects; the final round found nothing above Low. | `current change`; 312 focused Python checks, 6 Console checks, task-scoped Ruff, strict mypy over 18 source files, and documentation gates passed. | Retain governed shadow evidence before claiming runtime validation. |
 | 2026-08-29 | implemented | Hardening round 8 reviewed 23 conversation-preflight lenses and moved social profile bounding inside the safe fallback boundary. Oversized profiles now hold before any narrator call instead of raising through the turn. | `current change`; focused conversation preflight tests. | Retain governed live social-response evidence. |
 | 2026-08-28 | implemented | Split temperature-zero social classification, temperature-0.3 persona narration, and full operational semantic judgment into separate composed prompt capabilities. Social narration now combines one common base with exactly one typed enforce pack for greeting, thanks, farewell, or self-introduction. The classifier and narrator receive no ontology capability catalog, the narrator receives no operational context, and only its schema can carry social prose. | `current change`; focused prompt, adapter, routing, and processor checks passed 608 cases; authenticated self-introduction variants used roughly 1.7K-1.9K total tokens across two calls versus the earlier 5,819-token full social input. Composition checks prove act packs remain mutually exclusive. | Retain authenticated per-pack waterfall evidence and measure collision, appropriateness, and latency on a larger bilingual corpus. |

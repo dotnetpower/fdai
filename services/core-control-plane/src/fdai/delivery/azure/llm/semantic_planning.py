@@ -9,12 +9,18 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from typing import Any, TypeVar
 
 import httpx
 from fdai_service_contracts.ontology_query import SemanticProblemFrame
 from pydantic import BaseModel, ValidationError
 
+from fdai.core.conversation.adaptive_call_scope import (
+    call_scoped_provider,
+    run_scoped_model,
+    stop_scoped_provider_retry,
+)
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_planning_models import (
     QueryPlanProposal,
@@ -270,6 +276,23 @@ class AzureOpenAISemanticPlanningModel:
         proposal_type: type[BaseModel],
         operation: str,
     ) -> Mapping[str, Any] | None:
+        return await run_scoped_model(
+            lambda: self._complete_attempts(
+                payload=payload,
+                prompt=prompt,
+                proposal_type=proposal_type,
+                operation=operation,
+            )
+        )
+
+    async def _complete_attempts(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        prompt: str,
+        proposal_type: type[BaseModel],
+        operation: str,
+    ) -> Mapping[str, Any] | None:
         user_content = json.dumps(
             {"untrusted_input": payload},
             allow_nan=False,
@@ -308,15 +331,20 @@ class AzureOpenAISemanticPlanningModel:
                         body["model"] = request.model_body_field
                     for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):
                         trace_start = start_model_trace(body["messages"])
-                        response = await self._http.post(
-                            request.url,
-                            params=request.params,
-                            headers={
-                                "Authorization": f"Bearer {token.token}",
-                                "Content-Type": "application/json",
-                            },
-                            json=body,
-                            timeout=candidate_timeout,
+                        response, reservation = await call_scoped_provider(
+                            partial(
+                                self._http.post,
+                                request.url,
+                                params=request.params,
+                                headers={
+                                    "Authorization": f"Bearer {token.token}",
+                                    "Content-Type": "application/json",
+                                },
+                                json=body,
+                                timeout=candidate_timeout,
+                            ),
+                            request=body,
+                            output_tokens=self._config.max_tokens,
                         )
                         if response.status_code == 429:
                             response.raise_for_status()
@@ -334,13 +362,16 @@ class AzureOpenAISemanticPlanningModel:
                                 response_content=response_content,
                                 usage=usage,
                             )
+                            observation = SemanticJudgmentObservation(
+                                model=target.deployment,
+                                usage=bounded_usage(usage),
+                                trace_call=trace_call,
+                            )
+                            if reservation is not None:
+                                reservation.record(observation)
                             return SemanticPlanningModelResponse(
                                 proposal=proposal,
-                                observation=SemanticJudgmentObservation(
-                                    model=target.deployment,
-                                    usage=bounded_usage(usage),
-                                    trace_call=trace_call,
-                                ),
+                                observation=observation,
                             )
                         except (ValidationError, ValueError) as exc:
                             if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
@@ -356,6 +387,12 @@ class AzureOpenAISemanticPlanningModel:
                             )
                     raise RuntimeError("semantic planning retry loop exhausted")
             except Exception as exc:  # noqa: BLE001 - bounded fallback hides provider details
+                if stop_scoped_provider_retry():
+                    _LOGGER.warning(
+                        "adaptive_query_provider_attempt_ended",
+                        extra={"operation": operation, "failure_type": type(exc).__name__},
+                    )
+                    return None
                 failure: dict[str, Any] = {
                     "operation": operation,
                     "candidate_index": index,

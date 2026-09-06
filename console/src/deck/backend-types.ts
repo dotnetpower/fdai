@@ -3,8 +3,11 @@ import type { Answer } from "./answerer";
 export interface BackendTurn {
   readonly role: "user" | "assistant";
   readonly content: string;
+  readonly source?: string;
   readonly semanticRequestId?: string;
-  readonly semanticDisposition?: SemanticProjectionReceipt["disposition"];
+  readonly semanticDisposition?: SemanticProjectionReceipt["disposition"] | "advisory_response";
+  /** Retained locally for replay and source selection, never forwarded as trusted evidence. */
+  readonly adaptiveAnswer?: import("./adaptive-answer").AdaptiveAnswer;
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
@@ -650,6 +653,7 @@ export interface ConversationDocumentArtifact {
 }
 
 export type ProgressiveAnswer = Answer & {
+  readonly adaptiveAnswer?: import("./adaptive-answer").AdaptiveAnswer;
   readonly source: string;
   readonly router?: RouterSnapshot;
   readonly verification?: AnswerVerification;

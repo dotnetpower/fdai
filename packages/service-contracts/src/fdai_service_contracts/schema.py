@@ -45,6 +45,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("core-operator-projection", "1.2.0"): "schemas/core-operator-projection/1.2.0.json",
     ("core-operator-projection", "1.3.0"): "schemas/core-operator-projection/1.3.0.json",
     ("core-operator-projection", "1.4.0"): "schemas/core-operator-projection/1.4.0.json",
+    ("core-operator-projection", "1.6.0"): "schemas/core-operator-projection/1.6.0.json",
     ("cost-governance-access-grant", "1.0.0"): "schemas/cost-governance-access-grant/1.0.0.json",
     ("cost-governance-availability", "1.0.0"): "schemas/cost-governance-availability/1.0.0.json",
     (
@@ -81,6 +82,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("operator-core-request", "1.3.0"): "schemas/operator-core-request/1.3.0.json",
     ("operator-core-request", "1.4.0"): "schemas/operator-core-request/1.4.0.json",
     ("operator-core-request", "1.5.0"): "schemas/operator-core-request/1.5.0.json",
+    ("operator-core-request", "1.6.0"): "schemas/operator-core-request/1.6.0.json",
     ("semantic-query-progress", "1.0.0"): "schemas/semantic-query-progress/1.0.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
 }
@@ -177,6 +179,23 @@ class JsonSchemaContractValidator:
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda error: list(error.path))
         if errors:
             raise ContractValidationError(schema_name, [_issue(error) for error in errors])
+        if schema_name == "core-operator-projection" and instance.get("schema_version") == "1.6.0":
+            from fdai_service_contracts.semantic_turn import SemanticTurnResult
+
+            semantic = instance.get("semantic_result")
+            if semantic is not None:
+                try:
+                    result = SemanticTurnResult.model_validate(semantic)
+                except PydanticValidationError as exc:
+                    raise ContractValidationError(
+                        schema_name,
+                        [ValidationIssue("/semantic_result", "invalid semantic answer contract")],
+                    ) from exc
+                if instance.get("status") != result.disposition.value:
+                    raise ContractValidationError(
+                        schema_name,
+                        [ValidationIssue("/status", "status MUST match semantic disposition")],
+                    )
         semantic_model = (
             DecisionCriticalEvidenceReceipt
             if schema_name == "decision-critical-evidence"

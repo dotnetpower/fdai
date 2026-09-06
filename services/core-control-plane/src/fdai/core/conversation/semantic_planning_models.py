@@ -35,6 +35,7 @@ from .session import Principal
 class SemanticPlanningDisposition(StrEnum):
     PLANNED = "planned"
     DIRECT_RESPONSE = "direct_response"
+    ADVISORY_RESPONSE = "advisory_response"
     CLARIFICATION = "clarification"
     ACTION_DRAFT = "action_draft"
     UNSUPPORTED = "unsupported"

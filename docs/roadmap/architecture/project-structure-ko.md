@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8a4f00e5ec24d384a4988536b52f58f3c0a67ff4
+translation_source_sha: 2165ee76814eeb98c00dcea31d2147127615fc51
 translation_revised: 2026-09-06
 ---
 # 프로젝트 구조
@@ -389,12 +389,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 
 ## 의존성 주입을 통한 커스터마이제이션
 
-이 저장소는 **메인 프로젝트** 입니다. 고객별 커스터마이제이션은 **의존성 주입(DI)** 으로
-공급되며, `core/` 편집이나 분기 사본 유지가 아닙니다. 상류 저장소는 인터페이스를 정의하고
-범용 기본 구현을 제공하며, 포크는 조립 루트(조립 루트)에서 **자신의 구현을 등록**
-합니다. 커스터마이제이션은 추가적(가산)이며 상류 동기화는 깨끗하게 유지됩니다
-([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 의
-포크 모델 참조).
+업스트림은 범용 인터페이스와 동작하는 기본 구현을 제공합니다. 포크는 `core/`를 편집하거나
+복사하지 않고 자체 조립 루트에서 의존성을 주입해 구성을 변경합니다.
+[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요.
 
 > **포크 유지관리자**: 절차적 walkthrough는
 > [downstream-fork-guide-ko.md](../fork-and-sequencing/downstream-fork-guide-ko.md)에서 시작. 이 섹션은
@@ -413,6 +410,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   Council 기록이 없으면 abstention을 유지하고 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
+- **적응형 대화**: `build_semantic_query_runtime(adaptive_service=...)`에는 `AdaptiveModel`과
+  `AdaptivePolicy`를 주입한 `AdaptiveConversationService`를 전달할 수 있습니다. 고정 역할,
+  독립 검토, 프로바이더의 공통 사용량 제한 및 검증된 근거 조회기는 그대로 필요합니다.
 - **현재 T1 reuse 근거**: `CurrentReuseVerifier`는 변경할 수 없는 operational 사례를 위해 fresh
   리소스, 토폴로지, 그래프, 소유자, 정책, 예행 실행, 안전성 사실을 수집합니다. Azure 캐시 최신성은
   범위가 제한된 age와 future skew를 사용해 현재 evaluation 시계 기준으로 평가하므로 이벤트 직전의 recent

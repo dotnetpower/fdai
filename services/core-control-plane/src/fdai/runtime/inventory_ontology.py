@@ -701,7 +701,12 @@ def _manifest_content_digest(
     journal_high_watermark: int | None = None,
     projection_high_watermark: int | None = None,
 ) -> str:
-    """Hash release-independent observed content for safe release transitions."""
+    """Hash release-independent observed content for safe release transitions.
+
+    Watermarks remain protected by the release-specific manifest digest. Excluding
+    them here permits a verified release migration to journal a legacy active
+    generation without treating its unchanged provider observation as new content.
+    """
 
     payload = {
         "generation": generation,
@@ -713,9 +718,6 @@ def _manifest_content_digest(
         "object_content": list(object_content),
         "link_content": list(link_content),
     }
-    if journal_high_watermark is not None:
-        payload["journal_high_watermark"] = journal_high_watermark
-        payload["projection_high_watermark"] = projection_high_watermark
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
         "utf-8"
     )

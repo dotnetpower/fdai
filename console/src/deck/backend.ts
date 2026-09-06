@@ -14,6 +14,8 @@
  */
 
 import { createActionConfirmer, createActionSubmitter } from "./backend-actions";
+import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse } from "./adaptive-answer";
+import { parseActionDraft } from "./backend-stream";
 import {
   citationsForVerification,
   createBackendRequestPayload,
@@ -31,6 +33,7 @@ import {
   parseModelUsage,
   parseRouter,
   parseResourceContext,
+  parseSemanticProjectionReceipt,
   semanticDirectResponseSource,
   tokenSuffix,
 } from "./backend-normalizers";
@@ -237,6 +240,13 @@ export async function askBackend(
     ? (payload as Record<string, unknown>).usage
     : undefined;
   const modelUsage = parseModelUsage(usage);
+  const advisoryAnswer = parseAdvisoryResponse(payloadRecord);
+  const adaptiveAnswer = advisoryAnswer ?? parseActionDraftExplanation(payloadRecord);
+  const actionDraft = parseActionDraft(payloadRecord?.action_draft);
+  const semanticReceipt = parseSemanticProjectionReceipt(payloadRecord?.semantic_receipt);
+  if (hasAdvisoryResponse(payloadRecord) && adaptiveAnswer === undefined) {
+    return semanticUnavailable("invalid advisory response");
+  }
   const directResponse = isSemanticDirectResponseSource(explicitSource);
   const source = directResponse
     ? semanticDirectResponseSource(chosen, latencyMs, usage)
@@ -250,13 +260,16 @@ export async function askBackend(
     text: answerText,
     // LLM replies do not carry structured citations; the deck grounds the
     // reply on the snapshot the model was given (see snapshotCitations).
-    citations: directResponse ? [] : citationsForVerification(snapshot, verification),
+    citations: directResponse || advisoryAnswer ? [] : citationsForVerification(snapshot, verification),
     followUps: [],
     source,
     ...(verification ? { verification } : {}),
   };
   return {
     ...base,
+    ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
+    ...(actionDraft ? { actionDraft } : {}),
+    ...(semanticReceipt ? { semanticReceipt } : {}),
     ...(router ? { router } : {}),
     ...(delegation ? { delegation } : {}),
     ...(answerPlan ? { answerPlan } : {}),

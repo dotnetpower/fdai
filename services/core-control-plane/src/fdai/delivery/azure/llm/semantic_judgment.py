@@ -7,6 +7,7 @@ import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 import httpx
@@ -16,6 +17,11 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
 )
 
+from fdai.core.conversation.adaptive_call_scope import (
+    call_scoped_provider,
+    run_scoped_model,
+    stop_scoped_provider_retry,
+)
 from fdai.core.conversation.conversation_preflight import ConversationPreflightProposal
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
@@ -304,6 +310,31 @@ class AzureOpenAISemanticJudgmentModel:
         temperature: float,
         timeout_seconds: float,
     ) -> SemanticJudgmentModelResponse | None:
+        return await run_scoped_model(
+            lambda: self._complete_attempts(
+                user_content,
+                input_digest=input_digest,
+                proposal_schema=proposal_schema,
+                system_prompt=system_prompt,
+                call_kind=call_kind,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout_seconds=timeout_seconds,
+            )
+        )
+
+    async def _complete_attempts(
+        self,
+        user_content: str,
+        *,
+        input_digest: str,
+        proposal_schema: Mapping[str, Any],
+        system_prompt: str,
+        call_kind: str,
+        max_tokens: int,
+        temperature: float,
+        timeout_seconds: float,
+    ) -> SemanticJudgmentModelResponse | None:
         response_format = _strict_response_format(proposal_schema, name=call_kind)
         candidate_timeout = timeout_seconds / len(self._config.candidates)
         for index, target in enumerate(self._config.candidates):
@@ -328,15 +359,20 @@ class AzureOpenAISemanticJudgmentModel:
                     messages = list(prepare_model_messages(body["messages"]).messages)
                     body["messages"] = messages
                     trace_start = start_model_trace(messages)
-                    response = await self._http.post(
-                        request.url,
-                        params=request.params,
-                        headers={
-                            "Authorization": f"Bearer {token.token}",
-                            "Content-Type": "application/json",
-                        },
-                        json=body,
-                        timeout=candidate_timeout,
+                    response, reservation = await call_scoped_provider(
+                        partial(
+                            self._http.post,
+                            request.url,
+                            params=request.params,
+                            headers={
+                                "Authorization": f"Bearer {token.token}",
+                                "Content-Type": "application/json",
+                            },
+                            json=body,
+                            timeout=candidate_timeout,
+                        ),
+                        request=body,
+                        output_tokens=max_tokens,
                     )
                     response.raise_for_status()
                     proposal, response_content, usage = _response_mapping(response)
@@ -348,15 +384,24 @@ class AzureOpenAISemanticJudgmentModel:
                         response_content=response_content,
                         usage=usage,
                     )
+                    observation = SemanticJudgmentObservation(
+                        model=target.deployment,
+                        usage=bounded_usage(usage),
+                        trace_call=trace_call,
+                    )
+                    if reservation is not None:
+                        reservation.record(observation)
                     return SemanticJudgmentModelResponse(
                         proposal=proposal,
-                        observation=SemanticJudgmentObservation(
-                            model=target.deployment,
-                            usage=bounded_usage(usage),
-                            trace_call=trace_call,
-                        ),
+                        observation=observation,
                     )
             except Exception as exc:  # noqa: BLE001 - bounded candidate failover
+                if stop_scoped_provider_retry():
+                    _LOGGER.warning(
+                        "adaptive_judgment_provider_attempt_ended",
+                        extra={"failure_type": type(exc).__name__},
+                    )
+                    return None
                 failure: dict[str, Any] = {
                     "candidate_index": index,
                     "failure_type": type(exc).__name__,

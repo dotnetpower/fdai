@@ -185,6 +185,7 @@ def install_support(
         remaining = 900 - (time.monotonic() - started)
         if remaining <= 0:
             raise ValueError("support installation deadline exceeded")
+        print(json.dumps({"stage": stage, "status": "running"}), file=sys.stderr, flush=True)
         try:
             completed = subprocess.run(
                 [executable, *arguments],
@@ -203,6 +204,9 @@ def install_support(
             raise ValueError(
                 f"support installation {stage} failed with exit code {exc.returncode}"
             ) from exc
+        if capture and not isinstance(completed.stdout, bytes):
+            raise SupportInstallationError("support installation returned no package readback")
+        print(json.dumps({"stage": stage, "status": "completed"}), file=sys.stderr, flush=True)
         return completed.stdout if capture else b""
 
     run(["venv", "--no-config", "--offline", "--python", sys.executable, str(venv)], "venv")

@@ -182,12 +182,14 @@ def _projector(
     *,
     resource_type_mappings: dict[str, str] | None = None,
     ontology_release_digest: str = ONTOLOGY_RELEASE_DIGEST,
+    observation_journal: _RecordingObservationJournal | None = None,
 ) -> InventoryOntologyProjector:
     return InventoryOntologyProjector(
         store=store,
         status_store=status,
         ontology_release_digest=ontology_release_digest,
         resource_type_mappings=resource_type_mappings,
+        observation_journal=observation_journal,
         allow_non_atomic_store=not hasattr(store, "replace_subgraph_with_state"),
     )
 
@@ -530,6 +532,55 @@ async def test_projector_reprojects_same_generation_for_new_ontology_release() -
     assert projection_status is not None
     assert projection_status["ontology_release_digest"] == next_release_digest
     assert await store.get_object("vm-1") is not None
+
+
+async def test_release_transition_can_advance_journal_fence_for_unchanged_content() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    journal = _RecordingObservationJournal()
+    observation = _observation(generation="snapshot-same", resource_ids=("vm-1",))
+    await _projector(store, status, observation_journal=journal).apply(
+        observation,
+        journal_high_watermark=0,
+        projection_high_watermark=0,
+    )
+
+    result = await _projector(
+        store,
+        status,
+        ontology_release_digest="sha256:" + "b" * 64,
+        observation_journal=journal,
+    ).apply(
+        observation,
+        journal_high_watermark=7,
+        projection_high_watermark=7,
+    )
+
+    assert result.journal_high_watermark == 7
+    assert result.projection_high_watermark == 7
+
+
+async def test_same_release_rejects_changed_journal_fence_for_same_generation() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(
+        store,
+        status,
+        observation_journal=_RecordingObservationJournal(),
+    )
+    observation = _observation(generation="snapshot-same", resource_ids=("vm-1",))
+    await projector.apply(
+        observation,
+        journal_high_watermark=0,
+        projection_high_watermark=0,
+    )
+
+    with pytest.raises(ValueError, match="generation content changed"):
+        await projector.apply(
+            observation,
+            journal_high_watermark=7,
+            projection_high_watermark=7,
+        )
 
 
 async def test_release_transition_rejects_same_generation_content_changes() -> None:

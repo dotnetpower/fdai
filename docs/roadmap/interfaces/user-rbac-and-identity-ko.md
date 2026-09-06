@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 3324e30235a40fcb8c113e17c738d5fe2074563c
-translation_revised: 2026-09-05
+translation_source_sha: f7a28d20134bb9425dffad2d5e35bb7511b37e82
+translation_revised: 2026-09-06
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -16,11 +16,10 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 ([security-and-identity-ko.md#open-decisions](../architecture/security-and-identity-ko.md#open-decisions))
 을 해결; executor-측 매핑은 거기 선언된 대로 유지.
 
-> RBAC(이 문서)은 *사람이 무엇을 조작할 수 있나*에 답한다. 별개의, 독립적으로 해석되는
-> 축인 [agent-stewardship-and-handover-ko.md](agent-stewardship-and-handover-ko.md)는
-> FDAI가 업무를 넘겨받은 지금 *15개 에이전트를 각각 누가 소유하나*(책임 + 에스컬레이션 +
-> 인수인계)에 답한다. 한 사람이 보통 둘 다에 속하지만, 담당자라는 사실만으로는 RBAC
-> 기능이 부여되지 않는다.
+> RBAC는 사람이 어떤 작업을 할 수 있는지 정의합니다. 별도의 [담당 체계](agent-stewardship-and-handover-ko.md)는
+> FDAI가 업무를 수행하는 동안 15개 에이전트 각각의 책임, 에스컬레이션 및 인수인계 담당자를 정합니다.
+> 두 역할은 한 사람에게 겹칠 수 있지만 담당자라는 사실만으로 RBAC 기능을 부여하지 않습니다.
+> 로컬과 배포 환경의 대화 조립은 `iam_composition.py`를 통해 기존 담당 체계, 디렉터리 및 할당 인터페이스에서 읽기 전용 관계 어댑터를 연결하며 주입된 확인기를 보존합니다. 생성 시 읽기나 쓰기는 수행하지 않습니다. 증명은 인증된 사람, 고정된 대상 에이전트, 원본 리비전 및 최대 5분의 유효 기간에 결속합니다. Core는 신원과 시각을 다시 확인한 뒤 식별자가 없는 프롬프트 프로필을 사용합니다. 근거가 없거나 오래되었거나 모호하거나 일치하지 않으면 관계는 확인되지 않은 상태로 남으며 RBAC, 승인 또는 실행기 신원을 바꾸지 않습니다.
 
 > 고객-비종속: 아래 모든 그룹 이름, 앱 registration 이름, GUID는 **자리 표시자** ;
 > 포크가 구성으로 실제 값 공급
@@ -32,6 +31,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 검증된 대화 담당 관계 맥락 | implemented | `adaptive_relationship.py`, `dialogue_relationship.py`, 집중 SDK, Operator, Core 및 프롬프트 검사 | 로컬과 배포 환경의 기본 조립은 서버에서만 주체, 대상 및 만료 시각을 검증하는 같은 경로를 사용합니다. 관계는 고정 역할의 답변에 참고할 뿐 권한을 부여하지 않습니다. |
 | 활동 관찰의 사람 및 workload identity 분리 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, 이 문서의 인증된 관찰 계약 | 영속 현재 상태 활동은 hash된 correlation 참조만 전달하며 Reader bearer 게이트와 relay workload credential은 계속 분리되고 어떤 활동 행도 executor 권한을 얻지 않습니다. |
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
 | 사람 승인 콜백 신원 | 구현됨 | `families/iam/hil_callback.py`, `hil_callback_authority.py`, `hil_decision_outbox.py`, `postgres_iam.py`, 집중 콜백, 영속성, Kafka, 워크플로 및 카나리 테스트 | Teams는 구성된 봇에 발급된 API 대상 OBO 토큰, 정확한 공급자-Entra 매핑, 별도로 구성된 그룹 연결 팀과 채널을 요구합니다. Slack은 브라우저 Entra 재인증과 구성된 워크스페이스 및 사용자-Entra OID 매핑을 요구합니다. 콜백 결정은 서명된 콜백 시각을 사용하고 제안 우선 영속화를 복구하며 영속 Operator 보낼 편지함을 통해 게시됩니다. BreakGlass는 기존 전역 기능에서 계속 사용할 수 있지만 사람 승인 권한은 부여하지 않습니다. |
@@ -44,6 +44,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 선택적 대화 관계를 현재 담당 체계와 디렉터리 근거에 결속했습니다. 시스템 프롬프트에 주체 식별자를 노출하거나 사람과 실행기의 권한을 바꾸지 않습니다. | `current change`; 집중 Python 검사 653개에 포함된 담당 관계 및 프롬프트 검사 통과 | 별도로 승인된 실제 디렉터리 및 모델 근거를 보존합니다. |
 | 2026-09-01 | implemented | ID 및 액세스 요청 계약을 복구하고, 명시적인 FDAI Owner 및 디렉터리 진단을 추가하고, 로컬 및 배포 자격 증명에 읽기 전용 Graph 디렉터리를 연결했으며, 오해를 일으키는 사용자 추가 문구를 실제 요청-검토-적용-검증 경계로 교체했습니다. | `current change`; `entra_directory.py`; `postgres_iam.py`; `settings-iam*.tsx`; 집중 Operator, Console, 카탈로그 및 Playwright 검사. | 자동 멤버십 변경을 주장하기 전에 배포된 Graph 읽기 증적을 보존하고 별도로 승격되는 할당-IAM 적용 워크플로를 완료합니다. |
 | 2026-09-01 | 구현됨 | 암호화된 로컬 및 Key Vault 기반 Teams Workflows 엔드포인트 영속화와 Contributor, Approver 및 Owner용 감사된 `view-integration-secrets` 기능을 추가했습니다. Reader와 BreakGlass에는 바인딩 메타데이터를 제공하지 않습니다. | `current change`; `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 Operator 테스트 53개 통과; Terraform 검증 통과. | Key Vault reveal 경로를 검증됨으로 주장하기 전에 배포 런타임 증적을 보존합니다. |
 | 2026-08-28 | 구현됨 | Slack 진단 경로를 추가한 뒤 경로 팩터리와 일치하도록 고정된 IAM 기능군 매니페스트 순서를 수정해 경로 동등성 검사를 약화하지 않고 Operator API 시작을 복구했습니다. | `current change`; `families/iam/manifest.py`; 집중 IAM 기능군 매니페스트 테스트 통과 | 추가 경로 순서 작업은 남아 있지 않으며 배포된 공급자 증적은 별도로 유지합니다. |

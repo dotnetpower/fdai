@@ -55,6 +55,7 @@ from fdai_operator_service.families.conversation.semantic_turn import SemanticTu
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
     SEMANTIC_RESULT_TOPIC,
+    DialogueRelationshipResolver,
     SemanticTurnBridge,
     SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
@@ -75,6 +76,7 @@ from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
     HilDecisionOutboxBridge,
+    build_adaptive_relationship_resolver,
     build_hil_decision_outbox_bridge,
     build_postgres_iam_bindings,
     build_teams_hil_http_client,
@@ -185,6 +187,7 @@ class ProductionOperatorComposition:
     readiness_probe: ReadinessProbe | None = None
     semantic_event_publisher: SemanticTurnEventPublisher | None = None
     semantic_result_source: SemanticTurnResultSource | None = None
+    adaptive_relationship_resolver: DialogueRelationshipResolver | None = None
     resolved_models_source: AsyncResolvedModelsSource | None = None
     local_cli_identity_factory: LocalCliIdentityFactory = resolve_azure_cli_identity
     local_cli_session_token_factory: LocalCliSessionTokenFactory = lambda: secrets.token_urlsafe(32)
@@ -222,6 +225,7 @@ class ProductionOperatorComposition:
             result_topic=environment.semantic_projection_topic or SEMANTIC_RESULT_TOPIC,
             result_group=environment.semantic_consumer_group_id,
             context_selection_registry=context_selection_registry,
+            relationship_resolver=self.adaptive_relationship_resolver,
         )
         read_investigation_bridge = (
             ReadInvestigationBridge(
@@ -330,6 +334,18 @@ class ProductionOperatorComposition:
             context_selection_registry=context_selection_registry,
             teams_http_client=teams_http_client,
         )
+        if (
+            semantic_bridge is not None
+            and self.adaptive_relationship_resolver is None
+            and route_families.iam.directory is not None
+        ):
+            semantic_bridge.bind_relationship_resolver(
+                build_adaptive_relationship_resolver(
+                    projection_reader=route_families.operations_projection_reader,
+                    directory=route_families.iam.directory,
+                    assignments=route_families.iam.assignments,
+                )
+            )
         hil_decision_outbox_bridge = build_hil_decision_outbox_bridge(
             environment=environment,
             store=family_store,
@@ -605,6 +621,7 @@ def _semantic_bridge(
     result_topic: str,
     result_group: str,
     context_selection_registry: ContextSelectionRegistry,
+    relationship_resolver: DialogueRelationshipResolver | None = None,
 ) -> SemanticTurnBridge | None:
     if publisher is None and result_source is None:
         return None
@@ -622,6 +639,7 @@ def _semantic_bridge(
         builder=SemanticTurnEnvelopeBuilder(
             selection_registry=context_selection_registry,
         ),
+        relationship_resolver=relationship_resolver,
     )
 
 

@@ -26,6 +26,9 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.persistence.postgres_inventory_snapshot_replay import (
+    PostgresInventorySnapshotReplayLoader,
+)
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
@@ -135,7 +138,14 @@ async def _run_from_env(source_revision: str, environ: Mapping[str, str]) -> dic
     journal = PostgresInventoryObservationJournal(
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )
-    replay = await journal.load_active_projection_replay()
+    active_snapshot = await PostgresInventorySnapshotReplayLoader(
+        config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
+    ).load()
+    append = await journal.append_promoted_snapshot(active_snapshot)
+    replay = await journal.load_active_projection_replay(
+        journal_high_watermark=append.journal_high_watermark,
+        projection_high_watermark=append.projection_high_watermark,
+    )
     await ontology_store.sync_catalog()
     projector = InventoryOntologyProjector(
         store=ontology_store,
@@ -186,6 +196,7 @@ def _comparable_manifest(
     object_content = value.get("object_content")
     link_content = value.get("link_content")
     prior_release = value.get("ontology_release_digest")
+    prior_journal_watermark, prior_projection_watermark = _prior_manifest_watermarks(value)
     if (
         value.get("generation") != replay.observation.generation
         or _DIGEST.fullmatch(str(value.get("manifest_digest", ""))) is None
@@ -194,11 +205,29 @@ def _comparable_manifest(
         or not isinstance(object_content, list)
         or not isinstance(link_content, list)
         or value.get("complete") is not True
-        or value.get("journal_high_watermark") != replay.journal_high_watermark
-        or value.get("projection_high_watermark") != replay.projection_high_watermark
+        or prior_journal_watermark > replay.journal_high_watermark
+        or prior_projection_watermark > replay.projection_high_watermark
     ):
         raise ValueError("inventory projection replay pre-manifest is not comparable")
     return len(object_content), len(link_content), prior_release
+
+
+def _prior_manifest_watermarks(value: Mapping[str, object]) -> tuple[int, int]:
+    journal = value.get("journal_high_watermark")
+    projection = value.get("projection_high_watermark")
+    if journal is None and projection is None:
+        return 0, 0
+    if (
+        not isinstance(journal, int)
+        or isinstance(journal, bool)
+        or journal < 0
+        or not isinstance(projection, int)
+        or isinstance(projection, bool)
+        or projection < 0
+        or projection > journal
+    ):
+        raise ValueError("inventory projection replay pre-manifest watermarks are invalid")
+    return journal, projection
 
 
 __all__ = ["ProjectionManifestReader", "ProjectionReplayProjector", "main", "run_once"]

@@ -9,6 +9,7 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 All profiles share **one control path**: only composition-root adapters and credentials differ ([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime, change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`. Teams Workflows follows the same parity rule: the local Operator Service encrypts the URL with domain-separated key material and stores only ciphertext, while deployment writes a versioned Key Vault secret through a dedicated managed identity scoped to that secret. Both modes verify the stored version before testing and return only secret-free metadata. Saving remains separate from explicit local or deployed A2/A4 activation. The standard `console: prepare full stack` task makes the local profile's activation decision explicitly through `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`; direct script users remain inactive by default. The runtime-environment cache binds this value and the optional Kubernetes lifecycle flag into its digest, so changing either input always regenerates the environment.
 Inventory invalidation uses the same read path in both profiles. Core commits normalized observations before the Operator role reads a SELECT-only watermark. The authenticated SSE contains no Resource or provider payload, and the Console re-reads the same bounded instance projection. Local and deployed profiles differ only in the configured Azure identity and network route. Cross-origin stream replay admits the authenticated `Authorization` and bounded `Last-Event-ID` headers without widening allowed origins, methods, or credentials.
 ## Audit - What Works Local, What Needs Azure
+Local preparation writes `LLM_RESOLVED_MODELS_SHA256` from the exact selected model artifact, not a stale Console value, and carries the pin into the Operator environment. Startup still rejects a missing pin or changed artifact before serving requests.
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the
 test runner. "Full-stack local" means the VS Code compound launch using browser Entra for the
 operator and the current Azure CLI context for server-side Azure adapters. Test fixtures are never
@@ -38,7 +39,8 @@ ports `8020-8029`. Playwright workers inherit the parent's slot, exited-PID lock
 and traces, screenshots, and videos use a slot-scoped output directory. From the repository root,
 `npm --prefix console run test:e2e:quick` runs the desktop slice, and the `console: Playwright quick
 (desktop)` VS Code test task exposes the same path. The existing `npm --prefix console run
-test:e2e` command remains the complete desktop and mobile matrix.
+test:e2e` command remains the complete desktop and mobile matrix. Settings mock acceptance keeps
+editor text areas at a readable 128-pixel minimum, retains 44-pixel touch targets, and walks all four IAM tabs with their reachable details.
 The complementary `npm --prefix console run test:e2e:live` suite starts an isolated Operator Service
 with production data adapters and test-only identity verification, without route interception. It
 visits every registered Console panel, waits for the panel boundary to settle, rejects browser

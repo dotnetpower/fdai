@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 4afd4405a72406757d82cb32d1ef9fc0a81e35dd
+translation_source_sha: 40eac02fce2264b2802d5007b894cf998fe011fd
 translation_revised: 2026-09-06
 ---
 # 폐쇄망 배포
@@ -29,6 +29,8 @@ translation_revised: 2026-09-06
 | 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
+| 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 라이브러리를 포함한 현재 배포판 7개를 해시와 설치 결과 재확인으로 설치합니다. 런타임 서비스는 시작하지 않습니다. |
+| 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
 | Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
 | 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
 
@@ -39,6 +41,9 @@ translation_revised: 2026-09-06
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 배포 CLI 패키지가 제거된 뒤에도 남아 있던 종단 간 지원 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 인프라, release 스크립트, 패키지 메타데이터 및 집중 작업 흐름 근거 | 전용 offline 검증기와 CLI를 복원하고 trust 루트를 확립한 뒤 air-gap 훈련을 통과해야 합니다. |
 | 2026-09-06 | implemented | CLI가 없다는 오래된 설명을 바로잡고 런타임 목록 구성, 비공개 오프라인 준비, 공개 산출물 작업 흐름 차단을 추가했습니다. | `current change`; 집중 테스트 251개, 엄격한 타입 검사, 네트워크 및 파일시스템 이름 공간에서 합성 서명 페이로드를 사용한 설치 휠 준비 훈련; 이슈 #461 | 배포 가능한 전체 서명 배포판과 승인된 새 구독의 Console 및 인벤토리 증적을 보존합니다. |
 | 2026-09-06 | implemented | 사전 준비된 이미지로 초기 구성하고 설치 시 공개 설정을 넣는 테넌트 독립 Console 빌드를 추가했습니다. | `current change`; 모의 초기 구성 계획, Python·Console 설정 테스트, Console 타입 검사 및 오프라인 빌드; 이슈 #461 | 실제 최초 설치 실행기, 비공개 이미지 게시, 초기 리소스 검색, 독립적인 Console 재확인을 연결합니다. |
+| 2026-09-06 | implemented | 활성 서비스 환경을 변경하지 않는 고정 런타임 휠 구성 및 인증된 오프라인 지원 환경 설치를 추가했습니다. | `current change`; 집중 구성·설치 테스트와 실제 휠의 네트워크 격리 설치 및 5개 서비스 진입 모듈 로드 성공 | 승인된 마이그레이션과 애플리케이션 실행에 지원 페이로드를 연결하고 실제 Azure 및 Console 증적을 보존합니다. |
+| 2026-09-06 | implemented | 평문 입력이나 새 암호 출력 없이 선택적으로 최초 PostgreSQL 자격 증명을 생성하도록 추가했습니다. | `current change`; 모의 Terraform 검증 9개로 기본 동작, 모호한 입력, 민감성, 실제 상태 저장소 모듈 연결을 확인했습니다. | 승인된 비공개 호스트 적용과 영속 상태 재확인을 보존하며 모의 근거를 클라우드 설치로 해석하지 않습니다. |
+| 2026-09-06 | implemented | CI 호환 계획 검증이 루트 연결을 별도 회귀 테스트로 옮긴 뒤 자격 증명 테스트 근거를 정정했습니다. | `current change`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개가 통과했습니다. | 승인된 비공개 호스트 적용과 영속 상태 재확인을 보존하며 모의 근거를 클라우드 설치로 해석하지 않습니다. |
 
 ### 남은 작업
 
@@ -120,6 +125,12 @@ SBOM과 서명을 생성하기 전에 목록과 실제 로컬 페이로드를 �
 최초 전체 리소스 검색, 독립적인 최종 준비도 검증이 필요합니다.
 [구독 초기 프로비저닝](subscription-genesis-provisioning-ko.md)을 참조하세요.
 
+패키지 제작 호스트에서 `--with-runtime-wheels`를 추가하면 고정된 지원 인터프리터 입력을
+`support/python/`에 포함합니다. `fdaictl offline install-support`는 입력을 인증하고,
+패키지 인덱스나 캐시 없이 설치한 뒤 실제 설치 버전을 재확인합니다. 이는 배포 도구이며
+5개 런타임 서비스를 하나의 프로세스로 대체하지 않습니다.
+[CLI 설치 명령](../../../packages/deployment-cli/README.md)을 참조하세요.
+
 ### 설치 시 범용 Console 빌드에 설정 적용
 
 패키지 제작 호스트에서 `npm --prefix console run build:offline`을 실행합니다. 결과는
@@ -159,6 +170,11 @@ API CORS 설정, 인증된 접근 검증을 수행하지는 않습니다.
 증명을 포함하면 안 됩니다. 네트워크 접근과 이미지 검증은 여전히 독립적인 확인이
 필요합니다. `enable_public_egress`는 별도로 명시적으로 선택합니다.
 [bootstrap README](../../../infra/bootstrap/README.md)를 참조하세요.
+
+새 플랫폼 계획은 `generate_initial_postgres_password = true`와
+`postgres_admin_password = null`을 사용할 수 있습니다. 민감한 32자 자격 증명은 승인된
+비공개 호스트 적용에서 생성하고 비공개 상태에 보존합니다. 이 선택을 유지하세요.
+기존 서버를 생성된 자격 증명으로 바꾸는 작업은 별도 검토된 교체이며, 조용한 최초 설치 재시도가 아닙니다.
 
 ### 1. 모든 서비스를 비공개로 provision
 

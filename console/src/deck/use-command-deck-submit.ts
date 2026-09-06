@@ -556,7 +556,7 @@ export function useCommandDeckSubmit({
       const terminalRecordedAt = reply.turnTiming?.completed_at ?? new Date().toISOString();
       const directResponse = isSemanticDirectResponseSource(reply.source);
       terminalReplyReady = true;
-      if (!directResponse && !started && isCurrent()) {
+      if (!directResponse && !reply.adaptiveAnswer && !started && isCurrent()) {
         const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
         if (remaining > 0) {
           await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
@@ -686,6 +686,7 @@ export function useCommandDeckSubmit({
                   } : {}),
                   ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
                   ...(reply.semanticReceipt ? { semanticReceipt: reply.semanticReceipt } : {}),
+                  ...(reply.adaptiveAnswer ? { adaptiveAnswer: reply.adaptiveAnswer } : {}),
                   ...(reply.conversationBinding
                     ? { conversationBinding: reply.conversationBinding }
                     : {}),

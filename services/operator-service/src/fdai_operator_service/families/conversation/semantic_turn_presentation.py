@@ -20,7 +20,11 @@ from fdai_operator_service.families.conversation.presentation_rows import (
 from fdai_operator_service.families.conversation.presentation_rows import (
     readable_row as _readable_row,
 )
-from fdai_service_contracts import SemanticAssuranceObservation, SemanticDirectResponseIntent
+from fdai_service_contracts import (
+    SemanticAssuranceObservation,
+    SemanticDirectResponseIntent,
+    SemanticTurnResult,
+)
 from fdai_service_contracts.ontology_query import EvidenceAuthority
 from pydantic import ValidationError
 
@@ -63,12 +67,19 @@ def semantic_done_event_data(
     semantic = projection.get("semantic_result")
     if not isinstance(semantic, Mapping):
         raise ValueError("stored semantic projection is missing semantic_result")
+    if semantic.get("disposition") == "advisory_response":
+        return _advisory_done_event_data(projection, semantic, locale=locale)
     semantic_receipt = _semantic_receipt(projection, semantic)
     answer = semantic.get("answer")
     disposition = semantic.get("disposition")
     if not isinstance(disposition, str):
         raise ValueError("stored semantic projection is missing terminal disposition")
     direct_response = disposition == "direct_response"
+    adaptive = (
+        SemanticTurnResult.model_validate(semantic).adaptive_answer
+        if semantic.get("adaptive_answer") is not None
+        else None
+    )
     missing_answer = not isinstance(answer, str) or not answer
     if missing_answer:
         answer = (
@@ -146,6 +157,15 @@ def semantic_done_event_data(
             "status": disposition,
             "answer": answer,
             "source": "semantic-direct-response" if direct_response else authority,
+            **(
+                {
+                    "adaptive_answer": adaptive.model_dump(mode="json"),
+                    "execution_authority": False,
+                    "locale": "ko" if locale.lower().startswith("ko") else "en",
+                }
+                if adaptive is not None
+                else {}
+            ),
             **({"model": model} if isinstance(model, str) and model else {}),
             **(
                 {"latency_ms": latency_ms}
@@ -208,6 +228,45 @@ def semantic_done_event_data(
             ),
             **({"trajectory_detail": trajectory_detail} if trajectory_detail is not None else {}),
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
+        },
+    )
+
+
+def _advisory_done_event_data(
+    projection: Mapping[str, object],
+    semantic: Mapping[str, object],
+    *,
+    locale: str,
+) -> JsonObject:
+    """Preserve bounded advisory metadata without minting whole-answer verification."""
+    result = SemanticTurnResult.model_validate(semantic)
+    adaptive = result.adaptive_answer
+    if adaptive is None:
+        raise ValueError("stored advisory response is missing its adaptive answer")
+    payload = projection.get("payload")
+    metadata = (
+        {
+            name: payload[name]
+            for name in ("model", "latency_ms", "usage", "model_trace", "turn_timing")
+            if name in payload
+        }
+        if isinstance(payload, Mapping)
+        else {}
+    )
+    return cast(
+        JsonObject,
+        {
+            "seq": 1,
+            "revision": 0,
+            "status": "advisory_response",
+            "source": "semantic-advisory-response",
+            "answer": adaptive.answer,
+            "adaptive_answer": adaptive.model_dump(mode="json"),
+            "semantic_result": result.model_dump(mode="json", exclude_none=True),
+            "request_id": projection.get("request_id"),
+            "execution_authority": False,
+            "locale": "ko" if locale.lower().startswith("ko") else "en",
+            **metadata,
         },
     )
 
