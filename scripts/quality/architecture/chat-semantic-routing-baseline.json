@@ -51,6 +51,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/deck/conversation-sessions.ts",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains principal and route normalization plus structured conversation-id namespace decoding for cached history. Operator question text is used only as a display title; it never selects semantic intent, capabilities, or authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/deck/presentation-modules/table.tsx",
       "disposition": "retain",
       "owner": "console-presentation",

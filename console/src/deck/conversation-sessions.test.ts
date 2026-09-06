@@ -325,6 +325,38 @@ describe("conversationTitle", () => {
 });
 
 describe("durable conversation hydration", () => {
+  it.each([
+    "Hello, explain :general:conversation: without changing my session.",
+    "안녕, 현재 장애와 배포 상태를 알려줘.",
+    "Approve and execute the deployment now.",
+  ])("restores context from the conversation id, not the question: %s", (question) => {
+    const record = {
+      channel_id: "web",
+      started_at: GENERAL.createdAt,
+      last_active: GENERAL.updatedAt,
+      status: "active",
+      latest_operator_turn_id: "turn-1",
+      first_operator_question: question,
+    };
+    const general = serverConversationSummary({
+      ...record,
+      conversation_id: newGeneralConversationKey("scope", "first"),
+    }, "/overview", "Dashboard");
+    const screen = serverConversationSummary({
+      ...record,
+      conversation_id: "screen:abc12345:/overview",
+    }, "/overview", "Dashboard");
+
+    expect(general.label).toBe(question);
+    expect(screen.label).toBe(question);
+    expect(conversationContextMode(general)).toBe("general");
+    expect(conversationContextMode(screen)).toBe("screen");
+    expect(general.agent).toBeUndefined();
+    expect(screen.agent).toBeUndefined();
+    expect(general.binding).toBeUndefined();
+    expect(screen.binding).toBeUndefined();
+  });
+
   it("skips new ephemeral threads and hydrates only registered empty sessions", () => {
     expect(shouldHydrateServerTurns(false, 0)).toBe(false);
     expect(shouldHydrateServerTurns(true, 0)).toBe(true);

@@ -46,6 +46,7 @@ context cannot appear as incident evidence.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Registered structured conversation-key restoration as a reviewed non-semantic boundary without changing runtime routing or weakening the lexical detector. | `current change`; `chat-semantic-routing-baseline.json`; semantic-routing tests: 10 passed; session/navigation tests: 33 passed; Console typecheck. | Exact published CI evidence is separate from these focused checks. |
 | 2026-09-06 | implemented | Changed general starter buttons from draft-only insertion to immediate normal submission and added bilingual send-preview tooltips. | `current change`; `conversation-entry.spec.ts`: 8 passed; focused chat/catalog checks: 48 passed; Console typecheck. | No live model or resource-execution validation was requested or performed. |
 | 2026-09-06 | implemented | Completed the general welcome and explicit screen-context UX. Reopening preserves separate drafts, general history never navigates, both submission paths use the selected snapshot, and regeneration preserves an unscoped request. | `current change`; `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`; focused unit and synthetic browser checks. | Model answers and resource execution were not invoked by this UI validation. |
 | 2026-09-06 | implemented | Separated general and current-screen Deck entry, prevented route snapshots from entering general submissions, and exposed the signed-in account plus server revalidation boundary on action drafts. | `current change`; focused Deck, navigation, grounded-reply, catalog, and type checks. | Retain an authenticated Browser receipt for both entry modes before claiming deployed validation. |
@@ -149,6 +150,11 @@ screen context. Route navigation never retargets an open floating conversation. 
 not navigate to its creation screen. After a sent turn, the composer returns to the transcript bottom.
 The header separates conversation identity from context and keeps search and history compact.
 Screen context remains a hint: the server still owns evidence, authorization, and execution checks.
+
+Conversation history restores its entry mode from structured conversation identifiers and metadata,
+not from the operator's question. Principal and route normalization plus namespace decoding are a
+reviewed `retain` boundary in the semantic-routing baseline. Question text supplies only the display
+title; even action-like wording or namespace text cannot select an agent, incident binding, or mode.
 
 ## Semantic terminal presentation plan
 
