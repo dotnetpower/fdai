@@ -197,7 +197,11 @@ def _excerpt() -> GovernedDocumentExcerpt:
     )
 
 
-def _runtime(result: GovernedDocumentCollection):
+def _runtime(
+    result: GovernedDocumentCollection | None,
+    *,
+    fail_documents: bool = False,
+):
     function_types = operational_function_types(())
     return build_semantic_query_runtime(
         model=_Model(),
@@ -212,7 +216,9 @@ def _runtime(result: GovernedDocumentCollection):
             property_semantics=empty_property_semantic_registry(),
         ),
         ontology_store=InMemoryOntologyInstanceStore(object_types=(), link_types=()),
-        governed_document_reader=_Reader(result),
+        governed_document_reader=_FailingReader()
+        if fail_documents
+        else _Reader(result if result is not None else _collection(excerpts=())),
         now=lambda: NOW,
     )
 
@@ -300,6 +306,24 @@ async def test_runtime_holds_required_document_answer_when_no_excerpt_matches() 
 
     assert result.disposition == "held"
     assert result.reason == "semantic_governed_documents_empty"
+
+
+async def test_runtime_holds_required_document_answer_when_provider_fails() -> None:
+    result = await _runtime(None, fail_documents=True).handle(
+        utterance="What does the recovery runbook require?",
+        prior_turns=(),
+        principal=Principal(
+            id="operator-a",
+            role=Role.READER,
+            groups=frozenset({"group:responders"}),
+        ),
+    )
+
+    assert result.disposition == "held"
+    assert result.reason == "semantic_execution_failed"
+    assert result.intent_graph_evidence is not None
+    assert result.intent_graph_evidence["status"] == "failed"
+    assert result.intent_graph_evidence["evidence_mode"] == "held_for_review"
 
 
 async def test_runtime_keeps_document_and_operational_authority_in_separate_lanes() -> None:
