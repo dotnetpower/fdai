@@ -59,13 +59,13 @@ def test_selects_only_expired_allowlisted_plan_paths(cleanup_module: ModuleType)
 
     assert selected == (
         "dev/plan-123-1/apply-claim.json",
-        "dev/plan-123-1/apply-receipt.json",
         "dev/plan-123-1/azure-preflight-evidence.json",
         "dev/plan-123-1/metadata.json",
         "dev/plan-123-1/preflight-evidence.json",
         "dev/plan-123-1/source-artifact.zip",
         "dev/plan-123-1/terraform.plan",
     )
+    assert "dev/plan-123-1/apply-receipt.json" not in selected
 
 
 def test_scan_cap_fails_closed(cleanup_module: ModuleType) -> None:

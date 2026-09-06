@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 135155ad5f7f97f3499f1660a3b9d2e70b9750f7
+translation_source_sha: 46ac5a6270a2bb4f49d475bbc942f79e264d5843
 translation_revised: 2026-09-07
 ---
 # 배포 리소스 규약
@@ -74,6 +74,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | OI-16에서 GitHub 산출물 만료 후 영속 대체 증적을 삭제하면 인증이 중단됨을 확인한 뒤, 24시간 보호 계획 정리 허용 목록에서 추가 전용 적용 증적을 제외했습니다. 정확한 OI-15 증적은 Storage 버전에서 복구하고 기록된 콘텐츠 다이제스트와 일치하는지 검증한 후 복원했습니다. | `current change`, 실패한 인증 `34044794294`, 복구한 증적 다이제스트 `sha256:3fe1b7d77ed4511c9e88283bae9798a8e74e2c79fc502e234fe36477d736cade`, 집중 정리 검사입니다. | 보존 수정을 게시하고 정확한 리비전의 CI와 이미지 근거를 확인한 뒤 독립 승인을 받는 새 인증 campaign을 제출합니다. |
 | 2026-09-07 | implemented | 이동 주소 대상에 필요한 정확한 내부 리소스 그룹 소유권 마커를 허용하면서 모든 외부 리소스 그룹 변경은 계속 차단했습니다. | `current change`, destroy가 없는 보호 계획 `34043795578`, `enforce_plan_scope.py`, 집중 계획 범위 검사입니다. | 이 가드를 게시하고 정확한 리비전의 CI와 이미지 근거를 확인한 뒤 인증 전에 보호 계획을 성공시킵니다. |
 | 2026-09-07 | implemented | 운영 이력 배포자 역할 전환을 이전 principal을 보존하는 추가 할당으로 변경했습니다. 이후 제거는 파괴적 계획으로 유지되며 인증 계획에서 차단됩니다. | `current change`, 실패한 보호 계획 `34042602702`, `deploy-dev.yml`, case-history 모듈, 집중 Terraform, 배포 워크플로, 파괴적 계획 차단 및 계획 범위 검사입니다. | 인증 campaign 전에 destroy가 없는 새 보호 계획을 생성하고, 별도로 검토한 계획을 통해서만 기존 principal을 제거합니다. |
 | 2026-09-07 | implemented | 애플리케이션 리소스 그룹이 공유 리소스 그룹 모듈로 이동한 뒤에도 보호된 운영 이력 계획을 사용할 수 있게 했습니다. 범위가 제한된 대상 집합에는 해당 이동 주소와 기존 이력 저장소, 비공개 엔드포인트 및 수명 주기 Job 대상만 포함합니다. | `current change`, 실패한 보호 계획 `34041699943`, `deploy-dev.yml`, 집중 배포 워크플로 및 계획 범위 검사입니다. | 인증 campaign 전에 destroy가 없는 새 보호 계획을 생성합니다. |
