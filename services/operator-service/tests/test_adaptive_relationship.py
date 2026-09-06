@@ -20,6 +20,8 @@ from fdai_operator_service.families.iam.contracts import (
     HumanIdentityDirectory,
 )
 from fdai_operator_service.families.operations.contracts import ProjectionQuery
+from fdai_operator_service.iam_composition import build_adaptive_relationship_resolver
+from fdai_operator_service.ownership_projection import OwnershipProjectionReader
 from fdai_service_contracts import OperatorRole
 
 _NOW = datetime(2026, 9, 6, 12, tzinfo=UTC)
@@ -75,6 +77,23 @@ class _Reader:
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         self.queries.append(query)
         return self.payload
+
+
+def test_iam_composition_binds_relationship_evidence_without_reading_sources() -> None:
+    reader = _Reader()
+    directory = _Directory()
+    resolver = build_adaptive_relationship_resolver(
+        projection_reader=reader,
+        directory=directory,
+        assignments=None,
+    )
+    assert isinstance(resolver.ownership, OwnershipProjectionReader)
+    assert resolver.ownership.fallback is reader
+    assert resolver.ownership.directory is directory
+    assert resolver.ownership.assignments is None
+    assert resolver.directory is directory
+    assert reader.queries == []
+    assert directory.lookups == []
 
 
 class _Directory:

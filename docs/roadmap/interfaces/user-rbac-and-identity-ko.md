@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: bd5a3cdcf0ac673ab1de94bd24683109c7a08dae
+translation_source_sha: 56ab9d505020ba0127a93cf2b07102375a86d0ab
 translation_revised: 2026-09-06
 ---
 
@@ -20,6 +20,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 > FDAI가 업무를 수행하는 동안 15개 에이전트 각각의 책임, 에스컬레이션 및 인수인계 담당자를 정합니다.
 > 두 역할은 한 사람에게 겹칠 수 있지만 담당자라는 사실만으로 RBAC 기능을 부여하지 않습니다.
 > 로컬과 배포 환경의 대화 조립은 현재 담당 체계와 디렉터리 정보에서 선택적 관계를 확인합니다. 증명은 인증된 사람, 고정된 대상 에이전트, 원본 리비전 및 최대 5분의 유효 기간에 결속합니다. Core는 신원과 시각을 다시 확인한 뒤 식별자가 없는 프롬프트 프로필을 사용합니다. 근거가 없거나 오래되었거나 모호하거나 일치하지 않으면 관계는 확인되지 않은 상태로 남으며 RBAC, 승인 또는 실행기 신원을 바꾸지 않습니다.
+> `iam_composition.py`는 기존 변환 결과, 디렉터리 및 할당 인터페이스에서 읽기 전용 관계 확인기를 조립합니다. 최상위 조립은 주입된 확인기를 보존하며 생성 시 디렉터리를 읽거나 쓰지 않습니다.
 
 > 고객-비종속: 아래 모든 그룹 이름, 앱 registration 이름, GUID는 **자리 표시자** ;
 > 포크가 구성으로 실제 값 공급

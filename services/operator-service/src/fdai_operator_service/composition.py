@@ -28,7 +28,6 @@ from fdai_operator_service.adapters import (
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
-from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolver
 from fdai_operator_service.auth import (
     EntraJwtVerifier,
     LocalAzureCliIdentity,
@@ -77,6 +76,7 @@ from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
     HilDecisionOutboxBridge,
+    build_adaptive_relationship_resolver,
     build_hil_decision_outbox_bridge,
     build_postgres_iam_bindings,
     build_teams_hil_http_client,
@@ -87,7 +87,6 @@ from fdai_operator_service.model_lifecycle_composition import (
     OperatorResolvedModelsRevisionOwner,
     build_model_revision_owner,
 )
-from fdai_operator_service.ownership_projection import OwnershipProjectionReader
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
@@ -341,13 +340,10 @@ class ProductionOperatorComposition:
             and route_families.iam.directory is not None
         ):
             semantic_bridge.bind_relationship_resolver(
-                AdaptiveRelationshipResolver(
-                    ownership=OwnershipProjectionReader(
-                        fallback=route_families.operations_projection_reader,
-                        directory=route_families.iam.directory,
-                        assignments=route_families.iam.assignments,
-                    ),
+                build_adaptive_relationship_resolver(
+                    projection_reader=route_families.operations_projection_reader,
                     directory=route_families.iam.directory,
+                    assignments=route_families.iam.assignments,
                 )
             )
         hil_decision_outbox_bridge = build_hil_decision_outbox_bridge(

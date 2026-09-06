@@ -19,6 +19,7 @@ for the *human* side; the executor-side mapping stays as declared there.
 > + escalation + handover). A person is typically in both; being a steward grants no
 > RBAC capability by itself.
 > Local and deployed conversation assembly resolve optional relationships from current ownership and directory projections. A proof binds the authenticated human, fixed target agent, source revision, and at most five minutes; Core rechecks identity and time before using an identity-free prompt profile. Missing, stale, ambiguous, or mismatched evidence remains unknown and never changes RBAC, approval, or executor identity.
+> `iam_composition.py` binds the read-only relationship resolver from existing projection, directory, and assignment ports. The root preserves injected resolvers; construction performs no directory reads or writes.
 
 > Customer-agnostic: all group names, app registration names, and GUIDs below are
 > **placeholders**; a fork supplies the real values via config
