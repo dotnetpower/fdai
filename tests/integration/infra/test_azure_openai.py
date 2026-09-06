@@ -1,5 +1,6 @@
 """Static contracts for the private Azure OpenAI Terraform module."""
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -9,10 +10,26 @@ ROOT_MAIN = REPO_ROOT / "infra" / "main.tf"
 ROOT_VARIABLES = REPO_ROOT / "infra" / "variables.tf"
 
 
-def test_account_enforces_private_access_and_preserves_policy_acls() -> None:
+def test_account_defaults_private_and_preserves_policy_acls() -> None:
     module = MODULE_MAIN.read_text(encoding="utf-8")
+    variables = MODULE_VARIABLES.read_text(encoding="utf-8")
+    root = ROOT_MAIN.read_text(encoding="utf-8")
+    root_variables = ROOT_VARIABLES.read_text(encoding="utf-8")
 
-    assert "public_network_access_enabled = false" in module
+    assert "public_network_access_enabled = var.public_network_access_enabled" in module
+    assert "public_network_access_enabled = var.llm_public_network_access_enabled" in root
+    assert 'variable "public_network_access_enabled"' in variables
+    assert 'variable "llm_public_network_access_enabled"' in root_variables
+    assert re.search(
+        r'variable "public_network_access_enabled"\s*{[^}]*default\s*=\s*false',
+        variables,
+        re.DOTALL,
+    )
+    assert re.search(
+        r'variable "llm_public_network_access_enabled"\s*{[^}]*default\s*=\s*false',
+        root_variables,
+        re.DOTALL,
+    )
     assert "local_auth_enabled            = false" in module
     assert 'identity {\n    type = "SystemAssigned"' in module
     assert "ignore_changes = [network_acls]" in module
