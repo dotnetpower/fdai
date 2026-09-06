@@ -28,6 +28,10 @@ from interactive evidence, and configuration correlation from a proven cause.
 > reads; clarification text does not satisfy the answer-token gate. Restart readiness now waits for
 > a post-launch semantic consumer and fresh heartbeat. The first exact F2 request after the retained
 > `ready` marker emitted its answer token in 3.948 seconds.
+>
+> **Hardening closeout:** R28-R44 added 17 independent review rounds. The final combined 324-case
+> cohort, targeted Ruff, strict mypy, and the last independent review found no remaining
+> Medium-or-higher issue in the edited improvement paths.
 
 ## Design at a glance
 
