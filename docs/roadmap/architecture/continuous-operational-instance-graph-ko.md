@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1b239fd76527be89b9cbe8edaec9d25ed2df86aa
-translation_revised: 2026-09-06
+translation_source_sha: afd8ce500dd206a37b5b7f0aa116e687a316d991
+translation_revised: 2026-09-07
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -356,7 +356,7 @@ binding을
 | 적응형 일정 관리 | implemented | 검증된 source policy와 순수 reducer가 freshness, lag, demand, provider pressure, `Retry-After`, 남은 budget, concurrency, circuit-open 상태, recovery probe를 사용합니다. PostgreSQL은 durable due 상태를 제공하고 principal-safe health projection은 다음 bounded action을 노출합니다. |
 | Retention 및 hold | implemented | Archive purge coordinator는 정확한 verification, restore sampling, retention 또는 legal hold 평가가 통과하기 전까지 삭제를 차단합니다. Append-only PostgreSQL receipt는 blocked, pending, failed, successful, retry 결과를 보존합니다. |
 | 타입 지정 rollup | implemented | Fact별 policy가 gauge, counter, categorical state, relationship change, evidence health를 분리해 집계하면서 source와 generation 계보, bitemporal 범위, 누락 구간, 관측된 0, 충돌, 완전성, 병합 가능한 count와 sum을 보존합니다. Percentile은 unavailable로 유지합니다. |
-| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 계획은 저장소 범위와 역할을 정확히 유지하고 Terraform이 이전 역할을 제거하기 전에 새 역할을 만드는 경우에만 archive data-owner 역할을 저장소에 바인딩된 deploy UAMI로 인계할 수 있습니다. 보호된 배포 및 certification 증적은 별도 운영 근거로 남습니다. |
+| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 계획은 이전 archive data owner를 보존하고 저장소에 바인딩된 deploy UAMI를 별도 주소에 추가합니다. 제거는 별도의 파괴적 작업으로 유지합니다. 보호된 배포 및 certification 증적은 별도 운영 근거로 남습니다. |
 
 ## 구현 상태
 ### 구현 범위
@@ -373,7 +373,7 @@ binding을
 | 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL 조정 상태, 수집 상태, 분석기 틱 CLI와 로컬 VS Code 작업, 영속 게시 원장 및 집중 수집 검사 | 출처 정책과 결정론적 일정 관리가 구현됐습니다. 배포된 Container Apps Job과 로컬 백그라운드 작업은 같은 one-shot 분석기 논리와 게시 전 PostgreSQL 청구를 사용합니다. 완료된 브로커 증적은 프로세스가 다시 시작되어도 같은 구간의 발견 사항이 다시 게시되지 않도록 억제합니다. 활성 청구가 있으면 틱이 실패하고, 아직 전송하지 않은 오래된 청구는 범위가 제한된 임대 기간 뒤 다시 획득할 수 있습니다. 실행기는 브로커를 호출하기 전에 전송 의도를 영속적으로 기록하므로, 레코드가 확실히 전송되지 않았다고 버스가 증명할 때만 청구를 해제하고 그 밖의 모든 게시 실패는 청구를 불확실 상태로 유지해 재시도 전에 조정을 요구합니다. 만료된 전송 임대와 증적을 기록하지 못한 브로커 확인은 모두 다시 게시하지 않고 불확실한 상태로 남습니다. 청구 저장소 읽기나 쓰기가 실패하면 해당 발견 사항은 게시하지 않고 안전하게 실패합니다. 준비 상태는 일정 관리, 대상 검색, 메트릭 접근, 이벤트 게시 및 구성된 Log Analytics와 Prometheus 지연 시간 하한을 분리합니다. 배포 운영 측정은 별도 검증 근거로 남습니다. |
 | 타입 지정 rollup | implemented | `semantic_rollup*.py`, `inventory_rollup.py`, 집중 integration 검사 | 사실별 집계와 범위 계약은 구현되고 로컬에서 검증됐습니다. |
 | 영속 정규화 관측 이력 | implemented | `inventory_observation.py`, `operational_history_lifecycle.py`, `postgres_inventory_observation*.py`, `postgres_observation_lifecycle.py`, `20260907_core_oi16_certification_support.py`까지의 Core migration, 타입 지정 replay 및 원본 범위 검사 | OI-13과 OI-14는 정확한 객체 및 관계 관측, 수명 인스턴스 신원, 지연 correction partition, 결정론적 correction 종료, case 또는 legal-hold pin을 보존합니다. 대기 중인 correction은 원본 완전성을 낮추며 보정된 base partition은 purge 전에 더 최신 checkpoint를 요구합니다. |
-| 운영 archive 및 제한된 이력 purge | in-progress | `operational_history_archive.py`, Azure Blob artifact adapter, PostgreSQL 수명 주기 store 및 database purge gate, 배포 정책 loader, 수명 주기 planner와 고정 schedule, OI-16 synthetic campaign runner, 격리된 synthetic retention fact family와 추가 전용 recovery rehearsal table, 보호된 certification workflow와 증적 writer, 집중 검사, 보호 apply 증적, 성공한 shadow Job 실행 | OI-15는 실행기 권한이 없는 inventory identity와 비공개 versioned storage를 사용하는 shadow mode로 배포됐습니다. OI-16 구현은 개발 전용 synthetic campaign을 정확한 CI, runtime image attestation, OI-15 apply 증적, bot 소유 요청 및 별도 Environment 승인에 결속합니다. 정확한 `synthetic/oi16-certification/` 범위만 full observation을 purge가 허용된 synthetic fact family에 매핑하며, 검증된 campaign runner가 명시적으로 활성화하지 않으면 공유 journal은 이 매핑을 비활성 상태로 유지합니다. 일반 observation family는 기존 정책을 유지합니다. Database recovery는 archive된 synthetic record를 별도의 추가 전용 table로 복원하고 내용 digest를 검증한 뒤 archive coverage를 다시 구성합니다. 저장된 coverage 증적은 전역 관점에서 불완전 상태를 유지하고 별도 검사는 archive된 모든 synthetic partition의 완전한 coverage를 요구합니다. 최종 campaign `33999858271`은 safe purge와 두 database 시나리오를 포함한 12개 시나리오가 통과했지만 `late_observation`은 unavailable로 남았고 배포된 ontology projection release가 exact source와 상충했습니다. 따라서 OI-16은 열려 있고 운영 검증되지 않았으며 certification 증적과 비공개 최종 artifact를 저장하지 않았습니다. |
+| 운영 archive 및 제한된 이력 purge | validated | `operational_history_archive.py`, Azure Blob artifact adapter, PostgreSQL lifecycle store와 database purge gate, 배포 policy loader, lifecycle planner와 고정 schedule, OI-16 synthetic campaign runner, 보호 workflow, required CI `34058713875`, 공급망 실행 `34058973580`, 계획 `34059171071`, 요청 `34059338073`, 승인된 campaign `34059357427`, 저장된 증적 `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e` | 정확한 리비전 `80b5892aa176e4a71eb2b3448982825b526d175b`에서 운영 scenario 13개가 모두 사유 코드 없이 통과했습니다. Campaign은 복원한 영속 OI-15 증적, 정확한 attested image, 완전한 active projection 이행, 독립적인 database restart 효과, 추가 전용 PostgreSQL 증적 및 비공개 merged artifact `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`를 검증했습니다. 범위는 `synthetic/oi16-certification/`으로 유지했으며 일반 관측 보존과 production 리소스는 변경하지 않았습니다. |
 | 그래프 우선 조건부 실시간 보강 | implemented | `graph_evidence_refresh.py`, `graph_query_refresh.py`, `inventory_live_evidence.py`, runtime 의미 조립, 부분 overlay 영속성, 집중 테스트 | Exact-target 현재 상태 조립은 action authority 없이 graph-first 평가, bounded live read 1회, canonical write-through, 재조회 및 fail-closed hold를 종단으로 연결합니다. 최신성을 요구하는 Resource 결과는 반환된 모든 Resource가 완전한 state-fact metadata를 가질 때만 complete입니다. |
 | 운영 인스턴스 semantic 정확성 | implemented | `operational_instance_competency.py`, 집중 이중 언어 action-draft routing 검사, 타입 지정 no-authority 증적 | 대표 typed competency와 OI-11 이중 언어 positive 및 negative 분류 검사가 답변 text 또는 keyword routing 없이 통과합니다. 전체 corpus 및 예약 검증은 [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md)이 소유합니다. |
 | Runtime-call 근거 binding | implemented | `runtime_calls.yaml`, `runtime_call_projection.py`, `runtime_call_telemetry.py`, `delivery/azure/runtime_call_telemetry.py`, `runtime_call_inventory.py`, `inventory_projection.py`, inventory single-writer 및 집중 endpoint 검사 | 인증된 producer는 정확한 envelope identity를 독립된 credential lineage에 결속합니다. Azure query는 두 runtime table을 모두 요구하고 unavailable, redacted, malformed row coverage를 보존합니다. 부분 candidate가 하나라도 있으면 batch는 incomplete입니다. 검토된 `runtime_calls` LinkType을 projection contract에 등록하여 verified endpoint 방향과 Resource cardinality가 current 및 historical projection에서 유지됩니다. 인증된 runtime 근거는 열려 있습니다. |
@@ -386,6 +386,7 @@ binding을
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | validated | 영속 OI-15 증적 보존, 추가 방식 배포자 역할 이행, certification scenario 영속화, 정확한 실행 로그 선택 및 범위가 제한된 Activity Log 전파를 수정한 뒤 OI-16 보호 운영 certification을 완료했습니다. 독립 승인을 받은 campaign은 scenario 13개를 모두 통과하고 추가 전용 certification 증적을 저장했습니다. | Source `80b5892aa176e4a71eb2b3448982825b526d175b`, required CI `34058713875`, 공급망 `34058973580`, destroy 없는 계획 `34059171071`, bot 요청 `34059338073`, 승인된 campaign `34059357427`, 증적 `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e`, 비공개 artifact `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`입니다. | Production 보존은 변경하지 않고 이후 certification 주장에는 새 exact-revision campaign을 요구합니다. |
 | 2026-09-06 | implemented | 완전한 활성 프로바이더 스냅샷을 이전 근거를 대체하는 범위 경계로 적용하도록 저장소 pressure의 변환 지연 계산을 수정했습니다. Pressure query는 스냅샷이 `full_provider_scope`, 최신 변환 완전성 및 현재 매니페스트와 같은 세대를 선언할 때만 정확한 활성 scope에서 스냅샷 시작 시각 이전의 레코드를 제외합니다. 현재 세대 행은 매니페스트 journal watermark로 계속 제한하고 이후 행, scope 밖 행, null scope 행 및 certification 이외의 행은 대기 상태로 유지합니다. | `current change`, 집중 pressure 읽기 및 campaign fixture 테스트 37개가 통과했고 Ruff 및 strict mypy 검사도 통과했습니다. Exact-image 프로바이더 refresh가 매니페스트와 일치하고 관계 범위가 완전한 스키마 `1.3.0` 활성 세대를 생성했습니다. 제안 query를 해당 세대에 읽기 전용으로 실행해 변환 지연 5를 측정했으며 정책 한도 1000 미만이었습니다. | 수정된 exact image를 게시하고 attest한 뒤 가져오고, 독립 승인을 받은 새 campaign이 13/13을 통과해야 certification을 저장합니다. |
 | 2026-09-06 | implemented | 한 번의 스키마 `1.1.0` bootstrap을 마친 뒤 변경되지 않은 레거시 스냅샷 메타데이터를 최신 메타데이터로 취급하지 않으면서 exact-release 재현을 반복할 수 있게 했습니다. 이 우회는 같은 세대의 완전한 스키마 `1.3.0` 매니페스트가 유효한 내용 다이제스트, 완전한 관계 상태, 정규 객체 및 link 내용, 빈 누락 사유를 가질 때만 적용됩니다. 메타데이터가 혼합되었거나 매니페스트가 불완전하면 계속 차단되며, projector는 커밋 전에 재구성한 journal 내용을 내용 주소가 지정된 매니페스트와 계속 비교합니다. | `current change`, 집중 journal, 재현 CLI 및 ontology projector 테스트 54개가 통과했습니다. 독립 승인을 받은 campaign `34034548028`은 exact CI, 영속 OI-15 증적, runtime image 및 attestation을 검증한 뒤 현재 매니페스트 재현이 레거시 스냅샷의 `projection_complete`를 계속 요구하여 시나리오 전에 중단됐습니다. | 반복 재현 수정을 게시하고 attest한 뒤 exact image를 가져오고, 독립 승인을 받은 새 campaign을 실행합니다. |
 | 2026-09-06 | implemented | PostgreSQL 인벤토리 journal 레코드 변환과 온톨로지 graph query 읽기를 집중 persistence 모듈로 분리하면서 공개 store와 쓰기 경계는 변경하지 않았습니다. Journal store는 767줄, ontology store는 794줄이며 추출한 두 helper도 구조 실패 임계값보다 작습니다. 오래된 ontology LOC 부채 기준은 늘리지 않고 제거했습니다. | `current change`, 집중 inventory journal, 재현, ontology persistence 및 service-suite 테스트 76개가 통과했고 환경 의존 테스트 6개는 건너뛰었습니다. Ruff, formatter, strict mypy, JSON parsing 및 enforced LOC gate가 통과했습니다. | exact CI에서 구조 분할을 유지하고 수정된 projection backlog 리비전부터 OI-16 certification을 계속합니다. |
@@ -553,16 +554,16 @@ purge가 연결되지 않았습니다. 위의 제한된 이력 설계와 OI-13�
   조정 및 저장소 압력 저하 동작을 결속합니다. 전용 runtime Job은 실행기 권한이 없는 inventory
   identity로 이 표면을 조립합니다. Shadow, enforce, certify, archive 중단, restore 실패, hold 및
   purge 검사는 실패한 gate가 source partition을 보존하고 완전성 의존 작업을 차단함을 입증합니다.
-- [ ] `OI-16`은 고정된 개정 하나에서 안정 상태 저장소 증가 제한, exact warm replay, archive
+- [x] `OI-16`은 고정된 개정 하나에서 안정 상태 저장소 증가 제한, exact warm replay, archive
   복원, 안전한 partition purge, N/N-1 schema replay, database 복구, hold 적용 및 false-complete
   0건을 입증하는 운영 증적을 보존합니다. 중복, 지연, 삭제, 재생성, 프로바이더 실패, database
   재시작 및 archive 중단 시나리오를 포함해야 합니다. 개발 전용 synthetic campaign, bot 요청
   기반 보호 workflow, 정확한 provenance 결속, 비공개 단계 근거 및 gate가 적용된 증적 writer는
-  구현됐습니다. 모든 시나리오가 통과하지 않으면 `operationally_validated=true`를 보고하거나
-  증적을 저장할 수 없습니다. Campaign `34036290212`은 exact provenance와 영속 OI-15 근거를
-  검증한 뒤 같은 이전 세대가 새 ontology release에서 다른 내용을 만들어 중단됐습니다.
-  이후 exact-image 프로바이더 refresh가 완전한 최신 세대를 생성했지만 새 campaign에서 모든
-  시나리오가 통과할 때까지 운영 증적은 열려 있습니다.
+  구현됐습니다. Campaign `34059357427`은 exact revision
+  `80b5892aa176e4a71eb2b3448982825b526d175b`에서 scenario 13개를 모두 통과하고
+  `sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e`
+  증적과 비공개 merged artifact
+  `sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409`를 보존했습니다.
 - [x] 표준 로컬 프로필에 `analyzer: run continuously (local)`을 제공합니다. 배포 one-shot
   analyzer CLI, 로컬 런타임 환경, 인벤토리 대상 검색, 메트릭 매핑, 멱등성 키, 이벤트 계약 및
   shadow 상태를 재사용하며 analyzer 로직을 중복하지 않습니다.

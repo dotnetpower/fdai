@@ -3,12 +3,12 @@
   "package_id": "OI-01",
   "design_owner": "docs/roadmap/architecture/continuous-operational-instance-graph.md",
   "operational_validation": {
-    "state": "unavailable",
-    "source_revision": "344d7cbf56ede974cea97aa5a742fb203494cf44",
-    "required_ci_run_id": 33999441973,
-    "runtime_image_attestation_run_id": 33999441974,
-    "campaign_request_run_id": 33999842911,
-    "campaign_run_id": 33999858271,
+    "state": "validated",
+    "source_revision": "80b5892aa176e4a71eb2b3448982825b526d175b",
+    "required_ci_run_id": 34058713875,
+    "runtime_image_attestation_run_id": 34058973580,
+    "campaign_request_run_id": 34059338073,
+    "campaign_run_id": 34059357427,
     "passed_scenarios": [
       "archive_outage",
       "archive_restore",
@@ -18,25 +18,17 @@
       "delete_recreate",
       "duplicate_delivery",
       "hold_enforcement",
+      "late_observation",
       "provider_failure",
       "safe_partition_purge",
       "schema_replay",
       "warm_replay"
     ],
-    "unavailable_scenarios": {
-      "late_observation": [
-        "prior_phase_evidence_unavailable"
-      ]
-    },
-    "reason_codes": [
-      "evidence_not_deterministic_complete",
-      "ontology_release_projection_conflicted",
-      "scenario_evidence_digests_missing",
-      "scenario_evidence_unavailable"
-    ],
-    "operationally_validated": false,
-    "receipt_digest": null,
-    "private_artifact_digest": null
+    "unavailable_scenarios": {},
+    "reason_codes": [],
+    "operationally_validated": true,
+    "receipt_digest": "sha256:6c9e7b5bc731776f065e25672d116c3f278ab02b2c09636191e6566a50552f0e",
+    "private_artifact_digest": "sha256:aaefe0ec525c22ecf596e5e9169904f5a68fe8341cbfa8a85a165508259b2409"
   },
   "stages": [
     {
