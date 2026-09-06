@@ -389,7 +389,11 @@ def _add_observed_state(
     existing_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
     if isinstance(existing_metadata, Mapping) and "lane" not in existing_metadata:
         properties[STATE_FACT_METADATA_PROPERTY] = {
-            **_allowlisted_state_metadata(existing_metadata, resource_type=resource_type),
+            **_allowlisted_state_metadata(
+                existing_metadata,
+                resource_type=resource_type,
+                owner=properties,
+            ),
             "state": state_metadata,
         }
     else:
@@ -460,11 +464,20 @@ def _remove_operational_state(
     properties.pop("state", None)
     metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
     if not isinstance(metadata, Mapping):
-        return
-    if "lane" in metadata:
         properties.pop(STATE_FACT_METADATA_PROPERTY, None)
         return
-    retained = _allowlisted_state_metadata(metadata, resource_type=resource_type)
+    if "lane" in metadata:
+        canonical = _canonical_state_metadata(metadata)
+        if canonical is not None and _flat_state_metadata_allowed(properties, resource_type):
+            properties[STATE_FACT_METADATA_PROPERTY] = canonical
+        else:
+            properties.pop(STATE_FACT_METADATA_PROPERTY, None)
+        return
+    retained = _allowlisted_state_metadata(
+        metadata,
+        resource_type=resource_type,
+        owner=properties,
+    )
     if retained:
         properties[STATE_FACT_METADATA_PROPERTY] = retained
     else:
@@ -475,17 +488,37 @@ def _allowlisted_state_metadata(
     metadata: Mapping[str, object],
     *,
     resource_type: str,
+    owner: Mapping[str, object],
 ) -> dict[str, object]:
-    allowed_paths = (
-        *operational_state_paths(resource_type),
-        *availability_state_paths(resource_type),
-    )
+    operational_paths = operational_state_paths(resource_type)
+    availability_paths = availability_state_paths(resource_type)
+    allowed_paths = (*operational_paths, *availability_paths)
     allowed_keys = {
-        prefix + path
+        prefix + path: path
         for prefix in ("", "properties.", "properties.properties.")
         for path in allowed_paths
     }
-    return {key: value for key, value in metadata.items() if key in allowed_keys}
+    retained: dict[str, object] = {}
+    for key, value in metadata.items():
+        path = allowed_keys.get(key)
+        if path is None or not is_recorded_state_value_valid(
+            _state_value_at(owner, key),
+            allow_unknown=path == "ready_status" or path in availability_paths,
+        ):
+            continue
+        canonical = _canonical_state_metadata(value)
+        if canonical is not None:
+            retained[key] = canonical
+    return retained
+
+
+def _canonical_state_metadata(value: object) -> dict[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return StateFactMetadata.from_mapping(value).to_mapping()
+    except (OverflowError, ValueError):
+        return None
 
 
 def _filter_state_metadata_owners(
@@ -495,17 +528,25 @@ def _filter_state_metadata_owners(
 ) -> None:
     owner = properties
     for depth in range(3):
-        metadata = owner.get(STATE_FACT_METADATA_PROPERTY)
-        if isinstance(metadata, Mapping):
-            retained = (
-                dict(metadata)
-                if "lane" in metadata and _flat_state_metadata_allowed(owner, resource_type)
-                else _allowlisted_state_metadata(metadata, resource_type=resource_type)
-                if "lane" not in metadata
-                else {}
-            )
-            if retained:
-                owner[STATE_FACT_METADATA_PROPERTY] = retained
+        if STATE_FACT_METADATA_PROPERTY in owner:
+            metadata = owner[STATE_FACT_METADATA_PROPERTY]
+            if isinstance(metadata, Mapping):
+                canonical = _canonical_state_metadata(metadata) if "lane" in metadata else None
+                retained = (
+                    canonical
+                    if canonical is not None and _flat_state_metadata_allowed(owner, resource_type)
+                    else _allowlisted_state_metadata(
+                        metadata,
+                        resource_type=resource_type,
+                        owner=owner,
+                    )
+                    if "lane" not in metadata
+                    else {}
+                )
+                if retained:
+                    owner[STATE_FACT_METADATA_PROPERTY] = retained
+                else:
+                    owner.pop(STATE_FACT_METADATA_PROPERTY, None)
             else:
                 owner.pop(STATE_FACT_METADATA_PROPERTY, None)
         if depth == 2:
@@ -522,15 +563,21 @@ def _flat_state_metadata_allowed(
     owner: Mapping[str, object],
     resource_type: str,
 ) -> bool:
-    paths = operational_state_paths(resource_type)
+    operational_paths = operational_state_paths(resource_type)
     return any(
-        path in paths
-        and is_recorded_state_value_valid(
-            owner.get(path),
-            allow_unknown=path == "ready_status",
-        )
-        for path in ("status", "state", "ready_status")
+        path in operational_paths
+        and is_recorded_state_value_valid(owner.get(path), allow_unknown=False)
+        for path in ("status", "state")
     )
+
+
+def _state_value_at(owner: Mapping[str, object], path: str) -> object:
+    current: object = owner
+    for part in path.split("."):
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current
 
 
 def _observed_at(value: str | None) -> datetime | None:

@@ -112,9 +112,10 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the
   reviewed ResourceType path allowlist for both Core ontology projection and Operator reads. Each
   projection applies that allowlist to root and supported nested property owners before inspecting
-  stored values, including the legacy top-level `status` field. A legacy `status`,
-  `provisioningState`, or unexpected property therefore cannot override a not-applicable or
-  provider-not-exposed outcome.
+  stored values, including the legacy top-level `status` field. Only canonical metadata paired with
+  a present allowlisted value is retained, and flat metadata remains limited to the supported
+  `status` and `state` sibling form. A legacy `status`, `provisioningState`, malformed metadata, or
+  unexpected property therefore cannot override a not-applicable or provider-not-exposed outcome.
 
 ## Presentation and compatibility
 

@@ -17,8 +17,9 @@ and owning designs. Use it instead of the retired top-level application tree.
 - **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
   reviewed ResourceType path registry. Core ontology projection and Operator read models consume
   that registry before inspecting provider properties. Root and supported nested metadata owners
-  retain only allowlisted state paths, so a generic `status` or `provisioningState` cannot create
-  an operational fact for an inapplicable type.
+  retain only canonical metadata paired with a present allowlisted value. Unsupported flat
+  metadata, generic `status`, and `provisioningState` cannot create an operational fact for an
+  inapplicable type.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,

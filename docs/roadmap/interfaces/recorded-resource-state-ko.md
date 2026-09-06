@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 859ec31a19853fe35a809c030ab20fcc0c2a6cec
+translation_source_sha: 863fd10911e792d6dd7a668900ad3648796d42e5
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -112,8 +112,10 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
 - 하나의 공통 서비스 계약인 `fdai_service_contracts.recorded_resource_state`가 Core 온톨로지
   변환과 Operator 조회에 사용할 검토된 ResourceType별 경로 허용 목록을 정의합니다. 각 변환은
   루트와 지원되는 중첩 속성 소유자에 이 허용 목록을 적용한 후 저장 값을 확인하며, 기존 최상위
-  `status` 필드도 같은 규칙을 따릅니다. 따라서 이전 `status`, `provisioningState` 또는 예상하지
-  못한 속성이 적용 대상 아님이나 공급자 미제공 결과를 덮어쓸 수 없습니다.
+  `status` 필드도 같은 규칙을 따릅니다. 실제 허용 값과 연결된 표준 메타데이터만 유지하며 flat
+  메타데이터는 지원되는 `status` 및 `state` sibling 형식으로 제한합니다. 따라서 이전 `status`,
+  `provisioningState`, 잘못된 메타데이터 또는 예상하지 못한 속성이 적용 대상 아님이나 공급자
+  미제공 결과를 덮어쓸 수 없습니다.
 
 ## 화면과 호환성
 

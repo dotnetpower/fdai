@@ -492,17 +492,113 @@ def test_root_metadata_without_an_allowlisted_value_is_removed() -> None:
     assert STATE_FACT_METADATA_PROPERTY not in provider
 
 
-def test_allowed_nested_flat_metadata_is_preserved_without_snapshot_time() -> None:
+@pytest.mark.parametrize(
+    "metadata",
+    [None, "invalid", ["invalid"], {"unallowlisted": "secret"}],
+)
+def test_malformed_state_metadata_is_removed_from_all_supported_owners(
+    metadata: object,
+) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="function-1",
+                type="compute.function",
+                props={
+                    "state": "Running",
+                    STATE_FACT_METADATA_PROPERTY: metadata,
+                    "properties": {
+                        STATE_FACT_METADATA_PROPERTY: metadata,
+                        "properties": {STATE_FACT_METADATA_PROPERTY: metadata},
+                    },
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert isinstance(provider, dict)
+    assert STATE_FACT_METADATA_PROPERTY in provider
+    assert isinstance(provider[STATE_FACT_METADATA_PROPERTY], dict)
+    nested = provider["properties"]
+    assert isinstance(nested, dict)
+    assert STATE_FACT_METADATA_PROPERTY not in nested
+    doubly_nested = nested["properties"]
+    assert isinstance(doubly_nested, dict)
+    assert STATE_FACT_METADATA_PROPERTY not in doubly_nested
+
+
+@pytest.mark.parametrize("metadata", ["invalid", {"unallowlisted": "secret"}])
+def test_allowlisted_state_metadata_key_requires_canonical_metadata(
+    metadata: object,
+) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="workspace-1",
+                type="log-workspace",
+                props={
+                    "availabilityState": "Available",
+                    STATE_FACT_METADATA_PROPERTY: {"availabilityState": metadata},
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["availabilityState"] == "Available"
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+def test_overflowing_state_metadata_is_removed_instead_of_aborting_projection() -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    metadata["completeness"] = 10**10_000
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="workspace-1",
+                type="log-workspace",
+                props={
+                    "availabilityState": "Available",
+                    STATE_FACT_METADATA_PROPERTY: {"availabilityState": metadata},
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["availabilityState"] == "Available"
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "path", "value"),
+    [
+        ("event-hub", "status", "Active"),
+        ("compute.function", "state", "Running"),
+    ],
+)
+def test_supported_nested_flat_metadata_is_preserved_without_snapshot_time(
+    resource_type: str,
+    path: str,
+    value: str,
+) -> None:
     metadata = _observation_metadata().state_fact.to_mapping()
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",
         resources=(
             ResourceRecord(
-                resource_id="event-hub-1",
-                type="event-hub",
+                resource_id=f"{resource_type}-1",
+                type=resource_type,
                 props={
                     "properties": {
-                        "status": "Active",
+                        path: value,
                         STATE_FACT_METADATA_PROPERTY: metadata,
                     },
                 },
@@ -512,6 +608,58 @@ def test_allowed_nested_flat_metadata_is_preserved_without_snapshot_time() -> No
 
     provider = projection.objects[0].properties["properties"]
     assert provider["properties"][STATE_FACT_METADATA_PROPERTY] == metadata
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "path", "value"),
+    [
+        ("compute.container-app", "runningStatus", "Running"),
+        ("disk", "diskState", "Reserved"),
+        ("log-workspace", "availabilityState", "Available"),
+    ],
+)
+def test_unsupported_flat_metadata_is_removed(
+    resource_type: str,
+    path: str,
+    value: str,
+) -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id=f"{resource_type}-1",
+                type=resource_type,
+                props={
+                    path: value,
+                    STATE_FACT_METADATA_PROPERTY: metadata,
+                },
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+def test_orphan_keyed_metadata_is_removed() -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="workspace-1",
+                type="log-workspace",
+                props={
+                    STATE_FACT_METADATA_PROPERTY: {"availabilityState": metadata},
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert STATE_FACT_METADATA_PROPERTY not in provider
 
 
 @pytest.mark.parametrize(
