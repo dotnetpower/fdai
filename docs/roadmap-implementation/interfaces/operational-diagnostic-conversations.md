@@ -21,7 +21,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | Scoped configuration comparison | implemented | `current change`; source-isolation, time-boundary, capacity-semantics, and configuration-plan cases in the 43-case matrix and final component slice | Values, object scope, history references, and aggregate provenance remain filtered before presentation. Interactive history evidence remains open. |
 | Compound gateway metric/configuration wiring | implemented | `current change`; gateway compiler, reducer, APIM status, deadline, and scoped configuration tests in the 742-test slice | Component composition is complete. Standard interactive metric and configuration evidence remains open. |
 | Standard interactive acceptance | in-progress | Warm standard Browser Entra variants: F1 answer TTFT 3.810 seconds, F2 answer TTFT 4.254 seconds, F3 clarification 6.559 seconds, and post-fix F4 clarification 5.800 seconds. The first post-ready F2 answer token arrived in 3.948 seconds. | F1 and F2 pass the latency sub-gate only. F1 had conflicting evidence and no artifact; complete F2 history was not established; F3/F4 lacked exact identities and emitted no answer token. |
-| Formal critique and hardening | implemented | `current change`; R01-R44 below; final combined cohort of 324 cases, targeted Ruff, and strict mypy passed | R28-R44 fixed nine confirmed Medium findings. Three independent final reviews converged on no remaining Medium-or-higher issue; only Low-or-lower residual risk remains. Interactive acceptance gaps remain explicit. |
+| Formal critique and hardening | implemented | `current change`; R01-R55 below; final combined cohort of 333 cases, targeted Ruff, and strict mypy passed | R45-R54 fixed ten additional confirmed Medium findings discovered by live restart and repeated independent review. R55 found no remaining Medium-or-higher issue; only Low-or-lower residual risk remains. Interactive acceptance gaps remain explicit. |
 
 ### Implementation history
 
@@ -36,6 +36,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | 2026-09-07 | in-progress | Batched local PLAINTEXT consumer commits, compressed preflight while retaining exact schema field names, blocked generic product labels as exact identities, and terminated ambiguous targetless gateway judgments before frame-model I/O. | `current change`; 238 focused tests, targeted Ruff, and strict mypy passed. Warm Browser Entra F1/F2 TTFT passed at 3.810/4.254 seconds; F3/F4 returned no-read clarification. | Deliver the F1 artifact, retain complete F2 history, test exact F3/F4 targets, and make Core readiness wait for the semantic logical consumer rather than preceding it by about 28 seconds. |
 | 2026-09-07 | implemented | Made Core restart readiness require a post-launch semantic consumer plus a fresh Pantheon heartbeat, preventing a previous process's heartbeat from releasing the new process early. | `current change`; 46 launcher/workflow tests passed. Retained marker order was semantic consumer, heartbeat, then `ready`; the first post-ready F2 answer token arrived in 3.948 seconds. | Deliver the F1 artifact, retain complete F2 history, and test exact F3/F4 targets. |
 | 2026-09-07 | implemented | Completed R28-R44 over readiness identity, time direction, gateway window binding, exact target shapes, Kafka delivery, prompt repair, and safe evidence holds. | `current change`; one combined 324-case cohort, targeted Ruff, strict mypy, and three independent closeout reviews passed. | Resume F1-F4 runtime validation; component hardening has only Low-or-lower residual risk. |
+| 2026-09-07 | implemented | Extended the campaign through R55 after live restart and repeated review found log-boundary, fallback, accepted-judgment, ARM identity, and gateway-cardinality gaps. | `current change`; one combined 333-case cohort, targeted Ruff, strict mypy, hooks, and final independent review passed. | Runtime evidence gaps remain separate; edited code paths have only Low-or-lower residual risk. |
 
 ### Remaining work
 
@@ -53,7 +54,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
   draft and gateway semantic-frame hold; do not infer a pass from component checks.
 - [ ] Retain safe negative outcomes for ambiguity, missing/denied evidence, pagination limits,
   stale history, unavailable metric dimensions, zero versus no samples, and no-mutation boundaries.
-- [x] Completed R01-R44 below and fixed all accepted Medium findings in the edited component paths.
+- [x] Completed R01-R55 below and fixed all accepted Medium findings in the edited component paths.
 - [ ] Before claiming all gaps closed, confirm every family meets its contract, all accepted
   findings are resolved, and final-snapshot and standard interactive evidence are retained.
 
@@ -66,7 +67,8 @@ with 177 focused cases, targeted Ruff, and strict mypy. R23 used retained standa
 trace structure and concluded with 179 focused cases. R24-R26 combined code tracing with standard
 Browser Entra variations and concluded with 238 focused cases. R27 combined 46 focused launcher
 and workflow cases with one post-ready Browser Entra measurement. R28-R44 concluded with one
-combined 324-case cohort and an independent finding-free Medium-or-higher review.
+combined 324-case cohort. Live restart and repeated review extended the campaign through R55; the
+final combined cohort passed 333 cases and R55 found no Medium-or-higher issue.
 
 | Round | Hypothesis and result | Resolution | Focused evidence | Remaining blocker |
 |-------|-----------------------|------------|------------------|-------------------|
@@ -114,6 +116,17 @@ combined 324-case cohort and an independent finding-free Medium-or-higher review
 | R42 | Full judgment could canonicalize future PT1H and both deterministic paths could reverse it to a past window. **Medium confirmed.** | Applied the explicitly-past source check before pre-frame clarification and gateway/configuration normalization. | Future-time gateway and configuration cases passed. | None above Low. |
 | R43 | A `last_hour` facet without a time target could still create a past configuration lookback. **Medium confirmed.** | Removed facet-only time inference; F2 now requires a source-grounded past `time_range`. | Full configuration-planning suite passed. | None above Low. |
 | R44 | Final independent review rechecked all accepted fixes. No Medium-or-higher issue remained. | Closed the hardening campaign with only Low-or-lower residual risk. | Combined 324-case cohort, targeted Ruff, and strict mypy passed. | Resume runtime evidence work. |
+| R45 | Verbose startup output pushed the semantic-consumer marker outside the 64 KiB readiness tail. **Medium confirmed live.** | Increased the bounded aggregate window to 1 MiB. | Large-log marker regression passed. | Structured readiness remains a future Low-risk improvement. |
+| R46 | F2 ARM IDs could compile as `Resource.name`. **Medium confirmed.** | Bound path-shaped identifiers as `Resource.id` in deterministic F2. | Direct ARM identity regression passed. | None above Low. |
+| R47 | A model frame could substitute a backend target as the gateway root. **Medium confirmed.** | Rebuilt gateway root, backend filter, and PT1H scope from accepted source-grounded judgment targets. | Root-substitution regression passed. | None above Low. |
+| R48 | Path-shaped backend targets could bind as `Backend.name`. **Medium confirmed.** | Bound backend ARM paths as `Backend.id`. | Backend ARM identity regression passed. | None above Low. |
+| R49 | Log rotation could split consumer and heartbeat markers. **Medium confirmed.** | Read one chronological bounded tail across `.1` and the current Core log. | Rotation-boundary regression passed. | Multiple full rotations fail closed. |
+| R50 | Deterministic F2 rejection could fall through to a frame model and restore unsafe inference. **Medium confirmed.** | Added identity-first/time clarification, correct ID binding, and no-model-fallback hold for other deterministic failures. | Full semantic and configuration planning suites passed. | None above Low. |
+| R51 | Rejected judgments could still drive gateway normalization. **Medium confirmed.** | Required accepted judgment before any judgment-derived frame normalization. | Rejected-normalization regression passed. | None above Low. |
+| R52 | A rejected or mismatched operational judgment could recover through an operational model frame. **Medium confirmed.** | Required an accepted matching family for configuration and gateway output shapes. | Operational judgment-match cases passed. | None above Low. |
+| R53 | Multiple roots, time ranges, or backend/model targets could preserve a model frame. **Medium confirmed.** | Validated exact gateway target cardinality before frame I/O. | Multiple-time and target-shape cases passed. | None above Low. |
+| R54 | Generic extra resource/backend/model targets could be silently excluded or treated as exact. **Medium confirmed.** | Applied exact identity validation to every gateway identity target and total Resource cardinality. | Generic-extra target cases passed. | None above Low. |
+| R55 | Final independent review rechecked R45-R54 and the preceding campaign. No Medium-or-higher issue remained. | Closed the repeated campaign with only Low-or-lower residual risk. | Combined 333-case cohort, targeted Ruff, strict mypy, and hooks passed. | Continue runtime evidence work. |
 
 R01-R10 do not authorize live mutations. Authorized live reads and model questions remain bounded;
 TPM reduction and chaos injection remain outside scope. Stop the attempt on unexpected model

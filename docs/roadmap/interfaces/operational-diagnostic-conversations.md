@@ -29,8 +29,8 @@ from interactive evidence, and configuration correlation from a proven cause.
 > a post-launch semantic consumer and fresh heartbeat. The first exact F2 request after the retained
 > `ready` marker emitted its answer token in 3.948 seconds.
 >
-> **Hardening closeout:** R28-R44 added 17 independent review rounds. The final combined 324-case
-> cohort, targeted Ruff, strict mypy, and the last independent review found no remaining
+> **Hardening closeout:** The repeated campaign continued through R55. The final combined 333-case
+> cohort, targeted Ruff, strict mypy, and the R55 independent review found no remaining
 > Medium-or-higher issue in the edited improvement paths.
 
 ## Design at a glance

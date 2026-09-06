@@ -1,7 +1,7 @@
 ---
 title: 운영 진단 대화
 translation_of: operational-diagnostic-conversations.md
-translation_source_sha: 40d933f4a9856cd29ea34b61189057822fb17e3c
+translation_source_sha: 41d6018f1ad30b4a1ca4ea496d70b3a78c2cbad1
 translation_revised: 2026-09-07
 ---
 
@@ -32,8 +32,8 @@ translation_revised: 2026-09-07
 > consumer와 새로운 heartbeat를 기다립니다. 보존된 `ready` marker 직후 첫 번째 정확한 F2 요청은
 > 3.948초에 답변 token을 보냈습니다.
 >
-> **하드닝 완료:** R28-R44에서 독립 검토 17회를 추가했습니다. 마지막 통합 테스트 324개, 대상 Ruff,
-> strict mypy 및 최종 독립 검토 결과, 변경한 개선 경로에는 Medium 이상 문제가 남지 않았습니다.
+> **하드닝 완료:** 반복 캠페인을 R55까지 계속했습니다. 마지막 통합 테스트 333개, 대상 Ruff,
+> strict mypy 및 R55 독립 검토 결과, 변경한 개선 경로에는 Medium 이상 문제가 남지 않았습니다.
 
 ## 설계 한눈에 보기
 
