@@ -63,11 +63,22 @@ resource "azurerm_storage_account" "case_history" {
 resource "azurerm_role_assignment" "deployer_data_owner" {
   scope                = azurerm_storage_account.case_history.id
   role_definition_name = "Storage Blob Data Owner"
-  principal_id         = var.deployer_principal_id
+  principal_id = (
+    var.legacy_deployer_principal_id != ""
+    ? var.legacy_deployer_principal_id
+    : var.deployer_principal_id
+  )
+}
 
-  lifecycle {
-    create_before_destroy = true
-  }
+resource "azurerm_role_assignment" "terraform_runner_data_owner" {
+  count = (
+    var.legacy_deployer_principal_id != ""
+    && lower(var.legacy_deployer_principal_id) != lower(var.deployer_principal_id)
+  ) ? 1 : 0
+
+  scope                = azurerm_storage_account.case_history.id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = var.deployer_principal_id
 }
 
 resource "azurerm_role_assignment" "runtime_data_contributor" {
@@ -82,7 +93,10 @@ resource "azurerm_storage_container" "case_history" {
   storage_account_id    = azurerm_storage_account.case_history.id
   container_access_type = "private"
 
-  depends_on = [azurerm_role_assignment.deployer_data_owner]
+  depends_on = [
+    azurerm_role_assignment.deployer_data_owner,
+    azurerm_role_assignment.terraform_runner_data_owner,
+  ]
 }
 
 resource "azurerm_monitor_diagnostic_setting" "case_history_blob" {

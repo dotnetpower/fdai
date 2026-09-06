@@ -43,7 +43,9 @@ def test_operational_history_job_has_dedicated_private_storage() -> None:
     )
     assert "shared_access_key_enabled         = false" in storage
     assert "public_network_access_enabled     = var.public_network_access_enabled" in storage
-    assert "create_before_destroy = true" in storage
+    assert 'resource "azurerm_role_assignment" "deployer_data_owner"' in storage
+    assert 'resource "azurerm_role_assignment" "terraform_runner_data_owner"' in storage
+    assert "legacy_deployer_principal_id" in root
     assert 'role_definition_name = "Storage Blob Data Contributor"' in storage
 
 

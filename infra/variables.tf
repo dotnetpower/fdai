@@ -1405,6 +1405,12 @@ variable "operational_history_replication_type" {
   default     = "ZRS"
 }
 
+variable "operational_history_legacy_deployer_principal_id" {
+  description = "Optional prior operational-history deployer object id retained during an additive role handoff."
+  type        = string
+  default     = ""
+}
+
 variable "operational_history_soft_delete_retention_days" {
   description = "Soft-delete retention for operational-history archive blobs and containers."
   type        = number
