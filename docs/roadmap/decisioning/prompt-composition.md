@@ -48,6 +48,21 @@ output is used when configured; otherwise the exact schema accompanies the reque
 application validates returned JSON against it. This does not relax evidence verification or the
 separate mixed-publisher operational T2 quality gate.
 
+### Latency budget
+
+The latency work preserves independent review and the no-execution boundary. Removing validation
+would make a fast response untrustworthy, so the revised approach reduces redundant model work,
+schema preparation, irrelevant context, avoidable refinement, and post-validation display waits.
+Pure knowledge planning may include a candidate draft; operational reads still precede operational
+prose. Only independently supported sections may be published. Optional refinement must leave
+time and call capacity for independent verification. Short review stages may use explicitly
+supported low-effort provider settings; T2 reasoning settings remain unchanged.
+
+Content-free stage logs report elapsed time, remaining time, status, and physical-call count.
+Schema caches contain no user input. Existing credential caching remains authoritative rather than
+adding another token cache. Offline request-count and clock tests prove mechanism changes, not
+live model quality or a production speedup. New live comparisons require explicit authorization.
+
 ## Implementation status
 
 ### Implementation scope

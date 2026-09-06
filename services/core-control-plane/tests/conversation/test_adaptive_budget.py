@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 
 import pytest
@@ -41,6 +42,33 @@ class _TimedModel(_Model):
     async def complete(self, **kwargs) -> ConversationModelResponse | None:
         self.clock.value += 15 if kwargs["stage"] == "plan" else 10
         return await super().complete(**kwargs)
+
+
+async def test_stage_timing_reports_real_elapsed_work_without_prompt_content(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    clock = _Clock()
+    service = AdaptiveConversationService(
+        model=_TimedModel(clock, plan=_plan(), answer=_draft(), review=_review()),
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+        clock=clock,
+    )
+    with caplog.at_level(logging.INFO):
+        await service.respond(
+            utterance="PRIVATE-QUESTION-CONTENT",
+            history=(),
+            locale="en",
+            target_agent="Bragi",
+            relationship=None,
+            read_evidence=_unavailable,
+        )
+    records = [r for r in caplog.records if r.message == "adaptive_stage_completed"]
+    assert [r.stage for r in records] == ["plan", "answer", "review"]
+    assert [r.duration_ms for r in records] == [15000, 10000, 10000]
+    assert [r.remaining_ms for r in records] == [45000, 35000, 25000]
+    assert all(r.status == "completed" for r in records)
+    assert "PRIVATE-QUESTION-CONTENT" not in caplog.text
 
 
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:

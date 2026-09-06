@@ -387,6 +387,36 @@ class AdaptiveConversationService:
         budget: _Budget,
         cancelled: asyncio.Event | None,
     ) -> _Candidate | None:
+        started = self._clock()
+        status = "failed"
+        try:
+            result = await self._invoke_stage(stage, shape, profile, payload, budget, cancelled)
+            status = "completed" if result is not None else "unavailable"
+            return result
+        except asyncio.CancelledError:
+            status = "cancelled"
+            raise
+        finally:
+            _LOGGER.info(
+                "adaptive_stage_completed",
+                extra={
+                    "stage": stage,
+                    "status": status,
+                    "duration_ms": round(max(0, self._clock() - started) * 1000),
+                    "remaining_ms": round(max(0, budget.remaining) * 1000),
+                    "calls": budget.calls,
+                },
+            )
+
+    async def _invoke_stage(
+        self,
+        stage: str,
+        shape: type[_Candidate],
+        profile: ConversationProfile,
+        payload: Mapping[str, object],
+        budget: _Budget,
+        cancelled: asyncio.Event | None,
+    ) -> _Candidate | None:
         if cancelled is not None and cancelled.is_set():
             raise asyncio.CancelledError
         prompt = compose_adaptive_prompt(profile, stage, self._prompts[stage])
