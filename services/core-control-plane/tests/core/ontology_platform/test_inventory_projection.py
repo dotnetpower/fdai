@@ -429,6 +429,7 @@ def test_operational_cleanup_preserves_keyed_availability_metadata() -> None:
                     "availabilityState": "Available",
                     STATE_FACT_METADATA_PROPERTY: {
                         "status": metadata,
+                        "properties.status": metadata,
                         "availabilityState": metadata,
                     },
                 },
@@ -440,6 +441,77 @@ def test_operational_cleanup_preserves_keyed_availability_metadata() -> None:
     provider = projection.objects[0].properties["properties"]
     assert "state" not in provider
     assert provider[STATE_FACT_METADATA_PROPERTY] == {"availabilityState": metadata}
+
+
+def test_projection_removes_metadata_for_unreviewed_resource_type_paths() -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="function-1",
+                type="compute.function",
+                props={
+                    "state": "Running",
+                    "properties": {
+                        STATE_FACT_METADATA_PROPERTY: {"status": metadata},
+                    },
+                    STATE_FACT_METADATA_PROPERTY: {
+                        "state": metadata,
+                        "status": metadata,
+                    },
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert set(provider[STATE_FACT_METADATA_PROPERTY]) == {"state"}
+    assert STATE_FACT_METADATA_PROPERTY not in provider["properties"]
+
+
+def test_root_metadata_without_an_allowlisted_value_is_removed() -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="function-1",
+                type="compute.function",
+                props={
+                    "status": "Running",
+                    STATE_FACT_METADATA_PROPERTY: {"status": metadata},
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+def test_allowed_nested_flat_metadata_is_preserved_without_snapshot_time() -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="event-hub-1",
+                type="event-hub",
+                props={
+                    "properties": {
+                        "status": "Active",
+                        STATE_FACT_METADATA_PROPERTY: metadata,
+                    },
+                },
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["properties"][STATE_FACT_METADATA_PROPERTY] == metadata
 
 
 @pytest.mark.parametrize(

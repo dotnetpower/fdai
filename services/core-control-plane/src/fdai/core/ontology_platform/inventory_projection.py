@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import Any
 
 from fdai_service_contracts.recorded_resource_state import (
-    OPERATIONAL_STATE_PATHS,
+    availability_state_paths,
     is_recorded_state_value_valid,
     operational_state_paths,
 )
@@ -357,9 +357,10 @@ def _add_observed_state(
     not evidence that the fact was independently corroborated.
     """
 
+    _filter_state_metadata_owners(properties, resource_type=resource_type)
     paths = operational_state_paths(resource_type)
     if not paths:
-        _remove_operational_state(properties)
+        _remove_operational_state(properties, resource_type=resource_type)
         return
     state, conflicts = _adjudicate_operational_state(
         claims,
@@ -388,7 +389,7 @@ def _add_observed_state(
     existing_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
     if isinstance(existing_metadata, Mapping) and "lane" not in existing_metadata:
         properties[STATE_FACT_METADATA_PROPERTY] = {
-            **existing_metadata,
+            **_allowlisted_state_metadata(existing_metadata, resource_type=resource_type),
             "state": state_metadata,
         }
     else:
@@ -451,7 +452,11 @@ def _adjudicate_operational_state(
     return None, tuple(dict.fromkeys((*global_conflicts, *property_conflicts)))
 
 
-def _remove_operational_state(properties: dict[str, Any]) -> None:
+def _remove_operational_state(
+    properties: dict[str, Any],
+    *,
+    resource_type: str,
+) -> None:
     properties.pop("state", None)
     metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
     if not isinstance(metadata, Mapping):
@@ -459,14 +464,73 @@ def _remove_operational_state(properties: dict[str, Any]) -> None:
     if "lane" in metadata:
         properties.pop(STATE_FACT_METADATA_PROPERTY, None)
         return
-    operational_keys = {
-        key for path in OPERATIONAL_STATE_PATHS for key in (path, path.split(".", 1)[0])
-    }
-    retained = {key: value for key, value in metadata.items() if key not in operational_keys}
+    retained = _allowlisted_state_metadata(metadata, resource_type=resource_type)
     if retained:
         properties[STATE_FACT_METADATA_PROPERTY] = retained
     else:
         properties.pop(STATE_FACT_METADATA_PROPERTY, None)
+
+
+def _allowlisted_state_metadata(
+    metadata: Mapping[str, object],
+    *,
+    resource_type: str,
+) -> dict[str, object]:
+    allowed_paths = (
+        *operational_state_paths(resource_type),
+        *availability_state_paths(resource_type),
+    )
+    allowed_keys = {
+        prefix + path
+        for prefix in ("", "properties.", "properties.properties.")
+        for path in allowed_paths
+    }
+    return {key: value for key, value in metadata.items() if key in allowed_keys}
+
+
+def _filter_state_metadata_owners(
+    properties: dict[str, Any],
+    *,
+    resource_type: str,
+) -> None:
+    owner = properties
+    for depth in range(3):
+        metadata = owner.get(STATE_FACT_METADATA_PROPERTY)
+        if isinstance(metadata, Mapping):
+            retained = (
+                dict(metadata)
+                if "lane" in metadata and _flat_state_metadata_allowed(owner, resource_type)
+                else _allowlisted_state_metadata(metadata, resource_type=resource_type)
+                if "lane" not in metadata
+                else {}
+            )
+            if retained:
+                owner[STATE_FACT_METADATA_PROPERTY] = retained
+            else:
+                owner.pop(STATE_FACT_METADATA_PROPERTY, None)
+        if depth == 2:
+            return
+        nested = owner.get("properties")
+        if not isinstance(nested, Mapping):
+            return
+        nested_owner = dict(nested)
+        owner["properties"] = nested_owner
+        owner = nested_owner
+
+
+def _flat_state_metadata_allowed(
+    owner: Mapping[str, object],
+    resource_type: str,
+) -> bool:
+    paths = operational_state_paths(resource_type)
+    return any(
+        path in paths
+        and is_recorded_state_value_valid(
+            owner.get(path),
+            allow_unknown=path == "ready_status",
+        )
+        for path in ("status", "state", "ready_status")
+    )
 
 
 def _observed_at(value: str | None) -> datetime | None:

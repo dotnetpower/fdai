@@ -165,6 +165,7 @@ async def test_29_resources_are_projected_with_one_bulk_reader_call() -> None:
         replace(
             reader.resources[0],
             resource_id=f"example-{index:02d}",
+            resource_type=("compute.container-app" if index < 28 else "kubernetes-node-pool"),
             properties={
                 "properties": (
                     {"runningStatus": "Running"}

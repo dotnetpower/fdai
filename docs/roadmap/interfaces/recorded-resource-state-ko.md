@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 43d029efb3dec20395ea1632d42dc8252756c8a2
+translation_source_sha: 859ec31a19853fe35a809c030ab20fcc0c2a6cec
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -111,9 +111,9 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
   `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
 - 하나의 공통 서비스 계약인 `fdai_service_contracts.recorded_resource_state`가 Core 온톨로지
   변환과 Operator 조회에 사용할 검토된 ResourceType별 경로 허용 목록을 정의합니다. 각 변환은
-  기존 최상위 `status` 필드를 포함한 저장 속성을 확인하기 전에 이 허용 목록을 적용합니다. 따라서
-  이전 `status`, `provisioningState` 또는 예상하지 못한 속성이 적용 대상 아님이나 공급자 미제공
-  결과를 덮어쓸 수 없습니다.
+  루트와 지원되는 중첩 속성 소유자에 이 허용 목록을 적용한 후 저장 값을 확인하며, 기존 최상위
+  `status` 필드도 같은 규칙을 따릅니다. 따라서 이전 `status`, `provisioningState` 또는 예상하지
+  못한 속성이 적용 대상 아님이나 공급자 미제공 결과를 덮어쓸 수 없습니다.
 
 ## 화면과 호환성
 
