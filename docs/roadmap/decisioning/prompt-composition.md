@@ -53,7 +53,8 @@ separate mixed-publisher operational T2 quality gate.
 The latency work preserves independent review and the no-execution boundary. Removing validation
 would make a fast response untrustworthy, so the revised approach reduces redundant model work,
 schema preparation, irrelevant context, avoidable refinement, and post-validation display waits.
-Pure knowledge planning may include a candidate draft; operational reads still precede operational
+The v2 planning pack may include a candidate draft only for a complete knowledge-only plan, reducing
+the ordinary model path from three calls to two. Operational reads still precede operational
 prose. Only independently supported sections may be published. Optional refinement must leave
 time and call capacity for independent verification. Short review stages may use explicitly
 supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);

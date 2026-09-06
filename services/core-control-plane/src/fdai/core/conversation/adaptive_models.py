@@ -35,6 +35,7 @@ class AdaptivePlan(_Candidate):
     context_dependency: Literal["none", "active_thread", "pending_decision"]
     action_requested: StrictBool
     goals: Annotated[tuple[AdaptiveGoal, ...], Field(max_length=6)]
+    draft: AdaptiveDraft | None = None
 
     @model_validator(mode="after")
     def _goals_are_consistent(self) -> AdaptivePlan:
@@ -54,6 +55,17 @@ class AdaptivePlan(_Candidate):
             and self.context_dependency != "pending_decision"
         ):
             raise ValueError("knowledge goals require the adaptive route")
+        if self.draft is not None:
+            drafted = {section.goal_id for section in self.draft.sections}
+            if (
+                self.route != "adaptive"
+                or self.action_requested
+                or self.context_dependency == "pending_decision"
+                or any(goal.kind != "knowledge" for goal in self.goals)
+                or not drafted <= {goal.goal_id for goal in self.goals}
+                or not {goal.goal_id for goal in self.goals if goal.required} <= drafted
+            ):
+                raise ValueError("initial draft requires a complete knowledge-only adaptive plan")
         return self
 
 

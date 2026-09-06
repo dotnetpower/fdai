@@ -266,7 +266,7 @@ class AdaptiveConversationService:
                     status="unavailable",
                     limitation="environment_example_requires_runtime_evidence",
                 )
-        payload["plan"] = plan.model_dump(mode="json")
+        payload["plan"] = plan.model_dump(mode="json", exclude={"draft"})
         payload["evidence"] = {
             key: {
                 "status": item.status,
@@ -277,7 +277,9 @@ class AdaptiveConversationService:
             }
             for key, item in evidence.items()
         }
-        draft = await self._stage("answer", AdaptiveDraft, profile, payload, budget, cancelled)
+        draft = plan.draft or await self._stage(
+            "answer", AdaptiveDraft, profile, payload, budget, cancelled
+        )
         if draft is None:
             return self._limited(plan, profile, evidence, budget, "adaptive_answer_unavailable")
         review_payload = {**payload, "draft": draft.model_dump(mode="json")}

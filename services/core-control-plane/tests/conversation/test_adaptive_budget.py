@@ -87,6 +87,48 @@ async def test_schema_cache_reuses_compilation_without_sharing_mutable_provider_
     assert "goals" in model.calls[3]["schema"]["properties"]
 
 
+async def test_initial_knowledge_draft_removes_one_call_but_keeps_independent_review() -> None:
+    from tests.conversation.test_adaptive_service import _run
+
+    model = _Model(plan={**_plan(), "draft": _draft()}, review=_review())
+    result = await _run(model)
+    assert isinstance(result, AdaptiveOutcome)
+    assert "canary" in result.answer.answer
+    assert [call["stage"] for call in model.calls] == ["plan", "review"]
+    assert "draft" not in model.calls[1]["payload"]["plan"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"route": "legacy", "action_requested": True},
+        {"context_dependency": "pending_decision"},
+        {
+            "goals": [
+                {
+                    "goal_id": "explain",
+                    "kind": "knowledge",
+                    "question": "Explain",
+                    "required": True,
+                },
+                {
+                    "goal_id": "example",
+                    "kind": "environment_example",
+                    "question": "Example",
+                    "required": False,
+                },
+            ]
+        },
+        {"draft": {"sections": [{"goal_id": "wrong", "text": "Unsupported"}]}},
+    ],
+)
+def test_initial_draft_cannot_bypass_evidence_or_action_boundaries(change) -> None:
+    from fdai.core.conversation.adaptive_models import AdaptivePlan
+
+    with pytest.raises(ValueError):
+        AdaptivePlan.model_validate({**_plan(), "draft": _draft(), **change})
+
+
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:
     clock = _Clock()
     plan = _plan(example=True)

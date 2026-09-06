@@ -34,6 +34,7 @@ def _target(name: str) -> AdaptiveModelTarget:
 
 
 _PLAN = {
+    "draft": None,
     "route": "adaptive",
     "social_act": "greeting",
     "context_dependency": "none",
