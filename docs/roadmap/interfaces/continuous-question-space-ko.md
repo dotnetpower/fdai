@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 253c20ccc42969b91595d3f7a06fe405d87795f7
-translation_revised: 2026-09-05
+translation_source_sha: 26db44ca93b8afc1d0655402309ccd5edb84a7e8
+translation_revised: 2026-09-06
 ---
 # 지속형 질문 공간
 
@@ -219,6 +219,8 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 인벤토리 영향 입력 스키마에는 대상 필드가 없습니다. 모델은 대상을 제공하거나 바꿀 수
 없습니다. 요청 범위 리소스 앵커가 운영 구성에 추가되기 전까지 이 기능은 일반 언어
 플래너에서 unavailable로 유지됩니다.
+런타임 결과가 `semantic_frame_unavailable`로 보류되면 권위 있는 근거 부족으로 바꾸지 않고
+플래너 사용 불가 상태로 유지합니다. 두 결과 모두 권위가 없으며 실행 권한을 전달하지 않습니다.
 
 ## 유한 질문 집합
 

@@ -217,6 +217,9 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 The inventory-impact input schema has no target field. A model cannot supply or replace the target.
 Until request-scoped resource anchoring exists in production composition, the capability remains
 unavailable to ordinary-language planning.
+A held runtime result preserves `semantic_frame_unavailable` as planner unavailability instead of
+recasting it as insufficient authoritative evidence. Both outcomes remain non-authoritative and
+carry no execution authority.
 
 ## Finite question universe
 

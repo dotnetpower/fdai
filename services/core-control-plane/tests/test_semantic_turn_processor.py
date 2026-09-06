@@ -2029,6 +2029,23 @@ async def test_answer_continuity_renders_useful_hold_without_upgrading_status() 
     assert semantic["evidence_refs"] == []
 
 
+async def test_frame_unavailable_is_not_misreported_as_an_evidence_hold() -> None:
+    projection = _projection(
+        await _processor(
+            _Runtime(_runtime_result("held", reason="semantic_frame_unavailable")),
+            answer_continuity_enabled=True,
+        ).process(_request())
+    )
+
+    semantic = projection["semantic_result"]
+    assert projection["status"] == "held"
+    assert semantic["reason_code"] == "semantic_frame_unavailable"
+    assert semantic["unavailable_reason"] == "semantic_planner_unavailable"
+    assert semantic["evidence_refs"] == []
+    assert "required FDAI internal component" in semantic["answer"]
+    assert "authoritative evidence is insufficient" not in semantic["answer"]
+
+
 async def test_answer_continuity_distinguishes_missing_evidence_from_runtime_failure() -> None:
     projection = _projection(
         await _processor(

@@ -119,6 +119,9 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_evidence_authority_missing",
     "semantic_current_relationship_mapping_unavailable",
 }
+_SEMANTIC_PLANNER_UNAVAILABLE_REASONS = {
+    "semantic_frame_unavailable",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -1186,7 +1189,8 @@ def _project_runtime_result(
         reason_code = (
             result.reason
             if result.disposition == "held"
-            and result.reason in _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS
+            and result.reason
+            in (_AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS | _SEMANTIC_PLANNER_UNAVAILABLE_REASONS)
             else reason_codes.get(result.disposition, "semantic_runtime_failed")
         )
         disposition = result.disposition if result.disposition in reason_codes else "held"
