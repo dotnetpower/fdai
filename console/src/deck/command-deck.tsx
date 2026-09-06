@@ -250,7 +250,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     setDraft,
     setSearchQuery,
     setSrStatus,
-    submitPrompt: (text) => void submit(text),
+    submitPrompt: (text, options) => void submit(text, options),
     updateConversationIndex,
     cancelActiveRequest,
     closeDeck,

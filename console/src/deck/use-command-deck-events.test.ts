@@ -13,6 +13,10 @@ const submitSource = readFileSync(
   fileURLToPath(new URL("./use-command-deck-submit.ts", import.meta.url)),
   "utf8",
 );
+const commandDeckSource = readFileSync(
+  fileURLToPath(new URL("./command-deck.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("Command Deck composer sizing", () => {
   it("uses one bounded layout-aware textarea resize effect", () => {
@@ -155,7 +159,12 @@ describe("shouldDeferDeckOpen", () => {
 
   it("submits only an explicitly marked context prompt", () => {
     expect(source).toContain("detail?.submitPrompt === true");
-    expect(source).toContain("submitPrompt(seed)");
+    expect(source).toContain(
+      "submitPrompt(seed, incidentBinding ? { snapshot: null } : undefined)",
+    );
+    expect(commandDeckSource).toContain(
+      "submitPrompt: (text, options) => void submit(text, options)",
+    );
   });
 
   it("builds backend history from the selected session before appending the prompt", () => {

@@ -43,7 +43,10 @@ interface EventsOptions {
   readonly setDraft: (value: string) => void;
   readonly setSearchQuery: (value: string) => void;
   readonly setSrStatus: (value: string) => void;
-  readonly submitPrompt: (text: string) => void;
+  readonly submitPrompt: (
+    text: string,
+    options?: { readonly snapshot?: null },
+  ) => void;
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
   readonly cancelActiveRequest: () => "stream" | "action" | null;
   readonly closeDeck: () => void;
@@ -249,6 +252,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
       const briefing = typeof detail?.openingBriefing === "string"
         ? detail.openingBriefing.trim()
         : "";
+      const incidentBinding = normalizeIncidentBinding(detail.binding) ?? undefined;
       const { key, label, contextAgent, kind, hydrateDurable } = resolveDeckOpenSession(
         detail,
         userScope,
@@ -263,7 +267,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
           kind,
           true,
           undefined,
-          normalizeIncidentBinding(detail.binding) ?? undefined,
+          incidentBinding,
           hydrateDurable,
           briefing || undefined,
         );
@@ -278,7 +282,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {
         if (detail?.submitPrompt === true) {
-          submitPrompt(seed);
+          submitPrompt(seed, incidentBinding ? { snapshot: null } : undefined);
         } else {
           setDraft(seed);
           historyRef.current = recordHistory(historyRef.current, seed);

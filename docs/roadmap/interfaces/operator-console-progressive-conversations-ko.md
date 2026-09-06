@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 41fde71f89f3c404bc193c8f5978ea384f45526c
-translation_revised: 2026-09-05
+translation_source_sha: d412511fcacc29ea71cb13b502e4a6c9cb1e7ca3
+translation_revised: 2026-09-06
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -14,6 +14,9 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 이 대체 정보를 범위가 제한된 사실과 레코드로 교체할 수 있습니다.
 각 특화 스냅샷은 목적과 함께 공통 카탈로그에서 구성한 용어집을 선언하므로 브라우저가 용어를
 추론하지 않아도 경로 맥락을 자체 설명할 수 있습니다.
+타입 기반 인시던트 바인딩이 자동 조사 프롬프트를 소유하면 Deck은 활성 패널의 사실, 레코드,
+용어집, 제목을 해당 제출에서 제외합니다. 현재 화면 맥락이 인시던트 근거로 나타나지 않도록
+최소한의 로캘, 경로, principal 메타데이터와 서버에서 검증한 정확한 인시던트 바인딩만 유지합니다.
 
 ## 구현 상태
 
@@ -24,6 +27,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
 | 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
 | 계약으로 검증된 시작 질문 | 구현됨 | `intro-suggestions.ts`, 이중 언어 Console 카탈로그, `semantic_operational_summary_planning.py`, 질문 은행 산출물, 집중 Core, Console 및 질문 은행 검사 | 비어 있는 Deck에는 검토된 Resource 상태, Resource Health, Service Health 질문 5개만 표시합니다. 수락되고 모호하지 않은 타입 기반 함수 intent는 두 번째 모델 호출 없이 결정론적으로 검증된 프레임을 재사용할 수 있습니다. 구현되지 않은 화면 요약, tier 구성, 승인, 실패 원인, 기회 질문은 준비된 예시로 표시하지 않습니다. |
+| 인시던트 바인딩 맥락 격리 | 구현됨 | `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 및 인증된 Browser Entra 요청 확인 | 자동 인시던트 조사는 Dashboard 사실이나 레코드 없이 정확한 인시던트 바인딩을 제출합니다. 검증된 답변은 `query.incident_evidence`를 읽습니다. 경로 메타데이터는 표현 맥락으로만 남고 답변 근거가 되지 않습니다. |
 | Operator 대화 SSE 종료 | 구현됨 | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | 애플리케이션 종료와 호출자 취소는 모두 진행 중인 source 읽기를 취소하고 기다린 뒤 스트림을 닫습니다. 유휴 source는 정상 종료를 막거나 분리된 읽기 task를 남길 수 없습니다. |
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
@@ -42,6 +46,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | 구현됨 | 정확한 인시던트 바인딩과 최소한의 요청 메타데이터를 유지하면서 자동 인시던트 바인딩 조사 요청에서 활성 패널 스냅샷을 제외했습니다. | `current change`, `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 38개 통과, 인증된 Browser Entra 요청 확인에서 검증된 인시던트 근거 반환 | 이 범위가 제한된 맥락 격리 변경에 남은 작업이 없습니다. |
 | 2026-09-05 | 구현됨 | 선제적 웹 담당 업무 인수인계 대화, 리비전 기반 목표 제어, 매핑된 에이전트 후속 라우팅, 관리되는 문서 근거 연결을 추가했습니다. | `current change`; 집중 Operator 및 Console 테스트, Console typecheck, Console build. | 인증된 배포 증적을 보존하고 서버 소유 인시던트 및 승인 작업 중 억제를 추가합니다. |
 | 2026-09-05 | 구현됨 | 인수인계 대상 선택을 브라우저 작성 프롬프트 라우팅에서 서버가 검증한 주체, 목표, 세션 바인딩으로 이동하고 근거 검토 전에 권위 있는 문서 승인을 요구했습니다. | `current change`; 집중 Operator, Console, migration inventory 테스트가 통과했습니다. | 인증된 배포 증적을 보존하고 서버 소유 인시던트 및 승인 작업 중 억제를 추가합니다. |
 | 2026-09-05 | 구현됨 | 안전한 인시던트 및 승인 작업 중 억제와 접근 시점 문서 근거 노후화 전파를 추가했습니다. | `current change`; 집중 Operator 테스트가 통과했습니다. | 인증된 배포 증적을 보존합니다. |
