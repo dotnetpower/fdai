@@ -72,7 +72,9 @@ identity clarification before frame or provider work. Possessive forms such as "
 Fast-path identity targets are token-like names without whitespace or exact ARM IDs. Natural-language
 identity phrases retain full judgment even when they are not in the reviewed generic-label set.
 The one-hour operational shortcut accepts only explicitly past source wording. Directionless or
-future wording retains full semantic judgment instead of becoming a historical lookback.
+future wording retains full semantic judgment and then receives temporal clarification instead of
+becoming a historical lookback. The same source check applies after full judgment and in both
+configuration and gateway normalization.
 Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway
 compiler's default window.
 Core then rewrites the accepted gateway frame to `window_seconds=3600`; an empty or different model

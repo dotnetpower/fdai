@@ -12,7 +12,10 @@ from fdai_service_contracts.ontology_query import SemanticOperation
 
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
-from .conversation_preflight import operational_target_is_generic
+from .conversation_preflight import (
+    operational_target_is_generic,
+    operational_time_is_past_hour,
+)
 from .semantic_governed_document_planning import apply_document_evidence_requirement
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
@@ -165,6 +168,42 @@ def deterministic_pre_frame_outcome(
 ) -> SemanticPlanningOutcome | None:
     """Return deterministic short-circuit outcomes before model frame proposal."""
 
+    if (
+        judgment is not None
+        and judgment.primary_intent
+        in {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
+        and any(
+            target.kind == "time_range"
+            and target.canonical_value == "duration.PT1H"
+            and not operational_time_is_past_hour(target.value)
+            for target in judgment.targets
+        )
+    ):
+        output_shape = (
+            SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
+            if judgment.primary_intent == "query.gateway_diagnostic_evidence"
+            else SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES
+        )
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.COMPARE,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=output_shape,
+            evidence_requirements=(),
+            unresolved_terms=("temporal_scope",),
+            clarification_requirements=(ClarificationRequirement.TEMPORAL_SCOPE,),
+            clarification=_clarification(("temporal_scope",)),
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=build_semantic_frame(proposal, utterance=utterance, context=context),
+            clarification=proposal.clarification,
+        )
     if (
         judgment is not None
         and judgment.primary_intent
@@ -443,7 +482,9 @@ def _normalize_gateway_diagnostic_time_scope(
         or judgment.primary_intent != "query.gateway_diagnostic_evidence"
         or proposal.output_shape is not SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE
         or not any(
-            target.kind == "time_range" and target.canonical_value == "duration.PT1H"
+            target.kind == "time_range"
+            and target.canonical_value == "duration.PT1H"
+            and operational_time_is_past_hour(target.value)
             for target in judgment.targets
         )
     ):

@@ -474,9 +474,8 @@ def preflight_operational_judgment(
                 }
             )
         if target.kind == "time_range":
-            if (
-                target.canonical_value != "duration.PT1H"
-                or " ".join(target.value.casefold().split()) not in _ONE_HOUR_EXPRESSIONS
+            if target.canonical_value != "duration.PT1H" or not operational_time_is_past_hour(
+                target.value
             ):
                 return _reject_operational_promotion("unsupported_time_canonicalization")
         if target.kind not in {"resource", "time_range", "backend", "model"}:
@@ -585,6 +584,11 @@ def operational_target_is_generic(value: str) -> bool:
     return normalized in _GENERIC_OPERATIONAL_TARGETS
 
 
+def operational_time_is_past_hour(value: str) -> bool:
+    """Return whether source text explicitly denotes a past one-hour range."""
+    return " ".join(value.casefold().split()) in _ONE_HOUR_EXPRESSIONS
+
+
 def _reject_operational_promotion(reason: str) -> SemanticJudgmentProposal | None:
     _LOGGER.info(
         "conversation_preflight_operational_promotion_rejected",
@@ -654,5 +658,6 @@ __all__ = [
     "SocialResponseNarratorResult",
     "SocialAct",
     "operational_target_is_generic",
+    "operational_time_is_past_hour",
     "preflight_operational_judgment",
 ]

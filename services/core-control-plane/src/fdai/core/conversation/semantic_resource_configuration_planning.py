@@ -34,6 +34,7 @@ from fdai.core.ontology_platform.resource_configuration_snapshots import (
     RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME,
 )
 
+from .conversation_preflight import operational_time_is_past_hour
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 
@@ -72,7 +73,11 @@ def build_resource_configuration_frame(
         return None
     time_targets = tuple(target for target in judgment.targets if target.kind == "time_range")
     lookback_seconds = None
-    if len(time_targets) == 1 and time_targets[0].canonical_value == "duration.PT1H":
+    if (
+        len(time_targets) == 1
+        and time_targets[0].canonical_value == "duration.PT1H"
+        and operational_time_is_past_hour(time_targets[0].value)
+    ):
         lookback_seconds = 3_600
     elif not time_targets and "last_hour" in judgment.requested_facets:
         lookback_seconds = 3_600

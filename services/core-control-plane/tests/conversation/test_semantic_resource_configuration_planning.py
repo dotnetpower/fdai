@@ -80,6 +80,42 @@ def test_typed_judgment_builds_exact_configuration_frame_without_frame_model() -
     assert frame.output_shape == RESOURCE_CONFIGURATION_OUTPUT_SHAPE
 
 
+def test_future_hour_target_does_not_build_past_configuration_frame() -> None:
+    utterance = "Compare deployment-a one hour from now."
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value="deployment-a",
+                    source_start=8,
+                    source_end=20,
+                ),
+                SemanticTarget(
+                    kind="time_range",
+                    value="one hour",
+                    canonical_value="duration.PT1H",
+                    source_start=21,
+                    source_end=29,
+                ),
+            ),
+            requested_facets=("configuration_changes",),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=tuple(_manifest().descriptors),
+    )
+
+    assert result is None
+
+
 def _manifest(*, bound: bool = True, snapshot_bound: bool = True) -> QueryManifest:
     resource = OntologyObjectType(
         schema_version="1.0.0",

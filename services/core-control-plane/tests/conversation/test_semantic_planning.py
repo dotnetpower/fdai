@@ -1887,6 +1887,55 @@ def test_gateway_judgment_binds_past_hour_to_frame_window() -> None:
 
 
 @pytest.mark.parametrize(
+    "primary_intent,output_shape",
+    (
+        ("query.resource_configuration_changes", "resource_configuration_changes"),
+        ("query.gateway_diagnostic_evidence", "gateway_diagnostic_evidence"),
+    ),
+)
+def test_future_hour_judgment_requires_temporal_clarification(
+    primary_intent: str,
+    output_shape: str,
+) -> None:
+    utterance = "Compare deployment-a one hour from now."
+    judgment = SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=(
+            SemanticTarget(kind="resource", value="deployment-a", source_start=8, source_end=20),
+            SemanticTarget(
+                kind="time_range",
+                value="one hour",
+                canonical_value="duration.PT1H",
+                source_start=21,
+                source_end=29,
+            ),
+        ),
+        requested_facets=("comparison",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == output_shape
+    assert outcome.frame.unresolved_terms == ("temporal_scope",)
+
+
+@pytest.mark.parametrize(
     "utterance",
     (
         "fdai 와 관련있는 리소스 그룹은?",
