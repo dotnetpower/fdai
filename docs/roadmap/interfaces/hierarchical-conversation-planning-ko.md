@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: b8c150d5e6e8974e0ae1f31499d8e82870f8e2ba
+translation_source_sha: 6755d1494ac6f33360882a1ae04ebbc6d71f73ae
 translation_revised: 2026-09-06
 ---
 
@@ -146,6 +146,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 관리 문서 RAG 테스트 하드닝 라운드 11개를 추가로 완료했습니다. 경계 coverage, 필수 provider 장애, 표시 digest 분리, 잘못된 그룹과 verifier 정제, 위조된 Console authority, PostgreSQL fail-closed, 엄격한 16진수 digest 회귀를 추가했습니다. 마지막 독립 리뷰에서 남은 Medium 이상 결함이 없음을 확인했습니다. | `current change`; 계약, ACL, 계획, runtime, 처리기, 전송, Operator 집중 검사 711개와 영향을 받는 Operator 인증 검사 385개가 통과했습니다. Reader, planner, 관리 문서 조회, 인증 coverage는 각각 98%, 98%, 100%, 92%에 도달했습니다. 선택한 Python 파일은 Ruff와 format을 통과했습니다. Console 검사 67개와 Console 타입 검사, 생성된 서비스 계약 drift 및 문서 검사가 통과했습니다. | 운영 준비 상태를 보고하기 전에 인증된 서비스 간 검색 증적을 보존합니다. 프로바이더가 소유하는 완전한 인덱스 세대를 연결하고 검증합니다. 현재 PostgreSQL 어댑터는 어휘 검색을 사용하며 완전성을 검증하지 못했다고 보고합니다. |
 | 2026-09-06 | implemented | 의미 기반 문서 근거 분류, principal 범위 관리 문서 검색, 정확한 개정 인용, 필수 원본 보류, 독립적으로 조건을 충족한 선택적 부분 답변을 추가했습니다. 인증된 Entra 그룹은 Operator 애플리케이션 역할과 분리하며 요청, principal 범위, 함수 호출, 최종 ACL 검사에 결합됩니다. 관리 문서 RAG 하드닝 렌즈 30개를 완료했고 마지막 독립 리뷰에서 남은 Medium 이상 결함이 없음을 확인했습니다. | `current change`; 계약, ACL, 계획, runtime, 처리기, 전송, Operator 집중 검사 650개와 영향을 받는 Operator 인증 검사 375개가 통과했습니다. 소스 파일 35개는 strict mypy를, 선택한 Python 파일은 Ruff를 통과했습니다. Console 검사 67개와 Console 타입 검사, 생성된 서비스 계약 드리프트 검사가 통과했습니다. | 운영 준비 상태를 보고하기 전에 인증된 서비스 간 검색 증적을 보존합니다. 프로바이더가 소유하는 완전한 인덱스 세대를 연결하고 검증합니다. 현재 PostgreSQL 어댑터는 어휘 검색을 사용하며 완전성을 검증하지 못했다고 보고합니다. |
 | 2026-09-06 | implemented | 근거, 원본 장애, 프로바이더 실패, 취소, 사용량 제한, 신원, 복합 요청, 검토 품질, 버전, 복원 및 표현을 대상으로 집중 비평과 하드닝을 11회 완료했습니다. 카탈로그 장애 격리, 보강 누락, 경로와 목표가 모순된 계획 및 복원된 일반 대화에 화면 맥락이 붙는 문제를 포함해 발견된 Medium 이상 결함을 수정했습니다. | `current change`; 집중 Python 검사 653개, Console 검사 209개, Console 타입 검사와 빌드, 격리된 합성 E2E 시나리오 10개 통과. 영어와 한국어 데스크톱, 좁은 데스크톱 및 모바일 화면의 가로 넘침 검사와 스크린샷 검토를 통과했습니다. | 별도로 승인된 실제 모델 및 배포 근거를 보존합니다. 오프라인 결과로 승격이나 운영 준비 완료를 주장하지 않습니다. |
 | 2026-09-06 | in-progress | 적응형 목표, 선택한 역할의 프롬프트, 검증된 담당 관계 증명, 조언 응답 전송 및 내부 프로바이더의 공통 사용량 제한을 연결했습니다. | `current change`; `test_adaptive_runtime.py` 9개, `test_adaptive_provider_budget.py` 10개, `test_wire_adaptive_conversation.py` 19개가 통과했습니다. | 전달 전 최종 집중 회귀 검사와 비평 근거를 완료합니다. 실제 모델과 배포 검증은 별도입니다. |
