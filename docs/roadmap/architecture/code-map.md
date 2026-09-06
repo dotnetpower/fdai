@@ -75,6 +75,8 @@ The one-hour operational shortcut accepts only explicitly past source wording. D
 future wording retains full semantic judgment and then receives temporal clarification instead of
 becoming a historical lookback. The same source check applies after full judgment and in both
 configuration and gateway normalization.
+The `last_hour` facet is descriptive only and cannot establish a time window without that grounded
+`time_range` target.
 Gateway preflight reuse requires that past-hour target instead of silently selecting the gateway
 compiler's default window.
 Core then rewrites the accepted gateway frame to `window_seconds=3600`; an empty or different model

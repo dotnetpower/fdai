@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 48fbef1b38b2a00a3ad72e1517ad44d2d394d8e0
+translation_source_sha: 6ec42028fdb9f26f38b44592a60f1c65bca0fe8f
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -75,6 +75,8 @@ APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 "the", "selected",
 한 시간 운영 단축 경로는 과거를 명시하는 원문 문구만 수락합니다. 방향이 없거나 미래를 나타내는
 문구는 과거 lookback으로 바꾸지 않고 전체 의미 판단과 시간 범위 명확화를 유지합니다. 전체 의미
 판단 이후와 configuration 및 gateway 정규화에도 같은 원문 검사를 적용합니다.
+`last_hour` facet은 설명 정보일 뿐이며 해당 원문 기반 `time_range` target 없이는 시간 window를
+설정할 수 없습니다.
 Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간
 target을 요구합니다.
 Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합니다. 비어 있거나 다른 모델

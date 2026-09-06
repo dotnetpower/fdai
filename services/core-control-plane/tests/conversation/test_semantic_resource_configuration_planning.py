@@ -48,6 +48,8 @@ def test_typed_judgment_builds_exact_configuration_frame_without_frame_model() -
     target = "narrator-gpt-5-4-mini"
     utterance = f"Compare {target} during the last hour."
     start = utterance.index(target)
+    time_value = "last hour"
+    time_start = utterance.index(time_value)
     result = build_resource_configuration_frame(
         judgment=SemanticJudgmentProposal(
             primary_intent="query.resource_configuration_changes",
@@ -57,6 +59,13 @@ def test_typed_judgment_builds_exact_configuration_frame_without_frame_model() -
                     value=target,
                     source_start=start,
                     source_end=start + len(target),
+                ),
+                SemanticTarget(
+                    kind="time_range",
+                    value=time_value,
+                    canonical_value="duration.PT1H",
+                    source_start=time_start,
+                    source_end=time_start + len(time_value),
                 ),
             ),
             requested_facets=("last_hour", "capacity_units", "authoritative_tpm"),
@@ -101,6 +110,35 @@ def test_future_hour_target_does_not_build_past_configuration_frame() -> None:
                 ),
             ),
             requested_facets=("configuration_changes",),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=tuple(_manifest().descriptors),
+    )
+
+    assert result is None
+
+
+def test_last_hour_facet_without_time_target_does_not_build_configuration_frame() -> None:
+    utterance = "Compare deployment-a one hour from now."
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value="deployment-a",
+                    source_start=8,
+                    source_end=20,
+                ),
+            ),
+            requested_facets=("last_hour", "configuration_changes"),
             confidence=0.98,
             ambiguous=False,
             action_posture="advise_only",

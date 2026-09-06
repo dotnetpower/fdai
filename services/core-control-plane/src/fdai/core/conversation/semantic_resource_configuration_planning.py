@@ -79,8 +79,6 @@ def build_resource_configuration_frame(
         and operational_time_is_past_hour(time_targets[0].value)
     ):
         lookback_seconds = 3_600
-    elif not time_targets and "last_hour" in judgment.requested_facets:
-        lookback_seconds = 3_600
     if lookback_seconds is None:
         return None
     proposal = SemanticFrameProposal(
