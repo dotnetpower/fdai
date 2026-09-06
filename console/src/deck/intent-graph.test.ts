@@ -186,4 +186,30 @@ describe("parseIntentGraphEvidence", () => {
     expect(parsed?.goals[0]?.evidence_mode).toBe("document");
     expect(parsed?.goals[0]?.authority).toBe("server_governed_document");
   });
+
+  it("accepts governed document evidence without granting action authority", () => {
+    const parsed = parseIntentGraphEvidence({
+      schema_version: 2,
+      status: "completed",
+      evidence_mode: "document_grounded",
+      goals: [{
+        goal_id: "documents",
+        intent: "function",
+        capability: "query.function",
+        evidence_mode: "document",
+        status: "completed",
+        duration_ms: 18,
+        depends_on: [],
+        evidence_refs: ["ontology-function:logic-invocation:" + "a".repeat(64)],
+        authority: "server_governed_document",
+        task_id: "request-1:documents",
+        started_at: "2026-09-06T05:00:00Z",
+        completed_at: "2026-09-06T05:00:00.018Z",
+      }],
+    });
+
+    expect(parsed?.evidence_mode).toBe("document_grounded");
+    expect(parsed?.goals[0]?.evidence_mode).toBe("document");
+    expect(parsed?.goals[0]?.authority).toBe("server_governed_document");
+  });
 });

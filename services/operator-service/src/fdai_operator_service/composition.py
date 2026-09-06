@@ -60,6 +60,7 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
     SemanticTurnResultSource,
+    T1ModelHealthReader,
 )
 from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
 from fdai_operator_service.families.operations import PanelRoute
@@ -514,6 +515,7 @@ def _build_route_families(
                 store=store,
                 pdf_encoder=report_pdf_encoder,
             ),
+            t1_model_health_reader=T1ModelHealthReader(store),
         )
         if semantic_bridge is not None
         else None

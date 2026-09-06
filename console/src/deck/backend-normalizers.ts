@@ -18,8 +18,6 @@ import type {
   InvestigationMilestone,
   ModelUsage,
   RetrievalSourcePreview,
-  RouterCandidate,
-  RouterSnapshot,
   ResourceContext,
   SemanticAssuranceFrame,
   SemanticAssuranceObservation,
@@ -28,6 +26,7 @@ import type {
   SemanticProjectionReceipt,
 } from "./backend-types";
 import { PANTHEON_NAME_SET } from "../pantheon-names";
+export { parseRouter } from "./backend-router-normalizer";
 
 const MAX_AGENT_NAME_CHARS = 64;
 const MAX_TRACE_REF_CHARS = 256;
@@ -1177,58 +1176,4 @@ export function semanticDirectResponseSource(
   const modelSuffix = model !== "llm" ? ` · ${model}` : "";
   const latencySuffix = latencyMs !== null && latencyMs >= 0 ? ` · ${latencyMs}ms` : "";
   return `${SEMANTIC_DIRECT_RESPONSE_SOURCE}${modelSuffix}${latencySuffix}${tokenSuffix(usage)}`;
-}
-
-export function parseRouter(raw: unknown): RouterSnapshot | undefined {
-  if (typeof raw !== "object" || raw === null) return undefined;
-  const record = raw as Record<string, unknown>;
-  const chose = typeof record.chose === "string" ? record.chose : null;
-  if (chose === null) return undefined;
-  const reason = typeof record.reason === "string" ? record.reason : "";
-  const candidates = parseRouterCandidates(record.candidates);
-  const visionRecord = typeof record.vision === "object" && record.vision !== null
-    ? record.vision as Record<string, unknown>
-    : null;
-  const visionChose = typeof visionRecord?.chose === "string" ? visionRecord.chose : null;
-  const vision = visionRecord
-    ? {
-        available: visionRecord.available === true,
-        chose: visionChose,
-        candidates: parseRouterCandidates(visionRecord.candidates),
-      }
-    : undefined;
-  return { chose, reason, candidates, ...(vision ? { vision } : {}) };
-}
-
-function parseRouterCandidates(raw: unknown): RouterCandidate[] {
-  const rawCandidates = Array.isArray(raw) ? raw : [];
-  const candidates: RouterCandidate[] = [];
-  for (const candidate of rawCandidates) {
-    if (typeof candidate !== "object" || candidate === null) continue;
-    const candidateRecord = candidate as Record<string, unknown>;
-    const deployment =
-      typeof candidateRecord.deployment === "string" ? candidateRecord.deployment : null;
-    if (deployment === null) continue;
-    const p50 =
-      typeof candidateRecord.p50_ms === "number" && Number.isFinite(candidateRecord.p50_ms)
-        ? candidateRecord.p50_ms
-        : null;
-    const p95 =
-      typeof candidateRecord.p95_ms === "number" && Number.isFinite(candidateRecord.p95_ms)
-        ? candidateRecord.p95_ms
-        : null;
-    const samples =
-      typeof candidateRecord.samples === "number" && Number.isFinite(candidateRecord.samples)
-        ? candidateRecord.samples
-        : 0;
-    const historyRaw = Array.isArray(candidateRecord.history_ms)
-      ? candidateRecord.history_ms
-      : [];
-    const history: number[] = [];
-    for (const item of historyRaw) {
-      if (typeof item === "number" && Number.isFinite(item) && item >= 0) history.push(item);
-    }
-    candidates.push({ deployment, p50_ms: p50, p95_ms: p95, samples, history_ms: history });
-  }
-  return candidates;
 }

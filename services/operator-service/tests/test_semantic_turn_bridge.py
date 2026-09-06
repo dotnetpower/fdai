@@ -4065,7 +4065,7 @@ async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> N
     health = await adapters.read(ConversationQuery(operation="chat.health", scope=scope))
 
     assert delegated.body == {"mode": "azure-cli"}
-    assert fallback.operations == ["chat.history"]
+    assert fallback.operations == ["chat.history", "chat.health"]
     assert health.status_code == 200
     assert health.body == {
         "available": False,

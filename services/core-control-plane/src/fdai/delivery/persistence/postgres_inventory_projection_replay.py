@@ -53,7 +53,12 @@ def build_projection_replay_observation(
     prior_manifest: Mapping[str, Any],
     records: Sequence[NormalizedInventoryObservation],
 ) -> PromotedInventoryObservation:
-    if metadata.get("projection_complete") is not True:
+    legacy_snapshot_metadata = _modern_manifest_covers_legacy_snapshot(
+        generation=generation,
+        metadata=metadata,
+        prior_manifest=prior_manifest,
+    )
+    if metadata.get("projection_complete") is not True and not legacy_snapshot_metadata:
         raise ValueError("active inventory snapshot is incomplete for projection replay")
     resources: list[ResourceRecord] = []
     links: list[LinkRecord] = []
@@ -95,7 +100,9 @@ def build_projection_replay_observation(
         resources=tuple(resources),
         links=tuple(links),
         complete=True,
-        relationship_drops=projection_replay_drops(metadata, prior_manifest),
+        relationship_drops=(
+            () if legacy_snapshot_metadata else projection_replay_drops(metadata, prior_manifest)
+        ),
         recorded_at=recorded_at,
         state_base_generation=(
             str(metadata["state_base_generation"])
@@ -104,10 +111,43 @@ def build_projection_replay_observation(
         ),
         state_base_generation_checked="state_base_generation" in metadata,
     )
-    expected_coverage = _mapping(metadata.get("relationship_coverage"))
-    if dict(compute_relationship_coverage(observation).to_metadata()) != dict(expected_coverage):
-        raise ValueError("inventory projection replay relationship coverage changed")
+    if not legacy_snapshot_metadata:
+        expected_coverage = _mapping(metadata.get("relationship_coverage"))
+        actual_coverage = dict(compute_relationship_coverage(observation).to_metadata())
+        if actual_coverage != dict(expected_coverage):
+            raise ValueError("inventory projection replay relationship coverage changed")
     return observation
+
+
+def _modern_manifest_covers_legacy_snapshot(
+    *,
+    generation: str,
+    metadata: Mapping[str, Any],
+    prior_manifest: Mapping[str, Any],
+) -> bool:
+    if any(
+        key in metadata
+        for key in (
+            "projection_complete",
+            "relationship_coverage",
+            "relationship_drop_classifications",
+        )
+    ):
+        return False
+    manifest_digest = prior_manifest.get("manifest_digest")
+    return (
+        prior_manifest.get("schema_version") == "1.3.0"
+        and prior_manifest.get("generation") == generation
+        and prior_manifest.get("complete") is True
+        and prior_manifest.get("relationship_complete") is True
+        and prior_manifest.get("dropped_reasons") == []
+        and isinstance(prior_manifest.get("object_content"), list)
+        and isinstance(prior_manifest.get("link_content"), list)
+        and isinstance(manifest_digest, str)
+        and len(manifest_digest) == 71
+        and manifest_digest.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in manifest_digest[7:])
+    )
 
 
 def projection_replay_drops(

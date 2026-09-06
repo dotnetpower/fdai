@@ -17,6 +17,7 @@ from fdai.composition import Container
 from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.agent_activity import AgentRuntimeStatePublisher
+from fdai.delivery.azure.llm.t1_probe import T1MiniProbe
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.bootstrap_bindings import (
@@ -74,6 +75,7 @@ class RuntimeTaskConfiguration:
     stewardship_identity_health_worker: Any = None
     stewardship_merge_effects_worker: Any = None
     handover_knowledge_lifecycle_worker: Any = None
+    t1_mini_probe: T1MiniProbe | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -458,6 +460,16 @@ async def run_runtime_tasks(
             name="handover-knowledge-lifecycle",
         )
 
+    t1_mini_probe_task = (
+        asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop, partial(config.t1_mini_probe.run, config.stop)
+            ),
+            name="t1-mini-probe",
+        )
+        if config.t1_mini_probe is not None
+        else None
+    )
     await hooks.supervise_runtime_tasks(
         required=(
             consumer_task,
@@ -492,6 +504,7 @@ async def run_runtime_tasks(
             stewardship_identity_health_task,
             stewardship_merge_effects_task,
             handover_knowledge_lifecycle_task,
+            t1_mini_probe_task,
         ),
     )
 

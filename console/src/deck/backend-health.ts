@@ -1,13 +1,13 @@
 import type { BackendHealth, RouterSnapshot } from "./backend-types";
 
-const OFFLINE_HEALTH: BackendHealth = {
+export const OFFLINE_HEALTH: BackendHealth = {
   available: false,
   mode: "offline",
   model: null,
   endpoint: null,
 };
 
-const HEALTH_CACHE_MS = 30_000;
+export const BACKEND_HEALTH_REFRESH_MS = 30_000;
 
 export function createBackendHealthProbe(
   healthUrl: () => string,
@@ -22,6 +22,7 @@ export function createBackendHealthProbe(
     try {
       response = await fetch(healthUrl(), {
         method: "GET",
+        cache: "no-store",
         headers: await requestHeaders(),
         credentials: "omit",
       });
@@ -45,7 +46,8 @@ export function createBackendHealthProbe(
         available: payload.available === true,
         mode: typeof payload.mode === "string" ? payload.mode : "unknown",
         model: typeof payload.model === "string" ? payload.model : null,
-        endpoint: typeof payload.endpoint === "string" ? payload.endpoint : null,
+        endpoint: typeof payload.endpoint === "string" && payload.endpoint.trim() !== "[REDACTED]"
+          ? payload.endpoint : null,
       };
       return router ? { ...base, router } : base;
     } catch {
@@ -55,7 +57,7 @@ export function createBackendHealthProbe(
 
   return () => {
     const now = Date.now();
-    if (cache && now - cache.at < HEALTH_CACHE_MS) {
+    if (cache && now - cache.at < BACKEND_HEALTH_REFRESH_MS) {
       return Promise.resolve(cache.value);
     }
     if (inFlight) return inFlight;

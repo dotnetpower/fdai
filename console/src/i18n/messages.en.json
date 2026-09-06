@@ -2604,6 +2604,27 @@
     "backend": {
       "probing": "probing",
       "connected": "Chat connected",
+      "t1Model": "T1 {model}",
+      "modelUnknown": "T1 model not reported",
+      "t1Scope": "Next narration/general response: configured or auto-selected T1 model. Independent review and T2 use separate models. Probe timings are not whole-answer time.",
+      "updatedAt": "Probe snapshot: {time}",
+      "expiresAt": "Measurements expire: {time}",
+      "probeInterval": "Model probe interval: {seconds}s",
+      "measurement": {
+        "measured": "Measured",
+        "unmeasured": "Unmeasured",
+        "failed": "Probe failed",
+        "stale": "Stale",
+        "unknown": "Freshness unknown"
+      },
+      "routing": {
+        "latency": "Probe latency",
+        "unmeasured": "Configured selection; not measured",
+        "stale": "Measurements stale",
+        "unavailable": "Measurements unavailable",
+        "disabled": "Latency routing disabled",
+        "unknown": "Selection reason not reported"
+      },
       "ready": "LLM ready",
       "deterministic": "deterministic"
     },

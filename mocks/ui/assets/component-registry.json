@@ -482,6 +482,22 @@
       "a11y": "Expose status in text, give loading one named busy status, and respect reduced motion."
     },
     {
+      "id": "settings-teams-workflow",
+      "category": "patterns",
+      "view": "settings-teams-workflow",
+      "view_label": "Teams Workflows",
+      "level": "pattern",
+      "owner": "Console design system",
+      "api": "tw-workspace / native details / disabled secret input",
+      "source": "mocks/ui/assets/settings-teams-workflow-content.html",
+      "routes": [{"label": "Integrations", "href": "settings-integrations.html"}],
+      "states": ["guide collapsed", "guide expanded", "not configured example", "accepted receipt example", "loading", "load failed"],
+      "use_when": "Show binding state and the bounded test first, with account, illustrated setup, storage and example receipts behind native disclosures. Reuse the IAM workspace presentation without accepting secrets.",
+      "do_not": "Do not accept callback URLs, send messages, expose saved URLs, or equate provider acceptance with channel delivery or runtime activation.",
+      "responsive": "Stack identity facts and wrap controls; keep setup images within the available width.",
+      "a11y": "Use keyboard-operable native disclosures, named disabled controls, image alternatives, and an explicit preview boundary."
+    },
+    {
       "id": "calendar-scheduling",
       "category": "patterns",
       "view": "scheduling",

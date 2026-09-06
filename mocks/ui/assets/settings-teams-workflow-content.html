@@ -1,0 +1,73 @@
+<div class="tw-workspace cs-settings-workspace" data-teams-workflow-content>
+  <dl class="tw-facts tw-summary">
+    <div><dt>Binding</dt><dd>Not configured</dd></div>
+    <div><dt>Runtime delivery</dt><dd>Not activated</dd></div>
+    <div><dt>Required role</dt><dd>FDAI Owner</dd></div>
+  </dl>
+  <div class="tw-primary">
+    <label class="tw-field-label" for="tw-webhook-url">Teams Workflows HTTP URL</label>
+    <div class="tw-input-row">
+      <input class="cs-control-input" id="tw-webhook-url" type="text" disabled autocomplete="off" spellcheck="false" placeholder="URL entry is disabled in this design preview" aria-describedby="tw-url-boundary tw-preview-boundary" />
+      <button class="cs-control-button is-primary" type="button" disabled aria-describedby="tw-preview-boundary">Save and send test</button>
+    </div>
+    <p class="tw-note" id="tw-url-boundary">FDAI never returns the saved URL. Leave the field empty to keep the current binding; an Owner enters a new URL in the Console to replace it.</p>
+    <p class="tw-note" id="tw-preview-boundary">Synthetic preview only. No URL is accepted, no binding is saved, and no test is sent.</p>
+  </div>
+  <details class="tw-details cs-settings-disclosure tw-accounts">
+    <summary>Workflow accounts <span class="tw-detail-hint">Two identities</span></summary>
+    <div class="tw-details-body">
+      <strong>Confirm the two accounts</strong>
+      <p>Your FDAI identity and Microsoft 365 workflow identity can belong to different tenants. Keep the workflow owner account ready for Microsoft account selection.</p>
+      <dl class="tw-facts tw-identities">
+        <div><dt>Current FDAI account</dt><dd><code>operator@example.com</code></dd></div>
+        <div><dt>Microsoft 365 workflow account (for copy)</dt><dd><code>workflow-owner@example.com</code></dd></div>
+      </dl>
+      <p class="tw-note">The workflow account hint is for copying only. It does not control Microsoft sign-in or infer a tenant, and FDAI does not store it.</p>
+    </div>
+  </details>
+      <details class="tw-details cs-settings-disclosure tw-guide">
+        <summary>Power Automate setup guide <span class="tw-detail-hint">10 steps</span></summary>
+        <div class="tw-details-body">
+          <p>Power Automate uses the current Microsoft browser session. If it is not the workflow owner account, switch or sign out there, or open the link in a private browser window.</p>
+          <a class="cs-control-button tw-external-link" href="https://make.powerautomate.com/" target="_blank" rel="noopener noreferrer">Open Power Automate</a>
+          <p>Complete the following steps in Power Automate before pasting the callback URL into FDAI.</p>
+          <ol class="tw-guide-steps">
+            <li><strong>Verify the signed-in account</strong><p>Open the account manager in the upper-right corner and confirm the Microsoft 365 workflow owner account. The account shown in this preview is synthetic.</p></li>
+            <li><strong>Start an automated cloud flow</strong><p>In the left navigation, select Create. Under Start from blank, select Automated cloud flow.</p><figure><img src="/console/public/guides/power-automate/create-automated-cloud-flow.png" width="671" height="317" loading="lazy" alt="Power Automate with Create and the Automated cloud flow tile highlighted" /><figcaption>Select Create, then Automated cloud flow.</figcaption></figure></li>
+            <li><strong>Name the flow and skip trigger selection</strong><p>Enter a recognizable Flow name, such as FDAI Teams Flow. Do not select a trigger in this dialog. Select Skip to open the flow designer.</p><figure><img src="/console/public/guides/power-automate/name-flow-and-skip.png" width="897" height="565" loading="lazy" alt="Build an automated cloud flow dialog with FDAI Teams Flow entered and Skip highlighted" /><figcaption>Enter the Flow name, then select Skip.</figcaption></figure></li>
+            <li><strong>Add a trigger</strong><p>In the flow designer, select Add a trigger.</p><figure><img src="/console/public/guides/power-automate/add-trigger.png" width="312" height="114" loading="lazy" alt="Power Automate flow designer with Add a trigger highlighted" /><figcaption>Select Add a trigger.</figcaption></figure></li>
+            <li><strong>Select the Microsoft Teams Webhook trigger</strong><p>Select Microsoft Teams Webhook, then select When a Teams webhook request is received.</p><figure><img src="/console/public/guides/power-automate/select-teams-webhook-trigger.png" width="423" height="135" loading="lazy" alt="Microsoft Teams Webhook trigger list showing When a Teams webhook request is received" /><figcaption>Select When a Teams webhook request is received.</figcaption></figure></li>
+            <li><strong>Allow the FDAI webhook request</strong><p>On Parameters, set Who can trigger the flow? to Anyone. The HTTP URL is generated only after the flow is saved. Anyone who has that URL can trigger the flow, so keep it secret and apply your tenant's workflow policy.</p><figure><img src="/console/public/guides/power-automate/configure-teams-webhook-trigger.png" width="626" height="267" loading="lazy" alt="Teams webhook trigger parameters with Who can trigger the flow set to Anyone and an HTTP URL generated after save" /><figcaption>Set Who can trigger the flow? to Anyone. The HTTP URL appears after save.</figcaption></figure></li>
+            <li><strong>Add the Teams card action</strong><p>Under the webhook trigger, select + to add an action. Select Microsoft Teams, then select Post card in a chat or channel.</p><figure><img src="/console/public/guides/power-automate/add-teams-action.png" width="265" height="147" loading="lazy" alt="Plus button highlighted below the Teams webhook trigger" /><figcaption>Select + below the trigger to add a new action.</figcaption></figure></li>
+            <li><strong>Configure the Teams destination and card</strong><p>Set Post as to Flow bot and Post in to Channel. Select the target Team and Channel. In Adaptive Card, insert the triggerBody() expression. The Team and Channel shown below are illustrative; select the actual notification destination.</p><figure><img src="/console/public/guides/power-automate/configure-post-card-action.png" width="623" height="572" loading="lazy" alt="Post card in a chat or channel action configured for Flow bot, Channel, a target Team and Channel, and the triggerBody expression" /><figcaption>Select the target Team and Channel, then set Adaptive Card to <code>triggerBody()</code>.</figcaption></figure></li>
+            <li><strong>Confirm the Flow name and save</strong><p>Select the flow title at the top and confirm that the Flow name is the intended name. Update it if needed, then select Save in the upper-right corner.</p><figure><img src="/console/public/guides/power-automate/save-flow.png" width="463" height="92" loading="lazy" alt="Power Automate command bar with the Save button highlighted" /><figcaption>Select Save in the upper-right corner.</figcaption></figure></li>
+            <li><strong>Copy the generated HTTP URL</strong><p>After the save succeeds, select When a Teams webhook request is received. Under Parameters, copy the generated HTTP URL and return to FDAI.</p><figure><img src="/console/public/guides/power-automate/confirm-flow-and-copy-http-url.png" width="672" height="360" loading="lazy" alt="Saved Power Automate flow showing its title, the Teams webhook trigger, and the copy control beside a redacted HTTP URL" /><figcaption>The URL is redacted in this guide. Enter a real URL only in the authenticated Console, never in this preview.</figcaption></figure></li>
+          </ol>
+          <p class="tw-note">Treat the callback URL as a secret. Do not place it in source control, documentation, chat, or screenshots.</p>
+        </div>
+      </details>
+      <details class="tw-details cs-settings-disclosure">
+        <summary>Storage and role boundaries</summary>
+        <div class="tw-details-body">
+          <p>Teams Workflows supports outbound A2 operational alerts and A4 scheduled digests. It cannot carry A1 human approvals or provide A3 bidirectional conversations.</p>
+          <p>In the Console, an FDAI Owner submits a new URL. FDAI saves and independently verifies a new binding version, then sends one fixed synthetic Adaptive Card.</p>
+          <p>A deployment stores the URL in a dedicated Key Vault secret. The local profile stores only encrypted ciphertext in its private Operator database. FDAI verifies the saved version before testing, never returns the URL, and never prefills it. Saving and testing do not activate runtime delivery.</p>
+          <ul><li>Contributor, Approver, and Owner roles can view saved-binding metadata only.</li><li>Only an FDAI Owner can replace the URL and send a test.</li><li>Reader and BreakGlass roles cannot view saved-binding metadata.</li><li>A missing or failed binding read remains explicit; it does not prove that delivery is ready.</li></ul>
+        </div>
+      </details>
+      <details class="tw-details cs-settings-disclosure tw-receipt">
+        <summary>Preview an example test result</summary>
+        <div class="tw-details-body">
+          <p class="tw-preview-note">Illustrative receipt only. Opening this example does not save a URL or send a message.</p>
+          <strong>Example: saved and test accepted</strong>
+          <dl class="tw-facts">
+            <div><dt>Saved binding version</dt><dd><code>example-version-2</code></dd></div>
+            <div><dt>Saved and verified at</dt><dd><time datetime="2026-09-06T03:00:00Z">06 Sep 2026, 03:00 UTC</time></dd></div>
+            <div><dt>Provider response</dt><dd>HTTP 202 - accepted</dd></div>
+            <div><dt>Tested at</dt><dd><time datetime="2026-09-06T03:00:01Z">06 Sep 2026, 03:00:01 UTC</time></dd></div>
+          </dl>
+          <p>Acceptance is not proof of a message appearing in Teams. Check the Power Automate run and the target channel separately. Runtime delivery still requires explicit deployment activation.</p>
+          <p class="tw-note">If saving, verification, or sending fails, the Console shows an error rather than a successful receipt. Investigate the failure before retrying.</p>
+        </div>
+      </details>
+</div>

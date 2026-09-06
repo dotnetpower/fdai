@@ -127,6 +127,49 @@ async def _unavailable(question: str) -> AdaptiveEvidence:
     return AdaptiveEvidence(status="unavailable", limitation="source_not_configured")
 
 
+async def test_model_factory_is_selected_once_per_turn_not_per_stage() -> None:
+    first = _Model(plan=_plan(), answer=_draft(), review=_review())
+    second = _Model(plan=_plan(), answer=_draft(), review=_review())
+    models = iter((first, second))
+    service = AdaptiveConversationService(
+        model=_Model(),
+        model_factory=lambda: next(models),
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+    )
+    for model in (first, second):
+        result = await service.respond(
+            utterance="Compare rollout strategies.",
+            history=(),
+            locale="en",
+            target_agent="Bragi",
+            relationship=None,
+            read_evidence=_unavailable,
+        )
+        assert result is not None
+        assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
+
+
+async def test_unavailable_model_factory_does_not_use_static_or_t2_fallback() -> None:
+    static = _Model(plan=_plan())
+    service = AdaptiveConversationService(
+        model=static,
+        model_factory=lambda: None,
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+    )
+    result = await service.respond(
+        utterance="Explain.",
+        history=(),
+        locale="en",
+        target_agent="Bragi",
+        relationship=None,
+        read_evidence=_unavailable,
+    )
+    assert result.reason == "adaptive_t1_pair_unavailable"
+    assert static.calls == []
+
+
 async def _run(
     model: _Model,
     *,

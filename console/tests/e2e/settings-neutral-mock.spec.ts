@@ -1,6 +1,6 @@
 import { expect, test, type FrameLocator, type Locator } from "@playwright/test";
 import { expectSettingsHierarchy } from "./settings-hierarchy";
-import { openSurface, routeMocks } from "./settings-mock-page";
+import { openSurface, revealSettingsSection, routeMocks } from "./settings-mock-page";
 
 const settings = [
   ["settings.html", "General settings"],
@@ -109,7 +109,7 @@ async function expectSettingsReadability(region: Locator) {
   const title = region.locator(".cs-settings-section-head :is(h2,h3), .cp-section-head h2").first();
   await expect(title).toHaveCSS("font-size", "20px");
   await expectSettingsHierarchy(region);
-  const description = region.locator(".cs-setting-row small, .cp-header p, .cs-readonly-banner").first();
+  const description = region.locator(".cs-settings-section-head p, .cs-setting-row small, .cp-header p, .cs-readonly-banner").first();
   await expect(description).toHaveCSS("font-size", "14px");
   const colors = await description.evaluate((element) => ({
     text: getComputedStyle(element).color,
@@ -144,6 +144,7 @@ test.describe("Clear neutral Settings mocks", () => {
 
   test("Models buttons, selects and compact actions have the same measured height", async ({ page }, testInfo) => {
     const frame = await openSurface(page, "settings-models.html");
+    await revealSettingsSection(frame, ".cs-domain-editor");
     const presentation = await frame.locator("body").evaluate((body) => {
       const sheet = [...document.styleSheets].find((item) => item.href?.includes("/settings-neutral.css"));
       return {
@@ -188,14 +189,18 @@ test.describe("Clear neutral Settings mocks", () => {
         const language = frame.getByRole("group", { name: "Language", exact: true });
         await exerciseLanguagePicker(language);
         await language.screenshot({ path: testInfo.outputPath("language-picker-desktop.png") });
-        const dimensions = await frame.locator('.cs-control-segmented, .cs-settings-input[aria-label="Timezone"]').evaluateAll((controls) =>
-          controls.map((control) => ({ width: control.getBoundingClientRect().width, height: control.getBoundingClientRect().height })),
-        );
+        const dimensions = [];
+        for (const label of ["Theme", "Language", "Answer detail", "Answer format", "Timezone"]) {
+          const control = await revealSettingsSection(frame, `[aria-label="${label}"]`);
+          dimensions.push(await control.evaluate((element) => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+        }
         expect(dimensions).toEqual(Array.from({ length: 5 }, () => ({ width: 320, height: 34 })));
+        await revealSettingsSection(frame, ".cs-settings-briefing-create");
         const briefing = frame.locator(".cs-settings-briefing-create");
         await expectBriefingGeometry(briefing);
         await briefing.screenshot({ path: testInfo.outputPath("briefing-compact-desktop.png") });
         for (const [name, choice] of [["Theme", "Dark"], ["Answer detail", "Deep"], ["Answer format", "Chart"]] as const) {
+          await revealSettingsSection(frame, `[aria-label="${name}"]`);
           const group = frame.getByRole("group", { name, exact: true });
           const selected = group.getByRole("button", { name: choice, exact: true });
           await selected.click();
@@ -204,9 +209,11 @@ test.describe("Clear neutral Settings mocks", () => {
           await expect(group.locator('[aria-pressed="true"]')).toHaveCount(1);
         }
         await expect(frame.locator("body")).toHaveAttribute("data-chat-theme", "clear-neutral");
-        await frame.getByRole("group", { name: "Theme", exact: true }).getByRole("button", { name: "Light", exact: true }).click();
-        await frame.getByRole("group", { name: "Answer detail", exact: true }).getByRole("button", { name: "Standard", exact: true }).click();
-        await frame.getByRole("group", { name: "Answer format", exact: true }).getByRole("button", { name: "Prose", exact: true }).click();
+        for (const [name, choice] of [["Theme", "Light"], ["Answer detail", "Standard"], ["Answer format", "Prose"]] as const) {
+          await revealSettingsSection(frame, `[aria-label="${name}"]`);
+          await frame.getByRole("group", { name, exact: true }).getByRole("button", { name: choice, exact: true }).click();
+        }
+        await revealSettingsSection(frame, "#settings-appearance");
         const toggle = frame.locator('input[type="checkbox"]').nth(1);
         await expect(toggle).toBeChecked();
         await toggle.focus();
@@ -218,15 +225,18 @@ test.describe("Clear neutral Settings mocks", () => {
         expect(await toggle.locator("+ span").evaluate((element) =>
           parseFloat(getComputedStyle(element, "::after").transitionDuration),
         )).toBeLessThan(0.001);
+        await revealSettingsSection(frame, "#settings-context");
         await expect(frame.getByRole("button", { name: "Save user context" })).toBeDisabled();
         await frame.locator('[aria-labelledby="settings-context"]').screenshot({ path: testInfo.outputPath("user-context-desktop.png") });
       }
       if (file === "settings-models.html") {
+        await revealSettingsSection(frame, "#models-operator-preferences");
         await expect(frame.locator(".cs-settings-option-card")).toHaveCount(3);
         const primary = frame.getByRole("button", { name: "Save narrator preference" });
         await expect(primary).toHaveCSS("background-color", "rgb(37, 99, 235)");
         await primary.hover();
         await expect(primary).toHaveCSS("color", "rgb(255, 255, 255)");
+        await revealSettingsSection(frame, "#models-catalog");
         await expect(frame.getByRole("button", { name: "Unavailable", exact: true })).toBeDisabled();
         await frame.locator("#models-catalog").scrollIntoViewIfNeeded();
         await page.screenshot({ path: testInfo.outputPath("models-catalog-desktop.png") });
@@ -234,6 +244,7 @@ test.describe("Clear neutral Settings mocks", () => {
       if (file === "settings-runtime.html") {
         await expect(frame.getByText("Unavailable", { exact: true }).last()).toHaveCSS("color", "rgb(102, 102, 102)");
         await expect(frame.getByText("Restart required", { exact: true }).last()).toHaveCSS("color", "rgb(180, 83, 9)");
+        await revealSettingsSection(frame, "[data-cp-form]");
         const field = frame.getByRole("textbox", { name: "Override value" });
         await field.fill("12 min");
         await expect(field).toHaveCSS("outline-color", "rgb(37, 99, 235)");
@@ -246,6 +257,7 @@ test.describe("Clear neutral Settings mocks", () => {
         await expect(frame.getByText("Unknown", { exact: true })).toHaveCSS("color", "rgb(102, 102, 102)");
         await expect(frame.getByText("operator@example.com", { exact: true })).toBeVisible();
       }
+      await frame.getByRole("tab").first().click();
       await frame.locator("body").evaluate(() => scrollTo(0, 0));
       await page.screenshot({ path: testInfo.outputPath(`${file}-desktop.png`) });
     }
@@ -312,6 +324,7 @@ test.describe("Clear neutral Settings mocks", () => {
         await expectControlHeights(frame.locator("main"), 44);
         await expectGeometry(frame.locator("main"));
         if (file === "settings.html") {
+          await revealSettingsSection(frame, ".cs-settings-briefing-create");
           const briefing = frame.locator(".cs-settings-briefing-create");
           await expectBriefingGeometry(briefing, 44);
           await briefing.screenshot({ path: testInfo.outputPath("briefing-wide-touch.png") });
@@ -340,18 +353,19 @@ test.describe("Clear neutral Settings mocks", () => {
           await language.screenshot({ path: testInfo.outputPath(`language-picker-${viewport.width}.png`) });
           const themeWidth = await frame.getByRole("group", { name: "Theme", exact: true }).evaluate((element) => element.getBoundingClientRect().width);
           expect(await language.evaluate((element) => element.getBoundingClientRect().width)).toBe(themeWidth);
+          await revealSettingsSection(frame, ".cs-settings-briefing-create");
           const briefing = frame.locator(".cs-settings-briefing-create");
           await expectBriefingGeometry(briefing, controlHeight);
           await briefing.screenshot({ path: testInfo.outputPath(`briefing-${viewport.width}.png`) });
         }
         if (file === "settings-iam.html") await exerciseAccessTabs(frame);
-        const description = frame.locator(".cs-setting-row small").first();
+        const description = frame.locator(".cs-setting-row small:visible, .cs-settings-card small:visible").first();
         if (await description.count()) {
           await description.evaluate((element) => {
             element.textContent = "확인되지 않은 긴 운영 대상 / " + "long-unbroken-identifier".repeat(8) + " / 2026-09-06T02:00:00Z";
           });
         }
-        const identifier = frame.locator("td code").first();
+        const identifier = frame.locator("td code:visible").first();
         if (await identifier.count()) {
           await identifier.evaluate((element) => {
             element.textContent = "example-long-identifier".repeat(8);

@@ -108,9 +108,12 @@ describe("vertical quick starts", () => {
 });
 
 describe("backend connection tooltip", () => {
+  const now = Date.parse("2026-09-06T10:00:30Z");
   const router = {
     chose: "narrator-fast",
     reason: "latency",
+    updated_at: "2026-09-06T10:00:00Z",
+    expires_at: "2026-09-06T10:05:00Z",
     candidates: [
       {
         deployment: "narrator-fast",
@@ -130,10 +133,10 @@ describe("backend connection tooltip", () => {
   } as const;
 
   it("puts the route decision and each candidate on distinct lines", () => {
-    expect(routerTooltip(router)?.split("\n")).toEqual([
-      "auto-router (latency) chose narrator-fast",
-      "* narrator-fast · p50 1149ms · p95 1390ms · n=2",
-      "  narrator-safe · p50 5507ms · p95 6086ms · n=2",
+    expect(routerTooltip(router, now)?.split("\n")).toEqual([
+      "auto-router (Probe latency) chose narrator-fast",
+      "* narrator-fast · Measured · p50 1149ms · p95 1390ms · n=2",
+      "  narrator-safe · Measured · p50 5507ms · p95 6086ms · n=2",
     ]);
   });
 
@@ -145,20 +148,23 @@ describe("backend connection tooltip", () => {
       endpoint: "https://chat.example.com",
       router,
     } as const;
-    const content = backendTooltip(health);
+    const content = backendTooltip(health, now);
 
-    expect(content.split("\n")).toHaveLength(4);
+    expect(content.split("\n")).toHaveLength(6);
     expect(content).toContain("chat mode azure-ad-routed · https://chat.example.com");
     expect(content).not.toMatch(/\{(?:endpoint|candidates)\}/);
-    expect(backendTooltipView(health)).toEqual({
+    expect(backendTooltipView(health, now)).toEqual({
       mode: "azure-ad-routed",
+      model: "narrator-fast",
       endpoint: "https://chat.example.com",
       router: {
         deployment: "narrator-fast",
-        reason: "latency",
+        reason: "Probe latency",
+        updatedAt: "2026-09-06T10:00:00Z",
+        expiresAt: "2026-09-06T10:05:00Z",
         candidates: [
-          { deployment: "narrator-fast", p50: "1149ms", p95: "1390ms", samples: 2, selected: true },
-          { deployment: "narrator-safe", p50: "5507ms", p95: "6086ms", samples: 2, selected: false },
+          { deployment: "narrator-fast", p50: "1149ms", p95: "1390ms", samples: 2, selected: true, status: "Measured" },
+          { deployment: "narrator-safe", p50: "5507ms", p95: "6086ms", samples: 2, selected: false, status: "Measured" },
         ],
       },
     });
@@ -181,12 +187,13 @@ describe("backend connection tooltip", () => {
             p95_ms: 1100,
             samples: 3,
             history_ms: [800, 900, 1100],
+            measured_at: "2026-09-06T10:00:00Z",
           }],
         },
       },
     } as const;
 
-    expect(backendTooltipView(health).visionRouter).toEqual({
+    expect(backendTooltipView(health, now).visionRouter).toEqual({
       deployment: "vision-fast",
       candidates: [{
         deployment: "vision-fast",
@@ -194,14 +201,16 @@ describe("backend connection tooltip", () => {
         p95: "1100ms",
         samples: 3,
         selected: true,
+        status: "Measured",
       }],
     });
   });
 
-  it("omits empty reason parentheses without inventing a reason", () => {
-    const content = routerTooltip({ ...router, reason: "" });
+  it("labels an absent selection reason unknown rather than claiming latency selection", () => {
+    const content = routerTooltip({ ...router, reason: "" }, now);
 
-    expect(content).toContain("auto-router chose narrator-fast");
+    expect(content).toContain("auto-router (Selection reason not reported) chose narrator-fast");
+    expect(content).not.toContain("Measured latency");
     expect(content).not.toContain("()");
   });
 });

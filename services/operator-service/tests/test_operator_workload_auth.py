@@ -44,10 +44,19 @@ def test_workload_reader_is_digest_scoped() -> None:
     assert principal.principal_kind is OperatorPrincipalKind.WORKLOAD
 
 
-def test_workload_principal_cannot_claim_a_higher_role() -> None:
+@pytest.mark.parametrize(
+    "roles",
+    [[], ["Contributor"], ["Approver"], ["Owner"], ["BreakGlass"], ["Reader", "Owner"]],
+)
+def test_workload_principal_cannot_claim_a_higher_role(roles: list[str]) -> None:
     with pytest.raises(AuthenticationError, match="Reader App Role"):
         _authenticator(
-            {"oid": "workload-object-id", "idtyp": "app", "roles": ["Contributor"]}
+            {
+                "oid": "workload-object-id",
+                "idtyp": "app",
+                "roles": roles,
+                "scp": "access_as_user",
+            }
         ).authenticate("Bearer verified-token")
 
 
@@ -87,13 +96,81 @@ def test_oversized_inline_group_claims_are_rejected_as_invalid_authentication() 
         ).authenticate("Bearer test-token")
 
 
-def test_missing_principal_type_is_rejected() -> None:
+@pytest.mark.parametrize("scope", [None, "", "  ", [], ["access_as_user"], True])
+def test_missing_principal_type_without_delegated_scope_is_rejected(scope: object) -> None:
     with pytest.raises(AuthenticationError, match="missing principal type"):
         _authenticator(
             {
                 "oid": "operator-a",
                 "roles": ["Contributor"],
                 "groups": ["group:responders"],
+                "scp": scope,
+            }
+        ).authenticate("Bearer test-token")
+
+
+@pytest.mark.parametrize("role", ["Reader", "Contributor", "Approver", "Owner"])
+def test_delegated_human_without_idtyp_preserves_verified_roles_and_groups(role: str) -> None:
+    identity = _authenticator(
+        {
+            "oid": "operator-a",
+            "scp": "access_as_user",
+            "roles": [role],
+            "groups": ["group:responders"],
+            "azp": "console-client",
+        }
+    ).authenticate_identity("Bearer test-token")
+
+    assert identity.principal.principal_kind is OperatorPrincipalKind.HUMAN
+    assert identity.principal.subject_id == "operator-a"
+    assert identity.principal.roles == frozenset({OperatorRole(role)})
+    assert identity.principal.groups == frozenset({"group:responders"})
+    assert identity.authorized_party == "console-client"
+
+
+async def test_delegated_reader_without_idtyp_keeps_human_role_gate() -> None:
+    authorizer = OperatorFamilyAuthorizer(
+        _authenticator({"oid": "operator-a", "scp": "access_as_user", "roles": ["Reader"]})
+    )
+    scope = await authorizer.authorize(_request(), operation="chat.health")
+
+    assert scope.principal_kind is OperatorPrincipalKind.HUMAN
+    assert scope.roles == frozenset({"Reader"})
+    with pytest.raises(AuthorizationError, match="principal lacks required role"):
+        await authorizer.authorize(_request(), operation="chat.stream")
+
+
+def test_delegated_scope_without_roles_cannot_grant_reader_access() -> None:
+    authenticator = _authenticator({"oid": "operator-a", "scp": "access_as_user"})
+    with pytest.raises(AuthorizationError, match="principal lacks required role"):
+        authenticator.require_any("Bearer test-token", frozenset({OperatorRole.READER}))
+
+
+def test_delegated_human_without_idtyp_keeps_server_owned_group_role_resolution() -> None:
+    authenticator = OperatorAuthenticator(
+        verifier=lambda _: {
+            "oid": "operator-a",
+            "scp": "access_as_user",
+            "groups": ["group:responders"],
+        },
+        group_ids={OperatorRole.READER: "group:responders"},
+    )
+    principal = authenticator.require_any("Bearer test-token", frozenset({OperatorRole.READER}))
+    assert principal.principal_kind is OperatorPrincipalKind.HUMAN
+    assert principal.roles == frozenset({OperatorRole.READER})
+
+
+@pytest.mark.parametrize("identity_type", ["unknown", "", True, ["user"]])
+def test_delegated_scope_does_not_override_invalid_explicit_principal_type(
+    identity_type: object,
+) -> None:
+    with pytest.raises(AuthenticationError, match="unsupported principal type"):
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "idtyp": identity_type,
+                "scp": "access_as_user",
+                "roles": ["Owner"],
             }
         ).authenticate("Bearer test-token")
 
