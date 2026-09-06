@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d6cf39bd05e323f221d8d30c80743539d0ae321b
+translation_source_sha: a8b12fc47cf2c0e9bcc7c6d669a2299ba31f504f
 translation_revised: 2026-09-06
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -69,12 +69,12 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
 `Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개와 Console
-SPA를 시작합니다. 보호된 정적 게시자는 인프라를 변경하지 않으며, 허용 목록의 Manual Studio
-파일을 동일 출처 `/manuals`에 추가하고 카탈로그와 라이브러리 해시를 검증합니다. 로컬 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
-co-host 또는 프로세스 내 Operator API 호환성 경로를 복원하지 않습니다. 로컬 격리 실행기는
-managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue에서 authority cutover를
-설정하면 시작이 실패합니다. Compound는 정적 design mock이나 fixture 애플리케이션을 시작하지
-않습니다.
+SPA를 시작합니다. 일반 Console 빌드는 모듈 진입점보다 먼저 `/fdai-config.js`를 불러오며
+정확한 null 자리 표시자를 제공합니다. 배포 도구는 비공개 사전 빌드 사본에서만 이 파일을
+스키마로 검증된 공개 HTTPS 및 Entra 연결로 바꿀 수 있으며, 알 수 없는 필드나 두 번째 테넌트
+변경은 안전하게 차단됩니다. 로컬 launch는 계속 담당 서비스 분포만 가져오며 로컬 격리 실행기는
+관리 리소스 신원이 없는 영속 shadow 소비자로 남습니다. Compound는 정적 design mock이나
+테스트 고정본 애플리케이션을 시작하지 않습니다.
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬
 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서 인제스트 API,

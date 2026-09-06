@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b40bed0313272f73634a4ba24390360a265da970
+translation_source_sha: 4c3a8c3e4a764c787b528ef1c1226645f3197d9a
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -66,10 +66,10 @@ Upstream은 공급자 없이 실행되는 참조 계획으로 토글 계약을 �
 그래서 terraform remote-state 백엔드조차 laptop 에서 도달 불가능하다. `infra/bootstrap`
 레이어가 배포를 가능케 하는 지속적 허브 를 세우며, 이는 앱 재빌드에도 살아남는다:
 
-Ops 계층은 기본적으로 아웃바운드 경로 하나, static 공개 IP를 가진 NAT 게이트웨이를 만듭니다.
-GitHub에 등록된 실행기가 GitHub, 관리 평면, 신원 평면에 도달해야 하기 때문입니다.
-폐쇄망은 `enable_public_egress = false`로 설정합니다. 공개 주소를 만들지 않고, 호스트는 등록된
-실행기가 아니라 점프박스가 되며, 테난트가 자체 승인 경로를 공급합니다.
+Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결되는 아웃바운드 경로 하나를
+만듭니다. 승인된 경로가 있는 폐쇄망은 `enable_public_egress = false`로 설정합니다. 또한
+`runner_bootstrap_mode = "offline"`을 설정하면 초기화 과정은 정확한 관리 이미지 또는 숫자형
+갤러리 버전 ID 하나를 요구하고 Marketplace 선택, cloud-init, GitHub 등록을 비활성화합니다.
 
 - 앱 RG 와 분리된 **ops 리소스 그룹 + 허브 VNet**(`rg-fdai-ops-<region_short>` /
   `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;

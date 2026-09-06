@@ -8,10 +8,16 @@
   <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
   <link rel="stylesheet" href="assets/settings-neutral.css?v=1" />
-  <script src="assets/console-parity.js?v=settings-route-v5" defer></script>
+  <link rel="stylesheet" href="assets/settings-iam.css?v=1" />
+  <script src="assets/settings-iam.js?v=2" type="module"></script>
   <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
-<body class="cs-settings-neutral" data-chat-theme="clear-neutral" data-console-page="settings-iam">
-  <main class="cs-container cs-page cp-page" data-console-parity-page></main>
+<body class="cs-settings-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page cs-settings-page iam-page">
+    <header class="cp-header"><div class="cp-header-copy"><h1>Identity and access</h1><p>Verified identity, fixed FDAI App Roles, and governed access changes.</p></div></header>
+    <div data-iam-mock data-iam-route>
+      <div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading identity and access preview"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div>
+    </div>
+  </main>
 </body>
 </html>

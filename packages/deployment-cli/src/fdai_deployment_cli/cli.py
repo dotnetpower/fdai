@@ -14,13 +14,15 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from fdai_deployment_cli.__about__ import __version__
+from fdai_deployment_cli.bootstrap_reconcile import reconcile_bootstrap
 from fdai_deployment_cli.bundle import (
     BundleVerificationError,
     extract_bundle_archive,
     verify_bundle,
 )
-from fdai_deployment_cli.bootstrap_reconcile import reconcile_bootstrap
 from fdai_deployment_cli.compiler import compile_manifest
+from fdai_deployment_cli.console_config import configure_console
+from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
     azure_cli_authenticated,
@@ -35,16 +37,16 @@ from fdai_deployment_cli.github_actions import (
     workflow_status,
 )
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
-from fdai_deployment_cli.offline_kit import verify_offline_kit
-from fdai_deployment_cli.offline_kit import materialize_verified_artifacts
+from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
+from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.plan_input import snapshot_plan_input
-from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
-from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.private_output import write_private_output
+from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
-from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.status_projection import project_status
+from fdai_deployment_cli.support_install import install_support
+from fdai_deployment_cli.target import compute_target_binding
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -70,6 +72,29 @@ def _parser() -> argparse.ArgumentParser:
     doctor = subcommands.add_parser("doctor")
     doctor.add_argument("--output", choices=("text", "json"), default="text")
     doctor.set_defaults(handler=_doctor)
+
+    offline = subcommands.add_parser("offline")
+    offline_commands = offline.add_subparsers(required=True)
+    prepare = offline_commands.add_parser("prepare")
+    prepare.add_argument("--offline-kit", type=Path, required=True)
+    prepare.add_argument("--release-root", type=Path, required=True)
+    prepare.add_argument("--bundle-public-key", type=Path, required=True)
+    prepare.add_argument("--profile", type=Path, required=True)
+    prepare.add_argument("--source-commit", required=True)
+    prepare.add_argument("--work-dir", type=Path, required=True)
+    prepare.add_argument("--output", choices=("text", "json"), default="text")
+    prepare.set_defaults(handler=_offline_prepare)
+    configure = offline_commands.add_parser("configure-console")
+    configure.add_argument("--directory", type=Path, required=True)
+    configure.add_argument("--settings", type=Path, required=True)
+    configure.add_argument("--output", choices=("text", "json"), default="text")
+    configure.set_defaults(handler=_offline_configure_console)
+    install = offline_commands.add_parser("install-support")
+    install.add_argument("--offline-kit", type=Path, required=True)
+    install.add_argument("--release-root", type=Path, required=True)
+    install.add_argument("--work-dir", type=Path, required=True)
+    install.add_argument("--output", choices=("text", "json"), default="text")
+    install.set_defaults(handler=_offline_install_support)
 
     provision = subcommands.add_parser("provision")
     provision_commands = provision.add_subparsers(required=True)
@@ -264,6 +289,61 @@ def _provision_init(args: argparse.Namespace) -> int:
         json.dumps(result, sort_keys=True, separators=(",", ":"))
         if args.output == "json"
         else f"profile initialized: {result['profile_digest']}"
+    )
+    return 0
+
+
+def _offline_prepare(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile)
+    release_root = _read_public_key(args.release_root)
+    bundle_key = _read_public_key(args.bundle_public_key)
+    work_dir = _absolute_work_dir(args.work_dir)
+    _create_private_work_dir(work_dir)
+    result = prepare_offline_release(
+        args.offline_kit,
+        work_dir=work_dir,
+        profile=profile,
+        source_commit=args.source_commit,
+        release_root_pem=release_root,
+        bundle_public_key_pem=bundle_key,
+        cli_version=__version__,
+        platform_tag=_runtime_platform_tag(),
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text="prepared: signed inputs only; subscription provisioning and approvals remain required",
+    )
+    return 0
+
+
+def _offline_configure_console(args: argparse.Namespace) -> int:
+    result = configure_console(
+        _absolute_work_dir(args.directory), _absolute_work_dir(args.settings)
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text="Console configured for Entra; publication and authenticated access remain unverified",
+    )
+    return 0
+
+
+def _offline_install_support(args: argparse.Namespace) -> int:
+    public_key = _read_public_key(args.release_root)
+    work_dir = _absolute_work_dir(args.work_dir)
+    _create_private_work_dir(work_dir)
+    result = install_support(
+        args.offline_kit,
+        work_dir=work_dir,
+        release_root_pem=public_key,
+        cli_version=__version__,
+        platform_tag=_runtime_platform_tag(),
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text="deployment support installed offline; runtime services have not been started",
     )
     return 0
 
@@ -760,6 +840,11 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
 
 
 def _require_github_actions_profile(profile: ProvisionProfile) -> None:
+    if profile.connectivity == "offline":
+        raise ValueError(
+            "offline_workflow_unavailable: this workflow requires public artifacts; "
+            "use offline prepare without dispatching Azure deployment"
+        )
     if profile.transport != "github-actions" or profile.access_method != "github_actions":
         raise ValueError("protected deploy commands require a github-actions profile")
     checks = inspect_tools(("az", "gh"))

@@ -1,8 +1,10 @@
 /* Shared by the seven Settings mocks and their component-gallery specimens. */
 .cs-settings-neutral {
-  --cs-control-height: var(--cs-control-height-touch);
   --cs-control-height-compact: var(--cs-control-height);
   --cs-type-body-size: 14px;
+  --cs-type-section-title-size: 20px;
+  --cs-settings-body-inset: 24px;
+  --cs-settings-section-rule: #d4d4d4;
   --cs-settings-control-width: 320px;
   --cs-settings-control-border: #8c8c8c;
   --cs-settings-muted: #525252;
@@ -17,10 +19,20 @@
   border-radius: var(--cs-radius);
 }
 
+.cs-settings-neutral :is(.cs-settings-section, .cp-section) {
+  border-top: 0;
+}
 .cs-settings-neutral :is(.cs-settings-section-head, .cp-section-head) {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  padding: 24px 0 16px;
+  margin-bottom: 8px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--cs-settings-section-rule);
+}
+.cs-settings-neutral .cs-settings-section-head > div {
+  width: 100%;
+  justify-content: space-between;
+  gap: 16px;
 }
 .cs-settings-neutral :is(.cs-settings-section-head p, .cs-setting-row small, .cs-settings-card small, .cp-section-head p, .cp-header p, .cs-page-header .cs-lead, .cp-form-note, .cs-readonly-banner) {
   color: var(--cs-settings-muted);
@@ -30,10 +42,27 @@
 .cs-settings-neutral :is(.cs-settings-section-head h2, .cs-settings-section-head h3, .cp-section-head h2) {
   margin: 0;
   font-size: var(--cs-type-section-title-size);
+  font-weight: 600;
   line-height: var(--cs-type-section-title-line-height);
 }
 .cs-settings-neutral :is(.cs-settings-section, .cp-section) + :is(.cs-settings-section, .cp-section) {
-  margin-top: 48px;
+  margin-top: 56px;
+}
+.cs-settings-neutral .cs-settings-list {
+  padding-inline: var(--cs-settings-body-inset);
+}
+.cs-settings-neutral :is(
+  .cs-settings-card, .cs-settings-save-bar, .cs-settings-actions,
+  .cs-settings-toolbar, .cs-settings-card-grid, .cs-settings-briefing-create,
+  .cs-domain-editor, .cs-table-wrap, .cp-table-wrap, .cp-form, .cp-tabs
+) {
+  margin-inline: var(--cs-settings-body-inset);
+}
+.cs-settings-neutral .cs-settings-card {
+  border-width: 0 0 1px;
+}
+.cs-settings-neutral .cs-settings-card:last-child {
+  border-bottom: 0;
 }
 .cs-settings-neutral :is(.cs-setting-row, .cs-settings-card, .cs-settings-option-card, .cp-table td, .cs-table td) {
   overflow-wrap: anywhere;
@@ -43,11 +72,14 @@
   gap: 24px;
   min-height: 88px;
   padding: 16px 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--cs-hairline);
 }
+.cs-settings-neutral .cs-setting-row:last-child { border-bottom: 0; }
 .cs-settings-neutral .cs-setting-row > div:first-child > strong {
-  font-size: var(--cs-type-panel-title-size);
-  font-weight: 600;
-  line-height: var(--cs-type-panel-title-line-height);
+  font-size: var(--cs-type-body-size);
+  font-weight: 500;
+  line-height: var(--cs-type-compact-line-height);
 }
 .cs-settings-neutral .cs-setting-row small { margin-top: 6px; }
 .cs-settings-neutral .cs-setting-row:focus-within { background: var(--cs-bg); }
@@ -64,6 +96,7 @@
 .cs-settings-neutral .cs-settings-toggle {
   justify-content: flex-start;
   height: auto;
+  min-height: var(--cs-control-height);
   font-size: var(--cs-type-body-size);
 }
 .cs-settings-neutral .cs-settings-scope {
@@ -84,7 +117,12 @@
   font-weight: 600;
 }
 .cs-settings-neutral :is(.cs-control-button, .cs-control-input, .cs-control-select, .cs-control-textarea) {
-  font-size: var(--cs-type-body-size);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.cs-settings-neutral :is(.cs-control-button, .cs-control-input, .cs-control-select) {
+  min-height: var(--cs-control-height);
+  padding-block: 6px;
 }
 .cs-settings-neutral :is(.cs-control-input, .cs-control-select, .cs-control-textarea, .cs-control-button:not(.is-primary):not(.is-quiet):not(.is-danger)):not(:disabled) {
   border-color: var(--cs-settings-control-border);
@@ -135,6 +173,7 @@
   gap: 4px;
   padding: 0;
   height: auto;
+  min-height: var(--cs-control-height);
   border: 0;
   border-radius: var(--cs-radius);
   background: var(--cs-shade);
@@ -150,7 +189,8 @@
   padding: 6px 4px;
   border-radius: var(--cs-radius-sm);
   color: var(--cs-text);
-  font-size: var(--cs-type-body-size);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
   font-weight: 400;
   box-shadow: none;
 }
@@ -234,7 +274,8 @@
   height: auto;
   border: 1px solid transparent;
   border-radius: var(--cs-radius-sm);
-  font-size: var(--cs-type-body-size);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
 }
 .cs-settings-neutral .cp-tab[aria-selected="true"] {
   border-color: var(--cs-steel);
@@ -249,7 +290,15 @@
 }
 .cs-settings-neutral .cs-domain-add .cs-settings-input,
 .cs-settings-neutral .cs-settings-toolbar .cs-settings-input { width: 100%; }
-.cs-settings-neutral .cs-settings-briefing-create .cs-settings-input { width: 88px; }
+.cs-settings-neutral .cs-settings-briefing-create { gap: 8px 12px; }
+.cs-settings-neutral .cs-settings-briefing-create .cs-settings-input { width: 64px; }
+.cs-settings-neutral .cs-settings-briefing-create > span {
+  display: flex;
+  align-items: center;
+  min-height: var(--cs-control-height);
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-compact-size);
+}
 .cs-settings-neutral .cs-settings-preview-note {
   margin: 0 0 16px;
   color: var(--cs-settings-muted);
@@ -269,8 +318,6 @@
   .cs-settings-neutral .cs-settings-toggle { justify-content: flex-start; }
 }
 @container (max-width: 620px) {
-  .cs-settings-neutral .cs-control-button { min-height: var(--cs-control-height-touch); }
-  .cs-settings-neutral .cs-control-segmented > button { min-height: var(--cs-control-height-touch); }
   .cs-settings-neutral .cs-domain-meta { flex-direction: column; gap: 4px; }
 }
 @container (max-width: 300px) {
@@ -279,8 +326,15 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+@media (max-width: 680px) {
+  .cs-settings-neutral { --cs-settings-body-inset: 16px; }
+}
 @media (max-width: 520px) {
+  .cs-settings-neutral { --cs-settings-body-inset: 8px; }
   .cs-settings-specimen { padding: 16px; }
+}
+@media (pointer: coarse), (max-width: 520px) {
+  .cs-settings-neutral { --cs-control-height: var(--cs-control-height-touch); }
 }
 @media (prefers-reduced-motion: reduce) {
   .cs-settings-neutral .cs-control-switch-track::after { transition: none; }

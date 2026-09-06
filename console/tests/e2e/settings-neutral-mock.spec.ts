@@ -1,10 +1,7 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { expect, test, type FrameLocator, type Locator } from "@playwright/test";
+import { expectSettingsHierarchy } from "./settings-hierarchy";
+import { openSurface, routeMocks } from "./settings-mock-page";
 
-import { expect, test, type FrameLocator, type Locator, type Page } from "@playwright/test";
-
-const root = path.resolve(fileURLToPath(new URL("../../../", import.meta.url)));
-const origin = "http://127.0.0.1:5373";
 const settings = [
   ["settings.html", "General settings"],
   ["settings-models.html", "Models"],
@@ -15,19 +12,6 @@ const settings = [
   ["settings-diagnostics.html", "Diagnostics"],
 ] as const;
 const specimens = ["settings-preferences", "settings-catalog", "settings-policy", "settings-access", "settings-diagnostics"];
-
-async function openSurface(page: Page, file: string, master = false) {
-  await page.goto("about:blank");
-  await page.goto(`${origin}/${master ? `#mocks/ui/${file}` : `mocks/ui/#${file}`}`);
-  const frame = page.frameLocator(master ? "#preview-frame" : "iframe");
-  await expect(frame.locator("body")).toHaveClass(/cs-embedded/);
-  if (file.startsWith("components.html")) {
-    await expect(frame.locator("body")).toHaveClass(/is-gallery-ready/);
-  } else {
-    await expect(frame.locator("body")).toHaveAttribute("data-chat-theme", "clear-neutral");
-  }
-  return frame;
-}
 
 async function expectGeometry(region: Locator) {
   expect(await region.evaluate((element) => ({
@@ -49,13 +33,29 @@ async function controlMeasurements(region: Locator) {
   );
 }
 
-async function expectControlHeights(region: Locator) {
+async function expectControlHeights(region: Locator, height = 34) {
   const controls = await controlMeasurements(region);
-  expect(controls.filter((control) => control.height !== 44 || control.clipped)).toEqual([]);
+  expect(controls.filter((control) => control.height !== height || control.clipped)).toEqual([]);
+}
+
+async function expectBriefingGeometry(region: Locator, height = 34) {
+  const geometry = await region.evaluate((element) => {
+    const input = element.querySelector("input")!;
+    const controls = [input, element.querySelector(":scope > span")!, element.querySelector("button")!];
+    const rects = controls.map((control) => control.getBoundingClientRect());
+    return {
+      inputWidth: input.getBoundingClientRect().width,
+      heights: rects.map((rect) => rect.height),
+      centers: rects.map((rect) => rect.top + rect.height / 2),
+    };
+  });
+  expect(geometry.inputWidth).toBe(64);
+  expect(geometry.heights).toEqual([height, height, height]);
+  expect(Math.max(...geometry.centers) - Math.min(...geometry.centers)).toBeLessThanOrEqual(1);
 }
 
 async function exerciseAccessTabs(frame: FrameLocator) {
-  for (const label of ["Users", "Roles", "Requests", "My access"]) {
+  for (const label of ["Users", "Role definitions", "Access requests", "My access"]) {
     const tab = frame.getByRole("tab", { name: label, exact: true });
     await tab.click();
     await expect(tab).toHaveAttribute("aria-selected", "true");
@@ -107,7 +107,8 @@ function contrast(first: string, second: string) {
 
 async function expectSettingsReadability(region: Locator) {
   const title = region.locator(".cs-settings-section-head :is(h2,h3), .cp-section-head h2").first();
-  await expect(title).toHaveCSS("font-size", "18px");
+  await expect(title).toHaveCSS("font-size", "20px");
+  await expectSettingsHierarchy(region);
   const description = region.locator(".cs-setting-row small, .cp-header p, .cs-readonly-banner").first();
   await expect(description).toHaveCSS("font-size", "14px");
   const colors = await description.evaluate((element) => ({
@@ -138,20 +139,26 @@ test.describe("Clear neutral Settings mocks", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop acceptance precedes responsive validation.");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.route(`${origin}/**`, async (route) => {
-      const pathname = decodeURIComponent(new URL(route.request().url()).pathname);
-      const entry = pathname.endsWith("/") ? `${pathname}index.html` : pathname;
-      const file = path.resolve(root, `.${entry}`);
-      if (!file.startsWith(`${root}${path.sep}`) || !/\.(html|css|js|json|svg|png)$/.test(file)) {
-        await route.fulfill({ status: 404, body: "Not a UI fixture." });
-        return;
-      }
-      await route.fulfill({ path: file });
-    });
+    await routeMocks(page);
   });
 
   test("Models buttons, selects and compact actions have the same measured height", async ({ page }, testInfo) => {
     const frame = await openSurface(page, "settings-models.html");
+    const presentation = await frame.locator("body").evaluate((body) => {
+      const sheet = [...document.styleSheets].find((item) => item.href?.includes("/settings-neutral.css"));
+      return {
+        width: innerWidth,
+        coarse: matchMedia("(pointer: coarse)").matches,
+        controlHeight: getComputedStyle(body).getPropertyValue("--cs-control-height"),
+        sectionTitleSize: getComputedStyle(body).getPropertyValue("--cs-type-section-title-size"),
+        stylesheet: sheet?.href,
+      };
+    });
+    await testInfo.attach("models-presentation.json", {
+      body: JSON.stringify(presentation, null, 2),
+      contentType: "application/json",
+    });
+    expect(presentation).toMatchObject({ coarse: false, controlHeight: "34px", sectionTitleSize: "20px" });
     const controls = await controlMeasurements(frame.locator("main"));
     await testInfo.attach("models-control-heights.json", {
       body: JSON.stringify(controls, null, 2),
@@ -184,7 +191,10 @@ test.describe("Clear neutral Settings mocks", () => {
         const dimensions = await frame.locator('.cs-control-segmented, .cs-settings-input[aria-label="Timezone"]').evaluateAll((controls) =>
           controls.map((control) => ({ width: control.getBoundingClientRect().width, height: control.getBoundingClientRect().height })),
         );
-        expect(dimensions).toEqual(Array.from({ length: 5 }, () => ({ width: 320, height: 44 })));
+        expect(dimensions).toEqual(Array.from({ length: 5 }, () => ({ width: 320, height: 34 })));
+        const briefing = frame.locator(".cs-settings-briefing-create");
+        await expectBriefingGeometry(briefing);
+        await briefing.screenshot({ path: testInfo.outputPath("briefing-compact-desktop.png") });
         for (const [name, choice] of [["Theme", "Dark"], ["Answer detail", "Deep"], ["Answer format", "Chart"]] as const) {
           const group = frame.getByRole("group", { name, exact: true });
           const selected = group.getByRole("button", { name: choice, exact: true });
@@ -209,6 +219,7 @@ test.describe("Clear neutral Settings mocks", () => {
           parseFloat(getComputedStyle(element, "::after").transitionDuration),
         )).toBeLessThan(0.001);
         await expect(frame.getByRole("button", { name: "Save user context" })).toBeDisabled();
+        await frame.locator('[aria-labelledby="settings-context"]').screenshot({ path: testInfo.outputPath("user-context-desktop.png") });
       }
       if (file === "settings-models.html") {
         await expect(frame.locator(".cs-settings-option-card")).toHaveCount(3);
@@ -254,6 +265,7 @@ test.describe("Clear neutral Settings mocks", () => {
       await expectControlHeights(specimen.locator(".cs-settings-specimen"));
       await expect(frame.getByRole("navigation", { name: "Component subviews" }).locator('[aria-current="page"]')).toHaveAttribute("href", `#view=patterns:${id}`);
       if (id === "settings-preferences") {
+        await expectBriefingGeometry(specimen.locator(".cs-settings-briefing-create"));
         await expectSettingsReadability(specimen);
         await exerciseLanguagePicker(specimen.getByRole("group", { name: "Sample language" }));
         const detail = specimen.getByRole("group", { name: "Sample answer detail" });
@@ -268,8 +280,8 @@ test.describe("Clear neutral Settings mocks", () => {
         await exerciseAccessTabs(frame);
         await specimen.getByRole("tab", { name: "My access" }).focus();
         await page.keyboard.press("End");
-        await expect(specimen.getByRole("tab", { name: "Requests" })).toBeFocused();
-        await expect(specimen.getByRole("tab", { name: "Requests" })).toHaveAttribute("aria-selected", "true");
+        await expect(specimen.getByRole("tab", { name: "Access requests" })).toBeFocused();
+        await expect(specimen.getByRole("tab", { name: "Access requests" })).toHaveAttribute("aria-selected", "true");
       }
       if (id === "settings-diagnostics") {
         await expect(specimen.getByText("Failed", { exact: true })).toHaveCSS("color", "rgb(198, 40, 40)");
@@ -289,18 +301,48 @@ test.describe("Clear neutral Settings mocks", () => {
     expect(errors).toEqual([]);
   });
 
+  test("touch devices retain comfortable controls even in a wide viewport", async ({ browser }, testInfo) => {
+    const context = await browser.newContext({ hasTouch: true, viewport: { width: 1280, height: 900 } });
+    try {
+      const page = await context.newPage();
+      await routeMocks(page);
+      for (const [file] of settings) {
+        const frame = await openSurface(page, file);
+        expect(await frame.locator("body").evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+        await expectControlHeights(frame.locator("main"), 44);
+        await expectGeometry(frame.locator("main"));
+        if (file === "settings.html") {
+          const briefing = frame.locator(".cs-settings-briefing-create");
+          await expectBriefingGeometry(briefing, 44);
+          await briefing.screenshot({ path: testInfo.outputPath("briefing-wide-touch.png") });
+        }
+      }
+      for (const id of specimens) {
+        const frame = await openSurface(page, `components.html::${id}`);
+        await expectControlHeights(frame.locator(`#${id} .cs-settings-specimen`), 44);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
   test("accepted Settings and gallery layouts remain usable in constrained and mobile shells", async ({ page }, testInfo) => {
-    for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+    for (const viewport of [{ width: 993, height: 641 }, { width: 840, height: 760 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
+      const controlHeight = viewport.width === 390 ? 44 : 34;
       for (const [file] of settings) {
         const frame = await openSurface(page, file, true);
         await expectGeometry(frame.locator("main"));
+        await expectSettingsHierarchy(frame.locator("main"));
         if (file === "settings.html") {
           const language = frame.getByRole("group", { name: "Language", exact: true });
           await exerciseLanguagePicker(language);
           await language.screenshot({ path: testInfo.outputPath(`language-picker-${viewport.width}.png`) });
           const themeWidth = await frame.getByRole("group", { name: "Theme", exact: true }).evaluate((element) => element.getBoundingClientRect().width);
           expect(await language.evaluate((element) => element.getBoundingClientRect().width)).toBe(themeWidth);
+          const briefing = frame.locator(".cs-settings-briefing-create");
+          await expectBriefingGeometry(briefing, controlHeight);
+          await briefing.screenshot({ path: testInfo.outputPath(`briefing-${viewport.width}.png`) });
         }
         if (file === "settings-iam.html") await exerciseAccessTabs(frame);
         const description = frame.locator(".cs-setting-row small").first();
@@ -316,7 +358,7 @@ test.describe("Clear neutral Settings mocks", () => {
           });
         }
         await expectGeometry(frame.locator("main"));
-        await expectControlHeights(frame.locator("main"));
+        await expectControlHeights(frame.locator("main"), controlHeight);
         await frame.locator("body").evaluate(() => scrollTo(0, 0));
         await page.screenshot({ path: testInfo.outputPath(`${file}-${viewport.width}.png`) });
       }
@@ -324,8 +366,10 @@ test.describe("Clear neutral Settings mocks", () => {
         const frame = await openSurface(page, `components.html::${id}`, true);
         const specimen = frame.locator(`#${id}`);
         await expectGeometry(specimen);
-        await expectControlHeights(specimen.locator(".cs-settings-specimen"));
+        await expectControlHeights(specimen.locator(".cs-settings-specimen"), controlHeight);
         if (id === "settings-preferences") {
+          await expectSettingsHierarchy(specimen);
+          await expectBriefingGeometry(specimen.locator(".cs-settings-briefing-create"), controlHeight);
           await exerciseLanguagePicker(specimen.getByRole("group", { name: "Sample language" }));
         }
         if (id === "settings-access") await exerciseAccessTabs(frame);

@@ -65,12 +65,12 @@ Committed VS Code settings keep each local web surface on one predictable port. 
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
 The `Console Web: Full Stack` compound starts the five independently packaged backend services and
-the Console SPA. The protected static publisher changes no infrastructure; it adds allowlisted
-Manual Studio files at same-origin `/manuals` and verifies catalog and library hashes. Local launches import only service-owned distributions; they don't restore the
-retired top-level package, co-host document processing, or an in-process Operator API compatibility
-path. The local Isolated Executor is a durable shadow consumer with no managed-resource identity;
-an authority-cutover setting in this venue fails startup. The compound doesn't start static design
-mocks or fixture applications.
+the Console SPA. The generic Console build loads `/fdai-config.js` before its module entry and ships
+an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
+with schema-validated public HTTPS and Entra bindings; unknown fields and a second tenant rewrite
+fail closed. Local launches still import only service-owned distributions, and the local Isolated
+Executor remains a durable shadow consumer without managed-resource identity. The compound doesn't
+start static design mocks or fixture applications.
 
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document

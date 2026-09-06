@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: de3af61d50398981c7e38edd7756aedd8389ca27
-translation_revised: 2026-08-14
+translation_source_sha: 4afd4405a72406757d82cb32d1ef9fc0a81e35dd
+translation_revised: 2026-09-06
 ---
 # 폐쇄망 배포
 
@@ -24,8 +24,11 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | 비공개 Azure 네트워킹 및 VNet 배포 호스트 | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 인프라 작업 흐름 테스트 | 비공개 엔드포인트, DNS, 영속 배포 호스트, 보호된 계획 및 exact apply는 offline CLI 경로와 독립적으로 구현되어 있습니다. |
 | 내부 mirror 및 고정 입력 제어 | implemented | `infra/modules/preflight-toggles/` 및 `scripts/quality/ci/check-ci-contracts.py` | 저장소는 mirror 입력을 노출하고 변경 가능한 base 이미지 참조나 레지스트리에 묶인 참조를 거부합니다. |
-| Offline 키트 staging 및 훈련 하네스 | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py` 및 `airgap-drill.sh` | 스크립트는 있지만 빌더가 존재하지 않는 `fdai.deployment_cli.offline_kit` 모듈을 가져오므로 훈련을 완료할 수 없습니다. |
-| 폐쇄망 점검, 번들 검증 및 계획 명령 | not-started | 이 문서의 목표 명령 순서 | 현재 어떤 패키지도 `fdaictl`을 등록하지 않으므로 점검, 번들, 프로비저닝 계획 및 license 명령 경로를 사용할 수 없습니다. |
+| 오프라인 도구 키트 구성 및 훈련 | validated | [배포 CLI 구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md) | 전용 CLI와 배포 휠을 사용하는 도구 훈련이 복원되었습니다. 전체 런타임 배포 훈련을 뜻하지 않습니다. |
+| 폐쇄망 번들 검증 및 계획 명령 | implemented | `packages/deployment-cli`; 산출물 및 패키징 테스트 | 패키지가 `fdaictl`을 등록하고 서명된 로컬 입력을 검증합니다. 계획 수립만으로 새 구독 구성이 완료되지는 않습니다. |
+| 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
+| 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
+| 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
 | Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
 | 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
 
@@ -34,12 +37,14 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 배포 CLI 패키지가 제거된 뒤에도 남아 있던 종단 간 지원 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 인프라, release 스크립트, 패키지 메타데이터 및 집중 작업 흐름 근거 | 전용 offline 검증기와 CLI를 복원하고 trust 루트를 확립한 뒤 air-gap 훈련을 통과해야 합니다. |
+| 2026-09-06 | implemented | CLI가 없다는 오래된 설명을 바로잡고 런타임 목록 구성, 비공개 오프라인 준비, 공개 산출물 작업 흐름 차단을 추가했습니다. | `current change`; 집중 테스트 251개, 엄격한 타입 검사, 네트워크 및 파일시스템 이름 공간에서 합성 서명 페이로드를 사용한 설치 휠 준비 훈련; 이슈 #461 | 배포 가능한 전체 서명 배포판과 승인된 새 구독의 Console 및 인벤토리 증적을 보존합니다. |
+| 2026-09-06 | implemented | 사전 준비된 이미지로 초기 구성하고 설치 시 공개 설정을 넣는 테넌트 독립 Console 빌드를 추가했습니다. | `current change`; 모의 초기 구성 계획, Python·Console 설정 테스트, Console 타입 검사 및 오프라인 빌드; 이슈 #461 | 실제 최초 설치 실행기, 비공개 이미지 게시, 초기 리소스 검색, 독립적인 Console 재확인을 연결합니다. |
 
 ### 남은 작업
 
-- [ ] 전용 CLI 경계 뒤에 offline-kit 및 배포 번들 검증을 구현하고 패키지하며, 변조, symbolic link, 추가/누락 파일, 다이제스트, 크기 및 호환성 테스트를 통과합니다.
+- [x] [배포 CLI 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md)에 기록된 전용 CLI 검증기와 도구 훈련을 복원합니다.
 - [ ] 통제된 의식을 통해 offline trust 루트를 확립하고 패키지한 뒤, 네트워크 호출 없이 점검이 verified, review, rejected 키트를 구분함을 입증합니다.
-- [ ] 경로와 DNS가 없는 네트워크 이름 공간의 깨끗한 release 체크아웃에서 `stage-offline-kit.sh`와 `airgap-drill.sh`를 통과합니다.
+- [ ] 배포 가능한 정확한 버전의 깨끗한 체크아웃에서 실제 런타임 아카이브를 구성하고, 캐시·경로·DNS 없이 설치된 휠의 준비 훈련을 통과합니다.
 - [ ] 비공개 배포 호스트의 수동 exact-plan 승인 및 적용 경로를 입증하고 롤백, 정리 및 배포 후 검증 증적을 보존합니다.
 
 ## 한눈에 보는 설계
@@ -61,6 +66,99 @@ translation_revised: 2026-08-14
 
 비공개 Azure 인프라 경로는 구현되어 있습니다. Offline 배포판과 CLI 경로는 위 원장에
 기록된 대로 아직 구현 중입니다.
+
+### 전체 로컬 산출물 준비
+
+독립적으로 신뢰가 확립된 `fdaictl` 설치와 승인된 신뢰 절차로 전달된 검증 키를 사용합니다.
+신뢰할 수 없는 키트에 함께 담긴 키만으로 해당 키트의 신뢰를 확립할 수 없습니다.
+운영용 신뢰 루트 확립과 배포 적격성은 별도의 사전 조건입니다.
+
+```bash
+fdaictl offline prepare \
+  --offline-kit /media/fdai-kit \
+  --release-root /trusted/release-root.pub \
+  --bundle-public-key /trusted/bundle-key.pub \
+  --profile /private/offline-profile.json \
+  --source-commit <git-sha> \
+  --work-dir /private/fdai-preparation \
+  --output json
+```
+
+프로필은 `offline`, 대상 바인딩, 양수인 월 비용 상한을 선택합니다. 작업 디렉터리는 아직
+존재하지 않아야 합니다. 준비 과정은 Azure, 레지스트리, 모델, 작업 흐름을 호출하거나
+아카이브를 실행하지 않습니다. 도구만 담긴 키트는 차단됩니다.
+
+서명된 키트에는 `fdai.runtime-release.v1` 스키마의 `runtime/release.json`이 포함됩니다.
+
+| 필드 | 필수 내용 |
+|------|-----------|
+| `source_commit`, `platform_tag` | 정확한 소스 버전과 지원되는 Linux CPU 플랫폼 |
+| `deployment_bundle_sha256` | 짝을 이루는 서명된 배포 번들 아카이브의 다이제스트 |
+| `services` | Core, Operator, 수집 API, 문서 작업자, 격리 실행기의 정확한 5개 항목 |
+| 각 서비스 | 로컬 아카이브, SBOM, 출처 경로 및 SHA-256 다이제스트, OCI 이미지 다이제스트 |
+| `console`, `deployment_support` | SHA-256 다이제스트가 있는 로컬 아카이브와 SBOM |
+
+모든 페이로드 경로는 `runtime/` 아래에 있습니다. 누락, 추가, 링크, 중복, 불일치, 크기
+초과 입력은 차단됩니다. 기존 키트 제한은 파일당 512 MiB, 전체 8 GiB로 유지합니다.
+더 큰 배포판은 제한 해제가 아니라 검토된 형식 변경이 필요합니다. OCI 식별 정보, 출처
+내용, 아카이브 구조, Console 구성, 마이그레이션 완전성은 별도 검증 전까지 배포판 생성자의
+선언으로만 취급합니다. 해시 검사만으로 이런 속성을 입증하지는 않습니다.
+
+배포 담당자는 `stage-offline-kit.sh`에 `--runtime-release <directory>`를 전달해 키트의
+SBOM과 서명을 생성하기 전에 목록과 실제 로컬 페이로드를 포함합니다. 이 옵션은 목록의
+소스 버전과 일치하는 깨끗한 체크아웃을 요구합니다. 런타임 이미지 다운로드·빌드나 출처
+생성을 수행하지 않으며 보호된 배포 검증을 대체하지 않습니다.
+
+완전히 검사된 비공개 스냅샷만 `prepared/`에 게시합니다. `preparation.json`은 프로필,
+대상, 비용 상한, 소스, 키트, 런타임 목록, 배포 번들, 초기 구성 매니페스트를 연결합니다.
+`state=prepared`, `subscription_ready=false`는 입력 준비를 뜻하며 설치 완료가 아닙니다.
+비용을 추정하거나 승인된 실행 가능 Terraform 계획을 생성하지 않습니다.
+
+기존 `deploy` 및 실제 `onboard guided` GitHub 작업 흐름은 아직 공개 산출물을 사용하므로
+오프라인 프로필은 인증이나 제출 전에 차단됩니다. 전체 설치에는 승인된 기반 계층 생성,
+비공개 상태 이전, 애플리케이션 배포, 데이터베이스 초기화, 인증된 Console 재확인,
+최초 전체 리소스 검색, 독립적인 최종 준비도 검증이 필요합니다.
+[구독 초기 프로비저닝](subscription-genesis-provisioning-ko.md)을 참조하세요.
+
+### 설치 시 범용 Console 빌드에 설정 적용
+
+패키지 제작 호스트에서 `npm --prefix console run build:offline`을 실행합니다. 결과는
+`console/dist/offline/`에 생성되며 로컬 환경 파일과 프로세스의 `VITE_*` 값은 제외됩니다.
+이 빌드는 설치 시 설정을 요구하고, 설정이 없을 때 로컬 API 기본값으로 대체하지 않습니다.
+설치 호스트에는 사전 빌드된 파일의 설정을 위해 npm을 설치할 필요가 없습니다.
+
+현재 사용자 소유의 mode-`0700` 작업 디렉터리에 빌드를 복사하고 비공개 디렉터리 아래에
+mode-`0600` 설정 파일을 준비합니다. 이후 다음 명령을 실행합니다.
+
+```bash
+fdaictl offline configure-console \
+  --directory /private/console \
+  --settings /private/console-settings.json \
+  --output json
+```
+
+설정 스키마는 `fdai.console-runtime.v1`이며 `schema_version` 외에
+`operator_api_base_url`, `ingestion_api_base_url`, `tenant_id`, `spa_client_id`,
+`api_scope`만 포함합니다. API URL은 자격 증명과 쿼리 문자열이 없는 HTTPS를 사용하고,
+식별자는 UUID, 범위는 `api://<API-application-id>/<scope>` 형식입니다.
+이 값은 공개 설정이며 비밀이나 역할 부여가 아닙니다.
+[CLI README](../../../packages/deployment-cli/README.md)에 합성 예제가 있습니다.
+
+명령은 배포된 `fdai-config.js` 자리표시자만 원자적으로 교체합니다. 동일 설정으로 반복하면
+변경하지 않으며, 테넌트나 엔드포인트를 바꾸려면 원본 빌드를 새로 복사해야 합니다.
+이 설정은 이전 빌드에 인증 우회 플래그가 있어도 Entra 인증을 강제하며, 호스팅 설정은
+해당 파일에 `no-store`를 지정합니다. 파일 설정만으로 Entra 등록, 사이트 게시,
+API CORS 설정, 인증된 접근 검증을 수행하지는 않습니다.
+
+### 오프라인 실행 호스트 시작
+
+초기 구성 입력에 `runner_bootstrap_mode = "offline"`을 설정하고 버전이 지정된
+`runner_source_image_id`를 제공합니다. GitHub 등록 필드 두 개는 비워 둡니다.
+오프라인 모드는 초기화 스크립트 다운로드 없이 사전 준비된 이미지를 사용하며,
+기존 온라인 기본 동작은 유지됩니다. 이미지에는 승인된 도구가 필요하고 캐시된 자격
+증명을 포함하면 안 됩니다. 네트워크 접근과 이미지 검증은 여전히 독립적인 확인이
+필요합니다. `enable_public_egress`는 별도로 명시적으로 선택합니다.
+[bootstrap README](../../../infra/bootstrap/README.md)를 참조하세요.
 
 ### 1. 모든 서비스를 비공개로 provision
 
@@ -111,7 +209,7 @@ Base 이미지가 다이제스트 pin을 잃거나 레지스트리 호스트를 
 ### 4. CLI와 번들을 서명된 offline 키트로 전달
 
 release 스크립트는 connected 호스트에서 `scripts/deployment/release/stage-offline-kit.sh`로 키트를
-staging하도록 설계되어 있습니다. 이 스크립트가 `fdai` 휠과 모든 transitive 휠, 서명된 배포 번들,
+구성하도록 설계되어 있습니다. 이 스크립트가 `fdai-deployment-cli` 휠과 모든 전이 의존성 휠, 서명된 배포 번들,
 pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, software bill of materials를 모으고
 `scripts/deployment/release/build-offline-kit.py`로 서명합니다. 매니페스트는 staged 트리에서
 생성되므로 검증기가 거부할 내용을 증언할 수 없고, release 비공개 키는 키트에 들어가지
@@ -197,7 +295,8 @@ mirror에 없는 항목은 공개 레지스트리로 가는 대신 계획을 실
 ## 네트워크 없이 전 경로 예행연습
 
 `scripts/deployment/release/airgap-drill.sh`는 고객이 받아야 하는 두 단계 인계 훈련을 정의합니다.
-현재 배포 CLI 검증기 패키지가 없어 완료되지 않습니다. Stage 단계는 실제 `stage-offline-kit.sh`를
+전용 CLI 검증기를 사용할 수 있으며 기존 도구 훈련 근거는 배포 CLI 원장에 기록돼 있습니다.
+Stage 단계는 실제 `stage-offline-kit.sh`를
 일회용 키로 실행하므로, 드릴 통과는 release 경로 자체를 실증합니다. Verify 단계는 경로도
 이름 해석도 없는 네트워크 이름 공간 안에서 모든 폐쇄망 단계를 다시 실행합니다.
 
@@ -257,14 +356,14 @@ residency 검토를 추가로 요구합니다
 
 | 공백 | 오늘의 영향 | 소유 문서 |
 |-----|-------------|-----------|
-| 전용 배포 CLI 패키지가 없음 | `fdaictl` 점검, 번들 검증, 계획, 상태, 적용 및 license 명령을 실행할 수 없음 | [설치형 배포 CLI](installable-deployment-cli-ko.md) |
+| 배포 가능한 전체 런타임 배포판이 게시되지 않음 | 로컬 준비는 실제 페이로드 목록을 지원하지만 승인된 이미지, Console 배포 입력, 그 근거를 만들어 내지는 않음 | [설치형 배포 CLI](installable-deployment-cli-ko.md) |
 | Trust-root 의식이 실행되지 않아 휠에 pinned 공개 루트가 없음 | 점검이 offline 키트를 검증된으로 보고할 수 없고 `candidate` 또는 `review`로 남음 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
-| 키트 staging이 불완전함 | `stage-offline-kit.sh`와 서명 스크립트는 있지만 누락된 검증기 모듈 때문에 완전한 staged 키트를 만들 수 없음 | [provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md) |
+| 오프라인 애플리케이션 실행이 연결되지 않음 | 공개 산출물 작업 흐름 제출은 차단되며 검증된 스냅샷만으로 애플리케이션을 배포할 수 없음 | [subscription-genesis-provisioning-ko.md](subscription-genesis-provisioning-ko.md) |
 | 초기화 적용 orchestration과 정리가 목표 동작으로 남음 | 운영자가 exact-plan 승인과 적용을 수동으로 진행 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | 자체 호스팅 모델 어댑터 없음 | 클라우드 도달성이 없는 사이트는 적응형 경로가 아예 없음 | [tech-stack-ko.md](../architecture/tech-stack-ko.md) |
 
-Framework-surface 검증은 이미 네트워크와 무관합니다. Offline-kit 검증도 같은 속성을 목표로 하지만,
-전용 검증기와 pinned 루트가 제공될 때까지 불완전합니다.
+프레임워크 표면과 오프라인 산출물 검증은 네트워크와 무관합니다. 운영용 신뢰 확립과
+새 구독의 전체 런타임 설치는 별도의 미완료 요구 사항입니다.
 
 ## 관련 문서
 

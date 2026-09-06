@@ -21,8 +21,11 @@ fully disconnected install.
 |------|-------|----------|-------|
 | Private Azure networking and VNet deploy host | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused infrastructure workflow tests | Private endpoints, DNS, the durable deploy host, protected plans, and exact apply are implemented independently of the offline CLI path. |
 | Internal mirror and pinned-input controls | implemented | `infra/modules/preflight-toggles/` and `scripts/quality/ci/check-ci-contracts.py` | The repository exposes mirror inputs and rejects mutable or registry-bound base-image references. |
-| Offline kit staging and drill harness | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py`, and `airgap-drill.sh` | The scripts are present, but the builder imports the absent `fdai.deployment_cli.offline_kit` module and the drill cannot complete. |
-| Disconnected inspection, bundle verification, and planning commands | not-started | The target command sequence in this document | No current package registers `fdaictl`; the inspect, bundle, provision-plan, and license command paths are unavailable. |
+| Offline toolchain kit staging and drill harness | validated | [Deployment CLI implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md) | The dedicated CLI and shipped-wheel toolchain drill were restored. This is not a complete runtime deployment drill. |
+| Disconnected bundle verification and planning commands | implemented | `packages/deployment-cli`; artifact and productization tests | The package registers `fdaictl` and verifies signed local inputs. Planning does not complete a new subscription. |
+| Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
+| Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
+| Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
 | Pinned offline trust root and release integration | not-started | `docs/runbooks/offline-trust-ceremony.md` | No pinned root ships in a CLI wheel and kit staging is not a passing release workflow. |
 | Full-air-gap cloud operation | not-applicable | The full-air-gap boundary in this document | The deterministic core can run from static inputs, but live Azure evidence and cloud mutation are intentionally outside this profile. |
 
@@ -31,12 +34,14 @@ fully disconnected install.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the prior end-to-end support claim after the deployment CLI package was removed. | current change; infrastructure, release-script, package-metadata, and focused workflow evidence listed in the scope table | Restore the dedicated offline verifier and CLI, establish the trust root, and pass the air-gap drill. |
+| 2026-09-06 | implemented | Corrected the obsolete missing-CLI claim and added runtime inventory staging, private offline preparation, and a guard against the public-artifact workflow. | `current change`; 251 focused tests, strict type checks, and an installed-wheel preparation drill with synthetic signed payloads in network and filesystem namespaces; issue #461 | Retain a complete eligible signed release and approved new-subscription Console and inventory receipts. |
+| 2026-09-06 | implemented | Added prebuilt-image bootstrap and tenant-neutral Console builds with installation-time public configuration. | `current change`; mocked bootstrap plans, Python/Console configuration tests, Console typecheck and offline build; issue #461 | Connect the actual first-install executor, private image publication, initial discovery, and independent Console readback. |
 
 ### Remaining work
 
-- [ ] Implement and package offline-kit and deployment-bundle verification behind the dedicated CLI boundary, with tamper, symlink, extra-file, missing-file, digest, size, and compatibility tests.
+- [x] Restore the dedicated CLI verifier and toolchain drill, as recorded in the [deployment CLI ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md).
 - [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
-- [ ] Make `stage-offline-kit.sh` and `airgap-drill.sh` pass from a clean release checkout inside a namespace with no route or DNS.
+- [ ] Stage actual runtime archives from a clean eligible release revision and pass a cache-free installed-wheel preparation drill with no route or DNS.
 - [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
 
 ## Design at a glance
@@ -58,6 +63,99 @@ narrower profile covered under [Full air gap](#full-air-gap).
 
 The private Azure infrastructure path is implemented. The offline distribution and CLI path remains
 in progress, as recorded in the ledger above.
+
+### Prepare a complete local artifact set
+
+Use an independently trusted installation of `fdaictl` and verification keys delivered through
+the approved trust process. Keys supplied with an untrusted kit cannot bootstrap trust in that kit.
+The production root ceremony and release eligibility remain separate prerequisites.
+
+```bash
+fdaictl offline prepare \
+  --offline-kit /media/fdai-kit \
+  --release-root /trusted/release-root.pub \
+  --bundle-public-key /trusted/bundle-key.pub \
+  --profile /private/offline-profile.json \
+  --source-commit <git-sha> \
+  --work-dir /private/fdai-preparation \
+  --output json
+```
+
+The profile selects `offline`, a target binding, and a positive monthly cost ceiling. The work
+directory must not exist. Preparation makes no Azure, registry, model, or workflow calls and never
+executes an archive. A toolchain-only kit is rejected.
+
+The signed kit includes `runtime/release.json` with schema `fdai.runtime-release.v1`:
+
+| Field | Required content |
+|-------|------------------|
+| `source_commit`, `platform_tag` | Exact source revision and supported Linux CPU platform |
+| `deployment_bundle_sha256` | Digest of the matching signed deployment bundle archive |
+| `services` | Exactly Core, Operator, ingestion API, document worker, and isolated Executor |
+| Each service | Local archive, SBOM, provenance paths and their SHA-256 digests; OCI image digest |
+| `console`, `deployment_support` | Local archives and SBOMs with SHA-256 digests |
+
+Every payload path is under `runtime/`. Missing, extra, linked, duplicate, mismatched, and
+oversized inputs are rejected. Existing kit limits remain 512 MiB per file and 8 GiB total;
+larger release layouts need a reviewed format change, not disabled bounds. OCI identity,
+provenance contents, archive layout, Console configuration, and migration completeness remain
+release-producer assertions until their own independent validation. Hash checks alone do not
+prove those properties.
+
+Release engineering passes `--runtime-release <directory>` to `stage-offline-kit.sh` to include
+this inventory and its real local payloads before the kit SBOM and signature are generated.
+This option requires a clean checkout matching the inventory revision. It does not download or
+build runtime images, generate their provenance, or replace the protected release gate.
+
+Only a fully checked private snapshot is published at `prepared/`. Its `preparation.json` binds
+the profile, target, cost ceiling, source, kit, runtime inventory, deployment bundle, and genesis
+manifest. `state=prepared` and `subscription_ready=false` mean inputs are prepared, not installed.
+Preparation does not estimate cost or produce an executable approved Terraform plan.
+
+Offline profiles are blocked before authentication or dispatch through the existing `deploy`
+and live `onboard guided` GitHub workflow path because that workflow still uses public artifacts.
+The full installation still needs approved foundation creation, private state handoff, application
+deployment, database initialization, authenticated Console readback, complete initial resource
+discovery, and independent final readiness. See [Subscription Genesis Provisioning](subscription-genesis-provisioning.md).
+
+### Bind a generic Console build at installation
+
+The packaging host runs `npm --prefix console run build:offline`. The output is
+`console/dist/offline/`; local env files and process `VITE_*` values are excluded. The build
+requires installation-time bindings and does not fall back to local API defaults when they are
+absent. The installer host does not need npm to configure these prebuilt files.
+
+Copy the build to a current-user mode-`0700` staging directory and prepare a mode-`0600` settings
+file under a private directory. Then run:
+
+```bash
+fdaictl offline configure-console \
+  --directory /private/console \
+  --settings /private/console-settings.json \
+  --output json
+```
+
+The settings schema is `fdai.console-runtime.v1`, with exactly `operator_api_base_url`,
+`ingestion_api_base_url`, `tenant_id`, `spa_client_id`, and `api_scope` in addition to
+`schema_version`. API URLs use HTTPS without credentials or query strings, identifiers are UUIDs,
+and the scope uses `api://<API-application-id>/<scope>`. These values are public configuration,
+not secrets or role grants. The [CLI README](../../../packages/deployment-cli/README.md) includes
+a synthetic example.
+
+The command atomically replaces only the shipped `fdai-config.js` placeholder. An identical
+repeat is a no-op; a tenant or endpoint change requires a fresh build copy. The runtime overlay
+forces Entra authentication even if old build-time bypass flags are present, and the hosting
+configuration marks this file `no-store`. Configuring bytes does not create Entra registrations,
+publish the site, configure API CORS, or verify authenticated access.
+
+### Boot an offline execution host
+
+Set `runner_bootstrap_mode = "offline"` and supply a version-specific `runner_source_image_id`
+in the bootstrap inputs. Both GitHub registration fields remain empty. Offline mode uses the
+prebuilt image with no cloud-init downloads; online defaults are unchanged. The image needs the
+approved toolchain and must contain no cached credentials. Network access and image attestation
+still require independent checks. `enable_public_egress` remains a separate, explicit choice.
+See the [bootstrap README](../../../infra/bootstrap/README.md).
 
 ### 1. Provision every service privately
 
@@ -107,7 +205,7 @@ hardcodes a registry host, so the mirror seam cannot decay into an unpinned pull
 ### 4. Deliver the CLI and bundle as a signed offline kit
 
 The release scripts are intended to stage the kit on a connected host with
-`scripts/deployment/release/stage-offline-kit.sh`, which collects the `fdai` wheel and every
+`scripts/deployment/release/stage-offline-kit.sh`, which collects the `fdai-deployment-cli` wheel and every
 transitive wheel, the signed deployment bundle, the pinned Terraform binary and provider mirror,
 the policy engine binary, and the software bill of materials, then signs the result with
 `scripts/deployment/release/build-offline-kit.py`. The manifest is minted from the staged tree, so
@@ -195,8 +293,8 @@ seven, whose exact-plan approval binding remains target behavior.
 ## Rehearsing the whole path with no network
 
 `scripts/deployment/release/airgap-drill.sh` defines the two-phase handover rehearsal a customer
-should receive. It does not currently complete because the deployment CLI verifier package is
-absent. The stage phase is designed to run the
+should receive for the toolchain. The dedicated CLI verifier is available; prior drill evidence is
+recorded in the deployment CLI ledger. The stage phase runs the
 real `stage-offline-kit.sh` with throwaway keys, so a green drill exercises the release path itself
 rather than a second copy of it. The verify phase re-runs every disconnected step inside a network
 namespace that has no route and no name resolution.
@@ -260,14 +358,14 @@ deployment additionally requires its own regulatory and residency review
 
 | Gap | Effect today | Owning document |
 |-----|--------------|-----------------|
-| The dedicated deployment CLI package is absent | `fdaictl` inspection, bundle verification, planning, status, apply, and license commands cannot run | [Installable Deployment CLI](installable-deployment-cli.md) |
+| A complete eligible runtime release has not been published | Local preparation supports real payload inventories, but cannot manufacture approved images, Console delivery inputs, or their evidence | [Installable Deployment CLI](installable-deployment-cli.md) |
 | The trust-root ceremony has not run, so no pinned public root ships in the wheel | inspection can never report a verified offline kit; it stays `candidate` or `review` | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
-| Kit staging is incomplete | `stage-offline-kit.sh` and the signing script exist, but the missing verifier module blocks a complete staged kit | [provisioning-execution-profiles.md](provisioning-execution-profiles.md) |
+| Offline application execution is not composed | Public-artifact workflow dispatch is blocked; a verified snapshot alone cannot deploy the application | [subscription-genesis-provisioning.md](subscription-genesis-provisioning.md) |
 | Bootstrap apply orchestration and teardown remain target behavior | the operator drives the exact-plan approval and apply by hand | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | No self-hosted model adapter | a site with no cloud reachability has no adaptive path at all | [tech-stack.md](../architecture/tech-stack.md) |
 
-Framework-surface verification is already network-independent. Offline-kit verification targets
-the same property, but it remains incomplete until the dedicated verifier and pinned root ship.
+Framework-surface and offline artifact verification are network-independent. Production trust
+bootstrap and complete new-subscription runtime installation remain separate, open requirements.
 
 ## Related docs
 

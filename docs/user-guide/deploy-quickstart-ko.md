@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 07c3269a5dcc744cd559e5243d72fc519d4bf7eb
+translation_source_sha: c7aa43f63c2cad100269c95149a9deb727bbc970
 translation_revised: 2026-09-06
 ---
 
@@ -27,6 +27,8 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - `infra/bootstrap`을 적용해 안정적인 배포 UAMI를 만든 뒤 client ID와 principal ID를
   `DEPLOY_RUNNER_CLIENT_ID`와 `DEPLOY_RUNNER_PRINCIPAL_ID`로 게시합니다. 보호된 workflow는
   이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
+  폐쇄망 이미지는 정확한 관리 이미지 또는 숫자형 갤러리 버전 ID와 함께
+  `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
 - `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
   계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
   Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Exact 적용은

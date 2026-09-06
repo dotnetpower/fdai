@@ -828,7 +828,7 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
     border: 0;
     box-shadow: inset 0 0 0 1px var(--cs-hairline);
   }
-  .cs-settings-segmented button { min-height: var(--cs-control-height-touch) !important; }
+  .cs-settings-segmented:not(:where(.cs-settings-neutral *)) button { min-height: var(--cs-control-height-touch) !important; }
   .cs-settings-toggle { min-height: var(--cs-control-height-touch); }
   .cs-settings-segmented.is-five { min-width: 0; }
   .cs-settings-segmented { grid-auto-columns: minmax(0, 1fr); }

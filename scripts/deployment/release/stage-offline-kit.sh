@@ -19,7 +19,7 @@
 #   bash scripts/deployment/release/stage-offline-kit.sh \
 #     --out DIR --release-key PATH --bundle-key PATH \
 #     [--bundle-version X.Y.Z] [--platform-tag linux-x86_64] \
-#     [--platform linux_amd64]
+#     [--platform linux_amd64] [--runtime-release DIR] [--with-runtime-wheels]
 #
 # Produces:
 #   DIR/kit/                 the signed offline kit
@@ -34,6 +34,8 @@ BUNDLE_KEY=""
 BUNDLE_VERSION="0.1.0"
 PLATFORM_TAG=""
 PLATFORM=""
+RUNTIME_RELEASE=""
+WITH_RUNTIME_WHEELS=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,6 +45,8 @@ while [[ $# -gt 0 ]]; do
     --bundle-version) BUNDLE_VERSION="$2"; shift 2 ;;
     --platform-tag) PLATFORM_TAG="$2"; shift 2 ;;
     --platform) PLATFORM="$2"; shift 2 ;;
+    --runtime-release) RUNTIME_RELEASE="$2"; shift 2 ;;
+    --with-runtime-wheels) WITH_RUNTIME_WHEELS=1; shift ;;
     *) echo "stage-offline-kit: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -59,6 +63,10 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+if [[ ( -n "$RUNTIME_RELEASE" || "$WITH_RUNTIME_WHEELS" -eq 1 ) && -n "$(git status --porcelain)" ]]; then
+  echo "stage-offline-kit: runtime releases require a clean exact-revision checkout." >&2
+  exit 2
+fi
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
 SAFE_WRITER="scripts/deployment/release/secure_work_file.py"
@@ -129,7 +137,7 @@ CLI_VERSION=""
 KIT="$OUT/kit"
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
-rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/toolchain"
+rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/toolchain" "$OUT/runtime-python"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 chmod 700 "$KIT"
@@ -210,6 +218,24 @@ cp "$OUT/bundle.tar.gz" "$KIT/$BUNDLE_IN_KIT"
 cp "$TERRAFORM_BIN" "$KIT/terraform/terraform"
 cp -r "$OUT/mirror" "$KIT/terraform/providers"
 cp "$OUT/toolchain/opa" "$KIT/bin/opa"
+
+if [[ -n "$RUNTIME_RELEASE" ]]; then
+  echo "-- prebuilt runtime release"
+  PYTHONPATH=packages/deployment-cli/src "$PYTHON" \
+    scripts/deployment/release/stage-runtime-release.py \
+    --source "$RUNTIME_RELEASE" --kit "$KIT" \
+    --deployment-bundle "$KIT/$BUNDLE_IN_KIT" \
+    --source-commit "$(git rev-parse HEAD)" --platform-tag "$PLATFORM_TAG"
+fi
+
+if [[ "$WITH_RUNTIME_WHEELS" -eq 1 ]]; then
+  echo "-- locked runtime support wheels"
+  "$PYTHON" scripts/deployment/release/stage-runtime-wheelhouse.py \
+    --repo-root "$repo_root" --out-dir "$OUT/runtime-python"
+  mkdir -m 700 -p "$KIT/support/python"
+  cp -r "$OUT/runtime-python/build" "$OUT/runtime-python/requirements" \
+    "$OUT/runtime-python/wheels" "$OUT/runtime-python/inventory.json" "$KIT/support/python/"
+fi
 
 echo "-- kit SBOM"
 # The deployment bundle already ships a real CycloneDX document listing every

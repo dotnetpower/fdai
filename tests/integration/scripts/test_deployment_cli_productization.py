@@ -130,3 +130,25 @@ def test_release_tooling_is_exactly_pinned() -> None:
     package = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))
     assert package["build-system"]["requires"] == ["hatchling==1.31.0"]
     assert package["dependency-groups"]["release"] == ["pip==26.2.1"]
+
+
+def test_runtime_release_is_staged_before_sbom_and_signing() -> None:
+    stage = (ROOT / "scripts/deployment/release/stage-offline-kit.sh").read_text(encoding="utf-8")
+    assert '--runtime-release) RUNTIME_RELEASE="$2"' in stage
+    assert "runtime releases require a clean exact-revision checkout" in stage
+    runtime = stage.index('echo "-- prebuilt runtime release"')
+    assert runtime < stage.index('echo "-- kit SBOM"') < stage.index('echo "-- sign kit"')
+    assert "scripts/deployment/release/stage-runtime-release.py" in stage
+    assert '--deployment-bundle "$KIT/$BUNDLE_IN_KIT"' in stage
+    assert '--source-commit "$(git rev-parse HEAD)"' in stage
+
+
+def test_runtime_support_wheels_do_not_change_cli_dependency_resolution() -> None:
+    stage = (ROOT / "scripts/deployment/release/stage-offline-kit.sh").read_text(encoding="utf-8")
+    assert "--with-runtime-wheels)" in stage
+    assert "scripts/deployment/release/stage-runtime-wheelhouse.py" in stage
+    assert '"$KIT/support/python/"' in stage
+    assert stage.index('echo "-- locked runtime support wheels"') < stage.index(
+        'echo "-- kit SBOM"'
+    )
+    assert '"$OUT/runtime-python/.work"' not in stage

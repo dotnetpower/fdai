@@ -15,8 +15,8 @@ from pathlib import Path, PurePosixPath
 from typing import Final
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 
@@ -285,8 +285,10 @@ def materialize_verified_artifacts(
     root: Path,
     verification: OfflineKitVerification,
     destination: Path,
+    *,
+    include_all: bool = False,
 ) -> MaterializedOfflineArtifacts:
-    """Copy executable inputs to a private tree and recheck signed digests."""
+    """Snapshot signed inputs, optionally including the complete release payload."""
 
     if destination.exists():
         raise OfflineKitVerificationError("offline artifact destination already exists")
@@ -302,6 +304,8 @@ def materialize_verified_artifacts(
         *(path for path in digests if path.startswith(prefix)),
         *(path for path in digests if path.startswith(python_prefix)),
     }
+    if include_all:
+        selected = set(digests)
     total_bytes = 0
     for relative in sorted(selected):
         expected = digests.get(relative)

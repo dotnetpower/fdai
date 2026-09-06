@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="assets/palette-comparison.css?v=neutral-v2" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
   <link rel="stylesheet" href="assets/settings-neutral.css?v=1" />
+  <link rel="stylesheet" href="assets/settings-iam.css?v=1" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -1052,7 +1053,7 @@
         </section>
         <section class="cs-settings-section" aria-labelledby="sample-account-records">
           <header class="cs-settings-section-head"><div><h3 id="sample-account-records">Account records</h3><span class="cs-settings-scope">Your account</span></div><p>Schedules and saved facts retain their time and provenance.</p></header>
-          <div class="cs-settings-briefing-create"><label>Daily hour<input class="cs-settings-input cs-control-input" type="number" min="0" max="23" value="7" /></label><span>Asia/Seoul</span><button class="cs-control-button" type="button" disabled>Add briefing</button></div>
+          <div class="cs-settings-briefing-create"><label>Daily hour<input class="cs-settings-input cs-control-input" type="number" min="0" max="23" value="7" /></label><span>Asia/Seoul</span><button class="cs-control-button" type="button" disabled>Add daily briefing</button></div>
           <article class="cs-settings-card"><div><strong>Daily major issues</strong><small>0 7 * * * - Asia/Seoul - next 2026-09-07T07:00:00+09:00</small></div><button class="cs-control-button" type="button" disabled>Remove briefing</button></article>
           <article class="cs-settings-card"><div><strong>Preferred maintenance window</strong><small>Source turn-018 - expires 2026-10-01T00:00:00Z</small></div><button class="cs-control-button" type="button" disabled>Remove memory</button></article>
         </section>
@@ -1110,30 +1111,11 @@
 
     <section class="cs-section" id="settings-access" aria-labelledby="settings-access-title">
       <div class="cs-section-head">
-        <div class="cs-section-title"><h2 id="settings-access-title">Settings access workspace</h2><p class="cs-desc">A compact summary and keyboard-accessible tabs separate assigned roles, people, capabilities, and pending requests.</p></div>
+        <div class="cs-section-title"><h2 id="settings-access-title">Settings access workspace</h2><p class="cs-desc">The Console IAM composition: verified Owner authority, directory observations, fixed roles, and independently reviewed access requests.</p></div>
       </div>
       <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
-        <div class="cs-readonly-banner"><strong>Read-only specimen.</strong> Reviewing access does not grant it. A protected deployer applies access and a fresh probe verifies it.</div>
-        <section class="cp-kpis" aria-label="Sample access summary">
-          <article class="cp-kpi"><span>Assigned roles</span><strong>2</strong><small>current principal</small></article><article class="cp-kpi"><span>Capabilities</span><strong>18</strong><small>effective</small></article><article class="cp-kpi"><span>Pending requests</span><strong>4</strong><small>requires review</small></article><article class="cp-kpi"><span>Expiring soon</span><strong>1</strong><small>within 7 days</small></article>
-        </section>
-        <div class="cp-tabs" role="tablist" aria-label="Sample identity workspace" data-cs-tabs>
-          <button class="cp-tab" id="sample-access-tab" type="button" role="tab" aria-selected="true" aria-controls="sample-access-panel" data-cs-tab="sample-access-panel">My access</button>
-          <button class="cp-tab" id="sample-users-tab" type="button" role="tab" aria-selected="false" aria-controls="sample-users-panel" data-cs-tab="sample-users-panel" tabindex="-1">Users</button>
-          <button class="cp-tab" id="sample-roles-tab" type="button" role="tab" aria-selected="false" aria-controls="sample-roles-panel" data-cs-tab="sample-roles-panel" tabindex="-1">Roles</button>
-          <button class="cp-tab" id="sample-requests-tab" type="button" role="tab" aria-selected="false" aria-controls="sample-requests-panel" data-cs-tab="sample-requests-panel" tabindex="-1">Requests</button>
-        </div>
-        <div class="cs-tabpanel cs-active" id="sample-access-panel" role="tabpanel" aria-labelledby="sample-access-tab">
-          <div class="cp-table-wrap"><table class="cp-table"><caption>Assigned roles</caption><thead><tr><th scope="col">Role</th><th scope="col">Scope</th><th scope="col">Granted</th><th scope="col">Expires</th></tr></thead><tbody><tr><td data-label="Role">Operator</td><td data-label="Scope">example-scope</td><td data-label="Granted">2026-08-01</td><td data-label="Expires">2026-11-01</td></tr></tbody></table></div>
-        </div>
-        <div class="cs-tabpanel" id="sample-users-panel" role="tabpanel" aria-labelledby="sample-users-tab" hidden>
-          <div class="cp-table-wrap"><table class="cp-table"><caption>User directory</caption><thead><tr><th scope="col">Principal</th><th scope="col">Roles</th><th scope="col">State</th><th scope="col">Last verified</th></tr></thead><tbody><tr><td data-label="Principal"><code>operator@example.com</code></td><td data-label="Roles">2</td><td data-label="State"><span class="cp-status is-success">Active</span></td><td data-label="Last verified">5 min ago</td></tr></tbody></table></div>
-        </div>
-        <div class="cs-tabpanel" id="sample-roles-panel" role="tabpanel" aria-labelledby="sample-roles-tab" hidden>
-          <div class="cp-table-wrap"><table class="cp-table"><caption>Role definitions</caption><thead><tr><th scope="col">Role</th><th scope="col">Capabilities</th><th scope="col">Assignments</th><th scope="col">Boundary</th></tr></thead><tbody><tr><td data-label="Role">Operator</td><td data-label="Capabilities">18</td><td data-label="Assignments">4</td><td data-label="Boundary">No execution identity</td></tr></tbody></table></div>
-        </div>
-        <div class="cs-tabpanel" id="sample-requests-panel" role="tabpanel" aria-labelledby="sample-requests-tab" hidden>
-          <div class="cp-table-wrap"><table class="cp-table"><caption>Pending access requests</caption><thead><tr><th scope="col">Requester</th><th scope="col">Role</th><th scope="col">Scope</th><th scope="col">State</th></tr></thead><tbody><tr><td data-label="Requester"><code>reviewer@example.com</code></td><td data-label="Role">Evidence reader</td><td data-label="Scope">incident-42</td><td data-label="State"><span class="cp-status is-warning">Pending</span></td></tr></tbody></table></div>
+        <div data-iam-mock>
+          <div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading identity and access preview"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div>
         </div>
       </div>
     </section>
@@ -1257,6 +1239,7 @@
   </footer>
   <script src="assets/calm-slate.js?v=shared-primitives-v10"></script>
   <script src="assets/palette-comparison.js?v=neutral-v2"></script>
+  <script src="assets/settings-iam.js?v=2" type="module"></script>
   <script>
     (async function () {
       var index = document.querySelector(".cs-gallery-index");

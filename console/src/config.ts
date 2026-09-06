@@ -1,11 +1,14 @@
 /**
- * Runtime configuration derived from Vite env vars. All values are
- * fork-supplied via `.env.local` (dev) or a Static Web App configuration
- * (prod). No customer identifiers are baked in at build time - the
- * upstream repo ships only schema and empty defaults.
+ * Vite environment values are embedded at build time. An optional
+ * installer-provided public runtime overlay supplies API and Entra bindings
+ * without rebuilding the Console and disables local authentication bypasses.
+ * The overlay contains no secrets and grants no authorization or execution
+ * authority; the API remains responsible for authentication and authorization.
  *
  * See docs/roadmap/interfaces/user-rbac-and-identity.md § 10.1 for MSAL config.
  */
+
+import { parseConsoleRuntimeConfig } from "./runtime-config";
 
 export interface ConsoleConfig {
   /** Base URL of the Operator API (`https://api.<fork>/...`). */
@@ -56,19 +59,24 @@ function positiveIntegerEnv(key: string, fallback: string): number {
   return value;
 }
 
+/** Load build defaults or a validated installer overlay; malformed overlays fail closed. */
 export function loadConfig(): ConsoleConfig {
-  const devMode = envVar("VITE_DEV_MODE", "0") === "1";
+  const runtime = parseConsoleRuntimeConfig(globalThis.__FDAI_CONSOLE_CONFIG__);
+  if (runtime === null && envVar("VITE_REQUIRE_RUNTIME_CONFIG", "0") === "1") {
+    throw new Error("Console installation-time configuration is required.");
+  }
+  const devMode = runtime === null && envVar("VITE_DEV_MODE", "0") === "1";
   return {
-    operatorApiBaseUrl: envVar("VITE_OPERATOR_API_BASE_URL", "http://127.0.0.1:8010"),
-    ingestionApiBaseUrl: envVar("VITE_INGESTION_API_BASE_URL", "http://127.0.0.1:8011"),
-    msalClientId: envVar("VITE_MSAL_CLIENT_ID"),
-    msalTenantId: envVar("VITE_MSAL_TENANT_ID"),
-    msalApiScope: envVar("VITE_MSAL_API_SCOPE"),
+    operatorApiBaseUrl: runtime?.operator_api_base_url ?? envVar("VITE_OPERATOR_API_BASE_URL", "http://127.0.0.1:8010"),
+    ingestionApiBaseUrl: runtime?.ingestion_api_base_url ?? envVar("VITE_INGESTION_API_BASE_URL", "http://127.0.0.1:8011"),
+    msalClientId: runtime?.spa_client_id ?? envVar("VITE_MSAL_CLIENT_ID"),
+    msalTenantId: runtime?.tenant_id ?? envVar("VITE_MSAL_TENANT_ID"),
+    msalApiScope: runtime?.api_scope ?? envVar("VITE_MSAL_API_SCOPE"),
     authTokenTimeoutMs: positiveIntegerEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "10000"),
     operatorApiRequestTimeoutMs: positiveIntegerEnv("VITE_OPERATOR_API_REQUEST_TIMEOUT_MS", "30000"),
     devMode,
-    localAzureCliAuth: envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
-    localLoginPrompt: envVar("VITE_LOCAL_LOGIN_PROMPT", devMode ? "1" : "0") === "1",
+    localAzureCliAuth: runtime === null && envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
+    localLoginPrompt: runtime === null && envVar("VITE_LOCAL_LOGIN_PROMPT", devMode ? "1" : "0") === "1",
     workflowCatalogRepo: envVar("VITE_WORKFLOW_CATALOG_REPO"),
     workflowCatalogBranch: envVar("VITE_WORKFLOW_CATALOG_BRANCH", "main"),
   };

@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && npm run check:entry",
+    "build:offline": "tsc --noEmit && vite build --mode offline && node scripts/check-entry-bundle.mjs dist/offline",
     "check:entry": "node scripts/check-entry-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",

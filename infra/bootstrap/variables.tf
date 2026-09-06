@@ -63,6 +63,39 @@ variable "runner_vm_size" {
   default     = "Standard_D4ds_v5"
 }
 
+variable "runner_bootstrap_mode" {
+  description = "Runner bootstrap source: online preserves marketplace Ubuntu and network cloud-init; offline uses a prebuilt image without cloud-init or GitHub registration."
+  type        = string
+  default     = "online"
+
+  validation {
+    condition     = contains(["online", "offline"], var.runner_bootstrap_mode)
+    error_message = "runner_bootstrap_mode must be online or offline."
+  }
+}
+
+variable "runner_source_image_id" {
+  description = "Pinned Azure managed image or gallery image-version resource ID for offline bootstrap. The generalized Linux image must already contain Azure CLI, Terraform, and runner tooling compatible with the ephemeral OS disk. Leave null in online mode."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.runner_bootstrap_mode == "offline" ? var.runner_source_image_id != null : var.runner_source_image_id == null
+    error_message = "runner_source_image_id is required in offline mode and must be null in online mode."
+  }
+
+  validation {
+    condition = var.runner_source_image_id == null ? true : (
+      can(regex(
+        "(?i)^/subscriptions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}/resourceGroups/[a-z0-9_().-]+/providers/Microsoft\\.Compute/(images/[a-z0-9_][a-z0-9_.-]*|galleries/[a-z0-9_][a-z0-9_.-]*/images/[a-z0-9_][a-z0-9_.-]*/versions/[0-9]+\\.[0-9]+\\.[0-9]+)$",
+        var.runner_source_image_id
+      )) &&
+      !endswith(lower(var.runner_source_image_id), "/latest")
+    )
+    error_message = "runner_source_image_id must be a full Azure managed image or numeric gallery image-version resource ID; latest, unversioned galleries, and URLs are not allowed."
+  }
+}
+
 variable "runner_parallelism" {
   description = "Number of independent GitHub Actions runner slots registered on the runner VM. Slots share the VM managed identity but use separate work directories."
   type        = number
@@ -98,16 +131,26 @@ variable "enable_deploy_identity_roles" {
 }
 
 variable "github_runner_url" {
-  description = "GitHub repo URL the self-hosted runner registers against (e.g. https://github.com/<owner>/<repo>). Empty leaves the runner unregistered for manual registration."
+  description = "GitHub repo URL the self-hosted runner registers against (e.g. https://github.com/<owner>/<repo>). Empty leaves the runner unregistered for manual registration. Must be empty in offline bootstrap mode."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.runner_bootstrap_mode != "offline" || var.github_runner_url == ""
+    error_message = "github_runner_url must be empty in offline bootstrap mode."
+  }
 }
 
 variable "github_runner_token" {
-  description = "Short-lived GitHub Actions runner registration token. Leave empty and register manually if you prefer not to pass it through terraform. NEVER commit a populated value."
+  description = "Short-lived GitHub Actions runner registration token. Leave empty and register manually if you prefer not to pass it through terraform. Must be empty in offline bootstrap mode. NEVER commit a populated value."
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    condition     = var.runner_bootstrap_mode != "offline" || var.github_runner_token == ""
+    error_message = "github_runner_token must be empty in offline bootstrap mode."
+  }
 }
 
 variable "additional_tags" {

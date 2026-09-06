@@ -409,9 +409,9 @@
       "routes": [{"label": "General settings", "href": "settings.html"}, {"label": "Operator memory", "href": "settings-memory.html"}],
       "states": ["account scoped", "browser scoped", "selected", "enabled", "save unavailable", "schedule", "saved memory"],
       "interaction_roles": ["standard_action", "segmented_option"],
-      "use_when": "Compose scoped preferences, explicit save boundaries, schedules, and records with provenance. Settings use 18px section titles, 14px body text, and aligned 320px control columns. Buttons, compact actions, inputs, selects, and individual segmented choices share a 44px height; segmented groups add no vertical padding.",
+      "use_when": "Compose scoped preferences, explicit save boundaries, schedules, and records with provenance. Settings use 20px semibold section titles, 14px medium setting labels, 14px body text, and 13px control labels. A full-width rule follows the section description; indented rows use quieter bottom rules. Controls retain the shared 34px desktop height and aligned 320px columns.",
       "do_not": "Do not imply that sample selections persist, change language, or grant execution authority.",
-      "responsive": "Stack controls below their labels at 680px container width. Keep every preference control at most 320px wide; wrap long text and five-option groups in very narrow containers.",
+      "responsive": "Stack controls below labels at 680px container width without changing desktop density. Body insets reduce from 24px to 16px below 680px viewport width, then 8px below 520px. Coarse-pointer devices and views at most 520px wide use 44px controls. Keep controls at most 320px wide and preserve the title hierarchy.",
       "a11y": "Use named native controls, pressed state, bold selected labels, visible focus, and explicit disabled save state. Supporting text targets 7:1 contrast and active control boundaries target 3:1."
     },
     {
@@ -455,15 +455,15 @@
       "view_label": "Access workspace",
       "level": "pattern",
       "owner": "Console design system",
-      "api": "cp-kpis / cp-tabs / cp-tab / cp-table",
-      "source": "mocks/ui/assets/settings-neutral.css",
+      "api": "iam-workspace / iam-directory-toolbar / iam-table / iam-editor",
+      "source": "mocks/ui/assets/settings-iam-content.html",
       "routes": [{"label": "Identity and access", "href": "settings-iam.html"}],
-      "states": ["assigned access", "users", "role definitions", "pending request"],
+      "states": ["verified FDAI Owner", "restricted Reader", "directory unavailable", "people and groups", "fixed App Roles", "pending review", "approved - assignment pending", "directory-verified assignment", "loading", "load failed"],
       "interaction_roles": ["standard_action"],
-      "use_when": "Review identity evidence with a compact summary and a single active workspace tab.",
-      "do_not": "Do not imply that reviewing a request grants access or gives a human the executor identity.",
-      "responsive": "Wrap tabs, reduce summary columns, and retain labeled table cells on narrow screens.",
-      "a11y": "Use tablist and tabpanel semantics, roving focus, arrow keys, Home and End, and a complete active outline."
+      "use_when": "Mirror the implemented Console IAM views with one shared route/gallery template: My access, Users, Role definitions, and Access requests. Separate FDAI Owner authority from tenant administration, directory evidence from proposals, and review from protected apply and verification.",
+      "do_not": "Do not send role requests or approval decisions from this static specimen. Never offer BreakGlass in routine role selection, infer membership from an approved proposal, or expose owner-only panels in the Reader preview.",
+      "responsive": "Keep 34px desktop and 44px touch controls. Prioritize roster rows over optional guidance. Use identity-first compact rows on mobile and viewport-bounded request/review dialogs without moving the roster.",
+      "a11y": "Use named sticky tabs, Back/deep links, roving focus that skips restricted views, one live filter result announcement, native-dialog focus containment and Escape/cancel restoration. Keep explicit loading, locked, unavailable, empty and recoverable error states."
     },
     {
       "id": "settings-diagnostics",

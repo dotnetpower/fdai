@@ -329,21 +329,6 @@
         ] },
         { title: "Edit an allowlisted override", type: "form", fields: [["Setting", "select", ["Evidence freshness", "Investigation budget", "Audit retention"], 5], ["Override value", "text", "10 min", 4], ["Revision", "text", "12", 3]], action: "Save revisioned override" }
       ]
-    },
-    "settings-iam": {
-      group: "Settings",
-      title: "Identity and access",
-      subtitle: "Human roles, capabilities, and governed access requests.",
-      note: "The Console records a review only. A protected deployer applies access and a fresh probe verifies it.",
-      kpis: [["Assigned roles", "2", "current principal"], ["Capabilities", "18", "effective"], ["Pending requests", "4", "requires review"], ["Expiring soon", "1", "within 7 days"]],
-      sections: [
-        { title: "Identity workspace", type: "tabs", tabs: [
-          { label: "My access", title: "Assigned roles", columns: ["Role", "Scope", "Granted", "Expires"], rows: [["Operator", "platform-production", "Aug 01", "Nov 01"], ["Evidence reader", "all evidence", "Aug 01", "-"]] },
-          { label: "Users", title: "User directory", columns: ["Principal", "Roles", "State", "Last verified"], rows:[[code("operator@example.invalid"), "2", status("Active", "success"), "5 min ago"], [code("reviewer@example.invalid"), "1", status("Active", "success"), "12 min ago"]] },
-          { label: "Roles", title: "Role definitions", columns: ["Role", "Capabilities", "Assignments", "Boundary"], rows:[["Operator", "18", "4", "No execution identity"], ["Approver", "6", "3", "No self approval"]] },
-          { label: "Requests", title: "Pending access requests", columns: ["Requester", "Role", "Scope", "Reason", "State"], rows:[[code("analyst@example.invalid"), "Evidence reader", "incident-42", "RCA review", status("Pending", "warning")], [code("oncall@example.invalid"), "Operator", "platform-production", "Incident response", status("Pending", "warning")]] }
-        ] }
-      ]
     }
   };
 

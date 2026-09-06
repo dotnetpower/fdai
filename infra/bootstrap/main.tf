@@ -185,14 +185,20 @@ resource "azurerm_linux_virtual_machine" "runner" {
   # VM you can only reach out-of-band.
   boot_diagnostics {}
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "ubuntu-24_04-lts"
-    sku       = "server"
-    version   = "latest"
+  source_image_id = var.runner_bootstrap_mode == "offline" ? var.runner_source_image_id : null
+
+  dynamic "source_image_reference" {
+    for_each = var.runner_bootstrap_mode == "online" ? [1] : []
+
+    content {
+      publisher = "Canonical"
+      offer     = "ubuntu-24_04-lts"
+      sku       = "server"
+      version   = "latest"
+    }
   }
 
-  custom_data = base64encode(templatefile("${path.module}/runner-cloud-init.yaml.tftpl", {
+  custom_data = var.runner_bootstrap_mode == "offline" ? null : base64encode(templatefile("${path.module}/runner-cloud-init.yaml.tftpl", {
     runner_parallelism = var.runner_parallelism
     runner_url         = var.github_runner_url
     runner_token       = var.github_runner_token

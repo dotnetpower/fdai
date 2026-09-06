@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 
 const RAW_LIMIT = 500_000;
@@ -25,7 +26,8 @@ const EXPECTED_LAZY_ROUTES = new Set([
   "src/routes/settings.tsx",
 ]);
 
-const manifest = JSON.parse(await readFile("dist/.vite/manifest.json", "utf8"));
+const directory = process.argv[2] ?? "dist";
+const manifest = JSON.parse(await readFile(join(directory, ".vite/manifest.json"), "utf8"));
 const entries = Object.entries(manifest);
 const entryPair = entries.find(([, value]) => value.isEntry && value.src === "index.html");
 if (!entryPair) throw new Error("bundle check: Vite entry for index.html is missing");
@@ -51,7 +53,7 @@ let rawBytes = 0;
 let gzipBytes = 0;
 for (const key of initialKeys) {
   const file = manifest[key].file;
-  const path = `dist/${file}`;
+  const path = join(directory, file);
   const content = await readFile(path);
   rawBytes += (await stat(path)).size;
   gzipBytes += gzipSync(content, { level: 9 }).length;

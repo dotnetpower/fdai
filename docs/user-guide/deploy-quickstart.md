@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: b40bed0313272f73634a4ba24390360a265da970 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4c3a8c3e4a764c787b528ef1c1226645f3197d9a }]
 ---
 
 # Deploy Quickstart
@@ -29,7 +29,9 @@ Terraform remains an expert path.
 - Apply `infra/bootstrap` to create the stable deploy UAMI, then publish its
   client and principal IDs as `DEPLOY_RUNNER_CLIENT_ID` and
   `DEPLOY_RUNNER_PRINCIPAL_ID`. Protected workflows select that client ID and
-  stop unless the ARM token `oid`, tenant, and subscription all match.
+  stop unless the ARM token `oid`, tenant, and subscription all match. For a
+  closed-network image, use `runner_bootstrap_mode = "offline"` only with an
+  exact managed-image or numeric gallery-version ID.
 - Attested FDAI service images from `container-supply-chain.yml`. Protected
   service plans verify the exact Core, Operator, Document Ingestion API,
   Document Processing Worker, and Isolated Executor image attestations for the

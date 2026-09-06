@@ -88,6 +88,21 @@ the current CLI profile happens to select.
 
 ## Runner registration
 
+### Offline prebuilt image
+
+For a host without public package access, set `runner_bootstrap_mode = "offline"` and provide
+`runner_source_image_id` as an exact managed-image ID or a numeric Azure Compute Gallery
+image-version ID. The image must already contain the approved toolchain and no cached credentials.
+Offline mode omits cloud-init entirely and requires empty `github_runner_url` and
+`github_runner_token` values. Image selection alone does not attest tools, identity, or connectivity.
+
+The default remains `online`, using the existing marketplace image and installation template.
+`enable_public_egress` remains independent; set it to `false` only when an approved private route
+to the Azure management and identity planes exists. State/account prerequisites, exact-plan approval,
+private data-plane execution, and backend migration are unchanged.
+
+### Online registration
+
 Two options:
 
 1. **Manual (recommended)** - leave `github_runner_token` empty, then on the VM
