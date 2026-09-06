@@ -122,6 +122,9 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
 - Ontology directory and exploration records expose the same additive `states` field from the
   ontology-owned current Resource state.
+- An `llm-model-deployment` record may also expose one additive `model_deployment` object. The
+  Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
+  raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
 - Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown
   from the machine reason. Legacy generations can still identify an unbound source explicitly.
@@ -132,6 +135,8 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
+- A `Succeeded` model deployment state reports provisioning completion only. It does not establish
+  inference health, successful requests, quota headroom, or caller authorization.
 - The original Dashboard and older instance clients retain their existing routes and fields.
 - Resource inspection and selection do not grant approval or execution authority.
 - Runtime screen evidence requires a current authenticated 5273 Browser Entra session. An expired

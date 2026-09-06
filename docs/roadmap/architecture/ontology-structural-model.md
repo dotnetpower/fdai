@@ -127,6 +127,12 @@ cluster Resource identity, keeps namespace and cluster scope checks, and records
 unavailability when the API endpoint, CA bundle, or mounted service-account token is not configured.
 Catalog declarations remain meaning only and never grant observation or execution authority.
 
+An instance presentation can attach a ResourceType-specific read-only detail object without
+creating another ontology identity. For `llm-model-deployment`, the Operator projection binds that
+object to the exact ResourceType and allows only model name, model version, deployment SKU, and
+normalized TPM. Other ResourceTypes cannot carry it, and raw provider properties remain outside the
+Console and conversational screen context.
+
 ## LinkType semantics
 
 Stored direction remains `from_type -> to_type`. A compatible LinkType revision can add these

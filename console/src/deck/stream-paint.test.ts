@@ -55,6 +55,17 @@ describe("stream paint batching", () => {
     expect(queue).toEqual([]);
   });
 
+  it("reveals validated advisory terminals without sixty artificial display frames", () => {
+    expect(shouldFlushStreamPaintSynchronously("visible", true, true)).toBe(true);
+    expect(shouldFlushStreamPaintSynchronously("visible", true, false)).toBe(false);
+    expect(submitSource).toContain("reply.adaptiveAnswer !== undefined");
+    const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
+    const queue = terminalRevealChunks(text);
+    expect(queue).toHaveLength(60);
+    expect(flushStreamPaint(queue)).toBe(text);
+    expect(queue).toHaveLength(0);
+  });
+
   it("chunks terminal-only tables without changing their canonical text", () => {
     const text = "| Name | State |\n| --- | --- |\n| api | Running |";
     const chunks = terminalRevealChunks(text);

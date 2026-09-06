@@ -78,6 +78,9 @@ table, or new approval topic. Each source keeps its own schema, revision, lifecy
 The Ontology instance workspace is a read-only operational view. Its graph-first layout, selected
 resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
 they do not create links, change query scope, or grant mutation authority.
+For an `llm-model-deployment`, the card, tooltip, Inspector, and screen context use the same bounded
+model name, version, deployment SKU, and normalized TPM object. Missing values remain Not reported,
+and `Succeeded` describes provisioning completion rather than inference health or caller access.
 The relationship legend shows `contains`, `attached_to`, and `depends_on` by default and exposes
 the remaining bounded-response types through an explicit disclosure. Expanding or collapsing the
 legend does not remove links, change counts, or narrow the Inspector.

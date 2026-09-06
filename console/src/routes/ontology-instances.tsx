@@ -564,6 +564,7 @@ function resourceContextRecord(resource: OntologyInstanceResource): Record<strin
     name: resource.name,
     type: resource.resource_type,
     status: resource.status,
+    model_deployment: resource.model_deployment ?? null,
     recorded_states: resource.states ?? null,
     location: resource.location,
     resource_group: resource.resource_group,

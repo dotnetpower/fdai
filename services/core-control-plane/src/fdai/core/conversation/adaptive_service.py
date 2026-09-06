@@ -300,6 +300,24 @@ class AdaptiveConversationService:
         safe = self._safe(draft, review, valid_ids)
         complete = safe and self._complete(draft, review, plan, evidence)
         refinements = 0
+        supported = set(review.supported_goal_ids) if review is not None else set()
+        drafted = {section.goal_id for section in draft.sections}
+        evidence_only_hold = (
+            safe
+            and all(
+                goal.goal_id in supported & drafted
+                for goal in plan.goals
+                if goal.required and goal.kind == "knowledge"
+            )
+            and any(
+                goal.required
+                and goal.kind != "knowledge"
+                and (goal.goal_id not in evidence or evidence[goal.goal_id].status != "answered")
+                for goal in plan.goals
+            )
+        )
+        if evidence_only_hold:
+            _LOGGER.info("adaptive_refinement_requires_missing_evidence")
         refinement_fits = (
             budget.remaining >= 2 * self._policy.per_stage_seconds
             and budget.calls + 2 <= self._policy.max_calls
@@ -313,6 +331,7 @@ class AdaptiveConversationService:
             and self._policy.refinement_enabled
             and review is not None
             and refinement_fits
+            and not evidence_only_hold
         ):
             review_payload["critique"] = review.model_dump(mode="json")
             calls_before = budget.calls

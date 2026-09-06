@@ -87,6 +87,13 @@ observation time under authenticated read access. It never exposes provider payl
 graph facts. A visible Console receiving the invalidation re-reads its bounded selected-instance
 projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded fallback.
 
+Observed model deployments use that same generation and invalidation path. The Operator projection
+exposes only model name, model version, deployment SKU, and normalized TPM in an additive
+`model_deployment` object. Console cards, tooltips, details, and screen context consume this
+allowlist without receiving raw provider properties. A changed TPM becomes visible only after the
+next accepted observation commits; invalidation accelerates the reread but does not provide an
+immediate or strongly consistent provider guarantee.
+
 ### Load-aware scheduling
 
 Each source has a validated policy rather than one global interval. The policy includes:

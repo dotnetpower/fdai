@@ -22,6 +22,15 @@ incomplete and must not suppress that read. Recovery renders the stored terminal
 same validated presenter; it never resends the question, creates a model call, or rewrites history.
 New input or a session switch invalidates an in-flight restoration before it can replace the view.
 
+Validated advisory terminals render their complete canonical text immediately. They do not replay
+an artificial typewriter after the server has already completed review. Ordinary streamed deltas
+retain their pacing and ordering, and malformed advisory metadata cannot select this fast path.
+
+The Operator signals waiting streams after a terminal result is validated and durably committed.
+Bounded terminal markers prevent a commit-before-wait race from adding the one-second replay poll.
+The signal carries no answer or authority: readers still load the authoritative result, and polling
+remains the recovery path when notifications are absent.
+
 ## Implementation status
 
 ### Implementation scope

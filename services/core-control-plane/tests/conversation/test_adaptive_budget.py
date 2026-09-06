@@ -206,6 +206,25 @@ async def test_refinement_requires_two_remaining_calls(max_calls: int) -> None:
     assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
 
 
+async def test_t2_cannot_repair_missing_required_evidence_with_more_prose() -> None:
+    from tests.conversation.test_adaptive_service import _run
+
+    model = _Model(
+        plan=_plan(example=True, required=True),
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    result = await _run(model)
+    assert isinstance(result, AdaptiveOutcome)
+    assert "canary" in result.answer.answer
+    assert result.answer.goals[1].status == "held"
+    assert result.answer.quality_status == "limited"
+    assert result.answer.refinements == 0
+    assert [call["stage"] for call in model.calls] == ["plan", "answer", "review"]
+
+
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:
     clock = _Clock()
     plan = _plan(example=True)

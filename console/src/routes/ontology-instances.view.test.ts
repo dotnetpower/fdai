@@ -73,6 +73,14 @@ describe("Ontology Instances view controls", () => {
     expect(inspectorSource).toContain("<StatusPill");
     expect(inspectorSource).toContain("ontologyInstanceStatusTone(root.status)");
     expect(inspectorSource).toContain("ontology.instances.nodeCount");
+    expect(inspectorSource).toContain("ontology.instances.modelName");
+    expect(inspectorSource).toContain("ontology.instances.modelVersion");
+    expect(inspectorSource).toContain("ontology.instances.deploymentSku");
+    expect(inspectorSource).toContain("ontology.instances.tokensPerMinute");
+    expect(graphSource).toContain("ontology.instances.modelTpmShort");
+    expect(graphSource).toContain("modelDeployment.model_name");
+    expect(graphSource).toContain("modelDeployment.model_version");
+    expect(instancesSource).toContain("model_deployment: resource.model_deployment");
     expect(instancesSource).toContain("installOntologyInstanceRefresh");
     expect(instancesSource).toContain("useOntologyInvalidationStream");
     expect(instancesSource).toContain("formatOntologyRefreshCountdown");

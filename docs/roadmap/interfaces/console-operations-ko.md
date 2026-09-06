@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7c3b2f5f78ea2a286a16bc86b8542442b68ababe
+translation_source_sha: ff1525facf13117ff1b20d5ad2b4d9d049272b8f
 translation_revised: 2026-09-06
 ---
 
@@ -80,6 +80,9 @@ Operations는 기존 객체와 링크를 재사용합니다.
 온톨로지 인스턴스 작업 영역은 읽기 전용 운영 화면입니다. 그래프 우선 레이아웃, 선택된 리소스와
 범례 오버레이, Inspector 소유 접기 상태는 표현 컨트롤일 뿐이며 링크를 만들거나 쿼리 범위를
 바꾸거나 변경 권한을 부여하지 않습니다.
+`llm-model-deployment`의 카드, 도구 설명, Inspector 및 화면 맥락은 모델 이름, 버전, 배포 SKU
+및 정규화된 TPM으로 구성된 동일한 범위 제한 객체를 사용합니다. 누락된 값은 보고되지 않음으로
+유지되며 `Succeeded`는 추론 상태나 호출자 접근 권한이 아니라 프로비저닝 완료를 나타냅니다.
 관계 범례는 기본적으로 `contains`, `attached_to`, `depends_on`을 표시하고 명시적인 펼치기
 컨트롤을 통해 범위가 제한된 응답의 나머지 유형을 제공합니다. 범례를 펼치거나 접어도 링크를
 제거하거나 개수를 바꾸거나 Inspector의 범위를 줄이지 않습니다.
