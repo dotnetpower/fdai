@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b7fac3e76f05824b5590803d75cb5615c18b6104
+translation_source_sha: 8649340adf03f7ee53920d0697e5c48b60e8ff4a
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -18,6 +18,10 @@ translation_revised: 2026-09-06
 - **서비스 분포 5개:** 각 런타임 프로세스는 `services/` 아래 패키지 하나를 소유합니다.
 - **공유 패키지 2개:** `packages/service-contracts/`는 구현 없는 wire 계약을 소유하고
   `packages/github-app-auth/`는 Core, 수집 및 비용 이미지 프로필이 사용하는 갱신 가능한 자격 증명을 소유합니다. 모든 이미지 컨텍스트는 해당 workspace 메타데이터를 포함합니다.
+- **기록 상태 경로 소유권:** `fdai_service_contracts.recorded_resource_state`는 검토된
+  ResourceType 경로 레지스트리를 소유합니다. Core 온톨로지 변환과 Operator 조회 모델은 공급자
+  속성을 확인하기 전에 이 레지스트리를 사용합니다. 따라서 일반 `status`나
+  `provisioningState`가 적용 대상이 아닌 유형의 운영 사실을 만들 수 없습니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다. `pytest-timeout`은 테스트당 120초 상한을 적용하여 중단된 테스트가 xdist 샤드를 무기한 차단하지 못하게 하며, `faulthandler_timeout`(90초)은 강제 종료 전에 모든 스레드 스택을 덤프하여 진단 증거를 보존합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
@@ -626,6 +630,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | 물리 서비스 및 패키지 소유권 | [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md) |
 | 모듈 경계와 의존성 주입 | [프로젝트 구조](project-structure-ko.md) |
 | 대화 및 온톨로지 조회 구현 순서 | [온톨로지 조회 커버리지 구현 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md) |
+| 기록된 Resource 상태 경로 및 근거 경계 | [기록된 리소스 상태](../interfaces/recorded-resource-state-ko.md) |
 | IS 작업 패키지와 local-first 순서 | [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md) |
 | 서비스 승격, 데이터 소유권 및 롤백 게이트 | [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md) |
 | Control-loop 권한 | [아키텍처 instructions](../../../.github/instructions/architecture.instructions.md) |

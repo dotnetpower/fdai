@@ -260,7 +260,7 @@ def test_resource_status_is_projected_as_observed_state_evidence() -> None:
             ResourceRecord(
                 resource_id="vm-1",
                 type="compute.vm",
-                props={"status": "running"},
+                props={"powerState": "running"},
                 last_seen=OBSERVED_AT.isoformat(),
             ),
         ),
@@ -275,18 +275,39 @@ def test_resource_status_is_projected_as_observed_state_evidence() -> None:
 
 
 @pytest.mark.parametrize(
-    ("properties", "expected"),
+    ("resource_type", "properties", "expected"),
     [
-        ({"properties": {"runningStatus": "Running"}}, "Running"),
-        ({"properties": {"operationalState": "Started"}}, "Started"),
-        ({"properties": {"dnsResolverState": "Connected"}}, "Connected"),
-        ({"properties": {"diskState": "Reserved"}}, "Reserved"),
-        ({"properties": {"snapshotAccessState": "Available"}}, "Available"),
-        ({"properties": {"virtualNetworkLinkState": "Completed"}}, "Completed"),
-        ({"properties": {"powerState": {"code": "Stopped"}}}, "Stopped"),
+        ("compute.container-app", {"properties": {"runningStatus": "Running"}}, "Running"),
+        (
+            "network.application-gateway",
+            {"properties": {"operationalState": "Started"}},
+            "Started",
+        ),
+        (
+            "network.dns-resolver",
+            {"properties": {"dnsResolverState": "Connected"}},
+            "Connected",
+        ),
+        ("disk", {"properties": {"diskState": "Reserved"}}, "Reserved"),
+        (
+            "disk-snapshot",
+            {"properties": {"snapshotAccessState": "Available"}},
+            "Available",
+        ),
+        (
+            "network.private-dns-zone-link",
+            {"properties": {"virtualNetworkLinkState": "Completed"}},
+            "Completed",
+        ),
+        (
+            "kubernetes-cluster",
+            {"properties": {"powerState": {"code": "Stopped"}}},
+            "Stopped",
+        ),
     ],
 )
 def test_nested_operational_state_is_projected_with_observation_metadata(
+    resource_type: str,
     properties: dict[str, object],
     expected: str,
 ) -> None:
@@ -295,7 +316,7 @@ def test_nested_operational_state_is_projected_with_observation_metadata(
         resources=(
             ResourceRecord(
                 resource_id="resource-1",
-                type="compute.container-app",
+                type=resource_type,
                 props=properties,
                 last_seen=OBSERVED_AT.isoformat(),
             ),
@@ -342,13 +363,310 @@ def test_resource_health_availability_metadata_reaches_ontology_instance() -> No
 
     provider = projection.objects[0].properties["properties"]
     assert provider["availabilityState"] == "Available"
-    assert provider["state"] == "Running"
+    assert "state" not in provider
     assert (
         StateFactMetadata.from_mapping(provider["state_fact_metadata"]["availabilityState"])
         == health_metadata
     )
-    operational_metadata = StateFactMetadata.from_mapping(provider["state_fact_metadata"]["state"])
-    assert operational_metadata.source_identity == "inventory-provider"
+
+
+@pytest.mark.parametrize(
+    "resource_type",
+    ["application-insights", "log-workspace", "resource-group"],
+)
+def test_not_applicable_resource_types_do_not_create_operational_state(
+    resource_type: str,
+) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id=f"{resource_type}-1",
+                type=resource_type,
+                props={
+                    "status": "Running",
+                    "state": "Running",
+                    STATE_FACT_METADATA_PROPERTY: _observation_metadata().state_fact.to_mapping(),
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert "state" not in provider
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+@pytest.mark.parametrize("state", ["Running\nsecret", "x" * 257])
+def test_invalid_operational_values_do_not_create_verified_facts(state: str) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="function-1",
+                type="compute.function",
+                props={"state": state},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+def test_operational_cleanup_preserves_keyed_availability_metadata() -> None:
+    metadata = _observation_metadata().state_fact.to_mapping()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="workspace-1",
+                type="log-workspace",
+                props={
+                    "status": "Running",
+                    "availabilityState": "Available",
+                    STATE_FACT_METADATA_PROPERTY: {
+                        "status": metadata,
+                        "availabilityState": metadata,
+                    },
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert "state" not in provider
+    assert provider[STATE_FACT_METADATA_PROPERTY] == {"availabilityState": metadata}
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "properties", "expected"),
+    [
+        (
+            "compute.function",
+            {"status": "Running", "state": "Stopped"},
+            "Stopped",
+        ),
+        (
+            "compute.vm",
+            {
+                "status": "Running",
+                "state": "Started",
+                "properties": {"powerState": {"code": "PowerState/deallocated"}},
+            },
+            "PowerState/deallocated",
+        ),
+    ],
+)
+def test_operational_state_uses_only_resource_type_paths(
+    resource_type: str,
+    properties: dict[str, object],
+    expected: str,
+) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id=f"{resource_type}-1",
+                type=resource_type,
+                props=properties,
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["state"] == expected
+
+
+def test_unrelated_property_conflict_does_not_qualify_operational_state() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"powerState": "running", "status": "first"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"powerState": "running", "status": "second"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider[STATE_FACT_METADATA_PROPERTY])
+    assert provider["state"] == "running"
+    assert metadata.conflicts == ()
+    assert metadata.completeness == 1.0
+
+
+def test_unrelated_nested_conflict_preserves_agreed_operational_state() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={
+                    "properties": {
+                        "powerState": {"code": "PowerState/running"},
+                        "hardwareProfile": "first",
+                    }
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={
+                    "properties": {
+                        "powerState": {"code": "PowerState/running"},
+                        "hardwareProfile": "second",
+                    }
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider[STATE_FACT_METADATA_PROPERTY])
+    assert provider["state"] == "PowerState/running"
+    assert metadata.conflicts == ()
+    assert metadata.completeness == 1.0
+
+
+def test_ontology_uses_only_exact_declared_operational_paths() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="function-1",
+                type="compute.function",
+                props={"state": {"code": "Running"}},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert STATE_FACT_METADATA_PROPERTY not in provider
+
+
+def test_operational_state_preserves_provider_identity_conflicts() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"powerState": "running"},
+                provider_ref="provider/vm-1/a",
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"powerState": "running"},
+                provider_ref="provider/vm-1/b",
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.conflicts == ("observed_provider_ref_conflict",)
+    assert metadata.completeness == 0.0
+
+
+def test_non_operational_resource_rejects_unrepresentable_identity_conflict() -> None:
+    with pytest.raises(InventoryProjectionConflictError, match="no applicable operational state"):
+        build_inventory_ontology_projection(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="application-insights-1",
+                    type="application-insights",
+                    props={"status": "Running"},
+                    provider_ref="provider/application-insights-1/a",
+                    last_seen=OBSERVED_AT.isoformat(),
+                ),
+                ResourceRecord(
+                    resource_id="application-insights-1",
+                    type="application-insights",
+                    props={"status": "Running"},
+                    provider_ref="provider/application-insights-1/b",
+                    last_seen=OBSERVED_AT.isoformat(),
+                ),
+            ),
+        )
+
+
+def test_nested_operational_state_conflict_stays_incomplete() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="node-pool-1",
+                type="kubernetes-node-pool",
+                props={"properties": {"powerState": {"code": "Running"}}},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="node-pool-1",
+                type="kubernetes-node-pool",
+                props={"properties": {"powerState": {"code": "Stopped"}}},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.conflicts == ("observed_property_conflict:powerState",)
+    assert metadata.completeness == 0.0
+    assert "state" not in provider
+
+
+def test_conflicting_values_across_declared_paths_stay_incomplete() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={
+                    "powerState": "Running",
+                    "properties": {"powerState": {"code": "Started"}},
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={
+                    "powerState": "Running",
+                    "properties": {"powerState": {"code": "Stopped"}},
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.conflicts == ("observed_property_conflict:powerState",)
+    assert metadata.completeness == 0.0
+    assert "state" not in provider
 
 
 def test_snapshot_relationship_evidence_is_not_projected_as_provider_properties() -> None:
@@ -551,13 +869,13 @@ def test_conflicting_observation_for_one_id_becomes_an_explicit_state_conflict()
             ResourceRecord(
                 resource_id="vm-1",
                 type="compute.vm",
-                props={"status": "running", "name": "vm-one"},
+                props={"powerState": "running", "name": "vm-one"},
                 last_seen=OBSERVED_AT.isoformat(),
             ),
             ResourceRecord(
                 resource_id="vm-1",
                 type="compute.vm",
-                props={"status": "deallocated", "name": "vm-one"},
+                props={"powerState": "deallocated", "name": "vm-one"},
                 last_seen=(OBSERVED_AT + timedelta(seconds=5)).isoformat(),
             ),
         ),
@@ -565,7 +883,7 @@ def test_conflicting_observation_for_one_id_becomes_an_explicit_state_conflict()
 
     provider_properties = projection.objects[0].properties["properties"]
     metadata = StateFactMetadata.from_mapping(provider_properties[STATE_FACT_METADATA_PROPERTY])
-    assert metadata.conflicts == ("observed_property_conflict:status",)
+    assert metadata.conflicts == ("observed_property_conflict:powerState",)
     assert metadata.completeness == 0.0
     assert metadata.synthetic is False
     assert metadata.effective_at == OBSERVED_AT
@@ -591,13 +909,13 @@ def test_repeated_observation_differing_only_by_clock_read_is_not_a_conflict() -
             ResourceRecord(
                 resource_id="vm-1",
                 type="compute.vm",
-                props={"status": "running"},
+                props={"powerState": "running"},
                 last_seen=(OBSERVED_AT + timedelta(seconds=9)).isoformat(),
             ),
             ResourceRecord(
                 resource_id="vm-1",
                 type="compute.vm",
-                props={"status": "running"},
+                props={"powerState": "running"},
                 last_seen=OBSERVED_AT.isoformat(),
             ),
         ),
@@ -619,13 +937,13 @@ def test_conflicting_observation_demotes_the_existing_state_evidence_consumer() 
                 ResourceRecord(
                     resource_id="vm-1",
                     type="compute.vm",
-                    props={"status": "running"},
+                    props={"powerState": "running"},
                     last_seen=OBSERVED_AT.isoformat(),
                 ),
                 ResourceRecord(
                     resource_id="vm-1",
                     type="compute.vm",
-                    props={"status": second_status},
+                    props={"powerState": second_status},
                     last_seen=OBSERVED_AT.isoformat(),
                 ),
             ),
@@ -645,7 +963,7 @@ def test_conflicting_observation_demotes_the_existing_state_evidence_consumer() 
         cutoff=OBSERVED_AT,
     )
     assert contested_status is TelemetrySegmentStatus.UNVERIFIED
-    assert "state_evidence_conflict:observed_property_conflict:status" in contested_reasons
+    assert "state_evidence_conflict:observed_property_conflict:powerState" in contested_reasons
 
 
 def test_conflicting_duplicate_link_is_absent_and_reported() -> None:
@@ -729,7 +1047,7 @@ def test_observed_state_uses_the_declared_refresh_cadence() -> None:
             ResourceRecord(
                 resource_id="vm-1",
                 type="compute.vm",
-                props={"status": "running"},
+                props={"powerState": "running"},
                 last_seen=OBSERVED_AT.isoformat(),
             ),
         ),

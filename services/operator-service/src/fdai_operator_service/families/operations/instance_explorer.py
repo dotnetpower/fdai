@@ -28,6 +28,10 @@ from fdai_service_contracts import (
     context_selection_digest,
 )
 from fdai_service_contracts.ontology_query import content_digest
+from fdai_service_contracts.recorded_resource_state import (
+    is_recorded_state_value_valid,
+    operational_state_paths,
+)
 
 MAX_INSTANCE_LINK_TYPES = 16
 MAX_INSTANCE_RESOURCES = 200
@@ -524,7 +528,7 @@ def _resource_projection(
         or _optional_text(properties.get("resource_group")),
         "subscription_id": _optional_text(properties.get("subscriptionId"))
         or _optional_text(properties.get("subscription_id")),
-        "status": _optional_text(_resource_status(properties)),
+        "status": _optional_text(_resource_status(properties, resource.resource_type)),
         "states": recorded_resource_states(
             properties,
             resource_type=resource.resource_type,
@@ -574,17 +578,21 @@ def _resource_capacity(resource_type: str, properties: Mapping[str, object]) -> 
     return candidate
 
 
-def _resource_status(properties: Mapping[str, object]) -> str | None:
-    for key in ("status", "state", "phase", "provisioningState"):
-        value = _optional_text(properties.get(key))
-        if value is not None:
-            return value
-    ready_status = _optional_text(properties.get("ready_status"))
-    if ready_status is not None:
-        return _READY_STATUS_TEXT.get(ready_status)
-    nested = properties.get("properties")
-    if isinstance(nested, Mapping):
-        return _optional_text(nested.get("provisioningState"))
+def _resource_status(properties: Mapping[str, object], resource_type: str) -> str | None:
+    for prefix in ("", "properties.", "properties.properties."):
+        for path in operational_state_paths(resource_type):
+            current: object = properties
+            for part in (prefix + path).split("."):
+                if not isinstance(current, Mapping):
+                    current = None
+                    break
+                current = current.get(part)
+            if is_recorded_state_value_valid(
+                current,
+                allow_unknown=path == "ready_status",
+            ) and isinstance(current, str):
+                value = current.strip()
+                return _READY_STATUS_TEXT.get(value, value) if path == "ready_status" else value
     return None
 
 

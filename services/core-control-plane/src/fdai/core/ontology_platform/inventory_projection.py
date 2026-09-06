@@ -24,6 +24,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.recorded_resource_state import (
+    OPERATIONAL_STATE_PATHS,
+    is_recorded_state_value_valid,
+    operational_state_paths,
+)
+
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
@@ -39,6 +45,8 @@ from fdai.shared.providers.state_evidence import (
 )
 
 from .observation_adjudication import (
+    CONFLICT_PROVIDER_REF,
+    CONFLICT_TRUNCATED,
     ObservationIdentityConflictError,
     ObservationVerdict,
     ObservedClaim,
@@ -67,26 +75,6 @@ _RESOURCE_OBJECT_TYPE = "Resource"
 _MAX_RESOURCES = 50_000
 _MAX_LINKS = 200_000
 DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS = 21_600
-_OPERATIONAL_STATE_PATHS = (
-    "status",
-    "state",
-    "phase",
-    "ready_status",
-    "readiness",
-    "runningStatus",
-    "operationalState",
-    "dnsResolverState",
-    "diskState",
-    "resourceState",
-    "snapshotAccessState",
-    "userVisibleState",
-    "virtualNetworkLinkState",
-    "powerState.code",
-    "powerState",
-    "instanceView.powerState.code",
-    "extended.instanceView.powerState.code",
-)
-
 _DROP_OBSERVATION_INCOMPLETE = "observation_incomplete"
 _DROP_UNREGISTERED_LINK_TYPE = "unregistered_link_type"
 _DROP_MISSING_SOURCE_ENDPOINT = "missing_source_endpoint"
@@ -295,6 +283,7 @@ def _build_objects(
             ) from exc
         objects[resource_id] = _resource_object(
             verdict,
+            claims=resource_claims,
             resource_id=resource_id,
             generation=generation,
             freshness_ceiling_seconds=freshness_ceiling_seconds,
@@ -305,11 +294,22 @@ def _build_objects(
 def _resource_object(
     verdict: ObservationVerdict,
     *,
+    claims: Sequence[ObservedClaim],
     resource_id: str,
     generation: str,
     freshness_ceiling_seconds: int,
 ) -> OntologyObjectRecord:
     """Map one adjudicated resource onto the declared ``Resource`` property shape."""
+    global_conflicts = tuple(
+        conflict
+        for conflict in verdict.conflicts
+        if conflict in {CONFLICT_PROVIDER_REF, CONFLICT_TRUNCATED}
+    )
+    if global_conflicts and not operational_state_paths(verdict.type):
+        raise InventoryProjectionConflictError(
+            f"inventory resource {resource_id!r} has a global observation conflict "
+            "but no applicable operational state fact can carry it"
+        )
     if verdict.contested and verdict.observed_at is None:
         # The conflict can only travel on the state fact, and the state fact needs an
         # observation time. Projecting the object anyway would publish a contested
@@ -322,6 +322,8 @@ def _resource_object(
     provider_properties = dict(verdict.agreed_properties)
     _add_observed_state(
         provider_properties,
+        resource_type=verdict.type,
+        claims=claims,
         generation=generation,
         observed_at=verdict.observed_at,
         conflicts=verdict.conflicts,
@@ -342,6 +344,8 @@ def _resource_object(
 def _add_observed_state(
     properties: dict[str, Any],
     *,
+    resource_type: str,
+    claims: Sequence[ObservedClaim],
     generation: str,
     observed_at: datetime | None,
     conflicts: tuple[str, ...],
@@ -353,7 +357,15 @@ def _add_observed_state(
     not evidence that the fact was independently corroborated.
     """
 
-    state = _operational_state(properties)
+    paths = operational_state_paths(resource_type)
+    if not paths:
+        _remove_operational_state(properties)
+        return
+    state, conflicts = _adjudicate_operational_state(
+        claims,
+        resource_type=resource_type,
+        conflicts=conflicts,
+    )
     has_state = state is not None
     if observed_at is None or not (has_state or conflicts):
         return
@@ -383,23 +395,78 @@ def _add_observed_state(
         properties[STATE_FACT_METADATA_PROPERTY] = state_metadata
 
 
-def _operational_state(properties: Mapping[str, object]) -> str | None:
+def _operational_state_candidates(
+    properties: Mapping[str, object],
+    *,
+    paths: tuple[str, ...],
+) -> tuple[tuple[str, str], ...]:
+    candidates: list[tuple[str, str]] = []
     for prefix in ("", "properties.", "properties.properties."):
-        for path in _OPERATIONAL_STATE_PATHS:
+        for path in paths:
             current: object = properties
             for part in (prefix + path).split("."):
                 if not isinstance(current, Mapping):
                     current = None
                     break
                 current = current.get(part)
-            candidate = current.get("code") if isinstance(current, Mapping) else current
-            if (
-                isinstance(candidate, str)
-                and candidate.strip()
-                and candidate.strip().casefold() != "unknown"
-            ):
-                return candidate.strip()
-    return None
+            if is_recorded_state_value_valid(
+                current,
+                allow_unknown=path == "ready_status",
+            ) and isinstance(current, str):
+                candidate = (path, current.strip())
+                if candidate not in candidates:
+                    candidates.append(candidate)
+    return tuple(candidates)
+
+
+def _adjudicate_operational_state(
+    claims: Sequence[ObservedClaim],
+    *,
+    resource_type: str,
+    conflicts: tuple[str, ...],
+) -> tuple[str | None, tuple[str, ...]]:
+    """Adjudicate only reviewed operational paths across repeated observations."""
+
+    paths = operational_state_paths(resource_type)
+    if not paths:
+        return None, ()
+    global_conflicts = tuple(
+        conflict
+        for conflict in conflicts
+        if conflict in {CONFLICT_PROVIDER_REF, CONFLICT_TRUNCATED}
+    )
+    candidates_by_claim = tuple(
+        _operational_state_candidates(claim.properties, paths=paths) for claim in claims
+    )
+    supplied = tuple(candidate for candidates in candidates_by_claim for candidate in candidates)
+    if not supplied:
+        return None, global_conflicts
+    values = {candidate[1] for candidate in supplied}
+    if all(candidates_by_claim) and len(values) == 1:
+        return supplied[0][1], global_conflicts
+    property_conflicts = tuple(
+        f"observed_property_conflict:{root}"
+        for root in sorted({candidate[0].split(".", 1)[0] for candidate in supplied})
+    )
+    return None, tuple(dict.fromkeys((*global_conflicts, *property_conflicts)))
+
+
+def _remove_operational_state(properties: dict[str, Any]) -> None:
+    properties.pop("state", None)
+    metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if not isinstance(metadata, Mapping):
+        return
+    if "lane" in metadata:
+        properties.pop(STATE_FACT_METADATA_PROPERTY, None)
+        return
+    operational_keys = {
+        key for path in OPERATIONAL_STATE_PATHS for key in (path, path.split(".", 1)[0])
+    }
+    retained = {key: value for key, value in metadata.items() if key not in operational_keys}
+    if retained:
+        properties[STATE_FACT_METADATA_PROPERTY] = retained
+    else:
+        properties.pop(STATE_FACT_METADATA_PROPERTY, None)
 
 
 def _observed_at(value: str | None) -> datetime | None:

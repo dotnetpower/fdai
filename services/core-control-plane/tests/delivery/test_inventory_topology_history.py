@@ -584,7 +584,7 @@ async def test_inventory_state_change_appends_transition_without_claiming_interv
                 ResourceRecord(
                     resource_id="vm-1",
                     type="compute.vm",
-                    props={"status": "PowerState/deallocated"},
+                    props={"powerState": "PowerState/deallocated"},
                     last_seen=RECORDED_AT.isoformat(),
                 ),
             ),
@@ -618,7 +618,7 @@ async def test_inventory_state_change_appends_transition_without_claiming_interv
                 ResourceRecord(
                     resource_id="vm-1",
                     type="compute.vm",
-                    props={"status": "PowerState/deallocated"},
+                    props={"powerState": "PowerState/deallocated"},
                     last_seen=RECORDED_AT.isoformat(),
                 ),
             ),
@@ -672,7 +672,7 @@ async def test_transition_failure_prevents_topology_history_from_advancing() -> 
                     ResourceRecord(
                         resource_id="vm-1",
                         type="compute.vm",
-                        props={"status": "PowerState/deallocated"},
+                        props={"powerState": "PowerState/deallocated"},
                         last_seen=RECORDED_AT.isoformat(),
                     ),
                 ),
@@ -726,7 +726,7 @@ async def test_large_inventory_transition_set_is_written_in_bounded_batches() ->
                 ResourceRecord(
                     resource_id=resource_id,
                     type="compute.vm",
-                    props={"status": "PowerState/deallocated"},
+                    props={"powerState": "PowerState/deallocated"},
                     last_seen=RECORDED_AT.isoformat(),
                 )
                 for resource_id in resource_ids

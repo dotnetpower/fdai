@@ -91,7 +91,7 @@ def test_all_29_previously_dropped_raw_states_are_retained(index: int) -> None:
     assert states["provisioning"]["value"] == "Succeeded"
     assert states["availability"]["value"] is None
     assert states["availability"]["reason"] == "state_not_recorded"
-    assert projected["status"] == "Succeeded"
+    assert projected["status"] == "Running"
     assert projected["subscription_id"] == "example-subscription"
     assert "private-provider-payload" not in repr(projected)
 
@@ -199,6 +199,76 @@ def test_resource_type_applicability_rejects_unreviewed_supplied_state() -> None
     assert application_insights["availability"]["value"] is None
     assert application_insights["availability"]["reason"] == "state_not_applicable"
     assert function["operational"]["source_path"] == "state"
+    for resource_type in ("application-insights", "log-workspace", "resource-group"):
+        projected = _resource_projection(
+            InventoryInstanceResource(
+                resource_id=f"{resource_type}-1",
+                resource_type=resource_type,
+                properties={"status": "Running", "provisioningState": "Succeeded"},
+                last_seen=None,
+            ),
+            root_id=None,
+            now=NOW,
+        )
+        assert projected["status"] is None
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "properties", "expected_path", "expected_value"),
+    [
+        (
+            "compute.function",
+            {"status": "Running", "state": "Stopped"},
+            "state",
+            "Stopped",
+        ),
+        (
+            "compute.vm",
+            {
+                "status": "Running",
+                "state": "Started",
+                "properties": {"powerState": {"code": "PowerState/deallocated"}},
+            },
+            "properties.powerState.code",
+            "PowerState/deallocated",
+        ),
+    ],
+)
+def test_operational_state_and_legacy_status_share_resource_type_paths(
+    resource_type: str,
+    properties: dict[str, object],
+    expected_path: str,
+    expected_value: str,
+) -> None:
+    projected = _resource_projection(
+        InventoryInstanceResource(
+            resource_id=f"{resource_type}-1",
+            resource_type=resource_type,
+            properties=properties,
+            last_seen=None,
+        ),
+        root_id=None,
+        now=NOW,
+    )
+
+    states = projected["states"]
+    assert isinstance(states, dict)
+    operational = states["operational"]
+    assert isinstance(operational, dict)
+    assert operational["source_path"] == expected_path
+    assert operational["value"] == expected_value
+    assert projected["status"] == expected_value
+
+
+def test_kubernetes_unknown_readiness_remains_a_recorded_state() -> None:
+    states = recorded_resource_states(
+        {"ready_status": "Unknown"},
+        resource_type="kubernetes.node",
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] == "Unknown"
+    assert states["operational"]["source_path"] == "ready_status"
 
 
 def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome() -> None:

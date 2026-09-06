@@ -378,7 +378,7 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "location": "koreacentral",
             "resource_group": "resource-group-one",
             "subscription_id": None,
-            "status": "Succeeded",
+            "status": None,
             "states": recorded_resource_states(
                 {"properties": {"provisioningState": "Succeeded"}},
                 resource_type="compute.container-app",
@@ -686,12 +686,16 @@ def test_relationship_evidence_freshness_boundaries_and_verification_level() -> 
 
 
 def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> None:
-    assert _resource_status({"phase": "Running", "ready_status": "True"}) == "Running"
-    assert _resource_status({"ready_status": "True"}) == "Ready"
-    assert _resource_status({"ready_status": "False"}) == "NotReady"
-    assert _resource_status({"ready_status": "Unknown"}) == "Ready unknown"
-    assert _resource_status({"provisioningState": "Succeeded"}) == "Succeeded"
-    assert _resource_status({"name": "kube-system"}) is None
+    assert _resource_status({"phase": "Running", "ready_status": "True"}, "kubernetes.pod") == (
+        "Running"
+    )
+    assert _resource_status({"ready_status": "True"}, "kubernetes.node") == "Ready"
+    assert _resource_status({"ready_status": "False"}, "kubernetes.node") == "NotReady"
+    assert _resource_status({"ready_status": "Unknown"}, "kubernetes.node") == "Ready unknown"
+    assert _resource_status({"provisioningState": "Succeeded"}, "kubernetes.pod") is None
+    assert _resource_status({"name": "kube-system"}, "kubernetes.namespace") is None
+    assert _resource_status({"state": "Unknown"}, "compute.function") is None
+    assert _resource_status({"state": "Bad\nState"}, "compute.function") is None
 
 
 def test_scalable_resource_capacity_uses_only_allowlisted_fields() -> None:

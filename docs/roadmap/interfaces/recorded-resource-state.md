@@ -109,8 +109,11 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
   its health is never copied onto Application Insights.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
-- The read projection applies the reviewed ResourceType path allowlist before inspecting stored
-  properties. A legacy or unexpected property therefore cannot override a not-applicable or
+- One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the
+  reviewed ResourceType path allowlist for both Core ontology projection and Operator reads. Each
+  projection applies that allowlist before inspecting stored properties, including the legacy
+  top-level `status` field. A legacy `status`,
+  `provisioningState`, or unexpected property therefore cannot override a not-applicable or
   provider-not-exposed outcome.
 
 ## Presentation and compatibility

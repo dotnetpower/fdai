@@ -15,6 +15,10 @@ retired top-level application tree.
 - **Five service distributions:** Every runtime process owns one package under `services/`.
 - **Two shared packages:** `packages/service-contracts/` owns implementation-free wire contracts;
   `packages/github-app-auth/` owns refreshable credentials used by Core, ingestion, and the cost image profile. Every image context includes its workspace metadata.
+- **Recorded-state path ownership:** `fdai_service_contracts.recorded_resource_state` owns the
+  reviewed ResourceType path registry. Core ontology projection and Operator read models consume
+  that registry before inspecting provider properties, so a generic `status` or
+  `provisioningState` cannot create an operational fact for an inapplicable type.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package.
 - **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
@@ -651,6 +655,7 @@ The document worker adds only its owned Tesseract language data and OCR dependen
 | Physical service and package ownership | [Multi-Service Repository Layout](multi-service-repository-layout.md) |
 | Module boundaries and dependency injection | [Project Structure](project-structure.md) |
 | Conversation and ontology query implementation sequencing | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |
+| Recorded Resource state paths and evidence boundaries | [Recorded Resource State](../interfaces/recorded-resource-state.md) |
 | IS work packages and local-first sequencing | [Service Decomposition Execution Plan](service-decomposition-execution-plan.md) |
 | Graduation, data ownership, and rollback gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |
 | Control-loop authority | [Architecture instructions](../../../.github/instructions/architecture.instructions.md) |
