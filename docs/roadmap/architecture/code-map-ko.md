@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ec3c45e41efcf68bb72c210c6a0148f3bd1d89ec
+translation_source_sha: 6b3401191b3271ccad0154283080d5a87cf93ae5
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -94,13 +94,7 @@ Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니
 데이터로 유지하며 지시 또는 실행 권한을 부여할 수 없습니다. 필수 검색은 불완전한 범위에서
 안전하게 종료하고, 선택적 검색은 독립 운영 근거가 완료되지 않으면 부분 상태로 남습니다.
 PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세대를 사용할 수 있을 때까지
-`index_completeness_unverified`를 보고합니다.
-관리 문서 조회 계약 집중 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한,
-입력 및 reader 한도 실패 분기를 모두 검증합니다.
-콘텐츠 및 접근 범위 digest는 정확한 소문자 16진수 SHA-256 신원을 요구하며 길이만 같으면
-수락하지 않습니다.
-Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을
-적용한 정확한 표현 digest를 분리합니다.
+`index_completeness_unverified`를 보고합니다. 집중 계약 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한, 입력 및 reader 한도 실패를 모두 검증합니다. 콘텐츠 및 접근 범위 digest는 길이만 같은 값이 아니라 정확한 소문자 16진수 SHA-256 신원을 요구합니다. Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을 적용한 정확한 표현 digest를 분리합니다.
 
 의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유

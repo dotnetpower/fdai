@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 83775a9e64155574644f658ff012e448bbfe6d56
+translation_source_sha: 3796ebbf7f6808074bbf40b16fdb0c8afb97a384
 translation_revised: 2026-09-06
 ---
 # FDAI Console 대화
@@ -56,9 +56,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
 Console은 Core가 projection한 버전 2 intent 근거만 수락하고, 정확한 개정 인용과 불완전한
 범위 한계를 표시하며, 문서 텍스트를 지시나 현재 운영 상태로 취급하지 않습니다. 선택적 문서
 근거가 없을 때는 독립 운영 근거가 완료된 경우에만 부분 답변을 허용하고, 필수 또는 명시적
-문서 근거가 없으면 보류합니다.
-알 수 없는 근거 authority 값과 지원되지 않는 intent 근거 버전은 낮은 버전으로 바꾸거나
-표시하지 않고 폐기합니다.
+문서 근거가 없으면 보류합니다. 알 수 없는 근거 authority 값과 지원되지 않는 intent 근거 버전은 낮은 버전으로 바꾸거나 표시하지 않고 폐기합니다.
 Process 저널은 적응형 Investigation Room도 변환할 수 있습니다. Operator는 반환 전에 Process 개정
 번호와 중첩된 콘텐츠 다이제스트를 다시 확인하고, Console은 범위가 제한된 라운드, 경쟁 가설, 근거
 공백 및 최종 상태를 렌더링하기 전에 같은 신원을 검증합니다. 이 공간은 읽기 전용이며 변경, 승인,
