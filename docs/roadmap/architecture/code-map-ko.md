@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6cbc2c758166657916c49483b9a329ca0e1b1257
+translation_source_sha: 4ce2a8eb68dc2f333ffb044377909e65b9605734
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -85,7 +85,7 @@ Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합�
 범위가 compiler의 15분 기본값으로 바뀌지 않습니다.
 또한 judgment의 원문 기반 target에서 gateway root와 선택적 backend 제약을 다시 만듭니다. 모델
 frame은 backend를 gateway root로 바꿀 수 없으며 빠른 경로는 backend 또는 model filter 하나만
-수락합니다.
+수락합니다. 경로 형태 backend ARM target은 `Backend.name`이 아니라 `Backend.id`로 결속합니다.
 Core를 다시 시작하면 표준 launcher는 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat가
 모두 표시된 뒤에만 `ready`를 보냅니다. 이전 프로세스의 heartbeat는 교체 프로세스를 준비 상태로
 만들 수 없습니다.

@@ -1935,6 +1935,51 @@ def test_gateway_judgment_replaces_model_substituted_root() -> None:
     assert normalized_frame.subject_constraints == normalized.subject_constraints
 
 
+def test_gateway_judgment_binds_backend_arm_id_as_id() -> None:
+    backend_id = "/subscriptions/example/resourceGroups/rg/providers/Microsoft.Web/sites/backend"
+    utterance = f"Compare agw-prod with {backend_id} over the last hour."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(
+                kind="backend",
+                value=backend_id,
+                source_start=utterance.index(backend_id),
+                source_end=utterance.index(backend_id) + len(backend_id),
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=utterance.index("last hour"),
+                source_end=utterance.index("last hour") + len("last hour"),
+            ),
+        ),
+        requested_facets=("latency", "last_hour"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(temporal_scope={}, output_shape="gateway_diagnostic_evidence")
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    normalized, _normalized_frame = _normalize_gateway_diagnostic_time_scope(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert normalized.subject_constraints[-1] == f"Backend.id={backend_id}"
+
+
 @pytest.mark.parametrize(
     "primary_intent,output_shape",
     (

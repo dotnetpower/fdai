@@ -510,7 +510,7 @@ def _normalize_gateway_diagnostic_time_scope(
     if backend_targets:
         backend = backend_targets[0]
         backend_field = {
-            "backend": "name",
+            "backend": "id" if backend.value.startswith("/") else "name",
             "backend_id": "id",
             "backend_name": "name",
             "model": "model_name",
