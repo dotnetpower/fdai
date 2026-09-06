@@ -249,7 +249,10 @@ def _legacy_manifest_evidence(
     object_ids = _canonical_object_ids(prior_manifest.get("object_ids"))
     link_keys = _canonical_link_keys(prior_manifest.get("link_keys"))
     snapshot_object_ids = tuple(str(row["resource_id"]) for row in resource_rows)
-    if snapshot_object_ids != object_ids:
+    if (
+        len(set(snapshot_object_ids)) != len(snapshot_object_ids)
+        or tuple(sorted(snapshot_object_ids)) != object_ids
+    ):
         raise ValueError("legacy inventory snapshot object identities changed")
     snapshot_link_keys = {
         (str(row["from_id"]), str(row["link_type"]), str(row["to_id"])) for row in link_rows

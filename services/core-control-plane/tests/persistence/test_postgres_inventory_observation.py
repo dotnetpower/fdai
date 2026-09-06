@@ -452,18 +452,18 @@ def test_active_snapshot_bootstrap_cross_checks_identity_only_legacy_evidence() 
         },
         resource_rows=(
             {
-                "resource_id": "resource-a",
-                "resource_type": "compute.vm",
-                "props": {"state": "ready"},
-                "provider_ref": "provider/resource-a",
-                "last_seen": NOW,
-            },
-            {
                 "resource_id": "resource-b",
                 "resource_type": "network.interface",
                 "props": {},
                 "provider_ref": "provider/resource-b",
                 "last_seen": None,
+            },
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {"state": "ready"},
+                "provider_ref": "provider/resource-a",
+                "last_seen": NOW,
             },
         ),
         link_rows=(
@@ -497,17 +497,61 @@ def test_active_snapshot_bootstrap_cross_checks_identity_only_legacy_evidence() 
 
 
 @pytest.mark.parametrize(
-    ("provider_complete", "manifest_complete", "link_key", "extra_field", "message"),
+    (
+        "provider_complete",
+        "manifest_complete",
+        "object_ids",
+        "link_key",
+        "extra_field",
+        "message",
+    ),
     [
-        (False, True, ["resource-a", "depends_on", "resource-b"], False, "provider identity"),
-        (True, False, ["resource-a", "depends_on", "resource-b"], False, "manifest is incomplete"),
-        (True, True, ["resource-b", "depends_on", "resource-a"], False, "relationship identities"),
-        (True, True, ["resource-a", "depends_on", "resource-b"], True, "manifest shape"),
+        (
+            False,
+            True,
+            ["resource-a", "resource-b"],
+            ["resource-a", "depends_on", "resource-b"],
+            False,
+            "provider identity",
+        ),
+        (
+            True,
+            False,
+            ["resource-a", "resource-b"],
+            ["resource-a", "depends_on", "resource-b"],
+            False,
+            "manifest is incomplete",
+        ),
+        (
+            True,
+            True,
+            ["resource-a", "resource-b"],
+            ["resource-b", "depends_on", "resource-a"],
+            False,
+            "relationship identities",
+        ),
+        (
+            True,
+            True,
+            ["resource-a", "resource-b"],
+            ["resource-a", "depends_on", "resource-b"],
+            True,
+            "manifest shape",
+        ),
+        (
+            True,
+            True,
+            ["resource-a", "resource-c"],
+            ["resource-a", "depends_on", "resource-b"],
+            False,
+            "object identities",
+        ),
     ],
 )
 def test_active_snapshot_bootstrap_rejects_incomplete_legacy_evidence(
     provider_complete: bool,
     manifest_complete: bool,
+    object_ids: list[str],
     link_key: list[str],
     extra_field: bool,
     message: str,
@@ -518,7 +562,7 @@ def test_active_snapshot_bootstrap_rejects_incomplete_legacy_evidence(
         "ontology_release_digest": "sha256:" + "a" * 64,
         "complete": manifest_complete,
         "dropped_reasons": [],
-        "object_ids": ["resource-a", "resource-b"],
+        "object_ids": object_ids,
         "link_keys": [link_key],
     }
     if extra_field:
