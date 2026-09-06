@@ -165,17 +165,21 @@ def _core_runtime_ready_after(
     """Require fresh Core life and the latency-critical semantic consumer."""
     if not_before.tzinfo is None:
         raise ValueError("core readiness lower bound MUST be timezone-aware")
-    semantic_ready = any(
-        "event_bus_consumer_started" in line
-        and "fdai-core-semantic-turn." in line
-        and (observed := _log_timestamp(line)) is not None
-        and observed >= not_before.astimezone(UTC)
-        for line in _core_log_lines(root)
+    semantic_started_at = max(
+        (
+            observed
+            for line in _core_log_lines(root)
+            if "event_bus_consumer_started" in line
+            and "fdai-core-semantic-turn." in line
+            and (observed := _log_timestamp(line)) is not None
+            and observed >= not_before.astimezone(UTC)
+        ),
+        default=None,
     )
-    return semantic_ready and _core_heartbeat_ready(
+    return semantic_started_at is not None and _core_heartbeat_ready(
         root,
         now=now,
-        not_before=not_before,
+        not_before=semantic_started_at,
     )
 
 

@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 4547887a6bc7e6c2ebd13eaf24790ac52dc04486
+translation_source_sha: cfd129efee4a98b8bd4d880c6c8167681243ebfc
 translation_revised: 2026-09-07
 ---
 # 서술기 라우팅과 지연 시간
@@ -341,6 +341,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 수락하는 새로운 Pantheon heartbeat가 시작 이후 semantic consumer marker보다 뒤에 오도록 재시작 readiness 순서를 결속했습니다. | `current change`; 집중 developer-workflow 테스트에서 시작 이후지만 consumer보다 이른 heartbeat와 이후의 유효한 heartbeat를 확인했습니다. | 이중 언어 지연 분포를 보존합니다. |
 | 2026-09-07 | implemented | 이전 프로세스의 heartbeat를 수락하는 대신 Core 재시작 readiness가 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat를 요구하도록 했습니다. | `current change`; 집중 launcher/workflow 테스트 46개 통과, 보존된 재시작이 두 marker 뒤 `ready`를 보냈고 첫 F2 답변 token은 3.948초였습니다. | 이중 언어 지연 분포를 보존합니다. 표본 하나는 SLO 검증이 아닙니다. |
 | 2026-09-07 | in-progress | 정확한 schema 이름을 유지하면서 preflight 본문을 추정 약 654토큰으로 줄였습니다. 준비된 F1/F2 변형은 preflight를 한 번 호출하고 5초 답변 token gate를 충족했습니다. | 표준 Browser Entra F1/F2 시간은 3.810/4.254초였습니다. | 이중 언어 분포를 보존하고 `control_loop_ready`보다 약 28초 늦게 시작한 semantic consumer를 Core readiness에 포함합니다. |
 | 2026-09-07 | implemented | Multiplex된 모든 물리 이벤트마다 commit하는 대신 기존 레코드 및 시간 상한으로 로컬 PLAINTEXT Kafka consumer commit을 일괄 처리했습니다. 처리 후 commit과 처리 도중 닫힐 때의 재전달을 보존했습니다. | `current change`; 집중 Event Bus 및 multiplex 테스트 통과 | 표준 Core를 다시 시작하고 논리 consumer가 backlog를 따라잡은 뒤 F1-F4 답변 token TTFT를 보존합니다. |

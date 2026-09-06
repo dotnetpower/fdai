@@ -559,6 +559,7 @@ def test_core_restart_readiness_requires_new_semantic_consumer_and_heartbeat(
         "\n".join(
             (
                 "2026-08-20T12:59:59.000000+00:00 pantheon_heartbeat",
+                "2026-08-20T13:00:01.000000+00:00 pantheon_heartbeat",
                 "2026-08-20T13:00:02.000000+00:00 event_bus_consumer_started "
                 '"consumer_group": "fdai-core-semantic-turn.example"',
             )

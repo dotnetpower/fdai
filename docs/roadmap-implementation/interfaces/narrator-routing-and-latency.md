@@ -29,6 +29,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Required the fresh restart heartbeat to occur after the new semantic consumer marker rather than merely after launch. | `current change`; focused ordering regression passed. | Retain a bilingual latency distribution. |
 | 2026-09-07 | implemented | Bound Core restart readiness to both a post-launch semantic consumer and a fresh Pantheon heartbeat. | `current change`; 46 focused tests; retained marker ordering; first post-ready F2 answer token at 3.948 seconds. | Retain a bilingual latency distribution. |
 | 2026-09-07 | in-progress | Compressed operational preflight, retained exact schema field names, and measured warm preflight-only F1/F2 answers. | `current change`; 238 focused tests; Browser Entra F1 3.810 seconds and F2 4.254 seconds. | Qualify a bilingual cohort and close the cold-start semantic-consumer readiness gap. |
 | 2026-09-07 | implemented | Removed per-physical-event Kafka commits from the local multiplexed semantic path while preserving commit-after-processing and at-least-once redelivery. | `current change`; focused Event Bus and multiplex tests passed. | Retain standard-stack answer-token TTFT after restart and catch-up. |
