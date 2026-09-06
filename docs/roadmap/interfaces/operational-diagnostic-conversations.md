@@ -63,6 +63,8 @@ times and references before reading; no example supplies a customer identifier.
   silently substitute for deployment data. Never attach global history references to scoped output.
 - **Ambiguity:** Clarify an unresolved deployment, backend, collection, time zone, or meaning of
   "before" and "after"; otherwise hold with a typed reason. Never guess from a name or model keyword.
+  A configuration or gateway comparison without one source-grounded Resource name or id returns
+  `resource_identity` clarification before frame-model or provider I/O.
 - **Exact time:** Record absolute start/end, time zone, bucket interval, and boundary semantics.
   Keep effective time, event time, observation time, and recorded time distinct. Compare aligned,
   equal-duration windows; disclose stale samples, gaps, delayed observations, and baseline selection.

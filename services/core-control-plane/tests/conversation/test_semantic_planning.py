@@ -23,6 +23,7 @@ from fdai.core.conversation.semantic_planning import (
     _plan_node_summary,
 )
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
+from fdai.core.conversation.semantic_planning_frame_checks import deterministic_pre_frame_outcome
 from fdai.core.conversation.semantic_planning_models import (
     BoundResourceContext,
     SemanticFrameProposal,
@@ -1700,6 +1701,45 @@ def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
     )
 
     assert _descriptors_for_judgment(descriptors, judgment) is descriptors
+
+
+@pytest.mark.parametrize(
+    "primary_intent,output_shape",
+    (
+        ("query.resource_configuration_changes", "resource_configuration_changes"),
+        ("query.gateway_diagnostic_evidence", "gateway_diagnostic_evidence"),
+    ),
+)
+def test_operational_comparison_without_exact_resource_requires_clarification(
+    primary_intent: str,
+    output_shape: str,
+) -> None:
+    judgment = SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=(),
+        requested_facets=("comparison",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance="Compare the selected deployment.",
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == output_shape
+    assert outcome.frame.unresolved_terms == ("resource_identity",)
 
 
 @pytest.mark.parametrize(

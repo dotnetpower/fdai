@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 72af31fa3145142836fd064c04e82d5c7e2bf0ee
+translation_source_sha: 01ae6eff5672d8fbb4ea3fe3073875055878acb2
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -55,6 +55,8 @@ FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 
 Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행하고 명시적 운영 요청의 Adaptive
 설명 계획을 우회하며, 수락된 인벤토리, 구성, 게이트웨이 의도를 검토된 서술자 범위로 축소합니다.
 Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 요청에 64KiB 상한을 적용합니다.
+원본 발화에 근거한 Resource 이름 또는 ID가 없는 구성과 게이트웨이 비교는 frame 모델이나
+프로바이더 I/O 전에 타입이 지정된 `resource_identity` 명확화로 중단합니다.
 [운영 진단 대화](../interfaces/operational-diagnostic-conversations-ko.md)에서 시나리오 수락 기준,
 체크포인트 근거, 아직 완료되지 않은 실환경 검증과 하드닝을 확인하세요.
 
