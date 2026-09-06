@@ -7,13 +7,14 @@ const shell = pathToFileURL(fileURLToPath(new URL("../../../index.html", import.
 async function openExample(page: Page, size: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(`${shell}#mocks/ui/dashboard.html`);
+  await page.goto(`${shell}#mocks/ui/dashboard-v2.html`);
   const frame = page.frameLocator("#preview-frame");
   await expect(frame.locator("#count-resources")).toHaveText("24");
   await frame.locator(".dr-preview-controls > summary").click();
   await frame.getByLabel("Example resources", { exact: true }).selectOption(size);
   await expect(frame.locator("#count-resources")).toHaveText(size);
   await frame.locator(".dr-preview-controls > summary").click();
+  await expect(frame.locator(".dr-preview-controls")).toHaveJSProperty("open", false);
   return frame;
 }
 
@@ -34,13 +35,18 @@ test.describe("Scale-aware Dashboard mock", () => {
       await expect(frame.locator(".dr-cell")).toHaveCount(0);
       await expect(frame.locator("#resource-list tbody tr")).toHaveCount(0);
       const allCounts = await frame.locator(".dr-summary dd").allTextContents();
-      expect(allCounts.slice(1).reduce((sum, count) => sum + Number(count), 0)).toBe(size);
-      for (const lens of ["operation", "availability", "observation"]) {
+      expect(allCounts).toHaveLength(4);
+      expect(Number(allCounts[0])).toBe(size);
+      expect(Number(allCounts[3])).toBe(3);
+      // Provisioning is an independent axis; only known, unknown and not-applicable operation counts partition inventory.
+      expect(Number(allCounts[1]) + Number(allCounts[2]) + Number(await frame.locator("#count-na").textContent())).toBe(size);
+      for (const lens of ["operation", "provisioning", "availability", "observation"]) {
         await frame.locator(`[data-resource-lens="${lens}"]`).click();
         const counts = await frame.locator("#resource-legend button:not([data-state-key='all'])").evaluateAll((buttons) =>
           buttons.map((button) => Number(button.getAttribute("data-count"))),
         );
         expect(counts.reduce((sum, count) => sum + count, 0)).toBe(size);
+        if (lens === "provisioning") expect(counts).toEqual([1, 1, 1, size - 3]);
         expect(await frame.locator(".dr-group").evaluateAll((groups) => groups.every((group) =>
           [...group.querySelectorAll("[data-state]")].reduce((sum, status) => sum + Number(status.getAttribute("data-count")), 0) === Number(group.getAttribute("data-count")),
         ))).toBe(true);
@@ -105,7 +111,7 @@ test.describe("Scale-aware Dashboard mock", () => {
     await frame.getByLabel("Group", { exact: true }).selectOption("application");
     await expect(frame.locator("#resource-count")).toContainText("36 match filters");
     await frame.locator(".dr-group-open").click();
-    await expect(frame.locator("#resource-count")).toContainText("36 match scope");
+    await expect(frame.locator("#resource-count")).toContainText("36 match filters");
     await expect(frame.getByLabel("Group", { exact: true })).toHaveValue("application");
     await frame.getByRole("button", { name: "All scope", exact: true }).click();
     await frame.getByLabel("Find resource", { exact: true }).fill("RESOURCE-10000");
@@ -127,7 +133,7 @@ test.describe("Scale-aware Dashboard mock", () => {
     await frame.getByRole("button", { name: "Clear selection", exact: true }).click();
     await frame.getByRole("button", { name: "Inspect vm-build-02", exact: true }).click();
     await expect(frame.locator("#resource-selected-name")).toHaveText("vm-build-02");
-    await expect(frame.locator("#resource-count")).toContainText("10000 match scope");
+    await expect(frame.locator("#resource-count")).toContainText("10000 match filters / 10000 received");
     await frame.getByRole("button", { name: "Back to resources", exact: true }).click();
     await expect(frame.locator("#resource-list button[aria-pressed='true']")).toBeFocused();
     await page.screenshot({ path: testInfo.outputPath("dashboard-scale-list.png") });
@@ -150,6 +156,10 @@ test.describe("Scale-aware Dashboard mock", () => {
     await expect(frame.locator("#count-known")).toHaveText("0");
     await expect(frame.locator("#resource-selected-name")).not.toBeVisible();
     await expect(frame.locator("#resource-snapshot-status")).toContainText("current state unknown");
+    await expect(frame.locator("#count-provisioning")).toHaveText("3");
+    await frame.locator('[data-resource-lens="provisioning"]').click();
+    await expect(frame.locator("#resource-legend [data-state-key='succeeded']")).toHaveAttribute("data-count", "0");
+    await expect(frame.locator("#resource-legend [data-state-key='unknown']")).toHaveAttribute("data-count", "1000");
     await frame.locator('[data-resource-lens="observation"]').click();
     await expect(frame.locator("#resource-legend [data-state-key='ready']")).toHaveAttribute("data-count", "0");
     expect(Number(await frame.locator("#resource-legend [data-state-key='denied']").getAttribute("data-count"))).toBeGreaterThan(0);
@@ -169,12 +179,18 @@ test.describe("Scale-aware Dashboard mock", () => {
     await expect(frame.locator("#resource-empty-title")).toContainText("No resources in this example snapshot");
     await expect(frame.locator("#resource-priorities")).toBeHidden();
     await expect(frame.locator("#resource-priorities-empty")).toContainText("not an all-clear");
-    await expect(frame.locator("#resource-changes button:disabled")).toHaveCount(4);
+    await expect(frame.locator(".dr-summary dd")).toHaveText(["0", "0", "0", "0"]);
+    await expect(frame.locator("#resource-changes")).toBeHidden();
+    await expect(frame.locator("#resource-changes button:visible")).toHaveCount(0);
     await expect(frame.locator(".dr-cell,.dr-group,#resource-list tbody tr")).toHaveCount(0);
     await frame.getByLabel("Example resources", { exact: true }).selectOption("24");
     await mode.selectOption("partial");
     await expect(frame.locator("#count-resources")).toHaveText("18");
-    await expect(frame.getByRole("button", { name: "store-archive-02", exact: true })).toBeDisabled();
+    await expect(frame.locator("#resource-changes")).toBeHidden();
+    await frame.getByLabel("Find resource", { exact: true }).fill("store-archive-02");
+    await expect(frame.locator("#resource-count")).toHaveText("0 resources shown / 0 match filters / 18 received");
+    await expect(frame.locator("#resource-empty")).toContainText("does not establish absence outside the received snapshot");
+    await expect(frame.locator("#resource-honeycomb [data-resource-id='data-store-02']")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 

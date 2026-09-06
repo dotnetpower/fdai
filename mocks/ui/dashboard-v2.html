@@ -6,7 +6,7 @@
   <title>Resource dashboard - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <style>
     body.dashboard-preview[data-chat-theme="clear-neutral"] { background: var(--cs-card); }
     .dashboard-v2 { --db-radius: 8px; }
@@ -187,11 +187,11 @@
   <script src="assets/dashboard-v2-data.js?v=1" defer></script>
   <script src="assets/dashboard-resource-views.js?v=resource-map-v2" defer></script>
   <script src="assets/dashboard-resource-preview.js?v=resource-map-v3" defer></script>
-  <script src="assets/dashboard-type-picker.js?v=type-search-v1" defer></script>
+  <script src="assets/dashboard-type-picker.js?v=type-search-v3" defer></script>
   <script src="assets/dashboard-resources.js?v=resource-map-v1" defer></script>
-  <script src="assets/dashboard-v2-workspace.js?v=1" defer></script>
+  <script src="assets/dashboard-v2-workspace.js?v=2" defer></script>
   <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
-  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=3" />
 </head>
 <body class="dashboard-preview cs-operator-neutral" data-chat-theme="clear-neutral">
   <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><pattern id="dr-unknown-pattern" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#F5F5F5"></rect><path d="M-1,1 L1,-1 M0,6 L6,0 M5,7 L7,5" stroke="#A3A3A3" stroke-width="1"></path></pattern></defs></svg>
@@ -210,17 +210,17 @@
       <div class="ow-tools"><a href="dashboard.html">Operating dashboard</a><button type="button" class="cs-control-button" id="resource-refresh">Reload fixture</button><span id="resource-refresh-status" role="status"></span></div>
     </header>
 
-    <div class="cs-readonly-banner">
-      <span><strong>Synthetic preview.</strong> These records make no operational claim. No Azure query or resource action runs here.</span>
-      <details class="dr-preview-controls">
-        <summary>Preview scenarios</summary>
+    <details class="cs-readonly-banner dr-preview-controls">
+        <summary><strong>Synthetic preview.</strong> <span>Preview scenarios</span></summary>
+        <p>These records make no operational claim. No Azure query or resource action runs here.</p>
         <div class="dr-example-options">
           <div><label for="resource-example-size">Example resources</label><select id="resource-example-size"><option value="24">24</option><option value="100">100</option><option value="1000">1,000</option><option value="10000">10,000</option></select></div>
           <div><label for="resource-example-state">Inventory example</label><select id="resource-example-state"><option value="complete">Complete</option><option value="partial">Partial</option><option value="stale">Stale</option><option value="loading">Loading</option><option value="error">Read error</option><option value="empty">Empty</option></select></div>
           <p>Local, deterministic fixtures. Changing a scenario clears selection and filters. No server performance or real inventory is represented.</p>
         </div>
-      </details>
-    </div>
+        <p>Known operating states require fresh operation or power evidence. Missing or stale observations remain unknown. Recorded provisioning is independent of operational success.</p>
+        <p>Snapshot <code id="resource-snapshot-id">demo-24-complete-20260905-1200</code> / <time datetime="2026-09-05T12:00:00+09:00">05 Sep 2026, 12:00 KST</time></p>
+    </details>
 
     <section id="resource-read-state" class="dr-read-state" hidden aria-label="Inventory read">
       <div id="resource-loading" role="status"><h2>Loading example inventory</h2><p>Counts are not available yet. This is a paused loading specimen, not a network request.</p><div class="dr-loading-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span></div></div>
@@ -229,17 +229,15 @@
     </section>
     <div id="resource-data">
     <section class="dr-scope" aria-label="Observation scope">
-      <div><span class="db-kicker">Observation scope</span><h2 id="resource-scope-name">Example subscription</h2>
+      <div><h2 id="resource-scope-name">Example subscription</h2>
         <p id="resource-scope-description">3 observed resource groups / Inventory only, not execution authority</p></div>
-      <div class="dr-snapshot"><span>Snapshot <code id="resource-snapshot-id">demo-24-complete-20260905-1200</code></span>
-        <time datetime="2026-09-05T12:00:00+09:00">05 Sep 2026, 12:00 KST</time>
-        <span class="dr-status" data-tone="attention" id="resource-snapshot-status">State coverage is partial</span></div>
+      <span class="dr-status" data-tone="attention" id="resource-snapshot-status">State coverage is partial</span>
     </section>
     <dl class="dr-summary" id="resource-summary" aria-label="Snapshot counts">
-      <div><dt>Observed resources</dt><dd id="count-resources">24</dd><small>Within this example scope</small></div>
-      <div><dt>Operating state known</dt><dd id="count-known">-</dd><small>Fresh operation / power evidence</small></div>
-      <div><dt>Operating state unknown</dt><dd id="count-unknown">-</dd><small>Missing or stale observations</small></div>
-      <div><dt>Provisioning recorded</dt><dd id="count-provisioning">-</dd><small>Independent provisioning observations</small><span id="count-na" hidden></span></div>
+      <div><dt>Observed resources</dt><dd id="count-resources">24</dd></div>
+      <div><dt>Operating state known</dt><dd id="count-known">-</dd></div>
+      <div><dt>Operating state unknown</dt><dd id="count-unknown">-</dd></div>
+      <div><dt>Provisioning recorded</dt><dd id="count-provisioning">-</dd><span id="count-na" hidden></span></div>
     </dl>
 
     <div class="dr-workspace">

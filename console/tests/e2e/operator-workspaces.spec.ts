@@ -35,6 +35,11 @@ const recordPages = new Set<string>(routes.slice(13, 22).map((route) => route[2]
 async function openOperator(page: Page, file: string, master = false) {
   const baseFile = file.replace(/[?:].*$/, "");
   await page.goto(`http://127.0.0.1:5373/${master ? `#mocks/ui/${file}` : `mocks/ui/#${file}`}`);
+  const target = new URL(file.replace(/::.*/, ""), "http://127.0.0.1:5373/mocks/ui/");
+  const child = await (await page.locator("#preview-frame").elementHandle())?.contentFrame();
+  if (!child) throw new Error("The operator preview frame was not attached.");
+  await child.waitForURL((url) => url.pathname === target.pathname &&
+    [...target.searchParams].every(([key, value]) => url.searchParams.get(key) === value));
   const frame = page.frameLocator("#preview-frame");
   await expect(frame.locator("body")).toHaveClass(/cs-embedded/);
   await expect(frame.locator("body")).toHaveClass(/cs-operator-neutral/);
@@ -121,6 +126,29 @@ test("desktop interactions: scheduler exact lookup never retains unrelated metri
   await frame.getByRole("button", { name: "Load history", exact: true }).click();
   await expect(frame.locator("#scheduler-dispatch-history tbody tr:visible")).toHaveCount(4);
   await expect(frame.locator(".cp-kpis")).toBeVisible();
+});
+
+test("session desktop aligns Operations navigation and retained-record inspection", async ({ page }) => {
+  await page.setViewportSize({ width: 955, height: 917 });
+  for (const file of recordPages) {
+    const frame = await openOperator(page, file, true);
+    const geometry = await frame.locator("main").evaluate((main) => {
+      const tabs = main.querySelector(".op-tabs")!.getBoundingClientRect();
+      const preview = main.querySelector(".op-preview-state")!.getBoundingClientRect();
+      const metrics = main.querySelector(".cp-kpis")!.getBoundingClientRect();
+      const tools = main.querySelector(".op-workspace-tools")!;
+      return { navigationFirst: tabs.bottom < metrics.top, aligned: Math.abs(tabs.top - preview.top) < 2, overflow: tools.scrollWidth > tools.clientWidth + 1 };
+    });
+    expect(geometry, file).toEqual({ navigationFirst: true, aligned: true, overflow: false });
+    if (file === "processes.html") {
+      const list = await frame.locator(".cp-workspace-list").boundingBox();
+      const detail = await frame.locator("[data-op-record-detail]").boundingBox();
+      expect(detail!.x).toBeGreaterThan(list!.x + list!.width - 1);
+      await frame.locator(".op-preview-state select").selectOption("loading");
+      await expect(frame.locator(".op-workspace-tools")).toBeVisible();
+      await expect(frame.locator(".cp-kpis")).toBeHidden();
+    }
+  }
 });
 
 test("desktop interactions: approval search preserves expiry and read-only boundaries", async ({ page }) => {
@@ -339,6 +367,7 @@ for (const [group, id, file] of routes) {
     await expect(frame.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(frame.locator("body")).toHaveCSS("color", "rgb(38, 38, 38)");
     await expect(frame.locator("body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(frame.locator(".cs-page-domain")).toHaveCSS("color", "rgb(102, 102, 102)");
     await expect(frame.locator("body")).toContainText(/synthetic|illustrative|preview/i);
     const geometry = await frame.locator("main").evaluate((main) => ({
       document: document.documentElement.scrollWidth <= innerWidth,

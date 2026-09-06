@@ -70,10 +70,15 @@
       select.add(new Option(name, name.toLowerCase().replace(" ", "-")));
     });
     label.append(select);
-    header.append(label);
+    var tabs = root.querySelector(":scope > .op-tabs");
+    var tools = document.createElement("div");
+    tools.className = "op-workspace-tools";
+    if (!tabs) throw new Error("Operations preview requires a registered view navigation.");
+    tools.append(tabs, label);
+    header.after(tools);
     var content = document.createElement("div");
     content.dataset.opContent = "";
-    [...root.children].filter(function (child) { return child !== header; }).forEach(function (child) { content.append(child); });
+    [...root.children].filter(function (child) { return child !== header && child !== tools; }).forEach(function (child) { content.append(child); });
     var state = document.createElement("div");
     state.className = "op-state";
     state.hidden = true;

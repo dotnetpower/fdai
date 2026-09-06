@@ -7,12 +7,13 @@ const shell = pathToFileURL(fileURLToPath(new URL("../../../index.html", import.
 async function openDense(page: Page, dense = true) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(`${shell}#mocks/ui/dashboard.html`);
+  await page.goto(`${shell}#mocks/ui/dashboard-v2.html`);
   const frame = page.frameLocator("#preview-frame");
   await expect(frame.locator("#count-resources")).toHaveText("24");
   await frame.locator(".dr-preview-controls > summary").click();
   await frame.getByLabel("Example resources", { exact: true }).selectOption("10000");
   await frame.locator(".dr-preview-controls > summary").click();
+  await expect(frame.locator(".dr-preview-controls")).toHaveJSProperty("open", false);
   if (dense) await expect(frame.locator("#resource-honeycomb")).toHaveClass(/is-dense/);
   return frame;
 }
@@ -134,6 +135,8 @@ test.describe("Dense resource honeycomb", () => {
 
   test("adapts dense geometry and keeps a nonmodal tap inspector on small screens", async ({ page }, testInfo) => {
     const frame = await openDense(page);
+    const desktopCount = await frame.locator(".dr-cell").count();
+    expect(desktopCount).toBe(Number(await frame.locator("#resource-honeycomb").getAttribute("data-columns")) * 14);
     await page.setViewportSize({ width: 993, height: 641 });
     await expect(frame.locator("#resource-honeycomb")).toHaveClass(/is-dense/);
     await frame.locator(".dr-resource-panel").evaluate((element) => element.scrollIntoView({ block: "start" }));
@@ -173,7 +176,7 @@ test.describe("Dense resource honeycomb", () => {
     await expect(frame.locator("#resource-inspector")).toBeHidden();
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(frame.locator("#resource-honeycomb")).toHaveClass(/is-dense/);
-    expect(await frame.locator(".dr-cell").count()).toBe(420);
+    expect(await frame.locator(".dr-cell").count()).toBe(desktopCount);
   });
 
   test("uses large targets and tap selection on a wide touch device", async ({ browser }) => {

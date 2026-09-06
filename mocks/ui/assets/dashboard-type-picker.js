@@ -45,7 +45,8 @@
       const width = Math.min(Math.max(root.clientWidth, 360), innerWidth - 16);
       popup.style.width = width + "px";
       popup.style.maxHeight = space + "px";
-      list.style.maxHeight = Math.max(40, Math.min(300, space - 100)) + "px";
+      // Fractional scrollport heights can clip the final option at maximum scroll.
+      list.style.maxHeight = Math.floor(Math.max(40, Math.min(300, space - 100))) + "px";
       popup.style.left = Math.max(8, Math.min(rect.left, innerWidth - width - 8)) + "px";
       popup.style.top = down ? rect.bottom + 6 + "px" : "auto";
       popup.style.bottom = down ? "auto" : innerHeight - rect.top + 6 + "px";

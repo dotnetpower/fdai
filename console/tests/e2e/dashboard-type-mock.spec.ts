@@ -7,9 +7,9 @@ const shell = pathToFileURL(fileURLToPath(new URL("../../../index.html", import.
 async function openDashboard(page: Page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(`${shell}#mocks/ui/dashboard.html`);
+  await page.goto(`${shell}#mocks/ui/dashboard-v2.html`);
   const frame = page.frameLocator("#preview-frame");
-  await expect(frame.locator("#resource-count")).toContainText("24 shown");
+  await expect(frame.locator("#resource-count")).toContainText("24 resources shown");
   return frame;
 }
 
@@ -26,10 +26,10 @@ test.describe("Dashboard type autocomplete", () => {
     await expect(frame.locator("#resource-type-options").getByRole("option")).toHaveCount(12);
     await input.fill("vm");
     await expect(frame.locator("#resource-type-options").getByRole("option")).toHaveCount(2);
-    await expect(frame.locator("#resource-count")).toContainText("24 shown");
+    await expect(frame.locator("#resource-count")).toContainText("24 resources shown");
     await expect(frame.locator("#resource-type-option-vm")).toContainText("8 observed");
     await page.keyboard.press("Enter");
-    await expect(frame.locator("#resource-count")).toContainText("24 shown");
+    await expect(frame.locator("#resource-count")).toContainText("24 resources shown");
     await expect(frame.locator("#resource-type-results")).toContainText("filter has not changed");
     await page.keyboard.press("ArrowDown");
     await expect(input).toHaveAttribute("aria-activedescendant", "resource-type-option-vm");
@@ -37,21 +37,21 @@ test.describe("Dashboard type autocomplete", () => {
     await expect(input).toHaveValue("Virtual machine");
     await expect(input).toHaveAttribute("data-value", "vm");
     await expect(input).toHaveAttribute("aria-expanded", "false");
-    await expect(frame.locator("#resource-count")).toHaveText("8 shown / 8 match scope / 24 in snapshot");
+    await expect(frame.locator("#resource-count")).toHaveText("8 resources shown / 8 match filters / 24 received");
     await input.fill("Microsoft.DBforPostgreSQL/flexibleServers");
     await expect(frame.locator("#resource-type-options").getByRole("option")).toHaveCount(1);
-    await expect(frame.locator("#resource-count")).toContainText("8 shown");
+    await expect(frame.locator("#resource-count")).toContainText("8 resources shown");
     await frame.locator("#resource-type-options").getByRole("option").click();
-    await expect(frame.locator("#resource-count")).toContainText("3 shown");
+    await expect(frame.locator("#resource-count")).toContainText("3 resources shown");
     await input.fill("vault");
     await expect(frame.locator("#resource-type-options").getByRole("option")).toHaveCount(2);
     await page.screenshot({ path: testInfo.outputPath("dashboard-type-desktop.png") });
     await page.keyboard.press("Escape");
     await expect(input).toHaveValue("PostgreSQL");
-    await expect(frame.locator("#resource-count")).toContainText("3 shown");
+    await expect(frame.locator("#resource-count")).toContainText("3 resources shown");
     await frame.getByRole("button", { name: "Clear type filter", exact: true }).click();
     await expect(input).toHaveValue("All types");
-    await expect(frame.locator("#resource-count")).toContainText("24 shown");
+    await expect(frame.locator("#resource-count")).toContainText("24 resources shown");
     await input.fill("Microsoft.RecoveryServices/vaults");
     await expect(frame.locator("#resource-type-options").getByRole("option")).toHaveCount(1);
     await expect(frame.locator("#resource-type-option-recovery-vault")).toContainText("Recovery Services vault");
@@ -62,13 +62,13 @@ test.describe("Dashboard type autocomplete", () => {
     const input = frame.getByRole("combobox", { name: "Type", exact: true });
     await input.fill("not-a-type");
     await expect(frame.locator("#resource-type-results")).toContainText("No matching types");
-    await expect(frame.locator("#resource-count")).toContainText("24 shown");
+    await expect(frame.locator("#resource-count")).toContainText("24 resources shown");
     await input.fill("managed disk");
     await expect(frame.locator("#resource-type-option-disk")).toContainText("0 observed");
     await frame.locator("#resource-type-options").getByRole("option").click();
     await expect(input).toHaveValue("Managed disk");
     await expect(frame.locator("#resource-empty")).toBeVisible();
-    await expect(frame.locator("#resource-count")).toHaveText("0 shown / 0 match scope / 24 in snapshot");
+    await expect(frame.locator("#resource-count")).toHaveText("0 resources shown / 0 match filters / 24 received");
     await input.fill("<img src=x onerror=alert(1)>");
     await expect(frame.locator("#resource-type-popup img")).toHaveCount(0);
     await frame.getByLabel("Find resource", { exact: true }).click();
@@ -100,7 +100,7 @@ test.describe("Dashboard type autocomplete", () => {
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(input).toHaveValue("Virtual machine");
-    await expect(frame.locator("#resource-count")).toContainText("3334 match scope / 10000 in snapshot");
+    await expect(frame.locator("#resource-count")).toContainText("3334 match filters / 10000 received");
     await input.click();
     await expect(frame.locator("#resource-type-option-vm")).toContainText("3,334 observed");
     await page.keyboard.press("ArrowUp");
@@ -120,7 +120,7 @@ test.describe("Dashboard type autocomplete", () => {
     await input.fill("VM");
     await frame.locator("#resource-type-option-vm").click();
     await frame.getByLabel("Group", { exact: true }).selectOption("data");
-    await expect(frame.locator("#resource-count")).toContainText("2 shown");
+    await expect(frame.locator("#resource-count")).toContainText("2 resources shown");
     await input.click();
     await expect(frame.locator("#resource-type-option-vm")).toContainText("2 observed");
     await page.keyboard.press("Escape");
@@ -134,7 +134,7 @@ test.describe("Dashboard type autocomplete", () => {
     await frame.getByRole("button", { name: "Clear type filter", exact: true }).click();
     await expect(frame.getByLabel("Group", { exact: true })).toHaveValue("data");
     await expect(frame.getByLabel("Find resource", { exact: true })).toHaveValue("db-orders-01");
-    await expect(frame.locator("#resource-count")).toContainText("1 shown");
+    await expect(frame.locator("#resource-count")).toContainText("1 resources shown");
   });
 
   test("stays dismissed after background clicks, restored focus and late IME completion", async ({ page }) => {
@@ -147,7 +147,7 @@ test.describe("Dashboard type autocomplete", () => {
     await frame.locator(".db-page-subtitle").click();
     await expect(popup).toBeHidden();
     await expect(input).toHaveValue("Virtual machine");
-    await expect(frame.locator("#resource-count")).toContainText("8 shown");
+    await expect(frame.locator("#resource-count")).toContainText("8 resources shown");
     await input.focus();
     await input.dispatchEvent("focus");
     await expect(popup).toBeHidden();
@@ -212,7 +212,7 @@ test.describe("Dashboard type autocomplete", () => {
       await option.tap();
       await expect(input).toHaveValue("PostgreSQL");
       await expect(input).toHaveAttribute("aria-expanded", "false");
-      await expect(touchFrame.locator("#resource-count")).toContainText("3 shown");
+      await expect(touchFrame.locator("#resource-count")).toContainText("3 resources shown");
       expect(await touchFrame.locator("main").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     } finally {
       await context.close();

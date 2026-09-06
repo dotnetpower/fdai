@@ -40,6 +40,7 @@
   document.addEventListener("click", () => queueMicrotask(syncRecordedFacts));
   document.addEventListener("input", () => queueMicrotask(syncRecordedFacts));
   document.addEventListener("change", () => queueMicrotask(syncRecordedFacts));
+  document.addEventListener("keydown", () => queueMicrotask(syncRecordedFacts));
   new ResizeObserver(() => queueMicrotask(syncRecordedFacts)).observe(document.querySelector(".dr-resource-panel"));
   document.addEventListener("click", (event) => {
     if (event.target.closest("#resource-reset, [data-resource-lens], #resource-scope-reset")) window.FdaiDashboardV2SummaryFilter = null;
