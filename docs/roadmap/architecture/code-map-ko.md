@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b151092b417559566d2115c0348fc2afaadab33b
+translation_source_sha: b70cead2a451a7ecc2a39b4b53d9f660ac321a12
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -97,6 +97,8 @@ Azure 의미 조회 구성은 `semantic_query_azure_composition.py`에 있습니
 걸쳐 있습니다. 문서 메타데이터는 온톨로지로 관리하지만 발췌문 텍스트는 신뢰할 수 없는
 데이터로 유지하며 지시 또는 실행 권한을 부여할 수 없습니다. 필수 검색은 불완전한 범위에서
 안전하게 종료하고, 선택적 검색은 독립 운영 근거가 완료되지 않으면 부분 상태로 남습니다.
+관리되는 문서 reader와 PostgreSQL 어댑터는 문서 인제스트 설계 경로를 사용합니다. 모든 온톨로지
+조회 편집에 문서 인제스트 맥락을 추가하지 않습니다.
 PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세대를 사용할 수 있을 때까지
 `index_completeness_unverified`를 보고합니다. 집중 계약 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한, 입력 및 reader 한도 실패를 모두 검증합니다. 콘텐츠 및 접근 범위 digest는 길이만 같은 값이 아니라 정확한 소문자 16진수 SHA-256 신원을 요구합니다. Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을 적용한 정확한 표현 digest를 분리합니다.
 
@@ -534,7 +536,9 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
 함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 프레임 모델 요청을 보내지 않고 프레임을 결정론적으로
-만들고 검증합니다. Operator bridge는 변환 결과를 수락하기 전에 계속 요청을 영속화합니다. 요청 누락은
+만들고 검증합니다. `semantic_judgment_rejections.py`는 내용이 없는 텔레메트리에 기록해도 안전한
+고정 거부 어휘를 소유하며 의미 판단 경계를 structural 상한 아래로 유지합니다. Operator bridge는
+변환 결과를 수락하기 전에 계속 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.

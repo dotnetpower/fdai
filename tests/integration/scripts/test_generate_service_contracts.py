@@ -74,3 +74,10 @@ def test_advisory_projection_schema_matches_its_owned_generator() -> None:
     assert artifact.read_text(encoding="utf-8") == module.render_schema()
     request_artifact = artifact.parents[1] / "operator-core-request/1.6.0.json"
     assert request_artifact.read_text(encoding="utf-8") == module.render_request_schema()
+    request_schema = json.loads(module.render_request_schema())
+    groups = request_schema["properties"]["semantic_turn"]["properties"]["principal"]["properties"][
+        "groups"
+    ]
+    assert groups["maxItems"] == 64
+    assert groups["uniqueItems"] is True
+    assert groups["items"] == {"maxLength": 256, "minLength": 1, "type": "string"}

@@ -26,6 +26,9 @@ from .conversation_preflight import (
     SocialResponseNarratorResult,
 )
 from .model_observation import ConversationModelObservation, ConversationModelResponse
+from .semantic_judgment_rejections import (
+    SAFE_SEMANTIC_JUDGMENT_REJECTION_REASONS as _SAFE_REJECTION_REASONS,
+)
 
 _MAX_UTTERANCE_CHARS = 32_000
 _MAX_CONTEXT_ITEMS = 8
@@ -36,30 +39,6 @@ _MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
 _MAX_SCHEMA_ERRORS = 16
 _MACHINE_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9_.-]+")
 _LOGGER = logging.getLogger(__name__)
-_SAFE_REJECTION_REASONS = frozenset(
-    {
-        "ambiguous semantic judgment MUST carry one clarification",
-        "primary semantic intent MUST NOT be duplicated",
-        "semantic link intent MUST use query namespace",
-        "semantic judgment action subject MUST match draft posture",
-        "semantic judgment alternatives MUST be unique",
-        "semantic judgment ambiguity MUST match its unresolved meaning",
-        "semantic judgment clarification MUST be one question",
-        "semantic judgment confidence MUST be finite",
-        "semantic current-state intent requires a Resource target",
-        "semantic direct response answer MUST be one paragraph",
-        "semantic direct response answer MUST be trimmed",
-        "semantic direct response answer MUST remain unambiguous and advisory",
-        "semantic direct response intent MUST carry exactly one model-authored answer",
-        "semantic direct response locale does not match the request",
-        "semantic direct response profile digest does not match",
-        "semantic judgment requested_facets MUST be unique",
-        "semantic judgment secondary_intents MUST be unique",
-        "semantic target source span exceeds the utterance",
-        "semantic target source span does not match the utterance",
-        "semantic target source span MUST be ordered",
-    }
-)
 
 
 class SemanticJudgmentModel(Protocol):

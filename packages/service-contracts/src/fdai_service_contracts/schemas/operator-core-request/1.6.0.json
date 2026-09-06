@@ -111,14 +111,16 @@
               }
             },
             "groups": {
-              "type": "array",
-              "maxItems": 64,
-              "uniqueItems": true,
+              "default": [],
               "items": {
-                "type": "string",
+                "maxLength": 256,
                 "minLength": 1,
-                "maxLength": 256
-              }
+                "type": "string"
+              },
+              "maxItems": 64,
+              "title": "Groups",
+              "type": "array",
+              "uniqueItems": true
             }
           }
         },
