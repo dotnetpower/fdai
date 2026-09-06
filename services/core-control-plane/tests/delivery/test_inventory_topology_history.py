@@ -19,6 +19,7 @@ from fdai.shared.providers.inventory import (
     RelationshipDropReason,
     ResourceRecord,
 )
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.state_evidence import (
     LinkObservationMetadata,
     StateFactAuthority,
@@ -59,6 +60,33 @@ def _state_properties_json(
         sort_keys=True,
         separators=(",", ":"),
     )
+
+
+def _availability_properties(
+    state: str,
+    *,
+    at: datetime,
+    generation: str,
+    recorded_at: datetime | None = None,
+) -> dict[str, object]:
+    recorded = recorded_at or at
+    metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="azure-resource-health",
+        source_revision=generation,
+        effective_at=at,
+        recorded_at=recorded,
+        evidence_cutoff=recorded,
+        freshness_ceiling_seconds=600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=(f"resource-health:{generation}",),
+    )
+    return {
+        "availabilityState": state,
+        "state_fact_metadata": {"availabilityState": metadata.to_mapping()},
+    }
 
 
 def _observation_metadata() -> LinkObservationMetadata:
@@ -124,6 +152,28 @@ class _TransitionWriter:
     async def append(self, batch: StateTransitionBatch) -> bool:
         self.batches.append(batch)
         return True
+
+
+class _CurrentStateReader:
+    def __init__(
+        self,
+        objects: tuple[OntologyObjectRecord, ...],
+        *,
+        source_generation: str | None = None,
+    ) -> None:
+        self.objects = objects
+        self.source_generation = source_generation
+
+    async def read_inventory_state_base(
+        self,
+        *,
+        object_ids: tuple[str, ...],
+        expected_generation: str | None,
+    ) -> tuple[OntologyObjectRecord, ...]:
+        if expected_generation != self.source_generation:
+            raise ValueError("current ontology generation does not match state enrichment base")
+        selected = tuple(item for item in self.objects if item.id in object_ids)
+        return selected
 
 
 class _FailingTransitionWriter:
@@ -223,6 +273,229 @@ async def test_relationship_gap_withholds_complete_history_baseline() -> None:
 
     assert result is None
     assert writer.calls == []
+
+
+async def test_relationship_gap_still_records_independent_availability_state() -> None:
+    previous_at = RECORDED_AT - timedelta(minutes=10)
+    previous = OntologyObjectRecord(
+        id="workspace-1",
+        object_type="Resource",
+        properties={
+            "id": "workspace-1",
+            "type": "log-workspace",
+            "properties": _availability_properties(
+                "Available",
+                at=previous_at,
+                generation="snapshot-0",
+            ),
+        },
+    )
+    transition_writer = _TransitionWriter()
+    topology_writer = _Writer()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=topology_writer,
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader(()),
+        transition_writer=transition_writer,
+        current_state_reader=_CurrentStateReader(
+            (previous,),
+            source_generation="snapshot-0",
+        ),
+    )
+
+    result = await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="workspace-1",
+                    type="log-workspace",
+                    props=_availability_properties(
+                        "Degraded",
+                        at=RECORDED_AT,
+                        generation="snapshot-1",
+                    ),
+                    last_seen=RECORDED_AT.isoformat(),
+                ),
+            ),
+            links=(),
+            complete=True,
+            relationship_drops=(
+                RelationshipDrop(reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT),
+            ),
+            recorded_at=RECORDED_AT,
+            state_base_generation="snapshot-0",
+            state_base_generation_checked=True,
+        )
+    )
+
+    assert result is None
+    assert topology_writer.calls == []
+    assert len(transition_writer.batches) == 1
+    transition = transition_writer.batches[0].transitions[0]
+    assert transition.state_type == "resource.availability_state"
+    assert (transition.from_state, transition.to_state) == ("available", "degraded")
+    assert transition_writer.batches[0].coverage[0].limitation == "snapshot_interval_only"
+
+
+async def test_unchanged_health_fact_advances_coverage_when_cutoff_moves() -> None:
+    previous_at = RECORDED_AT - timedelta(minutes=10)
+    previous = OntologyObjectRecord(
+        id="workspace-1",
+        object_type="Resource",
+        properties={
+            "id": "workspace-1",
+            "type": "log-workspace",
+            "properties": _availability_properties(
+                "Available",
+                at=previous_at,
+                generation="health-observation-1",
+            ),
+        },
+    )
+    transition_writer = _TransitionWriter()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=_Writer(),
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader(()),
+        transition_writer=transition_writer,
+        current_state_reader=_CurrentStateReader(
+            (previous,),
+            source_generation="snapshot-0",
+        ),
+    )
+
+    await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="workspace-1",
+                    type="log-workspace",
+                    props=_availability_properties(
+                        "Available",
+                        at=previous_at,
+                        recorded_at=RECORDED_AT,
+                        generation="health-observation-1",
+                    ),
+                    last_seen=RECORDED_AT.isoformat(),
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=RECORDED_AT,
+            state_base_generation="snapshot-0",
+            state_base_generation_checked=True,
+        )
+    )
+
+    assert len(transition_writer.batches) == 1
+    assert transition_writer.batches[0].transitions == ()
+    coverage = transition_writer.batches[0].coverage[0]
+    assert coverage.coverage_start_at == previous_at
+    assert coverage.coverage_end_at == RECORDED_AT
+
+
+async def test_out_of_order_health_fact_does_not_create_transition_or_coverage() -> None:
+    previous = OntologyObjectRecord(
+        id="workspace-1",
+        object_type="Resource",
+        properties={
+            "id": "workspace-1",
+            "type": "log-workspace",
+            "properties": _availability_properties(
+                "Available",
+                at=RECORDED_AT,
+                generation="health-observation-newer",
+            ),
+        },
+    )
+    transition_writer = _TransitionWriter()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=_Writer(),
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader(()),
+        transition_writer=transition_writer,
+        current_state_reader=_CurrentStateReader(
+            (previous,),
+            source_generation="snapshot-0",
+        ),
+    )
+
+    await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="workspace-1",
+                    type="log-workspace",
+                    props=_availability_properties(
+                        "Degraded",
+                        at=RECORDED_AT - timedelta(minutes=1),
+                        generation="health-observation-older",
+                    ),
+                    last_seen=RECORDED_AT.isoformat(),
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=RECORDED_AT,
+            state_base_generation="snapshot-0",
+            state_base_generation_checked=True,
+        )
+    )
+
+    assert transition_writer.batches == []
+
+
+async def test_transition_derivation_rejects_mismatched_ontology_generation() -> None:
+    previous = OntologyObjectRecord(
+        id="workspace-1",
+        object_type="Resource",
+        properties={
+            "id": "workspace-1",
+            "type": "log-workspace",
+            "properties": _availability_properties(
+                "Available",
+                at=RECORDED_AT - timedelta(minutes=1),
+                generation="health-observation-1",
+            ),
+        },
+    )
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=_Writer(),
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader(()),
+        transition_writer=_TransitionWriter(),
+        current_state_reader=_CurrentStateReader(
+            (previous,),
+            source_generation="snapshot-other",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="does not match state enrichment base"):
+        await publisher.publish(
+            PromotedInventoryObservation(
+                generation="snapshot-1",
+                resources=(
+                    ResourceRecord(
+                        resource_id="workspace-1",
+                        type="log-workspace",
+                        props=_availability_properties(
+                            "Degraded",
+                            at=RECORDED_AT,
+                            generation="health-observation-2",
+                        ),
+                        last_seen=RECORDED_AT.isoformat(),
+                    ),
+                ),
+                links=(),
+                complete=True,
+                recorded_at=RECORDED_AT,
+                state_base_generation="snapshot-0",
+                state_base_generation_checked=True,
+            )
+        )
 
 
 async def test_same_promotion_has_one_deterministic_revision_identity() -> None:

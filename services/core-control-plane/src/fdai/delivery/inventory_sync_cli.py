@@ -15,6 +15,10 @@ import httpx
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery.azure.resource_health_inventory import (
+    AzureResourceHealthInventoryConfig,
+    AzureResourceHealthInventoryEnricher,
+)
 from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
 )
@@ -226,6 +230,7 @@ def _build_ontology_observer(
             transition_writer=PostgresStateTransitionStore(
                 config=PostgresStateTransitionStoreConfig(dsn=config.dsn)
             ),
+            current_state_reader=ontology_store,
         )
 
     async def _observe(observation: PromotedInventoryObservation) -> None:
@@ -237,20 +242,26 @@ def _build_ontology_observer(
             return
         failures: list[tuple[str, Exception]] = []
         history_available = False
-        try:
-            history_available = await topology_publisher.publish(observation) is not None
-        except Exception as exc:  # noqa: BLE001 - independent derived read model
-            failures.append(("topology_history_failed", exc))
-        result = None
+        catalog_available = True
         try:
             await ontology_store.sync_catalog()
-            result = await projector.apply(
-                observation,
-                journal_high_watermark=journal_append.journal_high_watermark,
-                projection_high_watermark=journal_append.projection_high_watermark,
-            )
         except Exception as exc:  # noqa: BLE001 - independent derived read model
-            failures.append(("projection_failed", exc))
+            failures.append(("catalog_sync_failed", exc))
+            catalog_available = False
+        result = None
+        if catalog_available:
+            try:
+                history_available = await topology_publisher.publish(observation) is not None
+            except Exception as exc:  # noqa: BLE001 - independent derived read model
+                failures.append(("topology_history_failed", exc))
+            try:
+                result = await projector.apply(
+                    observation,
+                    journal_high_watermark=journal_append.journal_high_watermark,
+                    projection_high_watermark=journal_append.projection_high_watermark,
+                )
+            except Exception as exc:  # noqa: BLE001 - independent derived read model
+                failures.append(("projection_failed", exc))
         if failures:
             await publisher.publish(
                 ontology_projection_activity(
@@ -313,8 +324,19 @@ async def run(
             stack=stack,
             identity=identity,
         )
+        resource_health_enricher = AzureResourceHealthInventoryEnricher(
+            identity=identity,
+            http_client=client,
+            config=AzureResourceHealthInventoryConfig(
+                subscription_ids=config.scopes,
+                endpoint=config.management_endpoint,
+                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            ),
+            previous_state_reader=durable_store,
+        )
         effective_enricher = SequentialInventoryPromotionEnricher(
             promotion_enricher or UnavailableRuntimeCallInventoryEnricher(),
+            resource_health_enricher,
             kubernetes_enricher,
         )
         event_bus, event_topic = _build_job_event_bus(identity)
@@ -333,6 +355,12 @@ async def run(
                     vocabulary=vocabulary,
                     publisher=activity_publisher,
                     evidence_counts=evidence_counts,
+                ),
+                run_lock=PostgresAdvisoryResourceLock(
+                    config=PostgresAdvisoryResourceLockConfig(
+                        dsn=config.dsn,
+                        lock_timeout_ms=30_000,
+                    )
                 ),
                 relationship_mapping_catalog=relationship_catalog,
                 progress_deadline_seconds=float(config.progress_deadline_seconds),

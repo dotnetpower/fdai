@@ -36,6 +36,13 @@ from fdai.shared.providers.inventory_snapshot import (
     InventorySourcesExhaustedError,
     InventorySyncResult,
 )
+from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.state_evidence import (
+    STATE_FACT_METADATA_PROPERTY,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -47,6 +54,7 @@ _MAX_OBSERVED_LINKS = 200_000
 DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
 DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
 MAX_ATTEMPT_DEADLINE_SECONDS = 1740.0
+_RUN_LOCK_ID = "inventory-sync-coordinator"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +73,8 @@ class PromotedInventoryObservation:
     relationship_drops: tuple[RelationshipDrop, ...] = ()
     recorded_at: datetime | None = None
     source_states: tuple[InventoryProjectionSourceState, ...] = ()
+    state_base_generation: str | None = None
+    state_base_generation_checked: bool = False
 
 
 class InventoryProjectionSourceStatus(StrEnum):
@@ -220,6 +230,7 @@ class InventorySyncCoordinator:
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
         promotion_enricher: InventoryPromotionEnricher | None = None,
+        run_lock: ResourceLock | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
@@ -237,6 +248,7 @@ class InventorySyncCoordinator:
         self._store = store
         self._observer = promotion_observer
         self._enricher = promotion_enricher
+        self._run_lock = run_lock
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
         self._attempt_deadline_seconds = attempt_deadline_seconds
@@ -244,6 +256,12 @@ class InventorySyncCoordinator:
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
             raise ValueError("sources MUST NOT be empty")
+        if self._run_lock is None:
+            return await self._run_locked(sources)
+        async with self._run_lock.acquire(_RUN_LOCK_ID):
+            return await self._run_locked(sources)
+
+    async def _run_locked(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         failures: list[InventoryAttemptFailure] = []
         for source in sources:
             attempt_id = await self._store.begin(source.manifest)
@@ -268,15 +286,15 @@ class InventorySyncCoordinator:
                 if self._enricher is not None:
                     original_drop_count = len(promoted_observation.relationship_drops)
                     enriched = await self._enricher.enrich(promoted_observation)
-                    added_resources, added_links = _validate_enrichment(
+                    changed_resources, added_links = _validate_enrichment(
                         promoted_observation,
                         enriched,
                     )
-                    if added_resources or added_links:
+                    if changed_resources or added_links:
                         await self._store.stage(
                             attempt_id,
                             InventoryBatch(
-                                resources=added_resources,
+                                resources=changed_resources,
                                 links=added_links,
                             ),
                         )
@@ -284,6 +302,8 @@ class InventorySyncCoordinator:
                     observed.add_relationship_drops(
                         enriched.relationship_drops[original_drop_count:]
                     )
+                    if enriched.recorded_at is not None and enriched.recorded_at > completed:
+                        completed = enriched.recorded_at
                 metadata = dict(source.manifest.metadata)
                 metadata.pop("provider_scope_coverage", None)
                 relationship_drop_reasons = observed.relationship_drop_reasons(
@@ -299,6 +319,8 @@ class InventorySyncCoordinator:
                 metadata["derived_source_states"] = [
                     state.to_metadata() for state in promoted_observation.source_states
                 ]
+                if promoted_observation.state_base_generation_checked:
+                    metadata["state_base_generation"] = promoted_observation.state_base_generation
                 metadata["projection_complete"] = promoted_observation.complete
                 metadata["relationship_coverage"] = compute_relationship_coverage(
                     promoted_observation
@@ -565,9 +587,22 @@ def _validate_enrichment(
     if (
         enriched.generation != original.generation
         or enriched.complete != original.complete
-        or enriched.recorded_at != original.recorded_at
+        or enriched.recorded_at is None
+        or original.recorded_at is None
+        or enriched.recorded_at < original.recorded_at
+        or (
+            original.state_base_generation is not None
+            and enriched.state_base_generation != original.state_base_generation
+        )
+        or (original.state_base_generation_checked and not enriched.state_base_generation_checked)
     ):
         raise ValueError("inventory enrichment MUST preserve the provider observation")
+    if enriched.state_base_generation is not None and not enriched.state_base_generation_checked:
+        raise ValueError("inventory state base generation requires an explicit check")
+    if enriched.state_base_generation is not None and (
+        not enriched.state_base_generation.strip() or len(enriched.state_base_generation) > 256
+    ):
+        raise ValueError("inventory state base generation MUST be bounded")
     original_drops = tuple(original.relationship_drops)
     enriched_drops = tuple(enriched.relationship_drops)
     if enriched_drops[: len(original_drops)] != original_drops:
@@ -576,9 +611,15 @@ def _validate_enrichment(
     enriched_resources = {resource.resource_id: resource for resource in enriched.resources}
     if len(enriched_resources) != len(enriched.resources):
         raise ValueError("inventory enrichment resources MUST have unique identities")
-    if any(enriched_resources.get(key) != resource for key, resource in original_resources.items()):
-        raise ValueError("inventory enrichment MUST NOT replace provider resources")
-    added_resources = tuple(
+    changed_resources: list[ResourceRecord] = []
+    for key, resource in original_resources.items():
+        candidate = enriched_resources.get(key)
+        if candidate is None:
+            raise ValueError("inventory enrichment MUST preserve provider resources")
+        if candidate != resource:
+            _validate_resource_state_enrichment(resource, candidate)
+            changed_resources.append(candidate)
+    changed_resources.extend(
         resource for key, resource in enriched_resources.items() if key not in original_resources
     )
     original_by_key = {(link.from_id, link.link_type, link.to_id): link for link in original.links}
@@ -603,9 +644,58 @@ def _validate_enrichment(
     if len({state.source for state in enriched.source_states}) != len(enriched.source_states):
         raise ValueError("inventory enrichment source states MUST be unique")
     return (
-        tuple(sorted(added_resources, key=lambda resource: resource.resource_id)),
+        tuple(sorted(changed_resources, key=lambda resource: resource.resource_id)),
         tuple(sorted(added, key=lambda link: (link.from_id, link.link_type, link.to_id))),
     )
+
+
+def _validate_resource_state_enrichment(
+    original: ResourceRecord,
+    enriched: ResourceRecord,
+) -> None:
+    """Allow only a provider-observed availability fact on an existing Resource."""
+
+    if (
+        enriched.resource_id != original.resource_id
+        or enriched.type != original.type
+        or enriched.provider_ref != original.provider_ref
+        or enriched.last_seen != original.last_seen
+    ):
+        raise ValueError("inventory state enrichment MUST preserve Resource identity")
+    original_props = dict(original.props)
+    enriched_props = dict(enriched.props)
+    for key, value in original_props.items():
+        if key == STATE_FACT_METADATA_PROPERTY:
+            continue
+        if enriched_props.get(key) != value:
+            raise ValueError("inventory state enrichment MUST preserve provider properties")
+    allowed = {"availabilityState", "availabilityReasonKind", STATE_FACT_METADATA_PROPERTY}
+    if set(enriched_props) - set(original_props) - allowed:
+        raise ValueError("inventory state enrichment added an unsupported property")
+    state = enriched_props.get("availabilityState")
+    if not isinstance(state, str) or not state.strip():
+        raise ValueError("inventory state enrichment MUST supply availabilityState")
+    metadata = enriched_props.get(STATE_FACT_METADATA_PROPERTY)
+    if not isinstance(metadata, Mapping):
+        raise ValueError("inventory state enrichment MUST supply keyed state metadata")
+    original_metadata = original_props.get(STATE_FACT_METADATA_PROPERTY)
+    if original_metadata is not None:
+        if not isinstance(original_metadata, Mapping):
+            raise ValueError("inventory provider state metadata is malformed")
+        if any(metadata.get(key) != value for key, value in original_metadata.items()):
+            raise ValueError("inventory state enrichment MUST preserve existing state metadata")
+    availability_metadata = metadata.get("availabilityState")
+    if not isinstance(availability_metadata, Mapping):
+        raise ValueError("inventory availability metadata is missing")
+    fact = StateFactMetadata.from_mapping(availability_metadata)
+    if (
+        fact.lane is not StateFactLane.OBSERVED
+        or fact.authority is not StateFactAuthority.PROVIDER
+        or fact.source_identity != "azure-resource-health"
+        or fact.synthetic
+        or fact.completeness != 1.0
+    ):
+        raise ValueError("inventory availability metadata is not authoritative provider evidence")
 
 
 __all__ = [

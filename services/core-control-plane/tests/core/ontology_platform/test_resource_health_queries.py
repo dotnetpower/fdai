@@ -78,6 +78,45 @@ def _resource(name: str, state: str) -> OntologyObjectRecord:
     )
 
 
+def _resource_with_availability(
+    name: str,
+    state: str,
+    *,
+    recorded_at: datetime | None = None,
+) -> OntologyObjectRecord:
+    observed_at = NOW - timedelta(minutes=1)
+    recorded = recorded_at or observed_at
+    metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="azure-resource-health",
+        source_revision="azure-resource-health:sha256:" + "1" * 64,
+        effective_at=observed_at,
+        recorded_at=recorded,
+        evidence_cutoff=recorded,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("azure-resource-health:sha256:" + "1" * 64,),
+    )
+    return OntologyObjectRecord(
+        id=f"resource-{name}",
+        object_type="Resource",
+        properties={
+            "id": f"resource-{name}",
+            "name": name,
+            "type": "log-workspace",
+            "properties": {
+                "availabilityState": state,
+                "availabilityReasonKind": "status_only",
+                STATE_FACT_METADATA_PROPERTY: {
+                    "availabilityState": metadata.to_mapping(),
+                },
+            },
+        },
+    )
+
+
 def _query_result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSetQueryResult:
     declaration = resource_health_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -267,6 +306,75 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
     )
     assert all(row["values"]["execution_authority"] is False for row in rows)
     assert reader.calls == [("resource-service-a", "resource-service-b")]
+
+
+async def test_health_function_uses_fresh_ontology_availability_without_provider_read() -> None:
+    resource = _resource_with_availability("workspace", "Degraded")
+    reader = _Reader(
+        _collection(
+            ("unused",),
+            coverage_statuses=(ResourceHealthCoverageStatus.NO_RECORD,),
+        )
+    )
+
+    result = await _invoke(reader, _query_result((resource,)))
+
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["availability_state"] == "degraded"
+    assert rows[0]["values"]["coverage_state"] == "observed"
+    assert rows[0]["values"]["evidence_family"] == "resource_health"
+    assert reader.calls == []
+    assert result["complete"] is True
+
+
+async def test_application_insights_health_is_not_modeled_without_provider_read() -> None:
+    resource = OntologyObjectRecord(
+        id="resource-app-insights",
+        object_type="Resource",
+        properties={
+            "id": "resource-app-insights",
+            "name": "app-insights",
+            "type": "application-insights",
+            "properties": {},
+        },
+    )
+    reader = _Reader(
+        _collection(
+            ("unused",),
+            coverage_statuses=(ResourceHealthCoverageStatus.NO_RECORD,),
+        )
+    )
+
+    result = await _invoke(reader, _query_result((resource,)))
+
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["coverage_state"] == "not_modeled"
+    assert rows[0]["values"]["availability_state"] is None
+    assert rows[0]["values"]["authority"] == "ontology_catalog"
+    assert reader.calls == []
+    assert result["complete"] is True
+
+
+async def test_health_function_rejects_stored_fact_recorded_after_secured_cutoff() -> None:
+    resource = _resource_with_availability(
+        "workspace",
+        "Available",
+        recorded_at=NOW + timedelta(seconds=1),
+    )
+    reader = _Reader(
+        _collection(
+            (resource.id,),
+            coverage_statuses=(ResourceHealthCoverageStatus.NO_RECORD,),
+        )
+    )
+
+    result = await _invoke(reader, _query_result((resource,)))
+
+    assert reader.calls == [(resource.id,)]
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "no_record"
 
 
 async def test_health_function_preserves_every_overlapping_requested_concept() -> None:

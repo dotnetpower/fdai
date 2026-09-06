@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -34,11 +35,18 @@ from fdai.shared.contracts.models import (
     OntologyFunctionType,
     OntologyRelease,
 )
+from fdai.shared.providers.state_evidence import (
+    STATE_FACT_METADATA_PROPERTY,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 
 RESOURCE_HEALTH_FUNCTION_NAME = "query.resource_health_inventory"
 _MAX_CONCEPTS = 16
 _MAX_RESOURCES = 1000
 _MAX_OUTPUT_ROWS = 1000
+_RESOURCE_HEALTH_NOT_APPLICABLE_TYPES = frozenset({"application-insights"})
 
 
 def resource_health_function_type() -> OntologyFunctionType:
@@ -129,11 +137,43 @@ def resource_health_inventory_function(
         if not requested_health or any(item not in normalized_groups for item in requested_health):
             raise ValueError("resource health concept is absent from the configured catalog")
         requested_states = frozenset(str(item) for item in arguments["state_concepts"])
-        resource_ids = tuple(item.id for item in objects)
-        collection = await reader.read_current(resource_ids=resource_ids)
-        if collection.resource_ids != resource_ids:
+        stored_health: list[dict[str, object]] = []
+        missing_targets: list[Any] = []
+        for target in objects:
+            target_type = _text(target.properties.get("type"))
+            if target_type in _RESOURCE_HEALTH_NOT_APPLICABLE_TYPES:
+                stored_health.append(_not_modeled_health_values(target, target_type=target_type))
+                continue
+            stored = _stored_health_values(
+                target,
+                observation_cutoff=secured.receipt.observation_cutoff,
+            )
+            if stored is None:
+                missing_targets.append(target)
+                continue
+            matching_concepts = _matching_concepts(
+                str(stored["availability_state"]),
+                requested_health=requested_health,
+                groups=normalized_groups,
+            )
+            concept = matching_concepts[0] if matching_concepts else None
+            if (
+                concept is None
+                and stored["availability_state"] == ResourceHealthAvailabilityState.AVAILABLE.value
+            ):
+                continue
+            stored_health.append(
+                {
+                    **stored,
+                    "health_concept": concept,
+                    "matching_health_concepts": list(matching_concepts),
+                }
+            )
+        resource_ids = tuple(item.id for item in missing_targets)
+        collection = await reader.read_current(resource_ids=resource_ids) if resource_ids else None
+        if collection is not None and collection.resource_ids != resource_ids:
             raise ValueError("Resource Health reader changed the secured resource scope")
-        by_id = {item.id: item for item in objects}
+        by_id = {item.id: item for item in missing_targets}
         inventory_rows: list[dict[str, object]] = []
         state_incomplete = False
         for target in objects:
@@ -155,58 +195,63 @@ def resource_health_inventory_function(
                         "coverage_state": None,
                     }
                 )
-        observations = {item.resource_id: item for item in collection.observations}
-        health_rows: list[dict[str, object]] = []
-        for coverage in collection.coverage:
-            target = by_id[coverage.resource_id]
-            observation = observations.get(coverage.resource_id)
-            if coverage.status is not ResourceHealthCoverageStatus.OBSERVED:
+        health_rows = stored_health
+        if collection is not None:
+            observations = {item.resource_id: item for item in collection.observations}
+            for coverage in collection.coverage:
+                target = by_id[coverage.resource_id]
+                observation = observations.get(coverage.resource_id)
+                if coverage.status is not ResourceHealthCoverageStatus.OBSERVED:
+                    health_rows.append(
+                        _health_row_values(
+                            target=target,
+                            coverage=coverage,
+                            observation=observation,
+                            health_concept=None,
+                            matching_health_concepts=(),
+                            collection=collection,
+                        )
+                    )
+                    continue
+                if observation is None:
+                    raise ValueError("Resource Health observed coverage is missing its observation")
+                matching_concepts = _matching_concepts(
+                    observation.availability_state.value,
+                    requested_health=requested_health,
+                    groups=normalized_groups,
+                )
+                concept = matching_concepts[0] if matching_concepts else None
+                if (
+                    concept is None
+                    and observation.availability_state is ResourceHealthAvailabilityState.AVAILABLE
+                ):
+                    continue
                 health_rows.append(
                     _health_row_values(
                         target=target,
                         coverage=coverage,
                         observation=observation,
-                        health_concept=None,
-                        matching_health_concepts=(),
+                        health_concept=concept,
+                        matching_health_concepts=matching_concepts,
                         collection=collection,
                     )
                 )
-                continue
-            if observation is None:
-                raise ValueError("Resource Health observed coverage is missing its observation")
-            matching_concepts = _matching_concepts(
-                observation.availability_state.value,
-                requested_health=requested_health,
-                groups=normalized_groups,
-            )
-            concept = matching_concepts[0] if matching_concepts else None
-            if (
-                concept is None
-                and observation.availability_state is ResourceHealthAvailabilityState.AVAILABLE
-            ):
-                continue
-            health_rows.append(
-                _health_row_values(
-                    target=target,
-                    coverage=coverage,
-                    observation=observation,
-                    health_concept=concept,
-                    matching_health_concepts=matching_concepts,
-                    collection=collection,
-                )
-            )
         row_values = health_rows + inventory_rows
         row_limit_reached = len(row_values) > _MAX_OUTPUT_ROWS
         rows = tuple(
             QueryRow.from_values(f"resource-health-{index:04d}", values)
             for index, values in enumerate(row_values[:_MAX_OUTPUT_ROWS], start=1)
         )
-        reasons = [item for item in (collection.limitation,) if item]
+        reasons = [item for item in ((collection.limitation if collection else None),) if item]
         if state_incomplete:
             reasons.append("resource_state_evidence_incomplete")
         if row_limit_reached:
             reasons.append("resource_health_row_limit")
-        complete = collection.complete and not state_incomplete and not row_limit_reached
+        complete = (
+            (collection is None or collection.complete)
+            and not state_incomplete
+            and not row_limit_reached
+        )
         return _table(
             rows,
             complete=complete,
@@ -214,6 +259,84 @@ def resource_health_inventory_function(
         )
 
     return evaluate
+
+
+def _not_modeled_health_values(target: Any, *, target_type: str) -> dict[str, object]:
+    return {
+        "name": _text(target.properties.get("name")),
+        "type": target_type,
+        "availability_state": None,
+        "coverage_state": ResourceHealthCoverageStatus.NOT_MODELED.value,
+        "state_concept": None,
+        "health_concept": None,
+        "matching_health_concepts": [],
+        "health_kind": None,
+        "provider_observed_at": None,
+        "source_observed_at": None,
+        "collection_started_at": None,
+        "collection_completed_at": None,
+        "evidence_family": "resource_health",
+        "authority": "ontology_catalog",
+        "evidence_ref": f"resource-health-applicability:{target_type}",
+        "execution_authority": False,
+    }
+
+
+def _stored_health_values(
+    target: Any,
+    *,
+    observation_cutoff: datetime,
+) -> dict[str, object] | None:
+    provider = target.properties.get("properties")
+    if not isinstance(provider, Mapping):
+        return None
+    raw_state = provider.get("availabilityState")
+    normalized = _machine_token(raw_state) if isinstance(raw_state, str) else ""
+    try:
+        state = ResourceHealthAvailabilityState(normalized)
+    except ValueError:
+        return None
+    metadata_root = provider.get(STATE_FACT_METADATA_PROPERTY)
+    metadata_value = (
+        metadata_root.get("availabilityState") if isinstance(metadata_root, Mapping) else None
+    )
+    if not isinstance(metadata_value, Mapping):
+        return None
+    try:
+        metadata = StateFactMetadata.from_mapping(metadata_value)
+    except (TypeError, ValueError):
+        return None
+    age_seconds = (observation_cutoff - metadata.effective_at).total_seconds()
+    if (
+        metadata.lane is not StateFactLane.OBSERVED
+        or metadata.authority is not StateFactAuthority.PROVIDER
+        or metadata.source_identity != "azure-resource-health"
+        or metadata.completeness < 1.0
+        or metadata.synthetic
+        or metadata.conflicts
+        or metadata.recorded_at > observation_cutoff
+        or metadata.evidence_cutoff > observation_cutoff
+        or not 0 <= age_seconds <= metadata.freshness_ceiling_seconds
+    ):
+        return None
+    return {
+        "name": _text(target.properties.get("name")),
+        "type": _text(target.properties.get("type")),
+        "availability_state": state.value,
+        "coverage_state": ResourceHealthCoverageStatus.OBSERVED.value,
+        "state_concept": None,
+        "health_concept": None,
+        "matching_health_concepts": [],
+        "health_kind": _text(provider.get("availabilityReasonKind")) or "status_only",
+        "provider_observed_at": metadata.effective_at.isoformat(),
+        "source_observed_at": metadata.effective_at.isoformat(),
+        "collection_started_at": metadata.effective_at.isoformat(),
+        "collection_completed_at": metadata.recorded_at.isoformat(),
+        "evidence_family": "resource_health",
+        "authority": "provider",
+        "evidence_ref": metadata.evidence_refs[0],
+        "execution_authority": False,
+    }
 
 
 def _validated_groups(

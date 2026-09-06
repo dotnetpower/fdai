@@ -11,10 +11,11 @@ import pytest
 from fdai_operator_service.families.operations.contracts import InventoryInstanceResource
 from fdai_operator_service.families.operations.instance_explorer import _resource_projection
 from fdai_operator_service.families.operations.recorded_state import (
+    AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
+    AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
-    RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES,
     RecordedStateObservation,
     recorded_resource_states,
 )
@@ -159,17 +160,19 @@ def test_unclassified_resource_missing_state_has_a_distinct_reason() -> None:
 
 def test_missing_state_separates_source_provider_and_applicability_outcomes() -> None:
     mapped = recorded_resource_states({}, resource_type="compute.container-app", now=NOW)
-    resource_health_unbound = recorded_resource_states(
+    application_insights = recorded_resource_states(
         {},
         resource_type="application-insights",
         now=NOW,
     )
+    log_workspace = recorded_resource_states({}, resource_type="log-workspace", now=NOW)
     not_applicable = recorded_resource_states({}, resource_type="resource-group", now=NOW)
     unresolved = recorded_resource_states({}, resource_type="downstream.custom", now=NOW)
     assert mapped["operational"]["reason"] == "state_source_not_recorded"
-    assert (
-        resource_health_unbound["operational"]["reason"] == "resource_health_projection_not_bound"
-    )
+    assert application_insights["operational"]["reason"] == "state_not_applicable"
+    assert application_insights["availability"]["reason"] == "state_not_applicable"
+    assert log_workspace["operational"]["reason"] == "state_not_applicable"
+    assert log_workspace["availability"]["reason"] == "state_source_not_recorded"
     assert not_applicable["operational"]["reason"] == "state_not_applicable"
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
@@ -189,10 +192,12 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
         set(OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
         | OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES
         | PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
-        | RESOURCE_HEALTH_OPERATIONAL_STATE_RESOURCE_TYPES
         | {"unclassified-resource"}
     )
     assert classified == canonical
+    assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
+        AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+    )
 
 
 @pytest.mark.parametrize(
@@ -222,6 +227,47 @@ def test_resource_specific_state_paths_are_retained(
     assert fact["source_path"] == f"properties.{path}"
     assert fact["freshness"] == "fresh"
     assert fact["completeness"] == 1.0
+
+
+def test_log_workspace_availability_preserves_resource_health_evidence() -> None:
+    metadata = _metadata(
+        source_identity="azure-resource-health",
+        source_revision="azure-resource-health:sha256:" + "1" * 64,
+        effective_at="2026-09-05T00:04:00+00:00",
+        recorded_at="2026-09-05T00:04:30+00:00",
+        evidence_cutoff="2026-09-05T00:04:30+00:00",
+        freshness_ceiling_seconds=300,
+        evidence_refs=["azure-resource-health:sha256:" + "1" * 64],
+    )
+    states = recorded_resource_states(
+        {
+            "availabilityState": "Available",
+            "state_fact_metadata": {"availabilityState": metadata},
+        },
+        resource_type="log-workspace",
+        now=NOW,
+    )
+
+    assert states["operational"]["reason"] == "state_not_applicable"
+    assert states["availability"] == {
+        "value": "Available",
+        "source_path": "availabilityState",
+        "observed_at": "2026-09-05T00:04:00+00:00",
+        "recorded_at": "2026-09-05T00:04:30+00:00",
+        "freshness": "fresh",
+        "completeness": 1.0,
+        "conflicts": [],
+        "reason": None,
+    }
+    unknown = recorded_resource_states(
+        {
+            "availabilityState": "Unknown",
+            "state_fact_metadata": {"availabilityState": metadata},
+        },
+        resource_type="log-workspace",
+        now=NOW,
+    )
+    assert unknown["availability"]["value"] == "Unknown"
 
 
 @pytest.mark.parametrize("value", [None, "", "unknown", "Unknown", " unknown ", {}, True])

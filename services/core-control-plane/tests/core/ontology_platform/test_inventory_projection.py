@@ -308,6 +308,45 @@ def test_nested_operational_state_is_projected_with_observation_metadata(
     assert metadata.effective_at == OBSERVED_AT
 
 
+def test_resource_health_availability_metadata_reaches_ontology_instance() -> None:
+    health_metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="azure-resource-health",
+        source_revision="azure-resource-health:sha256:" + "1" * 64,
+        effective_at=OBSERVED_AT,
+        recorded_at=OBSERVED_AT,
+        evidence_cutoff=OBSERVED_AT,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("azure-resource-health:sha256:" + "1" * 64,),
+    )
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="workspace-1",
+                type="log-workspace",
+                props={
+                    "availabilityState": "Available",
+                    "state_fact_metadata": {
+                        "availabilityState": health_metadata.to_mapping(),
+                    },
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["availabilityState"] == "Available"
+    assert (
+        StateFactMetadata.from_mapping(provider["state_fact_metadata"]["availabilityState"])
+        == health_metadata
+    )
+
+
 def test_incomplete_observation_claims_no_relationship() -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",

@@ -8,7 +8,8 @@ Ontology Instances. It preserves recorded values and their evidence instead of c
 browser-side operational verdict.
 
 > **Authority boundary:** Reading a record does not prove current health or authorize a change.
-> No provider query, model invocation, state write, or new persistence owner is introduced.
+> The inventory job performs the reviewed provider read and single-writer projection. Console and
+> conversational consumers do not perform a provider write, model invocation, or state mutation.
 
 ## Design at a glance
 
@@ -49,9 +50,8 @@ reviewed outcome:
 | Outcome | Meaning |
 |---------|---------|
 | `state_source_not_recorded` | The type has an explicit provider or Kubernetes state contract, but the selected generation contains no usable value. This includes service, power, readiness, database, broker, disk, snapshot-access, and private-DNS-link states. |
-| `resource_health_projection_not_bound` | Application Insights and Log Analytics require Azure Resource Health because ARG inventory exposes no per-resource operational state. That source is not connected to the recorded-state projection. Provisioning state and existence do not replace it. |
 | `provider_operational_state_not_exposed` | The resource can have operational concerns, but its current provider inventory contract exposes no per-resource operational state and has no reviewed alternate source in this projection. |
-| `state_not_applicable` | The reviewed type is a configuration, identity, grouping, or aggregate definition with no single operational-state value. |
+| `state_not_applicable` | The reviewed type or axis has no single applicable state. This includes Application Insights operational and availability state and Log Analytics operational state. |
 | `resource_type_unclassified` | The provider type has no reviewed canonical ResourceType mapping. |
 | `state_applicability_unknown` | A downstream custom type has not been reviewed. Canonical types do not use this fallback. |
 
@@ -80,15 +80,39 @@ caps accumulation at 20,000 records under a total deadline. Reaching that bound 
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
 Display filters and local pages operate on this received set; the server query remains the authority.
 
+## Unified state ingestion and readers
+
+Resource discovery establishes identity and configuration. A separate reviewed state enricher may
+add only a typed state value and canonical state-fact metadata before the generation is promoted.
+It cannot replace identity, configuration, topology, or inventory observation time.
+
+The promoted Resource fact is written to both the current `ontology_resource` Resource and the
+Operator-readable inventory projection under one generation fence. Core conversational functions
+read the ontology instance. Operator instance and batch-state reads use the service-approved
+projection of the same fact because the Operator role has no direct Core-table access.
+
+State transition recording is independent of relationship completeness. A complete object
+observation can advance operational or availability state history even when an unrelated topology
+edge remains unresolved. Relationship history still requires complete relationship evidence.
+
+The first reviewed alternate source is Azure Resource Health for `log-workspace` availability:
+
+- `log-workspace` has no single operational running state. Its operational axis is not applicable,
+  while its availability axis uses the exact ARM Resource Health status.
+- `application-insights` has no direct Resource Health status. Its operational and availability
+  axes are not applicable. The backing Log Analytics workspace remains a separate related Resource;
+  its health is never copied onto Application Insights.
+- A failed, unauthorized, malformed, partial, or stale state read records the exact source
+  limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
+
 ## Presentation and compatibility
 
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
-- Ontology directory and exploration records expose the same additive `states` field.
+- Ontology directory and exploration records expose the same additive `states` field from the
+  ontology-owned current Resource state.
 - The shared Console fact view shows source values, timing, freshness, completeness, and reasons.
-- Missing values render as Not recorded, State source not connected, Unavailable, Not applicable,
-  or Applicability unknown from the machine reason. Application Insights and Log Analytics
-  therefore identify the unbound Azure Resource Health source instead of displaying a generic
-  unavailable value.
+- Missing values render as Not recorded, Unavailable, Not applicable, or Applicability unknown
+  from the machine reason. Legacy generations can still identify an unbound source explicitly.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.

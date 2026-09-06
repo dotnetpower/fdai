@@ -29,6 +29,7 @@ from fdai.core.ontology_platform.topology_history import (
     graph_at,
 )
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.state_evidence import (
     STATE_FACT_METADATA_PROPERTY,
     StateFactAuthority,
@@ -49,8 +50,13 @@ _CANONICAL_STATES = frozenset(
         "stopped",
         "succeeded",
         "unavailable",
+        "unknown",
     }
 )
+_STATE_PATHS = {
+    "resource.operational_state": "state",
+    "resource.availability_state": "availabilityState",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +77,17 @@ class TopologyHistoryWriter(Protocol):
     ) -> None: ...
 
 
+class InventoryCurrentStateReader(Protocol):
+    """Read the exact prior inventory-owned ontology generation."""
+
+    async def read_inventory_state_base(
+        self,
+        *,
+        object_ids: tuple[str, ...],
+        expected_generation: str | None,
+    ) -> tuple[OntologyObjectRecord, ...]: ...
+
+
 class InventoryTopologyHistoryPublisher:
     """Derive a retained complete baseline after authoritative promotion."""
 
@@ -81,6 +98,7 @@ class InventoryTopologyHistoryPublisher:
         ontology_release_digest: str,
         history_reader: TopologyHistoryReader | None = None,
         transition_writer: StateTransitionStore | None = None,
+        current_state_reader: InventoryCurrentStateReader | None = None,
     ) -> None:
         if not _is_digest(ontology_release_digest):
             raise ValueError("ontology_release_digest MUST be a canonical SHA-256 digest")
@@ -88,6 +106,7 @@ class InventoryTopologyHistoryPublisher:
         self._ontology_release_digest = ontology_release_digest
         self._history_reader = history_reader
         self._transition_writer = transition_writer
+        self._current_state_reader = current_state_reader
         if (history_reader is None) != (transition_writer is None):
             raise ValueError(
                 "inventory state-transition history reader and writer MUST be bound together"
@@ -121,6 +140,20 @@ class InventoryTopologyHistoryPublisher:
             observation_complete=observation.complete,
             relationship_drops=observation.relationship_drops,
         )
+        current_generation_retained = any(
+            item.provider_generation_ref == observation.generation for item in previous_batches
+        )
+        if self._transition_writer is not None and not current_generation_retained:
+            previous_objects = await self._previous_state_objects(
+                projection.objects,
+                observation=observation,
+                previous_batches=previous_batches,
+            )
+            await self._publish_state_transitions(
+                projection.objects,
+                observation=observation,
+                previous_objects=previous_objects,
+            )
         if not projection.complete or not projection.relationship_complete:
             return None
 
@@ -168,15 +201,6 @@ class InventoryTopologyHistoryPublisher:
             ontology_release_digest=self._ontology_release_digest,
             source_receipt_digest=source_receipt_digest,
         )
-        current_generation_retained = any(
-            item.provider_generation_ref == observation.generation for item in previous_batches
-        )
-        if self._transition_writer is not None and not current_generation_retained:
-            await self._publish_state_transitions(
-                projection.objects,
-                observation=observation,
-                previous_batches=previous_batches,
-            )
         await self._writer.append(
             batch,
             ontology_release_digest=self._ontology_release_digest,
@@ -186,90 +210,87 @@ class InventoryTopologyHistoryPublisher:
 
     async def _publish_state_transitions(
         self,
-        objects: tuple[object, ...],
+        objects: tuple[OntologyObjectRecord, ...],
         *,
         observation: PromotedInventoryObservation,
-        previous_batches: Sequence[TopologyRevisionBatch],
+        previous_objects: Sequence[OntologyObjectRecord],
     ) -> None:
         if self._transition_writer is None or observation.recorded_at is None:
             return
-        previous = (
-            graph_at(
-                previous_batches,
-                as_of=observation.recorded_at,
-                known_at=observation.recorded_at,
-            )
-            if previous_batches
-            else None
-        )
-        previous_states = (
-            {
-                item.id: state
-                for item in previous.graph.objects
-                if (state := _observed_state(item)) is not None
-            }
-            if previous is not None
-            else {}
-        )
+        previous_states: dict[tuple[str, str], _ObservedState] = {}
+        for item in previous_objects:
+            item_id = item.id
+            for state_type, state in _observed_states(item).items():
+                previous_states[(item_id, state_type)] = state
         batches: dict[
             datetime,
             tuple[list[OperationalStateTransition], list[StateTransitionCoverage]],
         ] = {}
         for item in objects:
-            subject_ref = getattr(item, "id", None)
-            subject_type = getattr(item, "object_type", None)
-            current = _observed_state(item)
-            if not isinstance(subject_ref, str) or subject_type != "Resource" or current is None:
+            subject_ref = item.id
+            if item.object_type != "Resource":
                 continue
-            transitions, coverage = batches.setdefault(current.metadata.recorded_at, ([], []))
-            prior = previous_states.get(subject_ref)
-            subject_digest = hashlib.sha256(subject_ref.encode()).hexdigest()
-            if prior is not None and prior.value != current.value:
-                transitions.append(
-                    OperationalStateTransition.create(
-                        idempotency_key=(
-                            f"inventory-state:{subject_digest}:{current.metadata.source_revision}"
-                        ),
+            for state_type, current in _observed_states(item).items():
+                prior = previous_states.get((subject_ref, state_type))
+                if prior is not None and prior == current:
+                    continue
+                if prior is not None and (
+                    current.metadata.effective_at < prior.metadata.effective_at
+                    or (
+                        current.metadata.effective_at == prior.metadata.effective_at
+                        and current.value != prior.value
+                    )
+                ):
+                    continue
+                transitions, coverage = batches.setdefault(current.metadata.recorded_at, ([], []))
+                subject_digest = hashlib.sha256(subject_ref.encode()).hexdigest()
+                if prior is not None and prior.value != current.value:
+                    transitions.append(
+                        OperationalStateTransition.create(
+                            idempotency_key=(
+                                f"inventory-state:{subject_digest}:{state_type}:"
+                                f"{current.metadata.source_revision}"
+                            ),
+                            subject_ref=subject_ref,
+                            subject_type="Resource",
+                            state_type=state_type,
+                            from_state=prior.value,
+                            to_state=current.value,
+                            lane=StateTransitionLane.OBSERVED,
+                            authority=StateTransitionAuthority.PROVIDER,
+                            effective_at=current.metadata.effective_at,
+                            evidence_cutoff=current.metadata.evidence_cutoff,
+                            recorded_at=current.metadata.recorded_at,
+                            source_identity=current.metadata.source_identity,
+                            source_revision=current.metadata.source_revision,
+                            producer_id="huginn.inventory-state-transition",
+                            producer_version="1.1.0",
+                            freshness_ceiling_seconds=(current.metadata.freshness_ceiling_seconds),
+                            completeness_basis_points=10_000,
+                            evidence_refs=current.metadata.evidence_refs,
+                        )
+                    )
+                coverage.append(
+                    StateTransitionCoverage.create(
                         subject_ref=subject_ref,
-                        subject_type="Resource",
-                        state_type="resource.operational_state",
-                        from_state=prior.value,
-                        to_state=current.value,
-                        lane=StateTransitionLane.OBSERVED,
-                        authority=StateTransitionAuthority.PROVIDER,
-                        effective_at=current.metadata.effective_at,
-                        evidence_cutoff=current.metadata.evidence_cutoff,
+                        state_type=state_type,
+                        coverage_start_at=(
+                            prior.metadata.evidence_cutoff
+                            if prior is not None
+                            else current.metadata.effective_at
+                        ),
+                        coverage_end_at=current.metadata.evidence_cutoff,
                         recorded_at=current.metadata.recorded_at,
                         source_identity=current.metadata.source_identity,
                         source_revision=current.metadata.source_revision,
-                        producer_id="huginn.inventory-state-transition",
-                        producer_version="1.0.0",
-                        freshness_ceiling_seconds=(current.metadata.freshness_ceiling_seconds),
-                        completeness_basis_points=10_000,
-                        evidence_refs=current.metadata.evidence_refs,
+                        watermark=current.metadata.source_revision,
+                        evidence_ref=current.metadata.evidence_refs[0],
+                        complete=False,
+                        limitation=(
+                            "initial_state_only" if prior is None else "snapshot_interval_only"
+                        ),
                     )
                 )
-            coverage.append(
-                StateTransitionCoverage.create(
-                    subject_ref=subject_ref,
-                    state_type="resource.operational_state",
-                    coverage_start_at=(
-                        prior.metadata.evidence_cutoff
-                        if prior is not None
-                        else current.metadata.effective_at
-                    ),
-                    coverage_end_at=current.metadata.evidence_cutoff,
-                    recorded_at=current.metadata.recorded_at,
-                    source_identity=current.metadata.source_identity,
-                    source_revision=current.metadata.source_revision,
-                    watermark=current.metadata.source_revision,
-                    evidence_ref=current.metadata.evidence_refs[0],
-                    complete=False,
-                    limitation=(
-                        "initial_state_only" if prior is None else "snapshot_interval_only"
-                    ),
-                )
-            )
         if not batches:
             return
         for recorded_at, (transitions, coverage) in sorted(batches.items()):
@@ -293,6 +314,30 @@ class InventoryTopologyHistoryPublisher:
                     recorded_at=recorded_at,
                 )
                 await self._transition_writer.append(batch)
+
+    async def _previous_state_objects(
+        self,
+        objects: Sequence[OntologyObjectRecord],
+        *,
+        observation: PromotedInventoryObservation,
+        previous_batches: Sequence[TopologyRevisionBatch],
+    ) -> tuple[OntologyObjectRecord, ...]:
+        if self._current_state_reader is not None:
+            object_ids = tuple(item.id for item in objects if item.object_type == "Resource")
+            if observation.state_base_generation_checked:
+                return await self._current_state_reader.read_inventory_state_base(
+                    object_ids=object_ids,
+                    expected_generation=observation.state_base_generation,
+                )
+        if not previous_batches or observation.recorded_at is None:
+            return ()
+        return tuple(
+            graph_at(
+                previous_batches,
+                as_of=observation.recorded_at,
+                known_at=observation.recorded_at,
+            ).graph.objects
+        )
 
 
 def _source_receipt_digest(
@@ -343,31 +388,41 @@ def _is_digest(value: str) -> bool:
     )
 
 
-def _observed_state(record: object) -> _ObservedState | None:
-    properties = getattr(record, "properties", None)
+def _observed_states(record: OntologyObjectRecord) -> dict[str, _ObservedState]:
+    properties = record.properties
     provider = properties.get("properties") if isinstance(properties, dict) else None
-    state = provider.get("state") if isinstance(provider, dict) else None
-    metadata_value = (
-        provider.get(STATE_FACT_METADATA_PROPERTY) if isinstance(provider, dict) else None
-    )
-    if not isinstance(state, str) or not state.strip() or not isinstance(metadata_value, dict):
-        return None
-    try:
-        metadata = StateFactMetadata.from_mapping(metadata_value)
-    except (TypeError, ValueError):
-        return None
-    if (
-        metadata.lane is not StateFactLane.OBSERVED
-        or metadata.authority is not StateFactAuthority.PROVIDER
-        or metadata.completeness < 1.0
-        or metadata.synthetic
-        or metadata.conflicts
-    ):
-        return None
-    matched = _CANONICAL_STATES.intersection(re.findall(r"[a-z0-9]+", state.casefold()))
-    if len(matched) != 1:
-        return None
-    return _ObservedState(value=next(iter(matched)), metadata=metadata)
+    if not isinstance(provider, dict):
+        return {}
+    metadata_root = provider.get(STATE_FACT_METADATA_PROPERTY)
+    if not isinstance(metadata_root, dict):
+        return {}
+    observed: dict[str, _ObservedState] = {}
+    for state_type, path in _STATE_PATHS.items():
+        state = provider.get(path)
+        metadata_value = metadata_root.get(path)
+        if state_type == "resource.operational_state" and not isinstance(metadata_value, dict):
+            metadata_value = metadata_root
+        if not isinstance(state, str) or not state.strip() or not isinstance(metadata_value, dict):
+            continue
+        try:
+            metadata = StateFactMetadata.from_mapping(metadata_value)
+        except (TypeError, ValueError):
+            continue
+        if (
+            metadata.lane is not StateFactLane.OBSERVED
+            or metadata.authority is not StateFactAuthority.PROVIDER
+            or metadata.completeness < 1.0
+            or metadata.synthetic
+            or metadata.conflicts
+        ):
+            continue
+        matched = _CANONICAL_STATES.intersection(re.findall(r"[a-z0-9]+", state.casefold()))
+        if len(matched) == 1:
+            observed[state_type] = _ObservedState(
+                value=next(iter(matched)),
+                metadata=metadata,
+            )
+    return observed
 
 
 __all__ = ["InventoryTopologyHistoryPublisher", "TopologyHistoryWriter"]

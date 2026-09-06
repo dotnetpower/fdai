@@ -51,6 +51,7 @@ from fdai.shared.providers.ontology_instance import (
 
 _resolve_inventory_graph_source_coverage = resolve_inventory_graph_source_coverage
 _SUBGRAPH_REPLACEMENT_LOCK: Final[int] = 8_419_450_001
+_INVENTORY_STATE_BATCH_SIZE: Final[int] = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +157,62 @@ class PostgresOntologyInstanceStore:
                         )
                     releases[digest] = release
         self._releases = releases
+
+    async def read_inventory_state_base(
+        self,
+        *,
+        object_ids: tuple[str, ...],
+        expected_generation: str | None,
+    ) -> tuple[OntologyObjectRecord, ...]:
+        """Read a manifest-fenced prior Resource generation for transition derivation."""
+
+        if object_ids != tuple(sorted(set(object_ids))) or len(object_ids) > 50_000:
+            raise ValueError("inventory state base object ids MUST be unique, ordered, and bounded")
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                cursor = await connection.execute(
+                    "SELECT key, value FROM state_kv "
+                    "WHERE key=ANY(%s::text[]) ORDER BY key FOR SHARE",
+                    (
+                        [
+                            "inventory-ontology:manifest",
+                            "inventory-ontology:status",
+                        ],
+                    ),
+                )
+                rows = {str(row["key"]): row["value"] for row in await cursor.fetchall()}
+                manifest = rows.get("inventory-ontology:manifest")
+                status = rows.get("inventory-ontology:status")
+                if expected_generation is None:
+                    if manifest is not None or status is not None:
+                        raise ValueError("inventory ontology state base appeared after enrichment")
+                    return ()
+                if not isinstance(manifest, dict) or not isinstance(status, dict):
+                    raise ValueError("inventory ontology state base is unavailable")
+                if (
+                    manifest.get("generation") != expected_generation
+                    or manifest.get("complete") is not True
+                    or status.get("generation") != expected_generation
+                    or status.get("status") != "available"
+                    or status.get("complete") is not True
+                ):
+                    raise ValueError("inventory ontology state base generation is incomplete")
+                objects: list[OntologyObjectRecord] = []
+                for start in range(0, len(object_ids), _INVENTORY_STATE_BATCH_SIZE):
+                    selected = object_ids[start : start + _INVENTORY_STATE_BATCH_SIZE]
+                    object_cursor = await connection.execute(
+                        "SELECT id, object_type, properties, revision, "
+                        "type_version, catalog_digest FROM ontology_resource "
+                        "WHERE object_type='Resource' AND id=ANY(%s::text[]) "
+                        "ORDER BY id",
+                        (list(selected),),
+                    )
+                    objects.extend(
+                        _object_from_row(row, releases=self._releases)
+                        for row in await object_cursor.fetchall()
+                    )
+                return tuple(objects)
 
     async def upsert_object(
         self,

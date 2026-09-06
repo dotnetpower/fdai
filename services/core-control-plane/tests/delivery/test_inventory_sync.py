@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -188,6 +189,22 @@ class _DropEnricher:
         )
 
 
+class _RunLock:
+    def __init__(self) -> None:
+        self.active = False
+        self.ids: list[str] = []
+
+    @asynccontextmanager
+    async def acquire(self, resource_id: str):
+        assert not self.active
+        self.active = True
+        self.ids.append(resource_id)
+        try:
+            yield
+        finally:
+            self.active = False
+
+
 async def test_complete_stream_promotes_terminal_records() -> None:
     store = _Store()
     resource = ResourceRecord(resource_id="vm-1", type="compute.vm")
@@ -198,6 +215,25 @@ async def test_complete_stream_promotes_terminal_records() -> None:
     assert store.promoted == ["attempt-1"]
     assert store.batches["attempt-1"][0].resources == (resource,)
     assert store.batches["attempt-1"][0].final is False
+
+
+async def test_run_lock_serializes_collection_promotion_and_observer() -> None:
+    lock = _RunLock()
+    store = _Store()
+    observed: list[bool] = []
+
+    async def observer(_observation: PromotedInventoryObservation) -> None:
+        observed.append(lock.active)
+
+    await InventorySyncCoordinator(
+        store=store,
+        promotion_observer=observer,
+        run_lock=lock,
+    ).run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
+
+    assert lock.ids == ["inventory-sync-coordinator"]
+    assert observed == [True]
+    assert lock.active is False
 
 
 async def test_enrichment_relationship_gaps_reach_the_promoted_manifest() -> None:
@@ -543,6 +579,75 @@ async def test_promotion_enrichment_cannot_replace_provider_records() -> None:
         )
 
     assert store.promoted == []
+
+
+async def test_promotion_enrichment_stages_provider_availability_without_replacing_resource() -> (
+    None
+):
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    class _Enricher:
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            assert observation.recorded_at is not None
+            resource = observation.resources[0]
+            props = {
+                **resource.props,
+                "availabilityState": "Available",
+                "availabilityReasonKind": "status_only",
+                "state_fact_metadata": {
+                    "availabilityState": StateFactMetadata(
+                        lane=StateFactLane.OBSERVED,
+                        authority=StateFactAuthority.PROVIDER,
+                        source_identity="azure-resource-health",
+                        source_revision="azure-resource-health:sha256:" + "1" * 64,
+                        effective_at=observation.recorded_at,
+                        recorded_at=observation.recorded_at,
+                        evidence_cutoff=observation.recorded_at,
+                        freshness_ceiling_seconds=300,
+                        completeness=1.0,
+                        synthetic=False,
+                        evidence_refs=("azure-resource-health:sha256:" + "1" * 64,),
+                    ).to_mapping()
+                },
+            }
+            return replace(
+                observation,
+                resources=(replace(resource, props=props),),
+                state_base_generation="snapshot-0",
+                state_base_generation_checked=True,
+            )
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    resource = ResourceRecord(
+        resource_id="workspace-1",
+        type="log-workspace",
+        props={"name": "workspace"},
+        provider_ref="/subscriptions/example/resourceGroups/example/providers/example/type/one",
+        last_seen="2026-09-06T00:00:00+00:00",
+    )
+    await InventorySyncCoordinator(
+        store=store,
+        promotion_enricher=_Enricher(),
+        promotion_observer=_record,
+    ).run([_source("arg", _Inventory([InventoryBatch(resources=(resource,), final=True)]))])
+
+    staged = [
+        item
+        for batch in store.batches["attempt-1"]
+        for item in batch.resources
+        if item.resource_id == "workspace-1"
+    ]
+    assert len(staged) == 2
+    assert staged[-1].props["availabilityState"] == "Available"
+    assert observed[0].resources[0].props["name"] == "workspace"
+    assert observed[0].resources[0].props["availabilityState"] == "Available"
+    assert store.promoted_manifests[0].metadata["state_base_generation"] == "snapshot-0"
 
 
 async def test_promotion_enrichment_cannot_add_a_dangling_endpoint() -> None:

@@ -77,7 +77,10 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
             "AZURE_SUBSCRIPTION_ID": "sub-1",
         }
     )
-    ontology_store = SimpleNamespace(sync_catalog=AsyncMock())
+    ontology_store = SimpleNamespace(
+        sync_catalog=AsyncMock(),
+        read_inventory_state_base=AsyncMock(return_value=()),
+    )
     history_store = SimpleNamespace(append=AsyncMock(), read=AsyncMock(return_value=()))
     projector = SimpleNamespace(
         construction_kwargs={},
