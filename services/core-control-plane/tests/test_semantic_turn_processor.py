@@ -345,6 +345,24 @@ def test_document_display_digest_binds_the_rendered_excerpt() -> None:
     assert projected["display_content_digest"] != content_digest({"text": original})
 
 
+def test_document_redaction_preserves_source_digest_and_rebinds_display_digest() -> None:
+    source_digest = "sha256:" + ("a" * 64)
+    projected = _answer_row_values(
+        {
+            "record_kind": "excerpt",
+            "text": "See https://example.com/runbook for recovery.",
+            "content_digest": source_digest,
+        }
+    )
+    rendered, truncated = _bounded_document_text("<redacted>", maximum=1_200)
+
+    assert truncated is False
+    assert projected["text"] == "<redacted>"
+    assert projected["content_digest"] == source_digest
+    assert projected["redaction_applied"] is True
+    assert projected["display_content_digest"] == content_digest({"text": rendered})
+
+
 def test_optional_document_evidence_unavailable_is_explicit() -> None:
     request = _request(locale="ko")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

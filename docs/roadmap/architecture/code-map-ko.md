@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 0df4a5f3bde529a61ee8b7002060e3c97445c735
+translation_source_sha: b43b4d1cea848478c22bdef0f2487542b2d585ca
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -97,6 +97,8 @@ PostgreSQL 어댑터는 프로바이더가 소유하는 완전한 인덱스 세�
 `index_completeness_unverified`를 보고합니다.
 관리 문서 조회 계약 집중 테스트는 실행 권한을 부여하지 않으면서 발췌문, 컬렉션, 권한,
 입력 및 reader 한도 실패 분기를 모두 검증합니다.
+Projection 회귀 테스트는 변경할 수 없는 원문 digest와 redaction, escape, 표시 길이 제한을
+적용한 정확한 표현 digest를 분리합니다.
 
 의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
