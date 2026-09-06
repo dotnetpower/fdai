@@ -2,6 +2,37 @@
 # (see bootstrap.tfvars.example). Never bake tenant/subscription values into
 # these defaults - the repo stays customer-agnostic.
 
+variable "genesis_provider_context" {
+  description = "Explicit target for control-plane-only genesis composition. Supplying this pair disables automatic provider registration; null preserves standalone bootstrap's existing provider context and registration defaults."
+  type = object({
+    subscription_id = string
+    tenant_id       = string
+  })
+  default = null
+
+  validation {
+    condition = var.genesis_provider_context == null ? true : alltrue([
+      can(regex("^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$", var.genesis_provider_context.subscription_id)),
+      can(regex("^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$", var.genesis_provider_context.tenant_id)),
+    ])
+    error_message = "genesis_provider_context must contain the verified subscription and tenant UUIDs."
+  }
+}
+
+variable "genesis_state_account_id" {
+  description = "ARM-managed state account reference supplied only with genesis_provider_context. Genesis skips the AzureRM account data source, which otherwise retrieves account keys."
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.genesis_provider_context == null ? var.genesis_state_account_id == null : try(
+      lower(var.genesis_state_account_id) == lower("/subscriptions/${var.genesis_provider_context.subscription_id}/resourceGroups/rg-${var.workload}-ops-${var.region_short}/providers/Microsoft.Storage/storageAccounts/${var.state_storage_account_name}"),
+      false
+    )
+    error_message = "Genesis requires the exact state account ARM ID in its configured subscription and ops group; standalone bootstrap must omit it."
+  }
+}
+
 variable "workload" {
   description = "Workload short name used in every resource name (e.g. fdai)."
   type        = string

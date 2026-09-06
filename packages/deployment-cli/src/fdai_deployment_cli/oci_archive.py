@@ -54,13 +54,13 @@ class OciDescriptor:
 
 
 @dataclass(frozen=True, slots=True)
-class VerifiedOciImage:
+class VerifiedOciImage[Revision: (str, None)]:
     """Content validation, not attestation or authority; retains a bounded snapshot."""
 
     manifest: OciDescriptor
     config: OciDescriptor
     layers: tuple[OciDescriptor, ...]
-    source_commit: str
+    source_commit: Revision
     platform_tag: str
     archive_sha256: str
     _snapshot: bytes = field(repr=False, compare=False)
@@ -82,7 +82,7 @@ def validate_oci_archive(
     expected_manifest_digest: str,
     expected_source_commit: str,
     expected_platform_tag: str,
-) -> VerifiedOciImage:
+) -> VerifiedOciImage[str]:
     """Bind an immutable image snapshot to the caller's four explicit assertions.
 
     Archive, member, count, and total limits inherit offline-kit ceilings. The
@@ -93,11 +93,53 @@ def validate_oci_archive(
     Source labels are content assertions, not independently trusted provenance.
     Raises OciArchiveError without including paths or untrusted payloads.
     """
+    _require(
+        isinstance(expected_source_commit, str)
+        and bool(re.fullmatch(r"[0-9a-fA-F]{40}", expected_source_commit)),
+        "revision",
+    )
+    return _validate_archive(
+        path,
+        expected_archive_sha256=expected_archive_sha256,
+        expected_manifest_digest=expected_manifest_digest,
+        expected_source_commit=expected_source_commit,
+        expected_platform_tag=expected_platform_tag,
+    )
+
+
+def validate_dependency_oci_archive(
+    path: Path,
+    *,
+    expected_archive_sha256: str,
+    expected_manifest_digest: str,
+    expected_platform_tag: str,
+) -> VerifiedOciImage[None]:
+    """Validate dependency content and platform without asserting an FDAI source revision.
+
+    All archive, blob, manifest and platform bounds are identical to service validation.
+    Vendor revision labels are not source attestation. The returned source_commit is None.
+    """
+    return _validate_archive(
+        path,
+        expected_archive_sha256=expected_archive_sha256,
+        expected_manifest_digest=expected_manifest_digest,
+        expected_source_commit=None,
+        expected_platform_tag=expected_platform_tag,
+    )
+
+
+def _validate_archive[Revision: (str, None)](
+    path: Path,
+    *,
+    expected_archive_sha256: str,
+    expected_manifest_digest: str,
+    expected_source_commit: Revision,
+    expected_platform_tag: str,
+) -> VerifiedOciImage[Revision]:
 
     try:
         _require(bool(re.fullmatch(r"[0-9a-f]{64}", expected_archive_sha256)), "archive")
         _require(bool(_DIGEST.fullmatch(expected_manifest_digest)), "manifest")
-        _require(bool(re.fullmatch(r"[0-9a-fA-F]{40}", expected_source_commit)), "revision")
         _require(expected_platform_tag in _PLATFORMS, "platform", "unsupported")
         snapshot = offline_kit._read_regular(path, offline_kit._MAX_FILE_BYTES)
         _require(len(snapshot) <= offline_kit._MAX_FILE_BYTES, "archive", "limit")
@@ -136,16 +178,17 @@ def validate_oci_archive(
         _require(len(cast(list[object], diff_ids)) == len(layers), "config")
         for digest in cast(list[object], diff_ids):
             _require(isinstance(digest, str) and bool(_DIGEST.fullmatch(digest)), "config")
-        labels = _object(configuration.get("config", {})).get("Labels", {})
-        _revision(
-            (
-                labels,
-                selected.get("annotations", {}),
-                image.get("annotations", {}),
-                index.get("annotations", {}),
-            ),
-            expected_source_commit,
-        )
+        if expected_source_commit is not None:
+            labels = _object(configuration.get("config", {})).get("Labels", {})
+            _revision(
+                (
+                    labels,
+                    selected.get("annotations", {}),
+                    image.get("annotations", {}),
+                    index.get("annotations", {}),
+                ),
+                expected_source_commit,
+            )
         expected_paths = {"oci-layout", "index.json", manifest.path, config.path}
         expected_paths.update(layer.path for layer in layers)
         _require(set(entries) == expected_paths, "archive", "extra-content")

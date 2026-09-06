@@ -88,6 +88,29 @@ the current CLI profile happens to select.
 
 ## Runner registration
 
+### Fresh-subscription foundation composition
+
+The [genesis foundation root](../genesis-foundation/) composes this module with an
+Azure Resource Manager (ARM)-managed private state account and an empty application resource
+group. It selects a pinned offline image, disables automatic provider registration, and defaults
+to no public egress. Registered providers, image trust, quota, and a reachable private host remain
+prerequisites; this root is not the complete installer or an approval mechanism.
+
+The composition supplies `genesis_provider_context` and `genesis_state_account_id`. The account
+reference must match the configured subscription, ops group, and account name. This mode skips
+the AzureRM account data source, whose `ListKeys` request can otherwise put account keys in local
+state even with key-based authentication disabled. Standalone bootstrap retains its existing
+lookup and therefore requires secret-bearing-state protection.
+
+The foundation owns the application group. New platform state references it using
+`foundation_resource_group_context_digest`; the group must match the context tag and region.
+Existing platform state retains managed ownership. Once the ownership record exists, changing
+the mode is blocked. Older states should first record their existing managed mode; a matching
+tag never authorizes adoption or replaces a reviewed state handoff.
+
+Private container creation, backend migration and readback, protected execution, and final
+Console/discovery verification are still separate work. The root emits references, not readiness.
+
 ### Offline prebuilt image
 
 For a host without public package access, set `runner_bootstrap_mode = "offline"` and provide

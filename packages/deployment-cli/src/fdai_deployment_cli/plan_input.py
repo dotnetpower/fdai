@@ -44,13 +44,7 @@ def snapshot_plan_input(
 ) -> PlanInputContext:
     """Validate and copy a mode-0600 JSON plan input without real secret values."""
 
-    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(descriptor, "rb") as stream:
-        details = os.fstat(stream.fileno())
-        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
-            raise PermissionError("Terraform plan input MUST be a mode-0600 regular file")
-        payload = stream.read(1_048_577)
-    values = load_json_object(payload, label="Terraform plan input")
+    values = read_plan_input(source)
     if set(values) != _REQUIRED:
         raise ValueError("Terraform plan input fields do not match the secret-free schema")
     if any(_KEY.fullmatch(key) is None for key in values):
@@ -77,13 +71,31 @@ def snapshot_plan_input(
         if key not in {"target_binding", "subscription_id"}
     }
     terraform_values["env"] = expected_environment
+    write_plan_input(destination, terraform_values)
+    return PlanInputContext(subscription_id=subscription_id, tenant_id=tenant_id)
+
+
+def read_plan_input(source: Path) -> dict[str, object]:
+    """Read bounded private JSON without following links or blocking on a FIFO."""
+
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
+            raise PermissionError("Terraform plan input MUST be a mode-0600 regular file")
+        payload = stream.read(1_048_577)
+    return load_json_object(payload, label="Terraform plan input")
+
+
+def write_plan_input(destination: Path, values: dict[str, object]) -> None:
+    """Persist validated plan variables exclusively with private permissions."""
+
     output = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
         0o600,
     )
     with os.fdopen(output, "wb") as stream:
-        stream.write(canonical_bytes(terraform_values) + b"\n")
+        stream.write(canonical_bytes(values) + b"\n")
         stream.flush()
         os.fsync(stream.fileno())
-    return PlanInputContext(subscription_id=subscription_id, tenant_id=tenant_id)

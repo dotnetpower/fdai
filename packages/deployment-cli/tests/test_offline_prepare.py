@@ -11,6 +11,8 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from test_oci_archive import make_archive
+
 from fdai_deployment_cli import offline_prepare, runtime_stage
 from fdai_deployment_cli.cli import main
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_bytes
@@ -141,20 +143,25 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
             path = kit / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(f"synthetic {name} {field}".encode())
+            if image and field == "archive":
+                fixture = make_archive(
+                    path,
+                    config_updates={"config": {}} if name == "clamav" else None,
+                )
+                entry["image_digest"] = fixture.manifest_digest
             entry[field] = relative
             entry[f"{field}_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
-        if image:
-            entry["image_digest"] = "sha256:" + "b" * 64
         return entry
 
     runtime = {
-        "schema_version": "fdai.runtime-release.v1",
+        "schema_version": "fdai.runtime-release.v2",
         "source_commit": COMMIT,
         "platform_tag": "linux-x86_64",
         "deployment_bundle_sha256": hashlib.sha256(
             (kit / "deployment/bundle.tar.gz").read_bytes()
         ).hexdigest(),
         "services": {name: payload(name, image=True) for name in SERVICES},
+        "sidecars": {"clamav": payload("clamav", image=True)},
         "console": payload("console", image=False),
         "deployment_support": payload("deployment-support", image=False),
     }
@@ -198,6 +205,11 @@ def test_preparation_snapshots_complete_release_without_execution(
     assert result["subscription_ready"] is False
     assert result["mutation_performed"] is False
     assert result["production_release_eligibility"] == "unverified"
+    assert result["schema_version"] == "fdai.offline-preparation.v2"
+    assert set(result["binding"]["image_content_digests"]) == {
+        *(f"services/{name}" for name in SERVICES),
+        "sidecars/clamav",
+    }
     assert result["stage_order"].index("console") < result["stage_order"].index("initial-inventory")
     assert json.loads((prepared / "preparation.json").read_bytes()) == result
     assert stat.S_IMODE((prepared / "preparation.json").stat().st_mode) == 0o600

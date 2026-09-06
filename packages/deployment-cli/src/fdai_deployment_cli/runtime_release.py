@@ -1,11 +1,10 @@
-"""Validate local runtime inventory without extracting or executing artifacts.
+"""Validate local runtime inventory and complete image content without execution.
 
 The enclosing fdai.offline-kit.v1 files map signs runtime/release.json and its
 artifacts. This module does not establish production trust, contact registries,
-or install anything. Archives, SBOMs, and provenance payloads remain opaque beyond
-file-hash checks; image digests are not independently checked against OCI manifests.
-Those semantic claims are signer assertions at preparation time, not image
-attestation or operational success.
+or install anything. Catalog loading checks file hashes; validate_runtime_images
+also checks OCI content for a complete v2 inventory. Neither establishes SBOM or
+provenance semantics, image attestation, or operational success.
 """
 
 from __future__ import annotations
@@ -21,10 +20,16 @@ from typing import cast
 
 from fdai_deployment_cli import offline_kit
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
+from fdai_deployment_cli.oci_archive import (
+    VerifiedOciImage,
+    validate_dependency_oci_archive,
+    validate_oci_archive,
+)
 
 RUNTIME_RELEASE_PATH = "runtime/release.json"
 _MAX_CATALOG_BYTES = 1024 * 1024
-_SCHEMA = "fdai.runtime-release.v1"
+_LEGACY_SCHEMA = "fdai.runtime-release.v1"
+_SCHEMA = "fdai.runtime-release.v2"
 _COMMIT = re.compile(r"[0-9a-fA-F]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _PATH = re.compile(r"runtime/[A-Za-z0-9._+/-]+")
@@ -36,6 +41,7 @@ _SERVICES = {
     "document-processing-worker",
     "isolated-executor",
 }
+_SIDECARS = {"clamav"}
 _ARCHIVE_KEYS = {"archive", "archive_sha256", "sbom", "sbom_sha256"}
 _SERVICE_KEYS = _ARCHIVE_KEYS | {"image_digest", "provenance", "provenance_sha256"}
 _CATALOG_KEYS = {
@@ -63,6 +69,7 @@ class RuntimeRelease:
     digest: str
     artifact_paths: tuple[str, ...]
     _catalog: bytes = field(repr=False)
+    schema_version: str = _LEGACY_SCHEMA
 
     def to_mapping(self) -> dict[str, object]:
         """Return a detached canonical catalog mapping, without host paths or bytes."""
@@ -91,9 +98,10 @@ def load_runtime_release(
         payload = load_json_object(raw, label="runtime release", max_bytes=_MAX_CATALOG_BYTES)
         # The shared decoder currently accepts duplicate keys; reject them at every depth.
         json.loads(raw, object_pairs_hook=_unique_object)
-        catalog = _object(payload, _CATALOG_KEYS)
-        if catalog["schema_version"] != _SCHEMA:
+        schema = payload.get("schema_version")
+        if not isinstance(schema, str) or schema not in (_LEGACY_SCHEMA, _SCHEMA):
             raise RuntimeReleaseError("runtime release schema version is unsupported")
+        catalog = _object(payload, _CATALOG_KEYS | ({"sidecars"} if schema == _SCHEMA else set()))
         commit, platform = catalog["source_commit"], catalog["platform_tag"]
         if not isinstance(commit, str) or _COMMIT.fullmatch(commit) is None:
             raise RuntimeReleaseError("runtime release source commit is invalid")
@@ -110,6 +118,10 @@ def load_runtime_release(
         declared: dict[str, str] = {}
         for service in sorted(_SERVICES):
             _declare_record(services[service], service=True, declared=declared)
+        if schema == _SCHEMA:
+            sidecars = _object(catalog["sidecars"], _SIDECARS)
+            for sidecar in sorted(_SIDECARS):
+                _declare_record(sidecars[sidecar], service=True, declared=declared)
         for section in ("console", "deployment_support"):
             _declare_record(catalog[section], service=False, declared=declared)
         _verify_tree(root, {**declared, RUNTIME_RELEASE_PATH: hashlib.sha256(raw).hexdigest()})
@@ -121,11 +133,46 @@ def load_runtime_release(
             digest=hashlib.sha256(canonical).hexdigest(),
             artifact_paths=tuple(sorted(declared)),
             _catalog=canonical,
+            schema_version=schema,
         )
     except RuntimeReleaseError:
         raise
     except (OSError, ValueError, TypeError, RecursionError) as exc:
         raise RuntimeReleaseError("runtime release is invalid or unavailable") from exc
+
+
+def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, str]:
+    """Validate all six v2 OCI images against a previously verified catalog snapshot.
+
+    Inspect a private snapshot; callers own signature and release-eligibility checks.
+    Images are inspected one at a time within the existing per-file limits; no layer
+    extraction, process, registry call, provenance verification, or execution authority
+    results from this check.
+    """
+    if release.schema_version != _SCHEMA:
+        raise RuntimeReleaseError("complete preparation requires runtime release v2 with sidecars")
+    catalog = release.to_mapping()
+    digests: dict[str, str] = {}
+    image: VerifiedOciImage[str] | VerifiedOciImage[None]
+    for section, names in (("services", _SERVICES), ("sidecars", _SIDECARS)):
+        records = _object(catalog[section], names)
+        for name in sorted(names):
+            record = _string_record(records[name], _SERVICE_KEYS)
+            path = root / record["archive"]
+            expected = {
+                "expected_archive_sha256": record["archive_sha256"],
+                "expected_manifest_digest": record["image_digest"],
+                "expected_platform_tag": release.platform_tag,
+            }
+            if section == "services":
+                image = validate_oci_archive(
+                    path, expected_source_commit=release.source_commit, **expected
+                )
+            else:
+                image = validate_dependency_oci_archive(path, **expected)
+            digests[f"{section}/{name}"] = image.manifest.digest
+            del image
+    return digests
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -144,10 +191,7 @@ def _object(value: object, keys: set[str]) -> dict[str, object]:
 
 
 def _declare_record(value: object, *, service: bool, declared: dict[str, str]) -> None:
-    record = _object(value, _SERVICE_KEYS if service else _ARCHIVE_KEYS)
-    if not all(isinstance(item, str) for item in record.values()):
-        raise RuntimeReleaseError("runtime release artifact fields MUST be strings")
-    fields = cast(dict[str, str], record)
+    fields = _string_record(value, _SERVICE_KEYS if service else _ARCHIVE_KEYS)
     if service and re.fullmatch(r"sha256:[0-9a-f]{64}", fields["image_digest"]) is None:
         raise RuntimeReleaseError("runtime release image digest is invalid")
     for key in ("archive", "sbom", "provenance") if service else ("archive", "sbom"):
@@ -163,6 +207,13 @@ def _declare_record(value: object, *, service: bool, declared: dict[str, str]) -
         if _SHA256.fullmatch(digest) is None:
             raise RuntimeReleaseError("runtime release artifact digest is invalid")
         declared[path] = digest
+
+
+def _string_record(value: object, keys: set[str]) -> dict[str, str]:
+    record = _object(value, keys)
+    if not all(isinstance(item, str) for item in record.values()):
+        raise RuntimeReleaseError("runtime release artifact fields MUST be strings")
+    return cast(dict[str, str], record)
 
 
 def _require_directory(path: Path) -> None:

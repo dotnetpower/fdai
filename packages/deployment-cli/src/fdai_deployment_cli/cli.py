@@ -11,7 +11,9 @@ import stat
 import subprocess
 import sys
 from collections.abc import Mapping
+from contextlib import nullcontext
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bootstrap_reconcile import reconcile_bootstrap
@@ -29,6 +31,12 @@ from fdai_deployment_cli.doctor import (
     doctor_json,
     inspect_tools,
 )
+from fdai_deployment_cli.foundation_input import snapshot_foundation_input
+from fdai_deployment_cli.foundation_plan import (
+    foundation_plan_context,
+    register_foundation_plan_command,
+    save_foundation_plan,
+)
 from fdai_deployment_cli.github_actions import (
     DeploymentSelection,
     deployment_context_digest,
@@ -39,11 +47,12 @@ from fdai_deployment_cli.github_actions import (
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
-from fdai_deployment_cli.plan_input import snapshot_plan_input
+from fdai_deployment_cli.plan_input import read_plan_input, snapshot_plan_input
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.state import read_journal
+from fdai_deployment_cli.state_handoff import register_state_handoff_command
 from fdai_deployment_cli.status_projection import project_status
 from fdai_deployment_cli.support_install import install_support
 from fdai_deployment_cli.target import compute_target_binding
@@ -98,6 +107,8 @@ def _parser() -> argparse.ArgumentParser:
 
     provision = subcommands.add_parser("provision")
     provision_commands = provision.add_subparsers(required=True)
+    register_state_handoff_command(provision_commands)
+    register_foundation_plan_command(provision_commands)
     initialize = provision_commands.add_parser("init")
     initialize.add_argument("--profile", type=Path, required=True)
     initialize.add_argument("--environment", choices=("dev", "staging", "prod"), required=True)
@@ -135,6 +146,12 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--work-dir", type=Path, required=True)
     plan.add_argument("--variables-file", type=Path, required=True)
     plan.add_argument("--profile", type=Path, required=True)
+    plan.add_argument("--stage", choices=("platform", "foundation"), default="platform")
+    plan.add_argument(
+        "--save-plan",
+        action="store_true",
+        help="retain a private foundation plan and review digest; does not authorize apply",
+    )
     plan.add_argument("--output", choices=("text", "json"), default="text")
     plan.set_defaults(handler=_provision_plan)
 
@@ -390,9 +407,27 @@ def _provision_inspect(args: argparse.Namespace) -> int:
 def _provision_plan(args: argparse.Namespace) -> int:
     work_dir = _absolute_work_dir(args.work_dir)
     profile = load_profile(args.profile)
+    foundation = args.stage == "foundation"
+    if args.save_plan and not foundation:
+        raise ValueError("saved local plans are supported only for the foundation stage")
+    if foundation and (
+        profile.connectivity != "offline"
+        or profile.host != "managed-vm"
+        or profile.monthly_cost_ceiling <= 0
+    ):
+        raise ValueError(
+            "foundation planning requires an offline managed-vm profile and cost ceiling"
+        )
+    active_binding = azure_active_target_binding()
+    if foundation and active_binding != profile.target_binding:
+        raise ValueError("foundation planning requires the authenticated operator target")
+    if foundation and os.environ.get("ARM_USE_MSI", ""):
+        raise ValueError(
+            "foundation planning uses the authenticated operator, not managed identity"
+        )
     _validate_plan_target(
         profile_binding=profile.target_binding,
-        active_binding=azure_active_target_binding(),
+        active_binding=active_binding,
         use_managed_identity=os.environ.get("ARM_USE_MSI", "").casefold() == "true",
     )
     verification = verify_offline_kit(
@@ -425,6 +460,12 @@ def _provision_plan(args: argparse.Namespace) -> int:
     infra_dir = bundle_root / "infra"
     if not infra_dir.is_dir():
         raise ValueError("verified deployment bundle does not contain infra")
+    if foundation:
+        infra_dir = infra_dir / "genesis-foundation"
+        if not infra_dir.is_dir() or not (infra_dir / ".terraform.lock.hcl").is_file():
+            raise ValueError(
+                "verified deployment bundle does not contain the locked foundation root"
+            )
     config = work_dir / "offline.tfrc"
     _write_private_text(
         config,
@@ -439,37 +480,39 @@ def _provision_plan(args: argparse.Namespace) -> int:
         "}\n",
     )
     variables_file = work_dir / "plan.auto.tfvars.json"
-    plan_context = snapshot_plan_input(
+    snapshot_input = snapshot_foundation_input if foundation else snapshot_plan_input
+    plan_context = snapshot_input(
         args.variables_file,
         variables_file,
         expected_target_binding=profile.target_binding,
         expected_region=profile.region,
         expected_environment=profile.environment,
     )
-    environment = _terraform_environment(
-        work_dir=work_dir,
-        config=config,
-        source=os.environ,
-        subscription_id=plan_context.subscription_id,
-        tenant_id=plan_context.tenant_id,
-        azure_cli_path=Path(azure_cli) if (azure_cli := shutil.which("az")) else None,
-    )
-    subprocess.run(
-        [str(terraform), "init", "-backend=false", "-input=false"],
-        cwd=infra_dir,
-        env=environment,
-        check=True,
-        timeout=300,
-    )
     try:
-        completed = subprocess.run(
-            [
-                str(terraform),
-                "plan",
-                "-input=false",
-                "-no-color",
-                f"-var-file={variables_file}",
-            ],
+        environment = _terraform_environment(
+            work_dir=work_dir,
+            config=config,
+            source=os.environ,
+            subscription_id=plan_context.subscription_id,
+            tenant_id=plan_context.tenant_id,
+            azure_cli_path=Path(azure_cli) if (azure_cli := shutil.which("az")) else None,
+        )
+        variables = read_plan_input(variables_file) if args.save_plan else {}
+        provider_lock = (infra_dir / ".terraform.lock.hcl").read_bytes() if args.save_plan else b""
+        saved_context = (
+            foundation_plan_context(
+                profile=profile,
+                variables=variables,
+                offline_manifest_digest=verification.manifest_digest,
+                deployment_bundle_digest=bundle_verification.manifest_digest,
+                terraform_digest=dict(verification.file_digests)[verification.terraform_binary],
+                provider_lock=provider_lock,
+            )
+            if args.save_plan
+            else {}
+        )
+        initialized = subprocess.run(
+            [str(terraform), "init", "-backend=false", "-input=false", "-lockfile=readonly"],
             cwd=infra_dir,
             env=environment,
             check=False,
@@ -477,19 +520,76 @@ def _provision_plan(args: argparse.Namespace) -> int:
             text=True,
             timeout=300,
         )
+        if initialized.returncode != 0:
+            raise ValueError("terraform initialization failed with the locked offline providers")
+        saved_review = None
+        with (
+            TemporaryDirectory(prefix="foundation-plan-", dir=work_dir)
+            if args.save_plan
+            else nullcontext(None)
+        ) as temporary:
+            command = [
+                str(terraform),
+                "plan",
+                "-input=false",
+                "-no-color",
+                f"-var-file={variables_file}",
+            ]
+            if temporary is not None:
+                command.append(f"-out={Path(temporary) / 'plan.tfplan'}")
+            completed = subprocess.run(
+                command,
+                cwd=infra_dir,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                umask=0o077,
+            )
+            if completed.returncode != 0:
+                raise ValueError(_safe_plan_error(completed.stdout + completed.stderr))
+            if temporary is not None:
+                if (infra_dir / ".terraform.lock.hcl").read_bytes() != provider_lock:
+                    raise ValueError("foundation provider lock changed during planning")
+                saved_review = save_foundation_plan(
+                    plan=Path(temporary) / "plan.tfplan",
+                    destination=work_dir,
+                    terraform=terraform,
+                    root=infra_dir,
+                    environment=environment,
+                    context=saved_context,
+                    variables=variables,
+                )
     finally:
         variables_file.unlink(missing_ok=True)
-    if completed.returncode != 0:
-        raise ValueError(_safe_plan_error(completed.stdout + completed.stderr))
     result = {
         "schema_version": "fdai.provision-plan.v1",
         "offline_manifest_digest": verification.manifest_digest,
         "mutation_performed": False,
     }
-    print(
-        json.dumps(result, sort_keys=True, separators=(",", ":"))
-        if args.output == "json"
+    if foundation:
+        result.update(
+            {
+                "stage": "foundation",
+                "state": "review",
+                "subscription_ready": False,
+                "apply_authorized": False,
+                "deployment_bundle_digest": bundle_verification.manifest_digest,
+                "profile_digest": canonical_digest(profile.to_mapping()),
+            }
+        )
+    if saved_review is not None:
+        result["saved_plan"] = saved_review
+    text = (
+        f"foundation plan saved; review digest: {saved_review['review_digest']}; no apply authorized"
+        if saved_review is not None
+        else "foundation dry run completed; approval and installation remain required"
+        if foundation
         else "plan completed"
+    )
+    print(
+        json.dumps(result, sort_keys=True, separators=(",", ":")) if args.output == "json" else text
     )
     return 0
 

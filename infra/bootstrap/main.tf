@@ -88,11 +88,24 @@ resource "azurerm_subnet" "pe" {
 # plane only) because terraform's post-create blob readiness poll cannot
 # reach a private + key-disabled account from the operator laptop. See
 # create-state-account.sh / README.md. Terraform only references it (data
-# source), so no data-plane call happens from the laptop.
+# source). Genesis supplies the ARM reference directly because this data source
+# also calls ListKeys, even when storage_use_azuread is enabled.
 # -----------------------------------------------------------------------
 data "azurerm_storage_account" "state" {
+  count = var.genesis_provider_context == null ? 1 : 0
+
   name                = var.state_storage_account_name
   resource_group_name = azurerm_resource_group.ops.name
+}
+
+moved {
+  from = data.azurerm_storage_account.state
+  to   = data.azurerm_storage_account.state[0]
+}
+
+locals {
+  state_account_id   = var.genesis_provider_context == null ? data.azurerm_storage_account.state[0].id : var.genesis_state_account_id
+  state_account_name = var.genesis_provider_context == null ? data.azurerm_storage_account.state[0].name : var.state_storage_account_name
 }
 
 # The state container is created data-plane during the approved foundation
@@ -108,7 +121,7 @@ module "state_blob_pe" {
   resource_group_name   = azurerm_resource_group.ops.name
   subnet_id             = azurerm_subnet.pe.id
   vnet_id               = azurerm_virtual_network.ops.id
-  target_resource_id    = data.azurerm_storage_account.state.id
+  target_resource_id    = local.state_account_id
   subresource_name      = "blob"
   private_dns_zone_name = "privatelink.blob.core.windows.net"
   tags                  = local.tags
@@ -249,7 +262,7 @@ locals {
     }
     state_blob_data_contributor = {
       role_definition_name = "Storage Blob Data Contributor"
-      scope                = data.azurerm_storage_account.state.id
+      scope                = local.state_account_id
     }
     subscription_eventgrid_contributor = {
       role_definition_name = "EventGrid Contributor"
@@ -313,7 +326,7 @@ resource "azurerm_role_assignment" "runner_eventgrid_contributor" {
 resource "azurerm_management_lock" "state" {
   count      = var.enable_state_lock ? 1 : 0
   name       = "lock-tfstate-${local.suffix}"
-  scope      = data.azurerm_storage_account.state.id
+  scope      = local.state_account_id
   lock_level = "CanNotDelete"
   notes      = "Protects the terraform remote-state account from accidental deletion."
 }

@@ -92,7 +92,7 @@ else
   fi
 fi
 
-for tool in curl git sha256sum unzip uv; do
+for tool in curl git sha256sum timeout unzip uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "stage-offline-kit: BLOCKED - $tool is required to assemble a kit." >&2
     exit 2
@@ -137,7 +137,8 @@ CLI_VERSION=""
 KIT="$OUT/kit"
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
-rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/toolchain" "$OUT/runtime-python"
+rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
+  "$OUT/toolchain" "$OUT/runtime-python"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 chmod 700 "$KIT"
@@ -186,13 +187,8 @@ SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" PYTHONPATH=src "$PYTHON" \
   --min-cli-version 0.1.0 >/dev/null
 
 echo "-- terraform provider mirror"
-# Mirror from a scratch copy so `terraform init` never writes .terraform into
-# the signed bundle directory.
-rm -rf "$OUT/mirror-src"
-cp -r "$OUT/bundle/infra" "$OUT/mirror-src"
-(cd "$OUT/mirror-src" && "$TERRAFORM_BIN" init -backend=false -input=false >/dev/null)
-(cd "$OUT/mirror-src" && "$TERRAFORM_BIN" providers mirror -platform="$PLATFORM" "$OUT/mirror" >/dev/null)
-rm -rf "$OUT/mirror-src"
+bash scripts/deployment/release/mirror-locked-providers.sh \
+  "$OUT/bundle" "$OUT" "$TERRAFORM_BIN" "$PLATFORM"
 
 echo "-- fdai deployment CLI wheel"
 uv lock --check --project packages/deployment-cli >/dev/null

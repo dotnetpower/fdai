@@ -160,6 +160,9 @@ module "resource_group" {
   name     = "rg-${var.workload}${local.full_suffix}"
   location = var.region
   tags     = local.tags
+
+  reference_existing        = var.foundation_resource_group_context_digest != null
+  foundation_context_digest = var.foundation_resource_group_context_digest
 }
 
 # Optional delete protection: a CanNotDelete lock blocks resource-group and

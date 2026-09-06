@@ -2,7 +2,7 @@
 
 This is not an installer, approval mechanism, or public mutating CLI. The caller
 must bind the authenticated target and distinct executor identity to current
-protected authorization, safeguards, and audit before calling publish_oci_archive.
+protected authorization, safeguards, and audit before calling either publication function.
 Tokens stay in memory. Cross-host/data-endpoint redirects are refused: supporting
 them would require a separately attested allowlist, which this adapter does not
 accept. An Azure-public login-server name can resolve through approved private DNS.
@@ -28,7 +28,12 @@ from socket import socket as _socket
 from typing import Protocol, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
-from fdai_deployment_cli.oci_archive import OCI_MANIFEST, VerifiedOciImage, validate_oci_archive
+from fdai_deployment_cli.oci_archive import (
+    OCI_MANIFEST,
+    VerifiedOciImage,
+    validate_dependency_oci_archive,
+    validate_oci_archive,
+)
 
 _HOST = re.compile(r"[a-z0-9]{5,50}\.azurecr\.io")
 _COMPONENT = r"[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*"
@@ -271,11 +276,11 @@ def _shutdown(stream: socket.socket | None) -> None:
 
 
 @dataclass(frozen=True, slots=True)
-class PublishedImage:
+class PublishedImage[Revision: (str, None)]:
     """Independent digest-readback evidence, not installation or operational readiness."""
 
     manifest_digest: str
-    source_commit: str
+    source_commit: Revision
     platform_tag: str
     requests: int
 
@@ -355,7 +360,7 @@ def publish_oci_archive(
     total_timeout: float = 300.0,
     call_timeout: float = 60.0,
     max_requests: int = 256,
-) -> PublishedImage:
+) -> PublishedImage[str]:
     """Upload verified bytes by digest and independently GET the resulting manifest.
 
     Full local validation precedes credential acquisition and all HTTP. The injected
@@ -365,6 +370,60 @@ def publish_oci_archive(
     Invalid archives raise OciArchiveError; publication failures raise AcrPublishError.
     """
 
+    session = _publication_session(
+        registry, repository, transport, total_timeout, call_timeout, max_requests
+    )
+    image = validate_oci_archive(
+        path,
+        expected_archive_sha256=expected_archive_sha256,
+        expected_manifest_digest=expected_manifest_digest,
+        expected_source_commit=expected_source_commit,
+        expected_platform_tag=expected_platform_tag,
+    )
+    return _publish_image(session, repository, image, credential_provider)
+
+
+def publish_dependency_oci_archive(
+    path: Path,
+    *,
+    registry: str,
+    repository: str,
+    expected_archive_sha256: str,
+    expected_manifest_digest: str,
+    expected_platform_tag: str,
+    credential_provider: Callable[[], str],
+    transport: RegistryTransport | None = None,
+    total_timeout: float = 300.0,
+    call_timeout: float = 60.0,
+    max_requests: int = 256,
+) -> PublishedImage[None]:
+    """Publish approved dependency content without inventing an FDAI source revision.
+
+    Protected authorization, target/identity binding, lease, audit and approved recovery
+    remain caller prerequisites, exactly as for service publication. Local content
+    validation precedes credentials; the same bounded upload and independent manifest
+    GET must pass. The receipt carries source_commit=None, not dependency provenance.
+    """
+    session = _publication_session(
+        registry, repository, transport, total_timeout, call_timeout, max_requests
+    )
+    image = validate_dependency_oci_archive(
+        path,
+        expected_archive_sha256=expected_archive_sha256,
+        expected_manifest_digest=expected_manifest_digest,
+        expected_platform_tag=expected_platform_tag,
+    )
+    return _publish_image(session, repository, image, credential_provider)
+
+
+def _publication_session(
+    registry: str,
+    repository: str,
+    transport: RegistryTransport | None,
+    total_timeout: float,
+    call_timeout: float,
+    max_requests: int,
+) -> _Session:
     deadline = time.monotonic() + total_timeout
     if (
         not math.isfinite(total_timeout)
@@ -381,17 +440,18 @@ def publish_oci_archive(
         or not _REPOSITORY.fullmatch(repository)
     ):
         raise AcrPublishError("target", "invalid-target")
-    image = validate_oci_archive(
-        path,
-        expected_archive_sha256=expected_archive_sha256,
-        expected_manifest_digest=expected_manifest_digest,
-        expected_source_commit=expected_source_commit,
-        expected_platform_tag=expected_platform_tag,
-    )
-    session = _Session(
+    return _Session(
         registry, transport or HttpsRegistryTransport(), deadline, call_timeout, max_requests
     )
-    if time.monotonic() >= deadline:
+
+
+def _publish_image[Revision: (str, None)](
+    session: _Session,
+    repository: str,
+    image: VerifiedOciImage[Revision],
+    credential_provider: Callable[[], str],
+) -> PublishedImage[Revision]:
+    if time.monotonic() >= session.deadline:
         raise AcrPublishError("credentials", "timeout")
     try:
         refresh_token = credential_provider()
@@ -406,7 +466,7 @@ def publish_oci_archive(
     form = urlencode(
         {
             "grant_type": "refresh_token",
-            "service": registry,
+            "service": session.host,
             "scope": f"repository:{repository}:pull,push",
             "refresh_token": refresh_token,
         }
@@ -441,7 +501,9 @@ def _unique_token_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def _upload(session: _Session, repository: str, image: VerifiedOciImage) -> PublishedImage:
+def _upload[Revision: (str, None)](
+    session: _Session, repository: str, image: VerifiedOciImage[Revision]
+) -> PublishedImage[Revision]:
     base = f"/v2/{repository}"
     uploaded: set[str] = set()
     for blob in (image.config, *image.layers):
