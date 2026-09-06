@@ -71,6 +71,22 @@ async def test_stage_timing_reports_real_elapsed_work_without_prompt_content(
     assert "PRIVATE-QUESTION-CONTENT" not in caplog.text
 
 
+async def test_schema_cache_reuses_compilation_without_sharing_mutable_provider_input() -> None:
+    from fdai.core.conversation.adaptive_service import _stage_schema_json
+
+    from tests.conversation.test_adaptive_service import _run
+
+    _stage_schema_json.cache_clear()
+    model = _Model(plan=_plan(), answer=_draft(), review=_review())
+    await _run(model)
+    assert _stage_schema_json.cache_info().misses == 3
+    model.calls[0]["schema"]["properties"].clear()
+    await _run(model)
+    assert _stage_schema_json.cache_info().misses == 3
+    assert _stage_schema_json.cache_info().hits == 3
+    assert "goals" in model.calls[3]["schema"]["properties"]
+
+
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:
     clock = _Clock()
     plan = _plan(example=True)

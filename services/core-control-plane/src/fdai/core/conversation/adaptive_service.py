@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import TypeVar
 
 from fdai_service_contracts.adaptive_answer import AdaptiveAnswer, AdaptiveGoalResult
@@ -32,6 +33,12 @@ _LOGGER = logging.getLogger(__name__)
 _Candidate = TypeVar("_Candidate", bound=BaseModel)
 EvidenceReader = Callable[[str], Awaitable[AdaptiveEvidence]]
 ProfileResolver = Callable[[str, str, Mapping[str, object] | None], ConversationProfile]
+
+
+@lru_cache(maxsize=8)
+def _stage_schema_json(shape: type[BaseModel]) -> str:
+    """Cache only immutable schema text; each provider receives its own decoded value."""
+    return json.dumps(shape.model_json_schema(), separators=(",", ":"), ensure_ascii=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -420,7 +427,7 @@ class AdaptiveConversationService:
         if cancelled is not None and cancelled.is_set():
             raise asyncio.CancelledError
         prompt = compose_adaptive_prompt(profile, stage, self._prompts[stage])
-        schema = shape.model_json_schema()
+        schema = json.loads(_stage_schema_json(shape))
         encoded = json.dumps({"input": payload, "schema": schema}, ensure_ascii=False)
         size = len(encoded.encode()) + len(prompt.encode())
         try:
