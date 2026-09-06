@@ -13,6 +13,7 @@ from fdai_service_contracts.ontology_query import SemanticOperation
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
 from .conversation_preflight import (
+    operational_target_is_exact,
     operational_target_is_generic,
     operational_time_is_past_hour,
 )
@@ -618,12 +619,9 @@ def _gateway_target_shape_issue(judgment: Any) -> str | None:
     if any(target.kind not in allowed for target in judgment.targets):
         return "subject"
     resources = tuple(
-        target
-        for target in judgment.targets
-        if target.kind in {"resource", "resource_id"}
-        and not operational_target_is_generic(target.value)
+        target for target in judgment.targets if target.kind in {"resource", "resource_id"}
     )
-    if len(resources) != 1:
+    if len(resources) != 1 or not operational_target_is_exact(resources[0].value):
         return "subject"
     times = tuple(target for target in judgment.targets if target.kind == "time_range")
     if (
@@ -637,7 +635,9 @@ def _gateway_target_shape_issue(judgment: Any) -> str | None:
         for target in judgment.targets
         if target.kind in {"backend", "backend_id", "backend_name", "model"}
     )
-    if len(backend_targets) > 1:
+    if len(backend_targets) > 1 or (
+        backend_targets and not operational_target_is_exact(backend_targets[0].value)
+    ):
         return "subject"
     return None
 

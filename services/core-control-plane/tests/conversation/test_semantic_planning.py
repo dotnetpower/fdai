@@ -2125,6 +2125,62 @@ def test_gateway_judgment_with_multiple_time_targets_requires_clarification() ->
 
 
 @pytest.mark.parametrize(
+    "target_kind,target_value",
+    (
+        ("resource", "this gateway"),
+        ("backend", "backend"),
+    ),
+)
+def test_gateway_judgment_rejects_generic_extra_target(
+    target_kind: str,
+    target_value: str,
+) -> None:
+    utterance = "Compare agw-prod with this gateway backend over the last hour."
+    target_start = utterance.index(target_value)
+    time_start = utterance.index("last hour")
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(kind="resource", value="agw-prod", source_start=8, source_end=16),
+            SemanticTarget(
+                kind=target_kind,
+                value=target_value,
+                source_start=target_start,
+                source_end=target_start + len(target_value),
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="last hour",
+                canonical_value="duration.PT1H",
+                source_start=time_start,
+                source_end=time_start + len("last hour"),
+            ),
+        ),
+        requested_facets=("latency",),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("subject",)
+
+
+@pytest.mark.parametrize(
     "utterance",
     (
         "fdai 와 관련있는 리소스 그룹은?",

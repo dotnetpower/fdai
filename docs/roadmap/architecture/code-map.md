@@ -89,7 +89,8 @@ targets. A model frame cannot substitute a backend as the gateway root, and the 
 at most one backend-or-model filter. Path-shaped backend ARM targets bind to `Backend.id`, not
 `Backend.name`.
 Gateway judgments require exactly one Resource and one explicitly past time target, at most one
-backend-or-model target, and no other target kind. Invalid cardinality clarifies before frame I/O.
+backend-or-model target, and no other target kind. Every identity target must be exact; generic
+resource, backend, or model labels and invalid cardinality clarify before frame I/O.
 Only an accepted semantic judgment can drive these frame normalizations; ambiguous, low-confidence,
 or otherwise rejected proposals cannot rewrite frame scope or identity.
 Configuration and gateway operational output shapes also require an accepted judgment for the same

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 82768c22407a6a5c752b6aaa224fea6489252d19
+translation_source_sha: 04aab06ed2e914ff29e784ceb39c4c4e682c2721
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -88,8 +88,8 @@ Core는 수락된 gateway frame을 `window_seconds=3600`으로 다시 결속합�
 frame은 backend를 gateway root로 바꿀 수 없으며 빠른 경로는 backend 또는 model filter 하나만
 수락합니다. 경로 형태 backend ARM target은 `Backend.name`이 아니라 `Backend.id`로 결속합니다.
 Gateway judgment는 Resource 1개와 과거를 명시한 time target 1개, backend 또는 model target 최대
-1개만 허용하며 다른 target kind는 허용하지 않습니다. Cardinality가 잘못되면 frame I/O 전에
-명확화를 반환합니다.
+1개만 허용하며 다른 target kind는 허용하지 않습니다. 모든 신원 target은 exact 형태여야 합니다.
+일반 resource, backend, model 표기나 잘못된 cardinality는 frame I/O 전에 명확화를 반환합니다.
 수락된 semantic judgment만 이러한 frame 정규화를 적용할 수 있습니다. 모호하거나 확신도가 낮거나
 수락되지 않은 제안은 frame 범위나 신원을 다시 쓸 수 없습니다.
 Configuration 및 gateway 운영 output shape는 같은 family의 수락된 judgment도 요구합니다. 수락되지

@@ -480,10 +480,7 @@ def preflight_operational_judgment(
                 return _reject_operational_promotion("unsupported_time_canonicalization")
         if target.kind not in {"resource", "time_range", "backend", "model"}:
             return _reject_operational_promotion("unsupported_target_kind")
-        if target.kind != "time_range" and (
-            any(character.isspace() for character in target.value)
-            or operational_target_is_generic(target.value)
-        ):
+        if target.kind != "time_range" and not operational_target_is_exact(target.value):
             return _reject_operational_promotion("generic_target_identity")
         normalized_targets.append(target)
     primary_intent = {
@@ -585,6 +582,13 @@ def operational_target_is_generic(value: str) -> bool:
     return normalized in _GENERIC_OPERATIONAL_TARGETS
 
 
+def operational_target_is_exact(value: str) -> bool:
+    """Return whether a target is an exact token-like name or path identity."""
+    return not any(character.isspace() for character in value) and not (
+        operational_target_is_generic(value)
+    )
+
+
 def operational_time_is_past_hour(value: str) -> bool:
     """Return whether source text explicitly denotes a past one-hour range."""
     return " ".join(value.casefold().split()) in _ONE_HOUR_EXPRESSIONS
@@ -659,6 +663,7 @@ __all__ = [
     "SocialResponseNarratorResult",
     "SocialAct",
     "operational_target_is_generic",
+    "operational_target_is_exact",
     "operational_time_is_past_hour",
     "preflight_operational_judgment",
 ]
