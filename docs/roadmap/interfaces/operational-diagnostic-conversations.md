@@ -12,10 +12,17 @@ from interactive evidence, and configuration correlation from a proven cause.
 > (AppGW) latency comparisons, and API Management (APIM) versus GPT error comparisons.
 > This design grants no execution authority and adds no agent or state writer.
 >
-> **Status at 2026-09-06:** Component fixes and focused checks do not establish an end-to-end pass.
-> The standard interactive document request produced an action draft without an artifact in about
-> 39.9 seconds. The gateway question was held with `semantic_frame_unavailable`.
-> Formal critique and hardening rounds completed: **0 of at least 10**.
+> **Status at 2026-09-07:** The current component slice passed 1,237 tests. Twelve focused critique
+> and hardening rounds passed a 43-case matrix and prompt-bound checks after fixing four Medium
+> findings: missing APIM gateway-side `429` and `503` observations, provider response-body disclosure
+> in Metrics API errors, and a 32,768-character planner bound that rejected the 32,865-character
+> governed frame prompt. Known operational families now use a separate 2,173-character prompt, while
+> the legacy general prompt has a 33,000-character ceiling. First-turn explicit operational requests
+> also bypass the 11-16 second adaptive planning stage and narrow 308 descriptors to at most five.
+> These checks do not establish an
+> end-to-end pass. The retained
+> standard interactive document request still produced an action draft without an artifact in about
+> 39.9 seconds, and the gateway question was held with `semantic_frame_unavailable`.
 
 ## Design at a glance
 
@@ -35,7 +42,7 @@ not the requested answer's acceptance criterion.
 | F1: Scoped complete resource inventory document | A downloadable document for the resolved authorized collection, not an action draft or a previous answer's export. | The artifact binds to this turn and principal, lists every readable returned resource and supported property, discloses exclusions and observation time, and proves source and export completeness. Incomplete pagination or output limits prevent a complete-download claim. |
 | F2: GPT deployment configuration change | A read-only before/after comparison for the exact deployment and requested interval. | Show readable changed paths, old/new values, source, effective/recorded times, and missing historical coverage. Keep deployment capacity units separate from tokens per minute (TPM), quota, and observed token consumption. No inferred conversion or configuration write. |
 | F3: AppGW versus backend latency and changes | Aligned gateway/backend metric windows plus scoped configuration changes. | Distinguish total time, backend connection time, first-byte time, and last-byte time. Preserve native definitions, units, aggregation, dimensions, coverage, and topology evidence. Show before/after differences and contemporaneous changes without declaring a cause or inventing gateway-only latency. |
-| F4: APIM versus GPT HTTP 500 and changes | Aligned APIM gateway, APIM backend, and verified GPT deployment evidence with scoped configuration changes. | Separate `GatewayResponseCode` from `BackendResponseCode` for `429`, `500`, and `503`; retain GPT-side observations separately. Preserve denominators for rates and account/deployment scope. An APIM 500 does not prove a GPT 500 or throttling. |
+| F4: APIM versus GPT HTTP 500 and changes | Aligned APIM gateway, APIM backend, and verified GPT deployment evidence with scoped configuration changes. | Separate `GatewayResponseCode` from `BackendResponseCode` for `429`, `500`, and `503`; retain GPT-side observations separately. Preserve denominators for rates and account/deployment scope. An APIM 500 does not prove a GPT 500 or throttling. The bounded APIM profile now reads all six gateway/backend status combinations rather than omitting gateway-side `429` and `503`. |
 
 ## Generic paraphrase set
 
@@ -81,6 +88,9 @@ times and references before reading; no example supplies a customer identifier.
 - **Bounded execution:** Preserve existing total, stage, and no-progress deadlines and progress
   signals. An unexpected model fallback, HTTP `429`/`503`, provider timeout, or deadline expiry ends
   that attempt. Do not repeat a live request without a new hypothesis or explicit authorization.
+- **Interactive latency:** The first verified answer `token` frame should arrive within 5 seconds.
+  Status, acknowledgement, and unverified draft text do not satisfy time to first token (TTFT).
+  A slower turn fails interactive acceptance even when its terminal answer eventually succeeds.
 
 ## Design critique and revision
 
@@ -98,16 +108,16 @@ This design-level review does not count as one of the formal hardening rounds.
 
 The [implementation ledger](../../roadmap-implementation/interfaces/operational-diagnostic-conversations.md)
 is the authoritative delivery history. The following is its bounded status summary, not a new
-runtime certification. Reported results come from the coordinating session and were not rerun by
-this documentation-only change.
+runtime certification. The component results were rerun in the isolated working tree. Standard
+interactive and provider evidence remains separate.
 
 | Area | Current evidence | Open acceptance gap |
 |------|------------------|---------------------|
-| F1 document component | Fix implemented in isolation; 37 targeted tests passed. | The observed standard interactive request still returned an action draft without an artifact, about 39.9 seconds. Retain a successful same-turn download receipt after integration. |
-| Native metric components for F3/F4 | 24 native metric concepts implemented. A test slice had 103 passes before two constructor-fixture fixes; five focused guard tests subsequently passed. | These results overlap: do not sum them or claim the changed slice fully passed. Retain final-snapshot checks and interactive evidence. |
-| Scoped configuration comparison for F2/F3/F4 | Under revision to prevent global history references leaking into scoped output. | Prove isolation for values, object/path references, and aggregate evidence before claiming a complete comparison. |
-| Compound gateway questions for F3/F4 | Wiring in progress; the observed gateway question was held with `semantic_frame_unavailable`. | Prove metric/configuration composition and semantic interpretation through the standard interactive path. |
-| Formal critique and hardening | Not yet run; 0 completed rounds. | Complete at least 10 evidence-backed rounds and close accepted findings; unrelated campaigns and overlapping tests do not count. |
+| F1 document component | Implemented; included in the 1,237-test final component slice and the 43-case hardening matrix. | The observed standard interactive request still returned an action draft without an artifact, about 39.9 seconds. Retain a successful same-turn download receipt after integration. |
+| Native metric components for F3/F4 | Implemented; 137 focused metric and gateway tests passed, followed by the 1,237-test final component slice. | Retain standard interactive evidence against current provider data. Do not add overlapping counts. |
+| Scoped configuration comparison for F2/F3/F4 | Implemented; source isolation, bitemporal bounds, and scoped comparison cases passed in the 43-case matrix and 1,237-test final component slice. | Retain a standard interactive before/after receipt with available history. |
+| Compound gateway questions for F3/F4 | Implemented at the component boundary; APIM now retains gateway and backend `429`, `500`, and `503` counts within a 74-read maximum. | The retained standard gateway question was held with `semantic_frame_unavailable`. Prove metric/configuration composition through the standard interactive path. |
+| Formal critique and hardening | Implemented; 12 rounds completed, with four Medium findings fixed and no unresolved Medium-or-higher component finding. | Standard interactive and provider-evidence gaps remain separate and cannot be counted as passed. |
 
 Addressing every listed gap in the contract is not evidence that every gap is fixed. All four
 families remain short of end-to-end acceptance. The ledger records observable resumption criteria.

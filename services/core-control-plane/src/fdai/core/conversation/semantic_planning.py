@@ -7,6 +7,7 @@ execution authority. No phrase, regex, or keyword selects a query capability.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
@@ -30,6 +31,7 @@ from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLang
 from .conversation_preflight import (
     DIRECT_SOCIAL_ACTS,
     ContextDependency,
+    ConversationPreflightResult,
     OperationalSignal,
     SocialAct,
 )
@@ -82,6 +84,25 @@ from .semantic_planning_support import (
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
+_OPERATIONAL_DESCRIPTOR_NAMES = {
+    "create.document": frozenset({"Resource"}),
+    "query.resource_configuration_changes": frozenset(
+        {
+            "Resource",
+            "query.resource_configuration_changes",
+            "query.resource_configuration_snapshot",
+        }
+    ),
+    "query.gateway_diagnostic_evidence": frozenset(
+        {
+            "Resource",
+            "routes_to",
+            "query.gateway_diagnostic_evidence",
+            "query.resource_configuration_changes",
+            "query.resource_configuration_snapshot",
+        }
+    ),
+}
 
 _SAFE_VALIDATION_REASONS = frozenset(
     {
@@ -262,6 +283,7 @@ class SemanticPlanningService:
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_profile: Mapping[str, str] | None = None,
+        preflight_result: ConversationPreflightResult | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -279,6 +301,7 @@ class SemanticPlanningService:
             response_profile["identity"] = conversation_profile["identity"]
             response_profile["role"] = conversation_profile["role"]
         unbound_conversation = bound_incident is None and bound_investigation_continuation is None
+        supplied_preflight_consumed = False
 
         def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
             updated = outcome
@@ -291,15 +314,20 @@ class SemanticPlanningService:
 
         def run_preflight(context: Sequence[str]) -> SemanticPlanningOutcome | None:
             nonlocal preflight_ran, preflight_social_act, preflight_vetoes_direct
+            nonlocal supplied_preflight_consumed
             if self._semantic_judgment is None:
                 return None
             preflight_ran = True
-            preflight = self._semantic_judgment.preflight(
-                utterance=utterance,
-                context=context,
-                locale=locale,
-                direct_response_profile=response_profile,
-            )
+            if preflight_result is not None and not supplied_preflight_consumed:
+                preflight = preflight_result
+                supplied_preflight_consumed = True
+            else:
+                preflight = self._semantic_judgment.preflight(
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    direct_response_profile=response_profile,
+                )
             model_observations.extend(preflight.observations)
             preflight_vetoes_direct = preflight.failure_kind == "malformed"
             proposal = preflight.proposal
@@ -353,10 +381,9 @@ class SemanticPlanningService:
 
         try:
             context = _bounded_context(prior_turns)
-            if prior_turns:
-                preflight_outcome = run_preflight(context)
-                if preflight_outcome is not None:
-                    return finish(preflight_outcome)
+            preflight_outcome = run_preflight(context)
+            if preflight_outcome is not None:
+                return finish(preflight_outcome)
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             manifest_digest = manifest.manifest_digest
             scope_mismatch = manifest.principal_role.value != principal.role.value
@@ -453,6 +480,26 @@ class SemanticPlanningService:
                 )
                 if judgment_result.accepted and judgment_result.proposal is not None:
                     semantic_judgment = judgment_result.proposal.model_dump(mode="json")
+                    descriptors = _descriptors_for_judgment(
+                        descriptors,
+                        judgment_result.proposal,
+                    )
+                    _LOGGER.info(
+                        "semantic_descriptor_selection_completed",
+                        extra={
+                            "primary_intent": judgment_result.proposal.primary_intent,
+                            "descriptor_count": len(descriptors),
+                            "descriptor_bytes": len(
+                                json.dumps(
+                                    descriptors,
+                                    allow_nan=False,
+                                    ensure_ascii=False,
+                                    separators=(",", ":"),
+                                    sort_keys=True,
+                                ).encode()
+                            ),
+                        },
+                    )
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             judgment_proposal = (
                 judgment_result.proposal if self._semantic_judgment is not None else None
@@ -747,6 +794,43 @@ class SemanticPlanningService:
                     "semantic_planning_failed",
                 )
             )
+
+    def preflight(
+        self,
+        *,
+        utterance: str,
+        prior_turns: Sequence[Turn],
+        locale: str,
+        conversation_profile: Mapping[str, str] | None = None,
+    ) -> ConversationPreflightResult:
+        """Classify routing before the optional adaptive explanation path."""
+        if self._semantic_judgment is None:
+            return ConversationPreflightResult(proposal=None)
+        response_profile = dict(_DIRECT_RESPONSE_PROFILE)
+        if conversation_profile is not None:
+            response_profile["identity"] = conversation_profile["identity"]
+            response_profile["role"] = conversation_profile["role"]
+        return self._semantic_judgment.preflight(
+            utterance=utterance,
+            context=_bounded_context(prior_turns),
+            locale=locale,
+            direct_response_profile=response_profile,
+        )
+
+
+def _descriptors_for_judgment(
+    descriptors: tuple[dict[str, Any], ...],
+    judgment: SemanticJudgmentProposal,
+) -> tuple[dict[str, Any], ...]:
+    """Narrow known operational families after model-backed intent classification."""
+    required = _OPERATIONAL_DESCRIPTOR_NAMES.get(judgment.primary_intent)
+    if required is None:
+        return descriptors
+    selected = tuple(descriptor for descriptor in descriptors if descriptor.get("name") in required)
+    selected_names = {descriptor.get("name") for descriptor in selected}
+    if not required <= selected_names:
+        return descriptors
+    return selected
 
 
 __all__ = [

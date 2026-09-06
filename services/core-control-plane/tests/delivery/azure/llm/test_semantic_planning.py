@@ -61,24 +61,28 @@ def test_adapter_config_accepts_the_current_governed_semantic_prompts() -> None:
     catalog_root = Path(__file__).parents[6] / "rule-catalog"
     prompts = FileSystemPromptRegistry(catalog_root)
     frame = prompts.get_base("semantic.query.frame")
+    operational = prompts.get_base("semantic.query.frame.operational")
     plan = prompts.get_base("semantic.query.plan")
 
     config = AzureOpenAISemanticPlanningModelConfig(
         candidates=(_target("primary"),),
         frame_system_prompt=frame.body,
         plan_system_prompt=plan.body,
+        operational_frame_system_prompt=operational.body,
     )
 
     assert len(config.frame_system_prompt) > 16_384
     assert config.frame_system_prompt == frame.body
+    assert config.operational_frame_system_prompt == operational.body
     assert config.plan_system_prompt == plan.body
+    assert len(operational.body) < 4_000
 
 
 def test_adapter_config_rejects_a_system_prompt_above_the_hard_limit() -> None:
     with pytest.raises(ValueError, match="system prompts MUST be non-empty and bounded"):
         AzureOpenAISemanticPlanningModelConfig(
             candidates=(_target("primary"),),
-            frame_system_prompt="x" * 32_769,
+            frame_system_prompt="x" * 33_001,
             plan_system_prompt="bounded",
         )
 
@@ -194,6 +198,82 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
         "request.errors",
         "request.volume",
     ]
+
+
+async def test_known_operational_intent_uses_compact_frame_prompt() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        config = _config()
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=config.candidates,
+                frame_system_prompt="full frame prompt",
+                plan_system_prompt=config.plan_system_prompt,
+                operational_frame_system_prompt="compact operational frame prompt",
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Compare the gateway.",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            semantic_judgment={
+                "primary_intent": "query.gateway_diagnostic_evidence",
+                "authority": "candidate_only",
+                "execution_authority": False,
+            },
+        )
+
+    assert result is not None
+    body = json.loads(captured[0].content)
+    assert body["messages"][0]["content"].startswith("compact operational frame prompt\n")
+    assert "full frame prompt" not in body["messages"][0]["content"]
+
+
+async def test_operational_frame_fails_closed_above_its_request_budget() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected provider call"))
+    ) as client:
+        config = _config()
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=config.candidates,
+                frame_system_prompt="full frame prompt",
+                plan_system_prompt=config.plan_system_prompt,
+                operational_frame_system_prompt="compact operational frame prompt",
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Compare the gateway.",
+            context=(),
+            descriptors=tuple(
+                {"kind": "object", "name": f"Resource-{index}", "schema": "x" * 1_000}
+                for index in range(70)
+            ),
+            principal_role="reader",
+            purpose="operations-review",
+            semantic_judgment={
+                "primary_intent": "query.gateway_diagnostic_evidence",
+                "authority": "candidate_only",
+                "execution_authority": False,
+            },
+        )
+
+    assert result is None
 
 
 async def test_escalated_frame_uses_compact_typed_recovery_context() -> None:

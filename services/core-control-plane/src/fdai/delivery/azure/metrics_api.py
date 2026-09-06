@@ -284,10 +284,9 @@ class AzureMonitorMetricsProvider:
             ) from exc
 
         if response.status_code >= 400:
-            snippet = response.text[:200].replace("\n", " ")
             raise MetricProviderError(
                 f"Azure Monitor Metrics returned HTTP {response.status_code} for "
-                f"{query.metric_name!r}: {snippet!r}"
+                f"{query.metric_name!r}"
             )
 
         if len(response.content) > self._config.max_response_bytes:

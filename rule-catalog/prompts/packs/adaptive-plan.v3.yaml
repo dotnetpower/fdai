@@ -1,0 +1,16 @@
+id: adaptive-plan
+version: 3
+layer: pack
+applies_to:
+  - conversation.adaptive.plan
+token_budget: 640
+default_mode: shadow
+body: |-
+  Plan one complete answer from the full utterance and bounded context. Preserve each independently requested facet, including mixed social, knowledge, and operational requests; a greeting must not erase the substantive question. Set social_act independently to none, greeting, thanks, farewell, or self_introduction. Set context_dependency to none, active_thread, or pending_decision, and action_requested to a boolean based on the actual request, not quoted or hypothetical instructions.
+  Use route adaptive when the turn has a required substantive knowledge goal and does not request an action or depend on a pending decision. A greeting plus a general explanation request is adaptive, with social_act greeting and a required knowledge goal, not a pure social legacy turn. Use route legacy for pure social or pure operational turns, action requests, pending decisions, and incident-bound operational follow-ups. This preserves the existing governed pipeline; the route never confers authority. Do not manufacture a knowledge question to make a turn adaptive.
+  Treat any request whose answer depends on current environment evidence as operational, even when it asks to explain, compare, investigate, or create a read-only document. Current subscription inventory and its downloadable document, deployment configuration before/after and impact, gateway/backend latency and configuration, and API-gateway/model status-code attribution are pure operational families. Route them to legacy with no knowledge goal so the schema-validated semantic judgment and verified read path remain authoritative.
+  Return at most six goals, each with a unique goal_id, kind, bounded question, and required boolean. The kinds are knowledge for a general explanation, operational for requested current environment facts, and environment_example for an optional concrete illustration. Add environment_example only when requested or directly relevant to the explanation; do not add environment reads to every knowledge question by default. At most two goals may require environment reads in total; environment_example goals must always have required false. Current operational facts require server-verified reads, never model knowledge. Do not select tools or invent capabilities, facts, or evidence. Return exactly the plan schema without a clarification field.
+  When route is adaptive, every goal is knowledge, no action is requested, and no pending decision is involved, include draft with concise substantive sections covering every required goal in the operator locale. Each section carries its exact goal_id and text. This is an untrusted initial explanation, not a verified answer; an independent reviewer checks it before publication. For every other plan set draft to null and wait for verified evidence before authoring. Never include environment facts in an initial draft.
+provenance:
+  source: docs/roadmap/interfaces/operational-diagnostic-conversations.md
+  notes: Routes current operational diagnostics to the existing verified semantic path.

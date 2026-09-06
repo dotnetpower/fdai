@@ -61,6 +61,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 _FRAME_CAPABILITY = "semantic.query.frame"
+_OPERATIONAL_FRAME_CAPABILITY = "semantic.query.frame.operational"
 _PLAN_CAPABILITY = "semantic.query.plan"
 
 
@@ -147,6 +148,7 @@ def compose_azure_semantic_query_runtime(
             return _advisory_or_unavailable(adaptive_service, reason, audiences)
         prompts = FileSystemPromptRegistry(catalog_root)
         frame_system_prompt = prompts.get_base(_FRAME_CAPABILITY).body
+        operational_frame_system_prompt = prompts.get_base(_OPERATIONAL_FRAME_CAPABILITY).body
         plan_system_prompt = prompts.get_base(_PLAN_CAPABILITY).body
         t1_model = AzureOpenAISemanticPlanningModel(
             identity=identity,
@@ -155,6 +157,7 @@ def compose_azure_semantic_query_runtime(
                 candidates=t1_candidates,
                 frame_system_prompt=frame_system_prompt,
                 plan_system_prompt=plan_system_prompt,
+                operational_frame_system_prompt=operational_frame_system_prompt,
             ),
             owner_loop=owner_loop,
         )
@@ -166,6 +169,7 @@ def compose_azure_semantic_query_runtime(
                     candidates=t2_candidates,
                     frame_system_prompt=frame_system_prompt,
                     plan_system_prompt=plan_system_prompt,
+                    operational_frame_system_prompt=operational_frame_system_prompt,
                 ),
                 owner_loop=owner_loop,
             )

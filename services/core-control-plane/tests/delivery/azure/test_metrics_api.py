@@ -250,17 +250,18 @@ async def test_missing_resource_id_fails_closed() -> None:
 
 async def test_http_error_fails_closed() -> None:
     def handler(_r: httpx.Request) -> httpx.Response:
-        return httpx.Response(429, content=b'{"error":"throttled"}')
+        return httpx.Response(429, content=b'{"error":"secret-provider-detail"}')
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     provider = AzureMonitorMetricsProvider(
         config=_config(), http_client=http, identity=_StaticIdentity()
     )
-    with pytest.raises(MetricProviderError, match="HTTP 429"):
+    with pytest.raises(MetricProviderError, match="HTTP 429") as raised:
         async for _ in provider.query(
             MetricQuery(metric_name="cpu_percent", labels={"resource_id": _ARM_ID})
         ):
             pass
+    assert "secret-provider-detail" not in str(raised.value)
 
 
 async def test_non_finite_value_fails_closed() -> None:

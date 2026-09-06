@@ -41,7 +41,7 @@ GATEWAY_DIAGNOSTIC_OUTPUT_SHAPE = "gateway_diagnostic_evidence"
 MAX_GATEWAY_BACKENDS = 4
 MAX_GATEWAY_WINDOW_SECONDS = 86_400
 MAX_GATEWAY_HISTORY_SECONDS = 7 * 86_400
-MAX_GATEWAY_PROVIDER_READS = 70
+MAX_GATEWAY_PROVIDER_READS = 74
 MAX_GATEWAY_SAMPLES_PER_WINDOW = 1000
 MAX_REQUESTED_BACKEND_CANDIDATES = 16
 _MAX_CONCURRENCY = 4
@@ -63,7 +63,9 @@ _GATEWAY_PROFILES = MappingProxyType(
             "api_gateway.duration",
             "api_gateway.backend.duration",
             "api_gateway.request.count",
+            "api_gateway.response.429.count",
             "api_gateway.response.500.count",
+            "api_gateway.response.503.count",
             "api_gateway.backend.response.500.count",
             "api_gateway.backend.response.429.count",
             "api_gateway.backend.response.503.count",
@@ -94,7 +96,6 @@ _BACKEND_PROFILES = MappingProxyType(
 )
 _PROFILE_EXCLUSIONS = {
     "network.application-gateway": ("gateway.backend.healthy_host_count",),
-    "api-gateway": ("api_gateway.response.429.count", "api_gateway.response.503.count"),
 }
 
 

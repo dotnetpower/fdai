@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f66592d85507833fb7fa76d624e700bcba6f478e
-translation_revised: 2026-09-06
+translation_source_sha: 72af31fa3145142836fd064c04e82d5c7e2bf0ee
+translation_revised: 2026-09-07
 ---
 # 코드 맵
 
@@ -52,6 +52,9 @@ FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 
 현재 검증된 인벤토리 결과를 문서로 변환합니다.
 응답 묶음에는 바이너리 문서가 포함될 수 있습니다. `t1_model_health.py`는 입력을 검증하며,
 바이너리나 없는 내용을 모델 상태로 해석하지 않습니다.
+Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행하고 명시적 운영 요청의 Adaptive
+설명 계획을 우회하며, 수락된 인벤토리, 구성, 게이트웨이 의도를 검토된 서술자 범위로 축소합니다.
+Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 요청에 64KiB 상한을 적용합니다.
 [운영 진단 대화](../interfaces/operational-diagnostic-conversations-ko.md)에서 시나리오 수락 기준,
 체크포인트 근거, 아직 완료되지 않은 실환경 검증과 하드닝을 확인하세요.
 

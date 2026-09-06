@@ -284,23 +284,24 @@ def _metric_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 @pytest.mark.parametrize(
-    "root_type,prefix",
+    "root_type,prefix,expected_rows",
     [
-        ("network.application-gateway", "gateway."),
-        ("api-gateway", "api_gateway."),
+        ("network.application-gateway", "gateway.", 14),
+        ("api-gateway", "api_gateway.", 16),
     ],
 )
 async def test_gateway_profiles_use_verified_type_and_identical_windows(
     root_type: str,
     prefix: str,
+    expected_rows: int,
 ) -> None:
     provider = _Provider()
     result = await _invoke(provider, root_type=root_type)
     rows = _metric_rows(result)
     assert result["complete"] is True
-    assert len(rows) == 14
+    assert len(rows) == expected_rows
     assert provider.maximum_active <= 4
-    assert len(provider.calls) == 28
+    assert len(provider.calls) == expected_rows * 2
     assert {call[2:] for call in provider.calls} == {
         (WINDOWS.baseline_start, WINDOWS.baseline_end),
         (WINDOWS.current_start, WINDOWS.current_end),
@@ -317,6 +318,24 @@ async def test_gateway_profiles_use_verified_type_and_identical_windows(
     limits = result["rows"][0]["values"]["interpretation_limits"]
     assert "status counts do not prove policy or cause" in limits
     assert "tokens measure consumption, not capacity" in limits
+
+
+async def test_apim_profile_separates_gateway_and_backend_status_codes() -> None:
+    provider = _Provider()
+    result = await _invoke(provider, root_type="api-gateway")
+
+    gateway_concepts = {
+        row["metric_concept"] for row in _metric_rows(result) if row["role"] == "gateway"
+    }
+    assert {
+        "api_gateway.response.429.count",
+        "api_gateway.response.500.count",
+        "api_gateway.response.503.count",
+        "api_gateway.backend.response.429.count",
+        "api_gateway.backend.response.500.count",
+        "api_gateway.backend.response.503.count",
+    } <= gateway_concepts
+    assert result["rows"][0]["values"]["profile_excluded_concepts"] == []
 
 
 @pytest.mark.parametrize(
@@ -417,9 +436,23 @@ async def test_gateway_maximum_profile_keeps_shared_concurrency_and_read_bounds(
     provider = _Provider()
     result = await _invoke(provider, backend_types=("llm-model-deployment",) * 4)
     assert result["complete"] is True
-    assert len(provider.calls) == MAX_GATEWAY_PROVIDER_READS
+    assert len(provider.calls) == 70
+    assert len(provider.calls) <= MAX_GATEWAY_PROVIDER_READS
     assert provider.maximum_active <= 4
     assert len(_metric_rows(result)) == 35
+
+
+async def test_apim_maximum_profile_fits_the_fixed_provider_read_bound() -> None:
+    provider = _Provider()
+    result = await _invoke(
+        provider,
+        root_type="api-gateway",
+        backend_types=("llm-model-deployment",) * 4,
+    )
+    assert result["complete"] is True
+    assert len(provider.calls) == MAX_GATEWAY_PROVIDER_READS
+    assert provider.maximum_active <= 4
+    assert len(_metric_rows(result)) == 37
 
 
 async def test_gateway_compute_backend_profiles_do_not_use_model_or_gateway_concepts() -> None:

@@ -50,6 +50,10 @@ the carried gateway root. Azure native metric templates remain in delivery adapt
 Operator's `document_export.py` renders the same verified inventory result, not a prior
 unrelated turn. Its response envelope can contain binary documents; `t1_model_health.py`
 validates raw projection input and never treats binary or absent content as model health.
+Core conversation routing runs compact preflight on the first turn, bypasses adaptive explanation
+planning for explicit operational requests, and narrows accepted inventory, configuration, and
+gateway intents to reviewed descriptor slices. Azure semantic planning selects the dedicated
+operational frame prompt and enforces the complete 64 KiB request ceiling.
 See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
 for scenario acceptance, checkpoint evidence, and the unfinished live/hardening qualification.
 

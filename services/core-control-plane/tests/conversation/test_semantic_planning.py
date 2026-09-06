@@ -17,7 +17,11 @@ from fdai.core.conversation.intent_graph import (
 )
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
-from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
+from fdai.core.conversation.semantic_planning import (
+    SemanticPlanningService,
+    _descriptors_for_judgment,
+    _plan_node_summary,
+)
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
 from fdai.core.conversation.semantic_planning_models import (
     BoundResourceContext,
@@ -1622,6 +1626,80 @@ def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
         )
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "primary_intent,expected_names",
+    (
+        ("create.document", {"Resource"}),
+        (
+            "query.resource_configuration_changes",
+            {
+                "Resource",
+                "query.resource_configuration_changes",
+                "query.resource_configuration_snapshot",
+            },
+        ),
+        (
+            "query.gateway_diagnostic_evidence",
+            {
+                "Resource",
+                "routes_to",
+                "query.gateway_diagnostic_evidence",
+                "query.resource_configuration_changes",
+                "query.resource_configuration_snapshot",
+            },
+        ),
+    ),
+)
+def test_known_operational_judgment_narrows_model_descriptors(
+    primary_intent: str,
+    expected_names: set[str],
+) -> None:
+    descriptors = tuple(
+        {"kind": "function" if name.startswith("query.") else "object", "name": name}
+        for name in (
+            "Resource",
+            "routes_to",
+            "query.gateway_diagnostic_evidence",
+            "query.resource_configuration_changes",
+            "query.resource_configuration_snapshot",
+            "unrelated-large-capability",
+        )
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    selected = _descriptors_for_judgment(descriptors, judgment)
+
+    assert {item["name"] for item in selected} == expected_names
+    assert "unrelated-large-capability" not in {item["name"] for item in selected}
+
+
+def test_unknown_judgment_preserves_complete_descriptor_fallback() -> None:
+    descriptors = ({"kind": "object", "name": "Resource"},)
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.other",
+        targets=(),
+        requested_facets=(),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    assert _descriptors_for_judgment(descriptors, judgment) is descriptors
 
 
 @pytest.mark.parametrize(
