@@ -1,7 +1,7 @@
 ---
 title: 운영 진단 대화
 translation_of: operational-diagnostic-conversations.md
-translation_source_sha: 10b34d6aaf139f48d04bb6f0a2e9527be7a799b1
+translation_source_sha: ad3423cf33a6c0bdd2276a2576e0ff0ac12f65f9
 translation_revised: 2026-09-07
 ---
 
@@ -24,10 +24,12 @@ translation_revised: 2026-09-07
 > 33,000자 상한을 적용합니다. 첫 번째 턴의 명시적 운영 요청은 11-16초가 걸린 Adaptive 계획
 > 단계를 우회하고 서술자 308개를 최대 5개로 축소합니다. 이제 검증된 compact preflight는 현재 입력
 > 출처, 원문 범위, 확신도 및 유형별 형식이 모두 통과할 때만 F1-F4의 두 번째 전체 의미 판단 모델
-> 호출을 대체할 수 있습니다. 이러한 검사는 전체 경로 통과를
-> 입증하지는 않습니다. 보존된 표준 대화
-> 경로의 문서 요청은 약 39.9초 후 다운로드 결과물 없이 작업 초안을 반환했고, 게이트웨이
-> 질문은 `semantic_frame_unavailable` 사유로 보류되었습니다.
+> 호출을 대체할 수 있습니다. 이러한 검사는 전체 경로 통과를 입증하지는 않습니다. 준비된 표준
+> Browser Entra 세션에서 F1 변형 하나는 3.810초, 정확한 F2 변형 하나는 4.254초에 첫 답변 token을
+> 보냈으며 둘 다 compact preflight 모델만 한 번 호출했습니다. F1은 여전히 문서 artifact를 만들지
+> 못했습니다. 정확한 리소스 신원이 없는 F3 및 F4 요청은 provider 읽기 없이 명확화로 종료됐으며,
+> 명확화 문장은 답변 token gate를 충족하지 않습니다. 다시 시작한 Core의 semantic 논리 consumer가
+> `control_loop_ready`보다 약 28초 늦게 시작한 문제도 있어 cold-start TTFT는 아직 검증되지 않았습니다.
 
 ## 설계 한눈에 보기
 

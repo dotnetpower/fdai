@@ -389,7 +389,13 @@ async def _iter_consumer(
             if token_provider is None:
                 # Closing the nested stream here keeps consumer teardown inside the
                 # caller's task instead of deferring it to loop finalization.
-                async with aclosing(_consume_messages(consumer)) as stream:
+                async with aclosing(
+                    _consume_messages(
+                        consumer,
+                        commit_max_records=config.commit_max_records,
+                        commit_interval_seconds=config.commit_interval_seconds,
+                    )
+                ) as stream:
                     async for envelope in stream:
                         yield envelope
                 return
@@ -604,9 +610,33 @@ def _log_consumer_progress(
     )
 
 
-async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncGenerator[EventEnvelope, None]:
+async def _consume_messages(
+    consumer: AIOKafkaConsumer,
+    *,
+    commit_max_records: int,
+    commit_interval_seconds: float,
+) -> AsyncGenerator[EventEnvelope, None]:
+    uncommitted = 0
+    last_commit_at = asyncio.get_running_loop().time()
     while True:
-        message = await consumer.getone()
+        if uncommitted:
+            remaining = commit_interval_seconds - (
+                asyncio.get_running_loop().time() - last_commit_at
+            )
+            if remaining <= 0:
+                await consumer.commit()
+                uncommitted = 0
+                last_commit_at = asyncio.get_running_loop().time()
+                continue
+            try:
+                message = await asyncio.wait_for(consumer.getone(), timeout=remaining)
+            except TimeoutError:
+                await consumer.commit()
+                uncommitted = 0
+                last_commit_at = asyncio.get_running_loop().time()
+                continue
+        else:
+            message = await consumer.getone()
         key = _decode_key(message.key)
         yield EventEnvelope(
             topic=message.topic,
@@ -614,7 +644,11 @@ async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncGenerator[EventE
             payload=_decode(message.value, topic=message.topic, key=key),
             offset=message.offset,
         )
-        await consumer.commit()
+        uncommitted += 1
+        if uncommitted >= commit_max_records:
+            await consumer.commit()
+            uncommitted = 0
+            last_commit_at = asyncio.get_running_loop().time()
 
 
 def _transport_options(

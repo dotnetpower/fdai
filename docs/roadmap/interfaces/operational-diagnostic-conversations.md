@@ -21,10 +21,13 @@ from interactive evidence, and configuration correlation from a proven cause.
 > also bypass the 11-16 second adaptive planning stage and narrow 308 descriptors to at most five.
 > A verified compact preflight can now replace the second, full semantic-judgment model call for
 > F1-F4 only when current-input provenance, source spans, confidence, and family shape all pass.
-> These checks do not establish an
-> end-to-end pass. The retained
-> standard interactive document request still produced an action draft without an artifact in about
-> 39.9 seconds, and the gateway question was held with `semantic_frame_unavailable`.
+> These checks do not establish an end-to-end pass. In a warm standard Browser Entra session, one
+> F1 variant emitted its first answer token in 3.810 seconds and one exact F2 variant in 4.254
+> seconds, each with only the compact preflight model call. F1 still produced no document artifact.
+> F3 and F4 requests without exact resource identities returned clarification without provider
+> reads; clarification text does not satisfy the answer-token gate. A restarted Core also started
+> its semantic logical consumer about 28 seconds after `control_loop_ready`, so cold-start TTFT
+> remains unqualified.
 
 ## Design at a glance
 

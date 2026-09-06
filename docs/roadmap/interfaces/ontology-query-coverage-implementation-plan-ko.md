@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 1be5e99e552862981966cd2d2c49ad66d6ab7e97
+translation_source_sha: fde83b3bad405157071db8943f89a23a9c847e6b
 translation_revised: 2026-09-07
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -49,6 +49,8 @@ translation_revised: 2026-09-07
 > Core는 명시적이고 맥락과 독립적인 요청, 0.90 이상의 확신도, 현재 발화의 정확한 원문 범위,
 > 지원되는 한 시간 정규화, 유형별 대상 및 facet 형식, 기존 principal 매니페스트를 모두 확인한
 > 경우에만 이를 수락합니다. 일치하지 않으면 전체 의미 판단을 유지합니다.
+> APIM, Application Gateway, backend 또는 GPT 같은 일반 제품 표기는 정확한 신원이 아닙니다.
+> 이 경우 frame 모델 또는 provider I/O 전에 `resource_identity` 명확화를 반환합니다.
 >
 > **이름이 지정된 리소스 그룹 멤버십:** 모델 판단이 정확한 이름의 리소스 그룹에 속한 멤버
 > 요청으로 분류하면 Core는 모델 프레임 제안 전에 검증된 `Resource.parent_id` 프레임을 만듭니다.
@@ -171,7 +173,7 @@ translation_revised: 2026-09-07
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v2.yaml`, `conversation_preflight.py`, `semantic_planning.py`, 집중 테스트 177개, 대상 Ruff 및 strict mypy | 정확한 F1-F4 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음 또는 신원 불일치 제안은 전체 의미 판단과 기존 매니페스트 및 계획 검증기를 유지합니다. |
+| 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v2.yaml`, `conversation_preflight.py`, `semantic_planning.py`, 집중 테스트 238개, 대상 Ruff, strict mypy 및 Browser Entra 변형 | 정확한 F1-F4 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
@@ -199,6 +201,7 @@ translation_revised: 2026-09-07
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 일반 제품 범주를 정확한 운영 신원으로 인정하지 않고 모호하며 대상이 없는 게이트웨이 비교를 frame 계획 전에 종료했습니다. | `current change`; 집중 테스트 238개, 수정 후 Browser Entra F4 trace에서 frame 모델 및 provider 읽기 없음 | 정확한 대상이 있는 F3/F4 근거를 보존합니다. |
 | 2026-09-07 | implemented | 스키마로 검증되고 출처가 결속된 F1-F4 preflight 의미를 추가하고 원문, 확신도, 맥락, 시간, 유형별 형식 및 Resource 신원 검사를 안전하게 실패하도록 적용했습니다. | `current change`; 집중 대화, prompt registry 및 adapter 테스트 177개, 대상 Ruff 및 strict mypy 통과 | 표준 스택에서 답변 token TTFT와 완전한 근거 증적을 보존합니다. |
 | 2026-09-01 | 구현됨 | 변경 상관관계와 Resource 활동의 의미 판단 변형을 제한한 뒤 VPN 경로 exact-source canary를 완료했습니다. 서비스-Agent 담당 관계, 서비스 현재 상태, 변경 상관관계 및 제한된 Resource 활동을 포함한 사례 10개가 모두 통과했습니다. 런타임은 실행 권한을 부여하지 않고 VPN을 통해 프라이빗 Foundry 엔드포인트를 사용했습니다. | 출처 `31002f3db70649ceb6844dc8ea59798ba7aa4d13`, 출처에 고정된 로컬 원장 다이제스트 `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`, 정확한 결과 10/10. 실행 후 중지 표식과 기존 질문, 평가 및 회귀 원장은 원래 SHA-256 다이제스트를 유지했습니다. | 같은 기대 항목 10개에 대한 이중 언어 20개 캠페인을 제안하되 시작하지 않습니다. 100개 캠페인은 계속 비활성화합니다. |
 | 2026-09-01 | 구현됨 | 서비스와 담당 Agent 간 혼합 권한 보류를 명시적인 복합 읽기 권한 및 계보를 보존하는 인스턴스 경로 노드로 대체했습니다. 이 노드는 정확한 LinkType 선언 의존성을 검증하고 principal 범위의 현재 그래프를 하나의 저장소 스냅샷에서 읽으며, 완전하고 가려지지 않은 실제 경로에서만 신원 주장을 변환합니다. | `current change`, 서비스 계약, 온톨로지 조회, 플래너, 실행기, 프로바이더, 영속성 및 보증 집중 검사 451개 통과, Ruff 및 엄격한 mypy 통과 | 범위가 제한된 canary 10개를 실행합니다. 10개가 모두 통과한 경우에만 20개 캠페인을 제안하고 100개 캠페인은 시작하지 않습니다. |

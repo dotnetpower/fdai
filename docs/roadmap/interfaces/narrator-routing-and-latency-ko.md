@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: a58b5aa0e95f7a211107184d6d989737e565094e
+translation_source_sha: e306e30364248384539e67d8ef298e41cc1a4608
 translation_revised: 2026-09-07
 ---
 # 서술기 라우팅과 지연 시간
@@ -105,18 +105,32 @@ Console의 모델 배지는 `T1`과 변환 결과의 배포 이름을 표시합�
 
 ## 대화형 의미 계획 지연 시간
 
-대화형 질문은 Core가 기능을 선택하기 전에 스키마로 검증되는 의미 판단 경계를 통과합니다. 이 경계가
-바인딩된 Resource 상태, Resource Health 또는 Service Health 함수에 대해 모호하지 않은 읽기
-intent를 반환하면 Core는 타입 기반 프레임을 결정론적으로 만들고 두 번째 프레임 모델 호출을
+대화형 질문은 Core가 기능을 선택하기 전에 스키마로 검증된 모델 의미를 필요로 합니다. 출처가 결속된
+Compact preflight는 검토된 F1-F4 형식 세 가지에만 후보 의미를 제공할 수 있으며, 다른 모든 요청은
+전체 의미 판단을 유지합니다. 수락된 의미가 바인딩된 Resource 상태, Resource Health 또는 Service
+Health 함수에 대해 모호하지 않은 읽기 intent를 포함하면 Core는 타입 기반 프레임을 결정론적으로
+만들고 두 번째 프레임 모델 호출을
 생략합니다. 정확한 함수가 principal 범위 매니페스트에 있어야 하며, 일반 검증기, 근거 실행, 답변 검사는
 그대로 수행합니다. 새롭거나 모호하거나 작업과 관련됐거나 바인딩되지 않은 질문은 일반 프레임 계획
 경로를 유지합니다.
 공급자 호출은 자유 형식 JSON 객체와 반복된 텍스트 스키마 대신 엄격한 구조화 출력을 사용합니다.
 Compact preflight는 첫 번째 턴의 Adaptive 계획 전에 실행됩니다. 명시적 및 맥락 의존 운영 신호는
-전체 의미 판단으로 바로 들어가고 혼합 신호는 Adaptive 목표 분리를 유지합니다. 수락된 운영 진단
+검증된 의미 계획으로 바로 들어가고 혼합 신호는 Adaptive 목표 분리를 유지합니다. 수락된 운영 진단
 의도는 검토된 서술자를 최대 5개만 사용하고 544토큰 운영 frame 프롬프트를 선택하며, 스키마를
 포함한 요청은 64KiB를 넘을 수 없습니다. 직접 응답 후보는 social 답변을 표현하기 전에 독립
 preflight를 계속 요구합니다.
+
+표준 로컬 스택은 논리 semantic 및 agent 토픽을 하나의 물리 Kafka 토픽으로 multiplex합니다. 로컬
+PLAINTEXT consumer는 클라우드 SASL consumer와 같은 범위가 제한된 레코드 수 및 경과 시간 commit
+정책을 적용합니다. 관련 없는 물리 이벤트마다 broker commit을 수행하지 않으며, 호출자가 성공적으로
+처리한 envelope에서 재개한 뒤에만 commit합니다. 처리 중 닫히거나 실패하면 at-least-once 재전달을
+보존합니다.
+
+준비된 표준 Browser Entra 측정에서 F1 답변 token 하나는 3.810초, 정확한 F2 답변 token 하나는
+4.254초에 도달했습니다. 둘 다 preflight 모델 호출 한 번만 사용했습니다. 이 표본만으로 SLO 분포가
+검증되지는 않습니다. F1은 요청한 문서가 없었고 대상이 없는 F3/F4 명확화는 답변 token을 보내지
+않았습니다. Core를 다시 시작한 뒤 `control_loop_ready`보다 semantic 논리 consumer 시작이 약 28초
+늦었습니다. Readiness에 이 consumer를 포함하기 전까지 cold-start 요청은 검증된 경로가 아닙니다.
 
 Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표시합니다. 의미 런타임이 아직 증명할 수 없는
 브라우저 작성 화면 요약, tier 추정, 대기 중인 결정 또는 비용 기회 대신 서버 소유의 현재 근거를
@@ -326,6 +340,8 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | in-progress | 정확한 schema 이름을 유지하면서 preflight 본문을 추정 약 654토큰으로 줄였습니다. 준비된 F1/F2 변형은 preflight를 한 번 호출하고 5초 답변 token gate를 충족했습니다. | 표준 Browser Entra F1/F2 시간은 3.810/4.254초였습니다. | 이중 언어 분포를 보존하고 `control_loop_ready`보다 약 28초 늦게 시작한 semantic consumer를 Core readiness에 포함합니다. |
+| 2026-09-07 | implemented | Multiplex된 모든 물리 이벤트마다 commit하는 대신 기존 레코드 및 시간 상한으로 로컬 PLAINTEXT Kafka consumer commit을 일괄 처리했습니다. 처리 후 commit과 처리 도중 닫힐 때의 재전달을 보존했습니다. | `current change`; 집중 Event Bus 및 multiplex 테스트 통과 | 표준 Core를 다시 시작하고 논리 consumer가 backlog를 따라잡은 뒤 F1-F4 답변 token TTFT를 보존합니다. |
 | 2026-09-07 | implemented | 첫 `onToken` callback을 상태 및 최종 timing과 별도로 측정하고 5초를 넘으면 실패하는 실제 운영 대화 qualification gate를 추가했습니다. | `current change`; Console 타입 검사가 통과했습니다. | 전체 표준 스택을 하나의 정확한 소스 리비전에서 시작한 뒤 gate를 실행합니다. |
 | 2026-09-07 | implemented | 첫 번째 턴의 명시적 및 맥락 의존 운영 신호에서 Compact preflight를 Adaptive 계획보다 먼저 실행하고, 의미 판단 뒤 의도 범위 서술자와 전용 제한 frame 프롬프트를 선택하도록 했습니다. | `current change`; 집중 구성 요소 테스트 1,237개, 대상 Ruff, strict mypy가 통과했습니다. | 하나의 일관된 표준 스택 SHA에서 검증된 첫 답변 토큰 지연 시간을 측정합니다. 상태 frame은 5초 TTFT 목표를 충족하지 않습니다. |
 | 2026-09-06 | implemented | 대화 응답 묶음에 바이너리 본문과 본문 없음이 추가된 뒤 T1 상태 경계를 바로잡았습니다. 상태 파서는 알 수 없는 입력을 받고 객체가 아닌 값을 거부하며, 의미 런타임 facade는 Operator 조립이 이미 사용하는 판독기를 명시적으로 내보냅니다. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py` 및 집중 strict mypy, Operator, 서비스 suite 검사입니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |

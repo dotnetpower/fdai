@@ -12,6 +12,7 @@ from fdai_service_contracts.ontology_query import SemanticOperation
 
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from .conversation_preflight import operational_target_is_generic
 from .semantic_governed_document_planning import apply_document_evidence_requirement
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
@@ -169,9 +170,11 @@ def deterministic_pre_frame_outcome(
         and judgment.primary_intent
         in {"query.gateway_diagnostic_evidence", "query.resource_configuration_changes"}
         and judgment.action_posture == "advise_only"
-        and not judgment.ambiguous
-        and not judgment.unresolved_terms
-        and not any(target.kind in {"resource", "resource_id"} for target in judgment.targets)
+        and not any(
+            target.kind in {"resource", "resource_id"}
+            and not operational_target_is_generic(target.value)
+            for target in judgment.targets
+        )
     ):
         output_shape = (
             SemanticOutputShape.GATEWAY_DIAGNOSTIC_EVIDENCE

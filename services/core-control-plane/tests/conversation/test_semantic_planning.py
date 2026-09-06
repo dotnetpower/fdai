@@ -1802,6 +1802,44 @@ def test_operational_comparison_without_exact_resource_requires_clarification(
     assert outcome.frame.unresolved_terms == ("resource_identity",)
 
 
+def test_ambiguous_gateway_judgment_with_generic_resource_skips_frame_model() -> None:
+    utterance = "Compare the APIM gateway and backend 500 responses."
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.gateway_diagnostic_evidence",
+        targets=(
+            SemanticTarget(
+                kind="resource",
+                value="APIM",
+                source_start=12,
+                source_end=16,
+            ),
+        ),
+        requested_facets=("gateway", "backend", "status_500"),
+        unresolved_terms=("resource_identity",),
+        clarification="Which exact gateway resource should I inspect?",
+        confidence=0.98,
+        ambiguous=True,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance=utterance,
+        context=(),
+        descriptors=(),
+        manifest_digest="sha256:" + "a" * 64,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.unresolved_terms == ("resource_identity",)
+
+
 @pytest.mark.parametrize(
     "utterance",
     (

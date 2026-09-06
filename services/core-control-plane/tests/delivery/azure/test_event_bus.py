@@ -149,6 +149,7 @@ async def test_plaintext_consumer_starts_and_stops_progress_monitor(
 ) -> None:
     monitor_started = asyncio.Event()
     monitor_stopped = asyncio.Event()
+    commits = 0
 
     class _Message:
         topic = "fdai.change.events"
@@ -170,7 +171,8 @@ async def test_plaintext_consumer_starts_and_stops_progress_monitor(
             return _Message()
 
         async def commit(self) -> None:
-            return None
+            nonlocal commits
+            commits += 1
 
     async def _monitor(*_args: object, **_kwargs: object) -> None:
         monitor_started.set()
@@ -197,6 +199,65 @@ async def test_plaintext_consumer_starts_and_stops_progress_monitor(
     await iterator.aclose()
 
     assert monitor_stopped.is_set()
+    assert commits == 0, "closing mid-processing MUST preserve at-least-once redelivery"
+
+
+@pytest.mark.asyncio
+async def test_plaintext_consumer_commits_once_per_batch_not_per_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commits: list[int] = []
+    delivered = 0
+
+    class _Message:
+        topic = "fdai.change.events"
+        key = b"resource"
+        value = b'{"event_id": "e"}'
+
+        def __init__(self, offset: int) -> None:
+            self.offset = offset
+
+    class _Consumer:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> _Message:
+            nonlocal delivered
+            if delivered >= 3:
+                raise RuntimeError("consumer complete")
+            delivered += 1
+            return _Message(delivered)
+
+        async def commit(self) -> None:
+            commits.append(delivered)
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _Consumer)
+    iterator = _iter_consumer(
+        topic="fdai.change.events",
+        group_id="fdai-semantic-turns",
+        config=_cfg(
+            bootstrap_servers="127.0.0.1:19092",
+            security_protocol="PLAINTEXT",
+            commit_max_records=3,
+            commit_interval_seconds=3600.0,
+        ),
+        identity=None,
+        audience=None,
+    )
+
+    offsets: list[int] = []
+    with pytest.raises(RuntimeError, match="consumer complete"):
+        async for envelope in iterator:
+            offsets.append(envelope.offset)
+
+    assert offsets == [1, 2, 3]
+    assert commits == [3]
 
 
 def test_encode_produces_deterministic_bytes() -> None:

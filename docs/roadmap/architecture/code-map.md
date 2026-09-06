@@ -62,6 +62,11 @@ independence, family shape, and the principal manifest before reusing it. Other 
 semantic judgment.
 If a model-supplied offset does not select its proposed value, Core corrects it only when that exact
 value occurs once in the current utterance. Missing or repeated values retain full judgment.
+The local PLAINTEXT Kafka consumer batches commit-after-processing by the same record and time
+bounds as the cloud SASL path. Multiplexed logical consumers can skip unrelated physical events
+without one broker commit per event, while mid-processing closure remains eligible for redelivery.
+Generic product labels such as APIM, gateway, backend, and GPT never satisfy an exact operational
+target. They require Resource identity clarification before frame or provider work.
 Configuration and gateway comparisons without a source-grounded Resource name or id stop with
 typed `resource_identity` clarification before frame-model or provider I/O.
 An accepted exact-target one-hour configuration judgment builds the F2 frame deterministically and

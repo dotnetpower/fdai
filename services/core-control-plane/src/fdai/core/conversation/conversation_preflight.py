@@ -81,6 +81,30 @@ _ONE_HOUR_EXPRESSIONS = frozenset(
         "한 시간",
     }
 )
+_GENERIC_OPERATIONAL_TARGETS = frozenset(
+    {
+        "api management",
+        "apim",
+        "apim gateway",
+        "application gateway",
+        "appgw",
+        "backend",
+        "deployment",
+        "gateway",
+        "gpt",
+        "gpt deployment",
+        "model",
+        "selected deployment",
+        "selected gateway",
+        "this deployment",
+        "this gateway",
+        "게이트웨이",
+        "모델",
+        "배포",
+        "백엔드",
+        "애플리케이션 게이트웨이",
+    }
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -399,26 +423,47 @@ def preflight_operational_judgment(
 ) -> SemanticJudgmentProposal | None:
     """Promote a bounded preflight family to candidate judgment after source checks."""
     proposal = result.proposal
-    if (
-        proposal is None
-        or not result.attempted
-        or result.failure_kind is not None
-        or proposal.operational_family is OperationalPreflightFamily.NONE
-        or proposal.operational_signal is not OperationalSignal.EXPLICIT
-        or proposal.context_dependency is not ContextDependency.NONE
-        or proposal.confidence < _OPERATIONAL_PROMOTION_CONFIDENCE
-        or result.input_digest != _preflight_input_digest(utterance)
-        or result.proposal_digest != content_digest(proposal.model_dump(mode="json"))
-        or result.model_config_digest is None
-        or result.prompt_digest is None
-    ):
-        return None
+    if proposal is None:
+        return _reject_operational_promotion("proposal_absent")
+    checks = (
+        (result.attempted, "preflight_not_attempted"),
+        (result.failure_kind is None, "preflight_failed"),
+        (
+            proposal.operational_family is not OperationalPreflightFamily.NONE,
+            "family_absent",
+        ),
+        (
+            proposal.operational_signal is OperationalSignal.EXPLICIT,
+            "signal_not_explicit",
+        ),
+        (
+            proposal.context_dependency is ContextDependency.NONE,
+            "context_dependent",
+        ),
+        (
+            proposal.confidence >= _OPERATIONAL_PROMOTION_CONFIDENCE,
+            "confidence_below_threshold",
+        ),
+        (
+            result.input_digest == _preflight_input_digest(utterance),
+            "input_digest_mismatch",
+        ),
+        (
+            result.proposal_digest == content_digest(proposal.model_dump(mode="json")),
+            "proposal_digest_mismatch",
+        ),
+        (result.model_config_digest is not None, "model_provenance_absent"),
+        (result.prompt_digest is not None, "prompt_provenance_absent"),
+    )
+    for passed, reason in checks:
+        if not passed:
+            return _reject_operational_promotion(reason)
     normalized_targets: list[SemanticTarget] = []
     for target in proposal.operational_targets:
         if utterance[target.source_start : target.source_end] != target.value:
             source_start = utterance.find(target.value)
             if source_start < 0 or utterance.find(target.value, source_start + 1) >= 0:
-                return None
+                return _reject_operational_promotion("target_not_unique_in_source")
             target = target.model_copy(
                 update={
                     "source_start": source_start,
@@ -430,9 +475,11 @@ def preflight_operational_judgment(
                 target.canonical_value != "duration.PT1H"
                 or " ".join(target.value.casefold().split()) not in _ONE_HOUR_EXPRESSIONS
             ):
-                return None
+                return _reject_operational_promotion("unsupported_time_canonicalization")
         if target.kind not in {"resource", "time_range", "backend", "model"}:
-            return None
+            return _reject_operational_promotion("unsupported_target_kind")
+        if target.kind != "time_range" and operational_target_is_generic(target.value):
+            return _reject_operational_promotion("generic_target_identity")
         normalized_targets.append(target)
     primary_intent = {
         OperationalPreflightFamily.INVENTORY_DOCUMENT: "create.document",
@@ -471,7 +518,15 @@ def preflight_operational_judgment(
             and facets <= _GATEWAY_FACETS
         )
     if primary_intent is None or not family_valid:
-        return None
+        _LOGGER.info(
+            "conversation_preflight_operational_shape_rejected",
+            extra={
+                "family": proposal.operational_family.value,
+                "target_kinds": ",".join(target_kinds),
+                "facets": ",".join(sorted(facets)),
+            },
+        )
+        return _reject_operational_promotion("invalid_family_shape")
     return SemanticJudgmentProposal(
         primary_intent=primary_intent,
         targets=tuple(normalized_targets),
@@ -487,6 +542,19 @@ def preflight_operational_judgment(
 
 def _preflight_input_digest(utterance: str) -> str:
     return content_digest({"utterance": utterance})
+
+
+def operational_target_is_generic(value: str) -> bool:
+    """Return whether source text names only a generic operational category."""
+    return " ".join(value.casefold().split()) in _GENERIC_OPERATIONAL_TARGETS
+
+
+def _reject_operational_promotion(reason: str) -> SemanticJudgmentProposal | None:
+    _LOGGER.info(
+        "conversation_preflight_operational_promotion_rejected",
+        extra={"reason": reason},
+    )
+    return None
 
 
 def _bounded_context(context: Sequence[str]) -> tuple[str, ...]:
@@ -549,5 +617,6 @@ __all__ = [
     "SocialResponseNarratorModel",
     "SocialResponseNarratorResult",
     "SocialAct",
+    "operational_target_is_generic",
     "preflight_operational_judgment",
 ]

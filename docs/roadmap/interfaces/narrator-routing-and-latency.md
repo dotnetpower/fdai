@@ -106,19 +106,34 @@ client-provided image fields cannot supply that authority.
 
 ## Interactive semantic-planning latency
 
-Interactive questions still cross the schema-validated semantic judgment boundary before Core
-selects a capability. When that boundary accepts an unambiguous read intent for a
+Interactive questions still require schema-validated model meaning before Core selects a
+capability. A provenance-bound compact preflight can provide candidate meaning only for three
+reviewed F1-F4 shapes; every other request retains full semantic judgment. When accepted meaning
+contains an unambiguous read intent for a
 bound Resource state, Resource Health, or Service Health function, Core builds the typed frame
 deterministically and skips the second frame-model call. The exact function must exist in the
 principal-scoped manifest, and the normal verifier, evidence execution, and answer checks still run.
 Novel, ambiguous, action-related, or unbound questions keep the general frame-planning path.
 Provider calls use strict structured output instead of a free-form JSON object plus a repeated
 textual schema. Compact preflight now runs on the first turn before adaptive planning. Explicit and
-contextual operational signals enter full semantic judgment directly, while mixed signals retain
+contextual operational signals enter verified semantic planning directly, while mixed signals retain
 adaptive goal separation. Accepted operational diagnostic intents use at most five reviewed
 descriptors and a 544-token operational frame prompt; their schema-inclusive request cannot exceed
 64 KiB. Direct-response candidates still require the independent preflight before any social answer
 is rendered.
+
+The standard local stack multiplexes logical semantic and agent topics over one physical Kafka
+topic. Its PLAINTEXT consumer applies the same bounded record-count and elapsed-time commit policy
+as the cloud SASL consumer. It never pays one broker commit for every unrelated physical event, and
+it still commits only after the caller resumes from a successfully processed envelope. Closing or
+failing mid-processing preserves at-least-once redelivery.
+
+Warm standard Browser Entra measurements reached 3.810 seconds for one F1 answer token and 4.254
+seconds for one exact F2 answer token. Both used one preflight model call. These samples do not
+qualify the SLO distribution. F1 still lacked its requested document, and targetless F3/F4
+clarifications emitted no answer token. After Core restart, `control_loop_ready` preceded the
+semantic logical consumer start by about 28 seconds; cold-start requests remain outside the
+qualified path until readiness includes that consumer.
 
 Console starter questions expose only this contract-covered function-backed set. They ask for
 current server-owned evidence instead of browser-authored screen summaries, tier estimates, pending
@@ -331,6 +346,8 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | in-progress | Reduced the preflight body to about 654 estimated tokens while retaining exact schema names. Warm F1/F2 variants used one preflight call and met the 5-second answer-token gate. | Standard Browser Entra F1/F2 timings were 3.810/4.254 seconds. | Retain a bilingual distribution and make Core readiness include the semantic consumer, which started about 28 seconds after `control_loop_ready`. |
+| 2026-09-07 | implemented | Batched local PLAINTEXT Kafka consumer commits by the existing record and time bounds instead of committing every multiplexed physical event. Preserved commit-after-processing and redelivery on mid-processing close. | `current change`; focused Event Bus and multiplex tests passed. | Restart the standard Core and retain F1-F4 answer-token TTFT after the logical consumer catches up. |
 | 2026-09-07 | implemented | Added a live operational-conversation qualification gate that measures the first `onToken` callback independently from status and terminal timing and fails above 5 seconds. | `current change`; Console typecheck passed. | Run the gate after the complete standard stack starts from one exact source revision. |
 | 2026-09-07 | implemented | Moved compact preflight ahead of adaptive planning for first-turn explicit/contextual operational signals and selected a dedicated bounded frame prompt plus intent-scoped descriptors after semantic judgment. | `current change`; 1,237 focused component tests, targeted Ruff, and strict mypy passed. | Measure verified first-answer-token latency on one coherent standard-stack SHA; status frames do not satisfy the 5-second TTFT target. |
 | 2026-09-06 | implemented | Corrected the T1 health boundary after the conversation response envelope gained binary and absent bodies. The health parser now accepts unknown input and rejects non-object values, while the semantic runtime facade explicitly exports the reader that Operator composition already consumes. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py`, and focused strict mypy, Operator, and service-suite checks. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |

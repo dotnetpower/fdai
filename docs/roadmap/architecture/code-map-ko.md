@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ba50e0cf31aa5eb6719582cfa339118e80da0caa
+translation_source_sha: 3172fab1286e3490a029e9e4bcedf08cc8221843
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -63,6 +63,11 @@ Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 �
 독립성, 유형별 형식 및 principal 매니페스트를 검증합니다. 다른 요청은 전체 의미 판단을 유지합니다.
 모델이 제공한 offset이 제안 값을 선택하지 않으면, Core는 현재 발화에서 정확히 같은 값이 한 번만
 나타날 때만 범위를 보정합니다. 값이 없거나 반복되면 전체 의미 판단을 유지합니다.
+로컬 PLAINTEXT Kafka consumer는 클라우드 SASL 경로와 같은 레코드 및 시간 상한에 따라 처리 후
+commit을 일괄 수행합니다. Multiplex된 논리 consumer는 관련 없는 물리 이벤트마다 broker commit을
+수행하지 않고 건너뛸 수 있으며, 처리 도중 닫힌 이벤트는 재전달 대상 상태로 유지합니다.
+APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 정확한 운영 대상이 될 수 없습니다. Frame 또는
+provider 작업 전에 Resource 신원 명확화를 요구합니다.
 원본 발화에 근거한 Resource 이름 또는 ID가 없는 구성과 게이트웨이 비교는 frame 모델이나
 프로바이더 I/O 전에 타입이 지정된 `resource_identity` 명확화로 중단합니다.
 정확한 대상과 1시간 기간을 포함한 수락된 구성 판단은 F2 frame을 결정론적으로 만들고 범용 frame

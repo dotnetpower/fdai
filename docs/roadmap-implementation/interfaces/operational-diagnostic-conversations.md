@@ -20,8 +20,8 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | Native metric concepts | implemented | `current change`; 137 gateway/metric tests and the final 1,237-test component slice passed | APIM gateway and backend `429`, `500`, and `503` remain distinct. Counts overlap and are not additive. |
 | Scoped configuration comparison | implemented | `current change`; source-isolation, time-boundary, capacity-semantics, and configuration-plan cases in the 43-case matrix and final component slice | Values, object scope, history references, and aggregate provenance remain filtered before presentation. Interactive history evidence remains open. |
 | Compound gateway metric/configuration wiring | implemented | `current change`; gateway compiler, reducer, APIM status, deadline, and scoped configuration tests in the 742-test slice | Component composition is complete. Standard interactive metric and configuration evidence remains open. |
-| Standard interactive acceptance | in-progress | Reported document request: action draft, no artifact, about 39.9 seconds. Reported gateway question: held with `semantic_frame_unavailable`. | Neither observation is an answer-quality pass; no successful interactive evidence is claimed for any of the four families. |
-| Formal critique and hardening | implemented | `current change`; R01-R23 below; the latest 179 focused cases, targeted Ruff, and strict mypy passed | Eight additional Medium findings were fixed in R13-R23. No unresolved Medium-or-higher finding is known in this component change. Interactive gaps remain outside this claim. |
+| Standard interactive acceptance | in-progress | Warm standard Browser Entra variants: F1 answer TTFT 3.810 seconds, F2 answer TTFT 4.254 seconds, F3 clarification 6.559 seconds, and post-fix F4 clarification 5.800 seconds. | F1 and F2 pass the latency sub-gate only. F1 had no artifact; complete F2 history was not established; F3/F4 lacked exact identities and emitted no answer token. Cold-start semantic-consumer readiness remains open. |
+| Formal critique and hardening | implemented | `current change`; R01-R26 below; the latest 238 focused cases, targeted Ruff, and strict mypy passed | Eleven additional Medium findings were fixed in R13-R26. No unresolved Medium-or-higher finding is known in the edited component paths. Interactive acceptance gaps remain explicit. |
 
 ### Implementation history
 
@@ -33,6 +33,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
 | 2026-09-07 | implemented | Built the exact-target one-hour F2 configuration frame directly from accepted typed judgment instead of allowing the frame model to degrade it to a generic property listing. | `current change`; 176 focused semantic planning tests, targeted Ruff, and strict mypy passed. | Retain an F2 standard-stack receipt with complete configuration history and answer TTFT at or below 5 seconds. |
 | 2026-09-07 | implemented | Added a provenance-bound operational-family proposal to compact preflight and reused it as candidate-only judgment for verified F1-F4 requests, removing one serial model call. Added fail-closed confidence, context, family-shape, source-span, one-hour, and Resource identity checks. | `current change`; 177 conversation, prompt-registry, and adapter tests passed with targeted Ruff and strict mypy. | Restart the standard local Core and retain authenticated F1-F4 answer-token TTFT, evidence, and artifact outcomes. |
 | 2026-09-07 | implemented | Corrected live-model source-span and canonical-identity assumptions. A mismatched offset is repaired only for one unique exact value in the current utterance, and F2 ARM IDs remain unsupported instead of being queried as names. | `current change`; 179 focused tests passed with targeted Ruff and strict mypy. Standard Browser Entra traces reproduced the pre-fix fallback. | Restart Core and verify that a new exact F2 variant omits the full semantic-judgment call and meets the 5-second answer-token gate. |
+| 2026-09-07 | in-progress | Batched local PLAINTEXT consumer commits, compressed preflight while retaining exact schema field names, blocked generic product labels as exact identities, and terminated ambiguous targetless gateway judgments before frame-model I/O. | `current change`; 238 focused tests, targeted Ruff, and strict mypy passed. Warm Browser Entra F1/F2 TTFT passed at 3.810/4.254 seconds; F3/F4 returned no-read clarification. | Deliver the F1 artifact, retain complete F2 history, test exact F3/F4 targets, and make Core readiness wait for the semantic logical consumer rather than preceding it by about 28 seconds. |
 
 ### Remaining work
 
@@ -50,7 +51,7 @@ It separates coordinating-session reports from retained final-snapshot and inter
   draft and gateway semantic-frame hold; do not infer a pass from component checks.
 - [ ] Retain safe negative outcomes for ambiguity, missing/denied evidence, pagination limits,
   stale history, unavailable metric dimensions, zero versus no samples, and no-mutation boundaries.
-- [x] Completed R01-R23 below and fixed all accepted Medium findings.
+- [x] Completed R01-R26 below and fixed all accepted Medium findings in the edited component paths.
 - [ ] Before claiming all gaps closed, confirm every family meets its contract, all accepted
   findings are resolved, and final-snapshot and standard interactive evidence are retained.
 
@@ -60,7 +61,8 @@ R01-R12 reviewed checkpoint `6ba5c91d3` plus its isolated hardening change. R01-
 one exact 43-case pytest invocation and passed in 0.69 seconds. R11 used 41 prompt/composition cases
 and a bounded live Core startup. R13-R22 reviewed the preflight judgment reuse change and concluded
 with 177 focused cases, targeted Ruff, and strict mypy. R23 used retained standard Browser Entra
-trace structure and concluded with 179 focused cases.
+trace structure and concluded with 179 focused cases. R24-R26 combined code tracing with standard
+Browser Entra variations and concluded with 238 focused cases.
 
 | Round | Hypothesis and result | Resolution | Focused evidence | Remaining blocker |
 |-------|-----------------------|------------|------------------|-------------------|
@@ -87,6 +89,9 @@ trace structure and concluded with 179 focused cases.
 | R21 | Prompt v2 might regress v1 social ambiguity rules. **Medium confirmed.** | Restored conversation-interface, acknowledgement, quoted-social, and uncertainty rules in compact form. | Prompt registry and conversation preflight cases passed. | Live multilingual variation remains open. |
 | R22 | Normalizing full and preflight judgments might reject a valid accepted test boundary. A compatibility defect was reproduced in focused tests, but no production enum path was affected. | Preserved the boundary's explicit `accepted` decision instead of inferring it from a synthetic receipt. | All 177 focused cases passed after the fix. | No Medium-or-higher blocker remains from this round. |
 | R23 | Live preflight might classify F2 but still miss promotion. **Medium confirmed:** the model returned one-based-like offsets and a canonical resource value rather than a property field, so every observed request paid for full judgment. | Corrected only one uniquely occurring model-proposed value to its exact zero-based span, clarified the prompt contract, and rejected F2 ARM IDs by source value rather than misusing `canonical_value`. | Standard Browser Entra traces reproduced both mismatches; 179 focused cases, targeted Ruff, and strict mypy passed. | Re-measure the restarted standard stack; no latency pass is claimed yet. |
+| R24 | Multiplexed local Kafka catch-up might pay one broker commit per unrelated physical event. **Medium confirmed in code:** PLAINTEXT committed every event while SASL used the declared record/time batch. | Applied the existing bounded batch policy to PLAINTEXT and preserved no-commit redelivery when processing closes early. | Event Bus and multiplex tests passed in the 238-case final slice. | Batching did not resolve the separate 28-second delayed semantic-consumer startup. |
+| R25 | Prompt compression might trigger schema repair and erase the latency gain. **Medium confirmed live:** abbreviated `targets` and `facets` produced two preflight calls and 7.404-second TTFT. | Restored exact schema field names in a 2,615-character, about 654-token prompt body. | Prompt tests passed; warm F2 used one preflight call and emitted its answer token in 4.254 seconds. | Retain a larger bilingual latency cohort. |
+| R26 | Generic product words might be accepted as exact gateway, backend, and model identities. **Medium confirmed live:** APIM/backend/GPT were promoted and caused a 38.5-second frame path. | Rejected reviewed generic category labels in preflight and pre-frame checks; ambiguous or targetless gateway judgments now return `resource_identity` clarification before frame/provider I/O. | Two new negative cases passed; post-fix F4 trace contained preflight and judgment only, no frame call or read. | Exact-target F3/F4 evidence remains unvalidated. |
 
 R01-R10 do not authorize live mutations. Authorized live reads and model questions remain bounded;
 TPM reduction and chaos injection remain outside scope. Stop the attempt on unexpected model
