@@ -133,6 +133,45 @@ variable "sharepoint_connector" {
     error_message = "Enabled SharePoint connector requires complete identity, source, and document-policy bindings."
   }
 }
+variable "stewardship_gitops" {
+  description = "Platform-owned review-only stewardship GitHub authentication and webhook binding."
+  type = object({
+    enabled                   = optional(bool, false)
+    owner                     = optional(string, "")
+    repo                      = optional(string, "")
+    auth_mode                 = optional(string, "")
+    token_secret_id           = optional(string, "")
+    app_client_id             = optional(string, "")
+    app_installation_id       = optional(string, "")
+    app_private_key_secret_id = optional(string, "")
+    webhook_secret_id         = optional(string, "")
+  })
+  default   = {}
+  sensitive = true
+
+  validation {
+    condition = !var.stewardship_gitops.enabled || (
+      trimspace(var.stewardship_gitops.owner) != "" &&
+      trimspace(var.stewardship_gitops.repo) != "" &&
+      trimspace(var.stewardship_gitops.webhook_secret_id) != "" &&
+      (
+        (
+          var.stewardship_gitops.auth_mode == "static_token" &&
+          trimspace(var.stewardship_gitops.token_secret_id) != "" &&
+          trimspace(var.stewardship_gitops.app_private_key_secret_id) == ""
+        ) ||
+        (
+          var.stewardship_gitops.auth_mode == "github_app" &&
+          trimspace(var.stewardship_gitops.token_secret_id) == "" &&
+          trimspace(var.stewardship_gitops.app_client_id) != "" &&
+          can(regex("^[1-9][0-9]*$", var.stewardship_gitops.app_installation_id)) &&
+          trimspace(var.stewardship_gitops.app_private_key_secret_id) != ""
+        )
+      )
+    )
+    error_message = "Enabled stewardship GitOps requires webhook and exactly one static-token or GitHub App credential binding."
+  }
+}
 variable "scaling" {
   description = "API replica and resource limits."
   type        = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string })

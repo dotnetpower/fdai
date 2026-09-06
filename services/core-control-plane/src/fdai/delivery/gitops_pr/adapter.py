@@ -44,6 +44,7 @@ from typing import Any, Final
 from urllib.parse import quote, urlencode
 
 import httpx
+from fdai_github_app_auth import TokenProvider, static_token_provider
 
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.remediation_pr import (
@@ -109,12 +110,13 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         *,
         config: GitOpsPrConfig,
         http_client: httpx.AsyncClient,
-        token: str,
+        token: str | None = None,
+        token_provider: TokenProvider | None = None,
     ) -> None:
         if config.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
-        if not token or not token.strip():
-            raise ValueError("token MUST NOT be empty")
+        if (token is None) == (token_provider is None):
+            raise ValueError("exactly one token or token_provider MUST be configured")
         if not config.api_base.startswith("https://"):
             # The GitHub API and every Azure DevOps / GHE-Enterprise clone
             # of it MUST be reached over TLS - the caller's PAT / GitHub-
@@ -123,7 +125,9 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             raise ValueError("api_base MUST use https:// scheme")
         self._config: Final[GitOpsPrConfig] = config
         self._http: Final[httpx.AsyncClient] = http_client
-        self._token: Final[str] = token
+        self._token_provider: Final[TokenProvider] = (
+            token_provider if token_provider is not None else static_token_provider(token or "")
+        )
         self._publish_locks: dict[str, asyncio.Lock] = {}
 
     # ------------------------------------------------------------------
@@ -233,9 +237,12 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         digest = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()
         return f"{self._config.branch_prefix}/{safe or 'request'}-{digest}"
 
-    def _headers(self) -> dict[str, str]:
+    async def _headers(self) -> dict[str, str]:
+        token = (await self._token_provider()).strip()
+        if not token:
+            raise GitOpsPrError("GitHub token provider returned an empty token")
         return {
-            "Authorization": f"Bearer {self._token}",
+            "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
@@ -253,7 +260,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         try:
             response = await self._http.get(
                 url,
-                headers=self._headers(),
+                headers=await self._headers(),
                 timeout=self._config.timeout_seconds,
             )
         except httpx.HTTPError as exc:
@@ -273,7 +280,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         try:
             response = await self._http.post(
                 url,
-                headers=self._headers(),
+                headers=await self._headers(),
                 content=json.dumps(body),
                 timeout=self._config.timeout_seconds,
             )
@@ -301,7 +308,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         try:
             response = await self._http.put(
                 url,
-                headers=self._headers(),
+                headers=await self._headers(),
                 content=json.dumps(body),
                 timeout=self._config.timeout_seconds,
             )

@@ -17,6 +17,7 @@ from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_
 from fdai.core.notifications.router import ChannelRegistry
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.runtime.configuration import _resolve_catalog_root
+from fdai.runtime.github_auth import build_github_token_provider
 from fdai.runtime.human_access import build_human_access_direct_api
 from fdai.runtime.notification_registry import (
     _build_notification_registry as _build_notification_registry,
@@ -40,8 +41,8 @@ _TEAMS_WORKFLOW_SCOPE = "https://service.flow.microsoft.com/.default"
 def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
     """Select the :class:`RemediationPrPublisher` backend for this process.
 
-    Presence of ``FDAI_GITOPS_TOKEN`` opts into the real
-    :class:`GitOpsPrAdapter`; missing token falls back to the in-memory
+    A static ``FDAI_GITOPS_TOKEN`` or complete GitHub App credential set opts
+    into the real :class:`GitOpsPrAdapter`; missing credentials fall back to the in-memory
     :class:`RecordingRemediationPrPublisher` fake. The
     ``RemediationPrPublisher`` Protocol is the contract, so ``core/``
     neither knows nor cares which backend is active.
@@ -55,13 +56,19 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
     adapter never opens its own connection; the composition root owns
     the client lifecycle.
     """
-    token = os.environ.get("FDAI_GITOPS_TOKEN", "").strip()
-    if not token:
+    environment = os.environ
+    owner = environment.get("FDAI_GITOPS_OWNER", "").strip()
+    repo = environment.get("FDAI_GITOPS_REPO", "").strip()
+    credentials_requested = bool(
+        environment.get("FDAI_GITOPS_TOKEN", "").strip()
+        or environment.get("FDAI_GITHUB_APP_CLIENT_ID", "").strip()
+        or environment.get("FDAI_GITHUB_APP_INSTALLATION_ID", "").strip()
+        or environment.get("FDAI_GITHUB_APP_PRIVATE_KEY", "").strip()
+    )
+    if not credentials_requested:
         _LOGGER.info("remediation_pr_backend", extra={"backend": "recording"})
         return RecordingRemediationPrPublisher()
 
-    owner = os.environ.get("FDAI_GITOPS_OWNER", "").strip()
-    repo = os.environ.get("FDAI_GITOPS_REPO", "").strip()
     if not owner or not repo:
         raise RuntimeError(
             "FDAI_GITOPS_TOKEN is set but FDAI_GITOPS_OWNER / "
@@ -74,6 +81,14 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
             "The composition root MUST create an httpx.AsyncClient before "
             "building the publisher."
         )
+
+    token_provider = build_github_token_provider(
+        environment,
+        http_client=http_client,
+        repository=repo,
+    )
+    if token_provider is None:
+        raise RuntimeError("GitHub credentials were requested but no token provider was built")
 
     from fdai.delivery.gitops_pr.adapter import GitOpsPrAdapter, GitOpsPrConfig
 
@@ -113,7 +128,7 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
             timeout_seconds=timeout_seconds,
         ),
         http_client=http_client,
-        token=token,
+        token_provider=token_provider,
     )
 
 

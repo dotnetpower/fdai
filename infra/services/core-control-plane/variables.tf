@@ -134,10 +134,15 @@ variable "teams_approval_destination" {
 variable "stewardship_gitops" {
   description = "Platform-owned Key Vault reference and target for review-only stewardship PRs."
   type = object({
-    enabled         = optional(bool, false)
-    owner           = optional(string, "")
-    repo            = optional(string, "")
-    token_secret_id = optional(string, "")
+    enabled                   = optional(bool, false)
+    owner                     = optional(string, "")
+    repo                      = optional(string, "")
+    auth_mode                 = optional(string, "")
+    token_secret_id           = optional(string, "")
+    app_client_id             = optional(string, "")
+    app_installation_id       = optional(string, "")
+    app_private_key_secret_id = optional(string, "")
+    webhook_secret_id         = optional(string, "")
   })
   default   = {}
   sensitive = true
@@ -146,9 +151,22 @@ variable "stewardship_gitops" {
     condition = !var.stewardship_gitops.enabled || (
       trimspace(var.stewardship_gitops.owner) != "" &&
       trimspace(var.stewardship_gitops.repo) != "" &&
-      trimspace(var.stewardship_gitops.token_secret_id) != ""
+      (
+        (
+          var.stewardship_gitops.auth_mode == "static_token" &&
+          trimspace(var.stewardship_gitops.token_secret_id) != "" &&
+          trimspace(var.stewardship_gitops.app_private_key_secret_id) == ""
+        ) ||
+        (
+          var.stewardship_gitops.auth_mode == "github_app" &&
+          trimspace(var.stewardship_gitops.token_secret_id) == "" &&
+          trimspace(var.stewardship_gitops.app_client_id) != "" &&
+          can(regex("^[1-9][0-9]*$", var.stewardship_gitops.app_installation_id)) &&
+          trimspace(var.stewardship_gitops.app_private_key_secret_id) != ""
+        )
+      )
     )
-    error_message = "Enabled stewardship GitOps requires owner, repo, and token_secret_id."
+    error_message = "Enabled stewardship GitOps requires owner, repo, and exactly one static-token or GitHub App credential binding."
   }
 }
 

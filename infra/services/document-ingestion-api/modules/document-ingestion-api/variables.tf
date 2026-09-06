@@ -31,5 +31,19 @@ variable "sharepoint_connector" {
     download_host_suffixes = optional(string, ".sharepoint.com")
   })
 }
+variable "stewardship_gitops" {
+  type = object({
+    enabled                   = optional(bool, false)
+    owner                     = optional(string, "")
+    repo                      = optional(string, "")
+    auth_mode                 = optional(string, "")
+    token_secret_id           = optional(string, "")
+    app_client_id             = optional(string, "")
+    app_installation_id       = optional(string, "")
+    app_private_key_secret_id = optional(string, "")
+    webhook_secret_id         = optional(string, "")
+  })
+  sensitive = true
+}
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "tags" { type = map(string) }

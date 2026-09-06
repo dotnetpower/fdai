@@ -9,6 +9,8 @@ import json
 
 import httpx
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fdai_ingestion_api_service.adapters.stewardship import (
     GitHubRepositoryHandoverIntake,
     GitHubRepositoryHandoverIntakeConfig,
@@ -124,6 +126,34 @@ async def test_invalid_signature_is_rejected_without_github_call() -> None:
     assert result.reason == "invalid signature"
 
 
+async def test_webhook_uses_refreshable_token_provider_for_each_request() -> None:
+    tokens = iter(("token-one", "token-two"))
+    seen: list[str] = []
+
+    async def provider() -> str:
+        return next(tokens)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers["Authorization"])
+        return httpx.Response(200, json={})
+
+    webhook = GitHubStewardshipWebhook(
+        config=GitHubStewardshipWebhookConfig(
+            repository="acme/fdai",
+            webhook_secret=_SECRET,
+            api_base="https://example.com",
+        ),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        recorder=Recorder(),
+        token_provider=provider,
+    )
+
+    await webhook._get_json("https://example.com/first")
+    await webhook._get_json("https://example.com/second")
+
+    assert seen == ["Bearer token-one", "Bearer token-two"]
+
+
 def test_optional_webhook_composition_is_disabled_or_fails_closed_when_partial() -> None:
     client = httpx.AsyncClient()
     assert (
@@ -135,6 +165,30 @@ def test_optional_webhook_composition_is_disabled_or_fails_closed_when_partial()
             dsn="postgresql://example",
             http_client=client,
         )
+
+
+def test_optional_webhook_composition_accepts_complete_github_app() -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_key = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    webhook = _build_stewardship_webhook(
+        env={
+            "FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED": "1",
+            "FDAI_GITOPS_OWNER": "acme",
+            "FDAI_GITOPS_REPO": "fdai",
+            "FDAI_GITHUB_WEBHOOK_SECRET": _SECRET,
+            "FDAI_GITHUB_APP_CLIENT_ID": "Iv1.example",
+            "FDAI_GITHUB_APP_INSTALLATION_ID": "123",
+            "FDAI_GITHUB_APP_PRIVATE_KEY": private_key,
+        },
+        dsn="postgresql://example",
+        http_client=httpx.AsyncClient(),
+    )
+
+    assert isinstance(webhook, GitHubStewardshipWebhook)
 
 
 async def test_authenticated_repository_dispatch_creates_only_an_inert_draft() -> None:

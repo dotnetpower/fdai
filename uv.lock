@@ -19,6 +19,7 @@ members = [
     "fdai-document-ingestion-api",
     "fdai-document-processing-worker",
     "fdai-evaluation-sdk",
+    "fdai-github-app-auth",
     "fdai-isolated-executor-service",
     "fdai-operator-service",
     "fdai-service-contracts",
@@ -813,6 +814,7 @@ dev = [
     { name = "alembic" },
     { name = "azure-storage-file-datalake" },
     { name = "croniter" },
+    { name = "fdai-github-app-auth" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -865,6 +867,7 @@ requires-dist = [
     { name = "alembic", marker = "extra == 'dev'", specifier = ">=1.13,<2" },
     { name = "azure-storage-file-datalake", marker = "extra == 'dev'", specifier = ">=12.25,<13" },
     { name = "croniter", marker = "extra == 'dev'", specifier = ">=6,<7" },
+    { name = "fdai-github-app-auth", marker = "extra == 'dev'", editable = "packages/github-app-auth" },
     { name = "fdai-service-contracts", marker = "extra == 'dev'", editable = "packages/service-contracts" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27,<1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23,<5" },
@@ -989,6 +992,7 @@ dependencies = [
     { name = "alembic" },
     { name = "croniter" },
     { name = "cryptography" },
+    { name = "fdai-github-app-auth" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -1010,6 +1014,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13,<2" },
     { name = "croniter", specifier = ">=6,<7" },
     { name = "cryptography", specifier = ">=46,<51" },
+    { name = "fdai-github-app-auth", editable = "packages/github-app-auth" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
@@ -1045,6 +1050,7 @@ dependencies = [
     { name = "azure-core" },
     { name = "azure-identity" },
     { name = "azure-storage-file-datalake" },
+    { name = "fdai-github-app-auth" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
@@ -1061,6 +1067,7 @@ requires-dist = [
     { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "azure-storage-file-datalake", specifier = ">=12.21,<13" },
+    { name = "fdai-github-app-auth", editable = "packages/github-app-auth" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
@@ -1136,6 +1143,21 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7,<1" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "fdai-github-app-auth"
+version = "0.1.0"
+source = { editable = "packages/github-app-auth" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27,<1" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
+]
 
 [[package]]
 name = "fdai-isolated-executor-service"

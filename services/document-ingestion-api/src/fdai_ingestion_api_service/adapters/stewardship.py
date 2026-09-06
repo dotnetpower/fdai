@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 import httpx
 import psycopg
+from fdai_github_app_auth import TokenProvider, static_token_provider
 from fdai_service_contracts import (
     RepositoryHandoverDraft,
     RepositoryHandoverDraftRecorder,
@@ -28,7 +29,7 @@ _TARGET_FILE = "config/agent-stewardship.yaml"
 class GitHubStewardshipWebhookConfig:
     repository: str
     webhook_secret: str
-    token: str
+    token: str | None = None
     api_base: str = "https://api.github.com"
     timeout_seconds: float = 15.0
     max_file_pages: int = 30
@@ -39,7 +40,7 @@ class GitHubStewardshipWebhookConfig:
             raise ValueError("GitHub repository MUST be 'owner/name'")
         if len(self.webhook_secret) < 32:
             raise ValueError("GitHub webhook secret MUST contain at least 32 characters")
-        if not self.token.strip():
+        if self.token is not None and not self.token.strip():
             raise ValueError("GitHub token MUST be non-empty")
         if parsed.scheme != "https" or not parsed.hostname or parsed.query or parsed.fragment:
             raise ValueError("GitHub API base MUST be an HTTPS origin")
@@ -202,10 +203,18 @@ class GitHubStewardshipWebhook:
         config: GitHubStewardshipWebhookConfig,
         http_client: httpx.AsyncClient,
         recorder: StewardshipMergeRecorder,
+        token_provider: TokenProvider | None = None,
     ) -> None:
+        if (config.token is None) == (token_provider is None):
+            raise ValueError("exactly one GitHub token or token_provider MUST be configured")
         self._config = config
         self._http = http_client
         self._recorder = recorder
+        self._token_provider = (
+            token_provider
+            if token_provider is not None
+            else static_token_provider(config.token or "")
+        )
 
     async def handle(self, *, headers: Mapping[str, str], body: bytes) -> StewardshipWebhookResult:
         signature = headers.get("x-hub-signature-256", "")
@@ -293,10 +302,13 @@ class GitHubStewardshipWebhook:
             raise RuntimeError("GitHub stewardship content is not valid UTF-8 base64") from exc
 
     async def _get_json(self, url: str) -> object:
+        token = (await self._token_provider()).strip()
+        if not token:
+            raise RuntimeError("GitHub token provider returned an empty token")
         response = await self._http.get(
             url,
             headers={
-                "Authorization": f"Bearer {self._config.token}",
+                "Authorization": f"Bearer {token}",
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
             },

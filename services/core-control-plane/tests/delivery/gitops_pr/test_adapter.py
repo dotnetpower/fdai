@@ -99,6 +99,40 @@ def test_empty_token_is_rejected() -> None:
         GitOpsPrAdapter(config=_config(), http_client=httpx.AsyncClient(), token="  ")
 
 
+def test_exactly_one_token_source_is_required() -> None:
+    async def provider() -> str:
+        return TOKEN
+
+    with pytest.raises(ValueError, match="exactly one"):
+        GitOpsPrAdapter(config=_config(), http_client=httpx.AsyncClient())
+    with pytest.raises(ValueError, match="exactly one"):
+        GitOpsPrAdapter(
+            config=_config(),
+            http_client=httpx.AsyncClient(),
+            token=TOKEN,
+            token_provider=provider,
+        )
+
+
+async def test_refreshable_token_provider_is_consulted_per_request() -> None:
+    tokens = iter(("first-token", "second-token"))
+
+    async def provider() -> str:
+        return next(tokens)
+
+    adapter = GitOpsPrAdapter(
+        config=_config(),
+        http_client=httpx.AsyncClient(),
+        token_provider=provider,
+    )
+
+    first = await adapter._headers()
+    second = await adapter._headers()
+
+    assert first["Authorization"] == "Bearer first-token"
+    assert second["Authorization"] == "Bearer second-token"
+
+
 def test_non_https_api_base_is_rejected() -> None:
     """A plain-HTTP GitHub Enterprise override would leak the PAT and audit
     correlation id on the wire; the adapter MUST reject it at construction.

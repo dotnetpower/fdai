@@ -106,6 +106,30 @@ _SHAREPOINT_PURPOSES = frozenset(
         "manual_distillation",
     }
 )
+_CORE_STEWARDSHIP_ENVIRONMENT = frozenset(
+    {
+        "FDAI_GITOPS_OWNER",
+        "FDAI_GITOPS_REPO",
+        "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED",
+    }
+)
+_INGESTION_STEWARDSHIP_ENVIRONMENT = frozenset(
+    {
+        "FDAI_GITHUB_WEBHOOK_SECRET",
+        "FDAI_GITOPS_OWNER",
+        "FDAI_GITOPS_REPO",
+        "FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED",
+        "FDAI_STEWARDSHIP_REPOSITORY_INTAKE_ENABLED",
+    }
+)
+_STATIC_GITHUB_AUTH_ENVIRONMENT = frozenset({"FDAI_GITOPS_TOKEN"})
+_APP_GITHUB_AUTH_ENVIRONMENT = frozenset(
+    {
+        "FDAI_GITHUB_APP_CLIENT_ID",
+        "FDAI_GITHUB_APP_INSTALLATION_ID",
+        "FDAI_GITHUB_APP_PRIVATE_KEY",
+    }
+)
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
 _CORE_HANDOVER_CADENCE_MINIMUMS = {
     "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": 60,
@@ -867,6 +891,120 @@ def _secret_ids(resource: dict[str, Any]) -> frozenset[str]:
     )
 
 
+def _secrets_by_name(resource: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    raw_secrets = resource.get("secret", [])
+    if not isinstance(raw_secrets, list):
+        raise PlanGuardError("service secret contract is invalid")
+    result: dict[str, dict[str, Any]] = {}
+    for secret in raw_secrets:
+        name = secret.get("name") if isinstance(secret, dict) else None
+        if not isinstance(name, str) or not name or name in result:
+            raise PlanGuardError("service secret contract contains invalid names")
+        result[name] = secret
+    return result
+
+
+def _stewardship_auth_adoption(
+    *,
+    before: dict[str, Any],
+    after: dict[str, Any],
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+    after_identities: frozenset[str],
+) -> frozenset[str] | None:
+    base_names = {
+        "core-control-plane": _CORE_STEWARDSHIP_ENVIRONMENT,
+        "document-ingestion-api": _INGESTION_STEWARDSHIP_ENVIRONMENT,
+    }.get(contract.service)
+    if base_names is None:
+        return None
+    if _environment_binding(after_environment.get("FDAI_GITOPS_TOKEN")) is not None:
+        auth_names = _STATIC_GITHUB_AUTH_ENVIRONMENT
+        secret_names = {"stewardship-gitops-token"}
+    elif all(
+        _environment_binding(after_environment.get(name)) is not None
+        for name in _APP_GITHUB_AUTH_ENVIRONMENT
+    ):
+        auth_names = _APP_GITHUB_AUTH_ENVIRONMENT
+        secret_names = {"stewardship-github-app-private-key"}
+    else:
+        return None
+    if contract.service == "document-ingestion-api":
+        secret_names.add("stewardship-github-webhook-secret")
+    expected_names = base_names | auth_names
+    if set(runtime_drift_names) != {f"env:{name}" for name in expected_names}:
+        return None
+    if any(
+        _environment_binding(before_environment.get(name)) is not None for name in expected_names
+    ):
+        return None
+    values: dict[str, tuple[Any, Any]] = {}
+    for name in expected_names:
+        binding = _environment_binding(after_environment.get(name))
+        if binding is None:
+            return None
+        values[name] = binding
+    if (
+        values["FDAI_GITOPS_OWNER"][1] is not None
+        or values["FDAI_GITOPS_REPO"][1] is not None
+        or not isinstance(values["FDAI_GITOPS_OWNER"][0], str)
+        or not isinstance(values["FDAI_GITOPS_REPO"][0], str)
+        or re.fullmatch(r"[A-Za-z0-9_.-]+", values["FDAI_GITOPS_OWNER"][0]) is None
+        or re.fullmatch(r"[A-Za-z0-9_.-]+", values["FDAI_GITOPS_REPO"][0]) is None
+    ):
+        return None
+    flag_names = (
+        {"FDAI_STEWARDSHIP_GOVERNANCE_ENABLED"}
+        if contract.service == "core-control-plane"
+        else {
+            "FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED",
+            "FDAI_STEWARDSHIP_REPOSITORY_INTAKE_ENABLED",
+        }
+    )
+    if any(values[name] != ("1", None) and values[name] != ("true", None) for name in flag_names):
+        return None
+    if auth_names == _STATIC_GITHUB_AUTH_ENVIRONMENT:
+        if values["FDAI_GITOPS_TOKEN"] != (None, "stewardship-gitops-token"):
+            return None
+    else:
+        if (
+            values["FDAI_GITHUB_APP_PRIVATE_KEY"] != (None, "stewardship-github-app-private-key")
+            or values["FDAI_GITHUB_APP_CLIENT_ID"][1] is not None
+            or not isinstance(values["FDAI_GITHUB_APP_CLIENT_ID"][0], str)
+            or not values["FDAI_GITHUB_APP_CLIENT_ID"][0]
+            or values["FDAI_GITHUB_APP_INSTALLATION_ID"][1] is not None
+            or not isinstance(values["FDAI_GITHUB_APP_INSTALLATION_ID"][0], str)
+            or re.fullmatch(r"[1-9][0-9]*", values["FDAI_GITHUB_APP_INSTALLATION_ID"][0]) is None
+        ):
+            return None
+    if contract.service == "document-ingestion-api" and values["FDAI_GITHUB_WEBHOOK_SECRET"] != (
+        None,
+        "stewardship-github-webhook-secret",
+    ):
+        return None
+    before_secrets = _secrets_by_name(before)
+    after_secrets = _secrets_by_name(after)
+    if set(after_secrets) - set(before_secrets) != secret_names:
+        return None
+    if any(name in before_secrets for name in secret_names):
+        return None
+    added_ids: set[str] = set()
+    for name in secret_names:
+        secret = after_secrets[name]
+        secret_id = secret.get("key_vault_secret_id")
+        if (
+            secret.get("identity") not in after_identities
+            or not isinstance(secret_id, str)
+            or not secret_id.lower().startswith("/subscriptions/")
+            or "/secrets/" not in secret_id.lower()
+        ):
+            return None
+        added_ids.add(secret_id.lower())
+    return frozenset(added_ids)
+
+
 def _guard_initial_cutover(
     before: dict[str, Any],
     after: dict[str, Any],
@@ -1125,6 +1263,16 @@ def _guard_update(
         after_environment=after_environment,
         runtime_drift_names=runtime_drift_names,
     )
+    stewardship_secret_ids = _stewardship_auth_adoption(
+        before=before,
+        after=after,
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=runtime_drift_names,
+        after_identities=after_identities,
+    )
+    allowed_stewardship_adoption = stewardship_secret_ids is not None
     if (
         not initial_cutover
         and not database_host_binding
@@ -1141,6 +1289,7 @@ def _guard_update(
         )
         and not allowed_notification_topic
         and not allowed_core_handover_cadence
+        and not allowed_stewardship_adoption
         and runtime_drift_names
     ):
         violations.append(
@@ -1152,9 +1301,15 @@ def _guard_update(
     if initial_cutover and after_resource_ids <= before_resource_ids:
         pass
     elif before_resource_ids != after_resource_ids and not (
-        allowed_rca_reader
-        and after_resource_ids - before_resource_ids
-        == frozenset(identity.casefold() for identity in added)
+        (
+            allowed_rca_reader
+            and after_resource_ids - before_resource_ids
+            == frozenset(identity.casefold() for identity in added)
+        )
+        or (
+            allowed_stewardship_adoption
+            and after_resource_ids - before_resource_ids == stewardship_secret_ids
+        )
     ):
         violations.append(f"platform or peer resource identity drift at {address}")
     before_tags = before.get("tags")
@@ -1188,9 +1343,12 @@ def _guard_update(
         or allowed_rca_reader
         or allowed_notification_topic
         or allowed_core_handover_cadence
+        or allowed_stewardship_adoption
         or sharepoint_connector_transition != "none"
     ):
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
+    if allowed_stewardship_adoption:
+        expected_before["secret"] = copy.deepcopy(after.get("secret"))
     if allowed_rca_reader:
         expected_before["identity"] = copy.deepcopy(after.get("identity"))
     before_retention = expected_before.get("max_inactive_revisions")

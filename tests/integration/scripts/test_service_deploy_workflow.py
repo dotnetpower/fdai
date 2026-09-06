@@ -304,6 +304,12 @@ def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
 
     assert "output -json ohl_observation_context_binding 2>/dev/null || printf 'null" in materialize
     assert "output -json stewardship_gitops_binding 2>/dev/null || printf 'null" in materialize
+    assert (
+        '"$SERVICE" == "core-control-plane" || "$SERVICE" == "document-ingestion-api"'
+        in materialize
+    )
+    assert "app_private_key_secret_id" in materialize
+    assert "webhook_secret_id" in materialize
     assert 'STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding"' in materialize
     assert 'with_entries(select(.value | type == "string" and length > 0))' in materialize
 

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import Final
 
 import httpx
+from fdai_github_app_auth import TokenProvider, static_token_provider
 
 _PROPOSAL_PATH: Final[re.Pattern[str]] = re.compile(
     r"^config/model-lifecycle-proposals/([a-f0-9]{64})\.json$"
@@ -57,13 +58,24 @@ class GitHubModelLifecycleObservationSource:
         *,
         config: GitHubModelLifecycleObservationConfig,
         http_client: httpx.AsyncClient,
-        token: str,
+        token: str | None = None,
+        token_provider: TokenProvider | None = None,
     ) -> None:
-        if not token.strip():
-            raise ValueError("model lifecycle GitHub token MUST NOT be empty")
+        if (token is None) == (token_provider is None):
+            raise ValueError("exactly one model lifecycle token source MUST be configured")
         self._config = config
         self._http = http_client
-        self._headers = {
+        self._token_provider = (
+            token_provider if token_provider is not None else static_token_provider(token or "")
+        )
+
+    async def _headers(self) -> dict[str, str]:
+        token = (await self._token_provider()).strip()
+        if not token:
+            raise ModelLifecycleObservationError(
+                "model lifecycle GitHub token provider returned an empty token"
+            )
+        return {
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
             "X-GitHub-Api-Version": "2022-11-28",
@@ -185,7 +197,7 @@ class GitHubModelLifecycleObservationSource:
         try:
             response = await self._http.get(
                 f"{self._config.api_base.rstrip('/')}{path}",
-                headers=self._headers,
+                headers=await self._headers(),
                 params=params,
                 timeout=self._config.timeout_seconds,
             )

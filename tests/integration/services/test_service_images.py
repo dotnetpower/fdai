@@ -129,6 +129,15 @@ def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
         assert copied_service_sources == {service}
 
 
+def test_github_services_install_refreshable_app_auth_wheel() -> None:
+    for service in ("core-control-plane", "document-ingestion-api"):
+        builder = _stage(_dockerfile(service).read_text(encoding="utf-8"), "builder")
+        assert "COPY packages/github-app-auth/ ./packages/github-app-auth/" in builder
+        assert "uv build --wheel --package fdai-github-app-auth" in builder
+        assert "--no-install-package fdai-github-app-auth" in builder
+        assert "/wheels/fdai_github_app_auth-*.whl" in builder
+
+
 def test_runtime_assets_follow_service_ownership() -> None:
     core = _stage(_dockerfile("core-control-plane").read_text(encoding="utf-8"), "runtime")
     operator = _stage(_dockerfile("operator-service").read_text(encoding="utf-8"), "runtime")

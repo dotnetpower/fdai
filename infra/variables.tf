@@ -990,7 +990,31 @@ variable "gitops_repo" {
 }
 
 variable "gitops_token" {
-  description = "GitHub App installation token or equivalent short-lived token for governance PR delivery."
+  description = "Compatibility GitHub installation token for governance PR delivery. Mutually exclusive with GitHub App credentials."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_client_id" {
+  description = "GitHub App client id used to mint refreshable installation tokens."
+  type        = string
+  default     = ""
+}
+
+variable "github_app_installation_id" {
+  description = "GitHub App installation id scoped to the governed configuration repository."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_app_installation_id == "" || can(regex("^[1-9][0-9]*$", var.github_app_installation_id))
+    error_message = "github_app_installation_id must be a positive integer string."
+  }
+}
+
+variable "github_app_private_key" {
+  description = "GitHub App RSA private key. Supply through CI secret; never commit a value."
   type        = string
   default     = ""
   sensitive   = true

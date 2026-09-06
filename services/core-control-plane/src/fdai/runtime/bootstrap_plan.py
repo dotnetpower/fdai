@@ -6,6 +6,8 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from fdai_github_app_auth import github_credentials_configured
+
 from fdai.delivery.agent_activity import DEFAULT_STAGE_TOPIC
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue, uses_workload_identity
 from fdai.shared.config.models import LlmMode
@@ -130,7 +132,7 @@ def build_bootstrap_plan(
         identity_requests=identity_requests,
         requires_initial_identity=(llm_mode == LlmMode.AZURE or identity_requests.any_requested),
         consumer_requires_workload_identity=(venue is not None and uses_workload_identity(venue)),
-        github_change_feed_enabled=bool(environment.get("FDAI_GITOPS_TOKEN")),
+        github_change_feed_enabled=github_credentials_configured(environment),
         chatops_enabled=bool(environment.get("FDAI_CHATOPS_WEBHOOK_URL")),
         email_enabled=bool(environment.get("FDAI_EMAIL_ENDPOINT")),
         auxiliary_kafka_bootstrap_servers=auxiliary_bootstrap or None,

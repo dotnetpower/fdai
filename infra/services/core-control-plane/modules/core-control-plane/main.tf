@@ -2,6 +2,10 @@ locals {
   teams_notification_enabled      = var.teams_notification_binding.enabled
   teams_notification_endpoint_env = "FDAI_TEAMS_NOTIFICATION_ENDPOINT"
   stewardship_gitops_enabled      = var.stewardship_gitops.enabled
+  stewardship_gitops_app_enabled  = local.stewardship_gitops_enabled && var.stewardship_gitops.auth_mode == "github_app"
+  stewardship_gitops_token_enabled = (
+    local.stewardship_gitops_enabled && var.stewardship_gitops.auth_mode == "static_token"
+  )
   teams_notification_bindings_json = jsonencode({
     (var.teams_notification_binding.channel_id) = {
       kind         = "teams_workflow"
@@ -43,10 +47,14 @@ module "container_app" {
     name                = "teams-notification-endpoint"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.teams_notification_binding.endpoint_secret_id
-    }] : [], local.stewardship_gitops_enabled ? [{
+    }] : [], local.stewardship_gitops_token_enabled ? [{
     name                = "stewardship-gitops-token"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.stewardship_gitops.token_secret_id
+    }] : [], local.stewardship_gitops_app_enabled ? [{
+    name                = "stewardship-github-app-private-key"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.stewardship_gitops.app_private_key_secret_id
   }] : [])
   environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
@@ -102,8 +110,13 @@ module "container_app" {
     { name = "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", value = "true" },
     { name = "FDAI_GITOPS_OWNER", value = var.stewardship_gitops.owner },
     { name = "FDAI_GITOPS_REPO", value = var.stewardship_gitops.repo },
+    ], local.stewardship_gitops_token_enabled ? [
     { name = "FDAI_GITOPS_TOKEN", secret_name = "stewardship-gitops-token" },
-    ], var.teams_approval_destination.team_id == "" ? [] : [
+    ] : local.stewardship_gitops_app_enabled ? [
+    { name = "FDAI_GITHUB_APP_CLIENT_ID", value = var.stewardship_gitops.app_client_id },
+    { name = "FDAI_GITHUB_APP_INSTALLATION_ID", value = var.stewardship_gitops.app_installation_id },
+    { name = "FDAI_GITHUB_APP_PRIVATE_KEY", secret_name = "stewardship-github-app-private-key" },
+    ] : [], var.teams_approval_destination.team_id == "" ? [] : [
     { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.teams_approval_destination.team_id },
     { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },
     { name = "FDAI_TEAMS_APPROVAL_ACTIVITY_URL", value = var.teams_approval_destination.activity_url },

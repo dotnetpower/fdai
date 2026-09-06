@@ -2023,10 +2023,35 @@ resource "azurerm_role_assignment" "core_teams_notification_secret_reader" {
 }
 
 resource "azurerm_role_assignment" "core_gitops_secret_reader" {
-  count                = var.enable_stewardship_governance ? 1 : 0
+  count                = var.enable_stewardship_governance && trimspace(nonsensitive(var.gitops_token)) != "" ? 1 : 0
   scope                = azurerm_key_vault_secret.gitops_token[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.identity.principal_id
+}
+
+resource "azurerm_role_assignment" "core_github_app_private_key_reader" {
+  count                = var.enable_stewardship_governance && trimspace(nonsensitive(var.github_app_private_key)) != "" ? 1 : 0
+  scope                = azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_github_auth_secret_reader" {
+  count = var.enable_stewardship_governance && var.enable_document_ingestion ? 1 : 0
+  scope = (
+    trimspace(nonsensitive(var.github_app_private_key)) != ""
+    ? azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id
+    : azurerm_key_vault_secret.gitops_token[0].resource_versionless_id
+  )
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_github_webhook_secret_reader" {
+  count                = var.enable_stewardship_governance && var.enable_document_ingestion ? 1 : 0
+  scope                = azurerm_key_vault_secret.github_webhook_secret[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.ingestion_identity[0].principal_id
 }
 
 resource "azurerm_key_vault_secret" "notification_receipt_secret" {
@@ -2097,11 +2122,22 @@ resource "azurerm_key_vault_secret" "chatops_webhook_secret" {
 }
 
 resource "azurerm_key_vault_secret" "gitops_token" {
-  count        = var.enable_stewardship_governance ? 1 : 0
+  count        = var.enable_stewardship_governance && trimspace(nonsensitive(var.gitops_token)) != "" ? 1 : 0
   name         = "fdai-gitops-token"
   value        = var.gitops_token
   key_vault_id = module.key_vault.id
   content_type = "github-app-installation-token"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_key_vault_secret" "github_app_private_key" {
+  count        = var.enable_stewardship_governance && trimspace(nonsensitive(var.github_app_private_key)) != "" ? 1 : 0
+  name         = "fdai-github-app-private-key"
+  value        = var.github_app_private_key
+  key_vault_id = module.key_vault.id
+  content_type = "github-app-rsa-private-key"
   tags         = local.tags
 
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
@@ -2274,7 +2310,7 @@ module "compute" {
   gitops_owner = var.gitops_owner
   gitops_repo  = var.gitops_repo
   gitops_token_secret_id = (
-    var.enable_stewardship_governance ? azurerm_key_vault_secret.gitops_token[0].id : ""
+    var.enable_stewardship_governance && trimspace(nonsensitive(var.gitops_token)) != "" ? azurerm_key_vault_secret.gitops_token[0].id : ""
   )
 
   email_endpoint = (
@@ -2937,7 +2973,7 @@ module "ingestion_gateway" {
   gitops_owner                     = var.gitops_owner
   gitops_repo                      = var.gitops_repo
   gitops_token_secret_id = (
-    var.enable_stewardship_governance ? azurerm_key_vault_secret.gitops_token[0].id : ""
+    var.enable_stewardship_governance && trimspace(nonsensitive(var.gitops_token)) != "" ? azurerm_key_vault_secret.gitops_token[0].id : ""
   )
   github_webhook_secret_id = (
     var.enable_stewardship_governance ? azurerm_key_vault_secret.github_webhook_secret[0].id : ""

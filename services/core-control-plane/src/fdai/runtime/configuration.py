@@ -438,16 +438,22 @@ def _attach_runtime_github_change_feed(
     container: Container, *, http_client: httpx.AsyncClient
 ) -> Container:
     """Bind the configured GitOps repository as the RCA change feed."""
-    token = os.environ.get("FDAI_GITOPS_TOKEN", "").strip()
     owner = os.environ.get("FDAI_GITOPS_OWNER", "").strip()
     repo = os.environ.get("FDAI_GITOPS_REPO", "").strip()
-    if not token or not owner or not repo:
+    if not owner or not repo:
         return container
     from fdai.composition import bind_github_change_feed
     from fdai.delivery.github import GitHubChangeFeedConfig
+    from fdai.runtime.github_auth import build_github_token_provider
 
-    async def _token_provider() -> str:
-        return token
+    token_provider = build_github_token_provider(
+        os.environ,
+        http_client=http_client,
+        repository=repo,
+        permissions=(("deployments", "read"), ("metadata", "read")),
+    )
+    if token_provider is None:
+        return container
 
     _LOGGER.info("change_feed_backend", extra={"backend": "github"})
     return bind_github_change_feed(
@@ -457,5 +463,5 @@ def _attach_runtime_github_change_feed(
             api_base=os.environ.get("FDAI_GITOPS_API_BASE", "https://api.github.com").strip(),
         ),
         http_client=http_client,
-        token_provider=_token_provider,
+        token_provider=token_provider,
     )

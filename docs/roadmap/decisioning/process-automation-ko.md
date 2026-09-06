@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f07f5d8081ab483f7ce5335c7f265474fe305c14
-translation_revised: 2026-09-05
+translation_source_sha: cce5c9a30a798717f281b549bbc3c253686ac3d3
+translation_revised: 2026-09-06
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -479,8 +479,8 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
   다시 실행합니다.
 - 크기가 제한된 `sessionStorage` 에서 탭 범위 초안 를 복구합니다. 방어적 decoder 는
   malformed 또는 oversized 기록 를 신뢰할 수 없는 초안 로 로드하지 않고 폐기합니다.
-- git-native 다음 단계: YAML 을 `rule-catalog/workflows/<name>.yaml` 로
-  복사하고 교정 PR 을 연다.
+- git-native 다음 단계: 갱신 가능한 GitHub App 자격 증명 공급자를 사용해 YAML을
+  `rule-catalog/workflows/<name>.yaml`로 복사하고 멱등적인 교정 PR을 엽니다.
 
 추가 단계 제안은 명시한 목표에서 일치한 액션 과 communication 후속 조치 으로
 제한됩니다. 빌더 는 모든 ActionType category 를 보여 주기 위해 무관한 변경 으로

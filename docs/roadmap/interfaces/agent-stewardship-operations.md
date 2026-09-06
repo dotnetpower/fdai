@@ -46,6 +46,7 @@ The lifecycle has four independent safety boundaries:
 | Idempotent draft governance PR delivery | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); focused stewardship and runtime tests | The runtime reads durable `handover_draft:*` records, validates each complete candidate without accepting identity overrides, publishes through the configured `RemediationPrPublisher`, and atomically records the PR reference or rejection with a Saga audit. Content-addressed receipts make restart and replay safe. A governed deployment receipt remains separate evidence. |
 | Signed merge intake and downstream ownership effects | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; focused merge and ownership-coordination tests | The signed intake persists inert evidence. Core then validates the merged map, computes affected agents and new recipients, dispatches through the durable notification router, advances only a digest-matched assignment proposal, publishes one replay-stable shadow IAM request, and records one Saga receipt. |
 | Scheduled persisted identity health | implemented | `services/core-control-plane/src/fdai/runtime/stewardship_identity_health.py`; `services/operator-service/src/fdai_operator_service/ownership_projection.py`; Core service Terraform | A readiness-gated Core worker deduplicates user subjects, records transition-only health and expiring successful observations, preserves the last success across Graph failure, and feeds only revision-matched unexpired results into the read-only Operator projection. |
+| Refreshable GitHub App authentication | implemented | `packages/github-app-auth`; Core and ingestion GitHub adapters; focused authentication, deployment, and Terraform checks | Each long-running service mints a repository-scoped installation token from a Key Vault-backed private key, caches it under an async lock, and refreshes before expiry. Static tokens remain a bounded compatibility input, not the deployment target. |
 
 ### Implementation history
 
@@ -58,6 +59,7 @@ The lifecycle has four independent safety boundaries:
 | 2026-09-05 | in-progress | Added the production runtime worker for durable handover drafts. It rejects malformed candidates without blocking later records, ignores runtime identity overrides while validating tracked YAML, preserves older serialized drafts, and records one content-addressed receipt plus Saga audit. | `current change`; `stewardship_governance.py`; focused stewardship, runtime governance, and bootstrap tests passed 149 cases; Ruff and strict mypy passed. | Retain a real draft-PR receipt, then complete merge effects and scheduled identity health. |
 | 2026-09-05 | implemented | Connected signed merge evidence to affected-owner notification, matching assignment effects, replay-stable shadow IAM requests, and scheduled Entra liveness observations without joining ownership, IAM, approval, or execution authority. | `current change`; focused Core and Operator tests; Core service Terraform validation. | Retain governed deployment, restart, notification, Graph recovery, and promotion evidence. |
 | 2026-09-06 | implemented | Bound the protected platform workflow to the deployment-owned stewardship activation flag, GitOps target, GitHub credential, and merge-webhook secret. Activation remains false unless the explicit repository variable is enabled. | `current change`; `deploy-dev.yml`; focused Core stewardship GitOps workflow tests. | Configure the provider-hosted GitHub App token, webhook secret, and ChatOps channel secrets, then retain a governed plan, apply, and end-to-end draft receipt. |
+| 2026-09-06 | implemented | Replaced the static installation-token target design with a refreshable GitHub App credential lease shared by Core publication and ingestion merge verification. | `current change`; GitHub App provider, adapter, service materializer, guard, and three Terraform roots; 516 focused tests passed. | Configure and install the provider-hosted App, then retain token refresh and end-to-end draft/merge evidence without exposing credentials. |
 
 ### Remaining work
 
@@ -66,6 +68,7 @@ The lifecycle has four independent safety boundaries:
 - [ ] Retain a governed deployment receipt proving one stored handover draft opens one review-only PR and a restart reuses that PR without a second Saga audit.
 - [x] Validate merged stewardship YAML through the resolver, calculate affected owners, bind assignment proposal digests, and pass focused tests proving Saga audit, replay-stable IAM-request publication, and recipient notification.
 - [x] Implement the scheduled identity-health monitor and retain tests proving transition-only audit, revision-matched successful observations, expiry, Graph-failure preservation, and read-only projection behavior under `stewardship_health:current` and `stewardship_health:last_success`.
+- [x] Bind a refreshable GitHub App installation-token provider to Core and document ingestion, prove concurrent refresh and expiry recovery, and retain only the App private-key reference in Key Vault.
 - [ ] Retain a deployment receipt and operational drill showing real startup bindings, one guided proposal and reviewed merge, notification delivery, audit closure, and stale-to-clean identity recovery before raising any row to `validated`.
 
 The grounded T2 `HandoverInterpreter` remains an optional deployment binding. The deterministic
@@ -212,16 +215,21 @@ enabled. Terraform requires the following deployment-owned values:
 | `stewardship_maintainers` | `FDAI_MAINTAINERS` | non-secret environment configuration |
 | `stewardship_agent_bindings` | `FDAI_STEWARD_<AGENT>` | non-secret environment configuration |
 | `gitops_owner`, `gitops_repo` | `FDAI_GITOPS_OWNER`, `FDAI_GITOPS_REPO` | non-secret environment configuration |
-| `gitops_token` | `FDAI_GITOPS_TOKEN` | Key Vault reference only |
+| `github_app_client_id`, `github_app_installation_id` | `FDAI_GITHUB_APP_CLIENT_ID`, `FDAI_GITHUB_APP_INSTALLATION_ID` | non-secret environment configuration |
+| `github_app_private_key` | `FDAI_GITHUB_APP_PRIVATE_KEY` | Key Vault reference only |
+| `gitops_token` | `FDAI_GITOPS_TOKEN` | Key Vault reference only; bounded compatibility path |
 | governance worker control | `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS`, `FDAI_STEWARDSHIP_GOVERNANCE_BATCH_LIMIT` | non-secret environment configuration |
 | durable governance receipts | `FDAI_STATE_STORE_DSN` | Key Vault reference only |
 | `github_webhook_secret` | `FDAI_GITHUB_WEBHOOK_SECRET` | Key Vault reference only |
 | `chatops_webhook_url` | `FDAI_CHATOPS_WEBHOOK_URL` | Key Vault reference only |
 
-The GitHub App or token should have only repository content, pull-request, and issue-label permissions
-needed by the adapter. Configure the GitHub webhook for pull-request events and point it to the
-published ingestion gateway route. Rotate the short-lived installation token through deployment
-configuration; do not commit it or log it.
+The GitHub App should have only repository content, pull-request, metadata, and issue-label
+permissions needed by the adapters. Core and document ingestion mint repository-scoped installation
+tokens from the Key Vault-backed App private key. The provider signs a short-lived RS256 App JWT,
+serializes concurrent refresh, caches no token past its verified expiry, and refreshes before the
+one-hour installation lease closes. No token or JWT is logged. A static `gitops_token` is accepted
+only as a mutually exclusive compatibility input. Configure the GitHub webhook for pull-request
+events and point it to the published ingestion gateway route.
 
 The protected workflow reads `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`, and `GITOPS_REPO`
 from repository Variables and reads `GITOPS_TOKEN` and `GITHUB_WEBHOOK_SECRET` from repository
@@ -236,6 +244,7 @@ Secrets. Keep activation disabled until those values and the existing ChatOps se
 | GitHub publish interrupted | Worker retry uses the same upload id | Existing PR is recovered by remote idempotency probe. |
 | Notification delivery fails | Router tries fallbacks, then persists a HIL escalation | Repair the channel and replay from audit evidence. |
 | Invalid webhook signature | Request is rejected before GitHub I/O | Correct the GitHub webhook secret. |
+| GitHub App token mint or refresh failure | Draft publication and merge re-read fail closed without a write or success receipt | Repair the App installation or private-key binding and retry with the same idempotency key. |
 | Unrelated PR merge | Delivery is acknowledged without state change | No action required. |
 | Duplicate merge delivery | Durable claim returns no change | No duplicate audit or notification is emitted. |
 
@@ -259,6 +268,8 @@ After deployment, verify:
 4. Reprocessing the upload returns the same PR reference.
 5. Merging a reviewed test change produces one merge audit and one operational notification.
 6. Re-delivering the same GitHub delivery id produces no second record.
+7. Advancing the injected clock across the refresh skew produces one renewed installation token,
+   while concurrent callers share one mint request and no credential appears in logs or receipts.
 
 ## Related docs
 

@@ -181,6 +181,16 @@ def test_builder_requires_durable_store_for_configured_gitops() -> None:
             publisher=publisher,
             environment={"FDAI_GITOPS_TOKEN": "configured"},
         )
+    with pytest.raises(RuntimeError, match="requires FDAI_STATE_STORE_DSN"):
+        build_stewardship_governance_worker(
+            store=store,
+            publisher=publisher,
+            environment={
+                "FDAI_GITHUB_APP_CLIENT_ID": "Iv1.example",
+                "FDAI_GITHUB_APP_INSTALLATION_ID": "123",
+                "FDAI_GITHUB_APP_PRIVATE_KEY": "configured",
+            },
+        )
 
 
 def test_builder_validates_bounds_and_can_be_disabled() -> None:

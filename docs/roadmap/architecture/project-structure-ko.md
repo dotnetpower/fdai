@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b11d0894df6e9b6cda379379d9768713e99c991b
+translation_source_sha: 8a4f00e5ec24d384a4988536b52f58f3c0a67ff4
 translation_revised: 2026-09-06
 ---
 # 프로젝트 구조
@@ -583,9 +583,9 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
 
 ## 저장소 관례(저장소 Conventions)
 
-- **Python (3.12+)은 다중 서비스 workspace가 공유하는 백엔드 런타임 언어입니다**. 실행 애플리케이션 코드는
-  5개 `services/*/src/` 패키지 루트에 있고 versioned shared SDK는
-  `packages/service-contracts/src/`에 있습니다. 근거와 선택 필기는
+- **Python (3.12+)은 다중 서비스 workspace가 공유하는 백엔드 런타임 언어입니다**. 실행 코드는
+  5개 `services/*/src/` 루트에 있습니다. `packages/service-contracts/src/`는 버전별 wire SDK를,
+  `packages/github-app-auth/src/`는 갱신 가능한 프로바이더 자격 증명을 소유합니다. 근거와 선택 필기는
   [tech-stack-ko.md § OD-1](tech-stack-ko.md#od-1-core-런타임-언어) 에 있습니다. Python이
   아닌 트리: [rule-catalog/](../../../rule-catalog) (YAML 데이터), [policies/](../../../policies)
   (Rego), [infra/](../../../infra) (Terraform HCL).

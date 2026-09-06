@@ -9,6 +9,8 @@ from datetime import UTC, datetime, timedelta
 import fdai.runtime.bootstrap as runtime_bootstrap
 import httpx
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fdai.composition import default_container
 from fdai.composition._helpers import LlmBindingsUnavailableError
 from fdai.composition.resolved_models import _load_resolved_models
@@ -356,6 +358,51 @@ async def test_core_production_startup_attaches_owner_revision_before_binding() 
         )
 
     assert attached.resolved_models is not None
+    assert attached.resolved_models_artifact_digest == digest
+
+
+@pytest.mark.asyncio
+async def test_core_production_startup_accepts_refreshable_github_app() -> None:
+    content = _resolved_content()
+    digest = hashlib.sha256(content.strip().encode()).hexdigest()
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_key = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "github.example.com"
+        if request.url.path == "/app/installations/123/access_tokens":
+            return httpx.Response(
+                201,
+                json={
+                    "token": "installation-token",
+                    "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                },
+            )
+        if request.url.path == "/repos/example/fdai/pulls":
+            return httpx.Response(200, json=[])
+        raise AssertionError(request.url)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        attached = await _attach_model_lifecycle_startup_revision(
+            _startup_container(content, digest),
+            http_client=client,
+            environment={
+                "RUNTIME_ENV": "prod",
+                "FDAI_GITOPS_OWNER": "example",
+                "FDAI_GITOPS_REPO": "fdai",
+                "FDAI_GITHUB_APP_CLIENT_ID": "Iv1.example",
+                "FDAI_GITHUB_APP_INSTALLATION_ID": "123",
+                "FDAI_GITHUB_APP_PRIVATE_KEY": private_key,
+                "FDAI_GITOPS_API_BASE": "https://github.example.com",
+            },
+            state_store=InMemoryStateStore(),
+            evaluated_at=_NOW,
+        )
+
     assert attached.resolved_models_artifact_digest == digest
 
 

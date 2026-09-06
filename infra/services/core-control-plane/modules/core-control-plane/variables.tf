@@ -62,10 +62,15 @@ variable "teams_notification_binding" {
 
 variable "stewardship_gitops" {
   type = object({
-    enabled         = optional(bool, false)
-    owner           = optional(string, "")
-    repo            = optional(string, "")
-    token_secret_id = optional(string, "")
+    enabled                   = optional(bool, false)
+    owner                     = optional(string, "")
+    repo                      = optional(string, "")
+    auth_mode                 = optional(string, "")
+    token_secret_id           = optional(string, "")
+    app_client_id             = optional(string, "")
+    app_installation_id       = optional(string, "")
+    app_private_key_secret_id = optional(string, "")
+    webhook_secret_id         = optional(string, "")
   })
   sensitive = true
 }

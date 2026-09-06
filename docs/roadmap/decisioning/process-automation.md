@@ -486,8 +486,8 @@ inline in the chat:
   reruns the same server structural validation after a short debounce;
 - tab-scoped draft recovery in bounded `sessionStorage`. Defensive decoding
   drops malformed or oversized records instead of loading an untrusted draft;
-- the git-native next step: copy the YAML into
-  `rule-catalog/workflows/<name>.yaml` and open a remediation PR.
+- the git-native next step: use the refreshable GitHub App credential provider to copy the YAML into
+  `rule-catalog/workflows/<name>.yaml` and open an idempotent remediation PR.
 
 Additional-step suggestions remain bounded to actions matched from the stated
 goal plus communication follow-ups. The builder doesn't fill suggestion rows

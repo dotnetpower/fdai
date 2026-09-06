@@ -150,6 +150,20 @@ def test_bootstrap_plan_identifies_each_http_channel(environment_key: str) -> No
     assert plan.requires_channel_http_client is True
 
 
+def test_bootstrap_plan_enables_github_for_complete_app_credentials() -> None:
+    plan = build_bootstrap_plan(
+        llm_mode=LlmMode.LOCAL_FAKE,
+        environment={
+            "FDAI_GITHUB_APP_CLIENT_ID": "Iv1.example",
+            "FDAI_GITHUB_APP_INSTALLATION_ID": "123",
+            "FDAI_GITHUB_APP_PRIVATE_KEY": "configured",
+        },
+    )
+
+    assert plan.github_change_feed_enabled is True
+    assert plan.requires_channel_http_client is True
+
+
 def test_bootstrap_plan_resolves_consumer_bindings_once() -> None:
     plan = build_bootstrap_plan(
         llm_mode=LlmMode.LOCAL_FAKE,

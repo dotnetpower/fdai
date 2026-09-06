@@ -219,6 +219,9 @@ def _clear_gitops_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "FDAI_GITOPS_BRANCH_PREFIX",
         "FDAI_GITOPS_API_BASE",
         "FDAI_GITOPS_TIMEOUT_SECONDS",
+        "FDAI_GITHUB_APP_CLIENT_ID",
+        "FDAI_GITHUB_APP_INSTALLATION_ID",
+        "FDAI_GITHUB_APP_PRIVATE_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -251,6 +254,33 @@ def test_build_publisher_returns_gitops_when_token_owner_repo_set(
         # tests - the event loop is torn down at test exit. Prefer
         # not spinning up an event loop just for this smoke check.
         pass
+
+
+def test_build_publisher_rejects_incomplete_github_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_gitops_env(monkeypatch)
+    monkeypatch.setenv("FDAI_GITOPS_OWNER", "example-org")
+    monkeypatch.setenv("FDAI_GITOPS_REPO", "example-repo")
+    monkeypatch.setenv("FDAI_GITHUB_APP_CLIENT_ID", "Iv1.example")
+
+    with pytest.raises(RuntimeError, match="GitHub App environment is incomplete"):
+        _build_publisher(http_client=httpx.AsyncClient())
+
+
+def test_build_publisher_rejects_static_and_app_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_gitops_env(monkeypatch)
+    monkeypatch.setenv("FDAI_GITOPS_OWNER", "example-org")
+    monkeypatch.setenv("FDAI_GITOPS_REPO", "example-repo")
+    monkeypatch.setenv("FDAI_GITOPS_TOKEN", "compatibility-token")
+    monkeypatch.setenv("FDAI_GITHUB_APP_CLIENT_ID", "Iv1.example")
+    monkeypatch.setenv("FDAI_GITHUB_APP_INSTALLATION_ID", "123")
+    monkeypatch.setenv("FDAI_GITHUB_APP_PRIVATE_KEY", "private-key")
+
+    with pytest.raises(RuntimeError, match="mutually exclusive"):
+        _build_publisher(http_client=httpx.AsyncClient())
 
 
 def test_build_publisher_rejects_partial_config(monkeypatch: pytest.MonkeyPatch) -> None:

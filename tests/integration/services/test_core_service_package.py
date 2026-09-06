@@ -68,6 +68,7 @@ EXPECTED_RUNTIME_MODULES = {
     "execution_backends.py",
     "forecast_learning.py",
     "governed_rca.py",
+    "github_auth.py",
     "handover_knowledge_lifecycle.py",
     "health.py",
     "human_access.py",
@@ -195,10 +196,15 @@ def test_core_wheel_cold_imports_without_fdai_distribution(
     core_wheel: Path,
     tmp_path: Path,
 ) -> None:
-    contract_wheel = _build_wheel("fdai-service-contracts", tmp_path)
+    github_output = tmp_path / "github-auth-wheel"
+    github_output.mkdir()
+    github_auth_wheel = _build_wheel("fdai-github-app-auth", github_output)
+    contract_output = tmp_path / "contract-wheel"
+    contract_output.mkdir()
+    contract_wheel = _build_wheel("fdai-service-contracts", contract_output)
     wheel_root = tmp_path / "installed-wheels"
     wheel_root.mkdir()
-    for wheel in (core_wheel, contract_wheel):
+    for wheel in (core_wheel, contract_wheel, github_auth_wheel):
         with zipfile.ZipFile(wheel) as archive:
             archive.extractall(wheel_root)
     script = """
@@ -217,6 +223,7 @@ else:
     raise AssertionError("monolithic fdai distribution is installed")
 
 import fdai
+import fdai_github_app_auth
 import fdai.agents
 import fdai.composition
 import fdai.core.control_loop
@@ -227,7 +234,9 @@ import fdai.shared.contracts
 import fdai_core_service.main
 
 assert distribution("fdai-core-control-plane").version == "0.1.3"
+assert distribution("fdai-github-app-auth").version == "0.1.0"
 assert Path(fdai.__file__).resolve().is_relative_to(wheel_root)
+assert Path(fdai_github_app_auth.__file__).resolve().is_relative_to(wheel_root)
 assert Path(fdai_core_service.main.__file__).resolve().is_relative_to(wheel_root)
 """
     subprocess.run(  # noqa: S603 - current locked Python runs fixed import arguments

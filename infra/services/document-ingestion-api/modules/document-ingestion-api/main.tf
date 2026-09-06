@@ -1,3 +1,9 @@
+locals {
+  stewardship_enabled       = var.stewardship_gitops.enabled
+  stewardship_app_enabled   = local.stewardship_enabled && var.stewardship_gitops.auth_mode == "github_app"
+  stewardship_token_enabled = local.stewardship_enabled && var.stewardship_gitops.auth_mode == "static_token"
+}
+
 module "container_app" {
   source = "../../../_modules/container-app"
 
@@ -8,11 +14,23 @@ module "container_app" {
   registry_identity_id = var.identity.resource_id
   command              = ["fdai-document-ingestion-api"]
   args                 = []
-  secrets = [{
+  secrets = concat([{
     name                = "database-dsn"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.database.dsn_secret_id
-  }]
+    }], local.stewardship_token_enabled ? [{
+    name                = "stewardship-gitops-token"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.stewardship_gitops.token_secret_id
+    }] : [], local.stewardship_app_enabled ? [{
+    name                = "stewardship-github-app-private-key"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.stewardship_gitops.app_private_key_secret_id
+    }] : [], local.stewardship_enabled ? [{
+    name                = "stewardship-github-webhook-secret"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.stewardship_gitops.webhook_secret_id
+  }] : [])
   environment = concat([
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
     { name = "POSTGRES_HOST", value = var.database.host },
@@ -38,7 +56,19 @@ module "container_app" {
     { name = "FDAI_ADLS_ACCOUNT_NAME", value = var.document_store.account_name },
     { name = "FDAI_ADLS_ACCOUNT_URL", value = var.document_store.account_url },
     { name = "FDAI_ADLS_SOURCE_FILE_SYSTEM", value = var.document_store.source_file_system },
-    ], var.sharepoint_connector.enabled ? [
+    ], local.stewardship_enabled ? [
+    { name = "FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED", value = "1" },
+    { name = "FDAI_STEWARDSHIP_REPOSITORY_INTAKE_ENABLED", value = "1" },
+    { name = "FDAI_GITOPS_OWNER", value = var.stewardship_gitops.owner },
+    { name = "FDAI_GITOPS_REPO", value = var.stewardship_gitops.repo },
+    { name = "FDAI_GITHUB_WEBHOOK_SECRET", secret_name = "stewardship-github-webhook-secret" },
+    ] : [], local.stewardship_token_enabled ? [
+    { name = "FDAI_GITOPS_TOKEN", secret_name = "stewardship-gitops-token" },
+    ] : local.stewardship_app_enabled ? [
+    { name = "FDAI_GITHUB_APP_CLIENT_ID", value = var.stewardship_gitops.app_client_id },
+    { name = "FDAI_GITHUB_APP_INSTALLATION_ID", value = var.stewardship_gitops.app_installation_id },
+    { name = "FDAI_GITHUB_APP_PRIVATE_KEY", secret_name = "stewardship-github-app-private-key" },
+    ] : [], var.sharepoint_connector.enabled ? [
     { name = "FDAI_SHAREPOINT_CONNECTOR_ENABLED", value = "1" },
     { name = "FDAI_SHAREPOINT_CONNECTOR_ID", value = var.sharepoint_connector.connector_id },
     { name = "FDAI_SHAREPOINT_TARGET_TENANT_ID", value = var.sharepoint_connector.target_tenant_id },

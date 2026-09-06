@@ -247,10 +247,36 @@ def select_tfvars(
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
-    if service == "core-control-plane":
-        materialized["stewardship_gitops"] = copy.deepcopy(stewardship_gitops or {})
+    if service in {"core-control-plane", "document-ingestion-api"}:
+        materialized["stewardship_gitops"] = _stewardship_gitops_binding(
+            stewardship_gitops,
+            service=service,
+        )
     elif stewardship_gitops is not None:
-        raise TfvarsError("stewardship GitOps binding is valid only for core-control-plane")
+        raise TfvarsError("stewardship GitOps binding is valid only for Core or document ingestion")
+    return materialized
+
+
+def _stewardship_gitops_binding(
+    binding: dict[str, Any] | None,
+    *,
+    service: str,
+) -> dict[str, Any]:
+    if not binding:
+        return {}
+    materialized = copy.deepcopy(binding)
+    if "auth_mode" not in materialized:
+        if service == "document-ingestion-api":
+            return {}
+        materialized.update(
+            {
+                "auth_mode": "static_token",
+                "app_client_id": "",
+                "app_installation_id": "",
+                "app_private_key_secret_id": "",
+                "webhook_secret_id": "",
+            }
+        )
     return materialized
 
 

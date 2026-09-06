@@ -19,6 +19,7 @@ from fdai.core.stewardship.governance import (
     StewardshipGovernanceService,
     stewardship_idempotency_key,
 )
+from fdai.runtime.github_auth import github_credentials_configured
 from fdai.shared.providers.remediation_pr import RemediationPrPublisher
 from fdai.shared.providers.state_store import StateStore
 
@@ -178,12 +179,12 @@ def build_stewardship_governance_worker(
 
     if not _environment_flag(environment, "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", True):
         return None
-    if not environment.get("FDAI_GITOPS_TOKEN", "").strip():
+    if not github_credentials_configured(environment):
         return None
     if not environment.get("FDAI_STATE_STORE_DSN", "").strip():
         raise RuntimeError(
             "stewardship governance delivery requires FDAI_STATE_STORE_DSN "
-            "when FDAI_GITOPS_TOKEN is configured"
+            "when GitHub credentials are configured"
         )
     return StewardshipGovernanceWorker(
         store=store,

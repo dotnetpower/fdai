@@ -1,0 +1,28 @@
+[project]
+name = "fdai-github-app-auth"
+version = "0.1.0"
+description = "Refreshable GitHub App installation-token provider for FDAI services"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27,<1",
+    "pyjwt[crypto]>=2.10,<3",
+]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_github_app_auth"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/fdai_github_app_auth", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/fdai_github_app_auth"]

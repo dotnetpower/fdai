@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 37289029a24afea654c170083e3b338da37b4344
+translation_source_sha: 136622b1fe55466af0149cd528de0a7847b0e534
 translation_revised: 2026-09-06
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -49,6 +49,7 @@ Handover-map 스키마와 소유권 개념은
 | 멱등적 초안 거버넌스 PR 전달 | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); 집중 담당 체계 및 런타임 테스트 | 런타임은 영속 `handover_draft:*` 레코드를 읽고, 신원 재정의를 허용하지 않은 상태에서 각 완전한 후보를 검증한 다음 구성된 `RemediationPrPublisher`를 통해 게시합니다. PR 참조 또는 차단 결과는 Saga 감사와 함께 원자적으로 기록합니다. 내용 기반 증적을 사용하므로 재시작과 재처리가 안전합니다. 관리형 배포 증적은 별도 근거로 남습니다. |
 | 서명된 병합 수신과 후속 담당 체계 효과 | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; 집중 병합 및 소유권 조정 테스트 | 서명된 수신 경로는 비활성 근거를 저장합니다. Core는 병합된 map을 검증하고 영향받는 에이전트와 새 수신자를 계산하며, 영속 알림 라우터를 통해 전달합니다. 다이제스트가 일치하는 배정 제안만 진행하고 재처리해도 동일한 shadow IAM 요청을 게시하며 Saga 증적 하나를 기록합니다. |
 | 예약 실행되는 영속 신원 상태 검사 | implemented | `services/core-control-plane/src/fdai/runtime/stewardship_identity_health.py`; `services/operator-service/src/fdai_operator_service/ownership_projection.py`; Core 서비스 Terraform | 준비 상태 이후 실행되는 Core 워커가 사용자 주체를 중복 제거하고, 전이 시에만 상태를 감사하며 만료 시간이 있는 성공 관찰을 기록합니다. Graph 장애 시 마지막 성공 상태를 보존하고 리비전이 일치하며 만료되지 않은 결과만 읽기 전용 Operator 변환 결과에 반영합니다. |
+| 갱신 가능한 GitHub App 인증 | implemented | `packages/github-app-auth`; Core 및 수집 GitHub 어댑터; 집중 인증, 배포 및 Terraform 검사 | 장기 실행 서비스는 Key Vault 기반 private key로 저장소 범위 installation token을 발급하고 비동기 잠금 아래 캐시한 뒤 만료 전에 갱신합니다. 정적 토큰은 범위가 제한된 호환 입력이며 배포 목표가 아닙니다. |
 
 ### 구현 이력
 
@@ -61,6 +62,7 @@ Handover-map 스키마와 소유권 개념은
 | 2026-09-05 | in-progress | 영속 인수인계 초안을 처리하는 운영 런타임 워커를 추가했습니다. 잘못된 후보가 이후 레코드를 차단하지 않으며, 추적된 YAML을 검증할 때 런타임 신원 재정의를 무시하고, 이전 직렬화 초안과 호환되며, 내용 기반 증적과 Saga 감사를 한 번만 기록합니다. | `current change`; `stewardship_governance.py`; 집중 담당 체계, 런타임 거버넌스, 부트스트랩 테스트 149개와 Ruff, strict mypy 통과. | 실제 초안 PR 증적을 보존한 후 병합 결과와 예약 신원 상태 검사를 완료합니다. |
 | 2026-09-05 | implemented | 서명된 병합 근거를 영향받는 소유자 알림, 일치하는 배정 결과, 재처리해도 동일한 shadow IAM 요청, 예약 Entra 생존 관찰과 연결했습니다. 소유권, IAM, 승인, 실행 권한은 계속 분리됩니다. | `current change`; 집중 Core 및 Operator 테스트; Core 서비스 Terraform 검증. | 관리형 배포, 재시작, 알림, Graph 복구, 승격 근거를 보존합니다. |
 | 2026-09-06 | implemented | 보호된 플랫폼 워크플로를 배포 소유의 담당 체계 활성화 플래그, GitOps 대상, GitHub 자격 증명 및 병합 웹후크 시크릿에 연결했습니다. 명시적 저장소 변수를 활성화하기 전에는 비활성 상태를 유지합니다. | `current change`; `deploy-dev.yml`; 집중 Core 담당 체계 GitOps 워크플로 테스트. | 공급자 호스팅 GitHub App 토큰, 웹후크 시크릿 및 ChatOps 채널 시크릿을 구성한 뒤 관리형 계획, 적용 및 종단 간 초안 증적을 보존합니다. |
+| 2026-09-06 | implemented | 정적 installation token 목표 설계를 Core 게시와 수집 병합 검증이 공유하는 갱신 가능한 GitHub App 자격 증명 임대로 교체했습니다. | `current change`; GitHub App 공급자, 어댑터, 서비스 materializer, guard 및 세 Terraform root; 집중 테스트 516개 통과. | 공급자 호스팅 App을 구성하고 설치한 뒤 자격 증명을 노출하지 않는 토큰 갱신 및 종단 간 초안/병합 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -69,6 +71,7 @@ Handover-map 스키마와 소유권 개념은
 - [ ] 저장된 인수인계 초안 하나가 검토 전용 PR 하나를 열고, 재시작 후에도 두 번째 Saga 감사를 만들지 않고 같은 PR을 재사용함을 보여 주는 관리형 배포 증적을 보존합니다.
 - [x] 병합된 담당 체계 YAML을 해석기로 검증하고, 영향받는 소유자를 계산하며, 배정 제안 다이제스트를 결합하고, Saga 감사, 재처리 안전 IAM 요청 게시, 수신자 알림을 입증하는 집중 테스트를 통과시킵니다.
 - [x] 예약 실행되는 신원 상태 모니터를 구현하고, `stewardship_health:current` 및 `stewardship_health:last_success`에서 전이 시에만 수행되는 감사, 리비전이 일치하는 성공 관찰, 만료, Graph 실패 보존, 읽기 전용 변환 결과 동작을 입증하는 테스트를 보존합니다.
+- [x] 갱신 가능한 GitHub App installation-token 공급자를 Core와 문서 수집에 연결하고, 동시 갱신과 만료 복구를 입증하며 App private-key 참조만 Key Vault에 보존합니다.
 - [ ] 어떤 행이든 `validated`로 올리기 전에 실제 시작 바인딩, 안내형 제안 및 검토된 병합, 알림 전달, 감사 종료, 유효하지 않음에서 정상으로의 신원 복구를 보여 주는 배포 증적과 운영 훈련을 보존합니다.
 
 근거에 기반한 T2 `HandoverInterpreter`는 선택적인 배포 연결로 남습니다. 결정론적
@@ -215,16 +218,21 @@ Requested notification은 현재 활성 map을 사용합니다. 병합 notificat
 | `stewardship_maintainers` | `FDAI_MAINTAINERS` | non-secret 환경 구성 |
 | `stewardship_agent_bindings` | `FDAI_STEWARD_<AGENT>` | non-secret 환경 구성 |
 | `gitops_owner`, `gitops_repo` | `FDAI_GITOPS_OWNER`, `FDAI_GITOPS_REPO` | non-secret 환경 구성 |
-| `gitops_token` | `FDAI_GITOPS_TOKEN` | Key Vault 참조 only |
+| `github_app_client_id`, `github_app_installation_id` | `FDAI_GITHUB_APP_CLIENT_ID`, `FDAI_GITHUB_APP_INSTALLATION_ID` | 비밀이 아닌 환경 구성 |
+| `github_app_private_key` | `FDAI_GITHUB_APP_PRIVATE_KEY` | Key Vault 참조 only |
+| `gitops_token` | `FDAI_GITOPS_TOKEN` | Key Vault 참조 only; 범위가 제한된 호환 경로 |
 | 거버넌스 워커 제어 | `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS`, `FDAI_STEWARDSHIP_GOVERNANCE_BATCH_LIMIT` | 비밀이 아닌 환경 구성 |
 | 영속 거버넌스 증적 | `FDAI_STATE_STORE_DSN` | Key Vault 참조 only |
 | `github_webhook_secret` | `FDAI_GITHUB_WEBHOOK_SECRET` | Key Vault 참조 only |
 | `chatops_webhook_url` | `FDAI_CHATOPS_WEBHOOK_URL` | Key Vault 참조 only |
 
-GitHub App 또는 토큰에는 어댑터가 필요한 repository 내용, pull-request, issue-label 권한만
-부여하는 것이 좋습니다. Pull-request event용 GitHub webhook을 구성하고 published 인제스트 게이트웨이
-경로를 가리키세요. 수명이 짧은 installation 토큰은 배포 구성으로 rotate하고 커밋
-또는 로그하지 마세요.
+GitHub App에는 어댑터에 필요한 저장소 내용, pull-request, 메타데이터 및 issue-label 권한만
+부여하는 것이 좋습니다. Core와 문서 수집은 Key Vault 기반 App private key로 저장소 범위
+installation token을 발급합니다. 공급자는 수명이 짧은 RS256 App JWT를 서명하고 동시 갱신을
+직렬화하며 검증된 만료 이후에는 토큰을 캐시하지 않고 1시간 installation 임대가 닫히기 전에
+갱신합니다. 토큰과 JWT는 로그에 기록하지 않습니다. 정적 `gitops_token`은 상호 배타적인 호환
+입력으로만 허용합니다. Pull-request 이벤트용 GitHub webhook은 게시된 수집 게이트웨이 경로를
+가리키도록 구성하세요.
 
 보호된 워크플로는 저장소 Variables에서 `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`,
 `GITOPS_REPO`를 읽고 저장소 Secrets에서 `GITOPS_TOKEN`, `GITHUB_WEBHOOK_SECRET`을 읽습니다.
@@ -239,6 +247,7 @@ GitHub App 또는 토큰에는 어댑터가 필요한 repository 내용, pull-re
 | GitHub publish 중단 | 워커가 동일 업로드 id로 재시도 | 원격 멱등성 탐색으로 기존 PR을 복구합니다. |
 | Notification 전달 실패 | 라우터가 대체 경로를 시도한 후 HIL 에스컬레이션을 저장 | 채널을 복구하고 감사 근거에서 재생합니다. |
 | 잘못된 webhook 서명 | GitHub I/O 전에 요청 거부 | GitHub webhook 시크릿을 수정합니다. |
+| GitHub App 토큰 발급 또는 갱신 실패 | 초안 게시와 병합 재조회가 쓰기나 성공 증적 없이 닫힌 상태로 실패합니다. | App 설치 또는 private-key 바인딩을 복구하고 같은 멱등성 키로 재시도합니다. |
 | 관련 없는 PR 병합 | 상태 변경 없이 전달 acknowledge | 조치가 필요하지 않습니다. |
 | 중복 병합 전달 | 영속 점유가 no 변경 반환 | 중복 감사 또는 notification을 발행하지 않습니다. |
 
@@ -262,6 +271,8 @@ terraform -chdir=infra validate
 4. 업로드 재처리가 동일한 PR 참조를 반환합니다.
 5. 검토된 테스트 변경 병합이 병합 감사 하나와 operational notification 하나를 생성합니다.
 6. 동일 GitHub 전달 id 재전송이 두 번째 기록을 생성하지 않습니다.
+7. 주입된 시계를 갱신 여유 구간을 지나도록 전진하면 installation token 하나가 갱신되고, 동시 호출은
+   발급 요청 하나를 공유하며 로그와 증적에는 자격 증명이 나타나지 않습니다.
 
 ## 관련 문서
 

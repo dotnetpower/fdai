@@ -587,8 +587,8 @@ only when its rule id, action type, and fixed check reference still match.
 ## Repository Conventions
 
 - **Python (3.12+) is the shared backend runtime language** for the multi-service workspace. Executable
-  application code lives in the five `services/*/src/` package roots, and the versioned shared SDK
-  lives under `packages/service-contracts/src/`. Rationale and the
+  code lives in five `services/*/src/` roots. `packages/service-contracts/src/` owns the versioned
+  wire SDK, while `packages/github-app-auth/src/` owns refreshable provider credentials. Rationale and the
   historical choice matrix are in [tech-stack.md § OD-1](tech-stack.md#od-1-core-runtime-language).
   Non-Python trees are: [rule-catalog/](../../../rule-catalog) (YAML data), [policies/](../../../policies)
   (Rego), and [infra/](../../../infra) (Terraform HCL).

@@ -12,6 +12,7 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
+from fdai_github_app_auth import GitHubAppTokenError, build_github_token_provider
 from fdai_service_contracts import (
     DocumentPurpose,
     IngestionCapabilities,
@@ -623,7 +624,6 @@ def _build_stewardship_webhook(
     required = (
         "FDAI_GITOPS_OWNER",
         "FDAI_GITOPS_REPO",
-        "FDAI_GITOPS_TOKEN",
         "FDAI_GITHUB_WEBHOOK_SECRET",
     )
     missing = [key for key in required if not env.get(key, "").strip()]
@@ -631,16 +631,30 @@ def _build_stewardship_webhook(
         raise ProductionConfigurationError(
             "stewardship webhook environment is missing: " + ", ".join(missing)
         )
+    repo = env["FDAI_GITOPS_REPO"].strip()
+    try:
+        token_provider = build_github_token_provider(
+            env,
+            http_client=http_client,
+            repository=repo,
+            permissions=(("contents", "read"), ("metadata", "read"), ("pull_requests", "read")),
+        )
+    except (GitHubAppTokenError, ValueError) as exc:
+        raise ProductionConfigurationError(str(exc)) from exc
+    if token_provider is None:
+        raise ProductionConfigurationError(
+            "stewardship webhook requires static or GitHub App credentials"
+        )
     return GitHubStewardshipWebhook(
         config=GitHubStewardshipWebhookConfig(
-            repository=f"{env['FDAI_GITOPS_OWNER'].strip()}/{env['FDAI_GITOPS_REPO'].strip()}",
+            repository=f"{env['FDAI_GITOPS_OWNER'].strip()}/{repo}",
             webhook_secret=env["FDAI_GITHUB_WEBHOOK_SECRET"].strip(),
-            token=env["FDAI_GITOPS_TOKEN"].strip(),
             api_base=env.get("FDAI_GITOPS_API_BASE", "https://api.github.com").strip(),
             timeout_seconds=float(env.get("FDAI_GITOPS_TIMEOUT_SECONDS", "15")),
         ),
         http_client=http_client,
         recorder=PostgresStewardshipMergeRecorder(dsn=dsn),
+        token_provider=token_provider,
     )
 
 

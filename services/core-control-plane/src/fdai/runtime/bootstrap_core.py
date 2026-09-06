@@ -87,6 +87,7 @@ from fdai.runtime.conversation_assurance import (
 )
 from fdai.runtime.delivery import _build_notification_router, _build_publisher
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
+from fdai.runtime.github_auth import github_credentials_configured
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
@@ -218,7 +219,7 @@ async def build_core_runtime(
                 metric_whitelist=plan.diagnostic_metric_whitelist,
             ),
         )
-    gitops_delivery_requested = bool(environment.get("FDAI_GITOPS_TOKEN", "").strip())
+    gitops_delivery_requested = github_credentials_configured(environment)
     if (
         plan.requires_channel_http_client or gitops_delivery_requested
     ) and resources.http_client is None:

@@ -16,6 +16,7 @@ module "document_ingestion_api" {
   embedding            = var.embedding
   cors_allow_origins   = var.cors_allow_origins
   sharepoint_connector = var.sharepoint_connector
+  stewardship_gitops   = var.stewardship_gitops
   scaling              = var.scaling
   tags                 = var.tags
 }

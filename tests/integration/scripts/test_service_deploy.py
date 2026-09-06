@@ -296,6 +296,86 @@ def _core_plan_with_handover_cadence_adoption(guard: ModuleType) -> dict[str, ob
     return plan
 
 
+def _stewardship_adoption_plan(
+    guard: ModuleType,
+    *,
+    service: str,
+    auth_mode: str,
+) -> dict[str, object]:
+    contract = guard.resolve_service(service, "dev")
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": "value"} for name in contract.required_environment
+        ]
+    after = change["after"]
+    after_environment = after["template"][0]["container"][0]["env"]
+    after_environment.extend(
+        [
+            {"name": "FDAI_GITOPS_OWNER", "value": "example"},
+            {"name": "FDAI_GITOPS_REPO", "value": "deployment-config"},
+        ]
+    )
+    if service == "core-control-plane":
+        after_environment.append({"name": "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", "value": "true"})
+    else:
+        after_environment.extend(
+            [
+                {"name": "FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED", "value": "1"},
+                {"name": "FDAI_STEWARDSHIP_REPOSITORY_INTAKE_ENABLED", "value": "1"},
+                {
+                    "name": "FDAI_GITHUB_WEBHOOK_SECRET",
+                    "secret_name": "stewardship-github-webhook-secret",
+                },
+            ]
+        )
+        after["secret"].append(
+            {
+                "name": "stewardship-github-webhook-secret",
+                "identity": after["identity"][0]["identity_ids"][0],
+                "key_vault_secret_id": (
+                    "/subscriptions/example/resourceGroups/example/providers/"
+                    "Microsoft.KeyVault/vaults/example/secrets/webhook"
+                ),
+            }
+        )
+    if auth_mode == "static_token":
+        after_environment.append(
+            {"name": "FDAI_GITOPS_TOKEN", "secret_name": "stewardship-gitops-token"}
+        )
+        secret_name = "stewardship-gitops-token"
+        secret_path = "gitops-token"
+    else:
+        after_environment.extend(
+            [
+                {"name": "FDAI_GITHUB_APP_CLIENT_ID", "value": "Iv1.example"},
+                {"name": "FDAI_GITHUB_APP_INSTALLATION_ID", "value": "123"},
+                {
+                    "name": "FDAI_GITHUB_APP_PRIVATE_KEY",
+                    "secret_name": "stewardship-github-app-private-key",
+                },
+            ]
+        )
+        secret_name = "stewardship-github-app-private-key"
+        secret_path = "github-app-private-key"
+    after["secret"].append(
+        {
+            "name": secret_name,
+            "identity": after["identity"][0]["identity_ids"][0],
+            "key_vault_secret_id": (
+                "/subscriptions/example/resourceGroups/example/providers/"
+                f"Microsoft.KeyVault/vaults/example/secrets/{secret_path}"
+            ),
+        }
+    )
+    return plan
+
+
 def _sharepoint_connector_environment() -> list[dict[str, str]]:
     return [
         {"name": "FDAI_SHAREPOINT_CONNECTOR_ENABLED", "value": "1"},
@@ -1337,6 +1417,43 @@ def test_plan_guard_rejects_existing_core_handover_cadence_change(
         guard.validate_plan(
             plan,
             service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+@pytest.mark.parametrize("service", ("core-control-plane", "document-ingestion-api"))
+@pytest.mark.parametrize("auth_mode", ("static_token", "github_app"))
+def test_plan_guard_allows_platform_owned_stewardship_adoption(
+    guard: ModuleType,
+    service: str,
+    auth_mode: str,
+) -> None:
+    guard.validate_plan(
+        _stewardship_adoption_plan(guard, service=service, auth_mode=auth_mode),
+        service=service,
+        environment="dev",
+        image_ref="image",
+    )
+
+
+def test_plan_guard_rejects_unrelated_stewardship_adoption_drift(
+    guard: ModuleType,
+) -> None:
+    plan = _stewardship_adoption_plan(
+        guard,
+        service="document-ingestion-api",
+        auth_mode="github_app",
+    )
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.append({"name": "UNREVIEWED", "value": "changed"})
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="document-ingestion-api",
             environment="dev",
             image_ref="image",
         )
@@ -2591,29 +2708,61 @@ def test_tfvars_selects_one_service_and_reserves_image(tfvars: ModuleType, tmp_p
         tfvars.select_tfvars(payload, service="operator-service", environment="dev")
 
 
-def test_tfvars_binds_platform_owned_stewardship_gitops_only_to_core(
+def test_tfvars_binds_platform_owned_stewardship_gitops_to_owned_services(
     tfvars: ModuleType,
 ) -> None:
-    payload = {"environments": {"dev": {"core-control-plane": {"name": "core"}}}}
-    binding = {
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {"name": "core"},
+                "document-ingestion-api": {"name": "ingestion"},
+            }
+        }
+    }
+    legacy_binding = {
         "enabled": True,
         "owner": "example",
         "repo": "fdai",
         "token_secret_id": "/subscriptions/example/secrets/gitops",
     }
 
-    selected = tfvars.select_tfvars(
+    core = tfvars.select_tfvars(
         payload,
         service="core-control-plane",
         environment="dev",
-        stewardship_gitops=binding,
+        stewardship_gitops=legacy_binding,
     )
+    assert core["stewardship_gitops"]["auth_mode"] == "static_token"
+    assert core["stewardship_gitops"]["repo"] == "fdai"
 
-    assert selected["stewardship_gitops"] == binding
-    binding["repo"] = "changed"
-    assert selected["stewardship_gitops"]["repo"] == "fdai"
+    ingestion = tfvars.select_tfvars(
+        payload,
+        service="document-ingestion-api",
+        environment="dev",
+        stewardship_gitops=legacy_binding,
+    )
+    assert ingestion["stewardship_gitops"] == {}
 
-    with pytest.raises(tfvars.TfvarsError, match="only for core-control-plane"):
+    app_binding = {
+        **legacy_binding,
+        "auth_mode": "github_app",
+        "token_secret_id": "",
+        "app_client_id": "Iv1.example",
+        "app_installation_id": "123",
+        "app_private_key_secret_id": "/subscriptions/example/secrets/app-key",
+        "webhook_secret_id": "/subscriptions/example/secrets/webhook",
+    }
+    ingestion = tfvars.select_tfvars(
+        payload,
+        service="document-ingestion-api",
+        environment="dev",
+        stewardship_gitops=app_binding,
+    )
+    assert ingestion["stewardship_gitops"] == app_binding
+    app_binding["repo"] = "changed"
+    assert ingestion["stewardship_gitops"]["repo"] == "fdai"
+
+    with pytest.raises(tfvars.TfvarsError, match="only for Core or document ingestion"):
         tfvars.select_tfvars(
             {"environments": {"dev": {"operator-service": {"name": "operator"}}}},
             service="operator-service",

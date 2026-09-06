@@ -580,6 +580,8 @@ jobs:
               echo "Platform state returned an invalid RCA reader identity." >&2
               exit 1
             }
+          fi
+          if [[ "$SERVICE" == "core-control-plane" || "$SERVICE" == "document-ingestion-api" ]]; then
             stewardship_gitops_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
                 output -json stewardship_gitops_binding 2>/dev/null || printf 'null\n'
@@ -587,16 +589,43 @@ jobs:
             jq -e '
               . == null or (
                 type == "object" and
-                keys == ["enabled", "owner", "repo", "token_secret_id"] and
                 .enabled == true and
                 (.owner | type == "string" and length > 0) and
                 (.repo | type == "string" and length > 0) and
-                (.token_secret_id | type == "string" and startswith("/subscriptions/"))
+                (
+                  (
+                    keys == ["enabled", "owner", "repo", "token_secret_id"] and
+                    (.token_secret_id | type == "string" and startswith("/subscriptions/"))
+                  ) or (
+                    keys == ["app_client_id", "app_installation_id", "app_private_key_secret_id", "auth_mode", "enabled", "owner", "repo", "token_secret_id", "webhook_secret_id"] and
+                    (.webhook_secret_id | type == "string" and startswith("/subscriptions/")) and
+                    (
+                      (
+                        .auth_mode == "static_token" and
+                        (.token_secret_id | type == "string" and startswith("/subscriptions/")) and
+                        .app_client_id == "" and
+                        .app_installation_id == "" and
+                        .app_private_key_secret_id == ""
+                      ) or (
+                        .auth_mode == "github_app" and
+                        .token_secret_id == "" and
+                        (.app_client_id | type == "string" and length > 0) and
+                        (.app_installation_id | type == "string" and test("^[1-9][0-9]*$")) and
+                        (.app_private_key_secret_id | type == "string" and startswith("/subscriptions/"))
+                      )
+                    )
+                  )
+                )
               )
             ' <<<"$stewardship_gitops_binding" >/dev/null || {
               echo "Platform state returned an invalid stewardship GitOps binding." >&2
               exit 1
             }
+            if [[ "$SERVICE" == "document-ingestion-api" ]] && jq -e '
+              type == "object" and keys == ["enabled", "owner", "repo", "token_secret_id"]
+            ' <<<"$stewardship_gitops_binding" >/dev/null; then
+              stewardship_gitops_binding=null
+            fi
           fi
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \

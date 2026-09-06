@@ -57,6 +57,10 @@ from fdai.runtime.configuration import (
     _new_http_client,
     _summarize_config,
 )
+from fdai.runtime.github_auth import (
+    build_github_token_provider,
+    github_credentials_configured,
+)
 from fdai.runtime.model_lifecycle_startup import (
     FileResolvedModelsSource,
     resolve_models_startup_revision,
@@ -203,15 +207,23 @@ async def _attach_model_lifecycle_startup_revision(
     if path is None or expected_digest is None:
         raise RuntimeError("Azure LLM startup requires one resolved-model revision")
     observations: tuple[Mapping[str, object], ...] = ()
-    token = environment.get("FDAI_GITOPS_TOKEN", "").strip()
+    credentials_configured = github_credentials_configured(environment)
     runtime_env = environment.get("RUNTIME_ENV", "").strip().lower()
-    if not token and runtime_env in {"staging", "prod"}:
-        raise RuntimeError("staging and prod require FDAI_GITOPS_TOKEN for lifecycle observations")
-    if token:
+    if not credentials_configured and runtime_env in {"staging", "prod"}:
+        raise RuntimeError("staging and prod require GitHub credentials for lifecycle observations")
+    if credentials_configured:
         owner = environment.get("FDAI_GITOPS_OWNER", "").strip()
         repo = environment.get("FDAI_GITOPS_REPO", "").strip()
         if not owner or not repo:
-            raise RuntimeError("FDAI_GITOPS_TOKEN requires FDAI_GITOPS_OWNER and FDAI_GITOPS_REPO")
+            raise RuntimeError("GitHub credentials require FDAI_GITOPS_OWNER and FDAI_GITOPS_REPO")
+        token_provider = build_github_token_provider(
+            environment,
+            http_client=http_client,
+            repository=repo,
+            permissions=(("contents", "read"), ("metadata", "read"), ("pull_requests", "read")),
+        )
+        if token_provider is None:  # pragma: no cover - guarded by the predicate
+            raise RuntimeError("GitHub lifecycle token provider is unavailable")
         ttl_raw = environment.get("FDAI_MODEL_LIFECYCLE_REVIEW_TTL_HOURS", "168")
         try:
             ttl_hours = int(ttl_raw)
@@ -222,13 +234,13 @@ async def _attach_model_lifecycle_startup_revision(
                 owner=owner,
                 repo=repo,
                 api_base=environment.get(
-                    "FDAI_GITHUB_API_BASE",
+                    "FDAI_GITOPS_API_BASE",
                     "https://api.github.com",
                 ).strip(),
                 review_ttl_hours=ttl_hours,
             ),
             http_client=http_client,
-            token=token,
+            token_provider=token_provider,
         ).load()
     revision = await resolve_models_startup_revision(
         FileResolvedModelsSource(path),
