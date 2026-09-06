@@ -43,8 +43,8 @@ retained value from the immutable Resource `last_seen` timestamp and the snapsho
 It preserves `last_seen` as effective time and never substitutes the later cutoff for that time.
 Malformed or reversed timestamps remain unknown.
 
-Operational applicability is explicit and conservative. Every one of the 80 canonical ResourceType
-values has one reviewed outcome:
+Operational applicability is explicit and conservative. Every canonical ResourceType has one
+reviewed outcome:
 
 | Outcome | Meaning |
 |---------|---------|

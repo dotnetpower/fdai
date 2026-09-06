@@ -102,6 +102,7 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
         "event-grid-topic",
         "file-share",
         "llm-endpoint",
+        "llm-model-deployment",
         "log-workspace",
         "metrics-workspace",
         "network.dns-resolver-inbound-endpoint",

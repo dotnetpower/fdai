@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 1132e95150d9ffa5e840ef60cc89e64f9a01be7a
+translation_source_sha: d498c1f801d93966f2b3e323f7998d8fc6bec440
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -44,8 +44,8 @@ Operator Service는 이 속성을 독립적인 세 가지 기록 상태로 표�
 늦은 기준 시점으로 대체하지 않습니다. 시각 형식이나 순서가 올바르지 않으면 알 수 없음으로
 유지합니다.
 
-운영 상태 적용 여부는 명시적이고 보수적으로 처리합니다. 표준 ResourceType 80개는 모두 다음
-결과 중 하나로 검토되었습니다.
+운영 상태 적용 여부는 명시적이고 보수적으로 처리합니다. 모든 표준 ResourceType은 다음 결과 중
+하나로 검토되었습니다.
 
 | 결과 | 의미 |
 |------|------|

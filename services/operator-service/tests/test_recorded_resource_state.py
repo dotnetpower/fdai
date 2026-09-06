@@ -189,7 +189,6 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
         | {"unclassified-resource"}
     )
     assert classified == canonical
-    assert len(classified) == 80
 
 
 @pytest.mark.parametrize(
