@@ -136,6 +136,9 @@ async def test_pressure_lag_excludes_projected_generation_and_certification_scop
     assert "pending.source_revision IS DISTINCT FROM projection_state.generation" in query
     assert "pending.watermark>projection_state.projected_journal_watermark" in query
     assert "manifest.value->>'journal_high_watermark'" in query
+    assert "active_snapshot.metadata->>'coverage_scope'='full_provider_scope'" in query
+    assert "active_snapshot.metadata->>'projection_complete'='true'" in query
+    assert "pending.effective_at<=active_snapshot.started_at" in query
     assert "pending.scope_ref NOT LIKE %s" in query
     assert params == ("synthetic/oi16-certification/%",)
 
