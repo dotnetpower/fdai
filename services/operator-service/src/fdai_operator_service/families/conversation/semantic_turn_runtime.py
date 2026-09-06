@@ -1789,4 +1789,5 @@ __all__ = [
     "SemanticTurnProjectionConsumer",
     "SemanticTurnResultSource",
     "SemanticTurnStore",
+    "T1ModelHealthReader",
 ]

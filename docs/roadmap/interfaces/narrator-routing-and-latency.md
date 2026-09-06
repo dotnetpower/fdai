@@ -76,9 +76,11 @@ freshness bounds with `execution_authority=false`. It contains no endpoints, cre
 content, or shared workflow authority.
 
 Operator reads this projection only after bounded shape and freshness validation and uses only
-`model` and `router` to enrich `/chat/health`. Missing, invalid, or expired routing data cannot
-change semantic transport availability or manufacture a healthy model. Health availability remains
-the semantic bridge's transport readiness, not a successful inference or verified answer.
+`model` and `router` to enrich `/chat/health`. The response envelope can also carry binary documents
+or no body, so the health reader accepts unknown input and rejects every non-object value. Missing,
+invalid, or expired routing data cannot change semantic transport availability or manufacture a
+healthy model. Health availability remains the semantic bridge's transport readiness, not a
+successful inference or verified answer.
 
 The Console shows `T1` plus the projected deployment in the model badge. Its tooltip distinguishes
 candidate timings, sample counts, and measured, stale, unmeasured, or failed status. An open,
@@ -327,6 +329,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Corrected the T1 health boundary after the conversation response envelope gained binary and absent bodies. The health parser now accepts unknown input and rejects non-object values, while the semantic runtime facade explicitly exports the reader that Operator composition already consumes. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py`, and focused strict mypy, Operator, and service-suite checks. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |
 | 2026-09-06 | implemented | Routed the T1 health reader through the existing semantic runtime facade so local and deployed Operator composition keep the same binding while the root remains below its reviewed fanout ceiling. | `current change`; Operator boundary check reports 39 unique imports; 92 focused composition and T1 health checks passed; Ruff passed. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |
 | 2026-09-05 | implemented | Refined incident and adaptive replies, retained investigation records across completion, and added inline synthetic Markdown prompt inspection without blocking chat. | `current change`; the three mock Playwright files listed above passed their focused scenarios; shared style checks and Console typecheck passed. | Production adoption requires separate review and authenticated, permission-scoped evidence; no runtime prompt capture is claimed. |
 | 2026-09-02 | implemented | Added revision-fenced answer-continuity and prompt-ablation settings, one startup-consistent Core snapshot, and localized Console controls without personalizing T2 or granting action authority. | `current change`; focused Core, Operator, and Console checks in the prompt-composition implementation record. | Retain a governed shadow campaign before claiming runtime validation. |
