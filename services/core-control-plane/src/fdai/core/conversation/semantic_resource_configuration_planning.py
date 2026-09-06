@@ -14,6 +14,7 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import (
     ObjectPredicate,
@@ -33,8 +34,64 @@ from fdai.core.ontology_platform.resource_configuration_snapshots import (
     RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME,
 )
 
+from .semantic_planning_frame_core import build_semantic_frame
+from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
+
 RESOURCE_CONFIGURATION_OUTPUT_SHAPE = "resource_configuration_changes"
 _SCOPE_FIELDS = frozenset({"id", "name", "type", "parent_id"})
+
+
+def build_resource_configuration_frame(
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build an exact-target configuration frame from accepted typed judgment."""
+    if (
+        judgment is None
+        or judgment.primary_intent != "query.resource_configuration_changes"
+        or judgment.action_posture != "advise_only"
+        or judgment.secondary_intents
+        or judgment.ambiguous
+        or judgment.unresolved_terms
+        or not any(
+            descriptor.get("kind") == "object" and descriptor.get("name") == "Resource"
+            for descriptor in descriptors
+        )
+    ):
+        return None
+    resource_targets = tuple(target for target in judgment.targets if target.kind == "resource")
+    if len(resource_targets) != 1 or any(
+        target.kind not in {"resource", "time_range"} for target in judgment.targets
+    ):
+        return None
+    target = resource_targets[0]
+    if utterance[target.source_start : target.source_end] != target.value:
+        return None
+    time_targets = tuple(target for target in judgment.targets if target.kind == "time_range")
+    lookback_seconds = None
+    if len(time_targets) == 1 and time_targets[0].canonical_value == "duration.PT1H":
+        lookback_seconds = 3_600
+    elif not time_targets and "last_hour" in judgment.requested_facets:
+        lookback_seconds = 3_600
+    if lookback_seconds is None:
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.COMPARE,
+        subject_constraints=("Resource", f"Resource.name={target.value}"),
+        measure_concepts=(),
+        temporal_scope={"lookback_seconds": lookback_seconds},
+        output_shape=SemanticOutputShape.RESOURCE_CONFIGURATION_CHANGES,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def compile_resource_configuration_plan(

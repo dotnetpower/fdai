@@ -94,6 +94,9 @@ times and references before reading; no example supplies a customer identifier.
   Status, acknowledgement, and unverified draft text do not satisfy time to first token (TTFT).
   A slower turn fails interactive acceptance even when its terminal answer eventually succeeds.
 
+An accepted F2 judgment with one source-grounded Resource target and a reviewed one-hour duration
+builds its configuration frame deterministically. It does not spend a second frame-model call.
+
 ## Design critique and revision
 
 This design-level review does not count as one of the formal hardening rounds.

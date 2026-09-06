@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c98b4ccc257aa4d988effe4f6ee54a01451b3cbf
+translation_source_sha: 94ffb41272f26b40df092530e24648a426812f14
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -60,6 +60,8 @@ Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행하고 �
 Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 요청에 64KiB 상한을 적용합니다.
 원본 발화에 근거한 Resource 이름 또는 ID가 없는 구성과 게이트웨이 비교는 frame 모델이나
 프로바이더 I/O 전에 타입이 지정된 `resource_identity` 명확화로 중단합니다.
+정확한 대상과 1시간 기간을 포함한 수락된 구성 판단은 F2 frame을 결정론적으로 만들고 범용 frame
+모델을 생략합니다.
 [운영 진단 대화](../interfaces/operational-diagnostic-conversations-ko.md)에서 시나리오 수락 기준,
 체크포인트 근거, 아직 완료되지 않은 실환경 검증과 하드닝을 확인하세요.
 

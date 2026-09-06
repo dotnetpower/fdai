@@ -58,6 +58,8 @@ gateway intents to reviewed descriptor slices. Azure semantic planning selects t
 operational frame prompt and enforces the complete 64 KiB request ceiling.
 Configuration and gateway comparisons without a source-grounded Resource name or id stop with
 typed `resource_identity` clarification before frame-model or provider I/O.
+An accepted exact-target one-hour configuration judgment builds the F2 frame deterministically and
+skips the general frame model.
 See [Operational diagnostic conversations](../interfaces/operational-diagnostic-conversations.md)
 for scenario acceptance, checkpoint evidence, and the unfinished live/hardening qualification.
 

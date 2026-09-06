@@ -1,7 +1,7 @@
 ---
 title: 운영 진단 대화
 translation_of: operational-diagnostic-conversations.md
-translation_source_sha: b72b1327b6858558918d86141cbc959e666bc191
+translation_source_sha: 9033a05b6a715787a28ca231a477d91fd69e4d45
 translation_revised: 2026-09-07
 ---
 
@@ -98,6 +98,9 @@ translation_revised: 2026-09-07
 - **대화 지연 시간:** 검증된 첫 답변 `token` frame은 5초 안에 도착하는 것이 좋습니다. 상태,
   접수 확인 및 검증되지 않은 초안은 첫 토큰 도착 시간(TTFT)을 충족하지 않습니다. 최종 답변이
   나중에 성공하더라도 더 느린 턴은 대화 수락 기준을 통과하지 못합니다.
+
+원본 발화에 근거한 Resource 대상 하나와 검토된 1시간 기간이 있는 수락된 F2 판단은 구성 frame을
+결정론적으로 만듭니다. 두 번째 frame 모델 호출은 사용하지 않습니다.
 
 ## 설계 비평 및 수정
 

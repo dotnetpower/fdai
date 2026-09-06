@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from fdai.core.conversation.semantic_resource_configuration_planning import (
     RESOURCE_CONFIGURATION_OUTPUT_SHAPE,
+    build_resource_configuration_frame,
     compile_resource_configuration_plan,
 )
 from fdai.core.ontology_platform import (
@@ -38,8 +39,45 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal, SemanticTarget
 
 NOW = datetime(2026, 9, 6, 12, tzinfo=UTC)
+
+
+def test_typed_judgment_builds_exact_configuration_frame_without_frame_model() -> None:
+    target = "narrator-gpt-5-4-mini"
+    utterance = f"Compare {target} during the last hour."
+    start = utterance.index(target)
+    result = build_resource_configuration_frame(
+        judgment=SemanticJudgmentProposal(
+            primary_intent="query.resource_configuration_changes",
+            targets=(
+                SemanticTarget(
+                    kind="resource",
+                    value=target,
+                    source_start=start,
+                    source_end=start + len(target),
+                ),
+            ),
+            requested_facets=("last_hour", "capacity_units", "authoritative_tpm"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        ),
+        utterance=utterance,
+        context=(),
+        descriptors=tuple(_manifest().descriptors),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.operation == "compare"
+    assert frame.subject_constraints == ("Resource", f"Resource.name={target}")
+    assert frame.temporal_scope == {"lookback_seconds": 3_600}
+    assert frame.output_shape == RESOURCE_CONFIGURATION_OUTPUT_SHAPE
 
 
 def _manifest(*, bound: bool = True, snapshot_bound: bool = True) -> QueryManifest:

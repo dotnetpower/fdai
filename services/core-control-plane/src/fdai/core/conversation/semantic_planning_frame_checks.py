@@ -143,6 +143,7 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_support import _clarification, _outcome
+from .semantic_resource_configuration_planning import build_resource_configuration_frame
 from .semantic_target_candidate_planning import (
     normalize_decision_outcome_relationship,
     normalize_operating_relationship_temporal_scope,
@@ -446,6 +447,15 @@ def deterministic_pre_frame_selection(
     )
     if inventory_document is not None:
         proposal, frame = inventory_document
+        return proposal, frame, None
+    resource_configuration = build_resource_configuration_frame(
+        judgment=judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+    )
+    if resource_configuration is not None:
+        proposal, frame = resource_configuration
         return proposal, frame, None
     document_draft = _build_document_draft_frame(
         judgment=judgment,
