@@ -60,3 +60,12 @@ def test_campaign_resolves_the_exact_acr_revision_instead_of_trusting_job_config
     assert '[[ "$runtime_image_digest" == "$source_digest" ]]' in _WORKFLOW
     assert 'runtime_image_digest="${runtime_image##*@}"' not in _WORKFLOW
     assert "az acr login" not in _WORKFLOW
+
+
+def test_campaign_replays_the_exact_active_projection_before_synthetic_evidence() -> None:
+    replay = _WORKFLOW.index("- name: Migrate active inventory projection to exact release")
+    campaign = _WORKFLOW.index("- name: Run bounded synthetic campaign before restart")
+    assert replay < campaign
+    assert "--command fdai-inventory-projection-replay" in _WORKFLOW
+    assert '--args "$TARGET_COMMIT_SHA"' in _WORKFLOW
+    assert "inventory projection release migration exceeded its 600-second deadline" in _WORKFLOW

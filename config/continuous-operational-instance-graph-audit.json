@@ -264,12 +264,23 @@
         },
         {
           "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_projection_replay_cli.py",
+          "symbol": "run_once"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_observation.py",
+          "symbol": "PostgresInventoryObservationJournal.load_active_projection_replay"
+        },
+        {
+          "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology_source_coverage.py",
           "symbol": "resource_graph_source_coverage"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/runtime/test_inventory_ontology.py",
+        "services/core-control-plane/tests/delivery/test_inventory_projection_replay_cli.py",
         "services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
         "services/core-control-plane/tests/persistence/test_postgres_ontology_rows.py"
       ],

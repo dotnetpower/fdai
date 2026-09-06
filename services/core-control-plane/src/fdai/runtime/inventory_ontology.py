@@ -119,6 +119,7 @@ class InventoryOntologyProjector:
         *,
         journal_high_watermark: int | None = None,
         projection_high_watermark: int | None = None,
+        fail_before_incomplete_status: bool = False,
     ) -> InventoryOntologyProjectionResult:
         """Serialize and atomically replace the owned subgraph for one generation."""
 
@@ -136,12 +137,14 @@ class InventoryOntologyProjector:
                     observation,
                     journal_high_watermark=journal_high_watermark,
                     projection_high_watermark=projection_high_watermark,
+                    fail_before_incomplete_status=fail_before_incomplete_status,
                 )
             async with self._projection_lock.acquire(_PROJECTION_LOCK_ID):
                 return await self._apply_locked(
                     observation,
                     journal_high_watermark=journal_high_watermark,
                     projection_high_watermark=projection_high_watermark,
+                    fail_before_incomplete_status=fail_before_incomplete_status,
                 )
 
     async def _apply_locked(
@@ -150,6 +153,7 @@ class InventoryOntologyProjector:
         *,
         journal_high_watermark: int | None,
         projection_high_watermark: int | None,
+        fail_before_incomplete_status: bool,
     ) -> InventoryOntologyProjectionResult:
         """Build and commit one generation while the projection lock is held.
 
@@ -168,6 +172,8 @@ class InventoryOntologyProjector:
             freshness_ceiling_seconds=self._freshness_ceiling_seconds,
         )
         if not projection.complete:
+            if fail_before_incomplete_status:
+                raise ValueError("inventory ontology replay is incomplete")
             status_state = _projection_status_state(
                 projection,
                 ontology_release_digest=self._ontology_release_digest,

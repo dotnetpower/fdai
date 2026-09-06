@@ -845,6 +845,22 @@ async def test_incomplete_observation_preserves_prior_projection_and_records_una
     assert unavailable_status["dropped_reasons"] == ["observation_incomplete"]
 
 
+async def test_replay_refuses_incomplete_projection_before_status_write() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+    prior_status = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
+
+    with pytest.raises(ValueError, match="replay is incomplete"):
+        await projector.apply(
+            _observation(generation="snapshot-1", resource_ids=("vm-1",), complete=False),
+            fail_before_incomplete_status=True,
+        )
+
+    assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) == prior_status
+
+
 async def test_metadata_less_link_preserves_prior_projection_and_reports_unverified() -> None:
     store = _store()
     status = InMemoryStateStore()

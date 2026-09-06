@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import MethodType
 from typing import Any
 
@@ -13,15 +13,27 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
     _append_records,
+    _projection_freshness_ceiling,
+    _projection_replay_drops,
+    _projection_replay_observation,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.shared.providers.inventory import RelationshipDropReason
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
     InventoryObservationKind,
     InventoryObservationSubjectKind,
     NormalizedInventoryObservation,
+)
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    STATE_FACT_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 
 NOW = datetime(2026, 9, 5, tzinfo=UTC)
@@ -217,3 +229,154 @@ async def test_bounded_change_batch_refuses_an_unbounded_batch() -> None:
 
     with pytest.raises(ValueError, match="exceeds its bound"):
         await journal.append_change_batch([_observation({"sku": "one"})] * 1025)
+
+
+def test_projection_replay_reconstructs_verified_relationship_metadata() -> None:
+    generation = "snapshot-replay"
+    state_fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="provider-v1",
+        effective_at=NOW - timedelta(minutes=1),
+        recorded_at=NOW,
+        evidence_cutoff=NOW - timedelta(minutes=1),
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory-receipt",),
+    )
+    link_metadata = LinkObservationMetadata(
+        state_fact=state_fact,
+        verification_method="deterministic-cross-check",
+        verified=True,
+        verifier_identity="inventory-verifier",
+        verifier_revision="verifier-v1",
+        verification_receipt_ref="verification-receipt",
+        inventory_generation=generation,
+        mapping_id="test.mapping",
+        mapping_revision="sha256:" + "1" * 64,
+        source_schema_version="provider-v1",
+        source_schema_digest="sha256:" + "2" * 64,
+    )
+    records = (
+        _projection_record(generation, "resource-a"),
+        _projection_record(generation, "resource-b"),
+        NormalizedInventoryObservation.create(
+            idempotency_key="projection:relationship",
+            subject_kind=InventoryObservationSubjectKind.RELATIONSHIP,
+            observation_kind=InventoryObservationKind.FULL,
+            mutation_kind=InventoryMutationKind.UPSERT,
+            subject_ref="relationship-1",
+            subject_type="depends_on",
+            properties={LINK_OBSERVATION_METADATA_PROPERTY: link_metadata.to_mapping()},
+            property_mask=(LINK_OBSERVATION_METADATA_PROPERTY,),
+            properties_complete=True,
+            links_complete=True,
+            tombstone_confirmed=False,
+            source_identity="inventory.reconciliation",
+            source_event_id=f"snapshot:{generation}",
+            source_revision=generation,
+            effective_at=NOW,
+            observed_at=NOW,
+            evidence_cutoff=NOW,
+            recorded_at=NOW,
+            from_id="resource-a",
+            from_type="compute.vm",
+            link_type="depends_on",
+            to_id="resource-b",
+            to_type="compute.vm",
+        ),
+    )
+    metadata = {
+        "projection_complete": True,
+        "relationship_drop_classifications": [],
+        "relationship_coverage": {
+            "total_candidates": 1,
+            "materialized": 1,
+            "reviewed_unavailable": 0,
+            "unclassified": 0,
+            "complete": True,
+        },
+    }
+    prior_manifest = {
+        "dropped_reasons": [],
+        "object_content": [
+            {
+                "id": "resource-a",
+                "properties": {
+                    "properties": {STATE_FACT_METADATA_PROPERTY: state_fact.to_mapping()}
+                },
+            },
+            {"id": "resource-b", "properties": {"properties": {}}},
+        ],
+    }
+
+    observation = _projection_replay_observation(
+        generation=generation,
+        recorded_at=NOW,
+        metadata=metadata,
+        prior_manifest=prior_manifest,
+        records=records,
+    )
+
+    assert len(observation.resources) == 2
+    assert observation.resources[0].last_seen == NOW.isoformat()
+    assert observation.resources[1].last_seen is None
+    assert observation.links[0].observation_metadata == link_metadata
+    assert observation.relationship_drops == ()
+    assert (
+        _projection_freshness_ceiling(
+            {
+                "object_content": [
+                    {
+                        "properties": {
+                            "properties": {STATE_FACT_METADATA_PROPERTY: state_fact.to_mapping()}
+                        }
+                    },
+                    {"properties": {"properties": {}}},
+                ]
+            }
+        )
+        == 300
+    )
+
+
+def _projection_record(generation: str, resource_id: str) -> NormalizedInventoryObservation:
+    return NormalizedInventoryObservation.create(
+        idempotency_key=f"projection:{resource_id}",
+        subject_kind=InventoryObservationSubjectKind.OBJECT,
+        observation_kind=InventoryObservationKind.FULL,
+        mutation_kind=InventoryMutationKind.UPSERT,
+        subject_ref=resource_id,
+        subject_type="compute.vm",
+        properties={"state": "ready"},
+        property_mask=("state",),
+        properties_complete=True,
+        links_complete=True,
+        tombstone_confirmed=False,
+        source_identity="inventory.reconciliation",
+        source_event_id=f"snapshot:{generation}",
+        source_revision=generation,
+        effective_at=NOW,
+        observed_at=NOW,
+        evidence_cutoff=NOW,
+        recorded_at=NOW,
+    )
+
+
+def test_projection_replay_recovers_legacy_verifier_drop_counts() -> None:
+    drops = _projection_replay_drops(
+        {
+            "relationship_drop_classifications": [],
+            "relationship_coverage": {
+                "reviewed_unavailable": 1,
+                "unclassified": 0,
+            },
+        },
+        {"dropped_reasons": ["missing_target_endpoint"]},
+    )
+
+    assert len(drops) == 1
+    assert drops[0].reason is RelationshipDropReason.MISSING_TARGET_ENDPOINT
+    assert drops[0].classified_unavailable is True

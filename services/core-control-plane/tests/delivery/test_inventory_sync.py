@@ -16,6 +16,7 @@ from fdai.delivery.inventory_sync import (
     InventoryStreamError,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
+    _ObservationAccumulator,
     compute_relationship_coverage,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
@@ -69,6 +70,29 @@ class _Store:
 
     async def fail(self, attempt_id: str, failure: InventoryAttemptFailure) -> None:
         self.failed.append((attempt_id, failure))
+
+
+def test_drop_classifications_can_use_the_verified_promoted_drop_set() -> None:
+    accumulator = _ObservationAccumulator(
+        enabled=True,
+        relationship_mapping_catalog=None,
+    )
+
+    classifications = accumulator.relationship_drop_classifications(
+        (RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),)
+    )
+
+    assert classifications == (
+        {
+            "reason": "unverified_metadata",
+            "mapping_id": "unattributed",
+            "source_property_path": "unattributed",
+            "source_provider_type": "unattributed",
+            "target_provider_type": "unresolved",
+            "unavailable_reason": "unclassified",
+            "count": 1,
+        },
+    )
 
 
 class _Inventory:

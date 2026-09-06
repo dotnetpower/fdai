@@ -286,11 +286,15 @@ class InventorySyncCoordinator:
                     )
                 metadata = dict(source.manifest.metadata)
                 metadata.pop("provider_scope_coverage", None)
-                relationship_drop_reasons = observed.relationship_drop_reasons()
+                relationship_drop_reasons = observed.relationship_drop_reasons(
+                    promoted_observation.relationship_drops
+                )
                 metadata["relationship_complete"] = not relationship_drop_reasons
                 metadata["relationship_drop_reasons"] = list(relationship_drop_reasons)
                 metadata["relationship_drop_classifications"] = list(
-                    observed.relationship_drop_classifications()
+                    observed.relationship_drop_classifications(
+                        promoted_observation.relationship_drops
+                    )
                 )
                 metadata["derived_source_states"] = [
                     state.to_metadata() for state in promoted_observation.source_states
@@ -422,10 +426,13 @@ class _ObservationAccumulator:
         self._resources.extend(batch.resources)
         self._links.extend(batch.links)
 
-    def relationship_drop_reasons(self) -> tuple[str, ...]:
+    def relationship_drop_reasons(
+        self, drops: Sequence[RelationshipDrop] | None = None
+    ) -> tuple[str, ...]:
         """Return stable relationship coverage gaps for the promoted snapshot manifest."""
 
-        reasons = {drop.reason.value for drop in self._relationship_drops}
+        selected = self._relationship_drops if drops is None else drops
+        reasons = {drop.reason.value for drop in selected}
         if self._truncated:
             reasons.add("partial_generation")
         return tuple(sorted(reasons))
@@ -435,9 +442,12 @@ class _ObservationAccumulator:
 
         self._relationship_drops.extend(drops)
 
-    def relationship_drop_classifications(self) -> tuple[dict[str, object], ...]:
+    def relationship_drop_classifications(
+        self, drops: Sequence[RelationshipDrop] | None = None
+    ) -> tuple[dict[str, object], ...]:
         """Return bounded mapping-specific counts without provider identifiers."""
 
+        classified = self._relationship_drops if drops is None else drops
         counts = Counter(
             (
                 drop.reason.value,
@@ -451,7 +461,7 @@ class _ObservationAccumulator:
                     else "unclassified"
                 ),
             )
-            for drop in self._relationship_drops
+            for drop in classified
         )
         if self._truncated:
             counts[

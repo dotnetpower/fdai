@@ -117,6 +117,7 @@
         "services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py",
         "services/core-control-plane/tests/core/ontology_platform/test_operational_instance_competency.py",
         "services/core-control-plane/tests/delivery/test_inventory_live_evidence.py",
+        "services/core-control-plane/tests/delivery/test_inventory_projection_replay_cli.py",
         "services/core-control-plane/tests/delivery/test_operational_history_lifecycle*.py",
         "services/core-control-plane/tests/delivery/test_operational_history_certification*.py",
         ".github/workflows/operational-history-certification.yml",
@@ -152,7 +153,7 @@
       "validate": [
         "uv run pytest -q --no-cov tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
         "uv run python scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
-        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_inventory_sync.py services/core-control-plane/tests/runtime/test_inventory_ontology.py services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_inventory_sync.py services/core-control-plane/tests/delivery/test_inventory_projection_replay_cli.py services/core-control-plane/tests/runtime/test_inventory_ontology.py services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_semantic_rollup.py services/core-control-plane/tests/core/ontology_platform/test_archive_manifest.py services/core-control-plane/tests/delivery/test_operational_archive_purge.py tests/integration/test_operational_instance_retention.py",
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py services/core-control-plane/tests/core/ontology_platform/test_operational_instance_competency.py services/core-control-plane/tests/delivery/test_inventory_live_evidence.py",
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_operational_history_certification.py services/core-control-plane/tests/delivery/test_operational_history_certification_cli.py services/core-control-plane/tests/delivery/test_operational_history_certification_campaign.py tests/integration/scripts/test_operational_history_certification_workflow.py",

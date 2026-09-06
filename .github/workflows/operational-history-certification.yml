@@ -288,6 +288,29 @@ jobs:
             echo "RUNTIME_ATTESTATION_DIGEST=$runtime_attestation_digest"
           } >> "$GITHUB_ENV"
 
+      - name: Migrate active inventory projection to exact release
+        run: |
+          set -euo pipefail
+          execution="$(az containerapp job start \
+            --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+            --image "$RUNTIME_IMAGE" \
+            --command fdai-inventory-projection-replay \
+            --args "$TARGET_COMMIT_SHA" \
+            --env-vars FDAI_DATABASE_URL=secretref:operational-history-dsn \
+            --query name --output tsv)"
+          [[ -n "$execution" ]]
+          deadline=$((SECONDS + 600))
+          while ((SECONDS < deadline)); do
+            status="$(az containerapp job execution show \
+              --name "$CAMPAIGN_JOB_NAME" --resource-group "$CAMPAIGN_RESOURCE_GROUP" \
+              --job-execution-name "$execution" --query properties.status --output tsv)"
+            [[ "$status" != "Succeeded" ]] || exit 0
+            [[ "$status" != "Failed" ]] || exit 1
+            sleep 10
+          done
+          echo "inventory projection release migration exceeded its 600-second deadline" >&2
+          exit 1
+
       - name: Run bounded synthetic campaign before restart
         env:
           CAMPAIGN_PHASE: before-restart
