@@ -48,6 +48,8 @@ def _repo(tmp_path: Path, *, semantic: str) -> Path:
     }[semantic]
     (repo / ".fdai/local-runtime.env").write_text(
         "AZURE_TENANT_ID=tenant\n"
+        "LLM_RESOLVED_MODELS_PATH=/example/resolved-models.json\n"
+        f"LLM_RESOLVED_MODELS_SHA256={'a' * 64}\n"
         "FDAI_DATABASE_URL=postgresql://example.invalid/fdai\n"
         "RUNTIME_ENV=dev\n"
         f"{semantic_values}",
@@ -76,6 +78,8 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
 
     rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
     assert "prepared local independent Operator Service environment" in completed.stdout
+    assert "LLM_RESOLVED_MODELS_PATH=/example/resolved-models.json\n" in rendered
+    assert f"LLM_RESOLVED_MODELS_SHA256={'a' * 64}\n" in rendered
     assert (
         "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273"
     ) in rendered

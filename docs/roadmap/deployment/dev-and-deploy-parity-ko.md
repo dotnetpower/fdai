@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d49eb828fd744d8a6acf4053d69363822168ec3e
+translation_source_sha: b0f300bfde49633b98e864c102ef2364e0d4b5f5
 translation_revised: 2026-09-06
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -12,6 +12,7 @@ translation_revised: 2026-09-06
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장하며, 배포 환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault 시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 시크릿이 없는 메타데이터만 반환합니다. 저장은 로컬 또는 배포 A2/A4의 명시적 활성화와 분리됩니다. 표준 `console: prepare full stack` 작업은 `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`을 통해 로컬 프로필의 활성화 결정을 명시적으로 설정하며, 스크립트를 직접 실행하면 기본적으로 비활성 상태를 유지합니다. 런타임 환경 캐시는 이 값과 선택적 Kubernetes 수명 주기 플래그를 다이제스트에 결속하므로 두 입력 중 하나를 변경하면 항상 환경을 다시 생성합니다.
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포 프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된 출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된 `Last-Event-ID` 헤더를 허용합니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
+로컬 준비는 오래된 Console 값 대신 실제로 선택한 모델 파일에서 `LLM_RESOLVED_MODELS_SHA256`을 계산해 Operator 환경에 전달합니다. 시작 시 확인값이 없거나 파일이 변경되었으면 요청을 처리하기 전에 차단합니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에
 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch

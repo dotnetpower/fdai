@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -142,6 +143,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "VITE_MSAL_CLIENT_ID=client\n"
         "LLM_MODE=local-fake\n"
         "LLM_RESOLVED_MODELS_PATH=/stale/resolved-models.json\n"
+        "LLM_RESOLVED_MODELS_SHA256=stale-digest\n"
         "FDAI_METERING_DSN=postgresql://stale\n"
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=stale.example.com:9093\n"
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=stale.requests\n"
@@ -293,6 +295,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "LLM_MODE=azure",
         f"LLM_RESOLVED_MODELS_PATH={expected_models_path}",
+        f"LLM_RESOLVED_MODELS_SHA256={hashlib.sha256(expected_models_path.read_bytes()).hexdigest()}",
         "FDAI_LLM_ENDPOINT=https://models.example.com",
         f"FDAI_WEB_SEARCH_ENABLED={expected_web_search_enabled}",
         "RUNTIME_ENV=dev",
