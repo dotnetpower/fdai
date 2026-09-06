@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resource dashboard - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
+  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <style>
+    body.dashboard-preview[data-chat-theme="clear-neutral"] { background: var(--cs-card); }
+    .dashboard-v2 { --db-radius: 8px; }
+    .dashboard-v2 .cs-badge-num { display: none; }
+    .dashboard-v2 .cs-section-head { gap: 0; }
+    .dashboard-v2 .cs-readonly-banner { border-style: solid; background: var(--cs-shade); font-size: var(--cs-type-compact-size); }
+    .db-page-header {
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--cs-hairline);
+      margin-bottom: 20px;
+    }
+    .db-page-subtitle {
+      max-width: 720px;
+      margin: 0;
+      color: var(--cs-text-soft);
+      font-size: var(--cs-type-compact-size);
+    }
+    .dashboard-v2 .cs-section { margin: 32px 0; }
+    .db-posture {
+      padding: 24px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+      box-shadow: none;
+    }
+    .db-posture-head,
+    .db-panel-head,
+    .db-vertical-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .db-kicker {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--cs-text-soft);
+      font-size: var(--cs-type-label-size);
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+    .db-posture h2 { margin: 0; font-size: var(--cs-type-page-title-size); }
+    .db-posture-summary { margin: 8px 0 0; color: var(--cs-text); font-size: var(--cs-type-body-size); }
+    .db-count {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 10px;
+      border-radius: var(--cs-radius-pill);
+      color: var(--cs-terracotta);
+      background: var(--cs-attention-bg);
+      font-size: var(--cs-type-label-size);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .db-evidence-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--cs-hairline);
+      color: var(--cs-text-soft);
+      font-size: 12px;
+    }
+    .db-evidence-strip strong { color: var(--cs-text); font-weight: 600; }
+    .db-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .db-metric {
+      min-height: 154px;
+      padding: 18px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+      box-shadow: none;
+    }
+    .db-metric.is-unavailable { background: var(--cs-shade); box-shadow: none; }
+    .db-metric-label { display: block; min-height: 42px; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+    .db-metric-value { display: block; margin: 8px 0 10px; font-size: 28px; font-weight: 600; line-height: 1.1; }
+    .db-metric.is-unavailable .db-metric-value { color: var(--cs-navy); font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); }
+    .db-metric-foot { display: block; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); line-height: var(--cs-type-compact-line-height); }
+    .db-signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .db-panel {
+      padding: 20px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+      box-shadow: none;
+    }
+    .db-panel h3 { margin: 0; }
+    .db-panel-meta { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+    .db-distribution { margin-top: 18px; }
+    .db-distribution + .db-distribution { margin-top: 22px; }
+    .db-distribution-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; font-size: 12px; }
+    .db-distribution-label span:last-child { color: var(--cs-text-soft); }
+    .db-attention-grid,
+    .db-vertical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .db-attention-card,
+    .db-vertical {
+      padding: 20px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--db-radius);
+      background: var(--cs-card);
+    }
+    .db-attention-card h3,
+    .db-vertical h3 { margin: 0; font-size: var(--cs-type-lead-size); }
+    .db-attention-value { display: block; margin: 14px 0 8px; font-size: 28px; font-weight: 600; line-height: 1; }
+    .db-fact-list { margin: 12px 0 0; padding: 0; list-style: none; font-size: var(--cs-type-compact-size); }
+    .db-fact-list li > *, .db-panel-head > *, .db-vertical-head > * { min-width: 0; overflow-wrap: anywhere; }
+    .db-fact-list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--cs-hairline); }
+    .db-fact-list li:first-child { border-top: 0; }
+    .db-fact-list span { color: var(--cs-text-soft); }
+    .db-fact-list strong { text-align: right; font-weight: 600; }
+    .db-state {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--cs-radius-pill);
+      font-size: var(--cs-type-label-size);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .db-state.measured { color: var(--cs-sage); background: var(--cs-success-bg); }
+    .db-state.attention { color: var(--cs-terracotta); background: var(--cs-attention-bg); }
+    .db-state.unavailable { color: var(--cs-text-soft); background: var(--cs-shade); }
+    .db-vertical-stats { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 16px 0 0; }
+    .db-vertical-stats span { color: var(--cs-text-soft); font-size: 12px; }
+    .db-vertical-stats b { color: var(--cs-text); font-size: 17px; }
+    .db-unobserved { margin: 18px 0 0; color: var(--cs-text-soft); font-size: 13px; }
+    .db-detail {
+      border-top: 1px solid var(--cs-hairline);
+      border-bottom: 1px solid var(--cs-hairline);
+    }
+    .db-detail summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+      cursor: pointer;
+      list-style: none;
+      font-weight: 600;
+    }
+    .db-detail summary::-webkit-details-marker { display: none; }
+    .db-detail summary:hover { background: var(--cs-shade); }
+    .db-detail summary::after { content: "+"; color: var(--cs-text-soft); font-size: 20px; font-weight: 400; }
+    .db-detail[open] summary::after { content: "-"; }
+    .db-detail-body { padding: 0 0 18px; }
+    .db-detail-links { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; font-size: 13px; }
+    .db-detail-links a { display: inline-flex; min-height: 34px; align-items: center; text-underline-offset: 3px; }
+    .dashboard-v2 .cs-stackbar-legend { gap: 8px 16px; }
+    .dashboard-v2 .cs-stackbar-legend > span { display: inline-flex; align-items: center; gap: 4px; }
+    @media (max-width: 1050px) {
+      .db-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .db-signal-grid,
+      .db-attention-grid,
+      .db-vertical-grid { grid-template-columns: 1fr; }
+      .db-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 500px) {
+      .db-posture-head { flex-direction: column; }
+      .db-posture { padding: 20px; }
+      .db-metric-grid { grid-template-columns: 1fr; }
+      .db-metric { min-height: 0; }
+      .db-metric-label { min-height: 0; }
+      .db-panel-head, .db-vertical-head { flex-wrap: wrap; gap: 8px; }
+      .db-detail summary { flex-wrap: wrap; gap: 8px; }
+      .db-detail-links a { min-height: 44px; }
+    }
+  </style>
+  <link rel="stylesheet" href="assets/dashboard-resources.css?v=resource-map-v1" />
+  <script src="assets/dashboard-resource-data.js?v=resource-map-v2" defer></script>
+  <script src="assets/dashboard-v2-data.js?v=1" defer></script>
+  <script src="assets/dashboard-resource-views.js?v=resource-map-v2" defer></script>
+  <script src="assets/dashboard-resource-preview.js?v=resource-map-v3" defer></script>
+  <script src="assets/dashboard-type-picker.js?v=type-search-v1" defer></script>
+  <script src="assets/dashboard-resources.js?v=resource-map-v1" defer></script>
+  <script src="assets/dashboard-v2-workspace.js?v=1" defer></script>
+  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
+</head>
+<body class="dashboard-preview cs-operator-neutral" data-chat-theme="clear-neutral">
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><pattern id="dr-unknown-pattern" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#F5F5F5"></rect><path d="M-1,1 L1,-1 M0,6 L6,0 M5,7 L7,5" stroke="#A3A3A3" stroke-width="1"></path></pattern></defs></svg>
+  <main class="cs-container cs-page dashboard-v2 ow-page">
+    <div id="resource-hover-preview" class="dr-hover-preview" role="tooltip" hidden></div>
+    <span id="resource-selection-status" class="dr-sr-only" role="status"></span>
+    <header class="cp-header">
+      <div>
+      <h1 class="cs-page-title">
+        <span class="cs-page-domain">Overview</span>
+        <span class="cs-page-separator" aria-hidden="true">/</span>
+        <span class="cs-page-title-current">Resource dashboard</span>
+      </h1>
+      <p class="db-page-subtitle">Observation scope, resource state, and the exceptions that need your attention.</p>
+      </div>
+      <div class="ow-tools"><a href="dashboard.html">Operating dashboard</a><button type="button" class="cs-control-button" id="resource-refresh">Reload fixture</button><span id="resource-refresh-status" role="status"></span></div>
+    </header>
+
+    <div class="cs-readonly-banner">
+      <span><strong>Synthetic preview.</strong> These records make no operational claim. No Azure query or resource action runs here.</span>
+      <details class="dr-preview-controls">
+        <summary>Preview scenarios</summary>
+        <div class="dr-example-options">
+          <div><label for="resource-example-size">Example resources</label><select id="resource-example-size"><option value="24">24</option><option value="100">100</option><option value="1000">1,000</option><option value="10000">10,000</option></select></div>
+          <div><label for="resource-example-state">Inventory example</label><select id="resource-example-state"><option value="complete">Complete</option><option value="partial">Partial</option><option value="stale">Stale</option><option value="loading">Loading</option><option value="error">Read error</option><option value="empty">Empty</option></select></div>
+          <p>Local, deterministic fixtures. Changing a scenario clears selection and filters. No server performance or real inventory is represented.</p>
+        </div>
+      </details>
+    </div>
+
+    <section id="resource-read-state" class="dr-read-state" hidden aria-label="Inventory read">
+      <div id="resource-loading" role="status"><h2>Loading example inventory</h2><p>Counts are not available yet. This is a paused loading specimen, not a network request.</p><div class="dr-loading-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span></div></div>
+      <div id="resource-read-error" role="alert"><h2>Example inventory could not be read</h2><p>No inventory totals or all-clear state can be established. This is a simulated read error.</p></div>
+      <button id="resource-example-restore" type="button" class="cs-control-button">Show complete example</button>
+    </section>
+    <div id="resource-data">
+    <section class="dr-scope" aria-label="Observation scope">
+      <div><span class="db-kicker">Observation scope</span><h2 id="resource-scope-name">Example subscription</h2>
+        <p id="resource-scope-description">3 observed resource groups / Inventory only, not execution authority</p></div>
+      <div class="dr-snapshot"><span>Snapshot <code id="resource-snapshot-id">demo-24-complete-20260905-1200</code></span>
+        <time datetime="2026-09-05T12:00:00+09:00">05 Sep 2026, 12:00 KST</time>
+        <span class="dr-status" data-tone="attention" id="resource-snapshot-status">State coverage is partial</span></div>
+    </section>
+    <dl class="dr-summary" id="resource-summary" aria-label="Snapshot counts">
+      <div><dt>Observed resources</dt><dd id="count-resources">24</dd><small>Within this example scope</small></div>
+      <div><dt>Operating state known</dt><dd id="count-known">-</dd><small>Fresh operation / power evidence</small></div>
+      <div><dt>Operating state unknown</dt><dd id="count-unknown">-</dd><small>Missing or stale observations</small></div>
+      <div><dt>Provisioning recorded</dt><dd id="count-provisioning">-</dd><small>Independent provisioning observations</small><span id="count-na" hidden></span></div>
+    </dl>
+
+    <div class="dr-workspace">
+      <section class="dr-resource-panel" aria-labelledby="resource-map-title">
+        <header class="dr-panel-head">
+          <div><h2 id="resource-map-title" tabindex="-1">Resource landscape</h2><p id="resource-view-note">One cell is one resource. Adjacency is not a dependency.</p></div>
+          <div class="dr-view-switch" role="group" aria-label="Resource presentation">
+            <button class="cs-control-button" type="button" data-resource-view="groups" aria-pressed="false">Groups</button>
+            <button class="cs-control-button" type="button" data-resource-view="honeycomb" aria-pressed="true">Honeycomb</button>
+            <button class="cs-control-button" type="button" data-resource-view="list" aria-pressed="false">List</button>
+          </div>
+        </header>
+        <div class="dr-lenses" role="group" aria-label="Color by">
+          <button type="button" data-resource-lens="operation" aria-pressed="true">Operating state</button>
+          <button type="button" data-resource-lens="provisioning" aria-pressed="false">Provisioning</button>
+          <button type="button" data-resource-lens="availability" aria-pressed="false">Availability</button>
+          <button type="button" data-resource-lens="observation" aria-pressed="false">Observation</button>
+          <div class="dr-density-switch" id="resource-density" role="group" aria-label="Cell density"><button type="button" data-resource-density="dense" aria-pressed="false">Dense</button><button type="button" data-resource-density="comfortable" aria-pressed="true">Comfortable</button></div>
+        </div>
+        <p class="dr-density-note" id="resource-density-note" hidden>Touch and narrow views use larger cells. Tap to pin details, or switch to List.</p>
+        <nav id="resource-breadcrumb" class="dr-breadcrumb" aria-label="Selected resource scope" hidden><button type="button" class="dr-text-link" id="resource-scope-reset">All scope</button><span id="resource-scope-label"></span></nav>
+        <div class="dr-filters">
+          <div><label for="resource-subscription">Subscription</label><select id="resource-subscription"><option value="all">All subscriptions</option></select></div>
+          <div><label for="resource-group">Group</label><select id="resource-group"><option value="all">All groups</option><option value="application">Application</option><option value="platform">Platform</option><option value="data">Data</option></select></div>
+          <div><label id="resource-type-label" for="resource-type">Type</label>
+            <div class="cs-combobox dr-type-picker" id="resource-type-picker">
+              <div class="cs-combobox-control">
+                <input id="resource-type" type="text" role="combobox" aria-expanded="false" aria-controls="resource-type-options" aria-autocomplete="list" aria-haspopup="listbox" placeholder="Search types..." autocomplete="off" spellcheck="false" maxlength="200" />
+                <button class="dr-type-clear" id="resource-type-clear" type="button" aria-label="Clear type filter" title="Clear type filter" hidden>X</button>
+              </div>
+              <div class="cs-combobox-list dr-type-popup" id="resource-type-popup" hidden>
+                <p id="resource-type-results" role="status"></p>
+                <div id="resource-type-options" role="listbox" aria-labelledby="resource-type-label"></div>
+                <p id="resource-type-help"></p>
+              </div>
+            </div>
+          </div>
+          <div class="dr-search"><label for="resource-search">Find resource</label><input id="resource-search" type="search" placeholder="Name or identifier" maxlength="200" /></div>
+        </div>
+        <div class="dr-map-meta"><span id="resource-count" role="status" aria-live="polite"></span><a class="dr-attention-jump dr-text-link" href="#attention-title">Check first</a><button type="button" class="cs-control-button is-quiet" id="resource-reset">Clear filters</button></div>
+        <div class="dr-legend" id="resource-legend" role="group" aria-label="Filter by state"></div>
+        <div id="resource-groups" class="dr-group-grid" hidden></div>
+        <div id="resource-honeycomb" class="dr-honeycomb" aria-label="Resource status map"></div>
+        <div id="resource-list" class="dr-list-wrap" hidden>
+          <table class="dr-list">
+            <caption>Resources in the selected scope. Status follows the selected color view.</caption>
+            <thead><tr><th scope="col">Resource</th><th scope="col">Type / group</th><th scope="col">State</th><th scope="col">Last observation</th></tr></thead>
+            <tbody id="resource-list-body"></tbody>
+          </table>
+        </div>
+        <div class="dr-empty" id="resource-empty" hidden><h3 id="resource-empty-title">No matching resources</h3><p>No example record matches these filters. This does not establish absence outside the received snapshot.</p></div>
+        <nav class="dr-pagination" id="resource-pagination" aria-label="Resource pages" hidden><button type="button" class="cs-control-button" id="resource-previous">Previous page</button><span id="resource-page-label" role="status"></span><button type="button" class="cs-control-button" id="resource-next">Next page</button></nav>
+        <p class="dr-lens-note" id="resource-lens-note"></p>
+        <p class="dr-boundary" id="resource-page-boundary"></p>
+      </section>
+
+      <div class="dr-side" id="resource-side">
+        <section class="dr-inspector" id="resource-inspector" aria-labelledby="resource-inspector-title" tabindex="-1" hidden>
+          <div id="resource-selection-empty"><h2 id="resource-inspector-title">Select a resource</h2></div>
+          <div id="resource-selection" hidden>
+            <header class="dr-panel-head"><div><span class="db-kicker" id="resource-selected-type"></span><h2 id="resource-selected-name"></h2><p id="resource-selected-scope"></p></div><div class="dr-view-switch"><button type="button" class="cs-control-button" id="resource-back">Back to resources</button><button type="button" class="cs-control-button" id="resource-selection-clear">Clear selection</button></div></header>
+            <p class="dr-selection-filtered" id="resource-selection-filtered" hidden>This selected resource is outside the current map filters. Its identity has not changed.</p>
+            <p class="dr-selection-filtered" id="resource-selection-paged" hidden>This selected resource is not on the displayed resource page. Its snapshot and identity have not changed.</p>
+            <dl class="dr-resource-facts" id="resource-selected-facts"></dl>
+            <p class="dr-insight" id="resource-selected-note"></p>
+            <a id="resource-ontology-link" href="ontology-instances-2d.html">Inspect ontology record</a>
+            <details class="dr-record" id="resource-evidence"><summary>Recorded evidence <span>Synthetic snapshot excerpt</span></summary><pre id="resource-selected-evidence"></pre></details>
+          </div>
+        </section>
+      <aside class="dr-attention" aria-labelledby="attention-title">
+        <header class="dr-panel-head"><div><h2 id="attention-title" tabindex="-1">Check first</h2><p>Recorded highlights / Independent of map filters</p></div></header>
+        <p id="resource-priorities-empty" hidden>No exception records in this example. This is not an all-clear verdict.</p>
+        <ol class="dr-priorities" id="resource-priorities">
+          <li><span data-priority-state="app-web-01"></span><h3>Application endpoint needs review</h3><p><code>web-checkout-01</code> was recorded running with unavailable availability. Check freshness before using that observation.</p><p class="dr-priority-meta">Owner: not recorded · 11:58 KST</p><button type="button" class="dr-text-link" data-inspect-resource="app-web-01">Inspect web-checkout-01</button></li>
+          <li><span data-priority-state="data-db-01"></span><h3>Database needs availability review</h3><p><code>db-orders-01</code> has no independent recovery observation in this snapshot.</p><p class="dr-priority-meta">Owner: not recorded · 11:57 KST</p><button type="button" class="dr-text-link" data-inspect-resource="data-db-01">Inspect db-orders-01</button></li>
+          <li><span class="dr-status" data-tone="unknown">Read denied</span><h3>Current state cannot be read</h3><p><code>vm-build-02</code> is inventoried, but its state reader has insufficient permission.</p><p class="dr-priority-meta">Last successful read: not recorded</p><button type="button" class="dr-text-link" data-inspect-resource="platform-vm-02">Inspect vm-build-02</button></li>
+        </ol>
+        <p class="dr-boundary">Three authored highlights, not a complete queue or ranking. Inspect clears filters and opens the exact record, even outside the displayed page. No investigation or action starts.</p>
+      </aside>
+      </div>
+    </div>
+
+    <div class="dr-lower-grid">
+      <section class="dr-history-panel" aria-labelledby="changes-title">
+        <header class="dr-panel-head"><div><h2 id="changes-title">State history</h2><p>Not connected in this projection</p></div></header>
+        <ol class="dr-changes" id="resource-changes" hidden></ol>
+        <p class="dr-boundary">The current recorded-state response does not establish a continuous history, transition onset, or recovery duration. <a href="ontology-instances-2d.html">Inspect ontology evidence</a>.</p>
+      </section>
+      <section class="dr-history-panel" aria-labelledby="coverage-title">
+        <header class="dr-panel-head"><div><h2 id="coverage-title">Observation coverage</h2><p>Different sources establish different facts.</p></div></header>
+        <dl class="dr-coverage">
+          <div><dt>Inventory</dt><dd id="inventory-coverage"></dd></div>
+          <div><dt>Operation / power</dt><dd id="operation-coverage"></dd></div>
+          <div><dt>Availability</dt><dd id="availability-coverage"></dd></div>
+          <div><dt>Metrics / logs</dt><dd><span class="dr-status" data-tone="unknown">Not connected</span><span>No utilization or root-cause claim</span></dd></div>
+        </dl>
+        <p class="dr-boundary">Observation readiness is not resource health. Missing reads are not healthy resources or zero incidents.</p>
+      </section>
+    </div>
+    </div>
+
+    <section class="ow-gap"><h2>Snapshot provenance</h2><div class="ov-evidence"><span>Source: example-recorded-state</span><span>Observation kind: synthetic OBSERVED fixture</span><span>Ontology generation: example-generation-1</span><span>Manifest digest: not recorded</span><span>Pending changes: unavailable</span></div><p class="ow-note">Each state has its own evidence boundary. Selection, visibility, provisioning success, and inventory presence do not grant execution authority or prove availability.</p><a href="dashboard.html">Open operating outcomes dashboard</a></section>
+  </main>
+
+  <footer class="cs-footer">
+    <div class="cs-container cs-flex-between cs-wrap db-footer">
+      <span>FDAI Dashboard mock - decision-first, evidence-aware, read-only.</span>
+      <span class="cs-muted">Illustrative values - no customer data</span>
+    </div>
+  </footer>
+</body>
+</html>

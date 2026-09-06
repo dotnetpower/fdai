@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cost governance - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
+  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/cost-governance-preview.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
+  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <script type="module" src="assets/cost-governance-preview.js?v=1"></script>
+</head>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page ov-page ow-page cg-page" data-overview-tabs="overview">
+    <header class="cp-header"><div><h1>Cost governance</h1><p>Observed cost, resource efficiency, and governed optimization without claiming unverified savings.</p></div><a href="llm-cost.html">LLM usage</a></header>
+    <nav class="ov-tabs cs-settings-workspace-tabs" role="tablist" aria-label="Cost governance">
+      <button type="button" role="tab" id="cost-tab-overview" aria-controls="overview" data-overview-tab="overview">Overview</button>
+      <button type="button" role="tab" id="cost-tab-efficiency" aria-controls="resource-efficiency" data-overview-tab="resource-efficiency">Resource efficiency</button>
+      <button type="button" role="tab" id="cost-tab-cases" aria-controls="optimization-cases" data-overview-tab="optimization-cases">Optimization cases</button>
+      <button type="button" role="tab" id="cost-tab-outcomes" aria-controls="outcomes" data-overview-tab="outcomes">Outcomes</button>
+    </nav>
+    <p data-overview-error hidden role="status">This cost detail is unavailable. Choose a registered view.</p>
+    <div class="cg-context-bar">
+      <p class="ow-note"><strong>Synthetic preview / Read-only</strong><span id="cost-coverage">Complete fixture / 6 observations</span></p>
+      <details class="cg-provenance"><summary>Evidence and preview settings</summary><div>
+        <p class="ow-note">Local fixtures only. Candidate savings are not realized savings. No requests, approvals, or changes are submitted.</p>
+        <div class="ov-evidence"><span>Scope: example-subscription</span><span>Source: synthetic-dev</span><span>Period: retained 30-day window</span><span>Frozen as of 2026-07-22T15:18:00Z</span></div>
+        <p class="ow-note">Standard-price reference, not an invoice.</p>
+        <div class="ow-tools"><label>Preview evidence state<select id="cost-scenario" class="cs-control-select"><option value="available">Available example</option><option value="partial">Incomplete coverage</option><option value="empty">Empty projection</option><option value="unavailable">Source unavailable</option><option value="denied">Access required</option><option value="error">Read error</option><option value="loading">Loading specimen</option></select></label></div>
+      </div></details>
+    </div>
+    <div id="cost-read-state" hidden></div>
+    <div id="cost-data">
+      <section id="overview" data-overview-panel="overview" role="tabpanel" aria-labelledby="cost-tab-overview">
+        <div class="ow-grid ov-section">
+          <section class="cg-visual"><div class="ov-section-head"><div><h2>Cost trend and budget</h2><p>Retained cost observations; forecast is separately projected.</p></div><label class="cg-budget">Budget<select class="cs-control-select" id="cost-budget"><option value="main">Example operating budget</option><option value="secondary">Example platform budget</option></select></label></div>
+            <div class="cg-metric-rail"><a href="#resource-efficiency"><span>Observed cost</span><strong id="budget-current">$4,500</strong></a><a href="#resource-efficiency"><span>Forecast</span><strong id="budget-forecast">$5,700</strong></a><a href="#resource-efficiency"><span>Budget used</span><strong id="budget-share">75%</strong><small id="budget-total">of $6,000</small></a><a href="#outcomes"><span>Verified savings</span><strong>Unavailable</strong></a></div>
+            <svg class="cg-trend" viewBox="0 0 640 240" role="img" aria-label="Synthetic cumulative cost: 600, 1400, 2100, 2900, 3800, 4500 USD">
+              <path class="grid" d="M48 28H620M48 76H620M48 124H620M48 172H620M48 220H620" />
+              <path class="area" d="M48 196L160 164L275 136L390 104L505 68L620 40V220H48Z" /><path class="line" d="M48 196L160 164L275 136L390 104L505 68L620 40" />
+              <text x="4" y="224">$0</text><text x="4" y="128">$2.4k</text><text x="4" y="32">$4.8k</text>
+            </svg>
+            <details><summary>Trend observations</summary><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Date (UTC)</th><th>Cumulative USD</th></tr></thead><tbody><tr><td>2026-06-23</td><td>600</td></tr><tr><td>2026-06-29</td><td>1,400</td></tr><tr><td>2026-07-05</td><td>2,100</td></tr><tr><td>2026-07-11</td><td>2,900</td></tr><tr><td>2026-07-17</td><td>3,800</td></tr><tr><td>2026-07-22</td><td>4,500</td></tr></tbody></table></div></details>
+            <p class="ow-note">Trend covers the retained example scope; budget selection changes only the selected budget projection. Verified contribution is unavailable.</p>
+          </section>
+          <section class="cg-visual"><h2>Where spend accumulates</h2><p class="ow-note">Same-currency service groups. Provider service totals do not establish resource-level allocation.</p>
+            <div class="cg-spend-source">Example subscription <strong>$4,500 USD</strong></div>
+            <div class="ov-bars"><a href="#resource-efficiency" class="ov-bar-row"><span>Compute</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:53.33%"></i></span><strong>$2,400</strong></a><a href="#resource-efficiency" class="ov-bar-row"><span>Database</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:33.33%"></i></span><strong>$1,500</strong></a><a href="#resource-efficiency" class="ov-bar-row"><span>Storage</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:13.34%"></i></span><strong>$600</strong></a></div>
+            <p class="ow-note">3 service groups / 6 retained observations / Resource attribution unavailable</p><a href="#resource-efficiency">Inspect resource efficiency</a>
+          </section>
+          <section class="cg-visual"><h2>Cost drivers</h2><p class="ow-note">Observed relative change, not causal attribution.</p><ul class="ov-list"><li><a href="#optimization-cases">Compute</a><strong>+20%</strong></li><li><a href="#optimization-cases">Database</a><strong>+5%</strong></li><li><a href="#optimization-cases">Storage</a><strong>Unavailable baseline</strong></li></ul></section>
+          <section class="cg-visual"><h2>Required attention</h2><ul class="ov-list"><li><a href="#optimization-cases">Candidate recommendations</a><strong>3</strong></li><li><a href="#resource-efficiency">Missing utilization</a><strong>1 candidate</strong></li><li><a href="#outcomes">Settlement evidence</a><strong>Not connected</strong></li></ul><p class="ow-note">No browser-derived approval status, savings realization, or safe-capacity verdict.</p></section>
+        </div>
+      </section>
+      <section id="resource-efficiency" data-overview-panel="resource-efficiency" role="tabpanel" aria-labelledby="cost-tab-efficiency" hidden>
+        <div class="ow-metrics"><a class="ow-metric" href="#overview"><span>Observed run rate</span><strong>$4,500</strong><small>Retained USD observations</small></a><a class="ow-metric" href="#optimization-cases"><span>Candidate opportunity</span><strong>$320 / mo</strong><small>2 priced candidates / 1 unpriced</small></a><a class="ow-metric" href="#cost-resource-table"><span>Capacity risk</span><strong>Unavailable</strong><small>Utilization coverage incomplete</small></a><a class="ow-metric" href="#outcomes"><span>Verified savings</span><strong>Unavailable</strong><small>No settlement projection</small></a></div>
+        <section class="cg-visual"><h2>Candidate efficiency map</h2><p class="ow-note">Choose a point to inspect its evidence. Utilization and estimated savings are independent projected fields.</p>
+          <div class="cg-map" role="group" aria-label="Candidate utilization versus monthly opportunity"><span class="cg-map-axis">Estimated savings / month</span><div class="cg-map-field"><button type="button" class="cg-point" style="left:12%;bottom:72%" data-cost-candidate="example-compute" aria-label="Example compute: 12 percent utilization, 240 USD monthly candidate savings">Compute</button><button type="button" class="cg-point" style="left:35%;bottom:26%" data-cost-candidate="example-database" aria-label="Example database: 35 percent utilization, 80 USD monthly candidate savings">Database</button></div><span class="cg-map-foot">Utilization 0-100% / Storage omitted: utilization and savings unknown</span></div>
+        </section>
+        <div class="ow-flow" aria-label="Governance boundary"><div>3 candidates<strong>Not approved</strong></div><div>Capacity evidence<strong>Incomplete</strong></div><div>Execution eligibility<strong>Not evaluated</strong></div><div>Expected effect<strong>Not verified</strong></div></div>
+        <div class="ow-inspection">
+          <section id="cost-resource-table"><div class="ov-section-head"><div><h2>Resource candidates</h2><p>Projected recommendations, not executable instructions.</p></div></div><div class="ow-tools"><label>Find candidate<input class="cs-control-input" id="cost-search" type="search" maxlength="200" placeholder="Problem, solution, or resource type" /></label></div>
+            <div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Candidate</th><th>Resource type</th><th>Utilization</th><th>Monthly opportunity</th></tr></thead><tbody id="cost-candidate-rows"></tbody></table></div><p id="cost-row-count" class="ow-note" role="status"></p>
+          </section>
+          <aside class="ow-inspector" aria-label="Selected recommendation" id="cost-inspector"></aside>
+        </div>
+      </section>
+      <section id="optimization-cases" data-overview-panel="optimization-cases" role="tabpanel" aria-labelledby="cost-tab-cases" hidden>
+        <div class="ow-metrics"><a class="ow-metric" href="#cost-case-list"><span>Optimization cases</span><strong>Unavailable</strong><small>Recommendations are not approved cases</small></a><a class="ow-metric" href="#resource-efficiency"><span>Candidate opportunity</span><strong>$320 / mo</strong><small>One candidate unpriced</small></a><a class="ow-metric" href="hil.html"><span>Pending approval</span><strong>Unavailable</strong><small>No linked approval projection</small></a><a class="ow-metric" href="#resource-efficiency"><span>Capacity protection</span><strong>Unavailable</strong><small>One missing utilization observation</small></a></div>
+        <div class="ow-grid"><section class="cg-visual"><h2>Opportunity mix</h2><div class="ov-bars"><a href="#resource-efficiency" class="ov-bar-row"><span>Compute</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:75%"></i></span><strong>$240</strong></a><a href="#resource-efficiency" class="ov-bar-row"><span>Database</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:25%"></i></span><strong>$80</strong></a></div><p class="ow-note">Known USD candidate estimates only. Net effect and realized savings unavailable.</p></section><section class="cg-visual"><h2>Governed decision path</h2><div class="ow-flow"><div>Projected<strong>3 candidates</strong></div><div>Approved<strong>Unknown</strong></div><div>Executed<strong>Unknown</strong></div><div>Verified<strong>Unknown</strong></div></div><p class="ow-note">No funnel conversion rate is inferred from missing stages.</p></section></div>
+        <section id="cost-case-list" class="ov-section"><h2>Candidate queue</h2><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Candidate</th><th>Problem</th><th>Disposition</th><th>Detail</th></tr></thead><tbody><tr><td>Example compute</td><td>Low recorded utilization</td><td>Recommendation only</td><td><button class="ow-row-action" data-open-cost-candidate="example-compute" type="button">Inspect evidence</button></td></tr><tr><td>Example database</td><td>Capacity review suggested</td><td>Recommendation only</td><td><button class="ow-row-action" data-open-cost-candidate="example-database" type="button">Inspect evidence</button></td></tr><tr><td>Example storage</td><td>Cost baseline missing</td><td>Evidence incomplete</td><td><button class="ow-row-action" data-open-cost-candidate="example-storage" type="button">Inspect evidence</button></td></tr></tbody></table></div></section>
+      </section>
+      <section id="outcomes" data-overview-panel="outcomes" role="tabpanel" aria-labelledby="cost-tab-outcomes" hidden>
+        <div class="ow-metrics"><a class="ow-metric" href="#cost-effect-list"><span>Verified savings</span><strong>Unavailable</strong><small>No settlement evidence</small></a><a class="ow-metric" href="#cost-effect-list"><span>Savings realization</span><strong>Unavailable</strong><small>No attributable baseline</small></a><a class="ow-metric" href="#cost-effect-list"><span>SLO regression</span><strong>Unavailable</strong><small>No independent observation</small></a><a class="ow-metric" href="#cost-effect-list"><span>Pending settlement</span><strong>Unavailable</strong><small>Not a zero count</small></a></div>
+        <div class="ow-grid"><section class="cg-visual"><h2>Savings reconciliation</h2><div class="cg-unavailable-chart"><strong>No settlement projection</strong><span>Baseline, observed spend, and attributable effect cannot be reconciled.</span></div><a href="#cost-effect-list">Inspect effect evidence</a></section><section class="cg-visual"><h2>Unit economics</h2><div class="cg-unavailable-chart"><strong>Unit cost unavailable</strong><span>No workload denominator or verified cost outcome is supplied.</span></div><a href="#cost-effect-list">Inspect effect evidence</a></section></div>
+        <section id="cost-effect-list" class="ov-section"><h2>Effect evidence</h2><div class="ow-gap"><strong>Not connected</strong><p class="ow-note">No settlement records in this fixture. Recommendations, dispatch, and broker acceptance do not establish savings or a successful operational effect.</p><a href="#optimization-cases">Return to candidate evidence</a></div></section>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

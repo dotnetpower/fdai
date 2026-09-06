@@ -483,11 +483,12 @@ rollback contract makes the request ineligible for execution.
 
 ## Resource-first Dashboard preview
 
-The [Dashboard mock](../../../mocks/ui/dashboard.html) is a synthetic presentation study, not a
+The [resource Dashboard mock](../../../mocks/ui/dashboard-v2.html) is a synthetic presentation study, not a
 production inventory reader. Its local fixture adapter covers 24, 100, 1,000, and 10,000 resources.
 
 | Concern | Preview and adoption contract |
 |---------|-------------------------------|
+| Console alignment | Overview, Operations, and Agents previews follow the current Console panel registry, including separate executive and resource Dashboards. The [operator preview checks](../../../console/tests/e2e/operator-workspaces.spec.ts) cover route inventory, local interactions, and responsive presentation. Fixtures never submit operational requests; queued examples do not apply lifecycle changes or fabricate audit evidence. |
 | Large scopes | Above 48 resources, start with a dense individual-resource honeycomb. Smaller examples start comfortable. Groups remain an optional subscription/resource-group drill-down, not a replacement for the resource overview. |
 | Rendering bound | Dense cells are 24 by 28 px. The available width selects up to 34 columns and 14 rows, at most 476 records per page. Comfortable and list views retain a 48-record bound; group summaries retain six. Only the active page/view is rendered. These presentation limits are not server capacity claims. |
 | Counts and selection | Separate observed inventory, filter matches, and displayed records. Legend counts cover the filtered scope before the state filter. Keep selected identity and evidence when it is off-page or outside filters; changing the example generation clears selection. |
@@ -614,11 +615,10 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 
 ## Settings and component presentation boundary
 
-The Console settings routes and static design mocks share the Calm Slate control tokens and
-presentation primitives. Desktop form controls use a compact 34 px standard height and 28 px
-compact action height. Touch layouts use 44 px targets. Settings keep browser-local preferences,
-account preferences, deployment policy, evidence, and authority boundaries visually distinct
-without changing their persistence or authorization contracts.
+Console settings and static mocks share Calm Slate control tokens and presentation primitives.
+Desktop forms use 34 px standard controls and 28 px compact actions; touch targets use 44 px.
+Browser-local preferences, account preferences, deployment policy, evidence, and authority remain
+visually distinct without changing persistence or authorization contracts.
 
 `/settings/iam` uses route-owned bilingual messages and responsive styles. It distinguishes the
 verified FDAI Owner role from tenant administration, presents request, review, protected apply,

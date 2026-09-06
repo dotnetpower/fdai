@@ -339,11 +339,15 @@
   }
 
   function renderCell(value) {
+    var rendered;
     if (value && typeof value === "object") {
       if (value.kind === "status") {
-        return '<span class="cp-status is-' + escapeHtml(value.tone) + '">' + escapeHtml(value.text) + "</span>";
+        rendered = '<span class="cp-status is-' + escapeHtml(value.tone) + '">' + escapeHtml(value.text) + "</span>";
       }
-      if (value.kind === "code") return '<code class="cp-code">' + escapeHtml(value.text) + "</code>";
+      if (value.kind === "code") rendered = '<code class="cp-code">' + escapeHtml(value.text) + "</code>";
+      if (value.kind === "link") rendered = escapeHtml(value.text);
+      if (value.href && rendered) return '<a href="' + escapeHtml(value.href) + '">' + rendered + "</a>";
+      if (rendered) return rendered;
     }
     return escapeHtml(value);
   }
@@ -378,28 +382,30 @@
 
   function renderForm(section) {
     var fields = section.fields.map(function (field, index) {
-      var id = "cp-field-" + index;
+      var id = "cp-field-" + (section.id ? section.id + "-" : "") + index;
       var span = field[3] || 4;
       var control;
       if (field[1] === "select") {
-        control = '<select class="cs-control-select" id="' + id + '">' + field[2].map(function (option) {
-          return "<option>" + escapeHtml(option) + "</option>";
+        control = '<select class="cs-control-select" id="' + id + '"' + (section.disabled ? " disabled" : "") + ">" + field[2].map(function (option) {
+          return "<option" + (section.initialValues && section.initialValues[index] === option ? " selected" : "") + ">" + escapeHtml(option) + "</option>";
         }).join("") + "</select>";
       } else if (field[1] === "checkbox") {
-        control = '<label class="cp-checkbox"><input id="' + id + '" type="checkbox" /> ' + escapeHtml(field[2]) + "</label>";
+        control = '<label class="cp-checkbox"><input id="' + id + '" type="checkbox"' + (section.disabled ? " disabled" : "") + " /> " + escapeHtml(field[2]) + "</label>";
       } else {
-        control = '<input class="cs-control-input" id="' + id + '" type="' + escapeHtml(field[1]) + '"' +
+        control = '<input class="cs-control-input" id="' + id + '" type="' + escapeHtml(field[1]) + '"' + (section.disabled ? " disabled" : "") +
+          (section.initialValues && section.initialValues[index] !== undefined ? ' value="' + escapeHtml(section.initialValues[index]) + '"' : "") +
           (field[2] ? ' placeholder="' + escapeHtml(field[2]) + '"' : "") + " />";
       }
       return '<div class="cp-field" style="--cp-field-span:' + span + '"><label for="' + id + '">' +
         escapeHtml(field[0]) + "</label>" + control + "</div>";
     }).join("");
     return '<form class="cp-form" data-cp-form><p class="cp-form-note">Synthetic controls mirror the Console form and do not submit data.</p>' +
-      fields + '<div class="cp-form-actions"><button class="cs-control-button is-primary" type="submit">' +
+      fields + '<div class="cp-form-actions"><button class="cs-control-button is-primary" type="submit"' + (section.disabled ? " disabled" : "") + ">" +
       escapeHtml(section.action) + "</button></div></form>";
   }
 
   function renderWorkspace(section) {
+    if (section.records) return window.FDAI_OPERATIONS_RENDERER.workspace(section);
     return '<div class="cp-workspace"><aside class="cp-workspace-list"><h3>' +
       escapeHtml(section.listTitle) + "</h3><ul>" + section.list.map(function (item, index) {
         return '<li class="' + (index === 0 ? "is-selected" : "") + '"><strong>' + escapeHtml(item[0]) +
@@ -463,6 +469,7 @@
   function mount() {
     var root = document.querySelector("[data-console-parity-page]");
     if (!root) return;
+    if (window.FDAI_OPERATIONS_WORK_PAGES) Object.assign(pages, window.FDAI_OPERATIONS_WORK_PAGES);
     var pageId = document.body.getAttribute("data-console-page");
     var page = pages[pageId];
     if (!page) {
@@ -474,18 +481,20 @@
       escapeHtml(page.title) + "</h1><p>" + escapeHtml(page.subtitle) +
       '</p></div><div class="cp-header-meta"><span>Synthetic specimen</span><strong>' +
       escapeHtml(common.asOf) + "</strong></div></header>" +
-      '<div class="cs-readonly-banner"><strong>Read-only specimen.</strong>' +
-      escapeHtml(page.note || common.syntheticNote) + "</div>" +
-      '<section class="cp-kpis" aria-label="' + escapeHtml(page.title) + ' summary" style="--cp-kpi-columns:' +
+      (page.views ? '<details class="cs-readonly-banner op-preview-note"><summary><strong>Synthetic preview.</strong> No live requests or actions.</summary><p>' +
+        escapeHtml(page.note || common.syntheticNote) + "</p></details>" :
+        '<div class="cs-readonly-banner"><strong>Read-only specimen.</strong>' + escapeHtml(page.note || common.syntheticNote) + "</div>") +
+      '<section class="cp-kpis" data-kpi-count="' + page.kpis.length + '" aria-label="' + escapeHtml(page.title) + ' summary" style="--cp-kpi-columns:' +
       Math.min(4, page.kpis.length) + '">' + page.kpis.map(function (item) {
-        return '<article class="cp-kpi"><span>' + escapeHtml(item[0]) + "</span><strong>" +
+        return '<article class="cp-kpi"><span>' + escapeHtml(item[0]) + '</span><strong' + (/^[\d$]/.test(String(item[1])) ? "" : ' class="op-value-label"') + ">" +
           escapeHtml(item[1]) + "</strong><small>" + escapeHtml(item[2]) + "</small></article>";
-      }).join("") + "</section>" + page.sections.map(renderSection).join("");
+      }).join("") + "</section>" + (page.views ? window.FDAI_OPERATIONS_RENDERER.views(page) : page.sections.map(renderSection).join(""));
 
     root.querySelectorAll("[data-cp-form]").forEach(function (form) {
       form.addEventListener("submit", function (event) { event.preventDefault(); });
     });
     root.querySelectorAll(".cp-tab").forEach(function (tab) {
+      if (tab.hasAttribute("data-op-tab")) return;
       tab.addEventListener("click", function () {
         root.querySelectorAll(".cp-tab").forEach(function (candidate) {
           candidate.setAttribute("aria-selected", String(candidate === tab));
@@ -495,8 +504,15 @@
         });
       });
     });
+    if (document.body.classList.contains("cs-operator-neutral") && window.FDAI_OPERATIONS_RENDERER) {
+      window.FDAI_OPERATIONS_RENDERER.bind(root, page, pageId).catch(function (error) {
+        console.error("Operations preview could not initialize.", error);
+        root.innerHTML = '<div role="alert"><strong>Operations preview unavailable</strong><p>The local fixture or navigation contract could not be loaded.</p></div>';
+      });
+    }
   }
 
   window.FDAI_CONSOLE_PARITY_PAGES = pages;
+  window.FDAI_CONSOLE_PARITY_UI = { section: renderSection, facts: renderFacts, escape: escapeHtml };
   document.addEventListener("DOMContentLoaded", mount);
 })();

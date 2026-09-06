@@ -176,20 +176,21 @@
     <aside class="side" id="master-nav" aria-label="Master navigation">
       <label class="nav-search">
         <span class="sr-only">Filter design mocks</span>
-        <input type="search" placeholder="Filter 91 design mocks" autocomplete="off" data-nav-search />
+        <input type="search" placeholder="Filter design mocks" autocomplete="off" data-nav-search />
       </label>
-      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">56 pages</span></div>
+      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">57 pages</span></div>
       <nav class="console-groups" aria-label="Console mock navigation">
         <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Overview</span><span class="count">7</span></button>
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Overview</span><span class="count">8</span></button>
           <ul>
             <li><a data-page="mocks/ui/dashboard.html" data-title="Dashboard"><span class="dot is-sage"></span>Dashboard</a></li>
+            <li><a data-page="mocks/ui/dashboard-v2.html" data-title="Dashboard v2"><span class="dot is-steel"></span>Dashboard v2</a></li>
             <li><a data-page="mocks/ui/operating-outcomes.html" data-title="Operating outcomes"><span class="dot is-steel"></span>Operating outcomes</a></li>
             <li><a data-page="mocks/ui/control-assurance.html" data-title="Control assurance"><span class="dot is-terracotta"></span>Control assurance</a></li>
             <li><a data-page="mocks/ui/verticals.html" data-title="Vertical outcomes"><span class="dot is-plum"></span>Vertical outcomes</a></li>
             <li><a data-page="mocks/ui/trust-routing.html" data-title="Trust routing"><span class="dot is-teal"></span>Trust routing</a></li>
             <li><a data-page="mocks/ui/llm-cost.html" data-title="LLM cost"><span class="dot is-navy"></span>LLM cost</a></li>
-            <li><a data-page="mocks/ui/finops-resource-efficiency.html" data-title="Cost Governance"><span class="dot is-steel"></span>Cost Governance</a></li>
+            <li><a data-page="mocks/ui/cost-governance.html" data-title="Cost Governance"><span class="dot is-steel"></span>Cost Governance</a></li>
           </ul>
         </section>
 
@@ -283,9 +284,10 @@
         </section>
       </nav>
 
-      <button class="fam is-calm" type="button"><span class="swatch"></span><span class="family-label">Design studies</span><span class="count">19 pages</span></button>
+      <button class="fam is-calm" type="button"><span class="swatch"></span><span class="family-label">Design studies</span><span class="count">20 pages</span></button>
       <ul>
         <li><a data-page="mocks/ui/components.html" data-title="Component gallery"><span class="dot"></span>Component gallery</a></li>
+        <li><a data-page="mocks/ui/finops-resource-efficiency.html" data-title="Resource efficiency study"><span class="dot is-steel"></span>Resource efficiency study</a></li>
         <li><a data-page="mocks/ui/typography.html" data-title="Typography"><span class="dot is-steel"></span>Typography</a></li>
         <li><a data-page="mocks/ui/deck.html" data-title="Command deck"><span class="dot is-plum"></span>Command deck</a></li>
         <li><a data-page="mocks/ui/deck-sources.html" data-title="Command deck sources"><span class="dot is-teal"></span>Command deck sources</a></li>
@@ -358,6 +360,7 @@
       const preview = document.getElementById('preview');
       const navToggle = document.querySelector('[data-nav-toggle]');
       const navSearch = document.querySelector('[data-nav-search]');
+      navSearch.placeholder = 'Filter ' + items.length + ' design mocks';
       const navGroups = Array.from(document.querySelectorAll('.nav-group'));
       const mockFamilies = Array.from(document.querySelectorAll('button.fam'));
       const incidentControl = document.querySelector('[data-header-page]');
@@ -368,9 +371,10 @@
       let currentSection = '';
 
       function parseRouteHash() {
-        const raw = decodeURIComponent(location.hash.replace(/^#/, ''));
-        const parts = raw.split('::');
-        return { page: parts[0], section: parts[1] || '' };
+        const parts = location.hash.replace(/^#/, '').split('::');
+        const queryAt = parts[0].indexOf('?');
+        const pathname = queryAt < 0 ? parts[0] : parts[0].slice(0, queryAt);
+        return { page: decodeURIComponent(pathname) + (queryAt < 0 ? '' : parts[0].slice(queryAt)), section: decodeURIComponent(parts[1] || '') };
       }
 
       function routeHash(page, section) {
@@ -462,8 +466,9 @@
 
       function open(page, title, section) {
         if (!page) return;
+        const basePage = page.split('?')[0];
         if (!title) {
-          const a = items.find((el) => el.dataset.page === page);
+          const a = items.find((el) => el.dataset.page === basePage);
           title = a ? a.dataset.title : page.replace(/\.html$/, '');
         }
         const separator = page.includes('?') ? '&' : '?';
@@ -475,20 +480,55 @@
         nowPath.textContent = page;
         nowOpen.setAttribute('href', previewUrl);
         items.forEach((el) => {
-          const active = el.dataset.page === page;
+          const active = el.dataset.page === basePage;
           el.classList.toggle('is-active', active);
           if (active) el.setAttribute('aria-current', 'page');
           else el.removeAttribute('aria-current');
         });
-        const incidentCurrent = incidentControl.dataset.headerPage === page;
+        const incidentCurrent = incidentControl.dataset.headerPage === basePage;
         incidentControl.classList.toggle('is-current', incidentCurrent);
         if (incidentCurrent) incidentControl.setAttribute('aria-current', 'page');
         else incidentControl.removeAttribute('aria-current');
-        revealPageGroup(page);
+        revealPageGroup(basePage);
         requestAnimationFrame(ensureActiveVisible);
         try { history.replaceState(null, '', routeHash(page, currentSection)); } catch (_) { /* opaque hash ok */ }
         if (mobileQuery.matches) setMobileNavOpen(false);
       }
+
+      function syncFrameRoute() {
+        let url;
+        try { url = new URL(frame.contentWindow.location.href); }
+        catch (error) {
+          if (error.name !== 'SecurityError') throw error;
+          console.warn('Preview navigation left the local origin.');
+          return;
+        }
+        if (url.origin !== location.origin || !url.pathname.startsWith('/mocks/ui/')) return;
+        const basePage = url.pathname.slice(1);
+        const item = items.find((entry) => entry.dataset.page === basePage);
+        if (!item) return;
+        const previousBase = currentPage.split('?')[0];
+        url.searchParams.delete('preview');
+        url.searchParams.delete('shell');
+        const section = url.hash.slice(1);
+        currentPage = basePage + url.search;
+        currentSection = !section ? '' : /^[a-z0-9-]+$/.test(section) ? section : previousBase === basePage ? currentSection : '';
+        url.hash = currentSection;
+        nowTitle.textContent = item.dataset.title;
+        nowPath.textContent = basePage;
+        nowOpen.href = url.href;
+        items.forEach((entry) => {
+          const active = entry === item;
+          entry.classList.toggle('is-active', active);
+          if (active) entry.setAttribute('aria-current', 'page'); else entry.removeAttribute('aria-current');
+        });
+        const incidentCurrent = incidentControl.dataset.headerPage === basePage;
+        incidentControl.classList.toggle('is-current', incidentCurrent);
+        if (incidentCurrent) incidentControl.setAttribute('aria-current', 'page'); else incidentControl.removeAttribute('aria-current');
+        revealPageGroup(basePage);
+        history.replaceState(null, '', routeHash(currentPage, currentSection));
+      }
+      frame.addEventListener('load', syncFrameRoute);
 
       items.forEach((a) => {
         a.setAttribute('href', a.dataset.page);
@@ -523,7 +563,9 @@
 
       window.addEventListener('message', (event) => {
         if (event.origin !== location.origin || event.source !== frame.contentWindow) return;
+        if (event.data && event.data.type === 'fdai:mock-route') { syncFrameRoute(); return; }
         if (!event.data || event.data.type !== 'fdai:mock-section' || !/^[a-z0-9-]+$/.test(event.data.section)) return;
+        syncFrameRoute();
         currentSection = event.data.section;
         const directUrl = nowOpen.getAttribute('href').split('#')[0] + '#' + encodeURIComponent(currentSection);
         nowOpen.setAttribute('href', directUrl);

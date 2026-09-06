@@ -5,70 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Control assurance - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v1" />
+  <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
+  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <script src="assets/overview-workspace.js?v=1" type="module"></script>
 </head>
-<body>
-  <main class="cs-container cs-page ov-page">
-    <header class="ov-page-header">
-      <div>
-        <h1>Control assurance</h1>
-        <p>Whether safety controls are holding, where promotion is blocked, and which guard requires operator attention.</p>
-      </div>
-      <div class="ov-window"><span>Evidence window</span><strong>Last 30 days</strong></div>
-    </header>
-
-    <div class="cs-readonly-banner" style="margin-top:20px">
-      <strong>No policy escapes observed.</strong> One promotion guard is below threshold; the affected capability remains in shadow.
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page ov-page ow-page">
+    <header class="cp-header"><div><h1>Control assurance</h1><p>Safety controls, promotion evidence, and the guard measurements behind operating posture.</p></div><div class="ov-window"><span>Evidence window</span><strong>30 days</strong></div></header>
+    <div class="cs-readonly-banner"><strong>Synthetic preview / Posture unknown.</strong> Simulated guards cannot establish a healthy verdict or authorize promotion.</div>
+    <div class="ov-evidence"><strong>Simulated</strong><span>30 days / 30 events</span><span>Confidence unavailable</span><span>Source example-autonomy</span><span>As of 2026-07-22T15:18:00Z</span></div>
+    <div class="ow-metrics">
+      <a class="ow-metric" href="#required-attention"><span>Control posture</span><strong class="op-value-label">Unknown</strong><small>Missing measured guard evidence</small></a>
+      <a class="ow-metric" href="promotion.html?status=blocked"><span>Policy escapes</span><strong class="op-value-label">Unavailable</strong><small>Promotion registry not connected</small></a>
+      <a class="ow-metric" href="audit.html?window=30d&amp;mode=shadow"><span>Shadow share</span><strong>80%</strong><small>24 of 30 example decisions</small></a>
+      <a class="ow-metric" href="promotion.html?status=ready"><span>Promotion ready</span><strong class="op-value-label">Not connected</strong><small>No authoritative registry response</small></a>
     </div>
-
-    <div class="ov-evidence" aria-label="Evidence details">
-      <strong>Measured</strong><span>30 terminal decisions</span><span>12 promotion evaluations</span><span>Source audit + promotion registry</span><span>As of 2026-07-22T15:18Z</span>
-    </div>
-
-    <section class="ov-kpis" aria-label="Control posture">
-      <article class="ov-kpi"><span class="ov-kpi-label">Control posture</span><strong>Attention</strong><small>1 guard below threshold</small></article>
-      <article class="ov-kpi"><span class="ov-kpi-label">Policy escapes</span><strong class="ov-up">0</strong><small>No ungoverned execution</small></article>
-      <article class="ov-kpi"><span class="ov-kpi-label">Shadow share</span><strong>80%</strong><small>24 of 30 eligible actions</small></article>
-      <article class="ov-kpi"><span class="ov-kpi-label">Promotion ready</span><strong>9 / 12</strong><small>2 blocked, 1 insufficient evidence</small></article>
-    </section>
-
-    <section class="ov-section">
-      <div class="ov-section-head"><div><h2>Promotion guards</h2><p>Current measurement against the authoritative threshold for each safety condition.</p></div><span class="ov-section-meta">Click a row for evidence</span></div>
+    <section class="ov-section" id="promotion-guards">
+      <div class="ov-section-head"><div><h2>Promotion guards</h2><p>Current value, paired baseline, and configured threshold. Fixture values stay simulated even when numerically within threshold.</p></div></div>
+      <div class="ow-tools"><label>Guard<select class="cs-control-select" data-guard-filter><option value="">All guards</option><option value="rollback">Rollback rate</option><option value="fpr">False-positive rate</option><option value="fnr">False-negative rate</option><option value="cfr">Change failure rate</option></select></label></div>
+      <p data-guard-empty role="status" hidden>No projected guard matches this key. No safety conclusion is available.</p>
       <div class="ov-guard-list">
-        <article class="ov-guard js-chartable" data-chart-title="Rollback readiness" data-chart-columns='["Measure","Value"]' data-chart-rows='[["Current","100%"],["Threshold","100%"],["Evaluations","12"]]' data-chart-num-cols='[1]'>
-          <div class="ov-guard-name"><strong>Rollback readiness</strong><small>Every action has a tested rollback path</small></div>
-          <div><div class="ov-meter"><span style="width:100%"></span></div><div class="ov-meter-meta"><span>100%</span><span>threshold 100%</span></div></div>
-          <span class="ov-status is-good">Passing</span>
+        <article class="ov-guard js-chartable" data-guard-key="rollback" data-chart-title="Rollback rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","6.7"],["Baseline","8"],["Threshold","10"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=rollback"><strong>Rollback rate</strong></a><small>Baseline 8% / Lower is better</small></div><div><div class="ov-meter"><span style="width:6.7%"></span></div><div class="ov-meter-meta"><span>Current 6.7%</span><span>Threshold 10%</span></div></div><span class="ov-status">Simulated</span>
         </article>
-        <article class="ov-guard js-chartable" data-chart-title="Verifier agreement" data-chart-columns='["Measure","Value"]' data-chart-rows='[["Current","96%"],["Threshold","95%"],["Evaluations","50"]]' data-chart-num-cols='[1]'>
-          <div class="ov-guard-name"><strong>Verifier agreement</strong><small>Independent verification agrees with verdict</small></div>
-          <div><div class="ov-meter"><span style="width:96%"></span></div><div class="ov-meter-meta"><span>96%</span><span>threshold 95%</span></div></div>
-          <span class="ov-status is-good">Passing</span>
+        <article class="ov-guard js-chartable" data-guard-key="fpr" data-chart-title="False-positive rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","2"],["Baseline","3"],["Threshold","5"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=fpr"><strong>False-positive rate</strong></a><small>Baseline 3% / Lower is better</small></div><div><div class="ov-meter"><span style="width:2%"></span></div><div class="ov-meter-meta"><span>Current 2%</span><span>Threshold 5%</span></div></div><span class="ov-status">Simulated</span>
         </article>
-        <article class="ov-guard js-chartable" data-chart-title="Evidence completeness" data-chart-columns='["Measure","Value"]' data-chart-rows='[["Current","91%"],["Threshold","95%"],["Missing records","3"]]' data-chart-num-cols='[1]'>
-          <div class="ov-guard-name"><strong>Evidence completeness</strong><small>Decision records carry required grounding</small></div>
-          <div><div class="ov-meter is-watch"><span style="width:91%"></span></div><div class="ov-meter-meta"><span>91%</span><span>threshold 95%</span></div></div>
-          <span class="ov-status is-watch">Blocked</span>
+        <article class="ov-guard js-chartable" data-guard-key="fnr" data-chart-title="False-negative rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","1.5"],["Baseline","2"],["Threshold","3"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=fnr"><strong>False-negative rate</strong></a><small>Baseline 2% / Lower is better</small></div><div><div class="ov-meter"><span style="width:1.5%"></span></div><div class="ov-meter-meta"><span>Current 1.5%</span><span>Threshold 3%</span></div></div><span class="ov-status">Simulated</span>
         </article>
-        <article class="ov-guard js-chartable" data-chart-title="Blast-radius compliance" data-chart-columns='["Measure","Value"]' data-chart-rows='[["Current","100%"],["Threshold","100%"],["Evaluations","30"]]' data-chart-num-cols='[1]'>
-          <div class="ov-guard-name"><strong>Blast-radius compliance</strong><small>Every action remained within declared scope</small></div>
-          <div><div class="ov-meter"><span style="width:100%"></span></div><div class="ov-meter-meta"><span>100%</span><span>threshold 100%</span></div></div>
-          <span class="ov-status is-good">Passing</span>
+        <article class="ov-guard js-chartable" data-guard-key="cfr" data-chart-title="Change failure rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","4.5"],["Baseline","4"],["Threshold","4"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=cfr"><strong>Change failure rate</strong></a><small>Baseline 4% / Lower is better</small></div><div><div class="ov-meter"><span style="width:4.5%"></span></div><div class="ov-meter-meta"><span>Current 4.5%</span><span>Threshold 4%</span></div></div><span class="ov-status">Simulated</span>
         </article>
       </div>
     </section>
-
-    <section class="ov-two ov-section">
-      <article class="ov-panel">
-        <h3>Control path</h3><p>Terminal decision mix for observed events.</p>
-        <div class="cs-stackbar" style="margin:24px 0 12px"><span class="is-auto" style="width:73%"></span><span class="is-hil" style="width:7%"></span><span class="is-abstain" style="width:17%"></span><span class="is-deny" style="width:3%"></span></div>
-        <div class="cs-stackbar-legend"><span><span class="dot" style="background:var(--cs-sage)"></span><strong>73%</strong> auto</span><span><span class="dot" style="background:var(--cs-terracotta)"></span><strong>7%</strong> approval</span><span><span class="dot" style="background:var(--cs-plum)"></span><strong>17%</strong> held</span><span><span class="dot" style="background:var(--cs-dusty-red)"></span><strong>3%</strong> deny</span></div>
-      </article>
-      <aside class="ov-panel"><h3>Required attention</h3><p>Aggregated control signals only.</p><ul class="ov-list"><li><span>Evidence records to repair</span><strong>3</strong></li><li><span>Approvals pending</span><strong>2</strong></li><li><span>Capabilities blocked</span><strong>2</strong></li><li><span>Emergency stops</span><strong>0</strong></li></ul></aside>
-    </section>
-
-    <div class="ov-footer-links"><a href="promotion.html">Open promotion evidence</a><a href="hil.html">View pending approvals</a><a href="audit.html">Inspect shadow audit</a></div>
+    <div class="ow-grid ov-section">
+      <section class="ov-panel"><h3>Control path</h3><p>30 example decision dispositions, not 30 verified effects.</p><div class="cs-stackbar" aria-hidden="true"><span class="is-auto" style="width:73.33%"></span><span class="is-hil" style="width:6.67%"></span><span class="is-abstain" style="width:16.67%"></span><span class="is-deny" style="width:3.33%"></span></div><nav class="ov-footer-links" aria-label="Control dispositions"><a href="audit.html?outcome=auto&amp;from_seq=1&amp;through_seq=30">Auto 22</a><a href="audit.html?outcome=hil&amp;from_seq=1&amp;through_seq=30">Approval 2</a><a href="audit.html?outcome=abstain&amp;from_seq=1&amp;through_seq=30">Held 5</a><a href="audit.html?outcome=deny&amp;from_seq=1&amp;through_seq=30">Denied 1</a></nav></section>
+      <section class="ov-panel" id="required-attention"><h3>Required attention</h3><ul class="ov-list"><li><a href="#promotion-guards">Measured failed guards</a><strong>Unavailable</strong></li><li><a href="hil.html?status=pending">Approvals pending</a><strong>2</strong></li><li><a href="promotion.html?status=blocked">Blocked capabilities</a><strong>Not connected</strong></li><li><a href="promotion.html">Policy escapes</a><strong>Unavailable</strong></li></ul></section>
+    </div>
+    <nav class="ov-footer-links" aria-label="Assurance evidence"><a href="promotion.html?status=blocked">Promotion evidence</a><a href="hil.html">Pending approvals</a><a href="audit.html?mode=shadow&amp;window=30d">Shadow audit</a></nav>
   </main>
 </body>
 </html>

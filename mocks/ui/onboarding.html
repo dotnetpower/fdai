@@ -98,71 +98,61 @@
       .ob-role-main { min-width: 0; }
     }
   </style>
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
+  <script src="assets/onboarding-preview.js?v=1" defer></script>
 </head>
-<body>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
-    <div class="cs-subnav">
-      <a href="live.html">Live</a>
-      <a href="incidents.html">Incidents</a>
-      <a href="hil.html">Approvals</a>
-      <a href="provision.html">Provisioning</a>
-      <a href="onboarding.html" class="cs-active">Onboarding</a>
-    </div>
-
     <div class="ob-header">
       <div class="cs-page-header">
         <div class="cs-eyebrow">Operations &middot; Azure readiness probe</div>
         <h1>Onboarding readiness</h1>
-        <p class="cs-lead">Check whether the control plane has the resources and role assignments
-          required to operate. This is an observed Azure snapshot, not a setup wizard.</p>
+        <p class="cs-lead">Inspect resource and role readiness from a configured authoritative probe.</p>
       </div>
-      <button class="cs-btn ob-refresh" type="button" id="refresh-button">
-        <span aria-hidden="true">&#8635;</span> Refresh snapshot
-      </button>
+      <div class="op-toolbar"><label>Preview state<select class="cs-control-select" id="onboarding-preview-state"><option value="blocked">Blocked</option><option value="ready">Ready</option><option value="unconfigured">Not configured</option><option value="failed">Probe failed</option></select></label><button class="cs-btn ob-refresh" type="button" id="refresh-button">Reset preview</button></div>
     </div>
 
-    <div class="cs-readonly-banner" role="status">
-      <strong>Action required.</strong> The environment is reachable, but three resources and two
-      role assignments are still missing. Nothing on this screen grants access or creates resources.
+    <div class="cs-readonly-banner" role="status" id="onboarding-preview-note">
+      Synthetic blocked snapshot: three resources and two role assignments are missing. This preview runs no probe and grants no access.
     </div>
 
     <section class="ob-summary" aria-label="Onboarding readiness summary">
       <div class="ob-kpi">
         <span class="ob-kpi-label">Readiness</span>
-        <span class="ob-kpi-value ob-readiness">Blocked</span>
-        <span class="ob-kpi-note">5 requirements remain</span>
+        <span class="ob-kpi-value ob-readiness" id="onboarding-readiness">Blocked</span>
+        <span class="ob-kpi-note" id="onboarding-requirements">5 requirements remain</span>
       </div>
       <div class="ob-kpi">
         <span class="ob-kpi-label">Resources observed</span>
-        <span class="ob-kpi-value">8 / 11</span>
-        <span class="ob-kpi-note">Azure Resource Graph</span>
+        <span class="ob-kpi-value" id="onboarding-resources">8</span>
+        <span class="ob-kpi-note">Example resource probe</span>
       </div>
       <div class="ob-kpi">
         <span class="ob-kpi-label">Roles observed</span>
-        <span class="ob-kpi-value">6 / 8</span>
-        <span class="ob-kpi-note">Azure RBAC</span>
+        <span class="ob-kpi-value" id="onboarding-roles">6</span>
+        <span class="ob-kpi-note">Example role probe</span>
       </div>
       <div class="ob-kpi">
         <span class="ob-kpi-label">Last checked</span>
-        <span class="ob-kpi-value" id="checked-at">09:42:18</span>
-        <span class="ob-kpi-note">22 Jul 2026 &middot; local time</span>
+        <span class="ob-kpi-value" id="checked-at">03:00 UTC</span>
+        <span class="ob-kpi-note" id="checked-date">06 Sep 2026 - fixed example</span>
       </div>
     </section>
 
     <nav class="ob-actions" aria-label="Onboarding drill-downs">
       <strong>Resolve in the owning surface</strong>
       <a class="cs-btn" href="provision.html">Open provisioning</a>
-      <a class="cs-btn" href="settings-iam.html">Review agent oversight</a>
-      <a class="cs-btn" href="#architecture">Inspect architecture</a>
+      <a class="cs-btn" href="settings-iam.html#requests">Review access</a>
+      <a class="cs-btn" href="architecture.html">Inspect architecture</a>
     </nav>
 
     <div class="ob-grid">
       <section class="ob-section" aria-labelledby="missing-resources-title">
         <header class="ob-section-head">
           <h2 id="missing-resources-title">Missing resources</h2>
-          <span class="ob-count">3</span>
+          <span class="ob-count" id="onboarding-resource-gaps">3</span>
         </header>
-        <ul class="ob-list">
+        <ul class="ob-list" id="onboarding-resource-list">
           <li>
             <span class="ob-list-icon" aria-hidden="true">!</span>
             <div><strong>Audit state store</strong><small>PostgreSQL Flexible Server</small></div>
@@ -176,14 +166,15 @@
             <div><strong>Executor identity</strong><small>User-assigned managed identity</small></div>
           </li>
         </ul>
+        <p class="op-source-note" id="onboarding-no-resources" hidden>No missing resources in this example.</p>
       </section>
 
       <section class="ob-section" aria-labelledby="missing-roles-title">
         <header class="ob-section-head">
           <h2 id="missing-roles-title">Missing role assignments</h2>
-          <span class="ob-count">2</span>
+          <span class="ob-count" id="onboarding-role-gaps">2</span>
         </header>
-        <table class="ob-role-table">
+        <table class="ob-role-table" id="onboarding-role-list">
           <thead>
             <tr><th>Principal</th><th>Role</th><th>Target</th><th>Status</th></tr>
           </thead>
@@ -202,31 +193,16 @@
             </tr>
           </tbody>
         </table>
+        <p class="op-source-note" id="onboarding-no-roles" hidden>No missing role assignments in this example.</p>
       </section>
     </div>
 
     <div class="ob-source">
-      <span class="cs-tag is-teal">observed</span>
-      <span>Source: Azure resource and role probes through the Operator API. A failed or unconfigured
-        probe renders unavailable instead of inferring readiness in the browser.</span>
+      <span class="cs-tag">Synthetic</span>
+      <span>Production uses resource and role probes through the Operator API. A failed or unconfigured
+        probe is unavailable, not evidence that resources or roles are missing.</span>
     </div>
   </main>
 
-  <script>
-    document.getElementById("refresh-button").addEventListener("click", function () {
-      const button = this;
-      button.disabled = true;
-      button.textContent = "Refreshing...";
-      window.setTimeout(function () {
-        document.getElementById("checked-at").textContent = new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
-        });
-        button.innerHTML = '<span aria-hidden="true">&#8635;</span> Refresh snapshot';
-        button.disabled = false;
-      }, 450);
-    });
-  </script>
 </body>
 </html>

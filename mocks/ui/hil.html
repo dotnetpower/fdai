@@ -3,205 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HIL Queue - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <title>Approvals - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=operator-workspaces-v1" />
+  <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
+  <script src="assets/calm-slate.js?v=operator-workspaces-v1" defer></script>
+  <script src="assets/approvals-preview.js?v=1" defer></script>
 </head>
-<body>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
-    <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Human-in-the-loop &middot; Read-only</div>
-      <h1>HIL queue</h1>
-      <p class="cs-lead">Items the risk gate handed to a human. Every card is plain-first: what it does,
-        why, confidence, safety facts, and how to approve. Approvals never happen here - they open a
-        pull request or an Adaptive Card in Teams.</p>
+    <header class="cp-header"><div class="cp-header-copy"><h1>Approvals</h1><p>Inspect pending proposals, their safety facts, and related evidence.</p></div><span class="op-source-note">Demo data</span></header>
+    <p class="op-boundary">Read-only queue. Decisions belong to the authenticated approval channel; expiry and silence never grant approval. Approval is separate from execution.</p>
+    <div class="op-toolbar">
+      <span class="cs-status wait">3 pending</span><span class="cs-status err">1 expired</span><span class="op-source-note" data-approval-count role="status">3 of 3 shown</span>
+      <label>Search proposals<input class="cs-control-input" type="search" maxlength="200" placeholder="Action, target, event, reason or rule" data-approval-search /></label>
     </div>
-
-    <div class="cs-readonly-banner">
-      <strong>Approval mechanics.</strong> Two distinct approvers for high risk plus a break-glass
-      channel; self-approval is blocked; every reject / timeout is audited. The console just shows
-      the state.
+    <div class="op-approval-list">
+      <article class="op-approval" data-approval>
+        <header><h2><a href="workflow-builder.html?action=database.enable-pitr">Enable point-in-time recovery</a></h2><span class="cs-status wait">Pending approval</span><span class="cs-status idle">Shadow</span></header>
+        <p><strong>What:</strong> Enable a recovery policy for <code>example-database</code>.</p>
+        <p><strong>Why:</strong> The recorded recovery requirement is not satisfied. A governed proposal is waiting for independent human review.</p>
+        <details><summary>Safety facts and provenance</summary><dl class="cp-facts">
+          <div><dt>Approval ID</dt><dd><code>example-approval-1</code></dd></div><div><dt>Action ID</dt><dd><code>example-action-1</code></dd></div>
+          <div><dt>Target</dt><dd><a href="architecture.html?resource=example-database">example-database</a></dd></div><div><dt>Blast radius</dt><dd>One logical database; bounded proposal scope</dd></div>
+          <div><dt>Rollback</dt><dd>Tested PR revert - example recovery receipt</dd></div><div><dt>Stop condition</dt><dd>Expected target revision changes or approval expires</dd></div>
+          <div><dt>Grounded on</dt><dd><a href="rules.html?rule=example-recovery-policy">example-recovery-policy</a></dd></div><div><dt>Requested / expires</dt><dd>06 Sep 2026, 03:00 / 05:00 UTC</dd></div>
+          <div><dt>Event / correlation</dt><dd><code>example-event-1</code> / <code>example-correlation-1</code></dd></div>
+        </dl></details>
+        <nav class="op-evidence-links" aria-label="Related evidence for recovery proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-1">Incident</a><a href="rule-trace.html?correlation=example-correlation-1">Trace</a><a href="audit.html?correlation=example-correlation-1">Audit</a><a href="rca.html?correlation=example-correlation-1">RCA</a></nav>
+      </article>
+      <article class="op-approval" data-approval>
+        <header><h2><a href="workflow-builder.html?action=compute.adjust-capacity">Adjust workload capacity</a></h2><span class="cs-status wait">Pending approval</span><span class="cs-status idle">Shadow</span></header>
+        <p><strong>What:</strong> Review a bounded capacity change for <code>example-workload</code>.</p>
+        <p><strong>Why:</strong> Recorded utilization and risk evidence require a human decision before a protected workflow may proceed.</p>
+        <details><summary>Safety facts and provenance</summary><dl class="cp-facts">
+          <div><dt>Approval ID</dt><dd><code>example-approval-2</code></dd></div><div><dt>Action ID</dt><dd><code>example-action-2</code></dd></div>
+          <div><dt>Target</dt><dd><a href="architecture.html?resource=example-workload">example-workload</a></dd></div><div><dt>Blast radius</dt><dd>One workload; bounded rate</dd></div>
+          <div><dt>Rollback</dt><dd>Scripted restoration to the recorded capacity</dd></div><div><dt>Stop condition</dt><dd>Health threshold or target revision diverges</dd></div>
+          <div><dt>Grounded on</dt><dd><a href="rules.html?rule=example-capacity-policy">example-capacity-policy</a></dd></div><div><dt>Requested / expires</dt><dd>06 Sep 2026, 03:10 / 05:10 UTC</dd></div>
+          <div><dt>Event / correlation</dt><dd><code>example-event-2</code> / <code>example-correlation-2</code></dd></div>
+        </dl></details>
+        <nav class="op-evidence-links" aria-label="Related evidence for capacity proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-2">Incident</a><a href="rule-trace.html?correlation=example-correlation-2">Trace</a><a href="audit.html?correlation=example-correlation-2">Audit</a><a href="rca.html?correlation=example-correlation-2">RCA</a></nav>
+      </article>
+      <article class="op-approval" data-approval>
+        <header><h2><a href="workflow-builder.html?action=identity.rotate-certificate">Rotate a signing certificate</a></h2><span class="cs-status err">Expired approval</span></header>
+        <p><strong>What:</strong> Review certificate rotation for <code>example-signing-service</code>.</p>
+        <p><strong>Why:</strong> The request TTL elapsed. This record is not current authorization and cannot be used to execute a change.</p>
+        <details><summary>Safety facts and provenance</summary><dl class="cp-facts">
+          <div><dt>Approval ID</dt><dd><code>example-approval-3</code></dd></div><div><dt>Action ID</dt><dd><code>example-action-3</code></dd></div>
+          <div><dt>Target</dt><dd>example-signing-service</dd></div><div><dt>Blast radius</dt><dd>One signing service</dd></div>
+          <div><dt>Rollback</dt><dd>Previous certificate reference retained</dd></div><div><dt>Stop condition</dt><dd>Expired authorization</dd></div>
+          <div><dt>Grounded on</dt><dd><a href="rules.html?rule=example-certificate-policy">example-certificate-policy</a></dd></div><div><dt>Requested / expired</dt><dd>05 Sep 2026, 01:00 / 03:00 UTC</dd></div>
+          <div><dt>Event / correlation</dt><dd><code>example-event-3</code> / <code>example-correlation-3</code></dd></div>
+        </dl></details>
+        <nav class="op-evidence-links" aria-label="Related evidence for expired proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-3">Incident</a><a href="rule-trace.html?correlation=example-correlation-3">Trace</a><a href="audit.html?correlation=example-correlation-3">Audit</a><a href="rca.html?correlation=example-correlation-3">RCA</a></nav>
+      </article>
     </div>
-
-    <!-- Filter bar -->
-    <div class="cs-filterbar">
-      <span class="cs-fb-label">Risk</span>
-      <div class="cs-chipset">
-        <button class="cs-chip cs-active">All</button>
-        <button class="cs-chip">Critical</button>
-        <button class="cs-chip">High</button>
-        <button class="cs-chip">Medium</button>
-        <button class="cs-chip">Low</button>
-      </div>
-      <span class="cs-fb-label" style="margin-left:8px">Category</span>
-      <div class="cs-chipset">
-        <button class="cs-chip cs-active">All</button>
-        <button class="cs-chip">Remediation</button>
-        <button class="cs-chip">Ops</button>
-        <button class="cs-chip">Governance</button>
-      </div>
-      <span class="cs-fb-label" style="margin-left:8px">Vertical</span>
-      <div class="cs-chipset">
-        <button class="cs-chip cs-active">All</button>
-        <button class="cs-chip">Resilience</button>
-        <button class="cs-chip">Change</button>
-        <button class="cs-chip">Cost</button>
-      </div>
-      <label class="cs-fb-search">
-        <span class="cs-muted" style="font-size:13px">&#128269;</span>
-        <input type="text" placeholder="filter by event id, resource, rule" />
-      </label>
-    </div>
-
-    <!-- Summary bar -->
-    <div class="cs-flex cs-wrap cs-gap-12 cs-mb-24">
-      <span class="cs-tag is-steel"><strong>3</strong> pending</span>
-      <span class="cs-risk critical">1 critical</span>
-      <span class="cs-risk high">1 high</span>
-      <span class="cs-risk medium">1 medium</span>
-      <span class="cs-tag">TTL median <strong>2h</strong></span>
-      <span class="cs-tag">timeout &rarr; audit + drop</span>
-    </div>
-
-    <!-- Card 1: Critical -->
-    <div class="cs-hcard is-critical">
-      <div class="cs-hcard-body">
-        <div class="cs-hcard-head">
-          <h3 class="cs-hcard-title">Enable point-in-time recovery on managed database</h3>
-          <span class="cs-risk critical">critical</span>
-          <span class="cs-tier t1">T1</span>
-          <span class="cs-cat remediation">remediation</span>
-          <span class="cs-vert resilience">resilience</span>
-        </div>
-        <p class="cs-mb-0"><strong>What:</strong> turn on 7-day PITR for the production billing database.</p>
-        <p class="cs-mb-0"><strong>Why:</strong> a similar incident 12 days ago required a same-day
-          rollback that was blocked by missing PITR. Similarity score 0.93; verifier passed schema,
-          policy, and what-if.</p>
-
-        <div class="cs-meta">
-          <div><span>ActionType</span><span><code>database.enable-pitr</code></span></div>
-          <div><span>Execution path</span><span>pr_native</span></div>
-          <div><span>Blast radius</span><span>1 resource, 0 downstream</span></div>
-          <div><span>Rollback</span><span>pr_revert (tested)</span></div>
-          <div><span>Stop-condition</span><span>backup lag &gt; 60s</span></div>
-          <div><span>Confidence</span><span>0.93 (T1 similarity)</span></div>
-          <div><span>Approvers</span><span>2 distinct &middot; break-glass allowed</span></div>
-          <div><span>Grounded on</span><span><code>waf.reliability.rl-04</code></span></div>
-        </div>
-
-        <div class="cs-hcard-foot">
-          <span>waiting <strong style="color:var(--cs-text)">8m</strong></span>
-          <span>TTL <strong style="color:var(--cs-text)">1h 52m</strong> left</span>
-          <span class="cs-mono">evt-01H7A4X-...</span>
-          <span style="margin-left:auto">Approve in <a class="cs-link" href="#">Teams</a> &middot; <a class="cs-link" href="#">PR #2148</a></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Card 2: High -->
-    <div class="cs-hcard is-high">
-      <div class="cs-hcard-body">
-        <div class="cs-hcard-head">
-          <h3 class="cs-hcard-title">Raise production autoscale floor from 2 to 4</h3>
-          <span class="cs-risk high">high</span>
-          <span class="cs-tier t2">T2</span>
-          <span class="cs-cat ops">ops</span>
-          <span class="cs-vert change">change safety</span>
-        </div>
-        <p class="cs-mb-0"><strong>What:</strong> raise the minimum replica count on <code>web-frontend</code> from 2 to 4.</p>
-        <p class="cs-mb-0"><strong>Why:</strong> T2 reasoner grounded on WAF-Reliability RL-08 and
-          three similar autoscale incidents. Mixed-model agreement (2 providers). Verifier passed.</p>
-
-        <div class="cs-meta">
-          <div><span>ActionType</span><span><code>compute.autoscale.raise-floor</code></span></div>
-          <div><span>Execution path</span><span>direct_api</span></div>
-          <div><span>Blast radius</span><span>1 workload &middot; +2 replicas</span></div>
-          <div><span>Rollback</span><span>scripted (reset floor)</span></div>
-          <div><span>Stop-condition</span><span>error-rate &gt; 2% in 5m</span></div>
-          <div><span>Confidence</span><span>0.87 (T2 reasoning)</span></div>
-          <div><span>Approvers</span><span>2 distinct &middot; break-glass allowed</span></div>
-          <div><span>Grounded on</span><span><code>waf.reliability.rl-08</code>, <code>slo.web.err-p99</code></span></div>
-        </div>
-
-        <div class="cs-hcard-foot">
-          <span>waiting <strong style="color:var(--cs-text)">21m</strong></span>
-          <span>TTL <strong style="color:var(--cs-text)">1h 39m</strong> left</span>
-          <span class="cs-mono">evt-01H7A4Y-...</span>
-          <span style="margin-left:auto">Approve in <a class="cs-link" href="#">Teams</a> &middot; <a class="cs-link" href="#">PR #2149</a></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Card 3: Medium -->
-    <div class="cs-hcard is-medium">
-      <div class="cs-hcard-body">
-        <div class="cs-hcard-head">
-          <h3 class="cs-hcard-title">Rotate expiring signing certificate</h3>
-          <span class="cs-risk medium">medium</span>
-          <span class="cs-tier t0">T0</span>
-          <span class="cs-cat remediation">remediation</span>
-          <span class="cs-vert change">change safety</span>
-          <span class="cs-mode shadow">shadow</span>
-        </div>
-        <p class="cs-mb-0"><strong>What:</strong> rotate certificate <code>svc-signing-2026</code> before it expires on 2026-07-19.</p>
-        <p class="cs-mb-0"><strong>Why:</strong> deterministic rule <code>cert.expiry.30d</code>. In
-          shadow mode - owner review requested before enforce promotion.</p>
-
-        <div class="cs-meta">
-          <div><span>ActionType</span><span><code>identity.cert.rotate</code></span></div>
-          <div><span>Execution path</span><span>pr_native</span></div>
-          <div><span>Blast radius</span><span>1 secret &middot; 4 consumers</span></div>
-          <div><span>Rollback</span><span>pr_revert &middot; snapshot_restore</span></div>
-          <div><span>Stop-condition</span><span>consumer handshake failure</span></div>
-          <div><span>Confidence</span><span>1.00 (deterministic)</span></div>
-          <div><span>Approvers</span><span>1</span></div>
-          <div><span>Grounded on</span><span><code>identity.cert.expiry.30d</code></span></div>
-        </div>
-
-        <div class="cs-hcard-foot">
-          <span>waiting <strong style="color:var(--cs-text)">1h 04m</strong></span>
-          <span>TTL <strong style="color:var(--cs-text)">22h 56m</strong> left</span>
-          <span class="cs-mono">evt-01H7A4Z-...</span>
-          <span style="margin-left:auto">Approve in <a class="cs-link" href="#">Teams</a> &middot; <a class="cs-link" href="#">PR #2150</a></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Rules of the queue -->
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">A</span>
-        <div class="cs-section-title"><h2>Rules of this queue</h2><p class="cs-desc">Hard invariants - the console shows state; the risk-gate and the executor enforce them.</p></div>
-      </div>
-      <div class="cs-grid cs-grid-2">
-        <div class="cs-alert is-info"><div class="cs-alert-bar"></div><div>
-          <h4>Approval &ne; execution</h4>
-          <p>Approver and executor are distinct principals; no self-approval. The executor holds the
-             only privileged identity.</p>
-        </div></div>
-        <div class="cs-alert is-warn"><div class="cs-alert-bar"></div><div>
-          <h4>Break-glass is audited</h4>
-          <p>HIGH+ items may bypass the second approver via break-glass, but every use is a
-             post-hoc-reviewed audit entry.</p>
-        </div></div>
-        <div class="cs-alert is-info"><div class="cs-alert-bar"></div><div>
-          <h4>Timeout &ne; approval</h4>
-          <p>A TTL expiry is a no-op with an audit entry, not an implicit yes.</p>
-        </div></div>
-        <div class="cs-alert is-success"><div class="cs-alert-bar"></div><div>
-          <h4>Every item has all four</h4>
-          <p>Stop-condition, rollback path, blast-radius cap, and audit entry - missing one blocks
-             the enforce promotion.</p>
-        </div></div>
-      </div>
-    </section>
+    <section class="op-empty" data-approval-empty hidden><h2>No matching proposals</h2><p>Try another action, target or evidence reference.</p><button class="cs-control-button" type="button" data-clear-approvals>Clear search</button></section>
+    <p class="op-source-note">Synthetic queue at a fixed example time. No approval, rejection, expiry processing or execution is performed by this preview.</p>
   </main>
-
-  <footer class="cs-footer">
-    <div class="cs-container cs-flex-between cs-wrap">
-      <span>FDAI console mock - Calm Slate. Read-only surface, synthetic values.</span>
-      <span class="cs-muted">generic-scope &middot; no customer data</span>
-    </div>
-  </footer>
 </body>
 </html>
