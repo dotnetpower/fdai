@@ -169,7 +169,7 @@ def _verify(token: str) -> Mapping[str, object]:
         "contributor": OperatorRole.CONTRIBUTOR,
         "approver": OperatorRole.APPROVER,
     }.get(token, OperatorRole.READER)
-    return {"oid": f"{token}-oid", "roles": [role.value]}
+    return {"oid": f"{token}-oid", "idtyp": "user", "roles": [role.value]}
 
 
 class RecordingPdfEncoder:

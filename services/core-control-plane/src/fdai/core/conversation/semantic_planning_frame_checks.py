@@ -12,6 +12,7 @@ from fdai_service_contracts.ontology_query import SemanticOperation
 
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from .semantic_governed_document_planning import apply_document_evidence_requirement
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
 from .semantic_operational_summary_planning import build_function_backed_summary_frame
@@ -496,6 +497,13 @@ def normalize_and_gate_frame(
         context=context,
         descriptors=descriptors,
     )
+    proposal, frame = apply_document_evidence_requirement(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+    )
     if property_filter_has_stated_subject(
         proposal,
         utterance=utterance,
@@ -623,6 +631,13 @@ def normalize_and_gate_frame(
         context=context,
         descriptors=descriptors,
         inventory_query_language=inventory_query_language,
+    )
+    proposal, frame = apply_document_evidence_requirement(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
     )
     if frame.output_shape == SemanticOutputShape.RESOURCE_TARGET_CANDIDATES:
         investigation_intent = None

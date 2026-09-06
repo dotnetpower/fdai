@@ -53,6 +53,7 @@ class OperatorFamilyAuthorizer:
             subject_id=principal.subject_id,
             roles=frozenset(role.value for role in principal.roles),
             principal_kind=principal.principal_kind,
+            groups=principal.groups,
         )
 
     async def iam(self, request: Request) -> IamPrincipal:

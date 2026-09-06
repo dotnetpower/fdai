@@ -13,7 +13,9 @@ from fdai.core.conversation.semantic_judgment import (
 )
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import (
+    SemanticDocumentEvidenceMode,
     SemanticJudgmentDisposition,
+    SemanticJudgmentProposal,
     SemanticJudgmentTier,
 )
 
@@ -99,6 +101,31 @@ def _proposal(**overrides: object) -> dict[str, object]:
         "execution_authority": False,
         **overrides,
     }
+
+
+def test_explicit_document_mode_requires_governed_document_intent() -> None:
+    with pytest.raises(
+        ValueError,
+        match="explicit document evidence requires the governed document query intent",
+    ):
+        SemanticJudgmentProposal.model_validate(
+            _proposal(document_evidence_mode=SemanticDocumentEvidenceMode.EXPLICIT)
+        )
+
+
+def test_ambiguous_judgment_cannot_trigger_document_retrieval() -> None:
+    with pytest.raises(
+        ValueError,
+        match="ambiguous semantic judgment MUST NOT request document evidence",
+    ):
+        SemanticJudgmentProposal.model_validate(
+            _proposal(
+                ambiguous=True,
+                alternatives=["cost_summary"],
+                clarification="Which cost view should I use?",
+                document_evidence_mode=SemanticDocumentEvidenceMode.OPTIONAL,
+            )
+        )
 
 
 def _binding(tier: SemanticJudgmentTier, model: _Model) -> SemanticJudgmentBinding:

@@ -58,7 +58,12 @@ def build_intent_graph(
                 capability=f"query.{node.kind.value}",
                 arguments_json=node.arguments_json,
                 depends_on=tuple(goal_ids[item] for item in node.depends_on),
-                evidence_mode=GoalEvidenceMode.OPERATIONAL,
+                evidence_mode=(
+                    GoalEvidenceMode.DOCUMENT
+                    if node.kind is QueryNodeKind.FUNCTION
+                    and node.arguments.get("function_name") == "query.governed_documents"
+                    else GoalEvidenceMode.OPERATIONAL
+                ),
                 freshness_required=goal_freshness,
                 confidence=confidence,
             )
@@ -103,6 +108,7 @@ def build_intent_graph_evidence(
                     "goal_id": goal.goal_id,
                     "intent": goal.intent,
                     "capability": goal.capability,
+                    "evidence_mode": goal.evidence_mode.value,
                     "depends_on": tuple(goal_ids[item] for item in node.depends_on),
                     "blocked_by": tuple(goal_ids[item] for item in receipt.blocked_by),
                     "evidence_refs": evidence_refs,
@@ -119,7 +125,13 @@ def build_intent_graph_evidence(
     )
     if execution.status == "completed" and authority_status == "verified":
         status = "completed"
-        mode = AnswerEvidenceMode.OPERATIONAL_GROUNDED
+        goal_modes = {goal.evidence_mode for goal in graph.goals}
+        if goal_modes == {GoalEvidenceMode.DOCUMENT}:
+            mode = AnswerEvidenceMode.DOCUMENT_GROUNDED
+        elif GoalEvidenceMode.DOCUMENT in goal_modes:
+            mode = AnswerEvidenceMode.MIXED_GROUNDED
+        else:
+            mode = AnswerEvidenceMode.OPERATIONAL_GROUNDED
     elif execution.status == "completed":
         status = "failed"
         mode = AnswerEvidenceMode.HELD_FOR_REVIEW
@@ -154,6 +166,17 @@ def resolve_execution_authority(
     )
     if not evidence_receipts or any(receipt.authority is None for receipt in evidence_receipts):
         return None, "missing"
+    if frame is not None and any(
+        requirement.startswith("governed_documents.")
+        for requirement in getattr(frame, "evidence_requirements", ())
+    ):
+        if _permits_governed_document_authority(
+            evidence_receipts,
+            frame=frame,
+            plan=plan,
+        ):
+            return None, "verified"
+        return None, "conflict"
     if frame is not None and frame.output_shape == "resource_condition_sections":
         if _permits_resource_condition_authorities(
             evidence_receipts,
@@ -166,6 +189,67 @@ def resolve_execution_authority(
     if len(authorities) != 1:
         return None, "conflict"
     return next(iter(authorities)), "verified"
+
+
+def _permits_governed_document_authority(
+    evidence_receipts: tuple[GoalTaskReceipt, ...],
+    *,
+    frame: SemanticProblemFrame,
+    plan: OntologyQueryPlan | None,
+) -> bool:
+    if plan is None:
+        return False
+    nodes = {node.node_id: node for node in plan.nodes}
+    document_task_ids = {
+        f"query:{node_id}"
+        for node_id in plan.output_node_ids
+        if (node := nodes.get(node_id)) is not None
+        and node.kind is QueryNodeKind.FUNCTION
+        and node.arguments.get("function_name") == "query.governed_documents"
+    }
+    optional = "governed_documents.optional" in frame.evidence_requirements
+    if not document_task_ids:
+        return optional and _permits_document_companion_authorities(
+            evidence_receipts,
+            output_shape=frame.output_shape,
+        )
+    if len(document_task_ids) != 1:
+        return False
+    receipts = {receipt.task_id: receipt for receipt in evidence_receipts}
+    document_receipts_present = document_task_ids <= receipts.keys()
+    if document_receipts_present:
+        if any(
+            receipts[task_id].authority is not EvidenceAuthority.SERVER_GOVERNED_DOCUMENT
+            for task_id in document_task_ids
+        ):
+            return False
+    elif not optional:
+        return False
+    remaining = tuple(
+        receipt for receipt in evidence_receipts if receipt.task_id not in document_task_ids
+    )
+    if frame.output_shape == "governed_document_excerpts":
+        return document_receipts_present and not remaining
+    return _permits_document_companion_authorities(
+        remaining,
+        output_shape=frame.output_shape,
+    )
+
+
+def _permits_document_companion_authorities(
+    receipts: tuple[GoalTaskReceipt, ...],
+    *,
+    output_shape: str,
+) -> bool:
+    if not receipts:
+        return False
+    remaining_authorities = {receipt.authority for receipt in receipts}
+    if len(remaining_authorities) == 1:
+        return True
+    return output_shape == "resource_condition_sections" and remaining_authorities == {
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+    }
 
 
 def _permits_resource_condition_authorities(

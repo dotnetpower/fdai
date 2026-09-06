@@ -30,6 +30,7 @@ class PrincipalScope:
     subject_id: str
     roles: frozenset[str] = field(default_factory=frozenset)
     principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
+    groups: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         _bounded_text("subject_id", self.subject_id, maximum=MAX_IDENTIFIER_CHARS)
@@ -37,6 +38,10 @@ class PrincipalScope:
             raise ValueError(f"roles MUST contain at most {MAX_ROLES} values")
         for role in self.roles:
             _bounded_text("role", role, maximum=64)
+        if len(self.groups) > 64:
+            raise ValueError("groups MUST contain at most 64 values")
+        for group in self.groups:
+            _bounded_text("group", group, maximum=256)
 
 
 @dataclass(frozen=True, slots=True)
