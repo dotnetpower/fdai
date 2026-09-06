@@ -65,6 +65,7 @@ def _secured(
     age_seconds: int,
     conflicts: tuple[str, ...] = (),
     include_resource_without_metadata: bool = False,
+    keyed_metadata: bool = False,
 ) -> SecuredObjectSetQueryResult:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -90,7 +91,18 @@ def _secured(
         OntologyObjectRecord(
             id="resource-1",
             object_type="Resource",
-            properties={"properties": {STATE_FACT_METADATA_PROPERTY: state.to_mapping()}},
+            properties={
+                "properties": {
+                    STATE_FACT_METADATA_PROPERTY: (
+                        {
+                            "availabilityState": state.to_mapping(),
+                            "operationalState": state.to_mapping(),
+                        }
+                        if keyed_metadata
+                        else state.to_mapping()
+                    )
+                }
+            },
         )
     ]
     if include_resource_without_metadata:
@@ -160,6 +172,23 @@ async def test_current_complete_graph_skips_live_provider() -> None:
     )
     assert live.calls == 0
     assert gateway.calls == 0
+
+
+async def test_current_graph_accepts_property_keyed_state_metadata() -> None:
+    secured = _secured(age_seconds=30, keyed_metadata=True)
+    live = _LiveProvider()
+    gateway = _Gateway(secured)
+    refresher = SecuredGraphEvidenceQueryRefresher(gateway=gateway, live_provider=live)
+
+    assert (
+        await refresher.refresh(
+            definition=secured.materialization.definition,
+            projection_request=_request(),
+            secured=secured,
+        )
+        == secured
+    )
+    assert live.calls == 0
 
 
 async def test_stale_graph_without_provider_holds() -> None:

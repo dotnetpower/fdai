@@ -329,6 +329,7 @@ def test_resource_health_availability_metadata_reaches_ontology_instance() -> No
                 resource_id="workspace-1",
                 type="log-workspace",
                 props={
+                    "status": "Running",
                     "availabilityState": "Available",
                     "state_fact_metadata": {
                         "availabilityState": health_metadata.to_mapping(),
@@ -341,10 +342,40 @@ def test_resource_health_availability_metadata_reaches_ontology_instance() -> No
 
     provider = projection.objects[0].properties["properties"]
     assert provider["availabilityState"] == "Available"
+    assert provider["state"] == "Running"
     assert (
         StateFactMetadata.from_mapping(provider["state_fact_metadata"]["availabilityState"])
         == health_metadata
     )
+    operational_metadata = StateFactMetadata.from_mapping(provider["state_fact_metadata"]["state"])
+    assert operational_metadata.source_identity == "inventory-provider"
+
+
+def test_snapshot_relationship_evidence_is_not_projected_as_provider_properties() -> None:
+    link = LinkRecord(
+        from_id="vm-1",
+        from_type="compute.vm",
+        link_type="depends_on",
+        to_id="vm-2",
+        to_type="compute.vm",
+        link_props={
+            "kind": "runtime",
+            "provider_relationship_evidence": {
+                "mapping_id": "mapping-1",
+                "mapping_revision": "revision-1",
+            },
+        },
+        observation_metadata=_observation_metadata(),
+    )
+
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(_resource("vm-1"), _resource("vm-2")),
+        links=(link,),
+    )
+
+    assert projection.links[0].properties["kind"] == "runtime"
+    assert "provider_relationship_evidence" not in projection.links[0].properties
 
 
 def test_incomplete_observation_claims_no_relationship() -> None:

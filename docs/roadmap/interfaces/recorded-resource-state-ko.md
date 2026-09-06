@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: ad9524cab27d35bc317f7b3cb74eba9e002873db
+translation_source_sha: 1f138fa1ad3163968d00d02b340d06e5c002cf25
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -94,6 +94,11 @@ Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니�
 상태 전이 기록은 관계 완전성과 독립적입니다. 관련 없는 토폴로지 edge가 해결되지 않았어도 완전한
 객체 관측은 운영 또는 가용성 상태 이력을 전진시킬 수 있습니다. 관계 이력에는 계속 완전한 관계
 근거가 필요합니다.
+
+observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal에 추가합니다. 이력 게시가 실패하면
+온톨로지 변환은 전진하지 않습니다. 다음 재조정은 같은 coordinator lock 아래에서 보류 중인 활성
+세대를 먼저 재실행한 후 새 세대를 수집하거나 승격합니다. 따라서 일시적인 이력 실패가 영구적인
+상태 전이 누락을 만들지 않습니다.
 
 첫 번째 검토된 대체 출처는 `log-workspace` 가용성을 위한 Azure Resource Health입니다.
 

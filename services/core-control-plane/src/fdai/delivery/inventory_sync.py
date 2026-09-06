@@ -38,6 +38,7 @@ from fdai.shared.providers.inventory_snapshot import (
 )
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_evidence import (
+    STATE_FACT_EQUAL_TIME_CONFLICT,
     STATE_FACT_METADATA_PROPERTY,
     StateFactAuthority,
     StateFactLane,
@@ -206,6 +207,7 @@ def compute_relationship_coverage(
 #: Receives one promoted observation after the active pointer moves. The sink
 #: owns a derived read model only; it never gains promotion authority.
 InventoryPromotionObserver = Callable[[PromotedInventoryObservation], Awaitable[None]]
+InventoryPromotionRecovery = Callable[[], Awaitable[None]]
 
 
 class InventoryPromotionEnricher(Protocol):
@@ -230,6 +232,7 @@ class InventorySyncCoordinator:
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
         promotion_enricher: InventoryPromotionEnricher | None = None,
+        pre_run_recovery: InventoryPromotionRecovery | None = None,
         run_lock: ResourceLock | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
@@ -248,6 +251,7 @@ class InventorySyncCoordinator:
         self._store = store
         self._observer = promotion_observer
         self._enricher = promotion_enricher
+        self._pre_run_recovery = pre_run_recovery
         self._run_lock = run_lock
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
@@ -262,6 +266,8 @@ class InventorySyncCoordinator:
             return await self._run_locked(sources)
 
     async def _run_locked(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
+        if self._pre_run_recovery is not None:
+            await self._pre_run_recovery()
         failures: list[InventoryAttemptFailure] = []
         for source in sources:
             attempt_id = await self._store.begin(source.manifest)
@@ -688,12 +694,15 @@ def _validate_resource_state_enrichment(
     if not isinstance(availability_metadata, Mapping):
         raise ValueError("inventory availability metadata is missing")
     fact = StateFactMetadata.from_mapping(availability_metadata)
+    evidence_shape_valid = (fact.completeness == 1.0 and not fact.conflicts) or (
+        fact.completeness == 0.0 and fact.conflicts == (STATE_FACT_EQUAL_TIME_CONFLICT,)
+    )
     if (
         fact.lane is not StateFactLane.OBSERVED
         or fact.authority is not StateFactAuthority.PROVIDER
         or fact.source_identity != "azure-resource-health"
         or fact.synthetic
-        or fact.completeness != 1.0
+        or not evidence_shape_valid
     ):
         raise ValueError("inventory availability metadata is not authoritative provider evidence")
 
@@ -704,6 +713,8 @@ __all__ = [
     "InventoryRelationshipCoverage",
     "InventoryStreamError",
     "InventoryPromotionEnricher",
+    "InventoryPromotionObserver",
+    "InventoryPromotionRecovery",
     "InventorySyncCoordinator",
     "classify_inventory_failure",
     "compute_relationship_coverage",

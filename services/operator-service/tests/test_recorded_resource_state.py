@@ -177,6 +177,30 @@ def test_missing_state_separates_source_provider_and_applicability_outcomes() ->
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
 
+def test_resource_type_applicability_rejects_unreviewed_supplied_state() -> None:
+    resource_group = recorded_resource_states(
+        {"status": "Succeeded"},
+        resource_type="resource-group",
+        now=NOW,
+    )
+    application_insights = recorded_resource_states(
+        {"availabilityState": "Available"},
+        resource_type="application-insights",
+        now=NOW,
+    )
+    function = recorded_resource_states(
+        {"status": "Running", "state": "Running"},
+        resource_type="compute.function",
+        now=NOW,
+    )
+
+    assert resource_group["operational"]["value"] is None
+    assert resource_group["operational"]["reason"] == "state_not_applicable"
+    assert application_insights["availability"]["value"] is None
+    assert application_insights["availability"]["reason"] == "state_not_applicable"
+    assert function["operational"]["source_path"] == "state"
+
+
 def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome() -> None:
     vocabulary = (
         Path(__file__).resolve().parents[3] / "rule-catalog" / "vocabulary" / "resource-types.yaml"

@@ -354,6 +354,9 @@ promotion. The active snapshot generation is captured before enrichment and comp
 the promotion lock. A concurrent promotion blocks the stale candidate rather than mixing current
 identity with older state. State transitions can advance from a complete Resource observation even
 when an unrelated relationship remains incomplete.
+If history or ontology projection fails after promotion, the normalized journal retains the active
+generation. The next inventory attempt replays it under the coordinator lock before starting a new
+scan.
 
 Genesis always scans the exact target subscription root with no resource-type filter. A narrowed
 scope is available only for later operator-requested refreshes and cannot satisfy onboarding.

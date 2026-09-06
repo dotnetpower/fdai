@@ -220,20 +220,40 @@ async def test_complete_stream_promotes_terminal_records() -> None:
 async def test_run_lock_serializes_collection_promotion_and_observer() -> None:
     lock = _RunLock()
     store = _Store()
-    observed: list[bool] = []
+    observed: list[tuple[str, bool]] = []
+
+    async def recover() -> None:
+        observed.append(("recovery", lock.active))
 
     async def observer(_observation: PromotedInventoryObservation) -> None:
-        observed.append(lock.active)
+        observed.append(("observer", lock.active))
 
     await InventorySyncCoordinator(
         store=store,
         promotion_observer=observer,
+        pre_run_recovery=recover,
         run_lock=lock,
     ).run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
 
     assert lock.ids == ["inventory-sync-coordinator"]
-    assert observed == [True]
+    assert observed == [("recovery", True), ("observer", True)]
     assert lock.active is False
+
+
+async def test_failed_recovery_blocks_new_inventory_attempt() -> None:
+    store = _Store()
+
+    async def recover() -> None:
+        raise RuntimeError("pending projection unavailable")
+
+    with pytest.raises(RuntimeError, match="pending projection unavailable"):
+        await InventorySyncCoordinator(
+            store=store,
+            pre_run_recovery=recover,
+        ).run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
+
+    assert store.batches == {}
+    assert store.promoted == []
 
 
 async def test_enrichment_relationship_gaps_reach_the_promoted_manifest() -> None:

@@ -89,6 +89,7 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
                 status=InventoryOntologyProjectionStatus.AVAILABLE,
                 object_count=1,
                 link_count=0,
+                complete=True,
                 dropped_reasons=(),
             )
         ),
@@ -123,13 +124,14 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
             )
         ),
         mark_ontology_projected=AsyncMock(),
+        load_pending_promoted_snapshot=AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.build_observation_journal",
         lambda *_args, **_kwargs: observation_journal,
     )
     activity_publisher = SimpleNamespace(publish=AsyncMock())
-    observer = _build_ontology_observer(
+    observer, recovery = _build_ontology_observer(
         config,
         vocabulary=_vocabulary(),
         publisher=cast(EventBusOperationalActivityPublisher, activity_publisher),
@@ -137,6 +139,8 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
     )
     return (
         observer,
+        recovery,
+        observation_journal,
         ontology_store,
         history_store,
         projector,
@@ -889,6 +893,8 @@ async def test_ontology_observer_publishes_durable_topology_history(
 ) -> None:
     (
         observer,
+        _recovery,
+        _observation_journal,
         ontology_store,
         history_store,
         projector,
@@ -905,11 +911,13 @@ async def test_ontology_observer_publishes_durable_topology_history(
     projector.apply.assert_awaited_once()
 
 
-async def test_ontology_observer_attempts_projection_after_history_failure(
+async def test_ontology_observer_does_not_advance_projection_after_history_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
         observer,
+        _recovery,
+        _observation_journal,
         ontology_store,
         history_store,
         projector,
@@ -922,7 +930,7 @@ async def test_ontology_observer_attempts_projection_after_history_failure(
         await observer(_promoted_observation("snapshot-history-failure"))
 
     ontology_store.sync_catalog.assert_awaited_once()
-    projector.apply.assert_awaited_once()
+    projector.apply.assert_not_awaited()
     activity = activity_publisher.publish.await_args.args[0]
     assert activity.reason_codes == ("topology_history_failed",)
 
@@ -932,6 +940,8 @@ async def test_ontology_observer_retains_history_before_projection_failure(
 ) -> None:
     (
         observer,
+        _recovery,
+        _observation_journal,
         _ontology_store,
         history_store,
         projector,
@@ -946,6 +956,61 @@ async def test_ontology_observer_retains_history_before_projection_failure(
     history_store.append.assert_awaited_once()
     activity = activity_publisher.publish.await_args.args[0]
     assert activity.reason_codes == ("projection_failed",)
+
+
+async def test_ontology_recovery_replays_pending_history_before_new_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        recovery,
+        observation_journal,
+        _ontology_store,
+        history_store,
+        projector,
+        _activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    observation = _promoted_observation("snapshot-recovery")
+    history_store.append.side_effect = [RuntimeError("history unavailable"), None]
+
+    with pytest.raises(RuntimeError, match="history unavailable"):
+        await observer(observation)
+
+    observation_journal.load_pending_promoted_snapshot.return_value = observation
+    await recovery()
+
+    observation_journal.load_pending_promoted_snapshot.assert_awaited_once()
+    assert history_store.append.await_count == 2
+    projector.apply.assert_awaited_once()
+
+
+async def test_ontology_observer_keeps_incomplete_projection_pending(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        _recovery,
+        _observation_journal,
+        _ontology_store,
+        _history_store,
+        projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    projector.apply.return_value = SimpleNamespace(
+        status=InventoryOntologyProjectionStatus.UNAVAILABLE,
+        object_count=0,
+        link_count=0,
+        complete=False,
+        dropped_reasons=("unmapped_resource_type",),
+    )
+
+    with pytest.raises(RuntimeError, match="projection is incomplete"):
+        await observer(_promoted_observation("snapshot-incomplete"))
+
+    activity = activity_publisher.publish.await_args.args[0]
+    assert activity.status.value == "degraded"
 
 
 async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPatch) -> None:

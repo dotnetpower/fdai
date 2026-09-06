@@ -164,6 +164,8 @@ The inventory coordinator serializes collection, promotion, transition publicati
 projection under one advisory lock. Log Analytics availability comes from its ARM Resource Health
 endpoint, while Application Insights remains explicitly not applicable. Operator and conversational
 readers consume the resulting generation-fenced fact without deriving health from provisioning.
+The normalized observation journal replays any active generation whose history or ontology
+projection did not finish before the coordinator admits another promotion.
 Topology endpoint clarification normalization lives in
 `semantic_planning_topology_normalization.py`; the compatibility facade preserves public imports,
 deterministic gate order, and read-only authority.

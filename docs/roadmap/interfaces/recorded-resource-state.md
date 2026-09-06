@@ -95,6 +95,11 @@ State transition recording is independent of relationship completeness. A comple
 observation can advance operational or availability state history even when an unrelated topology
 edge remains unresolved. Relationship history still requires complete relationship evidence.
 
+The observer appends the promoted generation to the normalized journal before publishing history.
+If history publication fails, ontology projection does not advance. The next reconciliation replays
+that pending active generation under the same coordinator lock before collecting or promoting a new
+generation, so a transient history failure cannot create a permanent transition gap.
+
 The first reviewed alternate source is Azure Resource Health for `log-workspace` availability:
 
 - `log-workspace` has no single operational running state. Its operational axis is not applicable,

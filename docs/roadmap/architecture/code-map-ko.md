@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8d071875f0a6d04adb23db538afef1f4dba51d84
+translation_source_sha: d341d1d141e4adde2464d172e3b9561c3c98c796
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -159,6 +159,8 @@ coordinator는 하나의 advisory lock 아래에서 수집, 승격, 상태 전�
 직렬화합니다. Log Analytics 가용성은 ARM Resource Health 엔드포인트에서 가져오며 Application
 Insights는 적용 대상이 아닌 상태로 명시합니다. Operator 및 대화 조회는 프로비저닝 상태에서
 상태를 유추하지 않고 세대가 일치하는 결과 사실을 사용합니다.
+정규화 observation journal은 coordinator가 다음 승격을 허용하기 전에 이력 또는 온톨로지 변환을
+마치지 못한 활성 세대를 재실행합니다.
 토폴로지 엔드포인트 명확화 정규화는 `semantic_planning_topology_normalization.py`에 있으며
 호환성 파사드는 공개 import, 결정론적 gate 순서 및 읽기 전용 권한을 보존합니다.
 이력 및 활동 frame 생성은 `semantic_planning_temporal_frames.py`, 인벤토리 수집 상태 조립은

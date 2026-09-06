@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 411c962e1fc38ce46c66924077098f2042d7b00d
+translation_source_sha: 124d55647a004c5eaa1c656aad2798e1f5a5f8ad
 translation_revised: 2026-09-06
 ---
 # 구독 초기 프로비저닝
@@ -355,6 +355,8 @@ ancestor, 이미지, 인증 검사는 그대로 유지됩니다.
 보강 전에 활성 스냅샷 세대를 기록하고 승격 잠금 안에서 다시 비교합니다. 동시에 다른 승격이
 발생하면 현재 ID에 이전 상태를 혼합하지 않고 오래된 후보를 차단합니다. 관련 없는 관계가
 불완전하더라도 완전한 Resource 관측에서 상태 전이를 전진시킬 수 있습니다.
+승격 후 이력 또는 온톨로지 변환이 실패하면 정규화 journal이 활성 세대를 보존합니다. 다음
+인벤토리 시도는 새 스캔을 시작하기 전에 coordinator lock 아래에서 해당 세대를 재실행합니다.
 
 초기 구성은 리소스 형식 필터 없이 정확한 대상 구독 루트를 항상 스캔합니다. 좁은 범위는 이후
 운영자 요청 새로 고침에만 사용할 수 있으며 온보딩을 충족하지 않습니다. 리소스 형식 하위 집합

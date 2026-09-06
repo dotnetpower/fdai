@@ -229,8 +229,9 @@ def _fact(
         "conflicts": [],
         "reason": _missing_reason(resource_type, paths),
     }
+    selected_paths = _applicable_paths(resource_type, paths)
     for prefix in ("", "properties.", "properties.properties."):
-        for path in paths:
+        for path in selected_paths:
             source_path = prefix + path
             value = _at(properties, source_path)
             if (
@@ -265,6 +266,19 @@ def _fact(
                 )
             return result
     return result
+
+
+def _applicable_paths(
+    resource_type: str | None,
+    paths: tuple[str, ...],
+) -> tuple[str, ...]:
+    if resource_type is None:
+        return paths
+    if paths == _OPERATIONAL_PATHS:
+        return OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE.get(resource_type, ())
+    if paths == _AVAILABILITY_PATHS:
+        return AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE.get(resource_type, ())
+    return paths
 
 
 def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:

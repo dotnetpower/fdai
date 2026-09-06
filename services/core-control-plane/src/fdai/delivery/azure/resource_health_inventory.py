@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Final, Protocol
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import httpx
 
@@ -20,6 +21,7 @@ from fdai.delivery.inventory_sync import (
 )
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.state_evidence import (
+    STATE_FACT_EQUAL_TIME_CONFLICT,
     STATE_FACT_METADATA_PROPERTY,
     StateFactAuthority,
     StateFactLane,
@@ -45,6 +47,7 @@ class AzureResourceHealthInventoryConfig:
 
     subscription_ids: tuple[str, ...]
     endpoint: str = "https://management.azure.com"
+    audience: str = _MANAGEMENT_AUDIENCE
     timeout_seconds: float = 10.0
     max_targets: int = 100
     max_concurrency: int = 4
@@ -60,6 +63,15 @@ class AzureResourceHealthInventoryConfig:
         parsed = urlparse(self.endpoint)
         if parsed.scheme != "https" or not parsed.netloc or parsed.path not in {"", "/"}:
             raise ValueError("Resource Health endpoint MUST be an HTTPS origin")
+        audience = urlparse(self.audience)
+        if (
+            audience.scheme != "https"
+            or not audience.netloc
+            or audience.path != "/.default"
+            or audience.query
+            or audience.fragment
+        ):
+            raise ValueError("Resource Health audience MUST be an HTTPS .default scope")
         if not 0.1 <= self.timeout_seconds <= 30:
             raise ValueError("Resource Health timeout_seconds MUST be in [0.1, 30]")
         if not 1 <= self.max_targets <= 1000:
@@ -150,10 +162,10 @@ class AzureResourceHealthInventoryEnricher:
                 coverage={"targets": len(targets)},
             )
         try:
-            token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
+            token = await self._identity.get_token(self._config.audience)
         except Exception:  # noqa: BLE001 - identity details must not enter generation metadata
             return self._unavailable(
-                base_observation,
+                _retain_previous_health(base_observation, previous),
                 reason="resource_health_identity_unavailable",
             )
         semaphore = asyncio.Semaphore(self._config.max_concurrency)
@@ -193,10 +205,18 @@ class AzureResourceHealthInventoryEnricher:
                 elif (
                     prior is not None
                     and result.effective_at == prior[1].effective_at
-                    and result.state != prior[0].props.get("availabilityState")
+                    and (
+                        prior[1].conflicts
+                        or result.state != prior[0].props.get("availabilityState")
+                        or result.reason_kind != prior[0].props.get("availabilityReasonKind")
+                    )
                 ):
                     coverage["conflicting_same_time"] += 1
-                    retained[resource.resource_id] = _carry_prior_health(resource, prior)
+                    retained[resource.resource_id] = _carry_prior_health(
+                        resource,
+                        prior,
+                        conflict=STATE_FACT_EQUAL_TIME_CONFLICT,
+                    )
                 else:
                     coverage["observed"] += 1
                     facts[resource.resource_id] = result
@@ -234,26 +254,30 @@ class AzureResourceHealthInventoryEnricher:
         ):
             return "target_unresolved"
         try:
-            response = await self._http.get(
+            async with self._http.stream(
+                "GET",
                 f"{self._config.endpoint.rstrip('/')}{provider_ref}/providers/"
                 "Microsoft.ResourceHealth/availabilityStatuses/current",
                 params={"api-version": _API_VERSION},
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=self._config.timeout_seconds,
-            )
+            ) as response:
+                if response.status_code in {401, 403}:
+                    return "unauthorized"
+                if response.status_code == 422:
+                    return "not_modeled"
+                if response.status_code != 200:
+                    return "source_unavailable"
+                content = bytearray()
+                async for chunk in response.aiter_bytes():
+                    content.extend(chunk)
+                    if len(content) > self._config.max_response_bytes:
+                        return "response_too_large"
         except (httpx.HTTPError, TimeoutError):
             return "transport_unavailable"
-        if response.status_code in {401, 403}:
-            return "unauthorized"
-        if response.status_code == 422:
-            return "not_modeled"
-        if response.status_code != 200:
-            return "source_unavailable"
-        if len(response.content) > self._config.max_response_bytes:
-            return "response_too_large"
         try:
-            payload = response.json()
-        except ValueError:
+            payload = json.loads(content)
+        except (TypeError, ValueError):
             return "response_invalid"
         return _fact(payload, resource_id=resource.resource_id)
 
@@ -363,7 +387,23 @@ def _fact(payload: object, *, resource_id: str) -> _HealthFact | str:
 
 
 def _allowed_arm_id(value: str, *, subscriptions: tuple[str, ...]) -> bool:
-    parts = tuple(part for part in value.strip("/").split("/") if part)
+    parsed = urlparse(value)
+    if (
+        not value.startswith("/")
+        or value.startswith("//")
+        or parsed.scheme
+        or parsed.netloc
+        or parsed.query
+        or parsed.fragment
+    ):
+        return False
+    raw_parts = value[1:].split("/")
+    if not raw_parts or any(not part for part in raw_parts):
+        return False
+    decoded_parts = tuple(unquote(part) for part in raw_parts)
+    if any(part in {".", ".."} or "/" in part or "\\" in part for part in decoded_parts):
+        return False
+    parts = tuple(raw_parts)
     return (
         len(parts) >= 8
         and parts[0].casefold() == "subscriptions"
@@ -378,9 +418,9 @@ def _timestamp(value: object) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
+        return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
+    except (OverflowError, OSError, ValueError):
         return None
-    return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
 
 
 def _machine_token(value: object, *, fallback: str) -> str:
@@ -410,7 +450,13 @@ def _prior_health_resource(
         or metadata.lane is not StateFactLane.OBSERVED
         or metadata.authority is not StateFactAuthority.PROVIDER
         or metadata.synthetic
-        or metadata.conflicts
+        or not (
+            (metadata.completeness == 1.0 and not metadata.conflicts)
+            or (
+                metadata.completeness == 0.0
+                and metadata.conflicts == (STATE_FACT_EQUAL_TIME_CONFLICT,)
+            )
+        )
     ):
         return None
     return resource, metadata
@@ -419,20 +465,41 @@ def _prior_health_resource(
 def _carry_prior_health(
     resource: ResourceRecord,
     prior: tuple[ResourceRecord, StateFactMetadata],
+    *,
+    conflict: str | None = None,
 ) -> ResourceRecord:
-    prior_resource, _metadata = prior
+    prior_resource, prior_fact = prior
     props = dict(resource.props)
     metadata_root = props.get(STATE_FACT_METADATA_PROPERTY)
     metadata = dict(metadata_root) if isinstance(metadata_root, Mapping) else {}
     prior_metadata_root = prior_resource.props[STATE_FACT_METADATA_PROPERTY]
     if not isinstance(prior_metadata_root, Mapping):
         raise ValueError("prior Resource Health metadata is malformed")
-    metadata["availabilityState"] = prior_metadata_root["availabilityState"]
+    metadata["availabilityState"] = (
+        replace(
+            prior_fact,
+            completeness=0.0,
+            conflicts=(conflict,),
+        ).to_mapping()
+        if conflict is not None
+        else prior_metadata_root["availabilityState"]
+    )
     props["availabilityState"] = prior_resource.props["availabilityState"]
     if "availabilityReasonKind" in prior_resource.props:
         props["availabilityReasonKind"] = prior_resource.props["availabilityReasonKind"]
     props[STATE_FACT_METADATA_PROPERTY] = metadata
     return replace(resource, props=props)
+
+
+def _retain_previous_health(
+    observation: PromotedInventoryObservation,
+    previous: Mapping[str, ResourceRecord],
+) -> PromotedInventoryObservation:
+    retained: list[ResourceRecord] = []
+    for resource in observation.resources:
+        prior = _prior_health_resource(previous.get(resource.resource_id))
+        retained.append(_carry_prior_health(resource, prior) if prior is not None else resource)
+    return replace(observation, resources=tuple(retained))
 
 
 __all__ = [
