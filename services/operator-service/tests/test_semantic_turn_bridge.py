@@ -3701,6 +3701,78 @@ async def test_document_draft_terminal_event_materializes_complete_owned_source(
     )
 
 
+@pytest.mark.parametrize("source_complete", (True, False))
+async def test_inventory_document_uses_current_answer_without_a_preceding_source(
+    source_complete: bool,
+) -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+    receipt = await bridge.append(
+        _proposal(body={"prompt": "Document the authorized subscription inventory."})
+    )
+    stored_turn = store.turns[receipt.proposal_id]
+    assert stored_turn.source_request_id is None
+    projection = _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "presentation_context": {
+                "operation": "select",
+                "output_shape": "resource_list",
+                "measure_concepts": ["complete_content", "download"],
+                "document_kind": "inventory",
+            },
+            "outputs": [
+                {
+                    "node_id": "goal-1",
+                    "rows": [{"row_id": "row-1", "values": {"name": "example-resource"}}],
+                    "returned_rows": 1,
+                    "total_rows": 1,
+                    "display_truncated": False,
+                    "source_complete": source_complete,
+                    "source_truncation_reason": None if source_complete else "source_incomplete",
+                    "evidence_refs": ["evidence-1"],
+                }
+            ],
+        }
+    }
+    store.results["current"] = StoredSemanticResult(
+        sequence=1,
+        event="done",
+        request_id=stored_turn.request_id,
+        principal_id="operator-1",
+        projection_id="current",
+        data=projection,
+        duplicate=False,
+    )
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        ),
+        document_exporter=ConversationDocumentExporter(store=store),
+    )
+    events = [event async for event in stream]
+    done = next(event for event in events if event.event == "done")
+
+    if source_complete:
+        artifact = cast(dict[str, object], done.data["document_artifact"])
+        assert artifact["source_request_id"] == stored_turn.request_id
+        assert artifact["complete"] is True
+        assert "example-resource" in cast(str, artifact["preview_markdown"])
+        assert "Nested provider configuration" in cast(str, artifact["preview_markdown"])
+        assert "PDF" not in cast(str, done.data["answer"])
+    else:
+        assert "document_artifact" not in done.data
+        assert done.data["document_unavailable_reason"] == "document_source_incomplete"
+
+
 async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
     store = _MemorySemanticStore()
     bridge = SemanticTurnBridge(

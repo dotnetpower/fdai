@@ -879,10 +879,9 @@ def test_first_turn_social_judgment_is_confirmed_by_preflight() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
     assert outcome.direct_response_answer == "반가워요. 무엇을 함께 살펴볼까요?"
     assert outcome.social_act.value == "greeting"
-    assert manifests.calls == 1
-    assert full_model.calls == 1
+    assert manifests.calls == 0
+    assert full_model.calls == 0
     assert preflight_model.calls == 1
-    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
     assert (t1.frame_calls, t1.plan_calls) == (0, 0)
 
 
@@ -1197,7 +1196,7 @@ def test_full_judgment_direct_response_without_narrator_holds_prior_thread() -> 
         ),
     ],
 )
-def test_first_turn_operational_judgment_skips_unneeded_preflight(
+def test_first_turn_operational_judgment_runs_compact_preflight(
     preflight_model: _PreflightModel,
 ) -> None:
     manifest, definition = _fixture()
@@ -1229,7 +1228,7 @@ def test_first_turn_operational_judgment_skips_unneeded_preflight(
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert manifests.calls == 1
     assert full_model.calls == 1
-    assert preflight_model.calls == 0
+    assert preflight_model.calls == 1
 
 
 def test_low_confidence_social_preflight_never_uses_full_judgment_prose() -> None:

@@ -36,6 +36,13 @@ The workbench is complete only when it answers these bounded operational questio
 | C5 - Evidence health | Is runtime evidence available, current, complete, conflicting, or synthetic? | Sanitized source alias, generation, cutoffs, freshness, conflicts, drop reasons, and nullable counts when unavailable. |
 | C6 - Governed actions | Which actions are semantically bound to this declaration? | Exact ObjectType or InterfaceType target evidence and the complete ActionType safety contract, with no execute control. |
 | C7 - Change safety | What changed between two retained releases? | Exact release digests, declaration-ref additions/changes/removals, compatibility verdict, migration requirement, and deterministic diff digest. |
+
+Conversation planning can project a smaller model-facing view after schema-validated intent
+classification. Subscription inventory documents retain `Resource`; configuration comparison adds
+the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed
+gateway function. This projection is a prompt-minimization view, not another manifest or authority
+source. Every descriptor still originates in the complete principal-scoped manifest, and plan
+verification still resolves against the exact release.
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: a9783070fc5533d7b5c1d94bb0f4584f3faac3a3
-translation_revised: 2026-09-06
+translation_source_sha: f293342e84e173fd739674498bb603d483882a87
+translation_revised: 2026-09-07
 ---
 
 # 계층형 대화 계획
@@ -51,6 +51,19 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 자기소개를 높은 확신도로 판정하면 모델 작성 응답을 직접 반환할 수 있습니다.
 혼합, 맥락 의존, 모호함, 낮은 확신도 또는 preflight 실패는 부분 응답 텍스트를 사용하지 않고 기존
 전체 의미 판단으로 계속 진행됩니다.
+
+preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의존적인 운영 신호는 Adaptive 설명
+플래너 비용을 먼저 지불하지 않고 검증된 의미 경로로 들어갑니다. 혼합 요청은 지식 목표와 운영 목표를
+분리하기 위해 Adaptive 경로를 유지합니다. 전체 의미 판단이 운영 유형을 수락하면 Core는 구독
+인벤토리 문서, Resource 구성 비교, 게이트웨이 진단에 필요한 최소한의 검토된 서술자만 모델에
+전달합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. 서술자 축소는 기능이나 권한을
+부여하지 않습니다. 선택한 모든 선언은 정확한 principal 매니페스트에서 오며 결과 계획은 기존
+검증기를 그대로 통과해야 합니다.
+
+알려진 운영 유형은 범용 의미 frame 프롬프트 대신 전용 544토큰 frame 프롬프트를 사용합니다.
+스키마를 포함한 전체 system 및 user 요청에는 64KiB의 고정 상한을 적용합니다. Core는 프롬프트나
+근거 내용을 기록하지 않고 프롬프트 프로필, system 및 user 문자 수, 전체 요청 바이트, 후보 수,
+단계를 기록합니다. 크기 상한을 넘는 요청은 프로바이더 I/O 전에 보류합니다.
 
 전체 모델 기반 의미 판단 경계는 운영 의미의 권위 있는 소유자로 유지됩니다. 사회적 표현과 운영 요청이
 결합되면 전체 경로를 사용하고 `social_act`는 권한 없는 계획 메타데이터로만 보존합니다. Runtime 코드는
@@ -127,8 +140,8 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 적응형 설명과 검증된 예시 | implemented | `current change`; 집중 Python 검사 653개, Console 검사 209개, 격리된 합성 브라우저 시나리오 10개 통과 | 일반 지식과 운영 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 실제 모델 품질과 배포 근거는 별도입니다. |
-| Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v1.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 집중 routing, 조립, transport 및 prompt 테스트 | Temperature 0인 분류기가 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 이 schema는 사용자 대상 문장을 전달할 수 없습니다. 조건에 맞는 social route는 공통 temperature 0.3 페르소나 base와 타입 기반 act pack 하나만 조립하며 기능 카탈로그나 운영 맥락을 받지 않습니다. 분류기는 catalog 추정 토큰 531개와 schema 포함 system 문자 3,599자이고, act별 narrator 조립은 추정 토큰 283-314개와 1,721-1,847자입니다. |
-| Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도합니다. 기본 타입 기반 정책은 T1을 사용할 수 없을 때만 같은 단계의 T2 재시도를 한 번 허용하고, 유효하지 않은 frame, 스키마, 구성, 결정론적 plan 불일치는 안전하게 종료합니다. |
+| Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v1.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 집중 routing, 조립, transport 및 prompt 테스트 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 명시적 운영 턴과 맥락 의존 운영 턴은 Adaptive 설명 계획을 우회하고 혼합 턴은 유지합니다. 이 schema는 사용자 대상 문장을 전달할 수 없습니다. |
+| Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. 수락된 인벤토리 문서, 구성 변경, 게이트웨이 진단 판단은 모델에 전달하는 서술자를 각각 검토된 선언 1개, 3개, 5개로 축소하고 64KiB 요청 상한이 있는 전용 544토큰 frame 계약을 사용합니다. 알 수 없는 유형은 전체 매니페스트 fallback을 유지합니다. |
 | Owner 제어 적극 T2 복구 | implemented | `conversation.t2_escalation.aggressive_enabled`, 런타임 설정 변환 결과, 의미 턴 처리기, 집중 백엔드 검사 640개, Console 모델 테스트, 타입 검사, 운영 빌드 및 인증된 설정 저장 | 개발 환경의 대화형 읽기 턴은 조건에 맞는 T1 명확화, 사용 불가 또는 수락되지 않은 프레임과 계획 제안에 대해 범위가 제한된 T2 복구 한 번을 기본으로 사용합니다. 스테이징과 운영 환경은 승격 근거를 확보할 때까지 기본적으로 비활성화합니다. 이 설정은 재시작 없이 턴마다 평가하고 T2에도 모호함이 남으면 원래 명확화를 보존합니다. Golden 캠페인, 액션, 권한 부여, 근거 검증 및 실행 권한은 확장할 수 없습니다. |
 | 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |
 | Principal 범위 관리 문서 RAG | implemented | [`semantic_governed_document_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_governed_document_planning.py), [`governed_document_reader.py`](../../../services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py), [`governed_document_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py), 집중 계약, ACL, runtime 및 projection 검사 | 의미 판단은 문서 근거를 `none`, `optional`, `required`, `explicit` 중 하나로 선택합니다. 검색은 인증된 principal의 정확한 그룹, 컬렉션, 개정, 수명 주기, 목적, 접근 정책을 먼저 제한하고 다시 검증합니다. 필수 근거는 안전하게 종료하고, 독립적인 선택 문서 실패는 완료된 운영 근거가 있을 때만 한계를 표시한 부분 답변을 허용합니다. 현재 PostgreSQL 어댑터는 `index_completeness_unverified`를 보고하므로 완전한 프로바이더 세대를 연결하기 전까지 운영 환경의 필수 및 명시적 턴은 보류됩니다. 문서 텍스트는 신뢰할 수 없으며 지시 또는 실행 권한이 없습니다. |
@@ -146,6 +159,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 첫 번째 턴에서 Compact preflight를 실행하고, 명시적 및 맥락 의존 운영 요청이 Adaptive 설명 계획을 우회하도록 했으며, 전체 의미 판단 뒤 알려진 운영 유형을 검토된 서술자 범위로 축소했습니다. | `current change`; Adaptive 및 의미 계획 집중 테스트 579개가 통과했고 선택한 소스가 strict mypy를 통과했습니다. | 하나의 일관된 표준 스택 SHA에서 첫 토큰 지연 시간을 측정하고 5초를 넘는 복합 읽기에 검증된 점진 구간을 추가합니다. |
 | 2026-09-06 | implemented | 마지막 수정 뒤 테스트 하드닝 커밋 11개의 전체 범위를 다시 검증했습니다. Diff 범위 gate와 database가 필요 없는 직접 통합 계약은 필수 또는 선택적 문서 근거 동작을 약화하지 않고 통과했습니다. | `current change`; `make test-changed DIFF=6ca4a6bd3...HEAD`에서 4,129개 테스트가 통과했고 database 의존 테스트 3개를 건너뛰었으며 12,568개를 선택에서 제외했습니다. 의미 턴 왕복, 조립, 판단 assurance 직접 통합 테스트 56개가 통과했습니다. 집중 RAG 711개, Operator 385개, Console 67개 검사도 계속 통과했습니다. | Database 의존 통합 범위는 전용 로컬 FDAI PostgreSQL DSN으로만 실행합니다. 운영 준비 상태를 보고하기 전에 인증된 서비스 간 증적과 프로바이더가 소유하는 완전한 인덱스 세대 증적을 보존합니다. |
 | 2026-09-06 | implemented | 관리 문서 RAG 테스트 하드닝 라운드 11개를 추가로 완료했습니다. 경계 coverage, 필수 provider 장애, 표시 digest 분리, 잘못된 그룹과 verifier 정제, 위조된 Console authority, PostgreSQL fail-closed, 엄격한 16진수 digest 회귀를 추가했습니다. 마지막 독립 리뷰에서 남은 Medium 이상 결함이 없음을 확인했습니다. | `current change`; 계약, ACL, 계획, runtime, 처리기, 전송, Operator 집중 검사 711개와 영향을 받는 Operator 인증 검사 385개가 통과했습니다. Reader, planner, 관리 문서 조회, 인증 coverage는 각각 98%, 98%, 100%, 92%에 도달했습니다. 선택한 Python 파일은 Ruff와 format을 통과했습니다. Console 검사 67개와 Console 타입 검사, 생성된 서비스 계약 drift 및 문서 검사가 통과했습니다. | 운영 준비 상태를 보고하기 전에 인증된 서비스 간 검색 증적을 보존합니다. 프로바이더가 소유하는 완전한 인덱스 세대를 연결하고 검증합니다. 현재 PostgreSQL 어댑터는 어휘 검색을 사용하며 완전성을 검증하지 못했다고 보고합니다. |
 | 2026-09-06 | implemented | 의미 기반 문서 근거 분류, principal 범위 관리 문서 검색, 정확한 개정 인용, 필수 원본 보류, 독립적으로 조건을 충족한 선택적 부분 답변을 추가했습니다. 인증된 Entra 그룹은 Operator 애플리케이션 역할과 분리하며 요청, principal 범위, 함수 호출, 최종 ACL 검사에 결합됩니다. 관리 문서 RAG 하드닝 렌즈 30개를 완료했고 마지막 독립 리뷰에서 남은 Medium 이상 결함이 없음을 확인했습니다. | `current change`; 계약, ACL, 계획, runtime, 처리기, 전송, Operator 집중 검사 650개와 영향을 받는 Operator 인증 검사 375개가 통과했습니다. 소스 파일 35개는 strict mypy를, 선택한 Python 파일은 Ruff를 통과했습니다. Console 검사 67개와 Console 타입 검사, 생성된 서비스 계약 드리프트 검사가 통과했습니다. | 운영 준비 상태를 보고하기 전에 인증된 서비스 간 검색 증적을 보존합니다. 프로바이더가 소유하는 완전한 인덱스 세대를 연결하고 검증합니다. 현재 PostgreSQL 어댑터는 어휘 검색을 사용하며 완전성을 검증하지 못했다고 보고합니다. |

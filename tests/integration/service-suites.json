@@ -106,6 +106,7 @@
           "services/operator-service/tests/test_semantic_terminal_wakeup.py",
           "services/operator-service/tests/test_stream_shutdown.py",
           "services/operator-service/tests/test_subscription_scope_presentation.py",
+          "services/operator-service/tests/test_t1_model_health.py",
           "services/operator-service/tests/test_teams_workflow_binding.py",
           "services/operator-service/tests/test_teams_workflow_diagnostics.py",
           "services/operator-service/tests/test_wara_projection.py"

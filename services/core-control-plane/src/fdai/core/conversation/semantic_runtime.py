@@ -31,6 +31,12 @@ from .adaptive_call_scope import AdaptiveBudgetExceededError, bind_adaptive_mode
 from .adaptive_models import AdaptiveEvidence
 from .adaptive_service import AdaptiveConversationService, AdaptiveDeferred, AdaptiveUnavailable
 from .adaptive_wait import await_adaptive_call
+from .conversation_preflight import (
+    DIRECT_SOCIAL_ACTS,
+    ContextDependency,
+    ConversationPreflightResult,
+    OperationalSignal,
+)
 from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
 from .semantic_governed_document_planning import document_evidence_mode
 from .semantic_planning import SemanticPlanningService
@@ -180,6 +186,22 @@ class SemanticConversationRuntime:
         """Answer knowledge facets without bypassing the principal-scoped verified read path."""
         if cancelled is not None and cancelled.is_set():
             raise asyncio.CancelledError
+        conversation_profile = (
+            self._adaptive.social_profile(target_agent, locale, relationship)
+            if self._adaptive is not None
+            else None
+        )
+        preflight_result = (
+            await asyncio.to_thread(
+                self._planner.preflight,
+                utterance=utterance,
+                prior_turns=prior_turns,
+                locale=locale,
+                conversation_profile=conversation_profile,
+            )
+            if self._planner is not None
+            else None
+        )
 
         async def verified(question: str) -> SemanticTurnResult:
             return await self._handle_verified(
@@ -193,11 +215,8 @@ class SemanticConversationRuntime:
                 bound_investigation_continuation=bound_investigation_continuation,
                 escalation_policy=escalation_policy,
                 progress_observer=progress_observer,
-                conversation_profile=(
-                    self._adaptive.social_profile(target_agent, locale, relationship)
-                    if self._adaptive is not None
-                    else None
-                ),
+                conversation_profile=conversation_profile,
+                preflight_result=preflight_result,
             )
 
         async def evidence(question: str) -> AdaptiveEvidence:
@@ -259,6 +278,19 @@ class SemanticConversationRuntime:
                 authorities=tuple(dict.fromkeys(authorities)),
             )
 
+        proposal = preflight_result.proposal if preflight_result is not None else None
+        preflight_selects_verified = proposal is not None and (
+            proposal.operational_signal
+            in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
+            or (
+                proposal.social_act in DIRECT_SOCIAL_ACTS
+                and proposal.operational_signal is OperationalSignal.NONE
+                and proposal.context_dependency
+                in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+            )
+        )
+        if preflight_selects_verified:
+            return await verified(utterance)
         if (
             self._adaptive is not None
             and bound_incident is None
@@ -367,6 +399,7 @@ class SemanticConversationRuntime:
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
+        preflight_result: ConversationPreflightResult | None = None,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
         if self._planner is None:
@@ -390,11 +423,8 @@ class SemanticConversationRuntime:
             bound_resource_context=bound_resource_context,
             bound_investigation_continuation=bound_investigation_continuation,
             escalation_policy=escalation_policy,
-            **(
-                {"conversation_profile": conversation_profile}
-                if conversation_profile is not None
-                else {}
-            ),
+            conversation_profile=conversation_profile,
+            preflight_result=preflight_result,
         )
         if planning.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE:
             return _terminal("direct_response", planning.reason, planning)

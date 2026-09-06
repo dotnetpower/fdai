@@ -5,767 +5,95 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agent activity - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/agent-activity-preview-workspace.css?v=1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <style>
-    /* Agent activity - per-agent timeline reconstructed from the audit log. */
-    .aa-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
-    .aa-toolbar .cs-fb-label { color: var(--cs-text-soft); font-size: 12.5px; }
-
-    .aa-group { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 14px; overflow: hidden; }
-    .aa-group-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--cs-shade); border-bottom: 1px solid var(--cs-hairline); }
-    .aa-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
-    .aa-dot.is-governance { background: var(--cs-plum); }
-    .aa-dot.is-pipeline   { background: var(--cs-steel); }
-    .aa-dot.is-domain     { background: var(--cs-teal); }
-    .aa-group-name { font-weight: 600; font-size: 15px; }
-    .aa-group-meta { color: var(--cs-text-soft); font-size: 12.5px; margin-left: auto; }
-    .aa-selection { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); font-size: 12.5px; }
-    .aa-selection[hidden] { display: none; }
-    .aa-selection strong { font-weight: 650; }
-    .aa-selection a { flex: 0 0 auto; }
-    .aa-empty { padding: 28px 16px; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); color: var(--cs-text-soft); text-align: center; }
-
-    .aa-row { display: grid; grid-template-columns: 96px 74px 1fr auto; gap: 12px; padding: 10px 16px; border-top: 1px dashed var(--cs-hairline); font-size: 13px; align-items: baseline; }
-    .aa-row:first-of-type { border-top: none; }
-    .aa-time { color: var(--cs-text-soft); font-variant-numeric: tabular-nums; font-size: 12px; }
-    .aa-verb { font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; padding: 1px 8px; border-radius: 4px; text-align: center; align-self: center; }
-    .aa-verb.is-execute { color: var(--cs-sage);       background: rgba(94,130,89,.12); }
-    .aa-verb.is-reject  { color: var(--cs-dusty-red);  background: rgba(172,90,90,.12); }
-    .aa-verb.is-hold    { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
-    .aa-verb.is-abstain { color: var(--cs-text-soft);  background: var(--cs-shade); }
-    .aa-verb.is-approve { color: var(--cs-steel);      background: rgba(68,104,142,.12); }
-    .aa-verb.is-audit   { color: var(--cs-plum);       background: rgba(123,108,156,.12); }
-    .aa-verb.is-rollback { color: var(--cs-terracotta); background: rgba(188,116,73,.12); }
-    .aa-summary strong { color: var(--cs-text); font-weight: 600; }
-    .aa-summary code { font-size: 12px; }
-    .aa-corr { font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; color: var(--cs-text-soft); }
-    .aa-corr a { color: var(--cs-steel); }
-
-    .aal-workspace { display: grid; gap: 16px; }
-    .aal-panel { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 12px; background: var(--cs-card); box-shadow: var(--cs-shadow); }
-    .aal-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 64px; padding: 12px 16px; border-bottom: 1px solid var(--cs-hairline); background: linear-gradient(110deg, var(--cs-shade), var(--cs-card) 62%); }
-    .aal-panel-kicker { display: block; margin-bottom: 2px; color: var(--cs-text-soft); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    .aal-panel-head h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
-    .aal-runtime-summary { display: flex; align-items: center; gap: 8px; color: var(--cs-text-soft); font-size: 12px; white-space: nowrap; }
-    .aal-runtime-summary strong { color: var(--cs-text); font-weight: 650; }
-    .aal-live-dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--cs-sage); box-shadow: 0 0 0 4px rgba(94,130,89,.12); }
-    .aal-live-dot::after { position: absolute; inset: -4px; border: 1px solid rgba(94,130,89,.38); border-radius: 50%; content: ""; animation: aal-pulse 2.2s ease-out infinite; }
-    @keyframes aal-pulse { 0% { opacity: .75; transform: scale(.72); } 70%, 100% { opacity: 0; transform: scale(1.5); } }
-    .aal-status-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
-    .aal-agent { position: relative; display: grid; grid-template-columns: 9px minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; min-height: 58px; padding: 9px 12px; border-right: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); color: var(--cs-text); text-decoration: none; }
-    .aal-agent:nth-child(5n) { border-right: 0; }
-    .aal-agent:nth-last-child(-n+5) { border-bottom: 0; }
-    .aal-agent:hover { background: var(--cs-shade); text-decoration: none; }
-    .aal-agent.is-selected { background: rgba(68,104,142,.08); outline: 1px solid rgba(68,104,142,.22); }
-    .aal-agent-dot { width: 8px; height: 8px; border: 2px solid var(--cs-card); border-radius: 50%; background: #A19D98; box-shadow: 0 0 0 1px #A19D98; }
-    .aal-agent-dot.is-active { background: var(--cs-sage); box-shadow: 0 0 0 1px var(--cs-sage); }
-    .aal-agent-dot.is-watch { background: var(--cs-steel); box-shadow: 0 0 0 1px var(--cs-steel); }
-    .aal-agent-dot.is-wait { background: var(--cs-terracotta); box-shadow: 0 0 0 1px var(--cs-terracotta); }
-    .aal-agent-copy { min-width: 0; }
-    .aal-agent-copy strong, .aal-agent-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .aal-agent-copy strong { font-size: 12.5px; line-height: 1.35; }
-    .aal-agent-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
-    .aal-agent-copy small { flex: 1 1 auto; color: var(--cs-text-soft); font-size: 10.5px; line-height: 1.35; }
-    .aal-agent-state { color: var(--cs-text-soft); font-size: 9.5px; font-weight: 700; text-transform: uppercase; }
-    .aal-agent-state.is-active { color: var(--cs-sage); }
-    .aal-agent-state.is-watch { color: var(--cs-steel); }
-    .aal-agent-state.is-wait { color: var(--cs-terracotta); }
-    .aal-journal-head-actions { display: flex; align-items: center; gap: 8px; }
-    .aal-follow { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; }
-    .aal-follow:hover { background: var(--cs-shade); }
-    .aal-follow[aria-pressed="false"] { color: var(--cs-text-soft); }
-    .aal-follow-icon { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-sage); }
-    .aal-follow[aria-pressed="false"] .aal-follow-icon { background: #A19D98; }
-    .aal-event-count { color: var(--cs-text-soft); font-size: 11px; }
-    .aal-log-scroll { block-size: clamp(340px, 50vh, 500px); overflow: auto; overscroll-behavior: contain; scrollbar-color: #B8B4AF transparent; scrollbar-width: thin; }
-    .aal-log-grid { min-width: 920px; }
-    .aal-columns, .aal-event { display: grid; grid-template-columns: 86px 112px 94px minmax(320px, 1fr) 170px; gap: 12px; align-items: center; }
-    .aal-columns { position: sticky; top: 0; z-index: 2; min-height: 34px; padding: 7px 14px; border-bottom: 1px solid var(--cs-hairline); background: rgba(244,242,240,.96); color: var(--cs-text-soft); font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; backdrop-filter: blur(8px); }
-    .aal-event { min-height: 48px; padding: 8px 14px; border-top: 1px solid var(--cs-hairline); font-size: 12px; }
-    .aal-columns + .aal-event { border-top: 0; }
-    .aal-event:hover { background: rgba(244,242,240,.58); }
-    .aal-event.is-init { background: rgba(68,104,142,.045); }
-    .aal-event[hidden] { display: none; }
-    .aal-event .aa-time { font-size: 11px; }
-    .aal-event-agent { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--cs-text); font-weight: 650; }
-    .aal-event-agent:hover { text-decoration: none; }
-    .aal-event-agent span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .aal-event .aa-verb { justify-self: start; min-width: 0; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .aal-event .aa-summary { min-width: 0; line-height: 1.45; }
-    .aal-event .aa-corr { overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-    .aal-init-details summary { cursor: pointer; list-style: none; }
-    .aal-init-details summary::-webkit-details-marker { display: none; }
-    .aal-init-details summary::after { margin-left: 7px; color: var(--cs-steel); content: "Show agents"; font-size: 10.5px; font-weight: 600; }
-    .aal-init-details[open] summary::after { content: "Hide agents"; }
-    .aal-init-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
-    .aal-init-list span { padding: 1px 6px; border: 1px solid var(--cs-hairline); border-radius: 4px; background: var(--cs-card); color: var(--cs-text-soft); font-size: 10px; }
-    .aal-journal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 8px 14px; border-top: 1px solid var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10.5px; }
-    .aal-journal-foot a { font-weight: 600; }
-    .aal-empty-log { padding: 36px 16px; color: var(--cs-text-soft); text-align: center; }
-
-    /* A single operational log surface: dense, bounded, and easy to scan. */
-    .aa-toolbar { display: grid; grid-template-columns: minmax(170px, 220px) minmax(260px, 1fr) auto; gap: 10px; margin-bottom: 12px; padding: 0; }
-    .aa-filter { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; min-height: 38px; padding: 5px 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); }
-    .aa-filter > span { color: var(--cs-text-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; }
-    .aa-filter select, .aa-filter input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--cs-text); font: inherit; font-size: 12px; }
-    .aa-filter input::placeholder { color: #969BA0; }
-    .aa-filter:focus-within { border-color: var(--cs-steel); box-shadow: 0 0 0 2px rgba(68,104,142,.12); }
-    .aa-live-summary { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 5px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; white-space: nowrap; }
-    .aal-workspace { gap: 0; }
-    .aal-panel { border-color: #D9DDE1; border-radius: 7px; background: #FFFFFF; box-shadow: 0 10px 28px rgba(46,54,64,.09); }
-    .aal-panel-head { min-height: 54px; padding: 10px 14px; border-bottom-color: #D9DDE1; background: #F4F6F7; }
-    .aal-panel-kicker { color: #73808A; }
-    .aal-panel-head h2 { color: #27323A; font-family: "Cascadia Code","Consolas",monospace; font-size: 14px; font-weight: 600; }
-    .aal-event-count { color: #68747D; font-family: "Cascadia Code","Consolas",monospace; }
-    .aal-follow, .aal-control { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 9px; border: 1px solid #CDD3D8; border-radius: 6px; background: #FFFFFF; color: #42515C; font-family: "Cascadia Code","Consolas",monospace; font-size: 10.5px; font-weight: 650; cursor: pointer; }
-    .aal-follow:hover, .aal-control:hover { background: #EEF2F4; }
-    .aal-follow[aria-pressed="true"] { border-color: rgba(94,130,89,.34); background: rgba(94,130,89,.10); color: #466B43; }
-    .aal-follow[aria-pressed="true"] .aal-follow-icon { box-shadow: 0 0 0 3px rgba(94,130,89,.12); }
-    .aal-control-icon { color: #667680; font-size: 13px; line-height: 1; }
-    .aal-log-scroll { block-size: clamp(440px, 62vh, 680px); background: #FFFFFF; color: #34424C; scrollbar-color: #AEB8BF #F6F7F8; }
-    .aal-log-grid { min-width: 980px; font-family: "Cascadia Code","Consolas",monospace; }
-    .aal-columns, .aal-event { grid-template-columns: var(--aal-grid-template, 78px 126px minmax(420px, 1fr) 180px); gap: 12px; }
-    .aal-columns { min-height: 32px; padding: 6px 14px; border-bottom-color: #D9DDE1; background: rgba(244,246,247,.97); color: #71808A; backdrop-filter: blur(8px); }
-    .aal-event { min-height: 44px; padding: 7px 14px; border-top: 1px solid #E7EAEC; font-size: 11.5px; }
-    .aal-event:hover { background: #F6F8F9; }
-    .aal-event.is-init { background: #EFF4F8; }
-    .aal-event .aa-time, .aal-event .aa-corr { color: #7A8790; }
-    .aal-event .aa-summary { color: #3C4952; }
-    .aal-event .aa-summary strong { color: #202B32; }
-    .aal-event .aa-summary code { background: #F2EFE7; color: #735D2C; }
-    .aal-event .aa-corr a { color: #44688E; }
-    .aal-event-agent { color: #4F7650; }
-    .aal-event-agent:hover { color: #345D37; }
-    .aal-event-agent .aal-agent-dot { border-color: #FFFFFF; }
-    .aal-event .aa-verb { border: 1px solid transparent; background: #EEF1F3; font-size: 9.5px; }
-    .aal-event .aa-verb.is-execute { border-color: rgba(94,130,89,.25); color: #4F754B; background: rgba(94,130,89,.11); }
-    .aal-event .aa-verb.is-approve { border-color: rgba(68,104,142,.25); color: #3E6287; background: rgba(68,104,142,.11); }
-    .aal-event .aa-verb.is-reject { border-color: rgba(172,90,90,.24); color: #984B4B; background: rgba(172,90,90,.10); }
-    .aal-event .aa-verb.is-hold, .aal-event .aa-verb.is-rollback { border-color: rgba(188,116,73,.25); color: #A76036; background: rgba(188,116,73,.11); }
-    .aal-event .aa-verb.is-audit { border-color: rgba(123,108,156,.25); color: #6D5E91; background: rgba(123,108,156,.11); }
-    .aal-event .aa-verb.is-abstain { color: #65727B; background: #EEF1F3; }
-    .aal-event.is-message { background: #F2F8F7; }
-    .aal-event.is-message:hover { background: #EAF4F2; }
-    .aal-event.is-message .aa-verb { border-color: rgba(79,132,126,.28); color: #3F746E; background: rgba(79,132,126,.11); }
-    .aal-route { display: flex; align-items: center; gap: 5px; min-width: 0; color: #4F7650; font-weight: 650; }
-    .aal-route span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .aal-route-arrow { flex: 0 0 auto; color: #8B979F; }
-    .aal-message-copy { color: #2F3E46; }
-    .aal-message-copy::before { color: #94A0A7; content: "\201C"; }
-    .aal-message-copy::after { color: #94A0A7; content: "\201D"; }
-    .aal-message-context { display: block; margin-top: 2px; color: #7A8790; font-size: 10px; }
-    .aal-init-list span { border-color: #D6DCE0; background: #F5F7F8; color: #66747D; }
-    .aal-journal-foot { min-height: 34px; padding: 7px 14px; border-top-color: #D9DDE1; background: #F4F6F7; color: #73808A; font-family: "Cascadia Code","Consolas",monospace; }
-    .aal-journal-foot a { color: #44688E; }
-    .aal-panel > .aa-toolbar { grid-template-columns: minmax(170px, 220px) minmax(260px, 1fr) auto; margin: 0; padding: 10px 14px; border-bottom: 1px solid #E1E5E8; background: #FAFBFB; }
-    .aal-column-picker { position: relative; }
-    .aal-column-picker > summary { list-style: none; }
-    .aal-column-picker > summary::-webkit-details-marker { display: none; }
-    .aal-column-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 8; display: grid; gap: 2px; width: 174px; padding: 7px; border: 1px solid #CDD3D8; border-radius: 7px; background: #FFFFFF; box-shadow: 0 10px 24px rgba(46,54,64,.14); }
-    .aal-column-menu label { display: flex; align-items: center; gap: 8px; padding: 6px 7px; border-radius: 4px; color: #3E4B54; font: 11px var(--cs-font); cursor: pointer; }
-    .aal-column-menu label:hover { background: #F1F4F5; }
-    .aal-column-menu input { accent-color: var(--cs-steel); }
-    .aal-column-hidden { display: none !important; }
-    .aal-panel:fullscreen, .aal-panel.is-fullscreen-fallback { display: flex; flex-direction: column; width: 100vw; height: 100vh; border: 0; border-radius: 0; background: #FFFFFF; }
-    .aal-panel:fullscreen .aal-log-scroll, .aal-panel.is-fullscreen-fallback .aal-log-scroll { flex: 1 1 auto; block-size: auto; min-height: 0; }
-    .aal-panel.is-fullscreen-fallback { position: fixed; inset: 0; z-index: 1000; }
-    body.aal-fullscreen-fallback { overflow: hidden; }
-
-    @media (max-width: 720px) {
-      .aa-group-head { align-items: flex-start; flex-wrap: wrap; gap: 6px 10px; }
-      .aa-group-meta { width: 100%; margin-left: 22px; overflow-wrap: anywhere; }
-      .aa-row { grid-template-columns: 72px minmax(0, 1fr); gap: 6px 10px; }
-      .aa-summary, .aa-corr { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
-      .aa-selection { align-items: flex-start; flex-wrap: wrap; }
-      .aal-panel-head { align-items: flex-start; flex-direction: column; gap: 6px; }
-      .aal-runtime-summary { white-space: normal; }
-      .aal-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .aal-agent, .aal-agent:nth-child(5n), .aal-agent:nth-last-child(-n+5) { border-right: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); }
-      .aal-agent:nth-child(2n) { border-right: 0; }
-      .aal-agent:last-child { border-bottom: 0; }
-      .aal-journal-head-actions { width: 100%; justify-content: space-between; }
-      .aal-log-scroll { block-size: 520px; }
-      .aal-log-grid { min-width: 0; }
-      .aal-columns { display: none; }
-      .aal-event { grid-template-columns: 66px minmax(0, 1fr) auto; gap: 5px 8px; align-items: center; padding: 9px 10px; }
-      .aal-event .aa-summary { grid-column: 1 / -1; padding-left: 74px; }
-      .aal-event .aa-corr { grid-column: 1 / -1; padding-left: 74px; text-align: left; }
-      .aal-event .aa-verb { justify-self: end; }
-      .aal-journal-foot { align-items: flex-start; flex-direction: column; }
-      .aa-toolbar { grid-template-columns: 1fr; }
-      .aal-panel > .aa-toolbar { grid-template-columns: 1fr; }
-      .aal-button-label { display: none; }
-    }
-    @media (prefers-reduced-motion: reduce) { .aal-live-dot::after { animation: none; } }
-  </style>
+  <script src="assets/agents-preview-data.js?v=1" defer></script>
+  <script src="assets/agent-activity-preview-data.js?v=1" defer></script>
+  <script src="assets/agent-activity-preview-waterfall.js?v=1" defer></script>
+  <script src="assets/agent-activity-preview-log.js?v=1" defer></script>
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
 </head>
-<body>
+<body class="cs-operator-neutral agents-preview agent-activity-preview" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
-    <div class="cs-subnav">
+    <nav class="cs-subnav" aria-label="Agent views">
       <a href="agents.html">Fleet</a>
       <a href="agents-constellation.html">Org</a>
-      <a href="agent-activity.html" class="cs-active">Activity</a>
-    </div>
-
-    <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Runtime &middot; live agent log</div>
-      <h1>Agent activity</h1>
-      <p class="cs-lead">A live, chronological log of agent decisions, actions, and agent-to-agent
-        messages. The viewport stays bounded while evidence remains available in <a href="audit.html">Audit</a>.</p>
-    </div>
-
-    <div class="aa-toolbar">
-      <label class="aa-filter">
-        <span>Agent</span>
-        <select id="activityAgentFilter" aria-label="Filter by agent">
-          <option value="">All agents</option>
+      <a href="agent-activity.html" class="cs-active" aria-current="page">Activity</a>
+    </nav>
+    <header class="ap-heading">
+      <div><h1>Agent activity</h1><p>Inspect agent work, operational observations, and audit handoffs.</p></div>
+      <span class="ap-badge">Synthetic preview</span>
+    </header>
+    <section class="ap-source" aria-label="Preview evidence source">
+      <div class="ap-source-info">
+        <strong id="previewSourceLabel" role="status">Synthetic snapshot</strong>
+        <details class="ap-provenance">
+          <summary>Evidence details</summary>
+          <p id="previewSourceNote">Fixture data only. No backend or live model is connected.</p>
+          <p class="ap-interpretation">Audit and operational evidence have different authority. The local synthetic journal retains up to 200 rows, matching the production journal limit, not its separate 100-frame live buffer.</p>
+        </details>
+      </div>
+      <label>Preview state
+        <select id="previewState">
+          <option value="snapshot">Synthetic snapshot</option><option value="disconnected">Disconnected stream</option>
+          <option value="unobserved">No runtime signals</option><option value="loading">Loading</option><option value="error">Source error</option>
         </select>
       </label>
-      <label class="aa-filter">
-        <span>Find</span>
-        <input id="activityKeywordFilter" type="search" placeholder="message, action, resource, correlation..." autocomplete="off" />
-      </label>
-      <div class="aa-live-summary" aria-live="polite">
-        <span class="aal-live-dot"></span>
-        <span><strong id="activityStreamState">Connected</strong> &middot; bounded to 200 rows</span>
-      </div>
+    </section>
+    <div id="previewSourceState" class="ap-source-state" hidden></div>
+    <div class="ap-activity-views ap-chipset" role="group" aria-label="Activity presentation">
+      <button type="button" data-view="activity" aria-pressed="true" aria-controls="activityJournal">Activity</button>
+      <button type="button" data-view="waterfall" aria-pressed="false" aria-controls="activityWaterfallView">Waterfall</button>
     </div>
-
-    <div id="activitySelection" class="aa-selection" role="status" aria-live="polite" tabindex="-1" hidden>
-      <span id="activitySelectionText"></span>
-      <a href="agent-activity.html">Show all agents</a>
+    <div id="activitySelection" class="ap-selection" hidden>
+      <span id="activitySelectionText"></span><a id="activityAgentLink" class="ap-button" href="agents-constellation.html">Agent focus</a>
     </div>
-
-    <div id="activityEmpty" class="aa-empty" hidden></div>
-
-    <!-- Forseti (Judge) -->
-    <div class="aa-group" data-agent="forseti">
-      <div class="aa-group-head">
-        <span class="aa-dot is-pipeline"></span>
-        <span class="aa-group-name">Forseti</span>
-        <span class="cs-tag is-steel">Judge &middot; pipeline</span>
-        <span class="aa-group-meta">14 verdicts &middot; last 1h &middot; auto 82% / hil 11% / abstain 7%</span>
+    <section class="ap-filters" id="activityFilters" aria-label="Activity filters">
+      <label class="ap-field">Agent<select id="activityAgentFilter"><option value="">All agents</option></select></label>
+      <label class="ap-search">Find<input id="activityKeywordFilter" type="search" placeholder="Message, action, evidence..." autocomplete="off" /></label>
+      <label class="ap-field">Correlation<select id="activityCorrelation"><option value="">All correlations</option></select></label>
+      <button type="button" class="ap-button" id="activityClear">Clear filters</button>
+    </section>
+    <section class="ap-filters" id="waterfallFilters" aria-label="Waterfall audit filters" hidden>
+      <label class="ap-field">Window<select id="activityWindow"><option value="15m">15 minutes</option><option value="1h">1 hour</option><option value="24h" selected>24 hours</option><option value="7d">7 days</option></select></label>
+      <label class="ap-field">Layer<select id="activityLayer"><option value="all">All layers</option><option value="governance">Governance</option><option value="pipeline">Pipeline</option><option value="domain">Domain</option></select></label>
+      <label class="ap-field">Verb<select id="activityVerb"><option value="all">All verbs</option><option value="execute">Execute / dispatch</option><option value="approve">Approve</option><option value="reject">Reject</option><option value="rollback">Rollback</option><option value="abstain">Abstain</option><option value="audit">Audit</option></select></label>
+      <p class="ap-meta">Window is relative to the newest retained audit record, not the wall clock.</p>
+    </section>
+    <section class="ap-journal" id="activityJournal" aria-labelledby="activityJournalTitle">
+      <header class="ap-journal-head">
+        <div><h2 id="activityJournalTitle">Agent log</h2><span id="activityStreamState" class="ap-meta">Synthetic snapshot - no live connection</span></div>
+        <div class="ap-actions">
+          <button type="button" id="activityFollow" aria-pressed="true" title="Automatically scroll to the last sample row">Tail on</button>
+          <details class="ap-column-picker" id="activityColumns">
+            <summary class="ap-button">Columns</summary>
+            <div class="ap-column-menu">
+              <label><input type="checkbox" value="time" checked /> Time</label>
+              <label><input type="checkbox" value="route" checked /> Route</label>
+              <label><input type="checkbox" value="type" /> Type</label>
+              <label><input type="checkbox" value="detail" checked /> Detail</label>
+              <label><input type="checkbox" value="correlation" checked /> Correlation</label>
+            </div>
+          </details>
+          <button type="button" id="activityFullscreen" aria-pressed="false">Full screen</button>
+        </div>
+      </header>
+      <div class="ap-lanes ap-chipset" id="activityLanes" role="group" aria-label="Operational lanes"></div>
+      <div class="ap-log-scroll" id="activityLog" tabindex="0" role="log" aria-live="off" aria-label="Chronological synthetic agent log">
+        <table id="activityTable"><caption class="cs-sr-only">Retained synthetic activity, oldest first</caption><thead><tr>
+          <th scope="col" data-column="time">Time (UTC)</th><th scope="col" data-column="route">Route</th><th scope="col" data-column="type">Type</th><th scope="col" data-column="detail">Detail</th><th scope="col" data-column="correlation">Correlation</th>
+        </tr></thead><tbody id="activityRows"></tbody></table>
+        <div id="activityLogEmpty" class="ap-empty" hidden></div>
       </div>
-
-      <div class="aa-row">
-        <span class="aa-time">09:47:12</span>
-        <span class="aa-verb is-execute">Verdict AUTO</span>
-        <span class="aa-summary"><strong>storage.set-lifecycle-tier</strong> on <code>bak-invoice-prod</code> &middot; T0 rule match, verifier + what-if passed</span>
-        <span class="aa-corr">evt-01H7A4X-... &middot; <a href="rule-trace.html">trace &rarr;</a></span>
-      </div>
-      <div class="aa-row">
-        <span class="aa-time">09:44:58</span>
-        <span class="aa-verb is-hold">Verdict HIL</span>
-        <span class="aa-summary"><strong>database.enable-pitr</strong> on <code>billing-db-prod</code> &middot; T1 similarity 0.93, environment=prod required</span>
-        <span class="aa-corr">evt-01H7A4W-... &middot; <a href="hil.html">queue &rarr;</a></span>
-      </div>
-      <div class="aa-row">
-        <span class="aa-time">09:41:22</span>
-        <span class="aa-verb is-abstain">Abstain</span>
-        <span class="aa-summary">Grounding failed for <strong>network.rebalance-egress</strong> on <code>vnet-prod</code> &middot; escalated to HIL</span>
-        <span class="aa-corr">evt-01H7A4V-...</span>
-      </div>
-    </div>
-
-    <!-- Thor (Responder) -->
-    <div class="aa-group" data-agent="thor">
-      <div class="aa-group-head">
-        <span class="aa-dot is-pipeline"></span>
-        <span class="aa-group-name">Thor</span>
-        <span class="cs-tag is-steel">Responder &middot; pipeline</span>
-        <span class="aa-group-meta">47 dispatches &middot; last 1h &middot; 0 failures</span>
-      </div>
-
-      <div class="aa-row">
-        <span class="aa-time">09:47:14</span>
-        <span class="aa-verb is-execute">Dispatch</span>
-        <span class="aa-summary"><strong>storage.set-lifecycle-tier</strong> opened <a href="#">PR #2149</a> &middot; pr_native path &middot; idempotent</span>
-        <span class="aa-corr">act-01H7A4X-...</span>
-      </div>
-      <div class="aa-row">
-        <span class="aa-time">09:42:08</span>
-        <span class="aa-verb is-execute">Dispatch</span>
-        <span class="aa-summary"><strong>k8s.scale-deployment</strong> on <code>web-frontend</code> from 2 to 4 &middot; direct_api path &middot; guard OK</span>
-        <span class="aa-corr">act-01H7A4U-...</span>
-      </div>
-      <div class="aa-row">
-        <span class="aa-time">09:39:41</span>
-        <span class="aa-verb is-execute">Dispatch</span>
-        <span class="aa-summary"><strong>cost.right-sizing.medium</strong> on <code>ns/staging</code> &middot; pr_native path</span>
-        <span class="aa-corr">act-01H7A4T-...</span>
-      </div>
-    </div>
-
-    <!-- Var (Approver) -->
-    <div class="aa-group" data-agent="var">
-      <div class="aa-group-head">
-        <span class="aa-dot is-pipeline"></span>
-        <span class="aa-group-name">Var</span>
-        <span class="cs-tag is-steel">Approver &middot; pipeline</span>
-        <span class="aa-group-meta">3 pending &middot; 6 approved / 1 rejected in 1h</span>
-      </div>
-
-      <div class="aa-row">
-        <span class="aa-time">09:45:03</span>
-        <span class="aa-verb is-approve">Approve</span>
-        <span class="aa-summary"><strong>storage.evict-cold-blobs</strong> on <code>cold-archive-prod</code> &middot; 2 approvers &middot; break-glass NOT used</span>
-        <span class="aa-corr">apv-01H7A4W-...</span>
-      </div>
-      <div class="aa-row">
-        <span class="aa-time">09:38:19</span>
-        <span class="aa-verb is-reject">Reject</span>
-        <span class="aa-summary">Denied <strong>iam.rotate-service-principal</strong> on <code>sp-billing</code> &middot; reason "waiting on incident window"</span>
-        <span class="aa-corr">apv-01H7A4S-...</span>
-      </div>
-    </div>
-
-    <!-- Vidar (Recovery) -->
-    <div class="aa-group" data-agent="vidar">
-      <div class="aa-group-head">
-        <span class="aa-dot is-pipeline"></span>
-        <span class="aa-group-name">Vidar</span>
-        <span class="cs-tag is-steel">Recovery &middot; pipeline (hard dep)</span>
-        <span class="aa-group-meta">2 rollbacks in 24h &middot; DR probe running</span>
-      </div>
-
-      <div class="aa-row">
-        <span class="aa-time">09:33:07</span>
-        <span class="aa-verb is-rollback">Rollback</span>
-        <span class="aa-summary">Reverted <strong>k8s.scale-deployment</strong> on <code>web-frontend</code> &middot; stop-condition tripped: p95 latency &gt; 800ms</span>
-        <span class="aa-corr">rb-01H7A4R-...</span>
-      </div>
-    </div>
-
-    <!-- Saga (Auditor) -->
-    <div class="aa-group" data-agent="saga">
-      <div class="aa-group-head">
-        <span class="aa-dot is-governance"></span>
-        <span class="aa-group-name">Saga</span>
-        <span class="cs-tag is-plum">Auditor &middot; governance (hard dep)</span>
-        <span class="aa-group-meta">2,014 entries &middot; 3 issues opened in 1h</span>
-      </div>
-
-      <div class="aa-row">
-        <span class="aa-time">09:47:14</span>
-        <span class="aa-verb is-audit">Audit</span>
-        <span class="aa-summary">Wrote entry for <code>storage.set-lifecycle-tier</code> execute; append-only</span>
-        <span class="aa-corr">aud-01H7A4X-...</span>
-      </div>
-      <div class="aa-row">
-        <span class="aa-time">09:36:22</span>
-        <span class="aa-verb is-audit">Issue</span>
-        <span class="aa-summary">Opened <a href="#">GH#412</a> for handoff on <code>data.repair-schema-drift</code> &middot; unhandled ActionType</span>
-        <span class="aa-corr">iss-01H7A4Q-...</span>
-      </div>
-    </div>
-
-    <!-- Njord (Cost, domain) -->
-    <div class="aa-group" data-agent="njord">
-      <div class="aa-group-head">
-        <span class="aa-dot is-domain"></span>
-        <span class="aa-group-name">Njord</span>
-        <span class="cs-tag"><span class="cs-tag-dot" style="background:var(--cs-teal)"></span> Cost specialist &middot; advisory</span>
-        <span class="aa-group-meta">1 anomaly in 24h &middot; 0 verdicts (advises Forseti)</span>
-      </div>
-
-      <div class="aa-row">
-        <span class="aa-time">08:12:44</span>
-        <span class="aa-verb is-abstain">Advise</span>
-        <span class="aa-summary">Flagged cost anomaly on <code>storage/bak-invoice-prod</code> - +38% vs 7d baseline &middot; suggested lifecycle tier</span>
-        <span class="aa-corr">cst-01H7A4M-...</span>
-      </div>
-    </div>
-
-    <p class="cs-muted" style="font-size:12.5px; margin-top:16px;">
-      Timeline entries link back into their correlation trace on <a href="rule-trace.html">Rule
-      trace</a> - one correlation id can produce many rows across many agents.
-    </p>
+      <footer class="ap-journal-footer"><span id="activityRowCount" role="status" aria-live="polite"></span><span id="activityRetention">Local synthetic retention: latest 200 rows</span><button type="button" id="activityAppend">Append sample frame</button><button type="button" id="activityOlder">Older audit evidence</button></footer>
+    </section>
+    <section id="activityWaterfallView" hidden aria-label="Audit waterfall">
+      <p class="ap-interpretation">Audit records only. Bar position shows recorded handoff timing, not measured work duration. Operational-only correlations do not have an audit trace.</p>
+      <p id="waterfallCount" class="ap-meta" role="status" aria-live="polite"></p>
+      <div class="ap-waterfall-layout"><div id="activityWaterfall"></div><aside id="activityStep" class="ap-step-detail" aria-label="Audit step detail" hidden></aside></div>
+    </section>
+    <noscript><p class="ap-empty">Enable JavaScript for local filters and synthetic evidence inspection. No backend connection is made.</p></noscript>
   </main>
-  <script>
-    (function () {
-      "use strict";
-
-      var agents = [
-        { slug: "odin", name: "Odin", role: "Orchestrator", state: "Coordinating", tone: "active" },
-        { slug: "thor", name: "Thor", role: "Responder", state: "Executing", tone: "active" },
-        { slug: "forseti", name: "Forseti", role: "Judge", state: "Reviewing", tone: "active" },
-        { slug: "huginn", name: "Huginn", role: "Planner", state: "Ready", tone: "ready" },
-        { slug: "heimdall", name: "Heimdall", role: "Observer", state: "Watching", tone: "watch" },
-        { slug: "var", name: "Var", role: "Approver", state: "Waiting", tone: "wait" },
-        { slug: "vidar", name: "Vidar", role: "Recovery", state: "Ready", tone: "ready" },
-        { slug: "bragi", name: "Bragi", role: "Narrator", state: "Ready", tone: "ready" },
-        { slug: "saga", name: "Saga", role: "Auditor", state: "Auditing", tone: "active" },
-        { slug: "mimir", name: "Mimir", role: "Knowledge", state: "Ready", tone: "ready" },
-        { slug: "norns", name: "Norns", role: "Scheduler", state: "Ready", tone: "ready" },
-        { slug: "muninn", name: "Muninn", role: "Learner", state: "Ready", tone: "ready" },
-        { slug: "njord", name: "Njord", role: "Cost specialist", state: "Ready", tone: "ready" },
-        { slug: "freyr", name: "Freyr", role: "Resilience", state: "Ready", tone: "ready" },
-        { slug: "loki", name: "Loki", role: "Simulator", state: "Ready", tone: "ready" }
-      ];
-      var agentBySlug = agents.reduce(function (index, agent) {
-        index[agent.slug] = agent;
-        return index;
-      }, {});
-      var requested = new URLSearchParams(window.location.search).get("agent");
-      var slug = requested ? requested.trim().toLowerCase() : null;
-      var selection = document.getElementById("activitySelection");
-      var selectionText = document.getElementById("activitySelectionText");
-      var empty = document.getElementById("activityEmpty");
-      var groups = Array.prototype.slice.call(document.querySelectorAll(".aa-group[data-agent]"));
-      var events = [];
-
-      function element(tag, className, text) {
-        var node = document.createElement(tag);
-        if (className) node.className = className;
-        if (text !== undefined) node.textContent = text;
-        return node;
-      }
-
-      groups.forEach(function (group) {
-        var eventAgent = agentBySlug[group.dataset.agent];
-        Array.prototype.forEach.call(group.querySelectorAll(".aa-row"), function (row) {
-          var time = row.querySelector(".aa-time");
-          var agentLink = element("a", "aal-event-agent");
-          agentLink.href = "agent-activity.html?agent=" + eventAgent.slug;
-          agentLink.appendChild(element("span", "aal-agent-dot is-" + eventAgent.tone));
-          agentLink.appendChild(element("span", "", eventAgent.name));
-          row.classList.add("aal-event");
-          row.dataset.agent = eventAgent.slug;
-          row.dataset.participants = eventAgent.slug;
-          row.dataset.time = time.textContent;
-          time.insertAdjacentElement("afterend", agentLink);
-          events.push(row);
-        });
-      });
-
-      function messageRow(message) {
-        var row = element("div", "aal-event is-message");
-        row.dataset.agent = message.from;
-        row.dataset.participants = message.from + " " + message.to;
-        row.dataset.time = message.time;
-        var route = element("span", "aal-route");
-        route.appendChild(element("span", "", agentBySlug[message.from].name));
-        route.appendChild(element("span", "aal-route-arrow", "→"));
-        route.appendChild(element("span", "", agentBySlug[message.to].name));
-        var summary = element("span", "aa-summary");
-        summary.appendChild(element("span", "aal-message-copy", message.message));
-        summary.appendChild(element("small", "aal-message-context", message.context));
-        row.appendChild(element("span", "aa-time", message.time));
-        row.appendChild(route);
-        row.appendChild(element("span", "aa-verb", "Message"));
-        row.appendChild(summary);
-        row.appendChild(element("span", "aa-corr", message.correlation));
-        return row;
-      }
-
-      [
-        { time: "09:40:56", from: "odin", to: "huginn", message: "Build a deterministic response plan for the storage anomaly. Preserve rollback and a 5-resource blast-radius ceiling.", context: "handoff · planning.request · priority=normal", correlation: "corr-01H7A4T-..." },
-        { time: "09:41:08", from: "huginn", to: "forseti", message: "Candidate plan uses storage.set-lifecycle-tier in dry-run mode. Rule match is T0; verifier evidence is attached.", context: "handoff · judgment.request · plan=plan-2149", correlation: "corr-01H7A4T-..." },
-        { time: "09:47:13", from: "forseti", to: "thor", message: "Verdict AUTO. Execute the idempotent PR-native action and stop if projected monthly savings falls below 12 percent.", context: "verdict · execution.request · risk=low", correlation: "corr-01H7A4X-..." },
-        { time: "09:47:15", from: "thor", to: "saga", message: "Action dispatched as PR #2149. Idempotency key accepted; no direct resource mutation occurred.", context: "execution.result · audit.request · mode=shadow", correlation: "corr-01H7A4X-..." },
-        { time: "09:47:16", from: "saga", to: "odin", message: "Audit chain committed. Decision, verifier evidence, action intent, and rollback reference are replayable.", context: "audit.result · orchestration.update · records=4", correlation: "corr-01H7A4X-..." }
-      ].forEach(function (message) { events.push(messageRow(message)); });
-
-      var initRow = element("div", "aal-event is-init");
-      initRow.dataset.agent = "system";
-      initRow.dataset.time = "09:30:00";
-      var initAgent = element("span", "aal-event-agent");
-      initAgent.appendChild(element("span", "aal-agent-dot is-watch"));
-      initAgent.appendChild(element("span", "", "System"));
-      var initSummary = element("span", "aa-summary");
-      initSummary.appendChild(element("strong", "", "15 agents initialized"));
-      initSummary.appendChild(document.createTextNode(" · contracts loaded · stream connected · subscriptions active"));
-      initRow.appendChild(element("span", "aa-time", "09:30:00"));
-      initRow.appendChild(initAgent);
-      initRow.appendChild(element("span", "aa-verb is-approve", "Initialize"));
-      initRow.appendChild(initSummary);
-      initRow.appendChild(element("span", "aa-corr", "boot-01H7A4P-..."));
-      events.push(initRow);
-      events.sort(function (left, right) { return left.dataset.time.localeCompare(right.dataset.time); });
-
-      var workspace = element("div", "aal-workspace");
-      var journal = element("section", "aal-panel");
-      journal.setAttribute("aria-labelledby", "activityJournalTitle");
-      var journalHead = element("header", "aal-panel-head");
-      var journalTitleWrap = element("div");
-      journalTitleWrap.appendChild(element("span", "aal-panel-kicker", "Connected · chronological · append-only"));
-      var journalTitle = element("h2", "", "agent-stream.log");
-      journalTitle.id = "activityJournalTitle";
-      journalTitleWrap.appendChild(journalTitle);
-      var journalActions = element("div", "aal-journal-head-actions");
-      var eventCount = element("span", "aal-event-count");
-      var follow = element("button", "aal-follow");
-      follow.type = "button";
-      follow.id = "activityFollow";
-      follow.setAttribute("aria-pressed", "true");
-      follow.setAttribute("aria-label", "Disable live tail");
-      follow.title = "Live tail is on. New events scroll into view automatically.";
-      follow.appendChild(element("span", "aal-follow-icon"));
-      follow.appendChild(element("span", "aal-follow-label", "Live tail on"));
-      var columnConfig = [
-        { id: "time", label: "Time", width: "78px", visible: true },
-        { id: "route", label: "Route", width: "126px", visible: true },
-        { id: "type", label: "Type", width: "104px", visible: false },
-        { id: "detail", label: "Detail", width: "minmax(420px, 1fr)", visible: true },
-        { id: "correlation", label: "Correlation", width: "180px", visible: true }
-      ];
-      var columnPicker = element("details", "aal-column-picker");
-      var columnSummary = element("summary", "aal-control");
-      columnSummary.appendChild(element("span", "aal-control-icon", "☷"));
-      columnSummary.appendChild(element("span", "aal-button-label", "Columns"));
-      columnSummary.title = "Choose visible columns";
-      var columnMenu = element("div", "aal-column-menu");
-      columnConfig.forEach(function (column) {
-        var label = element("label");
-        var checkbox = element("input");
-        checkbox.type = "checkbox";
-        checkbox.value = column.id;
-        checkbox.checked = column.visible;
-        label.appendChild(checkbox);
-        label.appendChild(element("span", "", column.label));
-        columnMenu.appendChild(label);
-      });
-      columnPicker.appendChild(columnSummary);
-      columnPicker.appendChild(columnMenu);
-      var fullscreen = element("button", "aal-control");
-      fullscreen.type = "button";
-      fullscreen.id = "activityFullscreen";
-      fullscreen.setAttribute("aria-pressed", "false");
-      fullscreen.title = "View log full screen";
-      fullscreen.appendChild(element("span", "aal-control-icon", "⛶"));
-      fullscreen.appendChild(element("span", "aal-button-label aal-fullscreen-label", "Full screen"));
-      journalActions.appendChild(eventCount);
-      journalActions.appendChild(follow);
-      journalActions.appendChild(columnPicker);
-      journalActions.appendChild(fullscreen);
-      journalHead.appendChild(journalTitleWrap);
-      journalHead.appendChild(journalActions);
-
-      var log = element("div", "aal-log-scroll");
-      log.id = "activityLog";
-      log.tabIndex = 0;
-      log.setAttribute("aria-label", "Chronological agent activity log");
-      var logGrid = element("div", "aal-log-grid");
-      var columns = element("div", "aal-columns");
-      columnConfig.forEach(function (column) {
-        var heading = element("span", "", column.label);
-        heading.dataset.column = column.id;
-        columns.appendChild(heading);
-      });
-      logGrid.appendChild(columns);
-      events.forEach(function (row) { logGrid.appendChild(row); });
-      var logEmpty = element("div", "aal-empty-log", "No activity for this agent in the selected window.");
-      logEmpty.hidden = true;
-      logGrid.appendChild(logEmpty);
-      log.appendChild(logGrid);
-      var journalFoot = element("footer", "aal-journal-foot");
-      journalFoot.appendChild(element("span", "", "Live retention · latest 200 events · older evidence remains in Audit"));
-      var auditLink = element("a", "", "Open full audit →");
-      auditLink.href = "audit.html";
-      journalFoot.appendChild(auditLink);
-      journal.appendChild(journalHead);
-      journal.appendChild(document.querySelector(".aa-toolbar"));
-      journal.appendChild(log);
-      journal.appendChild(journalFoot);
-      workspace.appendChild(journal);
-
-      groups[0].parentNode.insertBefore(workspace, groups[0]);
-      groups.forEach(function (group) { group.remove(); });
-
-      function updateColumns() {
-        var visibleColumns = columnConfig.filter(function (column) {
-          return columnMenu.querySelector('input[value="' + column.id + '"]').checked;
-        });
-        if (visibleColumns.length === 0) {
-          var detailInput = columnMenu.querySelector('input[value="detail"]');
-          detailInput.checked = true;
-          visibleColumns = columnConfig.filter(function (column) { return column.id === "detail"; });
-        }
-        var visibleIds = visibleColumns.map(function (column) { return column.id; });
-        logGrid.style.setProperty("--aal-grid-template", visibleColumns.map(function (column) { return column.width; }).join(" "));
-        Array.prototype.forEach.call(logGrid.querySelectorAll(".aal-columns, .aal-event"), function (row) {
-          Array.prototype.forEach.call(row.children, function (cell, index) {
-            cell.classList.toggle("aal-column-hidden", !visibleIds.includes(columnConfig[index].id));
-          });
-        });
-      }
-      columnMenu.addEventListener("change", updateColumns);
-      updateColumns();
-
-      var agentFilter = document.getElementById("activityAgentFilter");
-      var keywordFilter = document.getElementById("activityKeywordFilter");
-      agents.forEach(function (agent) {
-        var option = element("option", "", agent.name);
-        option.value = agent.slug;
-        agentFilter.appendChild(option);
-      });
-      var selectedAgent = slug ? agentBySlug[slug] : null;
-      if (slug && !selectedAgent) {
-        slug = null;
-      } else if (selectedAgent) {
-        agentFilter.value = selectedAgent.slug;
-        document.title = selectedAgent.name + " activity - FDAI Console";
-      }
-
-      function updateVisibleEvents() {
-        var visibleCount = 0;
-        var selectedSlug = agentFilter.value;
-        var keyword = keywordFilter.value.trim().toLowerCase();
-        events.forEach(function (row) {
-          var participants = row.dataset.participants || row.dataset.agent || "";
-          var matchesAgent = !selectedSlug || participants.split(" ").includes(selectedSlug);
-          var matchesKeyword = !keyword || row.textContent.toLowerCase().includes(keyword);
-          var visible = matchesAgent && matchesKeyword;
-          row.hidden = !visible;
-          if (visible) visibleCount += 1;
-        });
-        eventCount.textContent = visibleCount + (visibleCount === 1 ? " event" : " events");
-        logEmpty.hidden = visibleCount !== 0;
-        empty.hidden = true;
-      }
-
-      agentFilter.addEventListener("change", updateVisibleEvents);
-      keywordFilter.addEventListener("input", updateVisibleEvents);
-
-      var following = true;
-      function updateFollow(next) {
-        following = next;
-        follow.setAttribute("aria-pressed", String(following));
-        follow.setAttribute("aria-label", following ? "Disable live tail" : "Resume live tail");
-        follow.title = following
-          ? "Live tail is on. New events scroll into view automatically."
-          : "Live tail is paused. Resume automatic scrolling.";
-        follow.querySelector(".aal-follow-label").textContent = following ? "Live tail on" : "Resume tail";
-        if (following) log.scrollTop = log.scrollHeight;
-      }
-      follow.addEventListener("click", function () { updateFollow(!following); });
-      log.addEventListener("scroll", function () {
-        var atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
-        if (following && !atBottom) updateFollow(false);
-      }, { passive: true });
-
-      function syncFullscreenState() {
-        var active = document.fullscreenElement === journal || journal.classList.contains("is-fullscreen-fallback");
-        fullscreen.setAttribute("aria-pressed", String(active));
-        fullscreen.title = active ? "Exit full screen" : "View log full screen";
-        fullscreen.querySelector(".aal-fullscreen-label").textContent = active ? "Exit full screen" : "Full screen";
-        fullscreen.querySelector(".aal-control-icon").textContent = active ? "×" : "⛶";
-      }
-      function exitFallbackFullscreen() {
-        journal.classList.remove("is-fullscreen-fallback");
-        document.body.classList.remove("aal-fullscreen-fallback");
-        syncFullscreenState();
-      }
-      function enterFallbackFullscreen() {
-        journal.classList.add("is-fullscreen-fallback");
-        document.body.classList.add("aal-fullscreen-fallback");
-        syncFullscreenState();
-      }
-      fullscreen.addEventListener("click", function () {
-        if (journal.classList.contains("is-fullscreen-fallback")) {
-          exitFallbackFullscreen();
-          return;
-        }
-        if (document.fullscreenElement) {
-          document.exitFullscreen().then(syncFullscreenState).catch(enterFallbackFullscreen);
-          return;
-        }
-        if (!journal.requestFullscreen) {
-          enterFallbackFullscreen();
-          return;
-        }
-        journal.requestFullscreen({ navigationUI: "hide" }).then(syncFullscreenState).catch(enterFallbackFullscreen);
-      });
-      document.addEventListener("fullscreenchange", syncFullscreenState);
-      document.addEventListener("fullscreenerror", enterFallbackFullscreen);
-      function handleFullscreenKeydown(event) {
-        if (event.key === "Escape" && journal.classList.contains("is-fullscreen-fallback")) exitFallbackFullscreen();
-      }
-      document.addEventListener("keydown", handleFullscreenKeydown);
-
-      var MAX_EVENT_ROWS = 200;
-      var MAX_MESSAGE_LENGTH = 4000;
-      var liveSequence = [
-        { from: "heimdall", to: "odin", message: "New observation: p95 latency returned below the recovery threshold for three consecutive windows.", context: "observation · orchestration.update · confidence=0.98" },
-        { from: "odin", to: "mimir", message: "Retrieve prior evidence for this resource and compare the last two successful remediation outcomes.", context: "handoff · knowledge.request · scope=resource" },
-        { from: "mimir", to: "odin", message: "Two comparable outcomes found. Both remained stable after the 15-minute stop-condition window.", context: "knowledge.result · matches=2 · provenance=verified" },
-        { from: "odin", to: "norns", message: "Schedule the next verification checkpoint without changing the current autonomy mode.", context: "handoff · schedule.request · delay=15m" },
-        { from: "norns", to: "saga", message: "Verification checkpoint registered with a deterministic idempotency key.", context: "schedule.result · audit.request · status=accepted" },
-        { from: "saga", to: "odin", message: "Checkpoint registration appended to the audit chain and linked to the active correlation.", context: "audit.result · orchestration.update · replayable=true" }
-      ];
-      var liveIndex = 0;
-
-      function clockTime() {
-        return new Date().toLocaleTimeString("en-GB", { hour12: false });
-      }
-
-      function appendActivity(detail) {
-        if (!detail) return;
-        var from = String(detail.from || "").trim().toLowerCase();
-        var to = String(detail.to || "").trim().toLowerCase();
-        if (!agentBySlug[from] || !agentBySlug[to]) return;
-        var message = {
-          time: detail.time || clockTime(),
-          from: from,
-          to: to,
-          message: String(detail.message || "No message detail supplied.").slice(0, MAX_MESSAGE_LENGTH),
-          context: String(detail.context || "agent.message").slice(0, 320),
-          correlation: String(detail.correlation || "corr-live-...").slice(0, 160)
-        };
-        var row = messageRow(message);
-        events.push(row);
-        logGrid.insertBefore(row, logEmpty);
-        updateColumns();
-        while (events.length > MAX_EVENT_ROWS) {
-          events.shift().remove();
-        }
-        updateVisibleEvents();
-        if (following) log.scrollTop = log.scrollHeight;
-      }
-
-      function emitNextLiveEvent() {
-        var detail = liveSequence[liveIndex % liveSequence.length];
-        liveIndex += 1;
-        appendActivity(detail);
-      }
-
-      function receiveActivity(event) {
-        appendActivity(event.detail);
-      }
-
-      var streamTimer = 0;
-      var streamState = document.getElementById("activityStreamState");
-      function startStream() {
-        if (!streamTimer) streamTimer = window.setInterval(emitNextLiveEvent, 2800);
-        streamState.textContent = "Connected";
-      }
-      function stopStream() {
-        if (streamTimer) window.clearInterval(streamTimer);
-        streamTimer = 0;
-        streamState.textContent = "Paused";
-      }
-      function handleVisibility() {
-        if (document.hidden) stopStream();
-        else startStream();
-      }
-      function cleanup() {
-        stopStream();
-        streamState.textContent = "Disconnected";
-        exitFallbackFullscreen();
-        document.removeEventListener("fdai:activity", receiveActivity);
-        document.removeEventListener("visibilitychange", handleVisibility);
-        document.removeEventListener("fullscreenchange", syncFullscreenState);
-        document.removeEventListener("fullscreenerror", enterFallbackFullscreen);
-        document.removeEventListener("keydown", handleFullscreenKeydown);
-      }
-      document.addEventListener("fdai:activity", receiveActivity);
-      document.addEventListener("visibilitychange", handleVisibility);
-      window.addEventListener("pagehide", cleanup, { once: true });
-      startStream();
-
-      updateVisibleEvents();
-      updateFollow(true);
-    }());
-  </script>
 </body>
 </html>

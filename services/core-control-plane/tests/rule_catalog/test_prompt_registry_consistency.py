@@ -51,6 +51,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "norns.post-turn-review",
         "semantic.judgment",
         "semantic.query.frame",
+        "semantic.query.frame.operational",
         "semantic.query.plan",
         "t2.proposer",
     }
@@ -115,6 +116,17 @@ def test_question_generation_prompt_is_wording_only() -> None:
     assert "copy those fields exactly" not in prompt.body.casefold()
 
 
+def test_adaptive_plan_routes_current_operational_diagnostics_to_verified_semantics() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    packs = prompts.get_packs("conversation.adaptive.plan")
+    adaptive = next(item for item in packs if item.id == "adaptive-plan")
+
+    assert adaptive.version == 3
+    assert "answer depends on current environment evidence as operational" in adaptive.body
+    assert "Current subscription inventory and its downloadable document" in adaptive.body
+    assert "Route them to legacy with no knowledge goal" in adaptive.body
+
+
 def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     artifacts = [
@@ -149,11 +161,19 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
 def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     frame = prompts.get_base("semantic.query.frame")
+    operational_frame = prompts.get_base("semantic.query.frame.operational")
     judgment = prompts.get_base("semantic.judgment")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 39
-    assert judgment.version == 7
+    assert frame.version == 40
+    assert judgment.version == 8
+    assert operational_frame.version == 1
+    assert "Keep total, connect, first-byte, last-byte" in operational_frame.body
+    assert "gateway status, backend status, and model status" in operational_frame.body
+    assert "Capacity units, current capacity, authoritative TPM" in operational_frame.body
+    assert (
+        "resource_inventory, subscription, complete_content, and download" in operational_frame.body
+    )
     assert "query.resource_event_history with resource_event.kubernetes" in judgment.body
     assert "include kubernetes_events and an ordering facet" in judgment.body
     assert "Do not add resource_event.resource_health" in judgment.body
@@ -169,7 +189,8 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "use query.resource_state_inventory as primary_intent" in judgment.body
     assert "This rule does not apply to collection-level" in judgment.body
     assert "A non-execution constraint is not an artifact deliverable" in judgment.body
-    assert "independently requests a governed artifact" in judgment.body
+    assert "Documenting observed inventory is read-only presentation" in judgment.body
+    assert "fresh secured inventory read and a downloadable document" in judgment.body
     assert "needs a target, comparison side, or time range" in judgment.body
     assert "ask for it instead of selecting unsupported" in judgment.body
     assert "recommend the safest recovery sequence" in judgment.body

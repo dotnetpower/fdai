@@ -6,19 +6,31 @@
   var directMockMatch = window.location.pathname.match(/^\/(mocks\/ui\/.+\.html)$/);
   if (window.self === window.top && directMockMatch) {
     var directSection = window.location.hash.replace(/^#/, "");
-    var canonicalUrl = "/#" + directMockMatch[1] + (directSection ? "::" + directSection : "");
+    var directQuery = new URLSearchParams(window.location.search);
+    directQuery.delete("preview");
+    directQuery.delete("shell");
+    var canonicalUrl = "/#" + directMockMatch[1] + (directQuery.size ? "?" + directQuery.toString() : "") + (directSection ? "::" + directSection : "");
     window.location.replace(canonicalUrl);
     return;
   }
 
+  window.fdaiPublishMockRoute = function () {
+    if (window.self !== window.top) window.parent.postMessage({ type: "fdai:mock-route" }, window.location.origin);
+  };
+  window.addEventListener("load", window.fdaiPublishMockRoute);
+  window.addEventListener("hashchange", window.fdaiPublishMockRoute);
+  window.addEventListener("popstate", window.fdaiPublishMockRoute);
+
   var navigationGroups = [
     ["Overview", [
       ["dashboard.html", "Dashboard", "is-sage"],
+      ["dashboard-v2.html", "Dashboard v2", "is-steel"],
       ["operating-outcomes.html", "Operating outcomes", "is-steel"],
       ["control-assurance.html", "Control assurance", "is-terracotta"],
       ["verticals.html", "Vertical outcomes", "is-plum"],
       ["trust-routing.html", "Trust routing", "is-teal"],
-      ["llm-cost.html", "LLM cost", "is-navy"]
+      ["llm-cost.html", "LLM cost", "is-navy"],
+      ["cost-governance.html", "Cost Governance", "is-steel"]
     ]],
     ["Operations", [
       ["live.html", "Live", ""],
@@ -76,6 +88,7 @@
     ]],
     ["Design studies", [
       ["components.html", "Components", ""],
+      ["finops-resource-efficiency.html", "Resource efficiency study", "is-steel"],
       ["typography.html", "Typography", "is-steel"],
       ["deck.html", "Command deck", "is-plum"],
       ["deck-sources.html", "Command deck sources", "is-teal"],

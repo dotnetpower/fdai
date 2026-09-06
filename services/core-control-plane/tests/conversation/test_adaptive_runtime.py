@@ -5,6 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import pytest
+from fdai.core.conversation.conversation_preflight import (
+    ContextDependency,
+    ConversationPreflightProposal,
+    ConversationPreflightResult,
+    OperationalSignal,
+    SocialAct,
+)
 from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal, Role
@@ -14,6 +21,7 @@ from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
     QueryNodeKind,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from tests.conversation.test_adaptive_service import (
     _draft,
@@ -121,6 +129,81 @@ async def test_general_explanation_does_not_require_query_planning_or_a_provider
         principal=Principal(id="operator", role=Role.READER),
     )
     assert result.disposition == "advisory_response"
+    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+
+
+async def test_explicit_operational_preflight_bypasses_adaptive_planning() -> None:
+    manifest, _definition = _fixture()
+    query_model = QueryModel(frame=None, plan=None)
+    adaptive_model = AnswerModel(plan=answer_plan(), answer=_draft(), review=_review())
+    judgment = SemanticJudgmentProposal(
+        primary_intent="create.document",
+        targets=(),
+        requested_facets=("resource_inventory", "subscription", "complete_content", "download"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    class _OperationalJudgment:
+        def preflight(self, **_kwargs: object) -> ConversationPreflightResult:
+            return ConversationPreflightResult(
+                proposal=ConversationPreflightProposal(
+                    social_act=SocialAct.NONE,
+                    operational_signal=OperationalSignal.EXPLICIT,
+                    context_dependency=ContextDependency.NONE,
+                    confidence=0.99,
+                )
+            )
+
+        def judge(self, **_kwargs: object) -> object:
+            from types import SimpleNamespace
+
+            return SimpleNamespace(
+                accepted=True,
+                observations=(),
+                proposal=judgment,
+                receipt=SimpleNamespace(
+                    disposition=SimpleNamespace(value="accepted"),
+                    tier=SimpleNamespace(value="t1"),
+                ),
+            )
+
+    async def handler(
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        assert dependencies == {}
+        return QueryNodeResult(
+            value={"unexpected": node.node_id},
+            evidence_refs=("inventory:verified",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    runtime = SemanticConversationRuntime(
+        planner=query_service(
+            query_model,
+            manifest,
+            semantic_judgment=_OperationalJudgment(),
+        ),
+        executor=OntologyQueryPlanExecutor(
+            handlers={QueryNodeKind.OBJECT_SET: handler},
+            now=lambda: NOW,
+        ),
+        adaptive_service=answer_service(adaptive_model),
+    )
+
+    result = await runtime.handle(
+        utterance="Create a complete subscription inventory document.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert adaptive_model.calls == []
     assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
 
 

@@ -32,6 +32,6 @@ describe("Command Deck header layout", () => {
     expect(source).toContain('{searchAvailable ? <div class="deck-search" role="search">');
     expect(source).toContain('class="deck-header-action"');
     expect(source).toContain('aria-pressed={conversationsOpen}');
-    expect(styles).toContain(".deck-backend-header.deck-backend-ready .deck-backend-label { display: none; }");
+    expect(styles).toContain(".deck-backend-header.deck-backend-ready .deck-backend-label { display: block; }");
   });
 });

@@ -3,578 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Overview - FDAI Console</title>
+  <title>Dashboard - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
+  <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
+  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <style>
-    body.dashboard-preview[data-chat-theme="clear-neutral"] { background: var(--cs-bg); }
-    .dashboard-v2 { --db-radius: 8px; }
-    .dashboard-v2 .cs-badge-num { display: none; }
-    .dashboard-v2 .cs-section-head { gap: 0; }
-    .dashboard-v2 .cs-readonly-banner { border-style: solid; background: var(--cs-shade); font-size: var(--cs-type-compact-size); }
-    .db-page-header {
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--cs-hairline);
-      margin-bottom: 20px;
-    }
-    .db-page-subtitle {
-      max-width: 720px;
-      margin: 0;
-      color: var(--cs-text-soft);
-      font-size: var(--cs-type-compact-size);
-    }
-    .dashboard-v2 .cs-section { margin: 32px 0; }
-    .db-posture {
-      padding: 24px;
-      border: 1px solid var(--cs-hairline);
-      border-radius: var(--db-radius);
-      background: var(--cs-card);
-      box-shadow: none;
-    }
-    .db-posture-head,
-    .db-panel-head,
-    .db-vertical-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-    }
-    .db-kicker {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--cs-text-soft);
-      font-size: var(--cs-type-label-size);
-      font-weight: 600;
-      letter-spacing: 0;
-    }
-    .db-posture h2 { margin: 0; font-size: var(--cs-type-page-title-size); }
-    .db-posture-summary { margin: 8px 0 0; color: var(--cs-text); font-size: var(--cs-type-body-size); }
-    .db-count {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 3px 10px;
-      border-radius: var(--cs-radius-pill);
-      color: var(--cs-terracotta);
-      background: var(--cs-attention-bg);
-      font-size: var(--cs-type-label-size);
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .db-evidence-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 18px;
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid var(--cs-hairline);
-      color: var(--cs-text-soft);
-      font-size: 12px;
-    }
-    .db-evidence-strip strong { color: var(--cs-text); font-weight: 600; }
-    .db-metric-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 14px;
-    }
-    .db-metric {
-      min-height: 154px;
-      padding: 18px;
-      border: 1px solid var(--cs-hairline);
-      border-radius: var(--db-radius);
-      background: var(--cs-card);
-      box-shadow: none;
-    }
-    .db-metric.is-unavailable { background: var(--cs-shade); box-shadow: none; }
-    .db-metric-label { display: block; min-height: 42px; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
-    .db-metric-value { display: block; margin: 8px 0 10px; font-size: 28px; font-weight: 600; line-height: 1.1; }
-    .db-metric.is-unavailable .db-metric-value { color: var(--cs-navy); font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); }
-    .db-metric-foot { display: block; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); line-height: var(--cs-type-compact-line-height); }
-    .db-signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .db-panel {
-      padding: 20px;
-      border: 1px solid var(--cs-hairline);
-      border-radius: var(--db-radius);
-      background: var(--cs-card);
-      box-shadow: none;
-    }
-    .db-panel h3 { margin: 0; }
-    .db-panel-meta { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
-    .db-distribution { margin-top: 18px; }
-    .db-distribution + .db-distribution { margin-top: 22px; }
-    .db-distribution-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; font-size: 12px; }
-    .db-distribution-label span:last-child { color: var(--cs-text-soft); }
-    .db-attention-grid,
-    .db-vertical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-    .db-attention-card,
-    .db-vertical {
-      padding: 20px;
-      border: 1px solid var(--cs-hairline);
-      border-radius: var(--db-radius);
-      background: var(--cs-card);
-    }
-    .db-attention-card h3,
-    .db-vertical h3 { margin: 0; font-size: var(--cs-type-lead-size); }
-    .db-attention-value { display: block; margin: 14px 0 8px; font-size: 28px; font-weight: 600; line-height: 1; }
-    .db-fact-list { margin: 12px 0 0; padding: 0; list-style: none; font-size: var(--cs-type-compact-size); }
-    .db-fact-list li > *, .db-panel-head > *, .db-vertical-head > * { min-width: 0; overflow-wrap: anywhere; }
-    .db-fact-list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--cs-hairline); }
-    .db-fact-list li:first-child { border-top: 0; }
-    .db-fact-list span { color: var(--cs-text-soft); }
-    .db-fact-list strong { text-align: right; font-weight: 600; }
-    .db-state {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: var(--cs-radius-pill);
-      font-size: var(--cs-type-label-size);
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .db-state.measured { color: var(--cs-sage); background: var(--cs-success-bg); }
-    .db-state.attention { color: var(--cs-terracotta); background: var(--cs-attention-bg); }
-    .db-state.unavailable { color: var(--cs-text-soft); background: var(--cs-shade); }
-    .db-vertical-stats { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 16px 0 0; }
-    .db-vertical-stats span { color: var(--cs-text-soft); font-size: 12px; }
-    .db-vertical-stats b { color: var(--cs-text); font-size: 17px; }
-    .db-unobserved { margin: 18px 0 0; color: var(--cs-text-soft); font-size: 13px; }
-    .db-detail {
-      border-top: 1px solid var(--cs-hairline);
-      border-bottom: 1px solid var(--cs-hairline);
-    }
-    .db-detail summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 14px 0;
-      cursor: pointer;
-      list-style: none;
-      font-weight: 600;
-    }
-    .db-detail summary::-webkit-details-marker { display: none; }
-    .db-detail summary:hover { background: var(--cs-shade); }
-    .db-detail summary::after { content: "+"; color: var(--cs-text-soft); font-size: 20px; font-weight: 400; }
-    .db-detail[open] summary::after { content: "-"; }
-    .db-detail-body { padding: 0 0 18px; }
-    .db-detail-links { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; font-size: 13px; }
-    .db-detail-links a { display: inline-flex; min-height: 34px; align-items: center; text-underline-offset: 3px; }
-    .dashboard-v2 .cs-stackbar-legend { gap: 8px 16px; }
-    .dashboard-v2 .cs-stackbar-legend > span { display: inline-flex; align-items: center; gap: 4px; }
-    @media (max-width: 1050px) {
-      .db-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-    @media (max-width: 760px) {
-      .db-signal-grid,
-      .db-attention-grid,
-      .db-vertical-grid { grid-template-columns: 1fr; }
-      .db-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 500px) {
-      .db-posture-head { flex-direction: column; }
-      .db-posture { padding: 20px; }
-      .db-metric-grid { grid-template-columns: 1fr; }
-      .db-metric { min-height: 0; }
-      .db-metric-label { min-height: 0; }
-      .db-panel-head, .db-vertical-head { flex-wrap: wrap; gap: 8px; }
-      .db-detail summary { flex-wrap: wrap; gap: 8px; }
-      .db-detail-links a { min-height: 44px; }
-    }
-  </style>
-  <link rel="stylesheet" href="assets/dashboard-resources.css?v=resource-map-v1" />
-  <script src="assets/dashboard-resource-data.js?v=resource-map-v2" defer></script>
-  <script src="assets/dashboard-resource-views.js?v=resource-map-v2" defer></script>
-  <script src="assets/dashboard-resource-preview.js?v=resource-map-v3" defer></script>
-  <script src="assets/dashboard-type-picker.js?v=type-search-v1" defer></script>
-  <script src="assets/dashboard-resources.js?v=resource-map-v1" defer></script>
 </head>
-<body class="dashboard-preview" data-chat-theme="clear-neutral">
-  <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><pattern id="dr-unknown-pattern" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#F5F5F5"></rect><path d="M-1,1 L1,-1 M0,6 L6,0 M5,7 L7,5" stroke="#A3A3A3" stroke-width="1"></path></pattern></defs></svg>
-  <main class="cs-container cs-page dashboard-v2">
-    <div id="resource-hover-preview" class="dr-hover-preview" role="tooltip" hidden></div>
-    <span id="resource-selection-status" class="dr-sr-only" role="status"></span>
-    <header class="db-page-header">
-      <h1 class="cs-page-title">
-        <span class="cs-page-domain">Overview</span>
-        <span class="cs-page-separator" aria-hidden="true">/</span>
-        <span class="cs-page-title-current">Dashboard</span>
-      </h1>
-      <p class="db-page-subtitle">Observation scope, resource state, and the exceptions that need your attention.</p>
-    </header>
-
-    <div class="cs-readonly-banner">
-      <span><strong>Synthetic preview.</strong> These records make no operational claim. No Azure query or resource action runs here.</span>
-      <details class="dr-preview-controls">
-        <summary>Preview scenarios</summary>
-        <div class="dr-example-options">
-          <div><label for="resource-example-size">Example resources</label><select id="resource-example-size"><option value="24">24</option><option value="100">100</option><option value="1000">1,000</option><option value="10000">10,000</option></select></div>
-          <div><label for="resource-example-state">Inventory example</label><select id="resource-example-state"><option value="complete">Complete</option><option value="partial">Partial</option><option value="stale">Stale</option><option value="loading">Loading</option><option value="error">Read error</option><option value="empty">Empty</option></select></div>
-          <p>Local, deterministic fixtures. Changing a scenario clears selection and filters. No server performance or real inventory is represented.</p>
-        </div>
-      </details>
-    </div>
-
-    <section id="resource-read-state" class="dr-read-state" hidden aria-label="Inventory read">
-      <div id="resource-loading" role="status"><h2>Loading example inventory</h2><p>Counts are not available yet. This is a paused loading specimen, not a network request.</p><div class="dr-loading-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span></div></div>
-      <div id="resource-read-error" role="alert"><h2>Example inventory could not be read</h2><p>No inventory totals or all-clear state can be established. This is a simulated read error.</p></div>
-      <button id="resource-example-restore" type="button" class="cs-control-button">Show complete example</button>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page ov-page ow-page">
+    <header class="cp-header"><div><h1>Dashboard</h1><p>Operating outcomes, routing control, and evidence that needs attention.</p></div><a class="cs-control-button" href="dashboard-v2.html">Resource dashboard</a></header>
+    <div class="cs-readonly-banner"><strong>Synthetic preview.</strong> Frozen example scope. No runtime reads, approvals, promotion, or resource actions.</div>
+    <section class="ov-section">
+      <a class="ow-metric" href="operating-outcomes.html#auto-resolution"><span>Executive operating posture / Simulated</span><strong>73% auto-resolution</strong><small>2 pending approvals / Policy escapes unavailable / Operational health unknown</small></a>
+      <div class="ov-evidence ow-provenance"><span>Simulated audit projection</span><span>30-day window / 30 events</span><span>Confidence unavailable</span><span>Source: example-autonomy / 2026-07-22T15:18:00Z</span><span>Paired baseline available</span><a href="operating-outcomes.html">Inspect measurement evidence</a></div>
     </section>
-    <div id="resource-data">
-    <section class="dr-scope" aria-label="Observation scope">
-      <div><span class="db-kicker">Observation scope</span><h2 id="resource-scope-name">Example subscription</h2>
-        <p id="resource-scope-description">3 observed resource groups / Inventory only, not execution authority</p></div>
-      <div class="dr-snapshot"><span>Snapshot <code id="resource-snapshot-id">demo-24-complete-20260905-1200</code></span>
-        <time datetime="2026-09-05T12:00:00+09:00">05 Sep 2026, 12:00 KST</time>
-        <span class="dr-status" data-tone="attention" id="resource-snapshot-status">State coverage is partial</span></div>
+    <section class="ov-section">
+      <div class="ov-section-head"><div><h2>Operating outcomes</h2><p>Current results and their paired baseline. Missing evidence is not a zero.</p></div></div>
+      <div class="ow-metrics ow-dashboard-outcomes">
+        <a class="ow-metric" href="operating-outcomes.html#auto-resolution"><span>Auto-resolution</span><strong>73%</strong><small>Baseline 65% / Higher is better</small></a>
+        <a class="ow-metric" href="operating-outcomes.html#human-touchpoints"><span>Human touchpoints / 100</span><strong>13.3</strong><small>Baseline 26.7 / Lower is better</small></a>
+        <a class="ow-metric" href="operating-outcomes.html#mttr"><span>MTTR</span><strong>15m</strong><small>Baseline 26m / Lower is better</small></a>
+        <a class="ow-metric" href="operating-outcomes.html#change-lead-time"><span>Change lead time</span><strong>48m</strong><small>Baseline 98m / Lower is better</small></a>
+        <a class="ow-metric" href="operating-outcomes.html#cost-per-resolved-event"><span>Cost / resolved event</span><strong>Unavailable</strong><small>Attribution not connected</small></a>
+      </div>
     </section>
-    <dl class="dr-summary" id="resource-summary" aria-label="Snapshot counts">
-      <div><dt>Observed resources</dt><dd id="count-resources">24</dd><small>Within this example scope</small></div>
-      <div><dt>Operating state known</dt><dd id="count-known">-</dd><small>Fresh operation / power evidence</small></div>
-      <div><dt>Operating state unknown</dt><dd id="count-unknown">-</dd><small>Missing or stale observations</small></div>
-      <div><dt>State not applicable</dt><dd id="count-na">-</dd><small>Types without start / stop state</small></div>
-    </dl>
-
-    <div class="dr-workspace">
-      <section class="dr-resource-panel" aria-labelledby="resource-map-title">
-        <header class="dr-panel-head">
-          <div><h2 id="resource-map-title" tabindex="-1">Resource landscape</h2><p id="resource-view-note">One cell is one resource. Adjacency is not a dependency.</p></div>
-          <div class="dr-view-switch" role="group" aria-label="Resource presentation">
-            <button class="cs-control-button" type="button" data-resource-view="groups" aria-pressed="false">Groups</button>
-            <button class="cs-control-button" type="button" data-resource-view="honeycomb" aria-pressed="true">Honeycomb</button>
-            <button class="cs-control-button" type="button" data-resource-view="list" aria-pressed="false">List</button>
-          </div>
-        </header>
-        <div class="dr-lenses" role="group" aria-label="Color by">
-          <button type="button" data-resource-lens="operation" aria-pressed="true">Operating state</button>
-          <button type="button" data-resource-lens="availability" aria-pressed="false">Availability</button>
-          <button type="button" data-resource-lens="observation" aria-pressed="false">Observation</button>
-          <div class="dr-density-switch" id="resource-density" role="group" aria-label="Cell density"><button type="button" data-resource-density="dense" aria-pressed="false">Dense</button><button type="button" data-resource-density="comfortable" aria-pressed="true">Comfortable</button></div>
-        </div>
-        <p class="dr-density-note" id="resource-density-note" hidden>Touch and narrow views use larger cells. Tap to pin details, or switch to List.</p>
-        <nav id="resource-breadcrumb" class="dr-breadcrumb" aria-label="Selected resource scope" hidden><button type="button" class="dr-text-link" id="resource-scope-reset">All scope</button><span id="resource-scope-label"></span></nav>
-        <div class="dr-filters">
-          <div><label for="resource-subscription">Subscription</label><select id="resource-subscription"><option value="all">All subscriptions</option></select></div>
-          <div><label for="resource-group">Group</label><select id="resource-group"><option value="all">All groups</option><option value="application">Application</option><option value="platform">Platform</option><option value="data">Data</option></select></div>
-          <div><label id="resource-type-label" for="resource-type">Type</label>
-            <div class="cs-combobox dr-type-picker" id="resource-type-picker">
-              <div class="cs-combobox-control">
-                <input id="resource-type" type="text" role="combobox" aria-expanded="false" aria-controls="resource-type-options" aria-autocomplete="list" aria-haspopup="listbox" placeholder="Search types..." autocomplete="off" spellcheck="false" maxlength="200" />
-                <button class="dr-type-clear" id="resource-type-clear" type="button" aria-label="Clear type filter" title="Clear type filter" hidden>X</button>
-              </div>
-              <div class="cs-combobox-list dr-type-popup" id="resource-type-popup" hidden>
-                <p id="resource-type-results" role="status"></p>
-                <div id="resource-type-options" role="listbox" aria-labelledby="resource-type-label"></div>
-                <p id="resource-type-help"></p>
-              </div>
-            </div>
-          </div>
-          <div class="dr-search"><label for="resource-search">Find resource</label><input id="resource-search" type="search" placeholder="Name or identifier" maxlength="200" /></div>
-        </div>
-        <div class="dr-map-meta"><span id="resource-count" role="status" aria-live="polite"></span><a class="dr-attention-jump dr-text-link" href="#attention-title">Check first</a><button type="button" class="cs-control-button is-quiet" id="resource-reset">Clear filters</button></div>
-        <div class="dr-legend" id="resource-legend" role="group" aria-label="Filter by state"></div>
-        <div id="resource-groups" class="dr-group-grid" hidden></div>
-        <div id="resource-honeycomb" class="dr-honeycomb" aria-label="Resource status map"></div>
-        <div id="resource-list" class="dr-list-wrap" hidden>
-          <table class="dr-list">
-            <caption>Resources in the selected scope. Status follows the selected color view.</caption>
-            <thead><tr><th scope="col">Resource</th><th scope="col">Type / group</th><th scope="col">State</th><th scope="col">Last observation</th></tr></thead>
-            <tbody id="resource-list-body"></tbody>
-          </table>
-        </div>
-        <div class="dr-empty" id="resource-empty" hidden><h3 id="resource-empty-title">No matching resources</h3><p>No example record matches these filters. This does not establish absence outside the received snapshot.</p></div>
-        <nav class="dr-pagination" id="resource-pagination" aria-label="Resource pages" hidden><button type="button" class="cs-control-button" id="resource-previous">Previous page</button><span id="resource-page-label" role="status"></span><button type="button" class="cs-control-button" id="resource-next">Next page</button></nav>
-        <p class="dr-lens-note" id="resource-lens-note"></p>
-        <p class="dr-boundary" id="resource-page-boundary"></p>
-      </section>
-
-      <div class="dr-side" id="resource-side">
-        <section class="dr-inspector" id="resource-inspector" aria-labelledby="resource-inspector-title" tabindex="-1" hidden>
-          <div id="resource-selection-empty"><h2 id="resource-inspector-title">Select a resource</h2></div>
-          <div id="resource-selection" hidden>
-            <header class="dr-panel-head"><div><span class="db-kicker" id="resource-selected-type"></span><h2 id="resource-selected-name"></h2><p id="resource-selected-scope"></p></div><div class="dr-view-switch"><button type="button" class="cs-control-button" id="resource-back">Back to resources</button><button type="button" class="cs-control-button" id="resource-selection-clear">Clear selection</button></div></header>
-            <p class="dr-selection-filtered" id="resource-selection-filtered" hidden>This selected resource is outside the current map filters. Its identity has not changed.</p>
-            <p class="dr-selection-filtered" id="resource-selection-paged" hidden>This selected resource is not on the displayed resource page. Its snapshot and identity have not changed.</p>
-            <dl class="dr-resource-facts" id="resource-selected-facts"></dl>
-            <p class="dr-insight" id="resource-selected-note"></p>
-            <details class="dr-record" id="resource-evidence"><summary>Recorded evidence <span>Synthetic snapshot excerpt</span></summary><pre id="resource-selected-evidence"></pre></details>
-          </div>
+    <section class="ov-section">
+      <div class="ov-section-head"><div><h2>Routing and control</h2><p>Tier classification and control disposition are separate from verified effect.</p></div></div>
+      <div class="ow-grid">
+        <section class="ov-panel js-chartable" data-chart-title="Trust tier distribution" data-chart-columns='["Tier","Events"]' data-chart-rows='[["T0","22"],["T1","6"],["T2","2"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy, 30 days.">
+          <h3>Trust tier mix</h3><div class="cs-stackbar" aria-hidden="true"><span class="is-t0" style="width:73.33%"></span><span class="is-t1" style="width:20%"></span><span class="is-t2" style="width:6.67%"></span></div>
+          <nav class="ov-footer-links" aria-label="Tier evidence"><a href="trust-routing.html#t0">T0 22 / 73%</a><a href="trust-routing.html#t1">T1 6 / 20%</a><a href="trust-routing.html#t2">T2 2 / 7%</a></nav>
         </section>
-      <aside class="dr-attention" aria-labelledby="attention-title">
-        <header class="dr-panel-head"><div><h2 id="attention-title" tabindex="-1">Check first</h2><p>Recorded highlights / Independent of map filters</p></div></header>
-        <p id="resource-priorities-empty" hidden>No exception records in this example. This is not an all-clear verdict.</p>
-        <ol class="dr-priorities" id="resource-priorities">
-          <li><span data-priority-state="app-web-01"></span><h3>Application endpoint needs review</h3><p><code>web-checkout-01</code> was recorded running with unavailable availability. Check freshness before using that observation.</p><p class="dr-priority-meta">Owner: not recorded · 11:58 KST</p><button type="button" class="dr-text-link" data-inspect-resource="app-web-01">Inspect web-checkout-01</button></li>
-          <li><span data-priority-state="data-db-01"></span><h3>Database needs availability review</h3><p><code>db-orders-01</code> has no independent recovery observation in this snapshot.</p><p class="dr-priority-meta">Owner: not recorded · 11:57 KST</p><button type="button" class="dr-text-link" data-inspect-resource="data-db-01">Inspect db-orders-01</button></li>
-          <li><span class="dr-status" data-tone="unknown">Read denied</span><h3>Current state cannot be read</h3><p><code>vm-build-02</code> is inventoried, but its state reader has insufficient permission.</p><p class="dr-priority-meta">Last successful read: not recorded</p><button type="button" class="dr-text-link" data-inspect-resource="platform-vm-02">Inspect vm-build-02</button></li>
-        </ol>
-        <p class="dr-boundary">Three authored highlights, not a complete queue or ranking. Inspect clears filters and opens the exact record, even outside the displayed page. No investigation or action starts.</p>
-      </aside>
-      </div>
-    </div>
-
-    <div class="dr-lower-grid">
-      <section class="dr-history-panel" aria-labelledby="changes-title">
-        <header class="dr-panel-head"><div><h2 id="changes-title">Recent recorded changes</h2><p>11:00-12:00 KST · Separate synthetic event records</p></div></header>
-        <ol class="dr-changes" id="resource-changes"></ol>
-        <p class="dr-boundary">Separate sampled events, not a continuous trend or proof of exact onset. No rates or durations are inferred. Selection clears filters; unavailable inventory targets cannot be selected.</p>
-      </section>
-      <section class="dr-history-panel" aria-labelledby="coverage-title">
-        <header class="dr-panel-head"><div><h2 id="coverage-title">Observation coverage</h2><p>Different sources establish different facts.</p></div></header>
-        <dl class="dr-coverage">
-          <div><dt>Inventory</dt><dd id="inventory-coverage"></dd></div>
-          <div><dt>Operation / power</dt><dd id="operation-coverage"></dd></div>
-          <div><dt>Availability</dt><dd id="availability-coverage"></dd></div>
-          <div><dt>Metrics / logs</dt><dd><span class="dr-status" data-tone="unknown">Not connected</span><span>No utilization or root-cause claim</span></dd></div>
-        </dl>
-        <p class="dr-boundary">Observation readiness is not resource health. Missing reads are not healthy resources or zero incidents.</p>
-      </section>
-    </div>
-    </div>
-
-    <details class="dr-performance" id="historical-performance">
-      <summary>FDAI response and operating performance <span>Separate historical example · 30 days ending 22 Jul 2026</span></summary>
-      <p class="dr-boundary">These existing performance fixtures do not share the resource snapshot's time window or denominator. They are not computed from the resource preview above.</p>
-    <section class="db-posture" aria-labelledby="posture-title">
-      <div class="db-posture-head">
-        <div>
-          <span class="db-kicker">Executive operating posture</span>
-          <h2 id="posture-title">Historical operating summary</h2>
-          <p class="db-posture-summary">73% auto-resolution - 8 approvals pending - 0 policy escapes</p>
-        </div>
-        <span class="db-count">3 attention areas</span>
-      </div>
-      <div class="db-evidence-strip" aria-label="Measurement evidence">
-        <span><strong>Measured</strong> audit projection</span>
-        <span><strong>Window</strong> 30 days</span>
-        <span><strong>Sample</strong> 30 events</span>
-        <span><strong>Source</strong> postgres-audit</span>
-        <span><strong>Baseline</strong> not connected</span>
-        <span><strong>As of</strong> 2026-07-22T15:18Z</span>
+        <section class="ov-panel"><h3>Control outcomes</h3><div class="cs-stackbar" aria-hidden="true"><span class="is-auto" style="width:73.33%"></span><span class="is-hil" style="width:6.67%"></span><span class="is-abstain" style="width:16.67%"></span><span class="is-deny" style="width:3.33%"></span></div>
+          <nav class="ov-footer-links" aria-label="Control evidence"><a href="audit.html?window=30d&amp;outcome=auto">Auto 22</a><a href="audit.html?window=30d&amp;outcome=hil">Approval 2</a><a href="audit.html?window=30d&amp;outcome=abstain">Held 5</a><a href="audit.html?window=30d&amp;outcome=deny">Denied 1</a></nav>
+          <div class="cs-stackbar" aria-hidden="true"><span class="is-abstain" style="width:80%"></span><span class="is-auto" style="width:20%"></span></div><nav class="ov-footer-links" aria-label="Mode evidence"><a href="audit.html?window=30d&amp;mode=shadow">Shadow 80%</a><a href="audit.html?window=30d&amp;mode=enforce">Enforce 20%</a></nav>
+        </section>
       </div>
     </section>
-
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">1</span>
-        <div class="cs-section-title">
-          <h2>Operating outcomes</h2>
-          <p class="cs-desc">Measured results and explicit gaps over the same evidence window.</p>
-        </div>
-      </div>
-      <div class="db-metric-grid">
-        <div class="db-metric">
-          <span class="db-metric-label">Auto-resolution</span>
-          <strong class="db-metric-value">73%</strong>
-          <span class="db-metric-foot">Measured - n=30<br />Baseline unavailable</span>
-        </div>
-        <div class="db-metric">
-          <span class="db-metric-label">Human touchpoints / 100</span>
-          <strong class="db-metric-value">6.7</strong>
-          <span class="db-metric-foot">Measured - n=30<br />Baseline unavailable</span>
-        </div>
-        <div class="db-metric is-unavailable">
-          <span class="db-metric-label">MTTR median / p90</span>
-          <strong class="db-metric-value">Insufficient evidence</strong>
-          <span class="db-metric-foot">4 resolved incidents<br />Minimum sample not met</span>
-        </div>
-        <div class="db-metric is-unavailable">
-          <span class="db-metric-label">Change lead time median / p90</span>
-          <strong class="db-metric-value">Unavailable</strong>
-          <span class="db-metric-foot">Merge timestamps not connected</span>
-        </div>
-        <div class="db-metric is-unavailable">
-          <span class="db-metric-label">Cost / resolved event</span>
-          <strong class="db-metric-value">Unavailable</strong>
-          <span class="db-metric-foot">Cost attribution not connected</span>
-        </div>
+    <section class="ov-section">
+      <div class="ov-section-head"><div><h2>Required attention</h2><p>Read-only signals, not instructions to execute.</p></div></div>
+      <div class="ow-metrics">
+        <a class="ow-metric" href="hil.html?status=pending"><span>Approval queue</span><strong>2</strong><small>Review current human approval separately</small></a>
+        <a class="ow-metric" href="control-assurance.html#promotion-guards"><span>Measured failed guards</span><strong>Unavailable</strong><small>Simulated guards do not establish posture</small></a>
+        <a class="ow-metric" href="promotion.html"><span>Policy escapes</span><strong>Unavailable</strong><small>Promotion registry not connected</small></a>
+        <a class="ow-metric" href="audit.html?window=30d&amp;mode=shadow"><span>Shadow share</span><strong>80%</strong><small>Below the 95% reference / No promotion authority</small></a>
       </div>
     </section>
-
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">2</span>
-        <div class="cs-section-title">
-          <h2>Routing and control</h2>
-          <p class="cs-desc">How observed events were routed and which control path they entered.</p>
-        </div>
-      </div>
-      <div class="db-signal-grid">
-        <div class="db-panel js-chartable"
-             data-chart-title="Trust tier distribution"
-             data-chart-sub="30 classified events in the 30-day window"
-             data-chart-columns='["Tier","Share","Events"]'
-             data-chart-rows='[["T0 deterministic","73%","22"],["T1 lightweight","20%","6"],["T2 reasoning","7%","2"]]'
-             data-chart-num-cols='[1,2]'
-             data-chart-source="Illustrative source: postgres-audit. Window: 30 days.">
-          <div class="db-panel-head">
-            <div><span class="db-kicker">Decision tier</span><h3>Trust tier mix</h3></div>
-            <span class="db-panel-meta">30 classified</span>
-          </div>
-          <div class="db-distribution">
-            <div class="cs-stackbar">
-              <span class="is-t0" style="width:73%"></span>
-              <span class="is-t1" style="width:20%"></span>
-              <span class="is-t2" style="width:7%"></span>
-            </div>
-            <div class="cs-stackbar-legend">
-              <span><span class="dot" style="background:var(--cs-sage)"></span><strong>73%</strong> T0</span>
-              <span><span class="dot" style="background:var(--cs-teal)"></span><strong>20%</strong> T1</span>
-              <span><span class="dot" style="background:var(--cs-plum)"></span><strong>7%</strong> T2</span>
-            </div>
-          </div>
-        </div>
-        <div class="db-panel js-chartable"
-             data-chart-title="Control-path distribution"
-             data-chart-sub="30 terminal decisions in the 30-day window"
-             data-chart-columns='["Path","Share","Decisions"]'
-             data-chart-rows='[["auto","73%","22"],["approval","7%","2"],["held for review","17%","5"],["deny","3%","1"]]'
-             data-chart-num-cols='[1,2]'
-             data-chart-source="Illustrative source: postgres-audit. Window: 30 days.">
-          <div class="db-panel-head">
-            <div><span class="db-kicker">Safety path</span><h3>Control outcomes</h3></div>
-            <span class="db-panel-meta">30 decisions</span>
-          </div>
-          <div class="db-distribution">
-            <div class="db-distribution-label"><strong>Terminal decision</strong><span>30 observed</span></div>
-            <div class="cs-stackbar">
-              <span class="is-auto" style="width:73%"></span>
-              <span class="is-hil" style="width:7%"></span>
-              <span class="is-abstain" style="width:17%"></span>
-              <span class="is-deny" style="width:3%"></span>
-            </div>
-            <div class="cs-stackbar-legend">
-              <span><span class="dot" style="background:var(--cs-sage)"></span><strong>73%</strong> auto</span>
-              <span><span class="dot" style="background:var(--cs-terracotta)"></span><strong>7%</strong> approval</span>
-              <span><span class="dot" style="background:var(--cs-plum)"></span><strong>17%</strong> held</span>
-              <span><span class="dot" style="background:var(--cs-dusty-red)"></span><strong>3%</strong> deny</span>
-            </div>
-          </div>
-          <div class="db-distribution">
-            <div class="db-distribution-label"><strong>Action mode</strong><span>eligible actions</span></div>
-            <div class="cs-stackbar">
-              <span class="is-abstain" style="width:80%"></span>
-              <span class="is-auto" style="width:20%"></span>
-            </div>
-            <div class="cs-stackbar-legend">
-              <span><span class="dot" style="background:var(--cs-plum)"></span><strong>80%</strong> shadow</span>
-              <span><span class="dot" style="background:var(--cs-sage)"></span><strong>20%</strong> enforce</span>
-            </div>
-          </div>
-        </div>
+    <section class="ov-section">
+      <div class="ov-section-head"><div><h2>Vertical outcomes</h2><p>Same synthetic 30-day window. Unattributed records are not assigned to a vertical.</p></div></div>
+      <div class="ow-metrics">
+        <a class="ow-metric" href="verticals.html#resilience"><span>Resilience / Simulated</span><strong>12 events</strong><small>10 auto-resolved / 1 open risk / $0 monthly savings</small></a>
+        <a class="ow-metric" href="verticals.html#change-safety"><span>Change safety / Simulated</span><strong>11 events</strong><small>8 auto-resolved / 2 open risks / $0 monthly savings</small></a>
+        <a class="ow-metric" href="verticals.html#cost-governance"><span>Cost governance / Simulated</span><strong>7 events</strong><small>4 auto-resolved / 3 open risks / $0 monthly savings</small></a>
       </div>
     </section>
-
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">3</span>
-        <div class="cs-section-title">
-          <h2>Required attention</h2>
-          <p class="cs-desc">Aggregated signals only. Sensitive approval details remain on the Approvals surface.</p>
-        </div>
-      </div>
-      <div class="db-attention-grid">
-        <article class="db-attention-card">
-          <div class="db-panel-head">
-            <div><span class="db-kicker">Human approval</span><h3>Pending queue</h3></div>
-            <span class="db-state attention">Review</span>
-          </div>
-          <strong class="db-attention-value">8</strong>
-          <ul class="db-fact-list">
-            <li><span>Risk mix</span><strong>2 critical / 4 high / 2 medium</strong></li>
-            <li><span>Oldest wait</span><strong>1h 04m</strong></li>
-          </ul>
-          <div class="db-detail-links"><a href="hil.html">Open approvals &rarr;</a></div>
-        </article>
-        <article class="db-attention-card">
-          <div class="db-panel-head">
-            <div><span class="db-kicker">Control assurance</span><h3>Release posture</h3></div>
-            <span class="db-state attention">Blocked</span>
-          </div>
-          <strong class="db-attention-value">2 gaps</strong>
-          <ul class="db-fact-list">
-            <li><span>Shadow coverage</span><strong>80% / target 95%</strong></li>
-            <li><span>Promotion ready</span><strong>0 of 44</strong></li>
-            <li><span>Policy escapes</span><strong>0 measured</strong></li>
-          </ul>
-          <div class="db-detail-links"><a href="promotion.html">Open control assurance &rarr;</a></div>
-        </article>
-        <article class="db-attention-card">
-          <div class="db-panel-head">
-            <div><span class="db-kicker">Evidence quality</span><h3>Measurement gaps</h3></div>
-            <span class="db-state unavailable">Incomplete</span>
-          </div>
-          <strong class="db-attention-value">4 fields</strong>
-          <ul class="db-fact-list">
-            <li><span>Insufficient</span><strong>MTTR p90</strong></li>
-            <li><span>Not connected</span><strong>Lead time / cost</strong></li>
-            <li><span>Missing</span><strong>Baseline / confidence</strong></li>
-          </ul>
-        </article>
-      </div>
-    </section>
-
-    <section class="cs-section">
-      <div class="cs-section-head">
-        <span class="cs-badge-num">4</span>
-        <div class="cs-section-title">
-          <h2>Vertical outcomes</h2>
-          <p class="cs-desc">Observed activity by initial AIOps vertical over the same 30-day window.</p>
-        </div>
-      </div>
-      <div class="db-vertical-grid">
-        <article class="db-vertical">
-          <div class="db-vertical-head">
-            <h3>Resilience</h3>
-            <span class="db-state unavailable">No observations</span>
-          </div>
-          <p class="db-unobserved">No resilience events were observed. This does not establish an all-clear state.</p>
-        </article>
-        <article class="db-vertical">
-          <div class="db-vertical-head">
-            <h3>Change Safety</h3>
-            <span class="db-state attention">8 open risks</span>
-          </div>
-          <div class="db-vertical-stats">
-            <span><b>30</b> events</span>
-            <span><b>14</b> auto-resolved</span>
-            <span><b>8</b> approval-bound</span>
-          </div>
-        </article>
-        <article class="db-vertical">
-          <div class="db-vertical-head">
-            <h3>Cost Governance</h3>
-            <span class="db-state unavailable">No observations</span>
-          </div>
-          <p class="db-unobserved">No cost events or attributed savings were observed in this window.</p>
-        </article>
-      </div>
-    </section>
-
-    <details class="db-detail">
-      <summary>Operational evidence <small>Audit-level counts and governed destinations</small></summary>
-      <div class="db-detail-body">
-        <div class="cs-meta">
-          <div><span>Audit events</span><span>30 observed</span></div>
-          <div><span>Shadow share</span><span>80%</span></div>
-          <div><span>Enforce share</span><span>20%</span></div>
-          <div><span>Active rules</span><span>61</span></div>
-        </div>
-        <div class="db-detail-links">
-          <a href="audit.html">Open audit &rarr;</a>
-          <a href="rules.html">Browse rules &rarr;</a>
-          <a href="promotion.html">Review promotion gates &rarr;</a>
-        </div>
-      </div>
-    </details>
-    </details>
+    <details class="ow-disclosure"><summary>Operational evidence</summary><div>
+      <div class="ow-metrics"><a href="audit.html?from_seq=1&amp;through_seq=30" class="ow-metric"><span>Audit sample</span><strong>30</strong><small>Sequence 1-30 / Bounded sample</small></a><a href="rules.html" class="ow-metric"><span>Living rules</span><strong>61 active</strong><small>4 candidates / 1 promoted in example window</small></a></div>
+      <div class="ow-grid"><section><h3>By action kind</h3><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Action kind</th><th>Count</th></tr></thead><tbody><tr><td><a href="audit.html?action_kind=observe&amp;from_seq=1&amp;through_seq=30">Observe</a></td><td>24</td></tr><tr><td><a href="audit.html?action_kind=remediation-pr&amp;from_seq=1&amp;through_seq=30">Remediation PR</a></td><td>6</td></tr></tbody></table></div></section>
+      <section><h3>By outcome</h3><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Outcome</th><th>Count</th></tr></thead><tbody><tr><td><a href="audit.html?outcome=auto&amp;from_seq=1&amp;through_seq=30">Auto</a></td><td>22</td></tr><tr><td><a href="audit.html?outcome=abstain&amp;from_seq=1&amp;through_seq=30">Held</a></td><td>5</td></tr><tr><td><a href="audit.html?outcome=hil&amp;from_seq=1&amp;through_seq=30">Approval</a></td><td>2</td></tr><tr><td><a href="audit.html?outcome=deny&amp;from_seq=1&amp;through_seq=30">Denied</a></td><td>1</td></tr></tbody></table></div></section></div>
+      <p class="ow-note">Broker acceptance and an API success do not prove an operational outcome. The mock issues no commands.</p>
+    </div></details>
   </main>
-
-  <footer class="cs-footer">
-    <div class="cs-container cs-flex-between cs-wrap db-footer">
-      <span>FDAI Dashboard mock - decision-first, evidence-aware, read-only.</span>
-      <span class="cs-muted">Illustrative values - no customer data</span>
-    </div>
-  </footer>
 </body>
 </html>

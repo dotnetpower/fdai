@@ -6,8 +6,9 @@
   <title>Live - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=live-semantics-v1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
 </head>
-<body>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
   <main class="cs-page cs-live-page">
     <header class="cs-live-header">
       <div class="cs-live-heading">
@@ -39,7 +40,7 @@
         <div class="cs-live-attention-items" id="attention-items" hidden>
           <strong>Attention</strong>
           <button type="button" data-attention-filter="hil">Approval <span id="attention-hil">0</span></button>
-          <button type="button" data-attention-filter="abstain">Review <span id="attention-abstain">0</span></button>
+          <button type="button" data-attention-filter="abstain" hidden>Review <span id="attention-abstain">0</span></button>
           <button type="button" data-attention-filter="deny">Deny <span id="attention-deny">0</span></button>
           <button type="button" data-attention-filter="failed">Failed <span id="attention-failed">0</span></button>
           <button type="button" data-attention-filter="stuck">Over budget <span id="attention-stuck">0</span></button>
@@ -103,7 +104,7 @@
         <div class="cs-live-filterbar" aria-label="Work filters">
           <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">Active <span id="filter-all">0</span></button>
           <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
-          <button type="button" data-live-filter="abstain" aria-pressed="false">Review <span id="filter-abstain">0</span></button>
+          <button type="button" data-live-filter="abstain" aria-pressed="false" hidden>Review <span id="filter-abstain">0</span></button>
           <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
           <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
           <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
@@ -188,6 +189,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-semantics-v3" defer></script>
+  <script src="assets/live.js?v=operator-workspaces-v1" defer></script>
 </body>
 </html>

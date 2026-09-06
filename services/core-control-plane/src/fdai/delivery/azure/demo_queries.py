@@ -308,16 +308,14 @@ _REQUEST_SURGE_RATIO = MetricKqlTemplate(
 )
 
 _BACKEND_FIRST_BYTE_MS = MetricKqlTemplate(
-    # Application Gateway backend first-byte response time. AGW's
-    # ``AzureDiagnostics`` (``ApplicationGatewayAccessLog`` category)
-    # exposes ``timeTaken_d`` per request; averaging per minute yields a
-    # bounded series the analyzer's ``GTE 2000.0 ms`` threshold reads.
+    # Access-log timeTaken is total request time, not backend first-byte time.
+    # Use the exact platform metric when its diagnostic export is available.
     kql=(
-        "AzureDiagnostics "
-        "| where ResourceType == 'APPLICATIONGATEWAYS' "
-        "| where Category == 'ApplicationGatewayAccessLog' "
-        "| summarize v = avg(timeTaken_d * 1000.0) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "AzureMetrics "
+        "| where ResourceProvider == 'MICROSOFT.NETWORK' "
+        "| where MetricName == 'BackendFirstByteResponseTime' "
+        "| summarize v = avg(Average) "
+        "  by bin(TimeGenerated, 1m), resource_id = tolower(_ResourceId) "
         "| project TimeGenerated, v, resource_id"
     ),
     value_column="v",
@@ -326,16 +324,14 @@ _BACKEND_FIRST_BYTE_MS = MetricKqlTemplate(
 
 _HEALTHY_HOST_COUNT = MetricKqlTemplate(
     # Application Gateway backend healthy-host count via ``AzureMetrics``
-    # (requires the AGW diagnostic setting's ``AllMetrics`` toggle). Min
-    # aggregation matches the analyzer's ``LTE 1.0`` critical bound:
-    # even a brief dip below 1 host is worth surfacing.
+    # (requires an existing AllMetrics diagnostic export). The native metric
+    # supports Average; an analyzer threshold cannot manufacture a Minimum.
     kql=(
         "AzureMetrics "
         "| where ResourceProvider == 'MICROSOFT.NETWORK' "
-        "and Resource contains 'APPLICATIONGATEWAYS' "
         "| where MetricName == 'HealthyHostCount' "
-        "| summarize v = min(Minimum) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "| summarize v = avg(Average) "
+        "  by bin(TimeGenerated, 1m), resource_id = tolower(_ResourceId) "
         "| project TimeGenerated, v, resource_id"
     ),
     value_column="v",

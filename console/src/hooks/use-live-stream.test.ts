@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
   consumeLiveSse,
+  decodeLiveSourceEvent,
   decodeLiveStageEvent,
   isPermanentLiveStreamFailure,
+  isLiveSourceObservationFresh,
   liveReconnectDelay,
   liveStreamHeaders,
   shouldPauseLiveStream,
@@ -56,6 +58,36 @@ describe("live stream boundary", () => {
     await consumeLiveSse(response, (event) => events.push(event));
     expect(events).toHaveLength(1);
     expect(events[0]?.stage).toBe("route");
+  });
+
+  test("observes validated runtime source readiness without inventing a stage", async () => {
+    const payload = JSON.stringify({
+      status: "ready",
+      source: "runtime-observed",
+      ts: "2026-07-16T06:00:00Z",
+    });
+    const response = new Response(
+      `event: source\ndata: ${payload}\n\n`,
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+    const events: LiveStageEvent[] = [];
+    const sources: string[] = [];
+
+    await consumeLiveSse(
+      response,
+      (event) => events.push(event),
+      (event) => sources.push(event.source),
+    );
+
+    expect(events).toHaveLength(0);
+    expect(sources).toEqual(["runtime-observed"]);
+    expect(decodeLiveSourceEvent(payload)?.status).toBe("ready");
+    expect(decodeLiveSourceEvent(JSON.stringify({ status: "ready", source: "unknown", ts: "x" })))
+      .toBeNull();
+    expect(isLiveSourceObservationFresh("2026-07-16T06:00:00Z", Date.parse("2026-07-16T06:00:10Z")))
+      .toBe(true);
+    expect(isLiveSourceObservationFresh("2026-07-16T06:00:00Z", Date.parse("2026-07-16T06:00:16Z")))
+      .toBe(false);
   });
 
   test("classifies auth failures and caps reconnect backoff", () => {

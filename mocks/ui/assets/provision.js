@@ -116,6 +116,9 @@
     });
 
     elements.scanState.textContent = "Queued";
+    document.getElementById("pv-resource-progress").textContent = "Not measured";
+    document.getElementById("pv-page-progress").textContent = "Not measured";
+    document.querySelectorAll("[data-pv-readiness]").forEach(function (node) { node.textContent = "Pending"; });
     ["pv-scan-discovered", "pv-scan-managed", "pv-scan-drifted", "pv-scan-imports"].forEach(function (id) {
       document.getElementById(id).textContent = "-";
     });
@@ -194,6 +197,8 @@
     document.getElementById("pv-scan-managed").textContent = complete ? "3" : "-";
     document.getElementById("pv-scan-drifted").textContent = complete ? "1" : "-";
     document.getElementById("pv-scan-imports").textContent = complete ? "0" : "-";
+    document.getElementById("pv-resource-progress").textContent = complete ? "23 / 23 (estimate)" : "12 / 23 (estimate)";
+    document.getElementById("pv-page-progress").textContent = complete ? "2 / 2 (estimate)" : "1 / 2 (estimate)";
   }
 
   function setOntologyProgress(activeIndex) {
@@ -307,6 +312,14 @@
     elements.eta.textContent = finished
       ? "Complete"
       : "ETA " + formatDuration((stages.length - state.completedStages) * STAGE_INTERVAL_MS);
+    var receipts = { database: 8, semantic: 10, models: 10, runtime: 13, system: 13, inventory: 15 };
+    document.querySelectorAll("[data-pv-readiness]").forEach(function (node) {
+      node.textContent = state.completedStages >= receipts[node.dataset.pvReadiness] ? "Verified example" : "Pending";
+    });
+    if (finished) {
+      document.getElementById("pv-resource-progress").textContent = "23 / 23 - verified example";
+      document.getElementById("pv-page-progress").textContent = "2 / 2 - verified example";
+    }
   }
 
   function updateClock() {

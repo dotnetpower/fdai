@@ -246,8 +246,9 @@
       .in-view-row { grid-template-columns: 1fr; gap: 3px; }
     }
   </style>
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
 </head>
-<body>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
     <header class="cs-page-header in-page-header">
       <div>
@@ -255,26 +256,26 @@
         <h1>Incidents</h1>
         <p class="cs-lead">Triage active incidents, inspect the current response, and follow recorded evidence through verification.</p>
       </div>
-      <p class="in-scope-note"><strong>Governed workspace.</strong> Evidence remains read-only. Authorized intervention submits typed, confirmed requests and never executes a managed-resource change.</p>
+      <p class="in-scope-note"><strong>Synthetic governed workspace.</strong> Production intervention submits typed, confirmed requests, not managed-resource changes. This preview sends nothing and cannot establish a lifecycle transition.</p>
     </header>
 
     <section class="in-command" aria-label="Incident overview and filters">
       <div class="in-summary" aria-label="Incident summary">
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">3</strong><span class="in-summary-label">Active</span></span>
-          <span class="in-summary-foot">1 critical &middot; 1 high &middot; 1 medium</span>
+          <span class="in-summary-top"><strong class="in-summary-value">4</strong><span class="in-summary-label">Loaded</span></span>
+          <span class="in-summary-foot">4 records in this synthetic cohort</span>
         </div>
         <div class="in-summary-item">
           <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Needs approval</span></span>
           <span class="in-summary-foot">oldest waiting 8m</span>
         </div>
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">12</strong><span class="in-summary-label">Resolved in 24h</span></span>
-          <span class="in-summary-foot">median response 6m 42s</span>
+          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Verified outcome</span></span>
+          <span class="in-summary-foot">Recorded terminal verification</span>
         </div>
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">67%</strong><span class="in-summary-label">Auto-contained</span></span>
-          <span class="in-summary-foot">8 of 12 resolved incidents</span>
+          <span class="in-summary-top"><strong class="in-summary-value">3</strong><span class="in-summary-label">Pending outcomes</span></span>
+          <span class="in-summary-foot">No verified terminal result yet</span>
         </div>
       </div>
 
@@ -284,8 +285,13 @@
           <button type="button" data-incident-filter="resolved" aria-pressed="false">Resolved</button>
           <button type="button" data-incident-filter="all" aria-pressed="false">All</button>
         </div>
-        <span class="cs-tag">vertical <strong>all</strong></span>
         <span class="in-filter-note" id="incident-count">3 active incidents &middot; severity first</span>
+      </div>
+      <div class="op-toolbar" aria-label="Incident scope filters">
+        <label>Search incidents<input class="cs-control-input" type="search" maxlength="200" data-incident-search placeholder="Title, target or evidence" /></label>
+        <label>Vertical<select class="cs-control-select" data-incident-vertical><option value="">All verticals</option><option value="resilience">Resilience</option><option value="change_safety">Change safety</option><option value="cost_governance">Cost governance</option><option value="unknown">Unknown</option></select></label>
+        <label>Severity<select class="cs-control-select" data-incident-severity><option value="">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="unknown">Unknown</option></select></label>
+        <button class="cs-control-button" type="button" data-clear-incident-scope>Clear scope</button>
       </div>
     </section>
 
@@ -296,7 +302,7 @@
           <span class="cs-muted" style="font-size:11.5px">4 loaded</span>
         </div>
         <div class="in-roster-list">
-          <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" aria-pressed="true">
+          <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" data-vertical="change_safety" data-severity="critical" aria-pressed="true">
             <span class="in-incident-top"><span class="cs-sev critical">critical</span><span class="in-incident-age">4m</span></span>
             <span class="in-incident-title">API latency after configuration rollout</span>
             <span class="in-incident-context"><span class="in-incident-domain">change safety</span><span>automatic response</span></span>
@@ -307,7 +313,7 @@
               <span class="in-stage-name">Verify <b>4/4</b></span>
             </span>
           </button>
-          <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" aria-pressed="false">
+          <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" data-vertical="resilience" data-severity="high" aria-pressed="false">
             <span class="in-incident-top"><span class="cs-sev high">high</span><span class="in-incident-age">8m</span></span>
             <span class="in-incident-title">Point-in-time recovery disabled</span>
             <span class="in-incident-context"><span class="in-incident-domain">resilience</span><span>human decision</span></span>
@@ -318,7 +324,7 @@
               <span class="in-stage-name is-attention">Approval <b>2/4</b></span>
             </span>
           </button>
-          <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" aria-pressed="false">
+          <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" data-vertical="cost_governance" data-severity="medium" aria-pressed="false">
             <span class="in-incident-top"><span class="cs-sev medium">medium</span><span class="in-incident-age">17m</span></span>
             <span class="in-incident-title">Unexpected compute cost increase</span>
             <span class="in-incident-context"><span class="in-incident-domain">cost governance</span><span>shadow analysis</span></span>
@@ -329,7 +335,7 @@
               <span class="in-stage-name">Investigate <b>1/4</b></span>
             </span>
           </button>
-          <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" aria-pressed="false" hidden>
+          <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" data-vertical="change_safety" data-severity="high" aria-pressed="false" hidden>
             <span class="in-incident-top"><span class="cs-sev high">high</span><span class="in-incident-age">42m ago</span></span>
             <span class="in-incident-title">Workload secret nearing expiry</span>
             <span class="in-incident-context"><span class="in-incident-domain">change safety</span><span>automatic response</span></span>
@@ -395,22 +401,21 @@
           <section class="in-intervention" data-intervention data-target="service:checkout-api">
             <div class="in-intervention-head">
               <div><h3 id="operator-intervention-title">Operator intervention</h3><p>Record guidance, close this incident as expected development activity, or create a target-scoped Incident intake exception.</p></div>
-              <div class="in-modal-head-actions"><span class="in-permission">Authorized as Owner</span><button class="in-modal-close" type="button" data-close-intervention aria-label="Close operator intervention">&times;</button></div>
+              <div class="in-modal-head-actions"><span class="in-permission">Example Owner</span><button class="in-modal-close" type="button" data-close-intervention aria-label="Close operator intervention">&times;</button></div>
             </div>
             <div class="in-intervention-target"><span>Logical target</span><strong class="cs-mono">service:checkout-api</strong></div>
-            <div class="in-exception-banner" data-exception-banner hidden>
-              <div class="in-exception-banner-head"><div><h4>Development exception active</h4><p>Findings and audit records continue. New matching findings do not create Incidents <strong data-exception-until></strong>.</p><p>Reason: <span data-exception-reason></span></p></div><button type="button" data-revoke-exception>Revoke exception</button></div>
-            </div>
             <form data-intervention-form novalidate>
               <fieldset class="in-action-choices">
                 <legend>Choose the requested outcome</legend>
                 <label class="in-action-choice"><input type="radio" name="intervention-action" value="guidance" checked /><strong>Guide response</strong><span>Add an operator comment and request re-evaluation at the next decision boundary.</span></label>
                 <label class="in-action-choice"><input type="radio" name="intervention-action" value="close" /><strong>Close this incident</strong><span>Record this occurrence as expected development activity. Future Incidents remain enabled.</span></label>
                 <label class="in-action-choice"><input type="radio" name="intervention-action" value="exception" /><strong>Close and add exception</strong><span>Close this incident and suppress new Incident creation for this exact target.</span></label>
+                <label class="in-action-choice"><input type="radio" name="intervention-action" value="revoke" /><strong>Revoke development exception</strong><span>Request revocation of a specific exception; the runtime rechecks the target and revision.</span></label>
               </fieldset>
               <div class="in-intervention-fields">
                 <label class="in-intervention-field">Operator comment<textarea name="intervention-comment" maxlength="500" required placeholder="Explain the development context and the direction agents should take."></textarea></label>
                 <label class="in-intervention-field in-duration-field" data-duration-field hidden>Exception duration<select name="intervention-duration"><option value="one-day">1 day</option><option value="one-week">1 week</option><option value="one-month">1 month</option><option value="until-revoked">Until revoked</option></select></label>
+                <label class="in-intervention-field" data-exception-id-field hidden>Exception ID<input class="cs-control-input" name="exception-id" maxlength="36" placeholder="00000000-0000-0000-0000-000000000000" /></label>
               </div>
               <p class="in-intervention-guard">Comments never grant execution authority. Closing does not cancel an action already delivered. An exception keeps detection and findings active and only affects future Incident creation for this target.</p>
               <p class="in-intervention-error" data-intervention-error role="alert" hidden></p>
@@ -419,7 +424,7 @@
             <div class="in-review-panel" data-review-panel hidden>
               <h4>Confirm operator intervention</h4>
               <dl class="in-review-list"><div><dt>Request</dt><dd data-review-action></dd></div><div><dt>Logical target</dt><dd class="cs-mono">service:checkout-api</dd></div><div><dt>Duration</dt><dd data-review-duration></dd></div><div><dt>Comment</dt><dd data-review-comment></dd></div></dl>
-              <p class="in-intervention-guard">Confirmation appends an operator event to this incident. It does not directly mutate the managed service.</p>
+              <p class="in-intervention-guard">In the Console, acceptance queues a revision-bound request for runtime recheck. It is not a completed transition. This preview sends no request.</p>
               <div class="in-intervention-actions"><button type="button" data-review-back>Back</button><button class="is-primary" type="button" data-confirm-intervention>Confirm intervention</button></div>
             </div>
             <p class="in-intervention-status" data-intervention-status role="status" aria-live="polite"></p>
@@ -550,8 +555,15 @@
       }
 
       function applyFilter(status) {
+        currentStatus = status;
+        var query = searchInput.value.trim().toLowerCase();
         var visible = incidentButtons.filter(function (button) {
-          var show = status === "all" || button.dataset.status === status;
+          var detail = detailPanels.find(function (item) { return item.dataset.incidentDetail === button.dataset.incident; });
+          var show = (status === "all" || button.dataset.status === status)
+            && (!verticalInput.value || button.dataset.vertical === verticalInput.value)
+            && (!severityInput.value || button.dataset.severity === severityInput.value)
+            && (!query || (button.textContent + " " + detail.textContent).toLowerCase().includes(query))
+            && (!requestedCorrelation || detail.textContent.includes(requestedCorrelation));
           button.hidden = !show;
           return show;
         });
@@ -561,15 +573,45 @@
           button.setAttribute("aria-pressed", String(active));
         });
         count.textContent = "Showing " + visible.length + " " + status + " incident" + (visible.length === 1 ? "" : "s");
+        emptySelection.hidden = visible.length > 0;
         if (visible.length) selectIncident(visible[0].dataset.incident);
+        else detailPanels.forEach(function (detail) { detail.hidden = true; });
+        var url = new URL(location.href);
+        [["status", status], ["q", searchInput.value.trim()], ["vertical", verticalInput.value], ["severity", severityInput.value], ["correlation", requestedCorrelation]].forEach(function (entry) {
+          if (entry[1]) url.searchParams.set(entry[0], entry[1]); else url.searchParams.delete(entry[0]);
+        });
+        history.replaceState(null, "", url);
+        if (window.fdaiPublishMockRoute) window.fdaiPublishMockRoute();
       }
 
+      var searchInput = document.querySelector("[data-incident-search]");
+      var verticalInput = document.querySelector("[data-incident-vertical]");
+      var severityInput = document.querySelector("[data-incident-severity]");
+      var params = new URL(location.href).searchParams;
+      var requestedCorrelation = params.get("correlation") || "";
+      var currentStatus = ["active", "resolved", "all"].includes(params.get("status")) ? params.get("status") : "active";
+      searchInput.value = params.get("q") || "";
+      verticalInput.value = params.get("vertical") || "";
+      severityInput.value = params.get("severity") || "";
+      var emptySelection = document.createElement("p");
+      emptySelection.className = "op-empty";
+      emptySelection.setAttribute("role", "status");
+      emptySelection.textContent = "No matching incident in the retained example. Clear the scope to inspect the available sample.";
+      detailPanels[0].parentElement.append(emptySelection);
+      [searchInput, verticalInput, severityInput].forEach(function (input) {
+        input.addEventListener(input === searchInput ? "input" : "change", function () { applyFilter(currentStatus); });
+      });
+      document.querySelector("[data-clear-incident-scope]").addEventListener("click", function () {
+        searchInput.value = ""; verticalInput.value = ""; severityInput.value = ""; requestedCorrelation = "";
+        applyFilter(currentStatus);
+      });
       incidentButtons.forEach(function (button) {
         button.addEventListener("click", function () { selectIncident(button.dataset.incident); });
       });
       filterButtons.forEach(function (button) {
         button.addEventListener("click", function () { applyFilter(button.dataset.incidentFilter); });
       });
+      applyFilter(currentStatus);
       loadMore.addEventListener("click", function () {
         loadMore.disabled = true;
         loadMore.textContent = "Loading...";
@@ -581,6 +623,8 @@
         var interventionError = intervention.querySelector("[data-intervention-error]");
         var interventionStatus = intervention.querySelector("[data-intervention-status]");
         var durationField = intervention.querySelector("[data-duration-field]");
+        var exceptionIdField = intervention.querySelector("[data-exception-id-field]");
+        var exceptionIdInput = interventionForm.elements["exception-id"];
         var durationSelect = interventionForm.elements["intervention-duration"];
         var commentInput = interventionForm.elements["intervention-comment"];
         var actionInputs = Array.from(interventionForm.elements["intervention-action"]);
@@ -590,15 +634,12 @@
         var reviewComment = intervention.querySelector("[data-review-comment]");
         var reviewBack = intervention.querySelector("[data-review-back]");
         var confirmIntervention = intervention.querySelector("[data-confirm-intervention]");
-        var exceptionBanner = intervention.querySelector("[data-exception-banner]");
-        var exceptionUntil = intervention.querySelector("[data-exception-until]");
-        var exceptionReason = intervention.querySelector("[data-exception-reason]");
-        var revokeException = intervention.querySelector("[data-revoke-exception]");
         var pendingRequest = null;
         var actionLabels = {
           guidance: "Guide response",
           close: "Close this incident",
-          exception: "Close and add development exception"
+          exception: "Close and add development exception",
+          revoke: "Revoke development exception"
         };
         var durationLabels = {
           "one-day": "1 day",
@@ -643,72 +684,10 @@
           return actionInputs.find(function (input) { return input.checked; }).value;
         }
 
-        function exceptionEnd(duration) {
-          if (duration === "until-revoked") return "until revoked";
-          var days = duration === "one-day" ? 1 : duration === "one-week" ? 7 : 30;
-          var end = new Date();
-          end.setUTCDate(end.getUTCDate() + days);
-          return "until " + end.toISOString().slice(0, 10) + " UTC";
-        }
-
-        function addElement(parent, tag, className, text) {
-          var element = document.createElement(tag);
-          if (className) element.className = className;
-          if (text !== undefined) element.textContent = text;
-          parent.appendChild(element);
-          return element;
-        }
-
-        function appendOperatorEvent(title, reason, result, actionKind) {
-          var timeline = document.querySelector('[data-incident-detail="inc-api-latency"] .in-timeline');
-          var event = document.createElement("div");
-          event.className = "in-event is-operator";
-          var row = addElement(event, "div", "in-event-row");
-          addElement(row, "strong", "in-event-agent", "Owner operator");
-          addElement(row, "span", "in-event-role", "Authorized intervention");
-          var time = addElement(row, "time", "in-event-time", new Date().toISOString().slice(11, 19));
-          time.setAttribute("datetime", new Date().toISOString());
-          addElement(event, "div", "in-event-title", title);
-          var reasonLine = addElement(event, "p", "in-event-note");
-          addElement(reasonLine, "strong", "", "Comment: ");
-          reasonLine.appendChild(document.createTextNode(reason));
-          var resultLine = addElement(event, "p", "in-event-outcome");
-          addElement(resultLine, "strong", "", "Result: ");
-          resultLine.appendChild(document.createTextNode(result));
-          var facts = addElement(event, "div", "in-event-facts");
-          ["role owner", "action " + actionKind, "target service:checkout-api"].forEach(function (fact) {
-            addElement(facts, "span", "", fact);
-          });
-          timeline.prepend(event);
-        }
-
-        function closeIncident(description, nextStep) {
-          var detail = document.querySelector('[data-incident-detail="inc-api-latency"]');
-          var detailStatus = detail.querySelector(".in-detail-title-row .cs-status");
-          var currentStatus = detail.querySelector("[data-current-status]");
-          detailStatus.className = "cs-status ok";
-          detailStatus.textContent = "closed by operator";
-          currentStatus.className = "cs-status ok";
-          currentStatus.textContent = "closed by operator";
-          detail.querySelector("[data-current-title]").textContent = "Closed as development activity";
-          detail.querySelector("[data-current-description]").textContent = description;
-          detail.querySelector("[data-lifecycle-value]").textContent = "Closed";
-          detail.querySelector("[data-next-step]").textContent = nextStep;
-
-          var rosterItem = document.querySelector('[data-incident="inc-api-latency"]');
-          rosterItem.dataset.status = "resolved";
-          rosterItem.querySelector(".in-stage-track").className = "in-stage-track is-stage-4 is-complete";
-          rosterItem.querySelectorAll(".in-stage-node").forEach(function (node) { node.className = "in-stage-node"; });
-          var stageName = rosterItem.querySelector(".in-stage-name");
-          stageName.className = "in-stage-name is-complete";
-          stageName.textContent = "Closed by operator";
-          document.querySelector(".in-summary-value").textContent = "2";
-          count.textContent = "2 active incidents - 1 closed by operator";
-        }
-
         actionInputs.forEach(function (input) {
           input.addEventListener("change", function () {
             durationField.hidden = selectedAction() !== "exception";
+            exceptionIdField.hidden = selectedAction() !== "revoke";
             interventionError.hidden = true;
           });
         });
@@ -723,6 +702,12 @@
             return;
           }
           var action = selectedAction();
+          if (action === "revoke" && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(exceptionIdInput.value.trim())) {
+            interventionError.textContent = "Enter a complete exception ID before reviewing revocation.";
+            interventionError.hidden = false;
+            exceptionIdInput.focus();
+            return;
+          }
           var duration = action === "exception" ? durationSelect.value : null;
           pendingRequest = { action: action, comment: comment, duration: duration };
           reviewAction.textContent = actionLabels[action];
@@ -742,73 +727,26 @@
         });
 
         confirmIntervention.addEventListener("click", function () {
-          if (!pendingRequest) return;
-          var request = pendingRequest;
-          if (request.action === "guidance") {
-            appendOperatorEvent(
-              "Requested response re-evaluation with development context.",
-              request.comment,
-              "The guidance was added to the event stream. Agents must reconsider it at the next decision boundary; execution authority did not change.",
-              "operator.guidance"
-            );
-            document.querySelector("[data-current-title]").textContent = "Operator guidance recorded";
-            document.querySelector("[data-current-description]").textContent = "An authorized operator supplied development context for the next governed decision.";
-            document.querySelector("[data-next-step]").textContent = "Wait for the next agent decision to acknowledge or reject the guidance with recorded evidence.";
-            interventionStatus.textContent = "Guidance recorded. Agent re-evaluation is required at the next decision boundary.";
-            showInterventionSummary("Owner guidance recorded. Agent re-evaluation is pending.", false);
-          } else if (request.action === "close") {
-            appendOperatorEvent(
-              "Closed the incident as expected development activity.",
-              request.comment,
-              "The Incident lifecycle was closed. No future Incident intake exception was created and no managed-resource action was cancelled.",
-              "incident.operator-closed"
-            );
-            closeIncident(
-              "An authorized operator identified the observed behavior as expected development activity and closed this incident.",
-              "Continue recording findings normally. A future matching finding can open a new incident."
-            );
-            interventionStatus.textContent = "Incident closed. Future matching findings can still create Incidents.";
-            showInterventionSummary("Closed by Owner as expected development activity. Future Incident intake remains enabled.", false);
-          } else {
-            var until = exceptionEnd(request.duration);
-            appendOperatorEvent(
-              "Closed the incident and created a development exception.",
-              request.comment,
-              "The Incident lifecycle was closed. New matching findings remain audited but do not create Incidents " + until + ".",
-              "incident.intake-exception-created"
-            );
-            closeIncident(
-              "An authorized operator closed this incident and created a target-scoped development exception.",
-              "Review or revoke the active development exception before normal Incident intake resumes."
-            );
-            exceptionUntil.textContent = until;
-            exceptionReason.textContent = request.comment;
-            exceptionBanner.hidden = false;
-            interventionStatus.textContent = "Development exception active " + until + ".";
-            showInterventionSummary("Development exception active " + until + " for service:checkout-api.", true);
+          if (!pendingRequest) {
+            interventionError.textContent = "Review the request before confirming.";
+            interventionError.hidden = false;
+            return;
           }
+          var request = pendingRequest;
+          interventionStatus.textContent = "Example request queued: " + actionLabels[request.action] + ". No event was sent and no lifecycle transition is established.";
+          showInterventionSummary("Preview acceptance only. Incident, intake exceptions and managed resources are unchanged.", false);
 
           reviewPanel.hidden = true;
           interventionForm.hidden = false;
           interventionForm.reset();
           durationField.hidden = true;
+          exceptionIdField.hidden = true;
+          reviewComment.textContent = "";
           pendingRequest = null;
           closeInterventionDialog();
           openIntervention.focus();
         });
 
-        revokeException.addEventListener("click", function () {
-          if (exceptionBanner.hidden) return;
-          appendOperatorEvent(
-            "Revoked the development exception.",
-            "The target is ready for normal Incident intake.",
-            "New matching findings can create Incidents again. The previously closed incident remains closed.",
-            "incident.intake-exception-revoked"
-          );
-          exceptionBanner.hidden = true;
-          interventionStatus.textContent = "Development exception revoked. Normal Incident intake has resumed for this target.";
-          showInterventionSummary("Development exception revoked. Normal Incident intake has resumed.", false);
-        });
       }
     })();
   </script>

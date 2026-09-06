@@ -51,6 +51,12 @@ export interface LiveStageEvent {
   readonly error?: string;
 }
 
+export interface LiveSourceEvent {
+  readonly status: "ready";
+  readonly source: FrameSource;
+  readonly ts: string;
+}
+
 /** Status of the underlying EventSource. */
 export type LiveConnectionStatus =
   | "idle"
@@ -90,6 +96,7 @@ export interface UseLiveStreamResult {
  */
 const LIVE_STAGES: ReadonlySet<string> = new Set(["ingest", "route", "verify", "gate", "execute", "audit"]);
 const LIVE_PHASES: ReadonlySet<string> = new Set(["begin", "progress", "done", "failed"]);
+export const LIVE_SOURCE_FRESHNESS_MS = 15_000;
 
 export function decodeLiveStageEvent(data: string): LiveStageEvent | null {
   let value: unknown;
@@ -109,6 +116,34 @@ export function decodeLiveStageEvent(data: string): LiveStageEvent | null {
     !(event.error === undefined || typeof event.error === "string")
   ) return null;
   return { ...event, source: normalizeObservationSource(event.source) } as unknown as LiveStageEvent;
+}
+
+export function decodeLiveSourceEvent(data: string): LiveSourceEvent | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(data);
+  } catch {
+    return null;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const event = value as Record<string, unknown>;
+  const source = normalizeObservationSource(event.source);
+  if (
+    event.status !== "ready" ||
+    source === "unknown" ||
+    typeof event.ts !== "string"
+  ) return null;
+  return { status: "ready", source, ts: event.ts };
+}
+
+export function isLiveSourceObservationFresh(
+  timestamp: string,
+  now = Date.now(),
+): boolean {
+  const observedAt = Date.parse(timestamp);
+  return Number.isFinite(observedAt) &&
+    observedAt <= now + LIVE_SOURCE_FRESHNESS_MS &&
+    observedAt >= now - LIVE_SOURCE_FRESHNESS_MS;
 }
 
 export function liveStreamHeaders(authorization: string | null): Headers {
@@ -136,6 +171,7 @@ export function shouldPauseLiveStream(documentHidden: boolean, pauseWhenHidden: 
 export async function consumeLiveSse(
   response: Response,
   onEvent: (event: LiveStageEvent) => void,
+  onSource?: (event: LiveSourceEvent) => void,
 ): Promise<void> {
   if (!response.ok) throw new Error(`live stream returned HTTP ${response.status}`);
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
@@ -145,11 +181,20 @@ export async function consumeLiveSse(
   const decoder = new TextDecoder();
   let buffer = "";
   const consumeBlock = (block: string): void => {
+    const eventType = block.split("\n")
+      .find((line) => line.startsWith("event:"))
+      ?.slice(6)
+      .trim();
     const data = block.split("\n")
       .filter((line) => line.startsWith("data:"))
       .map((line) => line.slice(5).trimStart())
       .join("\n");
     if (!data) return;
+    if (eventType === "source") {
+      const source = decodeLiveSourceEvent(data);
+      if (source) onSource?.(source);
+      return;
+    }
     const event = decodeLiveStageEvent(data);
     if (event) onEvent(event);
   };
@@ -195,11 +240,17 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
     let cancelled = false;
     let controller: AbortController | null = null;
     let reconnectTimer: number | null = null;
+    let sourceExpiryTimer: number | null = null;
     let reconnectAttempt = 0;
     let permanentFailure = false;
     const publishStatus = (next: LiveConnectionStatus): void => {
       setStatus(next);
       onStatusRef.current?.(next);
+    };
+    const clearSourceObservation = (): void => {
+      if (sourceExpiryTimer !== null) window.clearTimeout(sourceExpiryTimer);
+      sourceExpiryTimer = null;
+      setSource("unknown");
     };
     const isHidden = (): boolean => shouldPauseLiveStream(
       typeof document !== "undefined" && document.hidden,
@@ -238,23 +289,41 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
         }
         publishStatus("open");
         setLastError(null);
-        await consumeLiveSse(response, (event) => {
-          if (!cancelled && controller === active) {
-            reconnectAttempt = 0;
-            setSource((current) => mergeObservationSource(
-              current,
-              normalizeObservationSource(event.source),
-            ));
-            onEventRef.current(event);
-          }
-        });
+        const observeSource = (incoming: FrameSource): void => {
+          if (incoming === "unknown") return;
+          reconnectAttempt = 0;
+          setSource((current) => mergeObservationSource(current, incoming));
+          if (sourceExpiryTimer !== null) window.clearTimeout(sourceExpiryTimer);
+          sourceExpiryTimer = window.setTimeout(() => {
+            sourceExpiryTimer = null;
+            setSource("unknown");
+          }, LIVE_SOURCE_FRESHNESS_MS);
+        };
+        await consumeLiveSse(
+          response,
+          (event) => {
+            if (!cancelled && controller === active) {
+              observeSource(normalizeObservationSource(event.source));
+              onEventRef.current(event);
+            }
+          },
+          (event) => {
+            if (
+              !cancelled &&
+              controller === active &&
+              isLiveSourceObservationFresh(event.ts)
+            ) observeSource(event.source);
+          },
+        );
         if (!cancelled && controller === active) {
           setLastError("connection to live stream closed");
+          clearSourceObservation();
           publishStatus("closed");
         }
       } catch (error) {
         if (!cancelled && !active.signal.aborted) {
           setLastError(error instanceof Error ? error.message : String(error));
+          clearSourceObservation();
           publishStatus("closed");
         }
       } finally {
@@ -267,6 +336,7 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
       reconnectTimer = null;
       controller?.abort();
       controller = null;
+      clearSourceObservation();
       publishStatus(next);
     };
     const handleVisibility = (): void => {
@@ -281,6 +351,7 @@ export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResul
       cancelled = true;
       if (pauseWhenHidden) document.removeEventListener("visibilitychange", handleVisibility);
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      if (sourceExpiryTimer !== null) window.clearTimeout(sourceExpiryTimer);
       controller?.abort();
     };
   }, [url, getAuthorizationHeader, enabled, pauseWhenHidden, retryAuthenticationFailures]);

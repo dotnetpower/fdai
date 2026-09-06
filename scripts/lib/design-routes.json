@@ -1672,7 +1672,6 @@
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
-        "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",

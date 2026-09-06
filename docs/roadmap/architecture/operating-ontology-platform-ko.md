@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: f55111c907fa5a0d47fc5d4eef88c1a863cbb731
-translation_revised: 2026-09-06
+translation_source_sha: 7d9ab9f090b872275312402b44a96cec594a88bd
+translation_revised: 2026-09-07
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -41,6 +41,12 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | C5 - 근거 상태 | 런타임 근거가 사용 가능하고 최신이며 완전합니까? 충돌하거나 합성된 상태입니까? | 정제된 원본 별칭, 세대, 기준 시점, 최신성, 충돌, 제외 사유 및 사용 불가 시 nullable count입니다. |
 | C6 - 거버넌스 적용 액션 | 어떤 액션이 이 선언에 의미적으로 연결되어 있습니까? | 정확한 ObjectType 또는 InterfaceType 대상 근거와 전체 ActionType 안전성 계약이며 execute control은 없습니다. |
 | C7 - 변경 안전성 | 보존된 두 release 사이에서 무엇이 바뀌었습니까? | 정확한 release 다이제스트, 선언 참조 추가/변경/제거, 호환성 판정, 이행 필요 여부 및 결정론적 diff 다이제스트입니다. |
+
+대화 계획은 스키마로 검증된 의도 분류 뒤 모델에 전달할 더 작은 변환 결과를 만들 수 있습니다.
+구독 인벤토리 문서는 `Resource`를 유지하고, 구성 비교는 검토된 구성 함수 두 개를 추가하며,
+게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
+최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 모든 서술자는 여전히 전체
+principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

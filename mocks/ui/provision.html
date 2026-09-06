@@ -7,16 +7,16 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <link rel="stylesheet" href="assets/provision.css?v=live-flow-v12" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/provision.js?v=live-flow-v12" defer></script>
+  <script src="assets/provision.js?v=operator-workspaces-v1" defer></script>
+  <script src="assets/provision-workspace.js?v=1" type="module"></script>
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
 </head>
-<body>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page pv-page">
     <header class="cs-page-header cs-mb-16">
       <div class="cs-eyebrow">Governed deployment projection</div>
       <h1>Provisioning</h1>
-      <p class="cs-lead">Follow every phase from request validation through independent effect
-        verification. Network reachability, resource discovery, infrastructure changes, service
-        health, and the final handoff remain visible in one ordered live record.</p>
+      <p class="cs-lead">Follow recorded stages, readiness domains, and independent inventory verification.</p>
     </header>
 
     <div class="cs-readonly-banner">
@@ -63,8 +63,8 @@
           <strong>pv-2026-08-29-001</strong>
         </div>
         <div>
-          <span class="pv-label">Authority</span>
-          <strong>VNet deployment runner</strong>
+          <span class="pv-label">Producer</span>
+          <strong>Example protected runner</strong>
         </div>
         <div class="pv-action-row">
           <button class="pv-button" id="pv-pause" type="button" aria-pressed="false">Pause replay</button>
@@ -439,6 +439,18 @@
       </div>
 
       <aside class="pv-secondary" aria-label="Provisioning evidence">
+        <section class="pv-evidence" aria-labelledby="pv-readiness-title">
+          <div class="pv-section-head"><div><span class="pv-label">Independent readiness domains</span><h2 id="pv-readiness-title">System readiness</h2></div></div>
+          <dl class="pv-readiness-grid">
+            <div><dt>Database</dt><dd data-pv-readiness="database">Pending</dd></div>
+            <div><dt>Semantic</dt><dd data-pv-readiness="semantic">Pending</dd></div>
+            <div><dt>Models</dt><dd data-pv-readiness="models">Pending</dd></div>
+            <div><dt>Runtime</dt><dd data-pv-readiness="runtime">Pending</dd></div>
+            <div><dt>System</dt><dd data-pv-readiness="system">Pending</dd></div>
+            <div><dt>Inventory</dt><dd data-pv-readiness="inventory">Pending</dd></div>
+          </dl>
+          <p class="op-source-note">Synthetic producer receipts, not browser probes. Deployment progress alone cannot establish any readiness domain.</p>
+        </section>
         <section class="pv-evidence" aria-labelledby="pv-network-title">
           <div class="pv-section-head">
             <div>
@@ -474,11 +486,14 @@
             <span class="pv-evidence-state" id="pv-scan-state">Queued</span>
           </div>
           <dl class="pv-scan-grid">
+            <div><dt>Resources observed / expected</dt><dd id="pv-resource-progress">Not measured</dd></div>
+            <div><dt>Pages received / expected</dt><dd id="pv-page-progress">Not measured</dd></div>
             <div><dt>Discovered</dt><dd id="pv-scan-discovered">-</dd></div>
             <div><dt>FDAI managed</dt><dd id="pv-scan-managed">-</dd></div>
             <div><dt>Drifted</dt><dd id="pv-scan-drifted">-</dd></div>
             <div><dt>Import review</dt><dd id="pv-scan-imports">-</dd></div>
           </dl>
+          <p class="op-source-note">Expected totals are estimates until independent inventory verification completes.</p>
           <div class="pv-scan-sources">
             <div><span>Cloud inventory query</span><strong data-scan-source="0">Queued</strong></div>
             <div><span>Terraform state ownership</span><strong data-scan-source="1">Queued</strong></div>
@@ -502,7 +517,7 @@
           <h2 id="pv-handoff-title">Waiting for independent verification</h2>
           <p id="pv-handoff-detail">The console destination is withheld until infrastructure,
             ontology, agents, and expected effects are independently verified.</p>
-          <a href="https://console.example.com" aria-disabled="true" tabindex="-1">console.example.com</a>
+          <a href="onboarding.html" aria-disabled="true" tabindex="-1">Review onboarding readiness</a>
         </section>
       </aside>
     </div>

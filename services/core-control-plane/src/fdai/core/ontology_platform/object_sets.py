@@ -52,7 +52,11 @@ class ObjectSetService:
             if graph.truncated:
                 source_truncation_reason = ObjectSetTruncationReason.TRAVERSAL_LIMIT
         else:
-            exact_ids = _exact_id_values(definition.predicates)
+            exact_ids = (
+                definition.object_ids
+                if definition.object_ids is not None
+                else _exact_id_values(definition.predicates)
+            )
             if exact_ids is not None:
                 graph = await _query_exact_ids(
                     self._store,

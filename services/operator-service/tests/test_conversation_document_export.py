@@ -22,7 +22,12 @@ _SOURCE_REQUEST_ID = str(uuid5(_TEST_NAMESPACE, "document-source"))
 _PROJECTION_ID = str(uuid5(_TEST_NAMESPACE, "document-projection"))
 
 
-def _result(*, returned_rows: int = 2, total_rows: int = 2) -> StoredSemanticResult:
+def _result(
+    *,
+    returned_rows: int = 2,
+    total_rows: int = 2,
+    source_complete: bool = True,
+) -> StoredSemanticResult:
     rows = (
         [
             {"row_id": "row-1", "values": {"name": "api|one", "status": "ready"}},
@@ -58,8 +63,10 @@ def _result(*, returned_rows: int = 2, total_rows: int = 2) -> StoredSemanticRes
                             "rows": rows,
                             "returned_rows": returned_rows,
                             "total_rows": total_rows,
-                            "source_complete": False,
-                            "source_truncation_reason": "source_incomplete",
+                            "source_complete": source_complete,
+                            "source_truncation_reason": (
+                                None if source_complete else "source_incomplete"
+                            ),
                             "display_truncated": returned_rows != total_rows,
                         }
                     ],
@@ -122,7 +129,7 @@ async def test_complete_document_exports_all_rows_as_markdown_and_metadata() -> 
     assert document.metadata(pdf_available=True)["complete"] is True
     assert "pdf_url" not in document.metadata(pdf_available=False)
     assert "| api\\|one | ready |" in document.markdown
-    assert "source_incomplete" in document.markdown
+    assert "- Source complete: `true`" in document.markdown
     assert response.media_type == "text/markdown; charset=utf-8"
     assert response.body == document.markdown.encode()
     assert store.principal_ids == ["operator-1", "operator-1"]
@@ -224,3 +231,46 @@ async def test_document_download_rejects_noncanonical_request_id() -> None:
         )
 
     assert raised.value.code == "document_request_invalid"
+
+
+@pytest.mark.parametrize("row_count", (0, 41, 120, 1000))
+async def test_document_exports_complete_bounded_inventory(row_count: int) -> None:
+    exporter = ConversationDocumentExporter(
+        store=_Store(_result(returned_rows=row_count, total_rows=row_count)),
+    )
+
+    document = await exporter.materialize(
+        principal_id="operator-1",
+        source_request_id=_SOURCE_REQUEST_ID,
+    )
+
+    assert document.included_rows == document.expected_rows == row_count
+    assert document.metadata(pdf_available=False)["complete"] is True
+    if row_count:
+        assert f"| api-{row_count} | ready |" in document.markdown
+
+
+async def test_document_does_not_label_partial_source_complete() -> None:
+    exporter = ConversationDocumentExporter(store=_Store(_result(source_complete=False)))
+
+    with pytest.raises(ConversationBoundaryError) as raised:
+        await exporter.materialize(
+            principal_id="operator-1",
+            source_request_id=_SOURCE_REQUEST_ID,
+        )
+
+    assert raised.value.code == "document_source_incomplete"
+
+
+async def test_document_retains_a_finite_row_limit() -> None:
+    exporter = ConversationDocumentExporter(
+        store=_Store(_result(returned_rows=1001, total_rows=1001)),
+    )
+
+    with pytest.raises(ConversationBoundaryError) as raised:
+        await exporter.materialize(
+            principal_id="operator-1",
+            source_request_id=_SOURCE_REQUEST_ID,
+        )
+
+    assert raised.value.code == "document_row_limit_exceeded"

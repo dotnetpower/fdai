@@ -13,11 +13,12 @@ table path :mod:`~fdai.delivery.azure.metric_logs` uses.
 Boundary with the Log Analytics adapter
 ---------------------------------------
 
-The two adapters cover **disjoint** metric sets by design:
+The native adapter is preferred for direct metrics; Logs also retains legacy
+templates for deployments that explicitly select them:
 
 - **This adapter (Metrics API)** serves metrics whose value maps
   directly onto an Azure platform metric name (``cpu_percent``,
-  ``BackendLastByteResponseTime``, ``HealthyHostCount``, ...). One
+  ``BackendFirstByteResponseTime``, ``HealthyHostCount``, ...). One
   HTTP call, no downstream compute, ~1-3 min freshness.
 - **Log Analytics KQL** serves metrics that need computation
   (``http_429_rate = throttled / total``, ``request_surge_ratio``,
@@ -26,9 +27,9 @@ The two adapters cover **disjoint** metric sets by design:
   or impossible in a single Metrics API call - so those stay on the
   KQL floor.
 
-The composition root chains both providers behind the routed / composite
-metric provider (Prom > Metrics > Logs) so a single analyzer call lands
-on the fastest backend that can serve it - Prom for AKS-observed
+The composition root selects the first matching named route in the composite
+metric provider (Prom > Metrics > Logs). Failures never retry through Logs
+or widen the scope. The selected provider is Prom for AKS-observed
 metrics (sub-minute), Metrics API for direct Azure PaaS metrics
 (~1-3 min), Logs KQL for computed / cross-signal metrics (2-5 min).
 
@@ -39,10 +40,10 @@ Design boundaries mirror :mod:`~fdai.delivery.azure.metric_logs`:
   Protocol - no ``DefaultAzureCredential``.
 - HTTP transport is an injected :class:`httpx.AsyncClient`.
 - The CSP-neutral ``metric_name`` maps to a trusted, config-supplied
-  Metrics API template (azure_metric_name + aggregation + interval).
-  ``MetricQuery.labels['resource_id']`` selects the target ARM id;
-  labels are NEVER interpolated into the URL beyond that (URL-encoded
-  path segment only).
+  Metrics API template with optional exact resource type and typed equality
+  filters. Labels never supply OData. A reviewed deployment template can read
+  its parent account only with an exact deployment filter; emitted identity
+  remains the requested child and returned dimensions must prove that scope.
 
 Safety / cost invariants
 ------------------------
@@ -59,6 +60,7 @@ Safety / cost invariants
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -87,6 +89,31 @@ _DEFAULT_INTERVAL: Final[str] = "PT1M"
 _VALID_AGGREGATIONS: Final[frozenset[str]] = frozenset(
     {"Average", "Maximum", "Minimum", "Total", "Count"}
 )
+_DIMENSION_NAME = re.compile(r"[A-Za-z][A-Za-z0-9]{0,127}")
+_DIMENSION_VALUE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+_RESOURCE_TYPE = re.compile(r"[A-Za-z][A-Za-z0-9.]+/[A-Za-z][A-Za-z0-9]+")
+_ARM_RESOURCE = re.compile(
+    r"/subscriptions/[A-Za-z0-9-]+/resourceGroups/[A-Za-z0-9_.()-]+"
+    r"/providers/(?P<namespace>[A-Za-z][A-Za-z0-9.]+)/"
+    r"(?P<kind>[A-Za-z][A-Za-z0-9]+)/(?P<name>[A-Za-z0-9_.()-]+)"
+    r"(?P<child>/deployments/(?P<deployment>[A-Za-z0-9][A-Za-z0-9_.-]{0,127}))?",
+    re.IGNORECASE,
+)
+_MODEL_ACCOUNT_TYPE = "microsoft.cognitiveservices/accounts"
+
+
+@dataclass(frozen=True, slots=True)
+class MetricsApiDimensionFilter:
+    """One bounded trusted equality predicate, never a user-supplied OData fragment."""
+
+    name: str
+    value: str
+
+    def __post_init__(self) -> None:
+        if not _DIMENSION_NAME.fullmatch(self.name):
+            raise ValueError("metric dimension name MUST be a bounded identifier")
+        if not _DIMENSION_VALUE.fullmatch(self.value):
+            raise ValueError("metric dimension value MUST be a bounded literal")
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,11 +124,20 @@ class MetricsApiTemplate:
     on each resource type's metric list; ``aggregation`` is the reducer
     Azure computes server-side per ``interval`` bucket. The template is
     author-controlled configuration - never derived from untrusted input.
+    ``resource_type`` constrains reviewed templates to one top-level ARM type.
+    ``deployment_scope`` additionally permits that account's exact deployment
+    child, never an arbitrary descendant. Filtered/scoped responses must contain
+    at most one unsplit series with exactly the requested dimensions. Callers
+    still supply a principal-scoped, verified target; parsing an ARM id grants
+    no read authority.
     """
 
     azure_metric_name: str
     aggregation: str
     interval: str = _DEFAULT_INTERVAL
+    resource_type: str | None = None
+    dimension_filters: tuple[MetricsApiDimensionFilter, ...] = ()
+    deployment_scope: bool = False
 
     def __post_init__(self) -> None:
         if not self.azure_metric_name:
@@ -116,6 +152,22 @@ class MetricsApiTemplate:
                 f"MetricsApiTemplate.interval MUST be an ISO 8601 duration "
                 f"(e.g. 'PT1M'); got {self.interval!r}"
             )
+        if self.resource_type is not None and not _RESOURCE_TYPE.fullmatch(self.resource_type):
+            raise ValueError("MetricsApiTemplate.resource_type MUST be an exact ARM resource type")
+        filters = tuple(self.dimension_filters)
+        if len(filters) > 4 or any(
+            not isinstance(item, MetricsApiDimensionFilter) for item in filters
+        ):
+            raise ValueError("metric dimension filters MUST contain at most four typed equalities")
+        if len({item.name.casefold() for item in filters}) != len(filters):
+            raise ValueError("metric dimension filters MUST have unique names")
+        object.__setattr__(self, "dimension_filters", filters)
+        if self.deployment_scope and (
+            (self.resource_type or "").casefold() != _MODEL_ACCOUNT_TYPE
+            or len(filters) >= 4
+            or any(item.name.casefold() == "modeldeploymentname" for item in filters)
+        ):
+            raise ValueError("deployment scope requires an account type and a reserved filter slot")
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,7 +247,8 @@ class AzureMonitorMetricsProvider:
         # ``safe='/'`` so the leading slash stays but any weird chars in
         # a resource name get escaped, avoiding URL smuggling from a
         # label value that we do NOT fully trust.
-        encoded = quote(resource_id, safe="/")
+        target_id, filters = _query_scope(template, resource_id)
+        encoded = quote(target_id, safe="/")
         url = f"{self._config.endpoint.rstrip('/')}{encoded}/providers/Microsoft.Insights/metrics"
         params: dict[str, str] = {
             "api-version": self._config.api_version,
@@ -209,6 +262,9 @@ class AzureMonitorMetricsProvider:
                 lookback=timedelta(seconds=self._config.default_lookback_seconds),
             ),
         }
+        if filters:
+            params["$filter"] = " and ".join(f"{item.name} eq '{item.value}'" for item in filters)
+            params["ValidateDimensions"] = "true"
 
         token = await self._identity.get_token(self._config.audience)
         headers = {
@@ -228,10 +284,9 @@ class AzureMonitorMetricsProvider:
             ) from exc
 
         if response.status_code >= 400:
-            snippet = response.text[:200].replace("\n", " ")
             raise MetricProviderError(
                 f"Azure Monitor Metrics returned HTTP {response.status_code} for "
-                f"{query.metric_name!r}: {snippet!r}"
+                f"{query.metric_name!r}"
             )
 
         if len(response.content) > self._config.max_response_bytes:
@@ -253,6 +308,8 @@ class AzureMonitorMetricsProvider:
             query=query,
             template=template,
             resource_id=resource_id,
+            target_id=target_id,
+            filters=filters,
         )
 
     def _map_payload(
@@ -262,6 +319,8 @@ class AzureMonitorMetricsProvider:
         query: MetricQuery,
         template: MetricsApiTemplate,
         resource_id: str,
+        target_id: str,
+        filters: tuple[MetricsApiDimensionFilter, ...],
     ) -> list[MetricPoint]:
         if not isinstance(payload, Mapping):
             raise MetricProviderError(
@@ -272,52 +331,51 @@ class AzureMonitorMetricsProvider:
             raise MetricProviderError(
                 f"Azure Monitor Metrics payload missing 'value' for {query.metric_name!r}"
             )
-        # The API echoes back a single metric entry when we ask for one
-        # metric name; use the first entry defensively.
+        if len(value) != 1:
+            raise MetricProviderError("Azure Monitor Metrics returned an ambiguous metric set")
         metric_entry = value[0]
         if not isinstance(metric_entry, Mapping):
             raise MetricProviderError(
                 f"Azure Monitor Metrics 'value[0]' not an object for {query.metric_name!r}"
             )
+        scoped = template.resource_type is not None or bool(filters)
+        _verify_metric_identity(metric_entry, template, target_id, required=scoped)
         timeseries = metric_entry.get("timeseries")
         if not isinstance(timeseries, list):
             raise MetricProviderError(
                 f"Azure Monitor Metrics missing 'timeseries' for {query.metric_name!r}"
             )
+        if scoped and len(timeseries) > 1:
+            raise MetricProviderError("Azure Monitor Metrics returned ambiguous split series")
 
         # ``aggregation`` name -> JSON key on each ``data`` object.
         agg_key = template.aggregation.lower()
         base_labels: dict[str, str] = {"resource_id": resource_id.lower()}
 
         points: list[MetricPoint] = []
+        timestamps: set[datetime] = set()
         for series in timeseries:
             if not isinstance(series, Mapping):
-                continue
+                raise MetricProviderError("Azure Monitor Metrics series MUST be an object")
             series_labels = dict(base_labels)
-            for md in series.get("metadatavalues", []) or []:
-                if not isinstance(md, Mapping):
-                    continue
-                name_field = md.get("name")
-                name = None
-                if isinstance(name_field, Mapping):
-                    name = name_field.get("value")
-                elif isinstance(name_field, str):
-                    name = name_field
-                v = md.get("value")
-                if isinstance(name, str) and isinstance(v, str):
-                    series_labels[name] = v
+            dimensions = _series_dimensions(series)
+            if scoped and dimensions != {item.name: item.value for item in filters}:
+                raise MetricProviderError("Azure Monitor Metrics returned unexpected dimensions")
+            series_labels.update(dimensions)
             data = series.get("data")
             if not isinstance(data, list):
-                continue
+                raise MetricProviderError("Azure Monitor Metrics series data MUST be an array")
             for datum in data:
                 if not isinstance(datum, Mapping):
-                    continue
+                    raise MetricProviderError("Azure Monitor Metrics point MUST be an object")
                 raw_value = datum.get(agg_key)
                 if raw_value is None:
                     # Metrics API returns bins with no aggregate when
                     # there was no data in that bin; skip rather than
                     # emitting a phantom zero.
                     continue
+                if isinstance(raw_value, bool):
+                    raise MetricProviderError("Azure Monitor Metrics aggregate MUST be numeric")
                 try:
                     numeric = float(raw_value)
                 except (TypeError, ValueError):
@@ -348,6 +406,9 @@ class AzureMonitorMetricsProvider:
                     continue
                 if not _labels_match_excluding_resource_id(series_labels, query.labels):
                     continue
+                if scoped and _as_utc(at) in timestamps:
+                    raise MetricProviderError("Azure Monitor Metrics returned duplicate timestamps")
+                timestamps.add(_as_utc(at))
                 points.append(
                     MetricPoint(
                         metric_name=query.metric_name,
@@ -365,6 +426,72 @@ class AzureMonitorMetricsProvider:
 
         points.sort(key=lambda p: p.at)
         return points
+
+
+def _query_scope(
+    template: MetricsApiTemplate, resource_id: str
+) -> tuple[str, tuple[MetricsApiDimensionFilter, ...]]:
+    """Constrain an already authorized target; ARM structure never establishes authority."""
+    if template.resource_type is None:
+        return resource_id, template.dimension_filters
+    match = _ARM_RESOURCE.fullmatch(resource_id)
+    if (
+        match is None
+        or f"{match['namespace']}/{match['kind']}".casefold() != template.resource_type.casefold()
+    ):
+        raise MetricProviderError("metric template does not support the exact resource type")
+    if match["child"] is None:
+        return resource_id, template.dimension_filters
+    if not template.deployment_scope:
+        raise MetricProviderError("metric template does not support a child resource")
+    deployment_filter = MetricsApiDimensionFilter("ModelDeploymentName", match["deployment"])
+    return resource_id[: match.start("child")], (*template.dimension_filters, deployment_filter)
+
+
+def _verify_metric_identity(
+    entry: Mapping[str, Any],
+    template: MetricsApiTemplate,
+    target_id: str,
+    *,
+    required: bool,
+) -> None:
+    name = entry.get("name")
+    name_value = name.get("value") if isinstance(name, Mapping) else name
+    if (required or name is not None) and name_value != template.azure_metric_name:
+        raise MetricProviderError("Azure Monitor Metrics returned another metric identity")
+    metric_id = entry.get("id")
+    expected = f"{target_id}/providers/Microsoft.Insights/metrics/{template.azure_metric_name}"
+    if metric_id is not None and (
+        not isinstance(metric_id, str) or metric_id.casefold() != expected.casefold()
+    ):
+        raise MetricProviderError("Azure Monitor Metrics returned another resource identity")
+    if entry.get("errorCode") not in (None, "Success", "success"):
+        raise MetricProviderError("Azure Monitor Metrics returned a metric-level error")
+
+
+def _series_dimensions(series: Mapping[str, Any]) -> dict[str, str]:
+    metadata = series.get("metadatavalues", [])
+    if not isinstance(metadata, list):
+        raise MetricProviderError("Azure Monitor Metrics dimensions MUST be an array")
+    dimensions: dict[str, str] = {}
+    names: set[str] = set()
+    for item in metadata:
+        if not isinstance(item, Mapping):
+            raise MetricProviderError("Azure Monitor Metrics dimension MUST be an object")
+        name = item.get("name")
+        key = name.get("value") if isinstance(name, Mapping) else name
+        value = item.get("value")
+        if (
+            not isinstance(key, str)
+            or not key
+            or not isinstance(value, str)
+            or key.casefold() == "resource_id"
+            or key.casefold() in names
+        ):
+            raise MetricProviderError("Azure Monitor Metrics returned invalid dimensions")
+        names.add(key.casefold())
+        dimensions[key] = value
+    return dimensions
 
 
 def _build_timespan(
@@ -419,5 +546,6 @@ def _labels_match_excluding_resource_id(
 __all__ = [
     "AzureMonitorMetricsConfig",
     "AzureMonitorMetricsProvider",
+    "MetricsApiDimensionFilter",
     "MetricsApiTemplate",
 ]

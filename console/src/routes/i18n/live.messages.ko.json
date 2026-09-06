@@ -6,7 +6,7 @@
   "freezeTitle": "실시간 화면을 고정합니다",
   "resumeTitle": "실시간 화면을 다시 따라갑니다",
   "context": {"devTitle": "로컬 ControlLoop: 관리 리소스 변경 없음", "source": "소스", "window": "구간"},
-  "scope": {"label": "실시간 관찰 범위", "mode": "모드", "readOnly": "읽기 전용", "source": "소스", "evidence": "근거", "observed": "권한 있는 단계 소스가 관찰됨", "notReady": "권한 있는 단계 프레임이 관찰되지 않음 - 실시간 준비 근거로 사용할 수 없음"},
+  "scope": {"label": "실시간 관찰 범위", "mode": "모드", "readOnly": "읽기 전용", "source": "소스", "evidence": "근거", "observed": "권한 있는 런타임 소스가 관찰됨", "notReady": "권한 있는 런타임 소스가 관찰되지 않음 - 실시간 준비 근거로 사용할 수 없음"},
   "lead": "지금 주의가 필요한 항목을 확인하고 각 제어 루프 단계를 따라가며 기록된 근거를 여세요. 이 화면은 관찰만 하며 실행하지 않습니다.",
   "health": {"label": "실시간 관찰 상태", "stream": "스트림", "lastEvent": "마지막 이벤트", "environment": "환경", "presentation": "표시 상태", "backlog": "프레임 연속성", "complete": "오버플로 감지 없음", "dropped": "제한 버퍼에서 오래된 프레임 {count}개 폐기", "notObserved": "관찰되지 않음", "devLocal": "로컬 ControlLoop", "configuredRuntime": "구성된 런타임", "following": "실시간 추적 중", "frozen": "화면 고정 - 프레임 {count}개 대기"},
   "status": {"idle": "유휴", "connecting": "연결 중", "open": "실시간", "connected": "연결됨", "awaitingSource": "소스 대기", "closed": "연결 종료", "unsupported": "SSE 미지원"},
@@ -24,7 +24,7 @@
     "mode": {"pending": "대기는 정책 및 실행 모드가 아직 관찰되지 않았음을 뜻합니다.", "shadow": "관찰 모드는 대상을 변경하지 않고 평가와 기록만 수행합니다.", "enforce": "적용 모드는 정책, 안전, 권한 검사를 통과한 뒤에만 전송할 수 있으며 전송은 효과 성공을 증명하지 않습니다.", "gated": "제한 모드는 필요한 검토나 승인이 충족될 때까지 현재 결정 경로의 전송을 차단합니다."}
   },
   "filter": {"all": "전체", "hil": "승인", "deny": "거부", "failed": "실패", "stuck": "지연"},
-  "empty": {"connectedTitle": "표시할 이벤트 없음", "disconnectedTitle": "실시간 신호 없음", "connected": "권한 있는 소스가 관찰되었습니다. 다음 컨트롤 플레인 이벤트를 기다립니다.", "awaitingSource": "SSE 연결은 열려 있지만 권한 있는 단계 프레임이 관찰되지 않았습니다. Core Runtime과 단계 토픽 준비 상태를 확인하세요.", "connecting": "실시간 이벤트 스트림에 연결 중입니다.", "idle": "이 화면이 연결되지 않아 실시간 관찰이 유휴 상태입니다.", "unavailable": "실시간 관찰을 사용할 수 없습니다. 기록된 결과는 이력을 사용하세요."},
+  "empty": {"connectedTitle": "현재 작업 없음", "disconnectedTitle": "실시간 신호 없음", "connected": "권한 있는 런타임 소스가 관찰되었습니다. 현재 진행 중인 제어 루프 작업은 없습니다.", "awaitingSource": "SSE 연결은 열려 있지만 권한 있는 런타임 소스가 관찰되지 않았습니다. Core Runtime과 단계 토픽 준비 상태를 확인하세요.", "connecting": "실시간 이벤트 스트림에 연결 중입니다.", "idle": "이 화면이 연결되지 않아 실시간 관찰이 유휴 상태입니다.", "unavailable": "실시간 관찰을 사용할 수 없습니다. 기록된 결과는 이력을 사용하세요."},
   "selectionWaiting": "이벤트 {event}이 실시간 스트림에 나타나기를 기다리고 있습니다.",
   "selectionUnavailable": "현재 제한된 실시간 창에서 이벤트 {event}을 사용할 수 없습니다.",
   "selectionOpenAudit": "감사 로그 열기",

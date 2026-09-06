@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7bfa8da6734f2ff58a1092f88d9f746e81fa3483
+translation_source_sha: e758d5918417cc7801f1600b613593bd9a3f35ae
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -45,6 +45,21 @@ translation_revised: 2026-09-07
 > [보관된 코드 맵 구현 원장](../../roadmap-implementation/architecture/code-map.md)에 보존합니다.
 
 ## 물리 서비스 소유권
+
+운영 진단 대화는 기존 서비스 경계를 유지합니다. Core의 `gateway_diagnostics.py`와
+`resource_configuration_{queries,snapshots,projection}.py`는 범위가 제한된 메트릭 비교와
+허용된 범위로 필터링한 과거 구성 사실을 담당합니다. 의미 컴파일러는 이 조회를 선언된
+FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 증적은 백엔드 조회가
+이전 게이트웨이 루트를 대상으로 실행되는 것을 방지합니다. Azure 기본 메트릭 템플릿은
+전달 어댑터에 유지합니다. Operator의 `document_export.py`는 무관한 이전 대화가 아니라
+현재 검증된 인벤토리 결과를 문서로 변환합니다.
+응답 묶음에는 바이너리 문서가 포함될 수 있습니다. `t1_model_health.py`는 입력을 검증하며,
+바이너리나 없는 내용을 모델 상태로 해석하지 않습니다.
+Core 대화 routing은 첫 번째 턴에서 Compact preflight를 실행하고 명시적 운영 요청의 Adaptive
+설명 계획을 우회하며, 수락된 인벤토리, 구성, 게이트웨이 의도를 검토된 서술자 범위로 축소합니다.
+Azure 의미 계획은 전용 운영 frame 프롬프트를 선택하고 전체 요청에 64KiB 상한을 적용합니다.
+[운영 진단 대화](../interfaces/operational-diagnostic-conversations-ko.md)에서 시나리오 수락 기준,
+체크포인트 근거, 아직 완료되지 않은 실환경 검증과 하드닝을 확인하세요.
 
 | 소유자 | 출처 | 테스트 | 분포 |
 |--------|--------|------|--------------|
@@ -488,7 +503,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
 | 환경 모델 바인딩 | 권한이 없는 공유 정책 계약, 정확한 제안-정책 결합, 3-way-CAS Settings projection, 고유한 기능 신원, 정확한 GA 및 TPM/PTU 해석, 범위가 제한된 공급자 읽기, Core 전용 attested runtime binding, healthy active-revision CAS, 정책 결속 exact 적용 및 독립 공급자 readback | [공유 계약](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [해석기 스키마](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [제안 검증기](../../../scripts/deployment/azure/model_binding_proposal.py), [projection workflow](../../../.github/workflows/model-settings-projection.yml), [projection materializer](../../../scripts/deployment/local/materialize-authoritative-settings.py), [service guard](../../../scripts/deployment/service/guard_plan.py), [계획 검증기](../../../scripts/deployment/azure/verify-deployment-plan.py), [active revision 검증기](../../../scripts/deployment/azure/verify_active_core_revision.py), [공급자 readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM 어댑터](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [Console 편집기](../../../console/src/routes/settings-model-binding-policy.tsx) |
-| Operator 서비스 | 인증된 경로 계열, 범위가 제한된 인증 모듈을 통한 loopback 전용 로컬 Azure CLI 세션 초기화, 영속 의미 브리지, 정규화된 직접 Psycopg 연결, 정확한 릴리스 읽기, 소유자 범위 백그라운드 작업, 실행 권한이 없는 principal 범위 Process 상태 및 원자적 전환 제안 수락 | [인증 경계](../../../services/operator-service/src/fdai_operator_service/auth.py), [로컬 인증](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN 정규화](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [워크플로 계열](../../../services/operator-service/src/fdai_operator_service/families/workflow/), [Process 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [승인 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_approval_projection.py), [재시도 수락](../../../services/operator-service/src/fdai_operator_service/process_retry_admission.py), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator 서비스 | 인증된 경로 계열, 범위가 제한된 인증 모듈을 통한 loopback 전용 로컬 Azure CLI 세션 초기화, 영속 의미 브리지, 구조를 검증하는 T1 상태 보강, 정규화된 직접 Psycopg 연결, 정확한 릴리스 읽기, 소유자 범위 백그라운드 작업, 실행 권한이 없는 principal 범위 Process 상태 및 원자적 전환 제안 수락 | [인증 경계](../../../services/operator-service/src/fdai_operator_service/auth.py), [로컬 인증](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN 정규화](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [워크플로 계열](../../../services/operator-service/src/fdai_operator_service/families/workflow/), [T1 상태 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py), [Process 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [승인 변환 결과](../../../services/operator-service/src/fdai_operator_service/process_approval_projection.py), [재시도 수락](../../../services/operator-service/src/fdai_operator_service/process_retry_admission.py), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console Process 컨트롤 | 엄격한 principal 범위 Process 및 전환 디코더, 현지화된 현재 단계 요구 사항, 리비전 결속 재개/취소/재시도 요청, 명시적인 성공 아님 수락 | [컨트롤 디코더](../../../console/src/routes/processes.control.ts), [컨트롤 패널](../../../console/src/routes/process-control-panel.tsx), [요청 클라이언트](../../../console/src/routes/processes.transitions.ts), [브라우저 계약](../../../console/tests/e2e/workflow-process-transitions.spec.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |

@@ -1027,10 +1027,10 @@
     ["hil", "abstain", "deny", "failed", "stuck"].forEach(function (key) {
       document.getElementById("attention-" + key).textContent = counts[key];
       var button = document.querySelector('[data-attention-filter="' + key + '"]');
-      if (button) button.hidden = counts[key] === 0;
+      if (button) button.hidden = key === "abstain" || counts[key] === 0;
     });
 
-    var attentionTotal = counts.hil + counts.abstain + counts.deny + counts.failed + counts.stuck;
+    var attentionTotal = counts.hil + counts.deny + counts.failed + counts.stuck;
     document.getElementById("work-summary").textContent = counts.all + " active · " + attentionTotal + " need attention";
     var attention = document.getElementById("live-attention");
     document.getElementById("attention-calm").hidden = attentionTotal > 0;
@@ -1049,6 +1049,14 @@
     if (viewMode === "queue") renderQueue(now);
   }
 
+  function publishView() {
+    var url = new URL(location.href);
+    if (currentFilter === "all") url.searchParams.delete("filter"); else url.searchParams.set("filter", currentFilter);
+    if (viewMode === "flow") url.searchParams.delete("view"); else url.searchParams.set("view", viewMode);
+    history.replaceState(null, "", url);
+    if (window.fdaiPublishMockRoute) window.fdaiPublishMockRoute();
+  }
+
   function setFilter(filter) {
     currentFilter = filter;
     document.querySelectorAll("[data-live-filter]").forEach(function (button) {
@@ -1058,6 +1066,7 @@
     });
     pool.forEach(applyFlowFilter);
     renderOperationalState(performance.now());
+    publishView();
   }
 
   function setView(mode) {
@@ -1074,6 +1083,7 @@
     } else {
       renderQueue(performance.now());
     }
+    publishView();
   }
 
   function slotForEvent(eventId) {
@@ -1263,8 +1273,14 @@
 
   // ---------- boot ----------
   initPool();
-  setView("flow");
-  setFilter("all");
+  var initialParams = new URL(location.href).searchParams;
+  var initialFilter = initialParams.get("filter");
+  setView(initialParams.get("view") === "queue" ? "queue" : "flow");
+  setFilter(["hil", "deny", "failed", "stuck"].includes(initialFilter) ? initialFilter : "all");
+  document.addEventListener("keydown", function (event) {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName) || !/^[1-5]$/.test(event.key) || !detailBackdrop.hidden) return;
+    setFilter(["all", "hil", "deny", "failed", "stuck"][Number(event.key) - 1]);
+  });
   syncFullscreen();
   // Timer-driven so the synthetic preview continues in integrated browser
   // tabs where requestAnimationFrame may pause when the iframe is hidden.

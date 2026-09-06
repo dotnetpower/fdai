@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a0f6989289da41c00ce40b006396fb49f444acd4
-translation_revised: 2026-09-06
+translation_source_sha: bb7a54226edf64a6e7c7d3d04e48af679e8bcdf3
+translation_revised: 2026-09-07
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -35,10 +35,15 @@ toolbar는 workspace, docked 및 floating 배치에서 필터 가능한 대화 �
 실제 운영도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 컨트롤은 공통 헤더 actions
 영역에 유지되고 좁은 뷰포트에서는 제목 아래로 줄바꿈되어 화면 고정, 출처, 구간 및 연결
 상태가 계속 표시됩니다.
-열린 SSE 응답은 전송 연결만 증명합니다. 실제 운영은 권한 있는 런타임 또는 재생 단계 프레임을
-관찰한 뒤에만 출처가 준비되었다고 표시합니다. keepalive만 있는 연결은 `소스 대기`를 렌더링하고
+열린 SSE 응답은 전송 연결만 증명합니다. 실제 운영은 검증된 최신 Huginn 런타임 heartbeat 또는
+권한 있는 런타임이나 재생 단계 프레임을 관찰한 뒤에만 출처가 준비되었다고 표시합니다. 런타임
+소스 표시는 새 관찰 없이 15초가 지나면 만료되며 제어 루프 타일을 만들지 않습니다. keepalive만
+있는 연결은 `소스 대기`를 렌더링하고
 운영 메트릭을 사용 불가 상태로 유지하며, 0을 측정된 상태로 제시하는 대신 Core 런타임과 단계
-토픽 준비 상태를 확인하도록 안내합니다. 기본 보기는 제한된 12개 작업 풀의 흐름입니다.
+토픽 준비 상태를 확인하도록 안내합니다. Operator API는 허용된 단계 프레임을 최대 256개까지
+60초 동안 유지하고 새 Live 구독자가 연결되면 관찰된 순서로 재생합니다. 이 프로세스 내부 복구는
+현재 Live 구간만 채우고 Operator API를 다시 시작하면 초기화되며 이력을 대체하지 않습니다.
+기본 보기는 제한된 12개 작업 풀의 흐름입니다.
 흐름과 큐는 동일한 제목, 대상, 범위, 이유, tier, 모드, 소유자 및 단계 사실을 유지하고 큐는
 관찰된 risk, 영향, SLA 및 컨트롤 상태만 추가합니다. 흐름은 값이 있는 작업만 렌더링하고
 desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순서로 정렬합니다. 최종 결과는

@@ -29,6 +29,10 @@ LOCAL_SERVICE_ENDPOINTS = (
     ("document-processing-worker", "http://127.0.0.1:8012/ready"),
     ("isolated-executor", "http://127.0.0.1:8013/ready"),
 )
+LOCAL_LOOP_SERVICES = (
+    ("inventory-reconciliation", "fdai.delivery.inventory_sync_cli"),
+    ("observation-campaign", "fdai.delivery.observation_campaign_cli"),
+)
 PRESSURE_LIMITS = {
     "cpu_some_avg10": 50.0,
     "io_full_avg10": 5.0,
@@ -116,14 +120,18 @@ def _process_records(proc_root: Path = Path("/proc")) -> list[tuple[Path, list[s
     return records
 
 
-def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
+def _module_owners(records: list[tuple[Path, list[str]]], module: str) -> set[Path]:
     owners: set[Path] = set()
     for cwd, arguments in records:
         if "pytest" in arguments:
             continue
-        if any(arguments[index : index + 2] == ["-m", "fdai"] for index in range(len(arguments))):
+        if any(arguments[index : index + 2] == ["-m", module] for index in range(len(arguments))):
             owners.add(cwd)
     return owners
+
+
+def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
+    return _module_owners(records, "fdai")
 
 
 def _core_heartbeat_ready(
@@ -176,9 +184,17 @@ def local_services_diagnostic(
         {"name": name, "ready": bool(ready)}
         for (name, _url), ready in zip(LOCAL_SERVICE_ENDPOINTS, readiness, strict=True)
     ]
-    core_owners = _core_runtime_owners(process_records or _process_records())
+    records = _process_records() if process_records is None else process_records
+    core_owners = _core_runtime_owners(records)
     core_ready = repo_root in core_owners and core_probe(repo_root)
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
+    services.extend(
+        {
+            "name": name,
+            "ready": repo_root in _module_owners(records, module),
+        }
+        for name, module in LOCAL_LOOP_SERVICES
+    )
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
         "ready_count": len(services) - len(unavailable),

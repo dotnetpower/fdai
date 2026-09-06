@@ -2491,6 +2491,12 @@ def _render_query_answer(
     optional_document_node_ids: tuple[str, ...] = (),
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
+    inventory_document = (
+        operation == "select"
+        and output_shape == "resource_list"
+        and subject_constraints == ("Resource",)
+        and set(measure_concepts) == {"complete_content", "download"}
+    )
     projected_rule_search = False
     projected_incident = False
     projected_relationships = False
@@ -2559,7 +2565,9 @@ def _render_query_answer(
             return None, None
         table = result.value
         rows: list[dict[str, object]] = []
-        if len(table.rows) <= 40:
+        if inventory_document:
+            projected_rows = table.rows[:1000]
+        elif len(table.rows) <= 40:
             projected_rows = table.rows
         else:
             projected_rows = (
@@ -2568,7 +2576,14 @@ def _render_query_answer(
         for row in projected_rows:
             candidate_rows: list[dict[str, object]] = [
                 *rows,
-                {"row_id": row.row_id, "values": _answer_row_values(row.values)},
+                {
+                    "row_id": row.row_id,
+                    "values": (
+                        _inventory_document_row_values(row.values)
+                        if inventory_document
+                        else _answer_row_values(row.values)
+                    ),
+                },
             ]
             candidate = [
                 *outputs,
@@ -2602,6 +2617,7 @@ def _render_query_answer(
         "presentation_context": {
             "operation": operation,
             "output_shape": output_shape,
+            **({"document_kind": "inventory"} if inventory_document else {}),
             **({"measure_concepts": list(measure_concepts)} if measure_concepts else {}),
             **(
                 {"evidence_requirements": list(evidence_requirements)}
@@ -2706,6 +2722,18 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
                 if value is not None and not isinstance(value, Mapping | list):
                     projected.setdefault(field, _redact_answer_scalar(field, value))
         current = nested
+    return projected
+
+
+def _inventory_document_row_values(values: Mapping[str, object]) -> dict[str, object]:
+    """Preserve secured scalar inventory fields without exposing provider property bags."""
+
+    projected = _answer_row_values(values)
+    properties = values.get("properties")
+    if isinstance(properties, Mapping):
+        for field, value in properties.items():
+            if isinstance(field, str) and field and not isinstance(value, Mapping | list):
+                projected.setdefault(field, _redact_answer_scalar(field, value))
     return projected
 
 

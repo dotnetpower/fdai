@@ -120,9 +120,11 @@
       .lc-rollup-grid section:last-child { grid-column: auto; }
     }
   </style>
+  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
 </head>
-<body>
-  <main class="cs-container cs-page">
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page ow-page">
     <div class="cs-page-header cs-mb-16">
       <h1>LLM cost</h1>
       <p class="cs-lead">Measured provider usage by workload, model, and invocation. Follow token
@@ -130,8 +132,8 @@
     </div>
 
     <div class="cs-readonly-banner">
-      <strong>Usage is measured; cost amounts are not displayed.</strong> This view reports provider
-      calls and tokens from the metering stream without inferring spend from usage.
+      <strong>Synthetic usage preview; cost amounts are not displayed.</strong> Frozen example
+      calls and tokens are not live provider measurements. No model or runtime request runs here.
     </div>
 
     <section class="lc-range-bar" aria-label="Usage date range">
@@ -161,33 +163,33 @@
       </div>
     </section>
 
-    <div class="cs-notice is-soft cs-mb-24" role="status" aria-label="Usage evidence">
-      <span class="cs-notice-icon" aria-hidden="true">i</span>
-      <div class="cs-notice-content"><h4>Measured usage</h4><p id="usage-evidence">Source: metering &middot; 1,842 invocation records &middot; latest invocation 2026-08-04 14:32 UTC</p></div>
+    <div class="ow-inline-evidence" role="status" aria-label="Usage evidence">
+      <h4>Simulated usage</h4><p id="usage-evidence">Source: synthetic-dev / Example scope / Fixed reference 2026-08-04T15:00:00Z</p>
     </div>
 
     <!-- KPI strip -->
     <div class="lc-strip">
-      <div class="cs-card cs-kpi">
+      <a class="cs-card cs-kpi" href="#invocation-ledger-title">
         <span class="cs-kpi-label">LLM calls</span>
         <span class="cs-kpi-value" id="kpi-calls">1,842</span>
-        <span class="cs-kpi-foot">measured invocations</span>
-      </div>
-      <div class="cs-card cs-kpi">
+        <span class="cs-kpi-foot">synthetic invocations</span>
+      </a>
+      <a class="cs-card cs-kpi" href="#usage-by-model-title">
         <span class="cs-kpi-label">Total tokens</span>
         <span class="cs-kpi-value" id="kpi-total">1.26M</span>
         <span class="cs-kpi-foot">input + output</span>
-      </div>
-      <div class="cs-card cs-kpi">
+      </a>
+      <a class="cs-card cs-kpi" href="#chat-model-rollup-title">
         <span class="cs-kpi-label">Chat token share</span>
         <span class="cs-kpi-value" id="kpi-chat-share">27%</span>
         <span class="cs-kpi-foot" id="kpi-chat-tokens">340k chat tokens</span>
-      </div>
-      <div class="cs-card cs-kpi">
+      </a>
+      <a class="cs-card cs-kpi" href="#invocation-ledger-title">
         <span class="cs-kpi-label">Latest invocation</span>
         <span class="cs-kpi-value" id="kpi-latest-time" style="font-size:20px;">14:32 UTC</span>
         <span class="cs-kpi-foot" id="kpi-latest-date">Aug 4, 2026</span>
-      </div>
+      </a>
+      <a class="cs-card cs-kpi" href="operating-outcomes.html#cost-per-resolved-event"><span class="cs-kpi-label">Fixed platform cost</span><span class="cs-kpi-value" style="font-size:var(--cs-type-lead-size)">Not connected</span><span class="cs-kpi-foot">Not inferred from token usage</span></a>
     </div>
 
     <div class="lc-two">
@@ -280,13 +282,15 @@
             <td class="num model-total">460,000</td>
           </tr>
           <tr>
-            <td><span class="lc-model-cell"><code>gpt-4.1</code> <span class="lc-model-pill is-openai">OpenAI</span></span></td>
-            <td>Off-path learner &middot; Norns</td>
+            <td><span class="lc-model-cell"><code>gpt-5-mini</code> <span class="lc-model-pill is-openai">OpenAI</span></span></td>
+            <td>Lightweight judge / Example binding</td>
             <td class="num model-calls" data-base="42">42</td>
             <td class="num model-input" data-base="74000">74,000</td>
             <td class="num model-output" data-base="47000">47,000</td>
             <td class="num model-total">121,000</td>
           </tr>
+          <tr data-model-scope="chat"><td><code>gpt-4.1-mini</code></td><td>Chat narrator / Example binding</td><td class="num model-calls" data-base="62">0</td><td class="num model-input" data-base="62">0</td><td class="num model-output" data-base="62">0</td><td class="num model-total">0</td></tr>
+          <tr data-model-scope="chat"><td><code>gpt-4o-mini</code></td><td>Chat narrator / Example binding</td><td class="num model-calls" data-base="38">0</td><td class="num model-input" data-base="38">0</td><td class="num model-output" data-base="38">0</td><td class="num model-total">0</td></tr>
         </tbody>
       </table>
       </div>
@@ -296,9 +300,9 @@
       <div class="lc-section-head">
         <div>
           <h3 id="invocation-ledger-title">Invocation ledger</h3>
-          <p class="cs-desc">Recent measured calls with correlation-scoped audit evidence.</p>
+          <p class="cs-desc">Synthetic calls with correlation-scoped example audit links.</p>
         </div>
-        <a href="audit.html">View usage audit</a>
+        <button type="button" class="cs-control-button" id="export-invocations">Export visible CSV</button>
       </div>
       <p class="lc-ledger-note" id="ledger-note">Showing the latest 6 of 1,842 measured calls.</p>
       <div class="cs-table-wrap">
@@ -389,7 +393,7 @@
     </section>
 
     <details class="lc-rollups">
-      <summary>Additional measured rollups</summary>
+      <summary>Additional usage rollups</summary>
       <div class="lc-rollup-grid">
         <section aria-labelledby="workload-rollup-title">
           <h3 id="workload-rollup-title">Usage by workload</h3>
@@ -421,11 +425,15 @@
             </tbody>
           </table></div>
         </section>
+        <section aria-labelledby="conversation-rollup-title"><h3 id="conversation-rollup-title">Usage by conversation</h3><p class="lc-ledger-note">2 illustrative conversation rows. This is a truncated subset, not the workload total.</p><div class="cs-table-wrap"><table class="cs-table lc-table"><thead><tr><th>Correlation</th><th>Calls</th><th>Input</th><th>Output</th><th>Total</th></tr></thead><tbody><tr><td><a href="audit.html?correlation=chat-incident-0087">chat-incident-0087</a></td><td>1</td><td>545</td><td>24</td><td>569</td></tr><tr><td><a href="audit.html?correlation=chat-change-0062">chat-change-0062</a></td><td>1</td><td>612</td><td>36</td><td>648</td></tr></tbody></table></div></section>
+        <section aria-labelledby="daily-rollup-title"><h3 id="daily-rollup-title">Usage by day</h3><div class="cs-table-wrap"><table class="cs-table lc-table"><thead><tr><th>Day (UTC)</th><th>Calls</th><th>Input</th><th>Output</th><th>Total</th></tr></thead><tbody id="daily-rollup"></tbody></table></div></section>
+        <section aria-labelledby="monthly-rollup-title"><h3 id="monthly-rollup-title">Usage by month</h3><div class="cs-table-wrap"><table class="cs-table lc-table"><thead><tr><th>Month (UTC)</th><th>Calls</th><th>Input</th><th>Output</th><th>Total</th></tr></thead><tbody id="monthly-rollup"></tbody></table></div></section>
       </div>
     </details>
 
     <p class="cs-muted" style="font-size:12.5px; margin-top:12px;">
-      Every total is derived from provider usage records and can be traced to its correlation audit.
+      Synthetic totals are generated locally for layout review. Ledger and conversation rows are
+      bounded subsets. Usage is not cost, execution authority, or proof of a verified effect.
     </p>
   </main>
   <script>
@@ -440,12 +448,12 @@
       { date: "Aug 4, 2026", input: 201000, output: 19000 },
     ];
     const twentyFourHourTrend = [
-      { date: "Aug 4, 02:00 UTC", short: "02:00", input: 20000, output: 1500 },
-      { date: "Aug 4, 06:00 UTC", short: "06:00", input: 24000, output: 2000 },
-      { date: "Aug 4, 10:00 UTC", short: "10:00", input: 31000, output: 2400 },
-      { date: "Aug 4, 14:00 UTC", short: "14:00", input: 27000, output: 2100 },
-      { date: "Aug 4, 18:00 UTC", short: "18:00", input: 33000, output: 2700 },
-      { date: "Aug 4, 22:00 UTC", short: "22:00", input: 33000, output: 3300 },
+      { date: "Aug 3, 2026, 18:00 UTC", short: "18:00", input: 20000, output: 1500 },
+      { date: "Aug 3, 2026, 22:00 UTC", short: "22:00", input: 24000, output: 2000 },
+      { date: "Aug 4, 2026, 02:00 UTC", short: "02:00", input: 31000, output: 2400 },
+      { date: "Aug 4, 2026, 06:00 UTC", short: "06:00", input: 27000, output: 2100 },
+      { date: "Aug 4, 2026, 10:00 UTC", short: "10:00", input: 33000, output: 2700 },
+      { date: "Aug 4, 2026, 14:00 UTC", short: "14:00", input: 33000, output: 3300 },
     ];
     const isoDate = (date) => date.toISOString().slice(0, 10);
     const displayDate = (date) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
@@ -460,7 +468,7 @@
       };
     });
     const presets = {
-      "24h": { label: "Aug 3, 14:00 - Aug 4, 14:00, 2026", title: "24-hour token trend", subtitle: "Measured input and output tokens by four-hour interval.", totalLabel: "24-hour total", calls: 263, chatShare: .28, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: twentyFourHourTrend },
+      "24h": { label: "Aug 3, 15:00 - Aug 4, 15:00, 2026", title: "24-hour token trend", subtitle: "Synthetic input and output tokens by four-hour interval.", totalLabel: "24-hour total", calls: 263, chatShare: .28, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: twentyFourHourTrend },
       "7d": { label: "Jul 29 - Aug 4, 2026", title: "7-day token trend", subtitle: "Daily measured input and output tokens.", totalLabel: "7-day total", calls: 1842, chatShare: .27, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: sevenDayTrend },
       "30d": { label: "Jul 6 - Aug 4, 2026", title: "30-day token trend", subtitle: "Daily measured input and output tokens.", totalLabel: "30-day total", calls: 7934, chatShare: .27, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: buildDailyTrend("2026-07-06", 30) },
     };
@@ -552,6 +560,11 @@
       point.setAttribute("r", 3.5);
       hit.addEventListener("mouseenter", () => showTooltip(item, index, point));
       hit.addEventListener("focus", () => showTooltip(item, index, point));
+      hit.addEventListener("click", () => showTooltip(item, index, point));
+      hit.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); showTooltip(item, index, point); }
+        if (event.key === "Escape") hideTooltip();
+      });
       hit.addEventListener("mouseleave", hideTooltip);
       hit.addEventListener("blur", hideTooltip);
       pointsGroup.append(hit, point);
@@ -577,18 +590,22 @@
         return value;
       });
     };
-    const updateModelUsage = (calls, input, output) => {
-      const callCells = [...document.querySelectorAll(".model-calls")];
-      const inputCells = [...document.querySelectorAll(".model-input")];
-      const outputCells = [...document.querySelectorAll(".model-output")];
-      const totalCells = [...document.querySelectorAll(".model-total")];
-      const callValues = allocate(calls, callCells.map((cell) => Number(cell.dataset.base)));
-      const inputValues = allocate(input, inputCells.map((cell) => Number(cell.dataset.base)));
-      const outputValues = allocate(output, outputCells.map((cell) => Number(cell.dataset.base)));
-      callCells.forEach((cell, index) => { cell.textContent = number.format(callValues[index]); });
-      inputCells.forEach((cell, index) => { cell.textContent = number.format(inputValues[index]); });
-      outputCells.forEach((cell, index) => { cell.textContent = number.format(outputValues[index]); });
-      totalCells.forEach((cell, index) => { cell.textContent = number.format(inputValues[index] + outputValues[index]); });
+    const updateModelUsage = (calls, input, output, chatShare) => {
+      const chatCalls = Math.round(calls * chatShare);
+      const chatInput = Math.round(input * chatShare);
+      const chatOutput = Math.round((input + output) * chatShare) - chatInput;
+      for (const scope of ["control", "chat"]) {
+        const rows = [...document.querySelectorAll(".lc-model-usage tbody tr")].filter((row) => (row.dataset.modelScope === "chat") === (scope === "chat"));
+        const callValues = allocate(scope === "chat" ? chatCalls : calls - chatCalls, rows.map((row) => Number(row.querySelector(".model-calls").dataset.base)));
+        const inputValues = allocate(scope === "chat" ? chatInput : input - chatInput, rows.map((row) => Number(row.querySelector(".model-input").dataset.base)));
+        const outputValues = allocate(scope === "chat" ? chatOutput : output - chatOutput, rows.map((row) => Number(row.querySelector(".model-output").dataset.base)));
+        rows.forEach((row, index) => {
+          row.querySelector(".model-calls").textContent = number.format(callValues[index]);
+          row.querySelector(".model-input").textContent = number.format(inputValues[index]);
+          row.querySelector(".model-output").textContent = number.format(outputValues[index]);
+          row.querySelector(".model-total").textContent = number.format(inputValues[index] + outputValues[index]);
+        });
+      }
     };
     const updateRollup = (selector, weights, calls, input, output) => {
       const rows = [...document.querySelectorAll(selector)];
@@ -619,7 +636,7 @@
       const outputShare = 100 - inputShare;
       const chatTokens = Math.round(total * range.chatShare);
       document.getElementById("active-range").textContent = range.label;
-      document.getElementById("usage-evidence").textContent = `Source: metering · ${number.format(range.calls)} invocation records · latest invocation ${range.latestDate} 14:32 UTC`;
+      document.getElementById("usage-evidence").textContent = `Source: synthetic-dev / Example scope / ${number.format(range.calls)} fixture calls / Latest ${range.latestDate} 14:32 UTC / Not a live freshness claim`;
       document.getElementById("kpi-calls").textContent = number.format(range.calls);
       document.getElementById("kpi-total").textContent = compact.format(total);
       document.getElementById("kpi-chat-share").textContent = `${Math.round(range.chatShare * 100)}%`;
@@ -629,20 +646,28 @@
       document.getElementById("output-tokens").textContent = number.format(outputTotal);
       document.getElementById("input-share").textContent = `${inputShare.toFixed(1)}%`;
       document.getElementById("output-share").textContent = `${outputShare.toFixed(1)}%`;
+      document.querySelector(".lc-token-mix").setAttribute("aria-label", `Synthetic input ${inputShare.toFixed(1)}%, output ${outputShare.toFixed(1)}%`);
       document.querySelector(".lc-token-mix .is-input").style.flex = inputTotal;
       document.querySelector(".lc-token-mix .is-output").style.flex = outputTotal;
       document.getElementById("trend-title").textContent = range.title;
       document.getElementById("trend-subtitle").textContent = range.subtitle;
       document.getElementById("trend-total-label").textContent = range.totalLabel;
       document.getElementById("trend-total").textContent = compact.format(total);
-      document.getElementById("ledger-note").textContent = `Showing the latest 6 of ${number.format(range.calls)} measured calls.`;
-      updateModelUsage(range.calls, inputTotal, outputTotal);
+      document.getElementById("ledger-note").textContent = `Showing 6 of ${number.format(range.calls)} synthetic calls. Truncated subset; CSV exports only these 6 visible records.`;
+      updateModelUsage(range.calls, inputTotal, outputTotal, range.chatShare);
       updateLedgerTimes(range.endDate);
       updateRollup(".rollup-workload", [1 - range.chatShare, range.chatShare], range.calls, inputTotal, outputTotal);
+      document.querySelectorAll(".rollup-workload").forEach((row, index) => {
+        const models = [...document.querySelectorAll(".lc-model-usage tbody tr")].filter((model) => (model.dataset.modelScope === "chat") === (index === 1));
+        for (const key of ["calls", "input", "output", "total"]) {
+          row.querySelector("." + key).textContent = number.format(models.reduce((sum, model) => sum + Number(model.querySelector(".model-" + key).textContent.replaceAll(",", "")), 0));
+        }
+      });
       updateRollup(".rollup-mode", [.91, .09], range.calls, inputTotal, outputTotal);
-      updateRollup(".rollup-chat", [.62, .38], Math.round(range.calls * range.chatShare), Math.round(inputTotal * range.chatShare), Math.round(outputTotal * range.chatShare));
+      updateRollup(".rollup-chat", [.62, .38], Math.round(range.calls * range.chatShare), Math.round(inputTotal * range.chatShare), chatTokens - Math.round(inputTotal * range.chatShare));
       chart.setAttribute("aria-label", `${range.title} for ${range.label}`);
       renderTrend(range.trend);
+      updateCalendarRollups(range);
       document.querySelectorAll(".lc-range-option").forEach((button) => {
         const active = button.dataset.range === rangeKey;
         button.classList.toggle("is-active", active);
@@ -675,8 +700,9 @@
       const start = new Date(`${startInput.value}T00:00:00Z`);
       const end = new Date(`${endInput.value}T00:00:00Z`);
       const dayCount = Math.round((end - start) / 86400000) + 1;
-      if (!startInput.value || !endInput.value || dayCount < 1 || dayCount > 90) {
-        rangeError.textContent = "Choose a valid range of 1 to 90 days.";
+      if (!startInput.value || !endInput.value || !startInput.checkValidity() || !endInput.checkValidity() || !Number.isFinite(dayCount) || dayCount < 1 || dayCount > 90) {
+        customPopover.hidden = false;
+        rangeError.textContent = "Choose 1 to 90 days within the example window, May 7 to August 4, 2026.";
         return;
       }
       const trend = buildDailyTrend(isoDate(start), dayCount);
@@ -695,7 +721,58 @@
     const initialRange = initialParams.get("range");
     const initialFrom = initialParams.get("from");
     const initialTo = initialParams.get("to");
+    function updateCalendarRollups(range) {
+      const daily = new Map();
+      const counts = allocate(range.calls, range.trend.map((row) => row.input + row.output));
+      range.trend.forEach((row, index) => {
+        const date = row.date.split(", ").slice(0, 2).join(", ");
+        const key = new Date(date + " 00:00:00 UTC").toISOString().slice(0, 10);
+        const item = daily.get(key) || { calls: 0, input: 0, output: 0 };
+        item.calls += counts[index]; item.input += row.input; item.output += row.output;
+        daily.set(key, item);
+      });
+      const monthly = new Map();
+      for (const [day, value] of daily) {
+        const month = day.slice(0, 7);
+        const item = monthly.get(month) || { calls: 0, input: 0, output: 0 };
+        item.calls += value.calls; item.input += value.input; item.output += value.output;
+        monthly.set(month, item);
+      }
+      for (const [id, rows] of [["daily-rollup", daily], ["monthly-rollup", monthly]]) {
+        const body = document.getElementById(id);
+        body.replaceChildren(...[...rows].map(([key, row]) => {
+          const tr = document.createElement("tr");
+          for (const value of [key, row.calls, row.input, row.output, row.input + row.output]) {
+            const cell = document.createElement("td");
+            cell.textContent = typeof value === "number" ? number.format(value) : value;
+            tr.append(cell);
+          }
+          return tr;
+        }));
+      }
+    }
+    document.getElementById("export-invocations").addEventListener("click", () => {
+      const header = ["occurred_at", "correlation_id", "capability_id", "model_key", "tier", "mode", "usage_scope", "prompt_tokens", "completion_tokens", "total_tokens"];
+      const rows = [...document.querySelectorAll(".lc-ledger-table tbody tr")].map((row) => {
+        const cells = [...row.cells].map((cell) => cell.textContent.trim());
+        const [tier, mode] = cells[4].split("/").map((value) => value.trim());
+        return [row.querySelector("time").dateTime, cells[8], cells[3], cells[2], tier, mode,
+          cells[1] === "Operator chat" ? "operator_chat" : "control_plane",
+          ...cells.slice(5, 8).map((value) => value.replaceAll(",", ""))];
+      });
+      const quote = (value) => {
+        const raw = String(value);
+        const safe = /^\s*[=+@-]/.test(raw) ? "'" + raw : raw;
+        return '"' + safe.replaceAll('"', '""') + '"';
+      };
+      const url = URL.createObjectURL(new Blob([[header, ...rows].map((row) => row.map(quote).join(",")).join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = "fdai-synthetic-llm-invocations.csv";
+      document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    });
+    document.querySelectorAll('a[href="#chat-model-rollup-title"]').forEach((link) => link.addEventListener("click", () => { document.querySelector(".lc-rollups").open = true; }));
     if (initialFrom && initialTo) {
+      updateRange("7d", presets["7d"]);
       startInput.value = initialFrom;
       endInput.value = initialTo;
       document.getElementById("range-apply").click();

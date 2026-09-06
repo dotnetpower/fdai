@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections import deque
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from time import monotonic
 from typing import Any, Final
 
 from starlette.requests import Request
@@ -31,21 +33,44 @@ class LiveStreamEvent:
 
 
 class LiveStreamHub:
-    """Fan validated stage events out through isolated bounded subscriber queues."""
+    """Fan validated events out with isolated queues and optional bounded replay."""
 
     def __init__(
         self,
         *,
         maximum_queue_size: int = 1_024,
         latest_key: Callable[[LiveStreamEvent], str | None] | None = None,
+        replay_capacity: int = 0,
+        replay_window_seconds: float = 0,
+        clock: Callable[[], float] = monotonic,
     ) -> None:
         if maximum_queue_size < 1:
             raise ValueError("maximum_queue_size MUST be positive")
         self._maximum_queue_size = maximum_queue_size
         self._latest_key = latest_key
         self._latest_events: dict[str, LiveStreamEvent] = {}
+        self._source_event: LiveStreamEvent | None = None
+        self._replay_window_seconds = 0.0
+        self._recent_events: deque[tuple[float, LiveStreamEvent]] = deque()
+        self._clock = clock
         self._subscribers: list[asyncio.Queue[LiveStreamEvent]] = []
         self._lock = asyncio.Lock()
+        if replay_capacity > 0 or replay_window_seconds > 0:
+            self.enable_recent_replay(
+                capacity=replay_capacity,
+                window_seconds=replay_window_seconds,
+            )
+
+    def enable_recent_replay(self, *, capacity: int, window_seconds: float) -> None:
+        """Enable bounded replay before this hub accepts subscribers."""
+        if capacity <= 0 or window_seconds <= 0:
+            raise ValueError("replay capacity and window MUST be positive")
+        if self._latest_key is not None:
+            raise ValueError("latest-key and recent-window replay modes are mutually exclusive")
+        if self._subscribers:
+            raise RuntimeError("recent replay MUST be configured before subscription")
+        self._replay_window_seconds = window_seconds
+        self._recent_events = deque(maxlen=capacity)
 
     async def publish(self, event: LiveStreamEvent) -> None:
         """Offer one event to every subscriber without blocking the producer."""
@@ -54,6 +79,20 @@ class LiveStreamHub:
                 key = self._latest_key(event)
                 if key:
                     self._latest_events[key] = event
+            if self._replay_window_seconds > 0:
+                published_at = self._clock()
+                self._recent_events.append((published_at, event))
+                self._prune_recent_events(published_at)
+            subscribers = tuple(self._subscribers)
+        for queue in subscribers:
+            _offer_latest(queue, event)
+
+    async def publish_source(self, event: LiveStreamEvent) -> None:
+        """Publish and retain one validated source-readiness observation."""
+        if event.event_type != "source":
+            raise ValueError("source readiness event MUST use event_type=source")
+        async with self._lock:
+            self._source_event = event
             subscribers = tuple(self._subscribers)
         for queue in subscribers:
             _offer_latest(queue, event)
@@ -66,8 +105,14 @@ class LiveStreamHub:
         queue: asyncio.Queue[LiveStreamEvent] = asyncio.Queue(maxsize=self._maximum_queue_size)
         async with self._lock:
             self._subscribers.append(queue)
+            if self._source_event is not None:
+                _offer_latest(queue, self._source_event)
             for event in self._latest_events.values():
                 _offer_latest(queue, event)
+            if self._replay_window_seconds > 0:
+                self._prune_recent_events(self._clock())
+                for _, event in self._recent_events:
+                    _offer_latest(queue, event)
         try:
             while True:
                 yield await queue.get()
@@ -75,6 +120,11 @@ class LiveStreamHub:
             async with self._lock:
                 if queue in self._subscribers:
                     self._subscribers.remove(queue)
+
+    def _prune_recent_events(self, now: float) -> None:
+        cutoff = now - self._replay_window_seconds
+        while self._recent_events and self._recent_events[0][0] < cutoff:
+            self._recent_events.popleft()
 
 
 def make_live_stream_route(

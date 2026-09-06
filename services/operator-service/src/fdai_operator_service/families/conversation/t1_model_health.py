@@ -66,7 +66,7 @@ class _Projection(BaseModel):
     router: _Router
 
 
-def t1_model_health(value: JsonObject, *, now: datetime | None = None) -> JsonObject:
+def t1_model_health(value: object, *, now: datetime | None = None) -> JsonObject:
     """Omit missing/invalid selections and expire speed claims before returning them."""
     if not value:
         return {"model": None}

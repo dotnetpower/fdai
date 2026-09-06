@@ -22,6 +22,7 @@ from .semantic_activity_planning import compile_target_activity_plan
 from .semantic_contextual_resource_planning import compile_contextual_resource_plan
 from .semantic_current_state_planning import compile_target_current_state_plan
 from .semantic_error_activity_planning import compile_target_error_activity_plan
+from .semantic_gateway_diagnostic_planning import compile_gateway_diagnostic_plan
 from .semantic_governed_document_planning import (
     append_governed_document_plan,
     compile_governed_document_plan,
@@ -53,6 +54,7 @@ from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
+from .semantic_planning_specialized_plans import build_inventory_document_plan
 from .semantic_planning_support import (
     _investigation_clarification,
     _investigation_windows,
@@ -65,6 +67,7 @@ from .semantic_planning_value_filters import (
 )
 from .semantic_relationship_planning import compile_typed_relationship_plan
 from .semantic_resource_condition_planning import compile_resource_condition_plan
+from .semantic_resource_configuration_planning import compile_resource_configuration_plan
 from .semantic_resource_event_planning import compile_resource_event_plan
 from .semantic_resource_health_planning import compile_resource_health_plan
 from .semantic_resource_metric_planning import (
@@ -190,6 +193,17 @@ def dispatch_semantic_plan(
             )
             plan_source = "bound_incident" if plan is not None else "proposed"
     if plan is None:
+        plan = build_inventory_document_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        if plan is not None:
+            plan_source = "server_inventory_document"
+    if plan is None:
         plan = compile_ontology_manifest_count_plan(
             frame=frame,
             manifest=manifest,
@@ -300,6 +314,26 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_target_current_state"
+    if plan is None:
+        plan = compile_gateway_diagnostic_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_gateway_diagnostic_evidence"
+    if plan is None:
+        plan = compile_resource_configuration_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_resource_configuration_changes"
     if plan is None:
         plan = compile_subscription_scope_plan(
             frame=frame,

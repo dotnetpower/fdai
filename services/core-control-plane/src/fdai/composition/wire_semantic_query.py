@@ -68,6 +68,10 @@ from fdai.core.ontology_platform.declaration_queries import (
     ONTOLOGY_DECLARATION_FUNCTION_NAME,
     ontology_declaration_function,
 )
+from fdai.core.ontology_platform.gateway_diagnostics import (
+    GATEWAY_DIAGNOSTIC_FUNCTION_NAME,
+    gateway_diagnostic_function,
+)
 from fdai.core.ontology_platform.governed_document_queries import (
     GOVERNED_DOCUMENT_FUNCTION_NAME,
     GovernedDocumentReader,
@@ -139,6 +143,14 @@ from fdai.core.ontology_platform.resource_activity_queries import (
 from fdai.core.ontology_platform.resource_class_closure import (
     RESOURCE_CLASS_CLOSURE_FUNCTION_NAME,
     resource_class_closure_function,
+)
+from fdai.core.ontology_platform.resource_configuration_queries import (
+    RESOURCE_CONFIGURATION_FUNCTION_NAME,
+    resource_configuration_changes_function,
+)
+from fdai.core.ontology_platform.resource_configuration_snapshots import (
+    RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME,
+    resource_configuration_snapshot_function,
 )
 from fdai.core.ontology_platform.resource_current_state_queries import (
     RESOURCE_CURRENT_STATE_FUNCTION_NAME,
@@ -450,7 +462,29 @@ def build_semantic_query_runtime(
             ),
             authority=EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
         )
+    if topology_reader is not None:
+        function_registry.register_contextual(
+            declarations[RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME],
+            resource_configuration_snapshot_function(
+                ontology_release,
+                reader=topology_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+        function_registry.register_contextual(
+            declarations[RESOURCE_CONFIGURATION_FUNCTION_NAME],
+            resource_configuration_changes_function(ontology_release),
+        )
     if metric_registry is not None and metric_window_provider is not None:
+        function_registry.register_contextual(
+            declarations[GATEWAY_DIAGNOSTIC_FUNCTION_NAME],
+            gateway_diagnostic_function(
+                ontology_release,
+                registry=metric_registry,
+                provider=metric_window_provider,
+            ),
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+        )
         resource_metric_declaration = declarations[RESOURCE_METRIC_FUNCTION_NAME]
         function_registry.register_contextual(
             resource_metric_declaration,

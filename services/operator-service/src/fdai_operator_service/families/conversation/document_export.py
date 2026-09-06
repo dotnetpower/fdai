@@ -19,7 +19,7 @@ from fdai_operator_service.families.operations import ReportPdfEncoder, ReportPd
 from fdai_operator_service.postgres_semantic_turn_store import StoredSemanticResult
 
 _LOGGER = logging.getLogger(__name__)
-_MAX_DOCUMENT_ROWS = 40
+_MAX_DOCUMENT_ROWS = 1000
 _MAX_DOCUMENT_COLUMNS = 16
 _MAX_MARKDOWN_BYTES = 192 * 1024
 
@@ -211,6 +211,8 @@ def _materialize(result: StoredSemanticResult) -> MaterializedConversationDocume
             or returned_rows != len(rows)
             or returned_rows != total_rows
             or raw_output.get("display_truncated") is not False
+            or raw_output.get("source_complete") is not True
+            or raw_output.get("source_truncation_reason") is not None
         ):
             raise ConversationBoundaryError(
                 409,
@@ -264,6 +266,20 @@ def _materialize(result: StoredSemanticResult) -> MaterializedConversationDocume
         source_complete=source_complete,
         source_limitations=tuple(dict.fromkeys(source_limitations)),
     )
+    presentation_context = details.get("presentation_context")
+    if (
+        isinstance(presentation_context, Mapping)
+        and presentation_context.get("document_kind") == "inventory"
+    ):
+        report = {
+            **report,
+            "name": "FDAI resource inventory document",
+            "description": (
+                "Complete authorized inventory rows and disclosed scalar properties at the "
+                "recorded query snapshot. Nested provider configuration, credentials, and "
+                "unobserved resource details are not included. Redacted values remain redacted."
+            ),
+        }
     markdown = _markdown(report)
     encoded = markdown.encode("utf-8")
     if len(encoded) > _MAX_MARKDOWN_BYTES:
@@ -416,6 +432,8 @@ def _row(value: object) -> Mapping[str, object]:
 
 def _columns(rows: Sequence[Mapping[str, object]]) -> tuple[str, ...]:
     columns = tuple(dict.fromkeys(str(key) for row in rows for key in row))
+    if not rows:
+        return ("record",)
     if not columns or len(columns) > _MAX_DOCUMENT_COLUMNS:
         raise ConversationBoundaryError(
             409,

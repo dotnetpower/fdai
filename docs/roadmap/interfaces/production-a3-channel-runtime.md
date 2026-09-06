@@ -43,6 +43,35 @@ traffic.
 
 ![Design at a glance. The main stages are Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher.](../../diagrams/generated/fdai-roadmap-interfaces-production-a3-channel-runtime-01.en.svg)
 
+## Inventory document presentation
+
+You can request a fresh subscription resource inventory document without first asking for a table.
+The semantic judgment uses `create.document` with `advise_only`, `action_subject=none`, and the
+`resource_inventory`, `subscription`, `complete_content`, and `download` facets. Core binds these
+typed fields to the existing `select/resource_list` frame and one verified, principal-scoped
+Resource ObjectSet. No keyword router, provider call in Operator, new FunctionType, or execution
+permission is added. `query.governed_documents` still retrieves uploaded documents; it is not an
+inventory-document producer.
+
+- **Source:** Operator reuses `ConversationDocumentExporter` against this turn's durable answered
+  result. The previous-result `create.document/draft_only/Document` path remains separate. A fresh
+  inventory document never uses an unrelated preceding answer as its source.
+- **Disclosure:** The document preserves every returned authorized row and disclosed scalar
+  inventory property, including canonical type and parent where readable. Existing redaction
+  remains in force. Nested provider configuration and unobserved details are explicitly excluded.
+  Query recording time is not a substitute for a property's observation time.
+- **Completeness:** The read and export have a 1000-row ceiling. The existing 48000-byte semantic
+  output ceiling, 16-column export ceiling, and 192 KiB Markdown ceiling remain. Display truncation,
+  unknown source completeness, or a source limitation prevents a complete download, including when
+  every returned row fits. A verified complete zero-row result is exportable. Exhaustion never
+  proves an empty or complete subscription.
+- **Design critique:** Reclassifying every document request as an action would require nonexistent
+  mutation authority. Exporting the preceding answer would select the wrong source, while raising
+  only the export limit would still lose rows in Core's chat preview. The revised design separates
+  fresh reads from prior-result formatting, retains bounded document rows before preview reduction,
+  and requires both source and row completeness. Narrower targets, additional requests, external
+  publication, and managed-resource changes are not silently reduced to this collection read.
+
 ## Implementation status
 
 ### Implementation scope
@@ -54,6 +83,7 @@ traffic.
 | Operator migration and persistence | implemented | `operator_a3_channel_delivery_20260819`; `channel_{delivery_models,message_ledger}.py`; `postgres_channel_{binding,delivery}.py`; live PostgreSQL checks (`9 passed`, no skips) | The Operator branch owns the inbound processing lease and grants the Operator role only the six channel tables. Runtime-role tests prove lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim and acknowledgement closure, process-loss ambiguity, breaker CAS, and retention cleanup. The standalone lifespan binds these stores. |
 | Semantic request, result, and durable delivery pipeline | implemented | `semantic_turn_runtime.py`; `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks; live PostgreSQL join (`1 passed`, no skips) | The Operator edge resolves server-owned scope, persists typed semantic requests, waits for principal-scoped terminal replay, stores the terminal response before provider I/O, completes inbound ownership only after durable delivery, and fences retry and process-loss recovery with persisted breakers. Due sends revalidate the active principal, scope, conversation, and channel binding before provider I/O. |
 | Principal-scoped conversation documents | implemented | `document_export.py`; authenticated document routes; semantic outbox source binding; focused Operator checks | A document draft replays only the authenticated principal's preceding verified result. Partial or unsupported content produces no download, while complete bounded tables can be regenerated as Markdown and optional PDF without execution authority. |
+| Fresh inventory documents and source completeness | in-progress | `semantic_planning_frame_normalization.py`; `semantic_planning_specialized_plans.py`; `semantic_turn_processor.py`; `document_export.py`; `semantic_turn_runtime.py`; adjacent synthetic tests | The current change adds first-turn document reads, bounded row preservation, explicit exclusions, and strict source completeness. Focused checks are deferred to the coordinating session; no live paraphrase-quality or latency improvement is claimed. |
 | Fail-closed runtime and local/Azure workload | implemented | `channel_edge/{application,composition,entry,environment,runtime}.py`; `.vscode/tasks.json`; platform and service Terraform roots; protected deployment workflows and helpers; focused checks | Platform can prepare the dedicated non-executor identity and Operator DSN access without provider credentials. The independent service root still requires principal scopes and one complete Slack or Teams Key Vault contract before creating the edge workload. |
 | Independent hardening | implemented | [Hardening campaign](#hardening-campaign); focused edge checks (`81 passed`); Ruff and strict mypy | Ten independent rounds completed with focused regressions for every accepted finding and no verified Medium-or-higher residual. Protected runtime evidence remains a separate validation gate. |
 
@@ -75,9 +105,13 @@ traffic.
 | 2026-08-20 | implemented | Closed the protected-delivery gap that rejected the separate edge Container App. Platform plans now bind the dedicated identity and secret scopes, while Operator service plans seal explicit edge enable or disable transitions, exact target identity and image, new-revision health, route removal, and an automatic disabled-state rollback before primary revision recovery. | `current change`; protected service deployment and workflow contract suites passed `126 + 28` cases; workflow YAML and rollback shell syntax passed. | Supply one real Slack or Teams provider credential and principal-mapping profile through the approved credential stores, then retain local provider and protected plan/apply/rollback receipts. |
 | 2026-08-20 | implemented | Re-reviewed the protected rollout for implicit actions, plan substitution, public-route survival, secret exposure, identity substitution, and recovery ordering. One accepted finding moved disable route-removal proof before primary health; eight suspected findings were rejected against separate primary/edge resources, exact transition sealing, and terminal rollback checks. No verified Medium-or-higher implementation residual remains. | `current change`; route-closure and automatic rollback checks passed 2 cases after the focused fix; the full protected deployment suites had already passed 154 cases. | Runtime validation still requires real provider material and governed receipts; it is not an implementation residual. |
 | 2026-09-01 | implemented | Bound terminal semantic claims and read activities to exact completed Core receipts before the Operator or A3 delivery path can expose them. Query arguments and provider output values no longer enter the terminal execution record; it carries only a bounded capability identity, status, duration, output availability, completeness, and truncation state. | `current change`; focused Core and Operator semantic suites passed 207 cases; Conversation Assurance contract checks passed 78 cases; Ruff and formatting passed. | Retain governed channel-delivery evidence only after the existing provider and deployment prerequisites are available. |
+| 2026-09-06 | in-progress | Separated fresh subscription inventory documents from prior-result formatting, retained bounded rows before chat display reduction, and refused incomplete sources. | `current change`; semantic planning, Core projection, exporter, and Operator bridge source plus synthetic regression tests; execution of focused checks is pending. | Run focused checks and retain separately authorized live paraphrase evidence; arbitrary nested provider configuration is excluded. |
 
 ### Remaining work
 
+- [ ] Run the focused document, semantic planning, Core projection, and Operator bridge tests for
+  the current inventory-document change. Retain separately authorized original-plus-paraphrase
+  model evidence before claiming live language robustness.
 - [x] Implement every scope row and pass the focused checks in this document; retain exact-diff evidence with the focused commit.
 - [x] Complete at least ten critique rounds and retain only Low or rejected residual findings.
 - [ ] Configure one real Slack or Teams provider profile and principal mapping through local-only

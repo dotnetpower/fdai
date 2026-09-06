@@ -57,9 +57,8 @@ def attach_metric_provider(
 
     1. Prometheus (``prometheus_base_url``): AKS-scoped metrics via
        Managed Prom / self-hosted Prom; sub-minute freshness.
-    2. Azure Monitor Metrics REST API (piggybacks on
-       ``monitor_workspace_id`` since it uses the same identity):
-       direct-mapped Azure PaaS metrics; ~1-3 min freshness.
+    2. Azure Monitor Metrics REST API (injected Azure identity and HTTP client):
+       direct-mapped Azure PaaS metrics, independent of a Logs workspace.
     3. Azure Monitor Logs KQL (``monitor_workspace_id``): fallback for
        computed metrics (rates, deltas, cross-signal fusion) and any
        name Prom / Metrics API do not know; ~2-5 min ingestion floor.
@@ -68,8 +67,8 @@ def attach_metric_provider(
     :class:`~fdai.shared.providers.routed_metric.RoutedMetricProvider`
     in that order so each analyzer query lands on the fastest backend
     that can serve it. When only one binds it is returned directly (no
-    wrapper overhead). None -> the caller's container is returned
-    unchanged (upstream default ``NoopMetricProvider`` preserved).
+    wrapper overhead). Native metrics always bind at this Azure composition
+    seam; missing read permission remains an explicit provider failure.
     Upstream default query catalogs for each backend come from the
     shipped modules; a fork override (``*_queries`` argument) always
     wins.
@@ -91,15 +90,15 @@ def attach_metric_provider(
         routes.append(MetricRoute(provider=prom_provider, supported_metrics=prom_supported))
         log_summary["prometheus"] = prom_detail
 
-    if monitor_workspace_id:
-        metrics_provider, metrics_supported, metrics_detail = _build_metrics_api_route(
-            queries=metrics_api_queries,
-            identity=identity,
-            http_client=http_client,
-        )
-        routes.append(MetricRoute(provider=metrics_provider, supported_metrics=metrics_supported))
-        log_summary["azure_monitor_metrics"] = metrics_detail
+    metrics_provider, metrics_supported, metrics_detail = _build_metrics_api_route(
+        queries=metrics_api_queries,
+        identity=identity,
+        http_client=http_client,
+    )
+    routes.append(MetricRoute(provider=metrics_provider, supported_metrics=metrics_supported))
+    log_summary["azure_monitor_metrics"] = metrics_detail
 
+    if monitor_workspace_id:
         aml_provider, aml_supported, aml_detail = _build_aml_route(
             workspace_id=monitor_workspace_id,
             queries=monitor_queries,
@@ -108,18 +107,6 @@ def attach_metric_provider(
         )
         routes.append(MetricRoute(provider=aml_provider, supported_metrics=aml_supported))
         log_summary["azure_monitor_logs"] = aml_detail
-
-    if not routes:
-        _LOGGER.info(
-            "metric_provider_skipped",
-            extra={
-                "reason": (
-                    "neither monitor_workspace_id nor prometheus_base_url "
-                    "supplied - NoopMetricProvider stays"
-                )
-            },
-        )
-        return container
 
     if len(routes) == 1:
         _LOGGER.info(
@@ -186,7 +173,7 @@ def _build_metrics_api_route(
     )
     from ..delivery.azure.metrics_api_queries import azure_metrics_api_queries
 
-    templates = queries or azure_metrics_api_queries()
+    templates = queries if queries is not None else azure_metrics_api_queries()
     provider = AzureMonitorMetricsProvider(
         config=AzureMonitorMetricsConfig(templates=templates),
         http_client=http_client,

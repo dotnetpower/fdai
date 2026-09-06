@@ -64,6 +64,8 @@ LOCAL_SERVICE_NAMES = (
     "document-ingestion-api",
     "document-processing-worker",
     "isolated-executor",
+    "inventory-reconciliation",
+    "observation-campaign",
 )
 __all__ = [
     "_browser_runner_diagnostic",

@@ -6,125 +6,59 @@
   <title>Operating outcomes - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
+  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <script src="assets/overview-outcomes.js?v=1" defer></script>
+  <script src="assets/overview-workspace.js?v=1" type="module"></script>
 </head>
-<body>
-  <main class="cs-container cs-page ov-page">
-    <header class="ov-page-header">
-      <div>
-        <h1>Operating outcomes</h1>
-        <p>Measured operating results, their baseline, and the evidence gaps that still prevent a trustworthy claim.</p>
-      </div>
-      <div class="ov-window"><span>Evidence window</span><strong>Last 30 days</strong></div>
-    </header>
-
-    <nav class="ov-tabs" aria-label="Outcome metric">
-      <a class="is-active" href="#auto-resolution" data-outcome-tab="auto-resolution" aria-current="page">Auto-resolution</a>
-      <a href="#human-touchpoints" data-outcome-tab="human-touchpoints">Human touchpoints</a>
-      <a href="#mttr" data-outcome-tab="mttr">MTTR</a>
-      <a href="#change-lead-time" data-outcome-tab="change-lead-time">Change lead time</a>
-      <a href="#cost-per-resolved-event" data-outcome-tab="cost-per-resolved-event">Cost / resolved event</a>
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page ov-page ow-page" data-overview-tabs="auto-resolution">
+    <header class="cp-header"><div><h1>Operating outcomes</h1><p>Current results, paired baselines, finalization, and the evidence gaps behind each claim.</p></div><div class="ov-window"><span>Evidence window</span><strong>30 days</strong></div></header>
+    <nav class="ov-tabs cs-settings-workspace-tabs" role="tablist" aria-label="Outcome metric">
+      <button type="button" role="tab" id="tab-auto-resolution" aria-controls="auto-resolution" data-overview-tab="auto-resolution">Auto-resolution</button>
+      <button type="button" role="tab" id="tab-human-touchpoints" aria-controls="human-touchpoints" data-overview-tab="human-touchpoints">Human touchpoints</button>
+      <button type="button" role="tab" id="tab-mttr" aria-controls="mttr" data-overview-tab="mttr">MTTR</button>
+      <button type="button" role="tab" id="tab-change-lead-time" aria-controls="change-lead-time" data-overview-tab="change-lead-time">Change lead time</button>
+      <button type="button" role="tab" id="tab-cost-per-resolved-event" aria-controls="cost-per-resolved-event" data-overview-tab="cost-per-resolved-event">Cost / resolved event</button>
     </nav>
-
-    <div class="cs-readonly-banner">
-      <strong>Illustrative data.</strong> The mock demonstrates measured, baseline, and unavailable states. It makes no operational claim.
-    </div>
-
-    <section class="ov-outcome-view" id="auto-resolution" data-outcome-view="auto-resolution">
-      <header class="ov-metric-intro">
-        <div><h2>Correct outcomes without human intervention</h2><p>Counts only terminal outcomes with no human touchpoint and no later rollback in the measurement window.</p></div>
-        <span class="ov-metric-direction">Higher is better</span>
-      </header>
-      <div class="ov-evidence" aria-label="Auto-resolution evidence">
-        <strong>Measured</strong><span>30 eligible events</span><span>Confidence 92%</span><span>Source postgres-audit</span><span>As of 2026-07-22T15:18Z</span>
+    <p data-overview-error hidden role="status">This outcome detail is unavailable. Choose a registered metric.</p>
+    <div class="cs-readonly-banner"><strong>Synthetic preview.</strong> Example measurements, not observed operating results. Selection changes presentation only.</div>
+    <div class="ov-evidence"><strong>Simulated</strong><span>30 days / 30 events</span><span>Confidence unavailable</span><span>Attribution coverage 86%</span><span>Source example-autonomy</span><span>As of 2026-07-22T15:18:00Z</span></div>
+    <section id="auto-resolution" role="tabpanel" aria-labelledby="tab-auto-resolution" data-overview-panel="auto-resolution">
+      <header class="ov-metric-intro"><div><h2>Correct outcomes without human intervention</h2><p>Finalization and adverse outcomes remain visible beside the resolution rate.</p></div><span class="ov-metric-direction">Higher is better</span></header>
+      <div class="ow-metrics">
+        <a class="ow-metric" href="audit.html?window=30d&amp;outcome=auto"><span>Current rate</span><strong>73%</strong><small>Rounded example projection</small></a>
+        <a class="ow-metric" href="audit.html?window=30d&amp;outcome=auto"><span>Baseline</span><strong>65%</strong><small>Paired scenario set</small></a>
+        <a class="ow-metric" href="audit.html?window=30d&amp;outcome=auto"><span>Auto-resolved</span><strong>22</strong><small>Across attributed verticals</small></a>
+        <a class="ow-metric" href="audit.html?window=30d"><span>Finalized events</span><strong>30</strong><small>Terminal records in sample</small></a>
+        <a class="ow-metric" href="audit.html?window=30d"><span>Pending finalization</span><strong>0</strong><small>Explicit fixture zero</small></a>
+        <a class="ow-metric" href="audit.html?window=30d"><span>Adverse events</span><strong>2</strong><small>Not successful resolutions</small></a>
+        <a class="ow-metric" href="audit.html?window=30d"><span>Observed events</span><strong>30</strong><small>Same synthetic window</small></a>
       </div>
-      <section class="ov-kpis" aria-label="Auto-resolution summary">
-        <article class="ov-kpi"><span class="ov-kpi-label">Current rate</span><strong>73%</strong><small class="ov-up">+8 pp over baseline</small></article>
-        <article class="ov-kpi"><span class="ov-kpi-label">Baseline</span><strong>65%</strong><small>Same scenario set and window</small></article>
-        <article class="ov-kpi"><span class="ov-kpi-label">Auto-resolved</span><strong>22</strong><small>Of 30 eligible events</small></article>
-        <article class="ov-kpi"><span class="ov-kpi-label">Later rollbacks</span><strong>2</strong><small>Excluded from successful outcomes</small></article>
-      </section>
-      <section class="ov-two">
-        <article class="ov-panel js-chartable" data-chart-title="Auto-resolution trend" data-chart-sub="Measured share and baseline over 30 days" data-chart-columns='["Week","Measured","Baseline"]' data-chart-rows='[["Week 1","65%","65%"],["Week 2","68%","65%"],["Week 3","71%","65%"],["Week 4","73%","65%"]]' data-chart-num-cols='[1,2]' data-chart-source="Illustrative source: postgres-audit. Window: 30 days.">
-          <h3>Rate trend</h3><p>Weekly measured rate against the paired baseline.</p>
-          <svg class="ov-chart" viewBox="0 0 620 190" role="img" aria-label="Auto-resolution rose from 65 to 73 percent">
-            <path class="grid" d="M42 25H610M42 70H610M42 115H610M42 160H610" /><path class="area" d="M42 138L180 126L318 98L456 78L610 61L610 160L42 160Z" /><path class="baseline" d="M42 138H610" /><path class="line" d="M42 138L180 126L318 98L456 78L610 61" />
-            <text x="6" y="164">60%</text><text x="6" y="119">65%</text><text x="6" y="74">70%</text><text x="6" y="29">75%</text><text x="42" y="184">Jun 23</text><text x="560" y="184">Jul 22</text>
+      <div class="ow-grid">
+        <section class="ov-panel js-chartable" data-chart-title="Auto-resolution trend" data-chart-columns='["Sample","Rate"]' data-chart-rows='[["1","65%"],["2","68%"],["3","71%"],["4","73%"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy. Ordered samples, not invented timestamps.">
+          <h3>Auto-resolution trend</h3><p>Four recorded example samples. Final value 73%.</p>
+          <svg class="ov-chart" viewBox="0 0 620 190" role="img" aria-label="Four synthetic samples: 65, 68, 71, 73 percent">
+            <path class="grid" d="M42 25H610M42 70H610M42 115H610M42 160H610" />
+            <path class="area" d="M42 115L230 88L420 61L610 43L610 160H42Z" /><path class="line" d="M42 115L230 88L420 61L610 43" />
+            <text x="4" y="164">60%</text><text x="4" y="119">65%</text><text x="4" y="74">70%</text><text x="4" y="29">75%</text><text x="42" y="184">Sample 1</text><text x="545" y="184">Sample 4</text>
           </svg>
-          <div class="ov-legend"><span><i class="ov-key"></i>Measured</span><span><i class="ov-key is-baseline"></i>Baseline</span></div>
-        </article>
-        <aside class="ov-panel"><h3>Quality boundary</h3><p>Outcome gains count only while guard metrics remain within threshold.</p><ul class="ov-list"><li><span>Rollback rate</span><strong>6.7%</strong></li><li><span>False-positive rate</span><strong>2.0%</strong></li><li><span>False-negative rate</span><strong>1.5%</strong></li><li><span>Policy escapes</span><strong class="ov-up">0</strong></li></ul></aside>
-      </section>
-      <section class="ov-section">
-        <div class="ov-section-head"><div><h2>Vertical resolution</h2><p>Eligible events and correct terminal outcomes by operating vertical.</p></div><span class="ov-section-meta">30 classified events</span></div>
-        <div class="cs-table-wrap"><table class="cs-table ov-table"><thead><tr><th>Vertical</th><th class="num">Eligible</th><th class="num">Auto-resolved</th><th class="num">Rate</th><th>Evidence</th></tr></thead><tbody><tr><td>Resilience</td><td class="num">12</td><td class="num">10</td><td class="num">83%</td><td><span class="ov-status is-good">Measured</span></td></tr><tr><td>Change safety</td><td class="num">11</td><td class="num">8</td><td class="num">73%</td><td><span class="ov-status is-good">Measured</span></td></tr><tr><td>Cost governance</td><td class="num">7</td><td class="num">4</td><td class="num">57%</td><td><span class="ov-status is-watch">Review</span></td></tr></tbody></table></div>
-        <div class="ov-footer-links"><a href="audit.html?outcome=auto-resolved">View terminal outcomes</a><a href="incidents.html?status=rolled-back">Inspect later rollbacks</a></div>
-      </section>
+          <a href="audit.html?window=30d&amp;outcome=auto">Inspect supporting outcomes</a>
+        </section>
+        <section class="ov-panel"><h3>Quality boundary</h3><p>Simulated guard values are not promotion evidence.</p><ul class="ov-list"><li><a href="control-assurance.html?guard=rollback">Rollback rate</a><strong>6.7%</strong></li><li><a href="control-assurance.html?guard=fpr">False-positive rate</a><strong>2.0%</strong></li><li><a href="control-assurance.html?guard=fnr">False-negative rate</a><strong>1.5%</strong></li><li><a href="control-assurance.html?guard=cfr">Change failure rate</a><strong>4.5%</strong></li></ul></section>
+      </div>
+      <section class="ov-section"><h2>Vertical resolution</h2><p class="ow-note">Attributed operating events; monthly savings remain separate from cost recommendations.</p><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Vertical</th><th>Events</th><th>Auto-resolved</th><th>Open risks</th><th>Monthly savings</th></tr></thead><tbody>
+        <tr><td><a href="verticals.html#resilience">Resilience</a></td><td>12</td><td>10</td><td>1</td><td>$0</td></tr>
+        <tr><td><a href="verticals.html#change-safety">Change safety</a></td><td>11</td><td>8</td><td>2</td><td>$0</td></tr>
+        <tr><td><a href="verticals.html#cost-governance">Cost governance</a></td><td>7</td><td>4</td><td>3</td><td>$0</td></tr>
+      </tbody></table></div></section>
+      <nav class="ov-footer-links" aria-label="Outcome evidence"><a href="audit.html?window=30d&amp;outcome=auto">Terminal outcomes</a><a href="rules.html">Rules</a><a href="llm-cost.html">LLM usage</a></nav>
     </section>
-
-    <section class="ov-outcome-view" id="human-touchpoints" data-outcome-view="human-touchpoints" hidden>
-      <header class="ov-metric-intro"><div><h2>Operator work that remains</h2><p>Counts decisions or input from a person; read-only console views do not count as touchpoints.</p></div><span class="ov-metric-direction">Lower is better</span></header>
-      <div class="ov-evidence" aria-label="Human touchpoint evidence"><strong>Measured</strong><span>30 events</span><span>4 touchpoints</span><span>Source postgres-audit</span><span>As of 2026-07-22T15:18Z</span></div>
-      <section class="ov-kpis" aria-label="Human touchpoint summary"><article class="ov-kpi"><span class="ov-kpi-label">Touchpoints / 100 events</span><strong>13.3</strong><small class="ov-up">50% below baseline</small></article><article class="ov-kpi"><span class="ov-kpi-label">Baseline</span><strong>26.7</strong><small>Same scenario set and window</small></article><article class="ov-kpi"><span class="ov-kpi-label">Human-touched events</span><strong>3</strong><small>10% of observed events</small></article><article class="ov-kpi"><span class="ov-kpi-label">Approval wait median</span><strong>18m</strong><small>Largest remaining delay</small></article></section>
-      <section class="ov-two">
-        <article class="ov-panel"><h3>Touchpoint type</h3><p>The human actions that remained in this window.</p><div class="ov-bars"><div class="ov-bar-row"><span>Approval decision</span><span class="ov-bar-track"><i class="ov-bar-fill is-terracotta" style="width:100%"></i></span><strong>2</strong></div><div class="ov-bar-row"><span>Manual edit</span><span class="ov-bar-track"><i class="ov-bar-fill is-plum" style="width:50%"></i></span><strong>1</strong></div><div class="ov-bar-row"><span>Manual rollback</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:50%"></i></span><strong>1</strong></div></div></article>
-        <aside class="ov-panel"><h3>Where work accumulated</h3><p>Traceable stages, not inferred operator intent.</p><ul class="ov-list"><li><span>T2 risk review</span><strong>2</strong></li><li><span>Change policy correction</span><strong>1</strong></li><li><span>Recovery rollback</span><strong>1</strong></li><li><span>Read-only console views</span><strong>Excluded</strong></li></ul></aside>
-      </section>
-      <section class="ov-section"><div class="ov-section-head"><div><h2>Touchpoints by vertical</h2><p>Event volume, touched events, and human actions remain separate.</p></div><span class="ov-section-meta">4 recorded actions</span></div><div class="cs-table-wrap"><table class="cs-table ov-table"><thead><tr><th>Vertical</th><th class="num">Events</th><th class="num">Touched events</th><th class="num">Touchpoints</th><th class="num">Per 100</th></tr></thead><tbody><tr><td>Resilience</td><td class="num">12</td><td class="num">1</td><td class="num">1</td><td class="num">8.3</td></tr><tr><td>Change safety</td><td class="num">11</td><td class="num">2</td><td class="num">3</td><td class="num">27.3</td></tr><tr><td>Cost governance</td><td class="num">7</td><td class="num">0</td><td class="num">0</td><td class="num">0.0</td></tr></tbody></table></div><div class="ov-footer-links"><a href="hil.html">Open approval evidence</a><a href="audit.html?human_touch=true">View touchpoint records</a></div></section>
-    </section>
-
-    <section class="ov-outcome-view" id="mttr" data-outcome-view="mttr" hidden>
-      <header class="ov-metric-intro"><div><h2>Resolution latency and its tail</h2><p>Reports mean, median, and p90 together so a good average cannot hide slow recoveries.</p></div><span class="ov-metric-direction">Lower is better</span></header>
-      <div class="ov-evidence" aria-label="MTTR evidence"><strong>Measured</strong><span>24 resolved incidents</span><span>Confidence 88%</span><span>Source incident-lifecycle</span><span>3 unresolved excluded</span></div>
-      <section class="ov-kpis" aria-label="MTTR summary"><article class="ov-kpi"><span class="ov-kpi-label">Mean</span><strong>14.8m</strong><small class="ov-up">42% below baseline</small></article><article class="ov-kpi"><span class="ov-kpi-label">Median</span><strong>11.4m</strong><small>Baseline 26.9m</small></article><article class="ov-kpi"><span class="ov-kpi-label">P90</span><strong>32.6m</strong><small>Tail remains under review</small></article><article class="ov-kpi"><span class="ov-kpi-label">Excluded</span><strong>4</strong><small>3 unresolved, 1 integrity-invalid</small></article></section>
-      <section class="ov-two"><article class="ov-panel"><h3>Resolved incident distribution</h3><p>Counts by resolution duration, including the slow tail.</p><div class="ov-bars"><div class="ov-bar-row"><span>Under 10 minutes</span><span class="ov-bar-track"><i class="ov-bar-fill is-sage" style="width:89%"></i></span><strong>8</strong></div><div class="ov-bar-row"><span>10-20 minutes</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:100%"></i></span><strong>9</strong></div><div class="ov-bar-row"><span>20-40 minutes</span><span class="ov-bar-track"><i class="ov-bar-fill is-terracotta" style="width:56%"></i></span><strong>5</strong></div><div class="ov-bar-row"><span>Over 40 minutes</span><span class="ov-bar-track"><i class="ov-bar-fill is-plum" style="width:22%"></i></span><strong>2</strong></div></div></article><aside class="ov-panel"><h3>Tail drivers</h3><p>Recorded contributors for incidents above the p90 boundary.</p><ul class="ov-list"><li><span>External dependency recovery</span><strong>1</strong></li><li><span>Rollback verification</span><strong>1</strong></li><li><span>Negative durations</span><strong class="ov-up">0</strong></li><li><span>Missing lifecycle edge</span><strong>1 excluded</strong></li></ul></aside></section>
-      <section class="ov-section"><div class="ov-section-head"><div><h2>Latency by severity</h2><p>Percentiles and unresolved counts stay visible together.</p></div><span class="ov-section-meta">24 resolved / 3 open</span></div><div class="cs-table-wrap"><table class="cs-table ov-table"><thead><tr><th>Severity</th><th class="num">Resolved</th><th class="num">Median</th><th class="num">P90</th><th class="num">Unresolved</th></tr></thead><tbody><tr><td>SEV1</td><td class="num">3</td><td class="num">18.6m</td><td class="num">41.2m</td><td class="num">1</td></tr><tr><td>SEV2</td><td class="num">9</td><td class="num">12.1m</td><td class="num">31.4m</td><td class="num">1</td></tr><tr><td>SEV3</td><td class="num">12</td><td class="num">8.7m</td><td class="num">22.8m</td><td class="num">1</td></tr></tbody></table></div><div class="ov-footer-links"><a href="incidents.html?status=resolved">Inspect resolved incidents</a><a href="rca-report.html">Open RCA dossiers</a></div></section>
-    </section>
-
-    <section class="ov-outcome-view" id="change-lead-time" data-outcome-view="change-lead-time" hidden>
-      <header class="ov-metric-intro"><div><h2>Governed change from request to merge</h2><p>Separates processing time from approval wait while keeping change-failure guards beside the outcome.</p></div><span class="ov-metric-direction">Lower is better</span></header>
-      <div class="ov-evidence" aria-label="Change lead time evidence"><strong>Measured</strong><span>18 merged changes</span><span>Confidence 85%</span><span>Source git-delivery</span><span>2 blocked changes excluded</span></div>
-      <section class="ov-kpis" aria-label="Change lead time summary"><article class="ov-kpi"><span class="ov-kpi-label">Mean</span><strong>48m</strong><small class="ov-up">51% below baseline</small></article><article class="ov-kpi"><span class="ov-kpi-label">Median</span><strong>34m</strong><small>Baseline 96m</small></article><article class="ov-kpi"><span class="ov-kpi-label">P90</span><strong>2.1h</strong><small>Human-approved tail</small></article><article class="ov-kpi"><span class="ov-kpi-label">Change failure rate</span><strong>0%</strong><small class="ov-up">No guard regression</small></article></section>
-      <section class="ov-panel"><h3>Median stage contribution</h3><p>Request-to-merge time split by the recorded delivery lifecycle.</p><div class="ov-stage-flow"><div class="ov-stage"><span>Request validation</span><strong>6m</strong><small>18 changes</small></div><div class="ov-stage"><span>Risk and policy</span><strong>8m</strong><small>18 evaluated</small></div><div class="ov-stage"><span>Approval wait</span><strong>14m</strong><small>6 required approval</small></div><div class="ov-stage"><span>Merge delivery</span><strong>6m</strong><small>18 merged</small></div></div><div class="ov-boundary-note">Blocked and withdrawn changes remain visible as exclusions; they do not receive a zero-duration lead time.</div></section>
-      <section class="ov-section"><div class="ov-section-head"><div><h2>Delivery path comparison</h2><p>Automation speed is credited only while failure and rollback guards hold.</p></div><span class="ov-section-meta">20 governed requests</span></div><div class="cs-table-wrap"><table class="cs-table ov-table"><thead><tr><th>Path</th><th class="num">Changes</th><th class="num">Median</th><th class="num">P90</th><th class="num">Failure rate</th></tr></thead><tbody><tr><td>Policy-cleared auto-merge</td><td class="num">12</td><td class="num">18m</td><td class="num">35m</td><td class="num">0%</td></tr><tr><td>Human-approved merge</td><td class="num">6</td><td class="num">71m</td><td class="num">2.5h</td><td class="num">0%</td></tr><tr><td>Blocked or withdrawn</td><td class="num">2</td><td class="num">Unavailable</td><td class="num">Unavailable</td><td class="num">n/a</td></tr></tbody></table></div><div class="ov-footer-links"><a href="audit.html?action=change">View change audit</a><a href="promotion.html?guard=cfr">Inspect failure guard</a></div></section>
-    </section>
-
-    <section class="ov-outcome-view" id="cost-per-resolved-event" data-outcome-view="cost-per-resolved-event" hidden>
-      <header class="ov-metric-intro"><div><h2>Attributable spend per resolved result</h2><p>Includes inference, compute, storage, and event-bus usage attributed to an event; shared fixed overhead stays excluded.</p></div><span class="ov-metric-direction">Lower is better</span></header>
-      <aside class="cs-notice is-soft" role="note" aria-label="Cost estimate basis">
-        <span class="cs-notice-icon" aria-hidden="true">i</span>
-        <div class="cs-notice-content"><h4>Standard-price estimate</h4><p>Displayed cost and savings amounts use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.</p></div>
-      </aside>
-      <div class="ov-evidence" aria-label="Cost per resolved event evidence"><strong>Measured</strong><span>22 resolved outcomes</span><span>Attribution coverage 86%</span><span>Source cost-attribution</span><span>USD, 30-day window</span></div>
-      <section class="ov-kpis" aria-label="Cost per resolved event summary"><article class="ov-kpi"><span class="ov-kpi-label">Current</span><strong>$0.18</strong><small class="ov-up">42% below baseline</small></article><article class="ov-kpi"><span class="ov-kpi-label">Baseline</span><strong>$0.31</strong><small>Paired scenario set</small></article><article class="ov-kpi"><span class="ov-kpi-label">Attributed spend</span><strong>$3.97</strong><small>22 resolved outcomes</small></article><article class="ov-kpi"><span class="ov-kpi-label">Unattributed usage</span><strong>14%</strong><small>Not assigned to a result</small></article></section>
-      <section class="ov-two"><article class="ov-panel"><h3>Attributed cost composition</h3><p>Variable platform and inference spend assigned by event id.</p><div class="ov-bars"><div class="ov-bar-row"><span>Model inference</span><span class="ov-bar-track"><i class="ov-bar-fill is-plum" style="width:44%"></i></span><strong>44%</strong></div><div class="ov-bar-row"><span>Compute</span><span class="ov-bar-track"><i class="ov-bar-fill" style="width:28%"></i></span><strong>28%</strong></div><div class="ov-bar-row"><span>Storage</span><span class="ov-bar-track"><i class="ov-bar-fill is-teal" style="width:17%"></i></span><strong>17%</strong></div><div class="ov-bar-row"><span>Event bus</span><span class="ov-bar-track"><i class="ov-bar-fill is-terracotta" style="width:11%"></i></span><strong>11%</strong></div></div></article><aside class="ov-panel"><h3>Attribution boundary</h3><p>Cost claims remain conservative when a source cannot be tied to an outcome.</p><ul class="ov-list"><li><span>Event-linked usage</span><strong>86%</strong></li><li><span>Shared fixed overhead</span><strong>Excluded</strong></li><li><span>Mixed currency</span><strong class="ov-up">None</strong></li><li><span>Missing source</span><strong>Unavailable</strong></li></ul></aside></section>
-      <section class="ov-section"><div class="ov-section-head"><div><h2>Cost by resolved unit</h2><p>Incident, change, and optimization outcomes are reported separately.</p></div><span class="ov-section-meta">22 attributed outcomes</span></div><div class="cs-table-wrap"><table class="cs-table ov-table"><thead><tr><th>Resolved unit</th><th class="num">Outcomes</th><th class="num">Current / unit</th><th class="num">Baseline / unit</th><th>Evidence</th></tr></thead><tbody><tr><td>Incident</td><td class="num">12</td><td class="num">$0.22</td><td class="num">$0.39</td><td><span class="ov-status is-good">Measured</span></td></tr><tr><td>Change</td><td class="num">7</td><td class="num">$0.16</td><td class="num">$0.28</td><td><span class="ov-status is-good">Measured</span></td></tr><tr><td>Optimization</td><td class="num">3</td><td class="num">$0.07</td><td class="num">$0.17</td><td><span class="ov-status is-watch">Small sample</span></td></tr></tbody></table></div><div class="ov-footer-links"><a href="llm-cost.html">Inspect inference cost</a><a href="audit.html?cost_attributed=true">View attributed outcomes</a></div></section>
-    </section>
+    <section id="human-touchpoints" role="tabpanel" aria-labelledby="tab-human-touchpoints" data-overview-panel="human-touchpoints" hidden></section>
+    <section id="mttr" role="tabpanel" aria-labelledby="tab-mttr" data-overview-panel="mttr" hidden></section>
+    <section id="change-lead-time" role="tabpanel" aria-labelledby="tab-change-lead-time" data-overview-panel="change-lead-time" hidden></section>
+    <section id="cost-per-resolved-event" role="tabpanel" aria-labelledby="tab-cost-per-resolved-event" data-overview-panel="cost-per-resolved-event" hidden></section>
   </main>
-  <script>
-    (function () {
-      "use strict";
-      var aliases = { touchpoints: "human-touchpoints", "lead-time": "change-lead-time", cost: "cost-per-resolved-event" };
-      var tabs = Array.from(document.querySelectorAll("[data-outcome-tab]"));
-      var views = Array.from(document.querySelectorAll("[data-outcome-view]"));
-      var allowed = views.map(function (view) { return view.dataset.outcomeView; });
-
-      function activateOutcome() {
-        var requested = window.location.hash.slice(1) || "auto-resolution";
-        var active = aliases[requested] || requested;
-        if (!allowed.includes(active)) active = "auto-resolution";
-        tabs.forEach(function (tab) {
-          var selected = tab.dataset.outcomeTab === active;
-          tab.classList.toggle("is-active", selected);
-          if (selected) tab.setAttribute("aria-current", "page");
-          else tab.removeAttribute("aria-current");
-        });
-        views.forEach(function (view) { view.hidden = view.dataset.outcomeView !== active; });
-      }
-
-      window.addEventListener("hashchange", activateOutcome);
-      activateOutcome();
-    }());
-  </script>
 </body>
 </html>

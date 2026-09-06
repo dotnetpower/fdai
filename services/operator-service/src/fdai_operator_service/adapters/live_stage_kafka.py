@@ -16,12 +16,15 @@ from azure.identity.aio import ManagedIdentityCredential
 
 from fdai_operator_service.streaming import (
     AgentActivityProjector,
+    LiveStreamEvent,
     LiveStreamHub,
     parse_stage_frame,
 )
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_STAGE_MESSAGE_BYTES = 256 * 1_024
+_LIVE_REPLAY_CAPACITY = 256
+_LIVE_REPLAY_WINDOW_SECONDS = 60.0
 
 
 class _KafkaMessage(Protocol):
@@ -90,6 +93,10 @@ class LiveStageKafkaRelay:
             raise ValueError("SASL_SSL Kafka transport requires a managed identity")
         self._config = config
         self._hub = hub
+        self._hub.enable_recent_replay(
+            capacity=_LIVE_REPLAY_CAPACITY,
+            window_seconds=_LIVE_REPLAY_WINDOW_SECONDS,
+        )
         self._agent_hub = agent_hub
         self._agent_projector = AgentActivityProjector()
         self._credential = credential
@@ -145,7 +152,9 @@ class LiveStageKafkaRelay:
                     stage_event = parse_stage_frame(payload)
                     if stage_event is not None:
                         await self._hub.publish(stage_event)
-                    for agent_event in self._agent_projector.project(payload):
+                    agent_events = self._agent_projector.project(payload)
+                    await self._publish_source_observation(agent_events)
+                    for agent_event in agent_events:
                         await self._agent_hub.publish(agent_event)
                 await active.commit()
             except asyncio.CancelledError:
@@ -159,6 +168,33 @@ class LiveStageKafkaRelay:
                 active = self._consumer_factory()
                 await active.start()
                 self._consumer = active
+
+    async def _publish_source_observation(
+        self,
+        events: tuple[LiveStreamEvent, ...],
+    ) -> None:
+        for event in events:
+            source = event.payload.get("source")
+            timestamp = event.payload.get("ts")
+            if (
+                event.payload.get("type") != "agent.state"
+                or event.payload.get("agent") != "Huginn"
+                or source not in {"runtime-observed", "replay"}
+                or not isinstance(timestamp, str)
+            ):
+                continue
+            await self._hub.publish_source(
+                LiveStreamEvent(
+                    event_id=f"source:{source}",
+                    event_type="source",
+                    payload={
+                        "status": "ready",
+                        "source": source,
+                        "ts": timestamp,
+                    },
+                )
+            )
+            return
 
     def _build_consumer(self) -> _KafkaConsumer:
         options: dict[str, object]

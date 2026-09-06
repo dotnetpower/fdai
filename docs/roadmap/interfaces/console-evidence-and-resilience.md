@@ -25,10 +25,14 @@ The shared top bar renders the icon-only FDAI mark in its original source colors
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
 window, and connection status remain visible. An open SSE response proves transport connectivity
-only. Live reports the source as ready only after an authoritative runtime or replay stage frame
-is observed. A keepalive-only connection renders `Awaiting source`, keeps operational metrics
+only. Live reports the source as ready after a fresh validated Huginn runtime heartbeat or an
+authoritative runtime or replay stage frame is observed. The runtime-source marker expires after
+15 seconds without a new observation and never creates a control-loop tile. A keepalive-only connection renders `Awaiting source`, keeps operational metrics
 unavailable, and points the operator to Core Runtime and stage-topic readiness instead of
-presenting zero as measured health. Flow is the default view with a bounded 12-item work pool.
+presenting zero as measured health. The Operator API retains at most 256 accepted stage frames for
+60 seconds and replays them in observed order when a new Live subscriber connects. This
+process-local recovery fills only the current Live window, resets when the Operator API restarts,
+and never replaces History. Flow is the default view with a bounded 12-item work pool.
 Flow and Queue preserve the same title, target, scope, reason, tier, mode, owner, and stage facts;
 Queue adds only observed risk, impact, SLA, and control-state fields. Flow renders only populated
 work, packs six items per desktop row, and sorts by attention priority and then newest

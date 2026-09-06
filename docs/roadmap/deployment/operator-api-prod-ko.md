@@ -1,8 +1,8 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: ace6d28ba35869f46c90438a5cc976014e48b712
-translation_revised: 2026-08-21
+translation_source_sha: be746ca1196cc81e49ac5d202c1a6a69d3ac984e
+translation_revised: 2026-09-07
 ---
 # 콘솔 Operator API 프로덕션 배포
 
@@ -25,13 +25,14 @@ translation_revised: 2026-08-21
 | 독립 서비스 진입점 및 환경 검증 | implemented | `services/operator-service/src/fdai_operator_service/main.py`, `production.py`, `environment.py` 및 조립 테스트 | 서비스는 팩토리 하나를 소유하며 프로바이더 사용 전에 수신기, Entra, RBAC, CORS, 데이터베이스 및 의미 전송 조합을 검증합니다. |
 | Entra 인증 및 범위가 제한된 운영자 권한 부여 | implemented | `services/operator-service/src/fdai_operator_service/auth.py`, 경로 기능군 권한 부여 및 집중 서비스 테스트 | 사람 신원은 실행기 신원과 분리되며 와일드카드 CORS와 부분 의미 전송 구성은 실패 시 차단됩니다. |
 | PostgreSQL 읽기 및 기능군 저장소 | implemented | `postgres.py`, `postgres_family_store.py` 및 `test_operator_service_postgres.py` | DSN 정규화, 연결 한계, 역할 연결, 트랜잭션별 명령문 시간 제한 및 사용할 수 없는 변환 결과가 구현되어 있습니다. |
-| Kafka 의미 전송 및 실시간/에이전트 중계 | implemented | `adapters/`, `streaming/`, `test_semantic_kafka_adapter.py`, `test_semantic_turn_bridge.py` 및 `test_live_stream.py` | 로컬 평문 전송과 배포된 관리 신원 전송은 명시적인 실행 위치 선택으로 유지됩니다. |
+| Kafka 의미 전송 및 실시간/에이전트 중계 | implemented | `adapters/`, `streaming/`, `test_semantic_kafka_adapter.py`, `test_semantic_turn_bridge.py` 및 `test_live_stream.py` | 로컬 평문 전송과 배포된 관리 신원 전송은 명시적인 실행 위치 선택으로 유지됩니다. 새 Live 구독자는 앞선 60초 동안 허용된 프로세스 내부 단계 프레임만 받습니다. |
 | 독립 배포된 Operator 서비스 | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 저장소 보관 가능한 실제 운영 근거가 독립 패키지 서비스, 마이그레이션 분기, 상태 검사 및 롤백 경계를 다룹니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 영속 이력 경계를 바꾸지 않고 새 Live 구독자를 위해 용량과 시간이 제한된 최근 단계 재생 및 검증된 최신 런타임 소스 표시를 추가했습니다. | `current change`; Live hub, Kafka 중계, 브라우저 hook 및 집중 테스트; Operator pytest 16개와 Console Vitest 22개를 통과했고 Ruff, mypy 및 Console typecheck를 통과했습니다. | 관리되는 런타임 검증은 별도입니다. Operator API를 다시 시작하면 재생 구간이 초기화되고 새로운 Huginn 관찰이 없으면 소스 준비 상태가 만료됩니다. |
 | 2026-08-14 | validated | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 사용 중단된 공동 호스팅 파사드 참조를 독립 Operator 서비스로 갱신했습니다. | 현재 변경, 집중 Operator 서비스 검사 및 독립 서비스 실제 운영 근거 매니페스트 | 서비스가 발전함에 따라 환경 계약, 서비스 테스트, 배포 작업 흐름 및 실제 운영 근거 매니페스트를 함께 갱신해야 합니다. |
 
 ### 남은 작업
@@ -63,7 +64,11 @@ translation_revised: 2026-08-21
   `/agents/stream` 읽기 경로를 항상 등록합니다. Kafka 초기화 엔드포인트가 구성되면
   하나의 서비스 소유 소비자 그룹이 `fdai.pipeline.stages`를 읽고 단계 및 Pantheon 런타임
   상태 레코드를 검증한 뒤 허용된 레코드를 별도의 범위 제한 프로세스 내부 SSE 싱크로 전달합니다. 앱 수명 주기는 중계를 시작하고
-  중지하며 중계가 독립적으로 소유한 Kafka 소비자를 닫습니다. Kafka 구성이 없으면
+  중지하며 중계가 독립적으로 소유한 Kafka 소비자를 닫습니다. Live 싱크는 허용된 단계 프레임을
+  최대 256개까지 60초 동안 유지하고 새 구독자에게 관찰된 순서로 재생합니다. 이 프로세스 내부
+  복구는 서비스를 다시 시작하면 초기화되며 영속 이력을 대체하지 않습니다. 검증된 Huginn 런타임
+  heartbeat는 단계나 제어 루프 항목을 만들지 않고 Live가 보존하는 `event: source` 준비 상태
+  표시도 갱신합니다. Kafka 구성이 없으면
   경로는 연결 유지 신호를 보내며 `Awaiting source`를 표시합니다. 전송 연결을
   런타임 근거로 표시하지 않습니다. 브라우저의 native `EventSource` API는
   `Authorization` 헤더를 첨부할 수 없으므로 콘솔은 인증된 fetch 스트리밍으로 이를

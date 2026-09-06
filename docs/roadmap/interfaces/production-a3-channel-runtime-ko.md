@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 4154275259edd8c6459f0cdb7b245ef46026f1f9
-translation_revised: 2026-09-04
+translation_source_sha: e1b06f3d2f92be1f8dab0e30f9691f8e22358d38
+translation_revised: 2026-09-06
 ---
 # 운영 A3 채널 런타임
 
@@ -46,6 +46,34 @@ compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Co
 
 ![설계 개요. 주요 단계는 Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher입니다.](../../diagrams/generated/fdai-roadmap-interfaces-production-a3-channel-runtime-01.ko.svg)
 
+## 인벤토리 문서 표현
+
+표를 먼저 요청하지 않아도 구독의 리소스 인벤토리 문서를 새로 요청할 수 있습니다.
+의미 판단은 `create.document`, `advise_only`, `action_subject=none`과
+`resource_inventory`, `subscription`, `complete_content`, `download` 항목을 사용합니다.
+Core는 이 형식화된 필드를 기존 `select/resource_list` 프레임과 검증된 principal 범위의
+Resource ObjectSet 하나에 연결합니다. 키워드 라우터, Operator의 프로바이더 호출, 새로운
+FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_documents`는 계속 업로드된
+문서를 조회하며, 인벤토리 문서를 생성하는 기능이 아닙니다.
+
+- **원본:** Operator는 `ConversationDocumentExporter`를 재사용해 이번 대화 차례의 영속
+  답변 결과를 문서로 만듭니다. 직전 결과를 사용하는 `create.document/draft_only/Document`
+  경로는 별도로 유지합니다. 새 인벤토리 문서는 관련 없는 직전 답변을 원본으로 사용하지 않습니다.
+- **공개 범위:** 문서에는 반환된 모든 허용 행과 공개 가능한 스칼라 인벤토리 속성이 포함됩니다.
+  읽기가 허용된 정본 유형과 부모 정보도 포함하며 기존 마스킹을 유지합니다.
+  중첩된 프로바이더 구성과 관측하지 않은 상세 정보는 명시적으로 제외합니다.
+  조회 기록 시각은 속성의 관측 시각을 대신하지 않습니다.
+- **완전성:** 조회와 내보내기는 최대 1000행으로 제한합니다. 기존 의미 출력 상한인 48000바이트,
+  내보내기 상한인 16열, Markdown 상한인 192 KiB를 유지합니다. 표시가 잘렸거나 원본의 완전성을
+  알 수 없거나 원본에 제약이 있으면, 반환된 행을 모두 담을 수 있어도 완전한 다운로드를
+  만들지 않습니다. 검증된 완전한 0행 결과는 내보낼 수 있습니다. 한도 소진은 구독이 비어 있거나
+  조회가 완전하다는 근거가 되지 않습니다.
+- **설계 비평:** 모든 문서 요청을 작업으로 분류하면 존재하지 않는 변경 권한을 요구하게 됩니다.
+  직전 답변을 내보내면 잘못된 원본을 선택하고, 내보내기 한도만 높이면 Core의 채팅 미리보기에서
+  행이 계속 누락됩니다. 수정한 설계는 새 조회와 직전 결과의 서식 변환을 분리하고, 미리보기를
+  줄이기 전에 제한된 문서 행을 보존하며, 원본과 행의 완전성을 모두 요구합니다.
+  더 좁은 대상, 추가 요청, 외부 게시, 관리 리소스 변경을 이 컬렉션 조회로 임의 축소하지 않습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -57,6 +85,7 @@ compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Co
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
 | 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 기한이 된 전송은 프로바이더 I/O 전에 활성 principal, scope, conversation 및 channel binding을 다시 검증합니다. |
 | Principal 범위 대화 문서 | 구현됨 | `document_export.py`, 인증된 문서 경로, semantic outbox 원본 바인딩, 집중 Operator 검사 | 문서 초안은 인증된 principal의 직전 검증 결과만 replay합니다. 일부 또는 지원되지 않는 콘텐츠에는 다운로드를 만들지 않으며, 완전하고 범위가 제한된 표는 실행 권한 없이 Markdown과 선택적 PDF로 다시 생성할 수 있습니다. |
+| 새 인벤토리 문서와 원본 완전성 | 진행 중 | `semantic_planning_frame_normalization.py`; `semantic_planning_specialized_plans.py`; `semantic_turn_processor.py`; `document_export.py`; `semantic_turn_runtime.py`; 인접 합성 테스트 | 현재 변경에는 첫 요청의 문서 조회, 제한된 행 보존, 명시적 제외 항목, 엄격한 원본 완전성 검사가 포함됩니다. 집중 검사는 조정 세션에서 수행할 예정이며, 실제 모델의 바꿔 말하기 품질이나 지연 시간 개선을 주장하지 않습니다. |
 | 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, platform 및 서비스 Terraform root, 보호된 배포 workflow 및 helper, 집중 검사 | Platform은 provider 자격 증명 없이 전용 non-executor 신원과 Operator DSN 접근을 준비할 수 있습니다. 독립 서비스 root는 edge workload를 만들기 전에 principal scope와 완전한 Slack 또는 Teams Key Vault 계약 하나를 계속 요구합니다. |
 | 독립 hardening | 구현됨 | [Hardening 캠페인](#hardening-캠페인), 집중 edge 검사 81개 통과, Ruff 및 strict mypy | 독립 round 10개를 완료했고 수락한 모든 finding에 집중 회귀를 추가했으며 검증된 Medium 이상 잔여가 없습니다. 보호된 런타임 근거는 별도 검증 gate로 유지합니다. |
 
@@ -78,9 +107,13 @@ compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Co
 | 2026-08-20 | 구현됨 | 별도 edge Container App을 거부하던 보호된 전달 gap을 닫았습니다. Platform plan은 전용 identity와 secret scope를 연결하고, Operator service plan은 명시적 edge enable 또는 disable transition, exact target identity와 image, 새 revision health, route 제거 및 primary revision 복구 전 자동 disabled-state rollback을 봉인합니다. | `current change`, 보호된 service 배포 및 workflow 계약 검사 126 + 28개, workflow YAML 및 rollback shell syntax 통과 | 승인된 credential store를 통해 실제 Slack 또는 Teams 프로바이더 credential과 principal-mapping profile 하나를 제공하고 로컬 provider 및 보호된 plan/apply/rollback 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | 암묵적 action, plan 대체, 공개 route 잔존, secret 노출, identity 대체 및 복구 순서를 대상으로 보호된 rollout을 다시 검토했습니다. 수락한 finding 하나는 primary health 전에 disable route-removal proof를 실행하도록 교정했습니다. 의심 finding 8개는 분리된 primary/edge resource, exact transition 봉인 및 terminal rollback 검사로 기각했습니다. 검증된 Medium 이상 구현 잔여는 없습니다. | `current change`, 집중 수정 뒤 route-closure 및 자동 rollback 검사 2개 통과, 전체 보호된 배포 검사는 앞서 154개 통과 | Runtime 검증에는 실제 프로바이더 material과 통제된 증적이 계속 필요하며 이는 구현 잔여가 아닙니다. |
 | 2026-09-01 | 구현됨 | Operator 또는 A3 전달 경로가 종단 의미 claim과 읽기 활동을 노출하기 전에 정확히 완료된 Core receipt에 연결하도록 했습니다. 쿼리 인수와 프로바이더 출력 값은 종단 실행 기록에 포함하지 않습니다. 실행 기록에는 범위가 제한된 capability 식별자, 상태, 소요 시간, 출력 가용성, 완전성 및 잘림 상태만 포함합니다. | `current change`, 집중 Core 및 Operator 의미 suite 207개, Conversation Assurance 계약 검사 78개, Ruff 및 formatting 통과 | 기존 프로바이더 및 배포 선행 조건이 준비된 뒤에만 통제된 채널 전달 근거를 보존합니다. |
+| 2026-09-06 | 진행 중 | 새 구독 인벤토리 문서와 직전 결과의 서식 변환을 분리하고, 채팅 표시를 줄이기 전에 제한된 행을 보존하며, 불완전한 원본을 차단했습니다. | `current change`; 의미 계획, Core 변환 결과, 내보내기, Operator 연결 소스 및 합성 회귀 테스트; 집중 검사 실행은 대기 중입니다. | 집중 검사를 실행하고 별도 승인된 실제 모델의 바꿔 말하기 근거를 보존합니다. 임의의 중첩 프로바이더 구성은 제외합니다. |
 
 ### 남은 작업
 
+- [ ] 현재 인벤토리 문서 변경에 대해 문서, 의미 계획, Core 변환 결과, Operator 연결의 집중
+  테스트를 실행합니다. 실제 언어 표현의 강건성을 주장하기 전에 원문과 바꿔 말한 질문에 대한
+  모델 근거를 별도 승인을 받아 보존합니다.
 - [x] 이 문서의 모든 구현 범위를 완성하고 focused 검사를 통과합니다. Focused commit에 exact-diff 근거를 보존합니다.
 - [x] 최소 10개 비평 round를 완료하고 Low 또는 기각된 잔여만 보존합니다.
 - [ ] 저장소나 workflow 출력에 값을 노출하지 않고 local-only input, Key Vault, GitHub secret

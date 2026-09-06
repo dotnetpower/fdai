@@ -76,9 +76,11 @@ freshness bounds with `execution_authority=false`. It contains no endpoints, cre
 content, or shared workflow authority.
 
 Operator reads this projection only after bounded shape and freshness validation and uses only
-`model` and `router` to enrich `/chat/health`. Missing, invalid, or expired routing data cannot
-change semantic transport availability or manufacture a healthy model. Health availability remains
-the semantic bridge's transport readiness, not a successful inference or verified answer.
+`model` and `router` to enrich `/chat/health`. The response envelope can also carry binary documents
+or no body, so the health reader accepts unknown input and rejects every non-object value. Missing,
+invalid, or expired routing data cannot change semantic transport availability or manufacture a
+healthy model. Health availability remains the semantic bridge's transport readiness, not a
+successful inference or verified answer.
 
 The Console shows `T1` plus the projected deployment in the model badge. Its tooltip distinguishes
 candidate timings, sample counts, and measured, stale, unmeasured, or failed status. An open,
@@ -111,10 +113,12 @@ deterministically and skips the second frame-model call. The exact function must
 principal-scoped manifest, and the normal verifier, evidence execution, and answer checks still run.
 Novel, ambiguous, action-related, or unbound questions keep the general frame-planning path.
 Provider calls use strict structured output instead of a free-form JSON object plus a repeated
-textual schema. A first-turn operational judgment does not run the social preflight because the
-accepted typed judgment already proves the turn is operational. Direct-response candidates still
-require the independent preflight before any social answer is rendered, and prior-turn requests
-keep the preflight because acknowledgement and pending-decision context can change their meaning.
+textual schema. Compact preflight now runs on the first turn before adaptive planning. Explicit and
+contextual operational signals enter full semantic judgment directly, while mixed signals retain
+adaptive goal separation. Accepted operational diagnostic intents use at most five reviewed
+descriptors and a 544-token operational frame prompt; their schema-inclusive request cannot exceed
+64 KiB. Direct-response candidates still require the independent preflight before any social answer
+is rendered.
 
 Console starter questions expose only this contract-covered function-backed set. They ask for
 current server-owned evidence instead of browser-authored screen summaries, tier estimates, pending
@@ -327,6 +331,9 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-07 | implemented | Added a live operational-conversation qualification gate that measures the first `onToken` callback independently from status and terminal timing and fails above 5 seconds. | `current change`; Console typecheck passed. | Run the gate after the complete standard stack starts from one exact source revision. |
+| 2026-09-07 | implemented | Moved compact preflight ahead of adaptive planning for first-turn explicit/contextual operational signals and selected a dedicated bounded frame prompt plus intent-scoped descriptors after semantic judgment. | `current change`; 1,237 focused component tests, targeted Ruff, and strict mypy passed. | Measure verified first-answer-token latency on one coherent standard-stack SHA; status frames do not satisfy the 5-second TTFT target. |
+| 2026-09-06 | implemented | Corrected the T1 health boundary after the conversation response envelope gained binary and absent bodies. The health parser now accepts unknown input and rejects non-object values, while the semantic runtime facade explicitly exports the reader that Operator composition already consumes. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py`, and focused strict mypy, Operator, and service-suite checks. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |
 | 2026-09-06 | implemented | Routed the T1 health reader through the existing semantic runtime facade so local and deployed Operator composition keep the same binding while the root remains below its reviewed fanout ceiling. | `current change`; Operator boundary check reports 39 unique imports; 92 focused composition and T1 health checks passed; Ruff passed. | Retain visible-browser and governed deployed runtime evidence before reporting end-to-end latency validation. |
 | 2026-09-05 | implemented | Refined incident and adaptive replies, retained investigation records across completion, and added inline synthetic Markdown prompt inspection without blocking chat. | `current change`; the three mock Playwright files listed above passed their focused scenarios; shared style checks and Console typecheck passed. | Production adoption requires separate review and authenticated, permission-scoped evidence; no runtime prompt capture is claimed. |
 | 2026-09-02 | implemented | Added revision-fenced answer-continuity and prompt-ablation settings, one startup-consistent Core snapshot, and localized Console controls without personalizing T2 or granting action authority. | `current change`; focused Core, Operator, and Console checks in the prompt-composition implementation record. | Retain a governed shadow campaign before claiming runtime validation. |
