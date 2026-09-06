@@ -2190,7 +2190,7 @@ body.cs-modal-open { overflow: hidden; }
   .cs-context-domain, .cs-input-addon, .cs-schedule-panel p,
   .cs-schedule-facts :where(span, strong), .cs-type-caption,
   .cs-type-specimen-sample code
-) { font-size: var(--cs-type-label-size) !important; }
+):not(:where(.cs-settings-neutral *)) { font-size: var(--cs-type-label-size) !important; }
 
 /* ==========================================================================
    Cross-screen polish campaign: twenty focused passes over every Calm Slate

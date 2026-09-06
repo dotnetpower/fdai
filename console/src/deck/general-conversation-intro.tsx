@@ -3,7 +3,7 @@ import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import "./conversation-entry.css";
 
-/** General starters fill the composer; only the operator sends a question. */
+/** Explicit starter activation sends a question through the normal composer path. */
 export function GeneralConversationIntro({
   onPick,
   children,
@@ -18,7 +18,9 @@ export function GeneralConversationIntro({
       {children}
       <div class="deck-general-suggestions" aria-label={t("deck.generalExamples")}>
         {["explain", "compare", "summarize"].map((key) => (
-          <Tooltip key={key} content={t(`deck.generalStarters.${key}.prompt`)}>
+          <Tooltip key={key} content={t("deck.generalStarterSendHint", {
+            prompt: t(`deck.generalStarters.${key}.prompt`),
+          })}>
             <button type="button" onClick={() => onPick(t(`deck.generalStarters.${key}.prompt`))}>
               {t(`deck.generalStarters.${key}.label`)}
             </button>

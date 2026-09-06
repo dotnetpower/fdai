@@ -404,15 +404,15 @@
       "view_label": "Preferences",
       "level": "pattern",
       "owner": "Console design system",
-      "api": "cs-settings-section / cs-setting-row / cs-settings-language / cs-settings-card / cs-control-action-bar",
+      "api": "cs-settings-section / cs-setting-row / cs-control-segmented / cs-settings-card / cs-control-action-bar",
       "source": "mocks/ui/assets/settings-neutral.css",
       "routes": [{"label": "General settings", "href": "settings.html"}, {"label": "Operator memory", "href": "settings-memory.html"}],
       "states": ["account scoped", "browser scoped", "selected", "enabled", "save unavailable", "schedule", "saved memory"],
       "interaction_roles": ["standard_action", "segmented_option"],
-      "use_when": "Compose scoped preferences, explicit save boundaries, schedules, and records with provenance in the Clear neutral Settings mocks.",
+      "use_when": "Compose scoped preferences, explicit save boundaries, schedules, and records with provenance. Settings use 18px section titles, 14px body text, and aligned 320px control columns. Buttons, compact actions, inputs, selects, and individual segmented choices share a 44px height; segmented groups add no vertical padding.",
       "do_not": "Do not imply that sample selections persist, change language, or grant execution authority.",
-      "responsive": "Stack the control below its label when the container is narrower than 760px; keep language choices at most 240px wide and wrap timestamps and long descriptions.",
-      "a11y": "Use named native controls, pressed state, a selected-language checkmark, visible focus, and text for disabled save state."
+      "responsive": "Stack controls below their labels at 680px container width. Keep every preference control at most 320px wide; wrap long text and five-option groups in very narrow containers.",
+      "a11y": "Use named native controls, pressed state, bold selected labels, visible focus, and explicit disabled save state. Supporting text targets 7:1 contrast and active control boundaries target 3:1."
     },
     {
       "id": "settings-catalog",

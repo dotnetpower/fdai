@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4c495ccf051aa010334bdd93a5cec12ba2cd41be
+translation_source_sha: df38ccc322ce918873edc1bc7ebb4b142a13a2c7
 translation_revised: 2026-09-06
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -9,7 +9,7 @@ translation_revised: 2026-09-06
 이 문서는 점진적으로 진행되는 오퍼레이터 콘솔 대화의 채널 중립적인 가지 수명 주기, 순서가 있는
 집약, 검증된 개정판, 범위가 제한된 진행 상황 계약을 소유합니다.
 
-Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. 등록된 모든 패널은 로딩, 오류,
+Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. 등록된 모든 패널은 로딩, 오류,
 화면 전환 상태에서 대체 정보로 화면 식별자와 목적을 제공합니다. 검증된 표시 근거가 있는 경로는
 이 대체 정보를 범위가 제한된 사실과 레코드로 교체할 수 있습니다.
 각 특화 스냅샷은 목적과 함께 공통 카탈로그에서 구성한 용어집을 선언하므로 브라우저가 용어를
@@ -24,6 +24,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 일반 대화 예시 질문 즉시 전송 | 구현됨 | `general-conversation-intro.tsx`, `command-deck-view.tsx`, `conversation-entry.spec.ts` | 양 언어의 예시 버튼 세 개는 클릭하거나 키보드로 실행하면 표시된 질문을 선택한 맥락에 맞는 일반 전송 경로로 보냅니다. 툴팁은 즉시 전송 동작을 안내합니다. 실제 모델 호출 없이 합성 응답으로 예시 질문 검사 6개와 기존 진입점 검사 2개를 통과했습니다. |
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
 | 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
 | 계약으로 검증된 시작 질문 | 구현됨 | `intro-suggestions.ts`, 이중 언어 Console 카탈로그, `semantic_operational_summary_planning.py`, 질문 은행 산출물, 집중 Core, Console 및 질문 은행 검사 | 비어 있는 Deck에는 검토된 Resource 상태, Resource Health, Service Health 질문 5개만 표시합니다. 수락되고 모호하지 않은 타입 기반 함수 intent는 두 번째 모델 호출 없이 결정론적으로 검증된 프레임을 재사용할 수 있습니다. 구현되지 않은 화면 요약, tier 구성, 승인, 실패 원인, 기회 질문은 준비된 예시로 표시하지 않습니다. |
@@ -47,6 +48,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | 구현됨 | 일반 대화 예시 버튼이 초안만 채우는 대신 일반 전송 경로로 바로 질문을 보내도록 변경하고 양 언어 툴팁에 전송 안내를 추가했습니다. | `current change`, `conversation-entry.spec.ts`: 8개 통과, 집중 채팅 및 카탈로그 검사: 48개 통과, Console 타입 검사 | 실제 모델 호출이나 리소스 실행 검증은 요청되지 않았으며 수행하지 않았습니다. |
 | 2026-09-06 | 구현됨 | 일반 대화 시작 화면과 명시적 화면 추가 기능을 완성했습니다. 다시 열 때 별도 초안을 보존하고 일반 이력은 화면을 이동하지 않으며 두 전송 경로는 선택한 스냅샷을 사용합니다. 답변 재생성도 화면 없는 요청을 그대로 유지합니다. | `current change`, `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`, 집중 단위 검사와 합성 브라우저 검사 | 이 UI 검증에서는 모델 답변이나 리소스 실행을 호출하지 않았습니다. |
 | 2026-09-06 | 구현됨 | 일반 Deck과 현재 화면 Deck 진입을 분리하고 경로 스냅샷이 일반 제출에 들어가지 않게 했으며 작업 초안에 로그인 계정과 서버 재검증 경계를 표시했습니다. | `current change`, 집중 Deck, 탐색, 근거 기반 답변, 카탈로그 및 타입 검사 | 두 진입 모드의 인증된 Browser 증적을 보존하기 전에는 배포 검증을 주장하지 않습니다. |
 | 2026-09-06 | 구현됨 | 정확한 인시던트 바인딩과 최소한의 요청 메타데이터를 유지하면서 자동 인시던트 바인딩 조사 요청에서 활성 패널 스냅샷을 제외했습니다. | `current change`, `command-deck.tsx`, `use-command-deck-events.ts`, 집중 Console 검사 38개 통과, 인증된 Browser Entra 요청 확인에서 검증된 인시던트 근거 반환 | 이 범위가 제한된 맥락 격리 변경에 남은 작업이 없습니다. |
@@ -132,7 +134,9 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 ## Command Deck 작업 영역 수명 주기
 
 좌측 메뉴는 기본적으로 전체 작업 영역에 일반 대화를 엽니다. 빈 화면에는 "무엇을 도와드릴까요?",
-입력창 하나, 질문을 전송하지 않고 초안에 채우는 작은 예시 버튼 세 개를 표시합니다.
+입력창 하나, 클릭하거나 키보드로 실행하면 질문을 바로 보내는 작은 예시 버튼 세 개를 표시합니다.
+툴팁은 전송할 질문과 즉시 전송 동작을 안내합니다. 예시 질문도 선택한 맥락을 반영하는 일반 전송
+경로를 사용하며 첨부와 중복 전송 검사를 그대로 거칩니다.
 하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 우측 패널에 엽니다.
 각 진입점은 배치 선택을 따로 기억합니다. 일반 대화는 현재 화면의 근거를 자동으로 포함하지 않습니다.
 "현재 화면 추가"를 선택하면 스냅샷을 저장하고 제거 가능한 "참고 화면" 칩으로 표시합니다.

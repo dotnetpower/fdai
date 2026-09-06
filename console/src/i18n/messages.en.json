@@ -2470,6 +2470,7 @@
     "generalWelcome": "How can I help?",
     "generalIntro": "Ask a question about any topic.",
     "generalExamples": "Example questions",
+    "generalStarterSendHint": "Send this question now: {prompt}",
     "generalStarters": {
       "explain": { "label": "Explain a concept", "prompt": "Explain the difference between SLI, SLO, and SLA with examples." },
       "compare": { "label": "Compare options", "prompt": "Compare blue-green and canary deployments, including their trade-offs." },

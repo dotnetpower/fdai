@@ -2470,6 +2470,7 @@
     "generalWelcome": "무엇을 도와드릴까요?",
     "generalIntro": "궁금한 점을 자유롭게 물어보세요.",
     "generalExamples": "질문 예시",
+    "generalStarterSendHint": "이 질문을 바로 전송합니다: {prompt}",
     "generalStarters": {
       "explain": { "label": "개념 설명", "prompt": "SLI, SLO, SLA의 차이를 예시와 함께 설명해 줘." },
       "compare": { "label": "비교하기", "prompt": "블루-그린 배포와 카나리 배포의 장단점을 비교해 줘." },

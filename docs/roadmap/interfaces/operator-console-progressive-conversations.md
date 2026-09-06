@@ -6,7 +6,7 @@ title: Operator Console Progressive Conversations
 This document owns the channel-neutral branch lifecycle, ordered reduction, verified revision, and
 bounded progress contract for progressive Operator Console conversations.
 
-The Command Deck receives a route-scoped `ViewSnapshot` for the active panel. Every registered panel
+Screen conversations in the Command Deck receive a route-scoped `ViewSnapshot`. Every registered panel
 provides its identity and purpose as a fallback during loading, error, and transition states. Routes
 that expose verified visible evidence can replace that fallback with bounded facts and records.
 Every specialized snapshot declares a shared-catalog glossary alongside its purpose so route context
@@ -22,6 +22,7 @@ context cannot appear as incident evidence.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| General starter immediate submission | implemented | `general-conversation-intro.tsx`; `command-deck-view.tsx`; `conversation-entry.spec.ts` | All three bilingual starters submit the displayed question through the normal context-aware path on pointer or keyboard activation. Tooltips explain immediate submission. Six starter cases and both existing entry scenarios pass with synthetic responses, not live model calls. |
 | Web progressive stream reduction | implemented | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | Focused tests cover ordered frames, replay rejection, branch lifecycle, confirmed revisions, and partial turns. This row does not claim Teams or Slack runtime validation. |
 | Direct-response lifecycle suppression | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), and focused Operator and Console checks | Operator does not inspect operator text or predict terminal disposition when a stream opens. A model-selected typed direct response emits `done` alone. Console shows an ephemeral compact pending row immediately after submit, expands to the detailed preparation trace only after an observed progress frame, and removes both on a direct terminal response. The browser interpolates only presentation geometry and terminal-only text reveal; it does not invent lifecycle content. |
 | Contract-backed starter questions | implemented | `intro-suggestions.ts`; bilingual Console catalogs; `semantic_operational_summary_planning.py`; question-bank artifacts; focused Core, Console, and question-bank checks | The empty Deck exposes five reviewed Resource state, Resource Health, and Service Health questions. An accepted unambiguous typed function intent can reuse a deterministic verified frame without a second model call. Unimplemented screen-summary, tier-mix, approval, failure-cause, and opportunity questions are not presented as ready examples. |
@@ -45,6 +46,7 @@ context cannot appear as incident evidence.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Changed general starter buttons from draft-only insertion to immediate normal submission and added bilingual send-preview tooltips. | `current change`; `conversation-entry.spec.ts`: 8 passed; focused chat/catalog checks: 48 passed; Console typecheck. | No live model or resource-execution validation was requested or performed. |
 | 2026-09-06 | implemented | Completed the general welcome and explicit screen-context UX. Reopening preserves separate drafts, general history never navigates, both submission paths use the selected snapshot, and regeneration preserves an unscoped request. | `current change`; `conversation-context.test.ts`, `conversation-navigation.test.ts`, `command-deck.session.test.ts`, `conversation-entry.spec.ts`; focused unit and synthetic browser checks. | Model answers and resource execution were not invoked by this UI validation. |
 | 2026-09-06 | implemented | Separated general and current-screen Deck entry, prevented route snapshots from entering general submissions, and exposed the signed-in account plus server revalidation boundary on action drafts. | `current change`; focused Deck, navigation, grounded-reply, catalog, and type checks. | Retain an authenticated Browser receipt for both entry modes before claiming deployed validation. |
 | 2026-09-06 | implemented | Excluded the active panel snapshot from automatic incident-bound investigation requests while retaining the exact incident binding and minimal request metadata. | `current change`; `command-deck.tsx`; `use-command-deck-events.ts`; focused Console checks passed 38 cases; authenticated Browser Entra request inspection returned verified incident evidence. | No remaining work for this bounded context-isolation change. |
@@ -132,7 +134,9 @@ context cannot appear as incident evidence.
 ## Command Deck workspace lifecycle
 
 The Activity Bar opens a general conversation in the full workspace by default. Its empty state
-shows "How can I help?", one composer, and three compact examples that fill a draft without sending.
+shows "How can I help?", one composer, and three compact examples that send their question on click
+or keyboard activation. Their tooltips preview the question and explain immediate submission.
+Examples use the normal context-aware send path, including attachment and duplicate-submit checks.
 The bottom launcher and `Ctrl+K` or `/` open a separate current-screen conversation in the right dock.
 Each entry remembers its own layout choice. General conversations never inherit route evidence.
 An explicit Add current screen control captures a snapshot; a removable Reference screen chip shows

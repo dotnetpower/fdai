@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import en from "../../src/i18n/messages.en.json" with { type: "json" };
+import ko from "../../src/i18n/messages.ko.json" with { type: "json" };
 
 test.describe.configure({ mode: "serial" });
 
@@ -47,8 +49,6 @@ test("isolates general and screen drafts, history, context and layout", async ({
   await expect(deck.getByRole("heading", { name: "How can I help?" })).toBeVisible();
   await expect(deck.locator(".deck-header-route")).toHaveText("General");
   await expect(deck.locator(".deck-intro-card")).toHaveCount(0);
-  await page.getByRole("button", { name: "Explain a concept", exact: true }).click();
-  await expect(input).toHaveValue(/SLI/);
   expect(requests).toHaveLength(0);
   await input.fill("General draft");
   await page.locator(".deck-close").click();
@@ -103,6 +103,7 @@ test("isolates general and screen drafts, history, context and layout", async ({
     history.pushState(null, "", "/audit");
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
+
   await expect(deck).toHaveClass(/deck-overlay-mode-floating/);
   await expect(page.getByRole("button", { name: "Remove reference screen: Dashboard" })).toBeVisible();
   await input.fill("Still the attached screen");
@@ -117,6 +118,31 @@ test("isolates general and screen drafts, history, context and layout", async ({
   await expect(input).toHaveValue("");
   await expect(page.getByRole("button", { name: /Remove reference screen:/ })).not.toHaveText(/Dashboard/);
 });
+
+for (const { locale, catalog } of [{ locale: "en", catalog: en }, { locale: "ko", catalog: ko }]) {
+  for (const [key, starter] of Object.entries(catalog.deck.generalStarters)) {
+    test(`sends ${locale} ${key} starter immediately through normal submission`, async ({ page }) => {
+      const requests = await openConsole(page, locale);
+      await page.getByRole("button", { name: catalog.deck.generalOpen, exact: true }).click();
+      const button = page.getByRole("button", { name: starter.label, exact: true });
+      await button.focus();
+      await expect(page.getByRole("tooltip", {
+        name: catalog.deck.generalStarterSendHint.replace("{prompt}", starter.prompt),
+        exact: true,
+      })).toBeVisible();
+      if (key === "summarize") await button.press("Enter");
+      else await button.click();
+      await expect.poll(() => requests.length).toBe(1);
+      expect(requests[0]?.prompt).toBe(starter.prompt);
+      expect(requests[0]?.view_context).not.toHaveProperty("routeId");
+      expect(requests[0]?.view_context).not.toHaveProperty("facts");
+      await expect(page.locator(".deck-turn-operator")).toContainText(starter.prompt);
+      await expect(page.locator(".deck-input")).toHaveValue("");
+      await expect(page.getByText("Synthetic test answer.", { exact: true })).toBeVisible();
+      expect(requests).toHaveLength(1);
+    });
+  }
+}
 
 test("keeps bilingual starters and context controls usable across viewport sizes", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });

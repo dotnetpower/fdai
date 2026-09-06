@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b1c9a6ade360eb6442b28278d08471a93d5fa4d2
+translation_source_sha: d1dedcf291742e90b01e66ccd6635793c53008c3
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -31,10 +31,7 @@ translation_revised: 2026-09-06
   내보냅니다. 보호된 서비스 배포는 전달 전에 이를 검증하며 봇 소유 래퍼는 정확한 Core 또는
   Document Ingestion API 계획만 수락합니다. 전환 플래그는 결합된 Core 바인딩을 포함해 봉인된
   모드에서 도출하며 서비스 tfvars는 플랫폼 소유권이나 사람 승인을 대체할 수 없습니다.
-- **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스를
-  비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로
-  유지하는 환경에 명시적인 공용 액세스 선택 항목 하나를 제공합니다. 이 옵션은 키 인증을
-  활성화하지 않습니다.
+- **모델 네트워크 정책:** `infra/modules/llm/azure-openai/`는 기본적으로 공용 액세스와 키 인증을 비활성화합니다. 루트 모듈과 보호된 개발 워크플로는 기본 거부 신뢰 원본 ACL을 독립적으로 유지하는 환경에만 명시적인 공용 액세스 선택 항목 하나를 제공합니다.
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
@@ -244,15 +241,13 @@ lifecycle Incident 하나를 매칭하고 모든 세대가 일치할 때만 배�
 상관관계로 대체하지 않고 실패 시 차단합니다.
 `runtime/control_loop_auxiliary.py`는 결정론적 RCA 카탈로그 신원과 IRP handler 조립을 소유합니다.
 `runtime/control_loop.py`는 권위 있는 루프 조립을 유지하고 기존 private bootstrap hook을 다시 내보냅니다. Package-wide strict type 검사에서도 이 경계를 인식하도록 명시적인 `__all__` 항목을 사용합니다.
-자동 Incident T2에도 짝으로 구성되는 관리 문서 바인딩이 있습니다. Core는 별도의 읽기 전용
-DSN과 정확한 컬렉션, 접근 참조, 읽기 그룹 구성을 받고 고정 Forseti 주체 맥락을 만들며, 권한
-있는 문서 근거를 사용할 수 없으면 RCA 판단을 보류합니다.
+자동 Incident T2에도 짝으로 구성되는 관리 문서 바인딩이 있습니다. Core는 별도의 읽기 전용 DSN과 정확한 컬렉션, 접근 참조, 읽기 그룹 구성을 받고 고정 Forseti 주체 맥락을 만들며 권한 있는 문서 근거를 사용할 수 없으면 RCA 판단을 보류합니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
 | 사람 승인 콜백 및 결정 전달 | Teams Bot 서비스와 OBO 행위자 검증, 매핑된 Slack 재인증, 정확한 콜백 맥락, 정제된 2단계 감사, 리스 펜싱 Operator 보낼 편지함, 워크플로 정족수 라우팅 및 BreakGlass나 실행기 권한이 없는 액션 전용 재개 | [Operator 콜백 기능군](../../../services/operator-service/src/fdai_operator_service/families/iam/), [Operator 보낼 편지함](../../../services/operator-service/src/fdai_operator_service/families/iam/hil_decision_outbox.py), [Core 결정 소비자](../../../services/core-control-plane/src/fdai/runtime/consumers.py), [HIL 레지스트리](../../../services/core-control-plane/src/fdai/shared/providers/hil_registry.py) | [Operator IAM 테스트](../../../services/operator-service/tests/test_operator_iam_family.py), [Teams 콜백 테스트](../../../services/operator-service/tests/test_hil_teams_callback.py), [보낼 편지함 재생 테스트](../../../services/operator-service/tests/test_hil_decision_outbox_replay.py), [서비스 간 라우팅 테스트](../../../tests/integration/test_hil_decision_routing.py) |
 | 사용자 할당 담당 체계 조정 | 안전하게 다시 시도할 수 있는 shadow 담당 체계 초안 게시, 정확한 케이스, PR 및 내용 다이제스트 병합 상관관계, 담당 체계 결과 기록, 형식이 지정된 shadow IAM 적용 요청 | [사용자 할당 코어](../../../services/core-control-plane/src/fdai/core/human_assignment/) 및 [담당 체계 조정기](../../../services/core-control-plane/src/fdai/core/human_assignment/ownership_coordination.py) | [사용자 할당 테스트](../../../services/core-control-plane/tests/core/human_assignment/) |
-| 통제된 모델 배포 작업 | Owner가 요청하고 shadow부터 시작하는 버전 고정 Global Standard 배포 하나를 기존 Forseti, Var, Thor, Saga, Vidar 수명 주기로 생성합니다. 정확한 대상 정규화, 할당량 및 생성 전용 사전 검사, 독립 ARM 읽기 결과, 인벤토리 타입, 배포 이름 진행 표시는 새 역할이나 우회 권한을 부여하지 않습니다. | [ActionType](../../../rule-catalog/action-types/ops.deploy-model.yaml), [대상 계약](../../../packages/service-contracts/src/fdai_service_contracts/executor_targets.py), [Core 어댑터](../../../services/core-control-plane/src/fdai/delivery/azure/gateway_direct_api.py), [개발 게이트웨이](../../../delivery/dev_operations_gateway/gateway.py) | [카탈로그 테스트](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py), [게이트웨이 테스트](../../../services/core-control-plane/tests/delivery/dev_operations_gateway/test_gateway.py), [실행기 어댑터 테스트](../../../services/isolated-executor/tests/test_executor_http_adapters.py) |
+| 배포된 모델 인벤토리 검색 | 기존 Azure AI 모델 배포를 상위 계정 아래에서 읽기 전용으로 수집하고, 읽기 가능한 모델, SKU, 상태 정보와 이중 언어 의미 검색을 제공하며, 온톨로지에 변환할 때 일반 범위, 최신성, 완전성 및 실행 권한 없음 제약을 유지합니다. | [리소스 타입](../../../rule-catalog/vocabulary/resource-types.yaml), [Azure ARG 변환](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [공급자 관계 매핑](../../../rule-catalog/vocabulary/provider-relationship-mappings/azure-arg-v1.yaml), [Operator 행](../../../services/operator-service/src/fdai_operator_service/families/conversation/presentation_rows.py) | [의미 계획 테스트](../../../services/core-control-plane/tests/conversation/test_semantic_planning.py), [Azure 변환 테스트](../../../services/core-control-plane/tests/delivery/azure/test_arg_query.py), [온톨로지 변환 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py), [Operator 행 테스트](../../../services/operator-service/tests/test_presentation_rows.py) |
 | Azure Resource Health 정확한 분모 근거 | 보안이 적용된 정확한 Resource 분모, 대괄호 속성 표기만 사용하는 고정 공급자 쿼리, 정규화된 가용성 상태, 대상별 범위, 분리된 수집 시각과 공급자 시각, 결정론적 주장 변환 결과, 제한 사항을 표시하는 Operator 표현, 실행 권한 없음 | [근거 계약](../../../services/core-control-plane/src/fdai/core/ontology_platform/resource_health_evidence.py), [FunctionType](../../../services/core-control-plane/src/fdai/core/ontology_platform/resource_health_queries.py), [Azure 읽기 경로](../../../services/core-control-plane/src/fdai/delivery/azure/resource_health_collection.py), [주장 변환 결과](../../../services/core-control-plane/src/fdai_core_service/semantic_assurance_claims.py), [Operator 표현](../../../services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v2.py) | [계약 및 FunctionType 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_resource_health_queries.py), [Azure 읽기 경로 테스트](../../../services/core-control-plane/tests/delivery/azure/test_resource_health_collection.py), [주장 테스트](../../../services/core-control-plane/tests/test_semantic_assurance_projection.py), [표현 테스트](../../../services/operator-service/tests/test_presentation_artifact_v2.py) |
 | 대화 품질 보증 정책 수명 주기 | 단계 건너뛰기를 차단하는 그래프가 적용된 범위 지정 shadow-to-active 진행, 필수 감사 사유, PostgreSQL에 영속되는 쌍으로 결속된 의사 결정 근거 다이제스트, 레거시 호환 키 및 no-op 재생, 제한된 시험 지표, 음수가 아닌 절대 비용, 변경할 수 없는 롤백 및 실행 권한 없음 | [승격 계약](../../../services/core-control-plane/src/fdai/core/conversation_assurance/promotion.py), [수명 주기 조정기](../../../services/core-control-plane/src/fdai/core/conversation_assurance/lifecycle.py), [PostgreSQL 저장소](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_assurance_policy.py) | [승격 테스트](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [수명 주기 테스트](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py), [영속성 테스트](../../../services/core-control-plane/tests/persistence/test_postgres_conversation_assurance_policy.py) |
 | Pantheon 대화 진단 | 검증된 케이스 기대값, 엄격한 독립 검토 신원 및 boolean, 정확하고 완전한 원자 루브릭 순서, 소문자 SHA-256 추적 결속, 집계 결정 및 하드 제로 상태 일관성, 재생 경계에서 실패 시 차단하는 schema-v1 빈 결과 호환성을 적용하는 내용 없는 30점 turn 축약 | [진단 점수표](../../../services/core-control-plane/src/fdai/core/conversation_assurance/pantheon_scorecard.py) | [진단 테스트](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py) 및 [hardening 분류 테스트](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_hardening.py) |

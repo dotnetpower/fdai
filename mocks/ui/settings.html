@@ -16,6 +16,7 @@
       <h1>General settings</h1>
       <p class="cs-lead">Display, accessibility, and account-scoped narrator preferences.</p>
     </div>
+    <p class="cs-settings-preview-note">Design preview. Selections on this page are not saved.</p>
 
     <section class="cs-settings-section" aria-labelledby="settings-appearance">
       <header class="cs-settings-section-head">
@@ -25,16 +26,16 @@
       <div class="cs-settings-list">
         <div class="cs-setting-row">
           <div><strong>Theme</strong><small>Applied across every console view.</small></div>
-          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Theme">
+          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Theme" data-cs-segmented>
             <button class="is-active" type="button" aria-pressed="true">Light</button>
             <button type="button" aria-pressed="false">Dark</button>
           </div>
         </div>
         <div class="cs-setting-row">
           <div><strong>Language</strong><small>Reloads navigation labels in the selected language.</small></div>
-          <div class="cs-settings-language cs-control-segmented" role="group" aria-label="Language" data-cs-segmented>
-            <button class="is-active" type="button" aria-pressed="true"><span>English</span><svg class="cs-language-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8 3 3 6-6" /></svg></button>
-            <button type="button" aria-pressed="false"><span>Korean</span><svg class="cs-language-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8 3 3 6-6" /></svg></button>
+          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Language" data-cs-segmented>
+            <button class="is-active" type="button" aria-pressed="true">English</button>
+            <button type="button" aria-pressed="false">Korean</button>
           </div>
         </div>
         <div class="cs-setting-row">
@@ -72,20 +73,20 @@
       <div class="cs-settings-list">
         <div class="cs-setting-row">
           <div><strong>Answer detail</strong><small>Explicit requests in the current turn still win.</small></div>
-          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Answer detail">
-            <button type="button">Brief</button>
-            <button class="is-active" type="button">Standard</button>
-            <button type="button">Deep</button>
+          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Answer detail" data-cs-segmented>
+            <button type="button" aria-pressed="false">Brief</button>
+            <button class="is-active" type="button" aria-pressed="true">Standard</button>
+            <button type="button" aria-pressed="false">Deep</button>
           </div>
         </div>
         <div class="cs-setting-row">
           <div><strong>Answer format</strong><small>Default structure when the current turn does not request one.</small></div>
-          <div class="cs-settings-segmented cs-control-segmented is-five" role="group" aria-label="Answer format">
-            <button class="is-active" type="button">Prose</button>
-            <button type="button">Bullets</button>
-            <button type="button">Steps</button>
-            <button type="button">Table</button>
-            <button type="button">Chart</button>
+          <div class="cs-settings-segmented cs-control-segmented is-five" role="group" aria-label="Answer format" data-cs-segmented>
+            <button class="is-active" type="button" aria-pressed="true">Prose</button>
+            <button type="button" aria-pressed="false">Bullets</button>
+            <button type="button" aria-pressed="false">Steps</button>
+            <button type="button" aria-pressed="false">Table</button>
+            <button type="button" aria-pressed="false">Chart</button>
           </div>
         </div>
         <div class="cs-setting-row">

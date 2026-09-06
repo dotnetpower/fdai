@@ -435,7 +435,7 @@ export function CommandDeckView({
               {emptyConversation && contextMode === "general" && !sessionLabel ? (
                 <GeneralConversationIntro onPick={(prompt) => {
                   onDraftInput(prompt);
-                  inputRef.current?.focus();
+                  onSubmit(prompt);
                 }}>
                   {centeredEmptyState ? composer : null}
                 </GeneralConversationIntro>

@@ -1010,13 +1010,19 @@
       <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
         <p class="cs-settings-preview-note">Clear neutral / light specimen. Controls are local samples, not saved account settings.</p>
         <section class="cs-settings-section" aria-labelledby="sample-appearance">
-          <header class="cs-settings-section-head"><div><h3 id="sample-appearance">Appearance</h3><span class="cs-settings-scope">This browser</span></div><p>Compact choices stay close together at every viewport width.</p></header>
+          <header class="cs-settings-section-head"><div><h3 id="sample-appearance">Appearance</h3><span class="cs-settings-scope">This browser</span></div><p>One control family uses aligned widths, readable labels, and a clear selected state.</p></header>
           <div class="cs-settings-list">
             <div class="cs-setting-row">
+              <div><strong>Theme</strong><small>Preview a display preference without changing this specimen.</small></div>
+              <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Sample theme" data-cs-segmented>
+                <button class="is-active" type="button" aria-pressed="true">Light</button><button type="button" aria-pressed="false">Dark</button>
+              </div>
+            </div>
+            <div class="cs-setting-row">
               <div><strong>Language</strong><small>Preview the selection without changing the gallery language.</small></div>
-              <div class="cs-settings-language cs-control-segmented" role="group" aria-label="Sample language" data-cs-segmented>
-                <button class="is-active" type="button" aria-pressed="true"><span>English</span><svg class="cs-language-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8 3 3 6-6" /></svg></button>
-                <button type="button" aria-pressed="false"><span>Korean</span><svg class="cs-language-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8 3 3 6-6" /></svg></button>
+              <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Sample language" data-cs-segmented>
+                <button class="is-active" type="button" aria-pressed="true">English</button>
+                <button type="button" aria-pressed="false">Korean</button>
               </div>
             </div>
           </div>
@@ -1028,6 +1034,12 @@
               <div><strong>Answer detail</strong><small>Explicit requests in the current turn still win.</small></div>
               <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Sample answer detail" data-cs-segmented>
                 <button type="button" aria-pressed="false">Brief</button><button class="is-active" type="button" aria-pressed="true">Standard</button><button type="button" aria-pressed="false">Deep</button>
+              </div>
+            </div>
+            <div class="cs-setting-row">
+              <div><strong>Answer format</strong><small>Five choices use the same width and selected treatment.</small></div>
+              <div class="cs-settings-segmented cs-control-segmented is-five" role="group" aria-label="Sample answer format" data-cs-segmented>
+                <button class="is-active" type="button" aria-pressed="true">Prose</button><button type="button" aria-pressed="false">Bullets</button><button type="button" aria-pressed="false">Steps</button><button type="button" aria-pressed="false">Table</button><button type="button" aria-pressed="false">Chart</button>
               </div>
             </div>
             <div class="cs-setting-row">

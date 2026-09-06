@@ -1,5 +1,11 @@
 /* Shared by the seven Settings mocks and their component-gallery specimens. */
 .cs-settings-neutral {
+  --cs-control-height: var(--cs-control-height-touch);
+  --cs-control-height-compact: var(--cs-control-height);
+  --cs-type-body-size: 14px;
+  --cs-settings-control-width: 320px;
+  --cs-settings-control-border: #8c8c8c;
+  --cs-settings-muted: #525252;
   color: var(--cs-text);
   background: var(--cs-card);
 }
@@ -11,41 +17,79 @@
   border-radius: var(--cs-radius);
 }
 
-.cs-settings-neutral :is(.cs-settings-section-head p, .cs-setting-row small, .cs-settings-card small, .cp-form-note, .cs-readonly-banner) {
-  color: var(--cs-text-soft);
-  font-size: var(--cs-type-compact-size);
-  line-height: var(--cs-type-compact-line-height);
+.cs-settings-neutral :is(.cs-settings-section-head, .cp-section-head) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 24px 0 16px;
+}
+.cs-settings-neutral :is(.cs-settings-section-head p, .cs-setting-row small, .cs-settings-card small, .cp-section-head p, .cp-header p, .cs-page-header .cs-lead, .cp-form-note, .cs-readonly-banner) {
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
 }
 .cs-settings-neutral :is(.cs-settings-section-head h2, .cs-settings-section-head h3, .cp-section-head h2) {
   margin: 0;
-  font-size: var(--cs-type-panel-title-size);
-  line-height: var(--cs-type-panel-title-line-height);
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+.cs-settings-neutral :is(.cs-settings-section, .cp-section) + :is(.cs-settings-section, .cp-section) {
+  margin-top: 48px;
 }
 .cs-settings-neutral :is(.cs-setting-row, .cs-settings-card, .cs-settings-option-card, .cp-table td, .cs-table td) {
   overflow-wrap: anywhere;
 }
 .cs-settings-neutral .cs-setting-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  grid-template-columns: minmax(0, 1fr) var(--cs-settings-control-width);
+  gap: 24px;
+  min-height: 88px;
+  padding: 16px 0;
 }
+.cs-settings-neutral .cs-setting-row > div:first-child > strong {
+  font-size: var(--cs-type-panel-title-size);
+  font-weight: 600;
+  line-height: var(--cs-type-panel-title-line-height);
+}
+.cs-settings-neutral .cs-setting-row small { margin-top: 6px; }
+.cs-settings-neutral .cs-setting-row:focus-within { background: var(--cs-bg); }
 .cs-settings-neutral .cs-setting-row > :last-child {
+  justify-self: start;
   max-width: 100%;
   min-width: 0;
 }
-.cs-settings-neutral .cs-settings-input {
-  width: 260px;
+.cs-settings-neutral :is(.cs-settings-input, .cs-settings-toggle) {
+  width: var(--cs-settings-control-width);
+  min-width: 0;
   max-width: 100%;
+}
+.cs-settings-neutral .cs-settings-toggle {
+  justify-content: flex-start;
+  height: auto;
+  font-size: var(--cs-type-body-size);
 }
 .cs-settings-neutral .cs-settings-scope {
   border-color: transparent;
   background: var(--cs-shade);
   font-size: var(--cs-type-label-size);
   line-height: var(--cs-type-label-line-height);
+  color: var(--cs-settings-muted);
 }
 .cs-settings-neutral :is(.cs-settings-card small, .cs-settings-option-card small, .cs-settings-option-card dt, .cs-domain-meta, .cs-control-action-copy small) {
-  color: var(--cs-text-soft);
-  font-size: var(--cs-type-label-size);
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
 }
+.cs-settings-neutral :is(.cs-settings-toolbar label, .cs-settings-briefing-create label, .cp-field label) {
+  color: var(--cs-text);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+.cs-settings-neutral :is(.cs-control-button, .cs-control-input, .cs-control-select, .cs-control-textarea) {
+  font-size: var(--cs-type-body-size);
+}
+.cs-settings-neutral :is(.cs-control-input, .cs-control-select, .cs-control-textarea, .cs-control-button:not(.is-primary):not(.is-quiet):not(.is-danger)):not(:disabled) {
+  border-color: var(--cs-settings-control-border);
+}
+.cs-settings-neutral :is(input, textarea)::placeholder { color: var(--cs-settings-muted); }
 .cs-settings-neutral .cs-settings-option-card {
   gap: 16px;
   padding: 16px;
@@ -67,7 +111,7 @@
 }
 .cs-settings-neutral .cs-control-button:hover:not(:disabled):not(.is-primary):not(.is-danger) {
   background: var(--cs-shade);
-  border-color: var(--cs-hairline);
+  border-color: var(--cs-settings-control-border);
 }
 .cs-settings-neutral :is(button, input, select, textarea):disabled {
   opacity: 1;
@@ -84,52 +128,49 @@
   box-shadow: none;
 }
 .cs-settings-neutral .cs-control-segmented {
-  height: auto;
-  background: var(--cs-shade);
-}
-.cs-settings-neutral .cs-control-segmented > button:is(.is-active, [aria-pressed="true"]) {
-  background: var(--cs-card);
-  color: var(--cs-steel);
-  box-shadow: inset 0 0 0 1px var(--cs-hairline);
-  font-weight: 600;
-}
-.cs-settings-neutral .cs-setting-row .cs-settings-language {
-  width: 240px;
+  width: var(--cs-settings-control-width);
+  min-width: 0;
+  max-width: 100%;
   grid-auto-columns: minmax(0, 1fr);
   gap: 4px;
-  padding: 4px;
+  padding: 0;
+  height: auto;
+  border: 0;
   border-radius: var(--cs-radius);
+  background: var(--cs-shade);
+  box-shadow: none;
+  outline: 1px solid var(--cs-settings-control-border);
+  outline-offset: -1px;
 }
-.cs-settings-neutral .cs-settings-language > button {
+.cs-settings-neutral .cs-control-segmented > button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   min-height: var(--cs-control-height);
-  padding: 6px 12px;
+  padding: 6px 4px;
   border-radius: var(--cs-radius-sm);
-  font-weight: 600;
+  color: var(--cs-text);
+  font-size: var(--cs-type-body-size);
+  font-weight: 400;
+  box-shadow: none;
 }
-.cs-settings-neutral .cs-settings-language > button:hover:not([aria-pressed="true"]) {
+.cs-settings-neutral .cs-control-segmented > button:hover:not([aria-pressed="true"]):not(.is-active) {
   background: var(--cs-card);
   color: var(--cs-text);
 }
-.cs-language-check {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  visibility: hidden;
+.cs-settings-neutral .cs-control-segmented > button:is(.is-active, [aria-pressed="true"]) {
+  background: var(--cs-steel);
+  color: var(--cs-card);
+  font-weight: 600;
 }
-[aria-pressed="true"] > .cs-language-check { visibility: visible; }
 .cs-settings-neutral .cs-control-switch-track {
+  width: 40px;
+  height: 24px;
   flex-shrink: 0;
+  border-color: var(--cs-settings-control-border);
   background: var(--cs-shade);
 }
+.cs-settings-neutral .cs-control-switch-track::after { width: 16px; height: 16px; }
 .cs-settings-neutral .cs-control-switch input:checked + .cs-control-switch-track {
   border-color: var(--cs-steel);
   background: var(--cs-steel);
@@ -148,7 +189,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--cs-text-soft);
-  font-size: var(--cs-type-compact-size);
+  font-size: var(--cs-type-body-size);
   font-weight: 500;
   white-space: normal;
 }
@@ -167,11 +208,19 @@
   background: var(--cs-bg);
 }
 .cs-settings-neutral .cp-kpi strong { font-size: var(--cs-type-page-title-size); }
-.cs-settings-neutral :is(.cs-table, .cp-table) { table-layout: fixed; }
+.cs-settings-neutral :is(.cs-table, .cp-table) {
+  table-layout: fixed;
+  font-size: var(--cs-type-body-size);
+}
+.cs-settings-neutral :is(.cs-table .cs-muted, .cp-kpi span, .cp-kpi small, .cs-domain-editor > div:first-child > small) {
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-compact-size);
+}
 .cs-settings-neutral :is(.cs-table thead th, .cp-table th) {
   background: var(--cs-bg);
   border-color: var(--cs-hairline);
-  font-size: var(--cs-type-label-size);
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-compact-size);
   white-space: normal;
 }
 .cs-settings-neutral .cp-section-head { grid-template-columns: minmax(0, 1fr); }
@@ -185,42 +234,50 @@
   height: auto;
   border: 1px solid transparent;
   border-radius: var(--cs-radius-sm);
+  font-size: var(--cs-type-body-size);
 }
 .cs-settings-neutral .cp-tab[aria-selected="true"] {
-  border-color: var(--cs-hairline);
-  background: var(--cs-shade);
-  color: var(--cs-steel);
+  border-color: var(--cs-steel);
+  background: var(--cs-steel);
+  color: var(--cs-card);
 }
-.cs-settings-neutral .cp-tab:hover { background: var(--cs-shade); }
+.cs-settings-neutral .cp-tab:hover:not([aria-selected="true"]) { background: var(--cs-shade); }
 .cs-settings-neutral .cp-form { background: var(--cs-card); }
-.cs-settings-neutral .cp-field :is(input, select) { background: var(--cs-card); }
+.cs-settings-neutral .cp-field :is(input, select) {
+  border-color: var(--cs-settings-control-border);
+  background: var(--cs-card);
+}
 .cs-settings-neutral .cs-domain-add .cs-settings-input,
 .cs-settings-neutral .cs-settings-toolbar .cs-settings-input { width: 100%; }
 .cs-settings-neutral .cs-settings-briefing-create .cs-settings-input { width: 88px; }
-.cs-settings-preview-note {
+.cs-settings-neutral .cs-settings-preview-note {
   margin: 0 0 16px;
-  color: var(--cs-text-soft);
-  font-size: var(--cs-type-label-size);
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-compact-size);
 }
 
 @container (max-width: 760px) {
+  .cs-settings-neutral .cs-settings-card-grid { grid-template-columns: minmax(0, 1fr); }
+  .cs-settings-neutral .cp-field { grid-column: 1 / -1; }
+}
+@container (max-width: 680px) {
   .cs-settings-neutral .cs-setting-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
-  .cs-settings-neutral .cs-setting-row > :last-child { justify-self: stretch; }
-  .cs-settings-neutral .cs-setting-row .cs-settings-language { justify-self: start; }
+  .cs-settings-neutral .cs-setting-row > :last-child { justify-self: start; }
   .cs-settings-neutral .cs-settings-toggle { justify-content: flex-start; }
-  .cs-settings-neutral .cs-settings-segmented.is-five { min-width: 0; }
-  .cs-settings-neutral .cs-settings-segmented { grid-auto-columns: minmax(0, 1fr); }
-  .cs-settings-neutral .cs-settings-input { width: 100%; }
-  .cs-settings-neutral .cs-settings-card-grid { grid-template-columns: minmax(0, 1fr); }
-  .cs-settings-neutral .cp-field { grid-column: 1 / -1; }
 }
 @container (max-width: 620px) {
   .cs-settings-neutral .cs-control-button { min-height: var(--cs-control-height-touch); }
-  .cs-settings-neutral .cs-settings-language > button { min-height: var(--cs-control-height-touch); }
+  .cs-settings-neutral .cs-control-segmented > button { min-height: var(--cs-control-height-touch); }
   .cs-settings-neutral .cs-domain-meta { flex-direction: column; gap: 4px; }
+}
+@container (max-width: 300px) {
+  .cs-settings-neutral .cs-control-segmented.is-five {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 @media (max-width: 520px) {
   .cs-settings-specimen { padding: 16px; }
