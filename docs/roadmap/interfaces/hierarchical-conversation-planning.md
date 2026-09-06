@@ -56,7 +56,8 @@ mixed request remains adaptive so its knowledge and operational goals stay separ
 reviewed families, preflight can propose source-grounded targets and bounded facets. Core reuses that
 proposal only when the turn is explicit, context-independent, at least 0.90 confidence, bound to the
 current utterance and proposal digests, and valid for the family-specific shape. One-hour targets
-also require a supported source expression. F2 accepts a deployment name, not an ARM resource ID,
+also require an explicitly past source expression; directionless or future wording retains full
+judgment. F2 accepts a deployment name, not an ARM resource ID,
 because its deterministic compiler filters `Resource.name`.
 
 Every other mixed, contextual, ambiguous, low-confidence, stale, malformed, or unsupported

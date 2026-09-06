@@ -67,6 +67,8 @@ bounds as the cloud SASL path. Multiplexed logical consumers can skip unrelated 
 without one broker commit per event, while mid-processing closure remains eligible for redelivery.
 Generic product labels such as APIM, gateway, backend, and GPT never satisfy an exact operational
 target. They require Resource identity clarification before frame or provider work.
+The one-hour operational shortcut accepts only explicitly past source wording. Directionless or
+future wording retains full semantic judgment instead of becoming a historical lookback.
 For a restarted Core, the standard launcher emits `ready` only after a post-launch semantic
 consumer and fresh Pantheon heartbeat are both visible. A previous process's heartbeat cannot make
 the replacement process ready.

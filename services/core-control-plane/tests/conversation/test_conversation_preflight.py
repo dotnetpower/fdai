@@ -367,6 +367,43 @@ def test_preflight_operational_judgment_rejects_false_one_hour_canonicalization(
     assert preflight_operational_judgment(result, utterance=utterance) is None
 
 
+def test_preflight_operational_judgment_rejects_directionless_one_hour() -> None:
+    utterance = "Compare deployment-a configuration one hour from now."
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource",
+                value="deployment-a",
+                source_start=8,
+                source_end=20,
+            ),
+            SemanticTarget(
+                kind="time_range",
+                value="one hour",
+                canonical_value="duration.PT1H",
+                source_start=35,
+                source_end=43,
+            ),
+        ),
+        operational_facets=("configuration_changes",),
+        confidence=0.99,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    assert preflight_operational_judgment(result, utterance=utterance) is None
+
+
 def test_preflight_operational_judgment_repairs_one_unique_source_span() -> None:
     utterance = "Show deployment-a changes for the past hour."
     proposal = ConversationPreflightProposal(

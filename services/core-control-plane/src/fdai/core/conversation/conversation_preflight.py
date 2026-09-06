@@ -64,11 +64,7 @@ _GATEWAY_FACETS = frozenset(
 )
 _ONE_HOUR_EXPRESSIONS = frozenset(
     {
-        "1 hour",
-        "1시간",
-        "60 minutes",
         "last hour",
-        "one hour",
         "past hour",
         "previous hour",
         "the last hour",
@@ -78,7 +74,6 @@ _ONE_HOUR_EXPRESSIONS = frozenset(
         "지난 한 시간",
         "최근 1시간",
         "최근 한 시간",
-        "한 시간",
     }
 )
 _GENERIC_OPERATIONAL_TARGETS = frozenset(

@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 14e73f9d6f1fbfddc5eb8094ef7a06837d9a3dd3
+translation_source_sha: 658cb5a936ed156b30f55c12eb4d68b47ec90efa
 translation_revised: 2026-09-07
 ---
 
@@ -56,7 +56,8 @@ preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의
 분리하기 위해 Adaptive 경로를 유지합니다. 검토된 세 가지 유형에서는 preflight가 원문에 결속된
 대상과 범위가 제한된 facet을 제안할 수 있습니다. Core는 요청이 명시적이고 맥락과 독립적이며 확신도가
 0.90 이상일 때만 이 제안을 재사용합니다. 또한 현재 발화 및 제안 digest와 일치하고 유형별 형식이
-유효해야 합니다. 한 시간 대상은 지원되는 원문 표현도 필요합니다. F2는 결정론적 compiler가
+유효해야 합니다. 한 시간 대상은 과거를 명시하는 원문 표현도 필요합니다. 방향이 없거나 미래를
+나타내는 문구는 전체 의미 판단을 유지합니다. F2는 결정론적 compiler가
 `Resource.name`으로 필터링하므로 ARM 리소스 ID가 아니라 배포 이름만 허용합니다.
 
 혼합, 맥락 의존, 모호함, 낮은 확신도, 오래됨, 잘못된 형식 또는 지원되지 않는 preflight는 모두 전체
