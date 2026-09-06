@@ -129,6 +129,35 @@ def test_initial_draft_cannot_bypass_evidence_or_action_boundaries(change) -> No
         AdaptivePlan.model_validate({**_plan(), "draft": _draft(), **change})
 
 
+@pytest.mark.parametrize("dependency", ["none", "active_thread"])
+async def test_review_context_omits_history_only_after_typed_independence(dependency: str) -> None:
+    model = _Model(
+        plan={**_plan(), "context_dependency": dependency},
+        answer=_draft(),
+        review=_review(complete=False),
+        refine=_draft(),
+        verify=_review(),
+    )
+    service = AdaptiveConversationService(model=model, profile_resolver=_profile, prompts=_PROMPTS)
+    history = ({"role": "user", "content": "Earlier context " * 100},)
+    result = await service.respond(
+        utterance="Compare rollout strategies",
+        history=history,
+        locale="en",
+        target_agent="Bragi",
+        relationship=None,
+        read_evidence=_unavailable,
+    )
+    assert isinstance(result, AdaptiveOutcome)
+    for call in model.calls:
+        if call["stage"] in {"plan", "answer"}:
+            assert call["payload"]["history"] == list(history)
+        else:
+            assert ("history" in call["payload"]) is (dependency == "active_thread")
+            assert call["payload"]["utterance"] == "Compare rollout strategies"
+            assert call["payload"]["draft"]["sections"]
+
+
 async def test_optional_reads_reserve_enough_turn_time_for_answer_and_review() -> None:
     clock = _Clock()
     plan = _plan(example=True)

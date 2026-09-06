@@ -282,7 +282,12 @@ class AdaptiveConversationService:
         )
         if draft is None:
             return self._limited(plan, profile, evidence, budget, "adaptive_answer_unavailable")
-        review_payload = {**payload, "draft": draft.model_dump(mode="json")}
+        review_context = (
+            {key: value for key, value in payload.items() if key != "history"}
+            if plan.context_dependency == "none"
+            else payload
+        )
+        review_payload = {**review_context, "draft": draft.model_dump(mode="json")}
         review = await self._stage(
             "review",
             AdaptiveReview,
@@ -317,7 +322,7 @@ class AdaptiveConversationService:
                     "verify",
                     AdaptiveReview,
                     profile,
-                    {**payload, "draft": improved.model_dump(mode="json")},
+                    {**review_context, "draft": improved.model_dump(mode="json")},
                     budget,
                     cancelled,
                 )
