@@ -79,7 +79,7 @@ def _tokens_per_minute(properties: object) -> int | None:
     observed: set[int] = set()
     for rule in rate_limits:
         if not isinstance(rule, Mapping):
-            continue
+            return None
         key = rule.get("key")
         if not isinstance(key, str) or len(key) > _MAX_RATE_KEY_CHARS:
             continue

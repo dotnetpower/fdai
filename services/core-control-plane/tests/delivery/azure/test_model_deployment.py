@@ -95,6 +95,20 @@ def test_malformed_recognized_token_rate_invalidates_tpm_evidence() -> None:
     assert "capacity_tpm_source" not in summary
 
 
+def test_non_object_rate_rule_invalidates_tpm_evidence() -> None:
+    row = _row(token_count=50_000)
+    properties = row["properties"]
+    assert isinstance(properties, dict)
+    rate_limits = properties["rateLimits"]
+    assert isinstance(rate_limits, list)
+    rate_limits.append("malformed")
+
+    summary = model_deployment_summary(row)
+
+    assert summary["capacity_units"] == 50
+    assert "capacity_tpm" not in summary
+
+
 def test_oversized_rate_limit_collection_does_not_publish_tpm() -> None:
     row = _row(token_count=50_000)
     properties = row["properties"]
