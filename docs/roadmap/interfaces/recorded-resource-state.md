@@ -130,6 +130,8 @@ The first reviewed alternate source is Azure Resource Health for `log-workspace`
 - State colors organize recorded values; they do not assert a current operational success.
 - The original Dashboard and older instance clients retain their existing routes and fields.
 - Resource inspection and selection do not grant approval or execution authority.
+- Runtime screen evidence requires a current authenticated 5273 Browser Entra session. An expired
+  capture or test-authenticated replacement does not validate the standard operator screen.
 
 ## Rejected alternatives
 

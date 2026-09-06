@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 863fd10911e792d6dd7a668900ad3648796d42e5
+translation_source_sha: 5947daf77e83c5ba2281e49dbbc815abdc3af130
 translation_revised: 2026-09-06
 ---
 # 기록된 리소스 상태
@@ -130,6 +130,8 @@ observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal�
 - 색상은 기록된 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다.
 - 기존 대시보드와 이전 인스턴스 클라이언트의 경로와 필드는 유지합니다.
 - 리소스 확인과 선택은 승인 또는 실행 권한을 부여하지 않습니다.
+- 런타임 화면 근거에는 현재 인증된 5273 Browser Entra 세션이 필요합니다. 만료된 캡처나 테스트
+  인증으로 대체한 결과는 표준 운영자 화면을 검증하지 않습니다.
 
 ## 채택하지 않은 대안
 
