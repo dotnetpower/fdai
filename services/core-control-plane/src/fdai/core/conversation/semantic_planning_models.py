@@ -163,6 +163,7 @@ class SemanticOutputShape(StrEnum):
     AGGREGATION_TABLE = "aggregation_table"
     CAUSAL_EVIDENCE = "causal_evidence"
     EVIDENCE_VALIDATION = "evidence_validation"
+    GOVERNED_DOCUMENT_EXCERPTS = "governed_document_excerpts"
     INCIDENT_EVIDENCE = "incident_evidence"
     INVENTORY_IMPACT = "inventory_impact"
     ONTOLOGY_DECLARATION = "ontology_declaration"

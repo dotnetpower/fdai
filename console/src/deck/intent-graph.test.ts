@@ -73,7 +73,7 @@ describe("parseIntentGraph", () => {
 describe("parseIntentGraphEvidence", () => {
   it("preserves partial evidence mode and goal receipts", () => {
     const parsed = parseIntentGraphEvidence({
-      schema_version: 1,
+      schema_version: 2,
       status: "partial",
       evidence_mode: "partial",
       goals: [{
@@ -97,7 +97,7 @@ describe("parseIntentGraphEvidence", () => {
 
   it("rejects unknown evidence modes", () => {
     expect(parseIntentGraphEvidence({
-      schema_version: 1,
+      schema_version: 2,
       status: "completed",
       evidence_mode: "invented",
       goals: [],
@@ -106,7 +106,7 @@ describe("parseIntentGraphEvidence", () => {
 
   it("preserves explicit cancellation receipts", () => {
     const parsed = parseIntentGraphEvidence({
-      schema_version: 1,
+      schema_version: 2,
       status: "cancelled",
       evidence_mode: "held_for_review",
       goals: [{
@@ -142,16 +142,42 @@ describe("parseIntentGraphEvidence", () => {
       completed_at: "2026-08-02T03:00:00.012Z",
     };
     expect(parseIntentGraphEvidence({
-      schema_version: 1,
+      schema_version: 2,
       status: "completed",
       evidence_mode: "operational_grounded",
       goals: [{ ...receipt, evidence: { secret: "raw" } }],
     })).toBeUndefined();
     expect(parseIntentGraphEvidence({
-      schema_version: 1,
+      schema_version: 2,
       status: "completed",
       evidence_mode: "operational_grounded",
       goals: [{ ...receipt, evidence_refs: ["x".repeat(513)] }],
     })).toBeUndefined();
+  });
+
+  it("accepts governed document evidence without granting action authority", () => {
+    const parsed = parseIntentGraphEvidence({
+      schema_version: 2,
+      status: "completed",
+      evidence_mode: "document_grounded",
+      goals: [{
+        goal_id: "documents",
+        intent: "function",
+        capability: "query.function",
+        evidence_mode: "document",
+        status: "completed",
+        duration_ms: 18,
+        depends_on: [],
+        evidence_refs: ["ontology-function:logic-invocation:" + "a".repeat(64)],
+        authority: "server_governed_document",
+        task_id: "request-1:documents",
+        started_at: "2026-09-06T05:00:00Z",
+        completed_at: "2026-09-06T05:00:00.018Z",
+      }],
+    });
+
+    expect(parsed?.evidence_mode).toBe("document_grounded");
+    expect(parsed?.goals[0]?.evidence_mode).toBe("document");
+    expect(parsed?.goals[0]?.authority).toBe("server_governed_document");
   });
 });

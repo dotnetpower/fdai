@@ -32,6 +32,7 @@ _RUNTIME_INSTANCE_TOKEN = re.compile(
 _MAX_SCANNED_TOKENS = 32
 _SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE = {
     "contextual_resource_list": SemanticOperation.SELECT,
+    "governed_document_excerpts": SemanticOperation.SELECT,
     "inventory_impact": SemanticOperation.SELECT,
     "resource_event_history": SemanticOperation.SELECT,
     "resource_health_list": SemanticOperation.SELECT,

@@ -1,4 +1,5 @@
 import type {
+  IntentEvidenceAuthority,
   IntentEvidenceMode,
   IntentGraphEvidence,
   IntentGraphMetadata,
@@ -13,20 +14,36 @@ const GOAL_FIELDS = [
 ];
 const RECEIPT_FIELDS = [
   "task_id", "goal_id", "intent", "capability", "evidence_mode", "status", "duration_ms",
-  "depends_on", "reason", "blocked_by", "evidence_refs", "started_at", "completed_at",
+  "depends_on", "reason", "blocked_by", "evidence_refs", "authority", "started_at", "completed_at",
 ];
-const GOAL_EVIDENCE_MODES = ["screen", "catalog", "operational", "web", "model_knowledge", "mixed"];
+const GOAL_EVIDENCE_MODES = [
+  "screen", "catalog", "document", "operational", "web", "model_knowledge", "mixed",
+];
 const RECEIPT_STATUSES = [
   "completed", "unavailable", "failed", "timed_out", "skipped", "cancelled",
 ];
 const EVIDENCE_MODES: readonly IntentEvidenceMode[] = [
   "screen_grounded",
+  "document_grounded",
   "operational_grounded",
   "web_grounded",
   "mixed_grounded",
   "model_knowledge",
   "partial",
   "held_for_review",
+];
+const EVIDENCE_AUTHORITIES = [
+  "server_inventory_graph",
+  "server_metering",
+  "server_ontology_manifest",
+  "server_ontology_instance_path",
+  "server_ontology_query",
+  "server_operational_metrics",
+  "server_operational_state_history",
+  "server_resource_health",
+  "server_governed_document",
+  "server_subscription_scope",
+  "server_subscription_health",
 ];
 
 export function parseIntentGraph(raw: unknown): IntentGraphMetadata | undefined {
@@ -54,7 +71,7 @@ export function parseIntentGraph(raw: unknown): IntentGraphMetadata | undefined 
 export function parseIntentGraphEvidence(raw: unknown): IntentGraphEvidence | undefined {
   const record = objectRecord(raw);
   if (!record || !hasExactKeys(record, ["schema_version", "status", "evidence_mode", "goals"]) ||
-      record.schema_version !== 1 ||
+      record.schema_version !== 2 ||
       !["completed", "partial", "unavailable", "failed", "cancelled"].includes(
         String(record.status),
       ) ||
@@ -65,7 +82,7 @@ export function parseIntentGraphEvidence(raw: unknown): IntentGraphEvidence | un
   const goals = record.goals.map(parseReceipt);
   if (goals.some((goal) => goal === undefined)) return undefined;
   return {
-    schema_version: 1,
+    schema_version: 2,
     status: record.status as IntentGraphEvidence["status"],
     evidence_mode: record.evidence_mode as IntentEvidenceMode,
     goals: goals as IntentGraphEvidence["goals"],
@@ -112,6 +129,8 @@ function parseReceipt(raw: unknown): IntentGraphEvidence["goals"][number] | unde
       !(record.reason === undefined || boundedString(record.reason, 128)) ||
       !(record.blocked_by === undefined || stringArray(record.blocked_by, 7)) ||
       !(record.evidence_refs === undefined || stringArray(record.evidence_refs, 12, 512)) ||
+      !(record.authority === undefined ||
+        EVIDENCE_AUTHORITIES.includes(String(record.authority))) ||
       !isoTimestamp(record.started_at) || !isoTimestamp(record.completed_at)) {
     return undefined;
   }
@@ -131,6 +150,9 @@ function parseReceipt(raw: unknown): IntentGraphEvidence["goals"][number] | unde
     ...(record.evidence_refs === undefined
       ? {}
       : { evidence_refs: record.evidence_refs as readonly string[] }),
+    ...(record.authority === undefined
+      ? {}
+      : { authority: record.authority as IntentEvidenceAuthority }),
     started_at: record.started_at,
     completed_at: record.completed_at,
   };

@@ -51,6 +51,65 @@ def test_workload_principal_cannot_claim_a_higher_role() -> None:
         ).authenticate("Bearer verified-token")
 
 
+def test_workload_group_claims_are_rejected() -> None:
+    with pytest.raises(AuthenticationError, match="MUST NOT carry group claims"):
+        _authenticator(
+            {
+                "oid": "workload-object-id",
+                "idtyp": "app",
+                "roles": ["Reader"],
+                "groups": ["group:responders"],
+            }
+        ).authenticate("Bearer test-token")
+
+
+def test_human_group_overage_is_rejected_even_with_an_app_role() -> None:
+    with pytest.raises(AuthenticationError, match="group overage"):
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "idtyp": "user",
+                "roles": ["Contributor"],
+                "hasgroups": True,
+            }
+        ).authenticate("Bearer test-token")
+
+
+def test_oversized_inline_group_claims_are_rejected_as_invalid_authentication() -> None:
+    with pytest.raises(AuthenticationError, match="groups exceed"):
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "idtyp": "user",
+                "roles": ["Contributor"],
+                "groups": [f"group:{index}" for index in range(65)],
+            }
+        ).authenticate("Bearer test-token")
+
+
+def test_missing_principal_type_is_rejected() -> None:
+    with pytest.raises(AuthenticationError, match="missing principal type"):
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "roles": ["Contributor"],
+                "groups": ["group:responders"],
+            }
+        ).authenticate("Bearer test-token")
+
+
+def test_blank_group_claim_is_rejected_as_invalid_authentication() -> None:
+    with pytest.raises(AuthenticationError, match="malformed value"):
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "idtyp": "user",
+                "roles": ["Contributor"],
+                "groups": ["   "],
+            }
+        ).authenticate("Bearer test-token")
+
+
 async def test_workload_reader_can_submit_only_semantic_streams() -> None:
     authorizer = OperatorFamilyAuthorizer(
         _authenticator({"oid": "workload-object-id", "idtyp": "app", "roles": ["Reader"]})
@@ -81,3 +140,30 @@ def test_workload_kind_reaches_the_semantic_envelope() -> None:
     semantic_turn = envelope["semantic_turn"]
     assert isinstance(semantic_turn, dict)
     assert semantic_turn["principal"]["principal_kind"] == "workload"
+
+
+async def test_human_group_claims_reach_the_semantic_envelope() -> None:
+    authorizer = OperatorFamilyAuthorizer(
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "idtyp": "user",
+                "roles": ["Contributor"],
+                "groups": ["group:responders"],
+            }
+        )
+    )
+    scope = await authorizer.authorize(_request(), operation="chat.stream")
+
+    envelope = SemanticTurnEnvelopeBuilder().build(
+        ConversationProposal(
+            operation="chat.stream",
+            scope=scope,
+            idempotency_key="group-scoped-question",
+            body={"prompt": "What does the recovery runbook require?"},
+        )
+    )
+
+    semantic_turn = envelope["semantic_turn"]
+    assert isinstance(semantic_turn, dict)
+    assert semantic_turn["principal"]["groups"] == ["group:responders"]

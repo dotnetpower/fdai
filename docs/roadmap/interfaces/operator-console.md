@@ -51,6 +51,11 @@ Completed answers also enter the off-path [Conversation Assurance](../decisionin
 Terminal intake preserves the exact verification reason and evidence-manifest completeness. Outcome summaries, context selection, Azure investigations, durable delivery, and attachment evidence remain owned by their typed providers; adapter modules only coordinate presentation and persistence.
 An explicit fixed-census diagnostic request uses a bounded `conversation-assurance:<case-id>` purpose. Core validates the case, question, and locale against its server-owned census before Bragi answers. The resulting `done` event carries the answer and content-free diagnostic fields; ordinary `operations-review` requests retain the existing semantic result contract.
 The version 1.2 semantic projection preserves this boundary across the service split: `answered` requires exact release, principal manifest, plan, execution receipt, and evidence references; unavailable dependencies return a typed limitation.
+Version 1.6 can also carry bounded authenticated group claims and governed-document evidence.
+The Console accepts only Core-projected version 2 intent evidence, displays exact revision
+citations and incomplete-coverage limits, and never treats document text as instructions or
+current operational state. Missing optional document evidence remains a partial answer only when
+independent operational evidence completed; required or explicit document evidence stays held.
 The Process journal can also project an adaptive Investigation Room. Operator rechecks the Process
 revision and nested content digests before returning it, and the Console validates the same identity
 before rendering bounded rounds, competing hypotheses, evidence gaps, and terminal status. The room

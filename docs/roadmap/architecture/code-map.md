@@ -86,6 +86,14 @@ abstentions separately.
 Azure semantic query construction lives in `semantic_query_azure_composition.py`.
 `wire_semantic_query.py` directly re-exports that constructor while retaining the established
 public import, and the general wiring module stays below the enforced 800-line ceiling.
+Governed conversational document retrieval spans the semantic judgment and planning modules,
+`core/knowledge/governed_document_reader.py`, the read-only
+`query.governed_documents` FunctionType, Operator identity projection, and Console evidence
+decoding. Document metadata remains ontology-governed, while excerpt text stays untrusted and
+cannot grant instruction or execution authority. Required retrieval fails closed on incomplete
+coverage; optional retrieval remains partial unless independent operational evidence completes.
+The PostgreSQL adapter reports `index_completeness_unverified` until a complete provider-owned
+index generation is available.
 
 Semantic resource-health planning now keeps collection health, exact resource identity, explicit
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves

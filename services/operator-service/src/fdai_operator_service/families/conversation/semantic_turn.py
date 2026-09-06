@@ -96,6 +96,7 @@ class SemanticTurnEnvelopeBuilder:
                 subject_id=proposal.scope.subject_id,
                 roles=roles,
                 principal_kind=proposal.scope.principal_kind,
+                groups=tuple(sorted(proposal.scope.groups)),
             ),
             session_id=session_id,
             turn_id=turn_id,
@@ -127,6 +128,7 @@ class SemanticTurnEnvelopeBuilder:
                 "target_agent" in proposal.body
                 or relationship_proof is not None
                 or relationship_unknown_reason is not None
+                or proposal.scope.groups
             )
             else "1.5.0"
         )
@@ -142,6 +144,9 @@ class SemanticTurnEnvelopeBuilder:
             principal_payload = semantic_payload.get("principal")
             if isinstance(principal_payload, dict):
                 principal_payload.pop("principal_kind", None)
+        principal_payload = semantic_payload.get("principal")
+        if isinstance(principal_payload, dict) and not principal_payload.get("groups"):
+            principal_payload.pop("groups", None)
         envelope: dict[str, object] = {
             "schema_version": schema_version,
             "request_id": request_id,

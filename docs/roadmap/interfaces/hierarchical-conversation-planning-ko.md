@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 02ed5e95ca7b859985d6a7641a1604a91d0294f4
+translation_source_sha: b8c150d5e6e8974e0ae1f31499d8e82870f8e2ba
 translation_revised: 2026-09-06
 ---
 
@@ -131,9 +131,10 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 | Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도합니다. 기본 타입 기반 정책은 T1을 사용할 수 없을 때만 같은 단계의 T2 재시도를 한 번 허용하고, 유효하지 않은 frame, 스키마, 구성, 결정론적 plan 불일치는 안전하게 종료합니다. |
 | Owner 제어 적극 T2 복구 | implemented | `conversation.t2_escalation.aggressive_enabled`, 런타임 설정 변환 결과, 의미 턴 처리기, 집중 백엔드 검사 640개, Console 모델 테스트, 타입 검사, 운영 빌드 및 인증된 설정 저장 | 개발 환경의 대화형 읽기 턴은 조건에 맞는 T1 명확화, 사용 불가 또는 수락되지 않은 프레임과 계획 제안에 대해 범위가 제한된 T2 복구 한 번을 기본으로 사용합니다. 스테이징과 운영 환경은 승격 근거를 확보할 때까지 기본적으로 비활성화합니다. 이 설정은 재시작 없이 턴마다 평가하고 T2에도 모호함이 남으면 원래 명확화를 보존합니다. Golden 캠페인, 액션, 권한 부여, 근거 검증 및 실행 권한은 확장할 수 없습니다. |
 | 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |
+| Principal 범위 관리 문서 RAG | implemented | [`semantic_governed_document_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_governed_document_planning.py), [`governed_document_reader.py`](../../../services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py), [`governed_document_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py), 집중 계약, ACL, runtime 및 projection 검사 | 의미 판단은 문서 근거를 `none`, `optional`, `required`, `explicit` 중 하나로 선택합니다. 검색은 인증된 principal의 정확한 그룹, 컬렉션, 개정, 수명 주기, 목적, 접근 정책을 먼저 제한하고 다시 검증합니다. 필수 근거는 안전하게 종료하고, 독립적인 선택 문서 실패는 완료된 운영 근거가 있을 때만 한계를 표시한 부분 답변을 허용합니다. 현재 PostgreSQL 어댑터는 `index_completeness_unverified`를 보고하므로 완전한 프로바이더 세대를 연결하기 전까지 운영 환경의 필수 및 명시적 턴은 보류됩니다. 문서 텍스트는 신뢰할 수 없으며 지시 또는 실행 권한이 없습니다. |
 | 구조화된 인과 조사 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 집중 조사 검사 | 대상 결속 인과 diagnosis는 정확한 source span, 타입이 지정된 entity 역할, 증상 방향, 시간 단서, 순서가 있는 LinkType side, 경쟁 가설, 근거 기준, 답변 형태를 전달합니다. Core는 이 요소를 검증하고 모델이 작성한 plan 없이 entity 해석, multi-hop 확장, 정렬된 window, topology diff, 증상 비교, 지지/반증 wave를 컴파일합니다. 일반 선언 범위 causal evidence는 기존의 범위가 제한된 plan을 유지합니다. 가설 결과가 두 개 미만으로 표현 계층에 도달하면 거짓 완전 진단을 만들지 않고 대상과 증상 비교를 명시적인 근거 한계와 함께 유지합니다. |
 | 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), 의미 질의 조립 집중 테스트 | Azure T1 및 T2 계획 어댑터를 별도로 연결합니다. 전제 조건을 갖추면 principal 범위 매니페스트, 보안 ObjectSet, 읽기 함수 및 범위가 제한된 DAG 실행이 조립됩니다. |
-| 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.4.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.4.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | 요청 1.4는 N-1 해석 호환성을 유지하면서 범위가 제한된 `include_model_trace` 활성화 설정을 추가합니다. Projection은 실행 권한을 부여하지 않으면서 신원, 목적, 기한, digest, 처리 결과, 근거 및 관측 모델 메타데이터를 결합합니다. |
+| 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.6.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.6.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | 요청 1.6은 범위가 제한된 인증 principal 그룹과 적응형 담당 관계 필드를 추가합니다. 두 기능이 모두 필요 없는 요청에는 producer가 1.5를 유지합니다. Projection은 실행 권한을 부여하지 않으면서 신원, 목적, 기한, digest, 처리 결과, 근거 및 관측 모델 메타데이터를 결합합니다. |
 | Durable Operator bridge 및 Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Operator는 durable acceptance, outbox claim, result projection, 인증된 replay, typed hold 및 `done` event 변환을 담당합니다. |
 | Event transport 및 배포 설정 | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | 논리 request 및 projection topic은 통제된 물리 event stream을 공유하며 두 service에 설정됩니다. |
 | 구조 및 인식 상태 커버리지 기반 | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt와 gate 계약은 존재하지만 완전한 descriptor generation, runtime question receipt 및 L3/L4 인증은 제공되지 않았습니다. |
@@ -145,6 +146,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 의미 기반 문서 근거 분류, principal 범위 관리 문서 검색, 정확한 개정 인용, 필수 원본 보류, 독립적으로 조건을 충족한 선택적 부분 답변을 추가했습니다. 인증된 Entra 그룹은 Operator 애플리케이션 역할과 분리하며 요청, principal 범위, 함수 호출, 최종 ACL 검사에 결합됩니다. 관리 문서 RAG 하드닝 렌즈 30개를 완료했고 마지막 독립 리뷰에서 남은 Medium 이상 결함이 없음을 확인했습니다. | `current change`; 계약, ACL, 계획, runtime, 처리기, 전송, Operator 집중 검사 650개와 영향을 받는 Operator 인증 검사 375개가 통과했습니다. 소스 파일 35개는 strict mypy를, 선택한 Python 파일은 Ruff를 통과했습니다. Console 검사 67개와 Console 타입 검사, 생성된 서비스 계약 드리프트 검사가 통과했습니다. | 운영 준비 상태를 보고하기 전에 인증된 서비스 간 검색 증적을 보존합니다. 프로바이더가 소유하는 완전한 인덱스 세대를 연결하고 검증합니다. 현재 PostgreSQL 어댑터는 어휘 검색을 사용하며 완전성을 검증하지 못했다고 보고합니다. |
 | 2026-09-06 | implemented | 근거, 원본 장애, 프로바이더 실패, 취소, 사용량 제한, 신원, 복합 요청, 검토 품질, 버전, 복원 및 표현을 대상으로 집중 비평과 하드닝을 11회 완료했습니다. 카탈로그 장애 격리, 보강 누락, 경로와 목표가 모순된 계획 및 복원된 일반 대화에 화면 맥락이 붙는 문제를 포함해 발견된 Medium 이상 결함을 수정했습니다. | `current change`; 집중 Python 검사 653개, Console 검사 209개, Console 타입 검사와 빌드, 격리된 합성 E2E 시나리오 10개 통과. 영어와 한국어 데스크톱, 좁은 데스크톱 및 모바일 화면의 가로 넘침 검사와 스크린샷 검토를 통과했습니다. | 별도로 승인된 실제 모델 및 배포 근거를 보존합니다. 오프라인 결과로 승격이나 운영 준비 완료를 주장하지 않습니다. |
 | 2026-09-06 | in-progress | 적응형 목표, 선택한 역할의 프롬프트, 검증된 담당 관계 증명, 조언 응답 전송 및 내부 프로바이더의 공통 사용량 제한을 연결했습니다. | `current change`; `test_adaptive_runtime.py` 9개, `test_adaptive_provider_budget.py` 10개, `test_wire_adaptive_conversation.py` 19개가 통과했습니다. | 전달 전 최종 집중 회귀 검사와 비평 근거를 완료합니다. 실제 모델과 배포 검증은 별도입니다. |
 | 2026-09-03 | implemented | 분리된 Service Health 답변 렌더러를 검토된 표현 전용 lexical 경로로 등록했습니다. 검증된 machine field를 읽으며 운영자 문장에서 의도를 추론하지 않습니다. | `current change`, semantic-routing baseline 검사 및 집중 Service Health 표현 테스트 | 이 감사 등록에 남은 작업은 없습니다. |
@@ -412,6 +414,8 @@ Python 질문 패턴이 아니라 카탈로그나 온톨로지 데이터로 관�
 |---|---|---|
 | 현재 화면에 보이는 사실 | 화면 스냅샷 | 해당 값이 없으면 명확화 요청 |
 | 현재 운영 상태 | 권위 있는 읽기 기능 | 미확보 구간을 밝힌 부분 답변 |
+| 관리되는 문서를 명시적으로 묻는 질문 | principal 범위 문서 검색 | 허용된 발췌문이 없으면 보류 |
+| 내부 절차, 정책 또는 선언된 운영 의도 | 관리되는 문서 검색과 카탈로그 근거 | 문서 범위가 불완전하면 제한 사항을 밝힌 답변 |
 | 공개된 사실이나 최신 외부 정보 | 승인된 웹 검색 | 최신성이 필요 없으면 모델 지식 |
 | 벤치마크 비교 | 화면 메트릭과 비교 가능한 웹 근거 | 기준을 지어내지 않는 정성 분석 |
 | 일반 지식 | 쓸 수 있거나 명시적으로 요청된 경우 웹 | 보정된 모델 지식 |
@@ -422,6 +426,36 @@ Python 질문 패턴이 아니라 카탈로그나 온톨로지 데이터로 관�
 지어내지 않습니다. 이 대체 경로는 검증된 목표에 최신 근거가 필요하지 않을 때만 허용됩니다.
 추론 과정 원문은 저장하지도 표시하지도 않습니다. Bragi는 간결한 결론과 근거, 가정, 비교 기준,
 한계, 불확실성을 제시합니다.
+
+### 관리되는 문서 검색
+
+의미 판단은 관리되는 문서가 무관한지, 선택 사항인지, 필수인지, 명시적으로 요청됐는지를 분류합니다.
+의미 판단 자체는 문서에 답이 있다고 단정하지 않습니다. 결정론적 정책은 수락된 의도, 시간 범위,
+액션 처리 방침에 맞는 근거 요구인지 검증한 뒤 사용할 수 있는 `query.governed_documents` 읽기 기능에
+연결합니다.
+
+이 기능은 범위가 제한된 원래 발화를 검색 질의로 받습니다. 서버는 검색 전에 principal과 컬렉션
+범위를 해석합니다. 검색은 순위를 계산하기 전에 허용된 컬렉션과 접근 서술자로 후보를 제한하고,
+선택된 각 문서의 정확한 개정, 수명 주기 상태, 목적, 접근 정책을 다시 검증합니다. 어휘 검색과
+벡터 검색 후보를 결합할 수 있지만 순위 계산이 권한 범위를 넓히지는 않습니다.
+
+반환되는 각 발췌문에는 정확한 문서 개정, 출처 위치, 콘텐츠 다이제스트, 인덱스 세대, 접근 범위
+다이제스트와 `instruction_authority=false`가 포함됩니다. 문서 텍스트는 신뢰할 수 없는 데이터입니다.
+도구, 역할, 승인 또는 실행 권한을 부여할 수 없으며, 문서에 포함된 지시는 시스템 또는 운영자
+정책보다 우선하지 않습니다.
+
+권한 범위 안에서 빈 결과가 나왔다는 것은 범위가 제한된 검색에서 허용 가능한 발췌문을 찾지 못했다는
+뜻일 뿐입니다. 검색 증적이 선택한 세대의 인덱스 범위가 완전하다고 함께 증명하지 않는 한 관련
+문서가 없다는 증거가 되지는 않습니다. 문서가 필수이거나 명시적으로 요청된 질문은 검색을 사용할 수
+없거나, 불완전하거나, 오래됐거나, 권한이 없거나, 지원되지 않으면 보류합니다. 문서 근거가 선택
+사항이면 다른 권위 있는 근거 경로를 계속 사용할 수 있지만 답변에 빠진 문서 범위를 표시합니다.
+현재 PostgreSQL 어댑터는 반복 읽기 스냅샷 신원을 제공하지만 완전한 인덱스 세대 증적은 제공하지
+않습니다. 따라서 `index_completeness_unverified`를 보고하고 필수 및 명시적 턴을 보류합니다.
+선택적 검색은 독립적으로 완료된 운영 근거만 보완할 수 있습니다.
+
+문서의 단정은 현재 운영 상태와 분리합니다. 런북은 예정된 절차나 과거 맥락을 설명할 수 있지만
+리소스의 현재 상태를 증명할 수는 없습니다. 문서 근거와 프로바이더 근거가 충돌하면 답변은 충돌을
+알리고 프로바이더 관측 상태를 현재 상태의 권위로 유지합니다.
 
 ### 맥락 기반 운영 근거 결합
 
@@ -489,8 +523,8 @@ Python 질문 패턴이 아니라 카탈로그나 온톨로지 데이터로 관�
 ## 답변과 액션의 경계
 
 Bragi는 근거를 모으고 검증한 뒤에 서술을 스트리밍합니다. 답변 묶음은 `screen_grounded`,
-`operational_grounded`, `web_grounded`, `mixed_grounded`, `model_knowledge`, `partial`,
-`held_for_review` 중 하나의 근거 모드를 씁니다.
+`document_grounded`, `operational_grounded`, `web_grounded`, `mixed_grounded`, `model_knowledge`,
+`partial`, `held_for_review` 중 하나의 근거 모드를 씁니다.
 
 권고는 실행 가능한 액션이 아닙니다. 명시적인 변경 요청은 기존 안전성 및 승인 경로로 들어가는
 타입이 지정된 초안을 만듭니다. 플래너는 실행, 승인, 승격, 정책 변경을 할 수 없습니다. 그래프

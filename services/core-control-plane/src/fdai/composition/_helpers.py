@@ -1,8 +1,4 @@
-"""Shared composition types (extracted from composition/__init__.py, G-3).
-
-Contains the shared container and LLM binding types used by wire modules.
-Keeping them private prevents circular imports through the package facade.
-"""
+"""Private shared container and LLM binding types that avoid facade circular imports."""
 
 from __future__ import annotations
 
@@ -46,6 +42,7 @@ from ..core.ontology_platform import (
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
+from ..core.ontology_platform.governed_document_queries import GovernedDocumentReader
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.deterministic_evidence import DeterministicEvidenceVerifier
@@ -279,6 +276,7 @@ class Container:
     execution_authorization_required: bool = False
     current_reuse_verifier: CurrentReuseVerifier | None = None
     governed_knowledge: GovernedKnowledgeBindings | None = None
+    governed_document_reader: GovernedDocumentReader | None = None
     incident_member_source: _rca.IncidentMemberSource | None = None
     incident_rca_context_source: _rca.IncidentRcaContextSource | None = None
     resource_dependency_graph: Mapping[str, frozenset[str]] = field(default_factory=dict)

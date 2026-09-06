@@ -285,7 +285,7 @@ describe("serializeTurns", () => {
           action_posture: "advise_only" as const,
         },
         intentGraphEvidence: {
-          schema_version: 1 as const,
+          schema_version: 2 as const,
           status: "partial" as const,
           evidence_mode: "partial" as const,
           goals: [{

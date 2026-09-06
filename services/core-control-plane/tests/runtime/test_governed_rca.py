@@ -17,11 +17,15 @@ from fdai.delivery.governed_rca_context import (
 from fdai.delivery.persistence.postgres_governed_document_read import (
     PostgresGovernedDocumentReadConfig,
     PostgresGovernedDocumentReadStore,
+    _document_version,
 )
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.shared.config import AppConfig
 from fdai.shared.contracts import DocumentVersion
-from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
+from fdai.shared.providers.document_ingestion import (
+    DocumentAccessDeniedError,
+    DocumentNotFoundError,
+)
 
 AT = datetime(2026, 9, 5, tzinfo=UTC)
 RELEASE = f"sha256:{'a' * 64}"
@@ -82,6 +86,7 @@ def test_runtime_binds_gatherer_and_context_as_one_pair(app_config: AppConfig) -
         container.governed_knowledge.context_provider,
         RuntimeGovernedRcaContextProvider,
     )
+    assert container.governed_document_reader is not None
 
 
 @pytest.mark.asyncio
@@ -108,6 +113,12 @@ async def test_read_store_requires_exact_reader_group() -> None:
             actor_groups=frozenset({"group:other"}),
             version=version,
         )
+    with pytest.raises(DocumentAccessDeniedError):
+        await store.authorize_read(
+            actor_id="principal:operator",
+            actor_groups=frozenset({"role:Contributor"}),
+            version=version,
+        )
 
 
 async def test_governed_document_connection_ignores_process_role_switch(
@@ -128,3 +139,58 @@ async def test_governed_document_connection_ignores_process_role_switch(
 
     assert await store._connect() is sentinel  # type: ignore[comparison-overlap]  # noqa: SLF001
     assert captured["options"] == ""
+
+
+def test_read_store_decodes_current_document_service_payload() -> None:
+    payload = {
+        "document_id": "00000000-0000-0000-0000-000000000001",
+        "version_id": "00000000-0000-0000-0000-000000000002",
+        "upload_id": "00000000-0000-0000-0000-000000000003",
+        "source_name": "runbook.md",
+        "source_sha256": "a" * 64,
+        "size_bytes": 128,
+        "media_type": "text/markdown",
+        "observed_format": "markdown",
+        "state": "ready",
+        "protection_state": "none",
+        "protection_provider_ref": "protection:receipt",
+        "protection_policy_revision": 3,
+        "classification": "internal",
+        "access": {
+            "reference": "collection:operations",
+            "collection_id": "operations",
+            "reader_groups": ["group:responders"],
+        },
+        "retention": {"policy_version": "retention-v1"},
+        "purposes": ["knowledge_base"],
+        "uploader_id": "principal:author",
+        "created_at": AT.isoformat(),
+        "updated_at": AT.isoformat(),
+        "active": True,
+        "available": True,
+        "disposition": "governed_knowledge",
+        "index_state": "active",
+        "retention_state": "live",
+        "scope_kind": "collection",
+        "scope_ref": "operations",
+        "revision": 4,
+    }
+
+    version = _document_version(payload)
+
+    assert version.source_name == "runbook.md"
+    assert version.active is True
+    assert version.available is True
+
+    for updates in (
+        {
+            "disposition": "workspace_draft",
+            "scope_kind": "workspace",
+            "scope_ref": "workspace:example",
+        },
+        {"index_state": "building"},
+        {"retention_state": "tombstoned"},
+    ):
+        invalid = {**payload, **updates}
+        with pytest.raises(DocumentNotFoundError, match="active governed knowledge"):
+            _document_version(invalid)

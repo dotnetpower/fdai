@@ -203,6 +203,7 @@ def compose_azure_semantic_query_runtime(
             pod_log_evidence_reader=pod_log_evidence_reader,
             graph_live_refresh_provider=graph_live_refresh_provider,
             resource_freshness_seconds=resource_freshness_seconds,
+            governed_document_reader=container.governed_document_reader,
             property_values=_resource_type_property_values(catalog_root),
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,

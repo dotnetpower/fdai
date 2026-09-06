@@ -216,15 +216,23 @@ class SemanticTurnPrincipal(QueryContract):
     subject_id: BoundedId
     roles: Annotated[tuple[OperatorRole, ...], Field(min_length=1, max_length=4)]
     principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
+    groups: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=256)], ...],
+        Field(max_length=64, exclude_if=lambda groups: not groups),
+    ] = ()
 
     @model_validator(mode="after")
     def _roles_are_unique(self) -> SemanticTurnPrincipal:
         if len(self.roles) != len(set(self.roles)):
             raise ValueError("semantic turn principal roles MUST be unique")
+        if len(self.groups) != len(set(self.groups)):
+            raise ValueError("semantic turn principal groups MUST be unique")
         if self.principal_kind is OperatorPrincipalKind.WORKLOAD and self.roles != (
             OperatorRole.READER,
         ):
             raise ValueError("semantic workload principals MUST have only the Reader role")
+        if self.principal_kind is OperatorPrincipalKind.WORKLOAD and self.groups:
+            raise ValueError("semantic workload principals MUST NOT carry human group claims")
         return self
 
 
@@ -621,11 +629,12 @@ class SemanticTurnResult(QueryContract):
             self.plan_digest,
             self.execution_receipt_digest,
         )
+        optional_document_partial = _optional_document_partial_is_valid(self)
         if self.disposition is SemanticTurnDisposition.ANSWERED and (
             any(item is None for item in exact)
             or not self.evidence_refs
             or self.checks_total == 0
-            or self.checks_completed != self.checks_total
+            or (self.checks_completed != self.checks_total and not optional_document_partial)
             or self.answer is None
         ):
             raise ValueError("answered semantic results MUST carry complete verified evidence")
@@ -668,6 +677,42 @@ class SemanticTurnResult(QueryContract):
                 "direct response semantic results MUST NOT carry query or evidence claims"
             )
         return self
+
+
+def _optional_document_partial_is_valid(result: SemanticTurnResult) -> bool:
+    if (
+        result.reason_code != "semantic_answer_partial"
+        or result.checks_total < 2
+        or result.checks_completed != result.checks_total - 1
+        or not isinstance(result.intent_graph_evidence, dict)
+        or result.intent_graph_evidence.get("status") != "partial"
+        or result.intent_graph_evidence.get("evidence_mode") != "partial"
+    ):
+        return False
+    goals = result.intent_graph_evidence.get("goals")
+    if not isinstance(goals, list) or len(goals) != result.checks_total:
+        return False
+    document_goals = [
+        goal for goal in goals if isinstance(goal, dict) and goal.get("evidence_mode") == "document"
+    ]
+    if len(document_goals) != 1 or document_goals[0].get("status") not in {
+        "failed",
+        "timed_out",
+        "unavailable",
+    }:
+        return False
+    return all(
+        isinstance(goal, dict)
+        and (
+            goal is document_goals[0]
+            or (
+                goal.get("status") == "completed"
+                and isinstance(goal.get("evidence_refs"), list)
+                and bool(goal["evidence_refs"])
+            )
+        )
+        for goal in goals
+    )
 
 
 class RuleSearchRank(QueryContract):

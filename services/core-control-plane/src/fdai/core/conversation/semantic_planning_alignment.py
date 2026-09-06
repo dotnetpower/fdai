@@ -13,10 +13,15 @@ from fdai_service_contracts.ontology_query import (
     SemanticProblemFrame,
 )
 
+from fdai.core.ontology_platform.governed_document_queries import (
+    GOVERNED_DOCUMENT_FUNCTION_NAME,
+)
+
 from .semantic_planning_frame import CHANGE_ACTIVITY_COMPARISON_MEASURE
 
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "contextual_resource_list": frozenset({"query.contextual_resources"}),
+    "governed_document_excerpts": frozenset({GOVERNED_DOCUMENT_FUNCTION_NAME}),
     "incident_evidence": frozenset({"query.incident_evidence"}),
     "inventory_impact": frozenset({"query.inventory_impact"}),
     "ontology_declaration": frozenset({"query.ontology_declaration"}),
@@ -58,6 +63,7 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "aggregation_table": frozenset({QueryNodeKind.AGGREGATE}),
     "causal_evidence": frozenset({QueryNodeKind.EVIDENCE_JOIN}),
     "evidence_validation": frozenset({QueryNodeKind.OBJECT_SET}),
+    "governed_document_excerpts": frozenset({QueryNodeKind.FUNCTION}),
     "property_filtered_resources": frozenset({QueryNodeKind.OBJECT_SET}),
     "resource_state_list": frozenset({QueryNodeKind.FUNCTION}),
     "resource_state_transitions": frozenset({QueryNodeKind.FUNCTION}),
@@ -142,7 +148,11 @@ def verify_frame_plan_alignment(
     if expected_functions is not None and not expected_functions <= selected_output_functions:
         raise ValueError("semantic plan does not satisfy specialized frame output")
     if any(
-        not _function_matches_output_shape(function_name, frame.output_shape)
+        not _function_matches_output_shape(
+            function_name,
+            frame.output_shape,
+            evidence_requirements=frame.evidence_requirements,
+        )
         for function_name in selected_output_functions
         if function_name in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES
     ):
@@ -150,7 +160,16 @@ def verify_frame_plan_alignment(
     _verify_ontology_declaration_subject(frame, plan, descriptors=descriptors)
 
 
-def _function_matches_output_shape(function_name: str, output_shape: str) -> bool:
+def _function_matches_output_shape(
+    function_name: str,
+    output_shape: str,
+    *,
+    evidence_requirements: tuple[str, ...],
+) -> bool:
+    if function_name == GOVERNED_DOCUMENT_FUNCTION_NAME:
+        return output_shape == "governed_document_excerpts" or any(
+            requirement.startswith("governed_documents.") for requirement in evidence_requirements
+        )
     expected = _SPECIALIZED_FUNCTION_OUTPUT_SHAPES[function_name]
     if output_shape == expected:
         return True

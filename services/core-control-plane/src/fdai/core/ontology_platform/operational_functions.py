@@ -10,6 +10,7 @@ from .catalog_queries import catalog_search_rules_function_type
 from .contextual_resource_queries import contextual_resource_function_type
 from .declaration_queries import ontology_declaration_function_type
 from .evidence_health_queries import ontology_evidence_health_function_type
+from .governed_document_queries import governed_document_function_type
 from .incident_queries import incident_evidence_function_type
 from .inventory_impact_queries import inventory_impact_function_type
 from .kubernetes_pod_diagnosis_queries import kubernetes_pod_diagnosis_function_type
@@ -55,6 +56,7 @@ def operational_function_types(
     combined = tuple(catalog_functions) + (
         catalog_search_rules_function_type(),
         contextual_resource_function_type(),
+        governed_document_function_type(),
         incident_evidence_function_type(),
         inventory_impact_function_type(),
         kubernetes_pod_diagnosis_function_type(),

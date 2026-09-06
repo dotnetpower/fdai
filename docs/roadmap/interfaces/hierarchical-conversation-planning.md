@@ -136,9 +136,10 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 | Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), focused semantic-planning tests | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. T1 is always attempted first. The default typed policy permits one same-stage T2 retry only for T1 unavailability; invalid frames, schemas, builds, and deterministic plan mismatches fail closed. |
 | Owner-controlled aggressive T2 recovery | implemented | `conversation.t2_escalation.aggressive_enabled`; Runtime Settings projection; semantic-turn processor; 640 focused backend checks; Console model test, typecheck, production build, and authenticated Settings save | Development interactive read turns default to one bounded T2 recovery for eligible T1 clarification, unavailability, or rejected frame and plan proposals. Staging and production default off pending promotion evidence. The setting is evaluated per turn without a restart, the original clarification is preserved when T2 remains ambiguous, and Golden campaigns, actions, authorization, evidence verification, and execution authority cannot be widened. |
 | Model-backed social direct response | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py); [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py); [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py); focused model-routing, usage, redaction, and stream tests | The compact preflight authors direct text for eligible context-independent social turns. Core validates confidence, binding, context dependency, response locale, trusted profile digest, and bounded text before preserving it. Mixed, contextual, pending-decision, ambiguous, bound, and failed preflight cases use full semantic judgment. Direct responses retain measured model usage and identity without a fixed success template or lexical fallback. |
+| Principal-scoped governed document RAG | implemented | [`semantic_governed_document_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_governed_document_planning.py), [`governed_document_reader.py`](../../../services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py), [`governed_document_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py), focused contract, ACL, runtime, and projection checks | Semantic judgment selects `none`, `optional`, `required`, or `explicit` document evidence. Retrieval filters and revalidates the authenticated principal's exact groups, collection, revision, lifecycle, purpose, and access policy. Required evidence fails closed, while an independent optional document failure can produce only a labeled partial answer backed by completed operational evidence. The current PostgreSQL adapter reports `index_completeness_unverified`, so required and explicit production turns hold until a complete provider generation is bound. Document text remains untrusted and has no instruction or execution authority. |
 | Structured causal investigation | implemented | `semantic_investigation.py`; `semantic_investigation_planning.py`; investigation query-node and presentation tests; focused investigation checks | A target-bound causal diagnosis carries exact source spans, typed entity roles, symptom direction, temporal cues, ordered LinkType sides, competing hypotheses, evidence standard, and answer shape. Core verifies those atoms and compiles entity resolution, multi-hop expansion, aligned windows, topology diff, symptom comparison, and support/refutation waves without a model-authored plan. Generic declared-scope causal evidence keeps the existing bounded plan. If fewer than two hypothesis results reach presentation, the target and symptom comparison remain visible with an explicit evidence limitation instead of a false complete diagnosis. |
 | Production Core semantic runtime composition | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), focused semantic-query composition tests | Azure T1 and T2 planning adapters are bound separately. Principal-scoped manifests, secured ObjectSets, read functions, and bounded DAG execution are composed when prerequisites are available. |
-| Versioned cross-service semantic-turn contract | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.4.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.4.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Request 1.4 adds the bounded `include_model_trace` opt-in while preserving N-1 decode. Projections bind identity, purpose, deadlines, digests, dispositions, evidence, and observational model metadata without granting execution authority. |
+| Versioned cross-service semantic-turn contract | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.6.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.6.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Request 1.6 adds bounded authenticated principal groups and adaptive relationship fields. The producer retains 1.5 for requests that need neither surface. Projections bind identity, purpose, deadlines, digests, dispositions, evidence, and observational model metadata without granting execution authority. |
 | Durable Operator bridge and Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | The Operator owns durable acceptance, outbox claims, result projection, authenticated replay, typed holds, and `done` event adaptation. |
 | Event transport and deployment configuration | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | Logical request and projection topics share the governed physical event stream and are configured for both services. |
 | Structural and epistemic coverage foundations | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt and gate contracts exist, but complete descriptor generations, runtime question receipts, and L3/L4 certification are not delivered. |
@@ -150,6 +151,7 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Added semantic document-evidence classification, principal-scoped governed retrieval, exact revision citations, required-source holds, and independently qualified optional partial answers. Authenticated Entra groups remain separate from Operator application roles and bind the request, principal scope, function invocation, and final ACL check. Completed 30 governed RAG hardening lenses; the final independent review found no remaining Medium-or-higher defect. | `current change`; 650 focused contract, ACL, planning, runtime, processor, transport, and Operator checks passed; 375 affected Operator authentication checks passed; 35 source files passed strict mypy; selected Python files passed Ruff; 67 Console tests and Console typecheck passed; generated service-contract drift check passed. | Retain an authenticated cross-service retrieval receipt before reporting production readiness. Bind and verify a complete provider-owned index generation; the current PostgreSQL adapter remains lexical and reports unverified completeness. |
 | 2026-09-06 | implemented | Completed 11 focused critique and hardening reviews covering evidence, source outages, provider failure, cancellation, budgets, identity, mixed requests, review quality, versioning, replay, and presentation. Identified Medium-or-higher defects were corrected, including catalog outage isolation, missed refinement, contradictory route/goal plans, and restored general conversations acquiring screen context. | `current change`; 653 focused Python checks, 209 Console checks, Console type checks/build, and 10 isolated synthetic E2E scenarios passed. English/Korean desktop, constrained desktop, and mobile views passed horizontal-overflow assertions and screenshot review. | Retain separately authorized live-model and deployment evidence; offline results do not claim promotion or production readiness. |
 | 2026-09-06 | in-progress | Connected adaptive goals, selected-role prompts, trusted relationship proofs, advisory transport, and shared nested-provider limits. | `current change`; `test_adaptive_runtime.py` passed 9 cases, `test_adaptive_provider_budget.py` passed 10 cases, and `test_wire_adaptive_conversation.py` passed 19 cases. | Complete final focused regression and critique evidence before delivery; live model and deployment validation remain separate. |
 | 2026-09-03 | implemented | Registered the extracted Service Health answer renderer as a reviewed presentation-only lexical path. It reads verified machine fields and does not infer operator intent from prose. | `current change`; semantic-routing baseline check and focused Service Health presentation tests. | No remaining work for this audit registration. |
@@ -430,6 +432,8 @@ from deployment data.
 |---|---|---|
 | Current screen fact | Screen snapshot | Clarify when the datum is absent |
 | Current operational state | Authoritative read capability | Partial answer with coverage gaps |
+| Explicit governed-document question | Principal-scoped document retrieval | Hold when no admissible excerpt is available |
+| Internal procedure, policy, or declared operating intent | Governed document retrieval plus catalog evidence | Qualified answer when document coverage is incomplete |
 | Public or current external fact | Approved web search | Model knowledge when freshness is not required |
 | Benchmark comparison | Screen metric plus comparable web evidence | Qualitative analysis without invented benchmarks |
 | General knowledge | Web when available or explicitly requested | Calibrated model knowledge |
@@ -441,6 +445,39 @@ states freshness limits, and never fabricates citations. This fallback is allowe
 validated goal doesn't require fresh evidence. Raw chain-of-thought is not persisted or shown.
 Bragi presents a concise conclusion, evidence, assumptions, comparison basis, limitations, and
 uncertainty.
+
+### Governed document retrieval
+
+Semantic judgment classifies whether governed documents are irrelevant, optional, required, or
+explicitly requested. It does not claim that a document contains the answer. A deterministic policy
+validates that source requirement against the accepted intent, temporal scope, and action posture,
+then binds an available `query.governed_documents` read capability.
+
+The capability receives the original bounded utterance as its search query. The server resolves the
+principal and collection scope before retrieval. Search filters by the authorized collection and
+access descriptors before ranking, then revalidates every selected document revision, lifecycle
+state, purpose, and access policy. Lexical and vector candidates may be fused, but ranking never
+widens authorization.
+
+Each returned excerpt carries an exact document revision, source locator, content digest, index
+generation, access-scope digest, and `instruction_authority=false`. Document text is untrusted data.
+It cannot supply tools, roles, approval, or execution authority, and instructions embedded in a
+document never override system or operator policy.
+
+An empty authorized result means only that the bounded search found no admissible excerpt. It is not
+proof that no relevant document exists unless the retrieval receipt also proves complete index
+coverage for the selected generation. Required or explicit document questions hold when retrieval
+is unavailable, incomplete, stale, unauthorized, or unsupported. Optional document grounding may
+continue with another authoritative lane, but the answer labels the missing document coverage.
+The current PostgreSQL adapter provides a repeatable-read snapshot identity but no complete index
+generation receipt. It therefore reports `index_completeness_unverified`; required and explicit
+turns hold, while optional retrieval can only supplement independently completed operational
+evidence.
+
+Document claims remain separate from current operational state. A runbook can describe intended
+procedure or historical context, but it cannot prove a resource's present condition. When document
+and provider evidence conflict, the answer reports the conflict and preserves the provider-observed
+state as the current-state authority.
 
 ### Contextual operational joins
 
@@ -510,8 +547,8 @@ web evidence, and low-confidence extraction asks for clarification.
 ## Answer and action boundaries
 
 Bragi streams a presentation after evidence collection and verification. The answer envelope uses
-one evidence mode: `screen_grounded`, `operational_grounded`, `web_grounded`, `mixed_grounded`,
-`model_knowledge`, `partial`, or `held_for_review`.
+one evidence mode: `screen_grounded`, `document_grounded`, `operational_grounded`, `web_grounded`,
+`mixed_grounded`, `model_knowledge`, `partial`, or `held_for_review`.
 
 A recommendation is not an executable action. An explicit change request produces a typed draft
 that enters the existing safety and approval path. The planner cannot execute, approve, promote, or
