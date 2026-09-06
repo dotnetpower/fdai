@@ -7,9 +7,9 @@
 #   3. A self-hosted deploy runner VM (no public IP) that is the only host
 #      with line-of-sight to the app's private endpoints (Key Vault, storage).
 #
-# This layer keeps its OWN state LOCAL (a small, secret-free seed - it holds
-# no app secrets, only infrastructure handles). The app config (../) uses the
-# storage account created here as its azurerm remote backend.
+# This layer starts with LOCAL state. Standalone account lookup can include
+# account keys, so protect that state as secret-bearing. Genesis skips that
+# lookup. The app config (../) uses the account as its azurerm remote backend.
 #
 # Design: docs/roadmap/deployment/deploy-and-onboard.md (private-networking + runner).
 
@@ -25,6 +25,10 @@ terraform {
 }
 
 provider "azurerm" {
+  subscription_id                 = var.genesis_provider_context == null ? null : var.genesis_provider_context.subscription_id
+  tenant_id                       = var.genesis_provider_context == null ? null : var.genesis_provider_context.tenant_id
+  resource_provider_registrations = var.genesis_provider_context == null ? null : "none"
+
   # Tenant policy forbids shared-key auth on storage; use AAD for every
   # data-plane call so the provider never falls back to account keys.
   storage_use_azuread = true

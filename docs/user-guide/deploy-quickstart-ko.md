@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b026e0e85321be3fc98dfbb6bdcb096ebda426a7
+translation_source_sha: b380e0e48837a6ac07f0c1d2db31dbc3208ae3ea
 translation_revised: 2026-09-06
 ---
 
@@ -29,6 +29,11 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
   폐쇄망 이미지는 정확한 관리 이미지 또는 숫자형 갤러리 버전 ID와 함께
   `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
+- **새 오프라인 구독:** 독립 Bootstrap은 기존 상태 계정과 애플리케이션 그룹을 요구합니다.
+  별도 Genesis 루트는 ARM 전용 기반 계층 계획과 참조 전용 애플리케이션 그룹 소유권을
+  제공합니다. 패키지 실행 흐름은 아직 승인된 생성, 호스트 등록, 상태 이전을 자동화하지
+  않습니다. [오프라인 준비 범위](../roadmap/deployment/disconnected-deployment-ko.md)를 확인하세요.
+  준비된 산출물이나 저장된 계획이 설치 준비 완료를 뜻하지는 않습니다.
 - `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
   계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
   Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Exact 적용은

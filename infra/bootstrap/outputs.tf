@@ -16,7 +16,7 @@ output "ops_vnet_name" {
 }
 
 output "state_storage_account_name" {
-  value       = data.azurerm_storage_account.state.name
+  value       = local.state_account_name
   description = "Terraform remote-state storage account. Feed to `terraform init -backend-config` in the app config / CI workflow."
 }
 
@@ -56,6 +56,6 @@ output "runner_vm_name" {
 }
 
 output "backend_config_hint" {
-  value       = "resource_group_name=${azurerm_resource_group.ops.name} storage_account_name=${data.azurerm_storage_account.state.name} container_name=${var.state_container_name} key=${var.workload}-${var.env}.tfstate"
+  value       = "resource_group_name=${azurerm_resource_group.ops.name} storage_account_name=${local.state_account_name} container_name=${var.state_container_name} key=${var.workload}-${var.env}.tfstate"
   description = "Copy into `terraform init -backend-config=...` for the app config."
 }

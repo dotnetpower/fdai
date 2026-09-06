@@ -10,6 +10,12 @@ from pathlib import Path
 def write_private_output(path: Path, content: str) -> None:
     """Create one mode-0600 artifact through a held mode-0700 parent."""
 
+    write_private_bytes(path, content.encode("utf-8"))
+
+
+def write_private_bytes(path: Path, content: bytes) -> None:
+    """Exclusively persist binary content through a held private parent."""
+
     directory = _open_private_parent(path)
     try:
         descriptor = os.open(
@@ -19,13 +25,50 @@ def write_private_output(path: Path, content: str) -> None:
             dir_fd=directory,
         )
         try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            with os.fdopen(descriptor, "wb") as stream:
                 stream.write(content)
                 stream.flush()
                 os.fsync(stream.fileno())
         except BaseException:
             os.unlink(path.name, dir_fd=directory)
             raise
+    finally:
+        os.close(directory)
+
+
+def read_private_bytes(path: Path, *, max_bytes: int) -> bytes:
+    """Read bounded current-UID mode-0600 content without following any symlink."""
+
+    if max_bytes <= 0:
+        raise ValueError("private input size bound MUST be positive")
+    directory = _open_private_parent(path)
+    try:
+        descriptor = os.open(
+            path.name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=directory
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            details = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(details.st_mode)
+                or stat.S_IMODE(details.st_mode) != 0o600
+                or details.st_uid != os.geteuid()
+                or details.st_nlink != 1
+            ):
+                raise PermissionError(
+                    "private input MUST be a current-UID mode-0600 single-link file"
+                )
+            if not 0 < details.st_size <= max_bytes:
+                raise ValueError("private input is empty or exceeds its size limit")
+            content = stream.read(max_bytes + 1)
+            after = os.fstat(stream.fileno())
+            if (
+                len(content) != details.st_size
+                or after.st_size != details.st_size
+                or after.st_mtime_ns != details.st_mtime_ns
+                or after.st_ctime_ns != details.st_ctime_ns
+            ):
+                raise ValueError("private input changed while being read")
+            return content
     finally:
         os.close(directory)
 

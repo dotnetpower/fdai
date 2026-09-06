@@ -15,7 +15,7 @@ from fdai_deployment_cli.offline_kit import (
     verify_offline_kit,
 )
 from fdai_deployment_cli.private_output import _open_private_parent, write_private_output
-from fdai_deployment_cli.runtime_release import load_runtime_release
+from fdai_deployment_cli.runtime_release import load_runtime_release, validate_runtime_images
 
 
 def prepare_offline_release(
@@ -32,8 +32,9 @@ def prepare_offline_release(
     """Publish a verified snapshot in an existing, private, empty work directory.
 
     The caller supplies independently obtained verification keys, not keys trusted
-    because they arrived in the kit. Preparation proves artifact integrity only:
-    it neither establishes production release eligibility nor verifies Azure
+    because they arrived in the kit. Complete v2 runtime inventory and OCI content
+    are required, including the ClamAV sidecar. Preparation proves artifact integrity
+    only: it neither establishes production release eligibility nor verifies Azure
     permissions, cost, foundation state, Console access, or resource discovery.
     """
     if profile.connectivity != "offline":
@@ -68,6 +69,7 @@ def prepare_offline_release(
             verification.deployment_bundle
         ):
             raise ValueError("runtime inventory does not match the signed deployment bundle")
+        image_digests = validate_runtime_images(staging / "artifacts", runtime)
         bundle_root = extract_bundle_archive(artifacts.deployment_bundle, staging / "bundle")
         bundle = verify_bundle(
             bundle_root, public_key_pem=bundle_public_key_pem, cli_version=cli_version
@@ -85,9 +87,10 @@ def prepare_offline_release(
             "runtime_release_digest": runtime.digest,
             "deployment_bundle_digest": bundle.manifest_digest,
             "genesis_manifest_digest": manifest.digest,
+            "image_content_digests": image_digests,
         }
         result: dict[str, object] = {
-            "schema_version": "fdai.offline-preparation.v1",
+            "schema_version": "fdai.offline-preparation.v2",
             "state": "prepared",
             "subscription_ready": False,
             "mutation_performed": False,

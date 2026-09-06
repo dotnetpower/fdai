@@ -36,19 +36,17 @@ The production deployer permission boundary is owned by
 
 #### What Terraform does not create
 
-Terraform owns the inventory below, but four external inputs must exist before the first apply.
+Standalone `infra/bootstrap` retains its existing-account and existing-application-group prerequisites. The separate genesis root below removes that creation cycle without running application data-plane work locally.
 For a fresh database, supply its administrator password through the protected input or explicitly opt into persistent Terraform generation; enabling generation for an existing server is a separately approved credential change. Reference plans stay compatible with Terraform `>= 1.9`, and root wiring is checked separately.
 
-- **The deployer identity and its role-assignment permission.** Creating the executor identity and
-  its scoped roles needs User Access Administrator; Contributor alone plans and then fails.
-- **The Terraform state storage account.** `infra/bootstrap/create-state-account.sh` creates it with
-  `az`, because a private, key-disabled account cannot complete Terraform's data-plane readiness
-  poll from an operator workstation. Terraform reads it through a data source.
-- **The app resource group, when the bootstrap layer creates the runner VM.** That layer reads the
-  group as a data source to scope the runner's Contributor grant, while the app layer is what
-  creates it. On an empty subscription, create the empty group first or apply bootstrap once with
-  `create_runner_vm = false`, run the app layer, then re-apply with the runner enabled.
-- **An SSH public key for the runner**, plus quota headroom and the Log Analytics destination above.
+- **Deployer identity:** Role assignment needs User Access Administrator; Contributor alone is insufficient.
+- **State storage:** Standalone bootstrap reads the existing account created by `infra/bootstrap/create-state-account.sh`. Its AzureRM lookup can read account keys, so protect that local state as secret-bearing.
+- **Application resource group:** Standalone bootstrap expects the group to exist before assigning the runner's roles.
+- **Runner inputs:** Supply an SSH public key, quota headroom, and the Log Analytics destination. Offline bootstrap also requires an exact prebuilt image.
+
+[The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups and the private state account through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup.
+For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
+`fdaictl provision plan --stage foundation` provides a dry run with optional private `--save-plan` capture. Approval, host enrollment, and remote-state migration remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
 matching capability-mode toggle before the plan can converge

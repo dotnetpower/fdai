@@ -292,13 +292,15 @@ export function useCommandDeckSessionController({
   const draftsRef = useRef(new Map<string, string>());
   const historiesRef = useRef(new Map<string, typeof EMPTY_HISTORY>());
   const hydrateDurableTurns = useCallback(async (key: string): Promise<void> => {
-    if (sessionKeyRef.current !== key || turnsRef.current.length > 0) return;
+    const beforeRestore = turnsRef.current;
+    if (sessionKeyRef.current !== key ||
+      !shouldHydrateServerTurns(true, beforeRestore.length, beforeRestore.at(-1)?.role === "operator")) return;
     const summary = conversations.find((item) => item.key === key);
     const expectsDurableHistory = shouldExposeConversationHydration(summary);
     if (expectsDurableHistory) setConversationHydration({ key, status: "loading" });
     try {
       const durable = await fetchConversationTurns(sessionIdFor(sessionIdsRef.current, key));
-      if (sessionKeyRef.current !== key || turnsRef.current.length > 0) {
+      if (sessionKeyRef.current !== key || turnsRef.current !== beforeRestore) {
         return;
       }
       if (durable.length === 0) {
@@ -384,7 +386,9 @@ export function useCommandDeckSessionController({
     setSessionKey(key);
     setSessionLabel(agent);
     setTurns(next);
-    if (shouldHydrateServerTurns(hydrate, next.length)) void hydrateDurableTurns(key);
+    if (shouldHydrateServerTurns(hydrate, next.length, next.at(-1)?.role === "operator")) {
+      void hydrateDurableTurns(key);
+    }
     setSearchQuery("");
     setActiveSearchMatch(0);
     historyRef.current = historiesRef.current.get(key) ?? EMPTY_HISTORY;
@@ -494,6 +498,8 @@ export function useCommandDeckSessionController({
   return { hydrateDurableTurns, removeCachedConversation, startNewConversation, switchSession };
 }
 
-export function shouldHydrateServerTurns(register: boolean, turnCount: number): boolean {
-  return register && turnCount === 0;
+export function shouldHydrateServerTurns(
+  register: boolean, turnCount: number, unanswered: boolean = false,
+): boolean {
+  return register && (turnCount === 0 || unanswered);
 }

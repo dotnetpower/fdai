@@ -21,12 +21,15 @@ fully disconnected install.
 |------|-------|----------|-------|
 | Private Azure networking and VNet deploy host | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused infrastructure workflow tests | Private endpoints, DNS, the durable deploy host, protected plans, and exact apply are implemented independently of the offline CLI path. |
 | Internal mirror and pinned-input controls | implemented | `infra/modules/preflight-toggles/` and `scripts/quality/ci/check-ci-contracts.py` | The repository exposes mirror inputs and rejects mutable or registry-bound base-image references. |
-| Offline toolchain kit staging and drill harness | validated | [Deployment CLI implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md) | The dedicated CLI and shipped-wheel toolchain drill were restored. This is not a complete runtime deployment drill. |
+| Offline toolchain kit staging and drill harness | in-progress | [Deployment CLI implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md); current multi-root mirror tests | Historical shipped-wheel drill evidence remains valid for its revision. Expanded staging still needs a new complete drill; neither proves runtime deployment. |
 | Disconnected bundle verification and planning commands | implemented | `packages/deployment-cli`; artifact and productization tests | The package registers `fdaictl` and verifies signed local inputs. Planning does not complete a new subscription. |
 | Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
+| Complete runtime image validation | implemented | Runtime inventory v2 and bounded OCI validators; 355 focused tests; cold-installed CPython 3.12 review wheel | Staging and preparation validate five service images plus ClamAV. Legacy v1 remains inspectable but cannot qualify for complete preparation. Synthetic signed images prove packaging and content checks, not provenance or Azure readiness. |
+| Dependency image publication adapter | implemented | `publish_dependency_oci_archive`; 80 focused ACR tests | Shares service publication's validation-before-credentials, deadlines, no-retry transport, and manifest GET readback. Dependency receipts make no FDAI revision claim. Protected caller wiring remains open; tests use a recording transport, not Azure. |
 | Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
 | Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
 | Runtime support wheel installation | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; focused tests and network-isolated real-wheel installation | Seven current distributions, including the shared GitHub auth library, install with hashes and package readback. No runtime service is started. |
+| Locked provider collection across deployment roots | implemented | `mirror-locked-providers.sh`; 25 offline fake-Terraform tests, Ruff and shell syntax | Nine bundled roots retain their own locks, including differing AzureRM versions and genesis AzAPI. Calls have 300/600-second caps within 3600 seconds. Real downloads, mirror indexes and complete signed staging remain unverified. |
 | Initial database credential generation | implemented | `infra/initial_postgres_credential.tf`; eight mocked Terraform cases and one root-wiring regression | Explicit fresh-install generation retains a sensitive credential in private state. Supplied-password defaults remain unchanged; enabling it later is a reviewed rotation. |
 | Pinned offline trust root and release integration | not-started | `docs/runbooks/offline-trust-ceremony.md` | No pinned root ships in a CLI wheel and kit staging is not a passing release workflow. |
 | Full-air-gap cloud operation | not-applicable | The full-air-gap boundary in this document | The deterministic core can run from static inputs, but live Azure evidence and cloud mutation are intentionally outside this profile. |
@@ -41,6 +44,10 @@ fully disconnected install.
 | 2026-09-06 | implemented | Added locked runtime-wheel staging and authenticated offline support installation without changing active service environments. | `current change`; focused staging/installation tests and a network-isolated installation of real wheels with all five service entry modules importing successfully | Wire the support payload to approved migrations and application execution; retain actual Azure and Console receipts. |
 | 2026-09-06 | implemented | Added opt-in initial PostgreSQL credential generation without a plaintext input or new password output. | `current change`; nine mocked Terraform cases cover default behavior, ambiguous inputs, sensitivity and the real state-store module binding | Retain approved private-host apply and persistent-state readback; do not treat mock evidence as cloud installation. |
 | 2026-09-06 | implemented | Corrected the credential-test evidence after the CI-compatible plan harness moved root binding to a separate regression. | `current change`; eight mocked Terraform cases and one root-wiring regression passed. | Retain approved private-host apply and persistent-state readback; do not treat mock evidence as cloud installation. |
+| 2026-09-06 | implemented | Corrected the remaining obsolete CLI handover rows and linked the new foundation composition without claiming installer completion. | `current change`; packaged CLI command handlers; [Genesis implementation ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md); final support-installer tests (12 passed) and strict mypy | Connect protected execution, complete signed artifacts, and independent Console and full-scope inventory verification. |
+| 2026-09-06 | in-progress | Added bounded multi-root provider collection and cold-installed CLI support verification. Expanded kit staging now needs a new complete drill rather than inheriting earlier validated status. | `current change`; 25 offline mirror tests; CPython 3.12 isolated installation without network or caches; seven real distributions and five service entry modules with installed-origin assertions | The kit envelope and toolchain fixtures were synthetic, services were not started, and no Azure or Console readiness was claimed. Retain actual signed release and protected runtime receipts. |
+| 2026-09-06 | implemented | Added a closed ClamAV sidecar inventory and connected OCI content validation to v2 staging and preparation. OPA remains embedded in Core and available as a kit tool, not a required extra image. | `current change`; 355 catalog, image, preparation, ACR, and support tests passed; Ruff and strict mypy passed; a CPython 3.12 wheel cold-installed without network, indexes, or caches accepted six synthetic OCI images and rejected a re-signed invalid ClamAV archive | Publish actual attested images through protected private-host execution, supply current malware signatures, implement safe initial service creation, and retain migration, authenticated Console, and complete inventory receipts. No service was started. |
+| 2026-09-06 | implemented | Connected revision-neutral dependency publication to the existing bounded ACR upload and independent manifest readback path, preserving strict service revision validation. | `current change`; 80 ACR tests, including 15 dependency cases, passed; Ruff and strict mypy passed | Bind the adapter to protected authorization, current target/executor identity, lease, audit and recovery. No public mutating CLI or Azure publication was introduced. |
 
 ### Remaining work
 
@@ -90,7 +97,9 @@ The profile selects `offline`, a target binding, and a positive monthly cost cei
 directory must not exist. Preparation makes no Azure, registry, model, or workflow calls and never
 executes an archive. A toolchain-only kit is rejected.
 
-The signed kit includes `runtime/release.json` with schema `fdai.runtime-release.v1`:
+Complete preparation requires `runtime/release.json` with schema `fdai.runtime-release.v2`.
+Legacy v1 inventories remain readable and stageable for inspection, but cannot pass complete
+preparation because they do not declare the required sidecars:
 
 | Field | Required content |
 |-------|------------------|
@@ -98,14 +107,23 @@ The signed kit includes `runtime/release.json` with schema `fdai.runtime-release
 | `deployment_bundle_sha256` | Digest of the matching signed deployment bundle archive |
 | `services` | Exactly Core, Operator, ingestion API, document worker, and isolated Executor |
 | Each service | Local archive, SBOM, provenance paths and their SHA-256 digests; OCI image digest |
+| `sidecars` | Exactly `clamav`, with the same archive, SBOM, provenance, and image-digest fields as services |
 | `console`, `deployment_support` | Local archives and SBOMs with SHA-256 digests |
 
 Every payload path is under `runtime/`. Missing, extra, linked, duplicate, mismatched, and
 oversized inputs are rejected. Existing kit limits remain 512 MiB per file and 8 GiB total;
-larger release layouts need a reviewed format change, not disabled bounds. OCI identity,
-provenance contents, archive layout, Console configuration, and migration completeness remain
-release-producer assertions until their own independent validation. Hash checks alone do not
-prove those properties.
+larger release layouts need a reviewed format change, not disabled bounds. V2 staging and
+preparation validate each image's OCI layout, blob hashes, manifest digest, and CPU platform without
+extracting or executing layers. Service images must also carry the declared FDAI source revision.
+Dependency images do not inherit that revision: their content is digest-bound, not source-attested.
+Provenance and SBOM semantics, layer contents, Console configuration, and migration completeness
+still require independent validation.
+OPA is embedded in the Core image and already included as a deployment-tool binary in the kit;
+it is not an additional deployed sidecar.
+The ACR adapter can publish the validated dependency without inventing an FDAI source revision.
+Its receipt uses `source_commit=None` and requires the same exact manifest GET readback as service
+publication. Both remain low-level protected-executor APIs; a prepared inventory does not authorize
+an upload or establish dependency provenance.
 
 Release engineering passes `--runtime-release <directory>` to `stage-offline-kit.sh` to include
 this inventory and its real local payloads before the kit SBOM and signature are generated.
@@ -114,7 +132,8 @@ build runtime images, generate their provenance, or replace the protected releas
 
 Only a fully checked private snapshot is published at `prepared/`. Its `preparation.json` binds
 the profile, target, cost ceiling, source, kit, runtime inventory, deployment bundle, and genesis
-manifest. `state=prepared` and `subscription_ready=false` mean inputs are prepared, not installed.
+manifest. The `fdai.offline-preparation.v2` receipt also binds the six checked image digests.
+`state=prepared` and `subscription_ready=false` mean inputs are prepared, not installed.
 Preparation does not estimate cost or produce an executable approved Terraform plan.
 
 Offline profiles are blocked before authentication or dispatch through the existing `deploy`
@@ -264,11 +283,9 @@ fails closed:
 
 ## Provisioning an image-delivered distribution
 
-A distribution that hands over an image still has to create the Azure inventory first, and the
-runtime image cannot do it. `infra/` is excluded from the build context, no Terraform binary is
-installed, and the entry point is the control plane, not a provisioner. The `fdaictl` console
-script does not currently ship in any service image or dedicated CLI wheel. The target command
-sequence below therefore describes the intended handover, not an available image capability.
+A runtime image does not provision Azure infrastructure: it excludes `infra/` and Terraform and
+starts a service, not a provisioner. The separate `fdai-deployment-cli` wheel supplies `fdaictl`.
+The handover below combines implemented commands with explicitly unfinished integration.
 
 A closed-network handover is therefore **two artifacts**: the runtime image, and the signed offline
 kit that carries the wheel, the deployment bundle with `infra/`, the pinned Terraform binary and
@@ -276,20 +293,19 @@ provider mirror, the policy engine, and the bill of materials.
 
 | # | Step | Tool | State |
 |---|------|------|-------|
-| 1 | Verify the kit | `fdaictl provision inspect` | not started; dedicated CLI and verifier are absent |
-| 2 | Verify the deployment bundle | `fdaictl bundle verify` | not started as a packaged command |
-| 3 | Load the runtime image and push it to the tenant registry | container tooling on the VNet host | operator step |
-| 4 | Stand up the ops hub: state account, VNet, and the deploy host | `infra/bootstrap` | implemented; run once per tenant |
-| 5 | Plan the app layer from the bundle | `fdaictl provision plan` | not started; target behavior |
+| 1 | Inspect the kit | `fdaictl provision inspect` | implemented; the pinned release trust root remains open |
+| 2 | Verify the deployment bundle | `fdaictl bundle verify` | implemented packaged command |
+| 3 | Load the runtime image and push it to the tenant registry | container tooling on the VNet host | operator step; the bounded ACR adapter is not integrated into protected installation |
+| 4 | Stand up the ops hub: state account, VNet, and the deploy host | `infra/genesis-foundation`; existing `infra/bootstrap` | composition implemented; protected execution and private-state handoff remain open ([ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)) |
+| 5 | Plan the app layer from the bundle | `fdaictl provision plan` | implemented local planning; not a full installation |
 | 6 | Analyze the plan before applying it | standalone preflight script today; target `fdaictl deploy preflight --terraform-plan` | core and runner path implemented; CLI facade absent |
 | 7 | Apply | Terraform on the deploy host | operator-driven |
 | 8 | Migrate the state store | a one-off job running the same image | implemented |
-| 9 | Inject and check the license token | secret path plus target `fdaictl license inspect` | license contract implemented; CLI command absent ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
+| 9 | Inject and check the license token | secret path plus `fdaictl license inspect` | inspection implemented; token delivery remains a protected secret operation ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
 | 10 | Start the control plane | the image entry point | implemented |
 
-Step five is a target replacement for this checklist: unpack the kit, find the Terraform binary, hand-write a provider
-mirror configuration, and remember to close the public-registry fallback. `fdaictl provision plan`
-owns it instead. It resolves the Terraform binary and the mirror from the *signed manifest*, so a
+Step five replaces manual tool and mirror selection with `fdaictl provision plan`.
+It resolves the Terraform binary and the mirror from the *signed manifest*, so a
 tree added beside the kit cannot decide what executes; it generates a CLI configuration whose
 `direct` block excludes every provider, so a missing mirror entry fails the plan rather than
 reaching the public registry; it passes only credential-shaped environment variables through; and

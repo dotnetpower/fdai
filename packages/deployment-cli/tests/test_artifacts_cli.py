@@ -1109,6 +1109,8 @@ def test_complete_plan_handler_reaches_verification_under_msi(
         reached_verification,
     )
     args = Namespace(
+        stage="platform",
+        save_plan=False,
         work_dir=tmp_path / "work",
         profile=tmp_path / "profile.json",
         offline_kit=tmp_path / "kit",

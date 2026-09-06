@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3ec0d4b8a49173f5809290a90e3fdd42c79438a7 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: caab5003240c3d8c7505d8b17cbe182ba54ac71c }]
 ---
 
 # Deploy Quickstart
@@ -32,6 +32,11 @@ Terraform remains an expert path.
   stop unless the ARM token `oid`, tenant, and subscription all match. For a
   closed-network image, use `runner_bootstrap_mode = "offline"` only with an
   exact managed-image or numeric gallery-version ID.
+- **Fresh offline subscriptions:** Standalone bootstrap still expects an existing state account
+  and application group. The separate genesis root provides ARM-only foundation planning and
+  reference-only application-group ownership. The packaged flow does not yet automate approved
+  creation, enrollment, or state migration. Follow the [offline preparation boundary](../roadmap/deployment/disconnected-deployment.md);
+  a prepared artifact or saved plan is not installation readiness.
 - Attested FDAI service images from `container-supply-chain.yml`. Protected
   service plans verify the exact Core, Operator, Document Ingestion API,
   Document Processing Worker, and Isolated Executor image attestations for the

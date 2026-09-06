@@ -47,16 +47,109 @@ kit, an offline target-bound profile, a positive cost ceiling, an exact source r
 private work directory. It snapshots the CLI toolchain, signed deployment bundle, and a complete
 local runtime inventory without network calls or artifact execution.
 
-The runtime inventory requires archives for all five services, Console, and deployment support,
-with hashes, SBOMs, service provenance, and a binding to the exact deployment bundle bytes.
-Registry references without local payloads do not qualify. Release staging accepts these prebuilt
-inputs through `stage-offline-kit.sh --runtime-release <directory>`.
+Complete preparation requires runtime inventory v2: local archives for all five services,
+the ClamAV sidecar, Console, and deployment support, with hashes, SBOMs, image provenance, and a
+binding to the exact deployment bundle bytes. V2 staging and preparation inspect all six OCI
+images for blob/manifest digests and the selected CPU platform. Service images must carry the FDAI
+revision; ClamAV is a digest-bound dependency, not an FDAI-source image. OPA is already embedded in
+Core and shipped as a kit tool. No layers are extracted or executed, and provenance semantics
+remain a separate release gate.
 
-`prepared/preparation.json` reports `state=prepared`, `subscription_ready=false`, and the remaining
+Registry references without local payloads do not qualify. Release staging accepts these prebuilt
+inputs through `stage-offline-kit.sh --runtime-release <directory>`. Legacy v1 inventories remain
+readable and stageable, but `offline prepare` rejects them instead of silently omitting ClamAV.
+
+`prepared/preparation.json` uses `fdai.offline-preparation.v2`, binds the checked image digests,
+and reports `state=prepared`, `subscription_ready=false`, and the remaining
 approval and independent-readback checkpoints. This is not an Azure installer, production trust
 bootstrap, or a ready receipt. Existing public-artifact GitHub deployment commands reject offline
 profiles before authentication or dispatch.
 See [Disconnected Deployment](../../docs/roadmap/deployment/disconnected-deployment.md).
+
+The low-level ACR adapter supports service publication with an exact FDAI revision and dependency
+publication without that revision claim. Both validate local content before acquiring credentials,
+upload only to the selected registry/repository under deadlines, and require manifest GET readback.
+Dependency receipts carry `source_commit=None`; neither receipt grants provenance or readiness.
+These are protected-executor building blocks, not public mutating CLI commands. Approval,
+target/identity binding, lease, audit, recovery, and full-runtime orchestration remain required.
+
+### Plan the private foundation
+
+`fdaictl provision plan --stage foundation` selects the signed bundle's
+`infra/genesis-foundation` root. Without `--stage`, the existing platform plan remains the default.
+Foundation planning requires an offline `managed-vm` profile with a positive cost ceiling and an
+authenticated Azure CLI target matching that profile. Only the kit's locked providers are used.
+Azure management-plane connectivity is still required; offline refers to artifact delivery.
+
+Use the existing `--offline-kit`, `--release-root`, `--bundle-public-key`, `--work-dir`,
+`--profile`, and `--variables-file` options. The work directory must be new. Supply a mode-`0600`
+JSON input with these fields:
+
+- `tenant_id`, `subscription_id`, `target_binding`, and `region`, matching the reviewed profile;
+- `workload`, `region_short`, and `state_storage_account_name`;
+- `ops_address_space`, `runner_subnet_prefix`, and `pe_subnet_prefix` as canonical IPv4 CIDRs;
+- `runner_ssh_public_key` as an RSA or Ed25519 public key without a comment;
+- `runner_source_image_id` as an exact managed-image or numeric gallery-version ARM id;
+- `source_commit`, `run_digest`, and `foundation_context_digest` as reviewed provenance references.
+
+Optional fields are `state_retention_days`, `runner_vm_size`, and `enable_public_egress`.
+The profile supplies `env`. Credentials, registration tokens, arbitrary Terraform variables, mutable
+image versions, overlapping subnets, and subnets outside the hub are not accepted. Cross-network
+overlap, cost estimates, image attestations, and source eligibility still need protected preflight.
+
+The command performs a dry run only. It returns `state=review`, `apply_authorized=false`, and
+`subscription_ready=false`; it does not create resources, enroll a runner, migrate state, or grant
+approval. Its declared source revision is not proof of release eligibility.
+
+Add `--save-plan` to retain the exact foundation plan as `foundation.tfplan`, with a
+`foundation-plan.json` review receipt in the new work directory. This option is not supported for
+the platform dry run, which uses a placeholder database credential. Saved-plan creation checks
+Terraform's complete plan projection and normalized variables, then binds the binary plan to the
+verified kit, bundle, Terraform binary, provider lock, profile, target, and input digests.
+Transient variables and JSON projection are removed on success or failure.
+
+Keep both files private. The binary plan can contain sensitive provider values and is not a
+portable evidence attachment. Save the returned `saved_plan.review_digest` separately, then verify
+local integrity before handing the plan to a protected approval flow:
+
+```bash
+fdaictl provision verify-foundation-plan \
+  --directory /private/foundation-review \
+  --profile /private/profile.json \
+  --expected-review-digest <review-digest> --output json
+```
+
+Verification reads only private mode-`0600` files beneath a current-user mode-`0700` directory.
+It rejects changed plan bytes, mismatched profiles or receipts, and reviews outside their one-hour
+local-clock window. This window is not authenticated time authority. Neither command attests the
+plan's origin, proves source eligibility, or authorizes apply. A protected executor still needs
+independent provenance, current approval, authenticated time, lease, rollback, and effect checks.
+After expiry or a failed attempt, use a new work directory and obtain a new review digest.
+
+### Compare state after a protected handoff
+
+On the approved private host, `fdaictl provision verify-state-handoff` compares already-captured
+local and remote raw Terraform state against the JSON output of a complete no-change plan:
+
+```bash
+fdaictl provision verify-state-handoff \
+  --local-state /private/handoff/local.json \
+  --remote-state /private/handoff/remote.json \
+  --plan-json /private/handoff/plan.json \
+  --output-receipt /private/handoff/comparison.json --output json
+```
+
+Each input must be a mode-`0600` regular JSON file no larger than 1 MiB. The output must be new,
+with an absolute path under a private mode-`0700` directory. No input is modified or deleted.
+The comparison checks lineage, serial, managed instance addresses and ids, full state content,
+and the plan's prior managed identities. Changes, imports, moves, drift, deferred work, failed
+checks, tainted/deposed instances, and incomplete plans are blocked.
+
+Output contains only digests, counts, and comparison status, never raw state values or resource
+identifiers. A match remains `state=review`: it does not prove that the supplied files came from
+the approved backend or observer. Independent storage protection, lease, identity, approval, and
+effect checks remain required. In particular, `local_state_deletion_authorized=false` means you
+must retain the recovery cache. This command neither migrates state nor makes a subscription ready.
 
 ### Install the deployment support interpreter
 

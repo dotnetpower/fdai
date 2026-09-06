@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3ec0d4b8a49173f5809290a90e3fdd42c79438a7
+translation_source_sha: caab5003240c3d8c7505d8b17cbe182ba54ac71c
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -40,19 +40,17 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 #### Terraform이 만들지 않는 것
 
-아래 인벤토리는 Terraform이 소유하지만, 첫 적용 전에 외부 입력 넷이 있어야 합니다.
+독립 실행하는 `infra/bootstrap`은 기존 상태 계정과 애플리케이션 그룹을 요구합니다. 아래 별도 Genesis 루트는 로컬에서 애플리케이션 데이터 플레인 작업을 수행하지 않고 생성 순환 의존성을 없앱니다.
 새 데이터베이스는 보호된 입력으로 관리자 암호를 제공하거나 Terraform 영속 생성을 명시적으로 선택합니다. 기존 서버에서 생성을 켜는 것은 별도 승인이 필요한 자격 증명 변경입니다. 참조 계획은 Terraform `>= 1.9`와 호환되며 루트 연결은 별도로 검사합니다.
 
-- **Deployer 신원과 역할 배정 권한.** 실행기 신원과 scoped 역할을 만들려면 User 접근
-  Administrator가 필요합니다. 기여자만 있으면 계획은 통과하고 적용에서 실패합니다.
-- **Terraform 상태 저장소 계정.** `infra/bootstrap/create-state-account.sh`가 `az`로
-  만듭니다. 비공개 + key-disabled 계정은 운영자 워크스테이션에서 Terraform의 data-plane 준비 상태
-  poll을 끝낼 수 없기 때문입니다. Terraform은 데이터 출처로 읽기만 합니다.
-- **초기화 계층이 실행기 VM을 만들 때의 앱 리소스 그룹.** 그 계층은 실행기의 기여자
-  권한 부여 범위를 정하려고 이 그룹을 데이터 출처로 읽는데, 정작 그룹을 만드는 것은 앱 계층입니다.
-  빈 구독에서는 빈 그룹을 먼저 만들거나, `create_runner_vm = false`로 초기화를 한 번 적용한
-  뒤 앱 계층을 돌리고 실행기를 켜서 다시 적용합니다.
-- **실행기용 SSH 공개 키**, 그리고 위에 적은 쿼터 헤드룸과 Log Analytics 목적지.
+- **배포자 신원:** 역할 할당에는 User Access Administrator가 필요하며 Contributor만으로는 부족합니다.
+- **상태 저장소:** 독립 Bootstrap은 `infra/bootstrap/create-state-account.sh`로 만든 기존 계정을 읽습니다. AzureRM 조회가 계정 키를 읽을 수 있으므로 로컬 상태는 비밀을 포함한 자료로 보호합니다.
+- **애플리케이션 리소스 그룹:** 독립 Bootstrap은 실행기 역할을 할당하기 전에 그룹이 존재해야 합니다.
+- **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
+
+[Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹과 블롭 보호를 포함한 비공개 상태 계정을 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
+새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
+`fdaictl provision plan --stage foundation`은 선택적 비공개 `--save-plan` 저장을 지원하는 모의 실행입니다. 승인, 호스트 등록, 원격 상태 이전은 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다

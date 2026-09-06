@@ -1,14 +1,13 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8649340adf03f7ee53920d0697e5c48b60e8ff4a
+translation_source_sha: b5750faaa71a0bbe9507c9001600454e8f69e3b7
 translation_revised: 2026-09-06
 ---
 # 코드 맵
 
-이 페이지는 각 FDAI 런타임 서비스와 shared 패키지를 물리 출처, 테스트 및 소유 design에
-연결합니다. 폐기된 최상위 애플리케이션 트리에 의존하지 않고 현재 service-owned 구현을
-찾을 때 사용합니다.
+이 페이지는 FDAI 런타임 서비스, 배포 도구, 공유 패키지를 소스, 테스트, 설계 문서에 연결합니다.
+폐기된 최상위 애플리케이션 트리 대신 현재 소유권에 맞는 구현을 찾을 때 사용합니다.
 
 > **범위:** 이 지도는 검증된 로컬 IS-08 저장소 소유권과 IS-07 로컬 업그레이드 및 롤백
 > 증명을 설명합니다. 지연된 원격 검증은 IS-09가 소유합니다.
@@ -122,7 +121,7 @@ IAM 조립은 최상위 모듈의 의존성을 늘리지 않고 대화 담당 �
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
 생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
-적응형 프롬프트 타입은 공개 에이전트 및 모델 인터페이스를 사용합니다. 질문 모음은 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
+적응형 프롬프트 타입은 공개 에이전트 및 모델 인터페이스를 사용합니다. `families/conversation/conversation_history.py`는 모델을 재호출하지 않고 사용자 범위의 저장된 답변을 복원합니다. 질문 모음은 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
 Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.
@@ -620,7 +619,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | [콘솔/](../../../console/) | 지식 원본 및 거버넌스 적용 문서 업로드 경로, 지역화된 가이드 서랍, 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | 독립 정적 가이드 라이브러리, HTML 슬라이드 뷰어, 저장소에 안전한 미디어 출처 계보 및 집중 프로토타입 검사를 제공합니다. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
-| [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |
+| [cli/](../../../cli/), [deployment-cli](../../../packages/deployment-cli/), [genesis-foundation](../../../infra/genesis-foundation/) | 운영자 클라이언트와 별도 배포 도구입니다. 비공개 기반 계층 계획, 상태 비교, 런타임 입력 검증을 제공합니다. 기반 계층이 애플리케이션 그룹을 소유하며 새 플랫폼 상태는 두 번째 소유자 없이 이를 참조합니다. [Genesis 진행 상태](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)를 참조하세요. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Design 맥락 읽기를 기록하고 dirty 편집 경로를 예약하며, framework 및 constitution 편집의 stale 맥락을 hard-block하고, commit 범위와 파괴적 Git을 보호하며, repository-wide 검증을 명시적인 integration 또는 release 경계로 라우팅합니다. |
 
 ## 관련 문서

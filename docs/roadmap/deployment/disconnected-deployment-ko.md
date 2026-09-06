@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 40eac02fce2264b2802d5007b894cf998fe011fd
+translation_source_sha: 3856394336d1bb97ff209a46c8401f528d78f933
 translation_revised: 2026-09-06
 ---
 # 폐쇄망 배포
@@ -24,12 +24,15 @@ translation_revised: 2026-09-06
 |------|------|------|------|
 | 비공개 Azure 네트워킹 및 VNet 배포 호스트 | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 인프라 작업 흐름 테스트 | 비공개 엔드포인트, DNS, 영속 배포 호스트, 보호된 계획 및 exact apply는 offline CLI 경로와 독립적으로 구현되어 있습니다. |
 | 내부 mirror 및 고정 입력 제어 | implemented | `infra/modules/preflight-toggles/` 및 `scripts/quality/ci/check-ci-contracts.py` | 저장소는 mirror 입력을 노출하고 변경 가능한 base 이미지 참조나 레지스트리에 묶인 참조를 거부합니다. |
-| 오프라인 도구 키트 구성 및 훈련 | validated | [배포 CLI 구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md) | 전용 CLI와 배포 휠을 사용하는 도구 훈련이 복원되었습니다. 전체 런타임 배포 훈련을 뜻하지 않습니다. |
+| 오프라인 도구 키트 구성 및 훈련 | in-progress | [배포 CLI 구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md); 현재 여러 루트의 미러 테스트 | 과거 배포 휠 훈련 근거는 해당 버전에만 유효합니다. 확장된 구성 경로는 전체 훈련을 새로 수행해야 하며, 어느 쪽도 런타임 배포를 입증하지 않습니다. |
 | 폐쇄망 번들 검증 및 계획 명령 | implemented | `packages/deployment-cli`; 산출물 및 패키징 테스트 | 패키지가 `fdaictl`을 등록하고 서명된 로컬 입력을 검증합니다. 계획 수립만으로 새 구독 구성이 완료되지는 않습니다. |
 | 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
+| 전체 런타임 이미지 검증 | implemented | 런타임 목록 v2와 범위가 제한된 OCI 검증기; 집중 테스트 355개; 빈 환경에 설치한 CPython 3.12 검토용 휠 | 구성과 준비 과정에서 서비스 이미지 5개와 ClamAV를 검증합니다. 기존 v1은 점검할 수 있지만 전체 준비에는 사용할 수 없습니다. 합성 서명 이미지는 패키징과 내용 검사를 입증하며 출처나 Azure 준비 완료를 뜻하지 않습니다. |
+| 의존성 이미지 게시 어댑터 | implemented | `publish_dependency_oci_archive`; 집중 ACR 테스트 80개 | 서비스 게시와 동일하게 자격 증명 획득 전 검증, 시간 제한, 재시도 없는 전송, 매니페스트 GET 재확인을 적용합니다. 의존성 증적은 FDAI 소스 버전을 주장하지 않습니다. 보호된 호출자 연결은 아직 필요하며 테스트는 Azure 대신 기록용 전송기를 사용합니다. |
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
 | 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 라이브러리를 포함한 현재 배포판 7개를 해시와 설치 결과 재확인으로 설치합니다. 런타임 서비스는 시작하지 않습니다. |
+| 배포 루트별 고정 공급자 수집 | implemented | `mirror-locked-providers.sh`; 가짜 Terraform을 사용한 오프라인 테스트 25개, Ruff 및 셸 구문 검사 | 서로 다른 AzureRM 버전과 Genesis의 AzAPI를 포함해 번들의 9개 루트가 각 잠금 파일을 유지합니다. 호출별 제한은 300/600초, 전체 제한은 3600초입니다. 실제 다운로드, 미러 인덱스, 전체 서명 구성은 아직 검증하지 않았습니다. |
 | 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
 | Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
 | 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
@@ -44,6 +47,10 @@ translation_revised: 2026-09-06
 | 2026-09-06 | implemented | 활성 서비스 환경을 변경하지 않는 고정 런타임 휠 구성 및 인증된 오프라인 지원 환경 설치를 추가했습니다. | `current change`; 집중 구성·설치 테스트와 실제 휠의 네트워크 격리 설치 및 5개 서비스 진입 모듈 로드 성공 | 승인된 마이그레이션과 애플리케이션 실행에 지원 페이로드를 연결하고 실제 Azure 및 Console 증적을 보존합니다. |
 | 2026-09-06 | implemented | 평문 입력이나 새 암호 출력 없이 선택적으로 최초 PostgreSQL 자격 증명을 생성하도록 추가했습니다. | `current change`; 모의 Terraform 검증 9개로 기본 동작, 모호한 입력, 민감성, 실제 상태 저장소 모듈 연결을 확인했습니다. | 승인된 비공개 호스트 적용과 영속 상태 재확인을 보존하며 모의 근거를 클라우드 설치로 해석하지 않습니다. |
 | 2026-09-06 | implemented | CI 호환 계획 검증이 루트 연결을 별도 회귀 테스트로 옮긴 뒤 자격 증명 테스트 근거를 정정했습니다. | `current change`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개가 통과했습니다. | 승인된 비공개 호스트 적용과 영속 상태 재확인을 보존하며 모의 근거를 클라우드 설치로 해석하지 않습니다. |
+| 2026-09-06 | implemented | 인계 표에 남아 있던 오래된 CLI 설명을 바로잡고 새 기반 인프라 구성을 연결했습니다. 설치기 완성을 뜻하지 않습니다. | `current change`; 패키지 CLI 명령 처리기; [Genesis 구현 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md); 최종 지원 설치기 테스트 12개와 엄격한 mypy 검사 통과 | 보호된 실행, 완전한 서명 산출물, 독립적인 Console 및 전체 범위 인벤토리 검증을 연결합니다. |
+| 2026-09-06 | in-progress | 여러 루트의 공급자를 제한된 시간 안에 수집하고 빈 환경에 설치한 CLI 휠로 지원 환경 설치를 확인했습니다. 확장된 키트 구성에는 과거 검증 상태를 이어 쓰지 않고 새 전체 훈련이 필요합니다. | `current change`; 오프라인 미러 테스트 25개; 네트워크와 캐시 없는 CPython 3.12 격리 설치; 실제 배포판 7개와 설치 환경 내 경로를 확인한 서비스 진입 모듈 5개 | 키트 묶음과 도구는 합성 테스트 입력이었고 서비스를 시작하지 않았습니다. Azure·Console 준비 완료를 뜻하지 않으며 실제 서명 배포판과 보호된 런타임 증적을 확보해야 합니다. |
+| 2026-09-06 | implemented | ClamAV만 허용하는 사이드카 목록을 추가하고 v2 구성·준비 과정에 OCI 내용 검증을 연결했습니다. OPA는 추가 이미지가 아니라 Core 내장 바이너리와 키트 도구로 유지합니다. | `current change`; 목록, 이미지, 준비, ACR, 지원 환경 테스트 355개와 Ruff·엄격한 mypy 검사 통과; 네트워크·인덱스·캐시 없이 CPython 3.12 휠을 설치하여 합성 OCI 이미지 6개를 검증하고, 다시 서명된 잘못된 ClamAV 아카이브를 차단했습니다. | 실제 출처 검증 이미지의 보호된 비공개 호스트 게시, 최신 악성코드 서명 공급, 안전한 최초 서비스 생성, 마이그레이션·인증된 Console·전체 인벤토리 증적을 완료해야 합니다. 서비스를 시작하지 않았습니다. |
+| 2026-09-06 | implemented | FDAI 버전을 요구하지 않는 의존성 게시를 기존의 시간 제한 ACR 업로드와 독립 매니페스트 재확인 경로에 연결했습니다. 서비스 소스 버전 검증은 유지합니다. | `current change`; 의존성 사례 15개를 포함한 ACR 테스트 80개, Ruff 및 엄격한 mypy 검사 통과 | 보호된 승인, 현재 대상·실행자 신원, 잠금, 감사, 복구에 어댑터를 연결해야 합니다. 공개 변경 CLI를 추가하거나 Azure에 이미지를 게시하지 않았습니다. |
 
 ### 남은 작업
 
@@ -93,7 +100,9 @@ fdaictl offline prepare \
 존재하지 않아야 합니다. 준비 과정은 Azure, 레지스트리, 모델, 작업 흐름을 호출하거나
 아카이브를 실행하지 않습니다. 도구만 담긴 키트는 차단됩니다.
 
-서명된 키트에는 `fdai.runtime-release.v1` 스키마의 `runtime/release.json`이 포함됩니다.
+전체 준비에는 `fdai.runtime-release.v2` 스키마의 `runtime/release.json`이 필요합니다.
+기존 v1 목록은 점검을 위해 읽고 구성할 수 있지만, 필수 사이드카가 선언되어 있지 않아
+전체 준비 검증을 통과할 수 없습니다.
 
 | 필드 | 필수 내용 |
 |------|-----------|
@@ -101,13 +110,23 @@ fdaictl offline prepare \
 | `deployment_bundle_sha256` | 짝을 이루는 서명된 배포 번들 아카이브의 다이제스트 |
 | `services` | Core, Operator, 수집 API, 문서 작업자, 격리 실행기의 정확한 5개 항목 |
 | 각 서비스 | 로컬 아카이브, SBOM, 출처 경로 및 SHA-256 다이제스트, OCI 이미지 다이제스트 |
+| `sidecars` | 정확히 `clamav` 한 항목. 서비스와 동일한 아카이브, SBOM, 출처, 이미지 다이제스트 필드 |
 | `console`, `deployment_support` | SHA-256 다이제스트가 있는 로컬 아카이브와 SBOM |
 
 모든 페이로드 경로는 `runtime/` 아래에 있습니다. 누락, 추가, 링크, 중복, 불일치, 크기
 초과 입력은 차단됩니다. 기존 키트 제한은 파일당 512 MiB, 전체 8 GiB로 유지합니다.
-더 큰 배포판은 제한 해제가 아니라 검토된 형식 변경이 필요합니다. OCI 식별 정보, 출처
-내용, 아카이브 구조, Console 구성, 마이그레이션 완전성은 별도 검증 전까지 배포판 생성자의
-선언으로만 취급합니다. 해시 검사만으로 이런 속성을 입증하지는 않습니다.
+더 큰 배포판은 제한 해제가 아니라 검토된 형식 변경이 필요합니다. V2 구성과 준비 과정은
+계층을 추출하거나 실행하지 않고 각 이미지의 OCI 구조, 블롭 해시, 매니페스트 다이제스트,
+CPU 플랫폼을 검증합니다. 서비스 이미지는 선언된 FDAI 소스 버전도 포함해야 합니다.
+의존성 이미지에는 FDAI 버전을 적용하지 않습니다. 해당 내용은 다이제스트로 연결되지만
+소스 출처까지 입증하지는 않습니다. 출처와 SBOM의 의미, 계층 내용, Console 구성,
+마이그레이션 완전성은 여전히 별도 검증이 필요합니다.
+OPA는 Core 이미지에 내장되어 있고 키트에도 배포 도구 바이너리로 포함되므로,
+별도로 배포하는 사이드카가 아닙니다.
+ACR 어댑터는 검증된 의존성을 게시할 때 FDAI 소스 버전을 만들어 넣지 않습니다.
+증적은 `source_commit=None`을 사용하고 서비스 게시와 동일하게 정확한 매니페스트의 GET
+재확인을 요구합니다. 두 경로 모두 보호된 실행기용 저수준 API입니다. 준비된 목록만으로
+업로드가 승인되거나 의존성 출처가 입증되지는 않습니다.
 
 배포 담당자는 `stage-offline-kit.sh`에 `--runtime-release <directory>`를 전달해 키트의
 SBOM과 서명을 생성하기 전에 목록과 실제 로컬 페이로드를 포함합니다. 이 옵션은 목록의
@@ -116,6 +135,7 @@ SBOM과 서명을 생성하기 전에 목록과 실제 로컬 페이로드를 �
 
 완전히 검사된 비공개 스냅샷만 `prepared/`에 게시합니다. `preparation.json`은 프로필,
 대상, 비용 상한, 소스, 키트, 런타임 목록, 배포 번들, 초기 구성 매니페스트를 연결합니다.
+`fdai.offline-preparation.v2` 증적은 검증한 이미지 6개의 다이제스트도 연결합니다.
 `state=prepared`, `subscription_ready=false`는 입력 준비를 뜻하며 설치 완료가 아닙니다.
 비용을 추정하거나 승인된 실행 가능 Terraform 계획을 생성하지 않습니다.
 
@@ -265,13 +285,11 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 - **적응형 결정**: 모델 경로를 사용할 수 없으면 적응형 능력은 사용 불가를 보고하고 해당 작업은
   deterministic-only로 남습니다. 자율성은 저하될 뿐 fail-open하지 않습니다.
 
-## 이미지로 전달된 분포의 프로비저닝
+## 이미지 배포판 프로비저닝
 
-이미지를 넘기는 분포도 먼저 Azure 인벤토리를 만들어야 하는데, 런타임 이미지는 그것을 할 수
-없습니다. `infra/`는 빌드 컨텍스트에서 제외되고, Terraform 바이너리는 설치되지 않으며, 진입점은
-provisioner가 아니라 컨트롤 플레인입니다. `fdaictl` 콘솔 스크립트는 현재 어떤 서비스 이미지나
-전용 CLI 휠에도 포함되지 않습니다. 따라서 아래 목표 명령 순서는 사용 가능한 런타임 이미지 기능이
-아니라 의도한 인계 절차를 설명합니다.
+런타임 이미지는 Azure 인프라를 구성하지 않습니다. `infra/`와 Terraform을 포함하지 않으며
+프로비저닝 도구 대신 서비스를 시작합니다. 별도 `fdai-deployment-cli` 휠이 `fdaictl`을 제공합니다.
+아래 인계 절차는 구현된 명령과 아직 연결하지 못한 단계를 구분합니다.
 
 따라서 폐쇄망 인계는 **아티팩트 두 개**입니다. 런타임 이미지, 그리고 휠, `infra/`를 담은
 배포 번들, pinned Terraform 바이너리 및 프로바이더 mirror, 정책 엔진, bill of materials를
@@ -279,20 +297,19 @@ provisioner가 아니라 컨트롤 플레인입니다. `fdaictl` 콘솔 스크�
 
 | # | 단계 | 도구 | 상태 |
 |---|------|------|------|
-| 1 | 키트 검증 | `fdaictl provision inspect` | 시작하지 않음. 전용 CLI와 검증기가 없음 |
-| 2 | 배포 번들 검증 | `fdaictl bundle verify` | 패키지 명령으로는 시작하지 않음 |
-| 3 | 런타임 이미지 부하 후 테난트 레지스트리에 push | VNet 호스트의 컨테이너 도구 | 운영자 단계 |
-| 4 | Ops 허브 구축: 상태 계정, VNet, 배포 호스트 | `infra/bootstrap` | 구현됨. 테난트당 1회 |
-| 5 | 번들에서 앱 계층 계획 | `fdaictl provision plan` | 시작하지 않음. 목표 동작 |
+| 1 | 키트 점검 | `fdaictl provision inspect` | 구현됨. 고정된 release 신뢰 루트는 아직 준비되지 않음 |
+| 2 | 배포 번들 검증 | `fdaictl bundle verify` | 패키지 명령 구현됨 |
+| 3 | 런타임 이미지 적재 후 테넌트 레지스트리에 게시 | VNet 호스트의 컨테이너 도구 | 운영자 단계. 범위가 제한된 ACR 어댑터는 보호된 설치 경로에 아직 연결되지 않음 |
+| 4 | Ops 허브 구축: 상태 계정, VNet, 배포 호스트 | `infra/genesis-foundation`; 기존 `infra/bootstrap` | 구성 구현됨. 보호된 실행과 비공개 상태 이전은 미완료 ([원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)) |
+| 5 | 번들에서 앱 계층 계획 | `fdaictl provision plan` | 로컬 계획 구현됨. 전체 설치를 뜻하지 않음 |
 | 6 | 적용 전에 계획 분석 | 현재 독립 실행형 프리플라이트 스크립트, 목표 `fdaictl deploy preflight --terraform-plan` | 코어와 실행기 경로는 구현됨. CLI 파사드는 없음 |
 | 7 | 적용 | 배포 호스트의 Terraform | 운영자 주도 |
 | 8 | 상태 저장소 마이그레이션 | 같은 이미지를 실행하는 일회성 작업 | 구현됨 |
-| 9 | License 토큰 주입 및 확인 | 시크릿 경로 + 목표 `fdaictl license inspect` | License 계약은 구현됨. CLI 명령은 없음 ([capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)) |
+| 9 | 라이선스 토큰 주입 및 확인 | 시크릿 경로 + `fdaictl license inspect` | 점검 구현됨. 토큰 전달은 보호된 시크릿 작업으로 수행 ([capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)) |
 | 10 | 컨트롤 플레인 시작 | 이미지 진입점 | 구현됨 |
 
-5단계는 다음 검사 목록을 대체하기 위한 목표입니다. 키트를 풀고, Terraform 바이너리를 찾고, 프로바이더 mirror 설정을
-손으로 쓰고, 공개 레지스트리 대체 경로를 닫는 것을 잊지 않아야 했습니다. 이제 `fdaictl provision plan`이
-그 단계를 소유합니다. Terraform 바이너리와 mirror를 **서명된 매니페스트**에서 해석하므로 키트 옆에 추가된
+5단계는 수동 도구 및 미러 선택을 `fdaictl provision plan`으로 대체합니다.
+Terraform 바이너리와 미러를 **서명된 매니페스트**에서 해석하므로 키트 옆에 추가된
 트리가 실행 대상을 결정할 수 없습니다. 생성되는 CLI 설정의 `direct` 블록은 모든 프로바이더를 제외하므로,
 mirror에 없는 항목은 공개 레지스트리로 가는 대신 계획을 실패시킵니다. 자격증명 형태의 환경 변수만
 통과시키며, binary 계획 과 그 SHA-256 다이제스트, 6단계가 소비하는 계획 JSON 을 산출합니다.

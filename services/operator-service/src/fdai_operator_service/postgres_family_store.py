@@ -1222,6 +1222,50 @@ class PostgresFamilyStore:
             truncated=len(rows) > limit,
         )
 
+    async def read_conversation_history(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Read only the caller's durable legacy rows and matching semantic results."""
+        if not principal_id or not conversation_id or not 1 <= limit <= 1000:
+            raise ValueError("conversation history requires bounded principal-scoped input")
+        parameters = {
+            "principal_id": principal_id,
+            "conversation_id": conversation_id,
+            "limit": limit,
+        }
+        legacy = await self._fetch_all(
+            "SELECT turn_id, conversation_id, turn_index, role, content, recorded_at, metadata "
+            "FROM conversation_turn WHERE principal_id = %(principal_id)s "
+            "AND conversation_id = %(conversation_id)s "
+            "ORDER BY recorded_at DESC, turn_index DESC LIMIT %(limit)s",
+            parameters,
+        )
+        semantic = await self._fetch_all(
+            """
+            SELECT request.value -> 'envelope' AS request, result.value -> 'data' AS result
+              FROM state_kv AS request
+              LEFT JOIN LATERAL (
+                SELECT terminal.value FROM state_kv AS terminal
+                 WHERE terminal.value ->> 'kind' = 'operator.semantic_result'
+                   AND terminal.value ->> 'request_id' = request.value ->> 'request_id'
+                   AND terminal.value ->> 'principal_id' = %(principal_id)s
+                 ORDER BY terminal.value ->> 'recorded_at' DESC, terminal.key DESC
+                 LIMIT 1
+              ) AS result ON TRUE
+             WHERE request.value ->> 'kind' = 'operator.semantic_turn'
+               AND request.value ->> 'principal_id' = %(principal_id)s
+               AND request.value #>> '{envelope,semantic_turn,session_id}' = %(conversation_id)s
+             ORDER BY request.value ->> 'accepted_at' DESC
+             LIMIT %(limit)s
+            """,
+            parameters,
+        )
+        return [{"kind": "legacy", "turn": row} for row in legacy] + semantic
+
     async def search_conversation_turns(
         self,
         *,

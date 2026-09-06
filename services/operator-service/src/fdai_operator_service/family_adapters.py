@@ -33,6 +33,9 @@ from fdai_operator_service.families.conversation.contracts import (
     OutboxReceipt,
     StreamEvent,
 )
+from fdai_operator_service.families.conversation.conversation_history import (
+    materialize_conversation_history,
+)
 from fdai_operator_service.families.conversation.conversation_search import (
     materialize_conversation_search,
 )
@@ -116,6 +119,9 @@ class PostgresConversationAdapters:
         if background_response is not None:
             return background_response
         try:
+            history_response = await materialize_conversation_history(query, store=self.store)
+            if history_response is not None:
+                return history_response
             search_response = await materialize_conversation_search(query, store=self.store)
             if search_response is not None:
                 return search_response

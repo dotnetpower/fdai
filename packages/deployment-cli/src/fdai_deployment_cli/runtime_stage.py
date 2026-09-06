@@ -15,7 +15,7 @@ from fdai_deployment_cli.offline_kit import (
     _sha256_nofollow,
 )
 from fdai_deployment_cli.private_output import _open_private_parent
-from fdai_deployment_cli.runtime_release import load_runtime_release
+from fdai_deployment_cli.runtime_release import load_runtime_release, validate_runtime_images
 
 
 def stage_runtime_release(
@@ -28,8 +28,10 @@ def stage_runtime_release(
 ) -> str:
     """Copy a complete local inventory without registry access or image execution.
 
-    This is release assembly, not a signature or production-eligibility check.
-    The caller supplies a private kit directory and signs it after staging.
+    V2 inventories also require valid service and ClamAV OCI content. Legacy v1
+    remains stageable for inspection, not complete preparation. This is release
+    assembly, not a signature or production-eligibility check. The caller supplies
+    a private kit directory and signs it after staging.
     """
     directory = _open_private_parent(kit / "runtime")
     os.close(directory)
@@ -74,5 +76,7 @@ def stage_runtime_release(
         )
         if copied.digest != release.digest:
             raise ValueError("runtime inventory changed during staging")
+        if copied.schema_version == "fdai.runtime-release.v2":
+            validate_runtime_images(staging, copied)
         payload.rename(destination)
     return copied.digest

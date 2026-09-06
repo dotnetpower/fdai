@@ -3,9 +3,8 @@ title: Code Map
 ---
 # Code Map
 
-This page maps each FDAI runtime service and shared package to its physical source, tests, and
-owning design. Use it to find the current service-owned implementation without relying on the
-retired top-level application tree.
+This page maps FDAI runtime services, deployment tooling, and shared packages to their source, tests,
+and owning designs. Use it instead of the retired top-level application tree.
 
 > **Scope:** This map describes the validated local IS-08 repository ownership and IS-07 local
 > upgrade and rollback proof. IS-09 owns the deferred remote verification.
@@ -122,7 +121,7 @@ can return only a `question` field. Core binds the case before independent seman
 generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
 Generated question-bank artifacts record the current Console catalog digests, so a reviewed
 presentation-contract change regenerates the JSON bank and review catalog together.
-Adaptive prompt types use public agent/model facades. The question bank binds both Console catalogs by digest and is regenerated
+Adaptive prompt types use public agent/model facades; `families/conversation/conversation_history.py` restores principal-bound durable replies without model replay. The question bank binds both Console catalogs by digest and is regenerated
 whenever those reviewed source catalogs change.
 The Console static catalog inventory resolves shared, route-local, and optional package catalogs,
 including the Dashboard v2 catalog, so a new route cannot hide a missing English fallback key.
@@ -645,7 +644,7 @@ The document worker adds only its owned Tesseract language data and OCR dependen
 | [console/](../../../console/) | Thin operator SPA, including the Knowledge source and governed document-upload routes, localized Guides drawer, and validated Manual Studio catalog boundary. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | Independent static guide library, HTML slide viewer, repository-safe media provenance, and focused prototype checks. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | Provider-neutral Teams endpoint persistence: encrypted loopback state locally and one versioned Key Vault secret in deployment. |
-| [cli/](../../../cli/) | Operator command-line client. |
+| [cli/](../../../cli/), [deployment-cli](../../../packages/deployment-cli/), [genesis-foundation](../../../infra/genesis-foundation/) | Operator client and separate deployment tooling: private foundation planning, state comparison, and verified runtime inputs. The foundation owns the application group; new platform state references it without a second owner. See [Genesis delivery status](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md). |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Record design-context reads, reserve dirty edit paths, hard-block stale context for framework and constitutional edits, guard commit scope and destructive Git, and route repository-wide validation to explicit integration or release boundaries. |
 
 ## Related docs
