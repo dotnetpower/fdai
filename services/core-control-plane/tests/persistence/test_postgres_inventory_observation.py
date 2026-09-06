@@ -22,6 +22,9 @@ from fdai.delivery.persistence.postgres_inventory_projection_replay import (
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.persistence.postgres_inventory_snapshot_replay import (
+    build_active_snapshot_observation,
+)
 from fdai.shared.providers.inventory import RelationshipDropReason
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
@@ -342,6 +345,166 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
         )
         == 300
     )
+
+
+def test_active_snapshot_bootstrap_rehydrates_the_verified_observation() -> None:
+    generation = "snapshot-bootstrap"
+    state_fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="provider-v1",
+        effective_at=NOW - timedelta(minutes=1),
+        recorded_at=NOW,
+        evidence_cutoff=NOW - timedelta(minutes=1),
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory-receipt",),
+    )
+    link_metadata = LinkObservationMetadata(
+        state_fact=state_fact,
+        verification_method="deterministic-cross-check",
+        verified=True,
+        verifier_identity="inventory-verifier",
+        verifier_revision="verifier-v1",
+        verification_receipt_ref="verification-receipt",
+        inventory_generation=generation,
+        mapping_id="test.mapping",
+        mapping_revision="sha256:" + "1" * 64,
+        source_schema_version="provider-v1",
+        source_schema_digest="sha256:" + "2" * 64,
+    )
+    observation = build_active_snapshot_observation(
+        snapshot={
+            "id": generation,
+            "completed_at": NOW,
+            "metadata": {
+                "projection_complete": True,
+                "relationship_drop_classifications": [],
+                "relationship_coverage": {
+                    "total_candidates": 1,
+                    "materialized": 1,
+                    "reviewed_unavailable": 0,
+                    "unclassified": 0,
+                    "complete": True,
+                },
+            },
+        },
+        resource_rows=(
+            {
+                "resource_id": "resource-a",
+                "resource_type": "compute.vm",
+                "props": {
+                    "name": "vm-a",
+                    STATE_FACT_METADATA_PROPERTY: state_fact.to_mapping(),
+                },
+                "provider_ref": "provider/resource-a",
+                "last_seen": NOW,
+            },
+            {
+                "resource_id": "resource-b",
+                "resource_type": "network.interface",
+                "props": {"name": "nic-b"},
+                "provider_ref": None,
+                "last_seen": None,
+            },
+        ),
+        link_rows=(
+            {
+                "from_id": "resource-b",
+                "from_type": "network.interface",
+                "link_type": "attached_to",
+                "to_id": "resource-a",
+                "to_type": "compute.vm",
+                "props": {
+                    "slot": "primary",
+                    LINK_OBSERVATION_METADATA_PROPERTY: link_metadata.to_mapping(),
+                    "provider_relationship_evidence": {"redacted": True},
+                },
+            },
+        ),
+        prior_manifest={
+            "generation": generation,
+            "dropped_reasons": [],
+            "object_content": [],
+        },
+    )
+
+    assert observation.generation == generation
+    assert observation.recorded_at == NOW
+    assert observation.resources[0].last_seen == NOW.isoformat()
+    assert observation.links[0].link_props == {"slot": "primary"}
+    assert observation.links[0].observation_metadata == link_metadata
+
+
+async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstrap_fence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation = "snapshot-bootstrap"
+    record = _projection_record(generation, "resource-a")
+    snapshot = {
+        "id": generation,
+        "completed_at": NOW,
+        "metadata": {
+            "projection_complete": True,
+            "relationship_drop_classifications": [],
+            "relationship_coverage": {
+                "total_candidates": 0,
+                "materialized": 0,
+                "reviewed_unavailable": 0,
+                "unclassified": 0,
+                "complete": True,
+            },
+        },
+    }
+    manifest = {
+        "generation": generation,
+        "object_content": [{"id": "resource-a", "properties": {"properties": {}}}],
+        "link_content": [],
+        "dropped_reasons": [],
+    }
+    state = {
+        "journal_high_watermark": 7,
+        "ontology_projection_watermark": 0,
+        "ontology_generation": None,
+    }
+
+    class _ReplayConnection(_Connection):
+        async def execute(self, query: str, params: object = None) -> _Cursor:
+            self.executions.append(query)
+            if "FROM inventory_active" in query:
+                return _Cursor([snapshot])
+            if "FROM inventory_observation_journal" in query:
+                return _Cursor([{"record": True}])
+            if "key='inventory-ontology:manifest'" in query:
+                return _Cursor([{"value": manifest}])
+            if "SELECT value FROM state_kv" in query:
+                return _Cursor([{"value": state}])
+            return _Cursor([])
+
+    connection = _ReplayConnection({})
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    async def connect(_self: object) -> _ReplayConnection:
+        return connection
+
+    journal._connect = MethodType(connect, journal)  # type: ignore[method-assign]
+    monkeypatch.setattr(observation_module, "_observation", lambda _row: record)
+
+    replay = await journal.load_active_projection_replay(
+        journal_high_watermark=7,
+        projection_high_watermark=7,
+    )
+
+    assert replay.observation.generation == generation
+    assert replay.journal_high_watermark == 7
+    assert replay.projection_high_watermark == 7
+
+    with pytest.raises(ValueError, match="durably fenced"):
+        await journal.load_active_projection_replay()
 
 
 def _projection_record(generation: str, resource_id: str) -> NormalizedInventoryObservation:

@@ -141,3 +141,36 @@ async def test_replay_refuses_unverified_manifest_or_source() -> None:
             state=_State(_manifest(), _manifest("sha256:" + "c" * 64)),
             source_revision=REVISION,
         )
+
+
+async def test_replay_accepts_a_monotonic_bootstrap_fence() -> None:
+    replay = _replay()
+    projector = _Projector(_result())
+    prior = _manifest()
+    prior.pop("journal_high_watermark")
+    prior.pop("projection_high_watermark")
+
+    summary = await run_once(
+        replay,
+        projector=projector,
+        state=_State(prior, _manifest()),
+        source_revision=REVISION,
+    )
+
+    assert summary["journal_high_watermark"] == 17
+    assert summary["projection_high_watermark"] == 17
+
+
+async def test_replay_rejects_a_regressed_bootstrap_fence() -> None:
+    replay = _replay()
+    prior = _manifest()
+    prior["journal_high_watermark"] = 18
+    prior["projection_high_watermark"] = 18
+
+    with pytest.raises(ValueError, match="not comparable"):
+        await run_once(
+            replay,
+            projector=_Projector(_result()),
+            state=_State(prior),
+            source_revision=REVISION,
+        )

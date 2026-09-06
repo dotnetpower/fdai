@@ -164,8 +164,16 @@ class PostgresInventoryObservationJournal:
             raise ValueError("inventory observation replay exceeds its per-resource bound")
         return tuple(_observation(row) for row in rows)
 
-    async def load_active_projection_replay(self) -> InventoryProjectionReplayInput:
-        """Rebuild the active promoted observation from immutable journal records."""
+    async def load_active_projection_replay(
+        self,
+        *,
+        journal_high_watermark: int | None = None,
+        projection_high_watermark: int | None = None,
+    ) -> InventoryProjectionReplayInput:
+        """Rebuild the active observation at an optional monotonic journal fence."""
+
+        if (journal_high_watermark is None) != (projection_high_watermark is None):
+            raise ValueError("inventory projection replay watermarks MUST be supplied together")
 
         async with await self._connect() as connection:
             async with connection.transaction():
@@ -213,8 +221,6 @@ class PostgresInventoryObservationJournal:
         if manifest_row is None:
             raise ValueError("inventory projection replay manifest is unavailable")
         manifest = _mapping(manifest_row["value"])
-        if state.get("ontology_generation") != generation:
-            raise ValueError("inventory projection replay generation is not durably fenced")
         if manifest.get("generation") != generation:
             raise ValueError("inventory projection replay manifest generation changed")
         observation = build_projection_replay_observation(
@@ -224,18 +230,40 @@ class PostgresInventoryObservationJournal:
             prior_manifest=manifest,
             records=tuple(_observation(row) for row in rows),
         )
-        journal_watermark = required_replay_watermark(manifest, "journal_high_watermark")
-        projection_watermark = required_replay_watermark(manifest, "projection_high_watermark")
-        if projection_watermark > journal_watermark:
+        prior_journal_watermark, prior_projection_watermark = _manifest_watermarks(manifest)
+        target_journal_watermark = (
+            prior_journal_watermark if journal_high_watermark is None else journal_high_watermark
+        )
+        target_projection_watermark = (
+            prior_projection_watermark
+            if projection_high_watermark is None
+            else projection_high_watermark
+        )
+        if target_projection_watermark > target_journal_watermark:
             raise ValueError("inventory projection replay watermark exceeds journal")
-        if journal_watermark > _nonnegative_int(state.get("journal_high_watermark")) or (
-            projection_watermark > _nonnegative_int(state.get("ontology_projection_watermark"))
+        if (
+            target_journal_watermark < prior_journal_watermark
+            or target_projection_watermark < prior_projection_watermark
+        ):
+            raise ValueError("inventory projection replay watermark regressed")
+        if target_journal_watermark > _nonnegative_int(state.get("journal_high_watermark")) or (
+            prior_projection_watermark
+            > _nonnegative_int(state.get("ontology_projection_watermark"))
         ):
             raise ValueError("inventory projection replay manifest exceeds live watermarks")
+        state_generation = state.get("ontology_generation")
+        legacy_bootstrap = (
+            state_generation is None
+            and journal_high_watermark is not None
+            and prior_journal_watermark == 0
+            and prior_projection_watermark == 0
+        )
+        if state_generation != generation and not legacy_bootstrap:
+            raise ValueError("inventory projection replay generation is not durably fenced")
         return InventoryProjectionReplayInput(
             observation=observation,
-            journal_high_watermark=journal_watermark,
-            projection_high_watermark=projection_watermark,
+            journal_high_watermark=target_journal_watermark,
+            projection_high_watermark=target_projection_watermark,
             freshness_ceiling_seconds=projection_freshness_ceiling(manifest),
         )
 
@@ -695,6 +723,19 @@ def _nonnegative_int(value: object) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise ValueError("inventory observation watermark MUST be a non-negative integer")
     return value
+
+
+def _manifest_watermarks(manifest: Mapping[str, Any]) -> tuple[int, int]:
+    journal = manifest.get("journal_high_watermark")
+    projection = manifest.get("projection_high_watermark")
+    if journal is None and projection is None:
+        return 0, 0
+    if journal is None or projection is None:
+        raise ValueError("inventory projection replay manifest watermarks are incomplete")
+    return (
+        required_replay_watermark(manifest, "journal_high_watermark"),
+        required_replay_watermark(manifest, "projection_high_watermark"),
+    )
 
 
 def _timestamp(value: str | None) -> datetime | None:
