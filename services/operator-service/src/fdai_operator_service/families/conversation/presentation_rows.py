@@ -18,6 +18,8 @@ _LIFTED_ROW_FIELDS = (
     "model_format",
     "sku_name",
     "capacity_units",
+    "capacity_tpm",
+    "capacity_tpm_source",
     "type",
     "status",
     "location",

@@ -101,8 +101,10 @@ authority.
 
 Each deployment instance preserves the deployment name, model name, model version, model format,
 SKU name, provider capacity units, and provisioning state as readable facts while retaining the
-bounded raw provider bag for evidence review. FDAI does not convert provider capacity units into TPM
-without a model-specific quota contract.
+bounded raw provider bag for evidence review. When the provider returns one unambiguous token
+rate-limit rule, FDAI normalizes its count and renewal period to `capacity_tpm` and records
+`properties.rateLimits` as the source. Missing, malformed, fractional, or conflicting token rules
+leave TPM unknown. FDAI never converts `sku.capacity` into TPM.
 
 Requests such as "show deployed LLMs", "list GPT models", `배포된 LLM 목록`, and
 `GPT 모델 목록` resolve to this resource type. The inventory resource-change feed is enabled by

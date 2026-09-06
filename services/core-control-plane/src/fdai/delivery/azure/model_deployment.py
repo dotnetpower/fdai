@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import math
+import re
 from collections.abc import Mapping
 from typing import Any
 
 MODEL_DEPLOYMENT_RESOURCE_TYPE = "llm-model-deployment"
+_TOKEN_RATE_KEYS = frozenset(
+    {
+        "token",
+        "tokens",
+        "tokenperminute",
+        "tokensperminute",
+        "tpm",
+    }
+)
+_RATE_KEY_SEPARATOR = re.compile(r"[^a-z0-9]+")
 
 
 def model_deployment_summary(row: Mapping[str, Any]) -> dict[str, object]:
@@ -28,7 +40,47 @@ def model_deployment_summary(row: Mapping[str, Any]) -> dict[str, object]:
     capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
     if isinstance(capacity, int) and not isinstance(capacity, bool) and capacity >= 0:
         summary["capacity_units"] = capacity
+    capacity_tpm = _tokens_per_minute(properties)
+    if capacity_tpm is not None:
+        summary["capacity_tpm"] = capacity_tpm
+        summary["capacity_tpm_source"] = "properties.rateLimits"
     return summary
+
+
+def _tokens_per_minute(properties: object) -> int | None:
+    if not isinstance(properties, Mapping):
+        return None
+    rate_limits = properties.get("rateLimits")
+    if not isinstance(rate_limits, list):
+        return None
+    observed: set[int] = set()
+    for rule in rate_limits:
+        if not isinstance(rule, Mapping):
+            continue
+        key = rule.get("key")
+        if (
+            not isinstance(key, str)
+            or _RATE_KEY_SEPARATOR.sub("", key.casefold()) not in _TOKEN_RATE_KEYS
+        ):
+            continue
+        count = rule.get("count")
+        renewal_period = rule.get("renewalPeriod")
+        if (
+            not isinstance(count, int | float)
+            or isinstance(count, bool)
+            or not isinstance(renewal_period, int | float)
+            or isinstance(renewal_period, bool)
+            or not math.isfinite(float(count))
+            or not math.isfinite(float(renewal_period))
+            or count <= 0
+            or renewal_period <= 0
+        ):
+            continue
+        per_minute = float(count) * 60 / float(renewal_period)
+        if not per_minute.is_integer() or per_minute > 2_147_483_647:
+            continue
+        observed.add(int(per_minute))
+    return next(iter(observed)) if len(observed) == 1 else None
 
 
 __all__ = ["MODEL_DEPLOYMENT_RESOURCE_TYPE", "model_deployment_summary"]

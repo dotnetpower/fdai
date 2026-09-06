@@ -1,7 +1,7 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: 897b4aa0929aa96f9c41d48274824f6868c70a92
+translation_source_sha: 4b1dc114051e61a89a168d93959a2a4292842011
 translation_revised: 2026-09-06
 ---
 # 모델 기능 수명 주기
@@ -102,8 +102,10 @@ FDAI는 코드형 인프라가 리소스 생성을 소유하는 환경을 대상
 
 각 배포 인스턴스는 배포 이름, 모델 이름, 모델 버전, 모델 형식, SKU 이름, 공급자 용량 단위,
 프로비저닝 상태를 읽기 가능한 사실로 유지하고 근거 검토를 위한 범위가 제한된 원시 공급자
-속성도 보존합니다. FDAI는 모델별 할당량 계약 없이 공급자 용량 단위를 TPM으로 변환하지
-않습니다.
+속성도 보존합니다. 공급자가 모호하지 않은 토큰 속도 제한 규칙 하나를 반환하면 FDAI는 횟수와
+갱신 주기를 `capacity_tpm`으로 정규화하고 `properties.rateLimits`를 출처로 기록합니다. 토큰
+규칙이 없거나, 잘못되었거나, 소수이거나, 서로 충돌하면 TPM은 알 수 없음으로 유지합니다.
+FDAI는 `sku.capacity`를 TPM으로 변환하지 않습니다.
 
 "배포된 LLM 목록", "GPT 모델 목록", `show deployed LLMs`, `list GPT models` 같은 요청은
 이 리소스 타입으로 해석됩니다. 인벤토리 리소스 변경 피드는 기본적으로 사용 설정되며 구성된

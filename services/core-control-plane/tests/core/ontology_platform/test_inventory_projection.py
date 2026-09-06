@@ -139,6 +139,8 @@ def test_llm_deployment_projects_as_an_ontology_resource_instance() -> None:
                     "provisioning_state": "Succeeded",
                     "sku_name": "GlobalStandard",
                     "capacity_units": 50,
+                    "capacity_tpm": 50_000,
+                    "capacity_tpm_source": "properties.rateLimits",
                     "sku": {"name": "GlobalStandard", "capacity": 50},
                     "properties": {
                         "provisioningState": "Succeeded",
@@ -165,6 +167,8 @@ def test_llm_deployment_projects_as_an_ontology_resource_instance() -> None:
     assert provider["provisioning_state"] == "Succeeded"
     assert provider["sku_name"] == "GlobalStandard"
     assert provider["capacity_units"] == 50
+    assert provider["capacity_tpm"] == 50_000
+    assert provider["capacity_tpm_source"] == "properties.rateLimits"
     assert provider["properties"]["provisioningState"] == "Succeeded"
     assert provider["properties"]["model"]["name"] == "gpt-5.4"
 
