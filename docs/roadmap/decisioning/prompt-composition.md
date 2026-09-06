@@ -66,12 +66,35 @@ still runs through both its original and configured provider schema. Existing cr
 adding another token cache. Offline request-count and clock tests prove mechanism changes, not
 live model quality or a production speedup. New live comparisons require explicit authorization.
 
+### Ten-round latency review (2026-09-06)
+
+| Round | Change | Focused evidence |
+|-------|--------|------------------|
+| 1 | Content-free stage timing | `859618b68`; elapsed and remaining clock assertions |
+| 2 | Immutable Pydantic schema reuse | `e0c590c85`; repeated schema generation drops from three misses per turn to cache hits |
+| 3 | Bounded adapter validator reuse | `00f9db010`; later malformed responses still fail validation |
+| 4 | Low-effort lightweight review | `18b8a0e97`; only supported review/verify requests change |
+| 5 | Knowledge-only plan plus initial draft | `145d472ac`; three calls become two, independent review retained |
+| 6 | Context-independent review inputs | `ad3afa42f`; unrelated history omitted, active-thread history preserved |
+| 7 | Verification budget before refinement | `fdc221366`; unfinishable refinement is skipped without losing supported prose |
+| 8 | No prose retry for missing required evidence | `ad83b6bdd`; required goals remain held and answer quality remains limited |
+| 9 | Immediate validated advisory display | `5a3901de7`; removes up to 60 artificial display frames |
+| 10 | Wake streams after durable terminal commit | `0d3eeb66a`; bounded, race-safe notification removes the one-second poll wait |
+
+The final focused gate passed 342 Python checks, 76 Console checks, 12 bilingual browser scenarios,
+strict mypy, and the Console production build. Offline before/after fixed-provider-clock runs
+preserved identical answer hashes, quality states, and goal states: knowledge used 3 -> 2 calls;
+late refinement and missing evidence used 5 -> 3 calls. The simulated late-refinement case changed
+55 -> 35 seconds. These are mechanism measurements, not live speedup claims. The only real-provider
+baseline retained here is two earlier turns at 51.431 and 53.841 seconds; no new live calls were made.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Ten-round bounded latency optimization | implemented | [Round evidence](#ten-round-latency-review-2026-09-06) | Reduces avoidable work without bypassing review; real-provider latency and quality comparison still need authorized measurements. |
 | Adaptive role and relationship prompt assembly | implemented | `adaptive_prompt.py`; `wire_adaptive_conversation.py`; `adaptive_relationship.py`; 20 composition checks and connected role/proof checks passed | Uses one common stage policy, fixed selected role, and current no-authority relationship context. Final offline validation and 11 focused critique reviews are recorded with hierarchical conversation planning. |
 | Catalog registry, composer, tools, and runtime skills | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | Catalog loading, deterministic layer assembly, tool manifests, skills, canaries, and startup fallback have focused coverage. |
 | Route-specific conversation prompts | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; focused composer and Azure adapter checks | Startup composes a compact T1 preflight separately from full operational semantic judgment. Pure eligible social turns use only the compact prompt and schema. Mixed, contextual, ambiguous, and operational turns continue to the full capability-aware prompt. |
@@ -85,6 +108,7 @@ live model quality or a production speedup. New live comparisons require explici
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Completed ten measured latency-improvement rounds across adaptive planning, schema preparation, review budgets, display, and terminal delivery. | Round commits and combined gate recorded above; fixed-provider-clock comparisons preserve exact answer and quality outcomes. | Retain an authorized real-provider before/after comparison before claiming an end-to-end speedup. |
 | 2026-09-06 | implemented | Removed the mandatory T2 reviewer from ordinary adaptive composition. Distinct configured T1 narrator models author and review; only an optional T2 primary refines, and malformed or unavailable escalation does not disable T1. Unbound provider schema support uses application-side JSON validation. | `current change`; 115 focused composition, transport, schema, budget, runtime, and prompt-registry tests passed; strict mypy passed for both modified source modules. The comparison regression exercises real composition and transport with mocked models and no operational query. | Retain an explicitly authorized live-question receipt before claiming actual answer quality. Strict no-T2 campaign behavior and operational quality gates are unchanged. |
 | 2026-09-06 | implemented | Completed fixed-role and relationship composition with independently reviewed answers and provider-budget propagation. Operational catalog failure no longer disables an independently valid general-answer service. | `current change`; 20 composition checks and 653 connected Python checks passed; 11 focused critique reviews are recorded in hierarchical conversation planning. | Live model quality and promotion evidence require separate authorization. |
 | 2026-09-06 | in-progress | Added common adaptive stage policy, fixed-role composition, expiring relationship context, and nested provider budget propagation. | `current change`; `test_wire_adaptive_conversation.py` passed 19 cases and `test_adaptive_provider_budget.py` passed 10 cases. | Finish connected critique evidence in hierarchical conversation planning; no live promotion is claimed. |
