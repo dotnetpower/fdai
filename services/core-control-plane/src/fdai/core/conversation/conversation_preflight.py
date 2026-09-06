@@ -550,7 +550,22 @@ def _preflight_input_digest(utterance: str) -> str:
 def operational_target_is_generic(value: str) -> bool:
     """Return whether source text names only a generic operational category."""
     normalized = " ".join(value.casefold().split()).strip(".,:;!?()[]{}")
-    prefixes = ("the ", "this ", "selected ", "current ", "해당 ", "선택한 ", "현재 ")
+    prefixes = (
+        "the ",
+        "this ",
+        "selected ",
+        "current ",
+        "our ",
+        "my ",
+        "your ",
+        "their ",
+        "its ",
+        "해당 ",
+        "선택한 ",
+        "현재 ",
+        "우리 ",
+        "내 ",
+    )
     while normalized.startswith(prefixes):
         normalized = normalized.removeprefix(
             next(prefix for prefix in prefixes if normalized.startswith(prefix))

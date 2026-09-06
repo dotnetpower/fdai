@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2d5b3e8cdcedab382ac6c17e4677732d5e42b483
+translation_source_sha: 7b49414eb1a2c3d9300898533627782db485fc75
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -68,7 +68,8 @@ commit을 일괄 수행합니다. Multiplex된 논리 consumer는 관련 없는 
 수행하지 않고 건너뛸 수 있으며, 처리 도중 닫힌 이벤트는 재전달 대상 상태로 유지합니다.
 APIM, gateway, backend 및 GPT 같은 일반 제품 표기는 "the", "selected", "해당" 같은 한정사가
 붙어도 정확한 운영 대상이 될 수 없습니다. Frame 또는 provider 작업 전에 Resource 신원 명확화를
-요구합니다.
+요구합니다. "our gateway", "my APIM service", "우리 게이트웨이" 같은 소유격 표현도 일반
+범주로 유지합니다.
 한 시간 운영 단축 경로는 과거를 명시하는 원문 문구만 수락합니다. 방향이 없거나 미래를 나타내는
 문구는 과거 lookback으로 바꾸지 않고 전체 의미 판단을 유지합니다.
 Gateway preflight 재사용은 gateway compiler 기본 window를 조용히 선택하지 않고 해당 과거 1시간
