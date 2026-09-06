@@ -98,7 +98,11 @@ class OperatorAuthenticator:
         self,
         authorization_header: str | None,
     ) -> VerifiedOperatorIdentity:
-        """Return server-derived authority plus the verified client binding."""
+        """Return server-derived authority plus the verified client binding.
+
+        Verified delegated scopes allow an omitted optional ``idtyp`` claim.
+        Explicit application identities retain the Reader-only workload gate.
+        """
         if self.local_principal is not None:
             expected = f"{_BEARER_PREFIX}{self.local_session_token}"
             if authorization_header is not None and hmac.compare_digest(
@@ -227,12 +231,16 @@ def _has_group_overage(claims: Mapping[str, object]) -> bool:
 
 
 def _principal_kind(claims: Mapping[str, object]) -> OperatorPrincipalKind:
+    """Classify verified claims; optional idtyp requires delegated-scope evidence."""
     identity_type = claims.get("idtyp")
     if identity_type == "user":
         return OperatorPrincipalKind.HUMAN
     if identity_type == "app":
         return OperatorPrincipalKind.WORKLOAD
     if identity_type is None:
+        delegated_scopes = claims.get("scp")
+        if isinstance(delegated_scopes, str) and delegated_scopes.strip():
+            return OperatorPrincipalKind.HUMAN
         raise AuthenticationError("invalid claims: missing principal type")
     raise AuthenticationError("invalid claims: unsupported principal type")
 

@@ -36,12 +36,17 @@ export interface RouterCandidate {
   readonly p95_ms: number | null;
   readonly samples: number;
   readonly history_ms: readonly number[];
+  readonly status?: "measured" | "unmeasured" | "failed" | "stale";
+  readonly measured_at?: string;
 }
 
 export interface RouterSnapshot {
   readonly chose: string;
   readonly reason: string;
   readonly candidates: readonly RouterCandidate[];
+  readonly updated_at?: string;
+  readonly expires_at?: string;
+  readonly interval_seconds?: number;
   readonly vision?: {
     readonly available: boolean;
     readonly chose: string | null;

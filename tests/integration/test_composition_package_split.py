@@ -23,6 +23,8 @@ _EXPECTED_FILES = frozenset(
     {
         "__init__.py",
         "_helpers.py",
+        # Resolves shared adaptive model targets without coupling wire modules.
+        "adaptive_model_targets.py",
         # Loads and filters resolved-model artifacts for the focused binders.
         "resolved_models.py",
         # Publishes the startup-owned immutable revision to every model binder.
@@ -79,6 +81,8 @@ _EXPECTED_FILES = frozenset(
         "wire_semantic_query.py",
         # Binds fixed-role adaptive prompts and independent, bounded answer models.
         "wire_adaptive_conversation.py",
+        # Binds opt-in latency probes to verified T1 narrator candidates.
+        "wire_t1_routing.py",
         # Binds the no-authority T1/T2 semantic judgment factory.
         "wire_semantic_judgment.py",
         # Resolves the separate T1 and T2 planning request targets so the
@@ -120,6 +124,7 @@ _PUBLIC_NAMES = (
     "bind_browser_evidence",
     "bind_execution_authorization",
     "bind_resolved_models_revision",
+    "build_t1_mini_probe",
 )
 
 # Names that MUST also appear in __all__ (subset of _PUBLIC_NAMES). The
@@ -143,6 +148,7 @@ _ALL_MEMBERS = (
     "bind_browser_evidence",
     "bind_execution_authorization",
     "bind_resolved_models_revision",
+    "build_t1_mini_probe",
 )
 
 

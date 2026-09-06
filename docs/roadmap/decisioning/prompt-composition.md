@@ -28,8 +28,8 @@ each role-aware conversation. Identity identifiers and source-revision text neve
 Unknown or expired relationships retain the selected role without pretending to be verified.
 
 Production composition consumes resolved model slots rather than hardcoded models or endpoints.
-The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer use the first
-configured T1 narrator, review and verify use an independent configured T1 narrator, and only
+The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer use the selected
+T1 narrator, review and verify use an independent eligible T1 narrator, and only
 optional refinement uses `t2.reasoner.primary`. Exact deployment metadata supplies publisher and
 family; names never imply model identity. Held or unknown candidates are excluded.
 They do not create model deployments. Role and lifecycle types use the public agent and model facades.
@@ -47,6 +47,12 @@ A missing or non-independent escalation target disables refinement only. Provide
 output is used when configured; otherwise the exact schema accompanies the request and the
 application validates returned JSON against it. This does not relax evidence verification or the
 separate mixed-publisher operational T2 quality gate.
+
+The [Core mini latency router](../interfaces/narrator-routing-and-latency.md#core-owned-mini-candidate-selection)
+freezes the author/reviewer pair once per turn, including deferred stages. Its opt-in probes contain
+only synthetic `OK` requests, never these prompt packs or operator content. Routing changes neither
+the optional T2 refinement nor judge/critic bindings; implementation and validation status belong
+to that routing document.
 
 ### Latency budget
 

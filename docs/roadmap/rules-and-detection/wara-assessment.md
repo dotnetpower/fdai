@@ -145,8 +145,8 @@ Every row shows scope, evaluation time, source revision, evidence completeness, 
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
-The shared Operator composition can add a principal-scoped conversation document reader without
-changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
+The shared Operator composition can add principal-scoped conversation document and T1 health
+readers without changing WARA's pinned crosswalk, shadow consumer, projection ownership, or no-authority contract.
 It delegates resolved-model source construction to focused lifecycle composition and starts the
 resulting revision fence before the WARA projection bridge.
 A model digest mismatch therefore blocks all later lifecycle services without changing WARA

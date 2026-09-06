@@ -16,6 +16,7 @@ from fdai_core_service.operational_evidence_projection import SemanticOperationa
 from fdai.agents import Saga
 from fdai.composition import (
     Container,
+    build_t1_mini_probe,
     compose_azure_semantic_query_runtime,
     compose_resource_state_shadow_hook,
 )
@@ -26,6 +27,7 @@ from fdai.core.ontology_platform.inventory_projection import (
 )
 from fdai.core.operational_context import OperationalEvidenceReadService
 from fdai.core.readiness import AuthorityCeiling, ProbeCriticality, StartupPhase, StartupProbeSpec
+from fdai.delivery.azure.llm.t1_probe import T1MiniProbe
 from fdai.delivery.evidence_conflict import (
     EventBusEvidenceConflictCandidatePublisher,
     StateStoreEvidenceConflictProjection,
@@ -141,6 +143,7 @@ class SemanticRuntime:
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     readiness_specs: tuple[Any, ...]
     readiness_probes: tuple[Any, ...]
+    t1_mini_probe: T1MiniProbe | None = None
 
 
 async def build_semantic_runtime(
@@ -264,6 +267,20 @@ async def build_semantic_runtime(
         )
     )
     endpoint = environment.get("FDAI_LLM_ENDPOINT", "").strip() or None
+    endpoint_resolver = (
+        _model_endpoint_resolver(endpoint, environment.get("FDAI_MODEL_ENDPOINTS_JSON"))
+        if endpoint is not None
+        else None
+    )
+    t1_mini_probe = build_t1_mini_probe(
+        container=container,
+        environment=environment,
+        identity=identity,
+        http_client=http_client,
+        state_store=state_store,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+    )
     semantic_composition = compose_azure_semantic_query_runtime(
         container=container,
         ontology_release=control_loop.ontology_release,
@@ -271,13 +288,9 @@ async def build_semantic_runtime(
         identity=identity,
         http_client=http_client,
         endpoint=endpoint,
-        endpoint_resolver=(
-            _model_endpoint_resolver(
-                endpoint,
-                environment.get("FDAI_MODEL_ENDPOINTS_JSON"),
-            )
-            if endpoint is not None
-            else None
+        endpoint_resolver=endpoint_resolver,
+        adaptive_model_factory=(
+            t1_mini_probe.routing.model_for_turn if t1_mini_probe is not None else None
         ),
         catalog_root=catalog_root,
         owner_loop=asyncio.get_running_loop(),
@@ -402,6 +415,7 @@ async def build_semantic_runtime(
         rule_generation_reconciliation=reconciliation,
         readiness_specs=(*semantic_specs, *catalog_specs, *model_identity_specs),
         readiness_probes=(*semantic_probes, *catalog_probes, *model_identity_probes),
+        t1_mini_probe=t1_mini_probe,
     )
 
 

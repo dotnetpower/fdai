@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3222efe12d5dc0583c658729781d9c19de4272cb
+translation_source_sha: 587a17faaeef73a20b602acfac374afcdb889c67
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -118,10 +118,8 @@ retention을 기본으로 비활성화하며 검증된 개발 campaign만 이를
 certification writer가 증적을 추가하기 전에 13개 시나리오 결과를 정확한 CI, runtime image
 attestation, 배포 근거 및 별도 사람 승인에 결속합니다.
 
-프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
-`composition/wire_azure_prompts.py`로 분리합니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다. 리비전 기반 대화 설정은 Operator
-서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
-IAM 조립은 최상위 모듈의 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. 적응형 답변은 독립적으로 구성된 T1 작성 및 검토 모델을 사용하고 선택적 보강에만 T2를 사용합니다. 프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다. 서비스 계약 호환성 매니페스트는 적응형 `1.6.0` 전송에 버전 협상을 적용합니다. 구형 변환은 일반 묶음에만 적용되며 의미 처리 근거를 버릴 수 없습니다.
+프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립은 `composition/wire_azure_prompts.py`에 둡니다. [적응형 조립](../../../services/core-control-plane/src/fdai/composition/wire_adaptive_conversation.py)은 역할별 단계를 연결하고, `adaptive_model_targets.py`는 적응형 답변과 선택형 `wire_t1_routing.py` 지연 시간 프로브가 함께 쓰는 작성, 검토 및 선택적 보강 대상을 배선 모듈 간 가져오기 없이 해석합니다. [답변](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_service.py)은 [내부 프로바이더 사용량 제한](../../../services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py)을 공유하며, [Operator 담당 관계 확인](../../../services/operator-service/src/fdai_operator_service/adaptive_relationship.py)은 권한 없는 만료형 맥락을 제공합니다.
+리비전 기반 대화 설정은 Operator 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다. IAM 조립은 최상위 모듈 의존성을 늘리지 않고 대화 담당 관계 어댑터를 연결합니다. Core는 범위가 제한된 T1 측정값을 권한 없는 상태 변환 결과에 기록합니다. Operator 대화 어댑터는 해당 상태만 읽고 Console 상태 표시에 앞서 엔드포인트 세부 정보를 제거합니다. 적응형 답변은 독립적으로 구성된 T1 작성 및 검토 모델을 사용하고 선택적 보강에만 T2를 사용합니다. 프롬프트 ablation은 선택적 제외 항목을 재실행을 위해 기록하며, 버전 협상을 적용한 적응형 `1.6.0` 전송은 의미 처리 근거를 보존합니다.
 질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
@@ -145,9 +143,7 @@ BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존
 신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
 ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
 다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
-검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 builder를 통해
-잔여 frame 모델을 우회합니다. 문서 경로는 초안 전용이며 인증된 principal의 직전 검증 결과에
-원본을 바인딩합니다.
+검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 생성기를 통해 잔여 `frame` 모델을 우회합니다. 문서 초안 작성은 초안 전용이며 인증된 principal의 직전 검증 결과에 원본을 바인딩합니다. 관리형 문서 근거 계획은 스키마로 검증된 근거 모드에서만 `query.governed_documents`를 컴파일합니다. 판독기는 제한된 발췌문을 반환하기 전에 정확한 principal, 그룹, 컬렉션, 목적, 정책, 리비전, 수명 주기 및 완전성을 다시 검증합니다. 필수 또는 명시적 근거가 없으면 안전하게 보류하고, 선택적 근거 실패는 독립 운영 근거가 있는 경우에만 부분 답변으로 명확히 표시합니다. 문서 텍스트는 신뢰하지 않으며 지시 또는 실행 권한을 부여하지 않습니다.
 Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다. 따라서 압축된 EventBus
 레코드가 readiness를 통과한 뒤 필수 runtime task를 종료하지 않습니다.
 의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를

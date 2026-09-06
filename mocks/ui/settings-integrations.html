@@ -5,79 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Integrations - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
-  <link rel="stylesheet" href="assets/settings-neutral.css?v=1" />
+  <link rel="stylesheet" href="assets/settings-neutral.css?v=4" />
+  <link rel="stylesheet" href="assets/settings-teams-workflow.css?v=2" />
+  <link rel="stylesheet" href="assets/settings-workspace.css?v=4" />
+  <script src="assets/settings-integrations.js?v=2" type="module"></script>
+  <script src="assets/settings-teams-workflow.js?v=2" type="module"></script>
   <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
 <body class="cs-settings-neutral" data-chat-theme="clear-neutral">
-  <main class="cs-container cs-page cs-settings-page">
-    <div class="cs-page-header cs-mb-24">
-      <div class="cs-eyebrow">Connected surfaces</div>
-      <h1>Integrations</h1>
-      <p class="cs-lead">Authentication and delivery adapters configured for this deployment.</p>
+  <main class="cs-container cs-page cs-settings-page cs-settings-workspace">
+    <header class="cp-header"><div class="cp-header-copy"><h1>Integrations</h1><p>Connection readiness, notification setup, and bounded diagnostics.</p></div></header>
+    <div data-integrations-workspace>
+      <div class="cs-settings-workspace-nav">
+        <div class="cs-settings-workspace-tabs" role="tablist" aria-label="Integration views">
+          <button class="cp-tab" id="integration-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="integration-panel-overview" data-integration-tab="overview">Overview</button>
+          <button class="cp-tab" id="integration-tab-teams-workflows" type="button" role="tab" aria-selected="false" aria-controls="integration-panel-teams-workflows" data-integration-tab="teams-workflows" tabindex="-1">Teams Workflows</button>
+          <button class="cp-tab" id="integration-tab-diagnostics" type="button" role="tab" aria-selected="false" aria-controls="integration-panel-diagnostics" data-integration-tab="diagnostics" tabindex="-1">Diagnostics</button>
+          <button class="cp-tab" id="integration-tab-email-template" type="button" role="tab" aria-selected="false" aria-controls="integration-panel-email-template" data-integration-tab="email-template" tabindex="-1">Email template</button>
+        </div>
+        <span class="cs-settings-workspace-note" title="Synthetic data only. No settings are saved or messages sent.">Demo data</span>
+      </div>
+      <div class="integrations-workspace-error" role="alert" data-integration-error hidden><strong>Integration view unavailable</strong><p>This preview view is not registered. Select a tab or return to the overview.</p><button class="cs-control-button" type="button" data-open-integration="overview">Return to overview</button></div>
+      <div id="integration-panel-overview" role="tabpanel" aria-labelledby="integration-tab-overview" data-integration-panel="overview">
+        <section class="cs-settings-section" aria-labelledby="integrations-overview">
+          <header class="cs-settings-section-head"><div><h2 id="integrations-overview">Connection overview</h2><span class="cs-settings-scope">4 integrations</span></div><p>Configuration, observed readiness, and delivery activation are separate.</p></header>
+          <table class="integrations-table">
+            <caption class="cs-sr-only">Illustrative integration readiness</caption>
+            <thead><tr><th scope="col">Integration</th><th scope="col">Purpose</th><th scope="col">State</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Microsoft Entra ID</strong></td><td class="integration-purpose">Interactive human authentication for the Console.</td><td class="integration-state-cell"><span class="cs-status ok">Connected</span></td><td class="integration-action-cell"><span class="cs-sr-only">No action in this preview</span></td></tr>
+              <tr><td><strong>GitHub App</strong></td><td class="integration-purpose">Governance PRs, remediation PRs, and review handoffs.</td><td class="integration-state-cell"><span class="cs-status idle">Not probed</span></td><td class="integration-action-cell"><span class="cs-sr-only">No action in this preview</span></td></tr>
+              <tr><td><strong>Teams Workflows</strong></td><td class="integration-purpose">Outbound A2 alerts and A4 digests. Saving is not activation.</td><td class="integration-state-cell"><span class="cs-status idle">Not activated</span></td><td class="integration-action-cell"><button class="cs-control-button is-quiet integration-link" type="button" data-open-integration="teams-workflows">View setup</button></td></tr>
+              <tr><td><strong>Slack</strong></td><td class="integration-purpose">Optional governed delivery and a one-time webhook diagnostic.</td><td class="integration-state-cell"><span class="cs-status idle">Not configured</span></td><td class="integration-action-cell"><button class="cs-control-button is-quiet integration-link" type="button" data-open-integration="diagnostics">View diagnostic</button></td></tr>
+            </tbody>
+          </table>
+          <p class="integrations-preview-note">Illustrative states only. This preview does not check live connections or change delivery.</p>
+        </section>
+      </div>
+      <div id="integration-panel-teams-workflows" role="tabpanel" aria-labelledby="integration-tab-teams-workflows" data-integration-panel="teams-workflows" hidden>
+        <section class="cs-settings-section" aria-labelledby="integrations-teams">
+          <header class="cs-settings-section-head"><h2 id="integrations-teams">Teams Workflows</h2><p>Save a verified binding, then test outbound notifications.</p></header>
+          <div data-teams-workflow-preview><div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading Teams Workflows preview"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div></div>
+        </section>
+      </div>
+      <div id="integration-panel-diagnostics" role="tabpanel" aria-labelledby="integration-tab-diagnostics" data-integration-panel="diagnostics" hidden>
+        <section class="cs-settings-section" aria-labelledby="integrations-diagnostics">
+          <header class="cs-settings-section-head"><h2 id="integrations-diagnostics">Delivery diagnostics</h2><p>A bounded test is separate from a saved production binding.</p></header>
+          <div class="cs-settings-list"><div class="cs-setting-row integration-action-row"><div><strong>Slack webhook test</strong><small>Owner-only diagnostic using a fixed synthetic message and a transient URL.</small></div><button class="cs-control-button" type="button" disabled aria-describedby="integration-diagnostic-note">Prepare Slack test</button></div></div>
+          <p class="integrations-preview-note" id="integration-diagnostic-note">Available in the authenticated Console. No webhook URL is accepted or message sent here.</p>
+        </section>
+      </div>
+      <div id="integration-panel-email-template" role="tabpanel" aria-labelledby="integration-tab-email-template" data-integration-panel="email-template" hidden>
+        <section class="cs-settings-section" aria-labelledby="integrations-email">
+          <header class="cs-settings-section-head"><h2 id="integrations-email">Incident email template</h2><p>Production-renderer previews use synthetic placeholders.</p></header>
+          <article class="cs-settings-card"><div><strong>Incident opened</strong><small>Subject, summary, severity, and evidence links use placeholder values.</small></div><button class="cs-control-button" type="button" disabled aria-describedby="integration-email-note">Preview template</button></article>
+          <p class="integrations-preview-note" id="integration-email-note">Open the renderer in the authenticated Console. This static preview does not render or send email.</p>
+        </section>
+      </div>
     </div>
-
-    <section class="cs-settings-section" aria-labelledby="integrations-identity">
-      <header class="cs-settings-section-head">
-        <h2 id="integrations-identity">Identity</h2>
-        <p>Console authentication mode.</p>
-      </header>
-      <div class="cs-settings-list">
-        <div class="cs-setting-row">
-          <div><strong>Microsoft Entra ID</strong><small>Interactive human authentication for the operator console.</small></div>
-          <span class="cs-status ok">Connected</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="cs-settings-section" aria-labelledby="integrations-delivery">
-      <header class="cs-settings-section-head">
-        <h2 id="integrations-delivery">Delivery</h2>
-        <p>Configured adapters and current sanitized readiness.</p>
-      </header>
-      <div class="cs-settings-list">
-        <div class="cs-setting-row">
-          <div><strong>GitHub App</strong><small>Governance PRs, remediation PRs, and review handoffs.</small></div>
-          <span class="cs-status idle">Not probed</span>
-        </div>
-        <div class="cs-setting-row">
-          <div><strong>Microsoft Teams</strong><small>Approval notifications and governed ChatOps delivery.</small></div>
-          <span class="cs-status idle">Not probed</span>
-        </div>
-        <div class="cs-setting-row">
-          <div><strong>Slack</strong><small>Optional governed delivery using a transient diagnostic URL.</small></div>
-          <span class="cs-status idle">Not configured</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="cs-settings-section" aria-labelledby="integrations-diagnostics">
-      <header class="cs-settings-section-head">
-        <h2 id="integrations-diagnostics">Delivery diagnostics</h2>
-        <p>Synthetic diagnostics never update the production binding or grant authority.</p>
-      </header>
-      <div class="cs-settings-list">
-        <div class="cs-setting-row">
-          <div><strong>Teams Workflows test</strong><small>The URL remains transient and only a content-free result is retained.</small></div>
-          <button class="cs-control-button" type="button">Prepare test</button>
-        </div>
-        <div class="cs-setting-row">
-          <div><strong>Slack webhook test</strong><small>Owner-only diagnostic using a fixed synthetic message.</small></div>
-          <button class="cs-control-button" type="button">Prepare test</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="cs-settings-section" aria-labelledby="integrations-email">
-      <header class="cs-settings-section-head">
-        <h2 id="integrations-email">Incident email template</h2>
-        <p>Preview the production renderer with synthetic placeholders.</p>
-      </header>
-      <article class="cs-settings-card">
-        <div><strong>Incident opened</strong><small>Subject, summary, severity, and evidence links use placeholder values.</small></div>
-        <button class="cs-control-button" type="button">Preview template</button>
-      </article>
-    </section>
   </main>
 </body>
 </html>
