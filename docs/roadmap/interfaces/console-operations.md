@@ -602,7 +602,9 @@ on color alone; source, deadline, and unavailable reason have accessible names. 
 one polite status announcement without moving focus, while submit conflicts focus the actionable
 summary and return focus to the originating control after dismissal.
 Cost Governance cards link to narrower sections or cross-surface routes. Topbar controls use
-`aria-label` without redundant `title` attributes.
+`aria-label` without redundant `title` attributes. The design-mock shell keeps Cost Governance on
+its canonical page, labels resource efficiency as a separate study, and preserves existing query
+parameters when adding a cache-busting preview token.
 
 Exit criteria: operators can complete each supported human step in FDAI Console, while every
 managed-resource mutation appears only as a later Thor `ActionRun`. Conflict, retry, compensation,

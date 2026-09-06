@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 44525b61274d676bb9c773b1088c3a88caf15e22
+translation_source_sha: dfa004d876f1578df7a2f5f6c58b056339ee53d8
 translation_revised: 2026-09-07
 ---
 # 코드 맵
@@ -50,7 +50,7 @@ translation_revised: 2026-09-07
 `resource_configuration_{queries,snapshots,projection}.py`는 범위가 제한된 메트릭 비교와
 허용된 범위로 필터링한 과거 구성 사실을 담당합니다. 의미 컴파일러는 이 조회를 선언된
 FunctionType에 연결합니다. ObjectSet의 고유 ID와 경로 끝점 전용 증적은 백엔드 조회가
-이전 게이트웨이 루트를 대상으로 실행되는 것을 방지합니다. Azure 기본 메트릭 템플릿은
+이전 게이트웨이 루트를 대상으로 실행되는 것을 방지합니다. 선택적인 정확한 백엔드 필터는 보안 객체 의존성으로 가장하지 않고 검증된 스칼라 함수 인자로 유지합니다. Azure 기본 메트릭 템플릿은
 전달 어댑터에 유지합니다. Operator의 `document_export.py`는 무관한 이전 대화가 아니라
 현재 검증된 인벤토리 결과를 문서로 변환합니다.
 응답 묶음에는 바이너리 문서가 포함될 수 있습니다. `t1_model_health.py`는 입력을 검증하며,
@@ -197,7 +197,7 @@ optional package 카탈로그를 해석하므로 새 경로가 누락된 English
 결정론적 명확화와 후보 복구를 소유합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된
-다중 pair 관계 계획 및 조회를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
+다중 pair 관계 계획 및 조회를 소유합니다. `semantic_planning_judgment.py`와 `semantic_planning_frame_gate.py`는 판단 사용과 순서가 지정된 frame gate를 분리하고, `semantic_query_runtime_composition.py`는 런타임 사용 가능 결과를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과
 필요한 모든 LinkType 증적을 결속합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
 principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. 실행 권한을 부여하지 않으면서 각
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면

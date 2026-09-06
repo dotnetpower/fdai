@@ -237,7 +237,11 @@ async def _invoke(
         **WINDOWS.arguments(),
     }
     if requested_filter is not None:
-        arguments["requested_backend_filter"] = requested_filter
+        if set(requested_filter) == {"field", "value"}:
+            arguments["requested_backend_filter_field"] = requested_filter["field"]
+            arguments["requested_backend_filter_value"] = requested_filter["value"]
+        else:
+            arguments.update(requested_filter)
     if requested is not None:
         arguments["requested_backend_query_result"] = requested.model_dump(mode="json")
     functions = OntologyFunctionRegistry(release=release)
@@ -749,6 +753,8 @@ async def test_requested_backend_scope_cannot_be_supplied_without_an_explicit_fi
 def test_requested_backend_scope_remains_dependency_only_in_function_schema() -> None:
     schema = gateway_diagnostic_function_type().input_schema
     assert schema["properties"]["requested_backend_query_result"]["x-fdai-dependency-only"] is True
+    assert schema["properties"]["requested_backend_filter_field"]["type"] == "string"
+    assert schema["properties"]["requested_backend_filter_value"]["type"] == "string"
 
 
 async def test_requested_backend_filter_can_narrow_an_issued_path_without_a_fallback_scope() -> (

@@ -116,16 +116,11 @@ class GatewayBackendFilter:
         ):
             raise ValueError("requested backend filter MUST be one bounded exact identity")
 
-    @classmethod
-    def from_value(cls, value: object) -> GatewayBackendFilter:
-        if not isinstance(value, Mapping) or set(value) != {"field", "value"}:
-            raise ValueError("requested backend filter fields are invalid")
-        if not isinstance(value["field"], str) or not isinstance(value["value"], str):
-            raise ValueError("requested backend identity MUST be text")
-        return cls(field=value["field"], value=value["value"])
-
     def arguments(self) -> dict[str, str]:
-        return {"field": self.field, "value": self.value}
+        return {
+            "requested_backend_filter_field": self.field,
+            "requested_backend_filter_value": self.value,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,7 +203,14 @@ def gateway_diagnostic_function_type() -> OntologyFunctionType:
             "type": "object",
             "additionalProperties": False,
             "required": ["query_result", "backend_query_result", *_TIME_FIELDS],
-            "dependentRequired": {"requested_backend_query_result": ["requested_backend_filter"]},
+            "dependentRequired": {
+                "requested_backend_query_result": [
+                    "requested_backend_filter_field",
+                    "requested_backend_filter_value",
+                ],
+                "requested_backend_filter_field": ["requested_backend_filter_value"],
+                "requested_backend_filter_value": ["requested_backend_filter_field"],
+            },
             "properties": {
                 **{
                     name: {"type": "object", "x-fdai-dependency-only": True}
@@ -218,14 +220,14 @@ def gateway_diagnostic_function_type() -> OntologyFunctionType:
                         "requested_backend_query_result",
                     )
                 },
-                "requested_backend_filter": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["field", "value"],
-                    "properties": {
-                        "field": {"type": "string", "enum": ["id", "name", "model_name"]},
-                        "value": {"type": "string", "minLength": 1, "maxLength": 512},
-                    },
+                "requested_backend_filter_field": {
+                    "type": "string",
+                    "enum": ["id", "name", "model_name"],
+                },
+                "requested_backend_filter_value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
                 },
                 **{name: {"type": "string", "format": "date-time"} for name in _TIME_FIELDS},
             },
@@ -283,8 +285,11 @@ def gateway_diagnostic_function(
         root = _authorized_scope(arguments["query_result"], context, ontology_release)
         backends = _authorized_scope(arguments["backend_query_result"], context, ontology_release)
         requested_filter = (
-            GatewayBackendFilter.from_value(arguments["requested_backend_filter"])
-            if "requested_backend_filter" in arguments
+            GatewayBackendFilter(
+                field=arguments["requested_backend_filter_field"],
+                value=arguments["requested_backend_filter_value"],
+            )
+            if "requested_backend_filter_field" in arguments
             else None
         )
         requested_scope = (

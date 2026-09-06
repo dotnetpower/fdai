@@ -1217,6 +1217,7 @@ async def test_wire_azure_container_missing_council_prompt_preserves_legacy_abst
 
     catalog = tmp_path / "catalog"
     shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
+    shutil.copytree(_SHIPPED_CATALOG_ROOT / "probes", catalog / "probes")
     (catalog / "prompts" / "base" / "t2-ontology-council.v1.yaml").unlink()
     resolved = tmp_path / "resolved-models.json"
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
@@ -1245,6 +1246,7 @@ async def test_wire_azure_container_missing_semantic_judgment_prompt_stays_unava
 
     catalog = tmp_path / "catalog"
     shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
+    shutil.copytree(_SHIPPED_CATALOG_ROOT / "probes", catalog / "probes")
     (catalog / "prompts" / "base" / "semantic-judgment.v1.yaml").unlink()
     resolved = tmp_path / "resolved-models.json"
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
@@ -1566,19 +1568,16 @@ async def test_wire_azure_container_rejects_duplicate_runtime_provider(
 
 
 # ---------------------------------------------------------------------------
-# Azure Monitor Logs metric-provider auto-bind (upstream default -> live
-# adapter when the deploy exposes ``FDAI_MONITOR_WORKSPACE_ID`` / passes
-# ``AzureWireOverrides.monitor_workspace_id``). Keeps the detection
-# pipeline honest: no workspace -> NoopMetricProvider stays; workspace
-# supplied -> the shipped SRE-demo query catalog binds without a fork.
+# Azure metric-provider auto-bind. Native Azure Monitor Metrics always
+# binds in Azure mode; a workspace additionally enables the Logs route.
 # ---------------------------------------------------------------------------
 
 
 async def test_wire_azure_container_skips_monitor_without_workspace(tmp_path: Path) -> None:
-    """Upstream parity: no ``monitor_workspace_id`` -> NoopMetricProvider stays."""
+    """No workspace skips Monitor Logs but retains native Azure metrics."""
     from fdai.composition import AzureWireOverrides, wire_azure_container
     from fdai.core.operator_memory import InMemoryOperatorMemoryStore
-    from fdai.shared.providers.metric import NoopMetricProvider
+    from fdai.delivery.azure.metrics_api import AzureMonitorMetricsProvider
 
     resolved = tmp_path / "resolved-models.json"
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
@@ -1594,7 +1593,7 @@ async def test_wire_azure_container_skips_monitor_without_workspace(tmp_path: Pa
             operator_memory_store=InMemoryOperatorMemoryStore(),
         ),
     )
-    assert isinstance(finalized.metric_provider, NoopMetricProvider)
+    assert isinstance(finalized.metric_provider, AzureMonitorMetricsProvider)
 
 
 async def test_wire_azure_container_binds_monitor_with_workspace(tmp_path: Path) -> None:
@@ -1741,10 +1740,16 @@ def test_azure_wire_overrides_rejects_prom_audience_without_endpoint(
 async def test_wire_azure_container_binds_prometheus_only_when_only_prom_supplied(
     tmp_path: Path,
 ) -> None:
-    """Prom endpoint alone -> PrometheusMetricProvider bound solo (no routing)."""
+    """A Prom endpoint routes before the always-bound native metrics provider."""
     from fdai.composition import AzureWireOverrides, wire_azure_container
     from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.delivery.azure.demo_queries import (
+        METRIC_MYSQL_CPU_PERCENT,
+        METRIC_NODE_CPU_PERCENT,
+    )
+    from fdai.delivery.azure.metrics_api import AzureMonitorMetricsProvider
     from fdai.delivery.prometheus import PrometheusMetricProvider
+    from fdai.shared.providers.routed_metric import RoutedMetricProvider
 
     resolved = tmp_path / "resolved-models.json"
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
@@ -1761,7 +1766,10 @@ async def test_wire_azure_container_binds_prometheus_only_when_only_prom_supplie
             prometheus_base_url="http://prometheus.monitor:9090",
         ),
     )
-    assert isinstance(finalized.metric_provider, PrometheusMetricProvider)
+    routed = finalized.metric_provider
+    assert isinstance(routed, RoutedMetricProvider)
+    assert routed.route_for(METRIC_NODE_CPU_PERCENT) == PrometheusMetricProvider.__name__
+    assert routed.route_for(METRIC_MYSQL_CPU_PERCENT) == AzureMonitorMetricsProvider.__name__
 
 
 async def test_wire_azure_container_routes_prom_primary_aml_fallback(

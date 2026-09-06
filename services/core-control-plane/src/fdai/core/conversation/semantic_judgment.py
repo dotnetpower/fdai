@@ -92,7 +92,13 @@ class SemanticJudgmentResult:
 
     @property
     def accepted(self) -> bool:
-        return self.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED
+        """Admit accepted meaning or a low-confidence candidate that can only become a draft."""
+
+        return self.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED or (
+            self.receipt.disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
+            and self.proposal is not None
+            and self.proposal.action_posture == "draft_only"
+        )
 
 
 class SemanticJudgmentBoundary:

@@ -352,10 +352,8 @@ def test_gateway_requested_backend_uses_an_additional_bounded_authorized_scope(
     assert len(definition["predicates"]) == 1
     assert definition["predicates"][0]["property"] == property_name
     assert definition["predicates"][0]["equals"] == expected_value
-    assert diagnostic.arguments["arguments"]["requested_backend_filter"] == {
-        "field": field,
-        "value": value,
-    }
+    assert diagnostic.arguments["arguments"]["requested_backend_filter_field"] == field
+    assert diagnostic.arguments["arguments"]["requested_backend_filter_value"] == value
     assert diagnostic.arguments["dependency_arguments"][requested.node_id] == (
         "requested_backend_query_result"
     )

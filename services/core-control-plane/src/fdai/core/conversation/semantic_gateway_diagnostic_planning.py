@@ -148,7 +148,7 @@ def compile_gateway_diagnostic_plan(
                 {"definition": requested_definition.model_dump(mode="json")},
             )
         )
-        arguments["requested_backend_filter"] = requested_filter.arguments()
+        arguments.update(requested_filter.arguments())
         bindings[requested_id] = "requested_backend_query_result"
     nodes.append(
         _function(

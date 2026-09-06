@@ -337,7 +337,7 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
     base = registry.get_base("semantic.judgment")
     out = await composer.compose(capability_id="semantic.judgment")
 
-    assert base.version == 7
+    assert base.version == 8
     assert out.system_text == base.body
     assert "author a fresh, concise direct_response.answer" in out.system_text
     assert "Do not reuse canned wording" in out.system_text
@@ -352,18 +352,19 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     base = registry.get_base("conversation.preflight")
     out = await composer.compose(capability_id="conversation.preflight")
 
-    assert base.version == 1
+    assert base.version == 2
     assert out.system_text == base.body
-    assert out.token_estimate <= 576
-    assert "no approval or execution authority" in out.system_text
-    assert "This stage classifies only" in out.system_text
-    assert "context_dependency to social_continuity" in out.system_text
-    assert "thanks only for explicit gratitude" in out.system_text
+    assert out.token_estimate <= base.token_budget
+    assert "candidate data only, never prose, approval, capability, or execution authority" in (
+        out.system_text
+    )
+    assert "operational_family" in out.system_text
+    assert "operational_signal=explicit" in out.system_text
+    assert "context_dependency=none" in out.system_text
     assert "Acknowledgement is never direct" in out.system_text
-    assert "Bragi's identity, role, conversational support" in out.system_text
-    assert "Informal, colloquial, or imperative wording" in out.system_text
-    assert "even when Bragi is unnamed" in out.system_text
-    assert "When schema_repair is nonempty" in out.system_text
+    assert "source_start is zero-based inclusive" in out.system_text
+    assert "Core rechecks provenance, spans, confidence" in out.system_text
+    assert "Fix every schema_repair error" in out.system_text
 
 
 @pytest.mark.asyncio

@@ -246,7 +246,7 @@ async def test_builds_distinct_stage_prompts_from_one_common_base_without_networ
     assert tuple(dependencies.stage_prompts) == ADAPTIVE_STAGES
     assert len(set(dependencies.stage_prompts.values())) == len(ADAPTIVE_STAGES)
     for stage, text in dependencies.stage_prompts.items():
-        version = 2 if stage == "plan" else 1
+        version = 3 if stage == "plan" else 1
         assert dependencies.layer_ids[stage] == (
             "adaptive-common.v1",
             f"adaptive-{stage}.v{version}",

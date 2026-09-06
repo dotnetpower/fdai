@@ -37,7 +37,7 @@ describe("mock console visual boundary", () => {
 
   test("cache-busts iframe previews so removed variants do not persist", () => {
     const landing = readFileSync(`${MOCK_ROOT}/index.html`, "utf8");
-    expect(landing).toMatch(/const previewUrl = page \+ '\?shell=left-v5&preview=' \+ Date\.now\(\) \+ \(section \?/);
+    expect(landing).toMatch(/const previewUrl = page \+ \(page\.includes\('\?'\) \? '&' : '\?'\) \+ 'shell=left-v5&preview=' \+ Date\.now\(\) \+ \(section \?/);
     expect(landing).toContain("frame.src = previewUrl");
   });
 

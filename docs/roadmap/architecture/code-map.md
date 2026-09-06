@@ -48,7 +48,7 @@ Operational diagnostic conversations retain the existing service boundary. Core'
 own bounded metric comparisons and reviewed, scope-filtered historical facts.
 The semantic compilers bind these reads to declared FunctionTypes; intrinsic ObjectSet
 IDs and endpoint-only typed-path receipts prevent a downstream backend read from using
-the carried gateway root. Azure native metric templates remain in delivery adapters.
+the carried gateway root. An optional exact backend filter stays in validated scalar function arguments rather than masquerading as a secured object dependency. Azure native metric templates remain in delivery adapters.
 Operator's `document_export.py` renders the same verified inventory result, not a prior
 unrelated turn. Its response envelope can contain binary documents; `t1_model_health.py`
 validates raw projection input and never treats binary or absent content as model health.
@@ -204,7 +204,7 @@ deterministic clarification and candidate recovery. Focused sibling modules own 
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, typed multi-pair
 relationship planning, and queries while preserving public imports, deterministic gate order, and
-read-only authority. Typed Rule traces bind the exact Rule declaration and all required LinkType
+read-only authority. `semantic_planning_judgment.py` and `semantic_planning_frame_gate.py` isolate judgment consumption and ordered frame gates, while `semantic_query_runtime_composition.py` owns the runtime availability result. Typed Rule traces bind the exact Rule declaration and all required LinkType
 receipts before answering. Service-to-Agent ownership uses one exact-release, principal-scoped
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
