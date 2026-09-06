@@ -56,7 +56,8 @@ schema preparation, irrelevant context, avoidable refinement, and post-validatio
 Pure knowledge planning may include a candidate draft; operational reads still precede operational
 prose. Only independently supported sections may be published. Optional refinement must leave
 time and call capacity for independent verification. Short review stages may use explicitly
-supported low-effort provider settings; T2 reasoning settings remain unchanged.
+supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);
+authoring, other families, and T2 reasoning settings remain unchanged.
 
 Content-free stage logs report elapsed time, remaining time, status, and physical-call count.
 Schema text and prepared-validator caches are bounded and contain no user input; every response

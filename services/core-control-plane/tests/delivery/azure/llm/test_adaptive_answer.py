@@ -165,6 +165,35 @@ async def test_prepared_schema_cache_never_skips_validation_of_a_later_response(
 
 
 @pytest.mark.parametrize(
+    ("stage", "family", "expected"),
+    [
+        ("review", "gpt-5-mini", "low"),
+        ("verify", "gpt-5.4-mini", "low"),
+        ("answer", "gpt-5-mini", None),
+        ("refine", "gpt-5.6-sol", None),
+        ("review", "gpt-4o-mini", None),
+    ],
+)
+async def test_short_review_effort_does_not_change_author_or_t2_reasoning(
+    stage: str,
+    family: str,
+    expected: str | None,
+) -> None:
+    target = _target("reviewer", family)
+    config = _config(reviewer=target)
+    if stage == "answer":
+        config = _config(primary=_target("primary", family))
+    elif stage == "refine":
+        config = _config(escalation=_target("escalation", family))
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content).get("reasoning_effort") == expected
+        return httpx.Response(200, json=_envelope())
+
+    assert await _call(respond, config=config, stage=stage, escalated=stage == "refine") is not None
+
+
+@pytest.mark.parametrize(
     ("stage", "escalated", "deployment"),
     [
         ("plan", False, "primary"),

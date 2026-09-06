@@ -216,6 +216,11 @@ class AzureOpenAIAdaptiveModel:
                 selected.family, temperature=0.0, max_tokens=self._config.max_tokens
             ),
         }
+        if stage in {"review", "verify"} and selected.family.strip().lower() in {
+            "gpt-5-mini",
+            "gpt-5.4-mini",
+        }:
+            body["reasoning_effort"] = "low"
         if response_format is not None:
             body["response_format"] = response_format
         if request.model_body_field is not None:
