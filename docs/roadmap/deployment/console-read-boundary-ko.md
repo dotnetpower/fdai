@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: d835674524b777e73985413a72ccf37c5edbf2b2
-translation_revised: 2026-09-05
+translation_source_sha: c870fc28adeba631228236469482e4a3d41b30bc
+translation_revised: 2026-09-06
 ---
 # Console 읽기 경계
 
@@ -16,6 +16,7 @@ translation_revised: 2026-09-05
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 모델 카탈로그 및 기존 T2 배포 연결 | implemented | `adapters/model_catalog.py`, `bind-existing-model.py`, 검색 및 연결 집중 테스트 | 설정 새로 고침은 관측된 Azure 모델 구성을 읽습니다. 로컬 T2 기본 모델 연결은 T1과 독립 검토 요건을 보존하며 메타데이터 준비 상태가 실제 추론 호출의 성공을 입증하지는 않습니다. |
 | 읽기 데이터 소스 선언 완전성 | validated | `fdai_operator_service/composition.py`, 집중 Operator 테스트 및 인증된 Console 53개 경로 전수 검사 | Console이 조회하는 모든 읽기 경로는 선언된 카탈로그, 감사 또는 영속 테이블 출처로 해석됩니다. 레코드가 없는 출처는 합성 성공 값 대신 명시적인 빈 근거 상태를 반환합니다. |
 | 카탈로그 기반 참조 변환 결과 | validated | `test_materialize_authoritative_catalogs.py`, 인증된 컨트롤, 기능, 승급, 워크플로 앱 및 담당 체계 로드 | 검토된 ActionType, Workflow, 컨트롤, 기능, 온보딩, 범위 및 담당 체계 선언이 런타임 또는 액션 근거를 만들지 않고 리비전이 있는 읽기 변환 결과에 도달합니다. |
 | WARA shadow 평가 변환 결과 | 구현됨 | `fdai_operator_service/composition.py`, WARA 변환 결과 및 워크플로 계열 테스트 | 로컬 및 배포 Operator 조립은 같은 고정 교차워크, shadow 토픽, 소비자 그룹 및 PostgreSQL 변환 결과를 읽습니다. 프로바이더 관측은 별도로 연결하기 전까지 사용할 수 없으며 합성 근거로 대체하지 않습니다. |
@@ -28,6 +29,7 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-06 | implemented | 무시되던 설정 카탈로그 새로 고침 플래그를 주입된 읽기 전용 공급자에 연결하고 기존 T2 배포의 명시적 로컬 연결 기능을 추가했습니다. | `current change`; 집중 Python 테스트 70개와 Console 디코더 테스트 35개 통과. 인증된 설정 새로 고침에서 HTTP 200과 선택한 기존 기본 모델을 포함한 모델 버전 47개를 확인했으며 추론 요청은 보내지 않았습니다. | T1 답변 가용성을 누락된 T2 검토자와 분리하는 작업은 별도로 필요하며 모델 호출과 전체 다중 모델 정족수는 검증되지 않았습니다. |
 | 2026-09-01 | 구현됨 | 검증된 FDAI 역할, IAM 탐색, 로그아웃 및 동일 테넌트 Entra 계정 선택을 제공하는 접근 가능한 헤더 계정 패널을 추가했습니다. 중복 작업, 초기 번들 크기 및 모바일 탐색 겹침을 방지하도록 강화했습니다. | `current change`; `console/src/components/account-menu.tsx`; `console/src/components/account-menu.test.ts`; `console/src/auth.ts`; `console/src/auth.test.ts`; 집중 콘솔 테스트(`11 passed`), typecheck 및 프로덕션 빌드 통과 | 디렉터리 전환은 단일 테넌트 발급자 계약에 따라 계속 지원되지 않습니다. |
 | 2026-09-01 | 구현됨 | 읽기 전용 WARA 인벤토리 및 선택적 평가 변환 결과를 공유 로컬 및 배포 Operator 조립 경계에 연결했습니다. | `current change`, rebase된 구현의 WARA 변환 결과, 워크플로 계열, materializer 및 Console 모델 검사. | 런타임 검증을 주장하기 전에 별도로 승인된 다중 리소스 실제 Azure shadow 증적을 보존합니다. |
 | 2026-08-27 | implemented | 카탈로그, 감사, Process, 전달, 예측, 메모리, 스킬 출처, 보증, 준비도 및 구성 기준선 상태 변환 결과를 독립 Operator 서비스에 연결했습니다. Operator 역할에는 해당 변환 결과에 필요한 테이블 읽기 권한만 부여합니다. | `current change`, 집중 Operator 테스트, strict mypy, Ruff, 독립 서비스 검사, materializer 검사 및 인증된 53개 경로 브라우저 전수 검사. | 프로비저닝 진행 상황과 라이브 온보딩에는 외부 관찰 relay가 계속 필요합니다. Python 작업 작성에는 통제된 프로바이더가 계속 필요합니다. |
@@ -50,6 +52,18 @@ Console은 각 선택적 읽기 전에 서버가 소유한 선언된 출처를 �
 근거는 사용 불가 상태를 유지하고, 로컬 및 배포 프로파일은 같은 제한과 읽기 전용 권한을 보존합니다.
 
 ## 출처 선언
+
+설정의 모델 검색은 읽기 전용 구성 조회이며 워크로드 조회나 모델 호출이 아닙니다.
+HTTP 경로에서 Azure를 직접 호출하면 권한 검증과 공급자 처리가 섞이므로 IAM 조립이 기존 설정
+조회에 범위가 제한된 카탈로그 읽기 모듈을 주입합니다. 구성된 구독과 모델 엔드포인트에서 계정
+하나를 확인한 뒤 계정 모델, 배포 및 지역 할당량을 읽고 결과를 1분 동안 보관합니다.
+명시적 새로 고침은 캐시를 건너뜁니다. 오류가 발생하면 오래된 결과를 최신으로 표시하지 않고
+사용 불가로 전환합니다. 카탈로그 존재나 배포 성공은 실행, 모델 선택 또는 적용 권한을 부여하지 않습니다.
+
+명시적으로 승인된 로컬 선택은 `scripts/deployment/local/bind-existing-model.py`를 사용합니다.
+5분 이내에 관측한 성공 상태 배포 하나를 Git에서 제외된 파일에 연결하며 정확한 이전 파일과
+T1 및 독립 검토자를 보존합니다. 모델을 배포하거나 호출하지 않으며 관측하지 않은 도구 또는
+스키마 지원을 단정하거나 누락된 T2 검증 정족수를 활성화하지 않습니다.
 
 읽기 데이터 소스 레지스트리는 이 배포판이 제공하지 않는 route까지 포함해 콘솔이 조회하는 모든
 route를 선언합니다. 콘솔은 요청을 보내기 전에 route를 선언된 소스로 해석하므로, 선언되지 않은

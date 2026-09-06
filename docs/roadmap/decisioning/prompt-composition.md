@@ -28,8 +28,10 @@ each role-aware conversation. Identity identifiers and source-revision text neve
 Unknown or expired relationships retain the selected role without pretending to be verified.
 
 Production composition consumes resolved model slots rather than hardcoded models or endpoints.
-The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer reuse `t1.judge`,
-review and verify reuse `t2.reasoner.secondary`, and refine reuses `t2.reasoner.primary`.
+The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer use the first
+configured T1 narrator, review and verify use an independent configured T1 narrator, and only
+optional refinement uses `t2.reasoner.primary`. Exact deployment metadata supplies publisher and
+family; names never imply model identity. Held or unknown candidates are excluded.
 They do not create model deployments. Role and lifecycle types use the public agent and model facades.
 The author and reviewer must be independent configured models; one optional refinement re-enters
 independent review. The no-T2 request profile retains the existing non-adaptive path. Every stage
@@ -37,6 +39,14 @@ preserves the same no-execution boundary. Schema, byte, time, call, and token bu
 optional reads reserve time and two calls for a useful answer and review. Nested query-model
 requests share the same turn budget and cancellation scope. The role profile and model traces remain
 separate from operational evidence and cannot produce a whole-answer verification badge.
+
+Critique and revision: making a T2 secondary a prerequisite disabled ordinary explanations in
+single-publisher local installations and sent knowledge questions into operational query planning.
+T1 authorship and independent T1 review therefore stay available when all T2 bindings are absent.
+A missing or non-independent escalation target disables refinement only. Provider-side structured
+output is used when configured; otherwise the exact schema accompanies the request and the
+application validates returned JSON against it. This does not relax evidence verification or the
+separate mixed-publisher operational T2 quality gate.
 
 ## Implementation status
 
@@ -57,6 +67,7 @@ separate from operational evidence and cannot produce a whole-answer verificatio
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Removed the mandatory T2 reviewer from ordinary adaptive composition. Distinct configured T1 narrator models author and review; only an optional T2 primary refines, and malformed or unavailable escalation does not disable T1. Unbound provider schema support uses application-side JSON validation. | `current change`; 115 focused composition, transport, schema, budget, runtime, and prompt-registry tests passed; strict mypy passed for both modified source modules. The comparison regression exercises real composition and transport with mocked models and no operational query. | Retain an explicitly authorized live-question receipt before claiming actual answer quality. Strict no-T2 campaign behavior and operational quality gates are unchanged. |
 | 2026-09-06 | implemented | Completed fixed-role and relationship composition with independently reviewed answers and provider-budget propagation. Operational catalog failure no longer disables an independently valid general-answer service. | `current change`; 20 composition checks and 653 connected Python checks passed; 11 focused critique reviews are recorded in hierarchical conversation planning. | Live model quality and promotion evidence require separate authorization. |
 | 2026-09-06 | in-progress | Added common adaptive stage policy, fixed-role composition, expiring relationship context, and nested provider budget propagation. | `current change`; `test_wire_adaptive_conversation.py` passed 19 cases and `test_adaptive_provider_budget.py` passed 10 cases. | Finish connected critique evidence in hierarchical conversation planning; no live promotion is claimed. |
 | 2026-09-02 | implemented | Added the answer-continuity and prompt-ablation slice. The implementation separates guaranteed terminal usefulness from factual verification, protects authority-bearing prompt layers from ablation, makes exclusions replay-visible, and applies revision-fenced settings through one startup snapshot. Ten critique and hardening rounds closed four Medium and five Low defects; the final round found nothing above Low. | `current change`; 312 focused Python checks, 6 Console checks, task-scoped Ruff, strict mypy over 18 source files, and documentation gates passed. | Retain governed shadow evidence before claiming runtime validation. |

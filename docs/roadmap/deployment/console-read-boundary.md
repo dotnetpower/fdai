@@ -13,6 +13,7 @@ read-only, without giving the Operator API an executor identity.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Model catalog and existing T2 binding | implemented | `adapters/model_catalog.py`; `bind-existing-model.py`; focused discovery and binding tests | Settings refresh reads observed Azure model configuration. Local T2 primary adoption preserves T1 and independent-review requirements; metadata readiness does not prove an inference call succeeds. |
 | Read data-source declaration completeness | validated | `fdai_operator_service/composition.py`, focused Operator tests, and an authenticated 53-route Console sweep | Every read route the Console consults resolves to a declared catalog, audit, or durable-table source. A source with no records returns an explicit empty evidence state rather than a synthesized success value. |
 | Catalog-backed reference projections | validated | `test_materialize_authoritative_catalogs.py`; authenticated control, capability, promotion, workflow-app, and ownership loads | Reviewed ActionType, Workflow, control, capability, onboarding, scope, and ownership declarations reach revisioned read projections without creating runtime or action evidence. |
 | WARA shadow assessment projection | implemented | `fdai_operator_service/composition.py`; WARA projection and workflow-family tests | Local and deployed Operator composition reads the same pinned crosswalk, shadow topic, consumer group, and PostgreSQL projection. Provider observation stays unavailable until separately bound and never falls back to synthetic evidence. |
@@ -25,6 +26,7 @@ read-only, without giving the Operator API an executor identity.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-06 | implemented | Replaced the ignored Settings catalog refresh flag with an injected bounded read-only provider and added explicit local adoption of an existing T2 deployment. | `current change`; 70 focused Python tests and 35 Console decoder tests passed; authenticated Settings refresh returned HTTP 200 and 47 model versions, including the selected existing primary; no inference request was sent. | T1 answer availability must be decoupled from an absent T2 reviewer separately; model invocation and full mixed-model quorum remain unverified. |
 | 2026-09-01 | implemented | Added an accessible header account panel with verified FDAI roles, IAM navigation, sign-out, and same-tenant Entra account selection. Hardened duplicate actions, initial bundle size, and mobile navigation overlap. | `current change`; `console/src/components/account-menu.tsx`; `console/src/components/account-menu.test.ts`; `console/src/auth.ts`; `console/src/auth.test.ts`; focused Console tests (`11 passed`), typecheck, and production build passed. | Directory switching remains unsupported by the single-tenant issuer contract. |
 | 2026-09-01 | implemented | Bound the read-only WARA inventory and optional assessment projection through the shared local and deployed Operator composition boundary. | `current change`; WARA projection, workflow-family, materializer, and Console model checks from the rebased implementation. | Retain a separately authorized multi-resource live-Azure shadow receipt before claiming runtime validation. |
 | 2026-08-27 | implemented | Connected catalog, audit, Process, delivery, forecast, memory, skill-source, assurance, readiness, and configuration-baseline status projections to the independent Operator Service. The Operator role receives only the table reads required by those projections. | `current change`; focused Operator tests, strict mypy, Ruff, independent-service checks, materializer checks, and an authenticated 53-route browser sweep. | Provisioning progress and live onboarding still depend on their external observation relays. Python task authoring still depends on its governed provider. |
@@ -49,6 +51,19 @@ unauthorized evidence stays unavailable, while local and deployed profiles apply
 and preserve the same read-only authority.
 
 ## Source declarations
+
+Settings model discovery is a read-only configuration projection, not a workload query or model
+invocation. Putting Azure calls in HTTP routes would mix authorization and provider transport;
+instead, IAM composition injects a bounded catalog reader into the existing settings projection.
+It resolves exactly one account from the configured subscription and model endpoint, reads account
+models, deployments, and regional quota, and caches the result for one minute. Explicit refresh
+bypasses that cache. Errors clear availability rather than presenting stale data as current.
+Catalog presence and deployment success never grant execution, model-selection, or apply authority.
+
+For an explicitly approved local selection, `scripts/deployment/local/bind-existing-model.py`
+binds one successful deployment from evidence no older than five minutes into an ignored artifact,
+retains an exact backup, and preserves T1 and the independent reviewer. It does not provision or
+invoke a model, claim unobserved tool/schema support, or enable a missing T2 verification quorum.
 
 The read data-source registry declares every route the console consults, including routes this
 distribution does not serve. The console resolves a route to its declared source before it sends a

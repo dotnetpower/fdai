@@ -28,6 +28,7 @@ from fdai.delivery.azure.llm.adaptive_answer import (
     AzureOpenAIAdaptiveModel,
     AzureOpenAIAdaptiveModelConfig,
 )
+from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus, ResolvedModels
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -160,7 +161,7 @@ def build_adaptive_conversation_service(
             for profile in profiles:
                 compose_adaptive_prompt(profile, stage, text)
             prompts[stage] = text
-        return AdaptiveConversationService(
+        service = AdaptiveConversationService(
             model=AzureOpenAIAdaptiveModel(
                 identity=identity, http_client=http_client, config=config
             ),
@@ -173,6 +174,11 @@ def build_adaptive_conversation_service(
                 ),
             ),
         )
+        _LOGGER.info(
+            "adaptive_conversation_configured",
+            extra={"refinement_available": config.escalation is not None},
+        )
+        return service
     except (LookupError, OSError, ValueError):
         _unavailable("configuration_unavailable")
         return None
@@ -192,7 +198,7 @@ async def build_adaptive_conversation_dependencies(
     relationship: VerifiedConversationRelationship | None = None,
     pantheon_specs: Sequence[AgentSpec] = PANTHEON_SPECS,
     primary_capability: str = "t1.judge",
-    reviewer_capability: str = "t2.reasoner.secondary",
+    reviewer_capability: str | None = None,
     escalation_capability: str = "t2.reasoner.primary",
     timeout_seconds: float = 20.0,
     max_tokens: int = 4_096,
@@ -287,21 +293,51 @@ def _resolved_model_config(
     timeout_seconds: float,
     max_tokens: int,
     primary_capability: str = "t1.judge",
-    reviewer_capability: str = "t2.reasoner.secondary",
+    reviewer_capability: str | None = None,
     escalation_capability: str = "t2.reasoner.primary",
 ) -> AzureOpenAIAdaptiveModelConfig | None:
-    primary, reviewer, escalation = (
-        _resolve_target(
+    narrators = _t1_narrator_targets(resolved, held_capabilities)
+    primary = (
+        narrators[0]
+        if primary_capability == "t1.judge" and narrators
+        else _resolve_target(
             resolved,
-            capability,
+            primary_capability,
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
             held_capabilities=held_capabilities,
         )
-        for capability in (primary_capability, reviewer_capability, escalation_capability)
+    )
+    reviewer = (
+        _resolve_target(
+            resolved,
+            reviewer_capability,
+            endpoint=endpoint,
+            endpoint_resolver=endpoint_resolver,
+            held_capabilities=held_capabilities,
+        )
+        if reviewer_capability is not None
+        else next(
+            (item for item in narrators if primary is not None and item.independent_of(primary)),
+            None,
+        )
     )
     if primary is None or reviewer is None:
         return None
+    try:
+        escalation = _resolve_target(
+            resolved,
+            escalation_capability,
+            endpoint=endpoint,
+            endpoint_resolver=endpoint_resolver,
+            held_capabilities=held_capabilities,
+        )
+    except (LookupError, ValueError):
+        _LOGGER.warning("adaptive_refinement_unavailable", extra={"reason": "invalid_binding"})
+        escalation = None
+    if escalation is not None and not reviewer.independent_of(escalation):
+        _LOGGER.warning("adaptive_refinement_unavailable", extra={"reason": "not_independent"})
+        escalation = None
     return AzureOpenAIAdaptiveModelConfig(
         primary=primary,
         reviewer=reviewer,
@@ -309,6 +345,50 @@ def _resolved_model_config(
         timeout_seconds=timeout_seconds,
         max_tokens=max_tokens,
     )
+
+
+def _t1_narrator_targets(
+    resolved: ResolvedModels,
+    held_capabilities: frozenset[str],
+) -> tuple[AdaptiveModelTarget, ...]:
+    if held_capabilities & {"t1.judge", "t1.narrator"}:
+        return ()
+    metadata = {item.name: item for item in resolved.capabilities}
+    judge = metadata.get("t1.judge")
+    if judge is not None and judge.status not in {
+        CapabilityStatus.RESOLVED,
+        CapabilityStatus.CAPACITY_REDUCED,
+    }:
+        return ()
+    candidates = resolved.narrator_candidates or (
+        (resolved.narrator,) if resolved.narrator is not None else ()
+    )
+    result: list[AdaptiveModelTarget] = []
+    for candidate in candidates:
+        declared = metadata.get(candidate.deployment)
+        if (
+            candidate.deployment in held_capabilities
+            or declared is None
+            or declared.status not in {CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED}
+            or not declared.publisher
+            or not declared.family
+        ):
+            continue
+        result.append(
+            AdaptiveModelTarget(
+                target=ModelRequestTarget(
+                    endpoint=candidate.endpoint,
+                    deployment=candidate.deployment,
+                    api_version=candidate.api_version,
+                    api_style=candidate.api_style,
+                    auth_audience=candidate.auth_audience,
+                ),
+                publisher=declared.publisher,
+                family=declared.family,
+                structured_output=False,
+            )
+        )
+    return tuple(result)
 
 
 def _resolve_target(
@@ -343,8 +423,6 @@ def _resolve_target(
     publisher: str | None
     family: str | None
     if binding is not None:
-        if not binding.features.structured_output:
-            return None
         publisher, family = binding.publisher, binding.family
     else:
         if resolved_capability is None:
@@ -352,7 +430,12 @@ def _resolve_target(
         publisher, family = resolved_capability.publisher, resolved_capability.family
     if not publisher or not family:
         return None
-    return AdaptiveModelTarget(target=target, publisher=publisher, family=family)
+    return AdaptiveModelTarget(
+        target=target,
+        publisher=publisher,
+        family=family,
+        structured_output=binding.features.structured_output if binding is not None else True,
+    )
 
 
 def _unavailable(reason: str) -> None:

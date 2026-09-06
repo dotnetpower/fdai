@@ -31,8 +31,8 @@ _CATALOG = _REPO / "rule-catalog"
 # frame/plan prompts use the same resolved reasoner candidates as two strict
 # calls. Semantic judgment reuses resolved T1 and optional T2 targets. Conversation
 # preflight and social narration reuse the narrator deployment through distinct,
-# deterministic composition keys. Adaptive plan/answer reuse t1.judge, review/verify
-# reuse t2.reasoner.secondary, and refine reuses t2.reasoner.primary.
+# deterministic composition keys. Adaptive plan/answer and review/verify reuse
+# independent configured T1 narrators; optional refine uses t2.reasoner.primary.
 # Adding to this set requires a stated reason.
 _PROMPT_ONLY_CAPABILITIES = frozenset(
     {

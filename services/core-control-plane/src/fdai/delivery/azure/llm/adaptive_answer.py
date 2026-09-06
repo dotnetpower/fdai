@@ -45,6 +45,7 @@ class AdaptiveModelTarget:
     target: ModelRequestTarget
     publisher: str
     family: str
+    structured_output: bool = True
 
     def __post_init__(self) -> None:
         if any(not text.strip() or len(text) > 128 for text in (self.publisher, self.family)):
@@ -190,15 +191,21 @@ class AzureOpenAIAdaptiveModel:
             raise ValueError("adaptive output schema MUST describe an object")
         _local_schema_references(schema_copy)
         Draft202012Validator.check_schema(schema_copy)
-        response_format = _strict_response_format(schema_copy, name=f"adaptive-{stage}")
-        strict_schema = cast(Mapping[str, Any], response_format["json_schema"])["schema"]
+        response_format = (
+            _strict_response_format(schema_copy, name=f"adaptive-{stage}")
+            if selected.structured_output
+            else None
+        )
+        user_payload: dict[str, object] = {"untrusted_input": dict(payload)}
+        if response_format is None:
+            user_payload["output_schema"] = schema_copy
         messages = list(
             prepare_model_messages(
                 [
                     {"role": "system", "content": system_prompt},
                     {
                         "role": "user",
-                        "content": _dump_json({"untrusted_input": dict(payload)}),
+                        "content": _dump_json(user_payload),
                     },
                 ]
             ).messages
@@ -206,11 +213,12 @@ class AzureOpenAIAdaptiveModel:
         request = selected.target.operation("chat/completions")
         body: dict[str, Any] = {
             "messages": messages,
-            "response_format": response_format,
             **completion_body_params(
                 selected.family, temperature=0.0, max_tokens=self._config.max_tokens
             ),
         }
+        if response_format is not None:
+            body["response_format"] = response_format
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
         encoded = _dump_json(body).encode("utf-8")
@@ -239,7 +247,9 @@ class AzureOpenAIAdaptiveModel:
         envelope = _load_json(bytes(raw))
         proposal, content, usage = _parse_response(envelope)
         Draft202012Validator(schema_copy).validate(proposal)
-        Draft202012Validator(strict_schema).validate(proposal)
+        if response_format is not None:
+            strict_schema = cast(Mapping[str, Any], response_format["json_schema"])["schema"]
+            Draft202012Validator(strict_schema).validate(proposal)
         trace_call = complete_model_trace(
             trace_start,
             call_id=f"adaptive-{stage}",

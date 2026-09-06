@@ -24,6 +24,7 @@ from fdai.core.conversation.adaptive_prompt import (
     compose_adaptive_prompt,
 )
 from fdai.core.conversation.adaptive_service import AdaptiveConversationService
+from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.prompts import (
     ComposedPrompt,
@@ -34,6 +35,7 @@ from fdai.core.prompts import (
 )
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
+    NarratorCandidate,
     ResolvedCapability,
     ResolvedModels,
 )
@@ -73,9 +75,13 @@ def _resolved() -> ResolvedModels:
             )
             for name, family in (
                 ("t1.judge", "example-small"),
-                ("t2.reasoner.secondary", "example-independent"),
+                ("t1.reviewer", "example-independent"),
                 ("t2.reasoner.primary", "example-reasoner"),
             )
+        ),
+        narrator_candidates=(
+            NarratorCandidate(endpoint="https://example.com", deployment="t1.judge"),
+            NarratorCandidate(endpoint="https://example.com", deployment="t1.reviewer"),
         ),
     )
 
@@ -217,7 +223,7 @@ async def test_sync_snapshot_matches_registry_composer_even_inside_a_running_loo
     assert service._prompts == dependencies.stage_prompts
 
 
-@pytest.mark.parametrize("held", ["t1.judge", "t2.reasoner.secondary"])
+@pytest.mark.parametrize("held", ["t1.judge", "t1.reviewer"])
 def test_sync_builder_rejects_held_required_models(held: str) -> None:
     assert _build_sync(held_capabilities=frozenset({held})) is None
 
@@ -266,7 +272,7 @@ async def test_builds_distinct_stage_prompts_from_one_common_base_without_networ
         dependencies.stage_prompts["answer"] = "A replaced policy."
 
 
-@pytest.mark.parametrize("held", ["t1.judge", "t2.reasoner.secondary"])
+@pytest.mark.parametrize("held", ["t1.judge", "t1.reviewer"])
 async def test_held_primary_or_reviewer_is_unavailable(held: str) -> None:
     assert await _build(held_capabilities=frozenset({held})) is None
 
@@ -280,10 +286,116 @@ async def test_held_escalation_does_not_disable_ordinary_dependencies() -> None:
 async def test_model_metadata_not_deployment_aliases_proves_independence() -> None:
     resolved = _resolved()
     capabilities = tuple(
-        replace(item, family="example-small") if item.name == "t2.reasoner.secondary" else item
+        replace(item, family="example-small") if item.name == "t1.reviewer" else item
         for item in resolved.capabilities
     )
     assert await _build(resolved=replace(resolved, capabilities=capabilities)) is None
+
+
+async def test_missing_all_t2_models_keeps_independent_t1_answers_available() -> None:
+    dependencies = await _build(
+        held_capabilities=frozenset(
+            {
+                "t2.reasoner.primary",
+                "t2.reasoner.secondary",
+            }
+        )
+    )
+    assert dependencies is not None
+    assert dependencies.refinement_available is False
+
+
+async def test_non_independent_optional_t2_disables_refinement_not_t1() -> None:
+    resolved = _resolved()
+    capabilities = tuple(
+        replace(item, family="example-independent") if item.name == "t2.reasoner.primary" else item
+        for item in resolved.capabilities
+    )
+    dependencies = await _build(resolved=replace(resolved, capabilities=capabilities))
+    assert dependencies is not None
+    assert dependencies.refinement_available is False
+
+
+async def test_invalid_optional_t2_does_not_disable_t1(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdai.composition import wire_adaptive_conversation
+
+    def invalid_target(*args: Any, **kwargs: Any) -> None:
+        assert args[1] == "t2.reasoner.primary"
+        raise ValueError("Synthetic unconfigured endpoint reference")
+
+    monkeypatch.setattr(wire_adaptive_conversation, "_resolve_target", invalid_target)
+    dependencies = await _build()
+    assert dependencies is not None
+    assert dependencies.refinement_available is False
+
+
+async def test_hil_only_t1_capability_cannot_borrow_narrator_candidates() -> None:
+    resolved = _resolved()
+    capabilities = tuple(
+        replace(item, status=CapabilityStatus.HIL_ONLY) if item.name == "t1.judge" else item
+        for item in resolved.capabilities
+    )
+    assert await _build(resolved=replace(resolved, capabilities=capabilities)) is None
+
+
+@pytest.mark.parametrize("refine", [False, True])
+async def test_real_composition_routes_comparison_to_t1_and_only_escalates_when_needed(
+    refine: bool,
+) -> None:
+    from tests.delivery.azure.llm.test_adaptive_answer import _envelope, _Identity
+
+    calls: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path.split("/deployments/")[1].split("/")[0])
+        body = json.loads(request.content)
+        if len(calls) == 1:
+            proposal = _plan()
+        elif len(calls) in (2, 4):
+            proposal = _draft()
+        else:
+            proposal = _review(complete=not refine or len(calls) == 5)
+        assert body["messages"][0]["role"] == "system"
+        return httpx.Response(200, json=_envelope(json.dumps(proposal)))
+
+    resolved = _resolved()
+    if not refine:
+        resolved = replace(
+            resolved,
+            capabilities=tuple(
+                item for item in resolved.capabilities if not item.name.startswith("t2.")
+            ),
+        )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        service = build_adaptive_conversation_service(
+            resolved=resolved,
+            identity=_Identity(),
+            http_client=client,
+            endpoint="https://example.com",
+            endpoint_resolver=None,
+            catalog_root=CATALOG,
+        )
+        assert service is not None
+        runtime = SemanticConversationRuntime(
+            adaptive_service=service,
+            verified_unavailable_reason="no_operational_store",
+        )
+        result = await runtime.handle(
+            utterance="블루-그린 배포와 카나리 배포의 장단점을 비교해 줘.",
+            prior_turns=(),
+            principal=Principal(id="example", role=Role.READER),
+            locale="ko",
+        )
+    assert result.disposition == "advisory_response"
+    assert result.execution is None
+    assert result.adaptive_answer is not None
+    assert "canary" in result.adaptive_answer.answer
+    assert result.adaptive_answer.refinements == int(refine)
+    assert calls == (
+        ["t1.judge", "t1.judge", "t1.reviewer", "t2.reasoner.primary", "t1.reviewer"]
+        if refine
+        else ["t1.judge", "t1.judge", "t1.reviewer"]
+    )
 
 
 @pytest.mark.parametrize("field", ["publisher", "family"])

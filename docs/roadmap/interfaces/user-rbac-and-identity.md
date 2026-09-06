@@ -17,7 +17,7 @@ for the *human* side; the executor-side mapping stays as declared there.
 > resolved axis, [agent-stewardship-and-handover.md](agent-stewardship-and-handover.md),
 > answers *who owns each of the 15 agents* now that FDAI runs the work (accountability
 > + escalation + handover). A person is typically in both; being a steward grants no
-> RBAC capability by itself.
+> RBAC capability by itself. Authenticated Settings catalog reads use a separate bounded model-configuration reader; discovering a deployed model grants no model-selection, provisioning, assignment, or execution authority.
 > Local and deployed conversation assembly use `iam_composition.py` to bind optional read-only relationship adapters from existing ownership, directory, and assignment ports while preserving injected resolvers. Construction performs no reads or writes. A proof binds the authenticated human, fixed target agent, source revision, and at most five minutes; Core rechecks identity and time before using an identity-free prompt profile. Missing, stale, ambiguous, or mismatched evidence remains unknown and never changes RBAC, approval, or executor identity.
 
 > Customer-agnostic: all group names, app registration names, and GUIDs below are
