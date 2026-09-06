@@ -7,8 +7,7 @@ from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.agents._framework.base import AgentSpec
-from fdai.agents._framework.pantheon import PANTHEON_SPECS
+from fdai.agents import PANTHEON_SPECS, AgentSpec
 from fdai.composition.wire_adaptive_conversation import (
     build_adaptive_conversation_profile,
     resolve_adaptive_conversation_profile,

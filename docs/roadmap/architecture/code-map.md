@@ -118,7 +118,7 @@ can return only a `question` field. Core binds the case before independent seman
 generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
 Generated question-bank artifacts record the current Console catalog digests, so a reviewed
 presentation-contract change regenerates the JSON bank and review catalog together.
-The generated question bank binds both Console message catalogs by digest and is regenerated
+Adaptive prompt types use public agent/model facades. The question bank binds both Console catalogs by digest and is regenerated
 whenever those reviewed source catalogs change.
 The Console static catalog inventory resolves shared, route-local, and optional package catalogs,
 including the Dashboard v2 catalog, so a new route cannot hide a missing English fallback key.

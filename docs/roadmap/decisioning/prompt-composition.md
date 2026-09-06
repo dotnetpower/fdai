@@ -28,6 +28,9 @@ each role-aware conversation. Identity identifiers and source-revision text neve
 Unknown or expired relationships retain the selected role without pretending to be verified.
 
 Production composition consumes resolved model slots rather than hardcoded models or endpoints.
+The five `conversation.adaptive.*` keys are prompt-only bindings: plan and answer reuse `t1.judge`,
+review and verify reuse `t2.reasoner.secondary`, and refine reuses `t2.reasoner.primary`.
+They do not create model deployments. Role and lifecycle types use the public agent and model facades.
 The author and reviewer must be independent configured models; one optional refinement re-enters
 independent review. The no-T2 request profile retains the existing non-adaptive path. Every stage
 preserves the same no-execution boundary. Schema, byte, time, call, and token budgets are enforced;

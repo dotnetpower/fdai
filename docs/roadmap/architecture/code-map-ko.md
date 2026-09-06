@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 962a8731b4773495b8b55119da8a71ff5a8dd605
+translation_source_sha: b43e0430b235b74e6bb8ad40eef964a65037eefc
 translation_revised: 2026-09-06
 ---
 # 코드 맵
@@ -118,7 +118,7 @@ IAM 조립은 최상위 모듈의 의존성을 늘리지 않고 대화 담당 �
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
 생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
 변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
-생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
+적응형 프롬프트 타입은 공개 에이전트 및 모델 인터페이스를 사용합니다. 질문 모음은 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
 Console 정적 카탈로그 inventory는 Dashboard v2 카탈로그를 포함한 shared, route-local,
 optional package 카탈로그를 해석하므로 새 경로가 누락된 English fallback key를 숨길 수 없습니다.

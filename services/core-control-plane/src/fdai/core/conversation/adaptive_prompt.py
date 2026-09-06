@@ -10,7 +10,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from fdai.core.conversation.model_observation import ConversationModelResponse
-from fdai.shared.contracts.models.ontology import LifecycleOwner
+from fdai.shared.contracts.models import LifecycleOwner
 
 ADAPTIVE_STAGES = ("plan", "answer", "review", "refine", "verify")
 ADAPTIVE_STAGE_PACK_IDS = frozenset(f"adaptive-{stage}" for stage in ADAPTIVE_STAGES)

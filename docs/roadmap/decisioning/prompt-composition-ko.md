@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 9bc7120e203de5cb96261028af68e52b1568ab57
+translation_source_sha: 473c47f3ad357e802a21d3e6b10c804606ef32ed
 translation_revised: 2026-09-06
 ---
 
@@ -32,6 +32,9 @@ trust 라우팅을 확장합니다.
 선택한 역할은 유지하되 검증된 관계로 표현하지 않습니다.
 
 배포 조립은 모델이나 엔드포인트를 하드코딩하지 않고 결정된 모델 슬롯을 사용합니다. 작성기와
+검토기를 위한 `conversation.adaptive.*` 키 5개는 프롬프트 전용입니다. 계획과 답변은 `t1.judge`,
+검토와 재검증은 `t2.reasoner.secondary`, 보강은 `t2.reasoner.primary`를 재사용하며 모델 배포를
+만들지 않습니다. 역할과 수명 주기 타입은 에이전트와 모델의 공개 인터페이스를 사용합니다. 작성기와
 검토기는 독립적으로 구성된 모델이어야 하며 선택적 보강 한 번도 독립 검토를 다시 거칩니다.
 no-T2 요청 프로필은 기존 비적응형 경로를 유지합니다. 모든 단계는 동일한 실행 권한 없음 경계를
 보존합니다. 스키마, 바이트, 시간, 호출, 토큰 예산을 적용하며 선택적 조회는 유용한 답변과 검토에
