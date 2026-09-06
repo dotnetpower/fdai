@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 4c3a8c3e4a764c787b528ef1c1226645f3197d9a
+translation_source_sha: cda3b1d7f942bf0af5d7347eb8748f0874d230ef
 translation_revised: 2026-09-06
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -40,8 +40,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 #### Terraform이 만들지 않는 것
 
-아래 인벤토리는 Terraform이 소유하지만, 첫 적용 전에 반드시 존재해야 하는 입력이 넷 있습니다.
-하나라도 없으면 계획 시점이 아니라 실행 도중에 실패합니다.
+아래 인벤토리는 Terraform이 소유하지만, 첫 적용 전에 외부 입력 넷이 있어야 합니다.
+새 데이터베이스는 보호된 입력으로 관리자 암호를 제공하거나 Terraform 영속 생성을 명시적으로 선택합니다. 기존 서버에서 생성을 켜는 것은 별도 승인이 필요한 자격 증명 변경입니다.
 
 - **Deployer 신원과 역할 배정 권한.** 실행기 신원과 scoped 역할을 만들려면 User 접근
   Administrator가 필요합니다. 기여자만 있으면 계획은 통과하고 적용에서 실패합니다.

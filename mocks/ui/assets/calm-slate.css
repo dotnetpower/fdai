@@ -2595,8 +2595,7 @@ details > summary { min-height: 40px; align-items: center; }
   .cs-settings-surface .cs-settings-content :where(
     button,
     input:not([type="checkbox"]):not([type="radio"]),
-    select,
-    textarea
+    select
   ) {
     min-height: 44px !important;
   }

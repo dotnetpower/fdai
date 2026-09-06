@@ -14,6 +14,7 @@
 .iam-section-body, .iam-locked { margin-inline: var(--cs-settings-body-inset); }
 .iam-workspace p { max-width: 76ch; }
 .iam-workspace .iam-panel > .cs-settings-section > .cs-settings-section-head { margin-bottom: 16px; }
+.iam-workspace [data-iam-panel="users"] > .cs-settings-section > .cs-settings-section-head { margin-bottom: 8px; }
 .iam-account { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0; }
 .iam-account span { color: var(--cs-settings-muted); }
 .iam-account strong { font-weight: 500; overflow-wrap: anywhere; }
@@ -38,16 +39,17 @@
 .iam-boundary-grid h3 { margin: 0 0 8px; font-size: var(--cs-type-panel-title-size); font-weight: 600; }
 .iam-boundary-grid > div > strong { font-size: var(--cs-type-body-size); font-weight: 500; }
 .iam-boundary-grid p { font-size: var(--cs-type-compact-size); }
-.iam-directory-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.iam-directory-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 8px 12px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
 .iam-search { flex: 1 1 240px; min-width: 0; margin: 0; }
 .iam-search input { width: 100%; }
 .iam-directory-toolbar .cs-control-segmented { width: 224px; flex: 0 0 auto; }
 .iam-directory-toolbar .cs-control-button.is-quiet:disabled { border-color: transparent; background: transparent; }
-.iam-result-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; color: var(--cs-settings-muted); font-size: var(--cs-type-label-size); }
+.iam-result-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; color: var(--cs-settings-muted); font-size: var(--cs-type-label-size); }
 .iam-result-meta [data-roster-count] { font-variant-numeric: tabular-nums; }
 .iam-table-wrap { width: 100%; min-width: 0; }
 .iam-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--cs-type-compact-size); }
 .iam-table th { padding: 10px 12px; background: var(--cs-bg); color: var(--cs-settings-muted); font-weight: 500; text-align: left; border-bottom: 1px solid var(--cs-hairline); }
+.iam-roster-table th { background: var(--cs-shade); border-bottom: 0; }
 .iam-table td { padding: 12px; border-bottom: 1px solid var(--cs-hairline); vertical-align: middle; overflow-wrap: anywhere; }
 .iam-roster-table th:nth-child(1) { width: 52%; }
 .iam-roster-table th:nth-child(2) { width: 23%; }

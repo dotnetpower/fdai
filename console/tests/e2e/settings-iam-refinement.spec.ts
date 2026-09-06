@@ -79,6 +79,7 @@ test.describe("Task-first IAM refinement", () => {
     const rosterTop = await frame.locator("[data-roster]").evaluate((element) => element.getBoundingClientRect().top);
     await opener.click();
     const dialog = frame.getByRole("dialog", { name: "Request a role", exact: true });
+    await expect(dialog.getByRole("textbox")).toHaveCSS("min-height", "128px");
     await expect(dialog).toBeVisible();
     await expect(dialog.locator("[data-draft-principal]")).toHaveText("Example Analyst");
     await expect(dialog.locator("[data-draft-current-role]")).toHaveText("Reader");
@@ -171,6 +172,7 @@ test.describe("Task-first IAM refinement", () => {
     await expect(frame.getByText("Group", { exact: true })).toBeVisible();
     await frame.getByRole("button", { name: "Request role for Example Analyst", exact: true }).click();
     const dialog = frame.getByRole("dialog", { name: "Request a role", exact: true });
+    await expect(dialog.getByRole("textbox")).toHaveCSS("min-height", "128px");
     expect(await dialog.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
       const cancel = element.querySelector("[data-editor-cancel]")!.getBoundingClientRect();
@@ -181,6 +183,7 @@ test.describe("Task-first IAM refinement", () => {
     await frame.getByRole("tab", { name: "Access requests", exact: true }).click();
     await frame.getByRole("button", { name: "Review", exact: true }).click();
     const review = frame.getByRole("dialog", { name: "Review access request", exact: true });
+    await expect(review.getByRole("textbox")).toHaveCSS("min-height", "128px");
     await expect(review.getByText("Requested by", { exact: true })).toBeVisible();
     await expect(review.getByRole("button", { name: "Approve", exact: true })).toHaveCSS("min-height", "44px");
     await page.screenshot({ path: testInfo.outputPath("review-mobile.png") });

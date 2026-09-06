@@ -29,6 +29,19 @@ Terraform apply.
 
 ## Offline release preparation
 
+The connected packaging host can collect all six runtime distributions and their required
+workspace support libraries with locked binary dependencies:
+
+```bash
+python3 scripts/deployment/release/stage-runtime-wheelhouse.py \
+  --out-dir /private/runtime-wheelhouse
+```
+
+The output separates build wheels, per-package dependency wheels, and hash-pinned requirements.
+Only `build/`, `wheels/`, `requirements/`, and `inventory.json` are deliverables; exclude `.work/`.
+`stage-offline-kit.sh --with-runtime-wheels` includes these at `support/python/` before signing,
+separate from the CLI's own dependency versions.
+
 Use `fdaictl offline prepare` with an independently trusted verifier, verification keys, a signed
 kit, an offline target-bound profile, a positive cost ceiling, an exact source revision, and a new
 private work directory. It snapshots the CLI toolchain, signed deployment bundle, and a complete
@@ -44,6 +57,32 @@ approval and independent-readback checkpoints. This is not an Azure installer, p
 bootstrap, or a ready receipt. Existing public-artifact GitHub deployment commands reject offline
 profiles before authentication or dispatch.
 See [Disconnected Deployment](../../docs/roadmap/deployment/disconnected-deployment.md).
+
+### Install the deployment support interpreter
+
+```bash
+fdaictl offline install-support \
+  --offline-kit /media/fdai-kit --release-root /trusted/release-root.pub \
+  --work-dir /private/fdai-support --output json
+```
+
+The work directory must not exist. The command authenticates and snapshots the support payload,
+then uses a trusted preinstalled `uv` to create `support-env/` without indexes, caches, downloads,
+or source builds. It checks dependency consistency and independently reads back the installed
+distribution versions before writing `support-installation.json`.
+
+The support interpreter can host the packaged migration and deployment tools. It does not start
+the runtime services or grant the support process an Executor identity. A failed attempt retains
+its private workspace without a success receipt; use a fresh work directory after diagnosis.
+
+### Generate the first database credential
+
+For a fresh platform deployment, the approved private-host Terraform input can set
+`generate_initial_postgres_password = true` and `postgres_admin_password = null`.
+Terraform generates a sensitive 32-character credential and retains it in private state without
+time-based rotation triggers. No cleartext password input or new password output is required.
+The existing supplied-password mode remains the default. Enabling generation on an existing server
+changes its credential and requires separate review; it is not an automatic migration.
 
 ### Configure prebuilt Console files
 

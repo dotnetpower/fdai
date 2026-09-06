@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4c3a8c3e4a764c787b528ef1c1226645f3197d9a }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: cda3b1d7f942bf0af5d7347eb8748f0874d230ef }]
 ---
 
 # Deploy Quickstart
@@ -21,7 +21,7 @@ Terraform remains an expert path.
   [deployment preflight](../roadmap/deployment/deployment-preflight.md). It
   collects quota, permission, connectivity, and rollback blockers before the
   control loop starts.
-- Per-environment values in a `*.tfvars` file. Never commit that file.
+- Per-environment values in a `*.tfvars` file. For a fresh PostgreSQL server, either provide the administrator password through the protected input or enable Terraform generation without a supplied password. Never commit that file.
 - The approved target exported as `AZURE_SUBSCRIPTION_ID` and
   `AZURE_TENANT_ID`. Bootstrap and turnkey helpers stop before making any change
   if the active identity or the selected `azd` environment does not match that

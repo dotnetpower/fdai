@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: fa382111c57250b818a0ffa1470cb3d2595a8f3c
-translation_revised: 2026-09-05
+translation_source_sha: cfde05de280b7f4923340f3434aef2467dc46e89
+translation_revised: 2026-09-06
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -202,6 +202,8 @@ Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩�
 변경하지 않습니다.
 공유 온톨로지 무효화 스트림도 인증된 읽기 재현에만 `Last-Event-ID`를 허용합니다. Cost
 Governance 경로를 등록하거나 패키지 데이터 접근 범위를 넓히지 않습니다.
+초기 PostgreSQL 자격 증명 구성도 플랫폼이 소유하며, 패키지는 해당 자격 증명을 생성하거나
+읽거나 공개하거나 교체할 수 없습니다.
 Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 패키지 활성화 상태를 읽습니다. 검토된
 배포 패키지가 설치되고 활성화되면 기존 이벤트 버스 구독을 시작하기 전에 조립 과정이 결정론적
 권고 프로바이더를 Njord에 연결합니다. 또한 활성 온톨로지 release에 속하는 보존된 완전한 USD

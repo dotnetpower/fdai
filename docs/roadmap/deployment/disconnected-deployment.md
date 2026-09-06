@@ -26,6 +26,8 @@ fully disconnected install.
 | Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
 | Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
 | Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
+| Runtime support wheel installation | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; focused tests and network-isolated real-wheel installation | Seven current distributions, including the shared GitHub auth library, install with hashes and package readback. No runtime service is started. |
+| Initial database credential generation | implemented | `infra/initial_postgres_credential.tf`; nine mocked Terraform cases | Explicit fresh-install generation retains a sensitive credential in private state. Supplied-password defaults remain unchanged; enabling it later is a reviewed rotation. |
 | Pinned offline trust root and release integration | not-started | `docs/runbooks/offline-trust-ceremony.md` | No pinned root ships in a CLI wheel and kit staging is not a passing release workflow. |
 | Full-air-gap cloud operation | not-applicable | The full-air-gap boundary in this document | The deterministic core can run from static inputs, but live Azure evidence and cloud mutation are intentionally outside this profile. |
 
@@ -36,6 +38,8 @@ fully disconnected install.
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the prior end-to-end support claim after the deployment CLI package was removed. | current change; infrastructure, release-script, package-metadata, and focused workflow evidence listed in the scope table | Restore the dedicated offline verifier and CLI, establish the trust root, and pass the air-gap drill. |
 | 2026-09-06 | implemented | Corrected the obsolete missing-CLI claim and added runtime inventory staging, private offline preparation, and a guard against the public-artifact workflow. | `current change`; 251 focused tests, strict type checks, and an installed-wheel preparation drill with synthetic signed payloads in network and filesystem namespaces; issue #461 | Retain a complete eligible signed release and approved new-subscription Console and inventory receipts. |
 | 2026-09-06 | implemented | Added prebuilt-image bootstrap and tenant-neutral Console builds with installation-time public configuration. | `current change`; mocked bootstrap plans, Python/Console configuration tests, Console typecheck and offline build; issue #461 | Connect the actual first-install executor, private image publication, initial discovery, and independent Console readback. |
+| 2026-09-06 | implemented | Added locked runtime-wheel staging and authenticated offline support installation without changing active service environments. | `current change`; focused staging/installation tests and a network-isolated installation of real wheels with all five service entry modules importing successfully | Wire the support payload to approved migrations and application execution; retain actual Azure and Console receipts. |
+| 2026-09-06 | implemented | Added opt-in initial PostgreSQL credential generation without a plaintext input or new password output. | `current change`; nine mocked Terraform cases cover default behavior, ambiguous inputs, sensitivity and the real state-store module binding | Retain approved private-host apply and persistent-state readback; do not treat mock evidence as cloud installation. |
 
 ### Remaining work
 
@@ -118,6 +122,12 @@ The full installation still needs approved foundation creation, private state ha
 deployment, database initialization, authenticated Console readback, complete initial resource
 discovery, and independent final readiness. See [Subscription Genesis Provisioning](subscription-genesis-provisioning.md).
 
+The packaging host can add `--with-runtime-wheels` to include the locked support interpreter
+inputs under `support/python/`. `fdaictl offline install-support` authenticates those inputs,
+installs them without package indexes or caches, and verifies actual installed versions.
+This is deployment tooling, not a co-hosted replacement for the five runtime services.
+See the [CLI installation commands](../../../packages/deployment-cli/README.md).
+
 ### Bind a generic Console build at installation
 
 The packaging host runs `npm --prefix console run build:offline`. The output is
@@ -156,6 +166,11 @@ prebuilt image with no cloud-init downloads; online defaults are unchanged. The 
 approved toolchain and must contain no cached credentials. Network access and image attestation
 still require independent checks. `enable_public_egress` remains a separate, explicit choice.
 See the [bootstrap README](../../../infra/bootstrap/README.md).
+
+Fresh platform plans may set `generate_initial_postgres_password = true` with a null
+`postgres_admin_password`. A sensitive 32-character credential is generated only by the approved
+private-host apply and retained in private state. Keep this selection stable; changing an existing
+server to generated credentials is a separately reviewed rotation, not a silent first-install retry.
 
 ### 1. Provision every service privately
 
