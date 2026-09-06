@@ -478,3 +478,179 @@ async def test_role_scoped_resolver_never_manufactures_group_membership() -> Non
         purpose="operations-review",
     )
     assert scope.actor_groups == frozenset({"group:responders"})
+
+
+@pytest.mark.parametrize(
+    "values",
+    (
+        {
+            "collection_id": "",
+            "allowed_access_refs": frozenset({"access"}),
+            "actor_groups": frozenset(),
+        },
+        {
+            "collection_id": "operations",
+            "allowed_access_refs": frozenset(),
+            "actor_groups": frozenset(),
+        },
+        {
+            "collection_id": "operations",
+            "allowed_access_refs": frozenset({"access"}),
+            "actor_groups": frozenset({" "}),
+        },
+    ),
+)
+def test_access_scope_rejects_unbounded_or_empty_values(values: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="bounded|access refs|actor groups"):
+        GovernedDocumentAccessScope(**values)  # type: ignore[arg-type]
+
+
+async def test_role_scoped_resolver_rejects_unsupported_purpose() -> None:
+    resolver = RoleScopedDocumentScopeResolver(
+        collection_id="operations",
+        allowed_access_refs=frozenset({"collection:operations"}),
+    )
+
+    with pytest.raises(PermissionError, match="purpose"):
+        await resolver.resolve(
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset(),
+            purpose="incident-investigation",
+        )
+
+
+@pytest.mark.parametrize("score", (-1.0, float("nan")))
+def test_reader_rejects_invalid_score_floor(score: float) -> None:
+    with pytest.raises(ValueError, match="minimum score"):
+        AuthorizedGovernedDocumentReader(
+            search=_Search(()),
+            metadata=_Metadata(()),
+            access=_Access(),
+            scopes=_Scopes(),
+            clock=lambda: NOW,
+            retrieval_mode="hybrid",
+            minimum_score=score,
+        )
+
+
+@pytest.mark.parametrize(
+    ("query", "principal_ref", "limit"),
+    (
+        ("", "operator-a", 1),
+        ("recovery", "", 1),
+        ("recovery", "operator-a", 0),
+        ("recovery", "operator-a", 9),
+    ),
+)
+async def test_reader_rejects_invalid_request_bounds(
+    query: str,
+    principal_ref: str,
+    limit: int,
+) -> None:
+    reader, _, _ = _reader((), ())
+
+    with pytest.raises(ValueError, match="query|principal|limit"):
+        await reader.search(
+            query=query,
+            principal_ref=principal_ref,
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=limit,
+        )
+
+
+async def test_reader_rejects_naive_observation_clock() -> None:
+    reader = AuthorizedGovernedDocumentReader(
+        search=_Search(()),
+        metadata=_Metadata(()),
+        access=_Access(),
+        scopes=_Scopes(),
+        clock=lambda: NOW.replace(tzinfo=None),
+        retrieval_mode="hybrid",
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=1,
+        )
+
+
+async def test_reader_rejects_duplicate_chunk_identity() -> None:
+    hit = _hit()
+    reader, _, _ = _reader((hit, hit), (_version(),))
+
+    with pytest.raises(RuntimeError, match="duplicate chunk"):
+        await reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=2,
+        )
+
+
+@pytest.mark.parametrize("defect", ("marker", "identity", "doc_id"))
+async def test_reader_rejects_invalid_hit_identity(defect: str) -> None:
+    hit = _hit()
+    if defect == "marker":
+        hit.metadata["governed_document"] = "false"
+    elif defect == "identity":
+        hit.metadata.pop("version_id")
+    else:
+        hit = KnowledgeChunk(
+            doc_id="governed:wrong",
+            chunk_id=hit.chunk_id,
+            text=hit.text,
+            source_ref=hit.source_ref,
+            score=hit.score,
+            metadata=hit.metadata,
+        )
+    reader, _, _ = _reader((hit,), (_version(),))
+
+    with pytest.raises(RuntimeError, match="invalid result|identity|doc_id"):
+        await reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=1,
+        )
+
+
+@pytest.mark.parametrize("defect", ("retention", "expiry", "purpose"))
+async def test_reader_rejects_ineligible_revision_metadata(defect: str) -> None:
+    hit = _hit()
+    version = _version()
+    if defect == "retention":
+        hit.metadata["retention_state"] = "building"
+    elif defect == "expiry":
+        version = version.model_copy(
+            update={
+                "retention": RetentionPolicy(
+                    policy_version="retention-v1",
+                    derived_expires_at=NOW,
+                )
+            }
+        )
+    else:
+        version = version.model_copy(update={"purposes": ()})
+    reader, _, _ = _reader((hit,), (version,))
+
+    with pytest.raises(RuntimeError, match="active|expired|knowledge-base"):
+        await reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=1,
+        )
