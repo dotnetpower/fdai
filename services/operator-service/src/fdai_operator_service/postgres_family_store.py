@@ -3621,6 +3621,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
     allowed_sources = {
         "azure_activity_log",
         "azure_resource_health",
+        "azure_static_web_app_environment",
         "kubernetes_runtime_inventory",
         "runtime_call_graph",
         "postgres_role_evidence",

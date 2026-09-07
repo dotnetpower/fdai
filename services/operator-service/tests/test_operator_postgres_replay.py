@@ -235,6 +235,13 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
                                 "observed_at": None,
                                 "reason": "database_role_observation_unavailable",
                             },
+                            {
+                                "source": "azure_static_web_app_environment",
+                                "status": "available",
+                                "observed_at": "2026-08-19T00:01:00+00:00",
+                                "reason": None,
+                                "coverage": {"observed": 4, "targets": 4},
+                            },
                         ],
                     },
                 }
@@ -286,6 +293,12 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
             ),
         ),
         projection_source_states=(
+            InventoryProjectionSourceState(
+                source="azure_static_web_app_environment",
+                status="available",
+                observed_at=datetime(2026, 8, 19, 0, 1, tzinfo=UTC),
+                reason=None,
+            ),
             InventoryProjectionSourceState(
                 source="kubernetes_runtime_inventory",
                 status="unavailable",
