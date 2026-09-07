@@ -245,9 +245,8 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   plan/apply/resume mode, and general CLI requests bind `document_ocr_action=preserve`. The workflow
   recomputes those bindings. A single-maintainer repository can set
   `DEV_DEPLOY_REQUIRED_APPROVALS=0` for direct `dev` applies only; the workflow then verifies that
-  the Environment has no reviewer rule. Staging, production, and bot-owned Core or document applies
-  keep one independent reviewer with self-review and administrator bypass disabled.
-  Profiles requiring N-of-M quorum or production-only inputs remain blocked until workflow-owned authority can bind and verify them.
+  the Environment has no reviewer rule. Staging, production, and bot-owned applies retain one independent
+  reviewer with self-review and administrator bypass disabled. N-of-M and production-only profiles remain blocked.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9ebfd33ea40feabc1454ea85eb600917bfe1a3d3
+translation_source_sha: 6bc0951cf39b4754a687957743f2e1881568e6fc
 translation_revised: 2026-09-07
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -245,8 +245,8 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
   구독, 지역, 정확한 커밋, 선택한 서비스, 실행, 시도, 계획/적용/재개 모드를 연결하며 일반 CLI
   요청은 `document_ocr_action=preserve`를 고정합니다. 작업 흐름은 바인딩을 다시 계산합니다.
   단독 유지관리자 저장소는 직접 `dev` 적용에만 `DEV_DEPLOY_REQUIRED_APPROVALS=0`을 설정할 수
-  있으며, 작업 흐름은 환경에 검토자 규칙이 없는지 확인합니다. 스테이징, 운영 및 봇 소유 Core
-  또는 문서 적용은 자체 검토와 관리자 우회를 차단하는 독립 검토자 한 명을 계속 요구합니다.
+  있으며, 작업 흐름은 환경에 검토자 규칙이 없는지 확인합니다. 스테이징, 운영 및 봇 소유
+  적용은 자체 검토와 관리자 우회를 차단하는 독립 검토자 한 명을 계속 요구합니다.
   N명 중 M명 정족수 또는 프로덕션 전용 입력은 작업
   흐름 소유 권한 계층에서 검증할 때까지 차단합니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
