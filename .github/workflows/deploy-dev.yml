@@ -289,6 +289,7 @@ jobs:
         env:
           APPLY: ${{ inputs.apply }}
           GH_TOKEN: ${{ github.token }}
+          DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}
           RESUME_VERIFICATION: ${{ inputs.resume_verification }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           REQUEST_ID: ${{ inputs.request_id }}
@@ -331,7 +332,9 @@ jobs:
             trap 'rm -f -- "$policy"' EXIT
             gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" > "$policy"
             python3 "$RUNNER_TEMP/verify-github-environment.py" \
-              "$policy" --required-approvals 1
+              "$policy" \
+              --environment "$TARGET_ENVIRONMENT" \
+              --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
           fi
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}

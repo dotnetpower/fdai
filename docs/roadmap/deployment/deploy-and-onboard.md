@@ -243,9 +243,10 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
 - The protected `fdaictl` transport supports `dev` and `staging`. Its request identity binds the
   approved tenant, subscription, region, exact commit, selected services, run, attempt, and
   plan/apply/resume mode, and general CLI requests bind `document_ocr_action=preserve`. The workflow
-  recomputes those bindings and requires one reviewer with self-review and administrator bypass
-  disabled. Bot-owned Core and document applies validate the exact private plan and derive model,
-  database-host, or SharePoint inputs from its sealed mode, keeping the human reviewer distinct.
+  recomputes those bindings. A single-maintainer repository can set
+  `DEV_DEPLOY_REQUIRED_APPROVALS=0` for direct `dev` applies only; the workflow then verifies that
+  the Environment has no reviewer rule. Staging, production, and bot-owned Core or document applies
+  keep one independent reviewer with self-review and administrator bypass disabled.
   Profiles requiring N-of-M quorum or production-only inputs remain blocked until workflow-owned authority can bind and verify them.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).

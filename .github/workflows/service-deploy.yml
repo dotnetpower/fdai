@@ -283,13 +283,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
             > "$RUNNER_TEMP/environment.json"
           python3 \
             "$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py" \
-            "$RUNNER_TEMP/environment.json" --required-approvals 1
+            "$RUNNER_TEMP/environment.json" \
+            --environment "$TARGET_ENVIRONMENT" \
+            --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
 
       - name: Install pinned uv for service migrations
         if: ${{ inputs.apply }}

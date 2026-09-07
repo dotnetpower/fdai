@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify one GitHub Environment can enforce independent deployment approval."""
+"""Verify a GitHub Environment matches the declared deployment approval policy."""
 
 from __future__ import annotations
 
@@ -8,11 +8,25 @@ import json
 from pathlib import Path
 
 
-def verify(payload: object, *, required_approvals: int) -> None:
-    """Require one enforceable reviewer approval with self-review blocked."""
+def required_approvals_for_environment(
+    environment: str,
+    *,
+    dev_required_approvals: int,
+) -> int:
+    """Resolve the configurable dev policy while keeping later environments protected."""
 
-    if required_approvals != 1:
-        raise ValueError("GitHub Environment supports exactly one required approval")
+    if environment not in {"dev", "staging", "prod"}:
+        raise ValueError("deployment environment is unsupported")
+    if dev_required_approvals not in {0, 1}:
+        raise ValueError("dev required approvals must be zero or one")
+    return dev_required_approvals if environment == "dev" else 1
+
+
+def verify(payload: object, *, required_approvals: int) -> None:
+    """Require either an explicit no-review policy or one independent approval."""
+
+    if required_approvals not in {0, 1}:
+        raise ValueError("GitHub Environment supports zero or one required approval")
     if not isinstance(payload, dict):
         raise ValueError("GitHub Environment response MUST be an object")
     if payload.get("can_admins_bypass") is not False:
@@ -25,6 +39,10 @@ def verify(payload: object, *, required_approvals: int) -> None:
         for rule in rules
         if isinstance(rule, dict) and rule.get("type") == "required_reviewers"
     ]
+    if required_approvals == 0:
+        if reviewer_rules:
+            raise ValueError("GitHub Environment MUST omit required reviewers")
+        return
     if len(reviewer_rules) != 1:
         raise ValueError("GitHub Environment required reviewers are unavailable")
     rule = reviewer_rules[0]
@@ -42,11 +60,22 @@ def verify(payload: object, *, required_approvals: int) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("environment_json", type=Path)
-    parser.add_argument("--required-approvals", type=int, default=1)
+    policy = parser.add_mutually_exclusive_group()
+    policy.add_argument("--required-approvals", type=int)
+    policy.add_argument("--environment", choices=("dev", "staging", "prod"))
+    parser.add_argument("--dev-required-approvals", type=int, default=1)
     args = parser.parse_args()
+    required_approvals = args.required_approvals
+    if required_approvals is None:
+        if args.environment is None:
+            parser.error("--required-approvals or --environment is required")
+        required_approvals = required_approvals_for_environment(
+            args.environment,
+            dev_required_approvals=args.dev_required_approvals,
+        )
     with args.environment_json.open(encoding="utf-8") as stream:
         payload = json.load(stream)
-    verify(payload, required_approvals=args.required_approvals)
+    verify(payload, required_approvals=required_approvals)
     return 0
 
 

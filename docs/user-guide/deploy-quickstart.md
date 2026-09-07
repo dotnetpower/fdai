@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: caab5003240c3d8c7505d8b17cbe182ba54ac71c }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 9ebfd33ea40feabc1454ea85eb600917bfe1a3d3 }]
 ---
 
 # Deploy Quickstart
@@ -57,6 +57,10 @@ Terraform remains an expert path.
   Each service owns its image, Terraform state, migration branch, health
   probes, and workload identity. The Isolated Executor is the only service that
   may receive an action-specific effect role.
+- In a single-maintainer repository, set the repository variable
+  `DEV_DEPLOY_REQUIRED_APPROVALS=0` to run direct `dev` applies without a reviewer.
+  Keep the `dev` Environment free of reviewer rules and disable administrator bypass.
+  Staging, production, and bot-owned apply paths continue to require one independent reviewer.
 - Publish Console and Manual Studio static content through the protected Console
   publisher. The publisher uses the exact apply-synchronized Static Web App
   binding, verifies its Azure resource and hostname identity, and uploads the

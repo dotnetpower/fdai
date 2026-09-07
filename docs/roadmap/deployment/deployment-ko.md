@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 1cc4c3760f89e604fb545377d401bbca3f72771d
-translation_revised: 2026-09-05
+translation_source_sha: a7694b0c505c38d4ddc7fa75e5c37aebec0fe9e7
+translation_revised: 2026-09-07
 ---
 
 # 배포(배포)
@@ -29,6 +29,7 @@ translation_revised: 2026-09-05
 |------|------|------|------|
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
+| 단독 유지관리자 직접 개발 적용 | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py` 및 집중 검증기와 작업 흐름 테스트 | `DEV_DEPLOY_REQUIRED_APPROVALS=0`은 검토자 규칙 없는 직접 개발 적용에만 허용됩니다. 정확한 계획, 이미지 증명, 신원 검사, 상태 확인 및 롤백은 계속 필요하며 스테이징, 운영 및 봇 소유 경로는 독립 승인을 유지합니다. |
 | Bot 소유의 보호된 Core 적용 요청 | validated | PR #455, 보호된 계획 `33965356996`, Bot 요청 `33965478498`, 정확한 적용 `33965498775` 및 이슈 #454 | Bot 요청자를 사용해 FDAI 유지관리자와 배포 요청자를 분리합니다. 운영 외 Core 경로는 계획에 계속 결합되며 사람의 Environment 승인이 필요합니다. |
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
@@ -43,6 +44,7 @@ translation_revised: 2026-09-05
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-07 | implemented | 정확한 계획과 런타임 안전성 검사를 유지하면서 검토 없는 환경을 검증하는 명시적인 단독 유지관리자 개발 정책을 추가했습니다. | `current change`, 집중 검증기 및 배포 작업 흐름 테스트 | 직접 개발 적용 하나를 성공시키고 적용 후 projection 조회 결과를 보존합니다. |
 | 2026-09-05 | validated | 독립된 사람의 Environment 승인, 성공한 상태 및 peer 격리 검사, 독립적인 이미지 및 신원 확인을 거쳐 첫 번째 Bot 요청 보호 Core 서비스 적용을 완료했습니다. | PR #455, 계획 `33965356996`, 요청 `33965478498`, 적용 `33965498775`, 이슈 #454 | 이 경로를 운영 외 범위와 정확한 계획에 계속 결합하고 보호된 Environment 정책을 적용합니다. |
 | 2026-09-05 | implemented | 정확한 성공 계획 실행, 만료되지 않은 산출물, 이미지 digest, 커밋 및 Environment 정책을 전달 전에 검증하는 운영 외 Bot 소유 Core 서비스 적용 요청을 추가했습니다. | `current change`, 보호된 작업 workflow, 요청 검증기 및 성공과 차단 기본 동작에 대한 집중 테스트 | 이슈 #454에서 첫 번째 독립 요청자 Environment 승인과 성공한 Core 서비스 적용 증적을 수집합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |

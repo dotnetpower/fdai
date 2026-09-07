@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: caab5003240c3d8c7505d8b17cbe182ba54ac71c
-translation_revised: 2026-09-06
+translation_source_sha: 9ebfd33ea40feabc1454ea85eb600917bfe1a3d3
+translation_revised: 2026-09-07
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -243,10 +243,11 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
   [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
 - 보호된 `fdaictl` 전송 계층은 `dev`와 `staging`을 지원합니다. 요청 식별자는 승인된 테넌트,
   구독, 지역, 정확한 커밋, 선택한 서비스, 실행, 시도, 계획/적용/재개 모드를 연결하며 일반 CLI
-  요청은 `document_ocr_action=preserve`를 고정합니다. 작업 흐름은 바인딩을 다시 계산하고 자체
-  검토와 관리자 우회를 차단하는 필수 검토자 한 명을 요구합니다. 봇 소유 Core 및 문서 적용은
-  정확한 비공개 계획을 검증하고 봉인된 모드에서 모델, 데이터베이스 호스트 또는 SharePoint
-  입력을 도출하여 사람 검토자를 구분합니다. N명 중 M명 정족수 또는 프로덕션 전용 입력은 작업
+  요청은 `document_ocr_action=preserve`를 고정합니다. 작업 흐름은 바인딩을 다시 계산합니다.
+  단독 유지관리자 저장소는 직접 `dev` 적용에만 `DEV_DEPLOY_REQUIRED_APPROVALS=0`을 설정할 수
+  있으며, 작업 흐름은 환경에 검토자 규칙이 없는지 확인합니다. 스테이징, 운영 및 봇 소유 Core
+  또는 문서 적용은 자체 검토와 관리자 우회를 차단하는 독립 검토자 한 명을 계속 요구합니다.
+  N명 중 M명 정족수 또는 프로덕션 전용 입력은 작업
   흐름 소유 권한 계층에서 검증할 때까지 차단합니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
   ([deployment-ko.md](deployment-ko.md)).

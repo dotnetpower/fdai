@@ -472,6 +472,12 @@ def test_apply_job_enforces_the_selected_protected_environment() -> None:
     assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _WORKFLOW
     assert '"$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py"' in _WORKFLOW
     assert (
+        "DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}"
+        in _WORKFLOW
+    )
+    assert '--environment "$TARGET_ENVIRONMENT"' in _WORKFLOW
+    assert '--dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"' in _WORKFLOW
+    assert (
         "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in _LEGACY_WORKFLOW
     )
     assert "Verify protected environment approval policy before mutation" in _LEGACY_WORKFLOW
@@ -479,6 +485,12 @@ def test_apply_job_enforces_the_selected_protected_environment() -> None:
     assert 'if [[ "$APPLY" == "true" ]]' in _LEGACY_WORKFLOW
     assert 'gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT"' in _LEGACY_WORKFLOW
     assert '"$RUNNER_TEMP/verify-github-environment.py"' in _LEGACY_WORKFLOW
+    assert (
+        "DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}"
+        in _LEGACY_WORKFLOW
+    )
+    assert '--environment "$TARGET_ENVIRONMENT"' in _LEGACY_WORKFLOW
+    assert '--dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"' in _LEGACY_WORKFLOW
     assert _LEGACY_WORKFLOW.index("Checkout protected workflow verifier") < (
         _LEGACY_WORKFLOW.index("- name: Checkout\n")
     )
