@@ -19,6 +19,16 @@ variable "env" {
   }
 }
 
+variable "deploy_runner_principal_id" {
+  description = "Stable deploy UAMI principal id that owns Terraform deployment roles."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.deploy_runner_principal_id))
+    error_message = "deploy_runner_principal_id must be a GUID."
+  }
+}
+
 variable "enable_dev_operations_gateway" {
   description = "Provision the development-only Azure Functions operations gateway. Requires env=dev and private networking, both enforced in production-gates.tf. NOTE: the function app terminates a PUBLIC inbound endpoint - a developer has to reach it - so this is not usable on a closed network and must stay false there."
   type        = bool

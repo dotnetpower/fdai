@@ -11,11 +11,12 @@ mock_provider "azurerm" {}
 mock_provider "archive" {}
 
 variables {
-  region                  = "koreacentral"
-  tenant_id               = "00000000-0000-0000-0000-000000000000"
-  postgres_admin_login    = "fdaiadmin"
-  postgres_admin_password = "terraform-test-placeholder-value"
-  core_image              = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  region                     = "koreacentral"
+  deploy_runner_principal_id = "00000000-0000-0000-0000-000000000001"
+  tenant_id                  = "00000000-0000-0000-0000-000000000000"
+  postgres_admin_login       = "fdaiadmin"
+  postgres_admin_password    = "terraform-test-placeholder-value"
+  core_image                 = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
 run "premium_registry_in_a_private_tenant_gets_an_endpoint" {
