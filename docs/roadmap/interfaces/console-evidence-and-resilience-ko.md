@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 42094d6cf691483822d5c4ebbe02547561e1aa49
-translation_revised: 2026-09-10
+translation_source_sha: 1223a2b930866655835ad9e4f3b1bf27e16b074d
+translation_revised: 2026-09-11
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -25,6 +25,9 @@ translation_revised: 2026-09-10
 검증된 fresh 인벤토리 답변은 서버가 소유한 재생 메타데이터에 범위가 제한된 `resource_result_context`를 포함할 수 있습니다. Raw 리소스 ID를 포함하지 않고 브라우저 맥락에서는 수락하지 않으며 출처, 스냅샷, 범위, 조회 다이제스트, 최신성, 잘림 및 이후 결정론적 후속 조치에 사용할 최대 40개의 ordered 선택자를 보존합니다.
 Ordinal 후속 조치는 선택한 위치를 exact fresh 인벤토리 조건식으로 다시 검증합니다. 모호함 후속 조치는 완전한 이전 결과 집합의 equal-name 후보만 표시합니다. 불완전한 맥락은 사용 불가 상태를 유지하며 current-screen 또는 서술기 출력으로 대체 경로할 수 없습니다.
 검증된 source-manifest 답변은 범위가 제한된 사용 불가 또는 알 수 없음 항목을 `source_failure_context`로 보존합니다. Partial-source 이어가기는 해당 증적의 available 사실과 exact 공백을 렌더링하고 사유 및 last 관측이 있으면 함께 표시하며 arbitrary 검증되지 않은 답변을 출처 권한으로 취급하지 않습니다. 검증된 또는 corrected `query_llm_usage` 답변은 domain, 기능, 토큰 measure, 그룹화, `usage_scope` 및 numeric 1-90일 조회 구간이 포함된 범위가 제한된 `analysis_context`를 보존합니다. 기간, 그룹화, 표 또는 chart만 바꾸는 구체화는 이 서버가 소유한 anchor를 재사용하고 metering 근거를 다시 읽습니다. 비교, 내보내기, missing-anchor, client-supplied-anchor 및 명시적인 다른 메트릭 요청은 인벤토리, Resource Health 또는 서술기 출력을 선택하지 않고 context-required 보류를 반환합니다.
+현재 Ontology Instances 응답은 `runtime_call_graph` 및 `postgres_role_evidence` 원본 상태를
+명시해야 합니다. 브라우저는 둘 중 하나가 없으면 가용성, 빈 원본 또는 측정된 0으로 바꾸지 않고
+응답을 거부합니다.
 Full-workspace Command Deck 세션은 대화 기록만 열린 내용 열로 시작합니다. 비어 있는 대화 기록은 상황별 suggestion을 유지하고 도구 선택이나 권한을 바꾸지 않는 localized 복원력, 변경 안전성 및 비용 거버넌스 quick 시작을 추가합니다. 대화 기록
 toolbar는 workspace, docked 및 floating 배치에서 필터 가능한 대화 이력을 제공합니다. 좁은
 배치에서는 대화 기록 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 포인터 또는 keyboard 구분자로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 로컬에 저장합니다. 좁은 배치는 구분자를 숨깁니다. 이력 헤더는 검색과 icon-only 새 대화를 간결한한 한 줄에 배치하고 lightweight 필터 tab을 사용하며, 컨트롤 대신 목록만 scroll합니다. 현재 화면 다이제스트는 workspace 컨트롤로 유지됩니다. Deck은 열린 표면마다 composition-owned data-source 매니페스트를 한 번 읽고 대화 기록 위에 인벤토리, Incidents, 감사, Knowledge 및 자동화 준비 상태 링크를 간결한하게 표시합니다. 누락되거나 non-authoritative인 출처는 `unknown`으로 유지합니다. 브라우저는 상태를 추론하거나 raw 프로바이더 상세를 노출하거나 경로 존재로 매니페스트를 대체하지 않습니다. 로딩은 고정된 골격을 사용하고 매니페스트 실패는 대화 이력을 차단하지 않으면서 진단으로 연결합니다.
