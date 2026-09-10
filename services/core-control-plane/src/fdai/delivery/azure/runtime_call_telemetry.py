@@ -31,7 +31,7 @@ _MAX_ENDPOINT_REPLICAS = 32
 _MAX_ENDPOINT_VERIFICATION_CONCURRENCY = 4
 _DEFAULT_PENDING_GRACE_SECONDS = 60
 _SOURCE_IDENTITY = "azure-monitor.container-app-runtime-calls"
-_SOURCE_REVISION = "2.0.0"
+_SOURCE_REVISION = "2.1.0"
 _SOURCE_CREDENTIAL_LINEAGE = "azure-monitor.container-app-console-ingestion"
 _VERIFIER_IDENTITY = "inventory.runtime-call-authenticator"
 _VERIFIER_CREDENTIAL_LINEAGE = "azure-resource-manager.query-managed-identity"
@@ -52,6 +52,7 @@ ContainerAppConsoleLogs_CL
     caller_resource_id = tostring(record.caller_resource_id),
     target_resource_id = tostring(record.target_resource_id),
     endpoint_role = tostring(record.endpoint_role),
+    platform_resource_id = tostring(_ResourceId),
     platform_name = tostring(ContainerAppName_s),
     platform_revision_name = tostring(RevisionName_s),
     platform_replica_name = tostring(ContainerGroupName_s),
@@ -547,6 +548,18 @@ class AzureRuntimeCallTelemetrySource:
         if caller_arm_id.casefold() == target_arm_id.casefold():
             raise ValueError("runtime call caller and target Resource IDs MUST be distinct")
         endpoint_name = caller_name if endpoint_role == "caller" else target_name
+        endpoint_arm_id = caller_arm_id if endpoint_role == "caller" else target_arm_id
+        platform_resource_id = _required_text(
+            row,
+            "platform_resource_id",
+            classify_missing=True,
+        )
+        _validate_container_app_resource_id(
+            platform_resource_id,
+            field_name="platform_resource_id",
+        )
+        if endpoint_arm_id.casefold() != platform_resource_id.casefold():
+            raise ValueError("runtime call Resource ID does not match platform source identity")
         if endpoint_name.casefold() != platform_name.casefold():
             raise ValueError("runtime call Resource ID does not match platform evidence")
         observed_at = _required_datetime(row, "observed_at")
@@ -564,6 +577,7 @@ class AzureRuntimeCallTelemetrySource:
                     "observation_id": observation_id,
                     "observed_at": observed_at.astimezone(UTC).isoformat(),
                     "platform_name": platform_name,
+                    "platform_resource_id": platform_resource_id,
                     "platform_revision_name": platform_revision_name,
                     "platform_replica_name": platform_replica_name,
                     "source_container_group_id": source_container_group_id,

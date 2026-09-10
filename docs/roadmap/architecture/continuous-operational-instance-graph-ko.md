@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 98622e5643f30246a360b2bf8bc87dcd06cee2ac
+translation_source_sha: c234f15c6c78b10d6c9d6350b2304c314d87a5ce
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -81,7 +81,7 @@ fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락
 원본으로부터 받은 신뢰할 수 없는 원격 분석 묶음은 변환 결과 입력으로 직접 바꾸는 기능을
 제공하지 않습니다. 인증된 생성기만 정확한 묶음 다이제스트와 독립 원본 컨텍스트를 검증한 뒤
 유한한 양의 기한 안에서 변환할 수 있습니다. Azure Monitor 원본은 일치하는 구조의 Container Apps 로그
-스키마만 수락한 다음 플랫폼이 기록한 각 revision과 replica를 해당 증표가 주장한 정확한
+스키마만 수락한 다음 플랫폼이 기록한 각 Resource ID, revision 및 replica를 해당 증표가 주장한 정확한
 Container App ARM ID 아래에서 다시 읽습니다. 이 방식으로 독립적으로 결속된 엔드포인트 증표만
 기존 정식 Resource ID 매핑으로 변환합니다. 독립 채널
 경계 프로세스는 호출자 바인딩을 받지 않으므로 공유 토픽의 요청을 잘못된 Operator-to-Core

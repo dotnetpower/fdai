@@ -110,6 +110,7 @@ def _row(
     target_resource_id: str = TARGET_ID,
     observed_at: datetime = NOW - timedelta(seconds=30),
     endpoint_role: str = "caller",
+    platform_resource_id: str | None = None,
     platform_name: str | None = None,
     platform_revision_name: str | None = None,
     platform_replica_name: str | None = None,
@@ -123,6 +124,13 @@ def _row(
         else "ca-example-operator"
         if endpoint_role == "caller"
         else "ca-example-core"
+    )
+    resolved_platform_resource_id = (
+        platform_resource_id
+        if platform_resource_id is not None
+        else caller_resource_id
+        if endpoint_role == "caller"
+        else target_resource_id
     )
     resolved_revision_name = (
         platform_revision_name
@@ -139,6 +147,7 @@ def _row(
         "target_resource_id": target_resource_id,
         "observed_at": observed_at,
         "endpoint_role": endpoint_role,
+        "platform_resource_id": resolved_platform_resource_id,
         "platform_name": resolved_platform_name,
         "platform_revision_name": resolved_revision_name,
         "platform_replica_name": resolved_replica_name,
@@ -245,6 +254,21 @@ async def test_platform_name_or_resource_type_mismatch_is_incomplete() -> None:
     assert batch.complete is False
     assert batch.records == ()
     assert batch.coverage == {"unavailable_rows": 0, "redacted_rows": 0, "malformed_rows": 9}
+
+
+async def test_platform_resource_id_must_match_the_claimed_endpoint() -> None:
+    batch = await _source(
+        LogQueryResult(
+            rows=(
+                _row(platform_resource_id=TARGET_ID),
+                _row(endpoint_role="target"),
+            )
+        )
+    ).collect(None)
+
+    assert batch.complete is False
+    assert batch.records == ()
+    assert batch.coverage == {"unavailable_rows": 0, "redacted_rows": 0, "malformed_rows": 1}
 
 
 async def test_equal_time_duplicate_order_is_replay_stable() -> None:
@@ -425,7 +449,7 @@ async def test_reviewed_context_and_authenticator_bind_exact_monitor_evidence() 
         recorded_at=NOW,
         freshness_ceiling_seconds=300,
         source_identity="azure-monitor.container-app-runtime-calls",
-        source_revision="2.0.0",
+        source_revision="2.1.0",
         evidence_ref="sha256:" + "3" * 64,
     )
     context = await AzureMonitorRuntimeCallContextProvider(clock=lambda: NOW).context_for(envelope)
