@@ -206,6 +206,8 @@ The shared service-contract export, Operator composition root, and Console messa
 multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
 background-task projection does not register Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
+The shared static catalog guard can register another route-local English catalog without adding
+Cost Governance behavior or activating the optional package.
 The aggregate Operator route assembly may decorate the stewardship read with ownership identity
 evidence. Every Cost Governance operation passes through that decorator unchanged.
 Ownership-only catalog labels and shell scroll recovery do not change Cost Governance routes,

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: ce733fa0096c4a3bc07791520f4e81f436210300
+translation_source_sha: 327640d6b5a3c9a13ed2756f017bafac329bb490
 translation_revised: 2026-09-11
 ---
 
@@ -618,6 +618,10 @@ unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 
 [Console 설정 및 컴포넌트 표현 참조](../../reference/console-settings-presentation-ko.md)에서
 공유 컨트롤, IAM 단계, 컴포넌트 문서화 및 권한 경계를 정의합니다.
+
+라우트 전용 메시지 도우미도 공유 Console 지역화 계약에 포함됩니다. 정적 카탈로그 검사는 각
+도우미를 영어 원본 카탈로그에 연결하므로 Operations 도우미를 추가하거나 이동할 때 키 이름이
+그대로 표시되거나 영어 대체 동작을 우회할 수 없습니다.
 
 ## 채택하지 않은 대안
 
