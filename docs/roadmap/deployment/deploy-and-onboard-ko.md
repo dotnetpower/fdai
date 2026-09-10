@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 16c4e82c7d056d1e23b16a6a1e297b6f1a3335ee
+translation_source_sha: cfd6887f5a910942f8e92a42fa4be76a0ed80b11
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -92,7 +92,7 @@ GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으�
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용하고 모의 client-config object ID를 deploy principal에 고정합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 안정 실행기 UAMI로 향하는 정확한 역할 principal 또는 범위 이행, 측정 기능이 비활성화된 이전 indexed 측정 Job 두 개의 삭제 전용 제거, 검토된 embedding 제품군 및 SKU 교체만 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복 검증, 대상 파생, 상태 보존 및 효과 게시를 집중 helper에 두고 모든 종료에서 렌더링한 계획을 제거하며, 개발 전용 identity 이행을 검토된 deployer 역할과 stable-principal readback 및 교체된 principal의 할당 0건으로 제한합니다. Console, Entra, 데이터베이스, 상태 검사 및 canary 작업은 포함하지 않습니다.
+구문만 사용하고 모의 client-config object ID를 deploy principal에 고정합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 안정 실행기 UAMI로 향하는 정확한 역할 principal 또는 범위 이행, 측정 기능이 비활성화된 이전 indexed 측정 Job 두 개의 삭제 전용 제거, 검토된 embedding 제품군 및 SKU 교체만 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복 검증, 대상 파생, 상태 보존 및 효과 게시를 집중 helper에 두고 모든 종료에서 렌더링한 계획을 제거하며, 개발 전용 identity 이행을 상태가 소유한 검토된 deployer 역할, stable-principal readback, 교체된 principal의 할당 0건으로 제한합니다. 역할 교체와 짝을 이루고 local user를 끄며 7일 blob 및 container 보존을 추가하는 in-place storage 보안 선행 조건만 함께 허용합니다. 상태에 없는 역할 주소는 대상으로 삼지 않으며 Console, Entra, 데이터베이스, 상태 검사 및 canary 작업은 포함하지 않습니다.
 권한 있는 workflow는 먼저 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을
 비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를 계속 선택할 수 있습니다.

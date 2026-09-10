@@ -326,7 +326,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/deployment/azure/validate_deploy_request.py
-          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || { echo "TF_CLI_ARGS_plan=$(python3 scripts/deployment/azure/guard_deploy_identity_plan.py targets)"; echo "TF_VAR_operational_history_legacy_deployer_principal_id="; } >> "$GITHUB_ENV"
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || echo "TF_VAR_operational_history_legacy_deployer_principal_id=" >> "$GITHUB_ENV"
           if [[ "$APPLY" != "true" && -n "$RUNTIME_IMAGE_REVISION" ]]; then
             bash scripts/deployment/azure/bind_core_runtime_image.sh --verify-only
           fi
@@ -509,7 +509,6 @@ jobs:
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
           bash ../scripts/deployment/azure/resolve-document-ocr-desired-state.sh
           [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py state-env --terraform-dir . >> "$GITHUB_ENV"
-
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
         env:
@@ -670,7 +669,7 @@ jobs:
           if [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
             bash ../scripts/deployment/azure/reconcile_rca_bootstrap_state.sh
           fi
-
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
       - name: Terraform format check
         if: ${{ !inputs.apply }}
         run: terraform fmt -check -recursive
@@ -1342,7 +1341,7 @@ jobs:
             echo "$deployment_models_digest  deployment-models.json" | sha256sum --check
             [[ "$(cat resolved-models.sha256)" == "$resolved_models_digest" ]]
             [[ "$(cat deployment-models.sha256)" == "$deployment_models_digest" ]]
-            capabilities_json="$(python3 -c 'import json; capabilities=json.load(open("resolved-models.json", encoding="utf-8"))["capabilities"]; print(json.dumps([item for item in capabilities if item.get("status") != "hil-only"], separators=(",", ":"), sort_keys=True))')"
+            capabilities_json="$(python3 -c 'import json; capabilities=json.load(open("resolved-models.json", encoding="utf-8"))["capabilities"]; print(json.dumps([item for item in capabilities if item.get("status") != "hil-only"], separators=(",", ":"), sort_keys=True))')"; export TF_VAR_resolved_capabilities="$capabilities_json"
             resolved_json="$(python3 -c 'import json; print(json.dumps(json.load(open("resolved-models.json", encoding="utf-8")), separators=(",", ":"), sort_keys=True))')"
             {
               echo "TF_VAR_resolved_capabilities=$capabilities_json"
@@ -1353,6 +1352,7 @@ jobs:
               echo "FDAI_DEPLOYMENT_MODELS_PATH=$PWD/deployment-models.json"
             } >> "$GITHUB_ENV"
           fi
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
           python3 ../scripts/deployment/azure/verify-deployment-plan.py \
             --plan dev.plan --source-artifact fdai-dev-operations-gateway.zip \
             --metadata plan-metadata.json \
