@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Authenticate and verify stable deploy identity
         working-directory: ${{ github.workspace }}
@@ -102,12 +102,10 @@ jobs:
           "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID"
           "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
-      - name: Activate remote state backend
-        run: cp backend.azurerm.tf.example backend.tf
-
-      - name: Activate bootstrap remote state backend
-        working-directory: infra/bootstrap
-        run: cp backend.azurerm.tf.example backend.tf
+      - name: Activate remote state backends
+        run: |
+          cp backend.azurerm.tf.example backend.tf
+          cp bootstrap/backend.azurerm.tf.example bootstrap/backend.tf
 
       - name: Initialize legacy state
         if: inputs.scope != 'runner'

@@ -256,16 +256,16 @@ def _validate_python_test_partitioning() -> list[str]:
         encoding="utf-8"
     )
     required_workflow_fragments = (
-        "pytest regression shard ${{ matrix.shard }}/3",
-        "pytest safety-core coverage shard ${{ matrix.shard }}/2",
+        "pytest regression and coverage shard ${{ matrix.shard }}/4",
+        "python-tests:",
         "python-coverage:",
         "coverage combine coverage-data",
         "coverage report --fail-under=90",
-        "FDAI_PYTEST_MODE: coverage",
+        "FDAI_PYTEST_MODE: all",
         "FDAI_PYTEST_MODE: integration",
-        "pytest Postgres integration shard ${{ matrix.shard }}/2",
+        "database and provider integration shard ${{ matrix.shard }}/2",
         "db-integration:",
-        "provider-contracts-docker:",
+        "Run service-owned migrations",
         "FDAI_PROVIDER_CONTRACT_BACKENDS: real",
         "services/core-control-plane/tests/providers/test_contracts.py",
     )
@@ -277,6 +277,8 @@ def _validate_python_test_partitioning() -> list[str]:
     for mode in ("all)", "full)", "coverage)", "integration)"):
         if mode not in runner:
             errors.append(f"run-python-tests.sh is missing mode branch: {mode}")
+    if '"${parallel_args[@]}" "${shard_args[@]}" "${coverage_args[@]}" "$@"' not in runner:
+        errors.append("run-python-tests.sh all mode does not apply shard and coverage arguments")
     return errors
 
 

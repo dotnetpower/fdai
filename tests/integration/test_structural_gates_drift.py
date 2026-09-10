@@ -18,14 +18,14 @@ _CI = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
 _PRE_PUSH = _REPO_ROOT / ".githooks" / "pre-push"
 
 _REQUIRED_GATE_BINDINGS = (
-    ("repository-contracts", "check-core-imports.sh"),
-    ("repository-contracts", "check-agents-imports.sh"),
-    ("repository-contracts", "check-evaluation-boundaries.py"),
-    ("repository-contracts", "check-operator-api-boundaries.py"),
-    ("repository-contracts", "check-file-loc.sh"),
-    ("repository-contracts", "check-subsystem-fanout.sh"),
-    ("repository-contracts", "check-doc-links.sh"),
-    ("design-contracts", "check-protected-paths.sh"),
+    ("contracts", "check-core-imports.sh"),
+    ("contracts", "check-agents-imports.sh"),
+    ("contracts", "check-evaluation-boundaries.py"),
+    ("contracts", "check-operator-api-boundaries.py"),
+    ("contracts", "check-file-loc.sh"),
+    ("contracts", "check-subsystem-fanout.sh"),
+    ("contracts", "check-doc-links.sh"),
+    ("contracts", "check-protected-paths.sh"),
 )
 
 
@@ -52,7 +52,7 @@ def test_evaluation_packages_remain_a_required_independent_job(ci_workflow: dict
 
 
 def test_operator_api_boundary_ci_step_is_exact(ci_workflow: dict) -> None:
-    steps = ci_workflow["jobs"]["repository-contracts"]["steps"]
+    steps = ci_workflow["jobs"]["contracts"]["steps"]
     commands = "\n".join(str(step.get("run", "")) for step in steps if "run" in step)
 
     command = "python3 scripts/quality/architecture/check-operator-api-boundaries.py"

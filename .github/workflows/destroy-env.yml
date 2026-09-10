@@ -87,7 +87,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Authenticate and verify stable deploy identity
         working-directory: ${{ github.workspace }}
@@ -96,11 +96,9 @@ jobs:
           "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
           "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
-      - name: Activate remote state backend
-        run: cp backend.azurerm.tf.example backend.tf
-
-      - name: Terraform init
+      - name: Initialize Terraform remote state
         run: |
+          cp backend.azurerm.tf.example backend.tf
           terraform init -input=false \
             -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \

@@ -129,7 +129,7 @@ def test_workflow_accepts_reviewed_immutable_action_ref(
     assert module._validate_action_runtime_versions() == []
 
 
-def test_ci_expensive_jobs_follow_change_scope_and_regression_uses_four_shards() -> None:
+def test_ci_expensive_jobs_follow_change_scope_and_python_uses_four_shards() -> None:
     workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
     jobs = workflow["jobs"]
     outputs = jobs["changes"]["outputs"]
@@ -144,11 +144,12 @@ def test_ci_expensive_jobs_follow_change_scope_and_regression_uses_four_shards()
         "scenarios",
     }
     scoped_jobs = {
+        "python-tests": "python",
         "operator-surfaces": "operator",
-        "translations": "docs",
         "governance-runtime-contracts": "python",
         "evaluation-packages": "evaluation",
         "deps-audit": "dependencies",
+        "db-integration": "python",
         "terraform-validate": "terraform",
     }
     for job_name, scope in scoped_jobs.items():
@@ -160,9 +161,30 @@ def test_ci_expensive_jobs_follow_change_scope_and_regression_uses_four_shards()
     assert freeze["needs"] == "changes"
     assert "needs.changes.outputs.scenarios == 'true'" in freeze["if"]
 
-    regression = jobs["python-regression"]
-    assert regression["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
-    assert regression["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
+    python_tests = jobs["python-tests"]
+    assert python_tests["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert python_tests["env"]["FDAI_PYTEST_MODE"] == "all"
+    assert python_tests["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
+
+    contracts = jobs["contracts"]
+    assert contracts["needs"] == "changes"
+    docs_step = next(
+        step
+        for step in contracts["steps"]
+        if step["name"] == "Check documentation source contracts"
+    )
+    assert docs_step["if"] == "needs.changes.outputs.docs == 'true'"
+
+    assert {
+        "lint",
+        "python-regression",
+        "translations",
+        "design-contracts",
+        "repository-contracts",
+        "db-migrations",
+        "provider-contracts-docker",
+        "terraform-security",
+    }.isdisjoint(jobs)
 
 
 def test_deploy_workspace_preparation_runs_before_checkout() -> None:
@@ -423,23 +445,23 @@ def test_frozen_scenario_additions_reject_manifest_only_version() -> None:
     ]
 
 
-def test_required_lint_job_enforces_independent_service_boundaries() -> None:
+def test_required_python_job_enforces_independent_service_boundaries() -> None:
     workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
 
-    lint_job = workflow["jobs"]["lint"]
-    assert "if" not in lint_job
+    python_job = workflow["jobs"]["python-tests"]
     boundary_step = next(
         (
             step
-            for step in lint_job["steps"]
-            if step.get("run")
-            == "uv run python scripts/quality/architecture/check-independent-services.py"
+            for step in python_job["steps"]
+            if "uv run python scripts/quality/architecture/check-independent-services.py"
+            in step.get("run", "")
         ),
         None,
     )
     assert boundary_step is not None
+    assert boundary_step["if"] == "matrix.shard == 1"
     assert boundary_step.get("continue-on-error") not in {True, "true"}
-    assert "lint" in workflow["jobs"]["required"]["needs"]
+    assert "python-tests" in workflow["jobs"]["required"]["needs"]
 
 
 def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
@@ -456,6 +478,53 @@ def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
     assert 'runner_root="$(dirname "$(dirname "$RUNNER_WORKSPACE")")"' in workflow
     assert '[[ -x "$runner_root/config.sh" ]] && config_available=true' in workflow
     assert "sudo -n true" in workflow
+
+
+def test_non_history_workflows_use_shallow_checkouts() -> None:
+    for name in (
+        "automatic-version.yml",
+        "destroy-env.yml",
+        "devbox-smoke.yml",
+        "infra-drift.yml",
+        "remote-evidence-attest.yml",
+        "sre-demo-lab.yml",
+    ):
+        workflow = (_REPO_ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        assert "fetch-depth: 0" not in workflow
+
+
+def test_redundant_workflow_stages_stay_consolidated() -> None:
+    pages = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    )["jobs"]
+    assert set(pages) == {"build", "deploy"}
+    assert "needs" not in pages["build"]
+    assert [step["name"] for step in pages["build"]["steps"][:2]] == [
+        "Checkout protected workflow verifier",
+        "Verify protected workflow source",
+    ]
+    page_commands = "\n".join(str(step.get("run", "")) for step in pages["build"]["steps"])
+    assert "npm --prefix tools/architecture-diagrams ci" in page_commands
+    assert "npm --prefix site ci" in page_commands
+    assert "npm --prefix site test" in page_commands
+    assert "npm run build" in page_commands
+    assert "npm run check:built" in page_commands
+    assert "git diff --exit-code -- src/data/publication-routes.json" in page_commands
+
+    remote_evidence = (_REPO_ROOT / ".github/workflows/remote-evidence-attest.yml").read_text(
+        encoding="utf-8"
+    )
+    publish_console = (_REPO_ROOT / ".github/workflows/publish-console.yml").read_text(
+        encoding="utf-8"
+    )
+    infra_drift = (_REPO_ROOT / ".github/workflows/infra-drift.yml").read_text(encoding="utf-8")
+    destroy = (_REPO_ROOT / ".github/workflows/destroy-env.yml").read_text(encoding="utf-8")
+    assert "Verify protected-main ancestry" not in remote_evidence
+    assert "Verify exact protected revision" not in publish_console
+    assert "Activate bootstrap remote state backend" not in infra_drift
+    assert "Activate remote state backends" in infra_drift
+    assert "Activate remote state backend" not in destroy
+    assert "Initialize Terraform remote state" in destroy
 
 
 def test_ci_supports_exact_main_revalidation() -> None:
@@ -771,11 +840,10 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     assert "inputs: audit-requirements.txt" in audit_job
 
 
-def test_ci_separates_root_and_service_migration_database_tests() -> None:
+def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
     jobs = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]
     integration_job = jobs["db-integration"]
-    migration_job = jobs["db-migrations"]
 
     assert integration_job["strategy"]["matrix"]["shard"] == [1, 2]
     assert integration_job["env"]["FDAI_PYTEST_MODE"] == "integration"
@@ -785,17 +853,23 @@ def test_ci_separates_root_and_service_migration_database_tests() -> None:
     assert integration_steps.index("Run alembic upgrade head") < integration_steps.index(
         "Run integration test shard"
     )
-    migration_steps = [step["name"] for step in migration_job["steps"]]
-    assert "Run integration test shard" not in migration_steps
-    assert migration_steps.index("Run service-owned migrations") < migration_steps.index(
+    assert integration_steps.index("Run service-owned migrations") < integration_steps.index(
         "Run serial service migration lifecycle tests"
     )
     service_step = next(
         step
-        for step in migration_job["steps"]
+        for step in integration_job["steps"]
         if step["name"] == "Run service-owned database tests"
     )
+    assert service_step["if"] == "matrix.shard == 1"
     assert service_step["env"]["FDAI_DATABASE_URL"] == "${{ env.FDAI_SERVICE_DATABASE_URL }}"
+    provider_step = next(
+        step
+        for step in integration_job["steps"]
+        if step["name"] == "Run the shared provider contract matrix"
+    )
+    assert provider_step["if"] == "matrix.shard == 2"
+    assert provider_step["env"]["FDAI_PROVIDER_CONTRACT_BACKENDS"] == "real"
 
 
 def test_ci_merges_sharded_coverage_before_enforcing_the_floor() -> None:
@@ -805,8 +879,8 @@ def test_ci_merges_sharded_coverage_before_enforcing_the_floor() -> None:
     shard_job = jobs["python-tests"]
     merge_job = jobs["python-coverage"]
 
-    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2]
-    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
+    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
     assert shard_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
     assert merge_job["needs"] == ["changes", "python-tests"]
     merge_step = next(
@@ -859,8 +933,9 @@ def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
         encoding="utf-8"
     )
 
-    assert "terraform-security:" in workflow
+    assert "terraform-validate:" in workflow
     assert "needs.changes.outputs.terraform == 'true'" in workflow
     assert "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra" in workflow
+    assert "terraform-security:" not in workflow
     assert "checkov -d infra --quiet --compact --framework terraform" in workflow
     assert "--baseline" not in workflow

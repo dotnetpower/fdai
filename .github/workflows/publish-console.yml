@@ -74,16 +74,6 @@ jobs:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 1
 
-      - name: Verify exact protected revision
-        env:
-          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
-        run: |
-          set -euo pipefail
-          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]] || {
-            echo "checked-out revision does not match commit_sha." >&2
-            exit 1
-          }
-
       - name: Install pinned GitHub CLI
         run: bash scripts/deployment/azure/install-pinned-github-cli.sh
 

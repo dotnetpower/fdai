@@ -70,7 +70,7 @@ case "$mode" in
   all)
     env -u FDAI_DATABASE_URL -u FDAI_STATE_STORE_DSN \
       uv run pytest -q -m "not integration" --durations=25 \
-      "${parallel_args[@]}" "${coverage_args[@]}" "$@"
+      "${parallel_args[@]}" "${shard_args[@]}" "${coverage_args[@]}" "$@"
     if [[ -n "${FDAI_DATABASE_URL:-}" && $# -eq 0 ]]; then
       uv run pytest -q -m integration --no-cov --durations=25
     elif [[ $# -eq 0 ]]; then

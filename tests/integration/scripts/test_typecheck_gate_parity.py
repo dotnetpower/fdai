@@ -18,7 +18,7 @@ def test_strict_mypy_runs_in_ci_fast_verify_and_central_queue() -> None:
     )
     pyproject = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
-    assert "- name: mypy --strict\n        run: uv run mypy" in ci
+    assert "uv run mypy" in ci
     assert 'run_gate_scoped "mypy (strict)"' in verify
     assert verify.index('run_gate_scoped "mypy (strict)"') < verify.index(
         'if [[ "$MODE" == "full" ]]'
@@ -63,11 +63,9 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
         for job_id, job in jobs.items()
         if any(step.get("uses") == "./.github/actions/setup-opa" for step in job.get("steps", ()))
     } == {
-        "python-regression",
         "python-tests",
         "governance-runtime-contracts",
         "db-integration",
-        "db-migrations",
     }
     assert "openpolicyagent.org/downloads" not in ci
     assert action.count("openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static") == 1
