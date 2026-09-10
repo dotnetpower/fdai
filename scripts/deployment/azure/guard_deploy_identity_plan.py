@@ -47,22 +47,28 @@ _REDUNDANT_ROLE = (
 _TARGETS = (_FENCE, *_ROLE_TARGETS, _REDUNDANT_ROLE)
 _STORAGE_PREREQUISITES = {
     "azurerm_storage_account.dev_gateway[0]": (
-        "azurerm_role_assignment.dev_gateway_storage_deployer[0]"
+        "azurerm_role_assignment.dev_gateway_storage_deployer[0]",
+        7,
     ),
     "module.case_history_storage[0].azurerm_storage_account.case_history": (
-        "module.case_history_storage[0].azurerm_role_assignment.deployer_data_owner"
+        "module.case_history_storage[0].azurerm_role_assignment.deployer_data_owner",
+        30,
     ),
     "module.decision_evidence_storage[0].azurerm_storage_account.case_history": (
-        "module.decision_evidence_storage[0].azurerm_role_assignment.deployer_data_owner"
+        "module.decision_evidence_storage[0].azurerm_role_assignment.deployer_data_owner",
+        30,
     ),
     "module.document_storage[0].azurerm_storage_account.documents": (
-        "module.document_storage[0].azurerm_role_assignment.deployer_data_owner"
+        "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
+        30,
     ),
     "module.operational_history_storage[0].azurerm_storage_account.case_history": (
-        "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner"
+        "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner",
+        30,
     ),
     "module.rule_catalog_snapshot_storage[0].azurerm_storage_account.case_history": (
-        "module.rule_catalog_snapshot_storage[0].azurerm_role_assignment.deployer_data_owner"
+        "module.rule_catalog_snapshot_storage[0].azurerm_role_assignment.deployer_data_owner",
+        30,
     ),
 }
 _STATE_FEATURES = {
@@ -191,10 +197,11 @@ def validate_plan(plan: object, *, expected_principal_id: str) -> tuple[str, ...
         ):
             raise ValueError(f"deploy identity plan has an invalid role change: {address}")
 
-    for address, paired_role in _STORAGE_PREREQUISITES.items():
+    for address, (paired_role, retention_days) in _STORAGE_PREREQUISITES.items():
         change = changed.get(address)
         if change is not None and (
-            paired_role not in changed or not _valid_storage_hardening(change)
+            paired_role not in changed
+            or not _valid_storage_hardening(change, retention_days=retention_days)
         ):
             raise ValueError(f"deploy identity plan has an invalid storage prerequisite: {address}")
 
@@ -268,7 +275,11 @@ def _valid_redundant_role_delete(
     )
 
 
-def _valid_storage_hardening(change: Mapping[str, object]) -> bool:
+def _valid_storage_hardening(
+    change: Mapping[str, object],
+    *,
+    retention_days: int,
+) -> bool:
     details = _details(change)
     before = details.get("before")
     after = details.get("after")
@@ -304,7 +315,7 @@ def _valid_storage_hardening(change: Mapping[str, object]) -> bool:
         or normalized_after_blob is None
         or after.get("local_user_enabled") is not False
         or not all(
-            _valid_retention_policy(after_blob.get(policy))
+            _valid_retention_policy(after_blob.get(policy), days=retention_days)
             for policy in ("delete_retention_policy", "container_delete_retention_policy")
         )
     ):
@@ -312,7 +323,11 @@ def _valid_storage_hardening(change: Mapping[str, object]) -> bool:
     for policy in ("delete_retention_policy", "container_delete_retention_policy"):
         if before_blob.get(policy) == after_blob.get(policy):
             continue
-        if not _valid_retention_addition(before_blob.get(policy), after_blob.get(policy)):
+        if not _valid_retention_addition(
+            before_blob.get(policy),
+            after_blob.get(policy),
+            days=retention_days,
+        ):
             return False
         normalized_before_blob[policy] = normalized_after_blob[policy]
         hardened = True
@@ -335,17 +350,17 @@ def _single_block(value: object) -> dict[str, object] | None:
     return None
 
 
-def _valid_retention_addition(before: object, after: object) -> bool:
+def _valid_retention_addition(before: object, after: object, *, days: int) -> bool:
     if before not in (None, []):
         return False
-    return _valid_retention_policy(after)
+    return _valid_retention_policy(after, days=days)
 
 
-def _valid_retention_policy(after: object) -> bool:
+def _valid_retention_policy(after: object, *, days: int) -> bool:
     if not isinstance(after, list) or len(after) != 1 or not isinstance(after[0], Mapping):
         return False
-    allowed = {"days": 7, "permanent_delete_enabled": False}
-    return after[0].get("days") == 7 and all(
+    allowed = {"days": days, "permanent_delete_enabled": False}
+    return after[0].get("days") == days and all(
         key in allowed and allowed[key] == value for key, value in after[0].items()
     )
 
