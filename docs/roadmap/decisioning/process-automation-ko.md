@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 83f47b892533adc5eb56c770d554538e515533f4
-translation_revised: 2026-09-10
+translation_source_sha: cff863ff4de0c31b56d972889b65714a321865d2
+translation_revised: 2026-09-11
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -222,6 +222,12 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 주장을 담당하는 #656, 주장 fence가 적용된 보류 해제와 비정상 종료에 안전한 Process 및 Saga
 최종 처리를 담당하는 #658로 나뉩니다. 변경할 수 없는 실패 보상 제안을 이후 성공한 복구로
 다시 표시하지 않습니다.
+
+이제 `recovery_attempt.py`는 복구 시도 신원, 사전 디스패치 청구, 승인/안전장치 증적 결속, 안정
+멱등성 키를 제공합니다. `recovery_effect_claim.py`는 외부 권위 검증, 신원 분리, 대체/폐기,
+내용 주소 주장을 제공합니다. `recovery_terminalization.py`는 완료 다이제스트, 증적 조회,
+outbox, 최종 전환 보호, 재생 멱등성을 제공합니다. `hold_dispatch_fence.py`는 논리 대상 잠금
+안에서 활성/malformed/읽을 수 없는 보류에 대해 forward 디스패치를 fence합니다.
 
 업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과
