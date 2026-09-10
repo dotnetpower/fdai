@@ -238,7 +238,8 @@ release; each new mapping pins the updated Kubernetes source-schema digest.
 most 32 validated records and is mutually exclusive with the legacy single-cluster variables.
 Terraform assigns the inventory identity Reader access to every exact cluster ARM scope and passes
 no bearer token. The separate Terraform deployer roles use the configured stable runner UAMI
-principal, so recreating the runner host can't redirect AKS observation authority.
+principal, and planning stops when the authenticated principal differs. Recreating the runner host
+can't redirect AKS observation authority.
 
 ## Bounds and failure behavior
 

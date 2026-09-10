@@ -29,8 +29,9 @@ domain code and assets. It does not create another control plane or move authori
 > not change Njord ownership, package activation, or action authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
 > assignments are not Cost Governance package inputs and cannot activate its runtime.
-> Terraform deployer roles use the configured stable runner UAMI principal. Replacing the runner
-> host doesn't change package or observation authority.
+> Terraform deployer roles use the configured stable runner UAMI principal, and planning stops
+> when the authenticated principal differs. Replacing the runner host doesn't change package or
+> observation authority.
 > Live-authoritative lifecycle, observation
 > cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability

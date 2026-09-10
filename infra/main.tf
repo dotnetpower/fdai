@@ -51,6 +51,20 @@ moved {
 
 data "azurerm_client_config" "current" {}
 
+resource "terraform_data" "deploy_runner_identity_fence" {
+  input = var.deploy_runner_principal_id
+
+  lifecycle {
+    precondition {
+      condition = (
+        lower(data.azurerm_client_config.current.object_id) ==
+        lower(var.deploy_runner_principal_id)
+      )
+      error_message = "The authenticated Terraform principal must match deploy_runner_principal_id."
+    }
+  }
+}
+
 locals {
   env_suffix                         = var.env == "" ? "" : "-${var.env}"
   region_suffix                      = var.region_short == "" ? "" : "-${var.region_short}"

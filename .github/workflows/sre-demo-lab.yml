@@ -67,6 +67,7 @@ jobs:
       TF_VAR_region: ${{ vars.AZURE_REGION }}
       TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
       TF_VAR_resource_group_name: ${{ vars.SCENARIO_LAB_RESOURCE_GROUP_NAME }}
+      TF_VAR_deploy_runner_principal_id: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       TF_VAR_expires_at_utc: ${{ inputs.expires_at_utc }}
       TF_VAR_runner_vnet: >-
         {"id":"${{ vars.OPS_VNET_ID }}","name":"${{ vars.OPS_VNET_NAME }}","resource_group_name":"${{ vars.OPS_RESOURCE_GROUP_NAME }}"}

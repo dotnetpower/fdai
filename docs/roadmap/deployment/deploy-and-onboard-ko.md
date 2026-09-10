@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e7cf8687528f32771ae0471a14afa34984e36cbd
+translation_source_sha: e13b5c72db0af71948251076ed8f9d1dd655d0e5
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -77,6 +77,7 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
 - 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
   VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다.
   플랫폼 Terraform은 모든 deployer 소유 역할에 구성된 UAMI principal ID를 직접 사용합니다.
+  플랫폼 및 시나리오 계획은 계획 전에 인증된 principal이 구성 값과 일치하는지도 비교합니다.
   VM을 다시 만들거나 다른 신원으로 Terraform을 실행해도 해당 역할의 principal은 바뀌지 않습니다.
   UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에 `Storage Blob Data Contributor`, 구독에 `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`를 보유합니다.
   조건부 `Role Based Access Control Administrator` 할당은 서비스 주체에 `Reader`, `Monitoring Reader`, `Cost Management Reader`만 할당할 수 있습니다.

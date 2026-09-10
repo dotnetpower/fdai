@@ -73,7 +73,9 @@ gallery-version ID and disables marketplace selection, cloud-init, and GitHub re
 - a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D4ds_v5` compute and a `Local` `ResourceDisk` ephemeral OS.
   VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Slots share the stable UAMI. Plans and read-only checks use service-specific locks, while apply and state migration share one environment writer lock.
   Platform Terraform receives the configured UAMI principal ID directly for every deployer-owned
-  role. Recreating a VM or running Terraform under another identity can't redirect those roles.
+  role. Platform and scenario plans also compare the authenticated principal with that configured
+  value before planning. Recreating a VM or running Terraform under another identity can't
+  redirect those roles.
   The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG, `Storage Blob Data Contributor` on state, and subscription `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`.
   Its conditional `Role Based Access Control Administrator` grant can assign only `Reader`, `Monitoring Reader`, and `Cost Management Reader` to service principals.
   During migration, the current VM keeps its system identity alongside the UAMI, but the promoted VM retains only the UAMI and workflows never select an identity implicitly. Each run clears the Azure CLI account cache, logs in with the configured UAMI client ID, and proves the exact repository-configured subscription, tenant, and ARM token `oid` before any storage, plan, or apply step.

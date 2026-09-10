@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 8ef7bf4d2abb0fbab8a45ff080b331dbe928534c
+translation_source_sha: 138da97c722dc90fbd191965c8c1baeb9cb232e4
 translation_revised: 2026-09-11
 ---
 # AKS 진단 근거 플레인
@@ -234,7 +234,8 @@ release에는 기존 `contains`, `depends_on`, `attached_to` 및 `kubernetes_sel
 검증된 레코드를 최대 32개 제공하며 기존 단일 클러스터 변수와 함께 사용할 수 없습니다.
 Terraform은 정확한 각 클러스터 ARM 범위에서 인벤토리 신원에 Reader 접근 권한을 부여하며 bearer
 token을 전달하지 않습니다. 별도 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을
-사용하므로 실행기 호스트를 다시 만들어도 AKS 관찰 권한이 다른 principal로 바뀌지 않습니다.
+사용하며 인증된 principal이 다르면 계획을 중단합니다. 실행기 호스트를 다시 만들어도 AKS 관찰
+권한이 다른 principal로 바뀌지 않습니다.
 
 ## 상한과 실패 동작
 
