@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6a3fbeed397933e4c3c6ee1e1098848904623839
+translation_source_sha: 86fc87ae1daa0aa39ae1dcddaa20fe4bd2755feb
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -114,7 +114,9 @@ Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시
 보호된 서비스 배포는 먼저 플랫폼이 소유한 런타임 호출 바인딩을 사용합니다. Operator 상태
 이행으로 기존 플랫폼 모듈이 비활성화되면 두 Container App이 계속 배포되어 있어도 해당 출력이
 없을 수 있습니다. 이때 Virtual Network 내부 runner는 독립 서비스 상태에서 정확한 Operator 앱
-이름을 읽고 플랫폼 상태에서 Core 앱 이름과 리소스 그룹을 읽습니다. 이 이름과 고정된 구독을
+이름을 권한 모드 0600의 임시 파일로 읽고 플랫폼 상태에서 Core 앱 이름과 리소스 그룹을
+읽습니다. 임시 이름은 정제된 peer-state 매니페스트에 포함되지 않으며 peer-state 작업 영역과
+함께 제거됩니다. 이 이름과 고정된 구독을
 사용해 Azure에서 두 개의 정확한 Resource ID를 읽습니다. 이후 같은 폐쇄형 검증이 서로 다른 두
 Container App ID를 요구한 뒤에만 서비스에 바인딩을 제공합니다. 두 서비스 루트는 정확한 구독
 UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 세그먼트가 있는 정식 비공백 ARM ID를

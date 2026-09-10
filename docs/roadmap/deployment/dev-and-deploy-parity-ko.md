@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 6b01aeae6ccddcedae68186b78caba7f476c9e6c
+translation_source_sha: 57414b6006e962ac5b0ae18564d6cc33f40ee301
 translation_revised: 2026-09-11
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -291,6 +291,9 @@ Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고�
 두 서비스 루트는 정확한 구독 UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱
 세그먼트가 있는 정식 비공백 Container App ARM ID만 해당 바인딩으로 허용합니다. 일부만 있거나
 후행 슬래시 또는 공백이 있거나 두 엔드포인트가 같으면 변수 검증이 실패합니다.
+이행된 플랫폼 출력이 없으면 Core 계획은 독립 peer state에서 정확한 Operator 앱 이름을 권한
+모드 0600의 임시 파일로 읽고 Azure를 통해 두 ID를 해석한 뒤 peer-state 작업 영역과 함께
+파일을 제거합니다. 정제된 peer-state 매니페스트에는 이름을 포함하지 않습니다.
 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다.
 Workspace가 0개이면 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
 원격 Kubernetes 수명 주기 수집은 명시적으로 로컬 실시간 데이터를 사용하도록 설정해야 합니다. 런타임 환경 생성기는 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.

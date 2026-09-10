@@ -688,6 +688,14 @@ jobs:
                   | jq -er '.name | strings | select(test("-(operator-api|readapi)$"))'
               )"
             fi
+            if [[ -z "$operator_api_name" && "$SERVICE" == "core-control-plane" ]]; then
+              operator_name_file="$RUNNER_TEMP/service-peer-state-before/operator-service-name"
+              [[ -f "$operator_name_file" && ! -L "$operator_name_file" ]] || {
+                echo "Independent Operator state did not provide a runtime-call identity." >&2
+                exit 1
+              }
+              operator_api_name="$(<"$operator_name_file")"
+            fi
             runtime_call_evidence_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
                 output -json runtime_call_evidence_binding 2>/dev/null || printf 'null\n'

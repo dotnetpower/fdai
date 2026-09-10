@@ -3677,6 +3677,33 @@ def test_peer_state_capture_is_closed_and_redacts_raw_state(
     assert all(peer["managed_resource_count"] == 1 for peer in manifest["peers"])
 
 
+def test_peer_state_reads_only_an_exact_container_app_service_name(
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    state = _peer_raw_state()
+    state["outputs"] = {
+        "service": {
+            "value": {"name": "ca-example-operator-api"},
+            "sensitive": False,
+            "type": ["object", {"name": "string"}],
+        }
+    }
+    path = tmp_path / "operator-service.json"
+    path.write_text(json.dumps(state), encoding="utf-8")
+
+    assert peer_state.service_runtime_name(path) == "ca-example-operator-api"
+
+    service_output = state["outputs"]["service"]
+    assert isinstance(service_output, dict)
+    service_value = service_output["value"]
+    assert isinstance(service_value, dict)
+    service_value["name"] = "invalid/name"
+    path.write_text(json.dumps(state), encoding="utf-8")
+    with pytest.raises(peer_state.PeerStateError, match="exact Container App name"):
+        peer_state.service_runtime_name(path)
+
+
 def test_peer_state_receipt_ignores_nonsemantic_state_serialization_changes(
     peer_state: ModuleType,
     tmp_path: Path,

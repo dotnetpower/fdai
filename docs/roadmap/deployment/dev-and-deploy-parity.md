@@ -299,6 +299,9 @@ holds as unavailable without a fixture or model fallback. Deployed runtime-call 
 Both service roots accept those bindings only as canonical, unpadded Container App ARM IDs with an
 exact subscription UUID, resource-group segment, provider path, and terminal app segment. A partial,
 trailing-slash, whitespace-padded, or same-endpoint pair fails variable validation.
+When the migrated platform output is absent, a Core plan reads the exact Operator app name from
+independent peer state into a mode-0600 transient file, resolves both IDs through Azure, and removes
+the file with the peer-state workspace. The sanitized peer-state manifest never carries the name.
 Local preparation reads the workspace customer GUID from the applied Terraform `log_workspace_customer_id` output. If an older or targeted state does not expose that output, it lists workspaces only inside the applied resource group and accepts the fallback only when exactly one workspace exists. Zero workspaces leave the provider unavailable, and multiple workspaces stop preparation instead of choosing one implicitly. Regeneration removes any stale local workspace id.
 Remote Kubernetes lifecycle collection is an explicit local live-data opt-in; the runtime environment generator removes inherited `FDAI_KUBERNETES_*` bindings by default.
 Set `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1` during preparation only when the API server, audience, authentication mode, CA path, and cluster resource binding are all present in `console/.env.local`.

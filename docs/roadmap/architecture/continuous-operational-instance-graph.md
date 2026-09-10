@@ -111,7 +111,9 @@ It creates no runtime-call witness, graph edge, provider observation, or executi
 Protected service deployment first consumes the platform-owned runtime-call binding. After an
 Operator state migration disables the legacy platform module, that output can be absent while both
 Container Apps remain deployed. In that case, the VNet runner reads the exact Operator app name
-from independent service state and the Core app name and resource group from platform state. It
+from independent service state into a mode-0600 transient file and reads the Core app name and
+resource group from platform state. The transient name never enters the sanitized peer-state
+manifest and is removed with the peer-state workspace. The runner
 uses those names with the pinned subscription to read both exact Resource IDs from Azure. The same
 closed validation then requires two distinct Container App IDs before either service receives the
 binding. Both service roots require canonical unpadded ARM IDs with an exact subscription UUID,

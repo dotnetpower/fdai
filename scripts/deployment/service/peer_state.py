@@ -23,6 +23,7 @@ _MANIFEST_SCHEMA = "fdai.service-peer-state.v1"
 _RECEIPT_SCHEMA = "fdai.service-peer-isolation.v1"
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 _DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
+_CONTAINER_APP_NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]{1,31}")
 
 
 class PeerStateError(ValueError):
@@ -145,6 +146,19 @@ def _state_evidence(path: Path) -> dict[str, Any]:
         "lineage_sha256": hashlib.sha256(lineage.encode()).hexdigest(),
         "managed_resource_count": len(identities),
     }
+
+
+def service_runtime_name(path: Path) -> str:
+    """Read one exact Container App name from an independent service state."""
+
+    state = _object(path)
+    outputs = state.get("outputs")
+    service = outputs.get("service") if isinstance(outputs, dict) else None
+    value = service.get("value") if isinstance(service, dict) else None
+    name = value.get("name") if isinstance(value, dict) else None
+    if not isinstance(name, str) or _CONTAINER_APP_NAME_PATTERN.fullmatch(name) is None:
+        raise PeerStateError("service state output does not contain one exact Container App name")
+    return name
 
 
 def capture_manifest(
@@ -317,6 +331,8 @@ def main() -> int:
     capture.add_argument("--phase", choices=("before", "after"), required=True)
     capture.add_argument("--state-dir", type=Path, required=True)
     capture.add_argument("--output", type=Path, required=True)
+    service_name = commands.add_parser("service-name")
+    service_name.add_argument("--state", type=Path, required=True)
     verify = commands.add_parser("verify")
     verify.add_argument("--before", type=Path, required=True)
     verify.add_argument("--after", type=Path, required=True)
@@ -350,6 +366,8 @@ def main() -> int:
                     state_dir=args.state_dir,
                 ),
             )
+        elif args.command == "service-name":
+            print(service_runtime_name(args.state))
         else:
             _write_private(
                 args.output,

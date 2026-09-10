@@ -400,6 +400,10 @@ def test_operator_runtime_call_evidence_uses_exact_platform_resource_ids() -> No
     assert "output -raw operator_api_name" in materialize
     assert 'terraform -chdir="$TERRAFORM_ROOT" output -json service' in materialize
     assert 'select(test("-(operator-api|readapi)$"))' in materialize
+    assert "service-peer-state-before/operator-service-name" in materialize
+    assert "Independent Operator state did not provide a runtime-call identity." in materialize
+    assert 'peer_state.py" service-name' in _PEER_CAPTURE
+    assert 'chmod 600 "$operator_name_file"' in _PEER_CAPTURE
     assert "runtime_call_binding_is_exact()" in materialize
     assert materialize.count("timeout 60s az containerapp show") == 2
     assert "output -raw resource_group_name" in materialize
