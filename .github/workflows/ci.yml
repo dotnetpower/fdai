@@ -586,14 +586,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # PR and push runs scan their commit range. Manual exact-main
-          # revalidation scans only the protected revision snapshot.
-          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 2 || 0 }}
+          # Full history keeps exact commit ranges available to both the
+          # action and manual protected-main revalidation.
+          fetch-depth: 0
 
       - name: Run gitleaks
+        if: github.event_name != 'workflow_dispatch'
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run gitleaks on exact snapshot
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          install_dir="$RUNNER_TEMP/gitleaks"
+          mkdir -m 700 "$install_dir"
+          curl --fail --location --silent --show-error \
+            --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 \
+            --connect-timeout 5 --max-time 60 \
+            --output "$archive" \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          echo "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c  $archive" \
+            | sha256sum --check
+          tar -xzf "$archive" -C "$install_dir" gitleaks
+          "$install_dir/gitleaks" git \
+            --log-opts="HEAD^..HEAD" \
+            --redact \
+            --exit-code 2 \
+            --report-format sarif \
+            --report-path results.sarif
 
   deps-audit:
     name: pip-audit (dependency vulnerabilities)
