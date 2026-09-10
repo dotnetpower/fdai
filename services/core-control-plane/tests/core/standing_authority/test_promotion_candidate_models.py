@@ -190,6 +190,29 @@ def test_candidate_builder_rejects_duplicate_set_values(
         _record(**{field: values})
 
 
+@pytest.mark.parametrize(
+    "evidence_digests",
+    [
+        (EVIDENCE_2, EVIDENCE_1),
+        (EVIDENCE_1, EVIDENCE_1),
+    ],
+)
+def test_review_record_rejects_noncanonical_evidence(
+    evidence_digests: tuple[str, ...],
+) -> None:
+    record = _record()
+
+    with pytest.raises(AuthorizationLifecycleError, match="evidence_digests MUST"):
+        _build_review(
+            candidate_id=record.candidate_id,
+            reviewer_principal=REVIEWER_A,
+            decision=ReviewDecision.APPROVE,
+            reviewed_at=NOW + timedelta(minutes=1),
+            authentication_evidence_digest=AUTH_DIGEST,
+            evidence_digests=evidence_digests,
+        )
+
+
 def test_candidate_id_differs_by_fence_generation() -> None:
     fence2 = LifecycleFence(
         family_id="family:one",
