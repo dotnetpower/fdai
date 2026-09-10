@@ -69,24 +69,21 @@ def run_preflight(
 
     identity = mapping(live.get("identity_rbac"), "identity_rbac")
     findings.extend(
-        _rbac_findings(
+        _identity_findings(
             reader,
             subscription_id=subscription_id,
-            principal_id=identifier(identity.get("executor_principal_id"), "principal_id"),
-            event_role_id=identifier(identity.get("event_role_definition_id"), "event_role"),
-            secret_role_id=identifier(identity.get("secret_role_definition_id"), "secret_role"),
+            identity=identity,
+            plan=plan,
         )
     )
     checks.append({"category": "identity_rbac", "status": "clear"})
 
     key_vault = mapping(live.get("key_vault"), "key_vault")
     findings.extend(
-        _secret_findings(
+        _key_vault_findings(
             reader,
-            vault_endpoint=vault_endpoint(key_vault.get("vault_endpoint")),
-            secret_names=string_list(
-                key_vault.get("required_secret_names"), "required_secret_names"
-            ),
+            key_vault=key_vault,
+            plan=plan,
         )
     )
     checks.append({"category": "secret_config", "status": "clear"})
@@ -274,6 +271,63 @@ def _rbac_findings(
     return findings
 
 
+def _identity_findings(
+    reader: AzureReader,
+    *,
+    subscription_id: str,
+    identity: Mapping[str, Any],
+    plan: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Require effective roles or their exact create-only fresh-plan replacements."""
+
+    allow_planned = identity.get("allow_planned_creation", False)
+    if type(allow_planned) is not bool:
+        raise PreflightError("identity planned-creation selection is invalid")
+    current_fields = (
+        identity.get("executor_principal_id"),
+        identity.get("event_role_definition_id"),
+        identity.get("secret_role_definition_id"),
+    )
+    current_supplied = [isinstance(value, str) and bool(value.strip()) for value in current_fields]
+    current_findings: list[dict[str, Any]] = []
+    if any(current_supplied):
+        if not all(current_supplied):
+            raise PreflightError("identity live-readback fields must be supplied together")
+        current_findings = _rbac_findings(
+            reader,
+            subscription_id=subscription_id,
+            principal_id=identifier(current_fields[0], "principal_id"),
+            event_role_id=identifier(current_fields[1], "event_role"),
+            secret_role_id=identifier(current_fields[2], "secret_role"),
+        )
+        if not current_findings:
+            return []
+    if not allow_planned:
+        if current_findings:
+            return current_findings
+        raise PreflightError("identity live-readback fields are required")
+    required_roles = set(string_list(identity.get("required_role_names"), "required_role_names"))
+    if not required_roles or len(required_roles) > 16:
+        raise PreflightError("planned identity role names are invalid")
+    planned_roles = {
+        value
+        for value in _planned_values(plan, "azurerm_role_assignment", "role_definition_name")
+        if isinstance(value, str)
+    }
+    planned_identities = _planned_values(plan, "azurerm_user_assigned_identity", "name")
+    if required_roles <= planned_roles and planned_identities:
+        return []
+    if current_findings:
+        return current_findings
+    return [
+        finding(
+            identifier_value="planned-identity-bindings-incomplete",
+            category="identity_rbac",
+            title="required executor identity roles are neither effective nor completely planned",
+        )
+    ]
+
+
 def _secret_findings(
     reader: AzureReader, *, vault_endpoint: str, secret_names: tuple[str, ...]
 ) -> list[dict[str, Any]]:
@@ -296,6 +350,78 @@ def _secret_findings(
         elif status >= 400:
             raise PreflightError("Key Vault secret metadata read failed")
     return findings
+
+
+def _key_vault_findings(
+    reader: AzureReader,
+    *,
+    key_vault: Mapping[str, Any],
+    plan: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Require current secret metadata or exact secret creates in a fresh plan."""
+
+    names = string_list(key_vault.get("required_secret_names"), "required_secret_names")
+    allow_planned = key_vault.get("allow_planned_creation", False)
+    if type(allow_planned) is not bool:
+        raise PreflightError("secret planned-creation selection is invalid")
+    endpoint_value = key_vault.get("vault_endpoint")
+    current_findings: list[dict[str, Any]] = []
+    if isinstance(endpoint_value, str) and endpoint_value.strip():
+        current_findings = _secret_findings(
+            reader,
+            vault_endpoint=vault_endpoint(endpoint_value),
+            secret_names=names,
+        )
+        if not current_findings:
+            return []
+    elif endpoint_value is not None:
+        raise PreflightError("vault_endpoint is invalid")
+    if not allow_planned:
+        if current_findings:
+            return current_findings
+        raise PreflightError("vault_endpoint is required")
+    planned_names = {
+        value
+        for value in _planned_values(plan, "azurerm_key_vault_secret", "name")
+        if isinstance(value, str)
+    }
+    if set(names) <= planned_names:
+        return []
+    if current_findings:
+        return current_findings
+    return [
+        finding(
+            identifier_value="planned-secret-bindings-incomplete",
+            category="secret_config",
+            title="required secret references are neither present nor completely planned",
+        )
+    ]
+
+
+def _planned_values(plan: Mapping[str, Any], resource_type: str, field: str) -> tuple[Any, ...]:
+    """Return one field from exact managed create actions without accepting unknown shapes."""
+
+    changes = plan.get("resource_changes")
+    if not isinstance(changes, list) or len(changes) > 10_000:
+        raise PreflightError("Terraform plan resource changes are invalid")
+    values: list[Any] = []
+    for entry in changes:
+        if (
+            not isinstance(entry, Mapping)
+            or entry.get("mode", "managed") != "managed"
+            or entry.get("type") != resource_type
+        ):
+            continue
+        change = entry.get("change")
+        if not isinstance(change, Mapping) or change.get("actions") != ["create"]:
+            continue
+        after = change.get("after")
+        if not isinstance(after, Mapping):
+            raise PreflightError("Terraform planned values are invalid")
+        value = after.get(field)
+        if value is not None:
+            values.append(value)
+    return tuple(values)
 
 
 def finding(*, identifier_value: str, category: str, title: str) -> dict[str, Any]:

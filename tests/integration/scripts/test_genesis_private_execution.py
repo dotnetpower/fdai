@@ -24,6 +24,7 @@ from genesis_private_execution import (  # noqa: E402
     PrivateExecutionConfig,
     PrivateExecutionCoordinator,
 )
+from genesis_private_plan_summary import summarize_plan  # noqa: E402
 from genesis_status import StatusStore  # noqa: E402
 
 SOURCE = "a" * 40
@@ -133,6 +134,7 @@ def test_foundation_plan_waits_without_exact_approval(tmp_path: Path) -> None:
 def test_another_stage_approval_grants_no_foundation_authority(tmp_path: Path) -> None:
     approval = GenesisApproval(
         stage="runner-enrollment",
+        actor_digest="9" * 64,
         evidence={"foundation_receipt_digest": FOUNDATION_RECEIPT_DIGEST},
     )
     coordinator = _coordinator(tmp_path, approval=approval)
@@ -147,6 +149,7 @@ def test_another_stage_approval_grants_no_foundation_authority(tmp_path: Path) -
 def test_changed_digest_rejects_the_current_stage_approval(tmp_path: Path) -> None:
     approval = GenesisApproval(
         stage="foundation-apply",
+        actor_digest="9" * 64,
         evidence={"review_digest": REVIEW_DIGEST, "plan_digest": "f" * 64},
     )
     coordinator = _coordinator(tmp_path, approval=approval)
@@ -238,3 +241,72 @@ def test_portable_checkpoint_projection_drops_resource_ids_and_state_paths(
     assert "runner_image_id" not in serialized
     assert "terraform.tfstate" not in serialized
     assert "/subscriptions/" not in serialized
+
+
+def test_plan_summary_contains_only_bounded_action_and_type_counts() -> None:
+    plan = {
+        "format_version": "1.2",
+        "resource_changes": [
+            {
+                "address": "module.private.azurerm_resource_group.example",
+                "mode": "managed",
+                "type": "azurerm_resource_group",
+                "change": {
+                    "actions": ["create"],
+                    "after": {"name": "private-resource-name"},
+                },
+            },
+            {
+                "address": "module.private.azurerm_role_assignment.example",
+                "mode": "managed",
+                "type": "azurerm_role_assignment",
+                "change": {
+                    "actions": ["delete", "create"],
+                    "before": {"principal_id": "private-principal"},
+                    "after": {"principal_id": "another-private-principal"},
+                },
+            },
+            {
+                "address": "data.azurerm_client_config.current",
+                "mode": "data",
+                "type": "azurerm_client_config",
+                "change": {"actions": ["read"]},
+            },
+        ],
+    }
+
+    result = summarize_plan(plan)
+
+    assert result["action_counts"] == {
+        "create": 1,
+        "delete": 0,
+        "no_op": 0,
+        "read": 0,
+        "replace": 1,
+        "update": 0,
+    }
+    assert result["resource_type_counts"] == {
+        "azurerm_resource_group": {"create": 1},
+        "azurerm_role_assignment": {"replace": 1},
+    }
+    assert result["destructive"] is True
+    serialized = json.dumps(result)
+    assert "private-resource-name" not in serialized
+    assert "private-principal" not in serialized
+    assert "address" not in serialized
+
+
+def test_plan_summary_rejects_unknown_action_shape() -> None:
+    with pytest.raises(ValueError, match="actions are unsupported"):
+        summarize_plan(
+            {
+                "format_version": "1.2",
+                "resource_changes": [
+                    {
+                        "mode": "managed",
+                        "type": "azurerm_resource_group",
+                        "change": {"actions": ["forget"]},
+                    }
+                ],
+            }
+        )

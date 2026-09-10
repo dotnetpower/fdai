@@ -219,7 +219,7 @@ partial restored state. Both commands are local-only and make no Azure or Terraf
 ## Guided deployment onboarding
 
 Use `fdaictl onboard guided` to run the safe subscription-genesis stages as one durable, fail-closed sequence. It pauses at protected approval checkpoints and composes the low-level `deploy plan`, `deploy apply`, and `deploy status` contracts.
-`genesis-up.sh` owns exact image and Foundation apply, Bastion enrollment, and state migration behind current digest-bound approvals and claim-safe resume; it performs no application data-plane write and stops before protected planning. [Subscription Genesis Provisioning](subscription-genesis-provisioning.md) defines the full lifecycle.
+`genesis-up.sh` keeps the lower-level Foundation boundary. `fdai-up.sh` supervises exact TTY approvals, tenant-local configuration, exact-main images, protected application apply, and the second zero-change plan while keeping final subscription readiness false until its remaining evidence families close. [Subscription Genesis Provisioning](subscription-genesis-provisioning.md) defines the full lifecycle.
 The [Subscription Genesis Assurance](subscription-genesis-assurance.md) contract defines safety, cancellation, secret transfer, concurrency, cost, and final readiness.
 
 The sequence is fixed:

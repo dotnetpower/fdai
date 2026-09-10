@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
@@ -15,6 +16,7 @@ SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from genesis_approval import load_genesis_approval  # noqa: E402
+from genesis_approval_prompt import create_approval  # noqa: E402
 
 RUN_BINDING = "a" * 64
 SOURCE_COMMIT = "b" * 40
@@ -39,6 +41,7 @@ def _approval(stage: str, evidence: dict[str, str]) -> dict[str, object]:
         "approved": True,
         "approved_at": approved_at.isoformat(),
         "expires_at": (approved_at + timedelta(minutes=30)).isoformat(),
+        "actor_digest": "9" * 64,
         "evidence": evidence,
     }
 
@@ -112,3 +115,58 @@ def test_approval_rejects_an_expired_window(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="expired"):
         load_genesis_approval(path, run_binding=RUN_BINDING, source_commit=SOURCE_COMMIT)
+
+
+class _TtyInput(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+def test_prompt_creates_actor_bound_exact_approval(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    path = tmp_path / "prompted.json"
+
+    value = create_approval(
+        stage="runner-image",
+        evidence={"review_digest": "c" * 64, "plan_digest": "d" * 64},
+        run_binding=RUN_BINDING,
+        source_commit=SOURCE_COMMIT,
+        actor_digest="9" * 64,
+        output=path,
+        input_stream=_TtyInput("runner-image\n"),
+        output_stream=io.StringIO(),
+    )
+
+    assert value["actor_digest"] == "9" * 64
+    assert path.stat().st_mode & 0o777 == 0o600
+    loaded = load_genesis_approval(
+        path,
+        run_binding=RUN_BINDING,
+        source_commit=SOURCE_COMMIT,
+    )
+    assert loaded is not None
+    assert loaded.actor_digest == "9" * 64
+
+
+def test_prompt_rejects_non_tty_or_wrong_exact_text(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    common = {
+        "stage": "foundation-apply",
+        "evidence": {"review_digest": "c" * 64, "plan_digest": "d" * 64},
+        "run_binding": RUN_BINDING,
+        "source_commit": SOURCE_COMMIT,
+        "actor_digest": "9" * 64,
+        "output_stream": io.StringIO(),
+    }
+    with pytest.raises(ValueError, match="interactive terminal"):
+        create_approval(
+            **common,
+            output=tmp_path / "non-tty.json",
+            input_stream=io.StringIO("foundation-apply\n"),
+        )
+    with pytest.raises(PermissionError, match="was not granted"):
+        create_approval(
+            **common,
+            output=tmp_path / "denied.json",
+            input_stream=_TtyInput("yes\n"),
+        )

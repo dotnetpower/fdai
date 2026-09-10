@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 233fbd3cf97354e1514731c7c61e53f902a01c7c
+translation_source_sha: c4c3d70b338ce3542298d6e1e84c9dd33c27392c
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -186,11 +186,11 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 15개 단계를 실행하고 Provider
-  조정과 정확한 정리 뒤 경로를 선택합니다. 비공개 경로는 별도의 현재 승인 후 고정된 이미지를
-  빌드하고, 기반 계층을 적용하고, Bastion으로 등록된 슬롯을 증명하고, 상태를 이전할 수 있습니다.
-  점유가 있으면 검증만 재개합니다. 보호된 애플리케이션 계획 전에 중단하며 기반 계층 완료만으로
-  준비 상태를 보고하지 않습니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev`
+  단일 명령 경로입니다. 정확한 green `main`을 요구하고 현재의 각 계획을 승인받으며 기반 계층과
+  테넌트 구성을 완료하고 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다.
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
+  경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에
   Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`

@@ -18,6 +18,9 @@ _EVIDENCE_FIELDS = {
     "foundation-apply": frozenset({"review_digest", "plan_digest"}),
     "runner-enrollment": frozenset({"foundation_receipt_digest"}),
     "foundation-state": frozenset({"foundation_receipt_digest", "enrollment_receipt_digest"}),
+    "application-apply": frozenset({"context_digest", "plan_digest", "plan_reference_digest"}),
+    "repository-config": frozenset({"plan_digest"}),
+    "entra-config": frozenset({"plan_digest"}),
 }
 
 
@@ -30,6 +33,7 @@ class GenesisApproval:
     """One current human approval bound to an exact run checkpoint."""
 
     stage: str
+    actor_digest: str
     evidence: dict[str, str]
 
     def authorizes(self, stage: str, **expected: str) -> bool:
@@ -64,6 +68,7 @@ def load_genesis_approval(
         "approved",
         "approved_at",
         "expires_at",
+        "actor_digest",
         "evidence",
     }:
         raise ValueError("Genesis approval fields are invalid")
@@ -82,9 +87,12 @@ def load_genesis_approval(
             "Genesis approval is expired or outside its current window"
         )
     stage = value.get("stage")
+    actor_digest = value.get("actor_digest")
     evidence = value.get("evidence")
     if not isinstance(stage, str) or stage not in _EVIDENCE_FIELDS:
         raise ValueError("Genesis approval stage is invalid")
+    if not isinstance(actor_digest, str) or _DIGEST.fullmatch(actor_digest) is None:
+        raise ValueError("Genesis approval actor digest is invalid")
     if not isinstance(evidence, dict) or set(evidence) != _EVIDENCE_FIELDS[stage]:
         raise ValueError("Genesis approval evidence fields are invalid")
     normalized: dict[str, str] = {}
@@ -92,7 +100,7 @@ def load_genesis_approval(
         if not isinstance(key, str) or not isinstance(item, str) or _DIGEST.fullmatch(item) is None:
             raise ValueError("Genesis approval evidence digest is invalid")
         normalized[key] = item
-    return GenesisApproval(stage=stage, evidence=normalized)
+    return GenesisApproval(stage=stage, actor_digest=actor_digest, evidence=normalized)
 
 
 def _utc_timestamp(value: object) -> datetime:

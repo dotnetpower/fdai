@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 233fbd3cf97354e1514731c7c61e53f902a01c7c }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c4c3d70b338ce3542298d6e1e84c9dd33c27392c }]
 ---
 
 # Deploy Quickstart
@@ -17,18 +17,32 @@ Use the noninteractive Genesis router first when the effective network-policy ro
 
 | Your environment | Use | Result |
 |------------------|-----|--------|
-| New or partially configured subscription with an unknown policy route | Run `genesis-up.sh` with explicit target axes, repository, and mutation authorization | Exact target and CI checks, baseline Resource Provider reconciliation, effective policy routing, then a public preview or the approved private Foundation sequence |
+| New private development subscription | After `az login`, run `scripts/deployment/azure/fdai-up.sh` from exact green `main` | Exact target and CI checks, policy routing, approved Foundation and Entra configuration, protected application apply, and a second zero-change plan |
 | Personal Azure public-cloud subscription for development | Run `az login`, then `make azd-up` and approve the displayed region | Shared platform, deployment-owned model resources and ACR image, migrated database, authoritative catalogs, Core, canary, and initial inventory verification |
 | Private-network, shared, staging, or production environment | Protected `fdaictl` plan and exact apply | Private state, VNet runner, approval policy, all selected independent services, and protected evidence |
 | Existing custom Terraform automation | Direct Terraform | Expert integration with deployment-owned state, image, migration, and verification orchestration |
+
+After interactive sign-in, the private development path is one command:
+
+```bash
+scripts/deployment/azure/fdai-up.sh
+```
 
 The public path is a development bootstrap, not a production shortcut. It keeps autonomous actions
 in observation mode and does not deploy Console, Operator API, document services, or the isolated
 Executor.
 
-Genesis displays 15 numbered stages, exact progress, skipped-stage counts, and remaining work without prompting. Its
-`--apply --allow-probe-resources` flags authorize only missing-provider registration and tagged Key Vault
-and Storage policy-probe creation with verified cleanup, including exact deleted-vault purge and absence readback.
+`fdai-up.sh` is the supervised private-subscription entry point. It derives the active target from
+`az login`, requires a clean exact `origin/main` revision with green required CI, prepares signed
+artifacts, and displays each value-free plan before asking for the exact checkpoint name. One
+invocation can continue through runner image, Foundation, enrollment, state handoff, Entra,
+repository configuration, protected application apply, and a second zero-change plan. It never
+interprets silence as approval.
+
+The lower-level Genesis router displays 15 numbered stages, exact progress, skipped-stage counts,
+and remaining work. Its `--apply --allow-probe-resources` flags authorize only missing-provider
+registration and tagged Key Vault and Storage policy-probe creation with verified cleanup,
+including exact deleted-vault purge and absence readback.
 Mutation-enabled Genesis also pins and verifies stable Bastion and Microsoft Entra SSH extensions during
 toolchain setup; inspection leaves local CLI configuration unchanged. Long commands print a dot to stderr
 every 10 seconds while stdout JSON stays unchanged. A `public-dev` result stops after preview for an exact approved plan.
@@ -37,8 +51,10 @@ the runner through Bastion, and hand state to the private backend when all signe
 private input paths are supplied. Each new effect requires its own current exact approval; the
 local approval-file mechanism is limited to a matching manual, single-approver `dev` profile.
 Claimed effects resume verification only. Without complete inputs, Genesis reports
-`private_foundation_external_artifacts_required`. The local route stops before protected
-application planning, and neither route applies an unsealed plan or claims subscription readiness.
+`private_foundation_external_artifacts_required`. The lower-level local route stops before
+protected application planning. The supervised command composes that boundary but reports
+`subscription_ready=false` until complete manifest, model-capacity, and independently verified
+active-inventory evidence exists.
 
 If the owner-only `secrets/license-signing-key.pem` matches the packaged public key, the confirmed
 public path issues a maximum-30-day token bound to the exact image and deployment and uploads it by

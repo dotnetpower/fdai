@@ -184,11 +184,11 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 These customer-agnostic helpers keep both deployment routes repeatable:
 
-- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) runs 15 stages and routes after
-  provider reconciliation and exact cleanup. The private path
-  can build the pinned image, apply Foundation, attest Bastion-enrolled slots, and migrate state
-  after separate current approvals. Claims resume verification only. The command stops before the
-  protected application plan and never reports readiness from Foundation completion.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the one-command private `dev` path
+  after `az login`. It requires exact green `main`, prompts for each current exact plan, configures
+  Foundation and tenant bindings, applies through the protected runner, and requires zero-change.
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) retains the lower-level 15-stage
+  Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
   CLI and `azd` entry points to the approved subscription and tenant pair before mutation.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public

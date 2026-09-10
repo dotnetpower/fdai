@@ -156,6 +156,139 @@ def test_live_preflight_reports_all_categories_clear() -> None:
     )
 
 
+def test_fresh_preflight_accepts_exact_planned_identity_and_secrets() -> None:
+    profile = _profile()
+    profile["terraform_resource_type_map"].update(
+        {
+            "azurerm_key_vault_secret": "secret.config",
+            "azurerm_role_assignment": "identity.role-assignment",
+            "azurerm_user_assigned_identity": "identity.workload",
+        }
+    )
+    profile["azure_live"]["arm_resource_type_map"].update(
+        {
+            "identity.role-assignment": "Microsoft.Authorization/roleAssignments",
+            "identity.workload": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "secret.config": "Microsoft.KeyVault/vaults/secrets",
+        }
+    )
+    identity = profile["azure_live"]["identity_rbac"]
+    identity.clear()
+    identity.update(
+        {
+            "allow_planned_creation": True,
+            "required_role_names": [
+                "Azure Event Hubs Data Owner",
+                "Key Vault Secrets User",
+            ],
+        }
+    )
+    key_vault = profile["azure_live"]["key_vault"]
+    del key_vault["vault_endpoint"]
+    key_vault["allow_planned_creation"] = True
+    plan = _plan()
+    plan["resource_changes"].extend(
+        [
+            {
+                "mode": "managed",
+                "type": "azurerm_user_assigned_identity",
+                "change": {"actions": ["create"], "after": {"name": "id-example"}},
+            },
+            *(
+                {
+                    "mode": "managed",
+                    "type": "azurerm_role_assignment",
+                    "change": {
+                        "actions": ["create"],
+                        "after": {"role_definition_name": role},
+                    },
+                }
+                for role in identity["required_role_names"]
+            ),
+            *(
+                {
+                    "mode": "managed",
+                    "type": "azurerm_key_vault_secret",
+                    "change": {"actions": ["create"], "after": {"name": name}},
+                }
+                for name in key_vault["required_secret_names"]
+            ),
+        ]
+    )
+
+    result = _MODULE.run_preflight(profile, plan, _environment(), _Reader())
+
+    assert result["report"]["verdict"] == "clear"
+
+
+@pytest.mark.parametrize(
+    ("missing_type", "category"),
+    [
+        ("azurerm_role_assignment", "identity_rbac"),
+        ("azurerm_key_vault_secret", "secret_config"),
+    ],
+)
+def test_fresh_preflight_rejects_incomplete_planned_bindings(
+    missing_type: str, category: str
+) -> None:
+    profile = _profile()
+    profile["terraform_resource_type_map"].update(
+        {
+            "azurerm_key_vault_secret": "secret.config",
+            "azurerm_role_assignment": "identity.role-assignment",
+            "azurerm_user_assigned_identity": "identity.workload",
+        }
+    )
+    profile["azure_live"]["arm_resource_type_map"].update(
+        {
+            "identity.role-assignment": "Microsoft.Authorization/roleAssignments",
+            "identity.workload": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "secret.config": "Microsoft.KeyVault/vaults/secrets",
+        }
+    )
+    identity = profile["azure_live"]["identity_rbac"]
+    identity.clear()
+    identity.update(
+        {
+            "allow_planned_creation": True,
+            "required_role_names": ["Azure Event Hubs Data Owner"],
+        }
+    )
+    key_vault = profile["azure_live"]["key_vault"]
+    del key_vault["vault_endpoint"]
+    key_vault["allow_planned_creation"] = True
+    changes = [
+        {
+            "mode": "managed",
+            "type": "azurerm_user_assigned_identity",
+            "change": {"actions": ["create"], "after": {"name": "id-example"}},
+        },
+        {
+            "mode": "managed",
+            "type": "azurerm_role_assignment",
+            "change": {
+                "actions": ["create"],
+                "after": {"role_definition_name": "Azure Event Hubs Data Owner"},
+            },
+        },
+        {
+            "mode": "managed",
+            "type": "azurerm_key_vault_secret",
+            "change": {
+                "actions": ["create"],
+                "after": {"name": "state-dsn"},
+            },
+        },
+    ]
+    plan = _plan()
+    plan["resource_changes"].extend(change for change in changes if change["type"] != missing_type)
+
+    result = _MODULE.run_preflight(profile, plan, _environment(), _Reader())
+
+    assert result["report"]["verdict"] == "blocked"
+    assert category in {finding["category"] for finding in result["report"]["findings"]}
+
+
 def test_live_preflight_checks_additional_resource_group_scope() -> None:
     profile = _profile()
     profile["azure_live"]["additional_policy_scopes"] = [
