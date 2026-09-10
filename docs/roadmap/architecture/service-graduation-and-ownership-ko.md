@@ -52,6 +52,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 안전조건 결속 실행기 명령 및 관측 스키마 변경 뒤 저장소 소유 Python 및 Console TypeScript 서비스 계약 변환 결과를 다시 생성했습니다. 5개 서비스 토폴로지와 권한 할당은 바뀌지 않았습니다. | `current change`; `generate_service_contracts.py`; 집중 생성 drift 테스트. | 새 명령을 운영에서 활성화하기 전에 통제된 서비스 간 근거를 보존합니다. |
 | 2026-09-11 | implemented | Isolated 실행기 기한 검사를 timezone-aware 단일 경계로 통합하고 정확한 기한 시각에는 새 프로바이더 호출 전에 만료되도록 했습니다. | `current change`; `effect_safety.py`; Isolated 실행기 효과 안전성 테스트. | 승격된 서비스 revision에서 통제된 기한 및 프로바이더 상태 조정 근거를 보존합니다. |
 | 2026-09-11 | implemented | 브로커 역압 시 범위가 제한된 각 outbox claim이 전체 테이블 스캔으로 바뀌지 않도록 미발행 증적 전용 Isolated 실행기 소유 부분 인덱스를 추가했습니다. 이행은 서비스 가지의 최신 revision을 따르며 명시적인 rollback을 제공합니다. | `current change`; `executor_outbox_pending_index_20260911`; 집중 서비스 이행 inventory 검사. | 정확히 배포된 이행 revision에서 통제된 런타임 큐 깊이와 claim 지연 시간 근거를 보존합니다. |
 | 2026-09-09 | in-progress | 저장소 지식을 Core, Operator Service 또는 A3 edge에 합치지 않고 시스템 지식 서비스를 여섯 번째 읽기 전용 후보로 승인하고 구현했습니다. | `current change`, 패키지, 계약, 카탈로그, Teams 멘션, 원장, 이미지 및 집중 검사 경로입니다. | 운영 승격 전에 persistent volume, 신원, 비용, 프로바이더 canary, 비활성화 및 15분 이내 롤백 근거를 기록합니다. |

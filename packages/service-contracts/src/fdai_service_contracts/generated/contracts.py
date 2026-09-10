@@ -414,6 +414,7 @@ class ExecutorReceiptV1_1_0(TypedDict):
     effect_verified: Literal[False]
     rollback_succeeded: NotRequired[bool | None]
     provider_receipt_ref: NotRequired[str | None]
+    safeguard_proof_bundle_digest: NotRequired[str | None]
     audit_ref: str
 
 

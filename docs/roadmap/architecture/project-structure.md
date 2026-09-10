@@ -602,7 +602,7 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types
-  for the five backend services and TypeScript types for Console. These files are read-only
+  for the five backend services and TypeScript types for Console. The current generated views are refreshed from the safeguard-bound command and observation schemas. These files are read-only
   development views; runtime validation continues to use the canonical JSON Schema. Core-owned partial indexes on `state_kv` support Operator semantic claim ordering and principal-scoped replay without transferring table ownership.
   `executor-command` 1.1 adds `safeguard_proof_bundle_digest` and `source_revision` binding.
   The isolated Executor revalidates the proof bundle before provider dispatch and carries the
