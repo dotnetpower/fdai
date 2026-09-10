@@ -131,3 +131,12 @@ def test_principal_handle_is_scoped_to_the_database_service() -> None:
     assert first is not None
     assert second is not None
     assert first.principal_handle != second.principal_handle
+
+
+def test_principal_handle_does_not_hash_the_low_entropy_role_name() -> None:
+    first = _project(_observation()).evidence
+    renamed = _project(replace(_observation(), role_name="common_reader")).evidence
+
+    assert first is not None
+    assert renamed is not None
+    assert first.principal_handle == renamed.principal_handle

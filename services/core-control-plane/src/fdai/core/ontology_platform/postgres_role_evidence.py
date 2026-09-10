@@ -183,9 +183,10 @@ def project_postgres_role_evidence(
         service_ref=observation.service_ref,
         principal_handle=_digest(
             {
-                "role_name": observation.role_name,
-                "service_ref": observation.service_ref,
+                "authentication_ref": observation.authentication_ref,
+                "evidence_ref": observation.evidence_ref,
                 "scope_ref": observation.scope_ref,
+                "service_ref": observation.service_ref,
                 "source_identity": observation.source_identity,
             }
         ),

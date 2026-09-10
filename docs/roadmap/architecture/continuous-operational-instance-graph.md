@@ -99,7 +99,9 @@ development, a disabled binding, and an empty witness query report this source u
 of fabricating an edge.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
 or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
-or mutation authority at runtime rather than relying on type annotations alone.
+or mutation authority at runtime rather than relying on type annotations alone. The projected
+principal handle derives from opaque authenticated evidence references and scoped source context;
+it never hashes the low-entropy role name.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.

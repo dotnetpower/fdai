@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fe4028ccaafcdf9d1cf16920d0dbe4c8b1cd633b
+translation_source_sha: 9f407a057555a231b6e1aea5f6ba153c2f5766fc
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -183,7 +183,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   편지함은 브로커 수락 뒤에만 호출자 증표와 관측 시점을 기록하며 게시 실패 시 증표를 만들지
   않습니다.
 - PostgreSQL 데이터베이스 역할 관측은 Resource 토폴로지와 분리합니다. 관측, 정제된 근거 및
-  변환 결과 계약은 실행 중에도 실행과 변경 권한을 거부합니다.
+  변환 결과 계약은 실행 중에도 실행과 변경 권한을 거부합니다. Principal handle은 역할 이름이
+  아니라 불투명한 인증 근거 참조와 범위가 지정된 원본 컨텍스트에서 파생합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·

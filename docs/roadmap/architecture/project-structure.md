@@ -187,6 +187,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   observation time only after broker acceptance; a failed publish produces no witness.
 - PostgreSQL database-role observations remain separate from Resource topology. Their observation,
   sanitized evidence, and projection contracts reject execution and mutation authority at runtime.
+  Principal handles derive from opaque authenticated evidence references plus scoped source
+  context, not role names.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
