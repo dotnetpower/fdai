@@ -634,7 +634,7 @@ jobs:
           import_if_missing 'azurerm_role_assignment.inventory_eventhubs_sender' \
             "$(role_assignment_id "$eventhubs_scope" 'Azure Event Hubs Data Sender' "$inventory_principal")"
 
-          if [[ "$TF_VAR_enable_operational_history" == "true" ]]; then
+          if [[ "$TF_VAR_enable_operational_history" == "true" && "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]]; then
             operational_history_scope="$(
               terraform console \
                 <<< 'try(module.operational_history_storage[0].id, "")' |
@@ -666,6 +666,7 @@ jobs:
           if [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
             bash ../scripts/deployment/azure/reconcile_rca_bootstrap_state.sh
           fi
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/reconcile_deploy_identity_state.py --terraform-dir .
           [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
       - name: Terraform format check
         if: ${{ !inputs.apply }}

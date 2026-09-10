@@ -14,6 +14,9 @@ _EFFECT_WRAPPER_PATH = (
     _ROOT / "scripts" / "deployment" / "azure" / "verify-deploy-identity-effect.sh"
 )
 _EFFECT_WRAPPER = _EFFECT_WRAPPER_PATH.read_text(encoding="utf-8")
+_STATE_RECONCILER = (
+    _ROOT / "scripts" / "deployment" / "azure" / "reconcile_deploy_identity_state.py"
+).read_text(encoding="utf-8")
 
 
 def test_workflow_binds_and_guards_only_the_identity_migration_plan() -> None:
@@ -32,7 +35,14 @@ def test_workflow_binds_and_guards_only_the_identity_migration_plan() -> None:
     assert "guard_deploy_identity_plan.py \\\n              validate" in _WORKFLOW
     assert "env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true'" in _WORKFLOW
     assert "state-env --terraform-dir ." in _WORKFLOW
+    assert "reconcile_deploy_identity_state.py --terraform-dir ." in _WORKFLOW
     assert "mode=deploy-identity" in _WORKFLOW
+    operational_adoption = _WORKFLOW.split(
+        'if [[ "$TF_VAR_enable_operational_history" == "true"',
+        maxsplit=1,
+    )[1].split("fi", maxsplit=1)[0]
+    assert 'DEPLOY_IDENTITY_MIGRATION_ONLY" != "true"' in operational_adoption
+    assert "--assignee-object-id" in _STATE_RECONCILER
 
 
 def test_identity_apply_uses_targeted_convergence_without_runtime_checks() -> None:

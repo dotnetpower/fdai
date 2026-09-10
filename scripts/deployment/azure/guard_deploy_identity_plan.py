@@ -73,21 +73,47 @@ _STORAGE_PREREQUISITES = {
 }
 _STATE_FEATURES = {
     "azurerm_role_assignment.dev_gateway_storage_deployer[0]": (
-        "TF_VAR_enable_dev_operations_gateway"
+        "TF_VAR_enable_dev_operations_gateway",
     ),
+    "azurerm_storage_account.dev_gateway[0]": ("TF_VAR_enable_dev_operations_gateway",),
     "module.document_storage[0].azurerm_role_assignment.deployer_data_owner": (
-        "TF_VAR_enable_document_ingestion"
+        "TF_VAR_enable_document_ingestion",
     ),
-    _PARTNER_ROLE: "TF_VAR_enable_llm",
-    _WEB_SEARCH_ROLE: "TF_VAR_enable_llm",
+    "module.document_storage[0].azurerm_storage_account.documents": (
+        "TF_VAR_enable_document_ingestion",
+    ),
+    "module.decision_evidence_storage[0].azurerm_role_assignment.deployer_data_owner": (
+        "TF_VAR_enable_operational_history",
+    ),
+    "module.decision_evidence_storage[0].azurerm_storage_account.case_history": (
+        "TF_VAR_enable_operational_history",
+    ),
+    _PARTNER_ROLE: ("TF_VAR_enable_llm",),
+    "module.llm_foundry_partner[0].azurerm_cognitive_account_project.partner": (
+        "TF_VAR_enable_llm",
+    ),
+    _WEB_SEARCH_ROLE: (
+        "TF_VAR_enable_llm",
+        "TF_VAR_operator_api_web_search_enabled",
+    ),
+    "module.foundry_web_search[0].azurerm_cognitive_account_project.search": (
+        "TF_VAR_enable_llm",
+        "TF_VAR_operator_api_web_search_enabled",
+    ),
     "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner": (
-        "TF_VAR_enable_operational_history"
+        "TF_VAR_enable_operational_history",
+    ),
+    "module.operational_history_storage[0].azurerm_storage_account.case_history": (
+        "TF_VAR_enable_operational_history",
     ),
     "module.rule_catalog_snapshot_storage[0].azurerm_role_assignment.deployer_data_owner": (
-        "TF_VAR_enable_rule_catalog_snapshot_storage"
+        "TF_VAR_enable_rule_catalog_snapshot_storage",
+    ),
+    "module.rule_catalog_snapshot_storage[0].azurerm_storage_account.case_history": (
+        "TF_VAR_enable_rule_catalog_snapshot_storage",
     ),
     "module.operator_api_identity[0].azurerm_user_assigned_identity.primary": (
-        "TF_VAR_enable_operator_api"
+        "TF_VAR_enable_operator_api",
     ),
 }
 
@@ -147,7 +173,12 @@ def state_feature_environment(state_addresses: list[str]) -> tuple[str, ...]:
     return tuple(
         f"{name}=true"
         for name in sorted(
-            {variable for address, variable in _STATE_FEATURES.items() if address in addresses}
+            {
+                variable
+                for address, variables in _STATE_FEATURES.items()
+                if address in addresses
+                for variable in variables
+            }
         )
     )
 

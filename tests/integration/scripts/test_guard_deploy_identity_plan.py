@@ -142,8 +142,11 @@ def test_target_arguments_require_active_foundry_owner_configuration() -> None:
 
 def test_state_features_preserve_only_present_role_owners() -> None:
     state = [
-        "azurerm_role_assignment.dev_gateway_storage_deployer[0]",
-        "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
+        "azurerm_storage_account.dev_gateway[0]",
+        "module.decision_evidence_storage[0].azurerm_storage_account.case_history",
+        "module.document_storage[0].azurerm_storage_account.documents",
+        "module.llm_foundry_partner[0].azurerm_cognitive_account_project.partner",
+        "module.foundry_web_search[0].azurerm_cognitive_account_project.search",
         "module.operator_api_identity[0].azurerm_user_assigned_identity.primary",
         "unrelated.resource",
     ]
@@ -151,7 +154,10 @@ def test_state_features_preserve_only_present_role_owners() -> None:
     assert guard.state_feature_environment(state) == (
         "TF_VAR_enable_dev_operations_gateway=true",
         "TF_VAR_enable_document_ingestion=true",
+        "TF_VAR_enable_llm=true",
+        "TF_VAR_enable_operational_history=true",
         "TF_VAR_enable_operator_api=true",
+        "TF_VAR_operator_api_web_search_enabled=true",
     )
 
 
