@@ -159,6 +159,37 @@ def test_candidate_id_is_stable_across_builds() -> None:
     assert _record().candidate_id == _record().candidate_id
 
 
+def test_candidate_builder_canonicalizes_set_shaped_fields() -> None:
+    left = _record(
+        eligible_action_types=("ops.scale-out", "ops.restart"),
+        required_reviewer_principals=(REVIEWER_B, REVIEWER_A),
+    )
+    right = _record(
+        eligible_action_types=("ops.restart", "ops.scale-out"),
+        required_reviewer_principals=(REVIEWER_A, REVIEWER_B),
+    )
+
+    assert left == right
+    assert left.eligible_action_types == ("ops.restart", "ops.scale-out")
+    assert left.required_reviewer_principals == (REVIEWER_A, REVIEWER_B)
+
+
+@pytest.mark.parametrize(
+    ("field", "values"),
+    [
+        ("eligible_action_types", ("ops.scale-out", "ops.scale-out")),
+        ("evidence_requirements", (EVIDENCE_1, EVIDENCE_1)),
+        ("required_reviewer_principals", (REVIEWER_A, REVIEWER_A)),
+    ],
+)
+def test_candidate_builder_rejects_duplicate_set_values(
+    field: str,
+    values: tuple[str, ...],
+) -> None:
+    with pytest.raises(AuthorizationLifecycleError, match="distinct values"):
+        _record(**{field: values})
+
+
 def test_candidate_id_differs_by_fence_generation() -> None:
     fence2 = LifecycleFence(
         family_id="family:one",

@@ -35,6 +35,12 @@ from fdai.core.standing_authority.promotion_candidate_models import (
 )
 
 
+def _canonical_values(name: str, values: tuple[str, ...]) -> tuple[str, ...]:
+    if len(values) != len(set(values)):
+        raise AuthorizationLifecycleError(f"{name} MUST contain distinct values")
+    return tuple(sorted(values))
+
+
 def build_candidate_record(
     *,
     family_id: str,
@@ -51,6 +57,22 @@ def build_candidate_record(
     quorum_required: int,
 ) -> PromotionCandidateRecord:
     """Build a creation record, deriving ``candidate_id``."""
+    eligible_action_types = _canonical_values(
+        "eligible_action_types",
+        eligible_action_types,
+    )
+    ineligible_provider_action_types = _canonical_values(
+        "ineligible_provider_action_types",
+        ineligible_provider_action_types,
+    )
+    evidence_requirements = _canonical_values(
+        "evidence_requirements",
+        evidence_requirements,
+    )
+    required_reviewer_principals = _canonical_values(
+        "required_reviewer_principals",
+        required_reviewer_principals,
+    )
     cid = content_digest(
         {
             "family_id": family_id,
@@ -58,15 +80,15 @@ def build_candidate_record(
             "fence_generation": fence.fencing_generation,
             "fence_transition": fence.transition_digest,
             "lease_contract_version": LEASE_CONTRACT_VERSION,
-            "eligible_action_types": sorted(eligible_action_types),
-            "ineligible_provider_action_types": sorted(ineligible_provider_action_types),
-            "evidence_requirements": sorted(evidence_requirements),
+            "eligible_action_types": eligible_action_types,
+            "ineligible_provider_action_types": ineligible_provider_action_types,
+            "evidence_requirements": evidence_requirements,
             "source_revision_id": source_revision_id,
             "creator_principal": creator_principal,
             "authentication_evidence_digest": authentication_evidence_digest,
             "created_at": instant(aware_utc(created_at)),
             "quorum_required": quorum_required,
-            "required_reviewer_principals": sorted(required_reviewer_principals),
+            "required_reviewer_principals": required_reviewer_principals,
         }
     )
     return PromotionCandidateRecord(

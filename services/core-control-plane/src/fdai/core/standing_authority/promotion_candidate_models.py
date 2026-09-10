@@ -66,6 +66,13 @@ def _require_human(name: str, principal: str) -> None:
         raise AuthorizationLifecycleError(f"{name} MUST start with 'human:'")
 
 
+def _require_canonical_distinct(name: str, values: tuple[str, ...]) -> None:
+    if len(values) != len(set(values)):
+        raise AuthorizationLifecycleError(f"{name} MUST contain distinct values")
+    if values != tuple(sorted(values)):
+        raise AuthorizationLifecycleError(f"{name} MUST use canonical sorted order")
+
+
 @dataclass(frozen=True, slots=True)
 class PromotionCandidateRecord:
     """Creation record binding revision, fence, lease version, ActionTypes, and reviewers."""
@@ -104,6 +111,12 @@ class PromotionCandidateRecord:
             raise AuthorizationLifecycleError("evidence_requirements MUST be non-empty")
         for er in self.evidence_requirements:
             require_text("evidence_requirement", er)
+        _require_canonical_distinct("eligible_action_types", self.eligible_action_types)
+        _require_canonical_distinct(
+            "ineligible_provider_action_types",
+            self.ineligible_provider_action_types,
+        )
+        _require_canonical_distinct("evidence_requirements", self.evidence_requirements)
         require_text("source_revision_id", self.source_revision_id)
         _require_human("creator_principal", self.creator_principal)
         require_digest("authentication_evidence_digest", self.authentication_evidence_digest)
@@ -116,6 +129,10 @@ class PromotionCandidateRecord:
             raise AuthorizationLifecycleError("insufficient distinct reviewers for quorum")
         for rp in self.required_reviewer_principals:
             _require_human("reviewer_principal", rp)
+        _require_canonical_distinct(
+            "required_reviewer_principals",
+            self.required_reviewer_principals,
+        )
         if self.execution_authority is not False or self.promotion_authority is not False:
             raise AuthorizationLifecycleError("authority flags MUST be False")
         expected = content_digest(
