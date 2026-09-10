@@ -179,6 +179,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "terraform apply -json -input=false -auto-approve" in workflow
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
+    assert "plan_args=(-destroy -refresh=false)" in workflow
     assert "Quiesce private DNS links before destroy" in workflow
     assert 'select(.type? == "azurerm_private_dns_zone_virtual_network_link")' in workflow
     assert "scenario-lab DNS-link state contains an invalid ARM resource id" in workflow
