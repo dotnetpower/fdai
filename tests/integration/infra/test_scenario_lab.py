@@ -161,6 +161,10 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "raw output remains runner-local" in workflow
     assert "Terraform apply diagnostic addresses:" in workflow
     assert "Terraform apply diagnostic Azure codes:" in workflow
+    assert "Terraform destroy diagnostic addresses:" in workflow
+    assert "Terraform destroy diagnostic Azure codes:" in workflow
+    assert 'print_destroy_diagnostic "$destroy_log"' in workflow
+    assert 'print_destroy_diagnostic "$retry_log"' in workflow
     assert 'print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"' in workflow
     assert "Terraform plan diagnostic categories:" in workflow
     assert "Terraform plan diagnostic addresses:" in workflow
@@ -175,8 +179,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'environment_file="$output_dir/enforce.env"' in workflow
     assert 'environment_file="$(bash' not in workflow
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
-    assert workflow.count("terraform apply -input=false -auto-approve") == 2
-    assert "terraform apply -json -input=false -auto-approve" in workflow
+    assert "terraform apply -input=false -auto-approve" not in workflow
+    assert workflow.count("terraform apply -json -input=false -auto-approve") == 3
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
     assert "plan_args=(-destroy -refresh=false)" in workflow
@@ -223,6 +227,8 @@ def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path
         '"address":"azurerm_virtual_network_peering.lab_to_operator[0]",'
         '"detail":"Code=RemoteGatewayNotReady Message=private deployment value '
         '/subscriptions/private/resourceGroups/private"}}\n'
+        '{"type":"apply_errored","hook":{"resource":{"addr":'
+        '"azurerm_subnet_network_security_group_association.scenario_lab[\\"aks\\"]"}}}\n'
         '{"type":"outputs","outputs":{"secret":{"sensitive":true,"value":"private"}}}\n',
         encoding="utf-8",
     )
@@ -238,6 +244,7 @@ def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path
 
     assert result.returncode == 0
     assert "azurerm_virtual_network_peering.lab_to_operator[0]" in result.stdout
+    assert 'azurerm_subnet_network_security_group_association.scenario_lab["aks"]' in result.stdout
     assert "RemoteGatewayNotReady" in result.stdout
     assert "private deployment value" not in result.stdout
     assert "/subscriptions/" not in result.stdout
