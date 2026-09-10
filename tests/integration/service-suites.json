@@ -237,10 +237,12 @@
       ],
       "test_groups": {
         "unit": [
+          "services/isolated-executor/tests/test_effect_safety.py",
           "services/isolated-executor/tests/test_executor_terraform_identity.py"
         ],
         "contract": [
-          "services/isolated-executor/tests/test_isolated_executor_service_boundary.py"
+          "services/isolated-executor/tests/test_isolated_executor_service_boundary.py",
+          "services/isolated-executor/tests/test_safeguard_bundle_revalidation.py"
         ],
         "integration": [
           "services/isolated-executor/tests/test_executor_event_bus_adapter.py",
