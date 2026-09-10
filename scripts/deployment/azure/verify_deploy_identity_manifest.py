@@ -70,7 +70,18 @@ def verify_manifest(
     expected = terraform_role_bindings(states, principal_id=principal_id)
     actual = azure_role_bindings(assignments)
     if expected != actual:
-        raise ValueError("stable deploy identity role manifest drift detected")
+        missing = sorted(set(expected).difference(actual))
+        extra = sorted(set(actual).difference(expected))
+        diagnostics = {
+            "expected_count": len(expected),
+            "actual_count": len(actual),
+            "missing": [_binding_fingerprint(binding) for binding in missing],
+            "extra": [_binding_fingerprint(binding) for binding in extra],
+        }
+        raise ValueError(
+            "stable deploy identity role manifest drift detected: "
+            + json.dumps(diagnostics, separators=(",", ":"), sort_keys=True)
+        )
     canonical = json.dumps(expected, separators=(",", ":")).encode()
     return {
         "schema_version": "fdai.deploy-identity-manifest-receipt.v1",
@@ -109,6 +120,16 @@ def _binding(value: Mapping[str, object]) -> RoleBinding:
     if not scope or not role_definition_id:
         raise ValueError("role assignment scope and role definition id are required")
     return scope, role_definition_id, condition, condition_version
+
+
+def _binding_fingerprint(binding: RoleBinding) -> dict[str, str]:
+    scope, role_definition_id, condition, condition_version = binding
+    return {
+        "scope_sha256": hashlib.sha256(scope.encode()).hexdigest(),
+        "role_definition_id": role_definition_id.rsplit("/", 1)[-1],
+        "condition_sha256": hashlib.sha256(condition.encode()).hexdigest(),
+        "condition_version": condition_version,
+    }
 
 
 def main() -> int:
