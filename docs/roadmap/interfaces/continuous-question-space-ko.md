@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 1f80a3ece01453f7b55d7e6dd26583b84be1281c
-translation_revised: 2026-09-10
+translation_source_sha: f0caa16bd59edef2731cf5ced563313a921f2729
+translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
 
@@ -65,6 +65,7 @@ Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면
 검토용 카탈로그를 모두 다시 생성하여 원본 파일 다이제스트를 정확하게 유지합니다.
 `uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
 직접 편집하는 방식은 지원하지 않습니다.
+원본 다이제스트만 새로 고쳐도 질문 구성, 검토 상태 또는 런타임 준비 상태는 바뀌지 않습니다.
 
 등록된 원본은 현재 논리 질문 400개를 구체화합니다. 검토된 Golden 기대값 35개, 이중 언어
 수동 질문 쌍 60개, Console 시작 질문 5개, 운영자 후보 300개로 구성됩니다. 운영자 후보 중
@@ -171,6 +172,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | Console 로캘 카탈로그 변경 후 통합 질문은행의 기계 판독용 인벤토리와 검토 카탈로그를 다시 생성했습니다. 질문 400개의 신원은 모두 유지하고 정확한 원본 다이제스트만 갱신했습니다. | `current change`, 공식 질문은행 생성기 및 생성 산출물 동등성 검사 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-10 | implemented | 대상 없는 완화 요구사항에 대해 영어와 한국어 원문 및 유사 질문 3개씩을 추가하여 Azure/인시던트 의도 계약을 16개에서 24개 사례로 확장하고 CQAS 소스 digest를 다시 생성했습니다. | `current change`, 집중 Golden 재생, 의미 계획, 최종 표현, 생성 산출물 drift, Ruff 및 mypy 검사 | 승격하거나 실제 품질을 주장하기 전에 인증된 exact-source 모델 근거를 별도로 실행합니다. |
 | 2026-09-10 | implemented | Duplicate 이력을 삭제하지 않고 새로운 10문항 full-answer child에서 조건부 repair를 평가하도록 Approval, Decision, Observation, Rule, ServiceObjective의 principal-catalog 스키마 canary 10개를 추가했습니다. | `current change`, typed contract, catalog subject, watchdog, Ruff 및 mypy 검사 | 새 challenge id로 명시적 10문항 child 하나를 실행합니다. |
 | 2026-09-10 | implemented | Synonym-only primary facet 때문에 repair fallback이 발생한 뒤 조건부 repair trigger를 exact CQAS 스키마 계약으로 강화했습니다. | `current change`, 완전 통과 conditional-repair-v2 스키마 cohort 5개 및 집중 trigger/fallback 테스트 | 전역 primary 동작을 보존하고 새로운 unique 질문이 생기면 전체 답변을 검증합니다. |
