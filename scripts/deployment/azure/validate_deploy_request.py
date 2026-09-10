@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -48,6 +48,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     deploy_console = _enabled(values, "DEPLOY_CONSOLE")
     deploy_core_model_quorum = _enabled(values, "DEPLOY_CORE_MODEL_QUORUM")
     deploy_executor = _enabled(values, "DEPLOY_ISOLATED_EXECUTOR")
+    deploy_identity_migration = _enabled(values, "DEPLOY_IDENTITY_MIGRATION_ONLY")
     deploy_ohl = _enabled(values, "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET")
     deploy_operational_history = _enabled(values, "DEPLOY_OPERATIONAL_HISTORY")
     promote_image = _enabled(values, "PROMOTE_RUNTIME_IMAGE")
@@ -78,7 +79,10 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
             "when deploy_console is enabled"
         )
-    if re.fullmatch(r"(?:plan|apply)-(?:history-|observability-|rca-)?[0-9a-f]{48}", request_id):
+    if re.fullmatch(
+        r"(?:plan|apply)-(?:history-|identity-|observability-|rca-)?[0-9a-f]{48}",
+        request_id,
+    ):
         if values.get("TARGET_ENVIRONMENT") == "prod":
             raise ValueError("fdaictl production deployment inputs are not implemented")
         _require_match(
@@ -100,6 +104,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_id.removeprefix("plan-").removeprefix("apply-")
         request_suffix = request_suffix.removeprefix("rca-")
         request_suffix = request_suffix.removeprefix("history-")
+        request_suffix = request_suffix.removeprefix("identity-")
         request_suffix = request_suffix.removeprefix("observability-")
         if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
@@ -191,6 +196,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             or deploy_core_model_quorum
             or validate_chatops
             or rca_reader_identity
+            or deploy_identity_migration
             or _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
             or cutover
             or verify_effect
@@ -198,6 +204,32 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         ):
             raise ValueError(
                 "observability analyzer deployment cannot be combined with another target"
+            )
+    identity_migration_only = (
+        re.fullmatch(r"(?:plan|apply)-identity-[0-9a-f]{48}", request_id) is not None
+    )
+    if deploy_identity_migration != identity_migration_only:
+        raise ValueError("deploy identity migration request prefix and mode must match")
+    if deploy_identity_migration:
+        if values.get("TARGET_ENVIRONMENT") != "dev":
+            raise ValueError("deploy identity migration is restricted to dev")
+        if (
+            document_ocr_action != "preserve"
+            or design_mocks
+            or model_only
+            or deploy_core_model_quorum
+            or validate_chatops
+            or rca_reader_identity
+            or monitoring
+            or deploy_ohl
+            or promote_image
+            or runtime_image_revision
+            or cutover
+            or verify_effect
+            or resume
+        ):
+            raise ValueError(
+                "deploy identity migration cannot be combined with another bounded operation"
             )
     if deploy_operational_history:
         operational_history_mixed = (
@@ -220,6 +252,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             or document_ocr_action != "preserve"
             or validate_chatops
             or rca_reader_identity
+            or deploy_identity_migration
         ):
             raise ValueError(
                 "operational-history deployment cannot be combined with another target"
@@ -238,6 +271,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             or deploy_core_model_quorum
             or validate_chatops
             or rca_reader_identity
+            or deploy_identity_migration
             or runtime_image_revision
         ):
             raise ValueError(
@@ -305,6 +339,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             or deploy_core_model_quorum
             or validate_chatops
             or runtime_image_revision
+            or deploy_identity_migration
         ):
             raise ValueError(
                 "deploy_rca_reader_identity cannot be combined with another deployment target"
@@ -414,6 +449,7 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
         "deploy_console": _enabled(values, "DEPLOY_CONSOLE"),
         "deploy_dev_operations_gateway": _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY"),
         "deploy_document_ingestion": _enabled(values, "DEPLOY_DOCUMENT_INGESTION"),
+        "deploy_identity_migration": _enabled(values, "DEPLOY_IDENTITY_MIGRATION_ONLY"),
         "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
         "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
         "deploy_operational_history": _enabled(values, "DEPLOY_OPERATIONAL_HISTORY"),

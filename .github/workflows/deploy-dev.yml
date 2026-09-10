@@ -176,6 +176,7 @@ jobs:
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       MODEL_BINDING_POLICY_JSON: ""
       MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}
+      DEPLOY_IDENTITY_MIGRATION_ONLY: ${{ startsWith(inputs.request_id, 'plan-identity-') || startsWith(inputs.request_id, 'apply-identity-') }}
       DOCUMENT_OCR_ACTION: ${{ inputs.document_ocr_action }}
       OCR_POLICY_ONLY: ${{ startsWith(inputs.request_id, 'plan-ocr-') || startsWith(inputs.request_id, 'apply-ocr-') }}
       CORE_MODEL_QUORUM_ONLY: ${{ startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') }}
@@ -307,6 +308,7 @@ jobs:
           DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
           DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
           DEPLOY_OPERATIONAL_HISTORY: ${{ env.OPERATIONAL_HISTORY_ONLY }}
+          DEPLOY_IDENTITY_MIGRATION_ONLY: ${{ env.DEPLOY_IDENTITY_MIGRATION_ONLY }}
           RCA_READER_IDENTITY_ONLY: ${{ env.RCA_READER_IDENTITY_ONLY }}
           DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
           DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
@@ -338,6 +340,14 @@ jobs:
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
+      - name: Bind stable deploy identity migration
+        if: ${{ env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          targets="$(python3 scripts/deployment/azure/guard_deploy_identity_plan.py targets)"
+          echo "TF_CLI_ARGS_plan=$targets" >> "$GITHUB_ENV"
+          echo "TF_VAR_operational_history_legacy_deployer_principal_id=" >> "$GITHUB_ENV"
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
         run: >-
@@ -724,11 +734,18 @@ jobs:
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
 
       - name: Enforce bounded Terraform plan scope
-        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-')) }}
+        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-')) }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then
+          if [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" == "true" ]]; then
+            review="$RUNNER_TEMP/deploy-identity-plan.json"
+            trap 'rm -f -- "$review"' EXIT
+            terraform -chdir=infra show -json dev.plan > "$review"
+            python3 scripts/deployment/azure/guard_deploy_identity_plan.py \
+              validate --plan "$review"
+            exit 0
+          elif [[ "$MODEL_BINDING_ONLY" == "true" ]]; then
             mode=model-binding
             extra=(--resolved-models "$FDAI_RESOLVED_MODELS_PATH")
           elif [[ "$CORE_MODEL_QUORUM_ONLY" == "true" ]]; then
@@ -750,7 +767,7 @@ jobs:
             --plan infra/dev.plan --mode "$mode" "${extra[@]}"
 
       - name: Reject destructive protected plan
-        if: ${{ !inputs.apply && inputs.request_id != '' }}
+        if: ${{ !inputs.apply && inputs.request_id != '' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         env:
           MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
         run: |

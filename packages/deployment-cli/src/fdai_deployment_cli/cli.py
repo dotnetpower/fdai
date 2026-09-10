@@ -227,6 +227,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     guided.add_argument("--deploy-operator-channel-edge", action="store_true")
     guided.add_argument("--deploy-document-ingestion", action="store_true")
+    guided.add_argument("--deploy-identity-migration", action="store_true")
     guided.add_argument("--deploy-isolated-executor", action="store_true")
     guided.add_argument("--deploy-monitoring", action="store_true")
     guided.add_argument("--deploy-operational-history", action="store_true")
@@ -253,6 +254,7 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--deploy-operator-channel-edge", action="store_true")
     parser.add_argument("--deploy-document-ingestion", action="store_true")
+    parser.add_argument("--deploy-identity-migration", action="store_true")
     parser.add_argument("--deploy-isolated-executor", action="store_true")
     parser.add_argument("--deploy-monitoring", action="store_true")
     parser.add_argument("--deploy-operational-history", action="store_true")
@@ -934,6 +936,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_operator_api=args.deploy_operator_api,
         deploy_operator_channel_edge=args.deploy_operator_channel_edge,
         deploy_document_ingestion=args.deploy_document_ingestion,
+        deploy_identity_migration=args.deploy_identity_migration,
         deploy_isolated_executor=args.deploy_isolated_executor,
         deploy_monitoring=args.deploy_monitoring,
         deploy_operational_history=args.deploy_operational_history,

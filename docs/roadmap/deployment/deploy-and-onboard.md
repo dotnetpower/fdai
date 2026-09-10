@@ -96,6 +96,9 @@ floor. Plan-only retention admits an Operator API OpenAI User role replacement o
 reviewed helpers instead of inline shell blocks, bounding how much a single review needs to re-read.
 It removes the rendered plan review copy on every exit path, including a rejected guard, so
 sensitive Terraform values don't remain in a persistent runner slot.
+The development-only deploy identity migration request targets only the stable-principal fence and
+the reviewed deployer role assignments. Its guard rejects unrelated resources, changed scopes or
+roles, and any destination principal other than the configured runner UAMI.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
 commit code runs. A

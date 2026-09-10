@@ -25,6 +25,7 @@ _CONTEXT = hashlib.sha256(
         '"schema_version":"fdai.deployment-context.v1","selection":'
         '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
         '"deploy_document_ingestion":false,'
+        '"deploy_identity_migration":false,'
         '"deploy_isolated_executor":false,"deploy_monitoring":false,'
         '"deploy_operational_history":false,'
         '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
@@ -64,6 +65,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "DEPLOY_OPERATOR_CHANNEL_EDGE": "false",
         "VALIDATE_CHATOPS_CHANNELS": "false",
         "DEPLOY_DOCUMENT_INGESTION": "false",
+        "DEPLOY_IDENTITY_MIGRATION_ONLY": "false",
         "DOCUMENT_OCR_ACTION": "preserve",
         "DEPLOY_MONITORING": "false",
         "DEPLOY_OPERATIONAL_HISTORY": "false",
@@ -391,6 +393,44 @@ def test_rca_reader_identity_protected_context_round_trip() -> None:
     validate(values, checkout_commit=_COMMIT)
 
 
+def test_deploy_identity_migration_is_context_bound_and_exclusive() -> None:
+    values = _request(DEPLOY_IDENTITY_MIGRATION_ONLY="true", COMMIT_SHA=_COMMIT)
+    context = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    values.update(
+        REQUEST_ID=f"plan-identity-{prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+
+    validate(values, checkout_commit=_COMMIT)
+
+    mixed = _request(
+        DEPLOY_IDENTITY_MIGRATION_ONLY="true",
+        COMMIT_SHA=_COMMIT,
+        RUNTIME_IMAGE_REVISION="a" * 40,
+    )
+    mixed_context = _MODULE._deployment_context_digest(mixed)
+    mixed_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=mixed_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    mixed.update(
+        REQUEST_ID=f"plan-identity-{mixed_prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=mixed_context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(mixed, checkout_commit=_COMMIT)
+
+
 def test_core_model_quorum_is_dev_only_protected_and_exclusive() -> None:
     protected = {
         "DEPLOY_CORE_MODEL_QUORUM": "true",
@@ -488,6 +528,7 @@ def _gateway_context() -> str:
             '"schema_version":"fdai.deployment-context.v1","selection":'
             '{"deploy_console":false,"deploy_dev_operations_gateway":true,'
             '"deploy_document_ingestion":false,'
+            '"deploy_identity_migration":false,'
             '"deploy_isolated_executor":false,"deploy_monitoring":false,'
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
@@ -553,6 +594,7 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '"schema_version":"fdai.deployment-context.v1","selection":'
             '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
             '"deploy_document_ingestion":false,'
+            '"deploy_identity_migration":false,'
             '"deploy_isolated_executor":true,"deploy_monitoring":false,'
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
