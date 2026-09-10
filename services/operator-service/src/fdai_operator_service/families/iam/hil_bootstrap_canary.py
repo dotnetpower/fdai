@@ -661,6 +661,7 @@ def _pending(approval_id: str, *, expires_at: datetime) -> HilPendingItem:
             "correlation_id": f"canary-correlation:{approval_id}",
             "action_hash": f"canary-action:{approval_id}",
             "expires_at": expires_at.isoformat(),
+            "decision_route": "action",
         },
     )
 

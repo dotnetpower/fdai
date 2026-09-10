@@ -83,6 +83,9 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 > catalog loads the reviewed `Identifiable` Interface, validates explicit bindings for all current
 > ObjectTypes, compiles the polymorphic catalog, and includes the declaration in the exact runtime
 > release. Wiring this manifest into the narrator and generic query surface remains.
+> The reviewable 400-question materialization tracks 11 source files by SHA-256. Regeneration after
+> a source update can refresh provenance digests and localized wording, but it does not by itself
+> raise runtime coverage or assurance.
 > OQ-03 now includes an exact-release query DAG executor with bounded dependency waves, concurrency,
 > timeout, cancellation, blocked-descendant handling, stable failure reasons, and task receipts.
 > Built-in handlers now cover secured ObjectSet materialization, union, intersection, subtraction,

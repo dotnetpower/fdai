@@ -164,7 +164,7 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_four_shards() -> 
 
     python_tests = jobs["python-tests"]
     assert python_tests["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
-    assert python_tests["env"]["FDAI_PYTEST_MODE"] == "full"
+    assert python_tests["env"]["FDAI_PYTEST_MODE"] == "regression"
     assert python_tests["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
     assert {step["name"] for step in python_tests["steps"]}.isdisjoint(
         {"Prepare coverage data", "Upload coverage data"}
@@ -890,7 +890,7 @@ def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> No
     merge_job = jobs["python-coverage"]
 
     assert regression_job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
-    assert regression_job["env"]["FDAI_PYTEST_MODE"] == "full"
+    assert regression_job["env"]["FDAI_PYTEST_MODE"] == "regression"
     assert {step["name"] for step in regression_job["steps"]}.isdisjoint(
         {"Prepare coverage data", "Upload coverage data"}
     )

@@ -229,6 +229,42 @@ def test_sharded_coverage_invocation_disables_the_per_shard_floor(tmp_path: Path
     assert "--cov-fail-under=0" in arguments
 
 
+def test_ci_regression_mode_excludes_tests_owned_by_coverage_shards(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    recorded = tmp_path / "arguments.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" > "$RECORDED_ARGUMENTS"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    bash = shutil.which("bash")
+    assert bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script, test-controlled env
+        [bash, str(_PYTHON_TESTS)],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FDAI_PYTEST_MODE": "regression",
+            "FDAI_PYTEST_XDIST": "0",
+            "RECORDED_ARGUMENTS": str(recorded),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    arguments = recorded.read_text(encoding="utf-8").split()
+    assert "--no-cov" in arguments
+    assert "--ignore=services/core-control-plane/tests/core" in arguments
+    assert "--ignore=services/core-control-plane/tests/quality_gate" in arguments
+    assert "--ignore=services/core-control-plane/tests/delivery/test_canary_cli.py" in arguments
+
+
 def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
