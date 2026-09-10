@@ -52,6 +52,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 서비스 소유 테스트 모음 매니페스트에서 Isolated 실행기 기한 helper 테스트를 unit 범위로, 안전조건 묶음 재검증 테스트를 contract 범위로 등록했습니다. | `current change`; `tests/integration/service-suites.json`; 집중 서비스 모음 소유권 테스트 29개 통과. | 모든 새 서비스 테스트를 정확히 하나의 서비스 소유 그룹에 할당합니다. |
 | 2026-09-11 | implemented | 안전조건 결속 실행기 명령 및 관측 스키마 변경 뒤 저장소 소유 Python 및 Console TypeScript 서비스 계약 변환 결과를 다시 생성했습니다. 5개 서비스 토폴로지와 권한 할당은 바뀌지 않았습니다. | `current change`; `generate_service_contracts.py`; 집중 생성 drift 테스트. | 새 명령을 운영에서 활성화하기 전에 통제된 서비스 간 근거를 보존합니다. |
 | 2026-09-11 | implemented | Isolated 실행기 기한 검사를 timezone-aware 단일 경계로 통합하고 정확한 기한 시각에는 새 프로바이더 호출 전에 만료되도록 했습니다. | `current change`; `effect_safety.py`; Isolated 실행기 효과 안전성 테스트. | 승격된 서비스 revision에서 통제된 기한 및 프로바이더 상태 조정 근거를 보존합니다. |
 | 2026-09-11 | implemented | 브로커 역압 시 범위가 제한된 각 outbox claim이 전체 테이블 스캔으로 바뀌지 않도록 미발행 증적 전용 Isolated 실행기 소유 부분 인덱스를 추가했습니다. 이행은 서비스 가지의 최신 revision을 따르며 명시적인 rollback을 제공합니다. | `current change`; `executor_outbox_pending_index_20260911`; 집중 서비스 이행 inventory 검사. | 정확히 배포된 이행 revision에서 통제된 런타임 큐 깊이와 claim 지연 시간 근거를 보존합니다. |
