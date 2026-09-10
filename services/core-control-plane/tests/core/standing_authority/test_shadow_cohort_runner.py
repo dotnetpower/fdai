@@ -559,6 +559,19 @@ def test_inaccessible_registry_sets_incomplete(tmp_path: Path) -> None:
     assert receipt.zero_policy_escapes is False
 
 
+@pytest.mark.parametrize("invalid_elapsed", [-1.0, float("nan"), float("inf")])
+def test_invalid_elapsed_measurement_sets_incomplete(invalid_elapsed: float) -> None:
+    manifest, corpus, elapsed = _make_full_corpus()
+    elapsed[manifest.entries[0].case_id] = invalid_elapsed
+
+    receipt = run_cohort(manifest, corpus, elapsed)
+
+    assert receipt.outcomes[0].outcome_status is CohortOutcomeStatus.ERRORED
+    assert receipt.outcomes[0].per_case_elapsed_s == 0.0
+    assert receipt.complete is False
+    assert receipt.zero_policy_escapes is False
+
+
 def test_registry_mutation_produces_incomplete_receipt() -> None:
     """Receipt with before != after digests must be incomplete and not zero-escape."""
     manifest, corpus, elapsed = _make_full_corpus()
