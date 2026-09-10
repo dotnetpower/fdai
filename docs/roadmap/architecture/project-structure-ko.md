@@ -603,6 +603,11 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
   Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
   변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다. `state_kv`의 Core 소유 부분 인덱스는 테이블 소유권을 이전하지 않고 Operator 의미 claim 정렬과 principal 범위 replay를 지원합니다.
+  `executor-command` 1.1은 `safeguard_proof_bundle_digest`와 `source_revision` 바인딩을
+  추가합니다. Isolated 실행기는 프로바이더 디스패치 전에 증명 묶음을 재검증하고
+  터미널 증적에 digest를 `effect_verified=false`로 포함합니다. 별도의
+  `observation-receipt` 1.0 계약은 실행 권한을 부여하지 않고 효과를
+  verified/failed/censored/unavailable로 검증하거나 반박합니다.
   `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
   `semantic_turn.bound_context`를 추가했고, version 1.4는 범위가 제한된
   `semantic_turn.include_model_trace` 활성화 설정을 추가했으며, version 1.5는 실행 권한을
