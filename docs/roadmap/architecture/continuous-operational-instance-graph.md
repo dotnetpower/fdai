@@ -88,7 +88,8 @@ binding, so its requests on the shared topic cannot join a false Operator-to-Cor
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
 newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
 pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do
-not split a retained pair. Exact replica verification uses at most four concurrent reads under one
+not split a retained pair. Incomplete-source coverage accepts only the fixed row-count keys and
+cannot carry provider identifiers or arbitrary source text. Exact replica verification uses at most four concurrent reads under one
 30-second deadline, and freshness is evaluated only after those reads finish. The
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
 scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
