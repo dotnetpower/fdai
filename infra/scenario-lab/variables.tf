@@ -34,6 +34,16 @@ variable "resource_group_name" {
   }
 }
 
+variable "deploy_runner_principal_id" {
+  description = "Stable deploy UAMI principal id that owns scenario Terraform roles."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.deploy_runner_principal_id))
+    error_message = "deploy_runner_principal_id must be a GUID."
+  }
+}
+
 variable "expires_at_utc" {
   description = "RFC 3339 expiry recorded on every lab resource for cost and cleanup review."
   type        = string

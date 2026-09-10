@@ -28,6 +28,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreConfig,
     PostgresFamilyStoreUnavailable,
     _instance_relationship_evidence,
+    _projection_source_states,
 )
 from fdai_service_contracts import OperatorRole
 
@@ -491,7 +492,10 @@ async def test_postgres_inventory_impact_rejects_malformed_relationship_coverage
 
 def test_runtime_call_relationship_evidence_decodes_as_observation() -> None:
     metadata = _runtime_call_observation_metadata()
-    evidence = _instance_relationship_evidence({"link_observation_metadata": metadata})
+    evidence = _instance_relationship_evidence(
+        {"link_observation_metadata": metadata},
+        inventory_generation="inventory:generation-one",
+    )
 
     assert evidence is not None
     assert evidence.evidence_kind == "observation"
@@ -505,7 +509,32 @@ def test_runtime_call_relationship_evidence_rejects_forged_authority() -> None:
     metadata["state_fact"]["authority"] = "execution_ledger"  # type: ignore[index]
 
     with pytest.raises(PostgresFamilyStoreUnavailable, match="not verified"):
-        _instance_relationship_evidence({"link_observation_metadata": metadata})
+        _instance_relationship_evidence(
+            {"link_observation_metadata": metadata},
+            inventory_generation="inventory:generation-one",
+        )
+
+
+def test_runtime_call_relationship_evidence_rejects_another_generation() -> None:
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="not verified"):
+        _instance_relationship_evidence(
+            {"link_observation_metadata": _runtime_call_observation_metadata()},
+            inventory_generation="inventory:generation-two",
+        )
+
+
+def test_projection_source_reason_rejects_principal_text() -> None:
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="source state is malformed"):
+        _projection_source_states(
+            [
+                {
+                    "source": "postgres_role_evidence",
+                    "status": "unavailable",
+                    "observed_at": None,
+                    "reason": "user@example.com",
+                }
+            ]
+        )
 
 
 def _runtime_call_observation_metadata() -> dict[str, object]:

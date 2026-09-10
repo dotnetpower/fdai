@@ -147,6 +147,55 @@ def test_channel_edge_selection_is_bound_and_dispatched() -> None:
     )
 
 
+def test_deploy_identity_migration_uses_a_context_bound_request_prefix() -> None:
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_identity_migration=True,
+        deploy_operator_api=False,
+    )
+
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="identity-migration",
+        selection=selection,
+        run=runner,
+    )
+    apply = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="identity-migration",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=False,
+        selection=selection,
+        run=runner,
+    )
+
+    assert plan.request_id.startswith("plan-identity-")
+    assert apply.request_id.startswith("apply-identity-")
+    assert plan.context_digest == apply.context_digest
+    for call in runner.calls:
+        if call[:2] != ("workflow", "run"):
+            continue
+        assert "deploy_identity_migration=true" not in call
+        assert "runtime_call_evidence_transition=false" not in call
+
+
+def test_deploy_identity_migration_rejects_default_application_targets() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        DeploymentSelection(deploy_identity_migration=True)
+
+
 def test_resume_dispatch_uses_exact_apply_with_verification_only_flag() -> None:
     runner = RecordingRunner()
 
@@ -710,12 +759,14 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "deploy_console": True,
                 "deploy_dev_operations_gateway": False,
                 "deploy_document_ingestion": True,
+                "deploy_identity_migration": False,
                 "deploy_isolated_executor": False,
                 "deploy_monitoring": False,
                 "deploy_operational_history": False,
                 "deploy_operator_api": True,
                 "deploy_rca_reader_identity": False,
                 "document_ocr_action": "preserve",
+                "runtime_call_evidence_transition": False,
                 "runtime_image_revision": "",
             },
         },

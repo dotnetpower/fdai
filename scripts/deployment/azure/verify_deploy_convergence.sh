@@ -9,9 +9,12 @@ set -euo pipefail
 
 request_id="${1:-}"
 observability_only=false
+deploy_identity_only=false
 if [[ "$request_id" == apply-observability-* ]]; then
   observability_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.observability_analyzer_image_update"
+elif [[ "$request_id" == apply-identity-* ]]; then
+  deploy_identity_only=true
 fi
 
 set +e
@@ -26,6 +29,10 @@ fi
 if (( plan_exit == 2 )); then
   echo "post-apply Terraform state is not converged" >&2
   exit 1
+fi
+
+if [[ "$deploy_identity_only" == "true" ]]; then
+  exit 0
 fi
 
 resource_group="$(terraform output -raw resource_group_name)"

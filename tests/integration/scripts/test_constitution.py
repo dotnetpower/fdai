@@ -63,6 +63,18 @@ def test_traceability_manifest_is_complete() -> None:
     assert module._validate_traceability(REPO_ROOT) == []
 
 
+def test_const_002_implemented_status_requires_fail_closed_proofs() -> None:
+    module = _load_module()
+
+    assert module.IMPLEMENTED_PROOF_TESTS["FDAI-CONST-002"] == (
+        "packages/service-contracts/tests/test_decision_evidence.py::test_json_schema_requires_authentication_evidence",
+        "packages/service-contracts/tests/test_decision_evidence.py::test_synthetic_evidence_never_reaches_live_verification",
+        "services/core-control-plane/tests/core/readiness/test_decision_evidence.py::test_missing_evidence_is_denied_because_no_receipt_can_be_verified",
+        "tests/integration/scripts/test_decision_boundary_coverage.py::test_the_shipped_inventory_covers_every_registered_boundary",
+        "tests/integration/scripts/test_decision_boundary_coverage.py::test_an_intentionally_uncovered_registered_boundary_fails_the_guard",
+    )
+
+
 def test_traceability_rejects_missing_evidence_path(tmp_path: Path) -> None:
     module = _load_module()
     manifest = {

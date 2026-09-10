@@ -80,6 +80,12 @@ is **single-pass**: an event is normalized, routed, decided, acted on, and
 audited to a terminal state. That is correct for a discrete event. It does
 **not** model a decision that stays *pending* while the world changes around it:
 
+An eligible human can now answer that pending request through either a signed Teams or Slack
+callback or the Entra-authenticated FDAI Console route. Both paths recheck the exact approval,
+current role, expiry, and separation of duty, then atomically retain the decision and durable
+outbox. This adds another safe response surface; it does not change the escalation timer,
+standing-authority rules, or Thor's execution boundary.
+
 - A `hil` verdict fires an approval request with a TTL. Today, TTL expiry is a
   **no-op + audit + A2 alert** ([channels-and-notifications.md § on-call,
   escalation, timeouts](../interfaces/channels-and-notifications.md)). Fail-closed, correct -

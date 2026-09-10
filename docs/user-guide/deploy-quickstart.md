@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d6529d13767c4aa0ffd99dfffc93d9282f3822dc }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: e83ad249bac369631c10e6dcaa488eb4e8cef065 }]
 ---
 
 # Deploy Quickstart
@@ -56,12 +56,19 @@ key, Core starts in observation-only Trial and denies acting paths.
   permanent VM retains only this UAMI after migration. For a
   closed-network image, use `runner_bootstrap_mode = "offline"` only with an
   exact managed-image or numeric gallery-version ID.
+- Migrate deployer roles with the exclusive protected identity plan. It targets only role
+  addresses already owned by platform state. A paired storage prerequisite may only disable local
+  users while retaining the configured blob and container periods; Console, Entra, database,
+  health, and canary work remain outside the operation.
 - When you promote a reviewed blue/green candidate, set its existing VM name in
   `runner_vm_name` before importing the VM and network interface into bootstrap
   state. The scheduled posture check compares any model-only OS disk ID with the
   ops resource group's disk inventory. The check reruns when its verifier changes
   and recovers a specialized VM's public SSH input from the protected host before it verifies
-  that structured drift actions are empty. Use manual `scope=runner` for this bounded check;
+  that structured drift actions are empty. It also requires one configured UAMI and no system
+  identity. Full-scope runs compare every direct deploy role with the bootstrap and platform
+  Terraform states and require the disposable scenario state to be absent or empty. Use manual
+  `scope=runner` for the bounded storage and VM identity check;
   scheduled and default runs still verify all roots. Bootstrap preserves the adopted image
   reference until you explicitly review a replacement.
 - **Fresh offline subscriptions:** Standalone bootstrap still expects an existing state account

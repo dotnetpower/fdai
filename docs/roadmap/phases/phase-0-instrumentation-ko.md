@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 179f0f3ebfc858434be75bd55979deac4a645e40
-translation_revised: 2026-08-31
+translation_source_sha: 9cceb33e94224147b0060863c8ae6f57c34c39af
+translation_revised: 2026-09-11
 ---
 
 # 단계 0 - 계측과 언블록
@@ -193,17 +193,17 @@ Console이 지원 언어 계약에서 제외됩니다.
 누락이 모호한 테스트 동작으로 바뀝니다.
 
 **개정 설계.** 공유 `test_contracts.py` 단언은 수명 주기를 관리하는 픽스처를 사용합니다. 기본
-pytest는 페이크만 등록하고 loopback 밖의 네트워크 접근을 차단합니다. 명시적
-`provider-contracts-docker` CI 작업은 두 매트릭스를 선택하고 정확한 임시 PostgreSQL 데이터베이스
-하나를 생성한 뒤 삭제합니다. 모든 Redpanda 토픽과 소비자 그룹은 UUID로 격리하고 해당 브로커
-기록만 삭제하며 실제 백엔드가 없으면 실패합니다. 기준 로컬 엔드포인트는 런타임 PostgreSQL
+pytest는 페이크만 등록하고 loopback 밖의 네트워크 접근을 차단합니다. `db-integration` CI 작업의
+두 번째 샤드는 두 실제 프로바이더 매트릭스를 선택하고 정확한 임시 PostgreSQL 데이터베이스 하나를
+생성한 뒤 삭제합니다. 모든 Redpanda 토픽과 소비자 그룹은 UUID로 격리하고 해당 브로커 기록만
+삭제하며 실제 백엔드가 없으면 실패합니다. 기준 로컬 엔드포인트는 런타임 PostgreSQL
 `127.0.0.1:5432`, 검증 PostgreSQL `127.0.0.1:5433`, Redpanda 호스트 `127.0.0.1:19092`,
 Redpanda Compose 네트워크 `redpanda:29092`입니다.
 
 | 작업 | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
 | **W6.1** | Storage / 버스 / 시크릿 / 신원 프로바이더 인터페이스 | W1.2 | `services/core-control-plane/src/fdai/shared/providers/` 의 `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` 프로토콜 클래스 - 각각 네 개의 CSP-중립 계약 중 하나에 매핑 | `mypy --strict` 통과; 인프라에 닿는 모든 코어 모듈이 이 프로토콜 만 가져오기 (W1.7 import-lint 규칙이 `core/` 의 클라우드 SDK 금지 강제) | S |
-| **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | 수명 주기 픽스처가 `services/core-control-plane/tests/providers/test_contracts.py`의 같은 단언에 페이크, PostgreSQL 및 Redpanda를 등록 | 기본 pytest는 Docker 없이 유지되고 명시적 Docker CI 작업이 상태, 감사 체인, 중복 전달, pgvector, Kafka 순서, 그룹 재개, DLQ, loopback 전용 접근 및 정확한 정리를 검증 | M |
+| **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | 수명 주기 픽스처가 `services/core-control-plane/tests/providers/test_contracts.py`의 같은 단언에 페이크, PostgreSQL 및 Redpanda를 등록 | 기본 pytest는 Docker 없이 유지되고 실제 프로바이더 데이터베이스 통합 샤드가 상태, 감사 체인, 중복 전달, pgvector, Kafka 순서, 그룹 재개, DLQ, loopback 전용 접근 및 정확한 정리를 검증 | M |
 | **W6.3** | Docker Compose 개발 프리셋 + 래퍼 스크립트 | W6.1 | 상태 검사와 래퍼 스크립트를 포함한 pgvector/PostgreSQL 및 단일 노드 Redpanda `infra/local/docker-compose.yml` | 런타임 PostgreSQL `5432`, 검증 PostgreSQL `5433`, Redpanda 호스트 `19092`, Redpanda 컨테이너 `29092`가 Compose, 스크립트, 문서, 테스트 및 CI에서 일치하며 Azure 또는 클라우드 호출이 없음 | M |
 
 ### 시퀀싱된 태스크 타임라인

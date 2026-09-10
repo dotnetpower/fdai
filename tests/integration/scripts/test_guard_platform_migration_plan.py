@@ -7,6 +7,8 @@ import copy
 import pytest
 from scripts.deployment.azure import guard_platform_migration_plan as guard
 
+_DEPLOY_PRINCIPAL = "00000000-0000-0000-0000-000000000001"
+
 
 def _role(
     address: str,
@@ -25,7 +27,7 @@ def _role(
     }
     after = {
         **before,
-        replacement_field: "new-scope" if replacement_field == "scope" else "new-principal",
+        replacement_field: ("new-scope" if replacement_field == "scope" else _DEPLOY_PRINCIPAL),
     }
     return {
         "address": address,
@@ -104,7 +106,10 @@ def _change(plan: dict[str, object], address: str) -> dict[str, object]:
 def test_filters_only_exact_reviewed_platform_migrations() -> None:
     plan = _plan()
 
-    filtered, validated = guard.filter_reviewed_platform_migrations(plan)
+    filtered, validated = guard.filter_reviewed_platform_migrations(
+        plan,
+        expected_deploy_principal_id=_DEPLOY_PRINCIPAL,
+    )
 
     assert len(validated) == 12
     remaining = filtered["resource_changes"]
@@ -122,7 +127,10 @@ def test_role_guard_ignores_optional_provider_metadata() -> None:
     after["condition"] = ""
     after["delegated_managed_identity_resource_id"] = "provider-computed"
 
-    _filtered, validated = guard.filter_reviewed_platform_migrations(plan)
+    _filtered, validated = guard.filter_reviewed_platform_migrations(
+        plan,
+        expected_deploy_principal_id=_DEPLOY_PRINCIPAL,
+    )
 
     assert first_role in validated
 
@@ -196,4 +204,27 @@ def test_rejects_platform_migration_shape_drift(mutation: str) -> None:
             after["sku"] = [{"name": "Standard", "capacity": 201}]
 
     with pytest.raises(ValueError, match="unapproved"):
-        guard.filter_reviewed_platform_migrations(plan)
+        guard.filter_reviewed_platform_migrations(
+            plan,
+            expected_deploy_principal_id=_DEPLOY_PRINCIPAL,
+        )
+
+
+def test_rejects_role_replacement_to_another_principal() -> None:
+    plan = _plan()
+    principal_role = next(
+        address
+        for address, (field, _role) in guard._ROLE_REPLACEMENTS.items()  # noqa: SLF001
+        if field == "principal_id"
+    )
+    details = _change(plan, principal_role)["change"]
+    assert isinstance(details, dict)
+    after = details["after"]
+    assert isinstance(after, dict)
+    after["principal_id"] = "00000000-0000-0000-0000-000000000002"
+
+    with pytest.raises(ValueError, match="unapproved"):
+        guard.filter_reviewed_platform_migrations(
+            plan,
+            expected_deploy_principal_id=_DEPLOY_PRINCIPAL,
+        )

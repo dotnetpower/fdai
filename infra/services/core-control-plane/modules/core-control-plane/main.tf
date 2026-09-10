@@ -155,9 +155,9 @@ module "container_app" {
     { name = "FDAI_MODEL_ENDPOINTS_JSON", value = jsonencode(var.llm.model_endpoints) },
     ], var.llm.resolved_models_digest == "" ? [] : [
     { name = "LLM_RESOLVED_MODELS_SHA256", value = var.llm.resolved_models_digest },
-    ], !var.configuration_drift.enabled ? [] : [
+    ], !nonsensitive(var.configuration_drift.enabled) ? [] : [
     { name = "FDAI_CONFIGURATION_DRIFT_ENABLED", value = "1" },
-    { name = "FDAI_CONFIGURATION_BASELINE_PATH", value = var.configuration_drift.baseline_path },
+    { name = "FDAI_CONFIGURATION_BASELINE_URL", value = var.configuration_drift.baseline_url },
     { name = "FDAI_CONFIGURATION_BASELINE_VERSION", value = var.configuration_drift.baseline_version },
     { name = "FDAI_CONFIGURATION_BASELINE_SHA256", value = var.configuration_drift.baseline_sha256 },
     { name = "FDAI_CONFIGURATION_SCOPE", value = var.configuration_drift.scope },

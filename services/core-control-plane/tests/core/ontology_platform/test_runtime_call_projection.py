@@ -235,6 +235,25 @@ def test_receipt_and_projection_are_replay_stable() -> None:
     assert first == second
 
 
+def test_receipt_and_projection_bind_endpoint_resource_types() -> None:
+    first = _project(_observation())
+    second = _project(
+        _observation(),
+        active_resources=(
+            ResourceRecord(resource_id=CALLER_ID, type="virtual-machine"),
+            ResourceRecord(resource_id=TARGET_ID, type="sql-database"),
+        ),
+    )
+
+    assert first.edge is not None
+    assert second.edge is not None
+    assert (
+        first.edge.observation_metadata.verification_receipt_ref
+        != second.edge.observation_metadata.verification_receipt_ref
+    )
+    assert first.digest != second.digest
+
+
 def test_projection_digest_binds_observation_and_release_context() -> None:
     first = _project(_observation(scope_ref="scope:wrong-one"))
     second = _project(_observation(scope_ref="scope:wrong-two"))

@@ -57,6 +57,9 @@ To test all changes on a branch, pass a Git diff range:
 make test-changed DIFF=origin/main...HEAD
 ```
 
+Each pytest shard starts through the locked `uv` development environment, so it always satisfies
+the repository's Python version and dependency contract instead of inheriting a system pytest.
+
 Changes to global Python test configuration, repository configuration data,
 database migrations, composition wiring, policy data, rule catalog data or
 loaders, shared contracts and provider interfaces with cross-repository

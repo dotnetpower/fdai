@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 
 import httpx
 import pytest
 from fdai.delivery.azure.configuration_drift import (
     AzureArgConfigurationObservationSource,
+    AzureBlobConfigurationBaselineConfig,
+    AzureBlobConfigurationBaselineSource,
+    AzureConfigurationBaselineError,
     AzureConfigurationObservationConfig,
     AzureConfigurationObservationError,
 )
@@ -16,6 +21,7 @@ from pydantic import TypeAdapter
 
 _NOW = datetime(2026, 8, 28, 12, tzinfo=UTC)
 _AUDIENCE = "https://management.azure.com/.default"
+_STORAGE_AUDIENCE = "https://storage.azure.com/"
 
 
 def _config(**overrides: object) -> AzureConfigurationObservationConfig:
@@ -39,13 +45,115 @@ def _identity() -> StaticWorkloadIdentity:
     )
 
 
+def _baseline_payload() -> tuple[bytes, str]:
+    payload = json.dumps(
+        {
+            "schema_version": "1.0.0",
+            "version": "example-v1",
+            "created_at": "2026-08-28T12:00:00+00:00",
+            "scope": "scope:example-platform",
+            "source": "reviewed snapshot",
+            "document_sha256": "a" * 64,
+            "resources": [],
+            "links": [],
+            "allowed_exceptions": [],
+            "unknown_items": [],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return payload, hashlib.sha256(payload).hexdigest()
+
+
+async def test_blob_baseline_source_requires_managed_identity_and_exact_digest() -> None:
+    payload, digest = _baseline_payload()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer test-token"
+        return httpx.Response(
+            200,
+            headers={"x-ms-meta-fdai_sha256": digest},
+            content=payload,
+        )
+
+    identity = StaticWorkloadIdentity(
+        audience=_STORAGE_AUDIENCE,
+        token="test-token",  # noqa: S106 - inert test credential
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = AzureBlobConfigurationBaselineSource(
+            identity=identity,
+            http_client=client,
+            config=AzureBlobConfigurationBaselineConfig(
+                blob_url=(
+                    "https://example.blob.core.windows.net/decision-evidence/"
+                    f"configuration-baselines/{digest}.json"
+                ),
+                expected_sha256=digest,
+            ),
+        )
+
+        baseline = await source.load()
+
+    assert baseline.version == "example-v1"
+    assert baseline.sha256 == digest
+
+
+async def test_blob_baseline_source_rejects_metadata_or_content_mismatch() -> None:
+    payload, digest = _baseline_payload()
+    identity = StaticWorkloadIdentity(
+        audience=_STORAGE_AUDIENCE,
+        token="test-token",  # noqa: S106 - inert test credential
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"x-ms-meta-fdai_sha256": "b" * 64},
+            content=payload,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = AzureBlobConfigurationBaselineSource(
+            identity=identity,
+            http_client=client,
+            config=AzureBlobConfigurationBaselineConfig(
+                blob_url=(
+                    "https://example.blob.core.windows.net/decision-evidence/"
+                    f"configuration-baselines/{digest}.json"
+                ),
+                expected_sha256=digest,
+            ),
+        )
+        with pytest.raises(AzureConfigurationBaselineError, match="metadata"):
+            await source.load()
+
+
+@pytest.mark.parametrize(
+    "blob_url",
+    (
+        "http://example.blob.core.windows.net/container/configuration-baselines/"
+        + "a" * 64
+        + ".json",
+        "https://example.com/container/configuration-baselines/" + "a" * 64 + ".json",
+        "https://example.blob.core.windows.net/container/other/" + "a" * 64 + ".json",
+    ),
+)
+def test_blob_baseline_config_rejects_non_azure_or_unpinned_urls(blob_url: str) -> None:
+    with pytest.raises(ValueError, match="content-addressed Azure Blob"):
+        AzureBlobConfigurationBaselineConfig(
+            blob_url=blob_url,
+            expected_sha256="a" * 64,
+        )
+
+
 async def test_observation_projects_selected_attributes_and_unknowns() -> None:
     captured_query = ""
 
     async def handler(request: httpx.Request) -> httpx.Response:
         nonlocal captured_query
         payload = request.read().decode("utf-8")
-        captured_query = payload
+        captured_query = json.loads(payload)["query"]
         return httpx.Response(
             200,
             json={
@@ -57,11 +165,11 @@ async def test_observation_projects_selected_attributes_and_unknowns() -> None:
                         "type": "Example/widgets",
                         "name": "widget-a",
                         "location": "koreacentral",
-                        "attribute_0_present": True,
-                        "attribute_0": "Disabled",
-                        "attribute_1_present": True,
+                        "attribute_0_presence": "present",
+                        "attribute_0": "",
+                        "attribute_1_presence": "present",
                         "attribute_1": "Standard",
-                        "attribute_2_present": False,
+                        "attribute_2_presence": "missing",
                         "attribute_2": "",
                     }
                 ]
@@ -83,12 +191,12 @@ async def test_observation_projects_selected_attributes_and_unknowns() -> None:
     assert observation.completeness.value == "complete"
     assert resource.local_name.startswith("widget-a#")
     assert resource.attributes == {
-        "properties.publicNetworkAccess": "Disabled",
+        "properties.publicNetworkAccess": "",
         "sku.name": "Standard",
     }
     assert resource.unknown_attributes == frozenset({"tags.owner"})
     assert "properties.publicNetworkAccess" in captured_query
-    assert "isnotnull(properties.publicNetworkAccess)" in captured_query
+    assert 'iff(isnull(properties.publicNetworkAccess), "missing", "present")' in captured_query
     assert "/subscriptions/example" not in captured_query
 
 
@@ -123,8 +231,8 @@ async def test_global_resource_normalizes_empty_location() -> None:
                         "type": "Example/widgets",
                         "name": "widget-a",
                         "location": "",
-                        "attribute_0_present": True,
-                        "attribute_0": "Disabled",
+                        "attribute_0_presence": "present",
+                        "attribute_0": "",
                     }
                 ]
             },
@@ -140,6 +248,7 @@ async def test_global_resource_normalizes_empty_location() -> None:
         observation = await source.observe(scope="scope:example-platform")
 
     assert observation.resources[0].region == "global"
+    assert observation.resources[0].attributes == {"properties.publicNetworkAccess": ""}
 
 
 async def test_truncated_result_fails_without_partial_observation() -> None:
@@ -170,14 +279,14 @@ async def test_truncated_result_fails_without_partial_observation() -> None:
             "type": "Example/widgets",
             "name": "widget-a",
             "location": "koreacentral",
-            "attribute_0_present": "true",
+            "attribute_0_presence": "true",
         },
         {
             "id": "/subscriptions/example/providers/Example/widgets/a",
             "type": "Example/widgets",
             "name": "widget-a",
             "location": "koreacentral",
-            "attribute_0_present": True,
+            "attribute_0_presence": "present",
             "attribute_0": "x" * 4_097,
         },
     ),

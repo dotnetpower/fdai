@@ -105,7 +105,13 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 | `implemented_behavior` | What current source and focused tests prove |
 | `limitations` | Missing, stale, unvalidated, or deliberately excluded behavior |
 | `sources` | Repository-relative path, symbol, line, blob SHA, kind, and authority role |
+| `generated_at` | UTC build time included in `catalog_digest` so each compiled artifact has an explicit creation boundary |
 | `source_revision`, `catalog_digest` | Exact release and complete catalog identity |
+
+`catalog_digest` covers the schema version, source revision, build time, records, and authority
+flag. Rebuilding the same records at a different time therefore creates a distinct packaged
+artifact. Any change to a cited source, including formatting-only compaction, requires a catalog
+rebuild before packaging so its blob pins and digest match the release tree.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of

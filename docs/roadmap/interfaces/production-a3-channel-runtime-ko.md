@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 99a85d5639532e55388927467e0dfcb220cd189b
-translation_revised: 2026-09-09
+translation_source_sha: 351b6d4bc18533c5b452c9d287f26a2c04ca3cbd
+translation_revised: 2026-09-11
 ---
 # 운영 A3 채널 런타임
 
@@ -34,7 +34,9 @@ Edge는 프로바이더가 인증한 요청만 수락하고 벤더 신원을 구
 Operator가 소유한 inbound ledger에서 프로바이더 메시지를 claim합니다. Edge는
 `SemanticTurnBridge.append()`를 통해 typed semantic request를 제출하고
 `SemanticTurnBridge.open()`을 통해 principal 범위의 terminal projection을 기다린 뒤 하나의
-presentation artifact를 compile합니다. 스키마 v3 산출물은 서버가 선택한 운영 브리프 또는
+presentation artifact를 compile합니다. 공유 의미 보낼 편지함은 브로커가 요청을 수락한 뒤에만
+런타임 호출자 증표와 관측 시점을 기록합니다. 게시에 실패하면 증표를 만들지 않습니다.
+스키마 v3 산출물은 서버가 선택한 운영 브리프 또는
 Markdown 문서 배치와 범위가 제한된 동적 조립
 메타데이터를 포함할 수 있습니다. Edge는 SHA-256으로 바인딩된 전체 렌더링 표면을 검증하고
 프로바이더의 기존 채널 중립 섹션으로 축소합니다. 변경되거나 지원하지 않는 산출물은 정본

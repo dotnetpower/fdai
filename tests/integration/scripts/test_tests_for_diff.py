@@ -517,7 +517,7 @@ def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     command = args_file.read_text(encoding="utf-8").strip()
-    assert "run pytest -q -m not integration --no-cov --durations=25" in command
+    assert "run --extra dev pytest -q -m not integration --no-cov --durations=25" in command
     assert command.endswith("tests/integration/scripts/test_changed.py")
     assert "integration tests skipped" in result.stderr
 
@@ -581,8 +581,8 @@ esac
     assert result.returncode == 0, result.stderr
     commands = args_file.read_text(encoding="utf-8").splitlines()
     assert len(commands) == 2
-    assert "run pytest -q -m not integration --no-cov --durations=25" in commands[0]
-    assert "run pytest --collect-only -q -m integration --no-cov" in commands[1]
+    assert "run --extra dev pytest -q -m not integration --no-cov --durations=25" in commands[0]
+    assert "run --extra dev pytest --collect-only -q -m integration --no-cov" in commands[1]
     assert all(
         command.endswith("tests/integration/scripts/test_changed.py") for command in commands
     )
@@ -615,8 +615,8 @@ def test_run_executes_selected_integration_tests_with_database(git_repo: Path) -
     assert result.returncode == 0, result.stderr
     commands = args_file.read_text(encoding="utf-8").splitlines()
     assert len(commands) == 2
-    assert "run pytest -q -m not integration --no-cov --durations=25" in commands[0]
-    assert "run pytest -q -m integration --no-cov --durations=25" in commands[1]
+    assert "run --extra dev pytest -q -m not integration --no-cov --durations=25" in commands[0]
+    assert "run --extra dev pytest -q -m integration --no-cov --durations=25" in commands[1]
     assert all(
         command.endswith("tests/integration/scripts/test_changed.py") for command in commands
     )
@@ -681,7 +681,7 @@ def test_run_does_not_use_database_without_explicit_integration_opt_in(git_repo:
 
     assert result.returncode == 0, result.stderr
     command = args_file.read_text(encoding="utf-8").strip()
-    assert "run pytest -q -m not integration --no-cov --durations=25" in command
+    assert "run --extra dev pytest -q -m not integration --no-cov --durations=25" in command
     assert command.endswith("tests/integration/scripts/test_changed.py")
     assert "integration tests skipped" in result.stderr
     assert "dedicated validation FDAI_DATABASE_URL" in result.stderr

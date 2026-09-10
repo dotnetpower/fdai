@@ -43,10 +43,10 @@ variable "runtime_call_evidence" {
     condition = (
       (trimspace(var.runtime_call_evidence.caller_resource_id) == "" && trimspace(var.runtime_call_evidence.target_resource_id) == "") ||
       (
-        startswith(var.runtime_call_evidence.caller_resource_id, "/subscriptions/") &&
-        strcontains(lower(var.runtime_call_evidence.caller_resource_id), "/providers/microsoft.app/containerapps/") &&
-        startswith(var.runtime_call_evidence.target_resource_id, "/subscriptions/") &&
-        strcontains(lower(var.runtime_call_evidence.target_resource_id), "/providers/microsoft.app/containerapps/") &&
+        var.runtime_call_evidence.caller_resource_id == trimspace(var.runtime_call_evidence.caller_resource_id) &&
+        var.runtime_call_evidence.target_resource_id == trimspace(var.runtime_call_evidence.target_resource_id) &&
+        can(regex("(?i)^/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/resourceGroups/[^/[:space:]]+/providers/Microsoft\\.App/containerApps/[^/[:space:]]+$", var.runtime_call_evidence.caller_resource_id)) &&
+        can(regex("(?i)^/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/resourceGroups/[^/[:space:]]+/providers/Microsoft\\.App/containerApps/[^/[:space:]]+$", var.runtime_call_evidence.target_resource_id)) &&
         lower(var.runtime_call_evidence.caller_resource_id) != lower(var.runtime_call_evidence.target_resource_id)
       )
     )

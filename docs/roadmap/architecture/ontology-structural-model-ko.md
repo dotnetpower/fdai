@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: d44b4655c0e63933814c54a31728a0fa09b19483
-translation_revised: 2026-09-10
+translation_source_sha: d2eeb633f3764509cb3aa7d1a0c93f585b56f157
+translation_revised: 2026-09-11
 ---
 # 온톨로지 구조 모델
 
@@ -29,6 +29,8 @@ translation_revised: 2026-09-10
 각 관심사는 하나의 표준 표현과 범위가 제한된 소비자 계약을 가집니다.
 변환 출처 가용성은 `(source, scope_digest)`로 한정됩니다. 이 튜플은 수집 범위 하나의 근거
 메타데이터이며 Resource 또는 링크 신원을 대체하지 않습니다.
+현재 인스턴스 상세 소비자는 런타임 호출 및 PostgreSQL 역할 원본 상태를 명시적으로 요구합니다.
+둘 중 하나를 생략하면 가용성이나 측정된 0이 아니라 잘못된 변환 결과로 처리합니다.
 추가 방식 신원 필드는 안전한 방향으로 실패하는 이행 경계를 사용합니다. 기존 Resource는 계속
 조회할 수 있지만 소비자는 해당 신원에 필요한 필드가 모두 있을 때까지 새 정확한 신원을 변환할 수
 없습니다.

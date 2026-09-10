@@ -19,6 +19,12 @@ class IamConflictError(IamFamilyError):
     status_code = 409
 
 
+class IamExpiredError(IamFamilyError):
+    """The authoritative request expired before the guarded write."""
+
+    status_code = 410
+
+
 class IamNotFoundError(IamFamilyError):
     """The requested durable record does not exist."""
 
@@ -33,6 +39,7 @@ class IamUnavailableError(IamFamilyError):
 
 __all__ = [
     "IamConflictError",
+    "IamExpiredError",
     "IamFamilyError",
     "IamNotFoundError",
     "IamPermissionError",

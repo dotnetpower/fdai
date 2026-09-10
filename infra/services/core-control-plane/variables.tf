@@ -65,10 +65,10 @@ variable "runtime_call_evidence" {
     condition = (
       (trimspace(var.runtime_call_evidence.caller_resource_id) == "" && trimspace(var.runtime_call_evidence.target_resource_id) == "") ||
       (
-        startswith(var.runtime_call_evidence.caller_resource_id, "/subscriptions/") &&
-        strcontains(lower(var.runtime_call_evidence.caller_resource_id), "/providers/microsoft.app/containerapps/") &&
-        startswith(var.runtime_call_evidence.target_resource_id, "/subscriptions/") &&
-        strcontains(lower(var.runtime_call_evidence.target_resource_id), "/providers/microsoft.app/containerapps/") &&
+        var.runtime_call_evidence.caller_resource_id == trimspace(var.runtime_call_evidence.caller_resource_id) &&
+        var.runtime_call_evidence.target_resource_id == trimspace(var.runtime_call_evidence.target_resource_id) &&
+        can(regex("(?i)^/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/resourceGroups/[^/[:space:]]+/providers/Microsoft\\.App/containerApps/[^/[:space:]]+$", var.runtime_call_evidence.caller_resource_id)) &&
+        can(regex("(?i)^/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/resourceGroups/[^/[:space:]]+/providers/Microsoft\\.App/containerApps/[^/[:space:]]+$", var.runtime_call_evidence.target_resource_id)) &&
         lower(var.runtime_call_evidence.caller_resource_id) != lower(var.runtime_call_evidence.target_resource_id)
       )
     )
@@ -487,7 +487,7 @@ variable "configuration_drift" {
   description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
   type = object({
     enabled             = optional(bool, false)
-    baseline_path       = optional(string, "")
+    baseline_url        = optional(string, "")
     baseline_version    = optional(string, "")
     baseline_sha256     = optional(string, "")
     scope               = optional(string, "")
@@ -495,7 +495,8 @@ variable "configuration_drift" {
     attribute_paths     = optional(list(string), [])
     arg_endpoint        = optional(string, "https://management.azure.com")
   })
-  default = {}
+  default   = {}
+  sensitive = true
 }
 
 variable "diagnostic_ingest" {

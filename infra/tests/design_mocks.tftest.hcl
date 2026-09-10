@@ -1,14 +1,24 @@
 mock_provider "azurerm" {}
 mock_provider "archive" {}
 
+override_data {
+  target = data.azurerm_client_config.current
+  values = {
+    subscription_id = "00000000-0000-0000-0000-000000000000"
+    tenant_id       = "00000000-0000-0000-0000-000000000000"
+    object_id       = "00000000-0000-0000-0000-000000000001"
+  }
+}
+
 variables {
-  env                     = "dev"
-  region                  = "koreacentral"
-  region_short            = "krc"
-  tenant_id               = "00000000-0000-0000-0000-000000000000"
-  postgres_admin_login    = "fdaiadmin"
-  postgres_admin_password = "terraform-test-placeholder-value"
-  core_image              = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  env                        = "dev"
+  region                     = "koreacentral"
+  region_short               = "krc"
+  deploy_runner_principal_id = "00000000-0000-0000-0000-000000000001"
+  tenant_id                  = "00000000-0000-0000-0000-000000000000"
+  postgres_admin_login       = "fdaiadmin"
+  postgres_admin_password    = "terraform-test-placeholder-value"
+  core_image                 = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
 run "design_mocks_is_an_isolated_free_static_site" {

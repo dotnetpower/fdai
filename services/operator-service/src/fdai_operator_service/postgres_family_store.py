@@ -1103,7 +1103,10 @@ class PostgresFamilyStore:
                     source=str(row.get("from_id") or ""),
                     target=str(row.get("to_id") or ""),
                     link_type=str(row.get("link_type") or ""),
-                    evidence=_instance_relationship_evidence(row.get("props")),
+                    evidence=_instance_relationship_evidence(
+                        row.get("props"),
+                        inventory_generation=snapshot_id,
+                    ),
                 )
                 for row in selected_induced_rows
             ),
@@ -3359,13 +3362,20 @@ def _instance_activity_facts(payload: Mapping[str, object]) -> dict[str, str]:
     return facts
 
 
-def _instance_relationship_evidence(value: object) -> InventoryRelationshipEvidence | None:
+def _instance_relationship_evidence(
+    value: object,
+    *,
+    inventory_generation: str,
+) -> InventoryRelationshipEvidence | None:
     if value is None:
         return None
     properties = _json_object(value, label="inventory instance relationship properties")
     raw_evidence = properties.get("provider_relationship_evidence")
     if raw_evidence is None:
-        return _instance_observation_evidence(properties.get("link_observation_metadata"))
+        return _instance_observation_evidence(
+            properties.get("link_observation_metadata"),
+            inventory_generation=inventory_generation,
+        )
     evidence = _json_object(
         raw_evidence,
         label="inventory instance provider relationship evidence",
@@ -3393,7 +3403,11 @@ def _instance_relationship_evidence(value: object) -> InventoryRelationshipEvide
     )
 
 
-def _instance_observation_evidence(value: object) -> InventoryRelationshipEvidence | None:
+def _instance_observation_evidence(
+    value: object,
+    *,
+    inventory_generation: str,
+) -> InventoryRelationshipEvidence | None:
     if value is None:
         return None
     metadata = _json_object(value, label="inventory instance observation metadata")
@@ -3446,6 +3460,7 @@ def _instance_observation_evidence(value: object) -> InventoryRelationshipEviden
         or metadata.get("mapping_id") != "runtime-call-endpoint-identity"
         or metadata.get("mapping_revision") != "1.1.0"
         or metadata.get("source_schema_version") != "fdai.runtime-call-observation@1.1.0"
+        or metadata.get("inventory_generation") != inventory_generation
         or state_fact.get("lane") != "observed"
         or state_fact.get("authority") != "telemetry"
         or state_fact.get("synthetic") is not False
@@ -3934,8 +3949,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
             if (
                 observed_at is not None
                 or not isinstance(reason, str)
-                or not reason.strip()
-                or len(reason) > 128
+                or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", reason) is None
             ):
                 raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
             parsed_at = None

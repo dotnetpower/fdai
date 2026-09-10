@@ -23,6 +23,7 @@ from fdai.core.executor.idempotency_reservation import (
     complete_reservation,
     dispatch_permitted,
     expire_reservation,
+    quarantine_reservation,
     reopen_reservation,
     reservation_record_from_mapping,
     reservation_record_to_mapping,
@@ -233,6 +234,24 @@ def test_invalid_state_shape_and_time_fail_closed() -> None:
         )
 
 
+def test_unknown_state_rejects_backdated_continuity_evidence() -> None:
+    in_flight = begin_dispatch(_reserved(), at=_NOW + timedelta(seconds=1))
+    lease_expired = expire_reservation(in_flight, at=_NOW + timedelta(seconds=10))
+    with pytest.raises(ValueError, match="lease-expired.*predates expiry"):
+        replace(
+            lease_expired,
+            state_changed_at=lease_expired.lease_expires_at - timedelta(microseconds=1),
+        )
+
+    continuity_unknown = quarantine_reservation(
+        in_flight,
+        at=_NOW + timedelta(seconds=2),
+        continuity_evidence_digest=_DIGEST,
+    )
+    with pytest.raises(ValueError, match="continuity evidence predates dispatch"):
+        replace(continuity_unknown, state_changed_at=_NOW)
+
+
 def test_transition_receipt_requires_exact_predecessor_and_legal_edge() -> None:
     reserved = _reserved()
     in_flight = begin_dispatch(reserved, at=_NOW + timedelta(seconds=1))
@@ -265,6 +284,103 @@ def test_transition_receipt_requires_exact_predecessor_and_legal_edge() -> None:
             store_receipt_digest=_DIGEST,
             recorded_at=_NOW + timedelta(seconds=10),
         )
+
+
+def test_transition_receipt_rejects_predecessor_revision_and_time_mismatch() -> None:
+    reserved = _reserved()
+    in_flight = begin_dispatch(reserved, at=_NOW + timedelta(seconds=1))
+    receipt = IdempotencyReservationTransitionReceipt.create(
+        prior_record=reserved,
+        record=in_flight,
+        expected_prior_revision=reserved.revision,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW + timedelta(seconds=1),
+    )
+    wrong_revision = reservation_model._build_record(  # noqa: SLF001
+        identity=reserved.identity,
+        state=ReservationState.RESERVED,
+        revision=2,
+        reserved_at=reserved.reserved_at,
+        lease_expires_at=reserved.lease_expires_at,
+        state_changed_at=reserved.state_changed_at,
+    )
+
+    with pytest.raises(ValueError, match="predecessor mismatched"):
+        replace(receipt, prior_record=wrong_revision)
+    with pytest.raises(ValueError, match="predates its predecessor"):
+        replace(
+            receipt,
+            recorded_at=reserved.state_changed_at - timedelta(microseconds=1),
+        )
+
+
+def test_transition_validation_rejects_identity_and_attempt_substitution() -> None:
+    reserved = _reserved()
+    abandoned = expire_reservation(
+        reserved,
+        at=reserved.lease_expires_at,
+        dispatch_never_began_digest=_DIGEST,
+    )
+    changed_operation = reservation_model._build_record(  # noqa: SLF001
+        identity=_identity(
+            attempt=2,
+            target_ref="resource/other",
+            acquired_at=_NOW + timedelta(seconds=10),
+        ),
+        state=ReservationState.RESERVED,
+        revision=3,
+        reserved_at=_NOW + timedelta(seconds=11),
+        lease_expires_at=_NOW + timedelta(seconds=20),
+        state_changed_at=_NOW + timedelta(seconds=11),
+    )
+    repeated_attempt = reservation_model._build_record(  # noqa: SLF001
+        identity=_identity(
+            acquired_at=_NOW + timedelta(seconds=10),
+        ),
+        state=ReservationState.RESERVED,
+        revision=3,
+        reserved_at=_NOW + timedelta(seconds=11),
+        lease_expires_at=_NOW + timedelta(seconds=20),
+        state_changed_at=_NOW + timedelta(seconds=11),
+    )
+
+    with pytest.raises(ValueError, match="changes the stable operation"):
+        reservation_model.validate_reservation_transition(abandoned, changed_operation)
+    with pytest.raises(ValueError, match="attempt MUST increase"):
+        reservation_model.validate_reservation_transition(abandoned, repeated_attempt)
+
+    substituted_in_flight = reservation_model._build_record(  # noqa: SLF001
+        identity=_identity(target_ref="resource/other"),
+        state=ReservationState.IN_FLIGHT,
+        revision=2,
+        reserved_at=_NOW,
+        lease_expires_at=_NOW + timedelta(seconds=10),
+        state_changed_at=_NOW + timedelta(seconds=1),
+        dispatch_started_at=_NOW + timedelta(seconds=1),
+    )
+    with pytest.raises(ValueError, match="transition identity changed"):
+        reservation_model.validate_reservation_transition(
+            reserved,
+            substituted_in_flight,
+        )
+
+
+def test_reservation_factories_reject_naive_time_and_accept_observed_duplicate() -> None:
+    with pytest.raises(ValueError, match="MUST include a timezone"):
+        IdempotencyReservationRecord.create_reserved(
+            identity=_identity(),
+            reserved_at=_NOW.replace(tzinfo=None),
+            lease_expires_at=_NOW + timedelta(seconds=10),
+        )
+
+    observed = _reserved()
+    result = IdempotencyReservationReserveResult(
+        candidate_identity=_identity(),
+        match=ReservationMatch.DUPLICATE_SAME,
+        observed_record=observed,
+        transition_receipt=None,
+    )
+    assert result.observed_record is observed
 
 
 def test_transition_receipt_rejects_lease_rewrite() -> None:

@@ -19,6 +19,16 @@ variable "env" {
   }
 }
 
+variable "deploy_runner_principal_id" {
+  description = "Stable deploy UAMI principal id that owns Terraform deployment roles."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.deploy_runner_principal_id))
+    error_message = "deploy_runner_principal_id must be a GUID."
+  }
+}
+
 variable "enable_dev_operations_gateway" {
   description = "Provision the development-only Azure Functions operations gateway. Requires env=dev and private networking, both enforced in production-gates.tf. NOTE: the function app terminates a PUBLIC inbound endpoint - a developer has to reach it - so this is not usable on a closed network and must stay false there."
   type        = bool
@@ -1176,6 +1186,12 @@ variable "design_mocks_region" {
 # ---------------------------------------------------------------------------
 variable "enable_operator_api" {
   description = "Provision the console Operator API Container App + migration job. Default false so the day-zero deploy stays headless."
+  type        = bool
+  default     = false
+}
+
+variable "enable_runtime_call_evidence" {
+  description = "Enable the deployed Inventory Job runtime-call telemetry source independently of legacy Operator API ownership."
   type        = bool
   default     = false
 }

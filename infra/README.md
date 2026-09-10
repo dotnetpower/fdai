@@ -252,8 +252,9 @@ in a test file synthetic
 
 ## Security scan exceptions
 
-The `terraform-security` job in `.github/workflows/ci.yml` runs Trivy and Checkov as blocking
-checks without a repository-wide baseline when infrastructure or its CI controls change.
+The `terraform-validate` job in `.github/workflows/ci.yml` runs Trivy and Checkov as blocking
+checks after Terraform validation, without a repository-wide baseline, when infrastructure or its
+CI controls change.
 An intentional exception stays next to the exact resource and check. Its comment must identify
 the implemented compensating control, production gate, provider limitation, or managed-service
 constraint. A new detected issue (`finding`) therefore fails CI unless the source either implements

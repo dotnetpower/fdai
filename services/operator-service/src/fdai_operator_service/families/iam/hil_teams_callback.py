@@ -352,6 +352,7 @@ def make_hil_teams_callback_route(
             raw = await _read_bounded_activity_body(request, normalizer.max_body_bytes)
         except TeamsCallbackError as exc:
             return error_response(exc.status_code, str(exc), kind=exc.kind)
+        intent_digest = "sha256:" + hashlib.sha256(raw).hexdigest()
         try:
             service_identity = await normalizer.authenticate_transport(
                 request.headers.get("authorization")
@@ -366,6 +367,7 @@ def make_hil_teams_callback_route(
                 HilCallbackAttempt(
                     callback_id=_activity_callback_id(approval_id, raw),
                     approval_id=approval_id,
+                    intent_digest=intent_digest,
                     channel_hint=HilCallbackChannel.TEAMS.value,
                 )
             )
@@ -380,6 +382,7 @@ def make_hil_teams_callback_route(
             HilCallbackAttempt(
                 callback_id=_activity_callback_id(approval_id, raw),
                 approval_id=approval_id,
+                intent_digest=intent_digest,
                 channel_hint=HilCallbackChannel.TEAMS.value,
             )
         )

@@ -55,6 +55,34 @@ def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
         )
 
 
+def test_deploy_identity_scope_delegates_to_the_exact_role_guard() -> None:
+    principal = "00000000-0000-0000-0000-000000000001"
+    address = "azurerm_role_assignment.kv_officer_self"
+    plan = {
+        "resource_changes": [
+            {
+                "address": address,
+                "type": "azurerm_role_assignment",
+                "change": {
+                    "actions": ["create"],
+                    "before": None,
+                    "after": {
+                        "scope": "same-scope",
+                        "role_definition_name": "Key Vault Secrets Officer",
+                        "principal_id": principal,
+                    },
+                },
+            }
+        ]
+    }
+
+    assert enforce(
+        plan,
+        mode="deploy-identity",
+        expected_deploy_principal_id=principal,
+    ) == frozenset({address})
+
+
 def test_observability_analyzer_scope_accepts_only_the_analyzer_job() -> None:
     analyzer = "terraform_data.observability_analyzer_image_update"
 
@@ -71,6 +99,18 @@ def test_observability_analyzer_scope_accepts_only_the_analyzer_job() -> None:
                 _plan(analyzer, outside_address),
                 mode="observability-analyzer",
             )
+
+
+def test_runtime_call_evidence_scope_accepts_only_the_inventory_job() -> None:
+    inventory = "module.compute.azurerm_container_app_job.inventory[0]"
+
+    assert enforce(_plan(inventory), mode="runtime-call-evidence") == frozenset({inventory})
+    assert enforce({"resource_changes": []}, mode="runtime-call-evidence") == frozenset()
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(
+            _plan(inventory, "azurerm_role_assignment.kv_officer_self"),
+            mode="runtime-call-evidence",
+        )
 
 
 def test_cli_admits_observability_analyzer_scope() -> None:

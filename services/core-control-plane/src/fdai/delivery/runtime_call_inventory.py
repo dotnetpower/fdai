@@ -35,6 +35,13 @@ _RUNTIME_CALL_UNAVAILABLE_REASONS = frozenset(
         "telemetry_rows_incomplete",
     }
 )
+_RUNTIME_CALL_COVERAGE_KEYS = frozenset(
+    {
+        "malformed_rows",
+        "redacted_rows",
+        "unavailable_rows",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,10 +80,15 @@ class RuntimeCallTelemetryBatch:
         if self.reason is not None and self.reason not in _RUNTIME_CALL_UNAVAILABLE_REASONS:
             raise ValueError("runtime call telemetry reason is not allowlisted")
         if any(
-            not isinstance(key, str) or not isinstance(value, int) or value < 0
+            key not in _RUNTIME_CALL_COVERAGE_KEYS
+            or not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < 0
             for key, value in self.coverage.items()
         ):
-            raise ValueError("runtime call telemetry coverage MUST contain non-negative counts")
+            raise ValueError(
+                "runtime call telemetry coverage MUST contain allowlisted non-negative counts"
+            )
         if self.complete and any(self.coverage.values()):
             raise ValueError("complete runtime call telemetry MUST NOT contain partial coverage")
 

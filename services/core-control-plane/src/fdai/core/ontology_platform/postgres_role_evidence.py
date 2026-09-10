@@ -121,6 +121,10 @@ class PostgresRoleEvidence:
     execution_authority: Literal[False] = False
     mutation_authority: Literal[False] = False
 
+    def __post_init__(self) -> None:
+        if self.execution_authority or self.mutation_authority:
+            raise ValueError("PostgreSQL role evidence MUST NOT carry action authority")
+
 
 @dataclass(frozen=True, slots=True)
 class PostgresRoleProjection:
@@ -136,6 +140,8 @@ class PostgresRoleProjection:
         projected = self.reason is PostgresRoleProjectionReason.PROJECTED
         if projected != (self.evidence is not None):
             raise ValueError("PostgreSQL role projected reason MUST match evidence presence")
+        if self.execution_authority or self.mutation_authority:
+            raise ValueError("PostgreSQL role projection MUST NOT carry action authority")
 
 
 def project_postgres_role_evidence(
@@ -177,9 +183,10 @@ def project_postgres_role_evidence(
         service_ref=observation.service_ref,
         principal_handle=_digest(
             {
-                "role_name": observation.role_name,
-                "service_ref": observation.service_ref,
+                "authentication_ref": observation.authentication_ref,
+                "evidence_ref": observation.evidence_ref,
                 "scope_ref": observation.scope_ref,
+                "service_ref": observation.service_ref,
                 "source_identity": observation.source_identity,
             }
         ),

@@ -5,9 +5,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from guard_deploy_identity_plan import validate_plan as validate_deploy_identity_plan  # noqa: E402
 
 _DESIGN_MOCKS = frozenset({"module.design_mocks[0].azurerm_static_web_app.design_mocks"})
 _PRIMARY_REASONER = (
@@ -30,6 +35,7 @@ _RCA_READER_IDENTITY = frozenset(
     }
 )
 _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
+_RUNTIME_CALL_EVIDENCE = frozenset({"module.compute.azurerm_container_app_job.inventory[0]"})
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
@@ -123,9 +129,16 @@ def enforce(
     *,
     mode: str,
     resolved_models: dict[str, Any] | None = None,
+    expected_deploy_principal_id: str = "",
 ) -> frozenset[str]:
     """Reject changes outside the selected bounded deployment mode."""
     changed = changed_addresses(plan)
+    if mode == "deploy-identity":
+        validate_deploy_identity_plan(
+            plan,
+            expected_principal_id=expected_deploy_principal_id,
+        )
+        return changed
     if mode == "design-mocks":
         allowed = _DESIGN_MOCKS
         label = "Design-mocks-only"
@@ -186,6 +199,14 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "runtime-call-evidence":
+        unexpected = sorted(changed.difference(_RUNTIME_CALL_EVIDENCE))
+        if unexpected:
+            raise ValueError(
+                "Runtime-call-evidence plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "operational-history":
         unexpected = sorted(
             address
@@ -230,12 +251,14 @@ def main() -> int:
         "--mode",
         choices=(
             "core-model-quorum",
+            "deploy-identity",
             "design-mocks",
             "monitoring",
             "model-binding",
             "observability-analyzer",
             "rca-reader-identity",
             "operational-history",
+            "runtime-call-evidence",
         ),
         required=True,
     )
@@ -252,7 +275,12 @@ def main() -> int:
     plan = json.loads(rendered)
     resolved = _load(args.resolved_models) if args.resolved_models else None
     try:
-        changed = enforce(plan, mode=args.mode, resolved_models=resolved)
+        changed = enforce(
+            plan,
+            mode=args.mode,
+            resolved_models=resolved,
+            expected_deploy_principal_id=os.environ.get("DEPLOY_RUNNER_PRINCIPAL_ID", ""),
+        )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     print(f"{args.mode} plan accepted: {sorted(changed)}")

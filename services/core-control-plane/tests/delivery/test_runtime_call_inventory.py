@@ -168,6 +168,17 @@ def test_unavailable_source_reason_cannot_carry_raw_details() -> None:
         )
 
 
+def test_unavailable_source_coverage_cannot_carry_raw_keys() -> None:
+    with pytest.raises(ValueError, match="allowlisted non-negative counts"):
+        RuntimeCallTelemetryBatch(
+            records=(),
+            observed_at=None,
+            complete=False,
+            reason="telemetry_rows_incomplete",
+            coverage={"https://secret.example.com/?sig=value": 1},
+        )
+
+
 async def test_unbound_production_enricher_records_explicit_unavailability() -> None:
     enriched = await UnavailableRuntimeCallInventoryEnricher().enrich(_observation())
 

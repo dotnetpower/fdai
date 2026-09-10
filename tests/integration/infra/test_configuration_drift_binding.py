@@ -36,13 +36,13 @@ def test_configuration_drift_is_explicitly_opt_in() -> None:
         _SERVICE_MAIN,
         re.MULTILINE,
     )
-    assert "!var.configuration_drift.enabled ? [] : [" in _MODULE_MAIN
+    assert "!nonsensitive(var.configuration_drift.enabled) ? [] : [" in _MODULE_MAIN
     assert "FDAI_CONFIGURATION_DRIFT_ENABLED" in _MODULE_MAIN
 
 
 def test_configuration_drift_threads_every_runtime_prerequisite() -> None:
     for key in (
-        "FDAI_CONFIGURATION_BASELINE_PATH",
+        "FDAI_CONFIGURATION_BASELINE_URL",
         "FDAI_CONFIGURATION_BASELINE_VERSION",
         "FDAI_CONFIGURATION_BASELINE_SHA256",
         "FDAI_CONFIGURATION_SCOPE",
@@ -54,6 +54,7 @@ def test_configuration_drift_threads_every_runtime_prerequisite() -> None:
 
     assert "ordered unique subscriptions" in _MODULE_VARIABLES
     assert "ordered unique scalar attribute paths" in _MODULE_VARIABLES
+    assert "configuration-baselines/[0-9a-f]{64}" in _MODULE_VARIABLES
     assert "https://management.azure.com" in _MODULE_VARIABLES
 
 

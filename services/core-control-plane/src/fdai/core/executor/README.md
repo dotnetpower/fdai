@@ -8,6 +8,10 @@ direct-API, and tool-call execution. `InProcessThorExecutionPort` binds the
 existing executor instances without adding transport, changing authority, or
 duplicating Saga audit, Vidar recovery, shadow, lock, or idempotency state.
 
+Idempotency reservation identity and transition contracts remain in
+`idempotency_reservation.py`. Codec, lifecycle, and state-shape validation are
+split into adjacent single-purpose modules without moving execution authority.
+
 `MutationDependencyReadiness` is immutable composition evidence derived from
 the existing `Saga` audit chain and Vidar rollback-executor registry. Runtime
 construction permits mutation only when the Saga chain is durable and at least

@@ -31,8 +31,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  guard:
-    name: Verify protected Pages source
+  build:
+    name: Build (Astro Starlight)
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
@@ -54,11 +54,6 @@ jobs:
           origin-url: ${{ github.server_url }}/${{ github.repository }}.git
           github-token: ${{ github.token }}
 
-  build:
-    name: Build (Astro Starlight)
-    needs: guard
-    runs-on: ubuntu-24.04
-    steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,17 +68,19 @@ jobs:
             site/package-lock.json
             tools/architecture-diagrams/package-lock.json
 
-      - name: Install diagram compiler dependencies
-        working-directory: tools/architecture-diagrams
-        run: npm ci --no-audit --no-fund
+      - name: Install documentation build dependencies
+        run: |
+          npm --prefix tools/architecture-diagrams ci --no-audit --no-fund
+          npm --prefix site ci --no-audit --no-fund
 
-      - name: Verify architecture diagrams
-        working-directory: tools/architecture-diagrams
-        run: npm test && npm run typecheck && npm run check && npm run check-public-migration && npm run check-repository-migration
-
-      - name: Install dependencies
-        working-directory: site
-        run: npm ci --no-audit --no-fund
+      - name: Validate documentation sources
+        run: |
+          npm --prefix tools/architecture-diagrams test
+          npm --prefix tools/architecture-diagrams run typecheck
+          npm --prefix tools/architecture-diagrams run check
+          npm --prefix tools/architecture-diagrams run check-public-migration
+          npm --prefix tools/architecture-diagrams run check-repository-migration
+          npm --prefix site test
 
       - name: Configure Pages
         # `enablement: true` would try to turn Pages on via the REST API
@@ -98,27 +95,17 @@ jobs:
         with:
           enablement: false
 
-      - name: Test site source
-        working-directory: site
-        run: npm test
-
-      - name: Build site
+      - name: Build and verify site
         working-directory: site
         env:
           # Passed through to astro.config.mjs so a fork can override without
           # editing config. Defaults target dotnetpower/fdai.
           SITE_URL: ${{ steps.pages.outputs.origin || 'https://dotnetpower.github.io' }}
           BASE_PATH: ${{ steps.pages.outputs.base_path || '/fdai' }}
-        run: npm run build
-
-      - name: Verify built routes and links
-        working-directory: site
-        env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path || '/fdai' }}
-        run: npm run check:built
-
-      - name: Verify publication manifest is current
-        run: git diff --exit-code -- site/src/data/publication-routes.json
+        run: |
+          npm run build
+          npm run check:built
+          git diff --exit-code -- src/data/publication-routes.json
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

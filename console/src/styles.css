@@ -7088,6 +7088,30 @@ pre {
   flex-wrap: wrap;
 }
 .approval-card-actions { margin-top: 12px; }
+.approval-decision-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.approval-decision-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+.approval-decision-form textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.approval-decision-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.approval-decision-unavailable { margin: 14px 0 0; }
 .approval-rule-links {
   display: flex;
   gap: 4px;

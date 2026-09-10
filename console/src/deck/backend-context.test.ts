@@ -67,6 +67,18 @@ describe("viewContextWithUser wiring", () => {
     expect(String(ctx._route_actions).toLowerCase()).toContain("live cockpit");
   });
 
+  test("describes Console approval decisions without implying execution", async () => {
+    const parsed = await callAskAndCaptureBody({
+      ...liveSnap(),
+      routeId: "hil-queue",
+      routeLabel: "Approvals",
+    });
+    const hint = String(parsed?.view_context?._route_actions);
+    expect(hint).toContain("FDAI Console");
+    expect(hint).toContain("never executes");
+    expect(hint).not.toContain("never in this console");
+  });
+
   test("omits _route_actions for a route without a hint", async () => {
     const parsed = await callAskAndCaptureBody({
       ...liveSnap(),

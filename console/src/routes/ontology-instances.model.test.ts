@@ -580,6 +580,19 @@ describe("decodeOntologyInstanceExploration", () => {
       source.source === "kubernetes_runtime_inventory")).toBe(false);
   });
 
+  it("requires explicit runtime-call and PostgreSQL-role source states", () => {
+    for (const sourceName of ["runtime_call_graph", "postgres_role_evidence"]) {
+      const value = payload();
+      value.sources = (value.sources as Record<string, unknown>[]).filter(
+        (source) => source.source !== sourceName,
+      );
+
+      expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+        `instance source ${sourceName} is required`,
+      );
+    }
+  });
+
   it("accepts an independently verified Kubernetes provider identity bridge", () => {
     const value = payload();
     value.link_types = ["kubernetes_backed_by"];

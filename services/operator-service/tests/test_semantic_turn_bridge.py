@@ -2183,16 +2183,38 @@ async def test_outbox_logs_exact_runtime_call_only_after_broker_acceptance() -> 
         envelope=envelope,
     )
     publisher = _FailOncePublisher()
+    events: list[str] = []
+
+    class _OrderedPublisher:
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            result = await publisher.publish(topic, key, payload)
+            events.append("broker-accepted")
+            return result
+
     records: list[dict[str, object]] = []
+
+    def witness_clock() -> datetime:
+        events.append("clock")
+        return datetime(2026, 9, 9, 10, tzinfo=UTC)
+
+    def emit_witness(record: str) -> None:
+        events.append("witness")
+        records.append(json.loads(record))
+
     drainer = SemanticTurnOutboxDrainer(
         store,
-        publisher,
+        _OrderedPublisher(),
         "replica-a",
         runtime_call_observer=RuntimeCallEndpointObserver(
             caller_resource_id=caller,
             target_resource_id=target,
-            clock=lambda: datetime(2026, 9, 9, 10, tzinfo=UTC),
-            emit=lambda record: records.append(json.loads(record)),
+            clock=witness_clock,
+            emit=emit_witness,
         ),
     )
 
@@ -2200,6 +2222,7 @@ async def test_outbox_logs_exact_runtime_call_only_after_broker_acceptance() -> 
     assert records == []
     assert await drainer.run_once() is True
 
+    assert events == ["broker-accepted", "clock", "witness"]
     assert len(records) == 1
     assert records == [
         {

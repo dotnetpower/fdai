@@ -51,6 +51,20 @@ moved {
 
 data "azurerm_client_config" "current" {}
 
+resource "terraform_data" "deploy_runner_identity_fence" {
+  input = var.deploy_runner_principal_id
+
+  lifecycle {
+    precondition {
+      condition = (
+        lower(data.azurerm_client_config.current.object_id) ==
+        lower(var.deploy_runner_principal_id)
+      )
+      error_message = "The authenticated Terraform principal must match deploy_runner_principal_id."
+    }
+  }
+}
+
 locals {
   env_suffix                         = var.env == "" ? "" : "-${var.env}"
   region_suffix                      = var.region_short == "" ? "" : "-${var.region_short}"
@@ -1279,7 +1293,7 @@ module "document_storage" {
   name                            = substr("st${var.workload}doc${local.acr_suffix}${local.storage_unique_suffix}", 0, 24)
   resource_group_name             = module.resource_group.name
   location                        = var.region
-  deployer_principal_id           = data.azurerm_client_config.current.object_id
+  deployer_principal_id           = var.deploy_runner_principal_id
   log_analytics_workspace_id      = module.log_analytics.workspace_id
   replication_type                = var.document_storage_replication_type
   public_network_access_enabled   = !var.enable_private_networking
@@ -1320,7 +1334,7 @@ module "case_history_storage" {
   name                          = substr("st${var.workload}case${local.acr_suffix}${local.storage_unique_suffix}", 0, 24)
   resource_group_name           = module.resource_group.name
   location                      = var.region
-  deployer_principal_id         = data.azurerm_client_config.current.object_id
+  deployer_principal_id         = var.deploy_runner_principal_id
   runtime_principal_id          = module.case_history_identity[0].principal_id
   log_analytics_workspace_id    = module.log_analytics.workspace_id
   replication_type              = var.case_history_replication_type
@@ -1349,7 +1363,7 @@ module "operational_history_storage" {
   )
   resource_group_name           = module.resource_group.name
   location                      = var.region
-  deployer_principal_id         = data.azurerm_client_config.current.object_id
+  deployer_principal_id         = var.deploy_runner_principal_id
   legacy_deployer_principal_id  = var.operational_history_legacy_deployer_principal_id
   runtime_principal_id          = module.inventory_identity.principal_id
   log_analytics_workspace_id    = module.log_analytics.workspace_id
@@ -1378,7 +1392,7 @@ module "decision_evidence_storage" {
   )
   resource_group_name           = module.resource_group.name
   location                      = var.region
-  deployer_principal_id         = data.azurerm_client_config.current.object_id
+  deployer_principal_id         = var.deploy_runner_principal_id
   runtime_principal_id          = module.identity.principal_id
   runtime_role_definition_name  = "Storage Blob Data Reader"
   log_analytics_workspace_id    = module.log_analytics.workspace_id
@@ -1602,7 +1616,7 @@ module "rule_catalog_snapshot_storage" {
   )
   resource_group_name           = module.resource_group.name
   location                      = var.region
-  deployer_principal_id         = data.azurerm_client_config.current.object_id
+  deployer_principal_id         = var.deploy_runner_principal_id
   runtime_principal_id          = module.inventory_identity.principal_id
   log_analytics_workspace_id    = module.log_analytics.workspace_id
   container_name                = "rule-catalog-snapshots"
@@ -1670,7 +1684,7 @@ resource "azurerm_role_assignment" "dev_gateway_storage_deployer" {
   count                = var.enable_dev_operations_gateway ? 1 : 0
   scope                = azurerm_storage_account.dev_gateway[0].id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.deploy_runner_principal_id
 }
 
 resource "azurerm_role_assignment" "dev_gateway_storage_runtime" {
@@ -2106,7 +2120,7 @@ module "postgres_public_mode_private_endpoint" {
 resource "azurerm_role_assignment" "kv_officer_self" {
   scope                = module.key_vault.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.deploy_runner_principal_id
 }
 
 resource "azurerm_key_vault_secret" "state_store_dsn" {
@@ -2424,7 +2438,7 @@ module "compute" {
   # so the deterministic detection pipeline sees real telemetry with no
   # fork required. See src/fdai/composition/wire_azure.py.
   monitor_workspace_customer_id = module.log_analytics.workspace_customer_id
-  runtime_call_evidence_enabled = var.enable_operator_api
+  runtime_call_evidence_enabled = var.enable_operator_api || var.enable_runtime_call_evidence
   case_history_container_url = (
     var.enable_case_history ? module.case_history_storage[0].container_url : ""
   )
@@ -2653,7 +2667,7 @@ module "llm_foundry_partner" {
     }
   ]
   user_principal_ids = {
-    deployer = data.azurerm_client_config.current.object_id
+    deployer = var.deploy_runner_principal_id
     executor = module.identity.principal_id
   }
   tags = merge(local.tags, { "fdai:component" = "partner-models" })
@@ -2721,7 +2735,7 @@ module "foundry_web_search" {
   model_sku                  = local.foundry_web_search_capability.sku
   model_capacity_tpm         = local.foundry_web_search_capability.capacity_tpm
   user_principal_ids = merge(
-    { deployer = data.azurerm_client_config.current.object_id },
+    { deployer = var.deploy_runner_principal_id },
     var.enable_operator_api ? { operator_api = module.operator_api_identity[0].principal_id } : {},
   )
   tags = merge(local.tags, { "fdai:component" = "web-search" })

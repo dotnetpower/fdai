@@ -61,6 +61,8 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
+Disabled resource-change and recovery accelerators do not require collection-policy entries and
+contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
@@ -73,22 +75,44 @@ accepted Event observations.
 
 Runtime-call evidence requires two typed endpoint witnesses with the same hashed request identity
 and exact caller and target Container App Resource IDs. Operator emits the caller witness only after
-authenticated broker acceptance, and Core emits the target witness as soon as that broker delivery
+authenticated broker acceptance and records its observation time only after that acceptance. Core
+emits the target witness as soon as that broker delivery
 reaches the target boundary, before turn processing can reject it. Neither witness carries request
-content or authority. The Azure Monitor source accepts
+content or authority. Consumer cancellation always stops the associated progress publisher before
+the delivery task exits, so no stale progress can survive the target boundary. An untrusted
+telemetry envelope exposes no direct conversion to projection
+input. Only the authenticated producer can perform that conversion after it verifies the exact
+envelope digest and independent source context under a finite positive deadline. The Azure Monitor source accepts
 only the matching structured Container Apps log schema, then re-reads each platform-stamped
-revision and replica under its claimed exact Container App ARM ID. Only those independently bound
+Resource ID, revision, and replica under its claimed exact Container App ARM ID. Only those independently bound
 endpoint witnesses convert through the existing canonical Resource ID mapping. The standalone channel edge never receives the caller
 binding, so its requests on the shared topic cannot join a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
 newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
 pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do
-not split a retained pair. Exact replica verification uses at most four concurrent reads under one
+not split a retained pair. Incomplete-source coverage accepts only the fixed row-count keys and
+cannot carry provider identifiers or arbitrary source text. Exact replica verification uses at most four concurrent reads under one
 30-second deadline, and freshness is evaluated only after those reads finish. The
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
-scope, freshness budget, and exact ontology release before it can project `runtime_calls`. Local
+scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
+verification receipt binds both endpoint Resource IDs and their active-generation Resource types.
+Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
+The platform's `enable_runtime_call_evidence` input controls this Inventory Job source independently
+of the legacy Operator API module, so state migration cannot silently remove collection. Schema-valid
+`plan-runtime-*` and `apply-runtime-*` requests target only that Inventory Job and reject mixed targets.
+The post-plan scope guard rejects every dependency-induced change outside the exact Job address.
+PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
+or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
+or mutation authority at runtime rather than relying on type annotations alone. The projected
+principal handle derives from opaque authenticated evidence references and scoped source context;
+it never hashes the low-entropy role name. Current Operator and Console instance-detail responses
+must carry explicit runtime-call and PostgreSQL-role source states; omission is invalid rather than
+available or measured zero. The Operator persistence reader accepts runtime-call link metadata only
+when its embedded inventory generation equals the exact selected snapshot. Unavailable source
+reasons must be canonical machine tokens and cannot carry principal text, endpoints, or provider
+details.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.
@@ -96,11 +120,15 @@ It creates no runtime-call witness, graph edge, provider observation, or executi
 Protected service deployment first consumes the platform-owned runtime-call binding. After an
 Operator state migration disables the legacy platform module, that output can be absent while both
 Container Apps remain deployed. In that case, the VNet runner reads the exact Operator app name
-from independent service state and the Core app name and resource group from platform state. It
+from independent service state into a mode-0600 transient file and reads the Core app name and
+resource group from platform state. The transient name never enters the sanitized peer-state
+manifest and is removed with the peer-state workspace. The runner
 uses those names with the pinned subscription to read both exact Resource IDs from Azure. The same
 closed validation then requires two distinct Container App IDs before either service receives the
-binding. A failed or ambiguous state or provider read blocks the plan and never falls back to a
-constructed identity.
+binding. Both service roots require canonical unpadded ARM IDs with an exact subscription UUID,
+resource-group segment, provider path, and terminal app segment. Partial, trailing-slash,
+whitespace-padded, or same-endpoint pairs fail validation. A failed or ambiguous state or provider
+read blocks the plan and never falls back to a constructed identity.
 
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
 

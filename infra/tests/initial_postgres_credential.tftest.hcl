@@ -6,6 +6,15 @@ mock_provider "azurerm" {}
 mock_provider "archive" {}
 mock_provider "random" {}
 
+override_data {
+  target = data.azurerm_client_config.current
+  values = {
+    subscription_id = "00000000-0000-0000-0000-000000000000"
+    tenant_id       = "00000000-0000-0000-0000-000000000000"
+    object_id       = "00000000-0000-0000-0000-000000000001"
+  }
+}
+
 override_module {
   target = module.resource_group
   outputs = {
@@ -14,10 +23,11 @@ override_module {
 }
 
 variables {
-  region               = "koreacentral"
-  tenant_id            = "00000000-0000-0000-0000-000000000000"
-  postgres_admin_login = "fdaiadmin"
-  core_image           = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  region                     = "koreacentral"
+  deploy_runner_principal_id = "00000000-0000-0000-0000-000000000001"
+  tenant_id                  = "00000000-0000-0000-0000-000000000000"
+  postgres_admin_login       = "fdaiadmin"
+  core_image                 = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
 run "supplied_password_preserves_default_path" {

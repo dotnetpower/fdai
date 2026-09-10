@@ -1,5 +1,19 @@
 data "azurerm_client_config" "current" {}
 
+resource "terraform_data" "deploy_runner_identity_fence" {
+  input = var.deploy_runner_principal_id
+
+  lifecycle {
+    precondition {
+      condition = (
+        lower(data.azurerm_client_config.current.object_id) ==
+        lower(var.deploy_runner_principal_id)
+      )
+      error_message = "The authenticated Terraform principal must match deploy_runner_principal_id."
+    }
+  }
+}
+
 locals {
   suffix           = "fdai-sre-${var.environment}-${var.region_short}"
   unique_suffix    = substr(sha1("${data.azurerm_client_config.current.subscription_id}:${var.environment}:${var.region}"), 0, 6)

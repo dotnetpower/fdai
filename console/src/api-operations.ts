@@ -307,6 +307,18 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
       const requestedAt = apiString(item, "requested_at", "HIL queue item");
       const mode = apiOptionalString(item, "mode", "HIL queue item");
       const ttlExpiresAt = apiOptionalNullableString(item, "ttl_expires_at", "HIL queue item");
+      const decisionRequestable = item["decision_requestable"] === undefined
+        ? false
+        : apiBoolean(
+          item,
+          "decision_requestable",
+          "HIL queue item",
+        );
+      const decisionUnavailableReason = apiOptionalNullableString(
+        item,
+        "decision_unavailable_reason",
+        "HIL queue item",
+      ) ?? (decisionRequestable ? null : "legacy_context_incomplete");
       if (!isRfc3339Timestamp(requestedAt)) {
         throw contractError("HIL queue item.requested_at MUST be an RFC 3339 timestamp");
       }
@@ -315,6 +327,14 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
       }
       if (mode !== "" && mode !== "shadow" && mode !== "enforce") {
         throw contractError("HIL queue item.mode MUST be shadow, enforce, or omitted");
+      }
+      if (
+        (decisionRequestable && (ttlExpiresAt === null || decisionUnavailableReason !== null))
+        || (!decisionRequestable && decisionUnavailableReason === null)
+      ) {
+        throw contractError(
+          "HIL queue item decision availability is internally inconsistent",
+        );
       }
       return {
         idempotency_key: apiString(item, "idempotency_key", "HIL queue item"),
@@ -337,6 +357,8 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
         reasons: apiOptionalStringArray(item, "reasons", "HIL queue item"),
         citing_rule_ids: apiOptionalStringArray(item, "citing_rule_ids", "HIL queue item"),
         ttl_expires_at: ttlExpiresAt,
+        decision_requestable: decisionRequestable,
+        decision_unavailable_reason: decisionUnavailableReason,
       };
     });
   const total = apiNonNegativeInteger(root, "total", "HIL queue page");

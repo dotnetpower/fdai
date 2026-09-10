@@ -14,12 +14,47 @@ export async function putGovernedJson(
   body: Record<string, unknown>,
   method: "POST" | "PUT" = "PUT",
 ): Promise<unknown> {
-  const authorization = await auth.getAuthorizationHeader();
+  return writeGovernedJson(
+    () => auth.getAuthorizationHeader(),
+    operatorApiBaseUrl,
+    path,
+    body,
+    method,
+  );
+}
+
+export async function postGovernedJson(
+  authorizationHeader: () => Promise<string | null>,
+  operatorApiBaseUrl: string,
+  path: string,
+  body: Record<string, unknown>,
+  idempotencyKey: string,
+): Promise<unknown> {
+  return writeGovernedJson(
+    authorizationHeader,
+    operatorApiBaseUrl,
+    path,
+    body,
+    "POST",
+    idempotencyKey,
+  );
+}
+
+async function writeGovernedJson(
+  authorizationHeader: () => Promise<string | null>,
+  operatorApiBaseUrl: string,
+  path: string,
+  body: Record<string, unknown>,
+  method: "POST" | "PUT",
+  idempotencyKey?: string,
+): Promise<unknown> {
+  const authorization = await authorizationHeader();
   const headers: Record<string, string> = {
     accept: "application/json",
     "content-type": "application/json",
   };
   if (authorization !== null) headers.authorization = authorization;
+  if (idempotencyKey !== undefined) headers["idempotency-key"] = idempotencyKey;
   const controller = new AbortController();
   const timer = globalThis.setTimeout(() => controller.abort(), 10_000);
   let response: Response;

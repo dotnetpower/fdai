@@ -1,12 +1,12 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ff188a8eedd951b91931a202ce43b8fe15c81a37
+translation_source_sha: 5f9b4e4f95a0fcfc3e801b28c4a5604cf2707389
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
 
-이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
+이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
 
 ## 설계 개요
 
@@ -19,7 +19,7 @@ translation_revised: 2026-09-11
 허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
 않습니다. 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한 episode 하나가 due 대기열 전체를 막을 수 없습니다. T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트
 리소스 유형을 읽습니다. 따라서 이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
-기록된 Resource 상태 정규화는 Core와 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다.
+기록된 Resource 상태 정규화는 Core와 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다. 구성 표류 전달도 `delivery/azure/`와 보호된 Core 서비스 구성에 유지합니다. 검토된 스냅샷은 콘텐츠 주소 기반 private Blob을 통해서만 전달하고, 런타임은 Managed Identity로 읽으며, 적용 후에는 정확한 서버 소유 바인딩을 독립적으로 검증합니다.
 
 ## Core 도메인 탐색 결정
 
@@ -49,7 +49,7 @@ translation_revised: 2026-09-11
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
-  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
+  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
@@ -175,8 +175,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   binding을 가질 때에만 replay-safe입니다. 누락되거나 혼합된 release와 dangling active link는
   absence를 입증하지 않고 completeness를 낮춥니다.
 - Inventory projection contract는 다른 Resource topology link와 함께 검토된 `runtime_calls` link를
-  등록합니다. 따라서 verified telemetry edge는 선언된 Resource-to-Resource 방향을 사용하며
-  current 및 historical read path에서 사용할 수 있습니다.
+  등록합니다. 검증된 edge는 선언된 방향을 현재 및 과거 조회에서 유지합니다. 인증된 생성기만 정확한 다이제스트, 독립 원본 컨텍스트, 유한한 기한을 확인한 뒤 신뢰할 수 없는 묶음을 변환하며 증적은 엔드포인트 ID와 활성 세대 유형을 결속합니다. Operator는 브로커 수락 뒤에만 호출자 시점을 기록합니다. 독립 서비스 루트는 서로 다른 두 정식 Container App ARM ID를 요구합니다. PostgreSQL 역할 근거는 Resource 토폴로지 밖에 유지하고 실행 중 권한을 거부하며 역할 이름 대신 불투명한 인증 참조와 범위가 지정된 원본 컨텍스트에서 principal handle을 파생합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
@@ -553,7 +552,7 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유되고, 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
-작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다.
+작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기 및 상태 형태 검증은 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다.
 
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 

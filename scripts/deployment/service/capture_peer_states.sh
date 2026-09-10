@@ -50,6 +50,13 @@ done < <(
     --environment "$environment"
 )
 
+if [[ -f "$raw_dir/operator-service.json" ]]; then
+  operator_name_file="$output_root/operator-service-name"
+  python3 "$control_root/peer_state.py" service-name \
+    --state "$raw_dir/operator-service.json" >"$operator_name_file"
+  chmod 600 "$operator_name_file"
+fi
+
 python3 "$control_root/peer_state.py" capture \
   --service "$service" \
   --environment "$environment" \

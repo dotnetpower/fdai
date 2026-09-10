@@ -12,10 +12,10 @@ from .idempotency_reservation import (
     ReservationEvidenceKind,
     ReservationState,
     _build_record,
-    _same_operation,
     _utc,
     _validate_digest,
 )
+from .idempotency_reservation_identity import same_operation
 
 
 def dispatch_permitted(
@@ -221,7 +221,7 @@ def reopen_reservation(
     )
     if not recoverable:
         raise ValueError("idempotency reservation has no safe recovery evidence")
-    if not _same_operation(record.identity, candidate_identity):
+    if not same_operation(record.identity, candidate_identity):
         raise ValueError("idempotency reservation recovery changes the stable operation")
     if (
         candidate_identity.acquisition_receipt.attempt

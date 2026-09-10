@@ -83,13 +83,13 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
 resource "azurerm_role_assignment" "runner_aks_credentials" {
   scope                = azurerm_kubernetes_cluster.scenario_lab.id
   role_definition_name = "Azure Kubernetes Service Cluster User Role"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.deploy_runner_principal_id
 }
 
 resource "azurerm_role_assignment" "runner_aks_admin" {
   scope                = azurerm_kubernetes_cluster.scenario_lab.id
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.deploy_runner_principal_id
 }
 
 resource "azurerm_role_assignment" "operator_aks_credentials" {

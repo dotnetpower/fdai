@@ -7,6 +7,7 @@ import inspect
 import json
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -1029,6 +1030,51 @@ async def test_not_due_tick_flushes_service_readiness_status(
         "inventory reconciliation not due; change records published 0",
         flush=True,
     )
+
+
+async def test_disabled_accelerators_do_not_require_collection_policy_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base_config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    assert base_config.collection_policy is not None
+
+    class _PolicyWithoutAccelerators:
+        def source(self, source_id: str) -> object:
+            if source_id in {"resourcechanges-delta", "activity-log-delta"}:
+                raise AssertionError(f"disabled accelerator policy was read: {source_id}")
+            return base_config.collection_policy.source(source_id)
+
+    config = replace(
+        base_config,
+        resource_change_feed_enabled=False,
+        recovery_delta_enabled=False,
+        collection_policy=cast(Any, _PolicyWithoutAccelerators()),
+    )
+    captured: dict[str, object] = {}
+
+    def gate(**kwargs: object) -> AsyncMock:
+        captured.update(kwargs)
+        return AsyncMock(return_value=False)
+
+    monkeypatch.setattr(InventoryJobConfig, "from_env", lambda **_: config)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._drain_change_stream",
+        AsyncMock(return_value=ChangeStreamDrainResult(published=0)),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresInventoryReconciliationGate",
+        gate,
+    )
+
+    await _run_due_once()
+
+    assert captured["cursor_prefixes"] == ()
+    assert captured["cursor_stale_after_seconds"] == 0.0
 
 
 async def test_loop_retries_after_all_inventory_sources_fail(

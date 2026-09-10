@@ -291,7 +291,9 @@ def project_runtime_call(
     verification_receipt = _verification_receipt(
         observation,
         caller_id=caller_id,
+        caller_type=caller.type,
         target_id=target_id,
+        target_type=target.type,
         inventory_generation=inventory_generation,
         verifier_identity=verifier_identity,
         verifier_revision=verifier_revision,
@@ -356,7 +358,9 @@ def _verification_receipt(
     observation: RuntimeCallObservation,
     *,
     caller_id: str,
+    caller_type: str,
     target_id: str,
+    target_type: str,
     inventory_generation: str,
     verifier_identity: str,
     verifier_revision: str,
@@ -365,6 +369,7 @@ def _verification_receipt(
     body = {
         **_observation_body(observation),
         "caller_resource_id": caller_id,
+        "caller_resource_type": caller_type,
         "inventory_generation": inventory_generation,
         "mapping_id": RUNTIME_CALL_MAPPING_ID,
         "mapping_revision": RUNTIME_CALL_MAPPING_REVISION,
@@ -372,6 +377,7 @@ def _verification_receipt(
         "source_schema_digest": RUNTIME_CALL_SOURCE_SCHEMA_DIGEST,
         "source_schema_version": RUNTIME_CALL_SOURCE_SCHEMA_VERSION,
         "target_resource_id": target_id,
+        "target_resource_type": target_type,
         "verifier_identity": verifier_identity,
         "verifier_revision": verifier_revision,
     }

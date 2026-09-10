@@ -30,7 +30,10 @@ Disabled APRL recommendations remain searchable catalog history and never enter 
 The shared Operator PostgreSQL reader can decode bounded scoped source states for other read
 families. WARA does not consume AKS fleet states, and this shared capability does not change WARA
 scope, evidence admission, or assessment results. The same boundary applies to the reader's
-content-addressed AKS diagnostic receipt lookup; WARA never joins or interprets those receipts.
+content-addressed AKS diagnostic receipt lookup and generation-fenced runtime-call relationship
+decoder; WARA never joins or interprets either evidence family.
+The shared source-state decoder also accepts only canonical machine-token reasons, so principal
+text and provider details cannot enter WARA through that storage path.
 
 ## Crosswalk and applicability
 

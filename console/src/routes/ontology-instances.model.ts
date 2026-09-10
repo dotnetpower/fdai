@@ -963,6 +963,7 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     "inventory_relationships",
     "fdai_audit",
     "runtime_call_graph",
+    "postgres_role_evidence",
   ]) {
     if (!sourceNames.has(required)) throw new Error(`instance source ${required} is required`);
   }

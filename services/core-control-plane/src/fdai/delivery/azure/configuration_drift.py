@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.utils import format_datetime
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -16,14 +18,20 @@ from fdai.core.detection.configuration_drift import (
     ConfigurationObservation,
     ConfigurationResource,
     EvidenceCompleteness,
+    FrozenConfigurationBaseline,
 )
+from fdai.core.detection.configuration_drift_codec import baseline_from_dict
 from fdai.delivery.azure.arg_transport import fetch_arg_row_pages
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _DEFAULT_ARG_ENDPOINT: Final[str] = "https://management.azure.com"
 _DEFAULT_ARG_API_VERSION: Final[str] = "2022-10-01"
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
+_STORAGE_AUDIENCE: Final[str] = "https://storage.azure.com/"
+_STORAGE_API_VERSION: Final[str] = "2025-05-05"
+_MAX_BASELINE_BYTES: Final[int] = 16 * 1024 * 1024
 _ATTRIBUTE_PATH = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MAX_ID_CHARS = 4_096
 _MAX_TEXT_CHARS = 512
 _MAX_ATTRIBUTE_CHARS = 4_096
@@ -35,10 +43,116 @@ _ALLOWED_ARG_HOSTS = frozenset(
         "management.microsoftazure.de",
     }
 )
+_ALLOWED_BLOB_HOST_SUFFIXES = (
+    ".blob.core.windows.net",
+    ".blob.core.usgovcloudapi.net",
+    ".blob.core.chinacloudapi.cn",
+    ".blob.core.cloudapi.de",
+)
 
 
 class AzureConfigurationObservationError(RuntimeError):
     """Report unavailable or malformed Azure configuration evidence."""
+
+
+class AzureConfigurationBaselineError(RuntimeError):
+    """Report unavailable or malformed deployment-owned baseline evidence."""
+
+
+@dataclass(frozen=True, slots=True)
+class AzureBlobConfigurationBaselineConfig:
+    """Pin one immutable content-addressed baseline Blob."""
+
+    blob_url: str
+    expected_sha256: str
+    request_timeout_seconds: float = 30.0
+
+    def __post_init__(self) -> None:
+        digest = self.expected_sha256.strip().lower()
+        parsed = urlparse(self.blob_url)
+        segments = tuple(segment for segment in parsed.path.split("/") if segment)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname is None
+            or not any(parsed.hostname.endswith(suffix) for suffix in _ALLOWED_BLOB_HOST_SUFFIXES)
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or len(segments) != 3
+            or segments[1] != "configuration-baselines"
+            or segments[2] != f"{digest}.json"
+        ):
+            raise ValueError(
+                "configuration baseline URL MUST identify one content-addressed Azure Blob"
+            )
+        if _SHA256.fullmatch(digest) is None:
+            raise ValueError("configuration baseline digest MUST be lowercase SHA-256")
+        if self.request_timeout_seconds <= 0:
+            raise ValueError("configuration baseline request timeout MUST be positive")
+        object.__setattr__(self, "blob_url", self.blob_url.strip())
+        object.__setattr__(self, "expected_sha256", digest)
+
+
+@dataclass(frozen=True, slots=True)
+class AzureBlobConfigurationBaselineSource:
+    """Load one immutable baseline through Managed Identity and verify its bytes."""
+
+    identity: WorkloadIdentity
+    http_client: httpx.AsyncClient
+    config: AzureBlobConfigurationBaselineConfig
+
+    async def load(self) -> FrozenConfigurationBaseline:
+        token = await self.identity.get_token(_STORAGE_AUDIENCE)
+        headers = {
+            "Authorization": f"Bearer {token.token}",
+            "x-ms-date": format_datetime(datetime.now(UTC), usegmt=True),
+            "x-ms-version": _STORAGE_API_VERSION,
+        }
+        try:
+            async with self.http_client.stream(
+                "GET",
+                self.config.blob_url,
+                headers=headers,
+                timeout=self.config.request_timeout_seconds,
+            ) as response:
+                if response.status_code != 200:
+                    raise AzureConfigurationBaselineError(
+                        f"configuration baseline storage returned HTTP {response.status_code}"
+                    )
+                metadata_digest = response.headers.get("x-ms-meta-fdai_sha256", "")
+                if metadata_digest != self.config.expected_sha256:
+                    raise AzureConfigurationBaselineError(
+                        "configuration baseline Blob metadata digest mismatch"
+                    )
+                content = bytearray()
+                async for chunk in response.aiter_bytes():
+                    content.extend(chunk)
+                    if len(content) > _MAX_BASELINE_BYTES:
+                        raise AzureConfigurationBaselineError(
+                            "configuration baseline Blob exceeds the allowed size"
+                        )
+        except httpx.HTTPError as exc:
+            raise AzureConfigurationBaselineError(
+                "configuration baseline storage request failed"
+            ) from exc
+        if not content:
+            raise AzureConfigurationBaselineError("configuration baseline Blob is empty")
+        if hashlib.sha256(content).hexdigest() != self.config.expected_sha256:
+            raise AzureConfigurationBaselineError(
+                "configuration baseline Blob content digest mismatch"
+            )
+        try:
+            raw = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise AzureConfigurationBaselineError(
+                "configuration baseline Blob is not valid UTF-8 JSON"
+            ) from exc
+        if not isinstance(raw, Mapping):
+            raise AzureConfigurationBaselineError(
+                "configuration baseline Blob MUST contain one JSON object"
+            )
+        return baseline_from_dict(raw)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,7 +256,7 @@ class AzureArgConfigurationObservationSource:
 def _query(attribute_paths: tuple[str, ...]) -> str:
     projections = ["id", "type", "name", "location"]
     for index, path in enumerate(attribute_paths):
-        projections.append(f"attribute_{index}_present=isnotnull({path})")
+        projections.append(f'attribute_{index}_presence=iff(isnull({path}), "missing", "present")')
         projections.append(f"attribute_{index}=tostring({path})")
     return "Resources | project " + ", ".join(projections) + " | order by id asc"
 
@@ -159,12 +273,12 @@ def _resource(
     attributes: dict[str, object] = {}
     unknown: set[str] = set()
     for index, path in enumerate(attribute_paths):
-        present = row.get(f"attribute_{index}_present")
-        if not isinstance(present, bool):
+        presence = row.get(f"attribute_{index}_presence")
+        if presence not in {"present", "missing"}:
             raise AzureConfigurationObservationError(
                 f"ARG returned an invalid configuration presence marker for {path!r}"
             )
-        if not present:
+        if presence == "missing":
             unknown.add(path)
             continue
         value = row.get(f"attribute_{index}")
@@ -222,6 +336,9 @@ def _location(row: Mapping[str, Any]) -> str:
 
 __all__ = [
     "AzureArgConfigurationObservationSource",
+    "AzureBlobConfigurationBaselineConfig",
+    "AzureBlobConfigurationBaselineSource",
+    "AzureConfigurationBaselineError",
     "AzureConfigurationObservationConfig",
     "AzureConfigurationObservationError",
 ]

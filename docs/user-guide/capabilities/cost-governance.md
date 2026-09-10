@@ -3,7 +3,7 @@ title: Cost Governance
 description: How FDAI detects spend anomalies, recommends right-sizing, and runs the low-risk cleanup on its own, while risky cost changes wait for approval.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: 2f984850cc32edf54b40d8545073ef4c9a483e5a
+    sha: 72fc206e3a64b7879b36179458e89ff9b01c9e0d
   - source: docs/roadmap/interfaces/cost-model.md
     sha: 1be959949625599ee60d867138c86ef9b1990581
 ---

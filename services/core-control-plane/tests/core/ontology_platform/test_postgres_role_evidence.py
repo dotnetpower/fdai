@@ -103,6 +103,17 @@ def test_postgres_role_projection_has_no_resource_relationship_shape() -> None:
     assert not hasattr(evidence, "link_type")
 
 
+@pytest.mark.parametrize("authority_field", ["execution_authority", "mutation_authority"])
+def test_postgres_role_results_reject_action_authority(authority_field: str) -> None:
+    projection = _project(_observation())
+
+    assert projection.evidence is not None
+    with pytest.raises(ValueError, match="evidence MUST NOT carry action authority"):
+        replace(projection.evidence, **{authority_field: True})
+    with pytest.raises(ValueError, match="projection MUST NOT carry action authority"):
+        replace(projection, **{authority_field: True})
+
+
 def test_role_references_must_be_content_addressed() -> None:
     for field_name in ("evidence_ref", "authentication_ref"):
         with pytest.raises(ValueError, match=f"{field_name} MUST be canonical SHA-256"):
@@ -120,3 +131,12 @@ def test_principal_handle_is_scoped_to_the_database_service() -> None:
     assert first is not None
     assert second is not None
     assert first.principal_handle != second.principal_handle
+
+
+def test_principal_handle_does_not_hash_the_low_entropy_role_name() -> None:
+    first = _project(_observation()).evidence
+    renamed = _project(replace(_observation(), role_name="common_reader")).evidence
+
+    assert first is not None
+    assert renamed is not None
+    assert first.principal_handle == renamed.principal_handle

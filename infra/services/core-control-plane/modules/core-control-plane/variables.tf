@@ -200,7 +200,7 @@ variable "configuration_drift" {
   description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
   type = object({
     enabled             = optional(bool, false)
-    baseline_path       = optional(string, "")
+    baseline_url        = optional(string, "")
     baseline_version    = optional(string, "")
     baseline_sha256     = optional(string, "")
     scope               = optional(string, "")
@@ -212,7 +212,10 @@ variable "configuration_drift" {
 
   validation {
     condition = !var.configuration_drift.enabled || (
-      trimspace(var.configuration_drift.baseline_path) != "" &&
+      can(regex(
+        "^https://[^/]+/[^/]+/configuration-baselines/[0-9a-f]{64}\\.json$",
+        trimspace(var.configuration_drift.baseline_url),
+      )) &&
       trimspace(var.configuration_drift.baseline_version) != "" &&
       can(regex("^[0-9a-f]{64}$", var.configuration_drift.baseline_sha256)) &&
       trimspace(var.configuration_drift.scope) != "" &&
@@ -235,6 +238,7 @@ variable "configuration_drift" {
     )
     error_message = "Enabled configuration_drift requires a baseline identity, 1-256 ordered unique subscriptions, 1-64 ordered unique scalar attribute paths, and an approved Azure management origin."
   }
+  sensitive = true
 }
 
 variable "diagnostic_ingest" {

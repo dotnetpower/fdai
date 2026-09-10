@@ -77,7 +77,7 @@ def _pre_release(
     bundle, reservation, _preparing, prepared, context = _evidence_fixture(
         action_name=action_name,
         idempotency_key=idempotency_key,
-        target_resource_ref=target_resource_ref,
+        target_ref=target_resource_ref,
         now=now,
     )
     started, _persistence = _dispatch_started_record(

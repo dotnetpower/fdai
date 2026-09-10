@@ -348,13 +348,15 @@ def _attach_runtime_configuration_drift(
     from fdai.composition import bind_configuration_drift
     from fdai.delivery.azure.configuration_drift import (
         AzureArgConfigurationObservationSource,
+        AzureBlobConfigurationBaselineConfig,
+        AzureBlobConfigurationBaselineSource,
         AzureConfigurationObservationConfig,
     )
-    from fdai.delivery.configuration_drift import JsonFileConfigurationBaselineSource
 
-    baseline_path = Path(_required_environment(environment, "FDAI_CONFIGURATION_BASELINE_PATH"))
-    if not baseline_path.is_file():
-        raise FileNotFoundError("FDAI_CONFIGURATION_BASELINE_PATH MUST identify a file")
+    baseline_sha256 = _required_environment(
+        environment,
+        "FDAI_CONFIGURATION_BASELINE_SHA256",
+    )
     scope = _required_environment(environment, "FDAI_CONFIGURATION_SCOPE")
     subscriptions = _json_string_tuple(
         environment,
@@ -389,16 +391,23 @@ def _attach_runtime_configuration_drift(
     )
     return bind_configuration_drift(
         container,
-        baseline_source=JsonFileConfigurationBaselineSource(baseline_path),
+        baseline_source=AzureBlobConfigurationBaselineSource(
+            identity=identity,
+            http_client=http_client,
+            config=AzureBlobConfigurationBaselineConfig(
+                blob_url=_required_environment(
+                    environment,
+                    "FDAI_CONFIGURATION_BASELINE_URL",
+                ),
+                expected_sha256=baseline_sha256,
+            ),
+        ),
         observation_source=observation_source,
         expected_version=_required_environment(
             environment,
             "FDAI_CONFIGURATION_BASELINE_VERSION",
         ),
-        expected_sha256=_required_environment(
-            environment,
-            "FDAI_CONFIGURATION_BASELINE_SHA256",
-        ),
+        expected_sha256=baseline_sha256,
         expected_scope=scope,
         knowledge_source=container.knowledge_source,
     )

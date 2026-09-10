@@ -28,6 +28,8 @@ execution, and presentation. Each concern has one canonical representation and o
 consumer contract.
 Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
 metadata for one collection scope and does not replace Resource or link identity.
+Current instance-detail consumers require explicit runtime-call and PostgreSQL-role source states.
+Omitting either state is an invalid projection, not evidence of availability or a measured zero.
 Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,
 but consumers cannot project a new exact identity until every field required by that identity is
 present.
@@ -440,6 +442,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Required explicit runtime-call and PostgreSQL-role source states in current instance-detail decoding so omission cannot become availability or measured zero. | `current change`; `ontology-instances.model.ts`; focused missing-source decoder check. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-10 | in-progress | Added one reviewed exact EndpointSlice-to-Pod UID route with content-safe backend health facts. | `current change`; focused EndpointSlice fact, source-schema, relationship, and catalog checks. | Retain a complete live generation for the expanded release under Issue #578. |
 | 2026-09-10 | in-progress | Added eight diagnostic Kubernetes ResourceTypes and ten reviewed storage, policy, kind-qualified autoscale, and containment mappings. | `current change`; focused resource registry, class closure, source-schema, collection, and relationship checks. | Retain a complete live generation for the expanded release under Issue #578. |
 | 2026-09-09 | validated | Retained one complete exact-cluster Kubernetes generation, made the authoritative local preparation path compose the configured Kubernetes source instead of temporarily recording it as unconfigured, and advanced the generation cutoff to the latest accepted Kubernetes observation. | `current change`; `kubernetes_inventory.py`; `refresh-authoritative-inventory.py`; focused AKS inventory and refresh checks passed 88 cases; Ruff and strict mypy passed; Issue #278 records the sanitized per-hop runtime evidence. | External ingress remains explicitly absent or unknown when the complete source has no Ingress or load-balancer path; no browser edge is inferred. |

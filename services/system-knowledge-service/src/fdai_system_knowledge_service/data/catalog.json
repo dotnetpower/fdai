@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:77e58f320305e07bad31d8f6ec5326645406873cfee3b08543a9cb1c02552c6a",
+  "catalog_digest": "sha256:d2a0578a20504e5e3ea4f5db8ad8391c74af3837509f36fd21d70faf20bc48b6",
   "execution_authority": false,
-  "generated_at": "2026-09-09T23:36:04.287504Z",
+  "generated_at": "2026-09-10T22:02:03.447062Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:0d57812d30d3a4989dc782749464ffef16781cb5b490a3c7f7acffd8126644e9",
+      "record_digest": "sha256:73af75c6b5217a3d00af8cec612ae3cb3df4c1a1cc0a1f0e888205c0c58994d2",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8",
-          "line_end": 74,
-          "line_start": 74,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
-        },
         {
           "authority_role": "design",
           "blob_sha": "8a32b4753651ff63e73e777cda932c9e5b146ac8",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "a308dc0bc83462d5fc4d59aa3dfb13da39bc0686",
+          "line_end": 74,
+          "line_start": 74,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:b15f1529be573b948ac41641ba4cebe8a127e4472022076d74677e6ca038d29f",
+      "record_digest": "sha256:441c08a52a73a593a44a581c737523ef2d50f9bd06c3d3ce04c2b9d6f2a17f5d",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8",
+          "blob_sha": "a308dc0bc83462d5fc4d59aa3dfb13da39bc0686",
           "line_end": 74,
           "line_start": 74,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -526,13 +526,13 @@
         "How does the existing FDAI Teams conversation path work?",
         "기존 FDAI Teams 대화 경로는 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:92e9502bfcc24ee2f4a13c69a88292f2bf41d36938700675f797a51a69d147f2",
+      "record_digest": "sha256:76273b646440294597f470bf275a2543f5690a186e10dce9ab14c8a85d37335f",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "99a85d5639532e55388927467e0dfcb220cd189b",
-          "line_end": 79,
-          "line_start": 79,
+          "blob_sha": "351b6d4bc18533c5b452c9d287f26a2c04ca3cbd",
+          "line_end": 81,
+          "line_start": 81,
           "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "901e365f5efad06ae2e8b3d0d3f17d094be7da76"
+  "source_revision": "eaf80d4f29b636959d6fe70715db662bf327f64c"
 }

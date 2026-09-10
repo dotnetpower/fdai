@@ -62,7 +62,10 @@ The inventory preserves stable ids, bilingual wording, source digests, explicit 
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a Console starter catalog, regenerates both the machine
-inventory and human review catalog so their source-file digests stay exact.
+inventory and human review catalog; the generated-artifact test rejects any stale source digest.
+When only source digests change, regeneration preserves every logical question identity, review
+state, and denominator. Regeneration runs after upstream integration so derived commitments bind
+the final merged source set.
 Run `uv run python scripts/automation/build_question_bank.py`; editing either generated artifact by
 hand isn't supported.
 
@@ -81,7 +84,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 ## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`. The generated FDAI Conversation Quality
+`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale question-bank source digests. The generated FDAI Conversation Quality
 Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
@@ -172,6 +175,12 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Regenerated the CQAS semantic-intent inventory after the federated question-bank source digest changed. Metric definitions, denominators, and coverage counts remain unchanged. | `current change`; `build_semantic_intent_coverage.py`; generated-artifact equality test. | No remaining work for this dependent source-digest refresh. |
+| 2026-09-11 | implemented | Regenerated the federated question-bank machine inventory and review catalog after the Console locale catalogs changed, preserving all 400 question identities and updating only exact source digests. | `current change`; official question-bank generator and generated-artifact equality test. | No remaining work for this source-digest refresh. |
+| 2026-09-11 | implemented | Regenerated semantic coverage commitments after upstream integration so the derived inventory binds the final merged source set without changing question identities or denominators. | `current change`; generated semantic-intent coverage; focused artifact parity checks. | No remaining work for this post-integration refresh. |
+| 2026-09-11 | implemented | Regenerated the derived semantic-intent coverage inventory after the question-bank synchronization exposed its stale coverage denominators. | `current change`; `PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run python scripts/automation/build_semantic_intent_coverage.py`; 12 focused generated-artifact checks passed. | No remaining work for the derived coverage synchronization. |
+| 2026-09-11 | implemented | Regenerated the federated question-bank JSON and review catalog from the current 11-source inventory, restoring exact source-digest and readiness-field parity without changing the 400-question boundary or granting execution authority. | `current change`; `uv run python scripts/automation/build_question_bank.py`; focused question-bank checks passed. | No remaining work for this generated-artifact synchronization. |
+| 2026-09-11 | implemented | Refreshed question-bank and semantic-intent source digests after issue #260 design and generated-catalog updates without changing any question identity, review state, or denominator. | `current change`; generated question bank, review catalog, and semantic-intent coverage; focused artifact parity checks. | No remaining work for this generated-source refresh. |
 | 2026-09-10 | implemented | Expanded the Azure/Incident intent contract from 16 to 24 cases with English and Korean original-plus-three targetless mitigation-requirements cohorts and regenerated the CQAS source digest. | `current change`; focused Golden replay, semantic planning, terminal presentation, generated-artifact drift, Ruff, and mypy checks. | Run authenticated exact-source model evidence separately before promoting or claiming live quality. |
 | 2026-09-10 | implemented | Added ten principal-catalog schema canaries for Approval, Decision, Observation, Rule, and ServiceObjective so the conditional repair can be evaluated in one fresh 10-question full-answer child without deleting duplicate history. | `current change`; typed contract, catalog-subject, watchdog, Ruff, and mypy checks. | Run one explicit 10-question child on the new challenge ids. |
 | 2026-09-10 | implemented | Tightened the conditional repair trigger to the exact CQAS schema contract after synonym-only primary facets caused repair fallback. | `current change`; five perfect conditional-repair-v2 schema cohorts and focused trigger/fallback tests. | Preserve global primary behavior and validate full answers when new unique questions are available. |

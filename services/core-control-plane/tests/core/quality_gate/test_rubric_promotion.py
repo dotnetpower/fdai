@@ -213,6 +213,160 @@ def test_batch_rejects_same_primary_and_judge_model() -> None:
         replace(batch, judge_model_id=batch.primary_model_id)
 
 
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"case_id": "INVALID"}, "canonical identifier"),
+        ({"observed_at": datetime(2026, 8, 24)}, "timezone-aware"),
+        ({"expected_hallucination": 1}, "MUST be boolean"),
+        ({"baseline_latency_ms": float("nan")}, "finite and non-negative"),
+        ({"treatment_latency_ms": -1.0}, "finite and non-negative"),
+        ({"baseline_tokens": True}, "non-negative integers"),
+        ({"treatment_tokens": -1}, "non-negative integers"),
+    ],
+)
+def test_observation_rejects_invalid_boundary_values(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    observation = _observation(
+        "case-1",
+        hallucination=True,
+        baseline_flagged=False,
+        treatment_flagged=True,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        replace(observation, **changes)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"fdai_revision": "mutable"}, "revision MUST be immutable"),
+        ({"scenario_set_version": "INVALID"}, "canonical identifier"),
+        ({"action_type_name": "INVALID"}, "canonical identifier"),
+        ({"prompt_revision_digest": "invalid"}, "MUST be SHA-256"),
+        ({"threshold_config_digest": "invalid"}, "MUST be SHA-256"),
+        ({"action_type_digest": "invalid"}, "MUST be SHA-256"),
+        ({"primary_model_id": "invalid model"}, "model_id is invalid"),
+        ({"judge_model_id": "invalid model"}, "model_id is invalid"),
+        ({"action_type_version": ""}, "version MUST be bounded"),
+        ({"sealed_at": datetime(2026, 8, 24)}, "timezone-aware"),
+        ({"observations": ()}, "MUST contain observations"),
+    ],
+)
+def test_batch_rejects_invalid_identity_and_evidence(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_batch(), **changes)
+
+
+def test_batch_rejects_duplicate_future_and_oversized_observations() -> None:
+    batch = _batch()
+    with pytest.raises(ValueError, match="case ids MUST be unique"):
+        replace(batch, observations=(batch.observations[0], batch.observations[0]))
+    with pytest.raises(ValueError, match="MUST NOT follow sealing"):
+        replace(
+            batch,
+            observations=(
+                replace(batch.observations[0], observed_at=batch.sealed_at + timedelta(seconds=1)),
+            ),
+        )
+    with pytest.raises(ValueError, match="exceed their limit"):
+        replace(batch, observations=(batch.observations[0],) * 10_001)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"review_id": "INVALID"}, "canonical identifier"),
+        ({"evidence_digest": "invalid"}, "evidence MUST be SHA-256"),
+        ({"reviewed_at": datetime(2026, 8, 24)}, "timezone-aware"),
+        ({"approved": 1}, "approval MUST be boolean"),
+    ],
+)
+def test_review_rejects_invalid_boundary_values(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_review(_batch()), **changes)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"min_samples": 0}, "minimums MUST be positive integers"),
+        ({"min_hallucination_cases": True}, "minimums MUST be positive integers"),
+        ({"max_policy_escapes": -1}, "escapes MUST be non-negative"),
+        ({"max_evidence_age_days": 0}, "age MUST be a positive integer"),
+        ({"min_treatment_catch_rate": float("nan")}, "rates MUST be in"),
+        ({"max_false_positive_rate_increase": 1.1}, "rates MUST be in"),
+        ({"max_added_latency_ms": -1.0}, "cost ceilings"),
+        ({"max_added_tokens": float("inf")}, "cost ceilings"),
+    ],
+)
+def test_policy_rejects_invalid_boundary_values(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_policy(), **changes)
+
+
+def test_evaluator_rejects_invalid_configuration_and_clock() -> None:
+    with pytest.raises(ValueError, match="revision MUST be immutable"):
+        RubricPromotionEvaluator(
+            expected_fdai_revision="mutable",
+            expected_scenario_set_version="rubric-v1",
+            policy=_policy(),
+        )
+    with pytest.raises(ValueError, match="version MUST be canonical"):
+        RubricPromotionEvaluator(
+            expected_fdai_revision=_REVISION,
+            expected_scenario_set_version="INVALID",
+            policy=_policy(),
+        )
+    evaluator = RubricPromotionEvaluator(
+        expected_fdai_revision=_REVISION,
+        expected_scenario_set_version="rubric-v1",
+        policy=_policy(),
+        as_of_fn=lambda: datetime(2026, 8, 24),
+    )
+    with pytest.raises(TypeError, match="aware datetime"):
+        evaluator.evaluate(_batch(), _review(_batch()))
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"fdai_revision": "mutable"}, "revision MUST be immutable"),
+        ({"scenario_set_version": "INVALID"}, "canonical identifier"),
+        ({"action_type_digest": "invalid"}, "references MUST be SHA-256"),
+        ({"action_type_version": ""}, "version MUST be bounded"),
+        ({"sealed_at": datetime(2026, 8, 24)}, "timezone-aware"),
+        ({"expires_at": _NOW}, "timestamps MUST be ordered"),
+        ({"sample_count": True}, "counts MUST be non-negative integers"),
+        ({"hallucination_cases": -1}, "counts MUST be non-negative integers"),
+        ({"sample_count": 1}, "cohorts MUST partition"),
+        ({"baseline_catch_rate": float("nan")}, "rates MUST be in"),
+        ({"treatment_catch_ci": (0.9, 0.1)}, "intervals MUST be ordered"),
+        ({"catch_rate_gain": float("nan")}, "deltas MUST be finite"),
+        ({"treatment_policy_escapes": True}, "escapes MUST be a non-negative integer"),
+        ({"gaps": ("same", "same")}, "gaps MUST be unique"),
+    ],
+)
+def test_receipt_rejects_invalid_boundary_values(
+    changes: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_receipt(), **changes)
+
+
 def test_receipt_rejects_forged_ready_state() -> None:
     receipt = _receipt()
 

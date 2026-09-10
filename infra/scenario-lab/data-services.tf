@@ -104,7 +104,7 @@ module "azure_openai" {
   name                  = "oai-fdai-sre-${local.unique_suffix}"
   location              = data.azurerm_resource_group.scenario_lab.location
   resource_group_name   = data.azurerm_resource_group.scenario_lab.name
-  executor_principal_id = data.azurerm_client_config.current.object_id
+  executor_principal_id = var.deploy_runner_principal_id
   grant_executor_role   = true
   additional_user_principal_ids = local.operator_enabled ? {
     operator = var.operator_access.principal_id

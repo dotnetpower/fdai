@@ -776,11 +776,6 @@ class SemanticTurnOutboxDrainer:
         )
         if claim is None:
             return False
-        runtime_call_record = (
-            self.runtime_call_observer.record(claim.envelope)
-            if self.runtime_call_observer is not None
-            else None
-        )
         try:
             partition_key = claim.envelope.get("resource_ref")
             if not isinstance(partition_key, str) or not partition_key.startswith(
@@ -798,7 +793,8 @@ class SemanticTurnOutboxDrainer:
                 claim_id=claim.claim_id,
             )
             return False
-        if self.runtime_call_observer is not None and runtime_call_record is not None:
+        if self.runtime_call_observer is not None:
+            runtime_call_record = self.runtime_call_observer.record(claim.envelope)
             self.runtime_call_observer.emit_record(runtime_call_record)
         closed = await self.store.mark_semantic_turn_published(
             key=claim.key,

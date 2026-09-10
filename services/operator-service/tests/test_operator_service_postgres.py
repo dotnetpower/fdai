@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Mapping
 from dataclasses import replace
@@ -54,6 +55,10 @@ from fdai_operator_service.postgres_family_store import (
     StoredProposal,
     StoredStatePage,
     StoredStateRecord,
+)
+from fdai_operator_service.postgres_hil_decision import (
+    PostgresHilDecisionExpiredError,
+    _validate_hil_decision_park,
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters, _command_payload
 from fdai_operator_service.postgres_sql import (
@@ -293,6 +298,13 @@ def _hil_row() -> dict[str, Any]:
             "approval_id": "approval-1",
             "parked_at": _NOW.isoformat(),
             "idempotency_key": "idem-1",
+            "submitter_oid": "submitter-1",
+            "request_fingerprint": "action-hash-1",
+            "approval_context": {"expires_at": _GRANT_EXPIRY.isoformat()},
+            "metadata": {
+                "decision_route": "workflow",
+                "required_role": "approver",
+            },
             "action": {
                 "event_id": "00000000-0000-0000-0000-000000000001",
                 "action_type": "compute.restart",
@@ -301,6 +313,110 @@ def _hil_row() -> dict[str, Any]:
             },
         },
     }
+
+
+def test_legacy_action_park_without_metadata_remains_requestable() -> None:
+    row = _hil_row()
+    value = dict(row["value"])
+    value.pop("metadata")
+    row["value"] = value
+
+    projected = hil_item(row)
+
+    assert projected is not None
+    assert projected["decision_requestable"] is True
+    assert projected["decision_unavailable_reason"] is None
+
+
+def test_present_metadata_requires_an_explicit_decision_route() -> None:
+    row = _hil_row()
+    value = dict(row["value"])
+    value["metadata"] = {}
+    row["value"] = value
+
+    projected = hil_item(row)
+
+    assert projected is not None
+    assert projected["decision_requestable"] is False
+    assert projected["decision_unavailable_reason"] == "missing_decision_route"
+
+
+def test_explicit_null_metadata_is_never_treated_as_legacy_action() -> None:
+    row = _hil_row()
+    value = dict(row["value"])
+    value["metadata"] = None
+    row["value"] = value
+
+    projected = hil_item(row)
+
+    assert projected is not None
+    assert projected["decision_requestable"] is False
+    assert projected["decision_unavailable_reason"] == "missing_decision_route"
+
+
+def test_atomic_writer_normalizes_only_metadata_absent_legacy_action_parks() -> None:
+    row = _hil_row()
+    parked = dict(row["value"])
+    parked["status"] = "pending"
+    parked.pop("metadata")
+
+    _validate_hil_decision_park(
+        parked,
+        approval_id="approval-1",
+        idempotency_key="idem-1",
+        action_hash="action-hash-1",
+        approver_oid="approver-1",
+        approver_roles=frozenset({OperatorRole.APPROVER}),
+        database_now=_NOW,
+        expected_expires_at=_GRANT_EXPIRY,
+        expected_submitter_oid="submitter-1",
+        expected_decision_route="action",
+        expected_required_role="",
+    )
+
+
+def test_atomic_writer_rejects_explicit_null_metadata() -> None:
+    row = _hil_row()
+    parked = dict(row["value"])
+    parked["status"] = "pending"
+    parked["metadata"] = None
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="metadata is malformed"):
+        _validate_hil_decision_park(
+            parked,
+            approval_id="approval-1",
+            idempotency_key="idem-1",
+            action_hash="action-hash-1",
+            approver_oid="approver-1",
+            approver_roles=frozenset({OperatorRole.APPROVER}),
+            database_now=_NOW,
+            expected_expires_at=_GRANT_EXPIRY,
+            expected_submitter_oid="submitter-1",
+            expected_decision_route="action",
+            expected_required_role="",
+        )
+
+
+def test_atomic_writer_rejects_approval_expired_while_waiting_for_lock() -> None:
+    row = _hil_row()
+    parked = dict(row["value"])
+    parked["status"] = "pending"
+    parked.pop("metadata")
+
+    with pytest.raises(PostgresHilDecisionExpiredError):
+        _validate_hil_decision_park(
+            parked,
+            approval_id="approval-1",
+            idempotency_key="idem-1",
+            action_hash="action-hash-1",
+            approver_oid="approver-1",
+            approver_roles=frozenset({OperatorRole.APPROVER}),
+            database_now=_GRANT_EXPIRY + timedelta(seconds=1),
+            expected_expires_at=_GRANT_EXPIRY,
+            expected_submitter_oid="submitter-1",
+            expected_decision_route="action",
+            expected_required_role="",
+        )
 
 
 @pytest.mark.asyncio
@@ -312,6 +428,7 @@ async def test_callback_audit_persists_distinct_prepared_and_completed_records()
         "correlation_id": "correlation-one",
         "actor_identity_ref": "sha256:" + "a" * 64,
         "authority_basis": "teams_sso_obo+entra_app_role",
+        "intent_digest": "sha256:" + "b" * 64,
         "recorded_at": _NOW,
     }
     prepared = HilCallbackAuditRecord(
@@ -378,63 +495,108 @@ async def test_hil_context_reader_preserves_original_context_after_timeout() -> 
     }
 
 
+@pytest.mark.asyncio
+async def test_hil_context_reader_rejects_explicit_null_metadata() -> None:
+    store = CallbackAuditStore()
+    store.values["hil_park:approval-1"] = {
+        "status": "pending",
+        "approval_id": "approval-1",
+        "idempotency_key": "idem-1",
+        "submitter_oid": "submitter-1",
+        "correlation_id": "correlation-1",
+        "request_fingerprint": "action-hash-1",
+        "approval_context": {"expires_at": _GRANT_EXPIRY.isoformat()},
+        "metadata": None,
+    }
+
+    with pytest.raises(IamUnavailableError, match="metadata is malformed"):
+        await PostgresIamAdapters(store).get_pending_by_approval_id(  # type: ignore[arg-type]
+            "approval-1"
+        )
+    with pytest.raises(IamUnavailableError, match="metadata is malformed"):
+        await PostgresIamAdapters(store).get_callback_context(  # type: ignore[arg-type]
+            "approval-1"
+        )
+
+
 class HilDecisionRecoveryStore:
-    """Model proposal-first persistence and a separately raced receipt state."""
+    """Model the atomic decision receipt and durable outbox boundary."""
 
     def __init__(self) -> None:
         self.proposal: dict[str, object] | None = None
         self.receipt: dict[str, object] | None = None
+        self.outbox: dict[str, object] | None = None
         self.fail_receipt_once = False
         self.raced_receipt: dict[str, object] | None = None
 
-    async def find_state(
+    async def append_hil_decision(
         self,
         *,
-        prefix: str,
-        field: str,
-        value: str,
-    ) -> dict[str, object] | None:
-        assert prefix == "hil_park:"
-        assert field == "idempotency_key"
-        return {
-            "approval_id": "approval-1",
-            "idempotency_key": value,
-        }
-
-    async def append_proposal(
-        self,
-        *,
-        family: str,
-        operation: str,
-        principal_id: str | None,
+        approval_id: str,
         idempotency_key: str,
-        payload: Mapping[str, object],
+        action_hash: str,
+        decision: str,
+        approver_oid: str,
+        approver_roles: frozenset[OperatorRole],
+        justification: str,
+        decided_at: datetime,
+        expected_expires_at: datetime,
+        expected_submitter_oid: str,
+        expected_decision_route: str,
+        expected_required_role: str,
     ) -> StoredProposal:
-        del family, operation, principal_id
-        candidate = {"idempotency_key": idempotency_key, "payload": dict(payload)}
+        del (
+            action_hash,
+            approver_roles,
+            expected_expires_at,
+            expected_submitter_oid,
+            expected_decision_route,
+            expected_required_role,
+        )
+        candidate = {
+            "idempotency_key": idempotency_key,
+            "payload": {
+                "approval_id": approval_id,
+                "decision": decision,
+                "approver_oid": approver_oid.casefold(),
+                "justification_digest": "sha256:"
+                + hashlib.sha256(justification.strip().encode()).hexdigest(),
+            },
+        }
         if self.proposal is not None and self.proposal != candidate:
             raise PostgresProposalConflict("conflicting proposal")
         duplicate = self.proposal is not None
+        if duplicate:
+            return StoredProposal(
+                proposal_id="operator-hil-receipt",
+                accepted_at=_NOW.isoformat(),
+                duplicate=True,
+                record=candidate,
+            )
+        receipt = {
+            "approval_id": approval_id,
+            "idempotency_key": idempotency_key,
+            "decision": decision,
+            "approver_oid": approver_oid.casefold(),
+            "decided_at": decided_at.isoformat(),
+            "receipt_ref": "operator-hil-receipt",
+            "justification": justification,
+            "delivered": False,
+        }
+        if self.raced_receipt is not None:
+            raise PostgresProposalConflict("concurrent durable receipt")
+        if self.fail_receipt_once:
+            self.fail_receipt_once = False
+            raise PostgresFamilyStoreUnavailable("interrupted atomic write")
         self.proposal = candidate
+        self.receipt = receipt
+        self.outbox = {"receipt": dict(receipt)}
         return StoredProposal(
             proposal_id="operator-hil-receipt",
             accepted_at=_NOW.isoformat(),
             duplicate=duplicate,
             record=candidate,
         )
-
-    async def create_state(self, key: str, value: Mapping[str, object]) -> bool:
-        assert key == "operator-hil-decision:approval-1"
-        if self.fail_receipt_once:
-            self.fail_receipt_once = False
-            raise PostgresFamilyStoreUnavailable("interrupted receipt write")
-        if self.raced_receipt is not None:
-            self.receipt = self.raced_receipt
-            return False
-        if self.receipt is not None:
-            return False
-        self.receipt = dict(value)
-        return True
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         assert key == "operator-hil-decision:approval-1"
@@ -443,11 +605,18 @@ class HilDecisionRecoveryStore:
 
 def _hil_decision_command() -> HilDecisionCommand:
     return HilDecisionCommand(
+        approval_id="approval-1",
         idempotency_key="hil-key-1",
+        action_hash="action-hash-1",
         decision=HilApprovalDecision.APPROVE,
         approver_oid="approver-1",
+        approver_roles=frozenset({OperatorRole.APPROVER}),
         justification="Verified impact and rollback.",
         decided_at=_NOW,
+        expected_expires_at=_GRANT_EXPIRY,
+        expected_submitter_oid="submitter-1",
+        expected_decision_route="workflow",
+        expected_required_role="approver",
     )
 
 
@@ -455,16 +624,20 @@ def _hil_decision_command() -> HilDecisionCommand:
 async def test_hil_decision_recovers_after_proposal_precedes_receipt_state() -> None:
     store = HilDecisionRecoveryStore()
     store.fail_receipt_once = True
-    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    adapter = PostgresIamAdapters(store, hil_decisions=store)  # type: ignore[arg-type]
 
-    with pytest.raises(IamUnavailableError, match="receipt store"):
+    with pytest.raises(IamUnavailableError, match="decision store"):
         await adapter.record_decision(_hil_decision_command())
+    assert store.proposal is None
+    assert store.receipt is None
+    assert store.outbox is None
     recovered = await adapter.record_decision(_hil_decision_command())
 
     assert recovered.decided_at == _NOW
     assert recovered.justification == "Verified impact and rollback."
     assert store.proposal is not None
     assert store.receipt is not None
+    assert store.outbox is not None
 
 
 @pytest.mark.asyncio
@@ -480,7 +653,10 @@ async def test_hil_decision_rejects_conflicting_receipt_create_race() -> None:
     }
 
     with pytest.raises(IamConflictError, match="concurrent durable receipt"):
-        await PostgresIamAdapters(store).record_decision(  # type: ignore[arg-type]
+        await PostgresIamAdapters(
+            store,
+            hil_decisions=store,
+        ).record_decision(  # type: ignore[arg-type]
             _hil_decision_command()
         )
 
@@ -496,17 +672,16 @@ async def test_newly_signed_retry_after_the_replay_window_recovers_the_proposal(
     conflicting with it.
     """
     store = HilDecisionRecoveryStore()
-    store.fail_receipt_once = True
-    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    adapter = PostgresIamAdapters(store, hil_decisions=store)  # type: ignore[arg-type]
 
-    with pytest.raises(IamUnavailableError, match="receipt store"):
-        await adapter.record_decision(_hil_decision_command())
+    original = await adapter.record_decision(_hil_decision_command())
     original_proposal = dict(store.proposal or {})
 
     later = _NOW + timedelta(minutes=6)
     recovered = await adapter.record_decision(replace(_hil_decision_command(), decided_at=later))
 
-    assert recovered.decided_at == later
+    assert recovered.decided_at == original.decided_at
+    assert recovered.already_recorded is True
     assert recovered.receipt_ref == "operator-hil-receipt"
     assert store.proposal == original_proposal
     payload = original_proposal["payload"]
@@ -526,10 +701,8 @@ async def test_conflicting_decision_actor_or_justification_is_still_refused() ->
         {"justification": "Different recorded reasoning."},
     ):
         store = HilDecisionRecoveryStore()
-        store.fail_receipt_once = True
-        adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
-        with pytest.raises(IamUnavailableError):
-            await adapter.record_decision(_hil_decision_command())
+        adapter = PostgresIamAdapters(store, hil_decisions=store)  # type: ignore[arg-type]
+        await adapter.record_decision(_hil_decision_command())
 
         with pytest.raises(IamConflictError):
             await adapter.record_decision(replace(_hil_decision_command(), **override))
@@ -538,16 +711,15 @@ async def test_conflicting_decision_actor_or_justification_is_still_refused() ->
 @pytest.mark.asyncio
 async def test_case_only_actor_difference_recovers_the_same_durable_decision() -> None:
     store = HilDecisionRecoveryStore()
-    store.fail_receipt_once = True
-    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
-    with pytest.raises(IamUnavailableError):
-        await adapter.record_decision(_hil_decision_command())
+    adapter = PostgresIamAdapters(store, hil_decisions=store)  # type: ignore[arg-type]
+    await adapter.record_decision(_hil_decision_command())
 
     recovered = await adapter.record_decision(
         replace(_hil_decision_command(), approver_oid="Approver-1")
     )
 
-    assert recovered.approver_oid == "Approver-1"
+    assert recovered.approver_oid == "approver-1"
+    assert recovered.already_recorded is True
 
 
 class HilDeliveryStateStore:
@@ -1723,10 +1895,18 @@ async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() ->
         "detail_level": "count_only",
     }
     assert details.items[0]["target_resource_ref"] == "resource-1"
+    assert details.items[0]["decision_requestable"] is True
+    assert details.items[0]["decision_unavailable_reason"] is None
     assert "credential" not in details.items[0]
     detail_call = next(call for call in model.calls if call[0] == HIL_PAGE_SQL)
     assert detail_call[1]["search"] == "resource-1"
     assert detail_call[1]["search_pattern"] == "%resource-1%"
+
+
+def test_hil_queue_excludes_approvals_with_a_durable_decision_receipt() -> None:
+    for statement in (HIL_COUNT_SQL, HIL_PAGE_SQL):
+        assert "NOT EXISTS" in statement
+        assert "'operator-hil-decision:' || state_kv.value->>'approval_id'" in statement
 
 
 @pytest.mark.asyncio

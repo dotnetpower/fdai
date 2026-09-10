@@ -56,6 +56,7 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
     if not approval_id or not parked_at or not idempotency_key or not event_id:
         return None
     context = _mapping(parked.get("approval_context"))
+    decision_unavailable_reason = _hil_decision_unavailable_reason(parked, context)
     rollback = _mapping(action.get("rollback_ref"))
     blast_radius = _mapping(action.get("blast_radius"))
     reasons = _strings(context.get("reasons"))
@@ -89,8 +90,37 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
             "reasons": reasons,
             "citing_rule_ids": citing_rules,
             "ttl_expires_at": _nonempty(context.get("expires_at")),
+            "decision_requestable": decision_unavailable_reason is None,
+            "decision_unavailable_reason": decision_unavailable_reason,
         },
     )
+
+
+def _hil_decision_unavailable_reason(
+    parked: Mapping[str, Any],
+    context: Mapping[str, Any],
+) -> str | None:
+    if not _nonempty(parked.get("submitter_oid")):
+        return "missing_submitter"
+    if not _nonempty(parked.get("request_fingerprint")):
+        return "missing_action_hash"
+    if not _nonempty(context.get("expires_at")):
+        return "missing_expiry"
+    decision_route: str | None
+    if "metadata" not in parked:
+        decision_route = "action"
+        metadata: Mapping[str, Any] = {}
+    elif isinstance(raw_metadata := parked["metadata"], Mapping):
+        metadata = raw_metadata
+        route_value = metadata.get("decision_route")
+        decision_route = route_value if isinstance(route_value, str) else None
+    else:
+        return "missing_decision_route"
+    if decision_route not in {"action", "workflow"}:
+        return "missing_decision_route"
+    if decision_route == "workflow" and not _nonempty(metadata.get("required_role")):
+        return "missing_required_role"
+    return None
 
 
 def dashboard_kpi(rows: Sequence[Mapping[str, Any]], *, hil_pending: int) -> JsonObject:
