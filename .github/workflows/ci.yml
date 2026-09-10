@@ -737,6 +737,8 @@ jobs:
 
       - name: Start loopback provider stack
         if: matrix.shard == 2
+        env:
+          POSTGRES_PASSWORD: ci
         run: docker compose -f infra/local/docker-compose.yml up -d --wait postgres-validation redpanda
 
       - name: Prepare isolated provider database URL

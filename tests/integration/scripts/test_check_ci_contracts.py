@@ -863,6 +863,11 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     )
     assert service_step["if"] == "matrix.shard == 1"
     assert service_step["env"]["FDAI_DATABASE_URL"] == "${{ env.FDAI_SERVICE_DATABASE_URL }}"
+    provider_stack_step = next(
+        step for step in integration_job["steps"] if step["name"] == "Start loopback provider stack"
+    )
+    assert provider_stack_step["if"] == "matrix.shard == 2"
+    assert provider_stack_step["env"]["POSTGRES_PASSWORD"] == "ci"
     provider_step = next(
         step
         for step in integration_job["steps"]

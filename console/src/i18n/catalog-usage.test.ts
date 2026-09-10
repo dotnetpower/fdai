@@ -4,6 +4,7 @@ import ts from "typescript";
 import { describe, expect, test } from "vitest";
 import mainCatalog from "./messages.en.json";
 import analyticsCatalog from "../routes/i18n/analytics.en.json";
+import approvalsCatalog from "../routes/i18n/approvals.en.json";
 import architectureCatalog from "../routes/i18n/architecture.en.json";
 import conversationAssuranceCatalog from "../routes/i18n/conversation-assurance.en.json";
 import costGovernanceCatalog from "../routes/i18n/cost-governance.en.json";
@@ -86,6 +87,7 @@ describe("console static translation keys", () => {
   test("all literal t() calls resolve in their English source catalog", () => {
     const mainKeys = catalogKeys(mainCatalog);
     const analyticsKeys = catalogKeys({ analytics: analyticsCatalog });
+    const approvalsKeys = catalogKeys({ approvals: approvalsCatalog });
     const architectureKeys = new Set([
       ...catalogKeys(architectureCatalog),
       ...catalogKeys({ architecture: architectureCatalog }),
@@ -119,7 +121,9 @@ describe("console static translation keys", () => {
     for (const file of sourceFiles(SOURCE_ROOT)) {
       const source = readFileSync(file, "utf8");
       const relativePath = relative(SOURCE_ROOT, file);
-      const routeKeys = source.includes('from "./i18n/cost-governance"')
+      const routeKeys = source.includes('from "./i18n/approvals"')
+        ? approvalsKeys
+        : source.includes('from "./i18n/cost-governance"')
         ? costGovernanceKeys
         : source.includes('from "./i18n/dashboard-v2"') ||
             file.endsWith("routes/i18n/dashboard-v2.ts")
