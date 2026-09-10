@@ -328,6 +328,14 @@ class CandidateSnapshot:
         require_digest("head_transition_digest", self.head_transition_digest)
         if self.quorum_required < CANDIDATE_QUORUM:
             raise AuthorizationLifecycleError(f"quorum_required MUST be >= {CANDIDATE_QUORUM}")
+        for principal in (*self.approvals, *self.rejections):
+            _require_human("snapshot reviewer principal", principal)
+        _require_canonical_distinct("approvals", self.approvals)
+        _require_canonical_distinct("rejections", self.rejections)
+        if set(self.approvals) & set(self.rejections):
+            raise AuthorizationLifecycleError(
+                "snapshot reviewer MUST NOT appear in approvals and rejections"
+            )
         expected = content_digest(
             {
                 "candidate_id": self.candidate_id,
@@ -336,8 +344,8 @@ class CandidateSnapshot:
                 "fencing_generation": self.fencing_generation,
                 "sequence": self.sequence,
                 "head_transition_digest": self.head_transition_digest,
-                "approvals": sorted(self.approvals),
-                "rejections": sorted(self.rejections),
+                "approvals": self.approvals,
+                "rejections": self.rejections,
                 "quorum_required": self.quorum_required,
             }
         )
