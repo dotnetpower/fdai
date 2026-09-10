@@ -27,6 +27,7 @@ from fdai.core.standing_authority.lifecycle_codec import (
 from fdai.core.standing_authority.promotion_candidate import (
     LEASE_CONTRACT_VERSION,
     CandidateReviewRecord,
+    CandidateSnapshot,
     CandidateStatus,
     CandidateTransitionKind,
     DenialReason,
@@ -473,6 +474,31 @@ def test_approved_status_carries_no_execution_authority() -> None:
     assert r3.snapshot.status is CandidateStatus.APPROVED
     assert r3.snapshot.execution_authority is False
     assert r3.snapshot.promotion_authority is False
+
+
+def test_snapshot_rejects_reordered_approvals_with_same_digest() -> None:
+    record = _record()
+    initial = _create(record)
+    reviewed_once = _apply_review(initial, record, _review(record, reviewer=REVIEWER_A))
+    approved = _apply_review(
+        reviewed_once,
+        record,
+        _review(record, reviewer=REVIEWER_B, at=NOW + timedelta(minutes=2)),
+    ).snapshot
+
+    with pytest.raises(AuthorizationLifecycleError, match="approvals MUST use canonical"):
+        CandidateSnapshot(
+            candidate_id=approved.candidate_id,
+            status=approved.status,
+            revision_id=approved.revision_id,
+            fencing_generation=approved.fencing_generation,
+            sequence=approved.sequence,
+            head_transition_digest=approved.head_transition_digest,
+            approvals=tuple(reversed(approved.approvals)),
+            rejections=approved.rejections,
+            quorum_required=approved.quorum_required,
+            snapshot_digest=approved.snapshot_digest,
+        )
 
 
 def test_cannot_review_approved_candidate() -> None:
