@@ -103,7 +103,7 @@ def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> No
     )
     protected = {
         **values,
-        "REQUEST_ID": f"plan-{prefix}{'abcd' * 5}0001",
+        "REQUEST_ID": f"plan-runtime-call-{prefix}{'abcd' * 5}0001",
         "CONTEXT_DIGEST": context,
         "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
     }

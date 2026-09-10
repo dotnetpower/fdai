@@ -20,7 +20,7 @@ _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
-_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:history-|identity-|rca-)?[0-9a-f]{48}$")
+_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:history-|identity-|rca-|runtime-call-)?[0-9a-f]{48}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _BOOL_INPUTS = (
     "deploy_console",
@@ -65,6 +65,7 @@ class DeploymentSelection:
     deploy_operator_api: bool = True
     deploy_operator_channel_edge: bool = False
     deploy_rca_reader_identity: bool = False
+    runtime_call_evidence_transition: bool = False
     runtime_image_revision: str = ""
 
     def __post_init__(self) -> None:
@@ -83,7 +84,10 @@ class DeploymentSelection:
             if _COMMIT.fullmatch(self.runtime_image_revision) is None:
                 raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
         if self.deploy_rca_reader_identity and (
-            any(application_targets) or self.deploy_monitoring or self.runtime_image_revision
+            any(application_targets)
+            or self.deploy_monitoring
+            or self.runtime_call_evidence_transition
+            or self.runtime_image_revision
         ):
             raise ValueError(
                 "deploy_rca_reader_identity cannot be combined with another deployment target"
@@ -93,10 +97,21 @@ class DeploymentSelection:
             or self.deploy_monitoring
             or self.deploy_operational_history
             or self.deploy_rca_reader_identity
+            or self.runtime_call_evidence_transition
             or self.runtime_image_revision
         ):
             raise ValueError(
                 "deploy_identity_migration cannot be combined with another bounded operation"
+            )
+        if self.runtime_call_evidence_transition and (
+            any(application_targets)
+            or self.deploy_monitoring
+            or self.deploy_operational_history
+            or self.deploy_rca_reader_identity
+            or self.runtime_image_revision
+        ):
+            raise ValueError(
+                "runtime_call_evidence_transition cannot be combined with another bounded operation"
             )
 
     def to_mapping(self) -> dict[str, bool | str]:
@@ -106,6 +121,7 @@ class DeploymentSelection:
         if self.deploy_operator_channel_edge:
             result["deploy_operator_channel_edge"] = True
         result["deploy_rca_reader_identity"] = self.deploy_rca_reader_identity
+        result["runtime_call_evidence_transition"] = self.runtime_call_evidence_transition
         result["document_ocr_action"] = "preserve"
         result["runtime_image_revision"] = self.runtime_image_revision
         return result
@@ -247,6 +263,8 @@ def dispatch_plan(
         bounded_request_id = bounded_request_id.replace("plan-", "plan-rca-", 1)
     elif selection.deploy_identity_migration:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-identity-", 1)
+    elif selection.runtime_call_evidence_transition:
+        bounded_request_id = bounded_request_id.replace("plan-", "plan-runtime-call-", 1)
     elif selection.deploy_operational_history:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-history-", 1)
     _dispatch(
@@ -318,6 +336,8 @@ def dispatch_apply(
         bounded_request_id = bounded_request_id.replace("apply-", "apply-rca-", 1)
     elif selection.deploy_identity_migration:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-identity-", 1)
+    elif selection.runtime_call_evidence_transition:
+        bounded_request_id = bounded_request_id.replace("apply-", "apply-runtime-call-", 1)
     elif selection.deploy_operational_history:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-history-", 1)
     _dispatch(
@@ -452,6 +472,8 @@ def _request_binding_from_id(request_id_value: str) -> str:
         "apply-history-",
         "plan-identity-",
         "apply-identity-",
+        "plan-runtime-call-",
+        "apply-runtime-call-",
         "plan-rca-",
         "apply-rca-",
         "plan-",
@@ -552,6 +574,7 @@ def _dispatch(
                 "deploy_identity_migration",
                 "deploy_operational_history",
                 "deploy_rca_reader_identity",
+                "runtime_call_evidence_transition",
             }
         },
     }

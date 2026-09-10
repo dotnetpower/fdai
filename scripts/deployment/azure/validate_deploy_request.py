@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-call-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-call-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -81,7 +81,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "when deploy_console is enabled"
         )
     if re.fullmatch(
-        r"(?:plan|apply)-(?:history-|identity-|observability-|rca-)?[0-9a-f]{48}",
+        r"(?:plan|apply)-(?:history-|identity-|observability-|rca-|runtime-call-)?[0-9a-f]{48}",
         request_id,
     ):
         if values.get("TARGET_ENVIRONMENT") == "prod":
@@ -107,6 +107,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_suffix.removeprefix("history-")
         request_suffix = request_suffix.removeprefix("identity-")
         request_suffix = request_suffix.removeprefix("observability-")
+        request_suffix = request_suffix.removeprefix("runtime-call-")
         if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
         unsupported = (

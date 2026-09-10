@@ -16,10 +16,20 @@ def _step_names() -> tuple[str, ...]:
 
 
 def test_deploy_workflow_stays_within_reviewable_budget() -> None:
+    dispatch_inputs = _WORKFLOW.split("    inputs:", maxsplit=1)[1].split(
+        "permissions:", maxsplit=1
+    )[0]
+    assert len(re.findall(r"^      [a-z][a-z0-9_]*:", dispatch_inputs, re.MULTILINE)) <= 25
     assert len(_WORKFLOW.splitlines()) <= 2_320
     assert len(_step_names()) <= 56
     assert _WORKFLOW.count("        run: |") <= 47
     assert len(_step_names()) == len(set(_step_names()))
+
+
+def test_runtime_call_transition_uses_a_bound_request_prefix() -> None:
+    assert "runtime_call_evidence_transition:" not in _WORKFLOW
+    assert "plan-runtime-call-" in _WORKFLOW
+    assert "apply-runtime-call-" in _WORKFLOW
 
 
 def test_deploy_workflow_uses_consolidated_boundaries() -> None:

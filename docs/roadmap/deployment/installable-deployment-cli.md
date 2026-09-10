@@ -510,7 +510,7 @@ The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 d
 fingerprint. Console, Operator API, document ingestion, isolated Executor, monitoring, the optional
 authority-free `--deploy-operator-channel-edge` identity plan, and the exclusive RCA reader are sealed
 identically into plan and apply. The RCA mode permits only its dedicated identity and Monitoring Reader
-role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform. `--deploy-identity-migration` is a development-only exclusive operation that targets the stable-principal fence and state-backed deployer roles, rejects application selections, reuses the exact target set for convergence, and binds stable-role plus zero-superseded-role readback into the apply receipt.
+role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform. `--deploy-identity-migration` is a development-only exclusive operation that targets the stable-principal fence and state-backed deployer roles, rejects application selections, reuses the exact target set for convergence, and binds stable-role plus zero-superseded-role readback into the apply receipt. The exclusive `--runtime-call-evidence-transition` selection is carried by context-bound `plan-runtime-call-*` and `apply-runtime-call-*` request IDs rather than another workflow input, preserving GitHub's 25-input dispatch ceiling.
 
 Apply dispatch carries no GitHub Environment approval gate. The client does not inspect required
 reviewers, self-review, or administrator bypass, and the protected workflows bind no deployment
