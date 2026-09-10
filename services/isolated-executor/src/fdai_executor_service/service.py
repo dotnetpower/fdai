@@ -33,6 +33,7 @@ from fdai_service_contracts.executor import (
 )
 from fdai_service_contracts.schema import ContractValidator
 
+from fdai_executor_service.effect_safety import deadline_expired
 from fdai_executor_service.ports import ExecutorStateStore
 
 _ATTEMPT_PREFIX = "isolated-executor:attempt:"
@@ -94,10 +95,8 @@ class IsolatedExecutorEffectService:
             version=command.action_schema_version,
         )
         received_at = self._clock()
-        if received_at.tzinfo is None:
-            raise ValueError("isolated Executor clock MUST be timezone-aware")
         action = Action.model_validate(command.action_payload)
-        if received_at > command.deadline_at:
+        if deadline_expired(received_at, command.deadline_at):
             recovered = None
             if command.execution_path is ExecutionPath.DIRECT_API:
                 recovered = await self._direct_api_executor.recover(action=action)
@@ -220,8 +219,7 @@ class IsolatedExecutorShadowService:
             version=command.action_schema_version,
         )
         now = self._clock()
-        if now.tzinfo is None:
-            raise ValueError("isolated Executor clock MUST be timezone-aware")
+        deadline_expired(now, command.deadline_at)
 
         attempt_key = _attempt_key(command.idempotency_key)
         legacy_attempt_key = _legacy_attempt_key(command.idempotency_key)
@@ -347,7 +345,7 @@ def _first_terminal_outcome(
     *,
     now: datetime,
 ) -> tuple[ExecutorShadowReceiptStatus, str]:
-    if now > command.deadline_at:
+    if deadline_expired(now, command.deadline_at):
         return ExecutorShadowReceiptStatus.EXPIRED, "command deadline expired before observation"
     if command.requested_mode is Mode.ENFORCE:
         return (
