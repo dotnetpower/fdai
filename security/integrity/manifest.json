@@ -757,7 +757,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_ingress_queries.py": "efbc7a8f7b887ff54167ae759da2ffdfa12353876d2126221b0b70105a77df0b",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_metric_queries.py": "d7583d952be024e11743ec24fd0ef5dee0aedb4ccf26a6895d7b64a35ba27b3a",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_state_queries.py": "27dc3a6fa25178b452d7e77df549cdb3d49ed679ebac815098a8d9a82bca442d",
-    "services/core-control-plane/src/fdai/core/ontology_platform/runtime_call_projection.py": "aef456265f8207a2697267ca261d0879aa2dc7fa6dbf523501a1b027d831acc4",
+    "services/core-control-plane/src/fdai/core/ontology_platform/runtime_call_projection.py": "fb9d64c5fd2eea11da989cc1967568232de4e5be83e9ee4932a7cd2570a942b4",
     "services/core-control-plane/src/fdai/core/ontology_platform/runtime_call_telemetry.py": "a1c06e3ac10499ec1021c34a871533d75d6e36f75c0e72f4662bda82911477ed",
     "services/core-control-plane/src/fdai/core/ontology_platform/scenario_branch.py": "ef83a79db50e0d15053bf1b06f70bfd445f4e3f2f58d0717a9c738be70b9247c",
     "services/core-control-plane/src/fdai/core/ontology_platform/sdk_codegen.py": "f26e11f44bb593cd64ec9e5312ffec39f10aba8be2084f60a3cd22a27f397303",

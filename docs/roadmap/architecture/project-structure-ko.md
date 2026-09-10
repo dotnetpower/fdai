@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 64ae0eb728b9128bb555d966f254f18913dd0ae2
+translation_source_sha: 96ce975a2cbcf0adef808be98f25c716b00293d7
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -178,7 +178,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   등록합니다. 따라서 verified telemetry edge는 선언된 Resource-to-Resource 방향을 사용하며
   current 및 historical read path에서 사용할 수 있습니다. 신뢰할 수 없는 원격 분석 묶음에는
   공개 변환 기능이 없습니다. 인증된 생성기만 정확한 다이제스트와 독립 원본 컨텍스트를
-  유한한 양의 인증 기한 안에서 검증한 뒤 묶음을 변환합니다.
+  유한한 양의 인증 기한 안에서 검증한 뒤 묶음을 변환합니다. 변환 증적은 각 엔드포인트의
+  정확한 Resource ID와 활성 세대의 Resource 형식을 함께 결속합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·

@@ -88,7 +88,9 @@ pending, and the source reads one guard interval beyond the freshness window so 
 not split a retained pair. Exact replica verification uses at most four concurrent reads under one
 30-second deadline, and freshness is evaluated only after those reads finish. The
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
-scope, freshness budget, and exact ontology release before it can project `runtime_calls`. Local
+scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
+verification receipt binds both endpoint Resource IDs and their active-generation Resource types.
+Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.

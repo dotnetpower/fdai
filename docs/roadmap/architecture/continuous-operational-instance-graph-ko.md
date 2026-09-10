@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: f41fac8ee23c8f16ff0adfac84015c2472414574
+translation_source_sha: 98622e5643f30246a360b2bf8bc87dcd06cee2ac
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -92,7 +92,8 @@ edge로 결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 �
 하나의 30초 기한 안에서 최대 네 개의 동시 읽기를 사용하며, 최신성은 해당
 읽기가 끝난 뒤에만 평가합니다. 그런 다음 인벤토리 기록기는 `runtime_calls`를 변환하기 전에
 완전한 활성 세대, principal 범위, 최신성 예산 및 정확한 온톨로지 릴리스에 대해 두 엔드포인트
-ID를 다시 검사합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
+ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID와 활성 세대의 Resource 형식을
+함께 결속합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
 이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
 사용 불가 결과를 유지합니다.
 Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시도 가능한 작업자를 통해 영속 Incident 개입 요청도 게시할 수 있습니다.
