@@ -90,6 +90,8 @@ refs; container supply-chain actions use immutable commit SHAs. The CI contract 
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
 floor. Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role are unchanged, `principal_id` is the sole role replacement path, and the paired Operator UAMI changes only its name while preserving location, resource group, and tags. The same review copy admits only exact role principal or scope migrations, delete-only retirement of the two prior indexed measurement Jobs when measurement capabilities are disabled, and the reviewed embedding family and SKU replacement. A measurement retirement must match the exact managed resource type, name, index, prior object, null result, and absent replacement path. Provider-computed field encoding does not grant authority, and retention never authorizes apply. The protected deploy workflow keeps repeated request validation and plan-scope logic in
 reviewed helpers instead of inline shell blocks, bounding how much a single review needs to re-read.
+It removes the rendered plan review copy on every exit path, including a rejected guard, so
+sensitive Terraform values don't remain in a persistent runner slot.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
 commit code runs. A

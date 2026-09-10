@@ -754,8 +754,10 @@ jobs:
           MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
         run: |
           set -euo pipefail
-          terraform show -json dev.plan > dev.plan.review.json && python3 ../scripts/deployment/azure/guard_operator_role_plan.py --plan dev.plan.review.json && python3 ../scripts/deployment/azure/guard_platform_migration_plan.py --plan dev.plan.review.json
           trap 'rm -f dev.plan.review.json' EXIT
+          terraform show -json dev.plan > dev.plan.review.json
+          python3 ../scripts/deployment/azure/guard_operator_role_plan.py --plan dev.plan.review.json
+          python3 ../scripts/deployment/azure/guard_platform_migration_plan.py --plan dev.plan.review.json
           python3 - <<'PY'
           import json
           import os
