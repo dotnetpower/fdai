@@ -59,10 +59,11 @@ def test_runtime_call_source_survives_operator_service_state_migration() -> None
     assert (
         "TF_VAR_enable_runtime_call_evidence: ${{ vars.ENABLE_RUNTIME_CALL_EVIDENCE == 'true' }}"
     ) in workflow
-    assert "runtime_call_evidence_transition:" in workflow
+    assert "      runtime_call_evidence_transition:" not in workflow
     assert "RUNTIME_CALL_EVIDENCE_TRANSITION:" in workflow
     assert (
-        "inputs.runtime_call_evidence_transition && "
+        "startsWith(inputs.request_id, 'plan-runtime-') || "
+        "startsWith(inputs.request_id, 'apply-runtime-')) && "
         "'-target=module.compute.azurerm_container_app_job.inventory[0]'"
     ) in workflow
 

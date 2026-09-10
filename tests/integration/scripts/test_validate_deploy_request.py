@@ -103,7 +103,7 @@ def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> No
     )
     protected = {
         **values,
-        "REQUEST_ID": f"plan-{prefix}{'abcd' * 5}0001",
+        "REQUEST_ID": f"plan-runtime-{prefix}{'abcd' * 5}0001",
         "CONTEXT_DIGEST": context,
         "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
     }
@@ -113,12 +113,22 @@ def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> No
         _MODULE._deployment_context_digest({**values, "RUNTIME_CALL_EVIDENCE_TRANSITION": "false"})
         != context
     )
+    mixed_values = {**values, "DEPLOY_MONITORING": "true"}
+    mixed_context = _MODULE._deployment_context_digest(mixed_values)
+    mixed_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=mixed_context,
+        mode="plan",
+        region="koreacentral",
+    )
     with pytest.raises(ValueError, match="cannot be combined"):
         validate(
-            _request(
-                RUNTIME_CALL_EVIDENCE_TRANSITION="true",
-                DEPLOY_MONITORING="true",
-            ),
+            {
+                **mixed_values,
+                "REQUEST_ID": f"plan-runtime-{mixed_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": mixed_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
             checkout_commit=_COMMIT,
         )
 
