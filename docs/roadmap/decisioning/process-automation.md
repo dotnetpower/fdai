@@ -228,7 +228,8 @@ and crash-safe Process and Saga terminalization. A failed immutable compensation
 relabelled as a later successful recovery.
 
 `recovery_attempt.py` now provides the attempt identity, exclusive pre-dispatch claim, separate
-approval and safeguard evidence binding, and stable attempt-derived idempotency key.
+approval and safeguard evidence binding, and stable attempt-derived idempotency key. Approval and
+safeguard evidence recompute their content address when reconstructed from durable state.
 `recovery_effect_claim.py` provides authoritative external evidence verification, executor/observer
 identity separation, content-addressed completion claims with monotonic generation, and
 supersession/revocation. `recovery_terminalization.py` provides the completion digest, immutable

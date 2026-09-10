@@ -313,6 +313,20 @@ class RecoveryApprovalEvidence:
             raise ValueError("approval evidence requires timezone-aware approved_at")
         if not self.approver_identity or not self.approver_identity.strip():
             raise ValueError("approval evidence requires an approver_identity")
+        if _DIGEST.fullmatch(self.evidence_digest) is None:
+            raise ValueError("approval evidence requires a valid evidence_digest")
+        expected = content_digest(
+            {
+                "attempt_identity_digest": self.attempt_identity_digest,
+                "approval_digest": self.approval_digest,
+                "approved_at": self.approved_at.astimezone(UTC).isoformat(),
+                "approver_identity": self.approver_identity,
+                "execution_authority": False,
+                "approval_authority": False,
+            }
+        )
+        if self.evidence_digest != expected:
+            raise ValueError("approval evidence digest mismatched")
 
     @classmethod
     def create(
@@ -361,6 +375,18 @@ class RecoverySafeguardEvidence:
             raise ValueError("safeguard evidence requires a valid safeguard_bundle_digest")
         if self.completed_at.tzinfo is None or self.completed_at.utcoffset() is None:
             raise ValueError("safeguard evidence requires timezone-aware completed_at")
+        if _DIGEST.fullmatch(self.evidence_digest) is None:
+            raise ValueError("safeguard evidence requires a valid evidence_digest")
+        expected = content_digest(
+            {
+                "attempt_identity_digest": self.attempt_identity_digest,
+                "safeguard_bundle_digest": self.safeguard_bundle_digest,
+                "completed_at": self.completed_at.astimezone(UTC).isoformat(),
+                "execution_authority": False,
+            }
+        )
+        if self.evidence_digest != expected:
+            raise ValueError("safeguard evidence digest mismatched")
 
     @classmethod
     def create(

@@ -335,6 +335,24 @@ class TestApprovalEvidence:
                 execution_authority=True,  # type: ignore[arg-type]
             )
 
+    def test_reject_tampered_evidence_digest(self) -> None:
+        identity = _make_identity()
+        evidence = RecoveryApprovalEvidence.create(
+            attempt_identity_digest=identity.identity_digest,
+            approval_digest=_APPROVAL_DIGEST,
+            approved_at=_NOW,
+            approver_identity="approver@example.com",
+        )
+
+        with pytest.raises(ValueError, match="digest mismatched"):
+            RecoveryApprovalEvidence(
+                attempt_identity_digest=evidence.attempt_identity_digest,
+                approval_digest=evidence.approval_digest,
+                approved_at=evidence.approved_at,
+                approver_identity=evidence.approver_identity,
+                evidence_digest="sha256:" + "0" * 64,
+            )
+
 
 class TestSafeguardEvidence:
     def test_separate_safeguard(self) -> None:
@@ -360,6 +378,22 @@ class TestSafeguardEvidence:
                 completed_at=evidence.completed_at,
                 evidence_digest=evidence.evidence_digest,
                 execution_authority=True,  # type: ignore[arg-type]
+            )
+
+    def test_reject_tampered_evidence_digest(self) -> None:
+        identity = _make_identity()
+        evidence = RecoverySafeguardEvidence.create(
+            attempt_identity_digest=identity.identity_digest,
+            safeguard_bundle_digest=_SAFEGUARD_DIGEST,
+            completed_at=_NOW,
+        )
+
+        with pytest.raises(ValueError, match="digest mismatched"):
+            RecoverySafeguardEvidence(
+                attempt_identity_digest=evidence.attempt_identity_digest,
+                safeguard_bundle_digest=evidence.safeguard_bundle_digest,
+                completed_at=evidence.completed_at,
+                evidence_digest="sha256:" + "0" * 64,
             )
 
 
