@@ -370,15 +370,7 @@ async def consume_semantic_turns(
                         )
                     projection = _projection_mapping(encoded)
                 finally:
-                    try:
-                        await asyncio.wait_for(
-                            progress_queue.join(),
-                            timeout=_PROGRESS_DRAIN_SECONDS,
-                        )
-                    except TimeoutError:
-                        pass
-                    progress_publisher.cancel()
-                    await asyncio.gather(progress_publisher, return_exceptions=True)
+                    await _close_progress_publisher(progress_queue, progress_publisher)
             except SemanticTurnRejectedError:
                 await bus.dead_letter(
                     envelope.topic,
@@ -430,6 +422,23 @@ async def _drain_progress(
             _LOGGER.warning("semantic_query_progress_publish_failed")
         finally:
             queue.task_done()
+
+
+async def _close_progress_publisher(
+    queue: asyncio.Queue[SemanticQueryProgress],
+    publisher: asyncio.Task[None],
+) -> None:
+    try:
+        try:
+            await asyncio.wait_for(
+                queue.join(),
+                timeout=_PROGRESS_DRAIN_SECONDS,
+            )
+        except TimeoutError:
+            pass
+    finally:
+        publisher.cancel()
+        await asyncio.gather(publisher, return_exceptions=True)
 
 
 async def _publish_projection(

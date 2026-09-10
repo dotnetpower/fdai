@@ -57,6 +57,7 @@ from fdai_core_service.semantic_service_health_answer import render_service_heal
 from fdai_core_service.semantic_turn_consumer import (
     RuntimeCallEndpointObserver,
     StateStoreSemanticTurnResultStore,
+    _close_progress_publisher,
     consume_semantic_turns,
     semantic_turn_binding_from_config,
 )
@@ -5759,6 +5760,36 @@ async def test_malformed_runtime_witness_does_not_leak_progress_task() -> None:
         and "_drain_progress" in task.get_coro().__qualname__
     ]
     assert leaked == []
+
+
+async def test_consumer_cancellation_stops_progress_publisher() -> None:
+    queue: asyncio.Queue[object] = asyncio.Queue()
+    queue.put_nowait(object())
+    publisher_started = asyncio.Event()
+    publisher_stopped = asyncio.Event()
+
+    async def blocked_publisher() -> None:
+        publisher_started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            publisher_stopped.set()
+
+    publisher = asyncio.create_task(blocked_publisher())
+    await publisher_started.wait()
+    cleanup = asyncio.create_task(
+        _close_progress_publisher(
+            cast(asyncio.Queue[Any], queue),
+            publisher,
+        )
+    )
+    await asyncio.sleep(0)
+    cleanup.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await cleanup
+
+    assert publisher.done()
+    assert publisher_stopped.is_set()
 
 
 def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() -> None:
