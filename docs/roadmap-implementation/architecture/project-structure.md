@@ -64,6 +64,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Enforced runtime no-authority checks on PostgreSQL role evidence and projection objects rather than relying only on static literal types. | `current change`; `postgres_role_evidence.py`; focused authority-forgery checks. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Moved Operator runtime-call caller-witness construction and timestamp capture after broker acceptance while preserving no-witness failure behavior. | `current change`; `semantic_turn_runtime.py`; focused ordered publish and witness checks. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Bound runtime-call projection receipts to the exact active-generation endpoint Resource types so type changes cannot replay under the same receipt. | `current change`; `runtime_call_projection.py`; focused replay and type-variance checks. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Bounded runtime-call authentication with a finite positive deadline that rejects infinity and NaN at composition. | `current change`; `runtime_call_telemetry.py`; focused timeout checks and Ruff. | Retain authenticated available-source evidence on standard ports under issue #260. |

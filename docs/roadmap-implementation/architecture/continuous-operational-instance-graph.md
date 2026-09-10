@@ -38,6 +38,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Enforced the no-authority invariant on PostgreSQL role evidence and projection construction at runtime. | `current change`; `postgres_role_evidence.py`; focused authority-forgery checks. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Restricted runtime-call incomplete-source coverage to three fixed count keys and rejected arbitrary labels that could disclose provider identifiers. | `current change`; `runtime_call_inventory.py`; focused raw-key rejection check. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Guaranteed Core semantic-consumer cancellation stops its progress publisher even while progress draining is blocked. | `current change`; `semantic_turn_consumer.py`; focused cancellation and task-lifecycle check. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Moved the Operator caller-witness timestamp and record construction after authenticated broker acceptance so evidence time cannot precede the observed boundary. | `current change`; `semantic_turn_runtime.py`; focused ordered publish and witness checks. | Retain authenticated available-source evidence on standard ports under issue #260. |

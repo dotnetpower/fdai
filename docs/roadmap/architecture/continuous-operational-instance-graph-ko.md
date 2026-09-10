@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 32677aceab016443ef6fe443d51d89abe7e207d7
+translation_source_sha: 3e9c2ff266388fc98441ce8da237f2a066302ce7
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -101,6 +101,9 @@ ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID�
 함께 결속합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
 이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
 사용 불가 결과를 유지합니다.
+PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
+결과로 유지합니다. 관측, 정제된 근거 및 변환 결과 계약은 형식 주석에만 의존하지 않고 실행
+중에도 실행 또는 변경 권한을 각각 거부합니다.
 Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시도 가능한 작업자를 통해 영속 Incident 개입 요청도 게시할 수 있습니다.
 어댑터는 해당 논리 토픽을 명시적으로 허용 목록에 등록하고 설정된 물리 전송 계층을 통해 다중화합니다.
 런타임 호출 증표, 그래프 edge, 프로바이더 관측 또는 실행 권한은 만들지 않습니다.

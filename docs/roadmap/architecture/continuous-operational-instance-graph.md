@@ -97,6 +97,9 @@ verification receipt binds both endpoint Resource IDs and their active-generatio
 Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
+PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
+or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
+or mutation authority at runtime rather than relying on type annotations alone.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.
