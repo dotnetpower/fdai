@@ -19,6 +19,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Implemented #652 (recovery attempt dispatch), #656 (effect completion claims), #658 (recovery terminalization), and #640 (hold dispatch fencing). Added `recovery_attempt.py` with attempt identity, pre-dispatch claim, approval/safeguard evidence binding, and idempotency key. Added `recovery_effect_claim.py` with authoritative external evidence, identity separation, supersession/revocation, and content-addressed claims. Added `recovery_terminalization.py` with completion digest, receipt lookup, outbox, terminal-transition guard, and replay idempotency. Added `hold_dispatch_fence.py` fencing forward dispatch against active/malformed/unreadable hold inside the logical-target lock. | `current change`; `recovery_attempt.py`; `recovery_effect_claim.py`; `recovery_terminalization.py`; `hold_dispatch_fence.py`; 106 focused deterministic tests passed; Ruff and strict mypy passed. | Route production compensation through the guarded release primitive under #630. |
 | 2026-09-10 | in-progress | Preserved the approval-guarded hold-release contract while extracting its PostgreSQL transaction into a focused persistence module and registering the recovery-admission and hold-release decision boundaries in the explicit inventory. | `current change`; `postgres.py`; `postgres_approval_guard.py`; `decision-boundary-inventory.json`; the exact shipped-inventory test passed 1 case, the complete boundary suite passed 11, focused workflow and persistence checks passed 47, routed decision-evidence checks passed 40, the standalone boundary checker passed, strict mypy and Ruff passed, and the enforced file-LOC gate reported `postgres.py` at 755 lines with no failures. | Production compensation integration under #630 and final execution-path fencing under #640 remain unchanged. |
 | 2026-09-10 | in-progress | Split unreachable same-proposal recovery wiring into bounded owners for a distinct approved recovery attempt, authoritative post-effect claim, and claim-fenced crash-safe terminalization. | `current change`; issues `#652`, `#656`, and `#658`; parent `#630`. | Complete the three packages in order without reinterpreting a failed immutable compensation proposal, then continue to #640. |
 | 2026-09-10 | in-progress | Added an approval-guarded atomic hold-release primitive with idempotent intent, admission consumption, fencing generation, content-addressed no-authority receipt, and transactional terminal audit. In-memory and PostgreSQL adapters validate approval and admission at their transaction linearization point. | `current change`; `automation_hold.py`; `workflow_approval.py`; `state_store.py`; `postgres.py`; focused approval and hold checks passed 63 cases; Ruff and strict mypy passed. | Replace the production compensation coordinator's legacy release call under #630, then integrate final execution-path fencing under #640. |
@@ -49,11 +50,15 @@ and resumable work while the roadmap owner remains focused on normative design.
   generation, no-authority receipt, and terminal audit. Evidence: 63 focused passing checks.
 - [ ] Route production compensation through the guarded release primitive and retain its action-bound
   receipt under issue `#630`.
-- [ ] Complete #652, #656, and #658 for the distinct approved recovery attempt, authoritative
+- [x] Complete #652, #656, and #658 for the distinct approved recovery attempt, authoritative
   effect-claim generation, guarded claim consumption, and crash-safe Process and Saga
-  terminalization required to close #630.
-- [ ] Recheck the action-bound release receipt and absence of a newer hold inside each execution
-  path's existing logical-target lock under issue `#640`.
+  terminalization required to close #630. Evidence: `recovery_attempt.py`,
+  `recovery_effect_claim.py`, `recovery_terminalization.py` with 106 focused deterministic tests
+  covering identity, claims, supersession, terminalization, and outbox.
+- [x] Recheck the action-bound release receipt and absence of a newer hold inside each execution
+  path's existing logical-target lock under issue `#640`. Evidence: `hold_dispatch_fence.py` with
+  deterministic tests covering active/malformed/unreadable hold, receipt and generation mismatch,
+  reissue after release, lock ownership, restart replay, and isolated-Executor equivalence.
 - [ ] Add a typed `SignalType` trigger reference and cross-check it at load. This is blocked on
   promoting a `SignalType` vocabulary that covers request and command triggers; the shipped
   registry declares observation semantics only, and widening it also changes T0 rule dispatch

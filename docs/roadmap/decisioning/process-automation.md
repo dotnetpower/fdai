@@ -227,6 +227,16 @@ attempt, #656 for authoritative post-effect completion claims, and #658 for clai
 and crash-safe Process and Saga terminalization. A failed immutable compensation proposal is never
 relabelled as a later successful recovery.
 
+`recovery_attempt.py` now provides the attempt identity, exclusive pre-dispatch claim, separate
+approval and safeguard evidence binding, and stable attempt-derived idempotency key.
+`recovery_effect_claim.py` provides authoritative external evidence verification, executor/observer
+identity separation, content-addressed completion claims with monotonic generation, and
+supersession/revocation. `recovery_terminalization.py` provides the completion digest, immutable
+receipt lookup, completion outbox with independent delivery, terminal-transition precondition guard,
+and replay idempotency. `hold_dispatch_fence.py` fences forward dispatch against
+active, malformed, or unreadable hold state inside the logical-target lock, with an isolated-Executor
+equivalent that performs the same check without importing Core implementation.
+
 The upstream headless runtime and production Operator API bind
 `StateStoreWorkflowOutcomeLedger` to the shared durable state store. The control loop records an
 immutable receipt only for an enforce Action whose execution identity matches its
