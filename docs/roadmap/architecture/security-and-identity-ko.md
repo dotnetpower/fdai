@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 2d48477f8ff61dc4b037da317979baf8cee4a931
+translation_source_sha: d2333d35fe19f7cad9a1fcdd0484e7546a73ddc4
 translation_revised: 2026-09-11
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 완료 outbox 항목을 복원할 때 변경 불가 내용 주소를 검증하게 했습니다. 위조된 항목은 더 이상 Process 또는 Saga 전달 재생에 들어갈 수 없습니다. | `current change`; `recovery_terminalization.py`; 집중 outbox 변조 테스트. | #630에서 운영 보상을 보호된 해제 기본 연산으로 연결합니다. |
 | 2026-09-11 | implemented | 영속 상태에서 복원한 보류 복구 승인 및 안전장치 증적이 자체 내용 주소를 검증하게 했습니다. 변조된 provenance는 복구 주장이 사용하기 전에 차단됩니다. | `current change`; `recovery_attempt.py`; 집중 변조 테스트. | #630에서 운영 보상을 보호된 해제 기본 연산으로 연결합니다. |
 | 2026-09-11 | implemented | 보류된 복구 최종 처리를 현재 Process revision, 정확한 효과 주장 및 generation, 해제 증적, 완료 digest, 기존 최종 커밋 부재에 결속했습니다. 하나라도 일치하지 않으면 이제 전환을 차단합니다. | `current change`; `recovery_terminalization.py`; 집중 최종 처리 사전 조건 테스트 27개 통과. | #630에서 운영 보상을 보호된 해제 기본 연산으로 연결합니다. |
 | 2026-09-10 | implemented | 정확한 매니페스트, 완전한 분모 계산, 콘텐츠에 결속된 자료 집합과 증적, 고정 로컬 제한 시간, 레지스트리 전후 무결성, 심볼릭 링크에 안전한 명시적 산출물 작성기를 갖춘 결정론적 로컬 합성 A3-E shadow 집단을 추가했습니다. 개발 근거만 기록하며 실행 또는 승격 권한을 부여하지 않습니다. | `current change`; `core/standing_authority/shadow_cohort_runner.py`; 최종 회귀 테스트 2개 전 집중 standing-authority 테스트 174개 통과 후 40개 집단 테스트 구간 재실행; Ruff, strict mypy 통과; 독립 TOCTOU 및 자료 집합 결속 문제를 수정했고 재비평에서 Medium 이상 발견된 문제가 없습니다. | #631의 로컬 구현 잔여 작업은 없습니다. #632에는 별도 승인된 통제된 런타임 근거와 독립 승격 검토가 필요합니다. |
