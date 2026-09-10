@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: f0caa16bd59edef2731cf5ced563313a921f2729
+translation_source_sha: 2cbef45b5c2ca747fc99de14ba41f1832e03d3c4
 translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
@@ -172,6 +172,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 통합 질문은행 원본 다이제스트 변경 후 CQAS 의미 의도 인벤토리를 다시 생성했습니다. 지표 정의, 분모 및 범위 개수는 바뀌지 않았습니다. | `current change`, `build_semantic_intent_coverage.py`, 생성 산출물 동등성 검사 | 이 종속 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-11 | implemented | Console 로캘 카탈로그 변경 후 통합 질문은행의 기계 판독용 인벤토리와 검토 카탈로그를 다시 생성했습니다. 질문 400개의 신원은 모두 유지하고 정확한 원본 다이제스트만 갱신했습니다. | `current change`, 공식 질문은행 생성기 및 생성 산출물 동등성 검사 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-10 | implemented | 대상 없는 완화 요구사항에 대해 영어와 한국어 원문 및 유사 질문 3개씩을 추가하여 Azure/인시던트 의도 계약을 16개에서 24개 사례로 확장하고 CQAS 소스 digest를 다시 생성했습니다. | `current change`, 집중 Golden 재생, 의미 계획, 최종 표현, 생성 산출물 drift, Ruff 및 mypy 검사 | 승격하거나 실제 품질을 주장하기 전에 인증된 exact-source 모델 근거를 별도로 실행합니다. |
 | 2026-09-10 | implemented | Duplicate 이력을 삭제하지 않고 새로운 10문항 full-answer child에서 조건부 repair를 평가하도록 Approval, Decision, Observation, Rule, ServiceObjective의 principal-catalog 스키마 canary 10개를 추가했습니다. | `current change`, typed contract, catalog subject, watchdog, Ruff 및 mypy 검사 | 새 challenge id로 명시적 10문항 child 하나를 실행합니다. |
