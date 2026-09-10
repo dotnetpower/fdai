@@ -606,7 +606,8 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   development views; runtime validation continues to use the canonical JSON Schema. Core-owned partial indexes on `state_kv` support Operator semantic claim ordering and principal-scoped replay without transferring table ownership.
   `executor-command` 1.1 adds `safeguard_proof_bundle_digest` and `source_revision` binding.
   The isolated Executor revalidates the proof bundle before provider dispatch and carries the
-  digest in its terminal receipt with `effect_verified=false`. The separate `observation-receipt`
+  digest in its terminal receipt with `effect_verified=false`. Missing or mismatched bundle
+  evidence returns `rejected_invariant` before deadline recovery or provider invocation. The separate `observation-receipt`
   1.0 contract verifies or refutes an effect (verified/failed/censored/unavailable) without
   granting execution authority.
   `operator-core-request` is at `1.5.0`. Version 1.3 added the server-owned

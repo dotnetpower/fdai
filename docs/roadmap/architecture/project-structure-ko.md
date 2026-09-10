@@ -606,7 +606,8 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다. `state_kv`의 Core 소유 부분 인덱스는 테이블 소유권을 이전하지 않고 Operator 의미 claim 정렬과 principal 범위 replay를 지원합니다.
   `executor-command` 1.1은 `safeguard_proof_bundle_digest`와 `source_revision` 바인딩을
   추가합니다. Isolated 실행기는 프로바이더 디스패치 전에 증명 묶음을 재검증하고
-  터미널 증적에 digest를 `effect_verified=false`로 포함합니다. 별도의
+  터미널 증적에 digest를 `effect_verified=false`로 포함합니다. 묶음 근거가 없거나
+  일치하지 않으면 기한 복구 또는 프로바이더 호출 전에 `rejected_invariant`를 반환합니다. 별도의
   `observation-receipt` 1.0 계약은 실행 권한을 부여하지 않고 효과를
   verified/failed/censored/unavailable로 검증하거나 반박합니다.
   `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
