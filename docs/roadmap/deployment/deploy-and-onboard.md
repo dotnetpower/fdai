@@ -107,7 +107,8 @@ stable-principal fence and reviewed deployer role assignments. Its guard rejects
 deployment selections, unrelated resources, changed scopes or roles, and any destination principal
 other than the configured runner UAMI. Post-apply readback
 requires every planned role on that UAMI and zero remaining roles for superseded principals before
-the apply receipt is written.
+the apply receipt is written. Console publication, Entra synchronization, database migrations,
+runtime health probes, and canary execution remain outside this bounded operation.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
 commit code runs. A

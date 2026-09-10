@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5f57918d917c1855fce72874c7f54b2032abff16
+translation_source_sha: a085370b9e5c20d594f810fbcfeb080bee126411
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -109,7 +109,8 @@ principal에 고정하므로 테스트에서도 운영 identity fence가 활성 
 deployer 역할 할당만 대상으로 합니다. 해당 검증기는 애플리케이션 배포 선택, 관련 없는 리소스,
 변경된 범위나 역할, 구성된 실행기 UAMI가 아닌 대상 principal을 차단합니다. 적용 후 readback은
 적용 증적을 쓰기 전에 해당 UAMI에 계획된 역할이
-모두 있고 교체된 principal의 남은 역할이 0건인지 확인합니다.
+모두 있고 교체된 principal의 남은 역할이 0건인지 확인합니다. Console 게시, Entra 동기화,
+데이터베이스 이행, 런타임 상태 검사 및 canary 실행은 이 범위가 제한된 작업에 포함되지 않습니다.
 권한 있는 workflow는 먼저 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을
 비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를 계속 선택할 수 있습니다.
