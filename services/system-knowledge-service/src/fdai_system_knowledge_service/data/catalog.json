@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:77e58f320305e07bad31d8f6ec5326645406873cfee3b08543a9cb1c02552c6a",
+  "catalog_digest": "sha256:e633a68382d3d0f74ad5b11f6ac3d35df640bbbd6e730a4448abc10990b05c49",
   "execution_authority": false,
-  "generated_at": "2026-09-09T23:36:04.287504Z",
+  "generated_at": "2026-09-10T16:49:40.035859Z",
   "records": [
     {
       "designed_behavior": [
@@ -526,13 +526,13 @@
         "How does the existing FDAI Teams conversation path work?",
         "기존 FDAI Teams 대화 경로는 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:92e9502bfcc24ee2f4a13c69a88292f2bf41d36938700675f797a51a69d147f2",
+      "record_digest": "sha256:76273b646440294597f470bf275a2543f5690a186e10dce9ab14c8a85d37335f",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "99a85d5639532e55388927467e0dfcb220cd189b",
-          "line_end": 79,
-          "line_start": 79,
+          "blob_sha": "351b6d4bc18533c5b452c9d287f26a2c04ca3cbd",
+          "line_end": 81,
+          "line_start": 81,
           "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "901e365f5efad06ae2e8b3d0d3f17d094be7da76"
+  "source_revision": "27eccf90d9907f1d3112da064884c583195b5ff8"
 }

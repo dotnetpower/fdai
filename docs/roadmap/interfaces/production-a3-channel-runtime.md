@@ -31,6 +31,8 @@ The edge accepts only provider-authenticated requests, replaces vendor identity 
 FDAI principal, and claims the provider message in the Operator-owned inbound ledger. It submits a
 typed semantic request through `SemanticTurnBridge.append()`, waits for the principal-scoped
 terminal projection through `SemanticTurnBridge.open()`, and compiles one presentation artifact.
+The shared semantic outbox records a runtime-call caller witness and its observation time only after
+the broker accepts the request; a failed publish produces no witness.
 A schema-v3 artifact may carry a server-selected operational brief or Markdown document layout plus
 bounded dynamic-assembly metadata. The edge validates the complete SHA-256-bound render surface,
 reduces it to the provider's existing channel-neutral sections, and degrades modified or unsupported

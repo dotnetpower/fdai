@@ -183,7 +183,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   envelope has no public projection conversion. Its authenticated producer alone converts an
   envelope after verifying the exact digest and independent source context under a finite positive
   authentication deadline. The projection receipt binds each endpoint's exact Resource ID and
-  active-generation Resource type.
+  active-generation Resource type. The Operator semantic outbox captures the caller witness and its
+  observation time only after broker acceptance; a failed publish produces no witness.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: c234f15c6c78b10d6c9d6350b2304c314d87a5ce
+translation_source_sha: 508517b99a9a28f0d0428d224e6417e6a0467d51
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -76,7 +76,8 @@ fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락
 
 런타임 호출 근거에는 해시된 요청 식별자와 정확한 호출자 및 대상 Container App Resource ID가
 같은 타입 지정 엔드포인트 증표 두 개가 필요합니다. Operator는 인증된 브로커 수락 뒤에만 호출자
-증표를 내보내고 Core는 해당 브로커 전달이 대상 경계에 도달하는 즉시 turn 처리에서 거절되기
+증표를 내보내며 관측 시점도 수락 이후에 기록합니다. Core는 해당 브로커 전달이 대상 경계에
+도달하는 즉시 turn 처리에서 거절되기
 전에 대상 증표를 내보냅니다. 두 증표 모두 요청 내용이나 권한을 포함하지 않습니다. Azure Monitor
 원본으로부터 받은 신뢰할 수 없는 원격 분석 묶음은 변환 결과 입력으로 직접 바꾸는 기능을
 제공하지 않습니다. 인증된 생성기만 정확한 묶음 다이제스트와 독립 원본 컨텍스트를 검증한 뒤

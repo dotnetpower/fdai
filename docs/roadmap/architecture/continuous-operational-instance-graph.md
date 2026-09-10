@@ -73,7 +73,8 @@ accepted Event observations.
 
 Runtime-call evidence requires two typed endpoint witnesses with the same hashed request identity
 and exact caller and target Container App Resource IDs. Operator emits the caller witness only after
-authenticated broker acceptance, and Core emits the target witness as soon as that broker delivery
+authenticated broker acceptance and records its observation time only after that acceptance. Core
+emits the target witness as soon as that broker delivery
 reaches the target boundary, before turn processing can reject it. Neither witness carries request
 content or authority. An untrusted telemetry envelope exposes no direct conversion to projection
 input. Only the authenticated producer can perform that conversion after it verifies the exact
