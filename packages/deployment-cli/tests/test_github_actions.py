@@ -188,6 +188,7 @@ def test_deploy_identity_migration_uses_a_context_bound_request_prefix() -> None
         if call[:2] != ("workflow", "run"):
             continue
         assert "deploy_identity_migration=true" not in call
+        assert "runtime_call_evidence_transition=false" not in call
 
 
 def test_deploy_identity_migration_rejects_default_application_targets() -> None:
@@ -765,6 +766,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "deploy_operator_api": True,
                 "deploy_rca_reader_identity": False,
                 "document_ocr_action": "preserve",
+                "runtime_call_evidence_transition": False,
                 "runtime_image_revision": "",
             },
         },

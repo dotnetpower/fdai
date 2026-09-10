@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 08d899506bbc54ab2d3e23973926e90b99975bec
+translation_source_sha: ffb948d29b494d7c5ae53c0c8298db26fa972999
 translation_revised: 2026-09-11
 ---
 # 설치형 배포 CLI
@@ -513,7 +513,7 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 없는
 `--deploy-operator-channel-edge` 신원 계획 및 전용 RCA reader를 계획과 적용에 동일하게
 봉인합니다. RCA 모드는 전용 신원과 Monitoring Reader 역할만 허용합니다. 선택적 런타임
-리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다. `--deploy-identity-migration`은 애플리케이션 선택을 차단하고 stable-principal fence와 상태 기반 deployer 역할만 대상으로 하는 개발 환경 전용 단독 작업입니다. exact 적용은 같은 대상 집합으로 수렴하고 stable 역할 및 교체된 역할 0건 readback을 적용 증적에 결합합니다.
+리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다. `--deploy-identity-migration`은 애플리케이션 선택을 차단하고 stable-principal fence와 상태 기반 deployer 역할만 대상으로 하는 개발 환경 전용 단독 작업입니다. exact 적용은 같은 대상 집합으로 수렴하고 stable 역할 및 교체된 역할 0건 readback을 적용 증적에 결합합니다. 일반 CLI 맥락은 서버 digest와 일치하도록 `runtime_call_evidence_transition=false`를 봉인하지만 제거된 해당 키를 workflow dispatch field로 보내지는 않습니다.
 
 적용 디스패치에는 GitHub 환경 승인 게이트가 없습니다. 클라이언트는 필수 검토자, 자체 검토,
 관리자 우회를 확인하지 않으며 보호된 작업 흐름도 배포 환경을 바인딩하지 않으므로, 권한이 있는
