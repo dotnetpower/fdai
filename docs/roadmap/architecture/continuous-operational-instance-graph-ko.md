@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 716965083a01d54537669e1d349b81baf64a2601
-translation_revised: 2026-09-10
+translation_source_sha: 1bc06ba6db2a632a01b8721c25fb7f10653d9e02
+translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -78,7 +78,9 @@ fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락
 같은 타입 지정 엔드포인트 증표 두 개가 필요합니다. Operator는 인증된 브로커 수락 뒤에만 호출자
 증표를 내보내고 Core는 해당 브로커 전달이 대상 경계에 도달하는 즉시 turn 처리에서 거절되기
 전에 대상 증표를 내보냅니다. 두 증표 모두 요청 내용이나 권한을 포함하지 않습니다. Azure Monitor
-원본은 일치하는 구조의 Container Apps 로그
+원본으로부터 받은 신뢰할 수 없는 원격 분석 묶음은 변환 결과 입력으로 직접 바꾸는 기능을
+제공하지 않습니다. 인증된 생성기만 정확한 묶음 다이제스트와 독립 원본 컨텍스트를 검증한 뒤
+변환할 수 있습니다. Azure Monitor 원본은 일치하는 구조의 Container Apps 로그
 스키마만 수락한 다음 플랫폼이 기록한 각 revision과 replica를 해당 증표가 주장한 정확한
 Container App ARM ID 아래에서 다시 읽습니다. 이 방식으로 독립적으로 결속된 엔드포인트 증표만
 기존 정식 Resource ID 매핑으로 변환합니다. 독립 채널

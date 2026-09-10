@@ -51,7 +51,10 @@ class RuntimeCallTelemetryEnvelope:
     mutation_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
-        self.to_observation(authentication_ref="sha256:" + "0" * 64)
+        _observation_from_envelope(
+            self,
+            authentication_ref="sha256:" + "0" * 64,
+        )
 
     def content_digest(self) -> str:
         """Return the replay-stable digest authenticated by the source verifier."""
@@ -75,26 +78,6 @@ class RuntimeCallTelemetryEnvelope:
                 "source_revision": self.source_revision,
                 "target_resource_ids": self.target_resource_ids,
             }
-        )
-
-    def to_observation(self, *, authentication_ref: str) -> RuntimeCallObservation:
-        """Create the projection input after authentication succeeds."""
-
-        return RuntimeCallObservation(
-            observation_id=self.observation_id,
-            caller_resource_ids=self.caller_resource_ids,
-            target_resource_ids=self.target_resource_ids,
-            scope_ref=self.scope_ref,
-            observed_at=self.observed_at,
-            evidence_cutoff=self.evidence_cutoff,
-            recorded_at=self.recorded_at,
-            freshness_ceiling_seconds=self.freshness_ceiling_seconds,
-            source_identity=self.source_identity,
-            source_revision=self.source_revision,
-            evidence_ref=self.evidence_ref,
-            authentication_ref=authentication_ref,
-            execution_authority=self.execution_authority,
-            mutation_authority=self.mutation_authority,
         )
 
 
@@ -192,7 +175,33 @@ class RuntimeCallTelemetryProducer:
             authenticated.source_credential_lineage,
             authenticated.verifier_credential_lineage,
         )
-        return envelope.to_observation(authentication_ref=authenticated.authentication_ref)
+        return _observation_from_envelope(
+            envelope,
+            authentication_ref=authenticated.authentication_ref,
+        )
+
+
+def _observation_from_envelope(
+    envelope: RuntimeCallTelemetryEnvelope,
+    *,
+    authentication_ref: str,
+) -> RuntimeCallObservation:
+    return RuntimeCallObservation(
+        observation_id=envelope.observation_id,
+        caller_resource_ids=envelope.caller_resource_ids,
+        target_resource_ids=envelope.target_resource_ids,
+        scope_ref=envelope.scope_ref,
+        observed_at=envelope.observed_at,
+        evidence_cutoff=envelope.evidence_cutoff,
+        recorded_at=envelope.recorded_at,
+        freshness_ceiling_seconds=envelope.freshness_ceiling_seconds,
+        source_identity=envelope.source_identity,
+        source_revision=envelope.source_revision,
+        evidence_ref=envelope.evidence_ref,
+        authentication_ref=authentication_ref,
+        execution_authority=envelope.execution_authority,
+        mutation_authority=envelope.mutation_authority,
+    )
 
 
 def _require_distinct(label: str, *values: str) -> None:

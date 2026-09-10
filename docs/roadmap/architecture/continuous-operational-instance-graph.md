@@ -75,7 +75,9 @@ Runtime-call evidence requires two typed endpoint witnesses with the same hashed
 and exact caller and target Container App Resource IDs. Operator emits the caller witness only after
 authenticated broker acceptance, and Core emits the target witness as soon as that broker delivery
 reaches the target boundary, before turn processing can reject it. Neither witness carries request
-content or authority. The Azure Monitor source accepts
+content or authority. An untrusted telemetry envelope exposes no direct conversion to projection
+input. Only the authenticated producer can perform that conversion after it verifies the exact
+envelope digest and independent source context. The Azure Monitor source accepts
 only the matching structured Container Apps log schema, then re-reads each platform-stamped
 revision and replica under its claimed exact Container App ARM ID. Only those independently bound
 endpoint witnesses convert through the existing canonical Resource ID mapping. The standalone channel edge never receives the caller

@@ -122,3 +122,7 @@ def test_authentication_context_requires_canonical_digests() -> None:
 
     with pytest.raises(ValueError, match="canonical SHA-256"):
         replace(_context(envelope), authentication_ref="receipt:not-content-addressed")
+
+
+def test_untrusted_envelope_has_no_public_projection_conversion() -> None:
+    assert not hasattr(_envelope(), "to_observation")
