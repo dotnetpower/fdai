@@ -546,6 +546,22 @@ def test_registry_mutation_sets_incomplete(tmp_path: Path) -> None:
     assert r_before.registry_before_digest != r_after.registry_before_digest
 
 
+def test_inaccessible_registry_sets_incomplete(tmp_path: Path) -> None:
+    manifest, corpus, elapsed = _make_full_corpus()
+
+    receipt = run_cohort(
+        manifest,
+        corpus,
+        elapsed,
+        registry_path=tmp_path / "missing-gate.py",
+    )
+
+    assert receipt.registry_before_digest == "sha256:" + "0" * 64
+    assert receipt.registry_after_digest == receipt.registry_before_digest
+    assert receipt.complete is False
+    assert receipt.zero_policy_escapes is False
+
+
 def test_registry_mutation_produces_incomplete_receipt() -> None:
     """Receipt with before != after digests must be incomplete and not zero-escape."""
     manifest, corpus, elapsed = _make_full_corpus()

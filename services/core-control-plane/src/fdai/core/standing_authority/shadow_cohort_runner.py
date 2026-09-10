@@ -408,6 +408,8 @@ def _check_complete(
     before_digest: str,
     after_digest: str,
 ) -> bool:
+    if _SENTINEL_DIGEST in (before_digest, after_digest):
+        return False
     if before_digest != after_digest:
         return False
     return all(o.outcome_status is CohortOutcomeStatus.ACCEPTED for o in outcomes)
