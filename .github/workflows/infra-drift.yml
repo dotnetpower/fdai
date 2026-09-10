@@ -11,6 +11,7 @@ on:
       - ".github/workflows/infra-drift.yml"
       - "infra/bootstrap/check-runner-storage-posture.sh"
       - "scripts/deployment/azure/verify_deploy_identity_manifest.py"
+      - "scripts/deployment/azure/verify_scenario_state_closure.py"
       - "scripts/deployment/service/drift_contract.py"
   schedule:
     - cron: "17 6 * * 1-5" # weekdays 06:17 UTC
@@ -265,6 +266,54 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Verify disposable scenario state closure
+        if: inputs.scope != 'runner'
+        id: scenario_state_closure
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          umask 077
+          state="$RUNNER_TEMP/scenario-state.json"
+          receipt="$RUNNER_TEMP/scenario-state-closure-receipt.json"
+          trap 'rm -f -- "$state"' EXIT
+          exists="$(
+            az storage blob exists \
+              --account-name "$STATE_STORAGE_ACCOUNT" \
+              --container-name "$STATE_CONTAINER" \
+              --name "scenario-lab/fdai-sre-lab.tfstate" \
+              --auth-mode login \
+              --query exists \
+              --output tsv \
+              --only-show-errors
+          )"
+          args=(--output "$receipt")
+          if [[ "$exists" == "true" ]]; then
+            az storage blob download \
+              --account-name "$STATE_STORAGE_ACCOUNT" \
+              --container-name "$STATE_CONTAINER" \
+              --name "scenario-lab/fdai-sre-lab.tfstate" \
+              --file "$state" \
+              --auth-mode login \
+              --overwrite true \
+              --output none \
+              --only-show-errors
+            args+=(--state "$state")
+          elif [[ "$exists" != "false" ]]; then
+            echo "Scenario Terraform state existence check returned an invalid result." >&2
+            exit 1
+          fi
+          python3 scripts/deployment/azure/verify_scenario_state_closure.py "${args[@]}"
+
+      - name: Publish scenario state closure receipt
+        if: inputs.scope != 'runner' && steps.scenario_state_closure.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scenario-state-closure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/scenario-state-closure-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Verify runner storage and identity posture
         id: runner_storage_posture
         continue-on-error: true
@@ -338,6 +387,7 @@ jobs:
           BOOTSTRAP_OUTCOME: ${{ steps.bootstrap_drift.outcome }}
           DEPLOY_IDENTITY_MANIFEST_OUTCOME: ${{ steps.deploy_identity_manifest.outcome }}
           RUNNER_STORAGE_OUTCOME: ${{ steps.runner_storage_posture.outcome }}
+          SCENARIO_STATE_OUTCOME: ${{ steps.scenario_state_closure.outcome }}
         run: |
           set -euo pipefail
           if [[ "$DRIFT_SCOPE" != "runner" ]]; then
@@ -351,6 +401,10 @@ jobs:
             }
             [[ "$DEPLOY_IDENTITY_MANIFEST_OUTCOME" == "success" ]] || {
               echo "Stable deploy identity role drift was detected or could not be evaluated." >&2
+              exit 1
+            }
+            [[ "$SCENARIO_STATE_OUTCOME" == "success" ]] || {
+              echo "Scenario Terraform state is not closed or could not be evaluated." >&2
               exit 1
             }
           fi

@@ -84,7 +84,8 @@ gallery-version ID and disables marketplace selection, cloud-init, and GitHub re
   Runner posture also requires UserAssigned-only identity, one attached UAMI, and the configured
   deploy principal. A system identity or additional UAMI is drift. Full-scope checks also require
   the principal's direct Azure roles to equal the union owned by bootstrap and platform Terraform
-  state, so missing and out-of-state assignments both fail.
+  state, so missing and out-of-state assignments both fail. The disposable scenario state must be
+  absent or own no managed resource instance.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so root-owned action residue cannot block the exact-commit clean step.
   That step creates the Azure CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV`; because the job default is `infra/`, a fresh slot has no repository directory and never depends on earlier checkout residue.
 The app config peers its spoke VNet to the ops hub (both directions) and links its private

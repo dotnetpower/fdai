@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 77c7a024ecec4d2849e14622d2b5923ad6123939
+translation_source_sha: 6e64da40cf8fc7e258fb9defd79c2f72765543b2
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -87,7 +87,8 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   실행기 상태는 UserAssigned-only 신원, 연결된 UAMI 1개, 구성된 deploy principal도 요구합니다.
   시스템 신원이나 추가 UAMI가 있으면 drift로 처리합니다. 전체 범위 점검은 해당 principal의 직접
   Azure 역할이 Bootstrap 및 플랫폼 Terraform 상태가 소유한 역할의 합집합과 같은지도 요구하므로,
-  누락되거나 상태 밖에 있는 할당은 모두 실패합니다.
+  누락되거나 상태 밖에 있는 할당은 모두 실패합니다. 일회용 시나리오 상태는 없거나 관리 리소스
+  인스턴스를 소유하지 않아야 합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다.
 해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을

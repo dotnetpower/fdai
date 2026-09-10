@@ -181,7 +181,9 @@ replacement action and fails without changing Azure state. The ephemeral profile
 configured auto-shutdown and the lifecycle helper both reject deallocation because it resets the
 OS and GitHub registration. Full-scope drift also compares the stable deploy principal's direct
 Azure roles with the exact union in bootstrap and platform Terraform state. Missing roles and
-state-external grants both fail and retain a sanitized manifest receipt.
+state-external grants both fail and retain a sanitized manifest receipt. The same run requires the
+disposable scenario state to be absent or empty of managed resource instances and retains a
+separate closure receipt.
 Monitoring, when enabled, provisions an action group, metric alerts for PostgreSQL, Key Vault,
 Event Hubs, and Container Apps, and diagnostic settings to Log Analytics. Alerts are human signals
 only, never autonomous actions.

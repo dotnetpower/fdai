@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 3cb538395a60e18205e65b8dde2289ece41acebe
+translation_source_sha: d8d5f4452f1c32223c0ca4820205c564b5642eb1
 translation_revised: 2026-09-11
 ---
 # 운영 배포 강화
@@ -184,6 +184,8 @@ Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기,
 수명 주기 도우미는 OS와 GitHub 등록을 초기화하는 할당 해제를 모두 거부합니다. 전체 범위 drift는
 안정 deploy principal의 직접 Azure 역할을 Bootstrap 및 플랫폼 Terraform 상태의 정확한 합집합과
 비교합니다. 누락된 역할과 상태 밖 권한을 모두 실패로 처리하고 정제된 매니페스트 증적을 보존합니다.
+같은 실행은 일회용 시나리오 상태가 없거나 관리 리소스 인스턴스를 소유하지 않도록 요구하고 별도
+종료 증적을 보존합니다.
 모니터링을 활성화하면 PostgreSQL, Key Vault, Event Hubs 및 Container Apps용 action group과
 metric alert, Log Analytics diagnostic setting을 프로비저닝합니다. 경보는 사람 신호일 뿐 자율
 작업이 아닙니다.
