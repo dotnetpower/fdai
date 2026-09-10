@@ -64,6 +64,7 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
         if any(step.get("uses") == "./.github/actions/setup-opa" for step in job.get("steps", ()))
     } == {
         "python-tests",
+        "python-coverage-shards",
         "governance-runtime-contracts",
         "db-integration",
     }

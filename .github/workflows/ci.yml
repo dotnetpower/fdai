@@ -53,7 +53,7 @@ jobs:
           python3 scripts/quality/ci/resolve_test_scope.py --range "$range"
 
   python-tests:
-    name: pytest regression and coverage shard ${{ matrix.shard }}/4
+    name: pytest regression shard ${{ matrix.shard }}/4
     needs: changes
     if: needs.changes.outputs.python == 'true'
     strategy:
@@ -65,7 +65,7 @@ jobs:
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
       FDAI_PYTEST_MAX_WORKERS: "4"
-      FDAI_PYTEST_MODE: all
+      FDAI_PYTEST_MODE: regression
       FDAI_PYTEST_SHARD_COUNT: "4"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
@@ -112,7 +112,55 @@ jobs:
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
 
-      - name: Run regression and coverage shard
+      - name: Run regression shard
+        run: bash scripts/quality/ci/run-python-tests.sh
+
+  python-coverage-shards:
+    name: pytest safety-core coverage shard ${{ matrix.shard }}/2
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
+      FDAI_PYTEST_MAX_WORKERS: "4"
+      FDAI_PYTEST_MODE: coverage
+      FDAI_PYTEST_SHARD_COUNT: "2"
+      FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv (Python 3.13)
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.12.11"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          save-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Materialize resolved model manifest
+        env:
+          RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+        run: python3 scripts/quality/ci/materialize-resolved-models.py
+
+      - name: Install OPA (Rego runner)
+        uses: ./.github/actions/setup-opa
+
+      - name: Run safety-core coverage shard
         run: bash scripts/quality/ci/run-python-tests.sh
 
       - name: Prepare coverage data
@@ -132,7 +180,7 @@ jobs:
     name: pytest • safety-core coverage
     needs:
       - changes
-      - python-tests
+      - python-coverage-shards
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -841,6 +889,7 @@ jobs:
     needs:
       - changes
       - python-tests
+      - python-coverage-shards
       - python-coverage
       - operator-surfaces
       - contracts

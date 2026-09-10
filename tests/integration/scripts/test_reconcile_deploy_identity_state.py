@@ -20,9 +20,8 @@ _ASSIGNMENT_ID = (
 )
 _BINDING = reconcile.RoleBinding(
     "azurerm_role_assignment.example",
-    'try(azurerm_storage_account.example.id, "")',
-    "Storage Blob Data Owner",
     "azurerm_storage_account.example",
+    "Storage Blob Data Owner",
 )
 
 
@@ -45,10 +44,9 @@ def test_reconcile_imports_one_exact_existing_assignment(
         assert cwd == tmp_path
         calls.append(arguments)
         if arguments == ("terraform", "state", "list"):
-            return _completed(arguments, "")
-        if arguments == ("terraform", "console"):
-            assert input_text == f"{_BINDING.scope_expression}\n"
-            return _completed(arguments, json.dumps(_SCOPE))
+            return _completed(arguments, f"{_BINDING.owner_state_address}\n")
+        if arguments[:4] == ("terraform", "state", "show", "-no-color"):
+            return _completed(arguments, f'id = "{_SCOPE}"\n')
         if arguments[:4] == ("az", "role", "assignment", "list"):
             payload = [
                 {
@@ -91,14 +89,9 @@ def test_reconcile_rejects_duplicate_assignments(
     ) -> subprocess.CompletedProcess[str]:
         del cwd, input_text
         if arguments == ("terraform", "state", "list"):
-            return _completed(
-                arguments,
-                "module.other.azurerm_role_assignment.existing\n",
-            )
+            return _completed(arguments, f"{_BINDING.owner_state_address}\n")
         if arguments[:4] == ("terraform", "state", "show", "-no-color"):
-            return _completed(arguments, f'id = "{_ASSIGNMENT_ID.upper()}"\n')
-        if arguments == ("terraform", "console"):
-            return _completed(arguments, json.dumps(_SCOPE))
+            return _completed(arguments, f'id = "{_SCOPE}"\n')
         payload = [
             {
                 "id": _ASSIGNMENT_ID,
@@ -139,12 +132,12 @@ def test_reconcile_rejects_an_assignment_tracked_at_another_address(
         if arguments == ("terraform", "state", "list"):
             return _completed(
                 arguments,
-                "module.other.azurerm_role_assignment.existing\n",
+                f"{_BINDING.owner_state_address}\nmodule.other.azurerm_role_assignment.existing\n",
             )
         if arguments[:4] == ("terraform", "state", "show", "-no-color"):
+            if arguments[-1] == _BINDING.owner_state_address:
+                return _completed(arguments, f'id = "{_SCOPE}"\n')
             return _completed(arguments, f'id = "{_ASSIGNMENT_ID.upper()}"\n')
-        if arguments == ("terraform", "console"):
-            return _completed(arguments, json.dumps(_SCOPE))
         if arguments[:4] == ("az", "role", "assignment", "list"):
             payload = [
                 {
@@ -167,7 +160,7 @@ def test_reconcile_rejects_an_assignment_tracked_at_another_address(
         )
 
 
-def test_reconcile_rejects_unavailable_scope_for_a_surviving_owner(
+def test_reconcile_rejects_invalid_scope_for_a_surviving_owner(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -180,11 +173,11 @@ def test_reconcile_rejects_unavailable_scope_for_a_surviving_owner(
         del cwd, input_text
         if arguments == ("terraform", "state", "list"):
             return _completed(arguments, f"{_BINDING.owner_state_address}\n")
-        return _completed(arguments, '""\n')
+        return _completed(arguments, 'id = "not-an-azure-resource-id"\n')
 
     monkeypatch.setattr(reconcile, "_command", command)
 
-    with pytest.raises(ValueError, match="owner remains in state"):
+    with pytest.raises(ValueError, match="owner scope is not an Azure resource id"):
         reconcile.reconcile(
             tmp_path,
             principal_id=_PRINCIPAL,
