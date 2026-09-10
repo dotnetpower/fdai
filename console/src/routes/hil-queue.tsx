@@ -1,5 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import {
+  decideHilApproval,
+  type HilDecisionReceipt,
+} from "../api-hil-decision";
 import { architectureHref } from "../components/architecture-map.model";
 import type { HilQueueItem } from "../types";
 import {
@@ -13,8 +17,12 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
-import { t } from "./i18n/governance";
+import { t } from "./i18n/approvals";
 import type { ConsoleDataMode } from "../console-data-mode";
+import {
+  identityForMutationIntent,
+  type MutationIntentIdentity,
+} from "../mutation-intent";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -47,6 +55,8 @@ export function HilQueueRoute({ client, dataMode }: Props) {
   const [state, setState] = useState<AsyncState<HilQueueData>>({
     status: "loading",
   });
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  const [decisionReceipt, setDecisionReceipt] = useState<HilDecisionReceipt | null>(null);
 
   useEffect(() => {
     const sync = () => setQuery(currentRoute().search.get("q") ?? "");
@@ -71,7 +81,7 @@ export function HilQueueRoute({ client, dataMode }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client, serverQuery]);
+  }, [client, serverQuery, refreshRevision]);
 
   return (
     <div class="stack">
@@ -79,7 +89,7 @@ export function HilQueueRoute({ client, dataMode }: Props) {
         title={t("route.hilQueue")}
         subtitle={<>{t("approvals.subtitle")}</>}
         actions={
-          <StatusPill kind="neutral" label={t("approvals.readOnly")} />
+          <StatusPill kind="neutral" label={t("approvals.requestOnly")} />
         }
       />
       <AsyncBoundary state={state} resourceLabel={t("approvals.resource")}>
@@ -88,7 +98,13 @@ export function HilQueueRoute({ client, dataMode }: Props) {
             data={data}
             query={query}
             dataMode={dataMode}
+            client={client}
+            decisionReceipt={decisionReceipt}
             onQueryChange={setQuery}
+            onDecisionRecorded={(receipt) => {
+              setDecisionReceipt(receipt);
+              setRefreshRevision((revision) => revision + 1);
+            }}
           />
         )}
       </AsyncBoundary>
@@ -106,12 +122,18 @@ function HilBody({
   data,
   query,
   dataMode,
+  client,
+  decisionReceipt,
   onQueryChange,
+  onDecisionRecorded,
 }: {
   readonly data: HilQueueData;
   readonly query: string;
   readonly dataMode: ConsoleDataMode;
+  readonly client: OperatorApiClient;
+  readonly decisionReceipt: HilDecisionReceipt | null;
   readonly onQueryChange: (value: string) => void;
+  readonly onDecisionRecorded: (receipt: HilDecisionReceipt) => void;
 }) {
   const { items, total, detailLevel } = data;
   const [now, setNow] = useState(Date.now);
@@ -203,6 +225,13 @@ function HilBody({
 
   return (
     <div class="stack approvals-view">
+      {decisionReceipt !== null ? (
+        <div class="state-block state-success" role="status">
+          {decisionReceipt.delivered
+            ? t("approvals.decisionDelivered", { decision: decisionReceipt.decision })
+            : t("approvals.decisionPendingDelivery", { decision: decisionReceipt.decision })}
+        </div>
+      ) : null}
       <section class="approvals-mechanics" aria-label={t("approvals.mechanicsTitle")}>
         <strong>{t("approvals.mechanicsTitle")}</strong>
         <span>{t("approvals.mechanicsBody")}</span>
@@ -214,7 +243,12 @@ function HilBody({
           {expiredCount > 0 ? (
             <StatusPill kind="danger" label={t("approvals.expiredCount", { count: expiredCount })} />
           ) : null}
-          <StatusPill kind="shadow" label={t("approvals.readOnly")} />
+          <StatusPill
+            kind="shadow"
+            label={dataMode === "sample"
+              ? t("approvals.readOnly")
+              : t("approvals.requestOnly")}
+          />
         </div>
         <label class="approvals-search">
           <span class="sr-only">{t("approvals.filter")}</span>
@@ -239,7 +273,15 @@ function HilBody({
       ) : (
         <div class="approval-card-list">
           {visibleItems.map((item) => (
-            <ApprovalCard key={item.idempotency_key} item={item} now={now} />
+            <ApprovalCard
+              key={item.idempotency_key}
+              item={item}
+              now={now}
+              dataMode={dataMode}
+              client={client}
+              decisionRecorded={decisionReceipt?.approval_id === item.approval_id}
+              onDecisionRecorded={onDecisionRecorded}
+            />
           ))}
         </div>
       )}
@@ -270,8 +312,27 @@ export function approvalSearchText(item: HilQueueItem): string {
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
-function ApprovalCard({ item, now }: { readonly item: HilQueueItem; readonly now: number }) {
+function ApprovalCard({
+  item,
+  now,
+  dataMode,
+  client,
+  decisionRecorded,
+  onDecisionRecorded,
+}: {
+  readonly item: HilQueueItem;
+  readonly now: number;
+  readonly dataMode: ConsoleDataMode;
+  readonly client: OperatorApiClient;
+  readonly decisionRecorded: boolean;
+  readonly onDecisionRecorded: (receipt: HilDecisionReceipt) => void;
+}) {
   const expired = approvalIsExpired(item, now);
+  const [justification, setJustification] = useState("");
+  const [pendingDecision, setPendingDecision] = useState<"approve" | "reject" | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [intent, setIntent] = useState<MutationIntentIdentity | null>(null);
+  const canDecide = !decisionRecorded && approvalCanDecide(item, now, dataMode);
   const reasons = [...new Set(item.reasons.length > 0 ? item.reasons : [item.reason])];
   const blastRadius = item.blast_radius_summary || [
     item.blast_radius_count !== null
@@ -292,6 +353,35 @@ function ApprovalCard({ item, now }: { readonly item: HilQueueItem; readonly now
     [t("approvals.fieldStopCondition"), item.stop_condition],
     [t("approvals.fieldGroundedOn"), item.citing_rule_ids.join(", ")],
   ] as const;
+  const submitDecision = async (decision: "approve" | "reject"): Promise<void> => {
+    const reason = justification.trim();
+    if (!reason) {
+      setDecisionError(t("approvals.justificationRequired"));
+      return;
+    }
+    const nextIntent = identityForMutationIntent(
+      intent,
+      `${item.approval_id}\0${decision}\0${reason}`,
+    );
+    setIntent(nextIntent);
+    setPendingDecision(decision);
+    setDecisionError(null);
+    try {
+      const receipt = await decideHilApproval(
+        client.authorizationHeader,
+        client.operatorApiBaseUrl,
+        item.approval_id,
+        decision,
+        reason,
+        nextIntent.idempotencyKey,
+      );
+      onDecisionRecorded(receipt);
+    } catch (error) {
+      setDecisionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPendingDecision(null);
+    }
+  };
 
   return (
     <article class="approval-card">
@@ -367,9 +457,72 @@ function ApprovalCard({ item, now }: { readonly item: HilQueueItem; readonly now
             </a>
           </nav>
         ) : null}
+        {canDecide ? (
+          <form
+            class="approval-decision-form"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <label>
+              <span>{t("approvals.justification")}</span>
+              <textarea
+                value={justification}
+                maxLength={2000}
+                disabled={pendingDecision !== null}
+                onInput={(event) => setJustification(event.currentTarget.value)}
+              />
+            </label>
+            {decisionError !== null ? (
+              <div class="state-block state-error" role="alert">{decisionError}</div>
+            ) : null}
+            <div class="approval-decision-actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                disabled={pendingDecision !== null}
+                onClick={() => void submitDecision("approve")}
+              >
+                {pendingDecision === "approve"
+                  ? t("approvals.recordingDecision")
+                  : t("approvals.approve")}
+              </button>
+              <button
+                type="button"
+                class="btn"
+                disabled={pendingDecision !== null}
+                onClick={() => void submitDecision("reject")}
+              >
+                {pendingDecision === "reject"
+                  ? t("approvals.recordingDecision")
+                  : t("approvals.reject")}
+              </button>
+            </div>
+          </form>
+        ) : item.decision_unavailable_reason !== null && dataMode === "live" ? (
+          <p class="muted approval-decision-unavailable">
+            {t("approvals.decisionUnavailable")}
+          </p>
+        ) : null}
       </div>
     </article>
   );
+}
+
+export function approvalCanDecide(
+  item: HilQueueItem,
+  now: number,
+  dataMode: ConsoleDataMode,
+): boolean {
+  if (
+    dataMode !== "live"
+    || !item.decision_requestable
+    || !item.approval_id
+    || item.decision_unavailable_reason !== null
+    || item.ttl_expires_at === null
+  ) {
+    return false;
+  }
+  const expiresAt = Date.parse(item.ttl_expires_at);
+  return Number.isFinite(expiresAt) && expiresAt > now;
 }
 
 function approvalIsExpired(item: HilQueueItem, now: number): boolean {

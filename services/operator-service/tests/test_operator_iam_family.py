@@ -55,7 +55,11 @@ from fdai_operator_service.families.iam.contracts import (
     TeamsWorkflowTestResult,
     WebSearchSettingsCommand,
 )
-from fdai_operator_service.families.iam.errors import IamConflictError, IamFamilyError
+from fdai_operator_service.families.iam.errors import (
+    IamConflictError,
+    IamFamilyError,
+    IamUnavailableError,
+)
 from fdai_operator_service.families.iam.hil_callback import (
     compute_hmac,
     make_hil_callback_route,
@@ -77,7 +81,7 @@ from fdai_operator_service.families.iam.hil_decision_outbox import (
 )
 from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
-from fdai_service_contracts import DocumentOcrPolicy, OperatorRole
+from fdai_service_contracts import DocumentOcrPolicy, OperatorPrincipalKind, OperatorRole
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
@@ -211,7 +215,250 @@ async def authorize(request: Request) -> IamPrincipal:
         oid=request.headers.get("x-test-oid", "operator-1"),
         roles=roles,
         username="operator@example.com",
+        principal_kind=OperatorPrincipalKind(request.headers.get("x-test-principal-kind", "human")),
     )
+
+
+async def test_console_hil_decision_uses_server_principal_and_shared_durable_path() -> None:
+    registry = RecordingHilRegistry()
+    outbox = RecordingHilOutbox()
+    audit = RecordingHilAudit()
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=outbox,
+        hil_audit=audit,
+        hil_context=registry,
+    )
+
+    response = client.post(
+        "/hil/approval-1/operator-decision",
+        headers={
+            "x-test-role": OperatorRole.APPROVER.value,
+            "x-test-oid": "approver-1",
+            "Idempotency-Key": "console-decision-1",
+        },
+        json={"decision": "approve", "justification": "Verified impact and rollback."},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["delivered"] is True
+    assert registry.command is not None
+    assert registry.command.approval_id == "approval-1"
+    assert registry.command.action_hash == "action-hash-1"
+    assert registry.command.approver_oid == "approver-1"
+    assert registry.command.approver_roles == frozenset({OperatorRole.APPROVER})
+    assert outbox.request is not None
+    assert [record.outcome for record in audit.records] == [
+        HilCallbackOutcome.PENDING,
+        HilCallbackOutcome.ACCEPTED,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("headers", "status"),
+    [
+        ({"x-test-role": OperatorRole.READER.value}, 403),
+        ({"x-test-role": OperatorRole.CONTRIBUTOR.value}, 403),
+        ({"x-test-role": OperatorRole.BREAK_GLASS.value}, 403),
+        (
+            {
+                "x-test-role": OperatorRole.APPROVER.value,
+                "x-test-principal-kind": OperatorPrincipalKind.WORKLOAD.value,
+            },
+            403,
+        ),
+    ],
+)
+def test_console_hil_decision_requires_human_runtime_approval_capability(
+    headers: dict[str, str],
+    status: int,
+) -> None:
+    response = _client(
+        hil_registry=RecordingHilRegistry(),
+        hil_outbox=RecordingHilOutbox(),
+        hil_audit=RecordingHilAudit(),
+        hil_context=RecordingHilRegistry(),
+    ).post(
+        "/hil/approval-1/operator-decision",
+        headers={**headers, "Idempotency-Key": "console-decision-1"},
+        json={"decision": "reject", "justification": "The evidence is incomplete."},
+    )
+
+    assert response.status_code == status
+
+
+def test_console_hil_decision_rejects_self_approval_and_changed_intent_replay() -> None:
+    registry = RecordingHilRegistry(submitter_oid="approver-1")
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(),
+        hil_audit=RecordingHilAudit(),
+        hil_context=registry,
+    )
+    headers = {
+        "x-test-role": OperatorRole.APPROVER.value,
+        "x-test-oid": "approver-1",
+        "Idempotency-Key": "console-decision-1",
+    }
+    self_approval = client.post(
+        "/hil/approval-1/operator-decision",
+        headers=headers,
+        json={"decision": "approve", "justification": "Verified impact and rollback."},
+    )
+    assert self_approval.status_code == 403
+
+    eligible = RecordingHilRegistry()
+    audit = RecordingHilAudit()
+    replay_client = _client(
+        hil_registry=eligible,
+        hil_outbox=RecordingHilOutbox(),
+        hil_audit=audit,
+        hil_context=eligible,
+    )
+    first = replay_client.post(
+        "/hil/approval-1/operator-decision",
+        headers=headers,
+        json={"decision": "approve", "justification": "Verified impact and rollback."},
+    )
+    changed = replay_client.post(
+        "/hil/approval-1/operator-decision",
+        headers=headers,
+        json={"decision": "reject", "justification": "The evidence changed."},
+    )
+    changed_approval = replay_client.post(
+        "/hil/approval-2/operator-decision",
+        headers=headers,
+        json={"decision": "approve", "justification": "Verified impact and rollback."},
+    )
+
+    assert first.status_code == 200
+    assert changed.status_code == 409
+    assert changed_approval.status_code == 409
+
+
+def test_console_hil_decision_reports_durable_delivery_pending() -> None:
+    registry = RecordingHilRegistry()
+    response = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(fail=True),
+        hil_audit=RecordingHilAudit(),
+        hil_context=registry,
+    ).post(
+        "/hil/approval-1/operator-decision",
+        headers={
+            "x-test-role": OperatorRole.OWNER.value,
+            "x-test-oid": "owner-1",
+            "Idempotency-Key": "console-decision-1",
+        },
+        json={"decision": "reject", "justification": "The rollback evidence is incomplete."},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["decision"] == "reject"
+    assert response.json()["delivered"] is False
+
+
+def test_console_hil_decision_can_retry_transient_storage_failure_with_same_key() -> None:
+    registry = RecordingHilRegistry(unavailable_decisions=1)
+    audit = RecordingHilAudit()
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(),
+        hil_audit=audit,
+        hil_context=registry,
+    )
+    headers = {
+        "x-test-role": OperatorRole.APPROVER.value,
+        "x-test-oid": "approver-1",
+        "Idempotency-Key": "console-decision-retry",
+    }
+    body = {"decision": "approve", "justification": "Verified impact and rollback."}
+
+    first = client.post("/hil/approval-1/operator-decision", headers=headers, json=body)
+    retried = client.post("/hil/approval-1/operator-decision", headers=headers, json=body)
+
+    assert first.status_code == 503
+    assert retried.status_code == 200
+    assert retried.json()["delivered"] is True
+    assert HilCallbackOutcome.INVALID not in {record.outcome for record in audit.records}
+
+
+def test_console_hil_decision_fails_closed_for_incomplete_expired_or_role_invalid_context() -> None:
+    cases: list[tuple[RecordingHilRegistry, int]] = []
+    missing_submitter = RecordingHilRegistry(submitter_oid="")
+    cases.append((missing_submitter, 503))
+
+    expired = RecordingHilRegistry()
+    expired.context = replace(
+        expired.context,
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+    cases.append((expired, 410))
+
+    role_invalid = RecordingHilRegistry()
+    role_invalid.context = replace(
+        role_invalid.context,
+        metadata={"decision_route": "workflow", "required_role": "owner"},
+    )
+    cases.append((role_invalid, 403))
+
+    route_invalid = RecordingHilRegistry()
+    route_invalid.context = replace(
+        route_invalid.context,
+        metadata={"decision_route": "corrupted"},
+    )
+    cases.append((route_invalid, 503))
+
+    for registry, status in cases:
+        response = _client(
+            hil_registry=registry,
+            hil_outbox=RecordingHilOutbox(),
+            hil_audit=RecordingHilAudit(),
+            hil_context=registry,
+        ).post(
+            "/hil/approval-1/operator-decision",
+            headers={
+                "x-test-role": OperatorRole.APPROVER.value,
+                "x-test-oid": "approver-1",
+                "Idempotency-Key": f"console-decision-{status}",
+            },
+            json={"decision": "approve", "justification": "Verified impact and rollback."},
+        )
+
+        assert response.status_code == status
+        assert registry.command is None
+
+
+@pytest.mark.parametrize(
+    "json_body",
+    [
+        {"decision": "approve"},
+        {"decision": "allow", "justification": "Reviewed."},
+        {"decision": "reject", "justification": " "},
+        {"decision": "reject", "justification": "Reviewed.", "actor": "owner-1"},
+    ],
+)
+def test_console_hil_decision_rejects_malformed_or_authority_bearing_body(
+    json_body: dict[str, object],
+) -> None:
+    registry = RecordingHilRegistry()
+    response = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(),
+        hil_audit=RecordingHilAudit(),
+        hil_context=registry,
+    ).post(
+        "/hil/approval-1/operator-decision",
+        headers={
+            "x-test-role": OperatorRole.OWNER.value,
+            "x-test-oid": "owner-1",
+            "Idempotency-Key": "console-decision-malformed",
+        },
+        json=json_body,
+    )
+
+    assert response.status_code == 400
+    assert registry.command is None
 
 
 async def test_postgres_runtime_settings_toggle_updates_core_policy_and_projection() -> None:
@@ -721,7 +968,12 @@ class RecordingReview:
 
 
 class RecordingHilRegistry:
-    def __init__(self, *, submitter_oid: str = "submitter-1") -> None:
+    def __init__(
+        self,
+        *,
+        submitter_oid: str = "submitter-1",
+        unavailable_decisions: int = 0,
+    ) -> None:
         self.pending: HilPendingItem | None = HilPendingItem(
             approval_id="approval-1",
             idempotency_key="hil-key-1",
@@ -730,10 +982,12 @@ class RecordingHilRegistry:
                 "correlation_id": "correlation-1",
                 "action_hash": "action-hash-1",
                 "expires_at": (datetime.now(UTC) + timedelta(minutes=10)).isoformat(),
+                "decision_route": "action",
             },
         )
         self.receipt: HilDecisionReceipt | None = None
         self.command: HilDecisionCommand | None = None
+        self.unavailable_decisions = unavailable_decisions
         self.context = HilCallbackContext(
             approval_id=self.pending.approval_id,
             correlation_id=self.pending.metadata["correlation_id"],
@@ -758,6 +1012,17 @@ class RecordingHilRegistry:
         return self.context if approval_id == self.context.approval_id else None
 
     async def record_decision(self, command: HilDecisionCommand) -> HilDecisionReceipt:
+        if self.unavailable_decisions > 0:
+            self.unavailable_decisions -= 1
+            raise IamUnavailableError("synthetic decision store outage")
+        if self.receipt is not None:
+            if (
+                self.receipt.decision is not command.decision
+                or self.receipt.approver_oid != command.approver_oid
+                or self.receipt.justification != command.justification
+            ):
+                raise IamConflictError("conflicting decision")
+            return replace(self.receipt, already_recorded=True)
         self.command = command
         self.receipt = HilDecisionReceipt(
             approval_id="approval-1",
@@ -776,11 +1041,14 @@ class RecordingHilRegistry:
 
 
 class RecordingHilOutbox:
-    def __init__(self) -> None:
+    def __init__(self, *, fail: bool = False) -> None:
         self.request: HilDecisionOutboxRequest | None = None
+        self.fail = fail
 
     async def enqueue(self, request: HilDecisionOutboxRequest) -> None:
         self.request = request
+        if self.fail:
+            raise RuntimeError("synthetic delivery failure")
 
 
 class RecordingHilAuthority:
@@ -819,6 +1087,13 @@ class RecordingHilAudit:
         self.records: list[HilCallbackAuditRecord] = []
 
     async def append_callback_audit(self, record: HilCallbackAuditRecord) -> None:
+        for existing in self.records:
+            if (
+                existing.callback_id == record.callback_id
+                and existing.phase is record.phase
+                and existing.intent_digest != record.intent_digest
+            ):
+                raise IamConflictError("conflicting callback intent")
         self.records.append(record)
 
 
@@ -842,7 +1117,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 40
+    assert len(snapshot) == 41
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

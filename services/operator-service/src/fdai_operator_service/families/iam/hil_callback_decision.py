@@ -23,7 +23,11 @@ from fdai_operator_service.families.iam.contracts import (
     HilDecisionReceipt,
     HilDecisionRegistry,
 )
-from fdai_operator_service.families.iam.errors import IamFamilyError
+from fdai_operator_service.families.iam.errors import (
+    IamConflictError,
+    IamFamilyError,
+    IamUnavailableError,
+)
 from fdai_operator_service.families.iam.hil_callback_audit import (
     HilCallbackAuditPhase,
     HilCallbackAuditRecord,
@@ -51,6 +55,7 @@ class HilCallbackAttempt:
 
     callback_id: str
     approval_id: str
+    intent_digest: str
     channel_hint: str = "unknown"
     actor_hint: str | None = None
 
@@ -90,7 +95,14 @@ class _ApprovalContext:
 class HilCallbackSession:
     """One audited callback attempt bound to its prepared audit phase."""
 
-    __slots__ = ("_audit", "_attempt", "_clock", "_correlation_id", "_prepared_basis", "context")
+    __slots__ = (
+        "_audit",
+        "_attempt",
+        "_clock",
+        "_correlation_id",
+        "_prepared_basis",
+        "context",
+    )
 
     def __init__(
         self,
@@ -132,6 +144,7 @@ class HilCallbackSession:
                     authority_basis=(
                         actor.authority_basis if actor else authority_basis or self._prepared_basis
                     ),
+                    intent_digest=self._attempt.intent_digest,
                     outcome=outcome,
                     recorded_at=self._clock(),
                 )
@@ -147,7 +160,7 @@ class HilCallbackDecisionService:
 
     registry: HilDecisionRegistry
     outbox: HilDecisionOutbox
-    authority: HilCallbackAuthority
+    authority: HilCallbackAuthority | None
     audit: HilCallbackAuditWriter
     context_reader: HilCallbackContextReader
     clock: Callable[[], datetime]
@@ -156,6 +169,8 @@ class HilCallbackDecisionService:
         """Load durable context and write the prepared audit intent."""
         try:
             context = await self._approval_context(attempt.approval_id)
+        except IamUnavailableError as exc:
+            return family_error(exc)
         except IamFamilyError as exc:
             return family_error(exc)
         correlation_id = (
@@ -175,9 +190,16 @@ class HilCallbackDecisionService:
                     correlation_id=correlation_id,
                     actor_identity_ref=actor_identity_reference(attempt.actor_hint),
                     authority_basis=prepared_basis,
+                    intent_digest=attempt.intent_digest,
                     outcome=HilCallbackOutcome.PENDING,
                     recorded_at=observed_at,
                 )
+            )
+        except IamConflictError:
+            return error_response(
+                409,
+                "idempotency key conflicts with a different approval decision",
+                kind="idempotency_conflict",
             )
         except Exception:  # noqa: BLE001 - no callback may proceed without audit intent.
             return error_response(503, "HIL callback audit is unavailable")
@@ -210,12 +232,22 @@ class HilCallbackDecisionService:
                 error_response(409, mismatch, kind="context_mismatch"),
                 outcome=HilCallbackOutcome.INVALID,
             )
-        now = self.clock()
-        if context.receipt is None and (context.expires_at is None or context.expires_at <= now):
+        if context.receipt is None and (
+            context.expires_at is None or context.expires_at <= self.clock()
+        ):
             return await session.finish(
                 error_response(410, "HIL approval has expired", kind="approval_expired"),
                 outcome=HilCallbackOutcome.EXPIRED,
                 authority_basis=f"{payload.channel.value}:expired_context",
+            )
+        if self.authority is None:
+            return await session.finish(
+                error_response(
+                    503,
+                    "HIL callback authority is unavailable",
+                    kind="authority_unavailable",
+                ),
+                outcome=HilCallbackOutcome.INVALID,
             )
         try:
             actor = await self.authority.authenticate(
@@ -230,17 +262,94 @@ class HilCallbackDecisionService:
                 outcome=HilCallbackOutcome.INVALID,
                 authority_basis=f"{payload.channel.value}:authority_refused",
             )
-        if context.submitter_oid and _normalize(context.submitter_oid) == actor.oid:
+        return await self._decide_authenticated(
+            session,
+            approval_id=approval_id,
+            decision=payload.decision,
+            justification=payload.justification,
+            decided_at=payload.decided_at,
+            actor=actor,
+            delivery_pending_status=503,
+        )
+
+    async def decide_authenticated(
+        self,
+        session: HilCallbackSession,
+        *,
+        approval_id: str,
+        decision: HilApprovalDecision,
+        justification: str,
+        actor: HilCallbackActor,
+    ) -> Response:
+        """Record one server-authenticated Console decision without channel impersonation."""
+        return await self._decide_authenticated(
+            session,
+            approval_id=approval_id,
+            decision=decision,
+            justification=justification,
+            decided_at=self.clock(),
+            actor=actor,
+            delivery_pending_status=202,
+        )
+
+    async def _decide_authenticated(
+        self,
+        session: HilCallbackSession,
+        *,
+        approval_id: str,
+        decision: HilApprovalDecision,
+        justification: str,
+        decided_at: datetime,
+        actor: HilCallbackActor,
+        delivery_pending_status: int,
+    ) -> Response:
+        context = session.context
+        if context is None:
+            return await session.finish(
+                error_response(404, "no HIL context exists for this approval", kind="not_found"),
+                outcome=HilCallbackOutcome.INVALID,
+                actor=actor,
+            )
+        if context.receipt is None and (
+            context.expires_at is None or context.expires_at <= self.clock()
+        ):
+            return await session.finish(
+                error_response(410, "HIL approval has expired", kind="approval_expired"),
+                outcome=HilCallbackOutcome.EXPIRED,
+                actor=actor,
+            )
+        if not context.submitter_oid.strip():
+            return await session.finish(
+                error_response(
+                    503,
+                    "HIL approval submitter identity is unavailable",
+                    kind="context_unavailable",
+                ),
+                outcome=HilCallbackOutcome.INVALID,
+                actor=actor,
+            )
+        if _normalize(context.submitter_oid) == actor.oid:
             return await session.finish(
                 error_response(
                     403,
-                    "no_self_approval - callback actor equals submitter",
+                    "no_self_approval - approval actor equals submitter",
                     kind="self_approval_forbidden",
                 ),
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
             )
-        if context.metadata.get("decision_route") == "workflow" and not meets_role(
+        decision_route = context.metadata.get("decision_route", "")
+        if decision_route not in {"action", "workflow"}:
+            return await session.finish(
+                error_response(
+                    503,
+                    "HIL approval decision route is unavailable",
+                    kind="context_unavailable",
+                ),
+                outcome=HilCallbackOutcome.INVALID,
+                actor=actor,
+            )
+        if decision_route == "workflow" and not meets_role(
             actor.roles, context.metadata.get("required_role", "")
         ):
             return await session.finish(
@@ -253,7 +362,14 @@ class HilCallbackDecisionService:
                 actor=actor,
             )
         try:
-            receipt = await self._record(context, payload=payload, actor=actor)
+            receipt = await self._record(
+                context,
+                approval_id=approval_id,
+                decision=decision,
+                justification=justification,
+                decided_at=decided_at,
+                actor=actor,
+            )
         except _AlreadyResolvedError:
             return await session.finish(
                 error_response(
@@ -264,6 +380,8 @@ class HilCallbackDecisionService:
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
             )
+        except IamUnavailableError as exc:
+            return family_error(exc)
         except IamFamilyError as exc:
             return await session.finish(
                 family_error(exc),
@@ -274,14 +392,24 @@ class HilCallbackDecisionService:
             try:
                 await self.outbox.enqueue(HilDecisionOutboxRequest(receipt=receipt))
             except Exception:  # noqa: BLE001 - recorded receipt remains replayable.
+                if delivery_pending_status == 202:
+                    return await session.finish(
+                        _receipt_response(
+                            receipt,
+                            correlation_id=context.correlation_id,
+                            status_code=202,
+                        ),
+                        outcome=_terminal_outcome(decision),
+                        actor=actor,
+                    )
                 return await session.finish(
                     error_response(
-                        503,
+                        delivery_pending_status,
                         "decision was recorded; delivery has not been accepted yet and is "
                         "redriven from the durable outbox",
                         kind="decision_publish_failed",
                     ),
-                    outcome=_terminal_outcome(payload.decision),
+                    outcome=_terminal_outcome(decision),
                     actor=actor,
                 )
             try:
@@ -291,19 +419,8 @@ class HilCallbackDecisionService:
                 # worker re-drives the durable record and marks it delivered.
                 receipt = replace(receipt, delivered=False)
         return await session.finish(
-            JSONResponse(
-                {
-                    "approval_id": receipt.approval_id or approval_id,
-                    "idempotency_key": receipt.idempotency_key,
-                    "correlation_id": context.correlation_id,
-                    "decision": receipt.decision.value,
-                    "already_recorded": receipt.already_recorded,
-                    "receipt_ref": receipt.receipt_ref,
-                    "decided_at": receipt.decided_at.astimezone(UTC).isoformat(),
-                    "delivered": receipt.delivered,
-                }
-            ),
-            outcome=_terminal_outcome(payload.decision),
+            _receipt_response(receipt, correlation_id=context.correlation_id),
+            outcome=_terminal_outcome(decision),
             actor=actor,
         )
 
@@ -311,25 +428,38 @@ class HilCallbackDecisionService:
         self,
         context: _ApprovalContext,
         *,
-        payload: NormalizedHilDecision,
+        approval_id: str,
+        decision: HilApprovalDecision,
+        justification: str,
+        decided_at: datetime,
         actor: HilCallbackActor,
     ) -> HilDecisionReceipt:
+        if context.expires_at is None:
+            raise IamUnavailableError("HIL approval expiry is unavailable")
         receipt = context.receipt
         if receipt is not None:
             if (
-                receipt.decision is not payload.decision
+                receipt.decision is not decision
                 or _normalize(receipt.approver_oid) != actor.oid
                 or receipt.idempotency_key != context.idempotency_key
+                or receipt.justification != justification
             ):
                 raise _AlreadyResolvedError
             return replace(receipt, already_recorded=True)
         return await self.registry.record_decision(
             HilDecisionCommand(
+                approval_id=approval_id,
                 idempotency_key=context.idempotency_key,
-                decision=payload.decision,
+                action_hash=context.action_hash,
+                decision=decision,
                 approver_oid=actor.oid,
-                justification=payload.justification,
-                decided_at=payload.decided_at,
+                approver_roles=actor.roles,
+                justification=justification,
+                decided_at=decided_at,
+                expected_expires_at=context.expires_at,
+                expected_submitter_oid=context.submitter_oid,
+                expected_decision_route=context.metadata.get("decision_route", ""),
+                expected_required_role=context.metadata.get("required_role", ""),
             )
         )
 
@@ -368,6 +498,27 @@ def _terminal_outcome(decision: HilApprovalDecision) -> HilCallbackOutcome:
         HilCallbackOutcome.ACCEPTED
         if decision is HilApprovalDecision.APPROVE
         else HilCallbackOutcome.REJECTED
+    )
+
+
+def _receipt_response(
+    receipt: HilDecisionReceipt,
+    *,
+    correlation_id: str,
+    status_code: int = 200,
+) -> JSONResponse:
+    return JSONResponse(
+        {
+            "approval_id": receipt.approval_id,
+            "idempotency_key": receipt.idempotency_key,
+            "correlation_id": correlation_id,
+            "decision": receipt.decision.value,
+            "already_recorded": receipt.already_recorded,
+            "receipt_ref": receipt.receipt_ref,
+            "decided_at": receipt.decided_at.astimezone(UTC).isoformat(),
+            "delivered": receipt.delivered,
+        },
+        status_code=status_code,
     )
 
 

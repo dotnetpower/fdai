@@ -399,10 +399,20 @@ approval state, execution, effect verification, and duplicate receipts; they nev
 approval detail or execute a change. Receipt claims require the same action id and idempotency key
 on the terminal row. Missing, conflicting, truncated, or audit-free context remains unverified.
 
-The HIL callback requires a signed role set that grants `approve-runtime-hil` before either the
-coordinator or registry path records a decision. Missing roles grant no authority. Pending lookup
-uses the exact approval id, and decision recording uses the exact idempotency-key park instead of a
-bounded queue scan. The no-self-approval and separation-of-duty checks remain authoritative.
+Human approval decisions enter through two distinct authenticated transports. Teams and Slack keep
+their signed provider callback and identity-mapping checks. FDAI Console uses
+`POST /hil/{approval_id}/operator-decision`, derives the Entra human and
+`approve-runtime-hil` capability on the server, and accepts only the decision plus a bounded
+justification. Neither transport can supply its own actor, role, action hash, or execution
+authority.
+
+Both transports reload the exact approval id and original parked identity. The server checks the
+pending state, expiry, submitter, decision route, and required role while holding the approval
+fence, then commits the decision receipt and durable outbox atomically. Missing roles, unknown
+routes, stale context, and self-approval grant no authority. Request or broker acceptance never
+means that Thor executed the action. Action parks without metadata normalize to the canonical
+`action` route defined by the Core registry, while an explicit empty, unknown, or malformed route
+remains unavailable.
 
 For a human operation, `actor` and `initiator_principal` are the verified operator OID from that
 request's Entra token. A console service principal, relay identity, or Thor workload identity cannot

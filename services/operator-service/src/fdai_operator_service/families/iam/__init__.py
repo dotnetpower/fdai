@@ -58,6 +58,9 @@ from fdai_operator_service.families.iam.hil_callback import (
 from fdai_operator_service.families.iam.hil_callback_audit import HilCallbackAuditWriter
 from fdai_operator_service.families.iam.hil_callback_authority import HilCallbackAuthority
 from fdai_operator_service.families.iam.hil_callback_context import HilCallbackContextReader
+from fdai_operator_service.families.iam.hil_operator_decision import (
+    make_hil_operator_decision_route,
+)
 from fdai_operator_service.families.iam.hil_teams_callback import (
     TeamsHilCallbackNormalizer,
     make_hil_teams_callback_route,
@@ -155,6 +158,13 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
         *make_configuration_review_routes(
             outbox=bindings.configuration_review,
             authorize=bindings.authorize,
+        ),
+        make_hil_operator_decision_route(
+            authorize=bindings.authorize,
+            registry=bindings.hil_registry,
+            outbox=bindings.hil_outbox,
+            audit=bindings.hil_audit,
+            context_reader=bindings.hil_context,
         ),
         make_hil_callback_route(
             registry=bindings.hil_registry,

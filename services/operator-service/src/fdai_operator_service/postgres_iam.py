@@ -50,6 +50,7 @@ from fdai_operator_service.families.iam.contracts import (
 )
 from fdai_operator_service.families.iam.errors import (
     IamConflictError,
+    IamExpiredError,
     IamFamilyError,
     IamNotFoundError,
     IamPermissionError,
@@ -70,6 +71,12 @@ from fdai_operator_service.postgres_family_store import (
     StoredProposal,
     StoredStatePage,
     StoredStateRecord,
+)
+from fdai_operator_service.postgres_hil_decision import (
+    HilDecisionStore,
+    PostgresHilDecisionExpiredError,
+    PostgresHilDecisionNotFoundError,
+    PostgresHilDecisionPermissionError,
 )
 
 _HIL_PARK_PREFIX = "hil_park:"
@@ -94,6 +101,7 @@ class PostgresIamAdapters:
 
     store: PostgresFamilyStore
     model_catalog: ModelCatalogReader | None = None
+    hil_decisions: HilDecisionStore | None = None
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         """Expose read-only shared state needed by additive IAM projections."""
@@ -782,12 +790,12 @@ class PostgresIamAdapters:
         idempotency_key = state.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key:
             raise IamUnavailableError("pending HIL record has no idempotency key")
-        raw_metadata = state.get("metadata", {})
-        metadata = (
-            {str(key): str(value) for key, value in raw_metadata.items()}
-            if isinstance(raw_metadata, Mapping)
-            else {}
-        )
+        if "metadata" not in state:
+            metadata = {"decision_route": "action"}
+        elif isinstance(raw_metadata := state["metadata"], Mapping):
+            metadata = {str(key): str(value) for key, value in raw_metadata.items()}
+        else:
+            raise IamUnavailableError("pending HIL metadata is malformed")
         correlation_id = state.get("correlation_id")
         request_fingerprint = state.get("request_fingerprint")
         approval_context = state.get("approval_context")
@@ -815,7 +823,7 @@ class PostgresIamAdapters:
         return None if state is None else _hil_receipt(state)
 
     async def record_decision(self, command: HilDecisionCommand) -> HilDecisionReceipt:
-        """Record a signed decision and queue no managed-resource effect.
+        """Atomically record one human decision and its durable outbox.
 
         The durable proposal identity deliberately excludes the observation
         timestamp. A callback that must be re-signed after the replay window
@@ -825,53 +833,37 @@ class PostgresIamAdapters:
         decision, the normalized actor, and a justification digest, so a
         conflicting decision, actor, or justification is still refused.
         """
-        pending = await self._find_state(
-            prefix=_HIL_PARK_PREFIX,
-            field="idempotency_key",
-            value=command.idempotency_key,
-        )
-        if pending is None:
-            raise IamNotFoundError("pending HIL item was not found")
-        approval_id = pending.get("approval_id")
-        if not isinstance(approval_id, str) or not approval_id:
-            raise IamUnavailableError("pending HIL record has no approval id")
-        stored = await self._proposal(
-            "hil.decision.record",
-            _decision_identity(approval_id, command),
-            command.idempotency_key,
-        )
-        receipt = HilDecisionReceipt(
-            approval_id=approval_id,
-            idempotency_key=command.idempotency_key,
-            decision=command.decision,
-            approver_oid=command.approver_oid,
-            decided_at=command.decided_at,
-            receipt_ref=stored.proposal_id,
-            justification=command.justification,
-        )
-        state = _json_mapping(asdict(receipt))
+        if self.hil_decisions is None:
+            raise IamUnavailableError("HIL decision store is unavailable")
         try:
-            created = await self.store.create_state(
-                f"{_HIL_DECISION_PREFIX}{approval_id}",
-                state,
+            stored = await self.hil_decisions.append_hil_decision(
+                approval_id=command.approval_id,
+                idempotency_key=command.idempotency_key,
+                action_hash=command.action_hash,
+                decision=command.decision.value,
+                approver_oid=command.approver_oid,
+                approver_roles=command.approver_roles,
+                justification=command.justification,
+                decided_at=command.decided_at,
+                expected_expires_at=command.expected_expires_at,
+                expected_submitter_oid=command.expected_submitter_oid,
+                expected_decision_route=command.expected_decision_route,
+                expected_required_role=command.expected_required_role,
             )
+        except PostgresHilDecisionExpiredError as exc:
+            raise IamExpiredError(str(exc)) from exc
+        except PostgresHilDecisionNotFoundError as exc:
+            raise IamNotFoundError(str(exc)) from exc
+        except PostgresHilDecisionPermissionError as exc:
+            raise IamPermissionError(str(exc)) from exc
+        except PostgresProposalConflict as exc:
+            raise IamConflictError(str(exc)) from exc
         except PostgresFamilyStoreUnavailable as exc:
-            raise IamUnavailableError("HIL decision receipt store is unavailable") from exc
-        if not created:
-            existing = await self.get_decision_by_approval_id(approval_id)
-            if existing is None:
-                raise IamUnavailableError("recorded HIL decision disappeared")
-            if (
-                existing.idempotency_key != command.idempotency_key
-                or existing.decision is not command.decision
-                or existing.approver_oid.strip().casefold()
-                != command.approver_oid.strip().casefold()
-            ):
-                raise IamConflictError(
-                    "recorded HIL decision conflicts with the concurrent durable receipt"
-                )
-            return replace(existing, already_recorded=True)
-        return receipt
+            raise IamUnavailableError("HIL decision store is unavailable") from exc
+        existing = await self.get_decision_by_approval_id(command.approval_id)
+        if existing is None:
+            raise IamUnavailableError("recorded HIL decision disappeared")
+        return replace(existing, already_recorded=stored.duplicate)
 
     async def enqueue(self, request: HilDecisionOutboxRequest) -> None:
         """Queue a recorded HIL decision for typed downstream transport.
@@ -947,12 +939,12 @@ class PostgresIamAdapters:
         ):
             raise IamUnavailableError("HIL callback identity is incomplete")
         expires_at = _datetime(approval_context.get("expires_at"), "expires_at")
-        raw_metadata = state.get("metadata")
-        metadata = (
-            {str(key): str(value) for key, value in raw_metadata.items()}
-            if isinstance(raw_metadata, Mapping)
-            else {}
-        )
+        if "metadata" not in state:
+            metadata = {"decision_route": "action"}
+        elif isinstance(raw_metadata := state["metadata"], Mapping):
+            metadata = {str(key): str(value) for key, value in raw_metadata.items()}
+        else:
+            raise IamUnavailableError("HIL callback metadata is malformed")
         return HilCallbackContext(
             approval_id=approval_id,
             correlation_id=cast(str, correlation_id),

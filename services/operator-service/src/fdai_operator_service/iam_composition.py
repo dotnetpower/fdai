@@ -75,8 +75,10 @@ from fdai_operator_service.notification_receipt_ingress import (
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
+    PostgresFamilyStoreConfig,
     UnavailablePostgresFamilyStore,
 )
+from fdai_operator_service.postgres_hil_decision import PostgresHilDecisionStore
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
 from fdai_operator_service.teams_workflow_binding import (
@@ -164,12 +166,7 @@ def build_hil_decision_outbox_bridge(
     semantic_bus: OperatorSemanticKafkaBus | None,
 ) -> HilDecisionOutboxBridge | None:
     """Compose durable HIL decision delivery only when every binding is available."""
-    if (
-        store is None
-        or semantic_bus is None
-        or environment.hil_decision_topic is None
-        or not environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip()
-    ):
+    if store is None or semantic_bus is None or environment.hil_decision_topic is None:
         return None
     return HilDecisionOutboxBridge(
         store=store,
@@ -277,7 +274,17 @@ def build_postgres_iam_bindings(
         raise OperatorServiceConfigurationError(
             "handover composition requires the authoritative Operator database"
         )
-    iam = PostgresIamAdapters(store, model_catalog=build_model_catalog_reader(environment))
+    iam = PostgresIamAdapters(
+        store,
+        model_catalog=build_model_catalog_reader(environment),
+        hil_decisions=PostgresHilDecisionStore(
+            PostgresFamilyStoreConfig(
+                dsn=environment.database_url,
+                connect_timeout_s=environment.database_connect_timeout_s,
+                statement_timeout_ms=environment.database_statement_timeout_ms,
+            )
+        ),
+    )
     directory = build_iam_directory(environment, teams_http_client) or iam
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
     hil_authority = (
@@ -299,9 +306,7 @@ def build_postgres_iam_bindings(
             ledger=iam,
             registry=iam,
         )
-        if hil_secret is not None
-        and semantic_bus is not None
-        and environment.hil_decision_topic is not None
+        if semantic_bus is not None and environment.hil_decision_topic is not None
         else None
     )
     hil_teams_normalizer = (
@@ -342,12 +347,12 @@ def build_postgres_iam_bindings(
         slack_webhook_tester=SlackWebhookDiagnosticTester(store),
         kill_switch=iam,
         configuration_review=iam,
-        hil_registry=iam if hil_secret is not None else None,
+        hil_registry=iam,
         hil_outbox=hil_outbox,
         hil_config=HilCallbackConfig(hil_secret) if hil_secret is not None else None,
         hil_authority=hil_authority,
-        hil_audit=iam if hil_secret is not None else None,
-        hil_context=iam if hil_secret is not None else None,
+        hil_audit=iam,
+        hil_context=iam,
         hil_teams_normalizer=hil_teams_normalizer,
         notification_receipt_ingress=build_notification_receipt_ingress(
             environment=environment,
