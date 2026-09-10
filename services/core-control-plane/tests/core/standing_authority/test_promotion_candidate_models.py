@@ -4,7 +4,7 @@ Covers:
 - Candidate creation, field validation, candidate_id digest binding
 - Creator/reviewer separation (SELF_REVIEW)
 - Duplicate and conflicting reviews (DUPLICATE_REVIEW, CONFLICTING_REVIEW)
-- Agent/executor identity rejection (REVIEWER_NOT_HUMAN)
+- Agent/executor identity rejection at the record boundary
 - Evidence gap denial (MISSING_EVIDENCE)
 - Rejection denial (REJECTION)
 - Provider-ineligible ActionType denial at creation (PROVIDER_INELIGIBLE)

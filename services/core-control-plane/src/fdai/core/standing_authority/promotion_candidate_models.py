@@ -53,7 +53,6 @@ class DenialReason(StrEnum):
     SELF_REVIEW = "self_review"
     DUPLICATE_REVIEW = "duplicate_review"
     CONFLICTING_REVIEW = "conflicting_review"
-    REVIEWER_NOT_HUMAN = "reviewer_not_human"
     UNAUTHORIZED_REVIEWER = "unauthorized_reviewer"
     MISSING_QUORUM = "missing_quorum"
     REJECTION = "rejection"
