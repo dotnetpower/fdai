@@ -30,7 +30,7 @@ _CONTEXT = hashlib.sha256(
         '"deploy_operational_history":false,'
         '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
         '"document_ocr_action":"preserve",'
-        '"runtime_image_revision":""}}'
+        '"runtime_call_evidence_transition":false,"runtime_image_revision":""}}'
     ).encode()
 ).hexdigest()
 
@@ -70,6 +70,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "DEPLOY_MONITORING": "false",
         "DEPLOY_OPERATIONAL_HISTORY": "false",
         "RCA_READER_IDENTITY_ONLY": "false",
+        "RUNTIME_CALL_EVIDENCE_TRANSITION": "false",
         "RUNTIME_IMAGE_REVISION": "",
         "REQUEST_ID": "",
         "CONTEXT_DIGEST": "",
@@ -86,6 +87,40 @@ def _request(**overrides: str) -> dict[str, str]:
 
 def test_unprotected_plan_request_is_valid() -> None:
     validate(_request(), checkout_commit=_COMMIT)
+
+
+def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> None:
+    values = _request(
+        COMMIT_SHA=_COMMIT,
+        RUNTIME_CALL_EVIDENCE_TRANSITION="true",
+    )
+    context = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    protected = {
+        **values,
+        "REQUEST_ID": f"plan-{prefix}{'abcd' * 5}0001",
+        "CONTEXT_DIGEST": context,
+        "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+    }
+
+    validate(protected, checkout_commit=_COMMIT)
+    assert (
+        _MODULE._deployment_context_digest({**values, "RUNTIME_CALL_EVIDENCE_TRANSITION": "false"})
+        != context
+    )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(
+            _request(
+                RUNTIME_CALL_EVIDENCE_TRANSITION="true",
+                DEPLOY_MONITORING="true",
+            ),
+            checkout_commit=_COMMIT,
+        )
 
 
 def test_document_ocr_proposal_plan_derives_action_from_policy() -> None:
@@ -554,7 +589,7 @@ def _gateway_context() -> str:
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
-            '"runtime_image_revision":""}}'
+            '"runtime_call_evidence_transition":false,"runtime_image_revision":""}}'
         ).encode()
     ).hexdigest()
 
@@ -620,7 +655,9 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
-            '"runtime_image_revision":"' + image_revision + '"}}'
+            '"runtime_call_evidence_transition":false,"runtime_image_revision":"'
+            + image_revision
+            + '"}}'
         ).encode()
     ).hexdigest()
 
