@@ -80,6 +80,8 @@ def _run_shard(
     command = [
         "uv",
         "run",
+        "--extra",
+        "dev",
         "pytest",
         "-q",
         "-m",
@@ -137,6 +139,8 @@ def _run_integration(
         [
             "uv",
             "run",
+            "--extra",
+            "dev",
             "pytest",
             "-q",
             "-m",
@@ -163,6 +167,8 @@ def _collect_integration(
         [
             "uv",
             "run",
+            "--extra",
+            "dev",
             "pytest",
             "--collect-only",
             "-q",
