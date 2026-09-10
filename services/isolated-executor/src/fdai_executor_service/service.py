@@ -22,6 +22,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from fdai_service_contracts.executor import (
     Action,
+    AnyExecutorCommand,
     DirectApiExecutionResultLike,
     ExecutionPath,
     ExecutorCommand,
@@ -30,6 +31,7 @@ from fdai_service_contracts.executor import (
     ExecutorShadowReceipt,
     ExecutorShadowReceiptStatus,
     Mode,
+    SafeguardBoundExecutorCommand,
 )
 from fdai_service_contracts.schema import ContractValidator
 
@@ -72,6 +74,7 @@ class IsolatedExecutorEffectService:
         direct_api_executor: DirectApiCommandExecutor,
         contract_validator: ContractValidator,
         executor_instance_id: str,
+        bundle_store: SafeguardBundleStore | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not executor_instance_id or len(executor_instance_id) > 512:
@@ -79,9 +82,10 @@ class IsolatedExecutorEffectService:
         self._direct_api_executor = direct_api_executor
         self._contract_validator = contract_validator
         self._executor_instance_id = executor_instance_id
+        self._bundle_store = bundle_store
         self._clock = clock or (lambda: datetime.now(UTC))
 
-    async def handle(self, command: ExecutorCommand) -> ExecutorEffectReceipt:
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorEffectReceipt:
         """Dispatch one command without claiming independent effect verification."""
 
         self._contract_validator.validate(
@@ -101,13 +105,19 @@ class IsolatedExecutorEffectService:
             if command.execution_path is ExecutionPath.DIRECT_API:
                 recovered = await self._direct_api_executor.recover(action=action)
             if recovered is not None:
-                return self._receipt_from_result(command, recovered, received_at=received_at)
+                return self._receipt_from_result(
+                    command,
+                    recovered,
+                    received_at=received_at,
+                    safeguard_proof_bundle_digest=bundle_digest,
+                )
             return self._effect_receipt(
                 command,
                 status=ExecutorEffectReceiptStatus.EXPIRED,
                 reason="command deadline expired before dispatch",
                 received_at=received_at,
                 completed_at=received_at,
+                safeguard_proof_bundle_digest=bundle_digest,
             )
         if command.execution_path is not ExecutionPath.DIRECT_API:
             return self._effect_receipt(
@@ -116,20 +126,27 @@ class IsolatedExecutorEffectService:
                 reason="isolated effect authority supports direct_api commands only",
                 received_at=received_at,
                 completed_at=received_at,
+                safeguard_proof_bundle_digest=bundle_digest,
             )
 
         result = await self._direct_api_executor.execute(
             action=action,
             deadline_at=command.deadline_at,
         )
-        return self._receipt_from_result(command, result, received_at=received_at)
+        return self._receipt_from_result(
+            command,
+            result,
+            received_at=received_at,
+            safeguard_proof_bundle_digest=bundle_digest,
+        )
 
     def _receipt_from_result(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         result: DirectApiExecutionResultLike,
         *,
         received_at: datetime,
+        safeguard_proof_bundle_digest: str | None = None,
     ) -> ExecutorEffectReceipt:
         completed_at = self._clock()
         status = ExecutorEffectReceiptStatus(result.outcome.value)
@@ -143,11 +160,12 @@ class IsolatedExecutorEffectService:
             effect_applied=effect_applied,
             rollback_succeeded=result.rollback_succeeded,
             provider_receipt_ref=result.receipt_ref,
+            safeguard_proof_bundle_digest=safeguard_proof_bundle_digest,
         )
 
     def _effect_receipt(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         *,
         status: ExecutorEffectReceiptStatus,
         reason: str | None,
@@ -156,6 +174,7 @@ class IsolatedExecutorEffectService:
         effect_applied: bool = False,
         rollback_succeeded: bool | None = None,
         provider_receipt_ref: str | None = None,
+        safeguard_proof_bundle_digest: str | None = None,
     ) -> ExecutorEffectReceipt:
         receipt_id = uuid5(
             NAMESPACE_URL,
@@ -177,6 +196,7 @@ class IsolatedExecutorEffectService:
             effect_applied=effect_applied,
             rollback_succeeded=rollback_succeeded,
             provider_receipt_ref=_bounded_optional(provider_receipt_ref),
+            safeguard_proof_bundle_digest=safeguard_proof_bundle_digest,
             audit_ref=f"action:{command.action_id}",
         )
         self._contract_validator.validate(
