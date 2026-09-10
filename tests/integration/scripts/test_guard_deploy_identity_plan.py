@@ -63,7 +63,7 @@ def _plan() -> dict[str, object]:
     }
 
 
-def _storage_hardening(address: str) -> dict[str, object]:
+def _storage_hardening(address: str, *, retention_days: int = 30) -> dict[str, object]:
     common = {
         "name": "storage",
         "blob_properties": [
@@ -79,8 +79,10 @@ def _storage_hardening(address: str) -> dict[str, object]:
     after["primary_blob_endpoint"] = None
     after_blob = after["blob_properties"]
     assert isinstance(after_blob, list)
-    after_blob[0]["delete_retention_policy"] = [{"days": 7, "permanent_delete_enabled": False}]
-    after_blob[0]["container_delete_retention_policy"] = [{"days": 7}]
+    after_blob[0]["delete_retention_policy"] = [
+        {"days": retention_days, "permanent_delete_enabled": False}
+    ]
+    after_blob[0]["container_delete_retention_policy"] = [{"days": retention_days}]
     before = copy.deepcopy(common)
     before["local_user_enabled"] = True
     before["primary_blob_endpoint"] = "https://storage.blob.core.windows.net/"
@@ -163,6 +165,25 @@ def test_accepts_paired_storage_security_prerequisite() -> None:
         (
             _role_change(role, "Storage Blob Data Owner"),
             _storage_hardening(address),
+        )
+    )
+
+    changed = guard.validate_plan(plan, expected_principal_id=_PRINCIPAL)
+
+    assert address in changed
+    assert role in changed
+
+
+def test_accepts_gateway_specific_seven_day_retention() -> None:
+    address = "azurerm_storage_account.dev_gateway[0]"
+    role = "azurerm_role_assignment.dev_gateway_storage_deployer[0]"
+    plan = _plan()
+    changes = plan["resource_changes"]
+    assert isinstance(changes, list)
+    changes.extend(
+        (
+            _role_change(role, "Storage Blob Data Contributor"),
+            _storage_hardening(address, retention_days=7),
         )
     )
 
