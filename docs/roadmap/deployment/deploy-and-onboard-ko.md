@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6e64da40cf8fc7e258fb9defd79c2f72765543b2
+translation_source_sha: 6e7f26884ffed45be464127003155b29aba2d40b
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -104,9 +104,10 @@ pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를
 검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 검증기가 계획을 차단한
 경우를 포함해 모든 종료 경로에서 렌더링한 계획 검토 복사본을 제거하므로, 민감한 Terraform 값이
 영속 실행기 자리에 남지 않습니다.
-개발 환경 전용 deploy identity 이행 요청은 안정 principal fence와 검토된 deployer 역할 할당만
-대상으로 합니다. 해당 검증기는 관련 없는 리소스, 변경된 범위나 역할, 구성된 실행기 UAMI가 아닌
-대상 principal을 차단합니다. 적용 후 readback은 적용 증적을 쓰기 전에 해당 UAMI에 계획된 역할이
+개발 환경 전용 deploy identity 이행 요청은 단독으로 실행되며 안정 principal fence와 검토된
+deployer 역할 할당만 대상으로 합니다. 해당 검증기는 애플리케이션 배포 선택, 관련 없는 리소스,
+변경된 범위나 역할, 구성된 실행기 UAMI가 아닌 대상 principal을 차단합니다. 적용 후 readback은
+적용 증적을 쓰기 전에 해당 UAMI에 계획된 역할이
 모두 있고 교체된 principal의 남은 역할이 0건인지 확인합니다.
 권한 있는 workflow는 먼저 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을

@@ -190,6 +190,11 @@ def test_deploy_identity_migration_uses_a_context_bound_request_prefix() -> None
         assert "deploy_identity_migration=true" not in call
 
 
+def test_deploy_identity_migration_rejects_default_application_targets() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        DeploymentSelection(deploy_identity_migration=True)
+
+
 def test_resume_dispatch_uses_exact_apply_with_verification_only_flag() -> None:
     runner = RecordingRunner()
 

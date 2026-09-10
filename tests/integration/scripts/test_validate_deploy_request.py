@@ -430,6 +430,27 @@ def test_deploy_identity_migration_is_context_bound_and_exclusive() -> None:
     with pytest.raises(ValueError, match="cannot be combined"):
         validate(mixed, checkout_commit=_COMMIT)
 
+    mixed_application = _request(
+        DEPLOY_IDENTITY_MIGRATION_ONLY="true",
+        DEPLOY_CONSOLE="true",
+        ENTRA_CONSOLE_API_SCOPE="api://00000000-0000-0000-0000-000000000003/access",
+        COMMIT_SHA=_COMMIT,
+    )
+    application_context = _MODULE._deployment_context_digest(mixed_application)
+    application_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=application_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    mixed_application.update(
+        REQUEST_ID=f"plan-identity-{application_prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=application_context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(mixed_application, checkout_commit=_COMMIT)
+
 
 def test_core_model_quorum_is_dev_only_protected_and_exclusive() -> None:
     protected = {

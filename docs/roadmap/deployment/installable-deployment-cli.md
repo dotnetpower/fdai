@@ -512,10 +512,11 @@ authority-free `--deploy-operator-channel-edge` identity plan, and the exclusive
 identically into plan and apply. The RCA mode permits only its dedicated identity and Monitoring Reader
 role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform.
 
-`--deploy-identity-migration` is a development-only bounded operation. It seals the current
-application selections into the context but targets only the stable-principal fence and the
-reviewed deployer role assignments. The plan guard requires every resulting assignment to use the
-configured stable runner UAMI, and exact apply reuses that same target set for convergence.
+`--deploy-identity-migration` is a development-only exclusive operation. It can't be combined with
+an application deployment selection. The runner derives only the feature flags needed to preserve
+role owners already present in state, then targets the stable-principal fence and reviewed deployer
+role assignments. The plan guard requires every resulting assignment to use the configured stable
+runner UAMI, and exact apply reuses that same target set for convergence.
 Post-apply verification reads Azure role assignments, requires every planned role on the stable
 principal, requires zero remaining assignment for each superseded principal, and binds the
 sanitized effect digest into the apply receipt.

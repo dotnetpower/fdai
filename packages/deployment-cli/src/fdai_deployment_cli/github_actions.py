@@ -89,7 +89,8 @@ class DeploymentSelection:
                 "deploy_rca_reader_identity cannot be combined with another deployment target"
             )
         if self.deploy_identity_migration and (
-            self.deploy_monitoring
+            any(application_targets)
+            or self.deploy_monitoring
             or self.deploy_operational_history
             or self.deploy_rca_reader_identity
             or self.runtime_image_revision

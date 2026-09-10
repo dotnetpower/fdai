@@ -244,6 +244,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
+          umask 077
           platform_state="$RUNNER_TEMP/deploy-identity-platform-state.json"
           bootstrap_state="$RUNNER_TEMP/deploy-identity-bootstrap-state.json"
           receipt="$RUNNER_TEMP/deploy-identity-manifest-receipt.json"

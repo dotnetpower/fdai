@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: e546a45e0632aeba84932c7229372442dc112433
+translation_source_sha: 1d1020bb72a9419f4ff6822ea6a5f9c9937d8789
 translation_revised: 2026-09-11
 ---
 # 설치형 배포 CLI
@@ -515,10 +515,11 @@ Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 
 봉인합니다. RCA 모드는 전용 신원과 Monitoring Reader 역할만 허용합니다. 선택적 런타임
 리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다.
 
-`--deploy-identity-migration`은 개발 환경 전용의 범위가 제한된 작업입니다. 현재 애플리케이션
-선택을 맥락에 봉인하지만 안정 principal fence와 검토된 deployer 역할 할당만 대상으로 합니다.
-계획 검증기는 모든 결과 역할이 구성된 안정 실행기 UAMI를 사용하도록 요구하며, exact 적용은
-수렴 검사에 같은 대상 집합을 다시 사용합니다. 적용 후 검증은 Azure 역할 할당을 읽고 안정
+`--deploy-identity-migration`은 개발 환경 전용의 단독 작업이며 애플리케이션 배포 선택과 함께
+사용할 수 없습니다. 실행기는 상태에 이미 있는 역할 소유자를 보존하는 데 필요한 기능 플래그만
+파생한 뒤 안정 principal fence와 검토된 deployer 역할 할당을 대상으로 합니다. 계획 검증기는
+모든 결과 역할이 구성된 안정 실행기 UAMI를 사용하도록 요구하며, exact 적용은 수렴 검사에 같은
+대상 집합을 다시 사용합니다. 적용 후 검증은 Azure 역할 할당을 읽고 안정
 principal에 계획된 역할이 모두 있는지 확인하며, 교체된 각 principal의 남은 할당이 0건인지
 요구하고 정제된 효과 다이제스트를 적용 증적에 결합합니다.
 

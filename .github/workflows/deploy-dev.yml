@@ -1762,7 +1762,7 @@ jobs:
           fi
 
       - name: Synchronize console Entra redirect URI
-        if: ${{ inputs.apply && inputs.deploy_console }}
+        if: ${{ inputs.apply && inputs.deploy_console && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         env:
           EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           ENTRA_CONSOLE_SPA_CLIENT_ID: ${{ vars.ENTRA_CONSOLE_SPA_CLIENT_ID }}
@@ -1860,7 +1860,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migrations
-        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -1920,7 +1920,7 @@ jobs:
           retention-days: 90
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2367,7 +2367,7 @@ jobs:
           retention-days: 90
 
       - name: Publish and verify console
-        if: ${{ inputs.apply && inputs.deploy_console }}
+        if: ${{ inputs.apply && inputs.deploy_console && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         working-directory: ${{ github.workspace }}
         env:
           EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}

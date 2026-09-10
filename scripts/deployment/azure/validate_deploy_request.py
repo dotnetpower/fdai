@@ -214,14 +214,14 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         if values.get("TARGET_ENVIRONMENT") != "dev":
             raise ValueError("deploy identity migration is restricted to dev")
         if (
-            document_ocr_action != "preserve"
+            any(_enabled(values, key) for key in targets)
+            or _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
+            or document_ocr_action != "preserve"
             or design_mocks
             or model_only
             or deploy_core_model_quorum
             or validate_chatops
             or rca_reader_identity
-            or monitoring
-            or deploy_ohl
             or promote_image
             or runtime_image_revision
             or cutover

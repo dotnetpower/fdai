@@ -33,3 +33,13 @@ def test_identity_apply_uses_targeted_convergence_without_runtime_checks() -> No
         "- name: Record exact plan apply receipt", maxsplit=1
     )[0]
     assert "DEPLOY_IDENTITY_MIGRATION_ONLY != 'true'" in canary
+    for start, end in (
+        ("Synchronize console Entra redirect URI", "Build allowlisted design-mocks artifact"),
+        ("Run schema migrations", "Publish integrated migration adoption evidence"),
+        ("Verify deployed health endpoints", "Verify independent Executor effect and rollback"),
+        ("Publish and verify console", None),
+    ):
+        step = _WORKFLOW.split(f"- name: {start}", maxsplit=1)[1]
+        if end is not None:
+            step = step.split(f"- name: {end}", maxsplit=1)[0]
+        assert "DEPLOY_IDENTITY_MIGRATION_ONLY != 'true'" in step

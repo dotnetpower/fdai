@@ -154,6 +154,12 @@ def test_workflow_plans_every_production_root() -> None:
     assert "Verify runner storage and identity posture" in workflow
     assert "Verify stable deploy identity role manifest" in workflow
     assert "deploy-identity-manifest-receipt.json" in workflow
+    manifest_step = workflow.split(
+        "- name: Verify stable deploy identity role manifest", maxsplit=1
+    )[1].split("- name: Publish stable deploy identity manifest receipt", maxsplit=1)[0]
+    assert manifest_step.index("umask 077") < manifest_step.index(
+        "terraform -chdir=infra show -json"
+    )
     assert "Verify disposable scenario state closure" in workflow
     assert "scenario-lab/fdai-sre-lab.tfstate" in workflow
     assert "scenario-state-closure-receipt.json" in workflow
