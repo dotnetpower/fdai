@@ -145,6 +145,7 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_four_shards() -> 
     }
     scoped_jobs = {
         "python-tests": "python",
+        "python-coverage-shards": "python",
         "operator-surfaces": "operator",
         "governance-runtime-contracts": "python",
         "evaluation-packages": "evaluation",
@@ -163,8 +164,11 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_four_shards() -> 
 
     python_tests = jobs["python-tests"]
     assert python_tests["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
-    assert python_tests["env"]["FDAI_PYTEST_MODE"] == "all"
+    assert python_tests["env"]["FDAI_PYTEST_MODE"] == "full"
     assert python_tests["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
+    assert {step["name"] for step in python_tests["steps"]}.isdisjoint(
+        {"Prepare coverage data", "Upload coverage data"}
+    )
 
     contracts = jobs["contracts"]
     assert contracts["needs"] == "changes"
@@ -877,17 +881,24 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     assert provider_step["env"]["FDAI_PROVIDER_CONTRACT_BACKENDS"] == "real"
 
 
-def test_ci_merges_sharded_coverage_before_enforcing_the_floor() -> None:
+def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> None:
     jobs = yaml.safe_load(
         (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     )["jobs"]
-    shard_job = jobs["python-tests"]
+    regression_job = jobs["python-tests"]
+    shard_job = jobs["python-coverage-shards"]
     merge_job = jobs["python-coverage"]
 
-    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
-    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
+    assert regression_job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert regression_job["env"]["FDAI_PYTEST_MODE"] == "full"
+    assert {step["name"] for step in regression_job["steps"]}.isdisjoint(
+        {"Prepare coverage data", "Upload coverage data"}
+    )
+    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2]
+    assert shard_job["env"]["FDAI_PYTEST_MODE"] == "coverage"
+    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
     assert shard_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
-    assert merge_job["needs"] == ["changes", "python-tests"]
+    assert merge_job["needs"] == ["changes", "python-coverage-shards"]
     merge_step = next(
         step
         for step in merge_job["steps"]

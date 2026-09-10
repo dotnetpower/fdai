@@ -256,12 +256,15 @@ def _validate_python_test_partitioning() -> list[str]:
         encoding="utf-8"
     )
     required_workflow_fragments = (
-        "pytest regression and coverage shard ${{ matrix.shard }}/4",
+        "pytest regression shard ${{ matrix.shard }}/4",
+        "pytest safety-core coverage shard ${{ matrix.shard }}/2",
         "python-tests:",
+        "python-coverage-shards:",
         "python-coverage:",
         "coverage combine coverage-data",
         "coverage report --fail-under=90",
-        "FDAI_PYTEST_MODE: all",
+        "FDAI_PYTEST_MODE: full",
+        "FDAI_PYTEST_MODE: coverage",
         "FDAI_PYTEST_MODE: integration",
         "database and provider integration shard ${{ matrix.shard }}/2",
         "db-integration:",
