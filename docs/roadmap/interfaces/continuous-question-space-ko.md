@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: f45ed436d9987450c67a34e7ba3067d0227d5303
+translation_source_sha: 187030abdf48a88f0ef2d307a3be9eb6acd55796
 translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
@@ -174,6 +174,8 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 최신 Console 로캘 다이제스트 변경 후 연합 question-bank JSON과 검토 카탈로그를 다시 생성했습니다. 논리 질문 400개의 신원, 준비 상태 및 권한 필드는 변경되지 않았습니다. | `current change`; `uv run --extra dev python scripts/automation/build_question_bank.py`; 집중 question-bank 테스트 8개 통과. | 이 생성 원본 동기화 작업에 남은 작업이 없습니다. |
+| 2026-09-11 | implemented | 갱신된 연합 질문은행에 원본 출처가 결속되도록 파생 CQAS 의미 의도 인벤토리를 다시 생성했습니다. 지표 계약, 분모, 적용 범위 수 및 권한 필드는 변경되지 않았습니다. | `current change`; `PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run --extra dev python scripts/automation/build_semantic_intent_coverage.py`; 집중 질문은행 및 의미 의도 적용 범위 테스트 12개 통과. | 이 종속 생성 원본 동기화 작업에 남은 작업이 없습니다. |
 | 2026-09-11 | implemented | 통합 질문은행 원본 다이제스트 변경 후 CQAS 의미 의도 인벤토리를 다시 생성했습니다. 지표 정의, 분모 및 범위 개수는 바뀌지 않았습니다. | `current change`, `build_semantic_intent_coverage.py`, 생성 산출물 동등성 검사 | 이 종속 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-11 | implemented | Console 로캘 카탈로그 변경 후 통합 질문은행의 기계 판독용 인벤토리와 검토 카탈로그를 다시 생성했습니다. 질문 400개의 신원은 모두 유지하고 정확한 원본 다이제스트만 갱신했습니다. | `current change`, 공식 질문은행 생성기 및 생성 산출물 동등성 검사 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-11 | implemented | 질문 뱅크 동기화로 오래된 커버리지 분모가 드러난 뒤 파생 의미 의도 커버리지 인벤토리를 다시 생성했습니다. | `current change`, `PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run python scripts/automation/build_semantic_intent_coverage.py`, 집중 생성 산출물 검사 12개 통과 | 파생 커버리지 동기화에 남은 작업은 없습니다. |
