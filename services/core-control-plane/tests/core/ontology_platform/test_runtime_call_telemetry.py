@@ -126,3 +126,14 @@ def test_authentication_context_requires_canonical_digests() -> None:
 
 def test_untrusted_envelope_has_no_public_projection_conversion() -> None:
     assert not hasattr(_envelope(), "to_observation")
+
+
+@pytest.mark.parametrize("timeout_seconds", [float("inf"), float("-inf"), float("nan"), 0.0])
+def test_authentication_timeout_must_be_finite_and_positive(timeout_seconds: float) -> None:
+    envelope = _envelope()
+
+    with pytest.raises(ValueError, match="finite and positive"):
+        RuntimeCallTelemetryProducer(
+            authenticator=_Authenticator(_context(envelope)),
+            timeout_seconds=timeout_seconds,
+        )

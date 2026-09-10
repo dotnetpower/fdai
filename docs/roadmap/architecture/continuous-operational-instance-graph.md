@@ -77,7 +77,7 @@ authenticated broker acceptance, and Core emits the target witness as soon as th
 reaches the target boundary, before turn processing can reject it. Neither witness carries request
 content or authority. An untrusted telemetry envelope exposes no direct conversion to projection
 input. Only the authenticated producer can perform that conversion after it verifies the exact
-envelope digest and independent source context. The Azure Monitor source accepts
+envelope digest and independent source context under a finite positive deadline. The Azure Monitor source accepts
 only the matching structured Container Apps log schema, then re-reads each platform-stamped
 revision and replica under its claimed exact Container App ARM ID. Only those independently bound
 endpoint witnesses convert through the existing canonical Resource ID mapping. The standalone channel edge never receives the caller

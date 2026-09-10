@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Protocol
@@ -137,8 +138,8 @@ class RuntimeCallTelemetryProducer:
         authenticator: RuntimeCallTelemetryAuthenticator,
         timeout_seconds: float = 2.0,
     ) -> None:
-        if timeout_seconds <= 0:
-            raise ValueError("runtime call authentication timeout MUST be positive")
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+            raise ValueError("runtime call authentication timeout MUST be finite and positive")
         self._authenticator = authenticator
         self._timeout_seconds = timeout_seconds
 

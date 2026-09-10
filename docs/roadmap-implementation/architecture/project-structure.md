@@ -64,6 +64,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Bounded runtime-call authentication with a finite positive deadline that rejects infinity and NaN at composition. | `current change`; `runtime_call_telemetry.py`; focused timeout checks and Ruff. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Restricted runtime-call projection conversion to the authenticated producer after exact digest and independent-context verification. | `current change`; `runtime_call_telemetry.py`; focused telemetry producer tests and Ruff. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-11 | implemented | Rejected contradictory readiness results that combine eligibility with rejection details. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | The ten-round local #77 hardening campaign is complete; governed live admission retention remains separate authorized work. |
 | 2026-09-11 | implemented | Rejected readiness results that retain a verification-bundle digest without the matching validated bundle. | `current change`; `core/readiness/decision_evidence.py`; focused readiness checks. | Continue the bounded #77 hardening campaign; governed live admission retention remains separate authorized work. |
