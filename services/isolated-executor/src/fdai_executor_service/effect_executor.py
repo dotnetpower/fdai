@@ -32,6 +32,7 @@ from fdai_executor_service.effect_safety import (
     action_fingerprint,
     blast_radius_refusal,
     build_direct_api_request,
+    deadline_expired,
     dedupe_key,
     idempotency_lock_key,
     missing_safety_invariant,
@@ -169,13 +170,15 @@ class ServiceDirectApiEffectExecutor:
             expired_reason: str | None = None
             if deadline_at is not None:
                 now = self._clock()
-                if now.tzinfo is None or deadline_at.tzinfo is None:
+                try:
+                    expired = deadline_expired(now, deadline_at)
+                except ValueError:
                     return await self._finish(
                         action,
                         DirectApiEffectOutcome.REJECTED_INVARIANT,
                         "effect deadline and executor clock MUST be timezone-aware",
                     )
-                if now > deadline_at:
+                if expired:
                     expired_reason = "command deadline expired while waiting for effect locks"
 
             if self._idempotency is not None:

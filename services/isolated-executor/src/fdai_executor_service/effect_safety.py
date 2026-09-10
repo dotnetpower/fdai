@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import Protocol
 
 from fdai_service_contracts.executor import (
@@ -22,6 +23,19 @@ class EffectCeilings(Protocol):
 
     @property
     def max_rate_per_minute(self) -> int: ...
+
+
+def deadline_expired(now: datetime, deadline_at: datetime) -> bool:
+    """Return whether an effect deadline has reached its fail-closed boundary."""
+
+    if (
+        now.tzinfo is None
+        or now.utcoffset() is None
+        or deadline_at.tzinfo is None
+        or deadline_at.utcoffset() is None
+    ):
+        raise ValueError("effect deadline and executor clock MUST be timezone-aware")
+    return now >= deadline_at
 
 
 def missing_safety_invariant(action: Action) -> str | None:
@@ -129,6 +143,7 @@ __all__ = [
     "action_fingerprint",
     "blast_radius_refusal",
     "build_direct_api_request",
+    "deadline_expired",
     "dedupe_key",
     "idempotency_lock_key",
     "missing_safety_invariant",
