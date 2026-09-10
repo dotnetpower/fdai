@@ -65,7 +65,7 @@ jobs:
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
       FDAI_PYTEST_MAX_WORKERS: "4"
-      FDAI_PYTEST_MODE: full
+      FDAI_PYTEST_MODE: regression
       FDAI_PYTEST_SHARD_COUNT: "4"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:

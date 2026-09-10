@@ -263,7 +263,7 @@ def _validate_python_test_partitioning() -> list[str]:
         "python-coverage:",
         "coverage combine coverage-data",
         "coverage report --fail-under=90",
-        "FDAI_PYTEST_MODE: full",
+        "FDAI_PYTEST_MODE: regression",
         "FDAI_PYTEST_MODE: coverage",
         "FDAI_PYTEST_MODE: integration",
         "database and provider integration shard ${{ matrix.shard }}/2",
@@ -277,7 +277,7 @@ def _validate_python_test_partitioning() -> list[str]:
         for fragment in required_workflow_fragments
         if fragment not in workflow
     ]
-    for mode in ("all)", "full)", "coverage)", "integration)"):
+    for mode in ("all)", "full)", "regression)", "coverage)", "integration)"):
         if mode not in runner:
             errors.append(f"run-python-tests.sh is missing mode branch: {mode}")
     if '"${parallel_args[@]}" "${shard_args[@]}" "${coverage_args[@]}" "$@"' not in runner:
