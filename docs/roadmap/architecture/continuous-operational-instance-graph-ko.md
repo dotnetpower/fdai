@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 86fc87ae1daa0aa39ae1dcddaa20fe4bd2755feb
+translation_source_sha: d51157c73ddfe6d1b629dbaffe51630181859106
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -107,6 +107,8 @@ PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 �
 참조와 범위가 지정된 원본 컨텍스트에서 파생하며 엔트로피가 낮은 역할 이름을 해시하지 않습니다.
 현재 Operator 및 Console 인스턴스 상세 응답은 런타임 호출 및 PostgreSQL 역할 원본 상태를
 명시해야 합니다. 누락은 가용성이나 측정된 0이 아니라 잘못된 응답으로 처리합니다.
+생성된 의미 의도 범위 인벤토리는 전체 ontology-platform 원본 다이제스트를 결속하므로, 변환 결과를
+변경하면 저장소 검증 전에 해당 산출물을 새로 고칩니다.
 Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시도 가능한 작업자를 통해 영속 Incident 개입 요청도 게시할 수 있습니다.
 어댑터는 해당 논리 토픽을 명시적으로 허용 목록에 등록하고 설정된 물리 전송 계층을 통해 다중화합니다.
 런타임 호출 증표, 그래프 edge, 프로바이더 관측 또는 실행 권한은 만들지 않습니다.

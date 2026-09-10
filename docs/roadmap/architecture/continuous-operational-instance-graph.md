@@ -104,6 +104,8 @@ principal handle derives from opaque authenticated evidence references and scope
 it never hashes the low-entropy role name. Current Operator and Console instance-detail responses
 must carry explicit runtime-call and PostgreSQL-role source states; omission is invalid rather than
 available or measured zero.
+The generated semantic-intent coverage inventory binds the complete ontology-platform source
+digest, so projection changes refresh that artifact before repository validation.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.
