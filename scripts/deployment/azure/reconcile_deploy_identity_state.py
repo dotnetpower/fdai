@@ -102,8 +102,11 @@ def _command(
 
 
 def _scope(value: str) -> str:
+    lines = [line.strip() for line in value.splitlines() if line.strip()]
+    if not lines:
+        raise ValueError("Terraform role scope output is empty")
     try:
-        decoded = json.loads(value)
+        decoded = json.loads(lines[-1])
     except json.JSONDecodeError as error:
         raise ValueError("Terraform role scope output is invalid") from error
     if not isinstance(decoded, str):

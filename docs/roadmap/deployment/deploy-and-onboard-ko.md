@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e83ad249bac369631c10e6dcaa488eb4e8cef065
+translation_source_sha: 101dad7c51e5288752c32895e7b8d4a7bdf1b348
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -292,7 +292,7 @@ URI는 관련 없는 compute drift를 제외합니다. 저장소에 바인딩된
 archive `Storage Blob Data Owner` 역할을 먼저 만들고 이전 역할을 제거합니다. 정확히 같은 역할 할당이
 Terraform state 외부에 이미 있으면 계획 전용 조정 단계에서 저장소 범위, deploy UAMI principal 및 역할이
 모두 일치하는지 확인한 후에만 가져옵니다. 범위가 제한된 적용 후 검증은 관련 없는 inventory image drift를
-검사하지 않습니다. 다른 교체는 계속 차단하며 이후 계획이 리소스를 보존하도록 초기 계획 전에 `ENABLE_OPERATIONAL_HISTORY=true`를 설정합니다.
+검사하지 않습니다. 중단된 적용을 복구할 때 Terraform console 경고 뒤의 정확한 마지막 범위 JSON 문자열만 허용하며 비어 있거나 문자열이 아니거나 후행 출력이 있으면 거부합니다. 다른 교체는 계속 차단하며 이후 계획이 리소스를 보존하도록 초기 계획 전에 `ENABLE_OPERATIONAL_HISTORY=true`를 설정합니다.
 로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
 filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
 사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는

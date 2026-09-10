@@ -30,6 +30,24 @@ def _completed(arguments: tuple[str, ...], stdout: str) -> subprocess.CompletedP
     return subprocess.CompletedProcess(arguments, 0, stdout=stdout, stderr="")
 
 
+def test_scope_accepts_terraform_warnings_before_the_exact_result() -> None:
+    output = "\n".join(
+        (
+            "Warning: Deprecated attribute",
+            "This warning can span multiple lines.",
+            json.dumps(_SCOPE),
+        )
+    )
+
+    assert reconcile._scope(output) == _SCOPE
+
+
+@pytest.mark.parametrize("output", ["", f"{json.dumps(_SCOPE)}\ntrailing noise", "123"])
+def test_scope_rejects_empty_non_string_or_trailing_output(output: str) -> None:
+    with pytest.raises(ValueError, match="scope output"):
+        reconcile._scope(output)
+
+
 def test_reconcile_imports_one_exact_existing_assignment(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
