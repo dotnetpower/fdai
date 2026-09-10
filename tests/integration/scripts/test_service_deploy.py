@@ -1991,6 +1991,97 @@ def test_plan_guard_allows_exact_core_evidence_binding_adoption(guard: ModuleTyp
     )
 
 
+def _configuration_drift_binding_plan(guard: ModuleType) -> dict[str, object]:
+    plan = _core_evidence_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    evidence_names = {
+        "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
+        "FDAI_OPERATING_INTENT_SOURCE_EXPECTED_COUNTS_JSON",
+        "FDAI_OPERATING_INTENT_SOURCE_GENERATION",
+        "FDAI_OPERATING_INTENT_SOURCE_PATH",
+        "FDAI_OPERATING_INTENT_SOURCE_REVISION",
+        "FDAI_OPERATING_INTENT_SOURCE_SHA256",
+    }
+    before_environment.extend(
+        copy.deepcopy(item) for item in after_environment if item["name"] in evidence_names
+    )
+    digest = "b" * 64
+    after_environment.extend(
+        [
+            {"name": "FDAI_CONFIGURATION_DRIFT_ENABLED", "value": "1"},
+            {
+                "name": "FDAI_CONFIGURATION_BASELINE_URL",
+                "value": (
+                    "https://example.blob.core.windows.net/records/"
+                    f"configuration-baselines/{digest}.json"
+                ),
+            },
+            {"name": "FDAI_CONFIGURATION_BASELINE_VERSION", "value": "reviewed-v1"},
+            {"name": "FDAI_CONFIGURATION_BASELINE_SHA256", "value": digest},
+            {"name": "FDAI_CONFIGURATION_SCOPE", "value": "scope:reviewed"},
+            {
+                "name": "FDAI_CONFIGURATION_SUBSCRIPTIONS_JSON",
+                "value": '["00000000-0000-0000-0000-000000000001"]',
+            },
+            {
+                "name": "FDAI_CONFIGURATION_ATTRIBUTE_PATHS_JSON",
+                "value": '["properties.publicNetworkAccess","sku.name"]',
+            },
+            {
+                "name": "FDAI_CONFIGURATION_ARG_ENDPOINT",
+                "value": "https://management.azure.com",
+            },
+        ]
+    )
+    return plan
+
+
+def test_plan_guard_allows_exact_configuration_drift_binding_adoption(
+    guard: ModuleType,
+) -> None:
+    guard.validate_plan(
+        _configuration_drift_binding_plan(guard),
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        core_evidence_bindings_transition=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("FDAI_CONFIGURATION_DRIFT_ENABLED", "0"),
+        ("FDAI_CONFIGURATION_BASELINE_URL", "https://example.com/baseline.json"),
+        ("FDAI_CONFIGURATION_BASELINE_SHA256", "invalid"),
+        ("FDAI_CONFIGURATION_SUBSCRIPTIONS_JSON", "[]"),
+        ("FDAI_CONFIGURATION_ATTRIBUTE_PATHS_JSON", '["sku.name","properties.value"]'),
+        ("FDAI_CONFIGURATION_ARG_ENDPOINT", "https://example.com"),
+    ],
+)
+def test_plan_guard_rejects_invalid_configuration_drift_binding(
+    guard: ModuleType,
+    name: str,
+    value: str,
+) -> None:
+    plan = _configuration_drift_binding_plan(guard)
+    environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    next(item for item in environment if item["name"] == name)["value"] = value
+
+    with pytest.raises(guard.PlanGuardError, match="core evidence binding transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            core_evidence_bindings_transition=True,
+        )
+
+
 def test_plan_guard_rejects_implicit_or_expanded_core_evidence_binding_adoption(
     guard: ModuleType,
 ) -> None:

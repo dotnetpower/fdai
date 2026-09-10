@@ -30,7 +30,10 @@ The runtime shares evidence admission, replay, publication, and projection mecha
 retain different catalogs, scope contracts, provider adapters, and user-facing explanations.
 The shared Operator PostgreSQL reader also serves unrelated operational families. Its scoped AKS
 source-state and content-addressed diagnostic-receipt reads do not enter WAF or CAF scope,
-evidence admission, replay, or results.
+evidence admission, replay, or results. Its generation-fenced runtime-call relationship decoder is
+likewise outside both assessment families and cannot contribute assessment evidence. Its shared
+source-state decoder admits only canonical machine-token reasons and cannot pass principal text or
+provider details into any Operator family.
 The shared Operator outbox lifecycle facade can also supervise the Incident intervention worker.
 Its explicitly allowlisted logical topic, requests, and readiness state do not enter WAF or CAF
 scope, evidence admission, replay, or results.

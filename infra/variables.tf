@@ -1190,6 +1190,12 @@ variable "enable_operator_api" {
   default     = false
 }
 
+variable "enable_runtime_call_evidence" {
+  description = "Enable the deployed Inventory Job runtime-call telemetry source independently of legacy Operator API ownership."
+  type        = bool
+  default     = false
+}
+
 variable "enable_operator_channel_edge" {
   description = "Provision the dedicated non-executor identity used by the standalone Operator channel edge. The Container App remains in the operator-service deployment root."
   type        = bool

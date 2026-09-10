@@ -32,7 +32,7 @@ The production deployer permission boundary is owned by
   access and receives a `privatelink.azurecr.io` endpoint whose zone group registers the
   login-server and data-endpoint records. Private link is Premium-only, so a Basic or Standard
   registry deliberately stays public - closing it without a private path would break every
-  image pull. Prod already requires Premium.
+  image pull. Prod already requires Premium. Reviewed configuration baselines follow the same private runner boundary: the protected Core service plan carries only an exact content-addressed Blob binding, Core reads it through Managed Identity, and post-apply verification independently compares that immutable Blob with a fresh Azure Resource Graph observation.
 
 #### What Terraform does not create
 
@@ -71,21 +71,12 @@ gallery-version ID and disables marketplace selection, cloud-init, and GitHub re
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
 - a **stable deploy user-assigned managed identity (UAMI)** whose lifecycle is independent of the current and candidate runner VMs. Bootstrap owns its exact role manifest and outputs separate client and principal IDs;
 - a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D4ds_v5` compute and a `Local` `ResourceDisk` ephemeral OS.
-  VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Slots share the stable UAMI. Plans and read-only checks use service-specific locks, while apply and state migration share one environment writer lock.
-  Platform Terraform receives the configured UAMI principal ID directly for every deployer-owned
-  role. Platform and scenario plans also compare the authenticated principal with that configured
-  value before planning. Recreating a VM or running Terraform under another identity can't
-  redirect those roles.
+  VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Slots share the stable UAMI. Plans and read-only checks use service-specific locks, while apply and state migration share one environment writer lock. Platform and scenario Terraform pin deployer roles to that principal and stop when the authenticated principal differs.
   The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG, `Storage Blob Data Contributor` on state, and subscription `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`.
   Its conditional `Role Based Access Control Administrator` grant can assign only `Reader`, `Monitoring Reader`, and `Cost Management Reader` to service principals.
   During migration, the current VM keeps its system identity alongside the UAMI, but the promoted VM retains only the UAMI and workflows never select an identity implicitly. Each run clears the Azure CLI account cache, logs in with the configured UAMI client ID, and proves the exact repository-configured subscription, tenant, and ARM token `oid` before any storage, plan, or apply step.
   A reviewed blue/green cutover can preserve an existing candidate's GitHub registrations by setting `runner_vm_name` before importing its VM and network interface into bootstrap state; bootstrap preserves the adopted image reference until an explicit reviewed replacement.
-  Scheduled checks enforce all roots; a manual `runner` scope verifies only runner storage and bootstrap state, including protected-host SSH input recovery, actual disk inventory, and empty structured drift actions.
-  Runner posture also requires UserAssigned-only identity, one attached UAMI, and the configured
-  deploy principal. A system identity or additional UAMI is drift. Full-scope checks also require
-  the principal's direct Azure roles to equal the union owned by bootstrap and platform Terraform
-  state, so missing and out-of-state assignments both fail. The disposable scenario state must be
-  absent or own no managed resource instance.
+  Scheduled checks enforce all roots; a manual `runner` scope verifies only runner storage and bootstrap state, including protected-host SSH input recovery, actual disk inventory, UserAssigned-only identity, one configured UAMI, and empty structured drift actions. Full scope also requires exact bootstrap-plus-platform direct roles and absent or empty disposable scenario state.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so root-owned action residue cannot block the exact-commit clean step.
   That step creates the Azure CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV`; because the job default is `infra/`, a fresh slot has no repository directory and never depends on earlier checkout residue.
 The app config peers its spoke VNet to the ops hub (both directions) and links its private
@@ -97,20 +88,7 @@ The additional label selects the validated 8-vCPU local-SSD pool; conjunctive Gi
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
-floor. Provider-free root plans pin their mocked client-config object ID to the configured deploy
-principal so the production identity fence remains active in tests. Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role are unchanged, `principal_id` is the sole role replacement path, and the paired Operator UAMI changes only its name while preserving location, resource group, and tags. The same review copy admits only exact role principal or scope migrations; a deployer principal replacement must end at the configured stable runner UAMI. It also admits delete-only retirement of the two prior indexed measurement Jobs when measurement capabilities are disabled, and the reviewed embedding family and SKU replacement. A measurement retirement must match the exact managed resource type, name, index, prior object, null result, and absent replacement path. Provider-computed field encoding does not grant authority, and retention never authorizes apply. The protected deploy workflow keeps repeated request validation and plan-scope logic in
-reviewed helpers instead of inline shell blocks, bounding how much a single review needs to re-read.
-It removes the rendered plan review copy on every exit path, including a rejected guard, so
-sensitive Terraform values don't remain in a persistent runner slot.
-Identity migration target derivation, state-backed feature preservation, and effect publication
-stay in focused helpers so the protected workflow remains within its line and step budgets.
-The development-only deploy identity migration request is exclusive and targets only the
-stable-principal fence and reviewed deployer role assignments. Its guard rejects application
-deployment selections, unrelated resources, changed scopes or roles, and any destination principal
-other than the configured runner UAMI. Post-apply readback
-requires every planned role on that UAMI and zero remaining roles for superseded principals before
-the apply receipt is written. Console publication, Entra synchronization, database migrations,
-runtime health probes, and canary execution remain outside this bounded operation.
+floor and pin the mocked client-config object ID to the deploy principal. Plan-only retention admits an Operator API OpenAI User role replacement only when its scope and role are unchanged, `principal_id` is the sole role replacement path, and the paired Operator UAMI changes only its name while preserving location, resource group, and tags. The same review copy admits only exact role principal or scope migrations to the stable runner UAMI, delete-only retirement of the two prior indexed measurement Jobs when measurement capabilities are disabled, and the reviewed embedding family and SKU replacement. A measurement retirement must match the exact managed resource type, name, index, prior object, null result, and absent replacement path. Provider-computed field encoding does not grant authority, and retention never authorizes apply. The protected deploy workflow keeps repeated validation, target derivation, state preservation, and effect publication in focused helpers, removes rendered plan copies on every exit, and limits the exclusive development identity migration to state-owned reviewed deployer roles with stable-principal readback and zero superseded-principal assignments. A paired in-place storage prerequisite may only disable local users and retain the configured blob and container periods; absent role addresses are not targeted, and Console, Entra, database, health, and canary work stay outside the operation. Before recovery planning after an interrupted apply, storage and Foundry owner-resource state restores feature enablement even when the role address is absent; a surviving owner with an unavailable scope fails closed. The workflow imports only one exact existing stable assignment at each intended scope, rejects duplicates and assignment IDs already tracked elsewhere, and never reimports the redundant operational-history handoff address in identity mode.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
 commit code runs. A
@@ -182,7 +160,7 @@ subscription when an operator restores it out of band, then converges its Event 
 delivery identity, event filter, and retry policy on the next protected apply. Private-networking
 profiles do not create that unsupported Event Grid-to-private-Event-Hubs path. The VNet-integrated
 inventory Job instead forwards bounded Activity Log recovery deltas to the primary Event Bus after
-each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor.
+each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor. A disabled change accelerator neither reads its optional collection-policy entry nor contributes a cursor prefix or stale-cursor deadline.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule and runs
@@ -540,7 +518,7 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | Optional isolated Azure CLI profile. When omitted, the adapter removes an inherited `AZURE_CONFIG_DIR` and uses the default profile. |
 | `FDAI_POLICIES_ROOT` | env | deployment | absolute path to the OPA / Rego bundle root consumed by T0 and the verifier. Defaults to the in-repo `policies/` when unset. |
 | `FDAI_MI_CLIENT_ID` | env | upstream | User-assigned MI client id for the current process. The core receives the executor id; the inventory job receives its distinct read-only discovery id. |
-| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | upstream | Healthy full-scan interval for the Inventory Job. The default Job cron wakes every 10 minutes, but PostgreSQL attempt state skips scans until this interval is due and retries a newer failed or abandoned attempt on the next tick. |
+| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | upstream | Healthy full-scan interval for the Inventory Job. The default Job cron wakes every 10 minutes, but PostgreSQL attempt state skips scans until this interval is due and retries a newer failed or abandoned attempt on the next tick. Repository Variable `ENABLE_RUNTIME_CALL_EVIDENCE=true` independently enables the deployed runtime-call source after Operator state migration; protected `plan-runtime-*` and `apply-runtime-*` requests target only that Job, and the scope guard rejects dependency drift outside it. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / deployment | Enables the ACS Email A2/A4 channels. Terraform derives the endpoint and Azure-managed sender, attaches a dedicated notification MI, and injects the client id. Deployment configuration supplies recipients through `NOTIFICATION_EMAIL_RECIPIENTS_JSON`; no access key or connection string enters the app. Partial configuration fails startup. |
 | `FDAI_CONSOLE_BASE_URL` | env | deployment | Public HTTPS origin used to build read-only evidence links in incident email. Terraform derives it from the Static Web App hostname when the Console is enabled. Without it, email delivery continues and the renderer omits the incident CTA. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | Selects an opt-in Container Apps Job entry point in `infra/modules/measurement-runners/`: `baseline` runs frozen-scenario regression measurement, `growth` drains reviewed outcomes into pattern-growth intake, and `operational-promotion` evaluates immutable action-specific evidence without promoting it. Every job is disabled by default and uses the dedicated non-executor measurement identity. Action authority remains governed independently by promotion and risk gates. |

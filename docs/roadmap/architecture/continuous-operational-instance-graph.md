@@ -61,6 +61,8 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
+Disabled resource-change and recovery accelerators do not require collection-policy entries and
+contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
@@ -97,15 +99,20 @@ verification receipt binds both endpoint Resource IDs and their active-generatio
 Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
+The platform's `enable_runtime_call_evidence` input controls this Inventory Job source independently
+of the legacy Operator API module, so state migration cannot silently remove collection. Schema-valid
+`plan-runtime-*` and `apply-runtime-*` requests target only that Inventory Job and reject mixed targets.
+The post-plan scope guard rejects every dependency-induced change outside the exact Job address.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
 or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
 or mutation authority at runtime rather than relying on type annotations alone. The projected
 principal handle derives from opaque authenticated evidence references and scoped source context;
 it never hashes the low-entropy role name. Current Operator and Console instance-detail responses
 must carry explicit runtime-call and PostgreSQL-role source states; omission is invalid rather than
-available or measured zero.
-The generated semantic-intent coverage inventory binds the complete ontology-platform source
-digest, so projection changes refresh that artifact before repository validation.
+available or measured zero. The Operator persistence reader accepts runtime-call link metadata only
+when its embedded inventory generation equals the exact selected snapshot. Unavailable source
+reasons must be canonical machine tokens and cannot carry principal text, endpoints, or provider
+details.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.

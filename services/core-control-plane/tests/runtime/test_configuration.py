@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -167,12 +166,14 @@ def _container():  # type: ignore[no-untyped-def]
 
 
 def _drift_environment(
-    baseline_path: Path,
     baseline: FrozenConfigurationBaseline,
 ) -> dict[str, str]:
     return {
         "FDAI_CONFIGURATION_DRIFT_ENABLED": "1",
-        "FDAI_CONFIGURATION_BASELINE_PATH": str(baseline_path),
+        "FDAI_CONFIGURATION_BASELINE_URL": (
+            "https://example.blob.core.windows.net/decision-evidence/"
+            f"configuration-baselines/{baseline.sha256}.json"
+        ),
         "FDAI_CONFIGURATION_BASELINE_VERSION": baseline.version,
         "FDAI_CONFIGURATION_BASELINE_SHA256": baseline.sha256,
         "FDAI_CONFIGURATION_SCOPE": baseline.scope,
@@ -183,7 +184,7 @@ def _drift_environment(
     }
 
 
-async def test_runtime_binds_azure_configuration_drift_when_complete(tmp_path: Path) -> None:
+async def test_runtime_binds_azure_configuration_drift_when_complete() -> None:
     baseline = FrozenConfigurationBaseline(
         version="example-v1",
         created_at=datetime(2026, 8, 28, tzinfo=UTC),
@@ -199,11 +200,6 @@ async def test_runtime_binds_azure_configuration_drift_when_complete(tmp_path: P
             ),
         ),
     )
-    baseline_path = tmp_path / "baseline.json"
-    baseline_path.write_text(
-        json.dumps(baseline.to_dict()),
-        encoding="utf-8",
-    )
     identity = StaticWorkloadIdentity(
         audience="https://management.azure.com/.default",
         token="test-token",  # noqa: S106 - inert test credential
@@ -217,7 +213,7 @@ async def test_runtime_binds_azure_configuration_drift_when_complete(tmp_path: P
             original,
             http_client=client,
             identity=identity,
-            environment=_drift_environment(baseline_path, baseline),
+            environment=_drift_environment(baseline),
         )
         assert "configuration.drift.read" not in original.capability_runtime.bound_capability_ids()
         assert "configuration.drift.read" in bound.capability_runtime.bound_capability_ids()
@@ -230,7 +226,7 @@ async def test_runtime_configuration_drift_fails_closed_on_partial_config() -> N
     )
 
     async with httpx.AsyncClient() as client:
-        with pytest.raises(ValueError, match="BASELINE_PATH"):
+        with pytest.raises(ValueError, match="BASELINE_SHA256"):
             _attach_runtime_configuration_drift(
                 _container(),
                 http_client=client,

@@ -54,7 +54,7 @@ on:
         type: boolean
         default: false
       core_evidence_bindings_transition:
-        description: "Adopt the protected Core decision-evidence and operating-intent bindings."
+        description: "Adopt protected Core evidence bindings, including a reviewed configuration baseline."
         type: boolean
         default: false
       runtime_call_evidence_transition:
@@ -351,8 +351,8 @@ jobs:
             --environment "$TARGET_ENVIRONMENT" \
             --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
 
-      - name: Install pinned uv for service migrations
-        if: ${{ inputs.apply }}
+      - name: Install pinned uv for service migrations and evidence
+        if: ${{ inputs.apply || inputs.service == 'core-control-plane' }}
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.32"
@@ -878,6 +878,105 @@ jobs:
                 "${channel_edge_args[@]}" \
                 "${resolved_model_args[@]}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
+
+      - name: Freeze reviewed configuration baseline in private Blob
+        if: ${{ !inputs.apply && !inputs.migrate_state && inputs.service == 'core-control-plane' }}
+        env:
+          CONFIGURATION_BASELINE_BINDING_JSON: ${{ secrets.CONFIGURATION_BASELINE_BINDING_JSON }}
+          CONFIGURATION_BASELINE_GZIP_BASE64: ${{ secrets.CONFIGURATION_BASELINE_GZIP_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$CONFIGURATION_BASELINE_BINDING_JSON" \
+            && -z "$CONFIGURATION_BASELINE_GZIP_BASE64" ]]; then
+            echo "No reviewed configuration baseline is configured."
+            exit 0
+          fi
+          [[ -n "$CONFIGURATION_BASELINE_BINDING_JSON" \
+            && -n "$CONFIGURATION_BASELINE_GZIP_BASE64" ]] || {
+            echo "The reviewed configuration baseline envelope is required for the Core evidence transition." >&2
+            exit 1
+          }
+          container_url="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" \
+              output -raw decision_evidence_container_url
+          )"
+          storage_account="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" \
+              output -raw decision_evidence_storage_account_name
+          )"
+          [[ -n "$container_url" && -n "$storage_account" ]] || {
+            echo "Private configuration baseline storage is unavailable." >&2
+            exit 1
+          }
+          echo "::add-mask::$container_url"
+          echo "::add-mask::$storage_account"
+          export CONFIGURATION_BASELINE_CONTAINER_URL="$container_url"
+          PYTHONPATH="$TRUSTED_CONTROLS/services/core-control-plane/src:$TRUSTED_CONTROLS/packages/service-contracts/src" \
+            uv run --directory "$TRUSTED_CONTROLS" --frozen \
+              --package fdai-core-control-plane python \
+              "$TRUSTED_CONTROLS/scripts/deployment/azure/configuration_baseline_evidence.py" \
+              prepare \
+              --baseline "$RUNNER_TEMP/configuration-baseline.json" \
+              --tfvars "$RUNNER_TEMP/service.tfvars.json"
+          baseline_sha256="$(
+            jq -er '.baseline_sha256 | select(test("^[0-9a-f]{64}$"))' \
+              <<<"$CONFIGURATION_BASELINE_BINDING_JSON"
+          )"
+          blob_name="configuration-baselines/${baseline_sha256}.json"
+          exists="$(
+            az storage blob exists \
+              --account-name "$storage_account" \
+              --container-name decision-evidence \
+              --name "$blob_name" \
+              --auth-mode login \
+              --only-show-errors \
+              --query exists \
+              --output tsv
+          )"
+          if [[ "$exists" == "true" ]]; then
+            az storage blob download \
+              --account-name "$storage_account" \
+              --container-name decision-evidence \
+              --name "$blob_name" \
+              --file "$RUNNER_TEMP/configuration-baseline-readback.json" \
+              --auth-mode login \
+              --overwrite \
+              --only-show-errors \
+              --output none
+            readback_sha256="$(
+              sha256sum "$RUNNER_TEMP/configuration-baseline-readback.json" | cut -d' ' -f1
+            )"
+            metadata_sha256="$(
+              az storage blob show \
+                --account-name "$storage_account" \
+                --container-name decision-evidence \
+                --name "$blob_name" \
+                --auth-mode login \
+                --only-show-errors \
+                --query "metadata.fdai_sha256" \
+                --output tsv
+            )"
+            [[ "$readback_sha256" == "$baseline_sha256" \
+              && "$metadata_sha256" == "$baseline_sha256" ]] || {
+              echo "Existing private configuration baseline digest does not match review." >&2
+              exit 1
+            }
+          elif [[ "$exists" == "false" ]]; then
+            az storage blob upload \
+              --account-name "$storage_account" \
+              --container-name decision-evidence \
+              --name "$blob_name" \
+              --file "$RUNNER_TEMP/configuration-baseline.json" \
+              --auth-mode login \
+              --overwrite false \
+              --metadata "fdai_sha256=$baseline_sha256" \
+              --content-type application/json \
+              --only-show-errors \
+              --output none
+          else
+            echo "Private configuration baseline existence check returned an invalid result." >&2
+            exit 1
+          fi
 
       - name: Create and guard service plan
         if: ${{ !inputs.apply && !inputs.migrate_state }}
@@ -1433,6 +1532,87 @@ jobs:
             "$PREVIOUS_REVISION" \
             "$TRUSTED_CONTROLS/scripts/deployment/service"
 
+      - name: Verify deployed configuration baseline and current state
+        id: baseline_verification
+        if: ${{ inputs.apply && inputs.service == 'core-control-plane' && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
+        env:
+          CONFIGURATION_BASELINE_BINDING_JSON: ${{ secrets.CONFIGURATION_BASELINE_BINDING_JSON }}
+        run: |
+          set -euo pipefail
+          service_resource_id="$(
+            jq -er '.target.service_resource_id' \
+              "$RUNNER_TEMP/service-plan-bundle/service-context.json"
+          )"
+          timeout 60s az containerapp show \
+            --ids "$service_resource_id" \
+            --only-show-errors \
+            --output json >"$RUNNER_TEMP/configuration-baseline-core-app.json"
+          drift_enabled="$(
+            jq -r '
+              [
+                .properties.template.containers[]
+                | select(.name == "core-control-plane")
+                | .env[]
+                | select(.name == "FDAI_CONFIGURATION_DRIFT_ENABLED")
+                | .value
+              ] | if length == 1 then .[0] else "" end
+            ' "$RUNNER_TEMP/configuration-baseline-core-app.json"
+          )"
+          if [[ "$drift_enabled" != "1" ]]; then
+            echo "Deployed Core has no configuration baseline binding."
+            exit 0
+          fi
+          [[ -n "$CONFIGURATION_BASELINE_BINDING_JSON" ]] || {
+            echo "CONFIGURATION_BASELINE_BINDING_JSON is required for deployed verification." >&2
+            exit 1
+          }
+          container_url="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" \
+              output -raw decision_evidence_container_url
+          )"
+          storage_account="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" \
+              output -raw decision_evidence_storage_account_name
+          )"
+          echo "::add-mask::$container_url"
+          echo "::add-mask::$storage_account"
+          export CONFIGURATION_BASELINE_CONTAINER_URL="$container_url"
+          evidence_cli="$TRUSTED_CONTROLS/scripts/deployment/azure/configuration_baseline_evidence.py"
+          evidence_python=(
+            uv run --directory "$TRUSTED_CONTROLS" --frozen
+            --package fdai-core-control-plane python "$evidence_cli"
+          )
+          PYTHONPATH="$TRUSTED_CONTROLS/services/core-control-plane/src:$TRUSTED_CONTROLS/packages/service-contracts/src" \
+            "${evidence_python[@]}" verify-runtime \
+              --app "$RUNNER_TEMP/configuration-baseline-core-app.json"
+          PYTHONPATH="$TRUSTED_CONTROLS/services/core-control-plane/src:$TRUSTED_CONTROLS/packages/service-contracts/src" \
+            "${evidence_python[@]}" receipt \
+              --output "$RUNNER_TEMP/configuration-drift-live-receipt.json"
+          receipt_sha256="$(
+            sha256sum "$RUNNER_TEMP/configuration-drift-live-receipt.json" | cut -d' ' -f1
+          )"
+          az storage blob upload \
+            --account-name "$storage_account" \
+            --container-name decision-evidence \
+            --name "configuration-drift-receipts/${receipt_sha256}.json" \
+            --file "$RUNNER_TEMP/configuration-drift-live-receipt.json" \
+            --auth-mode login \
+            --overwrite false \
+            --metadata "fdai_sha256=$receipt_sha256" \
+            --content-type application/json \
+            --only-show-errors \
+            --output none
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload sanitized configuration drift receipt
+        if: ${{ steps.baseline_verification.outputs.configured == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: configuration-drift-live-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/configuration-drift-live-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Capture peer states after apply
         if: ${{ inputs.apply && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
         run: |
@@ -1732,8 +1912,14 @@ jobs:
       - name: Remove temporary deployment material
         if: ${{ always() }}
         run: |
+          for sensitive_file in \
+            "$RUNNER_TEMP/configuration-baseline.json" \
+            "$RUNNER_TEMP/configuration-baseline-readback.json" \
+            "$RUNNER_TEMP/configuration-baseline-core-app.json" \
+            "$RUNNER_TEMP/service.tfvars.json"; do
+            [[ ! -f "$sensitive_file" ]] || shred -u -- "$sensitive_file"
+          done
           rm -f \
-            "$RUNNER_TEMP/service.tfvars.json" \
             "$RUNNER_TEMP/service.plan" \
             "$RUNNER_TEMP/service-plan.json" \
             "$RUNNER_TEMP/service-context.json" \
@@ -1747,4 +1933,5 @@ jobs:
           rm -rf "$RUNNER_TEMP/service-peer-state-before" "$RUNNER_TEMP/service-peer-state-after"
           rm -f "$RUNNER_TEMP/service-peer-isolation-receipt.json"
           rm -f "$RUNNER_TEMP/service-live-observations.json"
+          rm -f "$RUNNER_TEMP/configuration-drift-live-receipt.json"
           rm -rf "$RUNNER_TEMP/legacy-terraform-data"

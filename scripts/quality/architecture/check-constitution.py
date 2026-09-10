@@ -179,6 +179,13 @@ GLOBAL_ROADMAP_FORBIDDEN = (
 TRACE_STATUSES = frozenset({"implemented", "partial", "planned"})
 TRACE_PATH_FIELDS = ("owner_docs", "implementation", "schemas", "tests", "runtime_evidence")
 IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
+    "FDAI-CONST-002": (
+        "packages/service-contracts/tests/test_decision_evidence.py::test_json_schema_requires_authentication_evidence",
+        "packages/service-contracts/tests/test_decision_evidence.py::test_synthetic_evidence_never_reaches_live_verification",
+        "services/core-control-plane/tests/core/readiness/test_decision_evidence.py::test_missing_evidence_is_denied_because_no_receipt_can_be_verified",
+        "tests/integration/scripts/test_decision_boundary_coverage.py::test_the_shipped_inventory_covers_every_registered_boundary",
+        "tests/integration/scripts/test_decision_boundary_coverage.py::test_an_intentionally_uncovered_registered_boundary_fails_the_guard",
+    ),
     "FDAI-CONST-003": (
         "services/core-control-plane/tests/agents/test_pantheon_doc_parity.py::test_agent_catalog_layer_and_ownership_match_specs_in_both_locales",
         "services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py::test_multi_message_fanout_does_not_serialize_or_steal",

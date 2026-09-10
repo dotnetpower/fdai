@@ -157,6 +157,18 @@ _CORE_EVIDENCE_BINDING_OPTIONAL_ENVIRONMENT = frozenset(
 _CORE_EVIDENCE_BINDING_ENVIRONMENT = (
     _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT | _CORE_EVIDENCE_BINDING_OPTIONAL_ENVIRONMENT
 )
+_CONFIGURATION_DRIFT_ENVIRONMENT = frozenset(
+    {
+        "FDAI_CONFIGURATION_DRIFT_ENABLED",
+        "FDAI_CONFIGURATION_BASELINE_URL",
+        "FDAI_CONFIGURATION_BASELINE_VERSION",
+        "FDAI_CONFIGURATION_BASELINE_SHA256",
+        "FDAI_CONFIGURATION_SCOPE",
+        "FDAI_CONFIGURATION_SUBSCRIPTIONS_JSON",
+        "FDAI_CONFIGURATION_ATTRIBUTE_PATHS_JSON",
+        "FDAI_CONFIGURATION_ARG_ENDPOINT",
+    }
+)
 _OPERATING_INTENT_EXPECTED_TYPES = frozenset(
     {
         "ArchitectureConstraint",
@@ -1210,6 +1222,12 @@ def _only_core_evidence_binding_adoption(
     changed_names = {
         name.removeprefix("env:") for name in runtime_drift_names if name.startswith("env:")
     }
+    if changed_names == _CONFIGURATION_DRIFT_ENVIRONMENT:
+        return _valid_configuration_drift_adoption(
+            before_environment=before_environment,
+            after_environment=after_environment,
+            runtime_drift_names=runtime_drift_names,
+        )
     if (
         not changed_names
         or not changed_names <= _CORE_EVIDENCE_BINDING_ENVIRONMENT
@@ -1269,6 +1287,72 @@ def _only_core_evidence_binding_adoption(
         and isinstance(expected_counts, dict)
         and set(expected_counts) == _OPERATING_INTENT_EXPECTED_TYPES
         and all(type(count) is int and count > 0 for count in expected_counts.values())
+    )
+
+
+def _valid_configuration_drift_adoption(
+    *,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> bool:
+    if set(runtime_drift_names) != {
+        f"env:{name}" for name in _CONFIGURATION_DRIFT_ENVIRONMENT
+    } or any(
+        _environment_binding(before_environment.get(name)) is not None
+        for name in _CONFIGURATION_DRIFT_ENVIRONMENT
+    ):
+        return False
+    values: dict[str, str] = {}
+    for name in _CONFIGURATION_DRIFT_ENVIRONMENT:
+        binding = _environment_binding(after_environment.get(name))
+        if binding is None or binding[1] is not None or not isinstance(binding[0], str):
+            return False
+        values[name] = binding[0]
+    baseline_digest = values["FDAI_CONFIGURATION_BASELINE_SHA256"]
+    try:
+        subscriptions = json.loads(values["FDAI_CONFIGURATION_SUBSCRIPTIONS_JSON"])
+        attribute_paths = json.loads(values["FDAI_CONFIGURATION_ATTRIBUTE_PATHS_JSON"])
+    except json.JSONDecodeError:
+        return False
+    parsed = urlsplit(values["FDAI_CONFIGURATION_BASELINE_URL"])
+    path_segments = tuple(segment for segment in parsed.path.split("/") if segment)
+    return (
+        values["FDAI_CONFIGURATION_DRIFT_ENABLED"] == "1"
+        and re.fullmatch(r"[0-9a-f]{64}", baseline_digest) is not None
+        and parsed.scheme == "https"
+        and parsed.hostname is not None
+        and parsed.hostname.endswith(".blob.core.windows.net")
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.query == ""
+        and parsed.fragment == ""
+        and path_segments[-2:] == ("configuration-baselines", f"{baseline_digest}.json")
+        and bool(values["FDAI_CONFIGURATION_BASELINE_VERSION"].strip())
+        and bool(values["FDAI_CONFIGURATION_SCOPE"].strip())
+        and isinstance(subscriptions, list)
+        and 1 <= len(subscriptions) <= 256
+        and all(isinstance(value, str) and value.strip() for value in subscriptions)
+        and subscriptions == sorted(set(subscriptions))
+        and isinstance(attribute_paths, list)
+        and 1 <= len(attribute_paths) <= 64
+        and all(
+            isinstance(value, str)
+            and re.fullmatch(
+                r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*",
+                value,
+            )
+            is not None
+            for value in attribute_paths
+        )
+        and attribute_paths == sorted(set(attribute_paths))
+        and values["FDAI_CONFIGURATION_ARG_ENDPOINT"]
+        in {
+            "https://management.azure.com",
+            "https://management.azure.us",
+            "https://management.chinacloudapi.cn",
+            "https://management.microsoftazure.de",
+        }
     )
 
 

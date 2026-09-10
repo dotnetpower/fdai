@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 1d1020bb72a9419f4ff6822ea6a5f9c9937d8789
+translation_source_sha: 0d40c5c9b7f3854422e7895c5dacb384dab7604b
 translation_revised: 2026-09-11
 ---
 # 설치형 배포 CLI
@@ -513,15 +513,7 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 없는
 `--deploy-operator-channel-edge` 신원 계획 및 전용 RCA reader를 계획과 적용에 동일하게
 봉인합니다. RCA 모드는 전용 신원과 Monitoring Reader 역할만 허용합니다. 선택적 런타임
-리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다.
-
-`--deploy-identity-migration`은 개발 환경 전용의 단독 작업이며 애플리케이션 배포 선택과 함께
-사용할 수 없습니다. 실행기는 상태에 이미 있는 역할 소유자를 보존하는 데 필요한 기능 플래그만
-파생한 뒤 안정 principal fence와 검토된 deployer 역할 할당을 대상으로 합니다. 계획 검증기는
-모든 결과 역할이 구성된 안정 실행기 UAMI를 사용하도록 요구하며, exact 적용은 수렴 검사에 같은
-대상 집합을 다시 사용합니다. 적용 후 검증은 Azure 역할 할당을 읽고 안정
-principal에 계획된 역할이 모두 있는지 확인하며, 교체된 각 principal의 남은 할당이 0건인지
-요구하고 정제된 효과 다이제스트를 적용 증적에 결합합니다.
+리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다. `--deploy-identity-migration`은 애플리케이션 선택을 차단하고 stable-principal fence와 상태 기반 deployer 역할만 대상으로 하는 개발 환경 전용 단독 작업입니다. exact 적용은 같은 대상 집합으로 수렴하고 stable 역할 및 교체된 역할 0건 readback을 적용 증적에 결합합니다. 일반 CLI 맥락은 서버 digest와 일치하도록 `runtime_call_evidence_transition=false`를 봉인하지만 제거된 해당 키를 workflow dispatch field로 보내지는 않습니다.
 
 적용 디스패치에는 GitHub 환경 승인 게이트가 없습니다. 클라이언트는 필수 검토자, 자체 검토,
 관리자 우회를 확인하지 않으며 보호된 작업 흐름도 배포 환경을 바인딩하지 않으므로, 권한이 있는

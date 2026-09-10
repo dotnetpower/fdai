@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b18789eced7675c447cfe200eb5ca6b44b571979
+translation_source_sha: e83ad249bac369631c10e6dcaa488eb4e8cef065
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -36,7 +36,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
   data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
   레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
-  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
+  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다. 검토된 구성 기준선도 같은 private 러너 경계를 따릅니다. 보호된 Core 서비스 계획에는 정확한 콘텐츠 주소 기반 Blob 바인딩만 포함하고, Core는 Managed Identity로 읽으며, 적용 후 검증은 변경 불가능한 Blob과 새 Azure Resource Graph 관측값을 독립적으로 비교합니다.
 
 #### Terraform이 만들지 않는 것
 
@@ -75,20 +75,12 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트로 프론트;
 - 현재 및 후보 실행기 VM과 수명 주기가 분리된 **안정적인 배포용 사용자 할당 Managed Identity(UAMI)**. Bootstrap은 정확한 역할 매니페스트를 소유하며 client ID와 principal ID를 별도로 출력합니다.
 - 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
-  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다.
-  플랫폼 Terraform은 모든 deployer 소유 역할에 구성된 UAMI principal ID를 직접 사용합니다.
-  플랫폼 및 시나리오 계획은 계획 전에 인증된 principal이 구성 값과 일치하는지도 비교합니다.
-  VM을 다시 만들거나 다른 신원으로 Terraform을 실행해도 해당 역할의 principal은 바뀌지 않습니다.
+  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다. 플랫폼 및 시나리오 Terraform은 deployer 역할을 해당 principal에 고정하고 인증된 principal이 다르면 중단합니다.
   UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에 `Storage Blob Data Contributor`, 구독에 `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`를 보유합니다.
   조건부 `Role Based Access Control Administrator` 할당은 서비스 주체에 `Reader`, `Monitoring Reader`, `Cost Management Reader`만 할당할 수 있습니다.
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 승격된 VM에는 UAMI만 남고 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
   검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에 `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지 참조를 보존합니다.
-  예약 점검은 모든 루트를 강제합니다. 수동 `runner` 범위는 보호된 호스트의 SSH 입력 복구, 실제 디스크 인벤토리, 빈 구조화 드리프트 작업을 포함해 실행기 저장소와 Bootstrap 상태만 검증합니다.
-  실행기 상태는 UserAssigned-only 신원, 연결된 UAMI 1개, 구성된 deploy principal도 요구합니다.
-  시스템 신원이나 추가 UAMI가 있으면 drift로 처리합니다. 전체 범위 점검은 해당 principal의 직접
-  Azure 역할이 Bootstrap 및 플랫폼 Terraform 상태가 소유한 역할의 합집합과 같은지도 요구하므로,
-  누락되거나 상태 밖에 있는 할당은 모두 실패합니다. 일회용 시나리오 상태는 없거나 관리 리소스
-  인스턴스를 소유하지 않아야 합니다.
+  예약 점검은 모든 루트를 강제합니다. 수동 `runner` 범위는 보호된 호스트의 SSH 입력 복구, 실제 디스크 인벤토리, UserAssigned-only 신원, 구성된 UAMI 1개, 빈 구조화 드리프트 작업을 포함해 실행기 저장소와 Bootstrap 상태만 검증합니다. 전체 범위는 Bootstrap과 플랫폼의 정확한 직접 역할 및 일회용 시나리오 상태의 부재 또는 빈 상태도 요구합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다.
 해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
@@ -100,19 +92,7 @@ GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으�
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. 프로바이더 없는 루트 계획은 모의 client-config object ID를 구성된 deploy
-principal에 고정하므로 테스트에서도 운영 identity fence가 활성 상태로 유지됩니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 정확한 역할 principal 또는 범위 이행만 허용하며 deployer principal 교체의 대상은 구성된 안정 실행기 UAMI여야 합니다. 측정 기능이 비활성화된 경우 이전 indexed 측정 Job 두 개의 삭제 전용 제거와 검토된 embedding 제품군 및 SKU 교체도 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
-검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 검증기가 계획을 차단한
-경우를 포함해 모든 종료 경로에서 렌더링한 계획 검토 복사본을 제거하므로, 민감한 Terraform 값이
-영속 실행기 자리에 남지 않습니다.
-Identity 이행 대상 파생, 상태 기반 기능 보존 및 효과 게시는 집중된 helper에 두어 보호된
-workflow가 줄 수와 단계 수 예산 안에 머물도록 합니다.
-개발 환경 전용 deploy identity 이행 요청은 단독으로 실행되며 안정 principal fence와 검토된
-deployer 역할 할당만 대상으로 합니다. 해당 검증기는 애플리케이션 배포 선택, 관련 없는 리소스,
-변경된 범위나 역할, 구성된 실행기 UAMI가 아닌 대상 principal을 차단합니다. 적용 후 readback은
-적용 증적을 쓰기 전에 해당 UAMI에 계획된 역할이
-모두 있고 교체된 principal의 남은 역할이 0건인지 확인합니다. Console 게시, Entra 동기화,
-데이터베이스 이행, 런타임 상태 검사 및 canary 실행은 이 범위가 제한된 작업에 포함되지 않습니다.
+구문만 사용하고 모의 client-config object ID를 deploy principal에 고정합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 안정 실행기 UAMI로 향하는 정확한 역할 principal 또는 범위 이행, 측정 기능이 비활성화된 이전 indexed 측정 Job 두 개의 삭제 전용 제거, 검토된 embedding 제품군 및 SKU 교체만 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복 검증, 대상 파생, 상태 보존 및 효과 게시를 집중 helper에 두고 모든 종료에서 렌더링한 계획을 제거하며, 개발 전용 identity 이행을 상태가 소유한 검토된 deployer 역할, stable-principal readback, 교체된 principal의 할당 0건으로 제한합니다. 역할 교체와 짝을 이루고 local user를 끄며 구성된 blob 및 container 보존 기간을 유지하는 in-place storage 보안 선행 조건만 함께 허용합니다. 상태에 없는 역할 주소는 대상으로 삼지 않으며 Console, Entra, 데이터베이스, 상태 검사 및 canary 작업은 포함하지 않습니다. 중단된 apply 뒤 복구 계획을 만들기 전 storage 및 Foundry 소유 리소스 상태는 역할 주소가 없어도 기능 활성화를 복원하며, 소유자가 남아 있는데 scope를 구할 수 없으면 실패합니다. Workflow는 의도한 각 범위에서 기존 stable 할당이 정확히 1개일 때만 가져오고, 중복이나 다른 상태 주소가 이미 추적하는 assignment ID는 거부합니다. Identity 모드에서는 operational-history handoff용 중복 주소를 다시 가져오지 않습니다.
 권한 있는 workflow는 먼저 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을
 비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를 계속 선택할 수 있습니다.
@@ -183,7 +163,7 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 대상, 전달 신원, 이벤트 필터 및 재시도 정책을 수렴시킵니다. Private-networking
 프로파일은 지원되지 않는 Event Grid-to-private-Event-Hubs 경로를 만들지 않습니다. 대신 VNet-integrated
 인벤토리 작업은 각 조정 후 범위가 제한된 Activity Log 복구 delta를 기본 Event 버스로
-전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다.
+전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다. 비활성화된 변경 가속기는 선택적 수집 정책 항목을 읽지 않으며 해당 원본의 커서 접두사나 오래된 커서 기한도 추가하지 않습니다.
 빈 cron은 해당 작업을 비활성화합니다. 기존 스케줄러 또는 analyzer 작업은 계획 전에 안전하게
 가져오고 이후 이미지와 구성 변경은 같은 계획 및 적용 경로로 수렴합니다.
 Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_cli`를 실행하며, 발견 건마다
@@ -540,7 +520,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | 선택적 격리 Azure CLI 프로파일입니다. 미설정 시 어댑터가 상속된 `AZURE_CONFIG_DIR`를 제거하고 기본 프로파일을 사용합니다. |
 | `FDAI_POLICIES_ROOT` | env | 배포 | T0 와 검증기 가 소비하는 OPA / Rego 번들 루트의 절대 경로. 미설정 시 in-repo `policies/` 를 기본값. |
 | `FDAI_MI_CLIENT_ID` | env | 업스트림 | 현재 프로세스의 user-assigned MI 클라이언트 id. Core에는 실행기 id를 주입하고 인벤토리 작업에는 별도 읽기 전용 발견 id를 주입합니다. |
-| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. |
+| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE=true`는 Operator 상태 이행 후 배포된 런타임 호출 원본을 독립적으로 활성화하며 보호된 `plan-runtime-*` 및 `apply-runtime-*` 요청은 해당 작업만 대상으로 하고 범위 검사는 작업 밖의 의존성 드리프트를 거부합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 선택적 Container Apps 작업 진입점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고, `growth`는 검토된 결과를 패턴 성장 수집으로 전달하며, `operational-promotion`은 승격 없이 변경할 수 없는 작업별 근거를 평가합니다. 모든 작업은 기본적으로 비활성화되며 전용 비실행기 측정 신원을 사용합니다. 액션 권한은 승격 및 안전성 검토가 독립적으로 관리합니다. |

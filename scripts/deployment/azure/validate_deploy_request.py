@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -59,6 +59,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     design_mocks = _enabled(values, "DEPLOY_DESIGN_MOCKS")
     monitoring = _enabled(values, "DEPLOY_MONITORING")
     rca_reader_identity = _enabled(values, "RCA_READER_IDENTITY_ONLY")
+    runtime_call_evidence_transition = _enabled(values, "RUNTIME_CALL_EVIDENCE_TRANSITION")
     resume = _enabled(values, "RESUME_VERIFICATION")
     document_ocr_action = values.get("DOCUMENT_OCR_ACTION", "preserve")
     if document_ocr_action not in {
@@ -80,7 +81,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "when deploy_console is enabled"
         )
     if re.fullmatch(
-        r"(?:plan|apply)-(?:history-|identity-|observability-|rca-)?[0-9a-f]{48}",
+        r"(?:plan|apply)-(?:history-|identity-|observability-|rca-|runtime-)?[0-9a-f]{48}",
         request_id,
     ):
         if values.get("TARGET_ENVIRONMENT") == "prod":
@@ -106,6 +107,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_suffix.removeprefix("history-")
         request_suffix = request_suffix.removeprefix("identity-")
         request_suffix = request_suffix.removeprefix("observability-")
+        request_suffix = request_suffix.removeprefix("runtime-")
         if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
         unsupported = (
@@ -205,6 +207,11 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             raise ValueError(
                 "observability analyzer deployment cannot be combined with another target"
             )
+    runtime_call_request = (
+        re.fullmatch(r"(?:plan|apply)-runtime-[0-9a-f]{48}", request_id) is not None
+    )
+    if runtime_call_evidence_transition != runtime_call_request:
+        raise ValueError("runtime-call evidence request prefix and mode must match")
     identity_migration_only = (
         re.fullmatch(r"(?:plan|apply)-identity-[0-9a-f]{48}", request_id) is not None
     )
@@ -345,6 +352,27 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
                 "deploy_rca_reader_identity cannot be combined with another deployment target"
             )
 
+    if runtime_call_evidence_transition:
+        if (
+            any(_enabled(values, key) for key in targets)
+            or document_ocr_action != "preserve"
+            or design_mocks
+            or model_only
+            or deploy_core_model_quorum
+            or validate_chatops
+            or rca_reader_identity
+            or deploy_identity_migration
+            or _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
+            or promote_image
+            or runtime_image_revision
+            or cutover
+            or verify_effect
+            or resume
+        ):
+            raise ValueError(
+                "runtime-call evidence transition cannot be combined with another target"
+            )
+
     if model_only:
         if not request_id:
             raise ValueError("model-binding deployment requires a protected request")
@@ -455,6 +483,10 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
         "deploy_operational_history": _enabled(values, "DEPLOY_OPERATIONAL_HISTORY"),
         "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
         "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
+        "runtime_call_evidence_transition": _enabled(
+            values,
+            "RUNTIME_CALL_EVIDENCE_TRANSITION",
+        ),
         "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),
         "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
     }

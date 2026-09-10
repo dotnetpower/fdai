@@ -2438,7 +2438,7 @@ module "compute" {
   # so the deterministic detection pipeline sees real telemetry with no
   # fork required. See src/fdai/composition/wire_azure.py.
   monitor_workspace_customer_id = module.log_analytics.workspace_customer_id
-  runtime_call_evidence_enabled = var.enable_operator_api
+  runtime_call_evidence_enabled = var.enable_operator_api || var.enable_runtime_call_evidence
   case_history_container_url = (
     var.enable_case_history ? module.case_history_storage[0].container_url : ""
   )

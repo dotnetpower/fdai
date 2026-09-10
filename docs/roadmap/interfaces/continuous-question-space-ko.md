@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 2cbef45b5c2ca747fc99de14ba41f1832e03d3c4
+translation_source_sha: f45ed436d9987450c67a34e7ba3067d0227d5303
 translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
@@ -62,10 +62,12 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 관계와 콘텐츠 검토, 의미 계약, 런타임 연결, 근거 출처, 검증 상태를 서로 독립적으로
 보존합니다.
 Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
-검토용 카탈로그를 모두 다시 생성하여 원본 파일 다이제스트를 정확하게 유지합니다.
+검토용 카탈로그를 모두 다시 생성하며, 생성물 테스트는 오래된 원본 다이제스트를 거부합니다.
+원본 다이제스트만 변경된 경우 다시 생성해도 모든 논리 질문 신원, 검토 상태 및 분모를
+유지합니다. 파생 약속값이 최종 병합 원본 집합을 결속하도록 upstream 통합 뒤에 다시
+생성합니다.
 `uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
 직접 편집하는 방식은 지원하지 않습니다.
-원본 다이제스트만 새로 고쳐도 질문 구성, 검토 상태 또는 런타임 준비 상태는 바뀌지 않습니다.
 
 등록된 원본은 현재 논리 질문 400개를 구체화합니다. 검토된 Golden 기대값 35개, 이중 언어
 수동 질문 쌍 60개, Console 시작 질문 5개, 운영자 후보 300개로 구성됩니다. 운영자 후보 중
@@ -82,7 +84,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 ## 대화 품질 보증 스코어카드
 
 `uv run python scripts/automation/build_semantic_intent_coverage.py`를 실행하면
-`eval/golden-dataset/semantic-intent-coverage.json`이 생성됩니다. 생성된 FDAI 대화 품질
+`eval/golden-dataset/semantic-intent-coverage.json`이 생성되며 계약 테스트는 오래된 질문은행 원본 다이제스트를 거부합니다. 생성된 FDAI 대화 품질
 보증 스코어카드(CQAS)는 다음과 같은 소스 기반 주제 계층을 분리하여 보존합니다.
 
 - **운영 모델:** SRE 운영, 복원력 엔지니어링, 변경 및 아키텍처 거버넌스, FinOps입니다.
@@ -174,6 +176,8 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 |------|------|------|------|-----------|
 | 2026-09-11 | implemented | 통합 질문은행 원본 다이제스트 변경 후 CQAS 의미 의도 인벤토리를 다시 생성했습니다. 지표 정의, 분모 및 범위 개수는 바뀌지 않았습니다. | `current change`, `build_semantic_intent_coverage.py`, 생성 산출물 동등성 검사 | 이 종속 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-11 | implemented | Console 로캘 카탈로그 변경 후 통합 질문은행의 기계 판독용 인벤토리와 검토 카탈로그를 다시 생성했습니다. 질문 400개의 신원은 모두 유지하고 정확한 원본 다이제스트만 갱신했습니다. | `current change`, 공식 질문은행 생성기 및 생성 산출물 동등성 검사 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
+| 2026-09-11 | implemented | 질문 뱅크 동기화로 오래된 커버리지 분모가 드러난 뒤 파생 의미 의도 커버리지 인벤토리를 다시 생성했습니다. | `current change`, `PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run python scripts/automation/build_semantic_intent_coverage.py`, 집중 생성 산출물 검사 12개 통과 | 파생 커버리지 동기화에 남은 작업은 없습니다. |
+| 2026-09-11 | implemented | 현재 11개 출처 인벤토리에서 통합 질문 뱅크 JSON과 검토 카탈로그를 다시 생성해 정확한 출처 다이제스트 및 준비 상태 필드 동등성을 복구했습니다. 질문 400개 경계는 바꾸지 않았고 실행 권한도 추가하지 않았습니다. | `current change`, `uv run python scripts/automation/build_question_bank.py`, 집중 질문 뱅크 검사 통과 | 생성 산출물 동기화에 남은 작업은 없습니다. |
 | 2026-09-10 | implemented | 대상 없는 완화 요구사항에 대해 영어와 한국어 원문 및 유사 질문 3개씩을 추가하여 Azure/인시던트 의도 계약을 16개에서 24개 사례로 확장하고 CQAS 소스 digest를 다시 생성했습니다. | `current change`, 집중 Golden 재생, 의미 계획, 최종 표현, 생성 산출물 drift, Ruff 및 mypy 검사 | 승격하거나 실제 품질을 주장하기 전에 인증된 exact-source 모델 근거를 별도로 실행합니다. |
 | 2026-09-10 | implemented | Duplicate 이력을 삭제하지 않고 새로운 10문항 full-answer child에서 조건부 repair를 평가하도록 Approval, Decision, Observation, Rule, ServiceObjective의 principal-catalog 스키마 canary 10개를 추가했습니다. | `current change`, typed contract, catalog subject, watchdog, Ruff 및 mypy 검사 | 새 challenge id로 명시적 10문항 child 하나를 실행합니다. |
 | 2026-09-10 | implemented | Synonym-only primary facet 때문에 repair fallback이 발생한 뒤 조건부 repair trigger를 exact CQAS 스키마 계약으로 강화했습니다. | `current change`, 완전 통과 conditional-repair-v2 스키마 cohort 5개 및 집중 trigger/fallback 테스트 | 전역 primary 동작을 보존하고 새로운 unique 질문이 생기면 전체 답변을 검증합니다. |

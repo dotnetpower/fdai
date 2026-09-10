@@ -87,11 +87,17 @@ resource "azurerm_container_app" "service" {
       }
 
       dynamic "env" {
-        for_each = { for item in var.environment : item.name => item }
+        for_each = {
+          for item in nonsensitive(var.environment) : item.name => item.name
+        }
         content {
-          name        = env.value.name
-          value       = env.value.value
-          secret_name = env.value.secret_name
+          name = env.value
+          value = one([
+            for item in var.environment : item.value if item.name == env.value
+          ])
+          secret_name = one([
+            for item in var.environment : item.secret_name if item.name == env.value
+          ])
         }
       }
     }

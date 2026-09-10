@@ -92,13 +92,23 @@ file digest alone does not establish cross-format equivalence.
   `delivery/azure/configuration_drift.py` adds a read-only Azure Resource Graph source for one
   server-owned scope. Deployment configuration selects at most 64 scalar attribute paths through a
   strict identifier grammar. The adapter constructs the query, returns only selected values, marks
-  missing values as unknown, replaces provider ids with stable digest suffixes, and rejects partial,
+  missing values as unknown, uses non-empty presence tokens so an omitted false value cannot alias
+  an explicitly present empty scalar, replaces provider ids with stable digest suffixes, and rejects partial,
   oversized, malformed, or out-of-scope results. It does not infer topology or collect arbitrary
   provider property bags. Runtime bootstrap binds the source only when
   `FDAI_CONFIGURATION_DRIFT_ENABLED` is explicit and every scope, baseline, subscription, and
-  attribute prerequisite is valid. Reviewed deployment baseline content and governed live evidence
-  remain delivery work. The Container Apps module exposes the same inputs as an opt-in Terraform
-  contract and emits no drift configuration by default.
+  attribute prerequisite is valid. A protected Core service transition reconstructs the reviewed
+  snapshot from a bounded protected secret envelope on the VNet-integrated deployment runner,
+  checks the exact canonical digest and expected resource count, and stores the content only as an
+  immutable, content-addressed private Blob. The
+  repository and service plan contain only the binding metadata. Core reads that Blob through its
+  Managed Identity and verifies provider-valid digest metadata, and post-apply verification reads the deployed binding and Blob independently
+  before comparing a fresh Azure Resource Graph observation. The retained receipt includes only
+  digests, completeness, the decision, counts, and zero-valued authority counters. The Container
+  Apps module emits no drift configuration by default.
+  Once a deployment owner supplies both protected baseline envelope values, every later Core plan
+  installs the pinned evidence toolchain, preserves that exact binding, and every successful Core
+  apply repeats independent readback.
 - Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
   Knowledge is unavailable, the deterministic report remains valid and the citation status stays
   blocked rather than being reported as supported. Each citation identity includes the exact

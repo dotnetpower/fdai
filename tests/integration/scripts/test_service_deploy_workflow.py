@@ -1274,6 +1274,20 @@ def test_service_deploy_bootstraps_service_migrations() -> None:
 
 def test_service_apply_selects_current_or_exact_last_ready_rollback_baseline() -> None:
     assert "select-baseline" in _WORKFLOW
+
+
+def test_core_evidence_transition_freezes_and_verifies_private_configuration_baseline() -> None:
+    assert "inputs.apply || inputs.service == 'core-control-plane'" in _WORKFLOW
+    assert "CONFIGURATION_BASELINE_BINDING_JSON" in _WORKFLOW
+    assert "CONFIGURATION_BASELINE_GZIP_BASE64" in _WORKFLOW
+    assert "Freeze reviewed configuration baseline in private Blob" in _WORKFLOW
+    assert "configuration_baseline_evidence.py" in _WORKFLOW
+    assert '--metadata "fdai_sha256=$baseline_sha256"' in _WORKFLOW
+    assert "Verify deployed configuration baseline and current state" in _WORKFLOW
+    assert 'select(.name == "core-control-plane")' in _WORKFLOW
+    assert "steps.baseline_verification.outputs.configured == 'true'" in _WORKFLOW
+    assert "configuration-drift-live-receipt.json" in _WORKFLOW
+    assert 'shred -u -- "$sensitive_file"' in _WORKFLOW
     assert "properties.latestReadyRevisionName" in _WORKFLOW
     assert '--current-revision "$rollback_dir/current-revision.json"' in _WORKFLOW
     assert '--ready-revision "$rollback_dir/ready-revision.json"' in _WORKFLOW

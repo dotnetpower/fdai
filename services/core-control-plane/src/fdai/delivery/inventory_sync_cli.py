@@ -580,6 +580,14 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
     if collection_policy is None:
         raise RuntimeError("inventory collection policy is unavailable")
     drain = await _drain_change_stream(config)
+    active_accelerator_sources = tuple(
+        source_id
+        for enabled, source_id in (
+            (config.resource_change_feed_enabled, "resourcechanges-delta"),
+            (config.recovery_delta_enabled, "activity-log-delta"),
+        )
+        if enabled
+    )
     reconciliation_gate = PostgresInventoryReconciliationGate(
         config=snapshot_config,
         change_min_interval_seconds=config.change_min_interval_seconds,
@@ -595,18 +603,8 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
         ),
         cursor_stale_after_seconds=min(
             (
-                policy.target_freshness_seconds
-                for enabled, policy in (
-                    (
-                        config.resource_change_feed_enabled,
-                        collection_policy.source("resourcechanges-delta"),
-                    ),
-                    (
-                        config.recovery_delta_enabled,
-                        collection_policy.source("activity-log-delta"),
-                    ),
-                )
-                if enabled
+                collection_policy.source(source_id).target_freshness_seconds
+                for source_id in active_accelerator_sources
             ),
             default=0.0,
         ),

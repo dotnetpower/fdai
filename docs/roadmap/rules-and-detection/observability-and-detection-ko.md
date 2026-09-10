@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 32e9cb83636f43bf1d22467f4dfee8c970ca17a3
-translation_revised: 2026-09-10
+translation_source_sha: 0ffd42f0362097cfa6988971d71c071b31929f8f
+translation_revised: 2026-09-11
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -92,13 +92,22 @@ cross-format 동등성이 성립하지 않습니다.
   `delivery/azure/configuration_drift.py`는 서버가 소유하는 범위 하나를 위한 읽기 전용 Azure
   Resource Graph 소스를 추가합니다. 배포 구성은 엄격한 식별자 문법을 통해 최대 64개의 스칼라
   속성 경로를 선택합니다. 어댑터는 쿼리를 구성하고 선택한 값만 반환하며, 누락된 값을 알 수 없음으로
-  표시하고, 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸며, 부분적이거나 너무 크거나 형식이
+  표시합니다. 비어 있지 않은 존재 여부 토큰을 사용하므로 생략된 false 값이 명시적으로 존재하는 빈
+  스칼라로 오인되지 않습니다. 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸며, 부분적이거나 너무 크거나 형식이
   잘못되었거나 범위를 벗어난 결과를 차단합니다. 토폴로지를 추론하거나 임의의 프로바이더 속성 묶음을
   수집하지 않습니다. 런타임 부트스트랩은 `FDAI_CONFIGURATION_DRIFT_ENABLED`가 명시적이고
-  모든 범위, 기준선, 구독 및 속성 전제 조건이 유효할 때만 소스를 연결합니다. 검토된 배포 기준선
-  내용과 관리되는 실시간 근거는 배포 작업으로 남아 있습니다. Container Apps 모듈은 동일한
-  입력을 명시적으로 사용 설정하는 Terraform 계약으로 노출하며 기본적으로 표류 구성을 내보내지
-  않습니다.
+  모든 범위, 기준선, 구독 및 속성 전제 조건이 유효할 때만 소스를 연결합니다. 보호된 Core 서비스
+  전환은 Virtual Network에 통합된 배포 러너에서 범위가 제한된 보호 secret envelope로 검토된
+  스냅샷을 복원하고, 정확한 정규 다이제스트와 예상 리소스 수를 확인한 뒤, 변경 불가능한 콘텐츠
+  주소 기반 private Blob으로만 저장합니다.
+  저장소와 서비스 계획에는 바인딩 메타데이터만 포함됩니다. Core는 Managed Identity를 통해 provider가
+  허용하는 다이제스트 메타데이터까지 검증하며 해당
+  Blob을 읽습니다. 적용 후 검증은 배포된 바인딩과 Blob을 독립적으로 다시 읽은 뒤 새 Azure Resource
+  Graph 관측값과 비교합니다. 보존되는 증적에는 다이제스트, 완전성, 결정, 개수, 값이 0인 권한
+  카운터만 포함됩니다. Container Apps 모듈은 기본적으로 구성 표류 설정을 내보내지 않습니다.
+  배포 소유자가 보호된 기준선 envelope 값 두 개를 모두 제공하면 이후 모든 Core 계획은 고정된
+  근거 도구 체인을 설치하고 정확한 바인딩을 보존하며, 성공한 모든 Core 적용은 독립적인 다시 읽기를
+  반복합니다.
 - Knowledge 수집은 검토된 문서를 설명하고 인용합니다. 드리프트를 판정하지는 않습니다.
   Knowledge를 사용할 수 없어도 결정론적 보고서는 유지하고 인용 상태는 근거 있음으로
   표시하지 않고 차단 상태로 유지합니다. 각 인용 신원에는 정확한 기준선 버전과 전체

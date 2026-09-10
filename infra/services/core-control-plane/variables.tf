@@ -487,7 +487,7 @@ variable "configuration_drift" {
   description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
   type = object({
     enabled             = optional(bool, false)
-    baseline_path       = optional(string, "")
+    baseline_url        = optional(string, "")
     baseline_version    = optional(string, "")
     baseline_sha256     = optional(string, "")
     scope               = optional(string, "")
@@ -495,7 +495,8 @@ variable "configuration_drift" {
     attribute_paths     = optional(list(string), [])
     arg_endpoint        = optional(string, "https://management.azure.com")
   })
-  default = {}
+  default   = {}
+  sensitive = true
 }
 
 variable "diagnostic_ingest" {
