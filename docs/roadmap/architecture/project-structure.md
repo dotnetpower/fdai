@@ -185,6 +185,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   authentication deadline. The projection receipt binds each endpoint's exact Resource ID and
   active-generation Resource type. The Operator semantic outbox captures the caller witness and its
   observation time only after broker acceptance; a failed publish produces no witness.
+  Independent Core and Operator service roots admit the endpoint binding only as two distinct,
+  canonical, unpadded Container App ARM IDs.
 - PostgreSQL database-role observations remain separate from Resource topology. Their observation,
   sanitized evidence, and projection contracts reject execution and mutation authority at runtime.
   Principal handles derive from opaque authenticated evidence references plus scoped source

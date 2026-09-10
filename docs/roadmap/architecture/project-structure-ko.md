@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9f407a057555a231b6e1aea5f6ba153c2f5766fc
+translation_source_sha: c8229e18ae22fcab7aa1283143303bafaf55316e
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -182,6 +182,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   정확한 Resource ID와 활성 세대의 Resource 형식을 함께 결속합니다. Operator 의미 보낼
   편지함은 브로커 수락 뒤에만 호출자 증표와 관측 시점을 기록하며 게시 실패 시 증표를 만들지
   않습니다.
+  독립 Core 및 Operator 서비스 루트는 서로 다른 두 정식 비공백 Container App ARM ID만
+  엔드포인트 바인딩으로 허용합니다.
 - PostgreSQL 데이터베이스 역할 관측은 Resource 토폴로지와 분리합니다. 관측, 정제된 근거 및
   변환 결과 계약은 실행 중에도 실행과 변경 권한을 거부합니다. Principal handle은 역할 이름이
   아니라 불투명한 인증 근거 참조와 범위가 지정된 원본 컨텍스트에서 파생합니다.

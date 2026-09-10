@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 289797aa77a663ba3ed2d21325f641ccde0e52d8
+translation_source_sha: dca9b156c229bef7c6fe1480ddd5ade8765f6dfa
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -114,8 +114,11 @@ Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시
 없을 수 있습니다. 이때 Virtual Network 내부 runner는 독립 서비스 상태에서 정확한 Operator 앱
 이름을 읽고 플랫폼 상태에서 Core 앱 이름과 리소스 그룹을 읽습니다. 이 이름과 고정된 구독을
 사용해 Azure에서 두 개의 정확한 Resource ID를 읽습니다. 이후 같은 폐쇄형 검증이 서로 다른 두
-Container App ID를 요구한 뒤에만 서비스에 바인딩을 제공합니다. 상태 또는 프로바이더 읽기가
-실패하거나 모호하면 계획을 차단하며 조합한 신원으로 대체하지 않습니다.
+Container App ID를 요구한 뒤에만 서비스에 바인딩을 제공합니다. 두 서비스 루트는 정확한 구독
+UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 세그먼트가 있는 정식 비공백 ARM ID를
+요구합니다. 일부만 있거나 후행 슬래시 또는 공백이 있거나 두 엔드포인트가 같으면 검증에
+실패합니다. 상태 또는 프로바이더 읽기가 실패하거나 모호하면 계획을 차단하며 조합한 신원으로
+대체하지 않습니다.
 
 지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
 
