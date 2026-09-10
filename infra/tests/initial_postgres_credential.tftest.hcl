@@ -6,6 +6,15 @@ mock_provider "azurerm" {}
 mock_provider "archive" {}
 mock_provider "random" {}
 
+override_data {
+  target = data.azurerm_client_config.current
+  values = {
+    subscription_id = "00000000-0000-0000-0000-000000000000"
+    tenant_id       = "00000000-0000-0000-0000-000000000000"
+    object_id       = "00000000-0000-0000-0000-000000000001"
+  }
+}
+
 override_module {
   target = module.resource_group
   outputs = {
