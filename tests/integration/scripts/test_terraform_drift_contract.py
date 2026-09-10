@@ -128,8 +128,9 @@ def test_workflow_plans_every_production_root() -> None:
     assert '"scripts/deployment/service/drift_contract.py"' in workflow
     assert "github.event_name == 'push' && github.ref == 'refs/heads/main'" in workflow
     assert '"infra/bootstrap/check-runner-storage-posture.sh"' in workflow
+    assert '"scripts/deployment/azure/verify_deploy_identity_manifest.py"' in workflow
     assert "options: [all, runner]" in workflow
-    assert workflow.count("if: inputs.scope != 'runner'") == 3
+    assert workflow.count("if: inputs.scope != 'runner'") == 5
     assert "drift_contract.py roots" in workflow
     assert "drift_contract.py stored-image" in workflow
     assert "drift_contract.py \\\n            platform-inputs" in workflow
@@ -150,6 +151,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "pantheon_object_topic=\"$(jq -er '.pantheon_object_topic'" in workflow
     assert "ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" in workflow
     assert "Verify runner storage and identity posture" in workflow
+    assert "Verify stable deploy identity role manifest" in workflow
+    assert "deploy-identity-manifest-receipt.json" in workflow
     assert "./check-runner-storage-posture.sh" in workflow
     assert "TF_VAR_runner_vm_size: Standard_D4ds_v5" in workflow
     assert "TF_VAR_runner_vm_name: ${{ vars.DEPLOY_RUNNER_VM_NAME }}" in workflow
@@ -165,6 +168,7 @@ def test_workflow_plans_every_production_root() -> None:
         "Enforce complete drift evidence"
     )
     assert "RUNNER_STORAGE_OUTCOME" in workflow
+    assert "DEPLOY_IDENTITY_MANIFEST_OUTCOME" in workflow
     assert '"$DEPLOY_RUNNER_PRINCIPAL_ID"' in workflow
     assert 'if [[ "$DRIFT_SCOPE" != "runner" ]]' in workflow
     assert "Enforce complete drift evidence" in workflow

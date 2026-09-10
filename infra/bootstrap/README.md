@@ -169,7 +169,9 @@ preserves the adopted image reference; replace it only through an explicit revie
 The scheduled `infra-drift.yml` workflow runs, and reruns when changed, `check-runner-storage-posture.sh` before the bootstrap
 plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of an
 actual managed disk resource. It also requires UserAssigned-only identity, exactly one attached
-UAMI, and the configured deploy principal. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
+UAMI, and the configured deploy principal. Full-scope runs compare every direct Azure role on that
+principal with the union of the bootstrap and platform Terraform states; a missing or extra role
+fails drift. Azure can retain a model-only OS disk ID for an ephemeral VM, so the
 check confirms the disk against the ops resource group's inventory before reporting drift. A mismatch fails
 the workflow with the blue/green recovery action. The bootstrap refresh plan reads structured drift
 and output actions, then exits successfully only when both are empty. An adopted specialized VM

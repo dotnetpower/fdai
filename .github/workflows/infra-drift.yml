@@ -10,6 +10,7 @@ on:
     paths:
       - ".github/workflows/infra-drift.yml"
       - "infra/bootstrap/check-runner-storage-posture.sh"
+      - "scripts/deployment/azure/verify_deploy_identity_manifest.py"
       - "scripts/deployment/service/drift_contract.py"
   schedule:
     - cron: "17 6 * * 1-5" # weekdays 06:17 UTC
@@ -53,6 +54,7 @@ jobs:
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      TF_VAR_deploy_runner_principal_id: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
       STATE_CONTAINER: tfstate
@@ -234,6 +236,35 @@ jobs:
             -backend-config="key=ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" \
             -backend-config="use_azuread_auth=true"
 
+      - name: Verify stable deploy identity role manifest
+        if: inputs.scope != 'runner'
+        id: deploy_identity_manifest
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          platform_state="$RUNNER_TEMP/deploy-identity-platform-state.json"
+          bootstrap_state="$RUNNER_TEMP/deploy-identity-bootstrap-state.json"
+          receipt="$RUNNER_TEMP/deploy-identity-manifest-receipt.json"
+          trap 'rm -f -- "$platform_state" "$bootstrap_state"' EXIT
+          terraform -chdir=infra show -json > "$platform_state"
+          terraform -chdir=infra/bootstrap show -json > "$bootstrap_state"
+          PYTHONPATH="$GITHUB_WORKSPACE" \
+            python3 scripts/deployment/azure/verify_deploy_identity_manifest.py \
+              --state "$platform_state" \
+              --state "$bootstrap_state" \
+              --principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID" \
+              --output "$receipt"
+
+      - name: Publish stable deploy identity manifest receipt
+        if: inputs.scope != 'runner' && steps.deploy_identity_manifest.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: deploy-identity-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/deploy-identity-manifest-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Verify runner storage and identity posture
         id: runner_storage_posture
         continue-on-error: true
@@ -305,6 +336,7 @@ jobs:
           LEGACY_OUTCOME: ${{ steps.legacy_drift.outcome }}
           SERVICE_OUTCOME: ${{ steps.service_drift.outcome }}
           BOOTSTRAP_OUTCOME: ${{ steps.bootstrap_drift.outcome }}
+          DEPLOY_IDENTITY_MANIFEST_OUTCOME: ${{ steps.deploy_identity_manifest.outcome }}
           RUNNER_STORAGE_OUTCOME: ${{ steps.runner_storage_posture.outcome }}
         run: |
           set -euo pipefail
@@ -315,6 +347,10 @@ jobs:
             }
             [[ "$SERVICE_OUTCOME" == "success" ]] || {
               echo "Independent-service Terraform drift was detected or could not be evaluated." >&2
+              exit 1
+            }
+            [[ "$DEPLOY_IDENTITY_MANIFEST_OUTCOME" == "success" ]] || {
+              echo "Stable deploy identity role drift was detected or could not be evaluated." >&2
               exit 1
             }
           fi

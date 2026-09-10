@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7ffa57231e66ee3c5ec0005490e191ee3c6c46b5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 77c7a024ecec4d2849e14622d2b5923ad6123939 }]
 ---
 
 # Deploy Quickstart
@@ -62,7 +62,8 @@ key, Core starts in observation-only Trial and denies acting paths.
   ops resource group's disk inventory. The check reruns when its verifier changes
   and recovers a specialized VM's public SSH input from the protected host before it verifies
   that structured drift actions are empty. It also requires one configured UAMI and no system
-  identity. Use manual `scope=runner` for this bounded check;
+  identity. Full-scope runs compare every direct deploy role with the bootstrap and platform
+  Terraform states. Use manual `scope=runner` for the bounded storage and VM identity check;
   scheduled and default runs still verify all roots. Bootstrap preserves the adopted image
   reference until you explicitly review a replacement.
 - **Fresh offline subscriptions:** Standalone bootstrap still expects an existing state account
