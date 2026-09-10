@@ -59,6 +59,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     design_mocks = _enabled(values, "DEPLOY_DESIGN_MOCKS")
     monitoring = _enabled(values, "DEPLOY_MONITORING")
     rca_reader_identity = _enabled(values, "RCA_READER_IDENTITY_ONLY")
+    runtime_call_evidence_transition = _enabled(values, "RUNTIME_CALL_EVIDENCE_TRANSITION")
     resume = _enabled(values, "RESUME_VERIFICATION")
     document_ocr_action = values.get("DOCUMENT_OCR_ACTION", "preserve")
     if document_ocr_action not in {
@@ -345,6 +346,27 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
                 "deploy_rca_reader_identity cannot be combined with another deployment target"
             )
 
+    if runtime_call_evidence_transition:
+        if (
+            any(_enabled(values, key) for key in targets)
+            or document_ocr_action != "preserve"
+            or design_mocks
+            or model_only
+            or deploy_core_model_quorum
+            or validate_chatops
+            or rca_reader_identity
+            or deploy_identity_migration
+            or _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
+            or promote_image
+            or runtime_image_revision
+            or cutover
+            or verify_effect
+            or resume
+        ):
+            raise ValueError(
+                "runtime-call evidence transition cannot be combined with another target"
+            )
+
     if model_only:
         if not request_id:
             raise ValueError("model-binding deployment requires a protected request")
@@ -455,6 +477,10 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
         "deploy_operational_history": _enabled(values, "DEPLOY_OPERATIONAL_HISTORY"),
         "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
         "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
+        "runtime_call_evidence_transition": _enabled(
+            values,
+            "RUNTIME_CALL_EVIDENCE_TRANSITION",
+        ),
         "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),
         "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
     }
