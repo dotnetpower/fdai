@@ -140,6 +140,10 @@ The service-owned Operator parity manifest includes the authenticated read-only
 `/agents/activity` projection. This ownership does not change the deferred graduation decision or
 grant the route decision, approval, or execution authority.
 
+Console route-local catalogs remain presentation-owned assets. Registering an English source
+catalog in shared static key validation does not shift service or data ownership and grants no
+decision, approval, or execution authority.
+
 ## Data ownership matrix
 
 One logical record or lifecycle transition has one writer. Sharing a physical table is allowed only

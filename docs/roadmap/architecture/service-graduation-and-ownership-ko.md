@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 8a32b4753651ff63e73e777cda932c9e5b146ac8
-translation_revised: 2026-09-10
+translation_source_sha: b4e772cfca66f01caf6fc4afcb267b21d87a5fb2
+translation_revised: 2026-09-11
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -136,6 +136,10 @@ channel을 multiplex할 수 있습니다. Broker entity를 공유해도 서비�
 서비스가 소유하는 Operator parity 매니페스트에는 인증된 읽기 전용 `/agents/activity`
 변환 결과가 포함됩니다. 이 소유권은 보류된 서비스 승격 결정을 변경하지 않으며 해당 경로에 결정,
 승인 또는 실행 권한을 부여하지 않습니다.
+
+Console 라우트 전용 카탈로그는 표현 계층이 소유하는 자산으로 유지됩니다. 공유 정적 키 검증에
+영어 원본 카탈로그를 등록해도 서비스 또는 데이터 소유권은 바뀌지 않으며 결정, 승인 또는 실행
+권한을 부여하지 않습니다.
 
 ## 데이터 소유권 매트릭스
 
