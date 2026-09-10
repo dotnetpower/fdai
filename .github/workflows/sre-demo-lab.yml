@@ -598,7 +598,7 @@ jobs:
           plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
           plan_log="$RUNNER_TEMP/sre-demo-lab-plan.log"
           if [[ "$REQUESTED_ACTION" == "destroy" ]]; then
-            plan_args=(-destroy)
+            plan_args=(-destroy -refresh=false)
           else
             plan_args=()
           fi
