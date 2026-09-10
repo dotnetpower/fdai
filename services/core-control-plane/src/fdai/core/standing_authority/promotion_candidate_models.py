@@ -176,6 +176,7 @@ class CandidateReviewRecord:
         require_digest("authentication_evidence_digest", self.authentication_evidence_digest)
         for ed in self.evidence_digests:
             require_digest("evidence_digest", ed)
+        _require_canonical_distinct("evidence_digests", self.evidence_digests)
         expected = content_digest(
             {
                 "candidate_id": self.candidate_id,
@@ -183,7 +184,7 @@ class CandidateReviewRecord:
                 "decision": self.decision.value,
                 "reviewed_at": instant(aware_utc(self.reviewed_at)),
                 "authentication_evidence_digest": self.authentication_evidence_digest,
-                "evidence_digests": sorted(self.evidence_digests),
+                "evidence_digests": self.evidence_digests,
             }
         )
         if self.review_id != expected:
