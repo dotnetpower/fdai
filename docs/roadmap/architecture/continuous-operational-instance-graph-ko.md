@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4ab2df846573cde93660e102c208374d82d7f7c4
+translation_source_sha: 217e07d07b4bf8663a43d5404ef1e064e87d0922
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -107,6 +107,7 @@ ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID�
 Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수 없습니다. 스키마가 유효한
 `plan-runtime-*` 및 `apply-runtime-*` 요청은 해당 Inventory Job만 대상으로 하며 혼합 대상을
 거부합니다.
+계획 후 범위 검사는 정확한 Job 주소 밖에서 의존성이 유발한 모든 변경을 거부합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
 결과로 유지합니다. 관측, 정제된 근거 및 변환 결과 계약은 형식 주석에만 의존하지 않고 실행
 중에도 실행 또는 변경 권한을 각각 거부합니다. 변환된 principal handle은 불투명한 인증 근거
