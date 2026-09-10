@@ -62,6 +62,20 @@ def _make_claim(*, generation: int = 1, success: bool = True) -> EffectCompletio
     )
 
 
+def _make_completion(claim: EffectCompletionClaim) -> RecoveryCompletionDigest:
+    return RecoveryCompletionDigest.create(
+        process_id="process-1",
+        saga_id="saga-1",
+        expected_process_revision=5,
+        recovery_attempt_digest=claim.attempt_identity_digest,
+        effect_claim_generation=claim.generation,
+        effect_claim_digest=claim.claim_digest,
+        release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
+        terminal_event_digest=_EVENT_DIGEST,
+        audit_payload_digest=_AUDIT_DIGEST,
+    )
+
+
 class TestRecoveryCompletionDigest:
     def test_create_valid(self) -> None:
         cd = RecoveryCompletionDigest.create(
@@ -271,12 +285,14 @@ class TestCompletionOutbox:
 class TestValidateTerminalPreconditions:
     def test_all_valid(self) -> None:
         claim = _make_claim()
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=1,
             fencing_generation=2,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
             now=_NOW + timedelta(minutes=30),
         )
@@ -285,12 +301,14 @@ class TestValidateTerminalPreconditions:
 
     def test_claim_not_current_success(self) -> None:
         claim = _make_claim(success=False)
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=1,
             fencing_generation=2,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
             now=_NOW + timedelta(minutes=30),
         )
@@ -299,12 +317,14 @@ class TestValidateTerminalPreconditions:
 
     def test_claim_expired(self) -> None:
         claim = _make_claim()
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=1,
             fencing_generation=2,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
             now=_NOW + timedelta(hours=2),
         )
@@ -313,12 +333,14 @@ class TestValidateTerminalPreconditions:
 
     def test_claim_revoked(self) -> None:
         claim = supersede_claim(_make_claim(), superseding_digest="sha256:" + "5" * 64)
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=1,
             fencing_generation=2,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
             now=_NOW + timedelta(minutes=30),
         )
@@ -327,12 +349,14 @@ class TestValidateTerminalPreconditions:
 
     def test_hold_revision_mismatch(self) -> None:
         claim = _make_claim()
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=2,
             fencing_generation=3,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
             now=_NOW + timedelta(minutes=30),
         )
@@ -341,12 +365,14 @@ class TestValidateTerminalPreconditions:
 
     def test_fencing_generation_mismatch(self) -> None:
         claim = _make_claim()
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=1,
             fencing_generation=5,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
             now=_NOW + timedelta(minutes=30),
         )
@@ -355,17 +381,68 @@ class TestValidateTerminalPreconditions:
 
     def test_release_receipt_missing(self) -> None:
         claim = _make_claim()
+        completion = _make_completion(claim)
         eligible, reasons = validate_terminal_preconditions(
             claim=claim,
+            completion=completion,
             hold_revision=1,
             fencing_generation=2,
             process_revision=5,
-            expected_completion_digest=_RECEIPT_DIGEST,
+            expected_completion_digest=completion.completion_digest,
             release_receipt_digest=None,
             now=_NOW + timedelta(minutes=30),
         )
         assert eligible is False
         assert TerminalTransitionRejection.RELEASE_RECEIPT_MISSING in reasons
+
+    def test_process_revision_conflict(self) -> None:
+        claim = _make_claim()
+        completion = _make_completion(claim)
+        eligible, reasons = validate_terminal_preconditions(
+            claim=claim,
+            completion=completion,
+            hold_revision=1,
+            fencing_generation=2,
+            process_revision=6,
+            expected_completion_digest=completion.completion_digest,
+            release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
+            now=_NOW + timedelta(minutes=30),
+        )
+        assert eligible is False
+        assert TerminalTransitionRejection.PROCESS_REVISION_CONFLICT in reasons
+
+    def test_completion_digest_mismatch(self) -> None:
+        claim = _make_claim()
+        completion = _make_completion(claim)
+        eligible, reasons = validate_terminal_preconditions(
+            claim=claim,
+            completion=completion,
+            hold_revision=1,
+            fencing_generation=2,
+            process_revision=5,
+            expected_completion_digest="sha256:" + "9" * 64,
+            release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
+            now=_NOW + timedelta(minutes=30),
+        )
+        assert eligible is False
+        assert TerminalTransitionRejection.COMPLETION_DIGEST_MISMATCH in reasons
+
+    def test_existing_terminal_commit_is_not_reapplied(self) -> None:
+        claim = _make_claim()
+        completion = _make_completion(claim)
+        eligible, reasons = validate_terminal_preconditions(
+            claim=claim,
+            completion=completion,
+            hold_revision=1,
+            fencing_generation=2,
+            process_revision=5,
+            expected_completion_digest=completion.completion_digest,
+            release_receipt_digest=_RELEASE_RECEIPT_DIGEST,
+            committed_completion_digest=completion.completion_digest,
+            now=_NOW + timedelta(minutes=30),
+        )
+        assert eligible is False
+        assert TerminalTransitionRejection.ALREADY_TERMINAL in reasons
 
 
 class TestReplayIdempotent:

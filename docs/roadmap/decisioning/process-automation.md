@@ -232,7 +232,8 @@ approval and safeguard evidence binding, and stable attempt-derived idempotency 
 `recovery_effect_claim.py` provides authoritative external evidence verification, executor/observer
 identity separation, content-addressed completion claims with monotonic generation, and
 supersession/revocation. `recovery_terminalization.py` provides the completion digest, immutable
-receipt lookup, completion outbox with independent delivery, terminal-transition precondition guard,
+receipt lookup, completion outbox with independent delivery, and a terminal-transition guard that
+binds the current Process revision, effect claim, release receipt, and exact completion digest,
 and replay idempotency. `hold_dispatch_fence.py` fences forward dispatch against
 active, malformed, or unreadable hold state inside the logical-target lock, with an isolated-Executor
 equivalent that performs the same check without importing Core implementation.
