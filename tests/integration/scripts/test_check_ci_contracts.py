@@ -468,6 +468,7 @@ def test_ci_supports_exact_main_revalidation() -> None:
     assert "gitleaks_8.24.3_linux_x64.tar.gz" in workflow
     assert "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c" in workflow
     assert "curl --fail --location --silent --show-error" in workflow
+    assert "--retry-max-time 120" in workflow
     assert '--log-opts="HEAD^..HEAD"' in workflow
 
 

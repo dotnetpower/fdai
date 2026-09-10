@@ -605,6 +605,7 @@ jobs:
           mkdir -m 700 "$install_dir"
           curl --fail --location --silent --show-error \
             --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 \
             --connect-timeout 5 --max-time 60 \
             --output "$archive" \
             https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
