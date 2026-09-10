@@ -1,0 +1,13 @@
+{
+  "subtitle": "High-risk actions waiting for a distinct human approver. Eligible approvers can record a decision here or in a supported channel.",
+  "mechanicsBody": "High-risk work stays parked until a distinct approver acts. FDAI Console records the human decision and queues it for Var; it never executes the action.",
+  "requestOnly": "approval request only",
+  "justification": "Decision justification",
+  "justificationRequired": "Enter a justification before recording the decision.",
+  "approve": "Approve",
+  "reject": "Reject",
+  "recordingDecision": "Recording...",
+  "decisionDelivered": "{decision} was recorded and delivered to the approval workflow.",
+  "decisionPendingDelivery": "{decision} was recorded. Durable delivery is pending and will be retried.",
+  "decisionUnavailable": "This legacy or incomplete approval cannot be decided from FDAI Console."
+}

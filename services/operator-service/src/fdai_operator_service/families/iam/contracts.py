@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol, TypeAlias, runtime_checkable
 
-from fdai_service_contracts import JsonObject, OperatorRole
+from fdai_service_contracts import JsonObject, OperatorPrincipalKind, OperatorRole
 from starlette.requests import Request
 
 JsonMapping: TypeAlias = Mapping[str, Any]  # noqa: UP040
@@ -25,6 +25,7 @@ class IamPrincipal:
     oid: str
     roles: frozenset[OperatorRole]
     username: str | None = None
+    principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
 
     def __post_init__(self) -> None:
         if not self.oid.strip():
@@ -629,13 +630,20 @@ class HilDecisionReceipt:
 
 @dataclass(frozen=True, slots=True)
 class HilDecisionCommand:
-    """Signed callback decision persisted by the approval registry."""
+    """Authenticated human decision fenced to one exact pending approval."""
 
+    approval_id: str
     idempotency_key: str
+    action_hash: str
     decision: HilApprovalDecision
     approver_oid: str
+    approver_roles: frozenset[OperatorRole]
     justification: str
     decided_at: datetime
+    expected_expires_at: datetime
+    expected_submitter_oid: str
+    expected_decision_route: str
+    expected_required_role: str
 
 
 @dataclass(frozen=True, slots=True)

@@ -178,6 +178,11 @@ SELECT COUNT(*) AS total_count,
   FROM state_kv
  WHERE key LIKE %(key_pattern)s
    AND value->>'status' = 'pending'
+   AND NOT EXISTS (
+       SELECT 1
+         FROM state_kv AS decision
+        WHERE decision.key = 'operator-hil-decision:' || state_kv.value->>'approval_id'
+   )
    AND (value#>>'{approval_context,expires_at}' IS NULL
        OR CASE
         WHEN value#>>'{approval_context,expires_at}' ~
@@ -193,6 +198,11 @@ SELECT value, updated_at, COUNT(*) OVER() AS total_count
   FROM state_kv
  WHERE key LIKE %(key_pattern)s
    AND value->>'status' = 'pending'
+   AND NOT EXISTS (
+       SELECT 1
+         FROM state_kv AS decision
+        WHERE decision.key = 'operator-hil-decision:' || state_kv.value->>'approval_id'
+   )
    AND (value#>>'{approval_context,expires_at}' IS NULL
        OR CASE
         WHEN value#>>'{approval_context,expires_at}' ~

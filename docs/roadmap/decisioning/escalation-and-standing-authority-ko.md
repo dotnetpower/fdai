@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 9fb4b3ec902bc6584630030018a4fb77a2b2c4c8
-translation_revised: 2026-09-10
+translation_source_sha: 20bae4fb7f0885c211471305db3567e685c6ebc5
+translation_revised: 2026-09-11
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -77,6 +77,12 @@ translation_revised: 2026-09-10
 의 컨트롤 루프는 **단일 패스** 다: 이벤트가 정규화 -> 라우팅 -> 판단 -> 실행 -> 감사되어
 종단 상태로 간다. 이는 이산적 이벤트에는 옳다. 그러나 결정이 *보류(pending)* 인 채 주변
 세계가 변하는 상황은 **모델링하지 않는다**:
+
+적격 사용자는 서명된 Teams 또는 Slack 콜백이나 Entra 인증 FDAI Console 경로에서 이
+승인 요청에 응답할 수 있습니다. 두 경로 모두 정확한 승인, 현재 역할, 만료 시각과 역할
+분리를 다시 확인한 다음 결정과 지속성 outbox를 원자적으로 보존합니다. 이 변경은 안전한
+응답 화면을 하나 더 제공하지만 에스컬레이션 타이머, 상시 권한 규칙 또는 Thor의 실행
+경계를 바꾸지 않습니다.
 
 - `hil` 판정 는 TTL 을 가진 승인 요청을 발동한다. 오늘날 TTL 만료는 **no-op + 감사 +
   A2 경보** 다([channels-and-notifications-ko.md § on-call, 에스컬레이션, 타임아웃](../interfaces/channels-and-notifications-ko.md)).

@@ -10,6 +10,7 @@ why a ``channel=teams`` body is refused here.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -109,6 +110,7 @@ def make_hil_callback_route(
         except CallbackError as exc:
             return error_response(exc.status_code, str(exc), kind=exc.kind)
         hint = body_hint(raw)
+        intent_digest = "sha256:" + hashlib.sha256(raw).hexdigest()
         try:
             payload = authenticate_and_parse(
                 request=request,
@@ -129,6 +131,7 @@ def make_hil_callback_route(
                         raw,
                     ),
                     approval_id=approval_id,
+                    intent_digest=intent_digest,
                     channel_hint=hint.get("channel", "unknown"),
                     actor_hint=hint.get("provider_actor_id"),
                 )
@@ -147,6 +150,7 @@ def make_hil_callback_route(
                     raw,
                 ),
                 approval_id=approval_id,
+                intent_digest=intent_digest,
                 channel_hint=hint.get("channel", "unknown"),
                 actor_hint=hint.get("provider_actor_id"),
             )

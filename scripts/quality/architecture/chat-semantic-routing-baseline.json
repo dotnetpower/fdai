@@ -553,6 +553,13 @@
       "owner": "operator-presentation",
       "reason": "Retains deterministic terminal-disposition mapping from verified semantic projections.",
       "issue": 252
+    },
+    {
+      "path": "services/operator-service/src/fdai_operator_service/families/iam/hil_callback_decision.py",
+      "disposition": "retain",
+      "owner": "operator-hil",
+      "reason": "Retains deterministic routing from recorded HIL decision metadata without classifying operator language.",
+      "issue": 252
     }
   ]
 }

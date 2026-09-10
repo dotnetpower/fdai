@@ -35,6 +35,7 @@ class HilCallbackAuditRecord:
     correlation_id: str
     actor_identity_ref: str
     authority_basis: str
+    intent_digest: str
     outcome: HilCallbackOutcome
     recorded_at: datetime
 
@@ -46,6 +47,7 @@ class HilCallbackAuditRecord:
                 self.correlation_id,
                 self.actor_identity_ref,
                 self.authority_basis,
+                self.intent_digest,
             )
         ):
             raise ValueError("HIL callback audit identity fields MUST be non-empty")

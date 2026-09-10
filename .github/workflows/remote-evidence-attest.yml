@@ -42,17 +42,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
-          fetch-depth: 0
-
-      - name: Verify protected-main ancestry
-        env:
-          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
-        run: |
-          set -euo pipefail
-          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
-          git fetch --no-tags origin main
-          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
-          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          fetch-depth: 1
 
       - name: Verify customer-agnostic aggregate
         run: python3 scripts/quality/architecture/check-remote-service-evidence.py

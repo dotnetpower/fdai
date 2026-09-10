@@ -153,11 +153,12 @@ class _Registry:
         metadata: Mapping[str, str] | None = None,
         expires_at: datetime | None = None,
     ) -> None:
+        resolved_metadata = {"decision_route": "action", **dict(metadata or {})}
         self.pending = HilPendingItem(
             approval_id="approval-1",
             idempotency_key="hil-key-1",
             submitter_oid=submitter_oid,
-            metadata=dict(metadata or {}),
+            metadata=resolved_metadata,
         )
         self.context = HilCallbackContext(
             approval_id="approval-1",
@@ -166,7 +167,7 @@ class _Registry:
             action_hash="action-hash-1",
             expires_at=expires_at or datetime.now(tz=UTC) + timedelta(minutes=10),
             submitter_oid=submitter_oid,
-            metadata=dict(metadata or {}),
+            metadata=resolved_metadata,
         )
         self.command: HilDecisionCommand | None = None
         self.receipt: HilDecisionReceipt | None = None

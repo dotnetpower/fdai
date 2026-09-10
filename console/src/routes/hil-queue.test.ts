@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import type { HilQueueItem } from "../types";
-import { approvalSearchText, loadHilQueueState, nextApprovalExpiryDelay } from "./hil-queue";
+import {
+  approvalCanDecide,
+  approvalSearchText,
+  loadHilQueueState,
+  nextApprovalExpiryDelay,
+} from "./hil-queue";
 
 function item(expiresAt: string | null): HilQueueItem {
   return { ttl_expires_at: expiresAt } as HilQueueItem;
@@ -73,10 +78,37 @@ describe("approval search evidence", () => {
       blast_radius_rate_per_minute: null,
       blast_radius_summary: "1 resource",
       ttl_expires_at: null,
+      decision_requestable: false,
+      decision_unavailable_reason: "missing_expiry",
     } satisfies HilQueueItem;
     const text = approvalSearchText(approval);
     for (const expected of ["compute.restart", "resource-a", "event-1", "corr-1", "risk gate", "verifier review", "rule.example"]) {
       expect(text).toContain(expected);
     }
+  });
+});
+
+describe("approval decision availability", () => {
+  const requestable = {
+    approval_id: "approval-1",
+    ttl_expires_at: "2026-07-17T09:10:00Z",
+    decision_requestable: true,
+    decision_unavailable_reason: null,
+  } as HilQueueItem;
+  const now = Date.parse("2026-07-17T09:00:00Z");
+
+  test("requires authoritative live requestability and a future expiry", () => {
+    expect(approvalCanDecide(requestable, now, "live")).toBe(true);
+    expect(approvalCanDecide(requestable, now, "sample")).toBe(false);
+    expect(approvalCanDecide(
+      { ...requestable, decision_requestable: false, decision_unavailable_reason: "missing_action_hash" },
+      now,
+      "live",
+    )).toBe(false);
+    expect(approvalCanDecide(
+      { ...requestable, ttl_expires_at: "2026-07-17T08:59:00Z" },
+      now,
+      "live",
+    )).toBe(false);
   });
 });

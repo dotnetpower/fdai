@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:a05554bf0aeda8931b12832ac8c7a226b861a037ae6d41d0e4dce3a09b96a18f",
+  "catalog_digest": "sha256:0c6b46e24480a9247065b9c13421069129dd0feb91f664a364529da8abc878e6",
   "execution_authority": false,
-  "generated_at": "2026-09-10T18:01:01.093103Z",
+  "generated_at": "2026-09-10T22:50:24.474420Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,11 +448,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:0d57812d30d3a4989dc782749464ffef16781cb5b490a3c7f7acffd8126644e9",
+      "record_digest": "sha256:5fd9d94d28cbe0e5a36b728343a7b7bb4d8331b1e12b6a22a09a13d3200608e4",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8",
+          "blob_sha": "a308dc0bc83462d5fc4d59aa3dfb13da39bc0686",
           "line_end": 74,
           "line_start": 74,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "8a32b4753651ff63e73e777cda932c9e5b146ac8",
+          "blob_sha": "b4e772cfca66f01caf6fc4afcb267b21d87a5fb2",
           "line_end": 91,
           "line_start": 91,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:b15f1529be573b948ac41641ba4cebe8a127e4472022076d74677e6ca038d29f",
+      "record_digest": "sha256:441c08a52a73a593a44a581c737523ef2d50f9bd06c3d3ce04c2b9d6f2a17f5d",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "00b65047b68bcab50b16bb2ca9ebcac57cd3e3b8",
+          "blob_sha": "a308dc0bc83462d5fc4d59aa3dfb13da39bc0686",
           "line_end": 74,
           "line_start": 74,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "78cf9ecbbf03dea0737198c04b52cab118da568a"
+  "source_revision": "f96254f34cdeb00dd74eaf19461172abc28fe7e9"
 }

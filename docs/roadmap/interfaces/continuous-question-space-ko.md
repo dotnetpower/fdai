@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: a3ea781c5e4bf0a4905f5a1375cff1c8a3e00d35
+translation_source_sha: f45ed436d9987450c67a34e7ba3067d0227d5303
 translation_revised: 2026-09-11
 ---
 # 지속형 질문 공간
@@ -174,6 +174,8 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 통합 질문은행 원본 다이제스트 변경 후 CQAS 의미 의도 인벤토리를 다시 생성했습니다. 지표 정의, 분모 및 범위 개수는 바뀌지 않았습니다. | `current change`, `build_semantic_intent_coverage.py`, 생성 산출물 동등성 검사 | 이 종속 원본 다이제스트 갱신에 남은 작업은 없습니다. |
+| 2026-09-11 | implemented | Console 로캘 카탈로그 변경 후 통합 질문은행의 기계 판독용 인벤토리와 검토 카탈로그를 다시 생성했습니다. 질문 400개의 신원은 모두 유지하고 정확한 원본 다이제스트만 갱신했습니다. | `current change`, 공식 질문은행 생성기 및 생성 산출물 동등성 검사 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-11 | implemented | 질문 뱅크 동기화로 오래된 커버리지 분모가 드러난 뒤 파생 의미 의도 커버리지 인벤토리를 다시 생성했습니다. | `current change`, `PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run python scripts/automation/build_semantic_intent_coverage.py`, 집중 생성 산출물 검사 12개 통과 | 파생 커버리지 동기화에 남은 작업은 없습니다. |
 | 2026-09-11 | implemented | 현재 11개 출처 인벤토리에서 통합 질문 뱅크 JSON과 검토 카탈로그를 다시 생성해 정확한 출처 다이제스트 및 준비 상태 필드 동등성을 복구했습니다. 질문 400개 경계는 바꾸지 않았고 실행 권한도 추가하지 않았습니다. | `current change`, `uv run python scripts/automation/build_question_bank.py`, 집중 질문 뱅크 검사 통과 | 생성 산출물 동기화에 남은 작업은 없습니다. |
 | 2026-09-10 | implemented | 대상 없는 완화 요구사항에 대해 영어와 한국어 원문 및 유사 질문 3개씩을 추가하여 Azure/인시던트 의도 계약을 16개에서 24개 사례로 확장하고 CQAS 소스 digest를 다시 생성했습니다. | `current change`, 집중 Golden 재생, 의미 계획, 최종 표현, 생성 산출물 drift, Ruff 및 mypy 검사 | 승격하거나 실제 품질을 주장하기 전에 인증된 exact-source 모델 근거를 별도로 실행합니다. |

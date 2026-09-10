@@ -209,6 +209,8 @@ function sampleApprovals() {
         reasons: ["Sample verifier requires operator review."],
         citing_rule_ids: ["sample.rule"],
         ttl_expires_at: "2026-10-01T09:00:00Z",
+        decision_requestable: false,
+        decision_unavailable_reason: "sample_mode",
       },
     ],
     total: 1,

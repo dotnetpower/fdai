@@ -55,24 +55,31 @@ def test_ci_separates_root_and_service_migration_database_tests() -> None:
     workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     integration_job = workflow.index("  db-integration:")
     integration_step = workflow.index("- name: Run integration test shard", integration_job)
-    migration_job = workflow.index("  db-migrations:")
     migration_step = workflow.index("- name: Run service-owned migrations")
     lifecycle_step = workflow.index("- name: Run serial service migration lifecycle tests")
+    provider_step = workflow.index("- name: Run the shared provider contract matrix")
+    job_end = workflow.index("\n  terraform-validate:", integration_job)
 
-    assert integration_job < integration_step < migration_job < migration_step < lifecycle_step
+    assert integration_job < integration_step < migration_step < lifecycle_step < provider_step
     lifecycle = workflow[
         lifecycle_step : workflow.index("- name: Run service-owned database tests", lifecycle_step)
     ]
+    assert "if: matrix.shard == 1" in lifecycle
     assert 'FDAI_SERIAL_MIGRATION_TESTS: "1"' in lifecycle
     assert "test_catalog_lifecycle_integration.py" in lifecycle
-    integration = workflow[integration_job:migration_job]
-    assert "FDAI_PYTEST_MODE: integration" in integration
-    assert 'FDAI_PYTEST_SHARD_COUNT: "2"' in integration
-    assert "FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}" not in integration
-    service_tests = workflow[workflow.index("- name: Run service-owned database tests") :]
+    root_integration = workflow[integration_job:migration_step]
+    assert "FDAI_PYTEST_MODE: integration" in root_integration
+    assert 'FDAI_PYTEST_SHARD_COUNT: "2"' in root_integration
+    service_tests = workflow[
+        workflow.index("- name: Run service-owned database tests") : provider_step
+    ]
+    assert "if: matrix.shard == 1" in service_tests
     assert 'FDAI_SERVICE_MIGRATIONS_READY: "1"' in service_tests
     assert "FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}" in service_tests
     assert "test_postgres_inventory_snapshot.py" in service_tests
+    provider_tests = workflow[provider_step:job_end]
+    assert "if: matrix.shard == 2" in provider_tests
+    assert "FDAI_PROVIDER_CONTRACT_BACKENDS: real" in provider_tests
     assert "test_postgres_inventory_coverage_scopes_reconciliation_markers" in service_tests
 
 

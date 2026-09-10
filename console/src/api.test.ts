@@ -9,6 +9,7 @@ import {
   isOptionalOperatorApiUnavailable,
   OperatorApiError,
 } from "./api";
+import { decodeHilDecisionReceipt } from "./api-hil-decision";
 
 describe("Operator API response decoders", () => {
   const metric = { value: 0.1, baseline: 0.2, direction: "lower" } as const;
@@ -122,6 +123,8 @@ describe("Operator API response decoders", () => {
         reasons: ["Verifier requires operator review."],
         citing_rule_ids: ["example.rule"],
         ttl_expires_at: "2026-07-15T10:30:00Z",
+        decision_requestable: true,
+        decision_unavailable_reason: null,
       }],
       total: 1,
     }).items[0];
@@ -153,6 +156,22 @@ describe("Operator API response decoders", () => {
       .toThrow(/RFC 3339/);
     expect(() => decodeHilQueuePage({ items: [{ ...item, ttl_expires_at: "later" }], total: 1 }))
       .toThrow(/RFC 3339/);
+  });
+
+  test("decodes truthful HIL decision delivery state", () => {
+    const receipt = {
+      approval_id: "approval-1",
+      idempotency_key: "hil-key-1",
+      correlation_id: "correlation-1",
+      decision: "approve",
+      already_recorded: false,
+      receipt_ref: "receipt-1",
+      decided_at: "2026-09-11T00:00:00Z",
+      delivered: false,
+    };
+    expect(decodeHilDecisionReceipt(receipt)).toEqual(receipt);
+    expect(() => decodeHilDecisionReceipt({ ...receipt, delivered: "pending" }))
+      .toThrow(/malformed/);
   });
 
   test("decodes an incident page and rejects invalid status", () => {

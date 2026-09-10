@@ -3549,7 +3549,6 @@
     "detailHint": "Audit-level metrics and distributions"
   },
   "approvals": {
-    "subtitle": "High-risk actions waiting for a human approver. Approvals happen in ChatOps; this console remains read-only.",
     "resource": "approvals",
     "headlineEmpty": "No pending approvals",
     "headlineWaiting": "{count} item(s) waiting for approval",
@@ -3557,7 +3556,6 @@
     "emptyBody": "All autonomous decisions are within the safety check's automatic envelope right now.",
     "showingLatest": "Showing the latest {shown} of {total} pending approvals.",
     "mechanicsTitle": "Approval mechanics",
-    "mechanicsBody": "High-risk work stays parked until a distinct approver acts in ChatOps. Rejects and timeouts are audited; this screen only renders evidence.",
     "pendingCount": "{count} pending",
     "shownCount": "{count} shown",
     "expiredCount": "{count} expired in loaded details",

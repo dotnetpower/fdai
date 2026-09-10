@@ -35,8 +35,9 @@ export const ROUTE_ACTION_HINTS: Readonly<Record<string, string>> = {
     "Rules: search by id/category/severity, click a rule to open its detail drawer " +
     "with provenance + remediation + shadow accuracy; enable/disable is governance-only.",
   "hil-queue":
-    "Approvals: read pending items and their risk reason; decisions happen in " +
-    "Teams/ChatOps Adaptive Cards, never in this console (approve/reject are external).",
+    "Approvals: review pending items and their risk reason; eligible approvers can record " +
+    "approve or reject in FDAI Console or a supported channel. A decision never executes " +
+    "the managed-resource action.",
   "promotion-gates":
     "Promotion gates: see which ActionTypes are ready to promote and which are blocked; " +
     "promotion itself is a governance PR (this console only shows the readiness).",

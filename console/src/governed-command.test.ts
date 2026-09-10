@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthContext } from "./auth";
-import { getGovernedJson, GovernedCommandError, putGovernedJson } from "./governed-command";
+import {
+  getGovernedJson,
+  GovernedCommandError,
+  postGovernedJson,
+  putGovernedJson,
+} from "./governed-command";
 
 const auth: AuthContext = {
   devMode: false,
@@ -34,10 +39,29 @@ describe("governed command client", () => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       return new Response(JSON.stringify({ saved: true }), { status: 200 });
     });
+
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(putGovernedJson(auth, "http://127.0.0.1:8030", "/write", {}))
       .resolves.toEqual({ saved: true });
+  });
+
+  it("sends the stable idempotency key for a governed POST", async () => {
+    const fetchMock = vi.fn(async (_url: URL, init?: RequestInit) => {
+      expect(init?.method).toBe("POST");
+      expect((init?.headers as Record<string, string>)["idempotency-key"])
+        .toBe("decision-1");
+      return new Response(JSON.stringify({ recorded: true }), { status: 202 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(postGovernedJson(
+      auth.getAuthorizationHeader,
+      "http://127.0.0.1:8030",
+      "/decision",
+      { decision: "approve" },
+      "decision-1",
+    )).resolves.toEqual({ recorded: true });
   });
 
   it("loads sensitive state without browser caching", async () => {

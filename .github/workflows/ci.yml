@@ -52,52 +52,8 @@ jobs:
           fi
           python3 scripts/quality/ci/resolve_test_scope.py --range "$range"
 
-  lint:
-    name: ruff • mypy
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-
-      - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.12.11"
-          python-version: "3.13"
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Install dependencies
-        run: uv sync --extra dev --extra azure-mcp --frozen
-
-      - name: ruff format --check
-        run: uv run ruff format --check services packages tests extensions/code-assurance
-
-      - name: ruff check
-        run: uv run ruff check services packages tests extensions/code-assurance
-
-      - name: mypy --strict
-        run: uv run mypy
-
-      - name: ActionType operator-runbook coverage
-        run: uv run python scripts/quality/documentation/check-action-runbooks.py
-
-      - name: Reference-only source snapshot guard
-        run: uv run python scripts/quality/repository/check-reference-only-sources.py
-
-      - name: Independent service boundaries
-        run: uv run python scripts/quality/architecture/check-independent-services.py
-
-      - name: Build code-assurance extension
-        run: uv build --package fdai-code-assurance
-
-  python-regression:
-    name: pytest regression shard ${{ matrix.shard }}/3
+  python-tests:
+    name: pytest regression shard ${{ matrix.shard }}/4
     needs: changes
     if: needs.changes.outputs.python == 'true'
     strategy:
@@ -105,7 +61,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
       FDAI_PYTEST_MAX_WORKERS: "4"
@@ -128,10 +84,25 @@ jobs:
           python-version: "3.13"
           enable-cache: true
           cache-dependency-glob: uv.lock
-          save-cache: false
+          save-cache: ${{ matrix.shard == 1 }}
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra pdf-report --frozen
+        run: |
+          extras=(--extra dev --extra pdf-report)
+          if [[ "${{ matrix.shard }}" == "1" ]]; then
+            extras+=(--extra azure-mcp)
+          fi
+          uv sync "${extras[@]}" --frozen
+
+      - name: Run lint and static contracts
+        if: matrix.shard == 1
+        run: |
+          uv run ruff format --check services packages tests extensions/code-assurance
+          uv run ruff check services packages tests extensions/code-assurance
+          uv run mypy
+          uv run python scripts/quality/documentation/check-action-runbooks.py
+          uv run python scripts/quality/repository/check-reference-only-sources.py
+          uv run python scripts/quality/architecture/check-independent-services.py
 
       - name: Materialize resolved model manifest
         env:
@@ -144,7 +115,7 @@ jobs:
       - name: Run regression shard
         run: bash scripts/quality/ci/run-python-tests.sh
 
-  python-tests:
+  python-coverage-shards:
     name: pytest safety-core coverage shard ${{ matrix.shard }}/2
     needs: changes
     if: needs.changes.outputs.python == 'true'
@@ -153,6 +124,7 @@ jobs:
       matrix:
         shard: [1, 2]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
       FDAI_PYTEST_MAX_WORKERS: "4"
@@ -185,9 +157,6 @@ jobs:
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
         run: python3 scripts/quality/ci/materialize-resolved-models.py
 
-      - name: Validate clean-checkout contracts
-        run: python3 scripts/quality/ci/check-ci-contracts.py
-
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
 
@@ -211,7 +180,7 @@ jobs:
     name: pytest • safety-core coverage
     needs:
       - changes
-      - python-tests
+      - python-coverage-shards
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -246,14 +215,6 @@ jobs:
         run: |
           uv run coverage combine coverage-data
           uv run coverage report --fail-under=90
-          uv run coverage xml
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: coverage-xml
-          path: coverage.xml
-          if-no-files-found: error
 
   operator-surfaces:
     name: console and CLI tests • typecheck • build
@@ -282,26 +243,9 @@ jobs:
       - name: Test, typecheck, and build operator surfaces
         run: bash scripts/quality/ci/run-operator-surfaces.sh
 
-  translations:
-    name: documentation source contracts
+  contracts:
+    name: repository and design contracts
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install documentation check dependencies
-        run: python3 -m pip install --quiet pyyaml
-
-      - name: Check translation pairs
-        run: bash scripts/quality/localization/check-translations.sh
-
-      - name: Check derived source revisions
-        run: python3 scripts/quality/localization/check-derived-sources.py
-
-  design-contracts:
-    name: instruction routes and docs-after contract
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -309,47 +253,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate instruction and design routes
-        run: |
-          python3 scripts/quality/architecture/check-design-routes.py
-          python3 scripts/quality/architecture/check-constitution.py
-          python3 scripts/quality/architecture/check-fork-runtime-independence.py
-          python3 scripts/quality/architecture/check-venue-capability-contract.py
+      - name: Install contract check dependencies
+        run: python3 -m pip install --quiet pyyaml
 
-      - name: Resolve changed range
-        id: range
+      - name: Check documentation source contracts
+        if: needs.changes.outputs.docs == 'true'
+        run: |
+          bash scripts/quality/localization/check-translations.sh
+          python3 scripts/quality/localization/check-derived-sources.py
+
+      - name: Validate changed design contracts
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
+          set -euo pipefail
           if [[ -n "$PR_BASE_SHA" ]]; then
-            echo "value=$PR_BASE_SHA...HEAD" >> "$GITHUB_OUTPUT"
+            range="$PR_BASE_SHA...HEAD"
           elif [[ -n "$PUSH_BEFORE_SHA" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
-            echo "value=$PUSH_BEFORE_SHA...HEAD" >> "$GITHUB_OUTPUT"
+            range="$PUSH_BEFORE_SHA...HEAD"
           else
-            echo "value=HEAD^...HEAD" >> "$GITHUB_OUTPUT"
+            range="HEAD^...HEAD"
           fi
-
-      - name: Require owning design documentation
-        run: |
-          python3 scripts/quality/architecture/check-design-doc-impact.py "${{ steps.range.outputs.value }}"
-          python3 scripts/quality/architecture/check-document-size.py "${{ steps.range.outputs.value }}"
-
-      - name: Check protected framework paths
-        run: bash scripts/integrity/check-protected-paths.sh "${{ steps.range.outputs.value }}"
-
-  repository-contracts:
-    name: repository policy and boundary contracts
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Reject generated service-contract drift
-        run: python3 scripts/quality/contracts/generate_service_contracts.py --check
-
-      - name: Install repository check dependencies
-        run: python3 -m pip install --quiet pyyaml
+          python3 scripts/quality/architecture/check-design-routes.py
+          python3 scripts/quality/architecture/check-constitution.py
+          python3 scripts/quality/architecture/check-fork-runtime-independence.py
+          python3 scripts/quality/architecture/check-venue-capability-contract.py
+          python3 scripts/quality/architecture/check-design-doc-impact.py "$range"
+          python3 scripts/quality/architecture/check-document-size.py "$range"
+          bash scripts/integrity/check-protected-paths.sh "$range"
 
       - name: Run repository policy and boundary checks
         run: |
@@ -369,6 +301,10 @@ jobs:
           }
           run_check "Message catalog parity" \
             bash scripts/quality/localization/check-catalog-parity.sh
+          run_check "Clean-checkout CI contracts" \
+            python3 scripts/quality/ci/check-ci-contracts.py
+          run_check "Generated service contracts" \
+            python3 scripts/quality/contracts/generate_service_contracts.py --check
           run_check "ASCII punctuation" \
             bash scripts/quality/repository/check-punctuation.sh
           run_check "Readable Hangul" \
@@ -720,7 +656,7 @@ jobs:
             --base-sha "$base_sha"
 
   db-integration:
-    name: pytest Postgres integration shard ${{ matrix.shard }}/2
+    name: database and provider integration shard ${{ matrix.shard }}/2
     needs: changes
     if: needs.changes.outputs.python == 'true'
     strategy:
@@ -780,55 +716,8 @@ jobs:
       - name: Run integration test shard
         run: bash scripts/quality/ci/run-python-tests.sh
 
-  db-migrations:
-    name: Alembic and service-owned migrations against pgvector
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-24.04
-
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: fdai
-          POSTGRES_PASSWORD: ci
-          POSTGRES_DB: fdai
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U fdai -d fdai"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
-
-    env:
-      FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-
-      - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.12.11"
-          python-version: "3.13"
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-          save-cache: false
-
-      - name: Install dependencies
-        run: uv sync --extra dev --frozen
-
-      - name: Run alembic upgrade head
-        run: uv run alembic upgrade head
-
       - name: Prepare service migration database
+        if: matrix.shard == 1
         run: |
           uv run python - <<'PY'
           import os
@@ -847,10 +736,8 @@ jobs:
               stream.write(f"FDAI_SERVICE_DATABASE_URL={service_url}\n")
           PY
 
-      - name: Install OPA (Rego runner)
-        uses: ./.github/actions/setup-opa
-
       - name: Run service-owned migrations
+        if: matrix.shard == 1
         run: |
           set -euo pipefail
           export FDAI_DATABASE_URL="$FDAI_SERVICE_DATABASE_URL"
@@ -876,6 +763,7 @@ jobs:
           done
 
       - name: Run serial service migration lifecycle tests
+        if: matrix.shard == 1
         env:
           FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
           FDAI_SERIAL_MIGRATION_TESTS: "1"
@@ -884,6 +772,7 @@ jobs:
           services/core-control-plane/tests/persistence/test_catalog_lifecycle_integration.py
 
       - name: Run service-owned database tests
+        if: matrix.shard == 1
         env:
           FDAI_SERVICE_MIGRATIONS_READY: "1"
           FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
@@ -894,40 +783,16 @@ jobs:
           services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py
           services/core-control-plane/tests/persistence/test_postgres_ontology_instance.py::test_postgres_inventory_coverage_scopes_reconciliation_markers
 
-  provider-contracts-docker:
-    name: fake and real provider contract matrix
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-24.04
-    env:
-      POSTGRES_PASSWORD: ci
-      FDAI_PROVIDER_CONTRACT_BACKENDS: real
-      FDAI_KAFKA_BOOTSTRAP_SERVERS: 127.0.0.1:19092
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-
-      - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.12.11"
-          python-version: "3.13"
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-          save-cache: false
-
-      - name: Install dependencies
-        run: uv sync --extra dev --frozen
-
       - name: Start loopback provider stack
+        if: matrix.shard == 2
+        env:
+          POSTGRES_PASSWORD: ci
         run: docker compose -f infra/local/docker-compose.yml up -d --wait postgres-validation redpanda
 
       - name: Prepare isolated provider database URL
+        if: matrix.shard == 2
+        env:
+          POSTGRES_PASSWORD: ci
         run: |
           python3 - <<'PY'
           import os
@@ -942,12 +807,16 @@ jobs:
           PY
 
       - name: Run the shared provider contract matrix
+        if: matrix.shard == 2
+        env:
+          FDAI_PROVIDER_CONTRACT_BACKENDS: real
+          FDAI_KAFKA_BOOTSTRAP_SERVERS: 127.0.0.1:19092
         run: >-
           uv run pytest -q --no-cov
           services/core-control-plane/tests/providers/test_contracts.py
 
       - name: Stop loopback provider stack
-        if: always()
+        if: always() && matrix.shard == 2
         run: docker compose -f infra/local/docker-compose.yml down -v
 
   terraform-validate:
@@ -993,16 +862,8 @@ jobs:
           terraform -chdir=scenario-lab init -backend=false -input=false
           terraform -chdir=scenario-lab validate
 
-  terraform-security:
-    name: Terraform security scan
-    needs: changes
-    if: needs.changes.outputs.terraform == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install pinned scanners
+      - name: Install Terraform security scanners
+        working-directory: .
         env:
           TRIVY_VERSION: "0.72.0"
           CHECKOV_VERSION: "3.2.256"
@@ -1015,9 +876,11 @@ jobs:
           pipx install "checkov==${CHECKOV_VERSION}"
 
       - name: Trivy Terraform misconfiguration scan
+        working-directory: .
         run: trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra
 
       - name: Checkov Terraform scan
+        working-directory: .
         run: checkov -d infra --quiet --compact --framework terraform
 
   required:
@@ -1025,24 +888,18 @@ jobs:
     if: always()
     needs:
       - changes
-      - lint
-      - python-regression
       - python-tests
+      - python-coverage-shards
       - python-coverage
       - operator-surfaces
-      - translations
-      - design-contracts
-      - repository-contracts
+      - contracts
       - governance-runtime-contracts
       - evaluation-packages
       - secret-scan
       - deps-audit
       - freeze-scenarios
       - db-integration
-      - db-migrations
-      - provider-contracts-docker
       - terraform-validate
-      - terraform-security
     runs-on: ubuntu-24.04
     steps:
       - name: Require every CI job to pass or skip

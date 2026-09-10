@@ -22,64 +22,55 @@ _STATE_ID = re.compile(r'^\s*id\s*=\s*"([^"]+)"\s*$', re.MULTILINE)
 @dataclass(frozen=True, slots=True)
 class RoleBinding:
     address: str
-    scope_expression: str
+    owner_state_address: str
     role_name: str
-    owner_state_address: str | None = None
 
 
 _ROLE_BINDINGS = (
     RoleBinding(
         "azurerm_role_assignment.dev_gateway_storage_deployer[0]",
-        'try(azurerm_storage_account.dev_gateway[0].id, "")',
-        "Storage Blob Data Contributor",
         "azurerm_storage_account.dev_gateway[0]",
+        "Storage Blob Data Contributor",
     ),
     RoleBinding(
         "azurerm_role_assignment.kv_officer_self",
-        'try(module.key_vault.id, "")',
+        "module.key_vault.azurerm_key_vault.primary",
         "Key Vault Secrets Officer",
     ),
     RoleBinding(
         "module.case_history_storage[0].azurerm_role_assignment.deployer_data_owner",
-        'try(module.case_history_storage[0].id, "")',
-        "Storage Blob Data Owner",
         "module.case_history_storage[0].azurerm_storage_account.case_history",
+        "Storage Blob Data Owner",
     ),
     RoleBinding(
         "module.decision_evidence_storage[0].azurerm_role_assignment.deployer_data_owner",
-        'try(module.decision_evidence_storage[0].id, "")',
-        "Storage Blob Data Owner",
         "module.decision_evidence_storage[0].azurerm_storage_account.case_history",
+        "Storage Blob Data Owner",
     ),
     RoleBinding(
         "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
-        'try(module.document_storage[0].id, "")',
-        "Storage Blob Data Owner",
         "module.document_storage[0].azurerm_storage_account.documents",
+        "Storage Blob Data Owner",
     ),
     RoleBinding(
         'module.llm_foundry_partner[0].azurerm_role_assignment.project_user["deployer"]',
-        'try(module.llm_foundry_partner[0].project_id, "")',
-        "Azure AI User",
         "module.llm_foundry_partner[0].azurerm_cognitive_account_project.partner",
+        "Azure AI User",
     ),
     RoleBinding(
         'module.foundry_web_search[0].azurerm_role_assignment.project_user["deployer"]',
-        'try(module.foundry_web_search[0].project_id, "")',
-        "Azure AI User",
         "module.foundry_web_search[0].azurerm_cognitive_account_project.search",
+        "Azure AI User",
     ),
     RoleBinding(
         "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner",
-        'try(module.operational_history_storage[0].id, "")',
-        "Storage Blob Data Owner",
         "module.operational_history_storage[0].azurerm_storage_account.case_history",
+        "Storage Blob Data Owner",
     ),
     RoleBinding(
         "module.rule_catalog_snapshot_storage[0].azurerm_role_assignment.deployer_data_owner",
-        'try(module.rule_catalog_snapshot_storage[0].id, "")',
-        "Storage Blob Data Owner",
         "module.rule_catalog_snapshot_storage[0].azurerm_storage_account.case_history",
+        "Storage Blob Data Owner",
     ),
 )
 
@@ -101,16 +92,15 @@ def _command(
     )
 
 
-def _scope(value: str) -> str:
-    try:
-        decoded = json.loads(value)
-    except json.JSONDecodeError as error:
-        raise ValueError("Terraform role scope output is invalid") from error
-    if not isinstance(decoded, str):
-        raise ValueError("Terraform role scope output must be a string")
-    if decoded and not decoded.casefold().startswith("/subscriptions/"):
-        raise ValueError("Terraform role scope is not an Azure resource id")
-    return decoded
+def _state_resource_id(terraform_dir: Path, address: str) -> str:
+    output = _command(
+        ("terraform", "state", "show", "-no-color", address),
+        cwd=terraform_dir,
+    ).stdout
+    match = _STATE_ID.search(output)
+    if match is None:
+        raise ValueError("Terraform state resource has no id")
+    return match.group(1)
 
 
 def _assignment_id(
@@ -156,14 +146,7 @@ def _tracked_assignment_ids(
             address.startswith("azurerm_role_assignment.") or ".azurerm_role_assignment." in address
         ):
             continue
-        output = _command(
-            ("terraform", "state", "show", "-no-color", address),
-            cwd=terraform_dir,
-        ).stdout
-        match = _STATE_ID.search(output)
-        if match is None:
-            raise ValueError("Terraform role assignment state has no resource id")
-        normalized = match.group(1).casefold()
+        normalized = _state_resource_id(terraform_dir, address).casefold()
         if normalized in tracked:
             raise ValueError("Terraform state tracks one role assignment at multiple addresses")
         tracked[normalized] = address
@@ -189,19 +172,11 @@ def reconcile(
     for binding in bindings:
         if binding.address in state:
             continue
-        scope = _scope(
-            _command(
-                ("terraform", "console"),
-                cwd=terraform_dir,
-                input_text=f"{binding.scope_expression}\n",
-            ).stdout.strip()
-        )
-        if not scope:
-            if binding.owner_state_address in state:
-                raise ValueError(
-                    "Stable deploy role owner remains in state but its scope is unavailable"
-                )
+        if binding.owner_state_address not in state:
             continue
+        scope = _state_resource_id(terraform_dir, binding.owner_state_address)
+        if not scope.casefold().startswith("/subscriptions/"):
+            raise ValueError("Stable deploy role owner scope is not an Azure resource id")
         assignment_id = _assignment_id(
             _command(
                 (

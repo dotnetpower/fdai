@@ -1,11 +1,11 @@
 # `console/`
 
-Thin, read-only operator SPA - KPI dashboard, incident roster, audit log
+Thin, non-privileged operator SPA - KPI dashboard, incident roster, audit log
 viewer, per-agent activity timeline, and Approvals view. This is the layer-3 surface described in
 [`.github/instructions/app-shape.instructions.md`](../.github/instructions/app-shape.instructions.md)
-§ Operator console. The read-only invariant is a hard rule: the SPA MUST issue
-no privileged calls, MUST NOT expose an action / approval button, and MUST NOT
-share the executor identity.
+§ Operator console. The authority boundary is a hard rule: the SPA never issues privileged
+managed-resource calls or shares the executor identity. Bounded request controls submit typed
+records to the Operator API, where server-owned authorization and lifecycle checks run again.
 
 ## Framework choice
 
@@ -29,7 +29,8 @@ The SPA starts with six always-on GET routes on the Operator API
 |-------|---------|
 | `GET /audit` | Paginated audit log rows (newest first), optionally filtered by `correlation_id`. |
 | `GET /kpi` | Dashboard KPIs (event count, shadow/enforce share, approvals pending, per-kind, per-outcome). |
-| `GET /hil-queue` | Pending approval count for Readers; safety detail for Approvers and Owners (decisions still happen through ChatOps). |
+| `GET /hil-queue` | Pending approval count for Readers; safety detail and server-owned decision availability for Approvers and Owners. |
+| `POST /hil/{approval_id}/operator-decision` | Record an eligible human approval or rejection and durably queue it for the Var-owned lifecycle without executing the action. |
 | `GET /incidents` | Paginated incident roster with active/resolved/all filters. |
 | `GET /audit/{correlation_id}/trace` | Ordered end-to-end trace for one incident. |
 | `GET /healthz` | Operator API health status. |
@@ -740,8 +741,8 @@ Both halves ship a copy-paste reference that is **not** registered upstream
 [`src/routes/example-finops.tsx`](src/routes/example-finops.tsx). A fork opts
 in by registering both.
 
-Panels are read-only like the rest of the console: no action / approval button.
-Cost / change actions still flow through fix PRs and ChatOps approvals.
+Extension panels are read-only. The owned Approvals route is the narrow exception: eligible human
+approvers can submit a server-revalidated decision, while execution remains with Thor.
 
 ## Tooltip contract
 
@@ -770,7 +771,7 @@ console/
     ├── app.tsx         - top-level router + init
     ├── config.ts       - env-var-driven runtime config
     ├── auth.ts         - MSAL.js wrapper + anonymous / Azure CLI dev modes
-    ├── api.ts          - read-only OperatorApiClient (core GET methods + panel())
+    ├── api.ts          - OperatorApiClient (authoritative reads + typed bounded requests)
     ├── preferences.ts  - validated browser-local display preferences
     ├── types.ts        - TS mirrors of read_model.py shapes
     ├── panels.tsx      - panel registry (core panels + fork extension point)

@@ -337,6 +337,8 @@ export interface HilQueueItem {
   readonly reasons: readonly string[];
   readonly citing_rule_ids: readonly string[];
   readonly ttl_expires_at: string | null;
+  readonly decision_requestable: boolean;
+  readonly decision_unavailable_reason: string | null;
 }
 
 export interface HilQueuePage {

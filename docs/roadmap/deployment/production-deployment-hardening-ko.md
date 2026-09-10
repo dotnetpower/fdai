@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 10555706963b3a028e2093afd24e5a1c5e7d1753
+translation_source_sha: 57d6c4d7980d545e0cf8a6b5fa01cff6420ea6b5
 translation_revised: 2026-09-11
 ---
 # 운영 배포 강화
@@ -21,7 +21,7 @@ translation_revised: 2026-09-11
 |------|------|------|------|
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. 구독 역할 위임은 서비스 주체용 읽기 역할 3개로 제한됩니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
-| Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-security` 작업은 하나의 필수 CI 결과 아래에서 고정 버전 Checkov 및 Trivy 검사를 실행합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
+| 기준선 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-validate` 작업은 Terraform 검증 후 고정 버전 Checkov 및 Trivy를 실행하고 하나의 필수 CI 결과로 집계합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
 | 범위가 제한된 analyzer Job 수렴 | implemented | `deploy-dev.yml`, `observability-analyzer-image.tf`, `update_analyzer_job_image.sh`, 집중 updater, rollback, 범위 및 workflow 테스트 | 보호된 계획은 state 전용 Terraform updater 하나만 대상으로 합니다. Apply는 기존 analyzer container image만 검증된 ACR digest로 변경하고 독립적으로 다시 읽으며, effect 검증이 실패하면 이전 digest로 rollback합니다. 원래 Container Apps Job 리소스가 모든 Job 구성의 선언적 소유자로 유지됩니다. |
 | Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 기준선 없는 Checkov와 Trivy 검사를 경로 범위가 지정된 `terraform-validate` 작업에 통합하면서 필수 CI 그래프를 20개 작업에서 13개 작업으로 줄였습니다. 스캐너 버전, 검토된 예외, 기준선을 사용하지 않는 정책 및 집계 `required` 결과는 그대로 유지합니다. | `current change`, `.github/workflows/ci.yml`, 집중 CI workflow 계약 테스트, `check-ci-contracts.py`, `actionlint` | 최소화된 필수 그래프의 보호된 main 실행이 한 번 통과한 뒤 새 배치를 런타임 검증 근거로 취급합니다. |
 | 2026-09-11 | implemented | Depth 2도 경계 parent를 root commit처럼 처리한 뒤, 수동 shallow-history secret scan을 checksum으로 고정한 gitleaks 8.24.3 exact-commit scan으로 교체했습니다. Push와 pull request는 고정 action과 이력 기반 범위를 유지합니다. 수동 exact-main 검증은 전체 이력을 `HEAD^..HEAD` 평가에만 사용하며 redaction과 같은 실패 코드를 적용합니다. | 수동 CI 실행 `34521958778`, `current change`, 집중 CI workflow 계약 검사, 로컬 exact-diff scan에서 누출 없음 | 정확한 보호 main SHA에서 수동으로 실행한 필수 검사 하나를 green으로 만듭니다. |
 | 2026-09-11 | implemented | 수동 CI secret scan의 depth 1이 merge snapshot을 root commit처럼 보이게 하여 현재 트리의 테스트 고정본을 새 추가분으로 보고한 뒤, 보호된 merge parent를 checkout에 포함했습니다. Depth 2는 저장소 전체 이력을 다시 열지 않고 정확한 merge diff를 보존합니다. | 수동 CI 실행 `34519737666`, `current change`, 집중 CI workflow 계약 검사 | 정확한 보호 main SHA에서 수동으로 실행한 필수 검사 하나를 green으로 만듭니다. |
 | 2026-09-11 | implemented | 첫 수동 실행에서 이벤트 비교 범위가 없어 과거 커밋 8,205개 전체를 검사한 뒤, 수동 CI secret 검사를 checkout된 보호 리비전으로 제한했습니다. Push와 pull request 실행은 전체 이력 checkout과 기존 커밋 범위 검사를 유지합니다. | 수동 CI 실행 `34517495951`, `current change`, 집중 CI workflow 계약 검사 | 정확한 보호 main SHA에서 수동으로 실행한 필수 검사 하나를 green으로 만듭니다. |
@@ -175,8 +176,8 @@ Terraform이 stack을 직접 생성하도록 합니다.
 ## 지속적인 인프라 검사
 
 필수 [`CI` workflow](../../../.github/workflows/ci.yml)는 platform, bootstrap 및 scenario-lab
-루트에서 Terraform format과 validation을 실행합니다. 경로 범위가 지정된 `terraform-security`
-작업은 인프라 또는 해당 CI 제어가 변경될 때만 Trivy와 Checkov를 실행합니다. Scanner는 리포지토리
+루트에서 Terraform 형식과 검증을 실행합니다. 경로 범위가 지정된 `terraform-validate`
+작업은 인프라 또는 해당 CI 제어가 변경될 때만 이어서 Trivy와 Checkov를 실행합니다. 스캐너는 리포지토리
 전체 finding baseline을 사용하지 않습니다. 의도적 예외는 정확한 리소스 옆에서 운영 gate,
 구현된 제어, provider 제한 또는 관리형 서비스 제약을 설명합니다.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스
