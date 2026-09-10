@@ -59,6 +59,12 @@ def test_runtime_call_source_survives_operator_service_state_migration() -> None
     assert (
         "TF_VAR_enable_runtime_call_evidence: ${{ vars.ENABLE_RUNTIME_CALL_EVIDENCE == 'true' }}"
     ) in workflow
+    assert "runtime_call_evidence_transition:" in workflow
+    assert "RUNTIME_CALL_EVIDENCE_TRANSITION:" in workflow
+    assert (
+        "inputs.runtime_call_evidence_transition && "
+        "'-target=module.compute.azurerm_container_app_job.inventory[0]'"
+    ) in workflow
 
 
 def test_inventory_recovery_delta_is_private_network_only() -> None:

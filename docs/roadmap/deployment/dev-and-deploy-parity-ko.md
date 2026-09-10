@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 553ba1c5089c15abfa22493ce12ac0439cdf8ee4
+translation_source_sha: 9cf63fc16547c388be50479f20c6449ee3c46b01
 translation_revised: 2026-09-11
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -287,7 +287,7 @@ Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니�
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서 같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재
 Azure CLI 맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
-Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 배포된 런타임 호출 근거는 명시적인 배포 인벤토리 플래그가 있을 때만 같은 프로바이더를 사용합니다. Operator는 브로커 수락을 기록하고 Core는 소비자 수신을 기록하며, Azure Monitor는 두 정확한 replica를 결속하고 인벤토리 기록기는 권한이 없는 일치 쌍만 결합합니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE`는 기존 Operator 모듈과 독립적으로 Inventory Job 플래그를 보존합니다. 보호된 계획은 독립적인 `runtime_call_evidence_transition` 모드로 두 정확한 Resource ID 바인딩을 추가하거나 제거하며, 헤드리스 및 로컬 프로필은 `runtime_call_graph`를 사용 불가로 유지합니다. 두 서비스 루트는 서로 다른 두 정식 비공백 Container App ARM ID를 요구합니다. 이행된 플랫폼 출력이 없으면 Core는 독립 peer state의 정확한 Operator 이름을 권한 모드 0600의 임시 파일로 읽고 Azure에서 두 ID를 해석한 뒤 정제된 매니페스트에 이름을 남기지 않고 파일을 제거합니다.
+Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 배포된 런타임 호출 근거는 명시적인 배포 인벤토리 플래그가 있을 때만 같은 프로바이더를 사용합니다. Operator는 브로커 수락을 기록하고 Core는 소비자 수신을 기록하며, Azure Monitor는 두 정확한 replica를 결속하고 인벤토리 기록기는 권한이 없는 일치 쌍만 결합합니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE`는 기존 Operator 모듈과 독립적으로 Inventory Job 플래그를 보존하고 플랫폼 `runtime_call_evidence_transition`은 해당 작업만 대상으로 합니다. 서비스 계획은 별도 전환으로 두 정확한 Resource ID 바인딩을 추가하거나 제거하며, 헤드리스 및 로컬 프로필은 `runtime_call_graph`를 사용 불가로 유지합니다. 두 서비스 루트는 서로 다른 두 정식 비공백 Container App ARM ID를 요구합니다. 이행된 플랫폼 출력이 없으면 Core는 독립 peer state의 정확한 Operator 이름을 권한 모드 0600의 임시 파일로 읽고 Azure에서 두 ID를 해석한 뒤 정제된 매니페스트에 이름을 남기지 않고 파일을 제거합니다.
 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다.
 Workspace가 0개이면 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
 원격 Kubernetes 수명 주기 수집은 명시적으로 로컬 실시간 데이터를 사용하도록 설정해야 합니다. 런타임 환경 생성기는 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.
