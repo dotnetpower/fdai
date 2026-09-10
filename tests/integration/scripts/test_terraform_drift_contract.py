@@ -149,7 +149,7 @@ def test_workflow_plans_every_production_root() -> None:
     assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
     assert "pantheon_object_topic=\"$(jq -er '.pantheon_object_topic'" in workflow
     assert "ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" in workflow
-    assert "Verify runner storage posture" in workflow
+    assert "Verify runner storage and identity posture" in workflow
     assert "./check-runner-storage-posture.sh" in workflow
     assert "TF_VAR_runner_vm_size: Standard_D4ds_v5" in workflow
     assert "TF_VAR_runner_vm_name: ${{ vars.DEPLOY_RUNNER_VM_NAME }}" in workflow
@@ -165,6 +165,7 @@ def test_workflow_plans_every_production_root() -> None:
         "Enforce complete drift evidence"
     )
     assert "RUNNER_STORAGE_OUTCOME" in workflow
+    assert '"$DEPLOY_RUNNER_PRINCIPAL_ID"' in workflow
     assert 'if [[ "$DRIFT_SCOPE" != "runner" ]]' in workflow
     assert "Enforce complete drift evidence" in workflow
 

@@ -234,7 +234,7 @@ jobs:
             -backend-config="key=ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" \
             -backend-config="use_azuread_auth=true"
 
-      - name: Verify runner storage posture
+      - name: Verify runner storage and identity posture
         id: runner_storage_posture
         continue-on-error: true
         working-directory: infra/bootstrap
@@ -246,7 +246,8 @@ jobs:
             "$ARM_TENANT_ID" \
             "$TF_VAR_ops_resource_group_name" \
             "$runner_vm_name" \
-            "$TF_VAR_runner_vm_size"
+            "$TF_VAR_runner_vm_size" \
+            "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
       - name: Plan bootstrap root
         id: bootstrap_drift

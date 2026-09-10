@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -138,7 +139,20 @@ esac
     monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
     monkeypatch.setenv("TEST_SUBSCRIPTION", "00000000-0000-0000-0000-000000000001")
     monkeypatch.setenv("TEST_TENANT", "00000000-0000-0000-0000-000000000002")
-    monkeypatch.setenv("TEST_VM_PAYLOAD", vm_payload)
+    parsed_vm = json.loads(vm_payload)
+    parsed_vm.setdefault(
+        "identity",
+        {
+            "type": "UserAssigned",
+            "userAssignedIdentities": {
+                "/subscriptions/example/resourceGroups/example/providers/"
+                "Microsoft.ManagedIdentity/userAssignedIdentities/deploy": {
+                    "principalId": "00000000-0000-0000-0000-000000000003"
+                }
+            },
+        },
+    )
+    monkeypatch.setenv("TEST_VM_PAYLOAD", json.dumps(parsed_vm))
     monkeypatch.setenv("TEST_DISK_PAYLOAD", disk_payload)
 
     return subprocess.run(  # noqa: S603 - static repository-owned script
@@ -150,6 +164,7 @@ esac
             "rg-example-ops",
             "vm-runner-example",
             "Standard_D4ds_v5",
+            "00000000-0000-0000-0000-000000000003",
         ],
         check=False,
         capture_output=True,
@@ -206,3 +221,24 @@ def test_storage_posture_check_rejects_managed_os_disk(
     assert "runner storage posture drift detected" in result.stderr
     assert "a managed OS disk exists" in result.stderr
     assert "blue/green bootstrap procedure" in result.stderr
+
+
+def test_storage_posture_check_rejects_system_or_wrong_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _run_storage_posture_check(
+        tmp_path,
+        monkeypatch,
+        (
+            '{"vm_size":"Standard_D4ds_v5","option":"Local",'
+            '"placement":"ResourceDisk","managed_disk_id":null,'
+            '"identity":{"type":"SystemAssigned, UserAssigned",'
+            '"userAssignedIdentities":{"/example/identity":'
+            '{"principalId":"00000000-0000-0000-0000-000000000004"}}}}'
+        ),
+    )
+
+    assert result.returncode == 1
+    assert "runner identity type is not UserAssigned-only" in result.stderr
+    assert "runner identity principal does not match" in result.stderr

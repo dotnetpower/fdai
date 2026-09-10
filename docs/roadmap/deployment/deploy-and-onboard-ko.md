@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 52eeed1211407eae26ccdf5aed8aa6873f00f9ae
+translation_source_sha: 7ffa57231e66ee3c5ec0005490e191ee3c6c46b5
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -84,6 +84,8 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 승격된 VM에는 UAMI만 남고 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
   검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에 `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지 참조를 보존합니다.
   예약 점검은 모든 루트를 강제합니다. 수동 `runner` 범위는 보호된 호스트의 SSH 입력 복구, 실제 디스크 인벤토리, 빈 구조화 드리프트 작업을 포함해 실행기 저장소와 Bootstrap 상태만 검증합니다.
+  실행기 상태는 UserAssigned-only 신원, 연결된 UAMI 1개, 구성된 deploy principal도 요구합니다.
+  시스템 신원이나 추가 UAMI가 있으면 drift로 처리합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다.
 해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
