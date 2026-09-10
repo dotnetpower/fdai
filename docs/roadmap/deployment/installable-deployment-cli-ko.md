@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 9b5bf870915997e191a4fff80eb7a2e437f56db3
+translation_source_sha: e546a45e0632aeba84932c7229372442dc112433
 translation_revised: 2026-09-11
 ---
 # 설치형 배포 CLI
@@ -518,7 +518,9 @@ Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 
 `--deploy-identity-migration`은 개발 환경 전용의 범위가 제한된 작업입니다. 현재 애플리케이션
 선택을 맥락에 봉인하지만 안정 principal fence와 검토된 deployer 역할 할당만 대상으로 합니다.
 계획 검증기는 모든 결과 역할이 구성된 안정 실행기 UAMI를 사용하도록 요구하며, exact 적용은
-수렴 검사에 같은 대상 집합을 다시 사용합니다.
+수렴 검사에 같은 대상 집합을 다시 사용합니다. 적용 후 검증은 Azure 역할 할당을 읽고 안정
+principal에 계획된 역할이 모두 있는지 확인하며, 교체된 각 principal의 남은 할당이 0건인지
+요구하고 정제된 효과 다이제스트를 적용 증적에 결합합니다.
 
 적용 디스패치에는 GitHub 환경 승인 게이트가 없습니다. 클라이언트는 필수 검토자, 자체 검토,
 관리자 우회를 확인하지 않으며 보호된 작업 흐름도 배포 환경을 바인딩하지 않으므로, 권한이 있는

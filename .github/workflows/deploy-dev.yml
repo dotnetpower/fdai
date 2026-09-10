@@ -514,6 +514,17 @@ jobs:
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
           bash ../scripts/deployment/azure/resolve-document-ocr-desired-state.sh
 
+      - name: Preserve state-backed deploy identity features
+        if: ${{ env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          state_list="$RUNNER_TEMP/deploy-identity-state-list.txt"
+          trap 'rm -f -- "$state_list"' EXIT
+          terraform -chdir=infra state list > "$state_list"
+          python3 scripts/deployment/azure/guard_deploy_identity_plan.py \
+            state-env --state-list "$state_list" >> "$GITHUB_ENV"
+
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
         env:
@@ -1462,6 +1473,15 @@ jobs:
               raise SystemExit("active Core model attestation changed after protected planning")
           PY
 
+      - name: Revalidate exact deploy identity plan
+        if: ${{ inputs.apply && env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' }}
+        run: |
+          set -euo pipefail
+          review="$RUNNER_TEMP/deploy-identity-applied-plan.json"
+          terraform show -json dev.plan > "$review"
+          python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py \
+            validate --plan "$review"
+
       - name: Claim exact plan apply
         if: ${{ inputs.apply && !inputs.resume_verification }}
         env:
@@ -1575,6 +1595,36 @@ jobs:
       - name: Verify Terraform convergence
         if: ${{ inputs.apply }}
         run: bash ../scripts/deployment/azure/verify_deploy_convergence.sh "${{ inputs.request_id }}"
+      - name: Verify stable deploy identity effect
+        if: ${{ inputs.apply && env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' }}
+        run: |
+          set -euo pipefail
+          receipt="$RUNNER_TEMP/deploy-identity-effect-receipt.json"
+          PYTHONPATH="$GITHUB_WORKSPACE" \
+            python3 ../scripts/deployment/azure/verify_deploy_identity_effect.py \
+            --plan "$RUNNER_TEMP/deploy-identity-applied-plan.json" \
+            --principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID" \
+            --output "$receipt"
+          receipt_digest="$(sha256sum "$receipt" | cut -d' ' -f1)"
+          echo "DEPLOY_IDENTITY_EFFECT_DIGEST=$receipt_digest" >> "$GITHUB_ENV"
+          if [[ "${{ inputs.resume_verification }}" != "true" ]]; then
+            az storage blob upload \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+              --container-name deployment-plans \
+              --name "${TF_VAR_env}/${{ inputs.plan_id }}/deploy-identity-effect-receipt.json" \
+              --file "$receipt" --auth-mode login --overwrite false \
+              --only-show-errors --content-type application/json --output none
+          fi
+
+      - name: Publish stable deploy identity effect receipt
+        if: ${{ inputs.apply && env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: deploy-identity-effect-receipt-${{ inputs.plan_id }}
+          path: ${{ runner.temp }}/deploy-identity-effect-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Verify model deployment readback
         if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
         env:
@@ -2210,7 +2260,7 @@ jobs:
           retention-days: 7
 
       - name: Run canary publisher smoke
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2238,6 +2288,7 @@ jobs:
         env:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          DEPLOY_IDENTITY_EFFECT_DIGEST: ${{ env.DEPLOY_IDENTITY_EFFECT_DIGEST }}
           MODEL_BINDING_READBACK_DIGEST: ${{ env.MODEL_BINDING_READBACK_DIGEST }}
         run: |
           set -euo pipefail
@@ -2270,6 +2321,14 @@ jobs:
                   "model_resolution": model_resolution,
                   "readback_receipt_digest": readback_digest,
               }
+          identity_effect_digest = os.environ.get("DEPLOY_IDENTITY_EFFECT_DIGEST", "")
+          if identity_effect_digest:
+              if len(identity_effect_digest) != 64 or any(
+                  character not in "0123456789abcdef"
+                  for character in identity_effect_digest
+              ):
+                  raise SystemExit("deploy identity effect digest is invalid")
+              receipt["deploy_identity_effect_digest"] = identity_effect_digest
           with open("apply-receipt.json", "w", encoding="utf-8") as stream:
               json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")
@@ -2291,6 +2350,10 @@ jobs:
           else
             mkdir -m 0700 "$candidate"
             install -m 0600 apply-receipt.json "$candidate/apply-receipt.json"
+          fi
+          if [[ -n "${DEPLOY_IDENTITY_EFFECT_DIGEST:-}" ]]; then
+            install -m 0600 "$RUNNER_TEMP/deploy-identity-effect-receipt.json" \
+              "$candidate/deploy-identity-effect-receipt.json"
           fi
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
 

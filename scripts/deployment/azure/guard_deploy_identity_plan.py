@@ -43,12 +43,42 @@ _REDUNDANT_ROLE = (
     "module.operational_history_storage[0].azurerm_role_assignment.terraform_runner_data_owner[0]"
 )
 _TARGETS = (_FENCE, *_ROLE_TARGETS, _REDUNDANT_ROLE)
+_STATE_FEATURES = {
+    "azurerm_role_assignment.dev_gateway_storage_deployer[0]": (
+        "TF_VAR_enable_dev_operations_gateway"
+    ),
+    "module.document_storage[0].azurerm_role_assignment.deployer_data_owner": (
+        "TF_VAR_enable_document_ingestion"
+    ),
+    "module.llm_foundry_partner[0].azurerm_role_assignment.project_user["
+    '"deployer"]': "TF_VAR_enable_llm",
+    "module.foundry_web_search[0].azurerm_role_assignment.project_user["
+    '"deployer"]': "TF_VAR_enable_llm",
+    "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner": (
+        "TF_VAR_enable_operational_history"
+    ),
+    "module.rule_catalog_snapshot_storage[0].azurerm_role_assignment.deployer_data_owner": (
+        "TF_VAR_enable_rule_catalog_snapshot_storage"
+    ),
+}
 
 
 def target_cli_args() -> str:
     """Return the reviewed Terraform targets as one TF_CLI_ARGS_plan value."""
 
     return shlex.join(f"-target={address}" for address in _TARGETS)
+
+
+def state_feature_environment(state_addresses: list[str]) -> tuple[str, ...]:
+    """Return feature enablements required to preserve state-backed role targets."""
+
+    addresses = set(state_addresses)
+    return tuple(
+        f"{name}=true"
+        for name in sorted(
+            {variable for address, variable in _STATE_FEATURES.items() if address in addresses}
+        )
+    )
 
 
 def validate_plan(plan: object, *, expected_principal_id: str) -> tuple[str, ...]:
@@ -182,11 +212,18 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("targets")
+    state_env = subcommands.add_parser("state-env")
+    state_env.add_argument("--state-list", type=Path, required=True)
     validate = subcommands.add_parser("validate")
     validate.add_argument("--plan", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "targets":
         print(target_cli_args())
+        return 0
+    if args.command == "state-env":
+        addresses = args.state_list.read_text(encoding="utf-8").splitlines()
+        for value in state_feature_environment(addresses):
+            print(value)
         return 0
 
     plan = json.loads(args.plan.read_text(encoding="utf-8"))

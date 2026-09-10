@@ -85,6 +85,19 @@ def test_target_arguments_cover_only_the_reviewed_addresses() -> None:
         assert address in arguments
 
 
+def test_state_features_preserve_only_present_role_owners() -> None:
+    state = [
+        "azurerm_role_assignment.dev_gateway_storage_deployer[0]",
+        "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
+        "unrelated.resource",
+    ]
+
+    assert guard.state_feature_environment(state) == (
+        "TF_VAR_enable_dev_operations_gateway=true",
+        "TF_VAR_enable_document_ingestion=true",
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     ("unexpected-address", "wrong-principal", "changed-scope", "unpaired-delete"),

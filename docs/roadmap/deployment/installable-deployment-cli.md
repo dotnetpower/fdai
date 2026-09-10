@@ -516,6 +516,9 @@ role. An optional runtime revision is also sealed; any changed input invalidates
 application selections into the context but targets only the stable-principal fence and the
 reviewed deployer role assignments. The plan guard requires every resulting assignment to use the
 configured stable runner UAMI, and exact apply reuses that same target set for convergence.
+Post-apply verification reads Azure role assignments, requires every planned role on the stable
+principal, requires zero remaining assignment for each superseded principal, and binds the
+sanitized effect digest into the apply receipt.
 
 Apply dispatch carries no GitHub Environment approval gate. The client does not inspect required
 reviewers, self-review, or administrator bypass, and the protected workflows bind no deployment

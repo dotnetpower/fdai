@@ -98,7 +98,9 @@ It removes the rendered plan review copy on every exit path, including a rejecte
 sensitive Terraform values don't remain in a persistent runner slot.
 The development-only deploy identity migration request targets only the stable-principal fence and
 the reviewed deployer role assignments. Its guard rejects unrelated resources, changed scopes or
-roles, and any destination principal other than the configured runner UAMI.
+roles, and any destination principal other than the configured runner UAMI. Post-apply readback
+requires every planned role on that UAMI and zero remaining roles for superseded principals before
+the apply receipt is written.
 Privileged workflows first check out the shared source verifier from protected `main`; the verifier
 rejects a target commit that isn't an ancestor or whose workflow controls differ before target
 commit code runs. A
