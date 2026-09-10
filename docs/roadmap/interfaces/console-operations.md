@@ -626,10 +626,6 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 The [Console settings and component presentation reference](../../reference/console-settings-presentation.md)
 defines shared controls, IAM stages, component documentation, and authority boundaries.
 
-Route-local message helpers remain part of the shared Console localization contract. The static
-catalog check resolves each helper to its English source catalog, so adding or moving an Operations
-helper cannot silently render a key name or bypass English fallback.
-
 ## Rejected alternatives
 
 - **Separate operations app:** Duplicates FDAI Console and suggests a second product.
