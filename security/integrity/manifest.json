@@ -1071,7 +1071,7 @@
     "services/core-control-plane/src/fdai/core/standing_authority/lifecycle_codec.py": "c0c144fb5e5cf88df3d2fcd6eadf0bbb6c4b1e84f3187efd3af1b3009264bc2b",
     "services/core-control-plane/src/fdai/core/standing_authority/lifecycle_revision.py": "37a59c4907b7428d1fc76c7f50544aea0573172a8f564332991e7d1fffa40fa8",
     "services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate.py": "8a12ae04de8af931383533cb3f53be359c2847b50b214747587ee2b640054bad",
-    "services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate_models.py": "ba0f5e09311418d8d9c41fd104a390155b452f80c57aab89ea40fa63168e47ae",
+    "services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate_models.py": "85cf38e3a611c560950c2c7eca46252445c541ab5e2b641fffb2a4399af823e3",
     "services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate_ops.py": "1f79e61af2870932a5df0f82a7c2f6a1f00323b73fff8f3e299fd21b855acf22",
     "services/core-control-plane/src/fdai/core/standing_authority/record.py": "64f5770efbc798c2529f02abe9b433fce59798bab40c7a325bd2d365397d714b",
     "services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_runner.py": "72c9f0357a2073a8e214b7ec10ae2bf2ce4f1e73762466a719adfe73a53af383",
