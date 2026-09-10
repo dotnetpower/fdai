@@ -37,6 +37,9 @@ _SERVICE_CONTAINER_APP = (_ROOT / "infra/services/_modules/container-app/main.tf
     encoding="utf-8"
 )
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+_PLAN_METADATA_BUILDER = (
+    _ROOT / "scripts/deployment/azure/build_deployment_plan_metadata.py"
+).read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
 _PLAN_BUNDLE = (_ROOT / "scripts/deployment/service/plan_bundle.py").read_text(encoding="utf-8")
 _OCR_RESOLVER = (
@@ -755,16 +758,14 @@ def test_platform_workflow_does_not_require_system_pip() -> None:
     assert "uv run --frozen --package fdai-core-control-plane python" in readiness_step
 
 
-def test_platform_workflow_plan_metadata_python_is_compilable() -> None:
+def test_platform_workflow_uses_compilable_plan_metadata_builder() -> None:
     step = _LEGACY_WORKFLOW.split("- name: Store protected plan artifact", maxsplit=1)[1].split(
         "- name: Publish sanitized plan metadata", maxsplit=1
     )[0]
-    match = re.search(r"python3 - <<'PY'\n(?P<source>.*?)\n\s+PY", step, re.DOTALL)
 
-    assert match is not None
-    source = textwrap.dedent(match.group("source"))
-    compile(source, "deploy-dev-plan-metadata", "exec")
-    assert "from pathlib import Path" in source
+    assert "build_deployment_plan_metadata.py" in step
+    compile(_PLAN_METADATA_BUILDER, "build-deployment-plan-metadata", "exec")
+    assert "from pathlib import Path" in _PLAN_METADATA_BUILDER
 
 
 def test_platform_workflow_accepts_plans_without_runtime_image_evidence() -> None:
