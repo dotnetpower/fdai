@@ -35,6 +35,10 @@ from fdai_service_contracts.executor import (
 )
 from fdai_service_contracts.schema import ContractValidator
 
+from fdai_executor_service.bundle_validation import (
+    SafeguardBundleStore,
+    validate_bundle_binding_sync,
+)
 from fdai_executor_service.effect_safety import deadline_expired
 from fdai_executor_service.ports import ExecutorStateStore
 
@@ -99,6 +103,24 @@ class IsolatedExecutorEffectService:
             version=command.action_schema_version,
         )
         received_at = self._clock()
+
+        bundle_digest: str | None = None
+        if isinstance(command, SafeguardBoundExecutorCommand):
+            bundle_digest = command.safeguard_proof_bundle_digest
+            bundle = None
+            if self._bundle_store is not None:
+                bundle = await self._bundle_store.resolve_bundle(bundle_digest)
+            refusal = validate_bundle_binding_sync(command, bundle, now=received_at)
+            if refusal is not None:
+                return self._effect_receipt(
+                    command,
+                    status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                    reason=f"safeguard bundle {refusal.category}: {refusal.reason}",
+                    received_at=received_at,
+                    completed_at=received_at,
+                    safeguard_proof_bundle_digest=bundle_digest,
+                )
+
         action = Action.model_validate(command.action_payload)
         if deadline_expired(received_at, command.deadline_at):
             recovered = None
