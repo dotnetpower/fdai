@@ -512,15 +512,6 @@ authority-free `--deploy-operator-channel-edge` identity plan, and the exclusive
 identically into plan and apply. The RCA mode permits only its dedicated identity and Monitoring Reader
 role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform. `--deploy-identity-migration` is a development-only exclusive operation that targets the stable-principal fence and state-backed deployer roles, rejects application selections, reuses the exact target set for convergence, and binds stable-role plus zero-superseded-role readback into the apply receipt. Normal CLI contexts seal `runtime_call_evidence_transition=false` for server digest parity but omit that removed key from workflow dispatch fields.
 
-`--deploy-identity-migration` is a development-only exclusive operation. It can't be combined with
-an application deployment selection. The runner derives only the feature flags needed to preserve
-role owners already present in state, then targets the stable-principal fence and reviewed deployer
-role assignments. The plan guard requires every resulting assignment to use the configured stable
-runner UAMI, and exact apply reuses that same target set for convergence.
-Post-apply verification reads Azure role assignments, requires every planned role on the stable
-principal, requires zero remaining assignment for each superseded principal, and binds the
-sanitized effect digest into the apply receipt.
-
 Apply dispatch carries no GitHub Environment approval gate. The client does not inspect required
 reviewers, self-review, or administrator bypass, and the protected workflows bind no deployment
 environment, so an authorized dispatch applies immediately. A profile `approval_quorum` value is

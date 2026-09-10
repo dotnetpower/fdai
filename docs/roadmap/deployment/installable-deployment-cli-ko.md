@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 0d40c5c9b7f3854422e7895c5dacb384dab7604b
+translation_source_sha: ffb948d29b494d7c5ae53c0c8298db26fa972999
 translation_revised: 2026-09-11
 ---
 # 설치형 배포 CLI

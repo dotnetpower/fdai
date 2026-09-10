@@ -110,7 +110,8 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 
 `catalog_digest` covers the schema version, source revision, build time, records, and authority
 flag. Rebuilding the same records at a different time therefore creates a distinct packaged
-artifact.
+artifact. Any change to a cited source, including formatting-only compaction, requires a catalog
+rebuild before packaging so its blob pins and digest match the release tree.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of
