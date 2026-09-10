@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -9,6 +10,10 @@ _WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encod
 _CONVERGENCE = (
     _ROOT / "scripts" / "deployment" / "azure" / "verify_deploy_convergence.sh"
 ).read_text(encoding="utf-8")
+_EFFECT_WRAPPER_PATH = (
+    _ROOT / "scripts" / "deployment" / "azure" / "verify-deploy-identity-effect.sh"
+)
+_EFFECT_WRAPPER = _EFFECT_WRAPPER_PATH.read_text(encoding="utf-8")
 
 
 def test_workflow_binds_and_guards_only_the_identity_migration_plan() -> None:
@@ -18,16 +23,16 @@ def test_workflow_binds_and_guards_only_the_identity_migration_plan() -> None:
     assert "guard_deploy_identity_plan.py targets" in _WORKFLOW
     assert "guard_deploy_identity_plan.py \\\n              validate" in _WORKFLOW
     assert "env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true'" in _WORKFLOW
-    assert "Preserve state-backed deploy identity features" in _WORKFLOW
-    assert "state-env --state-list" in _WORKFLOW
+    assert "state-env --terraform-dir ." in _WORKFLOW
+    assert "mode=deploy-identity" in _WORKFLOW
 
 
 def test_identity_apply_uses_targeted_convergence_without_runtime_checks() -> None:
     assert 'elif [[ "$request_id" == apply-identity-* ]]' in _CONVERGENCE
     assert 'if [[ "$deploy_identity_only" == "true" ]]' in _CONVERGENCE
-    assert "Revalidate exact deploy identity plan" in _WORKFLOW
-    assert "Verify stable deploy identity effect" in _WORKFLOW
-    assert "verify_deploy_identity_effect.py" in _WORKFLOW
+    assert "deploy-identity-applied-plan.json" in _WORKFLOW
+    assert "- name: Verify stable deploy identity effect" not in _WORKFLOW
+    assert "verify-deploy-identity-effect.sh" in _WORKFLOW
     assert "deploy_identity_effect_digest" in _WORKFLOW
     canary = _WORKFLOW.split("- name: Run canary publisher smoke", maxsplit=1)[1].split(
         "- name: Record exact plan apply receipt", maxsplit=1
@@ -43,3 +48,17 @@ def test_identity_apply_uses_targeted_convergence_without_runtime_checks() -> No
         if end is not None:
             step = step.split(f"- name: {end}", maxsplit=1)[0]
         assert "DEPLOY_IDENTITY_MIGRATION_ONLY != 'true'" in step
+
+
+def test_identity_effect_wrapper_is_fail_closed_and_publishes_one_receipt() -> None:
+    completed = subprocess.run(  # noqa: S603 - fixed Bash path and repository script.
+        ["/usr/bin/bash", "-n", str(_EFFECT_WRAPPER_PATH)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "set -euo pipefail" in _EFFECT_WRAPPER
+    assert "DEPLOY_IDENTITY_EFFECT_DIGEST=" in _EFFECT_WRAPPER
+    assert "--overwrite false" in _EFFECT_WRAPPER

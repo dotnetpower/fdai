@@ -102,6 +102,8 @@ principal so the production identity fence remains active in tests. Plan-only re
 reviewed helpers instead of inline shell blocks, bounding how much a single review needs to re-read.
 It removes the rendered plan review copy on every exit path, including a rejected guard, so
 sensitive Terraform values don't remain in a persistent runner slot.
+Identity migration target derivation, state-backed feature preservation, and effect publication
+stay in focused helpers so the protected workflow remains within its line and step budgets.
 The development-only deploy identity migration request is exclusive and targets only the
 stable-principal fence and reviewed deployer role assignments. Its guard rejects application
 deployment selections, unrelated resources, changed scopes or roles, and any destination principal

@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -213,7 +214,9 @@ def main() -> int:
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("targets")
     state_env = subcommands.add_parser("state-env")
-    state_env.add_argument("--state-list", type=Path, required=True)
+    state_source = state_env.add_mutually_exclusive_group(required=True)
+    state_source.add_argument("--state-list", type=Path)
+    state_source.add_argument("--terraform-dir", type=Path)
     validate = subcommands.add_parser("validate")
     validate.add_argument("--plan", type=Path, required=True)
     args = parser.parse_args()
@@ -221,7 +224,18 @@ def main() -> int:
         print(target_cli_args())
         return 0
     if args.command == "state-env":
-        addresses = args.state_list.read_text(encoding="utf-8").splitlines()
+        if args.state_list is not None:
+            addresses = args.state_list.read_text(encoding="utf-8").splitlines()
+        else:
+            completed = subprocess.run(
+                ["terraform", "state", "list"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=args.terraform_dir,
+            )
+            addresses = completed.stdout.splitlines()
         for value in state_feature_environment(addresses):
             print(value)
         return 0

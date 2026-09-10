@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a085370b9e5c20d594f810fbcfeb080bee126411
+translation_source_sha: b18789eced7675c447cfe200eb5ca6b44b571979
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -105,6 +105,8 @@ principal에 고정하므로 테스트에서도 운영 identity fence가 활성 
 검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 검증기가 계획을 차단한
 경우를 포함해 모든 종료 경로에서 렌더링한 계획 검토 복사본을 제거하므로, 민감한 Terraform 값이
 영속 실행기 자리에 남지 않습니다.
+Identity 이행 대상 파생, 상태 기반 기능 보존 및 효과 게시는 집중된 helper에 두어 보호된
+workflow가 줄 수와 단계 수 예산 안에 머물도록 합니다.
 개발 환경 전용 deploy identity 이행 요청은 단독으로 실행되며 안정 principal fence와 검토된
 deployer 역할 할당만 대상으로 합니다. 해당 검증기는 애플리케이션 배포 선택, 관련 없는 리소스,
 변경된 범위나 역할, 구성된 실행기 UAMI가 아닌 대상 principal을 차단합니다. 적용 후 readback은
