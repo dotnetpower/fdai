@@ -1074,7 +1074,7 @@
     "services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate_models.py": "ba0f5e09311418d8d9c41fd104a390155b452f80c57aab89ea40fa63168e47ae",
     "services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate_ops.py": "1f79e61af2870932a5df0f82a7c2f6a1f00323b73fff8f3e299fd21b855acf22",
     "services/core-control-plane/src/fdai/core/standing_authority/record.py": "64f5770efbc798c2529f02abe9b433fce59798bab40c7a325bd2d365397d714b",
-    "services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_runner.py": "ff67231710cc92a4c03f8dc8bae9ddcdccc0d4f03b1b68497b2df2fe4bdb333f",
+    "services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_runner.py": "72c9f0357a2073a8e214b7ec10ae2bf2ce4f1e73762466a719adfe73a53af383",
     "services/core-control-plane/src/fdai/core/stewardship/__init__.py": "ed06a3f5cf569308862df32e48b18627a8809ec679edc122654189808984752e",
     "services/core-control-plane/src/fdai/core/stewardship/coverage.py": "d07e404ce6abb3474172ff02fd4b3529ae9c8fafa8c5395202b0193c85d883dc",
     "services/core-control-plane/src/fdai/core/stewardship/directory.py": "f5167377cad97665d2f582f9e1f96ac17c6704caa4e940f1c204b753db365dd0",
