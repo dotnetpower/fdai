@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 12d242cdc1739ac4a491fa77d2987b89e27928cd
+translation_source_sha: 009f79b271a982c1d2f233b56167ad5e04c2ff39
 translation_revised: 2026-09-11
 ---
 
@@ -67,6 +67,10 @@ Genesis는 도구 체인 단계에서 안정적인 Bastion 및 Microsoft Entra S
   이행 후 영구 VM에는 이 UAMI만 남습니다.
   폐쇄망 이미지는 정확한 관리 이미지 또는 숫자형 갤러리 버전 ID와 함께
   `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
+- 배포자 역할은 배타적인 보호 identity 계획으로 이전합니다. 이 계획은 플랫폼 상태가 이미
+  소유한 역할 주소만 대상으로 삼습니다. 함께 필요한 저장소 선행 조건은 local user를 끄고
+  구성된 blob 및 container 보존 기간을 유지하는 변경만 허용합니다. Console, Entra,
+  데이터베이스, 상태 검사 및 canary 작업은 이 작업에 포함하지 않습니다.
 - 검토된 블루/그린 후보를 승격할 때는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기
   전에 기존 VM 이름을 `runner_vm_name`에 설정합니다. 예약된 상태 점검은 모델에만 존재하는 OS
   디스크 ID를 ops 리소스 그룹의 디스크 인벤토리와 비교합니다. 검증기가 바뀌면 점검을 다시 실행하며

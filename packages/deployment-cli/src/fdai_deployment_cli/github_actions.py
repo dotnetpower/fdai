@@ -107,6 +107,7 @@ class DeploymentSelection:
             result["deploy_operator_channel_edge"] = True
         result["deploy_rca_reader_identity"] = self.deploy_rca_reader_identity
         result["document_ocr_action"] = "preserve"
+        result["runtime_call_evidence_transition"] = False
         result["runtime_image_revision"] = self.runtime_image_revision
         return result
 
@@ -552,6 +553,7 @@ def _dispatch(
                 "deploy_identity_migration",
                 "deploy_operational_history",
                 "deploy_rca_reader_identity",
+                "runtime_call_evidence_transition",
             }
         },
     }

@@ -464,7 +464,12 @@ def test_ci_supports_exact_main_revalidation() -> None:
     assert "  workflow_dispatch:" in workflow
     assert "  push:" in workflow
     assert "  pull_request:" in workflow
-    assert "github.event_name == 'workflow_dispatch' && 1 || 0" in workflow
+    assert "github.event_name != 'workflow_dispatch'" in workflow
+    assert "gitleaks_8.24.3_linux_x64.tar.gz" in workflow
+    assert "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c" in workflow
+    assert "curl --fail --location --silent --show-error" in workflow
+    assert "--retry-max-time 120" in workflow
+    assert '--log-opts="HEAD^..HEAD"' in workflow
 
 
 def test_shipped_workflows_satisfy_security_contracts() -> None:
