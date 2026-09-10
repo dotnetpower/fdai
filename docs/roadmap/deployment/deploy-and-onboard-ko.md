@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e13b5c72db0af71948251076ed8f9d1dd655d0e5
+translation_source_sha: bf964330080b6a65254e5143756ecb08b0a8af22
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -95,7 +95,7 @@ GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으�
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 정확한 역할 principal 또는 범위 이행, 측정 기능이 비활성화된 경우 이전 indexed 측정 Job 두 개의 삭제 전용 제거, 검토된 embedding 제품군 및 SKU 교체만 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
+구문만 사용합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 정확한 역할 principal 또는 범위 이행만 허용하며 deployer principal 교체의 대상은 구성된 안정 실행기 UAMI여야 합니다. 측정 기능이 비활성화된 경우 이전 indexed 측정 Job 두 개의 삭제 전용 제거와 검토된 embedding 제품군 및 SKU 교체도 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복되는 요청 검증과 계획 범위 로직을 inline shell 블록 대신
 검토된 helper에 두어, 리뷰가 다시 읽어야 하는 workflow 분량을 제한합니다. 검증기가 계획을 차단한
 경우를 포함해 모든 종료 경로에서 렌더링한 계획 검토 복사본을 제거하므로, 민감한 Terraform 값이
 영속 실행기 자리에 남지 않습니다. 권한 있는 workflow는 먼저

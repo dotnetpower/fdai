@@ -5,9 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
+_GUID = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 _ROLE_REPLACEMENTS = {
     "azurerm_role_assignment.dev_gateway_storage_deployer[0]": (
         "principal_id",
@@ -59,9 +65,13 @@ _EMBEDDING_ADDRESS = (
 
 def filter_reviewed_platform_migrations(
     plan: object,
+    *,
+    expected_deploy_principal_id: str,
 ) -> tuple[dict[str, object], tuple[str, ...]]:
     """Validate and remove only the reviewed migration changes."""
 
+    if _GUID.fullmatch(expected_deploy_principal_id) is None:
+        raise ValueError("expected deploy principal id must be a GUID")
     if not isinstance(plan, Mapping):
         raise ValueError("protected Terraform plan MUST be an object")
     raw_changes = plan.get("resource_changes")
@@ -89,6 +99,7 @@ def filter_reviewed_platform_migrations(
             change,
             replacement_field=replacement_field,
             role_name=role_name,
+            expected_deploy_principal_id=expected_deploy_principal_id,
         ):
             raise ValueError(f"unapproved platform role replacement: {address}")
         validated.add(address)
@@ -119,6 +130,7 @@ def _exact_role_replacement(
     *,
     replacement_field: str,
     role_name: str,
+    expected_deploy_principal_id: str,
 ) -> bool:
     details = change.get("change")
     if not isinstance(details, Mapping):
@@ -136,6 +148,11 @@ def _exact_role_replacement(
         and before.get(stable_field) == after.get(stable_field)
         and _nonempty(before.get(replacement_field))
         and before.get(replacement_field) != after.get(replacement_field)
+        and (
+            replacement_field != "principal_id"
+            or str(after.get("principal_id", "")).casefold()
+            == expected_deploy_principal_id.casefold()
+        )
     )
 
 
@@ -219,7 +236,10 @@ def main() -> int:
     args = parser.parse_args()
     plan = json.loads(args.plan.read_text(encoding="utf-8"))
     try:
-        filtered, validated = filter_reviewed_platform_migrations(plan)
+        filtered, validated = filter_reviewed_platform_migrations(
+            plan,
+            expected_deploy_principal_id=os.environ.get("DEPLOY_RUNNER_PRINCIPAL_ID", ""),
+        )
     except ValueError as error:
         print(str(error))
         return 1
