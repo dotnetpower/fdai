@@ -235,6 +235,7 @@ identity separation, content-addressed completion claims with monotonic generati
 supersession/revocation. `recovery_terminalization.py` provides the completion digest, immutable
 receipt lookup, completion outbox with independent delivery, and a terminal-transition guard that
 binds the current Process revision, effect claim, release receipt, and exact completion digest,
+while each reconstructed outbox entry verifies its immutable content address.
 and replay idempotency. `hold_dispatch_fence.py` fences forward dispatch against
 active, malformed, or unreadable hold state inside the logical-target lock, with an isolated-Executor
 equivalent that performs the same check without importing Core implementation.

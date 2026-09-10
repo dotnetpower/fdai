@@ -281,6 +281,24 @@ class TestCompletionOutbox:
                 entry_digest=_AUDIT_DIGEST,
             )
 
+    def test_reject_tampered_entry_digest(self) -> None:
+        entry = CompletionOutboxEntry.create_pending(
+            completion_digest=_RECEIPT_DIGEST,
+            delivery_kind="process_event",
+            payload_digest=_EVENT_DIGEST,
+        )
+
+        with pytest.raises(ValueError, match="digest mismatched"):
+            CompletionOutboxEntry(
+                completion_digest=entry.completion_digest,
+                delivery_kind=entry.delivery_kind,
+                delivery_state=entry.delivery_state,
+                payload_digest=entry.payload_digest,
+                attempt_count=entry.attempt_count,
+                last_attempt_at=entry.last_attempt_at,
+                entry_digest="sha256:" + "0" * 64,
+            )
+
 
 class TestValidateTerminalPreconditions:
     def test_all_valid(self) -> None:

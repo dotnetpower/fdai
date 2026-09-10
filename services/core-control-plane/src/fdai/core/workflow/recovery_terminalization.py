@@ -225,6 +225,17 @@ class CompletionOutboxEntry:
             raise ValueError("outbox entry requires a valid payload_digest")
         if not isinstance(self.attempt_count, int) or self.attempt_count < 0:
             raise ValueError("outbox entry attempt_count MUST be non-negative")
+        if _DIGEST.fullmatch(self.entry_digest) is None:
+            raise ValueError("outbox entry requires a valid entry_digest")
+        expected = content_digest(
+            {
+                "completion_digest": self.completion_digest,
+                "delivery_kind": self.delivery_kind,
+                "payload_digest": self.payload_digest,
+            }
+        )
+        if self.entry_digest != expected:
+            raise ValueError("outbox entry digest mismatched")
 
     @classmethod
     def create_pending(
