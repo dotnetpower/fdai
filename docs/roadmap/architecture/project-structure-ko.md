@@ -602,7 +602,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
-  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
+  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 현재 생성된 보기는 안전조건 결속 명령 및 관측 스키마에서 갱신됩니다. 이 파일은 읽기 전용 개발
   변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다. `state_kv`의 Core 소유 부분 인덱스는 테이블 소유권을 이전하지 않고 Operator 의미 claim 정렬과 principal 범위 replay를 지원합니다.
   `executor-command` 1.1은 `safeguard_proof_bundle_digest`와 `source_revision` 바인딩을
   추가합니다. Isolated 실행기는 프로바이더 디스패치 전에 증명 묶음을 재검증하고

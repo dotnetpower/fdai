@@ -408,6 +408,7 @@ export interface ExecutorReceiptV1_1_0 {
   readonly effect_verified: false;
   readonly rollback_succeeded?: boolean | null;
   readonly provider_receipt_ref?: string | null;
+  readonly safeguard_proof_bundle_digest?: string | null;
   readonly audit_ref: string;
 }
 
