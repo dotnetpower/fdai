@@ -275,11 +275,13 @@ class TerminalTransitionRejection(StrEnum):
 def validate_terminal_preconditions(
     *,
     claim: EffectCompletionClaim,
+    completion: RecoveryCompletionDigest,
     hold_revision: int,
     fencing_generation: int,
     process_revision: int,
     expected_completion_digest: str,
     release_receipt_digest: str | None,
+    committed_completion_digest: str | None = None,
     now: datetime,
 ) -> tuple[bool, tuple[TerminalTransitionRejection, ...]]:
     """Fail closed unless every precondition is met."""
@@ -300,11 +302,29 @@ def validate_terminal_preconditions(
     if claim.hold_revision != hold_revision:
         reasons.append(TerminalTransitionRejection.HOLD_REVISION_MISMATCH)
 
+    if completion.expected_process_revision != process_revision:
+        reasons.append(TerminalTransitionRejection.PROCESS_REVISION_CONFLICT)
+
+    completion_matches_claim = (
+        completion.recovery_attempt_digest == claim.attempt_identity_digest
+        and completion.effect_claim_generation == claim.generation
+        and completion.effect_claim_digest == claim.claim_digest
+    )
+    if completion.completion_digest != expected_completion_digest or not completion_matches_claim:
+        reasons.append(TerminalTransitionRejection.COMPLETION_DIGEST_MISMATCH)
+
     if fencing_generation != hold_revision + 1:
         reasons.append(TerminalTransitionRejection.FENCING_GENERATION_MISMATCH)
 
     if release_receipt_digest is None:
         reasons.append(TerminalTransitionRejection.RELEASE_RECEIPT_MISSING)
+    elif release_receipt_digest != completion.release_receipt_digest:
+        reasons.append(TerminalTransitionRejection.COMPLETION_DIGEST_MISMATCH)
+
+    if committed_completion_digest is not None:
+        reasons.append(TerminalTransitionRejection.ALREADY_TERMINAL)
+        if committed_completion_digest != expected_completion_digest:
+            reasons.append(TerminalTransitionRejection.COMPLETION_DIGEST_MISMATCH)
 
     return (len(reasons) == 0, tuple(sorted(set(reasons), key=str)))
 

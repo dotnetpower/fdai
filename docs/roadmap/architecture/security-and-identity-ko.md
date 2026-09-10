@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 1ead69fe772bf079b5cff2c58fb0a304e04aa785
+translation_source_sha: 2d2c9faf96f4dce9ff6a839056fe670be3b970ca
 translation_revised: 2026-09-11
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 보류된 복구 최종 처리를 현재 Process revision, 정확한 효과 주장 및 generation, 해제 증적, 완료 digest, 기존 최종 커밋 부재에 결속했습니다. 하나라도 일치하지 않으면 이제 전환을 차단합니다. | `current change`; `recovery_terminalization.py`; 집중 최종 처리 사전 조건 테스트 27개 통과. | #630에서 운영 보상을 보호된 해제 기본 연산으로 연결합니다. |
 | 2026-09-10 | implemented | 정확한 매니페스트, 완전한 분모 계산, 콘텐츠에 결속된 자료 집합과 증적, 고정 로컬 제한 시간, 레지스트리 전후 무결성, 심볼릭 링크에 안전한 명시적 산출물 작성기를 갖춘 결정론적 로컬 합성 A3-E shadow 집단을 추가했습니다. 개발 근거만 기록하며 실행 또는 승격 권한을 부여하지 않습니다. | `current change`; `core/standing_authority/shadow_cohort_runner.py`; 최종 회귀 테스트 2개 전 집중 standing-authority 테스트 174개 통과 후 40개 집단 테스트 구간 재실행; Ruff, strict mypy 통과; 독립 TOCTOU 및 자료 집합 결속 문제를 수정했고 재비평에서 Medium 이상 발견된 문제가 없습니다. | #631의 로컬 구현 잔여 작업은 없습니다. #632에는 별도 승인된 통제된 런타임 근거와 독립 승격 검토가 필요합니다. |
 | 2026-09-10 | implemented | 비활성 shadow 전용 A3-E 승격 후보 수명 주기를 추가했습니다. 정확한 권한 및 lease 개정, 검토자 허용 목록, 근거 요구 사항, 인증된 생성자와 검토자 분리, 콘텐츠에 결속된 취소, 결정적 거부, 2단계 감사, 변경 불가 재실행, 정적 비가져오기 검사는 실행 또는 승격 권한을 부여하지 않고 권한 있는 레지스트리를 변경하지 않습니다. | `current change`; `core/standing_authority/promotion_candidate*.py`; 집중 테스트 52개 통과; Ruff, format, strict mypy, 모든 파일 크기 제한 통과; 검토자 권한과 취소 다이제스트 결속에 대한 독립 비평 발견을 수정했으며 재비평에서 Medium 이상 발견된 문제가 없습니다. | #629의 로컬 구현 잔여 작업은 없습니다. 별도 승인된 #632 승격 전에 범위가 제한된 #631 shadow 집단을 보존합니다. |
 | 2026-09-10 | implemented | 비활성 효과 전체 구간 A3-E lease와 공급자 커밋 fence 계약을 추가했습니다. 정확한 수명 주기 개정, 작업, 대상, 실행기 신원, 소스 개정, 제한된 유효 기간, fence 세대, 안정된 공급자 멱등성, checkpoint, 최종 해제, 권위 있는 재시작 조정은 모두 권한 없는 레코드로 유지됩니다. 원자적 lease 검증, fence, 멱등성, 상태 조정을 제공하지 않는 공급자는 부적합하며 운영 권한 경로는 lease를 가져오지 않습니다. | `current change`; `core/standing_authority/lease.py`; `shared/providers/standing_authority.py`; 집중 테스트 82개 통과; Ruff, format, strict mypy 통과; 수정된 정적 gate가 권한 경로 파일 208개 검사; 독립 비평에서 Medium 이상 발견된 문제가 없습니다. | #621의 로컬 구현 잔여 작업은 없습니다. #629 검토와 #631 shadow 근거를 마칠 때까지 lease를 비활성으로 유지한 뒤 #632 승격을 별도로 승인합니다. |
