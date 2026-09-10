@@ -35,6 +35,7 @@ _RCA_READER_IDENTITY = frozenset(
     }
 )
 _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
+_RUNTIME_CALL_EVIDENCE = frozenset({"module.compute.azurerm_container_app_job.inventory[0]"})
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
@@ -198,6 +199,14 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "runtime-call-evidence":
+        unexpected = sorted(changed.difference(_RUNTIME_CALL_EVIDENCE))
+        if unexpected:
+            raise ValueError(
+                "Runtime-call-evidence plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "operational-history":
         unexpected = sorted(
             address
@@ -249,6 +258,7 @@ def main() -> int:
             "observability-analyzer",
             "rca-reader-identity",
             "operational-history",
+            "runtime-call-evidence",
         ),
         required=True,
     )
