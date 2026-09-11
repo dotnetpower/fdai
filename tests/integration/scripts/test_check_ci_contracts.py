@@ -575,6 +575,24 @@ def test_issue_event_exemption_rejects_mixed_dispatch_workflows(
     assert any("mixed-policy.yml" in error for error in errors)
 
 
+def test_dispatch_guards_are_parsed_from_triggers_and_root_jobs() -> None:
+    module = _load_contract_module()
+    document = yaml.safe_load(
+        "on:\n"
+        "  workflow_dispatch :\n"
+        "    inputs: {}\n"
+        "jobs:\n"
+        "  apply:\n"
+        "    runs-on: self-hosted\n"
+        "    notes: github.ref == 'refs/heads/main'\n"
+    )
+
+    assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml workflow_dispatch must declare an exact commit_sha input",
+        ".github/workflows/example.yml root job apply must restrict dispatch to protected main",
+    ]
+
+
 def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/issue-lifecycle.yml").read_text(encoding="utf-8")
 

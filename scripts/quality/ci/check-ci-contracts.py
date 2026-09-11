@@ -598,6 +598,38 @@ def _is_event_scoped_issue_mutation(document: Any) -> bool:
     return True
 
 
+def _workflow_triggers(document: Any) -> dict[str, Any]:
+    if not isinstance(document, dict):
+        return {}
+    triggers = document.get("on", document.get(True))
+    return triggers if isinstance(triggers, dict) else {}
+
+
+def _dispatch_guard_errors(document: Any, relative: str) -> list[str]:
+    triggers = _workflow_triggers(document)
+    dispatch_triggers = {"workflow_dispatch", "workflow_call"} & set(triggers)
+    if not dispatch_triggers:
+        return []
+    errors: list[str] = []
+    for trigger in sorted(dispatch_triggers):
+        config = triggers[trigger]
+        inputs = config.get("inputs") if isinstance(config, dict) else None
+        if not isinstance(inputs, dict) or "commit_sha" not in inputs:
+            errors.append(f"{relative} {trigger} must declare an exact commit_sha input")
+    jobs = document.get("jobs") if isinstance(document, dict) else None
+    if not isinstance(jobs, dict):
+        return [*errors, f"{relative} dispatch workflow must declare jobs"]
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict) or "needs" in job:
+            continue
+        condition = job.get("if")
+        if not isinstance(condition, str) or "github.ref == 'refs/heads/main'" not in condition:
+            errors.append(
+                f"{relative} root job {job_name} must restrict dispatch to protected main"
+            )
+    return errors
+
+
 def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
     if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
         return [f"{relative} is privileged and has no executable protected-source guard"]
@@ -675,6 +707,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
         document = yaml.safe_load(content)
         if _is_event_scoped_issue_mutation(document):
             continue
+        errors.extend(_dispatch_guard_errors(document, relative))
         guard_errors = _protected_guard_prefix_errors(document, relative)
         errors.extend(guard_errors)
         if not guard_errors and not action_checked:
@@ -685,11 +718,6 @@ def _validate_privileged_workflow_guards() -> list[str]:
                         f"lacks protected-source guard: {fragment}"
                     )
             action_checked = True
-        if "workflow_dispatch:" in content or "workflow_call:" in content:
-            if "commit_sha:" not in content:
-                errors.append(f"{relative} must accept an exact commit_sha for privileged dispatch")
-            if "github.ref == 'refs/heads/main'" not in content:
-                errors.append(f"{relative} must restrict privileged dispatch to protected main")
     return errors
 
 
