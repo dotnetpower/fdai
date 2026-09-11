@@ -195,7 +195,12 @@ class _LicenseGatedToolCallExecutionPort:
 class LicenseGatedThorExecutionPort:
     """Wrap every Thor path with one shared dynamic entitlement check."""
 
-    __slots__ = ("_direct_api", "_pr_native", "_tool_call")
+    __slots__ = (
+        "_direct_api",
+        "_pr_native",
+        "_safeguard_lifecycle_ready",
+        "_tool_call",
+    )
 
     def __init__(
         self,
@@ -224,6 +229,13 @@ class LicenseGatedThorExecutionPort:
             if delegate.tool_call is not None
             else None
         )
+        self._safeguard_lifecycle_ready = delegate.safeguard_lifecycle_ready
+
+    @property
+    def safeguard_lifecycle_ready(self) -> bool:
+        """Preserve the delegate's immutable safeguard readiness."""
+
+        return self._safeguard_lifecycle_ready
 
     @property
     def pr_native(self) -> _PrNativeExecutionPort:

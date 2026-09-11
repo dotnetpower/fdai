@@ -128,8 +128,14 @@ class ServiceDirectApiEffectExecutor:
         *,
         action: Action,
         deadline_at: datetime | None = None,
+        upstream_target_lock_held: bool = False,
     ) -> DirectApiEffectResult:
-        """Validate, lock, audit, dispatch, and durably deduplicate one effect."""
+        """Validate, audit, dispatch, and durably deduplicate one effect.
+
+        A safeguard-bound command keeps the one target lock in Core while this
+        service performs provider I/O. Legacy commands retain the service-owned
+        target lock and cannot request this mode.
+        """
 
         if action.mode is not Mode.SHADOW and not self._allow_enforce:
             return await self._finish(
@@ -164,9 +170,10 @@ class ServiceDirectApiEffectExecutor:
             cached = self._dedupe.get(cache_key)
             if cached is not None:
                 return await self._deduplicated_or_conflict(action, cached)
-            await locks.enter_async_context(
-                self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
-            )
+            if not upstream_target_lock_held:
+                await locks.enter_async_context(
+                    self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
+                )
             expired_reason: str | None = None
             if deadline_at is not None:
                 now = self._clock()

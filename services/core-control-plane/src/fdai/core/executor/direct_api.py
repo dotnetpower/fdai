@@ -39,7 +39,13 @@ from enum import StrEnum
 from typing import Any
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
+from fdai.core.executor.direct_api_safeguard_dispatch import (
+    execute_direct_api_with_safeguard_lifecycle,
+)
 from fdai.core.executor.executor import ExecutorConfig
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
+)
 from fdai.core.executor.safeguards import (
     SafeguardRefusal,
     evaluate_pre_dispatch,
@@ -64,7 +70,7 @@ from fdai.shared.providers.direct_api import (
     DirectApiRetryableError,
 )
 from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.resource_lock import EvidenceResourceLock, ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
@@ -138,6 +144,7 @@ class DirectApiExecutionResult:
     outcome: DirectApiExecutionOutcome
     mode: Mode = Mode.SHADOW
     receipt_ref: str | None = None
+    safeguard_bundle_digest: str | None = None
     rollback_succeeded: bool | None = None
     reason: str | None = None
     audit_context: dict[str, Any] = field(default_factory=dict)
@@ -159,6 +166,7 @@ def _da_result_to_payload(result: DirectApiExecutionResult) -> dict[str, Any]:
         "outcome": result.outcome.value,
         "mode": result.mode.value,
         "receipt_ref": result.receipt_ref,
+        "safeguard_bundle_digest": result.safeguard_bundle_digest,
         "rollback_succeeded": result.rollback_succeeded,
         "reason": result.reason,
         "audit_context": dict(result.audit_context),
@@ -173,6 +181,11 @@ def _da_result_from_payload(payload: Mapping[str, Any]) -> DirectApiExecutionRes
         outcome=DirectApiExecutionOutcome(str(payload["outcome"])),
         mode=Mode(str(payload.get("mode", Mode.SHADOW.value))),
         receipt_ref=None if payload.get("receipt_ref") is None else str(payload["receipt_ref"]),
+        safeguard_bundle_digest=(
+            None
+            if payload.get("safeguard_bundle_digest") is None
+            else str(payload["safeguard_bundle_digest"])
+        ),
         rollback_succeeded=rollback if isinstance(rollback, bool) else None,
         reason=None if payload.get("reason") is None else str(payload["reason"]),
         audit_context=dict(ctx) if isinstance(ctx, Mapping) else {},
@@ -226,6 +239,7 @@ class DirectApiShadowExecutor:
         config: ExecutorConfig | None = None,
         idempotency: IdempotencyStore | None = None,
         allow_enforce: bool = False,
+        safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
     ) -> None:
         self._executor = executor
         self._audit_store = audit_store
@@ -233,6 +247,7 @@ class DirectApiShadowExecutor:
         self._config = config or ExecutorConfig()
         self._idempotency = idempotency
         self._allow_enforce = allow_enforce
+        self._safeguard_coordinator = safeguard_coordinator
         # idempotency_key -> DirectApiExecutionResult. Same FIFO-bounded
         # policy as :class:`ShadowExecutor` so a long-running control
         # loop cannot grow unbounded memory on distinct events. The
@@ -278,6 +293,20 @@ class DirectApiShadowExecutor:
         cached = self._dedupe.get(cache_key)
         if cached is not None:
             return await self._deduplicated_or_conflict(action=action, cached=cached)
+        if self._safeguard_coordinator is not None:
+            return await execute_direct_api_with_safeguard_lifecycle(
+                self,
+                action=action,
+            )
+        if (
+            isinstance(self._resource_lock, EvidenceResourceLock)
+            and self._resource_lock.production_eligible is True
+        ):
+            return await self._finish(
+                action=action,
+                outcome=DirectApiExecutionOutcome.REJECTED_INVARIANT,
+                reason="production safeguard lifecycle is unavailable",
+            )
 
         async with AsyncExitStack() as locks:
             await locks.enter_async_context(
@@ -442,7 +471,12 @@ class DirectApiShadowExecutor:
         return blast_radius_refusal(action, self._config)
 
     async def _finish_from_receipt(
-        self, *, action: Action, receipt: DirectApiReceipt, dry_run_receipt: str
+        self,
+        *,
+        action: Action,
+        receipt: DirectApiReceipt,
+        dry_run_receipt: str,
+        safeguard_bundle_digest: str | None = None,
     ) -> DirectApiExecutionResult:
         """Map an adapter :class:`DirectApiReceipt` -> executor outcome + audit."""
 
@@ -461,6 +495,7 @@ class DirectApiShadowExecutor:
             outcome=outcome,
             reason=receipt.detail,
             receipt_ref=receipt.receipt_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
             rollback_succeeded=receipt.rollback_succeeded,
             dry_run_receipt=dry_run_receipt,
         )
@@ -472,6 +507,7 @@ class DirectApiShadowExecutor:
         outcome: DirectApiExecutionOutcome,
         reason: str | None,
         receipt_ref: str | None = None,
+        safeguard_bundle_digest: str | None = None,
         rollback_succeeded: bool | None = None,
         remember: bool = True,
         dry_run_receipt: str | None = None,
@@ -481,6 +517,7 @@ class DirectApiShadowExecutor:
             outcome=outcome,
             mode=action.mode,
             receipt_ref=receipt_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
             rollback_succeeded=rollback_succeeded,
             reason=reason,
             audit_context={
@@ -491,6 +528,7 @@ class DirectApiShadowExecutor:
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "idempotency_fingerprint": _direct_api_fingerprint(action),
                 "dry_run_receipt": dry_run_receipt,
+                "safeguard_bundle_digest": safeguard_bundle_digest,
             },
         )
         # Cache non-degenerate outcomes so a retry does not re-hit the
@@ -537,6 +575,7 @@ class DirectApiShadowExecutor:
             "citing_rule_ids": list(action.citing_rules),
             "outcome": result.outcome.value,
             "receipt_ref": result.receipt_ref,
+            "safeguard_bundle_digest": result.safeguard_bundle_digest,
             "rollback_succeeded": result.rollback_succeeded,
             "reason": result.reason,
             "dry_run_receipt": result.audit_context.get("dry_run_receipt"),

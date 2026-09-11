@@ -171,9 +171,19 @@ class _StubDirectApiExecutor:
         self.calls: list[dict[str, Any]] = []
 
     async def execute(
-        self, *, action: Action, deadline_at: datetime
+        self,
+        *,
+        action: Action,
+        deadline_at: datetime,
+        upstream_target_lock_held: bool = False,
     ) -> DirectApiExecutionResultLike:
-        self.calls.append({"action_id": str(action.action_id), "deadline_at": deadline_at})
+        self.calls.append(
+            {
+                "action_id": str(action.action_id),
+                "deadline_at": deadline_at,
+                "upstream_target_lock_held": upstream_target_lock_held,
+            }
+        )
         return _StubOutcome(
             action_id=str(action.action_id),
             outcome=_OutcomeValue(self._outcome),
@@ -323,8 +333,9 @@ class TestEffectServiceBundleValidation:
         assert receipt.effect_verified is False
         assert receipt.safeguard_proof_bundle_digest == bundle.bundle_digest
         assert len(executor.calls) == 1
+        assert executor.calls[0]["upstream_target_lock_held"] is True
 
-    async def test_v10_command_dispatches_without_bundle_store(self) -> None:
+    async def test_v10_command_is_readable_but_cannot_dispatch_effect(self) -> None:
         executor = _StubDirectApiExecutor()
         svc = IsolatedExecutorEffectService(
             direct_api_executor=executor,
@@ -335,9 +346,26 @@ class TestEffectServiceBundleValidation:
         cmd = _v10_command()
         receipt = await svc.handle(cmd)
 
+        assert receipt.status == ExecutorEffectReceiptStatus.REJECTED_INVARIANT
+        assert receipt.safeguard_proof_bundle_digest is None
+        assert executor.calls == []
+
+    async def test_v10_command_dispatches_only_in_explicit_transition(self) -> None:
+        executor = _StubDirectApiExecutor()
+        svc = IsolatedExecutorEffectService(
+            direct_api_executor=executor,
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            allow_legacy_unbound_commands=True,
+            clock=lambda: _NOW,
+        )
+
+        receipt = await svc.handle(_v10_command())
+
         assert receipt.status == ExecutorEffectReceiptStatus.DISPATCHED
         assert receipt.safeguard_proof_bundle_digest is None
         assert len(executor.calls) == 1
+        assert executor.calls[0]["upstream_target_lock_held"] is False
 
 
 # ──────────────────────────────────────────────────

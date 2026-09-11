@@ -14,6 +14,9 @@ from fdai.core.executor import (
     ShadowExecutor,
 )
 from fdai.core.executor.direct_api import DirectApiExecutionResult
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
+)
 from fdai.core.executor.tool_call import ToolCallExecutionResult, ToolCallShadowExecutor
 from fdai.core.hil_resume.approval_records import park_key as _park_key
 from fdai.core.ontology_platform.evidence_conflict import (
@@ -37,6 +40,7 @@ class HilDispatchMixin:
     _evidence_conflict_reader: EvidenceConflictCurrentReader | None
     _executor: ShadowExecutor
     _pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None
+    _safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None
     _state_store: StateStore
     _tool_executor: ToolCallShadowExecutor | None
 
@@ -102,6 +106,35 @@ class HilDispatchMixin:
                 )
         if self._action_types_by_name:
             if action_type is not None:
+                if action.workflow_action is not None:
+                    coordinator = self._safeguard_lifecycle_coordinator
+                    if coordinator is None:
+                        return ExecutionResult(
+                            action_id=str(action.action_id),
+                            outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                            mode=action.mode,
+                            reason="workflow safeguard pre-bundle coordinator is unavailable",
+                        )
+                    try:
+                        await coordinator.prepare_pre_bundle_commitment(
+                            action=action,
+                            execution_path=(
+                                action_type.execution_path
+                                if action_type.execution_path is not None
+                                else ExecutionPath.PR_NATIVE
+                            ),
+                            correlation_id=correlation_id,
+                        )
+                    except Exception as exc:  # noqa: BLE001 - approval cannot bypass evidence
+                        return ExecutionResult(
+                            action_id=str(action.action_id),
+                            outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                            mode=action.mode,
+                            reason=(
+                                "workflow safeguard pre-bundle commitment failed: "
+                                f"{type(exc).__name__}"
+                            ),
+                        )
                 if (
                     self._direct_api_executor is not None
                     and action_type.execution_path is ExecutionPath.DIRECT_API
@@ -112,7 +145,15 @@ class HilDispatchMixin:
                     and action_type.execution_path is ExecutionPath.TOOL_CALL
                 ):
                     return await self._tool_executor.execute(action=action)
-        return await self._executor.execute(action=action, rule=rule)
+        return await self._executor.execute(
+            action=action,
+            rule=rule,
+            execution_path=(
+                action_type.execution_path
+                if action_type is not None and action_type.execution_path is not None
+                else ExecutionPath.PR_NATIVE
+            ),
+        )
 
     async def _mark_resolved(
         self,

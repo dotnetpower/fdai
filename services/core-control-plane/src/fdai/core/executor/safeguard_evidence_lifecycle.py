@@ -32,6 +32,7 @@ from typing import Literal, Protocol, runtime_checkable
 
 from fdai.core.executor.audit_intent import AuditIntentAppendReceipt
 from fdai.core.executor.idempotency_reservation import (
+    IdempotencyReservationStore,
     IdempotencyReservationTransitionReceipt,
     ReservationState,
 )
@@ -161,6 +162,7 @@ async def run_safeguard_evidence_lifecycle(
     audit_append_receipt: AuditIntentAppendReceipt,
     bundle_record: SafeguardDispatchEvidenceRecord,
     preparing_fence: TargetDispatchFenceRecord,
+    reservation_store: IdempotencyReservationStore,
     fence_store: TargetDispatchFenceStore,
     evidence_store: SafeguardDispatchEvidenceStore,
     dispatch_port: DispatchPort,
@@ -241,12 +243,10 @@ async def run_safeguard_evidence_lifecycle(
         reservation_receipt.record,
         at=current_time,
     )
-    in_flight_reservation_receipt = IdempotencyReservationTransitionReceipt.create(
-        prior_record=reservation_receipt.record,
-        record=in_flight_reservation,
+    in_flight_reservation_receipt = await reservation_store.compare_and_transition(
+        prior_record_digest=reservation_receipt.record.record_digest,
         expected_prior_revision=reservation_receipt.record.revision,
-        store_receipt_digest=reservation_receipt.receipt_digest,
-        recorded_at=current_time,
+        record=in_flight_reservation,
     )
 
     # 7c: evidence -> dispatch_started

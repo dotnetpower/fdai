@@ -20,6 +20,10 @@ from fdai_executor_service.adapters.postgres_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
 )
+from fdai_executor_service.adapters.postgres_safeguard_bundle import (
+    PostgresSafeguardBundleStore,
+    PostgresSafeguardBundleStoreConfig,
+)
 from fdai_executor_service.adapters.postgres_state import (
     PostgresStateStore,
     PostgresStateStoreConfig,
@@ -87,6 +91,14 @@ def build_idempotency_store() -> PostgresIdempotencyStore:
     return PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn=dsn))
 
 
+def build_safeguard_bundle_store() -> PostgresSafeguardBundleStore:
+    """Bind authoritative read-only access to Core's persisted bundles."""
+
+    return PostgresSafeguardBundleStore(
+        config=PostgresSafeguardBundleStoreConfig(dsn=_required("FDAI_STATE_STORE_DSN"))
+    )
+
+
 def build_direct_api_effect_executor(
     *,
     audit_store: ExecutorStateStore,
@@ -126,6 +138,7 @@ __all__ = [
     "build_direct_api_effect_executor",
     "build_idempotency_store",
     "build_resource_lock",
+    "build_safeguard_bundle_store",
     "build_workload_identity",
     "new_http_client",
 ]

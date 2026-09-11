@@ -34,6 +34,7 @@ from .orchestrator import (
 )
 from .outcome_verification import StateStoreWorkflowOutcomeLedger
 from .projection import ProcessOntologyProjector, ProjectingProcessRuntimeStore
+from .safeguard_commitment import ProcessRuntimeSafeguardCommitmentStore
 from .trigger_index import WorkflowTriggerIndex
 from .workflow_runtime import (
     WorkflowActionDispatcher,
@@ -60,6 +61,7 @@ __all__ = [
     "StepApproval",
     "StateStoreAutomationHoldLedger",
     "StateStoreWorkflowOutcomeLedger",
+    "ProcessRuntimeSafeguardCommitmentStore",
     "WorkflowApprovalPlanner",
     "WorkflowGuardEvaluator",
     "WorkflowActionDispatcher",

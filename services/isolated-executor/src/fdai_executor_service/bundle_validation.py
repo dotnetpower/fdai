@@ -53,8 +53,9 @@ def validate_bundle_binding_sync(
     """Revalidate the safeguard proof bundle against the command envelope.
 
     Returns ``None`` when the bundle is valid, or a refusal otherwise.
-    Only v1.1.0 commands carry a bundle digest; v1.0.0 commands skip this
-    validation for backward compatibility.
+    Only v1.1.0 commands carry a bundle digest. The effect service rejects
+    v1.0.0 by default and may admit it only during the explicit bounded
+    legacy-unbound rollout transition.
     """
 
     if isinstance(command, ExecutorCommand):

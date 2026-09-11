@@ -75,6 +75,7 @@ class ShadowWorkflowStepExecutor:
         "_mode",
         "_target_resource_id",
         "_attempt",
+        "_bundle_digests",
     )
 
     def __init__(
@@ -125,6 +126,7 @@ class ShadowWorkflowStepExecutor:
         self._mode = mode
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
         self._attempt = attempt
+        self._bundle_digests: dict[str, str] = {}
 
     async def _evaluate_guard(
         self,
@@ -277,6 +279,9 @@ class ShadowWorkflowStepExecutor:
             "reason": result.reason,
             "step_kind": step.kind.value,
         }
+        bundle_digest = self._bundle_digests.get(step.id)
+        if bundle_digest is not None:
+            event_payload["safeguard_bundle_digest"] = bundle_digest
         if step.kind is WorkflowStepKind.APPROVAL:
             approval_decision = {
                 "approval_recorded": "approved",
@@ -343,6 +348,13 @@ class ShadowWorkflowStepExecutor:
                 )
             status = self._context.get(f"action.{step.id}.status")
             receipt_ref = self._context.get(f"action.{step.id}.receipt_ref", "").strip()
+            bundle_digest: str | None = (
+                self._context.get(
+                    f"action.{step.id}.safeguard_bundle_digest",
+                    "",
+                ).strip()
+                or None
+            )
             outcome = "succeeded" if status == "verified" else "failed"
             try:
                 if isinstance(self._outcome_verifier, WorkflowOutcomeResolver):
@@ -359,7 +371,12 @@ class ShadowWorkflowStepExecutor:
                         )
                     outcome = resolved.outcome
                     receipt_ref = resolved.receipt_ref
-                elif status not in {"verified", "failed"} or not receipt_ref:
+                    bundle_digest = resolved.safeguard_bundle_digest
+                elif (
+                    status not in {"verified", "failed"}
+                    or not receipt_ref
+                    or (status == "verified" and not bundle_digest)
+                ):
                     return step_result(
                         step,
                         RunbookStepOutcome.WAITING,
@@ -380,9 +397,17 @@ class ShadowWorkflowStepExecutor:
                     RunbookStepOutcome.WAITING,
                     "waiting_for_action_outcome_verifier",
                 )
+            if bundle_digest:
+                self._bundle_digests[step.id] = bundle_digest
             if outcome == "failed":
                 return step_result(step, RunbookStepOutcome.FAILURE, "action_failed")
             if outcome == "succeeded":
+                if bundle_digest is None:
+                    return step_result(
+                        step,
+                        RunbookStepOutcome.WAITING,
+                        "waiting_for_action_outcome_verifier",
+                    )
                 return step_result(step, RunbookStepOutcome.SUCCESS, "action_effect_verified")
             return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
         if self._action_dispatcher is None:

@@ -676,6 +676,23 @@ def test_executor_runtime_role_is_guarded_and_least_privileged() -> None:
     assert "GRANT UPDATE, DELETE ON TABLE audit_log" not in source
 
 
+def test_executor_safeguard_bundle_read_waits_for_core_table() -> None:
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    dependencies = {
+        (item["consumer_service"], item["consumer_revision"]): item
+        for item in raw["migration_dependencies"]
+    }
+
+    assert dependencies[("isolated-executor", "executor_safeguard_bundle_read_20260912")] == {
+        "consumer_service": "isolated-executor",
+        "consumer_revision": "executor_safeguard_bundle_read_20260912",
+        "provider_service": "core-control-plane",
+        "provider_revision": "core_safeguard_dispatch_evidence_20260911",
+        "schema_prerequisites": ["safeguard_dispatch_evidence"],
+        "provider_rollback": "blocked-until-executor-bundle-read-rollback",
+    }
+
+
 def test_executor_receipt_outbox_pending_scan_is_indexed() -> None:
     source = (
         MIGRATION_ROOT / "branches/isolated-executor/versions/"

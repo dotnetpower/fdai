@@ -438,6 +438,25 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             },
         )
         if unified is not None and (unified.is_denied or unified.requires_hil):
+            if unified.requires_hil and not unified.is_denied:
+                commitment_error = await host._prepare_workflow_safeguard_commitment(
+                    action=action,
+                    correlation_id=correlation_id,
+                )
+                if commitment_error is not None:
+                    routed.append("abstain")
+                    await host._audit_store.append_audit_entry(
+                        {
+                            "event_id": event_id,
+                            "correlation_id": correlation_id,
+                            "action_id": str(action.action_id),
+                            "action_kind": "workflow.pre_bundle_commitment.denied",
+                            "outcome": "abstain",
+                            "reason": commitment_error,
+                            "recorded_at": host._clock().isoformat(),
+                        }
+                    )
+                    continue
             routed.append("deny" if unified.is_denied else "hil")
             if (
                 unified.requires_hil

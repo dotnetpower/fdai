@@ -143,6 +143,7 @@ def _identity_mapping(
         "lock_proof_digest": identity.lock_proof_digest,
         "idempotency_proof_digest": identity.idempotency_proof_digest,
         "audit_intent_proof_digest": identity.audit_intent_proof_digest,
+        "pre_bundle_commitment_digest": identity.pre_bundle_commitment_digest,
         "lock_verifier_id": identity.lock_verifier_id,
         "lock_verifier_version": identity.lock_verifier_version,
         "lock_trust_anchor_id": identity.lock_trust_anchor_id,
@@ -185,6 +186,7 @@ def _identity_from_mapping(
             "lock_proof_digest",
             "idempotency_proof_digest",
             "audit_intent_proof_digest",
+            "pre_bundle_commitment_digest",
             "lock_verifier_id",
             "lock_verifier_version",
             "lock_trust_anchor_id",
@@ -263,6 +265,10 @@ def _identity_from_mapping(
         audit_intent_proof_digest=_str_field(
             identity,
             "audit_intent_proof_digest",
+        ),
+        pre_bundle_commitment_digest=_str_field(
+            identity,
+            "pre_bundle_commitment_digest",
         ),
         lock_verifier_id=_str_field(identity, "lock_verifier_id"),
         lock_verifier_version=_str_field(

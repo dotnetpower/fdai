@@ -54,6 +54,12 @@ from fdai.core.executor.renderer import (
     RenderRequest,
     TemplateRenderer,
 )
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardCoordinatedDispatchResult,
+    SafeguardCoordinationDisposition,
+    SafeguardLifecycleCoordinator,
+    SafeguardLifecycleCoordinatorConfig,
+)
 from fdai.core.executor.tool_call import (
     ToolCallExecutionOutcome,
     ToolCallExecutionResult,
@@ -76,6 +82,10 @@ __all__ = [
     "RenderError",
     "RenderRequest",
     "ResourceLockManager",
+    "SafeguardCoordinatedDispatchResult",
+    "SafeguardCoordinationDisposition",
+    "SafeguardLifecycleCoordinator",
+    "SafeguardLifecycleCoordinatorConfig",
     "ShadowExecutor",
     "TemplateRenderer",
     "ThorExecutionPort",

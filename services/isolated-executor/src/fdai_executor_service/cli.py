@@ -46,6 +46,9 @@ from fdai_executor_service.composition import (
     build_resource_lock as _build_resource_lock,
 )
 from fdai_executor_service.composition import (
+    build_safeguard_bundle_store as _build_safeguard_bundle_store,
+)
+from fdai_executor_service.composition import (
     build_workload_identity as build_runtime_workload_identity,
 )
 from fdai_executor_service.composition import (
@@ -72,6 +75,7 @@ from fdai_executor_service.service import (
 _SHADOW_IDENTITY_ENV = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID"
 _DEPLOYED_MARKER_ENV = "FDAI_ISOLATED_EXECUTOR_DEPLOYED"
 _AUTHORITY_CUTOVER_ENV = "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER"
+_LEGACY_UNBOUND_TRANSITION_ENV = "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION"
 _DATABASE_ROLE_ENV = "FDAI_DATABASE_ROLE"
 _EXECUTOR_IDENTITY_ENVS = {
     "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
@@ -92,6 +96,7 @@ class IsolatedExecutorRuntimeConfig:
     executor_instance_id: str
     execution_venue: ExecutionVenue
     authority_cutover: bool
+    legacy_unbound_transition: bool
 
     @classmethod
     def from_env(
@@ -115,6 +120,9 @@ class IsolatedExecutorRuntimeConfig:
         if _required(values, _DATABASE_ROLE_ENV) != "fdai_executor":
             raise RuntimeError(f"{_DATABASE_ROLE_ENV} MUST be fdai_executor")
         authority_cutover = values.get(_AUTHORITY_CUTOVER_ENV, "").strip() == "1"
+        legacy_unbound_transition = values.get(_LEGACY_UNBOUND_TRANSITION_ENV, "").strip() == "1"
+        if legacy_unbound_transition and not authority_cutover:
+            raise RuntimeError(f"{_LEGACY_UNBOUND_TRANSITION_ENV}=1 requires authority cutover")
         if execution_venue is ExecutionVenue.LOCAL and authority_cutover:
             raise RuntimeError("local isolated Executor MUST NOT enable authority cutover")
         if execution_venue is ExecutionVenue.DEPLOYED:
@@ -158,6 +166,7 @@ class IsolatedExecutorRuntimeConfig:
             executor_instance_id=instance_id,
             execution_venue=execution_venue,
             authority_cutover=authority_cutover,
+            legacy_unbound_transition=legacy_unbound_transition,
         )
 
 
@@ -211,6 +220,8 @@ def build_isolated_executor_supervisor(
             direct_api_executor=direct_api_executor,
             contract_validator=validator,
             executor_instance_id=config.executor_instance_id,
+            bundle_store=_build_safeguard_bundle_store(),
+            allow_legacy_unbound_commands=config.legacy_unbound_transition,
         )
     else:
         durable_service = IsolatedExecutorShadowService(

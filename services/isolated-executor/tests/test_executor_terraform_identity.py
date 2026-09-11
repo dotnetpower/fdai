@@ -21,3 +21,5 @@ def test_authority_cutover_attaches_and_injects_all_vertical_identities() -> Non
 
     assert "action_resource_ids" not in main
     assert "all three vertical resource and client IDs" in variables
+    assert "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION" in main
+    assert "legacy_unbound_transition" in variables

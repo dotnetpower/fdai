@@ -61,6 +61,8 @@ class PostgresTargetDispatchFenceStoreConfig:
 class PostgresTargetDispatchFenceStore:
     """Target-unique generation acquisition and exact-record CAS."""
 
+    production_eligible = True
+
     def __init__(
         self,
         *,

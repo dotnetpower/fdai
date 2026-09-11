@@ -27,7 +27,13 @@ from fdai.shared.contracts import (
     ExecutorEffectReceipt,
     ExecutorShadowReceipt,
 )
-from fdai.shared.contracts.models import Action, ExecutionPath, Mode
+from fdai.shared.contracts.models import (
+    Action,
+    AnyExecutorCommand,
+    ExecutionPath,
+    Mode,
+    SafeguardBoundExecutorCommand,
+)
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 
@@ -70,6 +76,7 @@ class RemoteDirectApiExecutionResult:
     outcome: RemoteDirectApiExecutionOutcome
     mode: Mode = Mode.SHADOW
     receipt_ref: str | None = None
+    safeguard_bundle_digest: str | None = None
     rollback_succeeded: bool | None = None
     reason: str | None = None
     audit_context: dict[str, Any] = field(default_factory=dict)
@@ -77,7 +84,7 @@ class RemoteDirectApiExecutionResult:
 
 @dataclass(frozen=True, slots=True)
 class _PendingExecutorRequest:
-    command: ExecutorCommand
+    command: AnyExecutorCommand
     future: asyncio.Future[ExecutorReceipt]
 
 
@@ -120,9 +127,48 @@ class EventBusDirectApiExecutionClient:
     async def execute(self, *, action: Action) -> RemoteDirectApiExecutionResult:
         """Dispatch one Action, failing closed when transport closure is unavailable."""
 
+        now = datetime.now(UTC)
+        command = ExecutorCommand.from_action(
+            command_id=executor_command_id(action),
+            action=action,
+            execution_path=ExecutionPath.DIRECT_API,
+            attempt=1,
+            issued_at=now,
+            deadline_at=now + timedelta(seconds=self.response_timeout_seconds),
+        )
+        return await self._execute_command(action=action, command=command)
+
+    async def execute_bound(
+        self,
+        *,
+        action: Action,
+        safeguard_bundle_digest: str,
+        source_revision: str,
+        attempt: int,
+    ) -> RemoteDirectApiExecutionResult:
+        """Dispatch a v1.1 command bound to the finalized safeguard bundle."""
+
+        now = datetime.now(UTC)
+        command = SafeguardBoundExecutorCommand.from_action(
+            command_id=executor_command_id(action),
+            action=action,
+            execution_path=ExecutionPath.DIRECT_API,
+            attempt=attempt,
+            issued_at=now,
+            deadline_at=now + timedelta(seconds=self.response_timeout_seconds),
+            safeguard_proof_bundle_digest=safeguard_bundle_digest,
+            source_revision=source_revision,
+        )
+        return await self._execute_command(action=action, command=command)
+
+    async def _execute_command(
+        self,
+        *,
+        action: Action,
+        command: AnyExecutorCommand,
+    ) -> RemoteDirectApiExecutionResult:
         await self.start()
-        command_id = executor_command_id(action)
-        key = str(command_id)
+        key = str(command.command_id)
         existing = self._pending.get(key)
         if existing is None:
             owner = True
@@ -131,15 +177,6 @@ class EventBusDirectApiExecutionClient:
                     action,
                     "executor command capacity exceeded",
                 )
-            now = datetime.now(UTC)
-            command = ExecutorCommand.from_action(
-                command_id=command_id,
-                action=action,
-                execution_path=ExecutionPath.DIRECT_API,
-                attempt=1,
-                issued_at=now,
-                deadline_at=now + timedelta(seconds=self.response_timeout_seconds),
-            )
             pending = _PendingExecutorRequest(
                 command=command,
                 future=asyncio.get_running_loop().create_future(),
@@ -202,7 +239,10 @@ class EventBusDirectApiExecutionClient:
             outcome=RemoteDirectApiExecutionOutcome.FAILED,
             mode=action.mode,
             reason=reason,
-            audit_context={"resource_ref": action.target_resource_ref},
+            audit_context={
+                "resource_ref": action.target_resource_ref,
+                "transport_failure": True,
+            },
         )
 
     async def _consume(self) -> None:
@@ -250,7 +290,7 @@ def executor_command_id(action: Action) -> UUID:
 
 
 def _receipt_matches_command(
-    command: ExecutorCommand,
+    command: AnyExecutorCommand,
     receipt: ExecutorReceipt,
     *,
     partition_key: str,
@@ -292,11 +332,17 @@ def _result_from_receipt(
         receipt_ref = receipt.provider_receipt_ref
         rollback_succeeded = receipt.rollback_succeeded
         effect_verified = receipt.effect_verified
+    safeguard_bundle_digest = (
+        receipt.safeguard_proof_bundle_digest
+        if isinstance(receipt, ExecutorEffectReceipt)
+        else None
+    )
     return RemoteDirectApiExecutionResult(
         action_id=str(action.action_id),
         outcome=outcome,
         mode=action.mode,
         receipt_ref=receipt_ref,
+        safeguard_bundle_digest=safeguard_bundle_digest,
         rollback_succeeded=rollback_succeeded,
         reason=receipt.reason,
         audit_context={
@@ -307,6 +353,7 @@ def _result_from_receipt(
             "effect_applied": receipt.effect_applied,
             "effect_verified": effect_verified,
             "audit_ref": receipt.audit_ref,
+            "safeguard_bundle_digest": safeguard_bundle_digest,
         },
     )
 

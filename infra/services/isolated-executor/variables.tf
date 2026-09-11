@@ -86,15 +86,20 @@ variable "authority" {
   description = "Explicit isolated-authority cutover inputs."
   type = object({
     cutover                         = bool
+    legacy_unbound_transition       = optional(bool, false)
     dev_operations_gateway_url      = string
     dev_operations_gateway_audience = string
   })
   validation {
-    condition = !var.authority.cutover || (
-      var.authority.dev_operations_gateway_url != "" &&
-      var.authority.dev_operations_gateway_audience != ""
+    condition = (
+      !var.authority.legacy_unbound_transition || var.authority.cutover
+      ) && (
+      !var.authority.cutover || (
+        var.authority.dev_operations_gateway_url != "" &&
+        var.authority.dev_operations_gateway_audience != ""
+      )
     )
-    error_message = "Authority cutover requires the governed gateway URL and audience."
+    error_message = "Authority cutover requires the governed gateway, and legacy transition requires cutover."
   }
 }
 variable "scaling" {

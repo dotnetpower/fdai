@@ -41,6 +41,7 @@ from fdai.core.executor.safeguard_evidence_lifecycle import (
     cancel_before_dispatch,
     run_safeguard_evidence_lifecycle,
 )
+from fdai.core.executor.safeguard_pre_bundle import SafeguardPreBundleCommitment
 from fdai.core.executor.safeguard_proofs import (
     AuditIntentProof,
     IdempotencyReservationProof,
@@ -62,6 +63,9 @@ from fdai.core.executor.target_dispatch_fence import (
 from fdai.core.executor.target_dispatch_fence_store import (
     TargetDispatchFenceAcquireDecision,
     TargetDispatchFenceAcquireResult,
+)
+from fdai.core.executor.testing_safeguard_lifecycle import (
+    InMemoryIdempotencyReservationStore,
 )
 from fdai.shared.contracts.models import ExecutionPath
 from fdai.shared.providers.resource_lock import (
@@ -363,6 +367,14 @@ def _make_lock_request(
     )
 
 
+def _reservation_store(
+    receipt: IdempotencyReservationTransitionReceipt,
+) -> InMemoryIdempotencyReservationStore:
+    store = InMemoryIdempotencyReservationStore()
+    store.seed(receipt.record)
+    return store
+
+
 def _full_fixture(
     *,
     now: datetime = _NOW,
@@ -530,6 +542,12 @@ def _full_fixture(
     # Persistence context
     persistence_context = SafeguardBundlePersistenceContext(
         action=action,
+        pre_bundle_commitment=SafeguardPreBundleCommitment.create(
+            action=action,
+            execution_path=safeguard_receipt.execution_path,
+            source_revision=_SOURCE_REVISION,
+            committed_at=now,
+        ),
         safeguard_receipt=safeguard_receipt,
         reservation_receipt=reservation_receipt,
         audit_append_receipt=audit_append_receipt,
@@ -579,6 +597,7 @@ async def test_lifecycle_completes_resolved_with_exact_order() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -617,6 +636,7 @@ async def test_lifecycle_quarantines_on_unknown_sink() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -647,6 +667,7 @@ async def test_lifecycle_quarantines_on_failed_transport() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -677,6 +698,7 @@ async def test_lifecycle_quarantines_on_unproven_continuity() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -716,6 +738,7 @@ async def test_evidence_conflict_stops_before_dispatch() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -809,6 +832,7 @@ async def test_rejects_non_reserved_reservation() -> None:
         await run_safeguard_evidence_lifecycle(
             held_lock=held_lock,
             reservation_receipt=bad_receipt,
+            reservation_store=_reservation_store(bad_receipt),
             audit_append_receipt=audit_receipt,
             bundle_record=bundle_record,
             preparing_fence=preparing,
@@ -842,6 +866,7 @@ async def test_rejects_non_preparing_fence() -> None:
         await run_safeguard_evidence_lifecycle(
             held_lock=held_lock,
             reservation_receipt=reservation_receipt,
+            reservation_store=_reservation_store(reservation_receipt),
             audit_append_receipt=audit_receipt,
             bundle_record=bundle_record,
             preparing_fence=prepared,
@@ -868,6 +893,7 @@ async def test_rejects_inactive_lock() -> None:
         await run_safeguard_evidence_lifecycle(
             held_lock=held_lock,
             reservation_receipt=reservation_receipt,
+            reservation_store=_reservation_store(reservation_receipt),
             audit_append_receipt=audit_receipt,
             bundle_record=bundle_record,
             preparing_fence=preparing,
@@ -938,6 +964,7 @@ async def test_dispatch_evidence_separates_transport_from_sink() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -971,6 +998,7 @@ async def test_committed_sink_with_acknowledged_transport_resolves() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -1002,6 +1030,7 @@ async def test_lifecycle_stores_exact_fence_sequence() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -1036,6 +1065,7 @@ async def test_lifecycle_evidence_store_sequence() -> None:
     await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -1130,6 +1160,7 @@ async def test_dispatch_port_called_exactly_once() -> None:
     await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
@@ -1157,6 +1188,7 @@ async def test_lock_active_verified_before_dispatch() -> None:
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,
         reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
         audit_append_receipt=audit_receipt,
         bundle_record=bundle_record,
         preparing_fence=preparing,
