@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: 23a3ec42c698ab94f9562413c6cc31a841767040
+translation_source_sha: f4a2f05f7552b940b510ea47acd66f27fc81e1b9
 translation_revised: 2026-08-20
 ---
 # 정책 추상화와 통제 목표
@@ -208,7 +208,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 
 ## 저장소와 규모
 
-8,549개 레코드 코퍼스를 하나의 운영 그래프 릴리스로 만들지 않는 것이 좋습니다.
+현재 8,537개 레코드 코퍼스를 하나의 운영 그래프 릴리스로 만들지 않는 것이 좋습니다.
 
 - **의미 인덱스:** 모든 발견 레코드와 활성 Rule을 별도의 완전한 세대에 저장합니다. 각 결과는
   코퍼스와 세대 식별자를 유지합니다.
@@ -272,7 +272,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 정책 가용성 | 정확한 평가기나 정책 다이제스트를 사용할 수 없으면 결정이나 작업 제안 없이 요청을 보류합니다. |
 | 보안 | 원본 텍스트는 신뢰되지 않은 데이터입니다. 파서, 보강 및 검색에는 실행기 신원을 제공하지 않으며 로그와 증적에서 원시 운영자 텍스트, 비밀 및 공급자 오류를 제외합니다. |
 | 관측 가능성 | 메트릭은 질의 내용을 기록하지 않고 코퍼스, 세대, 목표 후보, 바인딩 후보, 모호성, 오래된 항목 거부, 대체 경로, 검증 보류, 빌드 지연 시간, 질의 지연 시간 및 롤백을 보고합니다. |
-| 성능 | 목표 확장, 바인딩 분기 수, 결과 개수, 그래프 객체, 청크 및 요청 시간에 설정된 고정 한계를 사용합니다. 승격 전에 같은 8,549개 레코드 리비전에서 기준선과 변경안의 지연 시간, CPU 및 저장소를 측정합니다. 이 설계는 측정되지 않은 SLA를 주장하지 않습니다. |
+| 성능 | 목표 확장, 바인딩 분기 수, 결과 개수, 그래프 객체, 청크 및 요청 시간에 설정된 고정 한계를 사용합니다. 승격 전에 같은 현재 8,537개 레코드 리비전에서 기준선과 변경안의 지연 시간, CPU 및 저장소를 측정합니다. 이 설계는 측정되지 않은 SLA를 주장하지 않습니다. |
 
 ## 구현 상태
 
@@ -284,15 +284,16 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 의미 매니페스트와 코퍼스 격리 | in-progress | [`rule_semantic_retrieval.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_retrieval.py), [Rule 의미 검색](rule-semantic-retrieval-ko.md) | 기존 검색 계약에는 새 타입 목표 및 바인딩 계약이 없습니다. |
 | `ControlObjective` 계약과 카탈로그 | implemented | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`ControlObjective.yaml`](../../../rule-catalog/vocabulary/object-types/ControlObjective.yaml), [`reliability.node-pool.zone-failure-tolerance.yaml`](../../../rule-catalog/control-objectives/reliability.node-pool.zone-failure-tolerance.yaml), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | 엄격한 모델, 로더, 다이제스트, 수명 주기, 어휘, 후보 레코드 및 부정 테스트가 있습니다. 후보는 런타임 권한을 부여하지 않습니다. |
 | `RuleObjectiveBinding`과 증적 계약 | implemented | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml) | 엄격한 계약, 어휘 및 비활성 부분 바인딩이 있습니다. 바인딩은 동등성이나 런타임 권한을 주장하지 않습니다. |
-| 결정론적 Rego 동등성 실행 | implemented | [`equivalence_validator.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validator.py), [`bounded_process.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/bounded_process.py), [`test_equivalence_validator.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validator.py), [`test_bounded_process.py`](../../../services/core-control-plane/tests/rule_catalog/test_bounded_process.py) | 정확한 정책, 코퍼스, 검증기 및 OPA 고정값과 실패 시 안전하게 닫히는 자원 한계는 기계적 근거만 만듭니다. 검토된 증적과 62개 Rule 채우기는 아직 필요합니다. |
+| 결정론적 Rego 동등성 실행 | implemented | [`equivalence_validator.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validator.py), [`bounded_process.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/bounded_process.py), [`test_equivalence_validator.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validator.py), [`test_bounded_process.py`](../../../services/core-control-plane/tests/rule_catalog/test_bounded_process.py) | 정확한 정책, 코퍼스, 검증기 및 OPA 고정값과 실패 시 안전하게 닫히는 자원 한계는 기계적 근거만 만듭니다. 검토된 증적과 현재 Rule 50개 채우기는 아직 필요합니다. |
 | 목표 인식 변환 결과와 확인 | implemented | [`objective_rule_resolution.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/objective_rule_resolution.py), [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`in_memory.py`](../../../services/core-control-plane/src/fdai/delivery/catalog_search/in_memory.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py) | 검토 또는 승격된 활성 관계만 점수 계산과 상위 결과 선택 전에 후보를 좁힙니다. 불완전하거나 유효하지 않은 맥락은 원자적으로 전체 검색으로 대체하고, 목표 고정값은 조회 ID에 반영되며, 모든 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
-| 전체 코퍼스 세대 식별자 | in-progress | [`catalog_search.py`](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py), [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py), [`test_rule_semantic_retrieval.py`](../../../services/core-control-plane/tests/rule_catalog/test_rule_semantic_retrieval.py), [`test_discovery_catalog_search.py`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py) | 프로바이더 중립 메타데이터는 이제 개수, 계층형 다이제스트 루트 및 범위가 제한된 청크를 포함합니다. 실제 활성 Rule 변환 결과 62개와 발견 Rule 변환 결과 8,487개는 in-memory 수명 주기가 격리되어 있으며 영속 PostgreSQL 근거는 아직 남아 있습니다. |
+| 전체 코퍼스 세대 식별자 | implemented | [`catalog_search.py`](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py), [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py), [`test_discovery_catalog_search.py`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py), [`test_postgres_rule_corpora_integration.py`](../../../services/core-control-plane/tests/delivery/catalog_search/test_postgres_rule_corpora_integration.py) | 프로바이더 중립 메타데이터는 개수, 계층형 다이제스트 루트 및 범위가 제한된 청크를 포함합니다. 현재 활성 Rule 변환 결과 50개와 발견 Rule 변환 결과 8,487개는 in-memory 및 로컬 PostgreSQL 수명 주기가 격리되어 있습니다. 통제된 배포 PostgreSQL 근거는 아직 남아 있습니다. |
 | shadow 평가와 통제된 롤아웃 | not-started | 이 설계 | 목표 확인 벤치마크 또는 승격 증적이 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 현재 전체 코퍼스 식별자를 활성 Rule 50개와 발견 Rule 8,487개로 정합화하고 로컬 PostgreSQL에서 수명 주기 격리를 반복했습니다. | `current change`; in-memory 코퍼스 검사(`12 passed`); 로컬 PostgreSQL 전체 코퍼스 수명 주기(`1 passed`). | 날짜가 기록된 역사적 Rego 62개 inventory는 바꾸지 않고 통제된 배포 PostgreSQL 근거를 보존합니다. 현재 채우기 범위는 Rule 50개입니다. |
 | 2026-08-13 | in-progress | 정책 추상화 설계와 구현 ledger를 채택했으며 이전 기반 구현의 출처 이력은 재구성하지 않았습니다. | `current change`; 결정론적 카탈로그 인벤토리에서 Rego 62개와 표현식 8,487개를 포함한 Rule 8,549개를 확인했습니다. | 아래 P0-P4를 제공하고 검증합니다. |
 | 2026-08-13 | in-progress | 카탈로그 상호 참조 검사, 정규 콘텐츠 다이제스트, 수명 주기 검증 및 권한 필드 거부를 포함하는 엄격하고 불변인 `ControlObjective` 계약을 추가했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_control_objective.py`에서 테스트 7개가 통과했고 Ruff 및 diff 검사도 통과했습니다. | 목표 어휘 및 제공되는 레코드를 추가한 다음 P0의 바인딩과 동등성 증적 계약을 완료합니다. |
 | 2026-08-13 | in-progress | 정확한 Rule 버전, 정규화된 조건식, 근거, 매개 변수 도메인, 반례, 검증기 신원, 독립 주장 및 검토 상태를 고정하면서 승격 권한을 추가하지 않는 엄격한 동등성 증적을 추가했습니다. | `current change`; Rule 및 증적 다이제스트 차이의 통합 보고, 권한 필드 거부, 주장 일관성 및 승격된 증적 상태가 없음을 포함한 집중 스키마 테스트 14개가 통과했습니다. | P0를 위해 `RuleObjectiveBinding`, 검증기 실행, 어휘 선언 및 제공되는 레코드를 추가합니다. |
@@ -315,11 +316,11 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
   로더, 정규 콘텐츠 및 서명 다이제스트, 수명 주기 검증, 온톨로지 어휘, 비활성 후보 레코드 및
   부정 테스트로 완료되었습니다. 집중 테스트 78개와 변경된 Python 파일의 Ruff 검사가
   통과했습니다.
-- [ ] P1은 작성된 Rego Rule 62개 모두에 검토된 바인딩이 있고, 이행 보고서가 Rule ID나 판정
+- [ ] P1은 현재 작성된 Rego Rule 50개 모두에 검토된 바인딩이 있고, 이행 보고서가 Rule ID나 판정
   동작을 변경하지 않으면서 모든 활성 Rule을 집계하면 완료됩니다.
-- [ ] P2는 영속 PostgreSQL 어댑터가 프로바이더 중립 개수, 루트 및 청크 메타데이터를
-  저장하고 검증하며 이미 통과한 활성 62개와 발견 8,487개의 활성화, 교체 및 롤백 격리
-  증명을 반복하면 완료됩니다.
+- [x] P2는 영속 PostgreSQL 어댑터가 프로바이더 중립 개수, 루트 및 청크 메타데이터를
+  저장하고 검증하며 활성 50개와 발견 8,487개의 활성화, 교체 및 롤백 격리 증명을
+  반복하여 완료됐습니다(`1 passed`).
 - [x] P3는 기존 읽기 전용 함수 경로를 통한 목표 인식 `catalog.search_rules` 확인으로
   완료되었습니다. 확인은 검토 또는 승격된 활성 관계만 순위 계산 전에 후보를 좁히고,
   원자적으로 전체 검색으로 대체하며, 목표 고정값을 조회 ID에 반영합니다. 정확한 T0 평가에는
@@ -333,7 +334,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 |------|-----------|----------------|
 | P0 - 계약 | `fdai/rule_catalog/schema/` 아래에 스키마 모델, 어휘 선언, 엄격한 로더, 불변식 및 고정 테스트 자료를 추가합니다. | 스키마와 카탈로그 테스트가 알 수 없는 참조, 다이제스트 차이, 잘못된 수명 주기 및 권한 필드를 거부합니다. |
 | P1 - 채우기와 증명 | 먼저 작성된 Rego Rule에 대한 정규화된 서명, 동등성 증적, 검토 작업 흐름 및 바인딩을 만듭니다. | 이행 보고서의 개수가 일치하고 OPA 고정 테스트 자료와 Rule 식별자가 변경되지 않습니다. |
-| P2 - 확장 가능한 세대 | 세대 식별자를 개수, 루트, 청크 매니페스트로 확장하고 코퍼스를 합치지 않으면서 목표 및 바인딩 검색 문서를 추가합니다. | 전체 8,549개 레코드 로드, 원자적 활성화, 오래된 항목 거부 및 롤백 테스트가 통과합니다. |
+| P2 - 확장 가능한 세대 | 세대 식별자를 개수, 루트, 청크 매니페스트로 확장하고 코퍼스를 합치지 않으면서 목표 및 바인딩 검색 문서를 추가합니다. | 현재 전체 8,537개 레코드 로드, 원자적 활성화, 오래된 항목 거부 및 롤백 테스트가 통과합니다. |
 | P3 - 런타임 구성 | 카탈로그 변환 결과, 목표 인식 검색 필터, 확인 증적, 함수 등록, 구성 및 질의 계획을 확장합니다. | 읽기 전용 검색이 성능 저하를 명시적으로 보고하고, 정확한 활성 Rule과 현재 근거 없이는 평가를 시작할 수 없습니다. |
 | P4 - 롤아웃 | 보류된 검색 및 동등성 모음, shadow 비교, 회귀 게이트, 통제된 승격 및 롤백 훈련을 실행합니다. | 설정된 집단 임계값을 통과하고 권한 이탈이 0건이며 이전 세대 롤백을 재생할 수 있습니다. |
 
@@ -351,7 +352,7 @@ P2와 P3은 두 번째 검색 서비스를 추가하지 않고 기존 의미 세
 - 기존 Rule ID, 버전, PolicyArtifact 식별자, Assignment 및 OPA 결정 경로는 변경하지 않습니다.
 - 목표 및 바인딩 필드는 추가형입니다. 새 아티팩트가 없어도 정확한 ID 및 어휘 기반 검색은 계속
   작동합니다.
-- 채우기는 작성된 Rego Rule 62개부터 시작합니다. 수집된 표현식 레코드는 출처 이력, 정규화된
+- 채우기는 현재 작성된 Rego Rule 50개부터 시작합니다. 수집된 표현식 레코드는 출처 이력, 정규화된
   의미 및 검토가 충분할 때까지 발견 자료로 유지됩니다.
 - 이행 보고서는 바인딩됨, 의도적으로 바인딩하지 않음, 모호함, 수락되지 않음으로 Rule을
   분류합니다. 합계는 입력 코퍼스 개수와 같아야 합니다.
@@ -368,7 +369,7 @@ P2와 P3은 두 번째 검색 서비스를 추가하지 않고 기존 의미 세
 - 목표 맥락과 검색 점수가 권한을 높이지 않음을 증명하는 속성 테스트
 - 동등성 증적을 위한 정규화된 AST 및 표현식 반례 테스트
 - 식별자 충돌과 1,000개 객체 한계를 확인하는 카탈로그 변환 결과 테스트
-- 8,549개 레코드, 활성 및 발견 격리, 청크 완전성, 활성화, 오래된 세대 거부 및 롤백을
+- 현재 레코드 8,537개, 활성 및 발견 격리, 청크 완전성, 활성화, 오래된 세대 거부 및 롤백을
   확인하는 전체 코퍼스 테스트
 - 일치 항목 없음 및 모호한 질문을 포함한 보류된 영문 및 한국어 검색 집단
 - 목표 확인이 허용 또는 거부 동작을 변경하지 않음을 증명하는 OPA 회귀 고정 테스트 자료
