@@ -50,6 +50,8 @@ def is_privileged_workflow(content: str) -> bool:
         elif isinstance(node, list):
             return any(is_privileged(value) for value in node)
         elif isinstance(node, str):
+            if "secrets[" in node:
+                return True
             return any(
                 secret_name not in BUILTIN_CONTEXT_NAMES
                 for secret_name in SECRET_REF_RE.findall(node)
