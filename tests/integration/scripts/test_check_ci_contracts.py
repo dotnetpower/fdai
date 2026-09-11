@@ -256,11 +256,37 @@ def test_docker_action_manifests_require_immutable_external_images(
         "runs:\n  using: docker\n  image: Dockerfile\n",
         encoding="utf-8",
     )
+    (local_dir / "Dockerfile").write_text(
+        f"FROM example/base@sha256:{'a' * 64}\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_action_runtime_versions() == [
         ".github/actions/mutable/action.yml must pin Docker action image "
         "example/tool:latest to a sha256 digest"
+    ]
+
+
+def test_local_docker_actions_require_digest_pinned_base_images(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    action_dir = tmp_path / ".github" / "actions" / "local"
+    action_dir.mkdir(parents=True)
+    (action_dir / "action.yml").write_text(
+        "runs:\n  using: docker\n  image: Dockerfile\n",
+        encoding="utf-8",
+    )
+    (action_dir / "Dockerfile").write_text(
+        "FROM example/base:latest AS build\nFROM build\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/actions/local/Dockerfile base image example/base:latest must be digest-pinned"
     ]
 
 

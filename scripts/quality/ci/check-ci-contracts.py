@@ -342,7 +342,7 @@ def _validate_base_images() -> list[str]:
                 errors.append(
                     f"Dockerfile base image {reference} must be prefixed with {BASE_IMAGE_PREFIX}"
                 )
-            if "@sha256:" not in reference:
+            if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
                 errors.append(f"Dockerfile base image {reference} must be digest-pinned")
     return errors
 
@@ -437,6 +437,44 @@ def _validate_action_runtime_versions() -> list[str]:
                             f"{relative} must pin Docker action image {reference} "
                             "to a sha256 digest"
                         )
+                else:
+                    dockerfile_path = PurePosixPath(image)
+                    dockerfile = path.parent.joinpath(*dockerfile_path.parts)
+                    if (
+                        dockerfile_path.is_absolute()
+                        or ".." in dockerfile_path.parts
+                        or not dockerfile.is_file()
+                        or dockerfile.is_symlink()
+                    ):
+                        errors.append(
+                            f"{relative} must reference a local regular Dockerfile: {image}"
+                        )
+                    else:
+                        stages: set[str] = set()
+                        base_count = 0
+                        for line in dockerfile.read_text(encoding="utf-8").splitlines():
+                            parts = line.strip().split()
+                            if len(parts) < 2 or parts[0].upper() != "FROM":
+                                continue
+                            reference_index = 2 if parts[1].startswith("--platform=") else 1
+                            if len(parts) <= reference_index:
+                                continue
+                            reference = parts[reference_index]
+                            as_index = reference_index + 1
+                            if len(parts) > as_index + 1 and parts[as_index].upper() == "AS":
+                                stages.add(parts[as_index + 1])
+                            if reference in stages:
+                                continue
+                            base_count += 1
+                            if "@sha256:" not in reference:
+                                errors.append(
+                                    f"{dockerfile.relative_to(REPO_ROOT)} base image "
+                                    f"{reference} must be digest-pinned"
+                                )
+                        if base_count == 0:
+                            errors.append(
+                                f"{dockerfile.relative_to(REPO_ROOT)} must declare a base image"
+                            )
         comments = {
             match.group("ref"): (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
             for match in USES_LINE_RE.finditer(content)
