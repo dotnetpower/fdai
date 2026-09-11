@@ -14,6 +14,8 @@ _PLAN_ID = "plan-123-456"
 _JOB = "ca-fdai-dev-krc-core-inventory"
 _IMAGE_DIGEST = f"sha256:{'a' * 64}"
 _IMAGE = f"example.azurecr.io/fdai@{_IMAGE_DIGEST}"
+_WORKSPACE_ID = "00000000-0000-0000-0000-000000000000"
+_MISMATCHED_WORKSPACE_ID = _WORKSPACE_ID[:-1] + "1"
 
 
 def _write_executable(path: Path, content: str) -> None:
@@ -26,6 +28,7 @@ def _run(
     *,
     enabled: str,
     deployed_image: str = _IMAGE,
+    workspace_binding: str = _WORKSPACE_ID,
 ) -> subprocess.CompletedProcess[str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -38,9 +41,13 @@ def _run(
     _write_executable(
         bin_dir / "az",
         "#!/usr/bin/env bash\n"
-        '[[ "$*" == *"containerapp job show"* ]]\n'
-        'if [[ "$*" == *"FDAI_RUNTIME_CALL_EVIDENCE_ENABLED"* ]]; then '
-        f"printf '%s\\n' '{enabled}'; else printf '%s\\n' '{deployed_image}'; fi\n",
+        "if [[ \"$1 $2 $3 $4\" == 'monitor log-analytics workspace show' ]]; then "
+        f"printf '%s\\n' '{_WORKSPACE_ID}'; "
+        'elif [[ "$*" == *"FDAI_RUNTIME_CALL_EVIDENCE_ENABLED"* ]]; then '
+        f"printf '%s\\n' '{enabled}'; "
+        'elif [[ "$*" == *"FDAI_MONITOR_WORKSPACE_ID"* ]]; then '
+        f"printf '%s\\n' '{workspace_binding}'; "
+        f"else printf '%s\\n' '{deployed_image}'; fi\n",
     )
     return subprocess.run(  # noqa: S603 - fixed local script and synthetic arguments.
         ["/usr/bin/bash", str(_SCRIPT), _SOURCE_COMMIT, _PLAN_ID, str(tmp_path / "receipt.json")],
@@ -71,6 +78,7 @@ def test_verified_binding_writes_sanitized_receipt(tmp_path: Path) -> None:
         "binding": "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED",
         "value": "1",
         "image_digest": _IMAGE_DIGEST,
+        "workspace_ref_digest": hashlib.sha256(_WORKSPACE_ID.encode()).hexdigest(),
         "verified_at": receipt["verified_at"],
     }
     assert datetime.fromisoformat(receipt["verified_at"]).utcoffset() is not None
@@ -95,5 +103,19 @@ def test_mismatched_image_fails_without_receipt(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert result.stderr == (
         "runtime-call evidence Inventory Job image does not match the protected digest\n"
+    )
+    assert not (tmp_path / "receipt.json").exists()
+
+
+def test_mismatched_workspace_fails_without_receipt(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        enabled="1",
+        workspace_binding=_MISMATCHED_WORKSPACE_ID,
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == (
+        "runtime-call evidence Inventory Job workspace does not match the exact workspace\n"
     )
     assert not (tmp_path / "receipt.json").exists()

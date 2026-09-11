@@ -41,6 +41,23 @@ enabled="$(
   echo "runtime-call evidence Inventory Job binding is not enabled" >&2
   exit 1
 }
+workspace="$(
+  az containerapp job show --name "$job" \
+    --resource-group "rg-fdai-${TF_VAR_env}-${TF_VAR_region_short}" \
+    --query "properties.template.containers[?name=='inventory'] | [0].env[?name=='FDAI_MONITOR_WORKSPACE_ID'] | [0].value" \
+    --output tsv --only-show-errors
+)"
+workspace_id="$(
+  az monitor log-analytics workspace show \
+    --resource-group "rg-fdai-${TF_VAR_env}-${TF_VAR_region_short}" \
+    --workspace-name "log-fdai-${TF_VAR_env}-${TF_VAR_region_short}" \
+    --query customerId --output tsv --only-show-errors
+)"
+guid_pattern='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+[[ "$workspace_id" =~ $guid_pattern && "${workspace,,}" == "${workspace_id,,}" ]] || {
+  echo "runtime-call evidence Inventory Job workspace does not match the exact workspace" >&2
+  exit 1
+}
 image="$(
   az containerapp job show --name "$job" \
     --resource-group "rg-fdai-${TF_VAR_env}-${TF_VAR_region_short}" \
@@ -54,6 +71,7 @@ image="$(
 
 RUNTIME_CALL_EVIDENCE_JOB="$job" \
 RUNTIME_CALL_EVIDENCE_IMAGE_DIGEST="${TF_VAR_core_image##*@}" \
+RUNTIME_CALL_EVIDENCE_WORKSPACE_ID="$workspace_id" \
 RUNTIME_CALL_EVIDENCE_SOURCE_COMMIT="$source_commit" \
 RUNTIME_CALL_EVIDENCE_PLAN_ID="$plan_id" \
 python3 - "$output_path" <<'PY'
@@ -76,6 +94,9 @@ receipt = {
     "binding": "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED",
     "value": "1",
     "image_digest": os.environ["RUNTIME_CALL_EVIDENCE_IMAGE_DIGEST"],
+    "workspace_ref_digest": hashlib.sha256(
+        os.environ["RUNTIME_CALL_EVIDENCE_WORKSPACE_ID"].casefold().encode()
+    ).hexdigest(),
     "verified_at": datetime.now(UTC).isoformat(),
 }
 temporary.write_text(

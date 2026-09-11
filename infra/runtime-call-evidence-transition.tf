@@ -16,6 +16,7 @@ resource "terraform_data" "runtime_call_evidence_transition" {
       TARGET_CONTAINER_NAME        = "inventory"
       TARGET_JOB_NAME              = "ca-${var.workload}${local.full_suffix}-core-inventory"
       TARGET_RESOURCE_GROUP        = "rg-${var.workload}${local.full_suffix}"
+      TARGET_WORKSPACE_NAME        = "log-${var.workload}${local.full_suffix}"
     }
   }
 }
@@ -24,14 +25,16 @@ resource "terraform_data" "inventory_runtime_image_update" {
   triggers_replace = [var.core_image]
 
   provisioner "local-exec" {
-    command     = "bash ../scripts/deployment/azure/update_analyzer_job_image.sh"
+    command     = "bash ../scripts/deployment/azure/update_analyzer_job_image.sh && bash ../scripts/deployment/azure/update_inventory_job_runtime_call_evidence.sh"
     working_dir = path.module
     environment = {
-      DESIRED_IMAGE           = var.core_image
-      REQUIRE_EXISTING_TARGET = tostring(var.runtime_call_evidence_transition)
-      TARGET_CONTAINER_NAME   = "inventory"
-      TARGET_JOB_NAME         = "ca-${var.workload}${local.full_suffix}-core-inventory"
-      TARGET_RESOURCE_GROUP   = "rg-${var.workload}${local.full_suffix}"
+      DESIRED_IMAGE                = var.core_image
+      ENABLE_RUNTIME_CALL_EVIDENCE = tostring(var.enable_runtime_call_evidence)
+      REQUIRE_EXISTING_TARGET      = tostring(var.runtime_call_evidence_transition)
+      TARGET_CONTAINER_NAME        = "inventory"
+      TARGET_JOB_NAME              = "ca-${var.workload}${local.full_suffix}-core-inventory"
+      TARGET_RESOURCE_GROUP        = "rg-${var.workload}${local.full_suffix}"
+      TARGET_WORKSPACE_NAME        = "log-${var.workload}${local.full_suffix}"
     }
   }
 }
