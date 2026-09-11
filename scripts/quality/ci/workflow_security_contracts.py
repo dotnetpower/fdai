@@ -289,6 +289,15 @@ def condition_requires_prior_step(
     return bool(referenced & eligible_step_ids)
 
 
+def condition_requires_guard_success(condition: Any, guard_id: Any) -> bool:
+    """Return whether an override explicitly requires verifier success."""
+    return (
+        isinstance(condition, str)
+        and isinstance(guard_id, str)
+        and f"steps.{guard_id}.outcome == 'success'" in condition
+    )
+
+
 def protected_guard_prefix_errors(
     document: Any,
     relative: str,
@@ -347,6 +356,7 @@ def protected_guard_prefix_errors(
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected verifier checkout")
         guard_with = guard.get("with") if isinstance(guard, dict) else None
+        guard_id = guard.get("id") if isinstance(guard, dict) else None
         allowed_targets = {
             "${{ github.sha }}",
             "${{ inputs.commit_sha }}",
@@ -369,16 +379,26 @@ def protected_guard_prefix_errors(
             errors.append(f"{relative} job {job_name} has an invalid protected-source verifier")
         post_verifier_ids: set[str] = set()
         for step in steps[2:]:
+            condition = step.get("if") if isinstance(step, dict) else None
             if (
                 isinstance(step, dict)
-                and condition_overrides_guard_failure(step.get("if"))
+                and condition_overrides_guard_failure(condition)
                 and isinstance(step.get("run"), str)
                 and PRIVILEGED_COMMAND_RE.search(step["run"]) is not None
-                and not condition_requires_prior_step(step.get("if"), post_verifier_ids)
+                and not condition_requires_prior_step(condition, post_verifier_ids)
             ):
                 errors.append(
                     f"{relative} job {job_name} can execute a privileged step after "
                     "verifier failure"
+                )
+            if (
+                isinstance(step, dict)
+                and condition_overrides_guard_failure(condition)
+                and "uses" in step
+                and not condition_requires_guard_success(condition, guard_id)
+            ):
+                errors.append(
+                    f"{relative} job {job_name} can execute an action after verifier failure"
                 )
             if isinstance(step, dict) and isinstance(step.get("id"), str):
                 post_verifier_ids.add(step["id"])

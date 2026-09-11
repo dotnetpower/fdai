@@ -127,6 +127,7 @@ jobs:
           path: .fdai-protected-workflow-verifier
 
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha }}
@@ -1417,7 +1418,7 @@ jobs:
                 --output "$RUNNER_TEMP/service-edge-disabled.tfvars.json"
 
       - name: Upload service migration adoption evidence
-        if: ${{ always() && inputs.apply && inputs.initial_cutover }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && inputs.initial_cutover }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: service-migration-adoption-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
