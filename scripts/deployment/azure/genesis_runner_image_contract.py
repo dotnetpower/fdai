@@ -440,6 +440,10 @@ def create_review(
     effect_summary = {
         "egress_class": "fqdn-allowlisted-firewall-basic",
         "public_ip_count": retained_types["azurerm_public_ip"],
+        "policy_managed_fields": [
+            "azurerm_public_ip.firewall.ip_tags",
+            "azurerm_public_ip.firewall_management.ip_tags",
+        ],
         "retained_type_counts": dict(sorted(retained_types.items())),
         "monthly_fixed_cost_upper_bound_usd": _MONTHLY_FIXED_COST_UPPER_BOUND_USD,
         "approved_monthly_cost_ceiling_usd": inputs.monthly_cost_ceiling,
@@ -647,6 +651,8 @@ def _foundation_image_values(
             "runner_image_id",
             "state_ref",
             "effect_verified",
+            "public_ip_policy_effect_verified",
+            "terraform_zero_change_verified",
             "runner_registered",
             "mutation_performed",
             "subscription_ready",
@@ -655,6 +661,8 @@ def _foundation_image_values(
         or receipt.get("schema_version") != "fdai.genesis-runner-image-apply-receipt.v1"
         or receipt.get("state") != "applied"
         or receipt.get("effect_verified") is not True
+        or receipt.get("public_ip_policy_effect_verified") is not True
+        or receipt.get("terraform_zero_change_verified") is not True
         or receipt.get("runner_registered") is not False
         or receipt.get("mutation_performed") is not True
         or receipt.get("subscription_ready") is not False
@@ -849,6 +857,15 @@ def _validate_projection(plan: dict[str, object], variables: dict[str, object]) 
         by_address, "azapi_resource_action.verifier_deallocate", "action", "deallocate"
     )
     _require_after_value(by_address, "azurerm_image.runner", "hyper_v_generation", "V2")
+    for address in (
+        "azurerm_public_ip.firewall",
+        "azurerm_public_ip.firewall_management",
+    ):
+        change = by_address[address]["change"]
+        after = change.get("after") if isinstance(change, dict) else None
+        ip_tags = after.get("ip_tags") if isinstance(after, dict) else None
+        if not isinstance(after, dict) or (ip_tags is not None and ip_tags != []):
+            raise ValueError("runner image plan attempts to author policy-managed IP tags")
     deprovision_change = by_address["azapi_resource.builder_deprovision"]["change"]
     deprovision_after = (
         deprovision_change.get("after") if isinstance(deprovision_change, dict) else None

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 65fe593ee5b2c769e4d84caefa6c2c7061833aee
+translation_source_sha: c3a246f7f564efe69f05098e7a2ea7418ad2c04d
 translation_revised: 2026-09-12
 ---
 # 구독 초기 구성 보증
@@ -72,6 +72,11 @@ translation_revised: 2026-09-12
 거부합니다. 독립적인 수락에는 캡처 이미지 출처, 빌더 및 검증기 확장 성공, 예상된 할당 해제
 상태인 두 VM이 필요합니다. 해당 근거가 없는 빌드 점유는 차단 상태를 유지하며 재시도할 수
 없습니다.
+테넌트 정책이 두 Firewall 공개 IP에 `FirstPartyUsage=/Unprivileged`를 추가하면 Terraform은
+그 필드만 외부 소유로 처리합니다. 수락하려면 두 정확한 공개 IP 모두에서 동일한 범위 제한
+값 또는 부재를 확인하고, 알 수 없는 IP 태그가 없어야 하며, 새로 실행한 변경 없음 계획이
+필요합니다. 정책 효과는 교체, Firewall 다시 연결 또는 모호한 적용 점유 재사용을 승인하지
+않습니다.
 정책 프로브 정리는 Azure CLI의 다중 값 TSV 투영을 순서가 있는 줄로 파싱하고 정확한 태그가
 있는 그룹과 삭제된 Vault의 부재를 확인하며, 명령 성공만으로 완료를 보고하지 않습니다.
 

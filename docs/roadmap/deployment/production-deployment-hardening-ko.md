@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: da8acece6288216461b1348ae49772940a0bc979
+translation_source_sha: d00fc64c51c6e50395eeb540473f280c149c0065
 translation_revised: 2026-09-12
 ---
 # 운영 배포 강화
@@ -159,6 +159,11 @@ soft-delete 상태의 리소스는 이름이 해제되기 전에 명시적인 �
 정책, 마이그레이션 및 공개 경로 호출자는 인증된 소스를 고정된 신뢰할 수 있는 인터프리터로만
 시작합니다. 실행 비트를 광범위하게 복원하거나 신뢰할 수 없는 주변 경로에서 인터프리터를
 선택하지 않습니다.
+
+Genesis 이미지 빌더는 두 Firewall 공개 IP의 테넌트 정책 추가 `ip_tags`만 외부 소유로
+처리합니다. 두 IP 모두에서 태그가 없거나 `FirstPartyUsage=/Unprivileged`인 동일 상태만
+허용하고, 독립 ARM 재확인으로 그 밖의 모든 값을 거부하며, 이미지 증적을 게시하기 전에
+새로 실행한 변경 없음 Terraform 계획을 요구합니다.
 
 ## 비공개 데이터 서비스
 

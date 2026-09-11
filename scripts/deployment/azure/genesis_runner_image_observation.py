@@ -26,6 +26,8 @@ def verify_runner_image_effect(
     verifier_vm_id = _resource_id(terraform_output, "verifier_vm_id")
     builder_extension = _resource_id(terraform_output, "builder_extension")
     verifier_extension = _resource_id(terraform_output, "verifier_extension")
+    firewall_public_ip = _resource_id(terraform_output, "firewall_public_ip")
+    management_public_ip = _resource_id(terraform_output, "management_public_ip")
     expected_prefix = f"/subscriptions/{subscription_id}/".casefold()
     if any(
         not value.casefold().startswith(expected_prefix)
@@ -35,6 +37,8 @@ def verify_runner_image_effect(
             verifier_vm_id,
             builder_extension,
             verifier_extension,
+            firewall_public_ip,
+            management_public_ip,
         )
     ):
         raise ValueError("runner image observation target does not match the reviewed subscription")
@@ -79,7 +83,74 @@ def verify_runner_image_effect(
     )
     _verify_deallocated(builder_vm_id, capture=capture, cwd=cwd, timeout=timeout)
     _verify_deallocated(verifier_vm_id, capture=capture, cwd=cwd, timeout=timeout)
+    _verify_public_ip_policy_effects(
+        (firewall_public_ip, management_public_ip),
+        expected_location=str(terraform_output.get("location", "")),
+        capture=capture,
+        cwd=cwd,
+        timeout=timeout,
+    )
     return image_id
+
+
+def _verify_public_ip_policy_effects(
+    resource_ids: tuple[str, str],
+    *,
+    expected_location: str,
+    capture: CaptureCommand,
+    cwd: Path,
+    timeout: int,
+) -> None:
+    dispositions: list[dict[str, object]] = []
+    for resource_id in resource_ids:
+        value = _json_capture(
+            capture,
+            [
+                "az",
+                "network",
+                "public-ip",
+                "show",
+                "--ids",
+                resource_id,
+                "--query",
+                "{id:id,location:location,allocationMethod:publicIPAllocationMethod,sku:sku.name,ipTags:ipTags}",
+                "--output",
+                "json",
+                "--only-show-errors",
+            ],
+            cwd=cwd,
+            timeout=timeout,
+            reason="runner image public IP policy readback failed",
+        )
+        ip_tags = _public_ip_tags(value.get("ipTags"))
+        if (
+            str(value.get("id", "")).casefold() != resource_id.casefold()
+            or value.get("location") != expected_location
+            or value.get("allocationMethod") != "Static"
+            or value.get("sku") != "Standard"
+            or ip_tags not in ({}, {"FirstPartyUsage": "/Unprivileged"})
+        ):
+            raise ValueError("runner image public IP policy effect is invalid")
+        dispositions.append(ip_tags)
+    if dispositions[0] != dispositions[1]:
+        raise ValueError("runner image public IP policy effects are inconsistent")
+
+
+def _public_ip_tags(value: object) -> dict[str, object]:
+    if value in (None, []):
+        return {}
+    if not isinstance(value, list):
+        raise ValueError("runner image public IP policy effect is invalid")
+    result: dict[str, object] = {}
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"ipTagType", "tag"}:
+            raise ValueError("runner image public IP policy effect is invalid")
+        tag_type = item.get("ipTagType")
+        tag = item.get("tag")
+        if not isinstance(tag_type, str) or tag_type in result or not isinstance(tag, str):
+            raise ValueError("runner image public IP policy effect is invalid")
+        result[tag_type] = tag
+    return result
 
 
 def _verify_extension(

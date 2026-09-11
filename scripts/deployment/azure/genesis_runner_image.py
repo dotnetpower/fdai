@@ -428,6 +428,7 @@ def _verify_effect(
         cwd=work_dir,
         timeout=timeout,
     )
+    _verify_zero_change(work_dir=work_dir, terraform=terraform, environment=environment)
     if value.get("runner_registered") is not False or value.get("subscription_ready") is not False:
         raise ValueError("runner image independent readback does not match the reviewed plan")
     completed = _utc_now().replace(microsecond=0).isoformat()
@@ -450,6 +451,8 @@ def _verify_effect(
         "runner_image_id": image_id,
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
+        "public_ip_policy_effect_verified": True,
+        "terraform_zero_change_verified": True,
         "runner_registered": False,
         "mutation_performed": True,
         "subscription_ready": False,
@@ -457,6 +460,34 @@ def _verify_effect(
     }
     receipt["receipt_digest"] = canonical_digest(receipt)
     return receipt
+
+
+def _verify_zero_change(
+    *,
+    work_dir: Path,
+    terraform: Path,
+    environment: Mapping[str, str],
+) -> None:
+    try:
+        completed = run_with_heartbeat(
+            [
+                str(terraform),
+                "plan",
+                "-detailed-exitcode",
+                "-input=false",
+                "-no-color",
+                f"-var-file={work_dir / 'runner-image.auto.tfvars.json'}",
+            ],
+            cwd=work_dir / "root",
+            env=environment,
+            timeout=600,
+            capture_output=True,
+            umask=0o077,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError("runner image zero-change verification failed") from exc
+    if completed.returncode != 0:
+        raise ValueError("runner image zero-change verification failed")
 
 
 def _reviewed_region(work_dir: Path) -> str:
@@ -620,6 +651,8 @@ def _load_apply_receipt(
         or receipt.get("credential_actor_digest") != claim.get("credential_actor_digest")
         or receipt.get("executor_identity_digest") != claim.get("executor_identity_digest")
         or receipt.get("effect_verified") is not True
+        or receipt.get("public_ip_policy_effect_verified") is not True
+        or receipt.get("terraform_zero_change_verified") is not True
         or receipt.get("runner_registered") is not False
         or receipt.get("mutation_performed") is not True
         or receipt.get("subscription_ready") is not False
@@ -864,6 +897,8 @@ def _print(result: Mapping[str, object], output: str, text: str) -> None:
                 "plan_digest",
                 "toolchain_digest",
                 "effect_verified",
+                "public_ip_policy_effect_verified",
+                "terraform_zero_change_verified",
                 "runner_registered",
                 "mutation_performed",
                 "subscription_ready",

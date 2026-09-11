@@ -16,6 +16,7 @@ SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_runner_image as command  # noqa: E402
+import genesis_runner_image_observation as observation  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest  # noqa: E402
 from fdai_deployment_cli.profile import write_profile  # noqa: E402
 from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
@@ -238,6 +239,11 @@ def _plan_projection(values: dict[str, object]) -> dict[str, object]:
             return {"hyper_v_generation": "V2"}
         if address == "azurerm_firewall.builder":
             return {"sku_tier": "Basic", "threat_intel_mode": "Deny"}
+        if address in {
+            "azurerm_public_ip.firewall",
+            "azurerm_public_ip.firewall_management",
+        }:
+            return {"ip_tags": None}
         if address == "azurerm_route.builder_default":
             return {"next_hop_type": "VirtualAppliance"}
         if address == "azurerm_firewall_policy_rule_collection_group.builder":
@@ -379,6 +385,10 @@ def test_review_binds_plan_projection_and_rejects_tampering(tmp_path: Path) -> N
     assert verified["create_count"] == 30
     assert verified["retained_resource_count"] == 26
     assert verified["effect_summary"]["public_ip_count"] == 2
+    assert verified["effect_summary"]["policy_managed_fields"] == [
+        "azurerm_public_ip.firewall.ip_tags",
+        "azurerm_public_ip.firewall_management.ip_tags",
+    ]
     assert verified["effect_summary"]["monthly_fixed_cost_upper_bound_usd"] == 500
     assert verified["effect_summary"]["approved_monthly_cost_ceiling_usd"] == 500
     assert verified["effect_summary"]["egress_class"] == "fqdn-allowlisted-firewall-basic"
@@ -458,6 +468,167 @@ def test_review_rejects_storage_or_incomplete_direct_builder_graph(tmp_path: Pat
             root_digest="d" * 64,
             terraform_digest="e" * 64,
             provider_digest="f" * 64,
+        )
+
+
+def test_review_rejects_authored_policy_managed_ip_tags(tmp_path: Path) -> None:
+    inputs, _ = _inputs(tmp_path)
+    work = tmp_path / "work"
+    work.mkdir(mode=0o700)
+    (work / PLAN_NAME).write_bytes(b"exact-plan")
+    (work / PLAN_NAME).chmod(0o600)
+    projection = _plan_projection(inputs.terraform_values)
+    public_ip = next(
+        item
+        for item in projection["resource_changes"]
+        if item["address"] == "azurerm_public_ip.firewall"
+    )
+    public_ip["change"]["after"]["ip_tags"] = {"FirstPartyUsage": "/Unprivileged"}
+    _private_json(work / PLAN_JSON_NAME, projection)
+
+    with pytest.raises(ValueError, match="policy-managed IP tags"):
+        create_review(
+            directory=work,
+            inputs=inputs,
+            root_digest="d" * 64,
+            terraform_digest="e" * 64,
+            provider_digest="f" * 64,
+        )
+
+
+def test_runner_image_public_ips_ignore_only_policy_tags() -> None:
+    source = (ROOT / "infra/genesis-runner-image/main.tf").read_text(encoding="utf-8")
+
+    assert source.count("ignore_changes = [ip_tags]") == 2
+    assert "ip_tags =" not in source
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "error"),
+    (
+        ({}, {}, None),
+        (
+            {"FirstPartyUsage": "/Unprivileged"},
+            {"FirstPartyUsage": "/Unprivileged"},
+            None,
+        ),
+        ({}, {"FirstPartyUsage": "/Unprivileged"}, "inconsistent"),
+        ({"Unexpected": "value"}, {"Unexpected": "value"}, "invalid"),
+    ),
+)
+def test_public_ip_policy_effect_is_bounded(
+    tmp_path: Path,
+    first: dict[str, object],
+    second: dict[str, object],
+    error: str | None,
+) -> None:
+    ids = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/"
+        "Microsoft.Network/publicIPAddresses/firewall",
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/"
+        "Microsoft.Network/publicIPAddresses/management",
+    )
+    values = iter((first, second))
+
+    def capture(command: list[str], **_kwargs: object) -> str:
+        return json.dumps(
+            {
+                "id": command[command.index("--ids") + 1],
+                "location": "koreacentral",
+                "allocationMethod": "Static",
+                "sku": "Standard",
+                "ipTags": [{"ipTagType": key, "tag": value} for key, value in next(values).items()],
+            }
+        )
+
+    if error is None:
+        observation._verify_public_ip_policy_effects(
+            ids,
+            expected_location="koreacentral",
+            capture=capture,
+            cwd=tmp_path,
+            timeout=30,
+        )
+    else:
+        with pytest.raises(ValueError, match=error):
+            observation._verify_public_ip_policy_effects(
+                ids,
+                expected_location="koreacentral",
+                capture=capture,
+                cwd=tmp_path,
+                timeout=30,
+            )
+
+
+def test_public_ip_policy_effect_rejects_duplicate_tag_type(tmp_path: Path) -> None:
+    resource_id = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/"
+        "Microsoft.Network/publicIPAddresses/firewall"
+    )
+
+    def capture(command: list[str], **_kwargs: object) -> str:
+        return json.dumps(
+            {
+                "id": command[command.index("--ids") + 1],
+                "location": "koreacentral",
+                "allocationMethod": "Static",
+                "sku": "Standard",
+                "ipTags": [
+                    {"ipTagType": "FirstPartyUsage", "tag": "/Unprivileged"},
+                    {"ipTagType": "FirstPartyUsage", "tag": "/Unprivileged"},
+                ],
+            }
+        )
+
+    with pytest.raises(ValueError, match="invalid"):
+        observation._verify_public_ip_policy_effects(
+            (resource_id, resource_id),
+            expected_location="koreacentral",
+            capture=capture,
+            cwd=tmp_path,
+            timeout=30,
+        )
+
+
+def test_public_ip_policy_effect_rejects_identity_mismatch(tmp_path: Path) -> None:
+    resource_id = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/"
+        "Microsoft.Network/publicIPAddresses/firewall"
+    )
+
+    def capture(_command: list[str], **_kwargs: object) -> str:
+        return json.dumps(
+            {
+                "id": resource_id + "-other",
+                "location": "koreacentral",
+                "allocationMethod": "Static",
+                "sku": "Standard",
+                "ipTags": [],
+            }
+        )
+
+    with pytest.raises(ValueError, match="invalid"):
+        observation._verify_public_ip_policy_effects(
+            (resource_id, resource_id),
+            expected_location="koreacentral",
+            capture=capture,
+            cwd=tmp_path,
+            timeout=30,
+        )
+
+
+@pytest.mark.parametrize("exit_code", (1, 2))
+def test_zero_change_verification_rejects_failure_or_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
+) -> None:
+    result = subprocess.CompletedProcess(["terraform", "plan"], exit_code, "", "")
+    monkeypatch.setattr(command, "run_with_heartbeat", lambda *_a, **_kw: result)
+
+    with pytest.raises(ValueError, match="zero-change"):
+        command._verify_zero_change(
+            work_dir=tmp_path,
+            terraform=tmp_path / "terraform",
+            environment={},
         )
 
 
@@ -551,6 +722,14 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     )
     builder_extension = f"{builder_vm_id}/extensions/install"
     verifier_extension = f"{verifier_vm_id}/extensions/verify"
+    firewall_public_ip = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/"
+        "providers/Microsoft.Network/publicIPAddresses/firewall"
+    )
+    management_public_ip = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/"
+        "providers/Microsoft.Network/publicIPAddresses/management"
+    )
     calls: list[list[str]] = []
 
     for name in (
@@ -561,6 +740,17 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", SUBSCRIPTION)
     monkeypatch.setenv("AZURE_TENANT_ID", TENANT)
+    monkeypatch.setenv(
+        "FDAI_SIGNED_SOURCE_EVIDENCE",
+        json.dumps(
+            {
+                "source_commit": source_commit,
+                "kit_manifest_digest": "4" * 64,
+                "bundle_manifest_digest": "5" * 64,
+                "runtime_release_digest": "6" * 64,
+            }
+        ),
+    )
     azure_config = tmp_path / "azure-config"
     github_config = tmp_path / "github-config"
     azure_config.mkdir(mode=0o700)
@@ -570,6 +760,8 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     monkeypatch.setattr(command.GenesisChecks, "verify_target", lambda *a, **kw: None)
     monkeypatch.setattr(command.GenesisChecks, "verify_source", lambda *a, **kw: None)
     monkeypatch.setattr(command, "_required", lambda cmd, **kw: calls.append(cmd))
+    monkeypatch.setattr(command, "_verify_zero_change", lambda **_kw: None)
+    monkeypatch.setattr(command, "_trusted_azure_cli", lambda: Path("/usr/bin/az"))
     monkeypatch.setattr(
         command,
         "load_genesis_approval",
@@ -599,6 +791,8 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
                     "verifier_vm_id": verifier_vm_id,
                     "builder_extension": builder_extension,
                     "verifier_extension": verifier_extension,
+                    "firewall_public_ip": firewall_public_ip,
+                    "management_public_ip": management_public_ip,
                     "runner_registered": False,
                     "subscription_ready": False,
                 }
@@ -640,6 +834,16 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         if cmd[:3] == ["/usr/bin/az", "vm", "show"]:
             assert cmd[4] == verifier_vm_id
             return image_id + "\n"
+        if cmd[:4] == ["/usr/bin/az", "network", "public-ip", "show"]:
+            return json.dumps(
+                {
+                    "id": cmd[5],
+                    "location": "koreacentral",
+                    "allocationMethod": "Static",
+                    "sku": "Standard",
+                    "ipTags": [{"ipTagType": "FirstPartyUsage", "tag": "/Unprivileged"}],
+                }
+            )
         raise AssertionError(cmd)
 
     monkeypatch.setattr(command, "_capture", capture)
@@ -671,6 +875,8 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     receipt = json.loads((work / RECEIPT_NAME).read_text(encoding="utf-8"))
     assert receipt["runner_image_id"] == image_id
     assert receipt["effect_verified"] is True
+    assert receipt["public_ip_policy_effect_verified"] is True
+    assert receipt["terraform_zero_change_verified"] is True
     assert receipt["subscription_ready"] is False
     assert receipt["claim_digest"]
     assert receipt["approver_actor_digest"] == receipt["credential_actor_digest"]
@@ -863,6 +1069,8 @@ def test_verified_image_receipt_materializes_new_private_foundation_input(
         "runner_image_id": image_id,
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
+        "public_ip_policy_effect_verified": True,
+        "terraform_zero_change_verified": True,
         "runner_registered": False,
         "mutation_performed": True,
         "subscription_ready": False,
@@ -918,6 +1126,8 @@ def test_foundation_input_rejects_wrong_target_image_receipt(tmp_path: Path) -> 
         ),
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
+        "public_ip_policy_effect_verified": True,
+        "terraform_zero_change_verified": True,
         "runner_registered": False,
         "mutation_performed": True,
         "subscription_ready": False,
@@ -969,6 +1179,8 @@ def test_foundation_input_rejects_profile_replay(tmp_path: Path) -> None:
         ),
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
+        "public_ip_policy_effect_verified": True,
+        "terraform_zero_change_verified": True,
         "runner_registered": False,
         "mutation_performed": True,
         "subscription_ready": False,
@@ -1004,6 +1216,8 @@ def test_apply_json_output_excludes_resource_identity_and_state_path(
         "runner_image_id": "/subscriptions/private/resourceGroups/private/providers/image",
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
+        "public_ip_policy_effect_verified": True,
+        "terraform_zero_change_verified": True,
         "runner_registered": False,
         "mutation_performed": True,
         "subscription_ready": False,

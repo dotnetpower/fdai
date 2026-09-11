@@ -45,10 +45,14 @@ registration token only through SSH standard input over an exact Azure Bastion t
 
 - Plans require the exact direct-builder resource and action set and accept create and read actions
   only. Update, replacement, delete, Storage, and VM Image Builder actions are blocked.
+- Tenant policy may append only the bounded `FirstPartyUsage=/Unprivileged` IP tag to both
+  Firewall public IPs. Terraform ignores that externally owned field, while post-apply ARM
+  readback rejects asymmetric, unknown, or changed policy tags.
 - The local Terraform executable must match the pinned Terraform SHA-256.
 - Apply writes an immutable claim before Terraform. A retry after that claim can verify only.
 - Independent Azure Resource Manager readback must match the source and toolchain tags, successful
-  builder and verifier extensions, and deallocated VM states before a receipt is written.
+  builder and verifier extensions, bounded public-IP policy effects, deallocated VM states, and a
+  refreshed zero-change Terraform plan before a receipt is written.
 - Managed-image IDs and local state paths remain in private receipts and are omitted from portable
   Genesis status.
 
