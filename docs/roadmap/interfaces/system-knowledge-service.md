@@ -130,7 +130,8 @@ invalid source ranges, digest mismatch, and records without sources. Source bodi
 the runtime response. Its `source_revision` is the current checkout's merge-base with protected
 `origin/main` and remains a protected-main ancestor after rebase or squash integration. Each
 source's `blob_sha` separately pins the current reviewed checkout, so catalog content can advance
-without assigning side-branch lineage to the release anchor.
+without assigning side-branch lineage to the release anchor. After an upstream rebase, regenerate
+the catalog from the final merged checkout rather than retaining pre-rebase source pins.
 
 ## Teams trust boundary
 

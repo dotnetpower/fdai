@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 70307e1566647fc5fbd36757697289b4783d2b8a
+translation_source_sha: bb4aabe79dfbe6398a08b284fbc1a8588e935937
 translation_revised: 2026-09-12
 ---
 # 시스템 지식 서비스
@@ -131,7 +131,8 @@ digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문�
 `source_revision`은 현재 checkout과 보호된 `origin/main`의 merge-base이며 rebase 또는 squash
 통합 후에도 보호된 main의 조상으로 유지합니다. 각 소스의 `blob_sha`는 현재 검토된 checkout을
 별도로 고정하므로 카탈로그 내용이 갱신되어도 side branch 계보를 release 기준점으로 지정하지
-않습니다.
+않습니다. Upstream rebase 뒤에는 rebase 전 원본 고정값을 유지하지 않고 최종 병합 checkout에서
+카탈로그를 다시 생성합니다.
 
 ## Teams 신뢰 경계
 
