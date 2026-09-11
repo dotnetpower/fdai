@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import base64
 import json
 
 import pytest
 from fdai_system_knowledge_service.config import (
     CLAIM_CONTAINER_URL_ENV,
+    OUTGOING_HMAC_SECRET_ENV,
     SystemKnowledgeConfigurationError,
     SystemKnowledgeSettings,
+    TeamsOutgoingWebhookSettings,
+    TeamsTransport,
 )
 
 
@@ -56,4 +60,52 @@ def test_local_settings_reject_deployed_blob_binding() -> None:
     values[CLAIM_CONTAINER_URL_ENV] = "https://storage.example.com/system-knowledge-claims"
 
     with pytest.raises(SystemKnowledgeConfigurationError, match="MUST be unset"):
+        SystemKnowledgeSettings.parse(values)
+
+
+def test_outgoing_webhook_settings_need_no_bot_application() -> None:
+    values = _environment(venue="deployed")
+    values["FDAI_SYSTEM_KNOWLEDGE_TEAMS_TRANSPORT"] = "outgoing_webhook"
+    values[OUTGOING_HMAC_SECRET_ENV] = base64.b64encode(b"k" * 32).decode()
+    for name in (
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_APPLICATION_ID",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_BOT_ID",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_SERVICE_URLS_JSON",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_JWKS_URL",
+    ):
+        del values[name]
+
+    settings = SystemKnowledgeSettings.parse(values)
+
+    assert settings.teams_transport is TeamsTransport.OUTGOING_WEBHOOK
+    assert isinstance(settings.teams, TeamsOutgoingWebhookSettings)
+    assert settings.teams.hmac_secret == values[OUTGOING_HMAC_SECRET_ENV]
+
+
+def test_outgoing_webhook_bootstrap_allows_missing_hmac() -> None:
+    values = _environment(venue="deployed")
+    values["FDAI_SYSTEM_KNOWLEDGE_TEAMS_TRANSPORT"] = "outgoing_webhook"
+    for name in (
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_APPLICATION_ID",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_BOT_ID",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_SERVICE_URLS_JSON",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_JWKS_URL",
+    ):
+        del values[name]
+
+    settings = SystemKnowledgeSettings.parse(values)
+
+    assert isinstance(settings.teams, TeamsOutgoingWebhookSettings)
+    assert settings.teams.hmac_secret is None
+
+
+def test_outgoing_webhook_rejects_invalid_hmac_secret() -> None:
+    values = _environment(venue="deployed")
+    values["FDAI_SYSTEM_KNOWLEDGE_TEAMS_TRANSPORT"] = "outgoing_webhook"
+    values[OUTGOING_HMAC_SECRET_ENV] = "not-base64"
+
+    with pytest.raises(
+        SystemKnowledgeConfigurationError,
+        match="MUST be valid Base64",
+    ):
         SystemKnowledgeSettings.parse(values)

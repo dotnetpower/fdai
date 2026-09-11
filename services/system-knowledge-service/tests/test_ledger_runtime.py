@@ -5,7 +5,10 @@ from pathlib import Path
 
 from fdai_system_knowledge_service.catalog import load_catalog
 from fdai_system_knowledge_service.ledger import MessageLedger
-from fdai_system_knowledge_service.runtime import SystemKnowledgeRuntime
+from fdai_system_knowledge_service.runtime import (
+    OutgoingWebhookKnowledgeRuntime,
+    SystemKnowledgeRuntime,
+)
 from fdai_system_knowledge_service.search import SystemKnowledgeIndex
 from fdai_system_knowledge_service.teams import VerifiedKnowledgeTurn
 
@@ -104,3 +107,33 @@ async def test_startup_turns_interrupted_send_into_ambiguous_terminal(tmp_path: 
 
     assert await restarted.state("message-key") == "ambiguous"
     assert await restarted.claim("message-key") is False
+
+
+async def test_outgoing_webhook_returns_deterministic_response_on_replay(tmp_path: Path) -> None:
+    ledger = MessageLedger(tmp_path / "outgoing.sqlite3")
+    runtime = OutgoingWebhookKnowledgeRuntime(
+        ingress=_Ingress(_turn()),  # type: ignore[arg-type]
+        index=SystemKnowledgeIndex(load_catalog(CATALOG_PATH)),
+        ledger=ledger,
+    )
+    await runtime.start()
+
+    first = await runtime.handle(
+        body=b"first",
+        authorization="HMAC example",
+        received_at=datetime.now(UTC),
+    )
+    replay = await runtime.handle(
+        body=b"replay",
+        authorization="HMAC example",
+        received_at=datetime.now(UTC),
+    )
+    await runtime.aclose()
+
+    assert first.state == "responded"
+    assert replay.state == "duplicate"
+    assert replay.duplicate is True
+    assert replay.payload == first.payload
+    assert first.payload["type"] == "message"
+    assert "replyToId" not in first.payload
+    assert await ledger.state(_turn().message_key) == "delivered"

@@ -16,12 +16,14 @@ variable "platform" {
 }
 variable "teams" {
   type = object({
+    transport               = string
     tenant_id               = string
     team_ids                = list(string)
     channel_ids             = list(string)
-    allowed_service_urls    = list(string)
-    jwks_url                = string
+    allowed_service_urls    = optional(list(string), [])
+    jwks_url                = optional(string, "")
     principal_map_secret_id = string
+    outgoing_hmac_secret_id = optional(string)
   })
   sensitive = true
 }

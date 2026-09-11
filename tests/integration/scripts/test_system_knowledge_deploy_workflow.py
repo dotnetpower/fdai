@@ -14,7 +14,7 @@ def test_workflow_is_plan_first_and_exact_revision_bound() -> None:
     inputs = workflow[True]["workflow_dispatch"]["inputs"]
 
     assert inputs["apply"]["default"] is False
-    assert inputs["transition"]["options"] == ["enable", "disable"]
+    assert inputs["transition"]["options"] == ["bootstrap", "enable", "disable"]
     assert workflow["jobs"]["deploy"]["runs-on"] == [
         "self-hosted",
         "fdai-deploy",
@@ -36,15 +36,17 @@ def test_workflow_seals_and_replays_the_exact_plan() -> None:
     assert "terraform -chdir=infra/services/system-knowledge-service apply" in text
 
 
-def test_workflow_materializes_secrets_only_for_explicit_enable_apply() -> None:
+def test_workflow_materializes_transport_secrets_only_for_active_apply() -> None:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["deploy"]["steps"]
     secret_step = next(
-        step for step in steps if step["name"] == "Materialize principal map in private Key Vault"
+        step for step in steps if step["name"] == "Materialize Teams secrets in private Key Vault"
     )
 
-    assert secret_step["if"] == "${{ inputs.apply && inputs.transition == 'enable' }}"
+    assert secret_step["if"] == "${{ inputs.apply && inputs.transition != 'disable' }}"
+    assert "--include-outgoing-hmac" in secret_step["run"]
     assert "SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON" in workflow["jobs"]["deploy"]["env"]
+    assert "SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET" in workflow["jobs"]["deploy"]["env"]
 
 
 def test_workflow_verifies_health_blob_and_disabled_rollback() -> None:
@@ -56,3 +58,5 @@ def test_workflow_verifies_health_blob_and_disabled_rollback() -> None:
     assert "disabled System Knowledge Service state is not empty" in text
     assert "SYSTEM_KNOWLEDGE_INSTALLER_CLIENT_ID" in text
     assert "install_teams_app.py" in text
+    assert "steps.context.outputs.teams_transport == 'bot_framework'" in text
+    assert text.count("--transport") == 2

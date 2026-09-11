@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from enum import StrEnum
 from importlib.resources import files
 from pathlib import Path
 from types import MappingProxyType
@@ -33,10 +36,19 @@ PRINCIPAL_MAP_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_PRINCIPAL_MAP_JSON"
 JWKS_URL_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_JWKS_URL"
 CLIENT_SECRET_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_CLIENT_SECRET"  # noqa: S105
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_SYSTEM_KNOWLEDGE_MI_CLIENT_ID"
+TEAMS_TRANSPORT_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_TRANSPORT"
+OUTGOING_HMAC_SECRET_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET"  # noqa: S105
 
 
 class SystemKnowledgeConfigurationError(ValueError):
     """The service cannot establish its release or Teams trust boundary."""
+
+
+class TeamsTransport(StrEnum):
+    """Supported mutually exclusive Teams ingress transports."""
+
+    BOT_FRAMEWORK = "bot_framework"
+    OUTGOING_WEBHOOK = "outgoing_webhook"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +67,17 @@ class TeamsSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class TeamsOutgoingWebhookSettings:
+    """Exact Outgoing Webhook destination, sender, and HMAC configuration."""
+
+    tenant_id: str
+    team_ids: frozenset[str]
+    channel_ids: frozenset[str]
+    principal_by_aad_object_id: Mapping[str, str]
+    hmac_secret: str | None = field(default=None, repr=False)
+
+
+@dataclass(frozen=True, slots=True)
 class SystemKnowledgeSettings:
     """One immutable service environment snapshot."""
 
@@ -66,7 +89,15 @@ class SystemKnowledgeSettings:
     ledger_path: Path
     claim_container_url: str | None
     managed_identity_client_id: str | None
-    teams: TeamsSettings
+    teams: TeamsSettings | TeamsOutgoingWebhookSettings
+
+    @property
+    def teams_transport(self) -> TeamsTransport:
+        """Return the selected Teams ingress transport."""
+
+        if isinstance(self.teams, TeamsSettings):
+            return TeamsTransport.BOT_FRAMEWORK
+        return TeamsTransport.OUTGOING_WEBHOOK
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> SystemKnowledgeSettings:
@@ -107,32 +138,53 @@ class SystemKnowledgeSettings:
             raise SystemKnowledgeConfigurationError(
                 f"{CLAIM_CONTAINER_URL_ENV} MUST be set in the deployed venue"
             )
-        application_id = _required(values, APPLICATION_ID_ENV)
-        client_secret = values.get(CLIENT_SECRET_ENV, "").strip() or None
+        transport = _teams_transport(values)
         managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
-        if venue is ExecutionVenue.LOCAL and client_secret is None:
+        if venue is ExecutionVenue.DEPLOYED and managed_identity_client_id is None:
             raise SystemKnowledgeConfigurationError(
-                f"{CLIENT_SECRET_ENV} MUST be set in the local venue"
+                f"{MANAGED_IDENTITY_CLIENT_ID_ENV} MUST be set in the deployed venue"
             )
-        if venue is ExecutionVenue.DEPLOYED and (
-            client_secret is not None
-            or managed_identity_client_id is None
-            or managed_identity_client_id != application_id
-        ):
-            raise SystemKnowledgeConfigurationError(
-                "deployed Teams identity MUST use the application user-assigned identity"
+        tenant_id = _bounded(_required(values, TENANT_ID_ENV), TENANT_ID_ENV, 200)
+        team_ids = _id_set(values, TEAM_IDS_ENV)
+        channel_ids = _id_set(values, CHANNEL_IDS_ENV)
+        principal_map = MappingProxyType(_principal_map(values, PRINCIPAL_MAP_ENV))
+        if transport is TeamsTransport.BOT_FRAMEWORK:
+            application_id = _required(values, APPLICATION_ID_ENV)
+            client_secret = values.get(CLIENT_SECRET_ENV, "").strip() or None
+            if venue is ExecutionVenue.LOCAL and client_secret is None:
+                raise SystemKnowledgeConfigurationError(
+                    f"{CLIENT_SECRET_ENV} MUST be set in the local venue"
+                )
+            if venue is ExecutionVenue.DEPLOYED and (
+                client_secret is not None or managed_identity_client_id != application_id
+            ):
+                raise SystemKnowledgeConfigurationError(
+                    "deployed Teams identity MUST use the application user-assigned identity"
+                )
+            teams: TeamsSettings | TeamsOutgoingWebhookSettings = TeamsSettings(
+                application_id=_bounded(application_id, APPLICATION_ID_ENV, 200),
+                bot_id=_bounded(_required(values, BOT_ID_ENV), BOT_ID_ENV, 256),
+                tenant_id=tenant_id,
+                team_ids=team_ids,
+                channel_ids=channel_ids,
+                allowed_service_urls=_service_urls(values),
+                principal_by_aad_object_id=principal_map,
+                jwks_url=_https_url(_required(values, JWKS_URL_ENV), JWKS_URL_ENV),
+                client_secret=client_secret,
             )
-        teams = TeamsSettings(
-            application_id=_bounded(application_id, APPLICATION_ID_ENV, 200),
-            bot_id=_bounded(_required(values, BOT_ID_ENV), BOT_ID_ENV, 256),
-            tenant_id=_bounded(_required(values, TENANT_ID_ENV), TENANT_ID_ENV, 200),
-            team_ids=_id_set(values, TEAM_IDS_ENV),
-            channel_ids=_id_set(values, CHANNEL_IDS_ENV),
-            allowed_service_urls=_service_urls(values),
-            principal_by_aad_object_id=MappingProxyType(_principal_map(values, PRINCIPAL_MAP_ENV)),
-            jwks_url=_https_url(_required(values, JWKS_URL_ENV), JWKS_URL_ENV),
-            client_secret=client_secret,
-        )
+        else:
+            if len(team_ids) != 1:
+                raise SystemKnowledgeConfigurationError(
+                    f"{TEAM_IDS_ENV} MUST contain exactly one team for outgoing_webhook"
+                )
+            hmac_secret = _optional_hmac_secret(values)
+            teams = TeamsOutgoingWebhookSettings(
+                tenant_id=tenant_id,
+                team_ids=team_ids,
+                channel_ids=channel_ids,
+                principal_by_aad_object_id=principal_map,
+                hmac_secret=hmac_secret,
+            )
         return cls(
             execution_venue=venue,
             host=host,
@@ -161,6 +213,37 @@ def normalize_service_url(value: str) -> str:
         raise ValueError("Teams service URL MUST be an HTTPS origin")
     port = f":{parts.port}" if parts.port is not None else ""
     return urlunsplit(("https", parts.hostname.lower() + port, parts.path.rstrip("/"), "", ""))
+
+
+def _teams_transport(values: Mapping[str, str]) -> TeamsTransport:
+    raw = values.get(TEAMS_TRANSPORT_ENV, TeamsTransport.BOT_FRAMEWORK.value).strip()
+    try:
+        return TeamsTransport(raw)
+    except ValueError as exc:
+        raise SystemKnowledgeConfigurationError(
+            f"{TEAMS_TRANSPORT_ENV} MUST be bot_framework or outgoing_webhook"
+        ) from exc
+
+
+def _optional_hmac_secret(values: Mapping[str, str]) -> str | None:
+    value = values.get(OUTGOING_HMAC_SECRET_ENV, "").strip() or None
+    if value is None:
+        return None
+    if len(value) > 256:
+        raise SystemKnowledgeConfigurationError(
+            f"{OUTGOING_HMAC_SECRET_ENV} exceeds 256 characters"
+        )
+    try:
+        decoded = base64.b64decode(value, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise SystemKnowledgeConfigurationError(
+            f"{OUTGOING_HMAC_SECRET_ENV} MUST be valid Base64"
+        ) from exc
+    if len(decoded) != 32:
+        raise SystemKnowledgeConfigurationError(
+            f"{OUTGOING_HMAC_SECRET_ENV} MUST decode to 32 bytes"
+        )
+    return value
 
 
 def _port(raw: str) -> int:
@@ -266,6 +349,8 @@ def _https_url(value: str, name: str) -> str:
 __all__ = [
     "SystemKnowledgeConfigurationError",
     "SystemKnowledgeSettings",
+    "TeamsOutgoingWebhookSettings",
     "TeamsSettings",
+    "TeamsTransport",
     "normalize_service_url",
 ]

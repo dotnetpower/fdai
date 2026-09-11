@@ -142,9 +142,10 @@ key, Core starts in observation-only Trial and denies acting paths.
   permits review, not apply; applying the exact plan remains a separate approved operation.
 - Deploy the validated five service roots independently from the VNet-connected runner. The
   deployment-gated System Knowledge Service uses its separate
-  `system-knowledge-deploy.yml` plan/apply workflow, Blob claim state, Azure Bot, and
-  deployment-only Graph installer identity. The Isolated Executor remains the only service that
-  may receive an action-specific effect role.
+  `system-knowledge-deploy.yml` plan/apply workflow and Blob claim state. Bot Framework adds Azure
+  Bot and deployment-only Graph installation. The Outgoing Webhook alternative uses a
+  `bootstrap` then HMAC-bound `enable` transition without either resource. The Isolated Executor
+  remains the only service that may receive an action-specific effect role.
 - In a repository with one FDAI maintainer, set the repository variable
   `DEV_DEPLOY_REQUIRED_APPROVALS=0` to run direct `dev` applies without a reviewer.
   Keep the `dev` Environment free of reviewer rules and disable administrator bypass.
