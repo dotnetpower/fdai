@@ -213,6 +213,9 @@ later poll can observe either the Resource or its delete record. A returned Reso
 the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
 fails the batch. Hydration that exceeds the bounded property payload also fails before publication
 or cursor advancement rather than asserting a truncated full replacement.
+After three unresolved hydration retries, the feed advances past the bounded page and records the
+latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
+remain incomplete, while later windows can recover without permanently blocking the feed.
 
 The read-only recent-change FunctionType queries the server-configured inventory scopes rather than
 a model-supplied scope. It uses the same `FDAI_INVENTORY_SCOPES` parser as collection, with

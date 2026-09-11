@@ -156,6 +156,7 @@ async def test_cursor_coverage_requires_fresh_drained_state() -> None:
         _Connection([state]),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        window_start_at=NOW - timedelta(hours=1),
         known_at=NOW,
     )
 
@@ -173,12 +174,14 @@ async def test_cursor_coverage_waits_for_every_event_id() -> None:
         _Connection([state], ingested_count=1),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        window_start_at=NOW - timedelta(hours=1),
         known_at=NOW,
     )
     assert await _cursor_coverage_complete(
         _Connection([state], ingested_count=2),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        window_start_at=NOW - timedelta(hours=1),
         known_at=NOW,
     )
 
@@ -197,6 +200,34 @@ async def test_cursor_coverage_rejects_poll_after_known_at() -> None:
         _Connection([state]),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        window_start_at=NOW - timedelta(hours=1),
+        known_at=NOW,
+    )
+
+
+async def test_cursor_coverage_discloses_intersecting_hydration_gap() -> None:
+    state = {
+        "key": "arg_resource_change_cursor:scope-a",
+        "value": {
+            "complete": True,
+            "coverage_gap_at": (NOW - timedelta(minutes=30)).isoformat(),
+            "last_polled_at": NOW.isoformat(),
+            "pending_event_ids": [],
+        },
+    }
+
+    assert not await _cursor_coverage_complete(
+        _Connection([state]),  # type: ignore[arg-type]
+        scope_refs=("scope-a",),
+        required_at=NOW - timedelta(minutes=1),
+        window_start_at=NOW - timedelta(hours=1),
+        known_at=NOW,
+    )
+    assert await _cursor_coverage_complete(
+        _Connection([state]),  # type: ignore[arg-type]
+        scope_refs=("scope-a",),
+        required_at=NOW - timedelta(minutes=1),
+        window_start_at=NOW - timedelta(minutes=10),
         known_at=NOW,
     )
 

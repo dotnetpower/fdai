@@ -103,6 +103,7 @@ class PostgresRecentResourceChangeReader:
                 connection,
                 scope_refs=self._config.scope_refs,
                 required_at=end_at - timedelta(seconds=self._config.cursor_freshness_seconds),
+                window_start_at=start_at,
                 known_at=known_at,
             )
         truncated = len(rows) > limit
@@ -172,6 +173,7 @@ async def _cursor_coverage_complete(
     *,
     scope_refs: tuple[str, ...],
     required_at: datetime,
+    window_start_at: datetime,
     known_at: datetime,
 ) -> bool:
     if not scope_refs:
@@ -189,6 +191,14 @@ async def _cursor_coverage_complete(
         value = row["value"]
         if not isinstance(value, dict) or value.get("complete") is not True:
             return False
+        coverage_gap_at = value.get("coverage_gap_at")
+        if coverage_gap_at is not None:
+            try:
+                gap_at = datetime.fromisoformat(str(coverage_gap_at).replace("Z", "+00:00"))
+            except ValueError:
+                return False
+            if gap_at.tzinfo is None or gap_at.astimezone(UTC) >= window_start_at.astimezone(UTC):
+                return False
         raw = value.get("last_polled_at")
         if not isinstance(raw, str):
             return False

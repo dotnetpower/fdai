@@ -171,6 +171,7 @@ class AzureResourceChangeFeedConfig:
     page_size: int = _DEFAULT_PAGE_SIZE
     max_pages: int = _DEFAULT_MAX_PAGES
     max_hydration_batch: int = _DEFAULT_MAX_HYDRATION_BATCH
+    max_hydration_retries: int = 3
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
     max_total_response_bytes: int = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES
     requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
@@ -216,6 +217,8 @@ class AzureResourceChangeFeedConfig:
             raise ValueError("page_size * max_pages MUST be <= 1000")
         if not 1 <= self.max_hydration_batch <= _MAX_HYDRATION_BATCH_CAP:
             raise ValueError(f"max_hydration_batch MUST be in [1, {_MAX_HYDRATION_BATCH_CAP}]")
+        if not 1 <= self.max_hydration_retries <= 10:
+            raise ValueError("max_hydration_retries MUST be in [1, 10]")
         if self.max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be >= 1")
         if self.max_total_response_bytes < 1:
@@ -245,6 +248,7 @@ class ResourceChangeFeedResult:
     next_cursor: str
     complete: bool = True
     last_event_cursor: str | None = None
+    recovery_cursor: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,6 +294,10 @@ class AzureResourceChangeFeed:
             seconds=self._config.initial_lookback_seconds
         )
         return _encode_cursor(lower_ts, _INITIAL_CURSOR_ID)
+
+    @property
+    def max_hydration_retries(self) -> int:
+        return self._config.max_hydration_retries
 
     async def poll(self, cursor: str) -> ResourceChangeFeedResult:
         """Fetch one bounded, oldest-first page of changes past ``cursor``."""
@@ -387,6 +395,9 @@ class AzureResourceChangeFeed:
             next_cursor=next_cursor,
             complete=not tokenless_truncated and not hydration_incomplete,
             last_event_cursor=max(published_cursors, default=None),
+            recovery_cursor=(
+                _encode_cursor(newest[0], newest[1]) if hydration_incomplete else None
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -698,6 +709,8 @@ async def forward_arg_resource_changes(
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
     pending_event_ids = _pending_event_ids(saved.get("pending_event_ids"))
+    hydration_retry_count = _hydration_retry_count(saved.get("hydration_retry_count"))
+    coverage_gap_at = _coverage_gap_at(saved.get("coverage_gap_at"))
     if pending_event_ids and (
         ingestion_fence is None or not await ingestion_fence.contains(pending_event_ids)
     ):
@@ -709,7 +722,11 @@ async def forward_arg_resource_changes(
             cursor_key,
             {
                 "complete": False,
+                "coverage_gap_at": (
+                    coverage_gap_at.isoformat() if coverage_gap_at is not None else None
+                ),
                 "cursor": cursor,
+                "hydration_retry_count": hydration_retry_count,
                 "last_event_cursor": None,
                 "pending_event_ids": [],
                 "published_event_count": 0,
@@ -732,11 +749,29 @@ async def forward_arg_resource_changes(
     polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
     if polled_at.tzinfo is None:
         raise RuntimeError("resource change feed clock MUST be timezone-aware")
+    next_cursor = result.next_cursor
+    if result.recovery_cursor is not None:
+        hydration_retry_count += 1
+        if hydration_retry_count >= feed.max_hydration_retries:
+            next_cursor = result.recovery_cursor
+            gap_at, _gap_id = _decode_cursor(result.recovery_cursor)
+            if gap_at is None:
+                raise RuntimeError("resource change recovery cursor is malformed")
+            coverage_gap_at = max(
+                (candidate for candidate in (coverage_gap_at, gap_at) if candidate is not None),
+            )
+            hydration_retry_count = 0
+    else:
+        hydration_retry_count = 0
     await state_store.write_state(
         cursor_key,
         {
             "complete": result.complete,
-            "cursor": result.next_cursor,
+            "coverage_gap_at": (
+                coverage_gap_at.astimezone(UTC).isoformat() if coverage_gap_at is not None else None
+            ),
+            "cursor": next_cursor,
+            "hydration_retry_count": hydration_retry_count,
             "last_event_cursor": result.last_event_cursor,
             "last_polled_at": polled_at.astimezone(UTC).isoformat(),
             "pending_event_ids": [str(event.event_id) for event in result.events],
@@ -766,6 +801,23 @@ def _pending_event_ids(value: object) -> tuple[str, ...]:
     ):
         raise ArgResourceChangeError("resource change ingestion fence is malformed")
     return tuple(sorted(value))
+
+
+def _hydration_retry_count(value: object) -> int:
+    if value is None:
+        return 0
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10:
+        raise ArgResourceChangeError("resourcechanges hydration retry state is malformed")
+    return value
+
+
+def _coverage_gap_at(value: object) -> datetime | None:
+    if value is None:
+        return None
+    parsed = _parse_ts(value)
+    if parsed is None:
+        raise ArgResourceChangeError("resourcechanges coverage gap state is malformed")
+    return parsed
 
 
 def _encode_cursor(change_time: datetime, change_id: str) -> str:

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 546578c2d8f305aa2978f54349c84c0a7f440663
+translation_source_sha: c022e22ab208a270f83bf36a11f445c4a5b2aa5d
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -209,6 +209,9 @@ Snapshot에 포함된 이벤트도 이력 전용 관측을
 카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
 실패시킵니다. 속성 payload 한도를 넘은 재조회도 잘린 전체 교체를 주장하지 않도록 게시하거나
 cursor를 진행하기 전에 실패시킵니다.
+해결되지 않은 재조회를 세 번 재시도한 뒤 feed는 범위가 제한된 페이지를 지나서 진행하고 누락된
+최신 변경 시각을 내구성 있는 coverage gap으로 기록합니다. 해당 gap과 겹치는 조회 기간은
+불완전하게 유지되며, 이후 기간은 feed를 영구적으로 막지 않고 복구할 수 있습니다.
 
 읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 인벤토리 범위를
 조회합니다. 수집과 동일한 `FDAI_INVENTORY_SCOPES` parser를 사용하며,
