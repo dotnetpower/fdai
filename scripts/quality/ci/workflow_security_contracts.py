@@ -107,6 +107,47 @@ def workflow_triggers(document: Any) -> dict[str, Any]:
     return triggers if isinstance(triggers, dict) else {}
 
 
+def split_top_level_or(expression: str) -> list[str]:
+    """Split an Actions condition on OR operators outside parentheses."""
+    clauses: list[str] = []
+    start = 0
+    depth = 0
+    index = 0
+    while index < len(expression) - 1:
+        character = expression[index]
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            depth = max(0, depth - 1)
+        elif expression[index : index + 2] == "||" and depth == 0:
+            clauses.append(expression[start:index].strip())
+            start = index + 2
+            index += 1
+        index += 1
+    clauses.append(expression[start:].strip())
+    return clauses
+
+
+def dispatch_condition_is_protected(
+    condition: Any,
+    dispatch_triggers: set[str],
+) -> bool:
+    """Prove every top-level dispatch-capable clause requires protected main."""
+    if not isinstance(condition, str):
+        return False
+    protected_main = "github.ref == 'refs/heads/main'"
+    for clause in split_top_level_or(" ".join(condition.split())):
+        event_matches = set(re.findall(r"github\.event_name\s*==\s*'([A-Za-z_]+)'", clause))
+        if event_matches and not (event_matches & dispatch_triggers):
+            continue
+        if protected_main not in clause:
+            return False
+        for trigger in event_matches & dispatch_triggers:
+            if f"github.event_name == '{trigger}'" not in clause:
+                return False
+    return True
+
+
 def dispatch_guard_errors(document: Any, relative: str) -> list[str]:
     """Validate exact-revision inputs and protected-main root jobs."""
     triggers = workflow_triggers(document)
@@ -126,18 +167,7 @@ def dispatch_guard_errors(document: Any, relative: str) -> list[str]:
         if not isinstance(job, dict) or "needs" in job:
             continue
         condition = job.get("if")
-        normalized = " ".join(condition.split()) if isinstance(condition, str) else ""
-        protected_main = "github.ref == 'refs/heads/main'"
-        if normalized == protected_main or normalized.startswith(f"{protected_main} &&"):
-            dispatch_is_protected = True
-        elif "||" in normalized:
-            dispatch_is_protected = all(
-                f"github.event_name == '{trigger}' && {protected_main}" in normalized
-                for trigger in dispatch_triggers
-            )
-        else:
-            dispatch_is_protected = protected_main in normalized
-        if not dispatch_is_protected:
+        if not dispatch_condition_is_protected(condition, dispatch_triggers):
             errors.append(
                 f"{relative} root job {job_name} must restrict dispatch to protected main"
             )
