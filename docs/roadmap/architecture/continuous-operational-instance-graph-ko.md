@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 87d878fac5094872e305ac9f12976f49050d4fe3
+translation_source_sha: 51be635c03b29faee0347f0a7e7880bd2b9aa952
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -221,7 +221,9 @@ cursor를 진행하기 전에 실패시킵니다.
 제한합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
-mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구
+mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. `FDAI_INVENTORY_RESOURCE_TYPES`가
+수집을 제한하면 가속기도 동일하게 필터링된 vocabulary로 변경을 확인하므로 제외된 유형이 수신
+fence에 들어가 전체 폴링을 막지 않습니다. Azure Activity Log는 감사 및 복구
 출처로 유지하고, 완전한 ARG 및 ARM reconciliation은 누락된 변경을 복구하고 하위 토폴로지를
 수집합니다. Resource Graph 변경 정보는 최종 일관성을 사용하므로 이 경로는 즉시성을 보장하는
 프로바이더 기능이 아니라 실시간에 가까운 처리입니다.
