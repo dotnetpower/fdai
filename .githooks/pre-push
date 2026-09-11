@@ -33,6 +33,7 @@ unsupported_destination_ref=""
 deletion_ref=""
 tag_refs=()
 tag_shas=()
+tag_remote_shas=()
 
 while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
   if [[ "$candidate_local_sha" == "$zero_sha" ]]; then
@@ -60,6 +61,7 @@ while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_r
   elif [[ "$candidate_remote_ref" == refs/tags/* ]]; then
     tag_refs+=("$candidate_remote_ref")
     tag_shas+=("$candidate_local_sha")
+    tag_remote_shas+=("$candidate_remote_sha")
   else
     unsupported_destination_ref="$candidate_remote_ref"
   fi
@@ -92,6 +94,11 @@ if [[ "${#tag_refs[@]}" -gt 0 ]]; then
     exit 1
   fi
   for index in "${!tag_refs[@]}"; do
+    if [[ "${tag_remote_shas[$index]}" != "$zero_sha" && \
+          "${tag_remote_shas[$index]}" != "${tag_shas[$index]}" ]]; then
+      echo "pre-push: BLOCKED - existing tag '${tag_refs[$index]#refs/tags/}' is immutable."
+      exit 1
+    fi
     tag_commit="$(git rev-parse --verify "${tag_shas[$index]}^{commit}" 2>/dev/null || true)"
     if [[ -z "$tag_commit" ]] || ! git merge-base --is-ancestor "$tag_commit" "$protected_ref"; then
       echo "pre-push: BLOCKED - tag '${tag_refs[$index]#refs/tags/}' is not on $protected_ref."
