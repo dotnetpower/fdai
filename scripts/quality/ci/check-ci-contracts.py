@@ -59,15 +59,6 @@ USES_LINE_RE = re.compile(
 )
 DOCKER_ACTION_DIGEST_RE = re.compile(r".+@sha256:[0-9a-f]{64}")
 IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
-WRITE_PERMISSION_RE = re.compile(r"(?m)^\s+[a-z-]+:\s*write\s*(?:#.*)?$")
-WRITE_ALL_PERMISSION_RE = re.compile(r"(?m)^\s*permissions:\s*write-all\s*(?:#.*)?$")
-INLINE_WRITE_PERMISSION_RE = re.compile(r"permissions:\s*\{[^}\n]*:\s*write(?:\s*[,}])")
-SELF_HOSTED_RUNNER_RE = re.compile(
-    r"(?m)^[ \t]*runs-on:[ \t]*"
-    r"(?:\[[^\]\n]*\bself-hosted\b[^\]\n]*\]|self-hosted)[ \t]*(?:#.*)?$"
-    r"|^[ \t]*runs-on:[ \t]*(?:#.*)?$\n"
-    r"(?:^[ \t]+-[^\n]*\n)*?^[ \t]+-[ \t]*self-hosted[ \t]*(?:#.*)?$"
-)
 PRIVILEGED_COMMAND_RE = re.compile(
     r"\b(?:terraform\s+(?:apply|destroy)|git\s+push|docker\s+push|"
     r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
@@ -500,15 +491,37 @@ def _validate_action_runtime_versions() -> list[str]:
 
 def _is_privileged_workflow(content: str) -> bool:
     """Detect workflows that can mutate durable state or use a privileged identity."""
-    return any(
-        (
-            WRITE_PERMISSION_RE.search(content),
-            WRITE_ALL_PERMISSION_RE.search(content),
-            INLINE_WRITE_PERMISSION_RE.search(content),
-            SELF_HOSTED_RUNNER_RE.search(content),
-            PRIVILEGED_COMMAND_RE.search(content),
-        )
-    )
+    try:
+        document: Any = yaml.safe_load(content)
+    except yaml.YAMLError:
+        return True
+
+    def is_privileged(node: Any) -> bool:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "permissions":
+                    if value == "write-all" or (
+                        isinstance(value, dict)
+                        and any(permission == "write" for permission in value.values())
+                    ):
+                        return True
+                elif key == "runs-on":
+                    runners = value if isinstance(value, list) else [value]
+                    if any(runner == "self-hosted" for runner in runners):
+                        return True
+                elif (
+                    key == "run"
+                    and isinstance(value, str)
+                    and PRIVILEGED_COMMAND_RE.search(value) is not None
+                ):
+                    return True
+                if is_privileged(value):
+                    return True
+        elif isinstance(node, list):
+            return any(is_privileged(value) for value in node)
+        return False
+
+    return is_privileged(document)
 
 
 def _validate_privileged_workflow_guards() -> list[str]:

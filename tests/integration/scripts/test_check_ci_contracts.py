@@ -382,6 +382,8 @@ def test_destroy_helper_refuses_to_deallocate_an_ephemeral_runner() -> None:
         "jobs:\n  deploy:\n    runs-on: self-hosted\n",
         "jobs:\n  smoke:\n    runs-on:\n      - self-hosted\n      - custom\n",
         "permissions:\n  id-token: write\n",
+        'permissions:\n  contents: "write"\n',
+        'jobs:\n  deploy:\n    runs-on: "self-hosted"\n',
         "steps:\n  - run: terraform apply saved.plan\n",
         "steps:\n  - run: terraform destroy -auto-approve\n",
     ),
