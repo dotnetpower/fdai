@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: c80c06495e7ba599cd0a93eed91b6e0dce36a8aa
+translation_source_sha: 149cf5f9000c05d34452b1bdf89526acf68e5f67
 translation_revised: 2026-09-12
 ---
 # Reviewable 자동화 Blueprints
@@ -45,6 +45,7 @@ translation_revised: 2026-09-12
 | 2026-08-14 | in-progress | 세 개의 검토 경로를 공용 contributor 권한에서 approver 이상 권한으로 올리고, 모든 제안 경로가 reader를 결코 포함할 수 없는 명시적 역할 집합을 갖도록 했습니다. | `current change`; `families/operations/manifest.py`, `families/operations/factory.py`, `test_operator_operations_family.py`; Operator Service suite 257개가 통과했습니다. | 대기한 제안을 `AutomationBlueprintReviewService`에 연결하고, 권위 있는 변환 결과를 구체화하며, 런타임 근거를 수집합니다. |
 | 2026-09-12 | implemented | 서비스 소유 로컬 스키마에서 PostgreSQL 저장소를 입증하고, accepted 후보를 바꾸지 않으면서 오래된 예상 상태 전환을 거부하도록 focused test를 확장했습니다. | `current change`; `services/core-control-plane/tests/persistence/test_automation_blueprint.py`; `FDAI_DATABASE_URL=\"$FDAI_STATE_STORE_DSN\" .venv/bin/pytest -q services/core-control-plane/tests/persistence/test_automation_blueprint.py` (`2 passed`). | 운영 제안, 검토, 변환 결과, 예약, metric 경로를 연결하며 런타임 근거는 별도로 유지합니다. |
 | 2026-09-12 | implemented | 독립 critique에서 focused store test만으로는 로컬 스키마가 head에 있음을 입증하지 못한다는 점을 확인한 뒤 누락된 migration-current 근거를 추가했습니다. | `current change`; legacy `alembic current --check-heads` (`20260831_0089 (head)`); Core service `migrate.py core-control-plane current` (`core_resource_change_sources_20260912 (head)`). | 운영 제안, 검토, 변환 결과, 예약, metric 경로를 연결하며 런타임 근거는 별도로 유지합니다. |
+| 2026-09-12 | implemented | 검증 결과를 바꾸지 않고 기록된 shell 명령 표기를 바로잡았습니다. | 생성된 로컬 runtime 환경을 불러온 뒤 `FDAI_DATABASE_URL="$FDAI_STATE_STORE_DSN" .venv/bin/pytest -q services/core-control-plane/tests/persistence/test_automation_blueprint.py`를 실행합니다(`2 passed`). | 운영 제안, 검토, 변환 결과, 예약, metric 경로를 연결하며 런타임 근거는 별도로 유지합니다. |
 
 ### 남은 작업
 
