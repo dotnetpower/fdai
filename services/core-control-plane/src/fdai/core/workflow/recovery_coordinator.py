@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -29,7 +30,11 @@ from fdai.core.workflow.automation_hold import (
     AutomationHoldReleaseReceipt,
     StateStoreAutomationHoldLedger,
 )
-from fdai.core.workflow.recovery_admission import assess_workflow_recovery_admission
+from fdai.core.workflow.recovery_admission import (
+    WorkflowRecoveryAdmissionAssessment,
+    WorkflowRecoveryAdmissionRejectionReason,
+    assess_workflow_recovery_admission,
+)
 from fdai.core.workflow.recovery_attempt import (
     RecoveryApprovalEvidence,
     RecoveryAttemptIdentity,
@@ -39,6 +44,7 @@ from fdai.core.workflow.recovery_attempt import (
     RecoveryPreDispatchClaim,
     RecoverySafeguardEvidence,
     recovery_attempt_idempotency_key,
+    recovery_attempt_step_id,
 )
 from fdai.core.workflow.recovery_effect_claim import (
     CompletionClaimRejectionReason,
@@ -81,6 +87,7 @@ _LOOKUP_PREFIX = "workflow:recovery-release-lookup:"
 _OUTBOX_PREFIX = "workflow:recovery-outbox:"
 
 _DEFAULT_CLAIM_VALIDITY = timedelta(minutes=30)
+_DEFAULT_DISPATCH_LEASE = timedelta(minutes=5)
 _PROCESS_EVENT_DELIVERY = "process_event"
 _SAGA_AUDIT_DELIVERY = "saga_audit"
 
@@ -94,6 +101,22 @@ class RecoveryDisposition(StrEnum):
     EFFECT_UNVERIFIED = "effect_unverified"
     COMPLETED = "completed"
     REPLAYED = "replayed"
+
+
+class RecoveryClaimDispatchState(StrEnum):
+    """Exclusive ownership state of one pre-dispatch recovery claim."""
+
+    UNCLAIMED = "unclaimed"
+    IN_FLIGHT = "in_flight"
+    RESOLVED = "resolved"
+
+
+@dataclass(frozen=True, slots=True)
+class _InFlightLease:
+    """Proof that this caller owns the exclusive in-flight claim."""
+
+    owner: str
+    took_over: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +230,26 @@ class RecoveryEffectObserver(Protocol):
 
 
 @runtime_checkable
+class RecoveryEffectObservationIntake(Protocol):
+    """Persist one independent authoritative post-effect observation.
+
+    This is the explicit seam an observer that is independent of the executor
+    and the provider writes through. An implementation persists evidence only;
+    it never grants effect-verification authority and MUST refuse evidence the
+    executor or provider owns.
+    """
+
+    async def record_observation(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        target_resource_id: str,
+        provider_receipt_digest: str,
+        observation: RecoveryEffectObservation,
+    ) -> bool: ...
+
+
+@runtime_checkable
 class RecoverySafeguardBundleReader(Protocol):
     """Return the finalized safeguard bundle digest bound to one recovery attempt."""
 
@@ -231,6 +274,25 @@ class RecoveryApprovalReader(Protocol):
     ) -> WorkflowApprovalSnapshot | None: ...
 
 
+@runtime_checkable
+class RecoveryApprovalRequester(Protocol):
+    """Ask a separate human to decide one recovery attempt.
+
+    Requesting is never granting: an implementation persists the pending ask
+    in the human-decision journal and returns. Only a separate human decision
+    recorded there can make the attempt admissible.
+    """
+
+    async def request_recovery_approval(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        process_id: str,
+        target_resource_id: str,
+        correlation_id: str,
+    ) -> WorkflowApprovalSnapshot: ...
+
+
 @dataclass(frozen=True, slots=True)
 class RecoveryCoordinatorConfig:
     """Immutable identity and quorum configuration for the recovery path."""
@@ -240,6 +302,7 @@ class RecoveryCoordinatorConfig:
     quorum: int = 1
     no_self_approval: bool = True
     claim_validity: timedelta = _DEFAULT_CLAIM_VALIDITY
+    dispatch_lease: timedelta = _DEFAULT_DISPATCH_LEASE
 
     def __post_init__(self) -> None:
         if not self.executor_identity.strip():
@@ -252,6 +315,8 @@ class RecoveryCoordinatorConfig:
             raise ValueError("recovery coordinator MUST keep no-self-approval enabled")
         if self.claim_validity <= timedelta(0):
             raise ValueError("recovery coordinator claim validity MUST be positive")
+        if self.dispatch_lease <= timedelta(0):
+            raise ValueError("recovery coordinator dispatch lease MUST be positive")
 
 
 class WorkflowRecoveryCoordinator:
@@ -263,7 +328,9 @@ class WorkflowRecoveryCoordinator:
         "_holds",
         "_dispatcher",
         "_effect_observer",
+        "_effect_observations",
         "_approval_reader",
+        "_approval_requester",
         "_admission_provider",
         "_bundle_reader",
         "_config",
@@ -279,7 +346,9 @@ class WorkflowRecoveryCoordinator:
         config: RecoveryCoordinatorConfig,
         dispatcher: RecoveryDispatchPort | None = None,
         effect_observer: RecoveryEffectObserver | None = None,
+        effect_observations: RecoveryEffectObservationIntake | None = None,
         approval_reader: RecoveryApprovalReader | None = None,
+        approval_requester: RecoveryApprovalRequester | None = None,
         admission_provider: DecisionEvidenceAdmissionProvider | None = None,
         bundle_reader: RecoverySafeguardBundleReader | None = None,
         clock: Callable[[], datetime] | None = None,
@@ -289,7 +358,9 @@ class WorkflowRecoveryCoordinator:
         self._holds = holds
         self._dispatcher = dispatcher
         self._effect_observer = effect_observer
+        self._effect_observations = effect_observations
         self._approval_reader = approval_reader
+        self._approval_requester = approval_requester
         self._admission_provider = admission_provider
         self._bundle_reader = bundle_reader
         self._config = config
@@ -338,19 +409,23 @@ class WorkflowRecoveryCoordinator:
 
         approval = await self._resolve_approval(snapshot=snapshot, attempt=attempt)
         if approval is None:
+            await self._request_approval(snapshot=snapshot, attempt=attempt)
             return await self._reject(
                 snapshot,
                 reason=RecoveryAttemptRejectionReason.APPROVAL_MISSING,
                 attempt=attempt,
             )
-        bundle_digest = await self._resolve_bundle(
+        admitted = await self._assess_admission(
             snapshot=snapshot,
-            attempt=attempt,
+            approval=approval,
+            hold_revision=hold_revision,
+            compensation_receipt_digests=compensation_receipt_digests,
         )
-        if bundle_digest is None:
+        if not admitted.eligible or admitted.admission is None:
             return await self._reject(
                 snapshot,
-                reason=RecoveryAttemptRejectionReason.SAFEGUARD_DENIED,
+                reason=_admission_reason(admitted),
+                detail=",".join(reason.value for reason in admitted.rejection_reasons)[:256],
                 attempt=attempt,
             )
         approval_evidence = RecoveryApprovalEvidence.create(
@@ -359,15 +434,9 @@ class WorkflowRecoveryCoordinator:
             approved_at=approval.requested_at,
             approver_identity=_approver_identity(approval),
         )
-        safeguard_evidence = RecoverySafeguardEvidence.create(
-            attempt_identity_digest=attempt.identity_digest,
-            safeguard_bundle_digest=bundle_digest,
-            completed_at=self._now(),
-        )
         await self._persist_attempt(
             attempt=attempt,
             approval_evidence=approval_evidence,
-            safeguard_evidence=safeguard_evidence,
             process_id=snapshot.process_id,
         )
 
@@ -385,12 +454,26 @@ class WorkflowRecoveryCoordinator:
                 reason=RecoveryAttemptRejectionReason.STALE_HOLD,
                 attempt=attempt,
             )
+        if not await self._holds.authorize_hold_scoped_dispatch(
+            target_ref=snapshot.target_resource_id,
+            process_id=snapshot.process_id,
+            step_id=recovery_attempt_step_id(attempt),
+            hold_revision=hold_revision,
+        ):
+            return await self._reject(
+                snapshot,
+                reason=RecoveryAttemptRejectionReason.STALE_HOLD,
+                attempt=attempt,
+                claim=claim,
+            )
 
         dispatch = await self._dispatch_once(
             snapshot=snapshot,
             attempt=attempt,
             claim=claim,
-            safeguard_bundle_digest=bundle_digest,
+            safeguard_bundle_digest=(
+                await self._resolve_bundle(snapshot=snapshot, attempt=attempt) or ""
+            ),
             recovery_params=recovery_params,
         )
         if dispatch.outcome != RecoveryDispatchOutcome.DISPATCHED:
@@ -414,6 +497,15 @@ class WorkflowRecoveryCoordinator:
             return await self._reject(
                 snapshot,
                 reason=RecoveryAttemptRejectionReason.PROVIDER_RECEIPT_MISSING,
+                attempt=attempt,
+                claim=claim,
+            )
+
+        bundle_digest = await self._bind_safeguard_evidence(snapshot=snapshot, attempt=attempt)
+        if bundle_digest is None:
+            return await self._reject(
+                snapshot,
+                reason=RecoveryAttemptRejectionReason.SAFEGUARD_DENIED,
                 attempt=attempt,
                 claim=claim,
             )
@@ -446,8 +538,52 @@ class WorkflowRecoveryCoordinator:
             compensation_receipt_digests=compensation_receipt_digests,
         )
 
+    async def record_independent_observation(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        target_resource_id: str,
+        provider_receipt_digest: str,
+        observation: RecoveryEffectObservation,
+    ) -> bool:
+        """Persist one observation an independent authority reported.
+
+        This records evidence only. The recovery path still re-verifies
+        identity separation, finality, and admission before any claim, so
+        persisting an observation never verifies an effect, and an unbound
+        intake stays a visible fail-closed state.
+        """
+
+        intake = self._effect_observations
+        if intake is None:
+            _LOGGER.warning(
+                "workflow_recovery_effect_observation_intake_unbound",
+                extra={"process_id": attempt.process_id},
+            )
+            return False
+        try:
+            return await intake.record_observation(
+                attempt=attempt,
+                target_resource_id=target_resource_id,
+                provider_receipt_digest=provider_receipt_digest,
+                observation=observation,
+            )
+        except Exception:  # noqa: BLE001 - an unwritable observation stays unverified
+            _LOGGER.exception(
+                "workflow_recovery_effect_observation_write_failed",
+                extra={"process_id": attempt.process_id},
+            )
+            return False
+
     async def heal(self, *, snapshot: ProcessSnapshot) -> RecoveryCoordinationResult | None:
-        """Repair a crash between hold release, Process CAS, and Saga delivery."""
+        """Repair a crash between hold release, Process CAS, and Saga delivery.
+
+        A durable release lookup proves the approval-guarded release already
+        consumed one exact completion claim, so healing terminalizes from that
+        consumed binding even after the claim's own validity window closed. A
+        lineage that no longer matches the durable release, or a claim that was
+        superseded, still fails closed (#658).
+        """
 
         record = await self._audit_store.find_state(
             _ATTEMPT_PREFIX,
@@ -468,13 +604,63 @@ class WorkflowRecoveryCoordinator:
         effect_claim = await self._read_current_claim(attempt)
         if effect_claim is None or effect_claim.claim_digest != lookup.effect_claim_digest:
             return None
+        consumed_at = await self._consumed_release_instant(
+            snapshot=snapshot,
+            lookup=lookup,
+            effect_claim=effect_claim,
+        )
+        if consumed_at is None:
+            return await self._reject(
+                snapshot,
+                reason=TerminalTransitionRejection.RELEASE_RECEIPT_MISSING.value,
+                attempt=attempt,
+                disposition=RecoveryDisposition.EFFECT_UNVERIFIED,
+            )
         return await self._commit_terminal(
             snapshot=snapshot,
             attempt=attempt,
             effect_claim=effect_claim,
             release_receipt_digest=lookup.release_receipt_digest,
             hold_revision=lookup.hold_revision,
+            evaluated_at=consumed_at,
         )
+
+    async def _consumed_release_instant(
+        self,
+        *,
+        snapshot: ProcessSnapshot,
+        lookup: ReleaseReceiptLookup,
+        effect_claim: EffectCompletionClaim,
+    ) -> datetime | None:
+        """Return when the durable release consumed this exact claim.
+
+        Returns ``None`` unless the persisted hold record still proves the same
+        release receipt, released hold revision, fencing generation, Process,
+        and consumed admission that this completion claim was bound to, and the
+        hold was not reissued after that release.
+        """
+
+        record = await self._holds.read_hold_record(target_ref=snapshot.target_resource_id)
+        if record is None or record.get("state") != "released":
+            return None
+        receipt = record.get("release_receipt")
+        if not isinstance(receipt, Mapping):
+            return None
+        if (
+            receipt.get("receipt_digest") != lookup.release_receipt_digest
+            or receipt.get("released_hold_revision") != lookup.hold_revision
+            or receipt.get("process_id") != snapshot.process_id
+            or receipt.get("target_digest") != _target_evidence_digest(snapshot.target_resource_id)
+            or record.get("fencing_generation") != lookup.hold_revision + 1
+            or record.get("revision") != lookup.hold_revision + 1
+        ):
+            return None
+        if record.get("consumed_recovery_admission_digest") != effect_claim.admission_digest:
+            return None
+        released_at = _aware_or_none(receipt.get("released_at"))
+        if released_at is None or released_at < effect_claim.validity_start.astimezone(UTC):
+            return None
+        return released_at
 
     # -- attempt identity ---------------------------------------------------
 
@@ -521,12 +707,12 @@ class WorkflowRecoveryCoordinator:
         *,
         attempt: RecoveryAttemptIdentity,
         approval_evidence: RecoveryApprovalEvidence,
-        safeguard_evidence: RecoverySafeguardEvidence,
         process_id: str,
     ) -> None:
         key = _attempt_key(attempt)
         record = {
             "process_id": process_id,
+            "recovery_step_id": recovery_attempt_step_id(attempt),
             "attempt_identity_digest": attempt.identity_digest,
             "failed_compensation_proposal_digest": (attempt.failed_compensation_proposal_digest),
             "hold_revision": attempt.hold_revision,
@@ -537,8 +723,8 @@ class WorkflowRecoveryCoordinator:
             "attempt_number": attempt.attempt_number,
             "approval_evidence_digest": approval_evidence.evidence_digest,
             "approver_identity": approval_evidence.approver_identity,
-            "safeguard_bundle_digest": safeguard_evidence.safeguard_bundle_digest,
-            "safeguard_evidence_digest": safeguard_evidence.evidence_digest,
+            "safeguard_bundle_digest": None,
+            "safeguard_evidence_digest": None,
             "execution_authority": False,
             "revision": 1,
         }
@@ -558,10 +744,100 @@ class WorkflowRecoveryCoordinator:
             raise ValueError("recovery attempt identity conflicted with a stored attempt")
         if stored.get("approval_evidence_digest") != approval_evidence.evidence_digest:
             raise ValueError("recovery attempt approval evidence is not immutable")
-        if stored.get("safeguard_evidence_digest") != safeguard_evidence.evidence_digest:
-            raise ValueError("recovery attempt safeguard evidence is not immutable")
+
+    async def _bind_safeguard_evidence(
+        self,
+        *,
+        snapshot: ProcessSnapshot,
+        attempt: RecoveryAttemptIdentity,
+    ) -> str | None:
+        """Bind the finalized safeguard bundle this attempt dispatched under.
+
+        The executor finalizes the bundle inside its own logical-target lock,
+        so the workflow binds it once the production dispatch retained it. The
+        binding is immutable: a different bundle for the same attempt fails
+        closed and the hold stays in force.
+        """
+
+        key = _attempt_key(attempt)
+        stored = await self._read_mapping(key)
+        if stored is None:
+            return None
+        bundle_digest = await self._resolve_bundle(snapshot=snapshot, attempt=attempt)
+        if bundle_digest is None:
+            return None
+        evidence = RecoverySafeguardEvidence.create(
+            attempt_identity_digest=attempt.identity_digest,
+            safeguard_bundle_digest=bundle_digest,
+            completed_at=self._now(),
+        )
+        recorded = stored.get("safeguard_bundle_digest")
+        if recorded is not None:
+            return str(recorded) if recorded == bundle_digest else None
+        revision = _int_or_none(stored.get("revision"))
+        if revision is None:
+            return None
+        updated = {
+            **stored,
+            "safeguard_bundle_digest": evidence.safeguard_bundle_digest,
+            "safeguard_evidence_digest": evidence.evidence_digest,
+            "revision": revision + 1,
+        }
+        committed = await self._audit_store.compare_and_set_state_with_audit(
+            key,
+            updated,
+            expected_revision=revision,
+            audit_entry={
+                "actor": _ACTOR,
+                "action_kind": "workflow.recovery.safeguard_bundle_bound",
+                "attempt_identity_digest": attempt.identity_digest,
+                "safeguard_bundle_digest": evidence.safeguard_bundle_digest,
+                "safeguard_evidence_digest": evidence.evidence_digest,
+                "execution_authority": False,
+            },
+        )
+        if committed:
+            return bundle_digest
+        current = await self._read_mapping(key)
+        if current is None or current.get("safeguard_bundle_digest") != bundle_digest:
+            return None
+        return bundle_digest
 
     # -- approval and safeguard binding -------------------------------------
+
+    async def _request_approval(
+        self,
+        *,
+        snapshot: ProcessSnapshot,
+        attempt: RecoveryAttemptIdentity,
+    ) -> None:
+        """Ask a separate human for this exact attempt, never grant it."""
+
+        requester = self._approval_requester
+        if requester is None:
+            return
+        try:
+            await requester.request_recovery_approval(
+                attempt=attempt,
+                process_id=snapshot.process_id,
+                target_resource_id=snapshot.target_resource_id,
+                correlation_id=snapshot.correlation_id,
+            )
+        except Exception:  # noqa: BLE001 - an unrequestable approval keeps the hold
+            _LOGGER.exception(
+                "workflow_recovery_approval_request_failed",
+                extra={"process_id": snapshot.process_id},
+            )
+            return
+        await self._audit(
+            snapshot,
+            action_kind="workflow.recovery.approval_requested",
+            payload={
+                "attempt_identity_digest": attempt.identity_digest,
+                "recovery_step_id": recovery_attempt_step_id(attempt),
+                "approval_authority": False,
+            },
+        )
 
     async def _resolve_approval(
         self,
@@ -569,6 +845,12 @@ class WorkflowRecoveryCoordinator:
         snapshot: ProcessSnapshot,
         attempt: RecoveryAttemptIdentity,
     ) -> WorkflowApprovalSnapshot | None:
+        """Return the approval bound to this exact attempt, without judging it.
+
+        Eligibility belongs to ``assess_workflow_recovery_admission``; this seam
+        only proves that a separate approval record exists for this Process.
+        """
+
         if self._approval_reader is None:
             return None
         approval = await self._approval_reader.recovery_approval(
@@ -578,11 +860,30 @@ class WorkflowRecoveryCoordinator:
         )
         if approval is None or approval.process_id != snapshot.process_id:
             return None
-        if approval.cancelled or approval.timed_out or approval.expires_at is None:
-            return None
-        if not any(decision.decision == "approved" for decision in approval.decisions):
-            return None
         return approval
+
+    async def _assess_admission(
+        self,
+        *,
+        snapshot: ProcessSnapshot,
+        approval: WorkflowApprovalSnapshot,
+        hold_revision: int,
+        compensation_receipt_digests: tuple[str, ...],
+    ) -> WorkflowRecoveryAdmissionAssessment:
+        """Assess current approval, quorum, identity separation, and admission."""
+
+        return await assess_workflow_recovery_admission(
+            self._admission_provider,
+            snapshot=approval,
+            quorum=self._config.quorum,
+            no_self_approval=self._config.no_self_approval,
+            hold_revision=hold_revision,
+            target_digest=_target_evidence_digest(snapshot.target_resource_id),
+            compensation_receipt_digests=compensation_receipt_digests,
+            executor_identity=self._config.executor_identity,
+            source_revision=self._config.source_revision,
+            evaluated_at=self._now(),
+        )
 
     async def _resolve_bundle(
         self,
@@ -627,6 +928,9 @@ class WorkflowRecoveryCoordinator:
             "idempotency_key": claim.idempotency_key,
             "claimed_at": claim.claimed_at.astimezone(UTC).isoformat(),
             "claim_digest": claim.claim_digest,
+            "dispatch_state": RecoveryClaimDispatchState.UNCLAIMED,
+            "in_flight_owner": None,
+            "in_flight_expires_at": None,
             "dispatch_outcome": RecoveryDispatchOutcome.NOT_INVOKED,
             "provider_receipt_digest": None,
             "execution_authority": False,
@@ -670,9 +974,40 @@ class WorkflowRecoveryCoordinator:
                 provider_receipt_digest=None,
                 recorded_at=self._now(),
             )
-        if recorded is not None and recorded.outcome == RecoveryDispatchOutcome.IN_DOUBT:
+        lease = await self._acquire_in_flight(key=key, claim=claim, stored=stored)
+        if lease is None:
+            # Another caller owns the exclusive in-flight claim: this caller
+            # never invokes the provider and stays in doubt until that owner
+            # resolves or its lease expires.
+            _LOGGER.info(
+                "workflow_recovery_dispatch_claim_held",
+                extra={"process_id": snapshot.process_id},
+            )
+            return RecoveryDispatchResult.create(
+                attempt_identity_digest=attempt.identity_digest,
+                claim_digest=claim.claim_digest,
+                outcome=RecoveryDispatchOutcome.IN_DOUBT,
+                provider_receipt_digest=None,
+                recorded_at=self._now(),
+            )
+        unresolved = recorded is not None and recorded.outcome == RecoveryDispatchOutcome.IN_DOUBT
+        if unresolved or lease.took_over:
             reconciled = await self._reconcile(attempt=attempt, claim=claim)
-            result = reconciled if reconciled is not None else recorded
+            result = (
+                reconciled
+                if reconciled is not None
+                else (
+                    recorded
+                    if recorded is not None
+                    else RecoveryDispatchResult.create(
+                        attempt_identity_digest=attempt.identity_digest,
+                        claim_digest=claim.claim_digest,
+                        outcome=RecoveryDispatchOutcome.IN_DOUBT,
+                        provider_receipt_digest=None,
+                        recorded_at=self._now(),
+                    )
+                )
+            )
         else:
             try:
                 result = await self._dispatcher.dispatch_recovery(
@@ -695,8 +1030,67 @@ class WorkflowRecoveryCoordinator:
                     provider_receipt_digest=None,
                     recorded_at=self._now(),
                 )
-        await self._record_dispatch(key=key, claim=claim, result=result)
+        await self._record_dispatch(key=key, claim=claim, result=result, lease=lease)
         return result
+
+    async def _acquire_in_flight(
+        self,
+        *,
+        key: str,
+        claim: RecoveryPreDispatchClaim,
+        stored: Mapping[str, Any] | None,
+    ) -> _InFlightLease | None:
+        """Own the claim exclusively, or return ``None`` and stay in doubt.
+
+        Exactly one caller may hold the in-flight claim for one attempt and
+        hold revision, so a concurrent recovery never invokes the provider a
+        second time. A lease that expires is taken over only for
+        reconciliation, never for a fresh provider invocation.
+        """
+
+        record = dict(stored) if stored is not None else None
+        for _ in range(3):
+            if record is None:
+                return None
+            revision = _int_or_none(record.get("revision"))
+            if revision is None:
+                return None
+            if record.get("dispatch_outcome") == RecoveryDispatchOutcome.DISPATCHED:
+                return None
+            now = self._now()
+            took_over = False
+            if record.get("dispatch_state") == RecoveryClaimDispatchState.IN_FLIGHT:
+                expires_at = _aware_or_none(record.get("in_flight_expires_at"))
+                if expires_at is None or now < expires_at:
+                    return None
+                took_over = True
+            owner = secrets.token_urlsafe(24)
+            updated = {
+                **record,
+                "dispatch_state": RecoveryClaimDispatchState.IN_FLIGHT,
+                "in_flight_owner": owner,
+                "in_flight_claimed_at": now.isoformat(),
+                "in_flight_expires_at": (now + self._config.dispatch_lease).isoformat(),
+                "revision": revision + 1,
+            }
+            claimed = await self._audit_store.compare_and_set_state_with_audit(
+                key,
+                updated,
+                expected_revision=revision,
+                audit_entry={
+                    "actor": _ACTOR,
+                    "action_kind": "workflow.recovery.dispatch_claim_acquired",
+                    "attempt_identity_digest": claim.attempt_identity_digest,
+                    "claim_digest": claim.claim_digest,
+                    "hold_revision": claim.hold_revision,
+                    "took_over_expired_lease": took_over,
+                    "execution_authority": False,
+                },
+            )
+            if claimed:
+                return _InFlightLease(owner=owner, took_over=took_over)
+            record = await self._read_mapping(key)
+        return None
 
     async def _reconcile(
         self,
@@ -721,35 +1115,51 @@ class WorkflowRecoveryCoordinator:
         key: str,
         claim: RecoveryPreDispatchClaim,
         result: RecoveryDispatchResult,
+        lease: _InFlightLease,
     ) -> None:
-        stored = await self._audit_store.read_state(key)
-        if stored is None:
-            return
-        revision = _int_or_none(stored.get("revision"))
-        if revision is None:
-            return
-        updated = {
-            **dict(stored),
-            "dispatch_outcome": result.outcome,
-            "provider_receipt_digest": result.provider_receipt_digest,
-            "dispatch_result_digest": result.result_digest,
-            "dispatch_recorded_at": result.recorded_at.astimezone(UTC).isoformat(),
-            "revision": revision + 1,
-        }
-        await self._audit_store.compare_and_set_state_with_audit(
-            key,
-            updated,
-            expected_revision=revision,
-            audit_entry={
-                "actor": _ACTOR,
-                "action_kind": "workflow.recovery.dispatch_recorded",
-                "attempt_identity_digest": claim.attempt_identity_digest,
-                "claim_digest": claim.claim_digest,
-                "outcome": result.outcome,
+        for _ in range(3):
+            stored = await self._read_mapping(key)
+            if stored is None:
+                return
+            revision = _int_or_none(stored.get("revision"))
+            if revision is None:
+                return
+            if (
+                stored.get("dispatch_outcome") == RecoveryDispatchOutcome.DISPATCHED
+                and stored.get("in_flight_owner") != lease.owner
+            ):
+                return
+            updated = {
+                **stored,
+                "dispatch_state": RecoveryClaimDispatchState.RESOLVED,
+                "in_flight_owner": None,
+                "in_flight_expires_at": None,
+                "dispatch_outcome": result.outcome,
                 "provider_receipt_digest": result.provider_receipt_digest,
                 "dispatch_result_digest": result.result_digest,
-            },
-        )
+                "dispatch_recorded_at": result.recorded_at.astimezone(UTC).isoformat(),
+                "revision": revision + 1,
+            }
+            committed = await self._audit_store.compare_and_set_state_with_audit(
+                key,
+                updated,
+                expected_revision=revision,
+                audit_entry={
+                    "actor": _ACTOR,
+                    "action_kind": "workflow.recovery.dispatch_recorded",
+                    "attempt_identity_digest": claim.attempt_identity_digest,
+                    "claim_digest": claim.claim_digest,
+                    "outcome": result.outcome,
+                    "provider_receipt_digest": result.provider_receipt_digest,
+                    "dispatch_result_digest": result.result_digest,
+                },
+            )
+            if committed:
+                return
+
+    async def _read_mapping(self, key: str) -> dict[str, Any] | None:
+        stored = await self._audit_store.read_state(key)
+        return dict(stored) if stored is not None else None
 
     # -- authoritative effect verification ----------------------------------
 
@@ -953,17 +1363,11 @@ class WorkflowRecoveryCoordinator:
         hold_revision: int,
         compensation_receipt_digests: tuple[str, ...],
     ) -> str | None:
-        assessment = await assess_workflow_recovery_admission(
-            self._admission_provider,
-            snapshot=approval,
-            quorum=self._config.quorum,
-            no_self_approval=self._config.no_self_approval,
+        assessment = await self._assess_admission(
+            snapshot=snapshot,
+            approval=approval,
             hold_revision=hold_revision,
-            target_digest=_target_evidence_digest(snapshot.target_resource_id),
             compensation_receipt_digests=compensation_receipt_digests,
-            executor_identity=self._config.executor_identity,
-            source_revision=self._config.source_revision,
-            evaluated_at=self._now(),
         )
         if not assessment.eligible or assessment.admission is None:
             return None
@@ -1029,17 +1433,11 @@ class WorkflowRecoveryCoordinator:
         hold_revision: int,
         compensation_receipt_digests: tuple[str, ...],
     ) -> AutomationHoldReleaseReceipt | None:
-        assessment = await assess_workflow_recovery_admission(
-            self._admission_provider,
-            snapshot=approval,
-            quorum=self._config.quorum,
-            no_self_approval=self._config.no_self_approval,
+        assessment = await self._assess_admission(
+            snapshot=snapshot,
+            approval=approval,
             hold_revision=hold_revision,
-            target_digest=_target_evidence_digest(snapshot.target_resource_id),
             compensation_receipt_digests=compensation_receipt_digests,
-            executor_identity=self._config.executor_identity,
-            source_revision=self._config.source_revision,
-            evaluated_at=self._now(),
         )
         if (
             not assessment.eligible
@@ -1060,6 +1458,10 @@ class WorkflowRecoveryCoordinator:
                 executor_identity=self._config.executor_identity,
                 source_revision=self._config.source_revision,
                 assessment=assessment,
+                workflow_lineage=(
+                    snapshot.process_id,
+                    recovery_attempt_step_id(attempt),
+                ),
             )
         except Exception:  # noqa: BLE001 - release persistence keeps the hold in force
             _LOGGER.exception(
@@ -1133,6 +1535,7 @@ class WorkflowRecoveryCoordinator:
         effect_claim: EffectCompletionClaim,
         release_receipt_digest: str,
         hold_revision: int,
+        evaluated_at: datetime | None = None,
     ) -> RecoveryCoordinationResult:
         current = await self._process_store.get(snapshot.process_id) or snapshot
         committed = await self._committed_completion_digest(snapshot.process_id)
@@ -1185,7 +1588,7 @@ class WorkflowRecoveryCoordinator:
             expected_completion_digest=completion.completion_digest,
             release_receipt_digest=release_receipt_digest,
             committed_completion_digest=committed,
-            now=self._now(),
+            now=evaluated_at if evaluated_at is not None else self._now(),
         )
         if not eligible:
             return await self._reject(
@@ -1478,6 +1881,50 @@ def _target_evidence_digest(target_ref: str) -> str:
     return f"sha256:{hashlib.sha256(target_ref.encode()).hexdigest()}"
 
 
+async def read_recovery_attempt(
+    store: StateStore,
+    *,
+    process_id: str,
+    recovery_step_id: str,
+) -> RecoveryAttemptIdentity | None:
+    """Return the persisted recovery attempt one workflow step belongs to.
+
+    A production writer that only sees workflow lineage uses this to rebind
+    evidence to the exact attempt identity the coordinator already persisted.
+    """
+
+    record = await store.find_state(
+        _ATTEMPT_PREFIX,
+        field="recovery_step_id",
+        value=recovery_step_id,
+    )
+    if record is None or record.get("process_id") != process_id:
+        return None
+    return _attempt_from_record(record)
+
+
+def _admission_reason(assessment: WorkflowRecoveryAdmissionAssessment) -> str:
+    """Return the exact typed reason one ineligible admission MUST report."""
+
+    if not assessment.rejection_reasons:
+        return RecoveryAttemptRejectionReason.APPROVAL_MISSING
+    ranked = {
+        WorkflowRecoveryAdmissionRejectionReason.APPROVAL_REJECTED: 0,
+        WorkflowRecoveryAdmissionRejectionReason.SELF_APPROVAL: 1,
+        WorkflowRecoveryAdmissionRejectionReason.EXECUTOR_IDENTITY_NOT_DISTINCT: 2,
+        WorkflowRecoveryAdmissionRejectionReason.APPROVAL_CANCELLED: 3,
+        WorkflowRecoveryAdmissionRejectionReason.APPROVAL_TIMED_OUT: 4,
+        WorkflowRecoveryAdmissionRejectionReason.APPROVAL_EXPIRED: 5,
+        WorkflowRecoveryAdmissionRejectionReason.APPROVAL_EXPIRY_MISSING: 6,
+        WorkflowRecoveryAdmissionRejectionReason.QUORUM_NOT_MET: 7,
+    }
+    ordered = sorted(
+        assessment.rejection_reasons,
+        key=lambda reason: (ranked.get(reason, len(ranked)), reason.value),
+    )
+    return ordered[0].value
+
+
 def _attempt_key(attempt: RecoveryAttemptIdentity) -> str:
     return f"{_ATTEMPT_PREFIX}{attempt.identity_digest.removeprefix('sha256:')}"
 
@@ -1549,6 +1996,18 @@ def _active_hold_revision(record: Mapping[str, Any] | None, *, process_id: str) 
 
 def _int_or_none(value: object) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _aware_or_none(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(UTC)
 
 
 def _attempt_from_record(record: Mapping[str, Any]) -> RecoveryAttemptIdentity | None:

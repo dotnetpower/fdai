@@ -116,6 +116,9 @@ from fdai.runtime.control_loop_support import (
     build_workflow_coordinator as _build_workflow_coordinator,
 )
 from fdai.runtime.control_loop_support import (
+    build_workflow_recovery_outcome_recorder,
+)
+from fdai.runtime.control_loop_support import (
     load_approval_load_policy as _load_approval_load_policy,
 )
 from fdai.runtime.control_loop_support import (
@@ -837,7 +840,10 @@ def _build_control_loop(
         response_outcome_sink=response_outcome_sink,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
-        workflow_outcome_recorder=workflow_outcome_ledger,
+        workflow_outcome_recorder=build_workflow_recovery_outcome_recorder(
+            workflow_outcome_ledger,
+            audit_store=audit_store,
+        ),
         ontology_instance_store=ontology_instance_store,
         property_semantics=property_semantics,
         metric_semantics=metric_semantics,

@@ -417,6 +417,17 @@ class RecoverySafeguardEvidence:
 # ---------------------------------------------------------------------------
 
 
+def recovery_attempt_step_id(identity: RecoveryAttemptIdentity) -> str:
+    """Return the deterministic workflow step bound to one recovery attempt.
+
+    The step is derived from the immutable attempt identity, so an approval
+    or an executed outcome recorded for a different attempt, hold revision,
+    or payload can never be replayed onto this one.
+    """
+
+    return f"recover_{identity.identity_digest.removeprefix('sha256:')[:32]}"
+
+
 def recovery_attempt_idempotency_key(identity: RecoveryAttemptIdentity) -> str:
     """Derive one stable idempotency key from the immutable attempt identity."""
 
@@ -514,4 +525,5 @@ __all__ = [
     "RecoveryPreDispatchClaim",
     "RecoverySafeguardEvidence",
     "recovery_attempt_idempotency_key",
+    "recovery_attempt_step_id",
 ]

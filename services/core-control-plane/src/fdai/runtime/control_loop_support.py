@@ -49,10 +49,13 @@ from fdai.core.workflow import (
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.delivery.persistence.workflow_recovery import (
-    StateStoreRecoveryApprovalReader,
+    StateStoreRecoveryApprovalJournal,
+    StateStoreRecoveryEffectObservationJournal,
     StateStoreRecoveryEffectObserver,
     StateStoreRecoverySafeguardBundleReader,
+    StateStoreRecoverySafeguardBundleRetention,
     WorkflowActionRecoveryDispatchPort,
+    WorkflowRecoveryOutcomeRecorder,
 )
 from fdai.runtime.operating_intent_binding import (
     operating_intent_admission_expectation_from_env,
@@ -204,6 +207,13 @@ def build_workflow_recovery_coordinator(
     executor_identity = (
         values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip() or "fdai.core.workflow.executor"
     )
+    journal = StateStoreRecoveryApprovalJournal(
+        approvals=StateStoreWorkflowApprovalProvider(audit_store),
+        requester_principal=(
+            values.get("FDAI_WORKFLOW_RECOVERY_REQUESTER", "").strip()
+            or "fdai.core.workflow.recovery-requester"
+        ),
+    )
     return WorkflowRecoveryCoordinator(
         process_store=process_store,
         audit_store=audit_store,
@@ -221,9 +231,50 @@ def build_workflow_recovery_coordinator(
             else None
         ),
         effect_observer=StateStoreRecoveryEffectObserver(audit_store),
-        approval_reader=StateStoreRecoveryApprovalReader(audit_store),
+        effect_observations=build_workflow_recovery_effect_observation_journal(
+            audit_store=audit_store,
+            environ=values,
+        ),
+        approval_reader=journal,
+        approval_requester=journal,
         admission_provider=decision_evidence_provider,
         bundle_reader=StateStoreRecoverySafeguardBundleReader(audit_store),
+    )
+
+
+def build_workflow_recovery_outcome_recorder(
+    inner: Any,
+    *,
+    audit_store: Any,
+) -> WorkflowRecoveryOutcomeRecorder:
+    """Retain a finalized recovery bundle at the production outcome call site."""
+
+    return WorkflowRecoveryOutcomeRecorder(
+        inner=inner,
+        store=audit_store,
+        retention=StateStoreRecoverySafeguardBundleRetention(audit_store),
+    )
+
+
+def build_workflow_recovery_effect_observation_journal(
+    *,
+    audit_store: Any,
+    environ: Mapping[str, str] | None = None,
+) -> StateStoreRecoveryEffectObservationJournal:
+    """Expose the independent post-effect observation intake for the runtime.
+
+    An observer that is independent of the executor writes its authoritative
+    observation here. The journal refuses executor-owned, provider-owned, and
+    synthetic evidence, so persistence never manufactures effect verification.
+    """
+
+    values = environ if environ is not None else os.environ
+    return StateStoreRecoveryEffectObservationJournal(
+        store=audit_store,
+        executor_identity=(
+            values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip()
+            or "fdai.core.workflow.executor"
+        ),
     )
 
 

@@ -279,6 +279,7 @@ def _build_safeguard_lifecycle_coordinator(
         ),
         commitment_store=ProcessRuntimeSafeguardCommitmentStore(process_store),
         hold_state_reader=StateStoreAutomationHoldLedger(audit_store),
+        hold_release_authorizations=StateStoreAutomationHoldLedger(audit_store),
     )
     _LOGGER.info(
         "safeguard_lifecycle_backend",

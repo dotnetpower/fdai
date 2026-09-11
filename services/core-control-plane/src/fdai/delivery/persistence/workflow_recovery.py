@@ -8,8 +8,8 @@ independent effect verification on the executor's behalf.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,8 +21,12 @@ from fdai.core.workflow.recovery_attempt import (
     RecoveryDispatchOutcome,
     RecoveryDispatchResult,
     RecoveryPreDispatchClaim,
+    recovery_attempt_step_id,
 )
-from fdai.core.workflow.recovery_coordinator import RecoveryEffectObservation
+from fdai.core.workflow.recovery_coordinator import (
+    RecoveryEffectObservation,
+    read_recovery_attempt,
+)
 from fdai.core.workflow.recovery_effect_claim import (
     EffectEvidenceClass,
     EffectEvidenceRecord,
@@ -32,23 +36,23 @@ from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowApprovalDecision,
     WorkflowApprovalSnapshot,
+    WorkflowOutcomeRecorder,
     workflow_approval_state_key,
 )
+from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
+from fdai.shared.contracts.models import Action, ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
 _BUNDLE_PREFIX = "workflow:recovery-safeguard-bundle:"
+_RECOVERY_STEP_PREFIX = "recover_"
+_DISPATCHED_OUTCOMES = frozenset({"dispatched", "published"})
 _OBSERVATION_PREFIX = "workflow:recovery-effect-observation:"
 
 
 def recovery_approval_step_id(attempt: RecoveryAttemptIdentity) -> str:
-    """Return the deterministic approval step for one recovery attempt.
+    """Return the deterministic approval step for one recovery attempt."""
 
-    The step is derived from the immutable attempt identity, so an approval
-    granted for a different attempt, hold revision, or payload can never be
-    replayed onto this one.
-    """
-
-    return f"recover_{attempt.identity_digest.removeprefix('sha256:')[:32]}"
+    return recovery_attempt_step_id(attempt)
 
 
 def recovery_safeguard_bundle_key(attempt: RecoveryAttemptIdentity) -> str:
@@ -119,6 +123,64 @@ class StateStoreRecoveryApprovalReader:
 
 
 @dataclass(frozen=True, slots=True)
+class StateStoreRecoveryApprovalJournal:
+    """Request and resolve recovery approval through the workflow journal.
+
+    Requesting an approval is a durable ask, never a grant: it parks the exact
+    recovery attempt in the existing human-in-the-loop queue and returns the
+    pending snapshot. Only a separate human decision recorded in that same
+    journal can make the attempt admissible.
+    """
+
+    approvals: StateStoreWorkflowApprovalProvider
+    requester_principal: str
+    required_role: str = "workflow-recovery-approver"
+    timeout_seconds: int = 3600
+    quorum: int = 1
+    clock: Callable[[], datetime] = field(default=lambda: datetime.now(tz=UTC))
+
+    async def request_recovery_approval(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        process_id: str,
+        target_resource_id: str,
+        correlation_id: str,
+    ) -> WorkflowApprovalSnapshot:
+        """Persist the pending recovery approval request exactly once."""
+
+        return await self.approvals.ensure_requested(
+            process_id=process_id,
+            step_id=recovery_approval_step_id(attempt),
+            correlation_id=correlation_id,
+            target_resource_id=target_resource_id,
+            requester_principal=self.requester_principal,
+            required_role=self.required_role,
+            quorum=self.quorum,
+            no_self_approval=True,
+            timeout_seconds=self.timeout_seconds,
+            requested_at=self.clock(),
+            attempt=attempt.attempt_number,
+        )
+
+    async def recovery_approval(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        process_id: str,
+        target_resource_id: str,
+    ) -> WorkflowApprovalSnapshot | None:
+        """Return the journal-resolved approval for this exact attempt."""
+
+        del target_resource_id
+        return await self.approvals.read_snapshot(
+            process_id=process_id,
+            step_id=recovery_approval_step_id(attempt),
+            attempt=attempt.attempt_number,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class StateStoreRecoverySafeguardBundleReader:
     """Read the finalized safeguard bundle digest bound to one attempt."""
 
@@ -150,6 +212,165 @@ class StateStoreRecoverySafeguardBundleReader:
             return None
         digest = record.get("safeguard_bundle_digest")
         return digest if _is_digest(digest) else None
+
+
+@dataclass(frozen=True, slots=True)
+class StateStoreRecoverySafeguardBundleRetention:
+    """Retain the finalized safeguard bundle one production dispatch produced.
+
+    The executor finalizes the bundle inside its own logical-target lock; this
+    writer only retains that finalized digest against the exact recovery
+    attempt it belongs to. Retention is immutable and grants no authority.
+    """
+
+    store: StateStore
+
+    async def retain_finalized_bundle(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        target_resource_id: str,
+        safeguard_bundle_digest: str,
+        finalized_at: datetime,
+    ) -> bool:
+        """Return whether the durable record now holds this exact bundle."""
+
+        if not _is_digest(safeguard_bundle_digest):
+            return False
+        key = recovery_safeguard_bundle_key(attempt)
+        record = {
+            "process_id": attempt.process_id,
+            "attempt_identity_digest": attempt.identity_digest,
+            "target_digest": attempt.target_digest,
+            "target_resource_digest": _target_evidence_digest(target_resource_id),
+            "source_revision": attempt.source_revision,
+            "state": "finalized",
+            "safeguard_bundle_digest": safeguard_bundle_digest,
+            "finalized_at": finalized_at.astimezone(UTC).isoformat(),
+            "execution_authority": False,
+            "revision": 1,
+        }
+        created = await self.store.write_state_with_audit_if_absent(
+            key,
+            record,
+            {
+                "actor": "fdai.delivery.persistence.workflow_recovery",
+                "action_kind": "workflow.recovery.safeguard_bundle_retained",
+                **record,
+            },
+        )
+        if created:
+            return True
+        stored = await self.store.read_state(key)
+        return bool(
+            stored is not None
+            and stored.get("attempt_identity_digest") == attempt.identity_digest
+            and stored.get("safeguard_bundle_digest") == safeguard_bundle_digest
+            and stored.get("state") == "finalized"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class StateStoreRecoveryEffectObservationJournal:
+    """Persist one independent authoritative post-effect observation.
+
+    The journal never manufactures evidence: it refuses an observation the
+    executor itself owns, a synthetic record, and a non-authoritative class, so
+    an effect can only be claimed from an independent authority.
+    """
+
+    store: StateStore
+    executor_identity: str
+
+    async def record_observation(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        target_resource_id: str,
+        provider_receipt_digest: str,
+        observation: RecoveryEffectObservation,
+    ) -> bool:
+        """Return whether the durable observation now holds this evidence."""
+
+        evidence = observation.evidence
+        if not _is_digest(provider_receipt_digest):
+            return False
+        if (
+            evidence.synthetic
+            or evidence.observer_authority_class is not EffectEvidenceClass.AUTHORITATIVE_EXTERNAL
+        ):
+            return False
+        normalized_executor = self.executor_identity.strip().casefold()
+        if evidence.observer_identity.strip().casefold() in {
+            normalized_executor,
+            observation.provider_identity.strip().casefold(),
+        }:
+            return False
+        if not observation.finalized:
+            return False
+        key = recovery_effect_observation_key(attempt, provider_receipt_digest)
+        record: dict[str, Any] = {
+            "process_id": attempt.process_id,
+            "attempt_identity_digest": attempt.identity_digest,
+            "target_resource_digest": _target_evidence_digest(target_resource_id),
+            "provider_receipt_digest": provider_receipt_digest,
+            "observer_identity": evidence.observer_identity,
+            "provider_identity": observation.provider_identity,
+            "observer_authority_class": str(evidence.observer_authority_class),
+            "purpose_version": evidence.purpose_version,
+            "method_version": evidence.method_version,
+            "event_time": evidence.event_time.astimezone(UTC).isoformat(),
+            "recorded_time": evidence.recorded_time.astimezone(UTC).isoformat(),
+            "freshness_policy_seconds": evidence.freshness_policy_seconds,
+            "completeness": evidence.completeness,
+            "provenance": evidence.provenance,
+            "conflict_status": evidence.conflict_status,
+            "synthetic": evidence.synthetic,
+            "evidence_digest": evidence.evidence_digest,
+            "expected_effect_digest": observation.expected_effect_digest,
+            "approved_envelope_digest": observation.approved_envelope_digest,
+            "action_digest": observation.action_digest,
+            "evidence_window_start": (
+                observation.evidence_window_start.astimezone(UTC).isoformat()
+            ),
+            "evidence_window_end": observation.evidence_window_end.astimezone(UTC).isoformat(),
+            "watermarks": [
+                {
+                    "source_id": watermark.source_id,
+                    "watermark": watermark.watermark.astimezone(UTC).isoformat(),
+                    "final": watermark.final,
+                    "watermark_digest": watermark.watermark_digest,
+                }
+                for watermark in observation.watermarks
+            ],
+            "success": observation.success,
+            "effect_verification_authority": False,
+            "execution_authority": False,
+            "revision": 1,
+        }
+        created = await self.store.write_state_with_audit_if_absent(
+            key,
+            record,
+            {
+                "actor": "fdai.delivery.persistence.workflow_recovery",
+                "action_kind": "workflow.recovery.effect_observed",
+                "process_id": attempt.process_id,
+                "attempt_identity_digest": attempt.identity_digest,
+                "provider_receipt_digest": provider_receipt_digest,
+                "observer_identity": evidence.observer_identity,
+                "evidence_digest": evidence.evidence_digest,
+                "success": observation.success,
+                "effect_verification_authority": False,
+            },
+        )
+        if created:
+            return True
+        stored = await self.store.read_state(key)
+        return bool(
+            stored is not None
+            and stored.get("attempt_identity_digest") == attempt.identity_digest
+            and stored.get("evidence_digest") == evidence.evidence_digest
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -394,6 +615,87 @@ def _positive_int(value: object) -> int | None:
     return value
 
 
+@dataclass(frozen=True, slots=True)
+class WorkflowRecoveryOutcomeRecorder:
+    """Retain the recovery safeguard bundle a real dispatch finalized.
+
+    This wraps the existing workflow outcome recorder at the production
+    executor call site. The inner recorder keeps owning the workflow outcome;
+    this adapter only retains the finalized safeguard bundle against the exact
+    recovery attempt that the executed step belongs to.
+    """
+
+    inner: WorkflowOutcomeRecorder
+    store: StateStore
+    retention: StateStoreRecoverySafeguardBundleRetention
+    clock: Callable[[], datetime] = field(default=lambda: datetime.now(tz=UTC))
+
+    async def record(
+        self,
+        *,
+        action: Action,
+        execution_outcome: str,
+        execution_receipt_ref: str | None,
+        safeguard_bundle_digest: str | None,
+        response_outcome: ResponseOutcome,
+    ) -> str | None:
+        """Record the workflow outcome, then retain a recovery bundle."""
+
+        receipt_ref = await self.inner.record(
+            action=action,
+            execution_outcome=execution_outcome,
+            execution_receipt_ref=execution_receipt_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
+            response_outcome=response_outcome,
+        )
+        await self._retain(
+            action=action,
+            execution_outcome=execution_outcome,
+            execution_receipt_ref=execution_receipt_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
+        )
+        return receipt_ref
+
+    async def _retain(
+        self,
+        *,
+        action: Action,
+        execution_outcome: str,
+        execution_receipt_ref: str | None,
+        safeguard_bundle_digest: str | None,
+    ) -> None:
+        lineage = action.workflow_action
+        if lineage is None or safeguard_bundle_digest is None:
+            return
+        if execution_outcome not in _DISPATCHED_OUTCOMES:
+            # A denied, blocked, duplicate, or unknown execution still finalizes
+            # a bundle without invoking the provider. A duplicate in particular
+            # reports `already_applied` even when the original attempt was
+            # fenced, so only an outcome that names this execution's own
+            # invocation may retain a bundle.
+            return
+        if execution_receipt_ref is None or not execution_receipt_ref.strip():
+            # The adapter returns a lifecycle-bound receipt only when it
+            # actually invoked the provider, so a missing receipt is never
+            # proof of dispatch.
+            return
+        if not lineage.step_id.startswith(_RECOVERY_STEP_PREFIX):
+            return
+        attempt = await read_recovery_attempt(
+            self.store,
+            process_id=lineage.process_id,
+            recovery_step_id=lineage.step_id,
+        )
+        if attempt is None:
+            return
+        await self.retention.retain_finalized_bundle(
+            attempt=attempt,
+            target_resource_id=action.target_resource_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
+            finalized_at=self.clock(),
+        )
+
+
 def _is_digest(value: object) -> bool:
     return (
         isinstance(value, str) and value.startswith("sha256:") and len(value) == len("sha256:") + 64
@@ -405,10 +707,14 @@ def _target_evidence_digest(target_ref: str) -> str:
 
 
 __all__ = [
+    "StateStoreRecoveryApprovalJournal",
     "StateStoreRecoveryApprovalReader",
+    "StateStoreRecoveryEffectObservationJournal",
     "StateStoreRecoveryEffectObserver",
     "StateStoreRecoverySafeguardBundleReader",
+    "StateStoreRecoverySafeguardBundleRetention",
     "WorkflowActionRecoveryDispatchPort",
+    "WorkflowRecoveryOutcomeRecorder",
     "recovery_approval_step_id",
     "recovery_effect_observation_key",
     "recovery_safeguard_bundle_key",
