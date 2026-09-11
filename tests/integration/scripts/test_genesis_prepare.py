@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import subprocess
 import sys
 import threading
@@ -135,17 +136,16 @@ def test_network_layout_avoids_existing_azure_and_local_ranges(monkeypatch) -> N
                 '[{"local":["172.29.0.0/16"],"peers":'
                 '[{"state":"Connected","prefixes":["10.0.0.0/8"]}]}]'
             )
-        if arguments[:3] in {
-            ("/usr/bin/az", "network", "route-table"),
-            ("/usr/bin/az", "network", "local-gateway"),
-        }:
-            assert arguments[4:6] == ("--subscription", SUBSCRIPTION)
-            return "[]"
         if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
             return '[{"dst":"10.0.0.0/8"}]'
         raise AssertionError(arguments)
 
     monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "_subscription_resource_values",
+        lambda **_kwargs: [],
+    )
 
     ops, runner, endpoint, bastion, build, firewall, firewall_management = (
         genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
@@ -215,16 +215,16 @@ def test_network_layout_rejects_incomplete_peer_evidence(monkeypatch) -> None:
         del cwd
         if arguments[:3] == ("/usr/bin/az", "network", "vnet"):
             return '[{"local":["172.29.0.0/16"],"peers":[{"state":"Connected","prefixes":null}]}]'
-        if arguments[:3] in {
-            ("/usr/bin/az", "network", "route-table"),
-            ("/usr/bin/az", "network", "local-gateway"),
-        }:
-            return "[]"
         if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
             return "[]"
         raise AssertionError(arguments)
 
     monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "_subscription_resource_values",
+        lambda **_kwargs: [],
+    )
 
     with pytest.raises(ValueError, match="peering evidence"):
         genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
@@ -264,3 +264,68 @@ def test_network_evidence_allows_explicit_route_service_tag() -> None:
         [],
         [{"dst": "default"}],
     )
+
+
+def test_network_evidence_allows_exact_ipv4_host_route() -> None:
+    genesis_prepare_inputs._require_complete_network_evidence(
+        [{"local": ["10.0.0.0/16"], "peers": []}],
+        [],
+        [],
+        [{"dst": "192.0.2.1"}],
+    )
+
+
+def test_subscription_network_inventory_lists_ids_then_reads_exact_resources(
+    monkeypatch,
+) -> None:
+    resource_ids = [
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/"
+        "Microsoft.Network/routeTables/route-b",
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/"
+        "Microsoft.Network/routeTables/route-a",
+    ]
+    calls: list[tuple[str, ...]] = []
+
+    def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+        del cwd
+        calls.append(arguments)
+        if arguments[1:3] == ("resource", "list"):
+            assert arguments[4] == SUBSCRIPTION
+            assert arguments[6] == "Microsoft.Network/routeTables"
+            return json.dumps(resource_ids)
+        if arguments[1:3] == ("resource", "show"):
+            resource_id = arguments[4]
+            return json.dumps([{"name": resource_id.rsplit("/", 1)[-1], "prefix": "10.20.0.0/16"}])
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+
+    values = genesis_prepare_inputs._subscription_resource_values(
+        repository_root=ROOT,
+        subscription_id=SUBSCRIPTION,
+        resource_type="Microsoft.Network/routeTables",
+        query="properties.routes[].{name:name,prefix:properties.addressPrefix}",
+        list_result=True,
+    )
+
+    assert [value["name"] for value in values] == ["route-a", "route-b"]
+    assert all(call[:3] != ("/usr/bin/az", "network", "route-table") for call in calls)
+
+
+def test_subscription_network_inventory_rejects_unbounded_resource_count(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "_capture",
+        lambda *_args, **_kwargs: json.dumps([f"resource-{index}" for index in range(257)]),
+    )
+
+    with pytest.raises(ValueError, match="exceeds its bound"):
+        genesis_prepare_inputs._subscription_resource_values(
+            repository_root=ROOT,
+            subscription_id=SUBSCRIPTION,
+            resource_type="Microsoft.Network/routeTables",
+            query="properties.routes",
+            list_result=True,
+        )

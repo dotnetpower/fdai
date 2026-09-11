@@ -198,43 +198,25 @@ def network_layout(
             cwd=repository_root,
         )
         route_tables_future = executor.submit(
-            _capture,
-            (
-                "/usr/bin/az",
-                "network",
-                "route-table",
-                "list",
-                "--subscription",
-                subscription_id,
-                "--query",
-                "[].routes[].{name:name,prefix:addressPrefix}",
-                "--output",
-                "json",
-                "--only-show-errors",
-            ),
-            cwd=repository_root,
+            _subscription_resource_values,
+            repository_root=repository_root,
+            subscription_id=subscription_id,
+            resource_type="Microsoft.Network/routeTables",
+            query="properties.routes[].{name:name,prefix:properties.addressPrefix}",
+            list_result=True,
         )
         local_gateways_future = executor.submit(
-            _capture,
-            (
-                "/usr/bin/az",
-                "network",
-                "local-gateway",
-                "list",
-                "--subscription",
-                subscription_id,
-                "--query",
-                "[].{name:name,prefixes:localNetworkAddressSpace.addressPrefixes}",
-                "--output",
-                "json",
-                "--only-show-errors",
-            ),
-            cwd=repository_root,
+            _subscription_resource_values,
+            repository_root=repository_root,
+            subscription_id=subscription_id,
+            resource_type="Microsoft.Network/localNetworkGateways",
+            query="{name:name,prefixes:properties.localNetworkAddressSpace.addressPrefixes}",
+            list_result=False,
         )
         vnets = json.loads(vnets_future.result())
         routes = json.loads(routes_future.result())
-        route_tables = json.loads(route_tables_future.result())
-        local_gateways = json.loads(local_gateways_future.result())
+        route_tables = route_tables_future.result()
+        local_gateways = local_gateways_future.result()
     used: list[ipaddress.IPv4Network] = []
     _require_complete_network_evidence(vnets, route_tables, local_gateways, routes)
     for payload in (vnets, route_tables, local_gateways):
@@ -268,6 +250,72 @@ def network_layout(
         build_subnets[1],
         build_subnets[2],
     )
+
+
+def _subscription_resource_values(
+    *,
+    repository_root: Path,
+    subscription_id: str,
+    resource_type: str,
+    query: str,
+    list_result: bool,
+) -> list[object]:
+    """Read bounded resource properties across a subscription without requiring RG input."""
+
+    raw_ids = json.loads(
+        _capture(
+            (
+                "/usr/bin/az",
+                "resource",
+                "list",
+                "--subscription",
+                subscription_id,
+                "--resource-type",
+                resource_type,
+                "--query",
+                "[].id",
+                "--output",
+                "json",
+                "--only-show-errors",
+            ),
+            cwd=repository_root,
+        )
+    )
+    if (
+        not isinstance(raw_ids, list)
+        or len(raw_ids) > 256
+        or any(not isinstance(resource_id, str) or not resource_id for resource_id in raw_ids)
+    ):
+        raise ValueError("Azure network resource inventory is invalid or exceeds its bound")
+    resource_ids = sorted(raw_ids, key=str.casefold)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [
+            executor.submit(
+                _capture,
+                (
+                    "/usr/bin/az",
+                    "resource",
+                    "show",
+                    "--ids",
+                    resource_id,
+                    "--query",
+                    query,
+                    "--output",
+                    "json",
+                    "--only-show-errors",
+                ),
+                cwd=repository_root,
+            )
+            for resource_id in resource_ids
+        ]
+        values = [json.loads(future.result()) for future in futures]
+    if list_result:
+        if any(not isinstance(value, list) for value in values):
+            raise ValueError("Azure network resource properties are incomplete")
+        return [item for value in values for item in value]
+    if any(not isinstance(value, dict) for value in values):
+        raise ValueError("Azure network resource properties are incomplete")
+    return values
 
 
 def _ipv4_networks(value: object) -> list[ipaddress.IPv4Network]:
@@ -321,10 +369,16 @@ def _require_complete_network_evidence(
         destination = route["dst"]
         if destination != "default":
             try:
-                network = ipaddress.ip_network(destination)
+                if "/" in destination:
+                    network = ipaddress.ip_network(destination)
+                    valid = (
+                        isinstance(network, ipaddress.IPv4Network) and str(network) == destination
+                    )
+                else:
+                    valid = isinstance(ipaddress.ip_address(destination), ipaddress.IPv4Address)
             except ValueError:
                 raise ValueError("local route evidence contains an invalid prefix") from None
-            if not isinstance(network, ipaddress.IPv4Network) or str(network) != destination:
+            if not valid:
                 raise ValueError("local route evidence contains an invalid prefix")
 
 
