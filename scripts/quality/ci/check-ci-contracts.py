@@ -51,6 +51,8 @@ ACTION_REF_RE = re.compile(
     r"@(?P<ref>[^\s#]+)"
     r"(?:\s*#\s*(?P<comment>[^\r\n]+))?"
 )
+DOCKER_ACTION_REF_RE = re.compile(r"uses:\s*docker://(?P<ref>[^\s#]+)")
+DOCKER_ACTION_DIGEST_RE = re.compile(r".+@sha256:[0-9a-f]{64}")
 IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
 WRITE_PERMISSION_RE = re.compile(r"(?m)^\s+[a-z-]+:\s*write\s*(?:#.*)?$")
 WRITE_ALL_PERMISSION_RE = re.compile(r"(?m)^\s*permissions:\s*write-all\s*(?:#.*)?$")
@@ -331,6 +333,12 @@ def _validate_action_runtime_versions() -> list[str]:
     for path in _automation_definition_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
+        for match in DOCKER_ACTION_REF_RE.finditer(content):
+            reference = match.group("ref")
+            if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
+                errors.append(
+                    f"{relative} must pin docker action image {reference} to a sha256 digest"
+                )
         for match in ACTION_REF_RE.finditer(content):
             action = match.group("action")
             actual_ref = match.group("ref")
