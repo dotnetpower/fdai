@@ -64,7 +64,11 @@ from fdai_operator_service.rca_projection import rca_view
 _LOGGER = logging.getLogger(__name__)
 
 INCIDENT_HISTORY_LIMIT: Final = 100
-HIL_KEY_PATTERN: Final = "hil_park:%"
+HIL_KEY_PATTERN: Final = r"hil\_park:%"
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,7 +196,7 @@ class PostgresOperatorReadModel:
             {
                 "key_pattern": HIL_KEY_PATTERN,
                 "search": query.search,
-                "search_pattern": f"%{query.search}%" if query.search else None,
+                "search_pattern": f"%{_escape_like(query.search)}%" if query.search else None,
                 "limit": query.limit,
             },
         )

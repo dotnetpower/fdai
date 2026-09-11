@@ -1,5 +1,5 @@
 /**
- * FDAI operator-console CLI - entrypoint.
+ * FDAI Console CLI - entrypoint.
  *
  * Demonstrates the one-content-many-renderers architecture: the briefing is
  * compiled ONCE into the surface-neutral block IR, then handed to whichever
@@ -21,6 +21,11 @@ import { buildFromReadModel } from "./view-model/build-from-readmodel.js";
 import { renderSlack } from "./renderers/slack.js";
 import { renderTeams } from "./renderers/teams.js";
 import { renderText } from "./renderers/text.js";
+import {
+  createOperatorApiSession,
+  type OperatorApiSession,
+} from "./operator-api-session.js";
+import { resolveTerminalCapabilities } from "./terminal-capabilities.js";
 import type { BriefingPayload } from "./view-model/contract.js";
 
 const argv = process.argv.slice(2);
@@ -43,20 +48,22 @@ const { surface, mode, source, apiUrl, locale } = options;
 let blocks: Block[];
 let payload: BriefingPayload | null = null;
 let liveApi: string | null = null;
+let apiSession: OperatorApiSession | undefined;
 
 if (source === "api") {
   try {
-    const snap = await fetchSnapshot(apiUrl);
+    apiSession = await createOperatorApiSession(apiUrl);
+    const snap = await fetchSnapshot(apiUrl, {
+      authorization: apiSession.authorization,
+    });
     blocks = buildFromReadModel(snap, "live", locale);
     liveApi = apiUrl;
   } catch (err) {
+    const detail = (err as Error).message;
     console.error(
-      `could not reach the Operator API at ${apiUrl}: ${(err as Error).message}`,
+      `could not open the Operator API at ${apiUrl}: ${detail}`,
     );
-    console.error(
-      "start it with: FDAI_OPERATOR_API_DEV_MODE=1 uv run --with uvicorn " +
-        "uvicorn 'fdai.delivery.operator_api.dev.local:app' --factory --port 8010",
-    );
+    console.error(operatorApiRecovery(detail));
     process.exit(1);
   }
 } else {
@@ -76,10 +83,20 @@ switch (surface) {
     break;
   case "cli":
   default: {
-    if (source === "api" && liveApi && process.stdin.isTTY) {
+    const terminal = resolveTerminalCapabilities(process.stdin, process.stdout);
+    if (source === "api" && liveApi && terminal.interactive) {
       // Live data: a one-screen cockpit fed by the real pipeline over SSE.
       const { startCockpit } = await import("./cockpit.js");
-      await startCockpit({ apiUrl: liveApi, payload: null, locale });
+      await startCockpit({
+        apiUrl: liveApi,
+        payload: null,
+        locale,
+        apiSession,
+        terminal,
+      });
+    } else if (!terminal.interactive) {
+      // Pipes, CI, dumb terminals, and very small terminals receive stable text.
+      console.log(renderText(blocks));
     } else {
       // Sample data (or non-TTY): Ink briefing once, then the bottom-fixed REPL.
       const { renderBriefing } = await import(
@@ -87,7 +104,13 @@ switch (surface) {
       );
       await renderBriefing(blocks);
       const { startRepl } = await import("./repl.js");
-      await startRepl({ apiUrl: liveApi, payload: payload ?? null, locale });
+      await startRepl({
+        apiUrl: liveApi,
+        payload: payload ?? null,
+        locale,
+        apiSession,
+        terminal,
+      });
     }
     break;
   }
@@ -96,3 +119,16 @@ switch (surface) {
 // A CLI is done once its work is done. `fetch` (undici) keeps keep-alive sockets
 // referenced, which would otherwise delay exit, so exit explicitly.
 process.exit(0);
+
+function operatorApiRecovery(detail: string): string {
+  if (/\b(401|403)\b/.test(detail)) {
+    return (
+      "authentication is required; run 'uv run python -m tools.console' for the " +
+      "loopback Azure CLI profile, without weakening the Browser Entra service"
+    );
+  }
+  return (
+    "start the prepared local Operator Service or run " +
+    "'uv run python -m tools.console' for the CLI-only loopback profile"
+  );
+}

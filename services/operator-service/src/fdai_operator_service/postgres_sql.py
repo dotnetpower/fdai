@@ -176,12 +176,12 @@ SELECT COUNT(*) AS total_count,
         )
        )) AS unprojectable_count
   FROM state_kv
- WHERE key LIKE %(key_pattern)s
+ WHERE key LIKE %(key_pattern)s ESCAPE E'\\\\'
    AND value->>'status' = 'pending'
    AND NOT EXISTS (
        SELECT 1
          FROM state_kv AS decision
-        WHERE decision.key = 'operator-hil-decision:' || state_kv.value->>'approval_id'
+        WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
    )
    AND (value#>>'{approval_context,expires_at}' IS NULL
        OR CASE
@@ -196,12 +196,12 @@ SELECT COUNT(*) AS total_count,
 HIL_PAGE_SQL: Final = """
 SELECT value, updated_at, COUNT(*) OVER() AS total_count
   FROM state_kv
- WHERE key LIKE %(key_pattern)s
+ WHERE key LIKE %(key_pattern)s ESCAPE E'\\\\'
    AND value->>'status' = 'pending'
    AND NOT EXISTS (
        SELECT 1
          FROM state_kv AS decision
-        WHERE decision.key = 'operator-hil-decision:' || state_kv.value->>'approval_id'
+        WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
    )
    AND (value#>>'{approval_context,expires_at}' IS NULL
        OR CASE
@@ -211,14 +211,14 @@ SELECT value, updated_at, COUNT(*) OVER() AS total_count
           > CURRENT_TIMESTAMP
         ELSE FALSE
        END)
-   AND (%(search)s::text IS NULL OR CONCAT_WS(
+  AND (%(search)s::text IS NULL OR CONCAT_WS(
        ' ', value->>'approval_id', value->>'correlation_id',
        value->>'idempotency_key', value->>'action_type', value->>'rule_id',
        value#>>'{action,action_type}', value#>>'{action,action_id}',
        value#>>'{action,idempotency_key}', value#>>'{action,event_id}',
        value#>>'{action,target_resource_ref}', value#>>'{approval_context,reasons}',
        value#>>'{action,citing_rules}'
-   ) ILIKE %(search_pattern)s::text)
+  ) ILIKE %(search_pattern)s::text ESCAPE E'\\\\')
  ORDER BY CASE
      WHEN value->>'parked_at' ~
           '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'

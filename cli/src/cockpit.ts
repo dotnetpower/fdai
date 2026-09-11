@@ -9,7 +9,10 @@
 import { randomUUID } from "node:crypto";
 
 import { withChannelLocale, type CliChannelContext } from "./channel-context.js";
-import { createInputController } from "./cockpit-input.js";
+import {
+  createInputController,
+  MAX_CLI_LOCAL_HISTORY,
+} from "./cockpit-input.js";
 import { CockpitRenderer } from "./cockpit-renderer.js";
 import { consumeSse } from "./cockpit-sse.js";
 import {
@@ -19,6 +22,8 @@ import {
 } from "./cockpit-state.js";
 import { parseScreenCommand, viewBadge } from "./cockpit-view.js";
 import { askChat } from "./data/operator-api.js";
+import { safeDisplayLine } from "./display-text.js";
+import { t } from "./i18n/index.js";
 
 export { parseScreenCommand, tierLabel, viewBadge } from "./cockpit-view.js";
 
@@ -32,7 +37,8 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
   const input = process.stdin;
   const output = process.stdout;
   const apiUrl = context.apiUrl!;
-  if (!input.isTTY || typeof input.setRawMode !== "function") {
+  const terminal = context.terminal;
+  if (!terminal?.interactive || !input.isTTY || typeof input.setRawMode !== "function") {
     output.write(
       `${DIM}live cockpit needs a TTY; run in a real terminal (streaming ${apiUrl}/live/stream)${RESET}\n`,
     );
@@ -42,14 +48,17 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
   const locale = context.locale ?? "en";
   const sessionId = randomUUID();
   const state = createCockpitState();
-  const renderer = new CockpitRenderer(state, locale, output);
+  state.authMode = context.apiSession?.authMode ?? "none";
+  state.authRoles = context.apiSession?.roles ?? [];
+  const renderer = new CockpitRenderer(state, locale, output, terminal.color);
   const abort = new AbortController();
   let resolveFinished!: () => void;
   const finished = new Promise<void>((resolve) => {
     resolveFinished = resolve;
   });
-  let tick!: NodeJS.Timeout;
+  let tick: NodeJS.Timeout | undefined;
   let onData!: (data: string) => void;
+  let finishedOnce = false;
 
   const onResize = (): void => {
     renderer.write(`${ESC}[2J`);
@@ -57,11 +66,14 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
   };
 
   const finish = (): void => {
+    if (finishedOnce) return;
+    finishedOnce = true;
     abort.abort();
-    clearInterval(tick);
+    if (tick !== undefined) clearInterval(tick);
     input.removeListener("data", onData);
     output.removeListener("resize", onResize);
     renderer.write(`${ESC}[?25h${ESC}[?1049l`);
+    renderer.dispose();
     if (typeof input.setRawMode === "function") input.setRawMode(false);
     input.pause();
     input.unref?.();
@@ -79,8 +91,14 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
 
   const streamReveal = async (): Promise<void> => {
     const total = [...state.answerTarget].length;
+    if (!terminal.motion) {
+      state.answerShown = total;
+      renderer.renderQA();
+      renderer.placeCaret();
+      return;
+    }
     const step = Math.max(1, Math.round(total / 80));
-    while (state.answerShown < total) {
+    while (!abort.signal.aborted && state.answerShown < total) {
       state.answerShown = Math.min(total, state.answerShown + step);
       renderer.renderQA();
       renderer.placeCaret();
@@ -91,6 +109,9 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
 
   const ask = (question: string): void => {
     state.busy = true;
+    state.questionStartedAt = Date.now();
+    state.answerLatencyMs = null;
+    state.answerModel = "";
     const screen = parseScreenCommand(question, locale);
     if (screen) {
       Object.assign(state.view, screen.patch);
@@ -99,8 +120,10 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
       state.thinking = false;
       state.answerTarget = screen.reply;
       state.answerShown = 0;
-      recordTurn(question, screen.reply);
+      state.answerModel = t("cockpit.qa.local", locale);
+      state.answerLatencyMs = Date.now() - state.questionStartedAt;
       void streamReveal().finally(() => {
+        if (abort.signal.aborted) return;
         state.busy = false;
         renderer.renderInput();
       });
@@ -114,7 +137,7 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
     void askChat(apiUrl, question, {
       viewContext: withChannelLocale(locale, {
         routeId: "cli-live",
-        routeLabel: "Forward Deployed Agents",
+        routeLabel: "FDAI Console live activity",
         purpose: "Read-only live control-loop activity and routing outcomes.",
         facts: {
           handled: state.handled,
@@ -136,22 +159,33 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
       }),
       history: conversation,
       sessionId,
+      authorization: context.apiSession?.authorization,
+      signal: abort.signal,
     })
-      .then((reply) => reply.answer)
-      .then(async (answer) => {
+      .then(async (reply) => {
+        if (abort.signal.aborted) return;
         state.thinking = false;
-        state.answerTarget = answer;
+        state.answerTarget = reply.answer;
         state.answerShown = 0;
-        recordTurn(question, answer);
+        state.answerModel = reply.model;
+        state.answerLatencyMs = reply.latency_ms ?? Date.now() - state.questionStartedAt!;
+        recordTurn(question, reply.answer);
         await streamReveal();
       })
       .catch((error: unknown) => {
+        if (abort.signal.aborted) return;
         state.thinking = false;
-        state.answerTarget = `I could not complete that: ${(error as Error).message}`;
+        state.answerTarget = `I could not complete that: ${safeDisplayLine(
+          (error as Error).message,
+          1024,
+        )}`;
         state.answerShown = state.answerTarget.length;
+        state.answerModel = t("cockpit.qa.failed", locale);
+        state.answerLatencyMs = Date.now() - state.questionStartedAt!;
         renderer.renderQA();
       })
       .finally(() => {
+        if (abort.signal.aborted) return;
         state.busy = false;
         renderer.renderInput();
       });
@@ -171,6 +205,7 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
       return;
     }
     if (state.history[state.history.length - 1] !== question) state.history.push(question);
+    while (state.history.length > MAX_CLI_LOCAL_HISTORY) state.history.shift();
     state.lastQ = question;
     renderer.renderQA();
     renderer.renderInput();
@@ -186,13 +221,21 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
   input.on("data", onData);
   output.on("resize", onResize);
 
+  let quarterTicks = 0;
   tick = setInterval(() => {
-    const delta = state.handled - state.handledAtLastTick;
-    state.handledAtLastTick = state.handled;
-    state.spark.push(delta);
-    if (state.spark.length > 60) state.spark.shift();
-    renderer.renderOverviewTick();
-  }, 1000);
+    quarterTicks++;
+    if (state.thinking) {
+      state.thinkingFrame++;
+      renderer.renderQA();
+    }
+    if (quarterTicks % 4 === 0) {
+      const delta = state.handled - state.handledAtLastTick;
+      state.handledAtLastTick = state.handled;
+      state.spark.push(delta);
+      if (state.spark.length > 60) state.spark.shift();
+      renderer.renderOverviewTick();
+    }
+  }, 250);
   tick.unref?.();
 
   void consumeSse(
@@ -209,6 +252,7 @@ export async function startCockpit(context: CliChannelContext): Promise<void> {
       renderer.scheduleHeader();
     },
     abort.signal,
+    context.apiSession?.authorization,
   );
 
   return finished;

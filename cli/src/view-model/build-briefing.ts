@@ -31,7 +31,8 @@ function toDecisionCard(
     title: item.title,
     actionType: item.actionType,
     risk: item.risk,
-    chip: item.chip,
+    riskLabel: t("card.riskLabel", locale, { risk: item.risk }),
+    chip: t("card.chip", locale),
     chipSideEffect: item.chipSideEffect,
     fields: [
       { label: t("card.fieldWhat", locale), value: item.change },
@@ -61,16 +62,19 @@ export function buildBriefing(
 
   blocks.push({
     type: "header",
-    title: "fdai operator-console",
-    version: "v0.0.1",
-    context: `${p.env} - read-only - ${p.clock}`,
+    title: "FDAI Console",
+    version: "CLI",
+    context: t("briefing.context", locale, { env: p.env, clock: p.clock }),
   });
 
   blocks.push({
     type: "narration",
     text: t("briefing.greeting", locale, {
       operator: p.operator,
-      window: p.windowLabel,
+      window:
+        p.windowLabel === "the past 24 hours"
+          ? t("briefing.windowPast24Hours", locale)
+          : p.windowLabel,
     }),
   });
 
@@ -95,11 +99,11 @@ export function buildBriefing(
   blocks.push({
     type: "statBars",
     title: t("briefing.tiersTitle", locale),
-    rows: p.tiers.map((t) => ({
-      label: t.name,
-      sub: t.tier,
-      pct: t.pct,
-      tone: tierTone(t.tier),
+    rows: p.tiers.map((tier) => ({
+      label: t(`tier.${tier.tier.toLowerCase()}`, locale),
+      sub: tier.tier,
+      pct: tier.pct,
+      tone: tierTone(tier.tier),
     })),
   });
 

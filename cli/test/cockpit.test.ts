@@ -3,9 +3,8 @@
  *
  * `tierLabel`, `viewBadge`, and `parseScreenCommand` were extracted to module
  * scope precisely so the live TUI's user-facing strings are testable without a
- * terminal. English is the source of truth and renders byte-identical to the
- * pre-i18n cockpit; Korean is asserted structurally (no Hangul literals in this
- * .ts file, per the english-only gate) plus the mandatory English fallback.
+ * terminal. English is the source of truth and Korean keeps complete localized
+ * labels for the shipped cockpit vocabulary.
  */
 
 import { describe, expect, it } from "vitest";
@@ -25,8 +24,8 @@ describe("cockpit.tierLabel", () => {
     expect(tierLabel("t0", "ko").length).toBeGreaterThan(0);
   });
 
-  it("falls back to English for a lagging ko key (unrouted)", () => {
-    expect(tierLabel("mystery", "ko")).toBe("unrouted");
+  it("localizes the unrouted label", () => {
+    expect(tierLabel("mystery", "ko")).not.toBe("unrouted");
   });
 });
 
@@ -51,10 +50,10 @@ describe("cockpit.viewBadge", () => {
     );
   });
 
-  it("falls back to English for the lagging ko focus badge", () => {
+  it("localizes the focus badge", () => {
     expect(
       viewBadge({ mode: "focus", focus: "network", paused: false }, "ko"),
-    ).toBe("FOCUS NETWORK");
+    ).not.toBe("FOCUS NETWORK");
   });
 });
 
@@ -71,7 +70,7 @@ describe("cockpit.parseScreenCommand", () => {
 
     const vague = parseScreenCommand("/focus", "en");
     expect(vague?.patch.mode).toBe("stream");
-    expect(vague?.reply).toBe("Which resource type? e.g. 'focus network'.");
+    expect(vague?.reply).toBe("Which resource type? For example: /focus network.");
   });
 
   it("does not classify ordinary language as a screen command", () => {
@@ -89,5 +88,10 @@ describe("cockpit.parseScreenCommand", () => {
 
   it("returns null when nothing matches", () => {
     expect(parseScreenCommand("hello there", "en")).toBeNull();
+  });
+
+  it("keeps help and status as local presentation commands", () => {
+    expect(parseScreenCommand("/help", "en")?.reply).toContain("/overview");
+    expect(parseScreenCommand("/status", "en")?.reply).toContain("Connection");
   });
 });

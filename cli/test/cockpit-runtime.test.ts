@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createInputController } from "../src/cockpit-input.js";
+import { inputViewport, wrap } from "../src/cockpit-format.js";
+import {
+  createInputController,
+  MAX_CLI_INPUT_CODE_POINTS,
+} from "../src/cockpit-input.js";
 import { CockpitRenderer } from "../src/cockpit-renderer.js";
 import { consumeSse, MAX_COCKPIT_SSE_FRAME_CHARS } from "../src/cockpit-sse.js";
 import { createCockpitState, reduceStageFrame } from "../src/cockpit-state.js";
@@ -26,7 +30,12 @@ describe("consumeSse", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(body, { status: 200 })),
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream; charset=utf-8" },
+        }),
+      ),
     );
     const frames: string[] = [];
     const statuses: string[] = [];
@@ -36,10 +45,40 @@ describe("consumeSse", () => {
       (frame) => frames.push(frame.event_id),
       (status) => statuses.push(status),
       new AbortController().signal,
+      "Bearer opaque-session",
     );
 
     expect(frames).toEqual(["event-1"]);
-    expect(statuses).toEqual(["live"]);
+    expect(statuses).toEqual(["live", "stream closed"]);
+    expect(vi.mocked(fetch).mock.calls[0]?.[1]).toMatchObject({
+      headers: { accept: "text/event-stream", authorization: "Bearer opaque-session" },
+      redirect: "error",
+    });
+  });
+
+  it("rejects a successful non-SSE response before parsing", async () => {
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({ cancel });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+    const statuses: string[] = [];
+
+    await consumeSse(
+      "https://example.com/live/stream",
+      vi.fn(),
+      (status) => statuses.push(status),
+      new AbortController().signal,
+    );
+
+    expect(statuses).toEqual(["stream invalid content type"]);
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it("reports an HTTP stream status without reading a missing body", async () => {
@@ -65,7 +104,15 @@ describe("consumeSse", () => {
       },
       cancel,
     });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      ),
+    );
     const frames = vi.fn();
     const statuses: string[] = [];
 
@@ -148,6 +195,77 @@ describe("reduceStageFrame", () => {
     expect(activity).toBeNull();
     expect(state.errors).toBe(1);
   });
+
+  it("suppresses a duplicate terminal audit frame", () => {
+    const state = createCockpitState();
+    const frame = {
+      event_id: "event-1",
+      correlation_id: "corr-1",
+      stage: "audit",
+      phase: "done",
+      ts: "now",
+      detail: { outcome: "observed" },
+    };
+
+    expect(reduceStageFrame(state, frame, "en")).not.toBeNull();
+    expect(reduceStageFrame(state, frame, "en")).toBeNull();
+    expect(state.handled).toBe(1);
+    expect(state.activity).toHaveLength(1);
+  });
+
+  it("contains unknown routing tiers in one bounded bucket", () => {
+    const state = createCockpitState();
+    reduceStageFrame(
+      state,
+      {
+        event_id: "event-1",
+        correlation_id: "corr-1",
+        stage: "route",
+        phase: "done",
+        ts: "now",
+        detail: { routed_to: "unexpected-tier", resource_type: "compute.vm" },
+      },
+      "en",
+    );
+
+    expect(state.byTier).toEqual({ unrouted: 1 });
+    expect(state.perEvent.get("event-1")?.tier).toBe("unrouted");
+  });
+
+  it("removes terminal controls from streamed activity fields", () => {
+    const state = createCockpitState();
+    reduceStageFrame(
+      state,
+      {
+        event_id: "event-1",
+        correlation_id: "corr-1",
+        stage: "route",
+        phase: "done",
+        ts: "now",
+        detail: { routed_to: "t0\u001b[2J", resource_type: "compute\u0007.vm" },
+      },
+      "en",
+    );
+    const activity = reduceStageFrame(
+      state,
+      {
+        event_id: "event-1",
+        correlation_id: "corr-1",
+        stage: "audit",
+        phase: "done",
+        ts: "now",
+        detail: { outcome: "observed\u001b[2J" },
+      },
+      "en",
+    );
+
+    expect(activity).toMatchObject({
+      resource: "compute.vm",
+      text: "observed[2J",
+      tier: "unrouted",
+    });
+    expect(JSON.stringify(activity)).not.toContain("\u001b");
+  });
 });
 
 describe("cockpit input and rendering", () => {
@@ -182,6 +300,16 @@ describe("cockpit input and rendering", () => {
     expect(submitted).toEqual(["한글"]);
   });
 
+  it("bounds a pasted question without splitting Unicode code points", () => {
+    const { state, renderer } = makeRenderer();
+    const onData = createInputController(state, renderer, vi.fn(), vi.fn());
+
+    onData("한".repeat(MAX_CLI_INPUT_CODE_POINTS + 10));
+
+    expect(state.input).toHaveLength(MAX_CLI_INPUT_CODE_POINTS);
+    expect(state.input.at(-1)).toBe("한");
+  });
+
   it("keeps the terminal caret after a wide character", () => {
     const { state, renderer, writes } = makeRenderer();
     state.input = ["한", "a"];
@@ -190,6 +318,77 @@ describe("cockpit input and rendering", () => {
     renderer.placeCaret();
 
     expect(writes.at(-1)).toBe("\x1b[24;6H");
+  });
+
+  it("counts combining marks as zero-width at the hardware caret", () => {
+    const { state, renderer, writes } = makeRenderer();
+    state.input = ["e", "\u0301"];
+    state.cursor = 2;
+
+    renderer.placeCaret();
+
+    expect(writes.at(-1)).toBe("\x1b[24;5H");
+  });
+
+  it("keeps a wide-character caret inside a narrow input viewport", () => {
+    expect(inputViewport(["a", "한", "b", "글"], 4, 4)).toEqual({
+      text: "<b글",
+      caretWidth: 4,
+    });
+  });
+
+  it("wraps long opaque values without exceeding the content width", () => {
+    const lines = wrap("abcdefghijklmnopqrstuvwxyz", 8, 4);
+    expect(lines).toEqual(["abcdefgh", "ijklmnop", "qrstuvwx", "yz"]);
+  });
+
+  it("keeps hierarchy labels while removing color in no-color mode", () => {
+    const { state, writes } = makeRenderer();
+    state.authMode = "local-azure-cli";
+    const output = {
+      rows: 24,
+      columns: 80,
+      write: (text: string) => {
+        writes.push(text);
+        return true;
+      },
+    } as unknown as NodeJS.WriteStream;
+    const renderer = new CockpitRenderer(state, "en", output, false);
+
+    renderer.renderAll();
+
+    const rendered = writes.join("");
+    expect(rendered).toContain("FDAI Console");
+    expect(rendered).toContain("Azure CLI session");
+    expect(rendered).not.toContain("\x1b[38;");
+  });
+
+  it("replaces the cockpit with a resize instruction below minimum geometry", () => {
+    const writes: string[] = [];
+    const output = {
+      rows: 12,
+      columns: 60,
+      write: (text: string) => {
+        writes.push(text);
+        return true;
+      },
+    } as unknown as NodeJS.WriteStream;
+    const renderer = new CockpitRenderer(createCockpitState(), "en", output);
+
+    renderer.renderAll();
+
+    expect(writes.join("")).toContain("Terminal too small");
+    expect(writes.join("")).not.toContain("Routing mix");
+  });
+
+  it("cancels delayed header redraws when disposed", () => {
+    vi.useFakeTimers();
+    const { renderer, writes } = makeRenderer();
+    renderer.scheduleHeader();
+    renderer.dispose();
+    vi.advanceTimersByTime(400);
+    expect(writes).toEqual([]);
+    vi.useRealTimers();
   });
 
   it("preserves history navigation and word deletion keys", () => {

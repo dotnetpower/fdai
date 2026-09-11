@@ -39,7 +39,7 @@ export type SideEffectClass =
   | "execute"
   | "breakglass";
 
-export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "UNKNOWN";
 
 /** Product wordmark + run context (env / clock / read-only). */
 export interface HeaderBlock {
@@ -97,6 +97,7 @@ export interface DecisionCardBlock {
   title: string;
   actionType: string;
   risk: RiskLevel;
+  riskLabel: string;
   chip: string;
   chipSideEffect: SideEffectClass;
   fields: ReadonlyArray<{ label: string; value: string }>;
