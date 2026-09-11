@@ -524,6 +524,42 @@ def _is_privileged_workflow(content: str) -> bool:
     return is_privileged(document)
 
 
+def _is_event_scoped_issue_mutation(document: Any) -> bool:
+    if not isinstance(document, dict):
+        return False
+    triggers = document.get("on", document.get(True))
+    if not isinstance(triggers, dict) or set(triggers) != {"issues"}:
+        return False
+    if document.get("permissions") != {"contents": "read", "issues": "write"}:
+        return False
+    jobs = document.get("jobs")
+    if not isinstance(jobs, dict) or not jobs:
+        return False
+    expected_action = f"actions/github-script@{APPROVED_ACTIONS['actions/github-script'][0]}"
+    required_conditions = (
+        "github.event_name == 'issues'",
+        "github.event.issue.pull_request == null",
+        "github.actor != 'github-actions[bot]'",
+    )
+    for job in jobs.values():
+        if not isinstance(job, dict) or "permissions" in job:
+            return False
+        condition = job.get("if")
+        if not isinstance(condition, str) or not all(
+            required in condition for required in required_conditions
+        ):
+            return False
+        steps = job.get("steps")
+        if not isinstance(steps, list) or not steps:
+            return False
+        for step in steps:
+            if not isinstance(step, dict) or set(step) & {"run", "shell"}:
+                return False
+            if step.get("uses") != expected_action:
+                return False
+    return True
+
+
 def _validate_privileged_workflow_guards() -> list[str]:
     """Require protected source provenance before privileged repository code executes."""
     errors: list[str] = []
@@ -544,14 +580,8 @@ def _validate_privileged_workflow_guards() -> list[str]:
         if not _is_privileged_workflow(content):
             continue
         relative = path.relative_to(REPO_ROOT).as_posix()
-        event_scoped_issue_mutation = (
-            re.search(r"(?m)^\s+issues:\s*$", content) is not None
-            and "github.event_name == 'issues'" in content
-            and "github.event.issue.pull_request == null" in content
-            and "actions/checkout@" not in content
-            and "\n        run:" not in content
-        )
-        if event_scoped_issue_mutation:
+        document = yaml.safe_load(content)
+        if _is_event_scoped_issue_mutation(document):
             continue
         if PROTECTED_WORKFLOW_ACTION_USE in content and not action_checked:
             for fragment in action_fragments:

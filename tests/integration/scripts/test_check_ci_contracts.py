@@ -499,10 +499,14 @@ def test_event_scoped_issue_mutation_does_not_require_repository_guard(
         "on:\n"
         "  issues:\n"
         "permissions:\n"
+        "  contents: read\n"
         "  issues: write\n"
         "jobs:\n"
         "  validate:\n"
-        "    if: github.event_name == 'issues' && github.event.issue.pull_request == null\n"
+        "    if: >-\n"
+        "      github.event_name == 'issues' &&\n"
+        "      github.event.issue.pull_request == null &&\n"
+        "      github.actor != 'github-actions[bot]'\n"
         "    steps:\n"
         "      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0\n",
         encoding="utf-8",
@@ -510,6 +514,38 @@ def test_event_scoped_issue_mutation_does_not_require_repository_guard(
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_privileged_workflow_guards() == []
+
+
+def test_issue_event_exemption_rejects_mixed_dispatch_workflows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "mixed-policy.yml").write_text(
+        "on:\n"
+        "  issues:\n"
+        "  workflow_dispatch:\n"
+        "permissions:\n"
+        "  contents: read\n"
+        "  issues: write\n"
+        "jobs:\n"
+        "  validate:\n"
+        "    if: >-\n"
+        "      github.event_name == 'issues' &&\n"
+        "      github.event.issue.pull_request == null &&\n"
+        "      github.actor != 'github-actions[bot]'\n"
+        "    steps:\n"
+        "      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    errors = module._validate_privileged_workflow_guards()
+
+    assert errors
+    assert any("mixed-policy.yml" in error for error in errors)
 
 
 def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
