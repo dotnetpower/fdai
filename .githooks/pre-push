@@ -169,12 +169,12 @@ if [ -n "$markers" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Fast ruff lint on changed Python files under src/ and tests/.
+# 3. Fast ruff lint on every changed Python file.
 # ---------------------------------------------------------------------------
 py=()
 for f in "${changed[@]}"; do
   case "$f" in
-    src/*.py | tests/*.py) [ -f "$f" ] && py+=("$f") ;;
+    *.py) [ -f "$f" ] && py+=("$f") ;;
   esac
 done
 if [ "${#py[@]}" -gt 0 ]; then

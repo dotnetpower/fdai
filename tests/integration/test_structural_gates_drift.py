@@ -254,6 +254,14 @@ def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None
     assert 'for f in "${changed_paths[@]}"; do' in body
 
 
+def test_pre_push_lints_every_changed_python_file() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert "# 3. Fast ruff lint on every changed Python file." in body
+    assert '*.py) [ -f "$f" ] && py+=("$f")' in body
+    assert "src/*.py | tests/*.py" not in body
+
+
 def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
     body = _PRE_PUSH.read_text()
 
