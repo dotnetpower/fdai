@@ -93,6 +93,14 @@ if [[ "${#tag_refs[@]}" -gt 0 ]]; then
     echo "pre-push: BLOCKED - cannot resolve protected branch '$protected_ref' for tag validation."
     exit 1
   fi
+  protected_branch_ref="refs/heads/${protected_ref#refs/remotes/$remote_name/}"
+  tag_base="$protected_ref"
+  if [[ "$remote_ref" == "$protected_branch_ref" && -n "$local_sha" &&
+        "$remote_sha" != "$zero_sha" ]] &&
+     git cat-file -e "${remote_sha}^{commit}" 2>/dev/null &&
+     git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    tag_base="$local_sha"
+  fi
   for index in "${!tag_refs[@]}"; do
     if [[ "${tag_remote_shas[$index]}" != "$zero_sha" && \
           "${tag_remote_shas[$index]}" != "${tag_shas[$index]}" ]]; then
@@ -100,7 +108,7 @@ if [[ "${#tag_refs[@]}" -gt 0 ]]; then
       exit 1
     fi
     tag_commit="$(git rev-parse --verify "${tag_shas[$index]}^{commit}" 2>/dev/null || true)"
-    if [[ -z "$tag_commit" ]] || ! git merge-base --is-ancestor "$tag_commit" "$protected_ref"; then
+    if [[ -z "$tag_commit" ]] || ! git merge-base --is-ancestor "$tag_commit" "$tag_base"; then
       echo "pre-push: BLOCKED - tag '${tag_refs[$index]#refs/tags/}' is not on $protected_ref."
       exit 1
     fi

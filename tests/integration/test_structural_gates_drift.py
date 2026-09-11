@@ -363,6 +363,71 @@ def test_pre_push_rejects_rewriting_an_existing_tag(tmp_path: Path) -> None:
     assert "existing tag 'v1' is immutable" in result.stdout
 
 
+def test_pre_push_accepts_an_atomic_main_and_tag_update(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    structural = repository / "scripts" / "automation" / "run-pre-push-structural-gates.sh"
+    structural.parent.mkdir(parents=True)
+    structural.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    tracked = repository / "tracked.txt"
+    tracked.write_text("first\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "first"], cwd=repository, check=True)
+    first_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", first_commit],
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_text("second\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "second"], cwd=repository, check=True)
+    second_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = (
+        f"refs/heads/main {second_commit} refs/heads/main {first_commit}\n"
+        f"refs/tags/v-test {second_commit} refs/tags/v-test {'0' * 40}\n"
+    )
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "pre-push: OK" in result.stdout
+
+
 def test_pre_push_rejects_a_tag_source_for_a_branch_destination(tmp_path: Path) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
