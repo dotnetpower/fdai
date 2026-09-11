@@ -306,6 +306,7 @@ class AzureResourceChangeFeed:
             max_response_bytes=self._config.max_response_bytes,
             max_total_response_bytes=self._config.max_total_response_bytes,
             allow_truncated_without_token=True,
+            allow_page_cap_truncation=True,
             truncation_observer=observe_truncation,
         )
         if not rows:

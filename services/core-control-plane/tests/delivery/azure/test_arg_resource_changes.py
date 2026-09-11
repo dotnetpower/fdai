@@ -528,6 +528,35 @@ async def test_empty_tokenless_truncated_page_remains_incomplete() -> None:
 
 
 @pytest.mark.asyncio
+async def test_continuation_token_page_cap_advances_keyset_cursor() -> None:
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Delete",
+                    arm_id=_arm_id("Microsoft.Compute/virtualMachines", "a"),
+                )
+            ],
+            **{"$skipToken": "next-page"},
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes),
+        cfg=_config(page_size=1, max_pages=1),
+    )
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert len(result.events) == 1
+    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
 async def test_tokenless_truncated_page_resumes_without_duplicates() -> None:
     async def on_changes(request: httpx.Request) -> httpx.Response:
         query = str(json.loads(request.content)["query"])
