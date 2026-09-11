@@ -107,6 +107,15 @@ def test_pre_push_validates_workflow_contract_changes_before_structural_gates() 
     assert body.index(contract_check) < body.index(structural_check)
 
 
+def test_pre_push_validates_a_new_branch_against_the_remote_default() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert 'remote_head="$(git symbolic-ref --quiet "refs/remotes/$remote_name/HEAD"' in body
+    assert 'base_ref="${remote_head:-refs/remotes/$remote_name/main}"' in body
+    assert 'range="$base_sha..$local_sha"' in body
+    assert "new; skipping sync + diff checks" not in body
+
+
 def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
     body = _PRE_PUSH.read_text()
 

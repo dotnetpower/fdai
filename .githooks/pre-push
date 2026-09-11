@@ -57,12 +57,25 @@ if [[ -n "$branch" && -n "$local_sha" && "$remote_sha" != "$zero_sha" ]]; then
   fi
   range="$remote_sha..$local_sha"
 elif [[ -n "$branch" && -n "$local_sha" ]]; then
-  echo "pre-push: note - '${remote_ref#refs/heads/}' is new; skipping sync + diff checks."
+  remote_head="$(git symbolic-ref --quiet "refs/remotes/$remote_name/HEAD" 2>/dev/null || true)"
+  base_ref="${remote_head:-refs/remotes/$remote_name/main}"
+  if ! git cat-file -e "${base_ref}^{commit}" 2>/dev/null; then
+    echo "pre-push: BLOCKED - cannot resolve the protected base for new branch '$branch'."
+    echo "  Refresh the $remote_name tracking refs, then retry."
+    exit 1
+  fi
+  base_sha="$(git merge-base "$base_ref" "$local_sha" 2>/dev/null || true)"
+  if [[ -z "$base_sha" ]]; then
+    echo "pre-push: BLOCKED - new branch '$branch' has no merge base with $base_ref."
+    exit 1
+  fi
+  range="$base_sha..$local_sha"
+  echo "pre-push: validating new branch against ${base_ref#refs/remotes/}."
 else
   echo "pre-push: note - current branch is not part of this push; skipping sync + diff checks."
 fi
 
-# Nothing more to check for a brand-new branch with no remote counterpart.
+# Nothing more to check when the current branch is not part of this push.
 if [ -z "$range" ]; then
   echo "pre-push: OK"
   exit 0
