@@ -26,6 +26,16 @@ GITHUB_HOSTED_RUNNER_RE = re.compile(
 )
 
 
+def secret_context_is_privileged(value: Any) -> bool:
+    """Return whether text uses secrets beyond the built-in read-only token."""
+    if not isinstance(value, str) or re.search(r"\bsecrets\b", value) is None:
+        return False
+    references = SECRET_REF_RE.findall(value)
+    if any(reference not in BUILTIN_CONTEXT_NAMES for reference in references):
+        return True
+    return re.search(r"\bsecrets\b", SECRET_REF_RE.sub("", value)) is not None
+
+
 def is_privileged_workflow(content: str) -> bool:
     """Return whether parsed workflow behavior can use a privileged boundary."""
     try:
@@ -53,12 +63,7 @@ def is_privileged_workflow(content: str) -> bool:
         elif isinstance(node, list):
             return any(is_privileged(value) for value in node)
         elif isinstance(node, str):
-            if re.search(r"\bsecrets\s*\[", node) is not None:
-                return True
-            return any(
-                secret_name not in BUILTIN_CONTEXT_NAMES
-                for secret_name in SECRET_REF_RE.findall(node)
-            )
+            return secret_context_is_privileged(node)
         return False
 
     return is_privileged(document)
