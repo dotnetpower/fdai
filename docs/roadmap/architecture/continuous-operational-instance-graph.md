@@ -194,7 +194,9 @@ ordered oldest first, boundary duplicates are idempotent, and the cursor advance
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation
 before proving absence. A tokenless truncated page advances through the same stable keyset cursor,
-and the next poll waits until every published event id appears in the observation journal.
+and the next poll waits until every published event id appears in the observation journal or a
+durable terminal-processing receipt. Snapshot-covered and ordering-rejected changes therefore
+release the producer fence without being misrepresented as current change observations.
 A Resource that disappears before hydration is skipped without blocking later changes; malformed
 or partial hydration still fails the batch.
 

@@ -17,6 +17,7 @@ from fdai.delivery.persistence.postgres_inventory_delta import (
     _lock_resource_ids,
     _prefer_incoming_change,
     _reconcile_links,
+    _record_inventory_delta_receipt,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
@@ -128,6 +129,22 @@ def test_apply_result_preserves_legacy_two_field_constructor() -> None:
     result = InventoryDeltaApplyResult(resources=1, links=2)
 
     assert result.outcome is InventoryDeltaApplyOutcome.APPLIED
+
+
+async def test_inventory_delta_receipt_is_immutable_and_terminal() -> None:
+    connection = AsyncMock()
+
+    await _record_inventory_delta_receipt(
+        connection,
+        event_id="event-1",
+        outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
+    )
+
+    connection.execute.assert_awaited_once_with(
+        "INSERT INTO inventory_change_event_receipt (source_event_id, outcome) "
+        "VALUES (%s, %s) ON CONFLICT (source_event_id) DO NOTHING",
+        ("event-1", "snapshot_covered"),
+    )
 
 
 def _payload(
