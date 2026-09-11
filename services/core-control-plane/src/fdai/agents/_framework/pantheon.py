@@ -218,6 +218,7 @@ _HEIMDALL = AgentSpec(
         "ForecastOutcome",
         "RetrievalValidation",
         "EvidenceConflict",
+        "RecoveryEffectObservation",
     ),
     conversation=conversation_charter(
         "Heimdall",

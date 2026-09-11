@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -323,6 +324,19 @@ def _compute_registry_digest(path: Path) -> str:
         return _SENTINEL_DIGEST
 
 
+def _validated_elapsed(
+    per_case_elapsed_s: Mapping[str, float],
+    case_id: str,
+) -> float | None:
+    value = per_case_elapsed_s.get(case_id, 0.0)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    elapsed = float(value)
+    if not math.isfinite(elapsed) or elapsed < 0.0:
+        return None
+    return elapsed
+
+
 def _compute_corpus_digest(corpus: tuple[CohortCaseInput, ...]) -> str:
     sorted_corpus = sorted(corpus, key=lambda ci: ci.case_id)
     return content_digest(
@@ -408,6 +422,8 @@ def _check_complete(
     before_digest: str,
     after_digest: str,
 ) -> bool:
+    if _SENTINEL_DIGEST in (before_digest, after_digest):
+        return False
     if before_digest != after_digest:
         return False
     return all(o.outcome_status is CohortOutcomeStatus.ACCEPTED for o in outcomes)
@@ -539,6 +555,7 @@ def run_cohort(
     for ci in corpus:
         if ci.case_id not in manifest_ids and ci.case_id not in seen_unexpected:
             seen_unexpected.add(ci.case_id)
+            unexpected_elapsed = _validated_elapsed(per_case_elapsed_s, ci.case_id)
             outcomes.append(
                 CohortCaseOutcome(
                     case_id=ci.case_id,
@@ -547,7 +564,7 @@ def run_cohort(
                     actual_denial_reason=None,
                     disposition_matched=False,
                     detail="case not declared in manifest",
-                    per_case_elapsed_s=per_case_elapsed_s.get(ci.case_id, 0.0),
+                    per_case_elapsed_s=unexpected_elapsed or 0.0,
                 )
             )
 
@@ -555,7 +572,20 @@ def run_cohort(
     last_accepted_s = 0.0
 
     for entry in manifest.entries:
-        elapsed = per_case_elapsed_s.get(entry.case_id, 0.0)
+        elapsed = _validated_elapsed(per_case_elapsed_s, entry.case_id)
+        if elapsed is None:
+            outcomes.append(
+                CohortCaseOutcome(
+                    case_id=entry.case_id,
+                    outcome_status=CohortOutcomeStatus.ERRORED,
+                    actual_disposition=None,
+                    actual_denial_reason=None,
+                    disposition_matched=False,
+                    detail="per-case elapsed measurement must be finite and non-negative",
+                    per_case_elapsed_s=0.0,
+                )
+            )
+            continue
 
         # Total timeout check.
         if cumulative_s >= COHORT_TIMEOUT_TOTAL_S:

@@ -346,7 +346,7 @@ def test_build_from_operator_request_preserves_workflow_lineage_outside_params()
     )
 
     assert action.workflow_action is not None
-    assert action.workflow_action.model_dump() == workflow_action
+    assert action.workflow_action.model_dump() == {**workflow_action, "attempt": 1}
     assert "process_id" not in action.params
 
 

@@ -8,6 +8,8 @@ that a gated step carries its resolved approver assignment into the audit.
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -16,6 +18,7 @@ from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
+from fdai.core.workflow.compensation import _compensation_proposal_digest
 from fdai.core.workflow.orchestrator import (
     ProcessStatus,
     ShadowWorkflowStepExecutor,
@@ -24,13 +27,34 @@ from fdai.core.workflow.orchestrator import (
     WorkflowRetryError,
     derive_process_id,
 )
+from fdai.core.workflow.recovery_attempt import (
+    RecoveryAttemptIdentity,
+    RecoveryDispatchOutcome,
+    RecoveryDispatchResult,
+    RecoveryPreDispatchClaim,
+)
+from fdai.core.workflow.recovery_coordinator import (
+    RecoveryCoordinatorConfig,
+    WorkflowRecoveryCoordinator,
+)
 from fdai.core.workflow.workflow_resume import WorkflowResumeError
-from fdai.core.workflow.workflow_runtime import WorkflowVerifiedOutcome
+from fdai.core.workflow.workflow_runtime import (
+    WorkflowVerifiedOutcome,
+    workflow_approval_state_key,
+)
 from fdai.delivery.persistence.state_store_hil_registry import (
     StateStoreHilApprovalRegistry,
 )
 from fdai.delivery.persistence.workflow_approval import (
     StateStoreWorkflowApprovalProvider,
+)
+from fdai.delivery.persistence.workflow_recovery import (
+    StateStoreRecoveryApprovalReader,
+    StateStoreRecoveryEffectObserver,
+    StateStoreRecoverySafeguardBundleReader,
+    recovery_approval_step_id,
+    recovery_effect_observation_key,
+    recovery_safeguard_bundle_key,
 )
 from fdai.shared.contracts.models import (
     Autonomy,
@@ -56,10 +80,12 @@ from fdai.shared.providers.process_runtime import (
 )
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.ontology_query import content_digest
 
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 _TRIGGER_TS = datetime(2026, 7, 9, 12, 0, 0, tzinfo=UTC)
+_BUNDLE_DIGEST = "sha256:" + "b" * 64
 
 
 def _approval_now() -> datetime:
@@ -125,6 +151,175 @@ _AUTO = _action(
     ),
 )
 _ACTION_TYPES = {a.name: a for a in (_GATED, _AUTO)}
+
+_RECOVERY_SOURCE_REVISION = "commit:" + "a" * 40
+_RECOVERY_EXECUTOR = "recovery-executor@example.com"
+_RECOVERY_RECEIPT_DIGEST = "sha256:" + "5" * 64
+
+
+class _RecoveryDispatcher:
+    """Accept one claimed recovery dispatch and return a provider receipt."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def dispatch_recovery(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        claim: RecoveryPreDispatchClaim,
+        safeguard_bundle_digest: str,
+        target_resource_id: str,
+        params: dict[str, object],
+        correlation_id: str,
+    ) -> RecoveryDispatchResult:
+        del safeguard_bundle_digest, target_resource_id, params, correlation_id
+        self.calls += 1
+        return RecoveryDispatchResult.create(
+            attempt_identity_digest=attempt.identity_digest,
+            claim_digest=claim.claim_digest,
+            outcome=RecoveryDispatchOutcome.DISPATCHED,
+            provider_receipt_digest=_RECOVERY_RECEIPT_DIGEST,
+            recorded_at=datetime.now(tz=UTC),
+        )
+
+    async def reconcile_recovery(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        claim: RecoveryPreDispatchClaim,
+    ) -> RecoveryDispatchResult | None:
+        del attempt, claim
+        return None
+
+
+def _recovery_coordinator(
+    audit: InMemoryStateStore,
+    process_store: InMemoryProcessRuntimeStore,
+    *,
+    dispatcher: _RecoveryDispatcher | None = None,
+    now: Callable[[], datetime] | None = None,
+) -> WorkflowRecoveryCoordinator:
+    clock = now or (lambda: datetime.now(tz=UTC))
+    return WorkflowRecoveryCoordinator(
+        process_store=process_store,
+        audit_store=audit,
+        holds=StateStoreAutomationHoldLedger(audit, clock=clock),
+        config=RecoveryCoordinatorConfig(
+            executor_identity=_RECOVERY_EXECUTOR,
+            source_revision=_RECOVERY_SOURCE_REVISION,
+        ),
+        dispatcher=dispatcher if dispatcher is not None else _RecoveryDispatcher(),
+        effect_observer=StateStoreRecoveryEffectObserver(audit),
+        approval_reader=StateStoreRecoveryApprovalReader(audit),
+        admission_provider=StubDecisionEvidenceAdmissionProvider(clock),
+        bundle_reader=StateStoreRecoverySafeguardBundleReader(audit),
+        clock=clock,
+    )
+
+
+async def _seed_recovery_evidence(
+    audit: InMemoryStateStore,
+    *,
+    process_id: str,
+    target_resource_id: str,
+    hold_revision: int,
+    now: datetime,
+) -> RecoveryAttemptIdentity:
+    """Seed the separate approval, finalized bundle, and authoritative effect."""
+
+    attempt = RecoveryAttemptIdentity.create(
+        process_id=process_id,
+        failed_compensation_proposal_digest=_compensation_proposal_digest(
+            process_id=process_id,
+            receipt_refs=["receipt:rollback:1"],
+        ),
+        hold_revision=hold_revision,
+        recovery_action_type="ops.gated",
+        recovery_payload_digest=content_digest(
+            {
+                "action_type": "ops.gated",
+                "params": {
+                    "resource_group": "example-rg",
+                    "vm_name": "example-vm",
+                    "reason": "Apply the planned example change.",
+                },
+                "purpose": "workflow-recovery-payload",
+            }
+        ),
+        target_digest=f"sha256:{hashlib.sha256(target_resource_id.encode()).hexdigest()}",
+        source_revision=_RECOVERY_SOURCE_REVISION,
+        attempt_number=1,
+    )
+    step_id = recovery_approval_step_id(attempt)
+    await audit.write_state(
+        workflow_approval_state_key(process_id, step_id, attempt.attempt_number),
+        {
+            "process_id": process_id,
+            "step_id": step_id,
+            "attempt": attempt.attempt_number,
+            "requester_principal": "recovery-requester@example.com",
+            "quorum": 1,
+            "no_self_approval": True,
+            "requested_at": (now - timedelta(minutes=5)).isoformat(),
+            "expires_at": (now + timedelta(minutes=30)).isoformat(),
+            "decision_claims": {
+                "slot-1": {
+                    "principal": "recovery-approver@example.com",
+                    "decision": "approved",
+                    "receipt_ref": "approval:recovery:1",
+                }
+            },
+            "state": "pending",
+            "revision": 4,
+        },
+    )
+    await audit.write_state(
+        recovery_safeguard_bundle_key(attempt),
+        {
+            "attempt_identity_digest": attempt.identity_digest,
+            "target_digest": attempt.target_digest,
+            "source_revision": attempt.source_revision,
+            "state": "finalized",
+            "safeguard_bundle_digest": _BUNDLE_DIGEST,
+            "execution_authority": False,
+        },
+    )
+    await audit.write_state(
+        recovery_effect_observation_key(attempt, _RECOVERY_RECEIPT_DIGEST),
+        {
+            "attempt_identity_digest": attempt.identity_digest,
+            "provider_receipt_digest": _RECOVERY_RECEIPT_DIGEST,
+            "observer_identity": "independent-observer@example.com",
+            "provider_identity": "provider@example.com",
+            "observer_authority_class": "authoritative_external",
+            "purpose_version": "1.0.0",
+            "method_version": "1.0.0",
+            "event_time": (now - timedelta(minutes=3)).isoformat(),
+            "recorded_time": (now - timedelta(minutes=2)).isoformat(),
+            "freshness_policy_seconds": 600,
+            "completeness": True,
+            "provenance": "azure-resource-graph",
+            "conflict_status": "none",
+            "synthetic": False,
+            "evidence_digest": "sha256:" + "6" * 64,
+            "expected_effect_digest": "sha256:" + "7" * 64,
+            "approved_envelope_digest": "sha256:" + "8" * 64,
+            "action_digest": "sha256:" + "9" * 64,
+            "evidence_window_start": (now - timedelta(minutes=4)).isoformat(),
+            "evidence_window_end": (now - timedelta(minutes=1)).isoformat(),
+            "watermarks": [
+                {
+                    "source_id": "azure-activity-log",
+                    "watermark": (now - timedelta(minutes=1)).isoformat(),
+                    "final": True,
+                    "watermark_digest": "sha256:" + "0" * 64,
+                }
+            ],
+            "success": True,
+        },
+    )
+    return attempt
 
 
 def _workflow(*, default_mode: Mode = Mode.SHADOW) -> Workflow:
@@ -247,6 +442,7 @@ class _ResolvingOutcomeVerifier(_AcceptingOutcomeVerifier):
         return WorkflowVerifiedOutcome(
             outcome="succeeded",
             receipt_ref=f"receipt:{kwargs['step_id']}",
+            safeguard_bundle_digest="sha256:" + "b" * 64,
         )
 
 
@@ -288,11 +484,12 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
         group_mapping=_group_mapping(),
         matrix=_matrix(),
     )
+    process_store = InMemoryProcessRuntimeStore()
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=_ACTION_TYPES,
         audit_store=audit,
-        process_store=InMemoryProcessRuntimeStore(),
+        process_store=process_store,
         action_dispatcher=dispatcher,
         outcome_verifier=verifier,
     )
@@ -312,6 +509,7 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
             "requester.principal": "operator-1",
             "action.auto_step.status": "verified",
             "action.auto_step.receipt_ref": "receipt:auto",
+            "action.auto_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -323,8 +521,10 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
             "requester.principal": "operator-1",
             "action.auto_step.status": "verified",
             "action.auto_step.receipt_ref": "receipt:auto",
+            "action.auto_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
             "action.gated_step.status": "verified",
             "action.gated_step.receipt_ref": "receipt:gated",
+            "action.gated_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -336,6 +536,8 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
     assert len(dispatcher.calls) == 2
     assert run.step_results[-1].reason == "action_effect_verified"
     assert [call["outcome"] for call in verifier.calls] == ["succeeded", "succeeded"]
+    terminal = (await process_store.events(run.process_id))[-1]
+    assert terminal.payload["safeguard_bundle_digests"] == (_BUNDLE_DIGEST,)
     workflow_entries = [
         row["entry"]
         for row in audit.audit_entries
@@ -463,6 +665,7 @@ async def test_effect_free_failure_retries_with_distinct_attempt_identity() -> N
         if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.attempt == 2
     )
     assert retry_event.attempt == 2
+    assert retry_event.payload["prior_safeguard_bundle_digests"] == ()
     assert dispatch_event.payload["proposal_ref"] == "proposal-1"
     assert ":attempt:2:" in dispatch_event.idempotency_key
 
@@ -712,10 +915,12 @@ async def test_enforce_action_rejects_sensitive_params_without_persisting_value(
 
 
 async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_receipt() -> None:
-    audit = InMemoryStateStore()
+    now = datetime.now(tz=UTC)
+    audit = InMemoryStateStore(linearization_clock=lambda: now)
     process_store = InMemoryProcessRuntimeStore()
     dispatcher = _FailingActionDispatcher(fail_step="apply_second")
     verifier = _AcceptingOutcomeVerifier()
+    recovery_dispatcher = _RecoveryDispatcher()
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types=_ACTION_TYPES,
@@ -727,6 +932,12 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
         process_store=process_store,
         action_dispatcher=dispatcher,
         outcome_verifier=verifier,
+        recovery_coordinator=_recovery_coordinator(
+            audit,
+            process_store,
+            dispatcher=recovery_dispatcher,
+            now=lambda: now,
+        ),
     )
 
     first_wait = await orchestrator.run(
@@ -744,6 +955,7 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
             "requester.principal": "operator-1",
             "action.apply_first.status": "verified",
             "action.apply_first.receipt_ref": "receipt:apply:1",
+            "action.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -765,6 +977,7 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
     ]
     assert len(compensation) == 1
     assert compensation[0].payload["compensates_step_id"] == "apply_first"
+    assert compensation[0].payload["original_safeguard_bundle_digest"] == _BUNDLE_DIGEST
     dispatched = [
         event for event in events if event.kind is ProcessEventKind.COMPENSATION_DISPATCHED
     ]
@@ -776,6 +989,13 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
         process_id=recovering.process_id,
         reason="prior_recovery_failure",
     )
+    await _seed_recovery_evidence(
+        audit,
+        process_id=recovering.process_id,
+        target_resource_id="res-1",
+        hold_revision=1,
+        now=now,
+    )
 
     completed = await orchestrator.run(
         _compensated_workflow(),
@@ -785,25 +1005,31 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
             "requester.principal": "operator-1",
             "compensation.apply_first.status": "verified",
             "compensation.apply_first.receipt_ref": "receipt:rollback:1",
+            "compensation.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
 
     assert completed.status is ProcessStatus.COMPENSATED
     assert len(dispatcher.calls) == 3
+    assert recovery_dispatcher.calls == 1
     final_events = await process_store.events(completed.process_id)
-    assert final_events[-1].kind is ProcessEventKind.COMPENSATION_COMPLETED
-    assert final_events[-1].payload["receipt_refs"] == ["receipt:rollback:1"]
+    assert final_events[-1].kind is ProcessEventKind.RECOVERY_COMPLETED
+    assert final_events[-1].payload["execution_authority"] is False
     assert verifier.calls[-1]["outcome"] == "succeeded"
     assert not await holds.is_held(target_ref="res-1")
     assert any(
-        row["entry"]["action_kind"] == "workflow.automation_hold.released"
+        row["entry"]["action_kind"] == "workflow.automation_hold.released_admitted"
         for row in audit.audit_entries
+    )
+    assert any(
+        row["entry"]["action_kind"] == "workflow.recovery.completed" for row in audit.audit_entries
     )
 
 
 async def test_verified_compensation_cannot_release_another_process_hold() -> None:
-    audit = InMemoryStateStore()
+    now = datetime.now(tz=UTC)
+    audit = InMemoryStateStore(linearization_clock=lambda: now)
     process_store = InMemoryProcessRuntimeStore()
     workflow = _compensated_workflow()
     orchestrator = WorkflowOrchestrator(
@@ -817,6 +1043,7 @@ async def test_verified_compensation_cannot_release_another_process_hold() -> No
         process_store=process_store,
         action_dispatcher=_FailingActionDispatcher(fail_step="apply_second"),
         outcome_verifier=_AcceptingOutcomeVerifier(),
+        recovery_coordinator=_recovery_coordinator(audit, process_store, now=lambda: now),
     )
     await orchestrator.run(
         workflow,
@@ -833,6 +1060,7 @@ async def test_verified_compensation_cannot_release_another_process_hold() -> No
             "requester.principal": "operator-1",
             "action.apply_first.status": "verified",
             "action.apply_first.receipt_ref": "receipt:apply:1",
+            "action.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -851,6 +1079,7 @@ async def test_verified_compensation_cannot_release_another_process_hold() -> No
             "requester.principal": "operator-1",
             "compensation.apply_first.status": "verified",
             "compensation.apply_first.receipt_ref": "receipt:rollback:1",
+            "compensation.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -895,6 +1124,7 @@ async def test_compensation_failure_closes_process_as_recovery_incomplete() -> N
             "requester.principal": "operator-1",
             "action.apply_first.status": "verified",
             "action.apply_first.receipt_ref": "receipt:apply:1",
+            "action.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -906,6 +1136,7 @@ async def test_compensation_failure_closes_process_as_recovery_incomplete() -> N
             "requester.principal": "operator-1",
             "compensation.apply_first.status": "failed",
             "compensation.apply_first.receipt_ref": "receipt:rollback:failed",
+            "compensation.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -952,6 +1183,7 @@ async def test_action_outcome_context_cannot_advance_without_verifier() -> None:
             "requester.principal": "operator-1",
             "action.auto_step.status": "verified",
             "action.auto_step.receipt_ref": "forged-receipt",
+            "action.auto_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )

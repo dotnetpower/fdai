@@ -36,6 +36,7 @@ class WorkflowActionRef(_Base):
     process_id: Annotated[str, Field(min_length=1, max_length=200)]
     step_id: Annotated[str, Field(min_length=1, max_length=200)]
     proposal_ref: Annotated[str, Field(min_length=1, max_length=512)]
+    attempt: Annotated[int, Field(ge=1)] = 1
 
 
 class Action(_Base):

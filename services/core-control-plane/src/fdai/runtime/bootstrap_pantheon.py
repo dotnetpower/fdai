@@ -416,6 +416,20 @@ async def initialize_pantheon(
                 verifier=observation_verifier,
             ),
         ).handle
+    from fdai.agents._framework import runtime_subscriptions
+    from fdai.delivery.workflow_recovery_observation_handler import (
+        RecoveryEffectObservationHandler,
+    )
+    from fdai.runtime.control_loop_support import (
+        build_workflow_recovery_effect_observation_ingress,
+    )
+
+    recovery_effect_observation_handler = RecoveryEffectObservationHandler(
+        ingress=build_workflow_recovery_effect_observation_ingress(
+            audit_store=config.incident_audit_store,
+            environ=config.environment,
+        ),
+    ).observe
     pantheon_runtime = PantheonRuntime.build(
         provider=config.bus,
         raw_event_topic=config.container.config.kafka.topic_events,
@@ -555,6 +569,10 @@ async def initialize_pantheon(
         ),
         semantic_router_config=config.semantic_router_config_from_env(),
         cost_runtime=cost_runtime,
+    )
+    pantheon_runtime.subscription_count += runtime_subscriptions.bind_recovery_effect_observation(
+        pantheon_runtime.bridge,
+        recovery_effect_observation_handler,
     )
     thor_agent = pantheon_runtime.agents.get("Thor")
     if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant

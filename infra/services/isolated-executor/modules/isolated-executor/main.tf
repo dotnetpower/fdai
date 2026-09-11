@@ -38,6 +38,7 @@ module "container_app" {
     { name = "FDAI_EXECUTOR_RECEIPT_TOPIC", value = var.event_topics.receipt },
     { name = "KAFKA_TOPIC_DLQ_SUFFIX", value = var.event_topics.dlq_suffix },
     { name = "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", value = var.authority.cutover ? "1" : "0" },
+    { name = "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION", value = var.authority.legacy_unbound_transition ? "1" : "0" },
     { name = "FDAI_DEV_OPERATIONS_GATEWAY_URL", value = var.authority.dev_operations_gateway_url },
     { name = "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", value = var.authority.dev_operations_gateway_audience },
     { name = "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT", value = tostring(var.health.port) },

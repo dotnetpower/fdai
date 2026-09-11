@@ -112,6 +112,25 @@ class StateStoreWorkflowApprovalProvider:
             )
         return await self._snapshot(stored)
 
+    async def read_snapshot(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        attempt: int = 1,
+    ) -> WorkflowApprovalSnapshot | None:
+        """Return the durable approval for one step, or ``None`` when absent.
+
+        Decisions resolve through the same journal the request was written to,
+        so a receipt recorded by the HIL queue counts exactly once and a
+        caller never has to reimplement decision resolution.
+        """
+
+        record = await self.store.read_state(_state_key(process_id, step_id, attempt))
+        if record is None or not _lineage_matches(record, process_id, step_id, attempt):
+            return None
+        return await self._snapshot(record)
+
     async def mark_timed_out(
         self,
         *,

@@ -676,6 +676,35 @@ def test_executor_runtime_role_is_guarded_and_least_privileged() -> None:
     assert "GRANT UPDATE, DELETE ON TABLE audit_log" not in source
 
 
+def test_executor_safeguard_bundle_read_waits_for_core_table() -> None:
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    dependencies = {
+        (item["consumer_service"], item["consumer_revision"]): item
+        for item in raw["migration_dependencies"]
+    }
+
+    assert dependencies[("isolated-executor", "executor_safeguard_bundle_read_20260912")] == {
+        "consumer_service": "isolated-executor",
+        "consumer_revision": "executor_safeguard_bundle_read_20260912",
+        "provider_service": "core-control-plane",
+        "provider_revision": "core_safeguard_dispatch_evidence_20260911",
+        "schema_prerequisites": ["safeguard_dispatch_evidence"],
+        "provider_rollback": "blocked-until-executor-bundle-read-rollback",
+    }
+
+
+def test_executor_receipt_outbox_pending_scan_is_indexed() -> None:
+    source = (
+        MIGRATION_ROOT / "branches/isolated-executor/versions/"
+        "20260911_executor_receipt_outbox_pending_index.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'down_revision: str | Sequence[str] | None = "executor_runtime_role_20260808"' in source
+    assert '"next_attempt_at", "created_at", "receipt_id"' in source
+    assert 'postgresql_where=sa.text("published_at IS NULL")' in source
+    assert 'op.drop_index(_INDEX_NAME, table_name="executor_receipt_outbox")' in source
+
+
 def test_operator_runtime_role_is_reproducible_and_exact() -> None:
     source = (
         MIGRATION_ROOT / "branches/operator-service/versions/20260808_operator_runtime_role.py"

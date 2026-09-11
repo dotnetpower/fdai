@@ -4,7 +4,7 @@ Covers:
 - Candidate creation, field validation, candidate_id digest binding
 - Creator/reviewer separation (SELF_REVIEW)
 - Duplicate and conflicting reviews (DUPLICATE_REVIEW, CONFLICTING_REVIEW)
-- Agent/executor identity rejection (REVIEWER_NOT_HUMAN)
+- Agent/executor identity rejection at the record boundary
 - Evidence gap denial (MISSING_EVIDENCE)
 - Rejection denial (REJECTION)
 - Provider-ineligible ActionType denial at creation (PROVIDER_INELIGIBLE)
@@ -27,6 +27,7 @@ from fdai.core.standing_authority.lifecycle_codec import (
 from fdai.core.standing_authority.promotion_candidate import (
     LEASE_CONTRACT_VERSION,
     CandidateReviewRecord,
+    CandidateSnapshot,
     CandidateStatus,
     CandidateTransitionKind,
     DenialReason,
@@ -157,6 +158,60 @@ def test_build_candidate_record_produces_correct_id() -> None:
 
 def test_candidate_id_is_stable_across_builds() -> None:
     assert _record().candidate_id == _record().candidate_id
+
+
+def test_candidate_builder_canonicalizes_set_shaped_fields() -> None:
+    left = _record(
+        eligible_action_types=("ops.scale-out", "ops.restart"),
+        required_reviewer_principals=(REVIEWER_B, REVIEWER_A),
+    )
+    right = _record(
+        eligible_action_types=("ops.restart", "ops.scale-out"),
+        required_reviewer_principals=(REVIEWER_A, REVIEWER_B),
+    )
+
+    assert left == right
+    assert left.eligible_action_types == ("ops.restart", "ops.scale-out")
+    assert left.required_reviewer_principals == (REVIEWER_A, REVIEWER_B)
+
+
+@pytest.mark.parametrize(
+    ("field", "values"),
+    [
+        ("eligible_action_types", ("ops.scale-out", "ops.scale-out")),
+        ("evidence_requirements", (EVIDENCE_1, EVIDENCE_1)),
+        ("required_reviewer_principals", (REVIEWER_A, REVIEWER_A)),
+    ],
+)
+def test_candidate_builder_rejects_duplicate_set_values(
+    field: str,
+    values: tuple[str, ...],
+) -> None:
+    with pytest.raises(AuthorizationLifecycleError, match="distinct values"):
+        _record(**{field: values})
+
+
+@pytest.mark.parametrize(
+    "evidence_digests",
+    [
+        (EVIDENCE_2, EVIDENCE_1),
+        (EVIDENCE_1, EVIDENCE_1),
+    ],
+)
+def test_review_record_rejects_noncanonical_evidence(
+    evidence_digests: tuple[str, ...],
+) -> None:
+    record = _record()
+
+    with pytest.raises(AuthorizationLifecycleError, match="evidence_digests MUST"):
+        _build_review(
+            candidate_id=record.candidate_id,
+            reviewer_principal=REVIEWER_A,
+            decision=ReviewDecision.APPROVE,
+            reviewed_at=NOW + timedelta(minutes=1),
+            authentication_evidence_digest=AUTH_DIGEST,
+            evidence_digests=evidence_digests,
+        )
 
 
 def test_candidate_id_differs_by_fence_generation() -> None:
@@ -419,6 +474,31 @@ def test_approved_status_carries_no_execution_authority() -> None:
     assert r3.snapshot.status is CandidateStatus.APPROVED
     assert r3.snapshot.execution_authority is False
     assert r3.snapshot.promotion_authority is False
+
+
+def test_snapshot_rejects_reordered_approvals_with_same_digest() -> None:
+    record = _record()
+    initial = _create(record)
+    reviewed_once = _apply_review(initial, record, _review(record, reviewer=REVIEWER_A))
+    approved = _apply_review(
+        reviewed_once,
+        record,
+        _review(record, reviewer=REVIEWER_B, at=NOW + timedelta(minutes=2)),
+    ).snapshot
+
+    with pytest.raises(AuthorizationLifecycleError, match="approvals MUST use canonical"):
+        CandidateSnapshot(
+            candidate_id=approved.candidate_id,
+            status=approved.status,
+            revision_id=approved.revision_id,
+            fencing_generation=approved.fencing_generation,
+            sequence=approved.sequence,
+            head_transition_digest=approved.head_transition_digest,
+            approvals=tuple(reversed(approved.approvals)),
+            rejections=approved.rejections,
+            quorum_required=approved.quorum_required,
+            snapshot_digest=approved.snapshot_digest,
+        )
 
 
 def test_cannot_review_approved_candidate() -> None:

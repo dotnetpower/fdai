@@ -126,6 +126,7 @@ def test_operator_proposal_normalizes_to_deterministic_event() -> None:
             "process_id": "process-1",
             "step_id": "run-task",
             "proposal_ref": "operator-1::run-1",
+            "attempt": 2,
         },
     }
 

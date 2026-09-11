@@ -45,6 +45,7 @@ from fdai.core.executor.safeguard_dispatch_store import (
 from fdai.core.executor.safeguard_dispatch_transition import (
     validate_dispatch_evidence_transition,
 )
+from fdai.core.executor.safeguard_pre_bundle import SafeguardPreBundleCommitment
 from fdai.core.executor.safeguard_proofs import (
     AuditIntentProof,
     IdempotencyReservationProof,
@@ -237,6 +238,12 @@ def _evidence_fixture(
     )
     persistence_context = SafeguardBundlePersistenceContext(
         action=action,
+        pre_bundle_commitment=SafeguardPreBundleCommitment.create(
+            action=action,
+            execution_path=safeguard_receipt.execution_path,
+            source_revision=_SOURCE_REVISION,
+            committed_at=now,
+        ),
         safeguard_receipt=safeguard_receipt,
         reservation_receipt=reservation_receipt,
         audit_append_receipt=audit_append_receipt,

@@ -115,12 +115,20 @@ class WorkflowVerifiedOutcome:
 
     outcome: str
     receipt_ref: str
+    safeguard_bundle_digest: str | None
 
     def __post_init__(self) -> None:
         if self.outcome not in {"succeeded", "failed"}:
             raise ValueError("workflow outcome MUST be succeeded or failed")
         if not self.receipt_ref:
             raise ValueError("workflow outcome receipt_ref MUST be non-empty")
+        if self.outcome == "succeeded" and self.safeguard_bundle_digest is None:
+            raise ValueError("workflow outcome requires a safeguard bundle digest")
+        if self.safeguard_bundle_digest is not None and not re.fullmatch(
+            r"sha256:[a-f0-9]{64}",
+            self.safeguard_bundle_digest,
+        ):
+            raise ValueError("workflow outcome safeguard bundle digest is malformed")
 
 
 @runtime_checkable
@@ -146,6 +154,7 @@ class WorkflowOutcomeRecorder(Protocol):
         action: Action,
         execution_outcome: str,
         execution_receipt_ref: str | None,
+        safeguard_bundle_digest: str | None,
         response_outcome: ResponseOutcome,
     ) -> str | None: ...
 

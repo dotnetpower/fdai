@@ -53,7 +53,6 @@ class DenialReason(StrEnum):
     SELF_REVIEW = "self_review"
     DUPLICATE_REVIEW = "duplicate_review"
     CONFLICTING_REVIEW = "conflicting_review"
-    REVIEWER_NOT_HUMAN = "reviewer_not_human"
     UNAUTHORIZED_REVIEWER = "unauthorized_reviewer"
     MISSING_QUORUM = "missing_quorum"
     REJECTION = "rejection"
@@ -65,6 +64,13 @@ def _require_human(name: str, principal: str) -> None:
         raise AuthorizationLifecycleError(f"{name} MUST be human, not agent/executor")
     if not principal.startswith("human:"):
         raise AuthorizationLifecycleError(f"{name} MUST start with 'human:'")
+
+
+def _require_canonical_distinct(name: str, values: tuple[str, ...]) -> None:
+    if len(values) != len(set(values)):
+        raise AuthorizationLifecycleError(f"{name} MUST contain distinct values")
+    if values != tuple(sorted(values)):
+        raise AuthorizationLifecycleError(f"{name} MUST use canonical sorted order")
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +111,12 @@ class PromotionCandidateRecord:
             raise AuthorizationLifecycleError("evidence_requirements MUST be non-empty")
         for er in self.evidence_requirements:
             require_text("evidence_requirement", er)
+        _require_canonical_distinct("eligible_action_types", self.eligible_action_types)
+        _require_canonical_distinct(
+            "ineligible_provider_action_types",
+            self.ineligible_provider_action_types,
+        )
+        _require_canonical_distinct("evidence_requirements", self.evidence_requirements)
         require_text("source_revision_id", self.source_revision_id)
         _require_human("creator_principal", self.creator_principal)
         require_digest("authentication_evidence_digest", self.authentication_evidence_digest)
@@ -117,6 +129,10 @@ class PromotionCandidateRecord:
             raise AuthorizationLifecycleError("insufficient distinct reviewers for quorum")
         for rp in self.required_reviewer_principals:
             _require_human("reviewer_principal", rp)
+        _require_canonical_distinct(
+            "required_reviewer_principals",
+            self.required_reviewer_principals,
+        )
         if self.execution_authority is not False or self.promotion_authority is not False:
             raise AuthorizationLifecycleError("authority flags MUST be False")
         expected = content_digest(
@@ -160,6 +176,7 @@ class CandidateReviewRecord:
         require_digest("authentication_evidence_digest", self.authentication_evidence_digest)
         for ed in self.evidence_digests:
             require_digest("evidence_digest", ed)
+        _require_canonical_distinct("evidence_digests", self.evidence_digests)
         expected = content_digest(
             {
                 "candidate_id": self.candidate_id,
@@ -167,7 +184,7 @@ class CandidateReviewRecord:
                 "decision": self.decision.value,
                 "reviewed_at": instant(aware_utc(self.reviewed_at)),
                 "authentication_evidence_digest": self.authentication_evidence_digest,
-                "evidence_digests": sorted(self.evidence_digests),
+                "evidence_digests": self.evidence_digests,
             }
         )
         if self.review_id != expected:
@@ -311,6 +328,14 @@ class CandidateSnapshot:
         require_digest("head_transition_digest", self.head_transition_digest)
         if self.quorum_required < CANDIDATE_QUORUM:
             raise AuthorizationLifecycleError(f"quorum_required MUST be >= {CANDIDATE_QUORUM}")
+        for principal in (*self.approvals, *self.rejections):
+            _require_human("snapshot reviewer principal", principal)
+        _require_canonical_distinct("approvals", self.approvals)
+        _require_canonical_distinct("rejections", self.rejections)
+        if set(self.approvals) & set(self.rejections):
+            raise AuthorizationLifecycleError(
+                "snapshot reviewer MUST NOT appear in approvals and rejections"
+            )
         expected = content_digest(
             {
                 "candidate_id": self.candidate_id,
@@ -319,8 +344,8 @@ class CandidateSnapshot:
                 "fencing_generation": self.fencing_generation,
                 "sequence": self.sequence,
                 "head_transition_digest": self.head_transition_digest,
-                "approvals": sorted(self.approvals),
-                "rejections": sorted(self.rejections),
+                "approvals": self.approvals,
+                "rejections": self.rejections,
                 "quorum_required": self.quorum_required,
             }
         )

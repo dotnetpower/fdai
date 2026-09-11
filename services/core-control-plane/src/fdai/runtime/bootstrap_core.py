@@ -493,6 +493,7 @@ async def build_core_runtime(
         human_access_enabled=runtime_values["human_access.enabled"] is True,
         license_authority=license_authority,
         mutation_dependency_readiness=mutation_readiness,
+        workflow_event_bus=messaging.bus,
     )
     if control_loop.ontology_instance_store is not None:
         await sync_ontology_catalog(control_loop.ontology_instance_store)

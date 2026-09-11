@@ -58,6 +58,7 @@ EXPECTED_RUNTIME_MODULES = {
     "consumers.py",
     "control_loop.py",
     "control_loop_auxiliary.py",
+    "control_loop_execution_ports.py",
     "control_loop_support.py",
     "conversation_assurance.py",
     "conversation_assurance_lifecycle.py",
@@ -95,6 +96,7 @@ EXPECTED_RUNTIME_MODULES = {
     "resource_event_providers.py",
     "rule_generation_documents.py",
     "rule_profile.py",
+    "safeguard_isolated_executor.py",
     "semantic_model_identity.py",
     "stewardship_governance.py",
     "stewardship_identity_health.py",
@@ -102,6 +104,7 @@ EXPECTED_RUNTIME_MODULES = {
     "t2_recovery.py",
     "t2_route_registry.py",
     "venue.py",
+    "workflow_action_dispatch.py",
 }
 
 PROHIBITED_WHEEL_PREFIXES = (

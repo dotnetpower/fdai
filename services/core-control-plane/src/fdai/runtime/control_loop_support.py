@@ -35,15 +35,34 @@ from fdai.core.workflow import (
     ChangeWindowWorkflowGuardEvaluator,
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
+    RecoveryCoordinatorConfig,
+    StateStoreAutomationHoldLedger,
     StateStoreWorkflowOutcomeLedger,
     WorkflowApprovalPlanner,
     WorkflowContextualGuardEvaluator,
     WorkflowGuardEvaluator,
     WorkflowOrchestrator,
+    WorkflowRecoveryCoordinator,
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
 )
+from fdai.core.workflow.recovery_effect_ingress import (
+    DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+    DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES,
+    RecoveryEffectObservationIngress,
+)
+from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
+from fdai.delivery.persistence.workflow_recovery import (
+    StateStoreRecoveryApprovalJournal,
+    StateStoreRecoveryAttemptResolver,
+    StateStoreRecoveryEffectObservationJournal,
+    StateStoreRecoveryEffectObserver,
+    StateStoreRecoverySafeguardBundleReader,
+    StateStoreRecoverySafeguardBundleRetention,
+    WorkflowActionRecoveryDispatchPort,
+    WorkflowRecoveryOutcomeRecorder,
+)
 from fdai.runtime.operating_intent_binding import (
     operating_intent_admission_expectation_from_env,
 )
@@ -86,6 +105,7 @@ def build_workflow_coordinator(
     outcome_verifier: StateStoreWorkflowOutcomeLedger | None = None,
     architecture_evidence_provider: ProductionEvidenceProvider | None = None,
     decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
+    action_dispatcher: WorkflowActionDispatcher | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the default-on shadow workflow coordinator without widening authority."""
     if not workflows:
@@ -156,14 +176,154 @@ def build_workflow_coordinator(
         audit_store=audit_store,
         process_store=runtime_store,
         guard_evaluator=guard_evaluator,
+        action_dispatcher=action_dispatcher,
         approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
         approval_decision_evidence_provider=decision_evidence_provider,
         outcome_verifier=outcome_verifier,
+        recovery_coordinator=build_workflow_recovery_coordinator(
+            audit_store=audit_store,
+            process_store=runtime_store,
+            action_dispatcher=action_dispatcher,
+            decision_evidence_provider=decision_evidence_provider,
+        ),
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
     return WorkflowTriggerCoordinator(
         index=WorkflowTriggerIndex.build(workflows),
         orchestrator=orchestrator,
+    )
+
+
+def build_workflow_recovery_coordinator(
+    *,
+    audit_store: Any,
+    process_store: Any,
+    action_dispatcher: WorkflowActionDispatcher | None,
+    decision_evidence_provider: DecisionEvidenceAdmissionProvider | None,
+    environ: Mapping[str, str] | None = None,
+) -> WorkflowRecoveryCoordinator:
+    """Compose the durable recovery path that closes an automation hold."""
+
+    values = environ if environ is not None else os.environ
+    raw_revision = values.get("FDAI_SOURCE_REVISION", "").strip()
+    if raw_revision and not raw_revision.startswith("commit:"):
+        raw_revision = f"commit:{raw_revision}"
+    if not raw_revision:
+        raw_revision = "commit:" + "0" * 40
+    executor_identity = (
+        values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip() or "fdai.core.workflow.executor"
+    )
+    journal = StateStoreRecoveryApprovalJournal(
+        approvals=StateStoreWorkflowApprovalProvider(audit_store),
+        requester_principal=(
+            values.get("FDAI_WORKFLOW_RECOVERY_REQUESTER", "").strip()
+            or "fdai.core.workflow.recovery-requester"
+        ),
+    )
+    return WorkflowRecoveryCoordinator(
+        process_store=process_store,
+        audit_store=audit_store,
+        holds=StateStoreAutomationHoldLedger(audit_store),
+        config=RecoveryCoordinatorConfig(
+            executor_identity=executor_identity,
+            source_revision=raw_revision,
+        ),
+        dispatcher=(
+            WorkflowActionRecoveryDispatchPort(
+                dispatcher=action_dispatcher,
+                store=audit_store,
+            )
+            if action_dispatcher is not None
+            else None
+        ),
+        effect_observer=StateStoreRecoveryEffectObserver(audit_store),
+        effect_observations=build_workflow_recovery_effect_observation_journal(
+            audit_store=audit_store,
+            environ=values,
+        ),
+        approval_reader=journal,
+        approval_requester=journal,
+        admission_provider=decision_evidence_provider,
+        bundle_reader=StateStoreRecoverySafeguardBundleReader(audit_store),
+    )
+
+
+def build_workflow_recovery_outcome_recorder(
+    inner: Any,
+    *,
+    audit_store: Any,
+) -> WorkflowRecoveryOutcomeRecorder:
+    """Retain a finalized recovery bundle at the production outcome call site."""
+
+    return WorkflowRecoveryOutcomeRecorder(
+        inner=inner,
+        store=audit_store,
+        retention=StateStoreRecoverySafeguardBundleRetention(audit_store),
+    )
+
+
+def build_workflow_recovery_effect_observation_journal(
+    *,
+    audit_store: Any,
+    environ: Mapping[str, str] | None = None,
+) -> StateStoreRecoveryEffectObservationJournal:
+    """Expose the independent post-effect observation intake for the runtime.
+
+    An observer that is independent of the executor writes its authoritative
+    observation here. The journal refuses executor-owned, provider-owned, and
+    synthetic evidence, so persistence never manufactures effect verification.
+    """
+
+    values = environ if environ is not None else os.environ
+    return StateStoreRecoveryEffectObservationJournal(
+        store=audit_store,
+        executor_identity=(
+            values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip()
+            or "fdai.core.workflow.executor"
+        ),
+    )
+
+
+def build_workflow_recovery_effect_observation_ingress(
+    *,
+    audit_store: Any,
+    environ: Mapping[str, str] | None = None,
+) -> RecoveryEffectObservationIngress:
+    """Compose the versioned observer-path ingress for recovery effects.
+
+    The authorized observer principals and the executor identity come from
+    composition, never from an event, so a published payload cannot nominate
+    the identity it is validated against.
+    """
+
+    values = environ if environ is not None else os.environ
+    principals = frozenset(
+        item.strip()
+        for item in values.get("FDAI_WORKFLOW_RECOVERY_OBSERVER_PRINCIPALS", "").split(",")
+        if item.strip()
+    )
+    trusted_observers = frozenset(
+        item.strip()
+        for item in values.get(
+            "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "",
+        ).split(",")
+        if item.strip()
+    )
+    return RecoveryEffectObservationIngress(
+        attempts=StateStoreRecoveryAttemptResolver(audit_store),
+        journal=build_workflow_recovery_effect_observation_journal(
+            audit_store=audit_store,
+            environ=values,
+        ),
+        executor_identity=(
+            values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip()
+            or "fdai.core.workflow.executor"
+        ),
+        authorized_principals=principals or DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+        trusted_observer_identities=(
+            trusted_observers or DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES
+        ),
     )
 
 
@@ -212,6 +372,8 @@ def load_hil_escalation_rungs(catalog_root: Path) -> tuple[EscalationRung, ...]:
 
 __all__ = [
     "build_workflow_coordinator",
+    "build_workflow_recovery_coordinator",
+    "build_workflow_recovery_effect_observation_ingress",
     "load_approval_load_policy",
     "load_hil_escalation_rungs",
     "pending_index_writer",

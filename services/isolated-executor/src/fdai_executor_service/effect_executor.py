@@ -32,6 +32,7 @@ from fdai_executor_service.effect_safety import (
     action_fingerprint,
     blast_radius_refusal,
     build_direct_api_request,
+    deadline_expired,
     dedupe_key,
     idempotency_lock_key,
     missing_safety_invariant,
@@ -127,8 +128,14 @@ class ServiceDirectApiEffectExecutor:
         *,
         action: Action,
         deadline_at: datetime | None = None,
+        upstream_target_lock_held: bool = False,
     ) -> DirectApiEffectResult:
-        """Validate, lock, audit, dispatch, and durably deduplicate one effect."""
+        """Validate, audit, dispatch, and durably deduplicate one effect.
+
+        A safeguard-bound command keeps the one target lock in Core while this
+        service performs provider I/O. Legacy commands retain the service-owned
+        target lock and cannot request this mode.
+        """
 
         if action.mode is not Mode.SHADOW and not self._allow_enforce:
             return await self._finish(
@@ -163,19 +170,22 @@ class ServiceDirectApiEffectExecutor:
             cached = self._dedupe.get(cache_key)
             if cached is not None:
                 return await self._deduplicated_or_conflict(action, cached)
-            await locks.enter_async_context(
-                self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
-            )
+            if not upstream_target_lock_held:
+                await locks.enter_async_context(
+                    self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
+                )
             expired_reason: str | None = None
             if deadline_at is not None:
                 now = self._clock()
-                if now.tzinfo is None or deadline_at.tzinfo is None:
+                try:
+                    expired = deadline_expired(now, deadline_at)
+                except ValueError:
                     return await self._finish(
                         action,
                         DirectApiEffectOutcome.REJECTED_INVARIANT,
                         "effect deadline and executor clock MUST be timezone-aware",
                     )
-                if now > deadline_at:
+                if expired:
                     expired_reason = "command deadline expired while waiting for effect locks"
 
             if self._idempotency is not None:

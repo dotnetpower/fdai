@@ -22,6 +22,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from fdai_service_contracts.executor import (
     Action,
+    AnyExecutorCommand,
     DirectApiExecutionResultLike,
     ExecutionPath,
     ExecutorCommand,
@@ -30,9 +31,15 @@ from fdai_service_contracts.executor import (
     ExecutorShadowReceipt,
     ExecutorShadowReceiptStatus,
     Mode,
+    SafeguardBoundExecutorCommand,
 )
 from fdai_service_contracts.schema import ContractValidator
 
+from fdai_executor_service.bundle_validation import (
+    SafeguardBundleStore,
+    validate_bundle_binding_sync,
+)
+from fdai_executor_service.effect_safety import deadline_expired
 from fdai_executor_service.ports import ExecutorStateStore
 
 _ATTEMPT_PREFIX = "isolated-executor:attempt:"
@@ -53,6 +60,7 @@ class DirectApiCommandExecutor(Protocol):
         *,
         action: Action,
         deadline_at: datetime,
+        upstream_target_lock_held: bool = False,
     ) -> DirectApiExecutionResultLike: ...
 
     async def recover(
@@ -71,6 +79,8 @@ class IsolatedExecutorEffectService:
         direct_api_executor: DirectApiCommandExecutor,
         contract_validator: ContractValidator,
         executor_instance_id: str,
+        bundle_store: SafeguardBundleStore | None = None,
+        allow_legacy_unbound_commands: bool = False,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not executor_instance_id or len(executor_instance_id) > 512:
@@ -78,9 +88,11 @@ class IsolatedExecutorEffectService:
         self._direct_api_executor = direct_api_executor
         self._contract_validator = contract_validator
         self._executor_instance_id = executor_instance_id
+        self._bundle_store = bundle_store
+        self._allow_legacy_unbound_commands = allow_legacy_unbound_commands
         self._clock = clock or (lambda: datetime.now(UTC))
 
-    async def handle(self, command: ExecutorCommand) -> ExecutorEffectReceipt:
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorEffectReceipt:
         """Dispatch one command without claiming independent effect verification."""
 
         self._contract_validator.validate(
@@ -94,21 +106,51 @@ class IsolatedExecutorEffectService:
             version=command.action_schema_version,
         )
         received_at = self._clock()
-        if received_at.tzinfo is None:
-            raise ValueError("isolated Executor clock MUST be timezone-aware")
+
+        bundle_digest: str | None = None
+        if isinstance(command, SafeguardBoundExecutorCommand):
+            bundle_digest = command.safeguard_proof_bundle_digest
+            bundle = None
+            if self._bundle_store is not None:
+                bundle = await self._bundle_store.resolve_bundle(bundle_digest)
+            refusal = validate_bundle_binding_sync(command, bundle, now=received_at)
+            if refusal is not None:
+                return self._effect_receipt(
+                    command,
+                    status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                    reason=f"safeguard bundle {refusal.category}: {refusal.reason}",
+                    received_at=received_at,
+                    completed_at=received_at,
+                    safeguard_proof_bundle_digest=bundle_digest,
+                )
+        elif not self._allow_legacy_unbound_commands:
+            return self._effect_receipt(
+                command,
+                status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                reason="production effect dispatch requires a safeguard-bound command",
+                received_at=received_at,
+                completed_at=received_at,
+            )
+
         action = Action.model_validate(command.action_payload)
-        if received_at > command.deadline_at:
+        if deadline_expired(received_at, command.deadline_at):
             recovered = None
             if command.execution_path is ExecutionPath.DIRECT_API:
                 recovered = await self._direct_api_executor.recover(action=action)
             if recovered is not None:
-                return self._receipt_from_result(command, recovered, received_at=received_at)
+                return self._receipt_from_result(
+                    command,
+                    recovered,
+                    received_at=received_at,
+                    safeguard_proof_bundle_digest=bundle_digest,
+                )
             return self._effect_receipt(
                 command,
                 status=ExecutorEffectReceiptStatus.EXPIRED,
                 reason="command deadline expired before dispatch",
                 received_at=received_at,
                 completed_at=received_at,
+                safeguard_proof_bundle_digest=bundle_digest,
             )
         if command.execution_path is not ExecutionPath.DIRECT_API:
             return self._effect_receipt(
@@ -117,20 +159,31 @@ class IsolatedExecutorEffectService:
                 reason="isolated effect authority supports direct_api commands only",
                 received_at=received_at,
                 completed_at=received_at,
+                safeguard_proof_bundle_digest=bundle_digest,
             )
 
         result = await self._direct_api_executor.execute(
             action=action,
             deadline_at=command.deadline_at,
+            upstream_target_lock_held=isinstance(
+                command,
+                SafeguardBoundExecutorCommand,
+            ),
         )
-        return self._receipt_from_result(command, result, received_at=received_at)
+        return self._receipt_from_result(
+            command,
+            result,
+            received_at=received_at,
+            safeguard_proof_bundle_digest=bundle_digest,
+        )
 
     def _receipt_from_result(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         result: DirectApiExecutionResultLike,
         *,
         received_at: datetime,
+        safeguard_proof_bundle_digest: str | None = None,
     ) -> ExecutorEffectReceipt:
         completed_at = self._clock()
         status = ExecutorEffectReceiptStatus(result.outcome.value)
@@ -144,11 +197,12 @@ class IsolatedExecutorEffectService:
             effect_applied=effect_applied,
             rollback_succeeded=result.rollback_succeeded,
             provider_receipt_ref=result.receipt_ref,
+            safeguard_proof_bundle_digest=safeguard_proof_bundle_digest,
         )
 
     def _effect_receipt(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         *,
         status: ExecutorEffectReceiptStatus,
         reason: str | None,
@@ -157,6 +211,7 @@ class IsolatedExecutorEffectService:
         effect_applied: bool = False,
         rollback_succeeded: bool | None = None,
         provider_receipt_ref: str | None = None,
+        safeguard_proof_bundle_digest: str | None = None,
     ) -> ExecutorEffectReceipt:
         receipt_id = uuid5(
             NAMESPACE_URL,
@@ -178,6 +233,7 @@ class IsolatedExecutorEffectService:
             effect_applied=effect_applied,
             rollback_succeeded=rollback_succeeded,
             provider_receipt_ref=_bounded_optional(provider_receipt_ref),
+            safeguard_proof_bundle_digest=safeguard_proof_bundle_digest,
             audit_ref=f"action:{command.action_id}",
         )
         self._contract_validator.validate(
@@ -220,8 +276,7 @@ class IsolatedExecutorShadowService:
             version=command.action_schema_version,
         )
         now = self._clock()
-        if now.tzinfo is None:
-            raise ValueError("isolated Executor clock MUST be timezone-aware")
+        deadline_expired(now, command.deadline_at)
 
         attempt_key = _attempt_key(command.idempotency_key)
         legacy_attempt_key = _legacy_attempt_key(command.idempotency_key)
@@ -347,7 +402,7 @@ def _first_terminal_outcome(
     *,
     now: datetime,
 ) -> tuple[ExecutorShadowReceiptStatus, str]:
-    if now > command.deadline_at:
+    if deadline_expired(now, command.deadline_at):
         return ExecutorShadowReceiptStatus.EXPIRED, "command deadline expired before observation"
     if command.requested_mode is Mode.ENFORCE:
         return (

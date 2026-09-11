@@ -47,6 +47,7 @@ class SafeguardDispatchEvidenceIdentity:
     lock_proof_digest: str
     idempotency_proof_digest: str
     audit_intent_proof_digest: str
+    pre_bundle_commitment_digest: str
     lock_verifier_id: str
     lock_verifier_version: str
     lock_trust_anchor_id: str
@@ -80,6 +81,10 @@ class SafeguardDispatchEvidenceIdentity:
             ("lock_proof_digest", self.lock_proof_digest),
             ("idempotency_proof_digest", self.idempotency_proof_digest),
             ("audit_intent_proof_digest", self.audit_intent_proof_digest),
+            (
+                "pre_bundle_commitment_digest",
+                self.pre_bundle_commitment_digest,
+            ),
             ("safeguard_bundle_digest", self.safeguard_bundle_digest),
             ("continuity_policy_digest", self.continuity_policy_digest),
             ("identity_digest", self.identity_digest),
@@ -177,6 +182,9 @@ class SafeguardDispatchEvidenceIdentity:
             "lock_proof_digest": persistence_context.lock_proof.proof_digest,
             "idempotency_proof_digest": (persistence_context.idempotency_proof.proof_digest),
             "audit_intent_proof_digest": (persistence_context.audit_intent_proof.proof_digest),
+            "pre_bundle_commitment_digest": (
+                persistence_context.pre_bundle_commitment.commitment_digest
+            ),
             "lock_verifier_id": persistence_context.lock_assessment.verifier_id,
             "lock_verifier_version": (persistence_context.lock_assessment.verifier_version),
             "lock_trust_anchor_id": (persistence_context.lock_assessment.trust_anchor_id),

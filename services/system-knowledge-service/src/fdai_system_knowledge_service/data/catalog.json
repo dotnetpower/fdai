@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:31b7c1a9919dc5426e0845dbf59c3d803bda03e188f71c4288dea1050ef85920",
+  "catalog_digest": "sha256:44bc92c6c216792d6714d08c4515dc6d2fbef7a7fe3b7fde20792844782b863a",
   "execution_authority": false,
-  "generated_at": "2026-09-11T14:25:37.006887Z",
+  "generated_at": "2026-09-11T14:40:30.149459Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,25 +106,25 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:e0cc42d2b06a3b04164f9128cac9d451baf67ce01830d64b2b6f0d9d2ea294d8",
+      "record_digest": "sha256:f9246b1a2c2fe6ddd544aab9790e53295c278c7878a302d60951b939002ec53c",
       "sources": [
         {
+          "authority_role": "implementation",
+          "blob_sha": "c104281496a1fcbe77373c1240e2a734e44ffb18",
+          "line_end": 354,
+          "line_start": 354,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+          "source_kind": "code",
+          "symbol": "_BRAGI"
+        },
+        {
           "authority_role": "design",
-          "blob_sha": "9bace1a77dfeb260e936520e1fc714fc2714bc28",
+          "blob_sha": "f6d7e0ba041a2a8f41c89fa4c123b37711ab5039",
           "line_end": 37,
           "line_start": 37,
           "path": "docs/roadmap/agents/agent-pantheon.md",
           "source_kind": "doc",
           "symbol": "Two-port model"
-        },
-        {
-          "authority_role": "implementation",
-          "blob_sha": "d5cd5c914311c837c1ddc3d959cea2c297eed380",
-          "line_end": 353,
-          "line_start": 353,
-          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
-          "source_kind": "code",
-          "symbol": "_BRAGI"
         }
       ],
       "status": "implemented",
@@ -336,25 +336,25 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:5a34102989b854ee8f0ece6c29c9aff3dea0d17481d0ed4e3054c35c801b20d0",
+      "record_digest": "sha256:9eb9a50eef5a9ecc9d28b5a490082cc522fa26d2f7126a469b37def21290f3a4",
       "sources": [
         {
+          "authority_role": "implementation",
+          "blob_sha": "c104281496a1fcbe77373c1240e2a734e44ffb18",
+          "line_end": 715,
+          "line_start": 715,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+          "source_kind": "code",
+          "symbol": "PANTHEON_SPECS"
+        },
+        {
           "authority_role": "design",
-          "blob_sha": "9bace1a77dfeb260e936520e1fc714fc2714bc28",
+          "blob_sha": "f6d7e0ba041a2a8f41c89fa4c123b37711ab5039",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
           "source_kind": "doc",
           "symbol": "Design principles"
-        },
-        {
-          "authority_role": "implementation",
-          "blob_sha": "d5cd5c914311c837c1ddc3d959cea2c297eed380",
-          "line_end": 714,
-          "line_start": 714,
-          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
-          "source_kind": "code",
-          "symbol": "PANTHEON_SPECS"
         }
       ],
       "status": "implemented",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:915ceffacdbd0bdd107994c64b6e1a03f979544451ce6e092618e71cc8d5a263",
+      "record_digest": "sha256:dae16f5481a9535a9f2179cd7c0ca95aa15618740a1570a053dc2c83748e43b4",
       "sources": [
         {
           "authority_role": "design",
@@ -461,9 +461,9 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "b4e772cfca66f01caf6fc4afcb267b21d87a5fb2",
-          "line_end": 91,
-          "line_start": 91,
+          "blob_sha": "6652d93da2df0c25d295c3f94a7037ef4f1714a4",
+          "line_end": 99,
+          "line_start": 99,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "e6a92e82774b8c17a84c51c22498f4a74c11ab74"
+  "source_revision": "ef6844b2a1b6e8e8bfd1129d3648086bce8569c2"
 }

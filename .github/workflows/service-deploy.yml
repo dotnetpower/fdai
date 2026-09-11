@@ -154,6 +154,7 @@ jobs:
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
           RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
+          SOURCE_REVISION: ${{ inputs.commit_sha }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
@@ -167,6 +168,7 @@ jobs:
             echo "commit_sha must be a lowercase 40-character git SHA." >&2
             exit 1
           }
+          echo "SOURCE_REVISION=$SOURCE_REVISION" >> "$GITHUB_ENV"
           git -C "$TRUSTED_CONTROLS" fetch --no-tags origin \
             "+refs/heads/main:refs/remotes/origin/main"
           git -C "$TRUSTED_CONTROLS" fetch --no-tags origin "$COMMIT_SHA"
@@ -576,6 +578,10 @@ jobs:
           resolved_model_args=()
           channel_edge_args=()
           current_channel_edge_id=""
+          source_revision_binding=""
+          if [[ "$SERVICE" == "core-control-plane" ]]; then
+            source_revision_binding="$SOURCE_REVISION"
+          fi
           case "$OPERATOR_CHANNEL_EDGE_TRANSITION" in
             enable) channel_edge_args+=(--operator-channel-edge-enabled true) ;;
             disable) channel_edge_args+=(--operator-channel-edge-enabled false) ;;
@@ -873,6 +879,7 @@ jobs:
               STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
               DECISION_EVIDENCE_CONTAINER_URL="$decision_evidence_container_url" \
               RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
+              SOURCE_REVISION="$source_revision_binding" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

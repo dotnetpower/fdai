@@ -199,6 +199,7 @@ class ExecutorEffectReceipt(_Base):
     effect_verified: Literal[False] = False
     rollback_succeeded: bool | None = None
     provider_receipt_ref: NonEmpty | None = None
+    safeguard_proof_bundle_digest: Digest | None = None
     audit_ref: NonEmpty
 
     @model_validator(mode="after")
@@ -215,6 +216,137 @@ class ExecutorEffectReceipt(_Base):
             raise ValueError("executor effect_applied MUST match the dispatch outcome")
         if self.effect_applied and self.requested_mode is not Mode.ENFORCE:
             raise ValueError("shadow commands cannot report an applied effect")
+        return self
+
+
+SourceRevision = Annotated[str, Field(min_length=1, max_length=512)]
+
+
+class SafeguardBoundExecutorCommand(_Base):
+    """Versioned v1.1.0 command with exact safeguard proof bundle binding."""
+
+    schema_version: Literal["1.1.0"] = "1.1.0"
+    command_id: UUID
+    action_schema_version: SemVer
+    action_id: UUID
+    event_id: UUID
+    idempotency_key: IdempotencyKey
+    target_resource_ref: NonEmpty
+    partition_key: NonEmpty
+    execution_path: ExecutionPath
+    requested_mode: Mode
+    attempt: Annotated[int, Field(ge=1, le=100)]
+    issued_at: datetime
+    deadline_at: datetime
+    action_payload_digest: Digest
+    action_payload: dict[str, Any]
+    safeguard_proof_bundle_digest: Digest
+    source_revision: SourceRevision
+
+    @classmethod
+    def from_action(
+        cls,
+        *,
+        command_id: UUID,
+        action: Action,
+        execution_path: ExecutionPath,
+        attempt: int,
+        issued_at: datetime,
+        deadline_at: datetime,
+        safeguard_proof_bundle_digest: str,
+        source_revision: str,
+    ) -> SafeguardBoundExecutorCommand:
+        """Build a v1.1.0 command bound to its safeguard proof bundle."""
+
+        payload = action.model_dump(mode="json", exclude_none=True)
+        return cls(
+            command_id=command_id,
+            action_schema_version=action.schema_version,
+            action_id=action.action_id,
+            event_id=action.event_id,
+            idempotency_key=action.idempotency_key,
+            target_resource_ref=action.target_resource_ref,
+            partition_key=action.target_resource_ref,
+            execution_path=execution_path,
+            requested_mode=action.mode,
+            attempt=attempt,
+            issued_at=issued_at,
+            deadline_at=deadline_at,
+            action_payload_digest=executor_action_payload_digest(payload),
+            action_payload=payload,
+            safeguard_proof_bundle_digest=safeguard_proof_bundle_digest,
+            source_revision=source_revision,
+        )
+
+    @model_validator(mode="after")
+    def _validate_transport_binding(self) -> SafeguardBoundExecutorCommand:
+        if self.issued_at.tzinfo is None or self.deadline_at.tzinfo is None:
+            raise ValueError("executor command timestamps MUST be timezone-aware")
+        if self.deadline_at <= self.issued_at:
+            raise ValueError("executor command deadline MUST follow issue time")
+        if self.partition_key != self.target_resource_ref:
+            raise ValueError("executor command partition key MUST match the logical target")
+        expected_payload = {
+            "schema_version": self.action_schema_version,
+            "action_id": str(self.action_id),
+            "event_id": str(self.event_id),
+            "idempotency_key": self.idempotency_key,
+            "target_resource_ref": self.target_resource_ref,
+            "mode": self.requested_mode.value,
+        }
+        for name, expected in expected_payload.items():
+            if self.action_payload.get(name) != expected:
+                raise ValueError(f"executor command Action {name} does not match its envelope")
+        if executor_action_payload_digest(self.action_payload) != self.action_payload_digest:
+            raise ValueError("executor command Action payload digest mismatch")
+        return self
+
+
+AnyExecutorCommand = ExecutorCommand | SafeguardBoundExecutorCommand
+
+
+class ObservationReceiptStatus(StrEnum):
+    """Independent observation outcomes that carry no execution authority."""
+
+    VERIFIED = "verified"
+    FAILED = "failed"
+    CENSORED = "censored"
+    UNAVAILABLE = "unavailable"
+
+
+class ObservationReceipt(_Base):
+    """Independent versioned observation that verifies or refutes an effect.
+
+    This receipt correlates an executor command and provider receipt. It cannot
+    grant execution authority, restart a command, or modify provider state.
+    """
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    observation_id: UUID
+    command_id: UUID
+    action_id: UUID
+    receipt_id: UUID
+    idempotency_key: IdempotencyKey
+    safeguard_proof_bundle_digest: Digest
+    action_payload_digest: Digest
+    status: ObservationReceiptStatus
+    reason: NonEmpty | None = None
+    observer_instance_id: NonEmpty
+    observed_at: datetime
+    completed_at: datetime
+    execution_authority: Literal[False] = False
+    effect_verified: bool
+
+    @model_validator(mode="after")
+    def _validate_observation(self) -> ObservationReceipt:
+        if self.observed_at.tzinfo is None or self.completed_at.tzinfo is None:
+            raise ValueError("observation receipt timestamps MUST be timezone-aware")
+        if self.completed_at < self.observed_at:
+            raise ValueError("observation completion MUST NOT precede observation time")
+        if self.effect_verified and self.status is not ObservationReceiptStatus.VERIFIED:
+            raise ValueError("effect_verified requires verified observation status")
+        if not self.effect_verified and self.status is ObservationReceiptStatus.VERIFIED:
+            raise ValueError("verified status requires effect_verified=true")
         return self
 
 

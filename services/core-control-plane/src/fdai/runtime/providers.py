@@ -19,7 +19,25 @@ from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntime
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
-_DURABLE_RUNTIME_ENVS = frozenset({"staging", "prod"})
+_DURABLE_RUNTIME_ENVS = frozenset({"staging", "prod", "production"})
+
+
+def _safeguard_continuity_policy() -> Any:
+    """Return the reviewed unknown-outcome quarantine policy for Core sinks."""
+
+    from fdai.core.executor.lock_continuity import (
+        EffectSinkContinuityPolicy,
+        OwnershipContinuityStrategy,
+    )
+
+    return EffectSinkContinuityPolicy.create(
+        sink_id="fdai-core-action-dispatch",
+        sink_version="1.0.0",
+        strategy=OwnershipContinuityStrategy.QUARANTINED_RECONCILIATION,
+        cancellation_supported=True,
+        durable_unknown_quarantine=True,
+        reconciliation_supported=True,
+    )
 
 
 def _require_durable_backend(
@@ -139,8 +157,135 @@ def _build_resource_lock(environment: Mapping[str, str] | None = None) -> Resour
 
     _LOGGER.info("resource_lock_backend", extra={"backend": "postgres-advisory"})
     return PostgresAdvisoryResourceLock(
-        config=PostgresAdvisoryResourceLockConfig(dsn=dsn, lock_timeout_ms=timeout_ms)
+        config=PostgresAdvisoryResourceLockConfig(
+            dsn=dsn,
+            lock_timeout_ms=timeout_ms,
+            continuity_policy=_safeguard_continuity_policy(),
+        )
     )
+
+
+def _build_safeguard_lifecycle_coordinator(
+    *,
+    audit_store: Any,
+    resource_lock: Any,
+    process_store: Any,
+    environment: Mapping[str, str] | None = None,
+) -> Any:
+    """Bind durable production stores or explicit in-memory test providers."""
+
+    from fdai.core.executor.audit_intent import AuditIntentStore
+    from fdai.core.executor.idempotency_reservation import IdempotencyReservationStore
+    from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
+    from fdai.core.executor.safeguard_dispatch_store import (
+        SafeguardDispatchEvidenceStore,
+    )
+    from fdai.core.executor.safeguard_lifecycle_coordinator import (
+        SafeguardLifecycleCoordinator,
+        SafeguardLifecycleCoordinatorConfig,
+    )
+    from fdai.core.executor.target_dispatch_fence_store import TargetDispatchFenceStore
+    from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
+    from fdai.core.workflow.safeguard_commitment import (
+        ProcessRuntimeSafeguardCommitmentStore,
+    )
+
+    values = environment if environment is not None else os.environ
+    runtime_env = values.get("RUNTIME_ENV", "").strip().lower()
+    production = runtime_env in _DURABLE_RUNTIME_ENVS
+    raw_revision = values.get("FDAI_SOURCE_REVISION", "").strip()
+    if raw_revision and not raw_revision.startswith("commit:"):
+        raw_revision = f"commit:{raw_revision}"
+    if not raw_revision:
+        if production:
+            raise RuntimeError("FDAI_SOURCE_REVISION is required for production safeguard evidence")
+        raw_revision = "commit:" + "0" * 40
+    dsn = values.get("FDAI_STATE_STORE_DSN", "").strip()
+    if production and not dsn:
+        raise RuntimeError("FDAI_STATE_STORE_DSN is required for production safeguard evidence")
+
+    reservations: IdempotencyReservationStore
+    audit_intents: AuditIntentStore
+    fences: TargetDispatchFenceStore
+    evidence: SafeguardDispatchEvidenceStore
+    closures: PostReleaseClosureStore
+    if dsn:
+        from fdai.delivery.persistence import (
+            PostgresAuditIntentStore,
+            PostgresAuditIntentStoreConfig,
+            PostgresIdempotencyReservationStore,
+            PostgresIdempotencyReservationStoreConfig,
+            PostgresPostReleaseClosureStore,
+            PostgresPostReleaseClosureStoreConfig,
+            PostgresSafeguardDispatchEvidenceStore,
+            PostgresSafeguardDispatchEvidenceStoreConfig,
+            PostgresTargetDispatchFenceStore,
+            PostgresTargetDispatchFenceStoreConfig,
+        )
+
+        reservations = PostgresIdempotencyReservationStore(
+            config=PostgresIdempotencyReservationStoreConfig(dsn=dsn)
+        )
+        audit_intents = PostgresAuditIntentStore(config=PostgresAuditIntentStoreConfig(dsn=dsn))
+        fences = PostgresTargetDispatchFenceStore(
+            config=PostgresTargetDispatchFenceStoreConfig(dsn=dsn)
+        )
+        evidence = PostgresSafeguardDispatchEvidenceStore(
+            config=PostgresSafeguardDispatchEvidenceStoreConfig(dsn=dsn)
+        )
+        closures = PostgresPostReleaseClosureStore(
+            config=PostgresPostReleaseClosureStoreConfig(dsn=dsn)
+        )
+        verifier_id = "postgres-pg-locks-readback"
+        trust_anchor_id = "postgres:primary"
+    else:
+        from fdai.core.executor.testing_safeguard_lifecycle import (
+            InMemoryAuditIntentStore,
+            InMemoryIdempotencyReservationStore,
+            InMemoryPostReleaseClosureStore,
+            InMemorySafeguardDispatchEvidenceStore,
+            InMemoryTargetDispatchFenceStore,
+        )
+
+        reservations = InMemoryIdempotencyReservationStore()
+        audit_intents = InMemoryAuditIntentStore()
+        fences = InMemoryTargetDispatchFenceStore()
+        evidence = InMemorySafeguardDispatchEvidenceStore()
+        closures = InMemoryPostReleaseClosureStore(
+            reservation_store=reservations,
+            fence_store=fences,
+        )
+        verifier_id = "fdai-in-memory-lock-readback"
+        trust_anchor_id = "fdai:local-test-only"
+
+    coordinator = SafeguardLifecycleCoordinator(
+        resource_lock=resource_lock,
+        reservation_store=reservations,
+        audit_intent_store=audit_intents,
+        fence_store=fences,
+        evidence_store=evidence,
+        closure_store=closures,
+        denial_audit_store=audit_store,
+        continuity_policy=_safeguard_continuity_policy(),
+        config=SafeguardLifecycleCoordinatorConfig(
+            source_revision=raw_revision,
+            producer_id="fdai.core.executor",
+            producer_version="1.0.0",
+            actor="fdai.core.executor",
+            expected_lock_verifier_id=verifier_id,
+            expected_lock_verifier_version="1.0.0",
+            expected_lock_trust_anchor_id=trust_anchor_id,
+            production=production,
+        ),
+        commitment_store=ProcessRuntimeSafeguardCommitmentStore(process_store),
+        hold_state_reader=StateStoreAutomationHoldLedger(audit_store),
+        hold_release_authorizations=StateStoreAutomationHoldLedger(audit_store),
+    )
+    _LOGGER.info(
+        "safeguard_lifecycle_backend",
+        extra={"backend": "postgres" if dsn else "in-memory-test", "production": production},
+    )
+    return coordinator
 
 
 def _build_operator_memory_store() -> Any:

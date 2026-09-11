@@ -55,10 +55,16 @@ from enum import StrEnum
 from typing import Final
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
+from fdai.core.executor.pr_safeguard_dispatch import (
+    execute_pr_with_safeguard_lifecycle,
+)
 from fdai.core.executor.renderer import (
     RenderError,
     RenderRequest,
     TemplateRenderer,
+)
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
 )
 from fdai.core.executor.safeguards import (
     SafeguardRefusal,
@@ -75,7 +81,7 @@ from fdai.shared.providers.remediation_pr import (
     RemediationPr,
     RemediationPrPublisher,
 )
-from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.resource_lock import EvidenceResourceLock, ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 _DEFAULT_MAX_AFFECTED_RESOURCES: Final[int] = 10
@@ -153,6 +159,7 @@ class ExecutionResult:
     mode: Mode = Mode.SHADOW
     pr_ref: str | None = None
     pr_url: str | None = None
+    safeguard_bundle_digest: str | None = None
     reason: str | None = None
     audit_context: dict[str, object] = field(default_factory=dict)
 
@@ -178,6 +185,7 @@ def _result_to_payload(result: ExecutionResult) -> dict[str, object]:
         "mode": result.mode.value,
         "pr_ref": result.pr_ref,
         "pr_url": result.pr_url,
+        "safeguard_bundle_digest": result.safeguard_bundle_digest,
         "reason": result.reason,
         "audit_context": dict(result.audit_context),
     }
@@ -191,6 +199,7 @@ def _result_from_payload(payload: Mapping[str, object]) -> ExecutionResult:
         mode=Mode(str(payload.get("mode", Mode.SHADOW.value))),
         pr_ref=_opt_str(payload.get("pr_ref")),
         pr_url=_opt_str(payload.get("pr_url")),
+        safeguard_bundle_digest=_opt_str(payload.get("safeguard_bundle_digest")),
         reason=_opt_str(payload.get("reason")),
         audit_context=dict(ctx) if isinstance(ctx, Mapping) else {},
     )
@@ -212,6 +221,7 @@ class ShadowExecutor:
         resource_lock: ResourceLock,
         config: ExecutorConfig | None = None,
         idempotency: IdempotencyStore | None = None,
+        safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
     ) -> None:
         self._publisher = publisher
         self._audit_store = audit_store
@@ -219,6 +229,7 @@ class ShadowExecutor:
         self._resource_lock = resource_lock
         self._config = config or ExecutorConfig()
         self._idempotency = idempotency
+        self._safeguard_coordinator = safeguard_coordinator
         # idempotency_key -> ExecutionResult. Insertion-ordered dict so
         # `next(iter(self._dedupe))` is the oldest entry - evict in FIFO
         # order once the cap in `ExecutorConfig.max_dedupe_entries` is
@@ -282,6 +293,24 @@ class ShadowExecutor:
                 action=action,
                 rule=rule,
                 cached=cached,
+                execution_path=execution_path,
+            )
+        if self._safeguard_coordinator is not None:
+            return await execute_pr_with_safeguard_lifecycle(
+                self,
+                action=action,
+                rule=rule,
+                execution_path=execution_path,
+            )
+        if (
+            isinstance(self._resource_lock, EvidenceResourceLock)
+            and self._resource_lock.production_eligible is True
+        ):
+            return await self._finish(
+                action=action,
+                rule=rule,
+                outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                reason="production safeguard lifecycle is unavailable",
                 execution_path=execution_path,
             )
 
@@ -466,6 +495,7 @@ class ShadowExecutor:
         reason: str | None,
         pr_ref: str | None = None,
         pr_url: str | None = None,
+        safeguard_bundle_digest: str | None = None,
         dry_run_receipt: str | None = None,
         execution_path: ExecutionPath | None = None,
         remember: bool = True,
@@ -476,6 +506,7 @@ class ShadowExecutor:
             mode=Mode.SHADOW,
             pr_ref=pr_ref,
             pr_url=pr_url,
+            safeguard_bundle_digest=safeguard_bundle_digest,
             reason=reason,
             audit_context={
                 "rule_id": rule.id,
@@ -487,6 +518,7 @@ class ShadowExecutor:
                 "idempotency_fingerprint": _execution_fingerprint(action=action, rule=rule),
                 "dry_run_receipt": dry_run_receipt,
                 "execution_path": None if execution_path is None else execution_path.value,
+                "safeguard_bundle_digest": safeguard_bundle_digest,
             },
         )
         # Write audit BEFORE caching the result. If the audit-store
@@ -539,6 +571,7 @@ class ShadowExecutor:
             "outcome": result.outcome.value,
             "pr_ref": result.pr_ref,
             "pr_url": result.pr_url,
+            "safeguard_bundle_digest": result.safeguard_bundle_digest,
             "reason": result.reason,
             "dry_run_receipt": result.audit_context.get("dry_run_receipt"),
             "rule_id": rule.id,

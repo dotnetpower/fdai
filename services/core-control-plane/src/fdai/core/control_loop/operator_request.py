@@ -65,6 +65,13 @@ class OperatorRequestHost(Protocol):
         correlation_id: str = "",
     ) -> ExecutionResultType: ...
 
+    async def _prepare_workflow_safeguard_commitment(
+        self,
+        *,
+        action: Action,
+        correlation_id: str,
+    ) -> str | None: ...
+
     def _bind_authorized_identity(
         self,
         action: Action,
@@ -180,6 +187,21 @@ async def process_operator_request(
             host, event, correlation_id, resource_type, rule, ControlLoopOutcome.DENIED, "deny"
         )
     if unified.requires_hil:
+        commitment_error = await host._prepare_workflow_safeguard_commitment(
+            action=action,
+            correlation_id=correlation_id,
+        )
+        if commitment_error is not None:
+            await _audit_abstain(host, event=event, reason=commitment_error)
+            return await _finish(
+                host,
+                event=event,
+                correlation_id=correlation_id,
+                outcome=ControlLoopOutcome.ABSTAINED_ACTION_BUILD,
+                decision="abstain",
+                resource_type=resource_type,
+                reason=commitment_error,
+            )
         if host._hil_resume_coordinator is not None and isinstance(initiator, str):
             await host._request_hil_approval(
                 action=action,

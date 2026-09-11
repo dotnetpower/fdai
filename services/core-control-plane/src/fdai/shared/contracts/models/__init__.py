@@ -111,11 +111,13 @@ from .enums import (
 )
 from .event import Event
 from .executor_transport import (
+    AnyExecutorCommand,
     ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorEffectReceiptStatus,
     ExecutorShadowReceipt,
     ExecutorShadowReceiptStatus,
+    SafeguardBoundExecutorCommand,
 )
 from .forecast_outcome import (
     ForecastMissOrigin,
@@ -255,11 +257,13 @@ __all__ = [
     "CeilingByTier",
     "CheckLogic",
     "Event",
+    "AnyExecutorCommand",
     "ExecutorCommand",
     "ExecutorEffectReceipt",
     "ExecutorEffectReceiptStatus",
     "ExecutorShadowReceipt",
     "ExecutorShadowReceiptStatus",
+    "SafeguardBoundExecutorCommand",
     "ForecastOutcome",
     "ForecastOutcomeLabel",
     "ForecastMissOrigin",

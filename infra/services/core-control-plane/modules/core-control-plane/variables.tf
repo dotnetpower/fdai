@@ -13,6 +13,14 @@ variable "decision_evidence_container_url" {
   default = ""
 }
 variable "image" { type = string }
+variable "source_revision" {
+  type = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}([0-9a-f]{24})?$", var.source_revision))
+    error_message = "source_revision must be a full lowercase Git SHA-1 or SHA-256."
+  }
+}
 variable "bootstrap" {
   type = object({
     azure_tenant_id       = string
