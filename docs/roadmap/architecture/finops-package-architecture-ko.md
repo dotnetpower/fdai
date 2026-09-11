@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 699b5c992bceb7f2493e0f5deec3a81d96a031ab
+translation_source_sha: 2f83e41113e51a3da7238448356292a83f8a9925
 translation_revised: 2026-09-11
 ---
 
@@ -41,8 +41,9 @@ translation_revised: 2026-09-11
 > model capability quorum이 실패했으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
-> 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증합니다.
-> 따라서 검증되지 않은 워크플로 텍스트가 출처 확인 게이트보다 먼저 실행될 수 없습니다.
+> 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
+> 루트 디스패치 작업을 보호된 `main`으로 제한합니다. 따라서 검증되지 않은 워크플로 텍스트가
+> 출처 확인 게이트보다 먼저 실행될 수 없습니다.
 
 ## 설계 개요
 

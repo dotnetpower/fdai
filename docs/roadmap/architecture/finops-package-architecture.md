@@ -40,7 +40,8 @@ domain code and assets. It does not create another control plane or move authori
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
-> validation code runs, so unverified workflow text cannot execute ahead of the provenance gate.
+> validation code runs and restricts root dispatch jobs to protected `main`, so unverified
+> workflow text cannot execute ahead of the provenance gate.
 
 ## Design at a glance
 
