@@ -98,6 +98,7 @@ jobs:
           path: .fdai-protected-workflow-verifier
 
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha }}
@@ -776,7 +777,11 @@ jobs:
           }
 
       - name: Upload repository-safe sweep evidence
-        if: always() && inputs.action == 'apply' && inputs.run_reference_sweep
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          inputs.action == 'apply' &&
+          inputs.run_reference_sweep
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sre-demo-lab-summary-${{ github.run_id }}-${{ github.run_attempt }}

@@ -699,6 +699,53 @@ def test_protected_verifier_rejects_job_containers() -> None:
     ]
 
 
+def test_action_steps_require_explicit_verifier_success() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "permissions": {"contents": "read", "issues": "write"},
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "id": "protected-source",
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                    {
+                        "if": "always()",
+                        "uses": (
+                            "actions/github-script@"
+                            f"{module.APPROVED_ACTIONS['actions/github-script'][0]}"
+                        ),
+                    },
+                ],
+            }
+        },
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply can execute an action after verifier failure"
+    ]
+
+
 def test_privileged_execution_cannot_override_verifier_failure() -> None:
     module = _load_contract_module()
     checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
