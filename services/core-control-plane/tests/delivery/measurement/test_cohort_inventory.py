@@ -26,13 +26,68 @@ NOW = datetime(2026, 9, 9, tzinfo=UTC)
 def test_required_counts_ignore_unknown_or_malformed_rows() -> None:
     counts = _required_counts(
         [
-            {"arm": "baseline", "measure_id": "metric_a", "sample_count": 31},
-            {"arm": "treatment", "measure_id": "metric_b", "sample_count": 30},
-            {"arm": "unknown", "measure_id": "metric_a", "sample_count": 99},
-            {"arm": "baseline", "measure_id": "unknown", "sample_count": 99},
-            {"arm": "baseline", "measure_id": "metric_b", "sample_count": "30"},
+            {
+                "arm": "baseline",
+                "measure_id": "metric_a",
+                "source_binding_id": "baseline-a",
+                "source_workflow_path": ".github/workflows/baseline-a.yml",
+                "sample_count": 31,
+            },
+            {
+                "arm": "treatment",
+                "measure_id": "metric_b",
+                "source_binding_id": "treatment-b",
+                "source_workflow_path": ".github/workflows/treatment-b.yml",
+                "sample_count": 30,
+            },
+            {
+                "arm": "unknown",
+                "measure_id": "metric_a",
+                "source_binding_id": "baseline-a",
+                "source_workflow_path": ".github/workflows/baseline-a.yml",
+                "sample_count": 99,
+            },
+            {
+                "arm": "baseline",
+                "measure_id": "unknown",
+                "source_binding_id": "baseline-a",
+                "source_workflow_path": ".github/workflows/baseline-a.yml",
+                "sample_count": 99,
+            },
+            {
+                "arm": "baseline",
+                "measure_id": "metric_b",
+                "source_binding_id": "baseline-b",
+                "source_workflow_path": ".github/workflows/baseline-b.yml",
+                "sample_count": "30",
+            },
+            {
+                "arm": "baseline",
+                "measure_id": "metric_b",
+                "source_binding_id": "wrong-source",
+                "source_workflow_path": ".github/workflows/baseline-b.yml",
+                "sample_count": 99,
+            },
         ],
         required=("metric_a", "metric_b"),
+        allowed_sources={
+            ("baseline", "metric_a"): (
+                "baseline-a",
+                ".github/workflows/baseline-a.yml",
+            ),
+            ("baseline", "metric_b"): (
+                "baseline-b",
+                ".github/workflows/baseline-b.yml",
+            ),
+            ("treatment", "metric_a"): (
+                "treatment-a",
+                ".github/workflows/treatment-a.yml",
+            ),
+            ("treatment", "metric_b"): (
+                "treatment-b",
+                ".github/workflows/treatment-b.yml",
+            ),
+        },
     )
 
     assert counts == {
@@ -138,10 +193,12 @@ async def test_measure_query_groups_the_single_bound_projection() -> None:
     )
 
     assert rows == []
-    assert "GROUP BY 1, 2" in connection.query
+    assert "GROUP BY 1, 2, 3, 4" in connection.query
     assert "entry->>'synthetic' = 'false'" in connection.query
     assert "source_cluster_digest" in connection.query
     assert "observation_digest" in connection.query
+    assert "source_binding_id" in connection.query
+    assert "source_workflow_path" in connection.query
     assert "observed_at" in connection.query
     assert "::TIMESTAMPTZ >= %s" in connection.query
     assert "jsonb_typeof(entry->'value') = 'number'" in connection.query

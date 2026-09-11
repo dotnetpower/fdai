@@ -11,6 +11,7 @@ import pytest
 from fdai.core.measurement.cohort_claim_policy import (
     COHORT_CLAIM_POLICY_PATH,
     CohortClaimPolicyError,
+    CohortExporterMeasureBinding,
     load_cohort_claim_policy,
 )
 from fdai.delivery.measurement.cohort_observation_import import (
@@ -35,7 +36,7 @@ POLICY = load_cohort_claim_policy(REPO_ROOT / COHORT_CLAIM_POLICY_PATH)
 REVISION = "0123456789abcdef0123456789abcdef01234567"
 NOW = datetime(2026, 9, 11, tzinfo=UTC)
 SOURCE_WORKFLOW = ".github/workflows/cohort-treatment-export.yml"
-OTHER_SOURCE_WORKFLOW = ".github/workflows/cohort-treatment-export-secondary.yml"
+OTHER_SOURCE_WORKFLOW = ".github/workflows/cohort-secondary-treatment-export.yml"
 ARTIFACT_NAME = "cohort-observations-treatment"
 
 
@@ -89,6 +90,20 @@ def _authorized_policy():
             ("baseline", ()),
             ("treatment", (SOURCE_WORKFLOW,)),
         ),
+        exporter_measure_bindings=(
+            ("baseline", ()),
+            (
+                "treatment",
+                (
+                    CohortExporterMeasureBinding(
+                        source_id="treatment-primary-source",
+                        workflow_path=SOURCE_WORKFLOW,
+                        metric_ids=("auto_resolution_rate",),
+                        guard_ids=("policy_violation_escape_rate",),
+                    ),
+                ),
+            ),
+        ),
     )
 
 
@@ -111,6 +126,7 @@ async def test_authorized_batch_is_persisted_without_claim_authority() -> None:
     assert metric["arm"] == "treatment"
     assert metric["fdai_revision"] == REVISION
     assert metric["measurement_protocol_digest"] == POLICY.measurement_protocol_digest
+    assert metric["source_binding_id"] == "treatment-primary-source"
     assert metric["value"] == 1.0
     assert guard["breached"] is False
     assert metric["synthetic"] is False
@@ -118,6 +134,7 @@ async def test_authorized_batch_is_persisted_without_claim_authority() -> None:
     assert metric["claim_eligibility_authority"] is False
     assert metric["import_provenance"] == {
         "batch_digest": _batch().batch_digest,
+        "source_binding_id": "treatment-primary-source",
         "source_workflow_path": SOURCE_WORKFLOW,
         "source_run_id": 123,
         "source_run_attempt": 1,
@@ -169,29 +186,80 @@ async def test_same_measure_cluster_with_changed_value_conflicts() -> None:
         )
 
 
-async def test_same_measure_cluster_from_another_exporter_conflicts() -> None:
+async def test_source_workflow_cannot_import_an_unassigned_measure() -> None:
     store = InMemoryStateStore()
     policy = dataclasses.replace(
         _authorized_policy(),
-        allowed_exporter_workflow_paths=(
+        exporter_measure_bindings=(
             ("baseline", ()),
-            ("treatment", (OTHER_SOURCE_WORKFLOW, SOURCE_WORKFLOW)),
+            (
+                "treatment",
+                (
+                    CohortExporterMeasureBinding(
+                        source_id="treatment-primary-source",
+                        workflow_path=SOURCE_WORKFLOW,
+                        metric_ids=("auto_resolution_rate",),
+                        guard_ids=(),
+                    ),
+                ),
+            ),
         ),
     )
-    await import_cohort_observation_batch(
-        _batch(),
-        context=_context(),
-        policy=policy,
-        store=store,
-    )
 
-    with pytest.raises(CohortObservationConflictError, match="different content"):
+    with pytest.raises(CohortClaimPolicyError, match="not authorized for guard"):
         await import_cohort_observation_batch(
             _batch(),
-            context=_context(source_workflow_path=OTHER_SOURCE_WORKFLOW),
+            context=_context(),
             policy=policy,
             store=store,
         )
+
+    assert tuple(store.audit_entries) == ()
+
+
+async def test_source_workflow_cannot_import_an_unassigned_metric() -> None:
+    store = InMemoryStateStore()
+    policy = dataclasses.replace(
+        _authorized_policy(),
+        exporter_measure_bindings=(
+            ("baseline", ()),
+            (
+                "treatment",
+                (
+                    CohortExporterMeasureBinding(
+                        source_id="treatment-primary-source",
+                        workflow_path=SOURCE_WORKFLOW,
+                        metric_ids=(),
+                        guard_ids=("policy_violation_escape_rate",),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(CohortClaimPolicyError, match="not authorized for metric"):
+        await import_cohort_observation_batch(
+            _batch(),
+            context=_context(),
+            policy=policy,
+            store=store,
+        )
+
+    assert tuple(store.audit_entries) == ()
+
+
+async def test_unlisted_source_workflow_fails_before_writes() -> None:
+    store = InMemoryStateStore()
+
+    with pytest.raises(CohortClaimPolicyError, match="source workflow is not authorized"):
+        await import_cohort_observation_batch(
+            _batch(),
+            context=_context(source_workflow_path=OTHER_SOURCE_WORKFLOW),
+            policy=_authorized_policy(),
+            store=store,
+        )
+
+    assert tuple(store.audit_entries) == ()
 
 
 async def test_import_summary_rejects_conflicting_stored_content() -> None:
