@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 5832937946e2e09d3133dfa76d771049cee7bc5e
+translation_source_sha: c440ddbae494df3be010ce2cac9a664d98127cc0
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -120,6 +120,9 @@ Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수
 다이제스트 및 이미지 다이제스트를 모두 독립적으로 읽습니다.
 검증된 이미지 다이제스트가 바뀌면 이미지 업데이터의 상태 전용 교체만 허용하며, 업데이터가
 검증된 Azure 갱신 또는 롤백을 직접 수행합니다.
+성능이 저하된 대기 중 변환은 실패 활동과 불완전 상태를 유지하지만 recovery는 이를 대체할 수
+있는 새로운 정본 수집을 더 이상 차단하지 않습니다. 현재 수집의 변환이 불완전하면 실행은
+계속 실패합니다.
 계획의 전체 JSON 변환 결과와 값 없는 요약은 범위가 제한된 계획 메타데이터를 봉인할 때까지
 현재 UID가 소유한 mode-0700 임시 디렉터리에 유지하며, 이후 두 비공개 파일을 제거합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
