@@ -209,7 +209,8 @@ def dispatch_condition_is_protected(
     if not isinstance(condition, str):
         return False
     protected_main = "github.ref == 'refs/heads/main'"
-    for raw_clause in split_top_level_operator(" ".join(condition.split()), "||"):
+    normalized = strip_outer_parentheses(" ".join(condition.split()))
+    for raw_clause in split_top_level_operator(normalized, "||"):
         clause = strip_outer_parentheses(raw_clause)
         event_matches = set(re.findall(r"github\.event_name\s*==\s*'([A-Za-z_]+)'", clause))
         if event_matches and not (event_matches & dispatch_triggers):
