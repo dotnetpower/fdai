@@ -190,10 +190,10 @@ this sequence before its Environment can expose the signing key; a separate depe
 also pass, and only the gated bundle job receives repository write permission.
 
 Run `scripts/deployment/release/verify-productization.sh` for the executable productization gate. It covers the
-subsystems in this plan, verifies that Alembic has one head, exercises
-`fdaictl version --output json` through the package project environment, and builds the wheel. It
-does not install that wheel or replace the full repository gate, release-batch isolated install,
-or a live disposable-database migration run.
+subsystems in this plan, verifies that Alembic has one head, runs the package tests, and builds the
+wheel. A separate focused integration test exercises `fdaictl version --output json` through the
+package project environment. Neither path installs that wheel or replaces the full repository
+gate, release-batch isolated install, or a live disposable-database migration run.
 
 ## Related docs
 
