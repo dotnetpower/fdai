@@ -113,6 +113,28 @@ def test_all_workflows_require_reviewed_immutable_action_refs(
     ]
 
 
+def test_workflow_layout_rejects_ambiguous_and_indirect_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text("permissions: {}\n", encoding="utf-8")
+    (workflow_dir / "ci.yaml").write_text("permissions: {}\n", encoding="utf-8")
+    nested = workflow_dir / "nested"
+    nested.mkdir()
+    (nested / "ignored.yml").write_text("permissions: {}\n", encoding="utf-8")
+    (workflow_dir / "linked.yml").symlink_to(workflow_dir / "ci.yml")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_workflow_layout() == [
+        ".github/workflows/linked.yml must not be a symbolic link",
+        "workflow stem 'ci' is ambiguous: ci.yaml, ci.yml",
+        ".github/workflows/nested/ignored.yml is nested; workflows must be top-level",
+    ]
+
+
 def test_yaml_workflows_require_reviewed_immutable_action_refs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
