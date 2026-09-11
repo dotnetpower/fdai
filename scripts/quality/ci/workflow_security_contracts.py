@@ -109,8 +109,28 @@ def workflow_triggers(document: Any) -> dict[str, Any]:
     return triggers if isinstance(triggers, dict) else {}
 
 
-def split_top_level_or(expression: str) -> list[str]:
-    """Split an Actions condition on OR operators outside parentheses."""
+def strip_outer_parentheses(expression: str) -> str:
+    """Remove balanced parentheses that wrap an entire expression."""
+    stripped = expression.strip()
+    while stripped.startswith("(") and stripped.endswith(")"):
+        depth = 0
+        closes_at_end = False
+        for index, character in enumerate(stripped):
+            if character == "(":
+                depth += 1
+            elif character == ")":
+                depth -= 1
+                if depth == 0:
+                    closes_at_end = index == len(stripped) - 1
+                    break
+        if not closes_at_end:
+            break
+        stripped = stripped[1:-1].strip()
+    return stripped
+
+
+def split_top_level_operator(expression: str, operator: str) -> list[str]:
+    """Split an Actions condition on one operator outside parentheses."""
     clauses: list[str] = []
     start = 0
     depth = 0
@@ -121,7 +141,7 @@ def split_top_level_or(expression: str) -> list[str]:
             depth += 1
         elif character == ")":
             depth = max(0, depth - 1)
-        elif expression[index : index + 2] == "||" and depth == 0:
+        elif expression[index : index + 2] == operator and depth == 0:
             clauses.append(expression[start:index].strip())
             start = index + 2
             index += 1
@@ -138,14 +158,18 @@ def dispatch_condition_is_protected(
     if not isinstance(condition, str):
         return False
     protected_main = "github.ref == 'refs/heads/main'"
-    for clause in split_top_level_or(" ".join(condition.split())):
+    for raw_clause in split_top_level_operator(" ".join(condition.split()), "||"):
+        clause = strip_outer_parentheses(raw_clause)
         event_matches = set(re.findall(r"github\.event_name\s*==\s*'([A-Za-z_]+)'", clause))
         if event_matches and not (event_matches & dispatch_triggers):
             continue
-        if protected_main not in clause:
+        conjuncts = {
+            strip_outer_parentheses(value) for value in split_top_level_operator(clause, "&&")
+        }
+        if protected_main not in conjuncts:
             return False
         for trigger in event_matches & dispatch_triggers:
-            if f"github.event_name == '{trigger}'" not in clause:
+            if f"github.event_name == '{trigger}'" not in conjuncts:
                 return False
     return True
 
