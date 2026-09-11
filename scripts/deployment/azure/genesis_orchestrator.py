@@ -145,7 +145,9 @@ class GenesisOrchestrator:
         config.validate()
         self.config = config
         self.checks = GenesisChecks(config.repository_root)
-        self.source_commit = self.checks.capture(("git", "rev-parse", "HEAD"), "source_revision")
+        self.source_commit = self.checks.capture(
+            ("/usr/bin/git", "rev-parse", "HEAD"), "source_revision"
+        )
         if re.fullmatch(r"[0-9a-f]{40}", self.source_commit) is None:
             raise OrchestrationError("invalid_source_revision")
         run_context = (
@@ -430,6 +432,7 @@ class GenesisOrchestrator:
                 work_dir=self.work_dir,
                 foundation_inputs=self.config.foundation_inputs,
                 approval=self.approval,
+                approval_path=self.config.approval_file,
                 create_runner_image=self.config.create_runner_image,
                 runner_image_terraform=self.config.runner_image_terraform,
                 runner_ssh_private_key=self.config.runner_ssh_private_key,

@@ -6,6 +6,10 @@ output "runner_image" {
     source_commit      = var.source_commit
     toolchain_digest   = local.toolchain_digest
     terraform_root     = "infra/genesis-runner-image"
+    builder_vm_id      = azurerm_linux_virtual_machine.builder.id
+    builder_extension  = azurerm_virtual_machine_extension.builder.id
+    verifier_vm_id     = azurerm_linux_virtual_machine.verifier.id
+    verifier_extension = azurerm_virtual_machine_extension.verifier.id
     mutation_complete  = true
     runner_registered  = false
     subscription_ready = false

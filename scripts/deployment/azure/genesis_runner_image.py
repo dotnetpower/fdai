@@ -8,16 +8,19 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import stat
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile
+from genesis_approval import GenesisApproval, load_genesis_approval
 from genesis_checks import CheckError, GenesisChecks
 from genesis_runner_image_contract import (
     CLAIM_NAME,
@@ -27,12 +30,14 @@ from genesis_runner_image_contract import (
     add_source_image_version,
     create_private_directory,
     create_review,
+    executor_identity_digest,
     hash_tree,
     load_review,
     load_runner_image_inputs,
     materialize_foundation_image_input,
     snapshot_terraform_root,
 )
+from genesis_runner_image_observation import verify_runner_image_effect
 from genesis_subprocess import run_with_heartbeat
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -49,6 +54,7 @@ def _parser() -> argparse.ArgumentParser:
     apply.add_argument("--expected-review-digest", required=True)
     apply.add_argument("--expected-plan-digest", required=True)
     apply.add_argument("--repository", required=True)
+    apply.add_argument("--approval-file", type=Path)
     apply.add_argument("--approve", action="store_true")
     apply.add_argument("--resume-verification", action="store_true")
     apply.set_defaults(handler=_apply)
@@ -87,14 +93,26 @@ def _plan(args: argparse.Namespace) -> int:
         destination=variables,
     )
     current_source = _capture(
-        ["git", "rev-parse", "HEAD"],
+        ["/usr/bin/git", "rev-parse", "HEAD"],
         cwd=root,
         timeout=30,
         reason="runner image source revision is unavailable",
     ).strip()
     if current_source != inputs.source_commit:
         raise ValueError("runner image input source does not match the active checkout")
-    checks = GenesisChecks(root)
+    if _capture(
+        ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=root,
+        timeout=30,
+        reason="runner image checkout status is unavailable",
+    ).strip():
+        raise ValueError("runner image planning requires a clean checkout")
+    environment = _terraform_environment(
+        work_dir,
+        subscription_id=str(inputs.terraform_values["subscription_id"]),
+        tenant_id=str(inputs.terraform_values["tenant_id"]),
+    )
+    checks = GenesisChecks(root, environment=environment)
     checks.verify_target(
         subscription_id=os.environ.get("AZURE_SUBSCRIPTION_ID", ""),
         tenant_id=os.environ.get("AZURE_TENANT_ID", ""),
@@ -102,7 +120,7 @@ def _plan(args: argparse.Namespace) -> int:
     )
     version = _capture(
         [
-            "az",
+            str(_trusted_azure_cli()),
             "vm",
             "image",
             "show",
@@ -117,21 +135,37 @@ def _plan(args: argparse.Namespace) -> int:
             "--only-show-errors",
         ],
         cwd=root,
+        env=environment,
         timeout=60,
         reason="runner source image resolution failed",
     ).strip()
     inputs = add_source_image_version(inputs, version=version, destination=variables)
     terraform_root = work_dir / "root"
-    root_digest = snapshot_terraform_root(root / "infra/genesis-runner-image", terraform_root)
+    root_digest = snapshot_terraform_root(
+        root / "infra/genesis-runner-image",
+        terraform_root,
+        source_commit=inputs.source_commit,
+    )
+    if (
+        _capture(
+            ["/usr/bin/git", "rev-parse", "HEAD"],
+            cwd=root,
+            timeout=30,
+            reason="runner image source revision is unavailable",
+        ).strip()
+        != current_source
+        or _capture(
+            ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=root,
+            timeout=30,
+            reason="runner image checkout status is unavailable",
+        ).strip()
+    ):
+        raise ValueError("runner image checkout changed during snapshot")
     terraform = _trusted_terraform(_absolute(args.terraform))
     terraform_digest = _file_digest(terraform)
     if terraform_digest != inputs.terraform_values.get("terraform_binary_sha256"):
         raise ValueError("runner image Terraform executable does not match the pinned toolchain")
-    environment = _terraform_environment(
-        work_dir,
-        subscription_id=str(inputs.terraform_values["subscription_id"]),
-        tenant_id=str(inputs.terraform_values["tenant_id"]),
-    )
     _required(
         [str(terraform), "init", "-backend=false", "-input=false", "-lockfile=readonly"],
         cwd=terraform_root,
@@ -166,6 +200,7 @@ def _plan(args: argparse.Namespace) -> int:
         inputs=inputs,
         root_digest=root_digest,
         terraform_digest=terraform_digest,
+        provider_digest=_execution_tree_digest(work_dir / "terraform-data"),
     )
     result = {
         "schema_version": "fdai.genesis-runner-image-plan-result.v1",
@@ -174,6 +209,9 @@ def _plan(args: argparse.Namespace) -> int:
         "plan_digest": review["plan_digest"],
         "expires_at": review["expires_at"],
         "create_count": review["create_count"],
+        "retained_resource_count": review["retained_resource_count"],
+        "lifecycle_actions": review["lifecycle_actions"],
+        "effect_summary": review["effect_summary"],
         "apply_authorized": False,
         "mutation_performed": False,
         "subscription_ready": False,
@@ -199,8 +237,21 @@ def _apply(args: argparse.Namespace) -> int:
         require_unexpired=not effect_started,
     )
     profile = load_profile(_absolute(args.profile))
-    if profile.target_binding != review["target_binding"]:
+    if (
+        profile.target_binding != review["target_binding"]
+        or profile.environment != review["environment"]
+        or profile.region != review["region"]
+        or canonical_digest(profile.to_mapping()) != review["profile_digest"]
+    ):
         raise ValueError("runner image review does not match the provision profile")
+    if (
+        profile.environment != "dev"
+        or profile.transport != "manual"
+        or profile.approval_quorum != 1
+    ):
+        raise ValueError(
+            "runner image local approval requires the dev manual single-approver profile"
+        )
     if review["plan_digest"] != args.expected_plan_digest:
         raise ValueError("expected runner image plan digest does not match the review")
     if hash_tree(work_dir / "root") != review["terraform_root_digest"]:
@@ -208,7 +259,12 @@ def _apply(args: argparse.Namespace) -> int:
     terraform = _trusted_terraform(_absolute(args.terraform))
     if _file_digest(terraform) != review["terraform_digest"]:
         raise ValueError("runner image Terraform executable changed after planning")
-    checks = GenesisChecks(root)
+    environment = _terraform_environment(
+        work_dir,
+        subscription_id=os.environ["AZURE_SUBSCRIPTION_ID"],
+        tenant_id=os.environ["AZURE_TENANT_ID"],
+    )
+    checks = GenesisChecks(root, environment=environment)
     checks.verify_target(
         subscription_id=os.environ.get("AZURE_SUBSCRIPTION_ID", ""),
         tenant_id=os.environ.get("AZURE_TENANT_ID", ""),
@@ -218,7 +274,7 @@ def _apply(args: argparse.Namespace) -> int:
         source_commit=str(review["source_commit"]), repository=args.repository, apply=True
     )
     current_source = _capture(
-        ["git", "rev-parse", "HEAD"],
+        ["/usr/bin/git", "rev-parse", "HEAD"],
         cwd=root,
         timeout=30,
         reason="runner image source revision is unavailable",
@@ -229,11 +285,12 @@ def _apply(args: argparse.Namespace) -> int:
     if receipt_path.exists():
         if claim is None:
             raise ValueError("runner image receipt is missing its immutable claim")
-        receipt = _load_apply_receipt(receipt_path, review=review)
+        receipt = _load_apply_receipt(receipt_path, review=review, claim=claim)
         observed = _verify_effect(
             work_dir=work_dir,
             terraform=terraform,
             review=review,
+            claim=claim,
             timeout=min(args.timeout_seconds, 600),
         )
         _require_same_effect(receipt, observed)
@@ -247,7 +304,13 @@ def _apply(args: argparse.Namespace) -> int:
             raise ValueError(
                 "runner image apply claim already exists; only verification may resume"
             )
-        actor_digest = _operator_digest(str(review["target_binding"]), root=root)
+        approval = _require_apply_approval(args.approval_file, review=review)
+        credential_actor_digest = _operator_digest(str(review["run_digest"]), root=root)
+        if credential_actor_digest != approval.actor_digest:
+            raise ValueError("runner image approver does not match the current Azure operator")
+        executor_digest = executor_identity_digest(review)
+        if _execution_tree_digest(work_dir / "terraform-data") != review["provider_digest"]:
+            raise ValueError("runner image provider execution tree changed after planning")
         claimed_at = _utc_now().replace(microsecond=0).isoformat()
         claim = {
             "schema_version": "fdai.genesis-runner-image-apply-claim.v1",
@@ -256,7 +319,13 @@ def _apply(args: argparse.Namespace) -> int:
             "plan_digest": review["plan_digest"],
             "target_binding": review["target_binding"],
             "source_commit": review["source_commit"],
-            "actor_digest": actor_digest,
+            "run_digest": review["run_digest"],
+            "environment": review["environment"],
+            "region": review["region"],
+            "profile_digest": review["profile_digest"],
+            "approver_actor_digest": approval.actor_digest,
+            "credential_actor_digest": credential_actor_digest,
+            "executor_identity_digest": executor_digest,
             "idempotency_key": canonical_digest(
                 {
                     "target_binding": review["target_binding"],
@@ -270,11 +339,6 @@ def _apply(args: argparse.Namespace) -> int:
         write_private_output(
             claim_path, json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n"
         )
-        environment = _terraform_environment(
-            work_dir,
-            subscription_id=os.environ["AZURE_SUBSCRIPTION_ID"],
-            tenant_id=os.environ["AZURE_TENANT_ID"],
-        )
         _required(
             [str(terraform), "apply", "-input=false", "-no-color", str(work_dir / PLAN_NAME)],
             cwd=work_dir / "root",
@@ -286,6 +350,7 @@ def _apply(args: argparse.Namespace) -> int:
         work_dir=work_dir,
         terraform=terraform,
         review=review,
+        claim=claim,
         timeout=min(args.timeout_seconds, 600),
     )
     write_private_output(
@@ -308,13 +373,31 @@ def _foundation_input(args: argparse.Namespace) -> int:
 
 
 def _verify_effect(
-    *, work_dir: Path, terraform: Path, review: Mapping[str, object], timeout: int
+    *,
+    work_dir: Path,
+    terraform: Path,
+    review: Mapping[str, object],
+    claim: Mapping[str, object],
+    timeout: int,
 ) -> dict[str, object]:
     environment = _terraform_environment(
         work_dir,
         subscription_id=os.environ["AZURE_SUBSCRIPTION_ID"],
         tenant_id=os.environ["AZURE_TENANT_ID"],
     )
+    azure_cli = _trusted_azure_cli()
+
+    def trusted_capture(command: list[str], *, cwd: Path, timeout: int, reason: str) -> str:
+        if not command or command[0] != "az":
+            raise ValueError("runner image observation command is invalid")
+        return _capture(
+            [str(azure_cli), *command[1:]],
+            cwd=cwd,
+            env=environment,
+            timeout=timeout,
+            reason=reason,
+        )
+
     raw_output = _capture(
         [str(terraform), "output", "-json", "runner_image"],
         cwd=work_dir / "root",
@@ -325,41 +408,15 @@ def _verify_effect(
     value = json.loads(raw_output)
     if not isinstance(value, dict):
         raise ValueError("runner image Terraform output is invalid")
-    image_id = value.get("id")
-    if not isinstance(image_id, str) or not image_id.startswith("/subscriptions/"):
-        raise ValueError("runner image Terraform output identity is invalid")
-    observed = json.loads(
-        _capture(
-            [
-                "az",
-                "resource",
-                "show",
-                "--ids",
-                image_id,
-                "--query",
-                "{id:id,type:type,location:location,provisioningState:properties.provisioningState,osType:properties.storageProfile.osDisk.osType,tags:tags}",
-                "--output",
-                "json",
-                "--only-show-errors",
-            ],
-            cwd=work_dir,
-            timeout=timeout,
-            reason="runner image independent Azure readback failed",
-        )
+    image_id = verify_runner_image_effect(
+        terraform_output=value,
+        review=review,
+        subscription_id=os.environ["AZURE_SUBSCRIPTION_ID"],
+        capture=trusted_capture,
+        cwd=work_dir,
+        timeout=timeout,
     )
-    tags = observed.get("tags") if isinstance(observed, dict) else None
-    if (
-        not isinstance(tags, dict)
-        or str(observed.get("id", "")).casefold() != image_id.casefold()
-        or str(observed.get("type", "")).casefold() != "microsoft.compute/images"
-        or observed.get("location") != value.get("location")
-        or observed.get("provisioningState") != "Succeeded"
-        or observed.get("osType") != "Linux"
-        or tags.get("fdai:source-commit") != review["source_commit"]
-        or tags.get("fdai:toolchain-digest") != review["toolchain_digest"]
-        or value.get("runner_registered") is not False
-        or value.get("subscription_ready") is not False
-    ):
+    if value.get("runner_registered") is not False or value.get("subscription_ready") is not False:
         raise ValueError("runner image independent readback does not match the reviewed plan")
     completed = _utc_now().replace(microsecond=0).isoformat()
     receipt: dict[str, object] = {
@@ -369,7 +426,15 @@ def _verify_effect(
         "plan_digest": review["plan_digest"],
         "target_binding": review["target_binding"],
         "source_commit": review["source_commit"],
+        "run_digest": review["run_digest"],
+        "environment": review["environment"],
+        "region": review["region"],
+        "profile_digest": review["profile_digest"],
         "toolchain_digest": review["toolchain_digest"],
+        "claim_digest": canonical_digest(dict(claim)),
+        "approver_actor_digest": claim["approver_actor_digest"],
+        "credential_actor_digest": claim["credential_actor_digest"],
+        "executor_identity_digest": claim["executor_identity_digest"],
         "runner_image_id": image_id,
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
@@ -390,21 +455,75 @@ def _reviewed_region(work_dir: Path) -> str:
     return region
 
 
-def _operator_digest(target_binding: str, *, root: Path) -> str:
+def _require_apply_approval(path: Path | None, *, review: Mapping[str, object]) -> GenesisApproval:
+    """Require current exact-evidence authority at the mutating image boundary."""
+
+    approval = load_genesis_approval(
+        _absolute(path) if path is not None else None,
+        run_binding=str(review["run_digest"]),
+        source_commit=str(review["source_commit"]),
+    )
+    if approval is None or not approval.authorizes(
+        "runner-image",
+        review_digest=str(review["review_digest"]),
+        plan_digest=str(review["plan_digest"]),
+    ):
+        raise ValueError("runner image exact approval is required")
+    return approval
+
+
+def _operator_digest(run_binding: str, *, root: Path) -> str:
     raw = _capture(
-        ["az", "account", "show", "--query", "{type:user.type,name:user.name}", "--output", "json"],
+        [
+            "/usr/bin/az",
+            "account",
+            "show",
+            "--query",
+            "{tenantId:tenantId,type:user.type}",
+            "--output",
+            "json",
+            "--only-show-errors",
+        ],
         cwd=root,
         timeout=30,
         reason="authenticated operator identity is unavailable",
+    )
+    object_id = (
+        _capture(
+            [
+                "/usr/bin/az",
+                "ad",
+                "signed-in-user",
+                "show",
+                "--query",
+                "id",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ],
+            cwd=root,
+            timeout=30,
+            reason="authenticated operator identity is unavailable",
+        )
+        .strip()
+        .casefold()
     )
     user = json.loads(raw)
     if (
         not isinstance(user, dict)
         or user.get("type") != "user"
-        or not isinstance(user.get("name"), str)
+        or not isinstance(user.get("tenantId"), str)
+        or re.fullmatch(
+            r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
+            str(user["tenantId"]),
+        )
+        is None
+        or re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", object_id) is None
     ):
         raise ValueError("foundation image apply requires an authenticated human operator")
-    return hashlib.sha256(f"{target_binding}:{user['name'].casefold()}".encode()).hexdigest()
+    return hashlib.sha256(
+        f"{run_binding}:{str(user['tenantId']).casefold()}:{object_id}".encode()
+    ).hexdigest()
 
 
 def _load_apply_claim(path: Path, *, review: Mapping[str, object]) -> dict[str, object] | None:
@@ -417,14 +536,47 @@ def _load_apply_claim(path: Path, *, review: Mapping[str, object]) -> dict[str, 
             "plan_digest": review["plan_digest"],
         }
     )
+    claimed_at = _utc_timestamp(claim.get("claimed_at"))
     if (
-        claim.get("schema_version") != "fdai.genesis-runner-image-apply-claim.v1"
+        set(claim)
+        != {
+            "schema_version",
+            "state",
+            "review_digest",
+            "plan_digest",
+            "target_binding",
+            "source_commit",
+            "run_digest",
+            "environment",
+            "region",
+            "profile_digest",
+            "approver_actor_digest",
+            "credential_actor_digest",
+            "executor_identity_digest",
+            "idempotency_key",
+            "claimed_at",
+            "mutation_performed",
+            "subscription_ready",
+        }
+        or claim.get("schema_version") != "fdai.genesis-runner-image-apply-claim.v1"
         or claim.get("state") != "applying"
         or claim.get("review_digest") != review["review_digest"]
         or claim.get("plan_digest") != review["plan_digest"]
         or claim.get("target_binding") != review["target_binding"]
         or claim.get("source_commit") != review["source_commit"]
+        or claim.get("run_digest") != review["run_digest"]
+        or claim.get("environment") != review["environment"]
+        or claim.get("region") != review["region"]
+        or claim.get("profile_digest") != review["profile_digest"]
         or claim.get("idempotency_key") != expected_idempotency
+        or not isinstance(claim.get("approver_actor_digest"), str)
+        or _DIGEST.fullmatch(str(claim["approver_actor_digest"])) is None
+        or claim.get("credential_actor_digest") != claim.get("approver_actor_digest")
+        or not isinstance(claim.get("executor_identity_digest"), str)
+        or _DIGEST.fullmatch(str(claim["executor_identity_digest"])) is None
+        or claim.get("executor_identity_digest") == claim.get("approver_actor_digest")
+        or claim.get("executor_identity_digest") != executor_identity_digest(dict(review))
+        or claimed_at > _utc_now()
         or claim.get("mutation_performed") is not False
         or claim.get("subscription_ready") is not False
     ):
@@ -432,7 +584,9 @@ def _load_apply_claim(path: Path, *, review: Mapping[str, object]) -> dict[str, 
     return claim
 
 
-def _load_apply_receipt(path: Path, *, review: Mapping[str, object]) -> dict[str, object]:
+def _load_apply_receipt(
+    path: Path, *, review: Mapping[str, object], claim: Mapping[str, object]
+) -> dict[str, object]:
     receipt = read_plan_input(path)
     digest = receipt.pop("receipt_digest", None)
     if (
@@ -444,7 +598,15 @@ def _load_apply_receipt(path: Path, *, review: Mapping[str, object]) -> dict[str
         or receipt.get("plan_digest") != review["plan_digest"]
         or receipt.get("target_binding") != review["target_binding"]
         or receipt.get("source_commit") != review["source_commit"]
+        or receipt.get("run_digest") != review["run_digest"]
+        or receipt.get("environment") != review["environment"]
+        or receipt.get("region") != review["region"]
+        or receipt.get("profile_digest") != review["profile_digest"]
         or receipt.get("toolchain_digest") != review["toolchain_digest"]
+        or receipt.get("claim_digest") != canonical_digest(dict(claim))
+        or receipt.get("approver_actor_digest") != claim.get("approver_actor_digest")
+        or receipt.get("credential_actor_digest") != claim.get("credential_actor_digest")
+        or receipt.get("executor_identity_digest") != claim.get("executor_identity_digest")
         or receipt.get("effect_verified") is not True
         or receipt.get("runner_registered") is not False
         or receipt.get("mutation_performed") is not True
@@ -463,30 +625,99 @@ def _require_same_effect(receipt: Mapping[str, object], observed: Mapping[str, o
         raise ValueError("runner image current readback differs from its exact receipt")
 
 
+def _utc_timestamp(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("runner image claim timestamp is invalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("runner image claim timestamp is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise ValueError("runner image claim timestamp is invalid")
+    return parsed.astimezone(timezone.utc)  # noqa: UP017 - Python 3.10 entrypoint
+
+
 def _terraform_environment(
     work_dir: Path, *, subscription_id: str, tenant_id: str
 ) -> dict[str, str]:
-    if any(key.startswith("TF_CLI_ARGS") or key == "TF_WORKSPACE" for key in os.environ):
-        raise ValueError("ambient Terraform control variables are not accepted")
-    environment = dict(os.environ)
-    environment.update(
-        {
-            "TF_DATA_DIR": str(work_dir / "terraform-data"),
-            "TF_IN_AUTOMATION": "1",
-            "ARM_SUBSCRIPTION_ID": subscription_id,
-            "ARM_TENANT_ID": tenant_id,
-            "ARM_RESOURCE_PROVIDER_REGISTRATIONS": "none",
+    if any(
+        key.startswith(("TF_CLI_ARGS", "TF_VAR_", "TF_LOG", "ARM_")) or key == "TF_WORKSPACE"
+        for key in os.environ
+    ):
+        allowed_arm = {
+            "ARM_RESOURCE_PROVIDER_REGISTRATIONS",
+            "ARM_SUBSCRIPTION_ID",
+            "ARM_TENANT_ID",
         }
+        if any(
+            key.startswith(("TF_CLI_ARGS", "TF_VAR_", "TF_LOG"))
+            or key == "TF_WORKSPACE"
+            or (key.startswith("ARM_") and key not in allowed_arm)
+            for key in os.environ
+        ) or (
+            os.environ.get("ARM_SUBSCRIPTION_ID", subscription_id) != subscription_id
+            or os.environ.get("ARM_TENANT_ID", tenant_id) != tenant_id
+        ):
+            raise ValueError("ambient Terraform control variables are not accepted")
+    terraform_home = work_dir / "terraform-home"
+    terraform_home.mkdir(mode=0o700, exist_ok=True)
+    if terraform_home.is_symlink() or terraform_home.stat().st_mode & 0o077:
+        raise ValueError("runner image Terraform home is not private")
+    cli_config = terraform_home / "terraform.rc"
+    if cli_config.exists() or cli_config.is_symlink():
+        if (
+            cli_config.is_symlink()
+            or not cli_config.is_file()
+            or cli_config.stat().st_mode & 0o077
+            or cli_config.read_bytes() != b""
+        ):
+            raise ValueError("runner image Terraform CLI configuration is not empty")
+    else:
+        _exclusive_bytes(cli_config, b"")
+    azure_config = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
+        strict=True
     )
-    environment.pop("TF_CLI_CONFIG_FILE", None)
-    return environment
+    if not azure_config.is_dir() or azure_config.stat().st_mode & 0o022:
+        raise ValueError("Azure CLI configuration directory is not trusted")
+    github_config = Path(
+        os.environ.get("GH_CONFIG_DIR", str(Path.home() / ".config" / "gh"))
+    ).resolve(strict=True)
+    if not github_config.is_dir() or github_config.stat().st_mode & 0o022:
+        raise ValueError("GitHub CLI configuration directory is not trusted")
+    trusted_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    az_cli = shutil.which("az", path=trusted_path)
+    if az_cli is None or _trusted_executable(Path(az_cli), label="Azure CLI") != Path(
+        "/usr/bin/az"
+    ).resolve(strict=True):
+        raise ValueError("Azure CLI executable is not trusted")
+    return {
+        "AZURE_CONFIG_DIR": str(azure_config),
+        "GH_CONFIG_DIR": str(github_config),
+        "HOME": str(terraform_home),
+        "PATH": trusted_path,
+        "TF_CLI_CONFIG_FILE": str(cli_config),
+        "TF_DATA_DIR": str(work_dir / "terraform-data"),
+        "TF_IN_AUTOMATION": "1",
+        "ARM_SUBSCRIPTION_ID": subscription_id,
+        "ARM_TENANT_ID": tenant_id,
+        "ARM_RESOURCE_PROVIDER_REGISTRATIONS": "none",
+    }
 
 
 def _trusted_terraform(path: Path) -> Path:
+    return _trusted_executable(path, label="runner image Terraform")
+
+
+def _trusted_azure_cli() -> Path:
+    expected = Path("/usr/bin/az").resolve(strict=True)
+    return _trusted_executable(expected, label="Azure CLI")
+
+
+def _trusted_executable(path: Path, *, label: str) -> Path:
     resolved = path.resolve(strict=True)
     details = resolved.stat()
     if not resolved.is_file() or details.st_mode & 0o022 or not os.access(resolved, os.X_OK):
-        raise ValueError("runner image Terraform executable is not trusted")
+        raise ValueError(f"{label} executable is not trusted")
     return resolved
 
 
@@ -498,6 +729,32 @@ def _file_digest(path: Path) -> str:
     return checksum.hexdigest()
 
 
+def _execution_tree_digest(root: Path) -> str:
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("runner image provider execution tree is invalid")
+    checksum = hashlib.sha256()
+    files: list[Path] = []
+    for entry in sorted(root.rglob("*")):
+        details = entry.lstat()
+        if stat.S_ISLNK(details.st_mode) or not (
+            stat.S_ISDIR(details.st_mode) or stat.S_ISREG(details.st_mode)
+        ):
+            raise ValueError("runner image provider execution tree is invalid")
+        if stat.S_ISREG(details.st_mode):
+            files.append(entry)
+    if not files:
+        raise ValueError("runner image provider execution tree is empty")
+    for entry in files:
+        relative = entry.relative_to(root).as_posix().encode("utf-8")
+        checksum.update(len(relative).to_bytes(4, "big"))
+        checksum.update(relative)
+        checksum.update((entry.stat().st_mode & 0o777).to_bytes(2, "big"))
+        with entry.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                checksum.update(chunk)
+    return checksum.hexdigest()
+
+
 def _required(
     command: list[str],
     *,
@@ -506,14 +763,17 @@ def _required(
     reason: str,
     env: Mapping[str, str] | None = None,
 ) -> None:
-    completed = run_with_heartbeat(
-        command,
-        cwd=cwd,
-        env=env,
-        timeout=timeout,
-        capture_output=True,
-        umask=0o077,
-    )
+    try:
+        completed = run_with_heartbeat(
+            command,
+            cwd=cwd,
+            env=env,
+            timeout=timeout,
+            capture_output=True,
+            umask=0o077,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(reason) from exc
     if completed.returncode != 0:
         raise ValueError(reason)
 
@@ -526,14 +786,17 @@ def _capture(
     reason: str,
     env: Mapping[str, str] | None = None,
 ) -> str:
-    completed = run_with_heartbeat(
-        command,
-        cwd=cwd,
-        env=env,
-        timeout=timeout,
-        capture_output=True,
-        umask=0o077,
-    )
+    try:
+        completed = run_with_heartbeat(
+            command,
+            cwd=cwd,
+            env=env,
+            timeout=timeout,
+            capture_output=True,
+            umask=0o077,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(reason) from exc
     if completed.returncode != 0:
         raise ValueError(reason)
     return completed.stdout
