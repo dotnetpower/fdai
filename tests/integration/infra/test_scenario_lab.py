@@ -190,6 +190,10 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'az resource delete --ids "$link_id"' in workflow
     assert 'az resource wait --deleted --ids "$link_id"' in workflow
     assert 'terraform state rm -lock-timeout=5m "$link_address"' in workflow
+    assert "for configuration in require_secure_transport tls_version" in workflow
+    assert 'address="azurerm_mysql_flexible_server_configuration.${configuration}"' in workflow
+    assert "scenario-lab MySQL configuration recovery requires the parent server" in workflow
+    assert 'terraform state rm -lock-timeout=5m "$address"' in workflow
     assert "scenario-lab DNS recovery refuses a zone with visible VNet links" in workflow
     assert "scenario-lab DNS recovery requires the Terraform-owned lab VNet" in workflow
     assert 'link_name="pe-fdai-sre-lab-${TF_VAR_region_short}-oai-runner-link"' in workflow
