@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1ab38c3ab2deb7e36a9f3a5c3b4040dbb7f08f11
+translation_source_sha: 86149b95dac37b545a7a24be10f2f4058fa14604
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -109,7 +109,9 @@ Operator API 요청을 claim하거나 공유 토픽의 자체 요청을 잘못�
 읽기가 끝난 뒤에만 평가합니다. 그런 다음 인벤토리 기록기는 `runtime_calls`를 변환하기 전에
 완전한 활성 세대, principal 범위, 최신성 예산 및 정확한 온톨로지 릴리스에 대해 두 엔드포인트
 ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID와 활성 세대의 Resource 형식을
-함께 결속합니다. 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
+함께 결속합니다. 독립 서비스 런타임 호출 전환 guard는 일치하는 Container App의 고정 API
+또는 채널 경계 namespace 값만 허용하며 서로 바뀌거나 임의의 namespace는 계속 차단합니다.
+로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
 이 원본을 사용 불가로 보고합니다. 바인딩이 비활성화됐거나 증표 쿼리가 비어 있을 때도 같은
 사용 불가 결과를 유지합니다.
 플랫폼의 `enable_runtime_call_evidence` 입력은 기존 Operator API 모듈과 독립적으로 이 Inventory
