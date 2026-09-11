@@ -78,6 +78,13 @@ export function reportVariableErrors(
   });
 }
 
+export function shouldShowReportVariableErrors(
+  values: Readonly<Record<string, string>>,
+  errors: readonly string[],
+): boolean {
+  return errors.length > 0 && Object.values(values).some((value) => value.trim().length > 0);
+}
+
 export function aggregateEvidenceAsOf(
   sources: readonly { readonly as_of: string | null }[],
 ): string | null {
@@ -317,6 +324,7 @@ function ReportsBody({
   readonly onDownload: () => Promise<void>;
 }) {
   const variableErrors = reportVariableErrors(data.selected, data.variables);
+  const showVariableErrors = shouldShowReportVariableErrors(data.variables, variableErrors);
   const variablesComplete = data.selected !== null && variableErrors.length === 0;
   const evidenceAsOf = aggregateEvidenceAsOf(data.rendered?.provenance.sources ?? []);
   const headline = reportHeadlineState(data.selected, data.rendered);
@@ -415,7 +423,7 @@ function ReportsBody({
 
             {data.selected.variables.length > 0 ? (
               <div class="reports-variables" aria-label={t("reports.variables")}>
-                {variableErrors.length > 0 ? (
+                {showVariableErrors ? (
                   <div class="state-block state-unavailable" role="alert">
                     {variableErrors.join("; ")}
                   </div>

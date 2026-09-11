@@ -9,6 +9,7 @@ import {
   reportDownloadCanComplete,
   reportHeadlineState,
   reportsLoadFailure,
+  shouldShowReportVariableErrors,
   triggerBlobDownload,
   updateReportVariable,
 } from "./reports";
@@ -130,6 +131,16 @@ describe("report variable evidence", () => {
       "env has an unsupported value: bogus",
     ]);
     expect(reportVariableErrors(selected, { env: "prod" })).toEqual([]);
+  });
+
+  test("does not present untouched required variables as an error", () => {
+    const errors = ["correlation_id is required"];
+
+    expect(shouldShowReportVariableErrors({ correlation_id: "" }, errors)).toBe(false);
+    expect(shouldShowReportVariableErrors(
+      { correlation_id: "", environment: "prod" },
+      errors,
+    )).toBe(true);
   });
 
   test("uses the oldest known source and abstains when any source time is unknown", () => {
