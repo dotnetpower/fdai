@@ -190,6 +190,8 @@ def _plan_projection(values: dict[str, object]) -> dict[str, object]:
         "azurerm_firewall_policy_rule_collection_group.builder",
         "azurerm_network_interface.builder",
         "azurerm_network_interface.verifier",
+        "azurerm_network_interface_security_group_association.builder",
+        "azurerm_network_interface_security_group_association.verifier",
         "azurerm_network_security_group.builder",
         "azurerm_public_ip.firewall",
         "azurerm_public_ip.firewall_management",
@@ -374,8 +376,8 @@ def test_review_binds_plan_projection_and_rejects_tampering(tmp_path: Path) -> N
 
     verified = load_review(work, expected_review_digest=str(review["review_digest"]))
     assert verified["plan_digest"] == review["plan_digest"]
-    assert verified["create_count"] == 28
-    assert verified["retained_resource_count"] == 24
+    assert verified["create_count"] == 30
+    assert verified["retained_resource_count"] == 26
     assert verified["effect_summary"]["public_ip_count"] == 2
     assert verified["effect_summary"]["monthly_fixed_cost_upper_bound_usd"] == 500
     assert verified["effect_summary"]["approved_monthly_cost_ceiling_usd"] == 500
