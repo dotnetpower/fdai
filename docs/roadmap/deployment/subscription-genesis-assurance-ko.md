@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: e85cd47ef798a95a9f486c5c851d88a0df31b5e9
+translation_source_sha: 0f18530c37a5918fe2f67640906474afe421e107
 translation_revised: 2026-09-11
 ---
 # 구독 초기 구성 보증
@@ -72,6 +72,8 @@ translation_revised: 2026-09-11
 거부합니다. 독립적인 수락에는 캡처 이미지 출처, 빌더 및 검증기 확장 성공, 예상된 할당 해제
 상태인 두 VM이 필요합니다. 해당 근거가 없는 빌드 점유는 차단 상태를 유지하며 재시도할 수
 없습니다.
+정책 프로브 정리는 Azure CLI의 다중 값 TSV 투영을 순서가 있는 줄로 파싱하고 정확한 태그가
+있는 그룹과 삭제된 Vault의 부재를 확인하며, 명령 성공만으로 완료를 보고하지 않습니다.
 
 각 효과는 변경 전에 변경 불가능한 점유를 기록합니다. 점유 또는 종결 증적이 이미 있으면
 재시작 시 검증만 선택하고 Terraform 적용, 토큰 등록, 아카이브 전송, 백엔드 이전을 반복하지

@@ -76,6 +76,8 @@ deallocate/generalize actions, and the managed image. The exact plan
 rejects Storage and image-template resources. Independent acceptance requires the captured image
 provenance, successful builder and verifier extensions, and both VMs in the expected deallocated
 state. A build claim without that evidence remains blocked and cannot be retried.
+Policy-probe cleanup parses multi-value Azure CLI TSV projections as ordered lines, verifies the
+exact tagged group and deleted-vault absence, and never reports completion from command success alone.
 
 Each effect writes its immutable claim before mutation. If a claim or terminal receipt already
 exists, a restart selects verification only and never repeats Terraform apply, token enrollment,

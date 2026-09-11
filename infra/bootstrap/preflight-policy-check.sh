@@ -197,13 +197,13 @@ deleted_key_vault_state() {
 }
 
 live_key_vault_state() {
-  local query state
+  local counts output query
   query="[?name == '$key_vault'] | [length(@), length([?"
   query+="location == '$REGION'"
   query+=" && tags.\"fdai:managed\" == 'true'"
   query+=" && tags.\"fdai:layer\" == 'policy-probe'"
   query+=" && tags.\"fdai:run-id\" == '$RUN_ID'])]"
-  if ! state="$(timeout 30s az resource list \
+  if ! output="$(timeout 30s az resource list \
     --subscription "$EXPECTED_SUBSCRIPTION" \
     --resource-group "$resource_group" \
     --resource-type Microsoft.KeyVault/vaults \
@@ -212,10 +212,11 @@ live_key_vault_state() {
     printf 'unknown\n'
     return
   fi
-  case "$state" in
-    $'0\t0') printf 'absent\n' ;;
-    $'1\t1') printf 'owned\n' ;;
-    $'1\t0') printf 'foreign\n' ;;
+  readarray -t counts <<<"$output"
+  case "${counts[0]:-}:${counts[1]:-}" in
+    0:0) printf 'absent\n' ;;
+    1:1) printf 'owned\n' ;;
+    1:0) printf 'foreign\n' ;;
     *) printf 'unknown\n' ;;
   esac
 }
