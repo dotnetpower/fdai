@@ -110,9 +110,10 @@ of the legacy Operator API module, so state migration cannot silently remove col
 `plan-runtime-*` and `apply-runtime-*` requests target dedicated binding and exact-image transition
 resources and reject mixed targets. The transitions use bounded updaters with verified rollback to
 enable the existing Inventory Job and, when an attested revision is selected, replace its stale
-image without planning unrelated module dependencies. The post-plan scope guard rejects every
-other address, and post-apply verification independently reads both the binding and image digest
-before the source is treated as enabled.
+image without planning unrelated module dependencies. The binding updater also resolves the exact
+Log Analytics customer ID and applies it with the runtime flag; rollback restores both prior values.
+The post-plan scope guard rejects every other address, and post-apply verification independently
+reads the flag, workspace digest, and image digest before the source is treated as enabled.
 The plan's full JSON projection and value-free summary remain in a current-UID mode-0700 temporary
 directory until bounded plan metadata is sealed, then both private files are removed.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: c259bbc36c11a5fb34cfbf6cf9802b5a77b9335c
+translation_source_sha: 607f18d96199874f9c8f4c862c279008f69964bb
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -114,8 +114,10 @@ Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수
 `plan-runtime-*` 및 `apply-runtime-*` 요청은 전용 바인딩 및 정확한 이미지 전환 리소스를
 대상으로 하며 혼합 대상을 거부합니다. 전환은 검증된 롤백을 포함한 제한된 업데이터를 사용해
 관련 없는 모듈 의존성을 계획하지 않고 기존 Inventory Job을 활성화합니다. 검증된 개정 번호를
-선택하면 오래된 이미지도 교체합니다. 계획 후 범위 검사는 다른 모든 주소를 차단하며, 적용 후
-검증은 원본을 활성 상태로 처리하기 전에 바인딩과 이미지 다이제스트를 모두 독립적으로 읽습니다.
+선택하면 오래된 이미지도 교체합니다. 바인딩 업데이터는 정확한 Log Analytics customer ID도
+해석해 런타임 플래그와 함께 적용하며 롤백은 두 이전 값을 복원합니다. 계획 후 범위 검사는
+다른 모든 주소를 차단하며, 적용 후 검증은 원본을 활성 상태로 처리하기 전에 플래그, workspace
+다이제스트 및 이미지 다이제스트를 모두 독립적으로 읽습니다.
 계획의 전체 JSON 변환 결과와 값 없는 요약은 범위가 제한된 계획 메타데이터를 봉인할 때까지
 현재 UID가 소유한 mode-0700 임시 디렉터리에 유지하며, 이후 두 비공개 파일을 제거합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환

@@ -69,7 +69,7 @@ def test_runtime_call_source_survives_operator_service_state_migration() -> None
     assert "update_inventory_job_runtime_call_evidence.sh" in transition
     assert 'resource "terraform_data" "inventory_runtime_image_update"' in transition
     assert "triggers_replace = [var.core_image]" in transition
-    assert 'TARGET_CONTAINER_NAME   = "inventory"' in transition
+    assert 'TARGET_CONTAINER_NAME        = "inventory"' in transition
     assert "      runtime_call_evidence_transition:" not in workflow
     assert "RUNTIME_CALL_EVIDENCE_TRANSITION:" in workflow
     assert (
