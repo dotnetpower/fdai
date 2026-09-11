@@ -178,6 +178,7 @@ def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None
         env={
             **os.environ,
             "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FDAI_VALIDATION_ACTIVE": "1",
             "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
             "FDAI_VERIFY_TEST_LOG": str(command_log),
         },
@@ -189,6 +190,26 @@ def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None
     assert result.returncode == 0, result.stderr
     assert result.stdout.count("delegated structural stage: DEFERRED") == 5
     assert "check-design-routes.py" not in command_log.read_text(encoding="utf-8")
+
+
+def test_direct_fast_verification_rejects_structural_deferral() -> None:
+    real_bash = shutil.which("bash", path=os.environ["PATH"])
+    assert real_bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script and arguments
+        [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD..HEAD"],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "restricted to the central validator" in result.stderr
 
 
 def test_diff_is_rejected_outside_fast_mode() -> None:
