@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: 945bc2c50c48e045b6a2d0994268d64c9b10953b
+translation_source_sha: b5ec4b68d3aa456233d2fd3a04821818bd7123ec
 translation_revised: 2026-09-12
 ---
 # Reviewable 자동화 Blueprints

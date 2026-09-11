@@ -41,7 +41,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] The Reader-gated Operator Service `GET /automation-blueprints` projection is registered,
   bounded, redacted, and fail-closed, and the Console decoder test still passes against it.
 - [x] The separately authorized `POST /automation-blueprints/{accept,reject,materialize}` routes are
-  registered, contributor-gated, idempotency-keyed, and proposal-only; API integration tests prove a
+  registered, approver-gated, idempotency-keyed, and proposal-only; API integration tests prove a
   reader is refused and no route reviews or materializes inline.
 - [ ] Bind the queued accept, reject, and materialize proposals to `AutomationBlueprintReviewService`
   so an authorized decision reaches the durable candidate without granting the route any authority.
