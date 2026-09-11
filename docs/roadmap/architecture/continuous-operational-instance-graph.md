@@ -207,7 +207,8 @@ than a model-supplied scope. It selects only ARG create, update, and delete obse
 operation-bearing Activity Log observations, excludes periodic snapshots and live refreshes, and
 reports complete only after the fresh cursor and every exact event-id fence verify. The reader
 fetches one row beyond the requested limit and reports `result_limit` rather than claiming that a
-bounded subset is complete.
+bounded subset is complete. Rows, cursor state, and terminal processing receipts are read from one
+read-only repeatable-read snapshot and are all bounded by the answer's `known_at` cutoff.
 
 The change accelerator batches bursts for at most two seconds, applies per-resource ordering, and
 publishes no relationship that the exact hydration and reviewed mapping catalog did not support.

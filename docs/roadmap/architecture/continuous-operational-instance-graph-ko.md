@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 637cd6bec4665eabe100ae49d1f95804be68bb2b
+translation_source_sha: eea61d27a15f78a76b378a52477a794fcabe1184
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -202,7 +202,9 @@ Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone�
 조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 작업 정보가 있는 Activity Log 관측만 선택하고
 주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든 정확한 이벤트 ID fence를 검증한
 뒤에만 완전한 결과로 보고합니다. 조회기는 요청 한도보다 한 행을 더 가져오며, 범위가 제한된
-부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다.
+부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다. 행, cursor 상태, 최종 처리
+receipt는 하나의 읽기 전용 repeatable-read snapshot에서 읽고 모두 답변의 `known_at` 경계로
+제한합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
 mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구

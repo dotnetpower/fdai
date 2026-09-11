@@ -28,12 +28,20 @@ class _Connection:
     def __init__(self, rows: list[dict[str, object]], *, ingested_count: int = 0) -> None:
         self.rows = rows
         self.ingested_count = ingested_count
+        self.isolation_level: object = None
+        self.read_only: bool | None = None
 
     async def __aenter__(self) -> _Connection:
         return self
 
     async def __aexit__(self, *args: object) -> None:
         del args
+
+    async def set_isolation_level(self, value: object) -> None:
+        self.isolation_level = value
+
+    async def set_read_only(self, value: bool) -> None:
+        self.read_only = value
 
     async def execute(self, statement: str, params: object = None) -> _Cursor:
         del params
@@ -129,6 +137,8 @@ async def test_recent_change_reader_reports_result_limit(
     assert len(result.changes) == 5
     assert result.complete is False
     assert result.limitation == "result_limit"
+    assert connection.isolation_level is module.IsolationLevel.REPEATABLE_READ
+    assert connection.read_only is True
 
 
 async def test_cursor_coverage_requires_fresh_drained_state() -> None:
@@ -144,6 +154,7 @@ async def test_cursor_coverage_requires_fresh_drained_state() -> None:
         _Connection([state]),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        known_at=NOW,
     )
 
 
@@ -160,11 +171,31 @@ async def test_cursor_coverage_waits_for_every_event_id() -> None:
         _Connection([state], ingested_count=1),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        known_at=NOW,
     )
     assert await _cursor_coverage_complete(
         _Connection([state], ingested_count=2),  # type: ignore[arg-type]
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
+        known_at=NOW,
+    )
+
+
+async def test_cursor_coverage_rejects_poll_after_known_at() -> None:
+    state = {
+        "key": "arg_resource_change_cursor:scope-a",
+        "value": {
+            "complete": True,
+            "last_polled_at": (NOW + timedelta(seconds=1)).isoformat(),
+            "pending_event_ids": [],
+        },
+    }
+
+    assert not await _cursor_coverage_complete(
+        _Connection([state]),  # type: ignore[arg-type]
+        scope_refs=("scope-a",),
+        required_at=NOW - timedelta(minutes=1),
+        known_at=NOW,
     )
 
 
