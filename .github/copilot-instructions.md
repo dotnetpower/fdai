@@ -67,7 +67,9 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    `verify.sh --all` unless explicitly requested.
    A session MUST NOT delegate validation of a dirty worktree. Delegated validation requires a
    clean committed snapshot in an isolated worktree. CI owns integration validation for pushed
-   SHAs, and `make validation-all` is reserved for explicit merge or release boundaries.
+   SHAs, and `make validation-all` is reserved for explicit merge or release boundaries. The
+   central fast validator MAY defer gates duplicated by its mandatory structural stage, but both
+   stages and the exact structural input digest remain in the same snapshot receipt.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
    workflow or external operation. After authorization, every agent-authored commit MUST originate
    in the local checkout. After focused validation and diff review, commit only task-owned

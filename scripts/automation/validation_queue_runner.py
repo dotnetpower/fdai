@@ -367,11 +367,15 @@ def _run_batch(
             if "fast-gates" in passed_stages:
                 verify_result = _cached_stage("fast-gates")
             else:
+                fast_environment = {
+                    **environment,
+                    "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
+                }
                 verify_result = _run_stage(
                     "fast-gates",
                     verify_arguments,
                     cwd=validation_root,
-                    env=environment,
+                    env=fast_environment,
                 )
                 if verify_result["status"] == 0:
                     passed_stages.add("fast-gates")
