@@ -86,6 +86,11 @@ if [[ -n "$DIFF_RANGE" && -n "$PYTEST_PATH" ]]; then
     echo "verify.sh: --fast --diff does not accept a pytest path" >&2
     exit 2
 fi
+if [[ "${FDAI_VERIFY_DEFER_STRUCTURAL_GATES:-0}" == "1" &&
+      "${FDAI_VALIDATION_ACTIVE:-0}" != "1" ]]; then
+    echo "verify.sh: structural gate deferral is restricted to the central validator" >&2
+    exit 2
+fi
 
 CHANGED_FILES=""
 if [[ -n "$DIFF_RANGE" ]]; then
