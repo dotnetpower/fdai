@@ -42,6 +42,10 @@ from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
 )
 from fdai.core.ontology_platform.query_values import QueryTable
+from fdai.core.ontology_platform.recent_resource_changes import (
+    ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+    ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+)
 from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
@@ -4119,10 +4123,11 @@ def _verified_resource_change_row(row: Mapping[str, object]) -> bool:
     observation_kind = row.get("observation_kind")
     operation = row.get("operation")
     provider_change = (
-        source_identity == "fdai.delivery.azure.arg_resource_changes"
+        source_identity == ARG_RESOURCE_CHANGE_SOURCE_IDENTITY
         and observation_kind in {"full", "tombstone"}
     ) or (
-        isinstance(operation, str)
+        source_identity == ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY
+        and isinstance(operation, str)
         and bool(operation)
         and observation_kind in {"partial", "change_hint", "tombstone"}
     )

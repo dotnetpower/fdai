@@ -25,6 +25,8 @@ from fdai.shared.contracts.models import (
 )
 
 RECENT_RESOURCE_CHANGES_FUNCTION_NAME = "query.recent_resource_changes"
+ARG_RESOURCE_CHANGE_SOURCE_IDENTITY = "fdai.delivery.azure.arg_resource_changes"
+ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY = "azure_event_grid.resource_change"
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +166,8 @@ def _time(value: object, name: str) -> datetime:
 
 
 __all__ = [
+    "ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY",
+    "ARG_RESOURCE_CHANGE_SOURCE_IDENTITY",
     "RECENT_RESOURCE_CHANGES_FUNCTION_NAME",
     "RecentResourceChange",
     "RecentResourceChangeRead",
