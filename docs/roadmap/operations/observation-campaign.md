@@ -38,6 +38,12 @@ observation owner, producer, scope, or authority. The inverse schema condition a
 `assurance-twin` producer for the `assurance-twin.posture` kind, so it cannot impersonate a campaign
 or inventory activity.
 
+Operational cohort source bindings are also separate from this campaign registry. A cohort
+binding references one reviewed exporter workflow and a stable logical source id for assigned
+metrics or guards. It does not turn campaign readiness, an empty source result, or a broad provider
+role into cohort evidence. Product-specific adapters remain behind their exporter workflows, so a
+deployment can select different systems of record without changing Core or this campaign catalog.
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |

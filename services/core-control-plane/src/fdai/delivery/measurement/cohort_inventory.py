@@ -120,10 +120,12 @@ class PostgresCohortEvidenceInventorySource:
         metric_counts = _required_counts(
             metric_rows,
             required=self._policy.required_metric_ids,
+            allowed_sources=_source_binding_index(self._policy, metrics=True),
         )
         guard_counts = _required_counts(
             guard_rows,
             required=self._policy.required_guard_ids,
+            allowed_sources=_source_binding_index(self._policy, metrics=False),
         )
         missing = _missing(
             metric_counts=metric_counts,
@@ -197,6 +199,8 @@ class PostgresCohortEvidenceInventorySource:
             SELECT
               entry->>'arm' AS arm,
               entry->>%s AS measure_id,
+              entry->>'source_binding_id' AS source_binding_id,
+              entry->>'source_workflow_path' AS source_workflow_path,
               COUNT(DISTINCT NULLIF(entry->>'source_cluster_digest', '')) AS sample_count
             FROM audit_log
             WHERE action_kind = %s
@@ -220,7 +224,7 @@ class PostgresCohortEvidenceInventorySource:
                   AND (entry->>'value')::NUMERIC >= 0)
                 OR (%s = 'guard_id' AND jsonb_typeof(entry->'breached') = 'boolean')
               )
-            GROUP BY 1, 2
+            GROUP BY 1, 2, 3, 4
             """,
             (
                 identifier_key,
@@ -243,11 +247,14 @@ def _required_counts(
     rows: list[Mapping[str, Any]],
     *,
     required: tuple[str, ...],
+    allowed_sources: Mapping[tuple[str, str], tuple[str, str]],
 ) -> Mapping[str, Mapping[str, int]]:
     counts = {arm.value: {identifier: 0 for identifier in required} for arm in CohortArm}
     for row in rows:
         arm = row.get("arm")
         measure_id = row.get("measure_id")
+        source_binding_id = row.get("source_binding_id")
+        source_workflow_path = row.get("source_workflow_path")
         sample_count = row.get("sample_count")
         if (
             isinstance(arm, str)
@@ -256,9 +263,27 @@ def _required_counts(
             and measure_id in counts[arm]
             and isinstance(sample_count, int)
             and sample_count >= 0
+            and allowed_sources.get((arm, measure_id)) == (source_binding_id, source_workflow_path)
         ):
             counts[arm][measure_id] = sample_count
     return counts
+
+
+def _source_binding_index(
+    policy: CohortClaimPolicy,
+    *,
+    metrics: bool,
+) -> Mapping[tuple[str, str], tuple[str, str]]:
+    result: dict[tuple[str, str], tuple[str, str]] = {}
+    for arm, bindings in policy.exporter_measure_bindings:
+        for binding in bindings:
+            measure_ids = binding.metric_ids if metrics else binding.guard_ids
+            for measure_id in measure_ids:
+                result[(arm, measure_id)] = (
+                    binding.source_id,
+                    binding.workflow_path,
+                )
+    return result
 
 
 def _missing(

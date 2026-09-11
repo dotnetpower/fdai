@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 27231d1e863029843e6c4c49183b01fbe353f327
+translation_source_sha: 877d3b1ed5f9ee433b02ae0b12269712b3c698ca
 translation_revised: 2026-09-11
 ---
 
@@ -29,7 +29,7 @@ translation_revised: 2026-09-11
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 현재 유효한 공유 의사 결정 근거 승인 결과가 전체 묶음과 일치해야만 준비 완료 결과가 나올 수 있습니다. 기존 저장 증적은 읽을 수 있지만 증적 및 검증 묶음 다이제스트가 없으면 승격 권한에 사용할 수 없습니다. |
 | 의사 결정 경계 승인 완전 커버리지 | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; 집중 경계 테스트 | 등록된 긍정적 의사 결정 경계 20개가 모두 공유 승인 계약을 통해 의사 결정 핵심 근거를 해석하며, 승인 결과가 없거나 수락되지 않으면 검토 보류로 처리합니다. 가드는 인벤토리를 양방향으로 검사하므로 의도적으로 누락된 등록 경계는 실패합니다. 준비 상태 매트릭스는 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
-| 통제된 기준선 및 처리 코호트 주장 | in-progress | `config/sre-cohort-claim-policy.json`; `services/core-control-plane/src/fdai/core/measurement/{cohort_claim_policy,baseline_cohort_claim,operational_cohort}.py`; `services/core-control-plane/src/fdai/delivery/measurement/{cohort_observation_import,cohort_inventory}.py`; `.github/workflows/cohort-observation-import.yml`; 집중 정책, 계약, 반입, 인벤토리, 주장 및 축약기 테스트 | 주장용 관측값은 이제 군, 리비전, 프로토콜, 출처, 승인 또는 권한을 선언할 수 없는 범위가 제한되고 내용이 봉인된 산출물을 통해 들어옵니다. 보호된 반입기는 이 값을 주입하고 관측값을 멱등하게 보존하며 출처 실행 계보를 기록하지만 적격성을 부여하지 않습니다. exporter allowlist는 빈 상태로 시작하고 프로토콜 다이제스트에 포함됩니다. exporter workflow와 allowlist 항목이 같은 정책 리비전에 존재할 때만 수락합니다. 구체적인 기준군 및 처리군 exporter와 비합성 코호트 보존은 아직 남아 있습니다. |
+| 통제된 기준선 및 처리 코호트 주장 | in-progress | `config/sre-cohort-claim-policy.json`; `services/core-control-plane/src/fdai/core/measurement/{cohort_claim_policy,baseline_cohort_claim,operational_cohort}.py`; `services/core-control-plane/src/fdai/delivery/measurement/{cohort_observation_import,cohort_inventory}.py`; `.github/workflows/cohort-observation-import.yml`; 집중 정책, 계약, 반입, 인벤토리, 주장 및 축약기 테스트 | 주장용 관측값은 군, 리비전, 프로토콜, 출처, 승인, 출처 식별자 또는 권한을 선언할 수 없는 범위가 제한되고 내용이 봉인된 산출물을 통해 들어옵니다. 보호된 반입기는 이 값을 주입하고 관측값을 멱등하게 보존하며 출처 실행 계보를 기록하지만 적격성을 부여하지 않습니다. 신뢰할 수 있는 출처 레지스트리는 각 군의 모든 측정값을 정확히 하나의 exporter workflow와 고정 출처 식별자에 연결하고 프로토콜 다이제스트에 포함됩니다. 제품별 연결과 해당 workflow가 완전한 상태로 함께 추가될 때까지 레지스트리는 비어 있습니다. 구체적인 출처 workflow와 비합성 코호트 보존은 아직 남아 있습니다. |
 | 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 이제 등록된 모든 긍정적 의사 결정 경계가 공유 승인 계약을 사용하며 일치하는 최신 승인이 없으면 실패 시 차단합니다. |
 | 독립적인 의사 결정 근거 검증 | in-progress | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `delivery/persistence/state_store_decision_evidence.py`; `delivery/azure/decision_evidence.py`; `.github/workflows/decision-evidence-admission.yml`; 집중 계약, 영속성, 조립, 워크플로 및 Azure 어댑터 테스트; 보호된 실행 `34265297336` | 프로덕션 조립은 준비 상태, 의미 기반 조회, 워크플로, 인과 관계, 운영 맥락, 분석기 및 승격 경로에 영속적인 정확한 일치 승인 조회를 연결합니다. 보호된 워크플로는 최신 비합성 배포 증명, 묶음, 요건 및 승인 기록 집합 하나를 보존하고 독립적으로 다시 읽었습니다. 이 `deployment-apply` 기록은 보존 메커니즘만 입증하며 목적이 다른 의사 결정 경계를 충족할 수 없습니다. 실제 운영 양의 경로 가용성은 운영 검증이며 실패 시 차단 헌법 계약의 구현 선행 조건이 아닙니다. |
 | 고정된 시나리오 집합 계산 | implemented | `tests/scenarios/manifest.schema.json`; `tests/scenarios/manifests/v2026.10.json`; `test_v2026_10_frozen.py`; `test_v2026_10_outcomes.py`; 상속한 v2026.09 재생 테스트 | v2026.10 코퍼스가 FDAI-CONST-005 기능별 결과를 검토된 집중 테스트에 연결한 뒤에만 다섯 묶음 모두 `complete`를 보고합니다. 새 코퍼스는 검토된 v2026.09 재생 입력을 보존하며, 무결성 테스트는 검토되지 않은 결과 연결이나 근거와 맞지 않는 상태를 차단합니다. 이는 고정 시나리오 기능 주장을 입증하며, 배포 런타임 검증은 별도입니다. |
@@ -46,6 +46,7 @@ translation_revised: 2026-09-11
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-11 | implemented | FDAI-CONST-002 완료 조건을 강제 가능한 계약 경계로 바로잡았습니다. 등록된 모든 긍정적 의사 결정은 공유 승인 검사의 지배를 받고 근거가 없거나 거부되면 실패 시 차단합니다. 동적 목적과 드물게 발생하는 실제 사건 때문에 모든 경계의 최신 실제 승인을 동시에 보존하는 이전 조건은 열거할 수 없고 안전하게 만들 수도 없어 철회했습니다. | `current change`; `config/constitution-traceability.json`; 등록된 헌법 증명 selector; 완전한 경계 인벤토리와 부정 근거 매트릭스; 집중 헌법 및 경계 검사. | 권위 있는 사건이 발생할 때 실제 양의 경로 승인을 운영 검증으로 계속 수집합니다. 관련 없는 `deployment-apply` 기록의 이름을 바꾸지 않습니다. |
+| 2026-09-11 | implemented | 코호트 exporter allowlist를 제품 중립 출처 레지스트리로 확장했습니다. 군에 포함된 각 필수 지표와 가드는 신뢰할 수 있는 workflow 소유자 하나와 고정 출처 식별자에만 연결되고, 반입기가 해당 식별자를 출처 계보에 주입합니다. 집계 인벤토리는 출처 식별자, workflow, 군 및 측정값이 해당 레지스트리와 계속 일치하는 행만 다시 계수합니다. 일부 측정값만 연결하거나 소유권 또는 출처 식별자가 중복되거나 두 군이 같은 workflow를 재사용하거나 workflow 파일이 없거나 정책 키가 중복되거나 산출물이 출처 권한을 선언하면 실패 시 차단합니다. | `current change`; 코호트 정책, 반입기 및 인벤토리; 집중 정책, 반입기 및 인벤토리 테스트. | 배포된 실제 정본을 지정한 뒤 완전한 출처별 workflow 연결을 추가하고, 두 군의 각 필수 측정값마다 독립 관측값 30개를 보존하고 승인합니다. |
 | 2026-09-11 | implemented | 최초 제공 기록을 다시 쓰지 않고 신뢰 관측 반입 경계를 강화했습니다. 이제 exporter allowlist는 같은 저장소 리비전 안에서 해석되는 일반 파일이면서 심볼릭 링크가 아닌 workflow 파일만 수락합니다. 엄격한 스칼라 및 workflow 문맥 검증, 중복 키 거부, 관측값 1,000개 상한, 재실행 충돌 검사, 묶음과 exporter 출처 결속을 추가해 검토에서 확인된 반입기 신뢰 미비점을 해소했습니다. | `current change`; 코호트 정책, 관측 반입기와 CLI, 보호된 workflow, 인벤토리 쿼리, 집중 계약, 반입기, 인벤토리, workflow 및 CI 계약 테스트 249개; 대상 Ruff 및 strict mypy 검사. | 권위 있는 기준군 exporter 하나와 배포된 FDAI 처리군 exporter 하나를 군별 allowlist 항목과 함께 추가한 뒤 필수 측정값마다 표본 30개를 보존하고 승인합니다. |
 | 2026-09-11 | implemented | 코호트 축약기와 인벤토리 뒤에 없던 신뢰 관측 반입 경계를 추가했습니다. 정규화한 묶음은 크기가 제한되고 내용이 봉인됩니다. 반입기가 소유하는 신뢰 필드는 산출물에서 허용되지 않으며 정확한 군, 리비전, 프로토콜 및 출처 실행 계보는 보호된 workflow에서 옵니다. 멱등 보존은 충돌하는 재사용을 감지하고, 인벤토리는 기록 시각과 함께 관측 시각도 사용하며, 빈 exporter allowlist는 구체적이고 검토된 exporter가 정책 항목과 함께 추가될 때까지 모든 반입을 차단합니다. | `current change`; 코호트 정책, 관측 반입기와 CLI, 보호된 workflow, 인벤토리 쿼리 및 집중 단위/workflow 테스트. | 권위 있는 기준군 exporter 하나와 배포된 FDAI 처리군 exporter 하나를 군별 allowlist 항목과 함께 추가한 뒤 필수 측정값마다 표본 30개를 보존하고 승인합니다. |
 | 2026-09-10 | implemented | 구현 범위 요약을 완전한 19개 경계 승인 인벤토리와 일치시켰습니다. 등록된 모든 긍정적 경계는 공유 계약을 사용하고 승인 결과가 없거나 수락되지 않으면 차단됩니다. 이 정정은 실제 운영 근거가 모두 갖추어졌다고 주장하지 않습니다. | `current change`; `config/decision-boundary-inventory.json`; `python3 scripts/quality/architecture/check-decision-boundary-coverage.py`; 집중 증적, 준비 상태 및 커버리지 테스트 32개. | FDAI-CONST-002를 `partial`에서 변경하기 전에 하나의 고정된 개정에서 등록된 모든 경계의 통제된 최신 비합성 승인을 보존합니다. |
@@ -297,6 +298,14 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
   스텁이 아니라 실제로 관측한 FDAI 도입 전 운영 프로세스입니다. 처리군은 배포된 FDAI
   리비전입니다. 과거 기준군/향후 처리군 설계를 사용하면 하나의 실제 이벤트에 두 경쟁
   프로세스를 실행하지 않아도 됩니다.
+- **출처 연결 레지스트리**: 신뢰할 수 있는 정책은 각 군의 모든 필수 지표와 가드를
+  저장소 안의 exporter workflow 하나와 고정 출처 식별자에 연결합니다. 보호된 반입기는
+  해당 출처 식별자를 관측값 출처 계보에 주입하며 산출물은 이를 선언할 수 없습니다.
+  workflow 하나가 여러 측정값을 담당할 수 있고, 별도 workflow로 서로 다른 제품을
+  나타내도 Core를 바꿀 필요가 없습니다. 군에 연결이 하나라도 있으면 모든 필수
+  측정값을 포함해야 합니다. 일부 측정값만 연결하거나 소유권 또는 출처 식별자가
+  중복되거나 두 군이 같은 workflow를 재사용하거나 workflow 파일이 없거나 정책 키가
+  중복되거나 산출물이 출처 권한을 선언하면 차단됩니다.
 - **지표 분모**: 이벤트 비율, 해결된 인시던트, 병합된 변경과 귀속 비용 단위에는 서로 다른
   자연 분모가 있습니다. 각 필수 지표와 가드는 자체 유효 표본 수를 유지합니다. 군의 공개
   표본 하한은 모든 필수 측정값 가운데 가장 작은 유효 표본 수이므로, 이벤트 수가 많아도
