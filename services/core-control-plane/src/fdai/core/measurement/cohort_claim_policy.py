@@ -359,10 +359,20 @@ def _exporter_workflow_paths(
             raise CohortClaimPolicyError(
                 f"cohort exporter allowlist {arm} MUST contain ordered workflow paths"
             )
-        missing = [item for item in paths if not (repo_root / item).is_file()]
-        if missing:
+        invalid: list[str] = []
+        for item in paths:
+            candidate = repo_root / item
+            resolved = candidate.resolve()
+            if (
+                candidate.is_symlink()
+                or not candidate.is_file()
+                or not resolved.is_relative_to(repo_root)
+            ):
+                invalid.append(item)
+        if invalid:
             raise CohortClaimPolicyError(
-                "cohort exporter workflow MUST exist in the policy revision: " + ", ".join(missing)
+                "cohort exporter workflow MUST be a regular in-repository file in the "
+                "policy revision: " + ", ".join(invalid)
             )
         result.append((arm, paths))
     return tuple(result)

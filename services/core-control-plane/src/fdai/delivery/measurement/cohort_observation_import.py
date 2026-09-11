@@ -27,7 +27,7 @@ from fdai_service_contracts.ontology_query import content_digest
 from pydantic import Field, field_validator, model_validator
 
 MAX_COHORT_OBSERVATION_BATCH_BYTES = 8 * 1024 * 1024
-MAX_COHORT_OBSERVATIONS = 10_000
+MAX_COHORT_OBSERVATIONS = 1_000
 _MEASURE_ID = r"^[a-z][a-z0-9_]{0,63}$"
 _WORKFLOW_PATH = re.compile(r"^\.github/workflows/[a-z0-9][a-z0-9-]{0,99}\.yml$")
 _ARTIFACT_NAME = re.compile(r"^cohort-observations-[a-z0-9][a-z0-9-]{0,99}$")
@@ -40,7 +40,7 @@ class NormalizedCohortMetricObservation(ContractBase):
     metric_id: Annotated[str, Field(pattern=_MEASURE_ID)]
     source_cluster_digest: Digest
     observed_at: datetime
-    value: float = Field(ge=0, allow_inf_nan=False)
+    value: float = Field(strict=True, ge=0, allow_inf_nan=False)
 
     @field_validator("observed_at")
     @classmethod
@@ -55,13 +55,20 @@ class NormalizedCohortGuardObservation(ContractBase):
     guard_id: Annotated[str, Field(pattern=_MEASURE_ID)]
     source_cluster_digest: Digest
     observed_at: datetime
-    observed_basis_points: Literal[0, 10_000]
-    breached: bool
+    observed_basis_points: int = Field(strict=True)
+    breached: bool = Field(strict=True)
 
     @field_validator("observed_at")
     @classmethod
     def _normalize_observed_at(cls, value: datetime) -> datetime:
         return _aware_utc(value, "cohort observation time")
+
+    @field_validator("observed_basis_points")
+    @classmethod
+    def _validate_basis_points(cls, value: int) -> int:
+        if value not in {0, 10_000}:
+            raise ValueError("cohort guard observation MUST be zero or 10000 basis points")
+        return value
 
     @model_validator(mode="after")
     def _validate_breach(self) -> NormalizedCohortGuardObservation:
@@ -123,7 +130,7 @@ def load_cohort_observation_batch(path: Path) -> CohortObservationBatch:
             payload = stream.read(MAX_COHORT_OBSERVATION_BATCH_BYTES + 1)
         if len(payload) > MAX_COHORT_OBSERVATION_BATCH_BYTES:
             raise ValueError("cohort observation batch exceeds the 8 MiB limit")
-        raw = json.loads(payload)
+        raw = json.loads(payload, object_pairs_hook=_unique_json_object)
         return CohortObservationBatch.model_validate(raw)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise ValueError(f"invalid cohort observation batch: {error}") from error
@@ -142,13 +149,26 @@ class CohortObservationImportContext:
     imported_at: datetime
 
     def __post_init__(self) -> None:
+        if not isinstance(self.arm, CohortArm):
+            raise ValueError("cohort import arm MUST use the CohortArm contract")
         require_commit_revision(self.fdai_revision)
-        if _WORKFLOW_PATH.fullmatch(self.source_workflow_path) is None:
+        if (
+            not isinstance(self.source_workflow_path, str)
+            or _WORKFLOW_PATH.fullmatch(self.source_workflow_path) is None
+        ):
             raise ValueError("cohort source workflow path is invalid")
-        if self.source_run_id < 1 or self.source_run_attempt < 1:
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in (self.source_run_id, self.source_run_attempt)
+        ):
             raise ValueError("cohort source run identity MUST be positive")
-        if _ARTIFACT_NAME.fullmatch(self.source_artifact_name) is None:
+        if (
+            not isinstance(self.source_artifact_name, str)
+            or _ARTIFACT_NAME.fullmatch(self.source_artifact_name) is None
+        ):
             raise ValueError("cohort source artifact name is invalid")
+        if not isinstance(self.imported_at, datetime):
+            raise ValueError("cohort import time MUST use datetime")
         _aware_utc(self.imported_at, "cohort import time")
 
 
@@ -202,7 +222,13 @@ async def import_cohort_observation_batch(
     imported_at = _aware_utc(context.imported_at, "cohort import time")
     earliest = imported_at - timedelta(seconds=policy.maximum_window_seconds)
     records = [
-        _record(item, context=context, policy=policy, earliest=earliest)
+        _record(
+            item,
+            batch_digest=batch.batch_digest,
+            context=context,
+            policy=policy,
+            earliest=earliest,
+        )
         for item in batch.observations
     ]
     for key, state, _ in records:
@@ -254,6 +280,7 @@ async def import_cohort_observation_batch(
 def _record(
     observation: NormalizedCohortObservation,
     *,
+    batch_digest: str,
     context: CohortObservationImportContext,
     policy: CohortClaimPolicy,
     earliest: datetime,
@@ -293,6 +320,7 @@ def _record(
         "fdai_revision": context.fdai_revision,
         "measurement_protocol_version": policy.measurement_protocol_version,
         "measurement_protocol_digest": policy.measurement_protocol_digest,
+        "source_workflow_path": context.source_workflow_path,
         "source_cluster_digest": observation.source_cluster_digest,
         "observed_at": observed_at.isoformat(),
         "synthetic": False,
@@ -313,6 +341,7 @@ def _record(
         "idempotency_key": key,
         "observation_digest": observation_digest,
         "import_provenance": {
+            "batch_digest": batch_digest,
             "source_workflow_path": context.source_workflow_path,
             "source_run_id": context.source_run_id,
             "source_run_attempt": context.source_run_attempt,
@@ -341,8 +370,16 @@ async def _record_import_summary(
         }
     )
     key = f"measurement:cohort:import:{identity.removeprefix('sha256:')}"
-    value = report.to_mapping()
-    await store.write_state_with_audit_if_absent(
+    result = report.to_mapping()
+    value = {
+        "arm": report.arm.value,
+        "batch_digest": report.batch_digest,
+        "metric_count": report.metric_count,
+        "guard_count": report.guard_count,
+        "execution_authority": False,
+        "claim_eligibility_authority": False,
+    }
+    created = await store.write_state_with_audit_if_absent(
         key,
         value,
         {
@@ -353,9 +390,13 @@ async def _record_import_summary(
             "source_workflow_path": context.source_workflow_path,
             "source_run_id": context.source_run_id,
             "source_run_attempt": context.source_run_attempt,
-            **value,
+            **result,
         },
     )
+    if not created and await store.read_state(key) != value:
+        raise CohortObservationConflictError(
+            "cohort import summary identity was reused with different content"
+        )
 
 
 def _observation_key(
@@ -373,6 +414,15 @@ def _aware_utc(value: datetime, name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{name} MUST include a timezone")
     return value.astimezone(UTC)
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"cohort observation batch repeats JSON key: {key}")
+        result[key] = value
+    return result
 
 
 __all__ = [
