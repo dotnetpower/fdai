@@ -192,6 +192,32 @@ def test_composite_actions_require_reviewed_immutable_action_refs(
     ]
 
 
+def test_local_actions_must_use_an_audited_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "local.yml").write_text(
+        "steps:\n"
+        "  - uses: ./tools/unreviewed-action\n"
+        "  - uses: ./.github/actions/../escaped\n"
+        "  - uses: ./.github/actions/reviewed\n"
+        "  - uses: ./.fdai-protected-workflow-verifier/.github/actions/"
+        "verify-protected-workflow-source\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/local.yml uses local action outside audited roots: "
+        "./tools/unreviewed-action",
+        ".github/workflows/local.yml uses local action outside audited roots: "
+        "./.github/actions/../escaped",
+    ]
+
+
 def test_docker_actions_require_immutable_image_digests(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -9,7 +9,7 @@ import re
 import shlex
 import subprocess
 from fnmatch import fnmatchcase
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -77,6 +77,7 @@ PROTECTED_WORKFLOW_GUARD = "Verify protected workflow source"
 PROTECTED_WORKFLOW_ACTION_USE = (
     "uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source"
 )
+PROTECTED_WORKFLOW_ACTION_REF = PROTECTED_WORKFLOW_ACTION_USE.removeprefix("uses: ")
 UV_SETUP_BLOCK_RE = re.compile(
     r"(?ms)^\s+- name: [^\n]+\n"
     r"\s+uses: astral-sh/setup-uv@[^\n]+.*?(?=^\s+- name:|\Z)"
@@ -436,6 +437,16 @@ def _validate_action_runtime_versions() -> list[str]:
         }
         for reference in uses_values:
             if reference.startswith("./"):
+                local_path = PurePosixPath(reference.removeprefix("./"))
+                is_audited_action = (
+                    len(local_path.parts) >= 3
+                    and local_path.parts[:2] == (".github", "actions")
+                    and ".." not in local_path.parts
+                )
+                if not is_audited_action and reference != PROTECTED_WORKFLOW_ACTION_REF:
+                    errors.append(
+                        f"{relative} uses local action outside audited roots: {reference}"
+                    )
                 continue
             if reference.startswith("docker://"):
                 image = reference.removeprefix("docker://")
