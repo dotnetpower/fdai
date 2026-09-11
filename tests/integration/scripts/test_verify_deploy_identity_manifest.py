@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 
 import pytest
 from scripts.deployment.azure import verify_deploy_identity_manifest as manifest
@@ -80,9 +81,14 @@ def test_manifest_rejects_missing_extra_or_changed_roles(drift: str) -> None:
     else:
         assignments[0]["condition"] = "@Resource[example] StringEquals 'other'"
 
-    with pytest.raises(ValueError, match="manifest drift"):
+    with pytest.raises(ValueError, match='"expected_count":1') as error:
         manifest.verify_manifest(
             [_state()],
             principal_id=_PRINCIPAL,
             assignments=assignments,
         )
+    message = str(error.value)
+    assert "/subscriptions/example" not in message
+    if drift == "missing":
+        scope = "/subscriptions/example/resourcegroups/app"
+        assert hashlib.sha256(scope.encode()).hexdigest() in message

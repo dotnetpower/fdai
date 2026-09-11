@@ -318,12 +318,12 @@ async def test_indexed_hit_and_miss_complete_under_statement_timeout(
     database_url: str,
 ) -> None:
     _requires_live_db()
-    store = _store(database_url, timeout_ms=250)
     catalog_version = _digest("1")
-    await store.promote(
+    await _store(database_url).promote(
         catalog_version=catalog_version,
         idempotency_key="latency-promote",
     )
+    store = _store(database_url, timeout_ms=250)
     observed_at = datetime.now(UTC)
     async with await psycopg.AsyncConnection.connect(database_url) as connection:
         await connection.execute(

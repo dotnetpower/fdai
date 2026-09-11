@@ -35,6 +35,11 @@ coverage_paths=(
   services/core-control-plane/tests/delivery/test_canary_cli.py
 )
 
+coverage_ignore_args=()
+for path in "${coverage_paths[@]}"; do
+  coverage_ignore_args+=("--ignore=$path")
+done
+
 parallel_args=()
 if [[ "${FDAI_PYTEST_XDIST:-1}" == "1" ]]; then
   parallel_args=(
@@ -81,6 +86,11 @@ case "$mode" in
     env -u FDAI_DATABASE_URL -u FDAI_STATE_STORE_DSN \
       uv run pytest -q -m "not integration" --no-cov --durations=25 \
       "${parallel_args[@]}" "${shard_args[@]}" "$@"
+    ;;
+  regression)
+    env -u FDAI_DATABASE_URL -u FDAI_STATE_STORE_DSN \
+      uv run pytest -q -m "not integration" --no-cov --durations=25 \
+      "${parallel_args[@]}" "${shard_args[@]}" "${coverage_ignore_args[@]}" "$@"
     ;;
   coverage)
     env -u FDAI_DATABASE_URL -u FDAI_STATE_STORE_DSN \
