@@ -545,7 +545,10 @@ def _is_privileged_workflow(content: str) -> bool:
                         return True
                 elif key == "runs-on":
                     runners = value if isinstance(value, list) else [value]
-                    if any(runner == "self-hosted" for runner in runners):
+                    if any(
+                        runner == "self-hosted" or (isinstance(runner, str) and "${{" in runner)
+                        for runner in runners
+                    ):
                         return True
                 elif (
                     key == "run"
