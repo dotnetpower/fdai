@@ -285,6 +285,20 @@ def _validate_python_test_partitioning() -> list[str]:
     return errors
 
 
+def _validate_ci_concurrency() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    required_fragments = (
+        "group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}",
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    )
+    return [
+        f"ci.yml is missing evidence-preserving concurrency contract: {fragment}"
+        for fragment in required_fragments
+        if fragment not in workflow
+    ]
+
+
 def _validate_service_contract_generation() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     command = "python3 scripts/quality/contracts/generate_service_contracts.py --check"
@@ -513,6 +527,7 @@ def main() -> int:
         *_validate_base_images(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
+        *_validate_ci_concurrency(),
         *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),

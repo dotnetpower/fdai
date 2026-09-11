@@ -95,6 +95,18 @@ def test_pre_push_runs_the_structural_gate_helper() -> None:
     assert "bash scripts/automation/run-pre-push-structural-gates.sh" in body
 
 
+def test_pre_push_validates_workflow_contract_changes_before_structural_gates() -> None:
+    body = _PRE_PUSH.read_text()
+
+    contract_check = "python3 scripts/quality/ci/check-ci-contracts.py"
+    regression_test = "tests/integration/scripts/test_check_ci_contracts.py"
+    structural_check = "bash scripts/automation/run-pre-push-structural-gates.sh"
+    assert ".github/workflows/*.yml" in body
+    assert contract_check in body
+    assert regression_test in body
+    assert body.index(contract_check) < body.index(structural_check)
+
+
 def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
     body = _PRE_PUSH.read_text()
 
