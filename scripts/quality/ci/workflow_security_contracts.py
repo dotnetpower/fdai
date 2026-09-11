@@ -320,6 +320,11 @@ def protected_guard_prefix_errors(
         if not guard_indexes:
             continue
         guarded_jobs.add(job_name)
+        if job.get("container") is not None or job.get("services") is not None:
+            errors.append(
+                f"{relative} job {job_name} cannot run its verifier in a job container "
+                "or with service containers"
+            )
         if len(guard_indexes) != 1 or guard_indexes[0] != 1 or len(steps) < 2:
             errors.append(
                 f"{relative} job {job_name} must start with the exact protected-source "
