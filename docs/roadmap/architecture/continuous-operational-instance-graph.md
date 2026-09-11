@@ -198,7 +198,8 @@ and the next poll waits until every published event id appears in the observatio
 Snapshot-covered and ordering-rejected changes therefore release the producer fence without being
 misrepresented as current overlay changes.
 The configured page-size and page-count product cannot exceed the 1,000-id durable fence bound.
-An empty provider page that still reports truncation also remains incomplete.
+An empty provider page that still reports truncation also remains incomplete. The transport accepts
+only the documented boolean and string forms of `resultTruncated` and rejects other values.
 If the final bounded page still carries a continuation token, the feed returns the oldest collected
 rows as incomplete and advances the stable keyset cursor after their ingestion fence clears.
 The first poll persists its calculated lookback boundary as an initial cursor, so incomplete empty

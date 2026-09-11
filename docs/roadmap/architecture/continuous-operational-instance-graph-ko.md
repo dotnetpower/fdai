@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 0dd0dbcf4f193bf3116c8cf3ae9f54519eab337f
+translation_source_sha: 6f7ece6f7a6920eea14945db727de6ea5a351d7d
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -194,7 +194,8 @@ Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone�
 snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로 잘못 표현되지 않으면서 생산자
 fence를 해제합니다. 구성된 페이지 크기와 페이지 수의 곱은 1,000개 ID로 제한된 내구성 있는
 fence 한도를 넘을 수 없습니다. 프로바이더가 여전히 잘림을 보고한 빈 페이지도 불완전한 상태를
-유지합니다. 범위가 제한된 마지막 페이지에 연속 토큰이 남아 있으면 feed는 수집한 가장 오래된 행을
+유지합니다. Transport는 문서화된 `resultTruncated`의 bool 및 문자열 형식만 허용하고 다른 값은
+거부합니다. 범위가 제한된 마지막 페이지에 연속 토큰이 남아 있으면 feed는 수집한 가장 오래된 행을
 불완전 상태로 반환하고 수신 fence가 해제된 뒤 안정적인 keyset cursor를 진행합니다.
 첫 폴링은 계산한 lookback 경계를 초기 cursor로 영속화하므로 불완전한 빈 응답이나 재조회 재시도가
 앞으로 이동하여 변경을 건너뛸 수 없습니다.

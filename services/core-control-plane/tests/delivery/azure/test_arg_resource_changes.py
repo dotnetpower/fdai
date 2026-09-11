@@ -513,9 +513,12 @@ async def test_truncated_page_without_continuation_token_advances_keyset_cursor(
 
 
 @pytest.mark.asyncio
-async def test_empty_tokenless_truncated_page_remains_incomplete() -> None:
+@pytest.mark.parametrize("truncated", [True, "true"])
+async def test_empty_tokenless_truncated_page_remains_incomplete(
+    truncated: bool | str,
+) -> None:
     async def on_changes(_request: httpx.Request) -> httpx.Response:
-        return _changes_response([], resultTruncated=True)
+        return _changes_response([], resultTruncated=truncated)
 
     feed, client, _ = _factory(_router(on_changes=on_changes))
     try:
@@ -526,6 +529,19 @@ async def test_empty_tokenless_truncated_page_remains_incomplete() -> None:
     assert result.events == ()
     assert result.next_cursor.endswith("\x1f__fdai_initial__")
     assert result.complete is False
+
+
+@pytest.mark.asyncio
+async def test_invalid_result_truncated_flag_fails_closed() -> None:
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([], resultTruncated="unknown")
+
+    feed, client, _ = _factory(_router(on_changes=on_changes))
+    try:
+        with pytest.raises(ArgResourceChangeError, match="resultTruncated flag was invalid"):
+            await feed.poll("")
+    finally:
+        await client.aclose()
 
 
 @pytest.mark.asyncio
