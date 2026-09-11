@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 9b4dff0a01c4e51d1ddce32508043acb48ea4cb0
+translation_source_sha: 14898c035fa97e0aebd83ed9f143ce98aad7e671
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -136,6 +136,9 @@ Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수
 있는 새로운 정본 수집을 더 이상 차단하지 않습니다. 현재 수집의 변환이 불완전하면 실행은
 계속 실패합니다. 승격된 전체 스냅샷이 성능이 저하된 base를 건너뛰었다면 recovery는 변환 전에
 실제 현재 manifest 세대에 다시 결속합니다. manifest 세대가 없으면 계속 안전하게 실패합니다.
+선언한 상태 base가 ontology에 도달하지 못한 새로운 전체 스냅샷은 보존된 완전한 topology
+이력에서 전이를 파생할 수 있습니다. 이 fallback은 보존 이력이 있는 정확한 incomplete-base
+오류에만 적용하며 다른 generation 불일치는 계속 차단합니다.
 계획의 전체 JSON 변환 결과와 값 없는 요약은 범위가 제한된 계획 메타데이터를 봉인할 때까지
 현재 UID가 소유한 mode-0700 임시 디렉터리에 유지하며, 이후 두 비공개 파일을 제거합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
