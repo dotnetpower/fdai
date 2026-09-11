@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:2c0b47abce9e976f5567d918051ffe9a04e11ccccb023ec3d4e599bfd4633d04",
+  "catalog_digest": "sha256:14e869cfccbeb8725162edc926004ffd3d3cebf80728df33ac6b4bff2874af54",
   "execution_authority": false,
-  "generated_at": "2026-09-11T16:32:24.319765Z",
+  "generated_at": "2026-09-11T20:39:16.226888Z",
   "records": [
     {
       "designed_behavior": [
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:f801f18048bf268a312d1d9ec97ad0a48de013a572f9561963938e63f34a52d5",
+      "record_digest": "sha256:5f08b9a11c91233bae3a25997929d051bb7327d24616706ed9b855a03c1c1748",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "14fc7dd983f6bef41c214339f240529c8bac9d21",
+          "blob_sha": "990fae044ce508f535204fe5f8cfe6baed8df406",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "14fc7dd983f6bef41c214339f240529c8bac9d21",
+          "blob_sha": "990fae044ce508f535204fe5f8cfe6baed8df406",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -448,11 +448,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:6de8937d2ddbb17155cc3d048c469ec2b3397f5f14ddaa539dc6ad9785834f0f",
+      "record_digest": "sha256:bf7c0664259ba0dced469eb574fdd156d77330ecec34c41ed74c6555e348689b",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "40b8d7e8b318154424d18a9ca9f0c465ae792b5c",
+          "blob_sha": "72432e903c3aaedd983e7d28325e0f93b2009d51",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:96996531db3be88b6222b5a45eb76758699f41d57aa4f786ce45cda4671e9508",
+      "record_digest": "sha256:79307e6d0b0c382dbb6f5c1394acfc25f7c113c5bb88dad1b28a9b457267f565",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "40b8d7e8b318154424d18a9ca9f0c465ae792b5c",
+          "blob_sha": "72432e903c3aaedd983e7d28325e0f93b2009d51",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
