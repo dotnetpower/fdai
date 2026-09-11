@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from urllib.parse import quote, urlparse
+from uuid import UUID
 
 import httpx
 
@@ -56,6 +57,7 @@ ContainerAppConsoleLogs_CL
     platform_name = tostring(ContainerAppName_s),
     platform_revision_name = tostring(RevisionName_s),
     platform_replica_name = tostring(ContainerGroupName_s),
+    source_container_name = tostring(ContainerName_s),
     execution_authority = tobool(record.execution_authority),
     mutation_authority = tobool(record.mutation_authority),
     source_container_group_id = tostring(ContainerGroupId_g),
@@ -84,6 +86,8 @@ class RuntimeCallEndpointIdentityVerifier(Protocol):
         resource_id: str,
         revision_name: str,
         replica_name: str,
+        container_name: str,
+        container_id: str,
     ) -> bool: ...
 
 
@@ -123,14 +127,21 @@ class AzureContainerAppRevisionVerifier:
         resource_id: str,
         revision_name: str,
         replica_name: str,
+        container_name: str,
+        container_id: str,
     ) -> bool:
-        """Return whether the exact ARM app owns the platform replica."""
+        """Return whether the exact ARM app owns the platform container."""
 
         _validate_container_app_resource_id(resource_id, field_name="resource_id")
         if _REVISION_NAME.fullmatch(revision_name) is None:
             raise ValueError("runtime call revision name is invalid")
         if _REPLICA_NAME.fullmatch(replica_name) is None:
             raise ValueError("runtime call replica name is invalid")
+        normalized_container_id = _normalize_platform_container_id(container_id)
+        normalized_container_name = _required_bounded_text(
+            container_name,
+            field_name="container_name",
+        )
         token = await self._identity.get_token(self._management_audience)
         expected_id = f"{resource_id}/revisions/{revision_name}/replicas/{replica_name}"
         response = await self._http.get(
@@ -150,11 +161,26 @@ class AzureContainerAppRevisionVerifier:
             raise ValueError("runtime call ARM revision response MUST be an object")
         returned_id = payload.get("id")
         returned_name = payload.get("name")
+        properties = payload.get("properties")
+        if not isinstance(properties, Mapping):
+            raise ValueError("runtime call ARM replica properties MUST be an object")
+        containers = properties.get("containers")
+        if not isinstance(containers, list):
+            raise ValueError("runtime call ARM replica containers MUST be an array")
+        container_verified = any(
+            isinstance(container, Mapping)
+            and isinstance(container.get("name"), str)
+            and container["name"].casefold() == normalized_container_name.casefold()
+            and _normalized_arm_container_id(container.get("containerId"))
+            == normalized_container_id
+            for container in containers
+        )
         return (
             isinstance(returned_id, str)
             and returned_id.casefold() == expected_id.casefold()
             and isinstance(returned_name, str)
             and returned_name.casefold() == replica_name.casefold()
+            and container_verified
         )
 
 
@@ -227,6 +253,8 @@ class _EndpointWitness:
     target_arm_id: str
     platform_revision_name: str
     platform_replica_name: str
+    source_container_name: str
+    source_container_id: str
     observed_at: datetime
     evidence_ref: str
 
@@ -363,6 +391,8 @@ class AzureRuntimeCallTelemetrySource:
                 witness.endpoint_arm_id,
                 witness.platform_revision_name,
                 witness.platform_replica_name,
+                witness.source_container_name,
+                witness.source_container_id,
             )
             for witness in current_witnesses
         }
@@ -377,15 +407,17 @@ class AzureRuntimeCallTelemetrySource:
         verification_semaphore = asyncio.Semaphore(_MAX_ENDPOINT_VERIFICATION_CONCURRENCY)
 
         async def verify_replica(
-            key: tuple[str, str, str],
-        ) -> tuple[tuple[str, str, str], bool]:
-            resource_id, revision_name, replica_name = key
+            key: tuple[str, str, str, str, str],
+        ) -> tuple[tuple[str, str, str, str, str], bool]:
+            resource_id, revision_name, replica_name, container_name, container_id = key
             async with verification_semaphore:
                 try:
                     verified = await self._endpoint_verifier.verify(
                         resource_id=resource_id,
                         revision_name=revision_name,
                         replica_name=replica_name,
+                        container_name=container_name,
+                        container_id=container_id,
                     )
                 except (httpx.HTTPError, ValueError):
                     verified = False
@@ -415,6 +447,8 @@ class AzureRuntimeCallTelemetrySource:
                     witness.endpoint_arm_id,
                     witness.platform_revision_name,
                     witness.platform_replica_name,
+                    witness.source_container_name,
+                    witness.source_container_id,
                 )
             ]:
                 coverage["unavailable_rows"] += 1
@@ -549,17 +583,24 @@ class AzureRuntimeCallTelemetrySource:
             raise ValueError("runtime call caller and target Resource IDs MUST be distinct")
         endpoint_name = caller_name if endpoint_role == "caller" else target_name
         endpoint_arm_id = caller_arm_id if endpoint_role == "caller" else target_arm_id
-        platform_resource_id = _required_text(
+        source_container_name = _required_text(
             row,
-            "platform_resource_id",
+            "source_container_name",
             classify_missing=True,
         )
-        _validate_container_app_resource_id(
-            platform_resource_id,
-            field_name="platform_resource_id",
-        )
-        if endpoint_arm_id.casefold() != platform_resource_id.casefold():
-            raise ValueError("runtime call Resource ID does not match platform source identity")
+        if "platform_resource_id" not in row:
+            raise KeyError("platform_resource_id")
+        raw_platform_resource_id = row["platform_resource_id"]
+        if not isinstance(raw_platform_resource_id, str) or len(raw_platform_resource_id) > 512:
+            raise ValueError("runtime call platform Resource ID is malformed")
+        platform_resource_id = raw_platform_resource_id.strip()
+        if platform_resource_id:
+            _validate_container_app_resource_id(
+                platform_resource_id,
+                field_name="platform_resource_id",
+            )
+            if endpoint_arm_id.casefold() != platform_resource_id.casefold():
+                raise ValueError("runtime call Resource ID does not match platform source identity")
         if endpoint_name.casefold() != platform_name.casefold():
             raise ValueError("runtime call Resource ID does not match platform evidence")
         observed_at = _required_datetime(row, "observed_at")
@@ -570,6 +611,8 @@ class AzureRuntimeCallTelemetrySource:
             target_arm_id=target_arm_id,
             platform_revision_name=platform_revision_name,
             platform_replica_name=platform_replica_name,
+            source_container_name=source_container_name,
+            source_container_id=source_container_id,
             observed_at=observed_at,
             evidence_ref=_digest(
                 {
@@ -581,6 +624,7 @@ class AzureRuntimeCallTelemetrySource:
                     "platform_revision_name": platform_revision_name,
                     "platform_replica_name": platform_replica_name,
                     "source_container_group_id": source_container_group_id,
+                    "source_container_name": source_container_name,
                     "source_container_id": source_container_id,
                     "source_platform_timestamp": source_platform_timestamp,
                 }
@@ -636,6 +680,29 @@ def _required_text(row: Mapping[str, Any], field: str, *, classify_missing: bool
     if not isinstance(value, str) or not value.strip() or len(value) > 512:
         raise ValueError(f"runtime call telemetry {field} MUST be bounded non-empty text")
     return value.strip()
+
+
+def _required_bounded_text(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value) > 512:
+        raise ValueError(f"runtime call {field_name} MUST be bounded non-empty text")
+    return value.strip()
+
+
+def _normalize_platform_container_id(value: str) -> str:
+    try:
+        normalized = str(UUID(value))
+    except ValueError as exc:
+        raise ValueError("runtime call platform container ID MUST be a UUID") from exc
+    return normalized.replace("-", "")
+
+
+def _normalized_arm_container_id(value: object) -> str | None:
+    if not isinstance(value, str) or not value.startswith("containerd://"):
+        return None
+    normalized = value.removeprefix("containerd://").casefold()
+    if re.fullmatch(r"[0-9a-f]{32}", normalized) is None:
+        return None
+    return normalized
 
 
 def _required_datetime(row: Mapping[str, Any], field: str) -> datetime:

@@ -76,10 +76,14 @@ class _EndpointVerifier:
         resource_id: str,
         revision_name: str,
         replica_name: str,
+        container_name: str,
+        container_id: str,
     ) -> bool:
         assert resource_id.startswith("/subscriptions/")
         assert "--" in revision_name
         assert replica_name.startswith("replica-")
+        assert container_name.startswith("container-")
+        assert container_id
         self.calls += 1
         if self.delay_seconds:
             await asyncio.sleep(self.delay_seconds)
@@ -115,7 +119,8 @@ def _row(
     platform_revision_name: str | None = None,
     platform_replica_name: str | None = None,
     source_container_group_id: str = "container-group",
-    source_container_id: str = "container",
+    source_container_name: str | None = None,
+    source_container_id: str = "00000000-0000-0000-0000-000000000000",
     source_platform_timestamp: str = "1788948000.0",
 ) -> dict[str, object]:
     resolved_platform_name = (
@@ -154,6 +159,11 @@ def _row(
         "execution_authority": False,
         "mutation_authority": False,
         "source_container_group_id": source_container_group_id,
+        "source_container_name": (
+            source_container_name
+            if source_container_name is not None
+            else f"container-{endpoint_role}"
+        ),
         "source_container_id": source_container_id,
         "source_platform_timestamp": source_platform_timestamp,
         "table_name": "ContainerAppConsoleLogs_CL",
@@ -271,6 +281,20 @@ async def test_platform_resource_id_must_match_the_claimed_endpoint() -> None:
     assert batch.coverage == {"unavailable_rows": 0, "redacted_rows": 0, "malformed_rows": 1}
 
 
+async def test_empty_platform_resource_id_uses_exact_arm_container_binding() -> None:
+    batch = await _source(
+        LogQueryResult(
+            rows=(
+                _row(platform_resource_id=""),
+                _row(endpoint_role="target", platform_resource_id=""),
+            )
+        )
+    ).collect(None)
+
+    assert batch.complete is True
+    assert len(batch.records) == 1
+
+
 async def test_equal_time_duplicate_order_is_replay_stable() -> None:
     first = _row(
         source_container_id="container-first",
@@ -366,11 +390,15 @@ async def test_evaluation_time_is_captured_after_endpoint_verification() -> None
             resource_id: str,
             revision_name: str,
             replica_name: str,
+            container_name: str,
+            container_id: str,
         ) -> bool:
             result = await super().verify(
                 resource_id=resource_id,
                 revision_name=revision_name,
                 replica_name=replica_name,
+                container_name=container_name,
+                container_id=container_id,
             )
             state["verified"] = True
             return result
@@ -465,6 +493,8 @@ async def test_reviewed_context_and_authenticator_bind_exact_monitor_evidence() 
 async def test_arm_verifier_binds_revision_to_exact_container_app() -> None:
     revision_name = "ca-example-operator--revision"
     replica_name = "ca-example-operator--revision-replica"
+    container_name = "container-caller"
+    container_id = "00000000-0000-0000-0000-000000000000"
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer test-token"
@@ -474,7 +504,14 @@ async def test_arm_verifier_binds_revision_to_exact_container_app() -> None:
             json={
                 "id": f"{CALLER_ID}/revisions/{revision_name}/replicas/{replica_name}",
                 "name": replica_name,
-                "properties": {"active": True},
+                "properties": {
+                    "containers": [
+                        {
+                            "name": container_name,
+                            "containerId": "containerd://00000000000000000000000000000000",
+                        }
+                    ]
+                },
             },
         )
 
@@ -491,6 +528,46 @@ async def test_arm_verifier_binds_revision_to_exact_container_app() -> None:
             resource_id=CALLER_ID,
             revision_name=revision_name,
             replica_name=replica_name,
+            container_name=container_name,
+            container_id=container_id,
         )
 
     assert verified is True
+
+
+async def test_arm_verifier_rejects_a_different_platform_container() -> None:
+    revision_name = "ca-example-operator--revision"
+    replica_name = "ca-example-operator--revision-replica"
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": f"{CALLER_ID}/revisions/{revision_name}/replicas/{replica_name}",
+                "name": replica_name,
+                "properties": {
+                    "containers": [
+                        {
+                            "name": "container-caller",
+                            "containerId": "containerd://20000000000000000000000000000002",
+                        }
+                    ]
+                },
+            },
+        )
+
+    identity = StaticWorkloadIdentity(
+        audience="https://management.azure.com/.default",
+        token="test-token",
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        verifier = AzureContainerAppRevisionVerifier(identity=identity, http_client=client)
+        verified = await verifier.verify(
+            resource_id=CALLER_ID,
+            revision_name=revision_name,
+            replica_name=replica_name,
+            container_name="container-caller",
+            container_id="00000000-0000-0000-0000-000000000000",
+        )
+
+    assert verified is False

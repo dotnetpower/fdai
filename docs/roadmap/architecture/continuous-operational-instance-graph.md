@@ -89,9 +89,12 @@ the delivery task exits, so no stale progress can survive the target boundary. A
 telemetry envelope exposes no direct conversion to projection
 input. Only the authenticated producer can perform that conversion after it verifies the exact
 envelope digest and independent source context under a finite positive deadline. The Azure Monitor source accepts
-only the matching structured Container Apps log schema, then re-reads each platform-stamped
-Resource ID, revision, and replica under its claimed exact Container App ARM ID. Only those independently bound
-endpoint witnesses convert through the existing canonical Resource ID mapping. The standalone channel edge never receives the caller
+only the matching structured Container Apps log schema. A non-empty platform-stamped Resource ID
+must match the claimed endpoint exactly. Environment-integrated Container Apps rows can leave that
+field empty; those rows remain eligible only when the platform-stamped app, revision, replica,
+container name, and container ID all match one container returned by the exact claimed ARM replica
+endpoint. Only those independently bound endpoint witnesses convert through the existing canonical
+Resource ID mapping. The standalone channel edge never receives the caller
 binding, so its requests on the shared topic cannot join a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
 newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
