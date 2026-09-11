@@ -29,9 +29,15 @@ class _Connection:
         self.rows = rows
         self.ingested_count = ingested_count
 
+    async def __aenter__(self) -> _Connection:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        del args
+
     async def execute(self, statement: str, params: object = None) -> _Cursor:
         del params
-        if "count(DISTINCT source_event_id)" in statement:
+        if "AS processed" in statement:
             return _Cursor([{"count": self.ingested_count}])
         return _Cursor(self.rows)
 
@@ -95,3 +101,22 @@ async def test_cursor_coverage_waits_for_every_event_id() -> None:
         scope_refs=("scope-a",),
         required_at=NOW - timedelta(minutes=1),
     )
+
+
+async def test_ingestion_fence_accepts_terminal_processing_receipts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.delivery.persistence import postgres_recent_resource_changes as module
+
+    connection = _Connection([], ingested_count=2)
+
+    async def connect(*args: object, **kwargs: object) -> _Connection:
+        del args, kwargs
+        return connection
+
+    monkeypatch.setattr(module.psycopg.AsyncConnection, "connect", connect)
+    fence = module.PostgresResourceChangeIngestionFence(
+        config=module.PostgresRecentResourceChangeReaderConfig(dsn="postgresql://unused")
+    )
+
+    assert await fence.contains(("event-1", "event-2"))

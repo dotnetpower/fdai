@@ -120,11 +120,8 @@ class PostgresResourceChangeIngestionFence:
                 (str(self._config.statement_timeout_ms),),
             )
             cursor = await connection.execute(
-                "SELECT count(DISTINCT source_event_id) AS count "
-                "FROM inventory_observation_journal "
-                "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
-                "AND source_event_id=ANY(%s::text[])",
-                (list(event_ids),),
+                _PROCESSED_EVENT_COUNT_SQL,
+                (list(event_ids), list(event_ids)),
             )
             row = await cursor.fetchone()
         return row is not None and int(row["count"]) == len(event_ids)
@@ -195,11 +192,8 @@ async def _cursor_coverage_complete(
         if not pending:
             continue
         ingested = await connection.execute(
-            "SELECT count(DISTINCT source_event_id) AS count "
-            "FROM inventory_observation_journal "
-            "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
-            "AND source_event_id=ANY(%s::text[])",
-            (pending,),
+            _PROCESSED_EVENT_COUNT_SQL,
+            (pending, pending),
         )
         ingested_row = await ingested.fetchone()
         if (
@@ -209,6 +203,16 @@ async def _cursor_coverage_complete(
         ):
             return False
     return True
+
+
+_PROCESSED_EVENT_COUNT_SQL = (
+    "SELECT count(*) AS count FROM ("
+    "SELECT source_event_id FROM inventory_observation_journal "
+    "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
+    "AND source_event_id=ANY(%s::text[]) "
+    "UNION SELECT source_event_id FROM inventory_change_event_receipt "
+    "WHERE source_event_id=ANY(%s::text[])) AS processed"
+)
 
 
 def _validate_read(
