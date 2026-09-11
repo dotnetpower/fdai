@@ -246,7 +246,32 @@ class PostgresInventoryDeltaProjector:
                         "inventory change resource or link endpoint type is outside "
                         "active snapshot coverage"
                     )
+                observations = normalized_inventory_observations(
+                    payload=payload,
+                    change=change,
+                    resource=resource,
+                    links=links,
+                    link_kinds=link_kinds,
+                    observation_kind=observation_kind,
+                    property_mask=property_mask,
+                    properties_complete=properties_complete,
+                    links_complete=links_complete,
+                    tombstone_confirmed=tombstone_confirmed,
+                    operation=operation,
+                    operation_status=operation_status,
+                    observed_at=observed_at,
+                    recorded_at=now.astimezone(UTC),
+                    active_scope_refs=tuple(str(value) for value in coverage["scopes"]),
+                )
                 if observed_at <= coverage["started_at"]:
+                    journal_result = await self._observation_journal.append_change(
+                        connection,
+                        observations,
+                    )
+                    await self._observation_journal.mark_overlay_projected(
+                        connection,
+                        watermark=journal_result.high_watermark,
+                    )
                     await _record_inventory_delta_receipt(
                         connection,
                         event_id=event_id,
@@ -267,23 +292,6 @@ class PostgresInventoryDeltaProjector:
                     snapshot_id=str(coverage["id"]),
                     links=links,
                     additional_resource=(resource_id, resource_type),
-                )
-                observations = normalized_inventory_observations(
-                    payload=payload,
-                    change=change,
-                    resource=resource,
-                    links=links,
-                    link_kinds=link_kinds,
-                    observation_kind=observation_kind,
-                    property_mask=property_mask,
-                    properties_complete=properties_complete,
-                    links_complete=links_complete,
-                    tombstone_confirmed=tombstone_confirmed,
-                    operation=operation,
-                    operation_status=operation_status,
-                    observed_at=observed_at,
-                    recorded_at=now.astimezone(UTC),
-                    active_scope_refs=tuple(str(value) for value in coverage["scopes"]),
                 )
                 journal_result = await self._observation_journal.append_change(
                     connection,
