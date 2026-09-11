@@ -98,7 +98,8 @@ Resource ID mapping. The standalone channel edge never receives the caller
 binding and uses a distinct durable outbox namespace, so it cannot claim an Operator API request
 or join its own requests on the shared topic into a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
-newest verified observation per exact endpoint pair before pair completeness is evaluated. A newer
+newest observation per exact endpoint pair before ARM replica verification and pair completeness
+are evaluated. A newer
 complete pair supersedes an older unpaired observation, while a newer unpaired observation remains
 pending for a 60-second trailing guard and then makes the source incomplete. The source reads one
 guard interval beyond the freshness window so cutoff boundaries do not split a retained pair.

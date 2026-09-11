@@ -349,12 +349,31 @@ async def test_recent_unpaired_witness_remains_pending_without_voiding_batch() -
 
 
 async def test_newer_complete_pair_supersedes_older_unpaired_witness() -> None:
+    class _RejectOldReplica(_EndpointVerifier):
+        def __init__(self) -> None:
+            super().__init__()
+            self.replica_names: list[str] = []
+
+        async def verify(
+            self,
+            *,
+            resource_id: str,
+            revision_name: str,
+            replica_name: str,
+            container_name: str,
+            container_id: str,
+        ) -> bool:
+            self.replica_names.append(replica_name)
+            return replica_name != "replica-old"
+
+    verifier = _RejectOldReplica()
     batch = await _source(
         LogQueryResult(
             rows=(
                 _row(
                     observation_id="sha256:" + "1" * 64,
                     observed_at=NOW - timedelta(seconds=120),
+                    platform_replica_name="replica-old",
                 ),
                 _row(
                     observation_id="sha256:" + "2" * 64,
@@ -366,12 +385,15 @@ async def test_newer_complete_pair_supersedes_older_unpaired_witness() -> None:
                     observed_at=NOW - timedelta(seconds=19),
                 ),
             )
-        )
+        ),
+        endpoint_verifier=verifier,
     ).collect(None)
 
     assert batch.complete is True
     assert len(batch.records) == 1
     assert batch.records[0].envelope.observation_id == "sha256:" + "2" * 64
+    assert "replica-old" not in verifier.replica_names
+    assert len(verifier.replica_names) == 2
 
 
 async def test_newer_unpaired_witness_hides_older_complete_pair_while_pending() -> None:
