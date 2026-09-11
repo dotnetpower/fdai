@@ -151,6 +151,27 @@ def test_composite_actions_require_reviewed_immutable_action_refs(
     ]
 
 
+def test_docker_actions_require_immutable_image_digests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "container.yml").write_text(
+        "steps:\n"
+        "  - uses: docker://example/tool:latest\n"
+        f"  - uses: docker://example/tool@sha256:{'a' * 64}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/container.yml must pin docker action image "
+        "example/tool:latest to a sha256 digest"
+    ]
+
+
 def test_workflow_accepts_reviewed_immutable_action_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
