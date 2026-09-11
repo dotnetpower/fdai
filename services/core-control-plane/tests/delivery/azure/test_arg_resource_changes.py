@@ -153,6 +153,7 @@ def _factory(
     *,
     cfg: AzureResourceChangeFeedConfig | None = None,
     vocab: ResourceTypeRegistry | None = None,
+    allowed_resource_types: frozenset[str] | None = None,
 ) -> tuple[AzureResourceChangeFeed, httpx.AsyncClient, ResourceTypeRegistry]:
     vocabulary = vocab if vocab is not None else _vocab()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -162,6 +163,7 @@ def _factory(
         http_client=client,
         config=cfg or _config(),
         clock=lambda: datetime(2026, 7, 10, 6, 59, tzinfo=UTC),
+        allowed_resource_types=allowed_resource_types,
     )
     return feed, client, vocabulary
 
@@ -348,6 +350,56 @@ async def test_ambiguous_arm_type_is_resolved_from_hydrated_kind() -> None:
         await client.aclose()
 
     assert result.events[0].payload["inventory_change"]["resource"]["type"] == "compute.function"
+
+
+@pytest.mark.parametrize(
+    ("allowed_type", "expected_count"),
+    [
+        ("compute.function", 1),
+        ("compute.web-app", 0),
+    ],
+)
+@pytest.mark.asyncio
+async def test_ambiguous_arm_type_is_filtered_after_kind_resolution(
+    allowed_type: str,
+    expected_count: int,
+) -> None:
+    arm_type = "Microsoft.Web/sites"
+    arm_id = _arm_id(arm_type, "function-filtered")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [_hydration_row(arm_id=arm_id, arm_type=arm_type, kind="functionapp")]
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+        allowed_resource_types=frozenset({allowed_type}),
+    )
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert len(result.events) == expected_count
+    if result.events:
+        assert (
+            result.events[0].payload["inventory_change"]["resource"]["type"] == "compute.function"
+        )
+    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 
 # ---------------------------------------------------------------------------

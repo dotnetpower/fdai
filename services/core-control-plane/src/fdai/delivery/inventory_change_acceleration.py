@@ -190,19 +190,21 @@ async def _forward_resource_changes(
     """Forward one bounded resource-change poll per configured scope."""
 
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    feed_vocabulary = _resource_change_registry(vocabulary, config.resource_types)
     published = 0
     for scope in config.scopes:
         async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
             feed = AzureResourceChangeFeed(
                 identity=identity,
-                resource_types=feed_vocabulary,
+                resource_types=vocabulary,
                 http_client=http_client,
                 config=AzureResourceChangeFeedConfig(
                     subscription_scope=scope,
                     arg_endpoint=config.management_endpoint,
                     audience=config.management_audience,
                     requests_per_second=config.arg_requests_per_second,
+                ),
+                allowed_resource_types=(
+                    frozenset(config.resource_types) if config.resource_types else None
                 ),
             )
             published += await forward_arg_resource_changes(
@@ -216,25 +218,6 @@ async def _forward_resource_changes(
                 ),
             )
     return published
-
-
-def _resource_change_registry(
-    vocabulary: ResourceTypeRegistry,
-    configured_types: tuple[str, ...],
-) -> ResourceTypeRegistry:
-    if not configured_types:
-        return vocabulary
-    configured = frozenset(configured_types)
-    missing = configured - vocabulary.ids()
-    if missing:
-        raise ValueError(
-            f"resource change feed types are absent from the vocabulary: {sorted(missing)}"
-        )
-    return ResourceTypeRegistry(
-        schema_version=vocabulary.schema_version,
-        version=vocabulary.version,
-        types=tuple(entry for entry in vocabulary if entry.id in configured),
-    )
 
 
 __all__ = [
