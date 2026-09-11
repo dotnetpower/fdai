@@ -488,6 +488,74 @@ def test_pre_push_rejects_tags_with_stale_release_controls(tmp_path: Path) -> No
     assert "tag 'v1' uses stale release controls" in result.stdout
 
 
+def test_pre_push_rejects_tag_only_publication_with_stale_tracking(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(["git", "init", "--quiet", "--bare", str(remote)], check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("first\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "first"], cwd=repository, check=True)
+    first_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", first_commit],
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_text("second\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "second"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "push",
+            str(remote),
+            "main:main",
+        ],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    hook_input = f"refs/tags/v1 {first_commit} refs/tags/v1 {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin", str(remote)],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "protected branch tracking state is stale for tag publication" in result.stdout
+
+
 def test_pre_push_rejects_a_tag_source_for_a_branch_destination(tmp_path: Path) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
