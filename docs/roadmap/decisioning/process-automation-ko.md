@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f8e52b407c3625f2da81785138cd6b4fd9da1787
+translation_source_sha: 75c0ae042129c6705701a634f5d1fe85fba2359b
 translation_revised: 2026-09-11
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -224,50 +224,13 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 
 `WorkflowRecoveryCoordinator`는 이 구성 요소들의 운영 조합입니다. 실패한 보상 제안 다이제스트, 보류 개정, 복구 액션 타입, 복구 페이로드 다이제스트, 대상 다이제스트, 소스 개정, 시도 번호에서 하나의 구별되는 시도 신원을 도출하며, 페이로드가 실패한 제안을 재사용하는 시도는 거부합니다. 그 시도에 정확히 결속된 별도의 변경 불가 사람 승인을 요구하며, 현재 승인, 정족수, 거부 없음, 살아 있는 만료 시각, 자기 승인 금지, 실행기 분리, 현재 결정 근거 허용 판정을 모두 증명하는 완전한 복구 허용 판정 이전에는 공급자 디스패치가 일어나지 않습니다. 승인이 없으면 기존 승인 저널을 통해 승인을 요청하고 거부 상태로 남습니다. 요청은 결코 승인이 아닙니다. 그다음 대상 fence 아래에서 배타적인 compare-and-set 진행 중 청구를 하나 확보하고 보류 개정을 다시 읽습니다. 따라서 청구와 디스패치 사이에 다시 발행된 보류는 오래된 상태로 판정되고, 동시 복구에서도 공급자는 정확히 한 번만 호출되며 경쟁에서 밀린 호출자는 보류를 다시 발행하지 않고 미확정 상태로 남습니다. 실행기가 자신의 논리 대상 잠금 안에서 안전장치 번들을 확정하므로, Workflow는 운영 디스패치가 보존한 확정 번들을 결속합니다. 보존은 자신의 공급자 호출을 명시하고 수명주기에 결속된 증적을 반환한 실행에만 적용되므로 거부되었거나 중복이거나 결과를 알 수 없는 실행은 그 번들을 제공하지 못하며, 번들이 없으면 시도는 효과를 주장하지 못하고 보류가 그대로 유지됩니다. 공급자 결과를 알 수 없는 디스패치는 의심 상태로 남아 보류를 유지하며, 새 디스패치가 아니라 이후 공급자 조정으로만 해소됩니다. 실행기 및 공급자 신원과 분리된 독립적인 권위 관측이 내용 주소 기반 완료 주장을 생성하고, 새 세대는 이전 주장을 원자적으로 대체합니다. 승인이 보호하는 보류 해제는 정확한 최신 성공 주장만 사용하며, 그 증적은 해제 이전에 알 수 있는 신원으로 색인한 변경 불가 조회 레코드에 기록합니다. 최종 처리는 Process 이벤트와 Saga 감사를 위한 완료 아웃박스를 준비하고, 정확한 완료 다이제스트와 함께 개정 번호 compare-and-set으로 Process 전이를 커밋한 뒤 아웃박스를 배출합니다. 보류 해제, Process compare-and-set, Saga 전달 사이의 비정상 종료는 영구 조회 레코드와 커밋된 완료 다이제스트로 복구하며, 재디스패치나 재해제를 하지 않습니다. 복구는 영구 저장된 보류가 동일한 해제 증적, 해제된 개정, fencing 세대, Process, 소비된 허용 판정을 여전히 증명하는지 검증하고 그 해제가 주장을 소비한 시점을 기준으로 최종 처리하므로, 뒤늦은 복구도 종결되는 반면 일치하지 않거나 다시 발행되었거나 철회된 계보는 실패 시 차단됩니다. 운영 보상 재개 호출자는 자신의 보류 확인보다 먼저 이 복구를 실행합니다. 해제된 보류는 보류 기반 복구 분기에서 보이지 않기 때문입니다. 복구가 보류를 해제했지만 전이를 커밋하지 못한 Process는 임의의 지연 이후 다음 재개에서 수리되고 Saga 전달도 함께 배출되므로, Process가 자신이 해제된 근거인 복구 완료 밖에서 종결되지 않습니다. 관측자 또는 관측 수집 결속이 없으면 조용한 미검증 효과가 아니라 이름이 부여된 `observer_unavailable` 준비 상태 결과로 보고하므로, 마무리되지 않은 배포가 증거 부재처럼 보이지 않고 드러납니다.
 
-이제 `recovery_attempt.py`는 복구 시도 신원, 사전 디스패치 청구, 승인/안전장치 증적 결속, 안정
-멱등성 키를 제공합니다. 승인 및 안전장치 증적은 영속 상태에서 복원할 때 내용 주소를 다시
-계산합니다. `recovery_effect_claim.py`는 외부 권위 검증, 신원 분리, 대체/폐기,
-내용 주소 주장을 제공합니다. `recovery_terminalization.py`는 완료 다이제스트, 증적 조회,
-outbox, 현재 Process revision과 효과 주장, 해제 증적, 정확한 완료 다이제스트를 결속하는
-최종 전환 보호, 재생 멱등성을 제공합니다. 복원된 각 outbox 항목은 변경 불가 내용 주소를
-검증합니다. `recovery_effect_ingress.py`는 독립적인 사후 효과 관측이 들어오는 버전이 지정된
-타입 안전 운영 수집 지점입니다. 이 경로는 관측자 경로에 속합니다. Huginn이 원시 외부 신호를
-`object.event`로 정규화하면, Heimdall이 Huginn이 생산했음을 입증하고 선언된 필드만 범위를 제한해
-자신이 소유한 `object.recovery-effect-observation` 토픽으로 중계하며, 전용
-`recovery-effect-observer` 소비자 그룹은 그 토픽만 읽습니다. 따라서 허가된 생산 주체는 Heimdall
-하나뿐이고 유일한 특권 실행기는 그 경로에서 어떤 토픽도 소유하지 않으므로, 공유 수신 토픽에
-완성된 페이로드를 발행하는 방식으로 수집 지점에 도달하는 생산자는 없습니다. 수집 지점은 지원되는
-`observation_schema_version`, 버스가 발행 시점에 인증했으며 유일한 특권 실행기가 아닌 허가된 생산
-주체, `authoritative_external` 권위 등급, 실행기 및
-공급자와 구별되는 관측자 신원, 영구 저장된 Process와 복구 단계 계보에서 해석한 시도 결속,
-대상 다이제스트, 공급자 증적, 효과 및 봉투 다이제스트, 신선도 정책 안에 있는 양수이며 미래가
-아닌 근거 구간, 모든 워터마크의 최종성, 명시적 봉쇄 필드를 증명한 뒤에야
-`StateStoreRecoveryEffectObservationJournal.record_independent_observation`으로 영구 저장합니다.
-하나의 시도와 공급자 증적에 대해 첫 권위 기록이 승리하고, 동일한 재전송은 중복이며, 이후에
-다른 내용을 보고하는 이벤트는 충돌이므로 중복 전달과 순서 뒤바뀜 모두 안전합니다. 영구 저장은
-여전히 검증이 아닙니다. 복구 경로는 완료 주장 이전에 영구 관측을 다시 읽고 신원 분리, 최종성,
-허용 판정을 다시 적용합니다.
-`hold_dispatch_fence.py`는 논리 대상 잠금
-안에서 활성/malformed/읽을 수 없는 보류에 대해 forward 디스패치를 fence합니다.
+`recovery_attempt.py`는 시도 신원, 배타적 사전 디스패치 청구, 별도 승인과 안전조건 근거, 안정 멱등성, 내용 주소 검증을 제공합니다. `recovery_effect_claim.py`는 권위 있는 외부 검증, 신원 분리, 단조 주장, 대체를 제공합니다. `recovery_terminalization.py`는 변경 불가 증적 조회, 독립 Process/Saga outbox 전달, 정확한 최종 보호, 복원 항목 검증을 제공합니다.
+`recovery_effect_ingress.py`는 Huginn이 정규화하고 Heimdall이 자신이 소유한 `object.recovery-effect-observation` 토픽으로 범위를 제한해 중계한 독립 사후 효과 관측만 받습니다. 수집 지점은 버전, 버스 인증 생산자, 신뢰된 외부 observer 신원, 시도와 대상, 공급자 증적, 효과와 봉투 digest, 신선도, 최종 watermark, containment를 검증합니다. 첫 권위 기록이 승리하고 동일 재전송은 중복이며 다른 후속 기록은 충돌입니다. 영속화 뒤에도 복구 경로가 신원 분리, 최종성, 허용 판정을 다시 검증합니다.
+`hold_dispatch_fence.py`는 Core 구현을 가져오지 않는 Isolated 실행기 동등 검사와 함께 논리 대상 잠금 안에서 활성, malformed, 읽을 수 없는 보류에 대한 forward 디스패치를 fence합니다.
 
-업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
-`StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과
-`ResponseOutcome`의 실행 신원이 일치할 때만 변경할 수 없는 증적을 기록하며, 성공 증적에는
-독립적으로 검증된 효과 근거도 필요합니다. 해석기는 제안 참조, 프로세스, 단계로
-증적을 읽으므로 재개 시 호출자가 제공한 상태나 증적 맥락을 신뢰하지 않습니다. Shadow,
-알 수 없음, 누락된, mismatched, unscorable 결과는 프로세스를 진행시킬 수 없습니다.
+업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 강제 적용 Action 신원이 `ResponseOutcome`과 일치할 때만 증적을 기록하고 성공에는 독립 효과 근거도 필요하며, 해석기는 정확한 제안, Process, 단계 계보를 사용합니다. Shadow, unknown, 누락, 불일치, 채점 불가 결과는 Process를 진행시키지 못합니다.
 
-`StateStoreAutomationHoldLedger`는 recovery-incomplete 프로세스가 종료되기 전에 대상 다이제스트 기반
-보류를 기록합니다. Headless 컨트롤 루프는 모든 ordinary 액션 전에 이 보류를 읽고 RiskGate는
-`deny`를 반환합니다. 보류 읽기가 실패하거나 malformed여도 거부합니다. 읽기 경로는 이 변경
-게이트를 사용하지 않습니다. 활성 보류를 소유한 프로세스와 작업 흐름 계보가 일치하는
-`compensate_*` 액션만 일반 안전성 및 권한 확인 파이프라인에 다시 진입할 수 있으며 RiskGate는
-이 복구를 사람 승인으로 제한합니다. 모든 보상 결과에는 계속 독립적인 효과
-근거가 필요합니다. 모든 증적을 검증한 뒤 조정기는 보류 중인 대상을 영구 복구 경로에
-넘깁니다. 승인이 사용된 release만 보류를 해제할 수 있고, 복구 경로가 최종 `status=compensated`
-전이를 소유합니다. 복구 시도 후에도 보류가 남아 있으면 다른 프로세스가 소유한 보류를 포함해
-`recovery_incomplete`로 종료합니다. Released 보류는 이후 프로세스를 위해 다시 발행할 수
-있으며 이전 프로세스는 새 보류를 release할 수 없습니다.
+`StateStoreAutomationHoldLedger`는 recovery-incomplete Process가 종료되기 전에 대상 digest 보류를 기록합니다. 일반 mutation은 활성, 실패, malformed 보류 읽기에서 거부되며 정확히 승인된 복구 계보만 사람 승인 상한으로 안전성 파이프라인에 재진입합니다. 모든 보상에는 독립 효과 근거가 필요합니다. 승인된 release만 보류를 지우고 복구 소유 `compensated` 전이를 허용하며, 남거나 새로 발행된 보류는 `recovery_incomplete`로 닫히고 이전 Process가 해제할 수 없습니다.
 
 `ChangeWindowWorkflowGuardEvaluator`는 정확한 프로세스 대상과 evaluation 시간으로
 `gate_ref: change-window.active`를 해석합니다. 다른 참조는 기존 가드 평가기에 delegate하므로
