@@ -44,7 +44,7 @@ background work gains durable ledgers and bounded failover.
 | P0-05 | Static deployment preflight | Implemented | Deterministic input, Terraform plan JSON, live Azure Policy/quota/identity/secret, and bounded runner TLS egress pass with hash-only evidence and fail-closed errors |
 | P0-06 | Remote plan submission | Implemented | Doctor-gated plan-only dispatch, exact-commit guard, private immutable binary plan, sanitized metadata status, digest/expiry, and bounded cleanup pass without target ids in transport artifacts |
 | P0-07 | Exact-plan apply | Implemented | Protected plan requires complete enforce-mode Policy/quota/identity/secret check coverage plus bounded egress evidence; separate immutable evidence digests are restored and verified before claim, approval-gated apply, convergence, migrations, health, and receipt |
-| P0-08 | Signed deployment bundle | Partial | Tracked allowlist, deterministic CycloneDX build/archive, external Ed25519 signing, double-build byte comparison, and verifier round-trip pass; approval-gated publication remains open |
+| P0-08 | Signed deployment bundle | Partial | Tracked allowlist, deterministic CycloneDX build/archive, external Ed25519 signing, and verifier round-trip pass; reproducible double-build verification and approval-gated publication remain open |
 | P0-09 | Local security audit | Implemented | Stable findings cover auth bypass, Entra config, execution flags, sandbox readiness, and config hygiene |
 | P0-10 | Narrow security auto-fix | Implemented | Only regular-file `0600` and parent-directory `0700` changes are allowed |
 | P0-11 | Bidirectional channel contract | Implemented | Bounded `InboundTurn` and thread-preserving `OutboundResponse` pass protocol tests |
