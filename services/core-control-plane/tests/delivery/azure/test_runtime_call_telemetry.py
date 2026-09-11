@@ -348,6 +348,57 @@ async def test_recent_unpaired_witness_remains_pending_without_voiding_batch() -
     assert batch.observed_at == NOW
 
 
+async def test_newer_complete_pair_supersedes_older_unpaired_witness() -> None:
+    batch = await _source(
+        LogQueryResult(
+            rows=(
+                _row(
+                    observation_id="sha256:" + "1" * 64,
+                    observed_at=NOW - timedelta(seconds=120),
+                ),
+                _row(
+                    observation_id="sha256:" + "2" * 64,
+                    observed_at=NOW - timedelta(seconds=20),
+                ),
+                _row(
+                    observation_id="sha256:" + "2" * 64,
+                    endpoint_role="target",
+                    observed_at=NOW - timedelta(seconds=19),
+                ),
+            )
+        )
+    ).collect(None)
+
+    assert batch.complete is True
+    assert len(batch.records) == 1
+    assert batch.records[0].envelope.observation_id == "sha256:" + "2" * 64
+
+
+async def test_newer_unpaired_witness_hides_older_complete_pair_while_pending() -> None:
+    batch = await _source(
+        LogQueryResult(
+            rows=(
+                _row(
+                    observation_id="sha256:" + "1" * 64,
+                    observed_at=NOW - timedelta(seconds=40),
+                ),
+                _row(
+                    observation_id="sha256:" + "1" * 64,
+                    endpoint_role="target",
+                    observed_at=NOW - timedelta(seconds=39),
+                ),
+                _row(
+                    observation_id="sha256:" + "2" * 64,
+                    observed_at=NOW - timedelta(seconds=10),
+                ),
+            )
+        )
+    ).collect(None)
+
+    assert batch.complete is True
+    assert batch.records == ()
+
+
 async def test_unverified_platform_revision_is_explicitly_incomplete() -> None:
     rows = (_row(), _row(endpoint_role="target"))
 

@@ -98,14 +98,18 @@ Resource ID mapping. The standalone channel edge never receives the caller
 binding and uses a distinct durable outbox namespace, so it cannot claim an Operator API request
 or join its own requests on the shared topic into a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
-newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
-pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do
-not split a retained pair. Incomplete-source coverage accepts only the fixed row-count keys and
+newest verified observation per exact endpoint pair before pair completeness is evaluated. A newer
+complete pair supersedes an older unpaired observation, while a newer unpaired observation remains
+pending for a 60-second trailing guard and then makes the source incomplete. The source reads one
+guard interval beyond the freshness window so cutoff boundaries do not split a retained pair.
+Incomplete-source coverage accepts only the fixed row-count keys and
 cannot carry provider identifiers or arbitrary source text. Exact replica verification uses at most four concurrent reads under one
 30-second deadline, and freshness is evaluated only after those reads finish. The
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
 scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
 verification receipt binds both endpoint Resource IDs and their active-generation Resource types.
+The KQL and parsed endpoint witness value are isolated in a focused contract module; collection,
+ARM verification, reduction, and authentication remain in the source adapter.
 The independent-service runtime-call transition guard admits only the fixed API and channel-edge
 namespace value for the matching Container App; swapped or arbitrary namespaces remain blocked.
 Local

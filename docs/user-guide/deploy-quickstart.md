@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: be61dc2068afd82c6d1295cd1eb6cc1650508e3d }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 82e7b0374fc06553ea1e0d5ab901fcb083abd18b }]
 ---
 
 # Deploy Quickstart
