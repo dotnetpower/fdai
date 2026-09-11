@@ -759,6 +759,7 @@ a:hover {
 .document-group-toggle:hover { text-decoration: underline; }
 .document-library-name,
 .document-library-meta { min-width: 0; }
+.document-library-name { display: grid; gap: 2px; }
 .document-library-name strong {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4497,6 +4498,7 @@ pre {
   .live-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
+  .live-health { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .live-swarm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .live-scope-warning { width: 100%; margin-left: 0; }
 }
@@ -4504,6 +4506,7 @@ pre {
   .live-kpis { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
+  .live-health { grid-template-columns: 1fr; }
   .live-scope-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .live-scope-warning { grid-column: 1 / -1; }
   .live-swarm { grid-template-columns: 1fr; }
