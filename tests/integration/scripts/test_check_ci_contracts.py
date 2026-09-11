@@ -239,6 +239,31 @@ def test_docker_actions_require_immutable_image_digests(
     ]
 
 
+def test_docker_action_manifests_require_immutable_external_images(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    mutable_dir = tmp_path / ".github" / "actions" / "mutable"
+    mutable_dir.mkdir(parents=True)
+    (mutable_dir / "action.yml").write_text(
+        "runs:\n  using: docker\n  image: 'docker://example/tool:latest'\n",
+        encoding="utf-8",
+    )
+    local_dir = tmp_path / ".github" / "actions" / "local"
+    local_dir.mkdir(parents=True)
+    (local_dir / "action.yml").write_text(
+        "runs:\n  using: docker\n  image: Dockerfile\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/actions/mutable/action.yml must pin Docker action image "
+        "example/tool:latest to a sha256 digest"
+    ]
+
+
 def test_workflow_accepts_reviewed_immutable_action_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
