@@ -6,8 +6,12 @@ lightweight checks, but its command and aggregate required status remain
 mandatory.
 """
 
+# ruff: noqa: S603, S607 - tests execute fixed repository hooks and Git commands.
+
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -95,10 +99,573 @@ def test_pre_push_runs_the_structural_gate_helper() -> None:
     assert "bash scripts/automation/run-pre-push-structural-gates.sh" in body
 
 
+def test_pre_push_validates_workflow_contract_changes_before_structural_gates() -> None:
+    body = _PRE_PUSH.read_text()
+
+    contract_check = "uv run --extra dev python scripts/quality/ci/check-ci-contracts.py"
+    regression_test = "tests/integration/scripts/test_check_ci_contracts.py"
+    structural_check = "bash scripts/automation/run-pre-push-structural-gates.sh"
+    assert ".github/workflows/*.yml" in body
+    assert contract_check in body
+    assert regression_test in body
+    assert body.index(contract_check) < body.index(structural_check)
+
+
+def test_pre_push_validates_a_new_branch_against_the_remote_default() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert 'remote_head="$(git symbolic-ref --quiet "refs/remotes/$remote_name/HEAD"' in body
+    assert 'base_ref="${remote_head:-refs/remotes/$remote_name/main}"' in body
+    assert 'range="$base_sha..$local_sha"' in body
+    assert "new; skipping sync + diff checks" not in body
+
+
+@pytest.mark.parametrize(
+    ("local_ref", "expected_message"),
+    (
+        ("refs/heads/topic", "refusing to validate a non-current branch push"),
+        ("HEAD", "unsupported push source ref 'HEAD'"),
+    ),
+)
+def test_pre_push_blocks_unowned_source_refs(
+    tmp_path: Path,
+    local_ref: str,
+    expected_message: str,
+) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    git_env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        env=git_env,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("value\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, env=git_env, check=True)
+    subprocess.run(
+        ["git", "commit", "--quiet", "-m", "initial"],
+        cwd=repository,
+        env=git_env,
+        check=True,
+    )
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        env=git_env,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = f"{local_ref} {commit} refs/heads/topic {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        env=git_env,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert expected_message in result.stdout
+
+
+def test_pre_push_rejects_a_tag_outside_protected_main(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("protected\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "protected"], cwd=repository, check=True)
+    protected_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", protected_commit],
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_text("unmerged\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "unmerged"], cwd=repository, check=True)
+    unmerged_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = f"refs/tags/v1 {unmerged_commit} refs/tags/v1 {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "tag 'v1' is not on refs/remotes/origin/main" in result.stdout
+
+
+def test_pre_push_classifies_a_branch_source_by_its_tag_destination(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("protected\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "protected"], cwd=repository, check=True)
+    protected_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", protected_commit],
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_text("unmerged\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "unmerged"], cwd=repository, check=True)
+    unmerged_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = f"refs/heads/main {unmerged_commit} refs/tags/v1 {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "tag 'v1' is not on refs/remotes/origin/main" in result.stdout
+
+
+def test_pre_push_rejects_rewriting_an_existing_tag(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("first\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "first"], cwd=repository, check=True)
+    first_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    tracked.write_text("second\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "second"], cwd=repository, check=True)
+    second_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", second_commit],
+        cwd=repository,
+        check=True,
+    )
+    hook_input = f"refs/tags/v1 {second_commit} refs/tags/v1 {first_commit}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "existing tag 'v1' is immutable" in result.stdout
+
+
+def test_pre_push_accepts_an_atomic_main_and_tag_update(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    structural = repository / "scripts" / "automation" / "run-pre-push-structural-gates.sh"
+    structural.parent.mkdir(parents=True)
+    structural.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    tracked = repository / "tracked.txt"
+    tracked.write_text("first\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "first"], cwd=repository, check=True)
+    first_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", first_commit],
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_text("second\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "second"], cwd=repository, check=True)
+    second_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = (
+        f"refs/heads/main {second_commit} refs/heads/main {first_commit}\n"
+        f"refs/tags/v-test {second_commit} refs/tags/v-test {'0' * 40}\n"
+    )
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "pre-push: OK" in result.stdout
+
+
+def test_pre_push_rejects_tags_with_stale_release_controls(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    workflow = repository / ".github" / "workflows" / "container-supply-chain.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("name: legacy\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "legacy"], cwd=repository, check=True)
+    legacy_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    workflow.write_text("name: protected\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(workflow)], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "protected"], cwd=repository, check=True)
+    protected_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", protected_commit],
+        cwd=repository,
+        check=True,
+    )
+    hook_input = f"refs/tags/v1 {legacy_commit} refs/tags/v1 {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "tag 'v1' uses stale release controls" in result.stdout
+
+
+def test_pre_push_rejects_tag_only_publication_with_stale_tracking(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(["git", "init", "--quiet", "--bare", str(remote)], check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("first\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "first"], cwd=repository, check=True)
+    first_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", first_commit],
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_text("second\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "second"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "push",
+            str(remote),
+            "main:main",
+        ],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    hook_input = f"refs/tags/v1 {first_commit} refs/tags/v1 {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin", str(remote)],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "protected branch tracking state is stale for tag publication" in result.stdout
+
+
+def test_pre_push_rejects_a_tag_source_for_a_branch_destination(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("value\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], cwd=repository, check=True)
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = f"refs/tags/v1 {commit} refs/heads/main {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "unsupported push source ref 'refs/tags/v1'" in result.stdout
+
+
+def test_pre_push_rejects_ref_deletion(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("value\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], cwd=repository, check=True)
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = f"(delete) {'0' * 40} refs/heads/main {commit}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "ref deletion requires explicit remote administration: refs/heads/main" in result.stdout
+
+
+def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert "mapfile -d '' -t changed_paths" in body
+    assert 'git diff --name-only -z --diff-filter=ACMRTD "$range"' in body
+    assert ".github/workflows/*.yaml" in body
+    assert ".github/actions/*" in body
+    assert 'for f in "${changed_paths[@]}"; do' in body
+
+
+def test_pre_push_lints_every_changed_python_file() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert "# 3. Fast ruff lint on every changed Python file." in body
+    assert '*.py) [ -f "$f" ] && py+=("$f")' in body
+    assert "src/*.py | tests/*.py" not in body
+
+
 def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
     body = _PRE_PUSH.read_text()
 
-    assert 'git worktree add --quiet --detach "$validation_root" HEAD' in body
+    assert 'git worktree add --quiet --detach "$validation_root" "$local_sha"' in body
     assert 'git worktree remove --force "$validation_root"' in body
     assert body.index("git worktree add --quiet --detach") < body.index(
         "# 2. Merge-conflict marker guard."

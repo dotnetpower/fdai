@@ -16,6 +16,7 @@ import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
 from scripts.automation.validation_queue_runner import (
+    STAGE_DEFERRED_STATUS,
     STAGE_ENVIRONMENT_STATUS,
     STAGE_KILLED_STATUS,
     _prepare_validation_worktree,
@@ -61,6 +62,18 @@ def test_validation_environment_puts_the_queue_toolchain_on_path(git_repo: Path)
     # reports the missing tool as a gate failure that the bisector blames on a commit.
     assert entries[-1] == str(paths.state_root / "venv" / "bin")
     assert entries[0] != str(paths.state_root / "venv" / "bin")
+
+
+def test_background_validation_clamps_inherited_worker_override(
+    git_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_VALIDATION_BACKGROUND", "1")
+    monkeypatch.setenv("FDAI_PYTEST_MAX_WORKERS", "8")
+
+    environment = validation_environment(queue_paths(git_repo))
+
+    assert environment["FDAI_PYTEST_MAX_WORKERS"] == "2"
 
 
 def test_a_missing_toolchain_is_an_environment_fault_not_a_failing_gate(tmp_path: Path) -> None:
@@ -580,6 +593,44 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     assert (state_root / "worktree").is_dir()
 
 
+def test_deferred_fast_stage_requires_structural_completion(
+    git_repo: Path,
+    tmp_path: Path,
+) -> None:
+    commit = _commit_change(git_repo)
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    verify = git_repo / "scripts" / "verify.sh"
+    verify.write_text(
+        verify.read_text(encoding="utf-8")
+        + '\n[[ "${FDAI_VALIDATION_TEST_DEFER:-0}" != 1 ]] || exit '
+        + str(STAGE_DEFERRED_STATUS)
+        + "\n",
+        encoding="utf-8",
+    )
+    assert _run(git_repo, "git", "add", "scripts/verify.sh").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "deferred verify").returncode == 0
+    commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_DEFER": "1"},
+    )
+
+    assert validated.returncode == 0, validated.stderr
+    receipt = json.loads(
+        (git_repo / ".git" / "fdai-validation-queue" / "receipts" / f"{commit}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fast_stage = next(stage for stage in receipt["stages"] if stage["name"] == "fast-gates")
+    assert fast_stage["status"] == 0
+    assert fast_stage["detail"] == "completed by structural-gates"
+
+
 def test_run_validates_every_reachable_pending_commit_in_one_snapshot(
     git_repo: Path, tmp_path: Path
 ) -> None:
@@ -655,6 +706,45 @@ def test_failed_batch_receipts_its_longest_passing_prefix(git_repo: Path, tmp_pa
     assert {receipt["validated_head"] for receipt in passing_receipts} == {commits[1]}
     assert all((state_root / "pending" / f"{commit}.json").exists() for commit in commits[2:])
     assert f"first failing pending commit is {commits[2][:12]}" in validated.stdout
+
+
+def test_large_failed_batch_bounds_localization_and_identifies_boundary(
+    git_repo: Path,
+    tmp_path: Path,
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "bounded-localization.log"
+    commits: list[str] = []
+    (git_repo / "broken.txt").write_text("broken\n", encoding="utf-8")
+    for index in range(65):
+        (git_repo / "source.txt").write_text(f"change {index}\n", encoding="utf-8")
+        paths = ["source.txt", *(["broken.txt"] if index == 0 else [])]
+        assert _run(git_repo, "git", "add", *paths).returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"change {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_VERIFY_FAIL_WITH_MARKER": "1",
+        },
+    )
+
+    assert validated.returncode != 0
+    assert "bounded localization probing boundary" in validated.stdout
+    assert f"first failing pending commit is {commits[0][:12]}" in validated.stdout
+    verify_runs = [
+        line
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("verify:")
+    ]
+    assert 1 < len(verify_runs) <= 7
 
 
 def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
@@ -1000,6 +1090,51 @@ def test_status_separates_reachable_and_elsewhere_pending(git_repo: Path) -> Non
     assert reachable in status.stdout
     assert elsewhere not in status.stdout
     assert f"{elsewhere} (elsewhere)" in verbose.stdout
+
+
+def test_status_bounds_reachable_output_and_reports_latest_timing(git_repo: Path) -> None:
+    commits: list[str] = []
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    for index in range(20):
+        (git_repo / "source.txt").write_text(f"status {index}\n", encoding="utf-8")
+        assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"status {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+    runs = git_repo / ".git" / "fdai-validation-queue" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    (runs / f"{commits[-1]}.json").write_text(
+        json.dumps(
+            {
+                "duration_seconds": 12.5,
+                "status": 0,
+                "stages": [
+                    {
+                        "cached": False,
+                        "duration_seconds": 7.25,
+                        "name": "fast-gates",
+                    },
+                    {
+                        "cached": True,
+                        "duration_seconds": 0,
+                        "name": "changed-tests",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = _run(git_repo, "python3", str(script), "status")
+    verbose = _run(git_repo, "python3", str(script), "status", "--all")
+
+    assert status.returncode == 0
+    assert len(status.stdout.splitlines()) == 3
+    assert f"oldest={commits[0]} newest={commits[-1]}" in status.stdout
+    assert "duration=12.5s stages=[fast-gates=7.2s, changed-tests=0.0s*]" in status.stdout
+    assert commits[1] not in status.stdout
+    assert all(commit in verbose.stdout for commit in commits)
 
 
 def test_status_and_commit_check_report_an_active_validator(git_repo: Path) -> None:

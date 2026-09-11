@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -81,6 +83,40 @@ def test_prepare_creates_private_keys_profile_and_inputs(tmp_path: Path, monkeyp
         assert (root / name).stat().st_mode & 0o777 == 0o600
 
 
+def test_prepare_overlaps_kit_staging_with_foundation_input_discovery(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "private"
+    kit_started = threading.Event()
+    discovery_started = threading.Event()
+
+    def ensure_kit(**_kwargs: object) -> SimpleNamespace:
+        kit_started.set()
+        assert discovery_started.wait(timeout=1)
+        return SimpleNamespace(manifest_digest="f" * 64)
+
+    def values(**kwargs: object) -> dict[str, object]:
+        discovery_started.set()
+        assert kit_started.wait(timeout=1)
+        return _values(**kwargs)
+
+    monkeypatch.setattr(genesis_prepare, "_ensure_kit", ensure_kit)
+    monkeypatch.setattr(genesis_prepare, "foundation_values", values)
+
+    prepared = genesis_prepare.prepare_genesis(
+        repository_root=ROOT,
+        repository="example/fdai",
+        source_commit=SOURCE,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        root=root,
+    )
+
+    assert prepared.kit_manifest_digest == "f" * 64
+
+
 def test_network_layout_avoids_existing_azure_and_local_ranges(monkeypatch) -> None:
     def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
         del cwd
@@ -99,3 +135,40 @@ def test_network_layout_avoids_existing_azure_and_local_ranges(monkeypatch) -> N
     assert endpoint.subnet_of(ops)
     assert bastion.subnet_of(ops)
     assert not runner.overlaps(endpoint)
+
+
+def test_foundation_input_discovery_runs_independent_queries_concurrently(monkeypatch) -> None:
+    barrier = threading.Barrier(3)
+
+    def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+        del arguments, cwd
+        barrier.wait(timeout=1)
+        return "24.04.202608010"
+
+    def account_name(**_kwargs: object) -> str:
+        barrier.wait(timeout=1)
+        return "stateexample"
+
+    def network(_repository_root: Path):
+        barrier.wait(timeout=1)
+        ops = ipaddress.ip_network("172.29.0.0/16")
+        subnets = list(ops.subnets(new_prefix=24))
+        return ops, subnets[1], subnets[2], next(subnets[3].subnets(new_prefix=26))
+
+    monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+    monkeypatch.setattr(genesis_prepare_inputs, "state_account_name", account_name)
+    monkeypatch.setattr(genesis_prepare_inputs, "network_layout", network)
+
+    values = genesis_prepare_inputs.foundation_values(
+        repository_root=ROOT,
+        source_commit=SOURCE,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region="koreacentral",
+        target_binding="b" * 64,
+        run_binding="c" * 64,
+        ssh_public_key="ssh-ed25519 " + "A" * 68,
+    )
+
+    assert values["state_storage_account_name"] == "stateexample"
+    assert values["ops_address_space"] == "172.29.0.0/16"

@@ -242,6 +242,7 @@ jobs:
           sparse-checkout: .github/actions/verify-protected-workflow-source
           path: .fdai-protected-workflow-verifier
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
@@ -1805,7 +1806,7 @@ jobs:
           fi
 
       - name: Publish integrated migration adoption evidence
-        if: ${{ always() && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integrated-service-migration-adoption-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}

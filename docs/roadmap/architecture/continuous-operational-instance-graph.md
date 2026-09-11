@@ -25,7 +25,10 @@ unbounded tight polling loop.
   observed fact.
 - **Deployment evidence:** Protected platform plan metadata is built by a focused repository
   module. Workflow YAML passes sealed inputs to it; neither the plan nor its receipt can establish
-  an observed graph fact.
+  an observed graph fact. Every status-overriding service-deployment run or action step executes
+  only after the protected-source verifier succeeds; cleanup, failure reporting, or artifact
+  retention never converts dispatch into observed evidence. The service workflow contract test
+  pins that verifier-success predicate on final rollback failure reporting.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph.

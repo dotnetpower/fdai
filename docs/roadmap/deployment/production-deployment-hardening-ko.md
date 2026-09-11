@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 57d6c4d7980d545e0cf8a6b5fa01cff6420ea6b5
+translation_source_sha: 7b930b7565eb8de2eb8efd5f27fb134d5c06f227
 translation_revised: 2026-09-11
 ---
 # 운영 배포 강화
@@ -32,6 +32,8 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 보호된 배포 인벤토리에서 상태를 재정의하는 모든 실행 단계로 검증기 성공 직접 결속을 확장했습니다. 여기에는 코호트 정리, 채널 비밀 정리, 프레임워크 컨텍스트 정리, 드리프트 근거 강제, 시스템 지식 요약 및 정리, 서비스 롤백 보고, 시나리오 근거와 권한 정리가 포함됩니다. | `current change`, 보호된 워크플로 인벤토리, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 이후 실패 처리 경로를 실행하고 검증기 실패 시 이후 실행 단계가 실행되지 않음을 입증하는 보호 실행을 보존합니다. |
+| 2026-09-11 | implemented | 플랫폼, 서비스 및 시나리오 워크플로에서 상태를 재정의하는 아티팩트 및 권한 정리 작업을 보호된 원본 검증기의 성공 결과에 직접 결속했습니다. 검증기가 실패하거나 건너뛰어지면 작업 권한을 가진 `always()` 작업으로 더 이상 진행할 수 없습니다. | `current change`, `.github/workflows/{deploy-dev,service-deploy,sre-demo-lab}.yml`, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 성공 후 아티팩트 게시와 권한 정리가 실행되고 검증기 실패 시 아무것도 게시하거나 변경하지 않음을 입증하는 보호 실행을 보존합니다. |
 | 2026-09-11 | implemented | 기준선 없는 Checkov와 Trivy 검사를 경로 범위가 지정된 `terraform-validate` 작업에 통합하면서 필수 CI 그래프를 20개 작업에서 13개 작업으로 줄였습니다. 스캐너 버전, 검토된 예외, 기준선을 사용하지 않는 정책 및 집계 `required` 결과는 그대로 유지합니다. | `current change`, `.github/workflows/ci.yml`, 집중 CI workflow 계약 테스트, `check-ci-contracts.py`, `actionlint` | 최소화된 필수 그래프의 보호된 main 실행이 한 번 통과한 뒤 새 배치를 런타임 검증 근거로 취급합니다. |
 | 2026-09-11 | implemented | Depth 2도 경계 parent를 root commit처럼 처리한 뒤, 수동 shallow-history secret scan을 checksum으로 고정한 gitleaks 8.24.3 exact-commit scan으로 교체했습니다. Push와 pull request는 고정 action과 이력 기반 범위를 유지합니다. 수동 exact-main 검증은 전체 이력을 `HEAD^..HEAD` 평가에만 사용하며 redaction과 같은 실패 코드를 적용합니다. | 수동 CI 실행 `34521958778`, `current change`, 집중 CI workflow 계약 검사, 로컬 exact-diff scan에서 누출 없음 | 정확한 보호 main SHA에서 수동으로 실행한 필수 검사 하나를 green으로 만듭니다. |
 | 2026-09-11 | implemented | 수동 CI secret scan의 depth 1이 merge snapshot을 root commit처럼 보이게 하여 현재 트리의 테스트 고정본을 새 추가분으로 보고한 뒤, 보호된 merge parent를 checkout에 포함했습니다. Depth 2는 저장소 전체 이력을 다시 열지 않고 정확한 merge diff를 보존합니다. | 수동 CI 실행 `34519737666`, `current change`, 집중 CI workflow 계약 검사 | 정확한 보호 main SHA에서 수동으로 실행한 필수 검사 하나를 green으로 만듭니다. |

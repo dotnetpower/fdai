@@ -398,15 +398,8 @@ def test_global_test_configuration_falls_back_to_full_suite(git_repo: Path) -> N
     _assert_full_suite(result)
 
 
-@pytest.mark.parametrize(
-    "path",
-    (
-        "services/core-control-plane/tests/scenarios/fixture.json",
-        "services/core-control-plane/src/fdai/delivery/operator_api/schema.json",
-    ),
-)
-def test_python_resource_change_falls_back_to_full_suite(git_repo: Path, path: str) -> None:
-    resource = git_repo / path
+def test_python_test_resource_change_falls_back_to_full_suite(git_repo: Path) -> None:
+    resource = git_repo / "services/core-control-plane/tests/scenarios/fixture.json"
     resource.parent.mkdir(parents=True, exist_ok=True)
     resource.write_text("{}\n", encoding="utf-8")
 
@@ -414,6 +407,39 @@ def test_python_resource_change_falls_back_to_full_suite(git_repo: Path, path: s
 
     assert result.returncode == 0, result.stderr
     _assert_full_suite(result)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    (
+        (
+            "services/core-control-plane/src/fdai/delivery/operator_api/schema.json",
+            "services/core-control-plane/tests",
+        ),
+        (
+            "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
+            "services/system-knowledge-service/tests",
+        ),
+    ),
+)
+def test_service_source_resource_selects_owner_tests(
+    git_repo: Path,
+    path: str,
+    expected: str,
+) -> None:
+    owner_tests = git_repo / expected
+    owner_tests.mkdir(parents=True, exist_ok=True)
+    (owner_tests / ".keep").write_text("\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", expected).returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add owner tests").returncode == 0
+    resource = git_repo / path
+    resource.parent.mkdir(parents=True, exist_ok=True)
+    resource.write_text("{}\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [expected]
 
 
 @pytest.mark.parametrize("path", sorted(_PYTHON_FILES))
@@ -826,6 +852,46 @@ def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
     assert len(commands) == 4
     assert all("-p scripts.quality.ci.pytest_shard" in command for command in commands)
     assert all(command.endswith(" " + " ".join(_ALL_TEST_ROOTS)) for command in commands)
+
+
+def test_run_parallelizes_a_broad_owned_directory(git_repo: Path) -> None:
+    test_root = _core_test(git_repo, "core", "risk_gate")
+    for index in range(20):
+        (test_root / f"test_case_{index}.py").write_text(
+            f"def test_case_{index}(): pass\n",
+            encoding="utf-8",
+        )
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add broad suite").returncode == 0
+    source = _core_source(git_repo, "core", "risk_gate", "new_rule.py")
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    args_file = git_repo / "uv-args.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "UV_ARGS_FILE": str(args_file),
+        "FDAI_DATABASE_URL": "",
+    }
+    env.pop("FDAI_PYTEST_MAX_WORKERS", None)
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    commands = args_file.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 4
+    assert all("-p scripts.quality.ci.pytest_shard" in command for command in commands)
+    assert all(
+        command.endswith(" services/core-control-plane/tests/core/risk_gate")
+        for command in commands
+    )
 
 
 def test_run_combines_included_failure_with_delta_and_external_cache(git_repo: Path) -> None:

@@ -67,7 +67,9 @@ STAGE_KILLED_STATUS = 124
 # A gate that could not run because its toolchain is absent says nothing about the snapshot.
 # It needs its own status, or the localizer blames a commit for a fault of the machine.
 STAGE_ENVIRONMENT_STATUS = 125
+STAGE_DEFERRED_STATUS = 126
 ENVIRONMENT_MARKER = "validation-environment: "
+FAILURE_LOCALIZATION_MAX_COMMITS = 32
 
 
 @dataclass
@@ -367,17 +369,19 @@ def _run_batch(
             if "fast-gates" in passed_stages:
                 verify_result = _cached_stage("fast-gates")
             else:
+                fast_environment = {
+                    **environment,
+                    "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
+                }
                 verify_result = _run_stage(
                     "fast-gates",
                     verify_arguments,
                     cwd=validation_root,
-                    env=environment,
+                    env=fast_environment,
                 )
-                if verify_result["status"] == 0:
-                    passed_stages.add("fast-gates")
-                    write_stage_cache(cache_path, cache_context, passed_stages)
             stages.append(verify_result)
-            if verify_result["status"] != 0:
+            verify_deferred = verify_result["status"] == STAGE_DEFERRED_STATUS
+            if verify_result["status"] not in {0, STAGE_DEFERRED_STATUS}:
                 status = int(verify_result["status"])
                 return status
         else:
@@ -403,6 +407,12 @@ def _run_batch(
         if structural_result["status"] != 0:
             status = int(structural_result["status"])
             return status
+        if mode == "fast":
+            if verify_deferred:
+                verify_result["status"] = 0
+                verify_result["detail"] = "completed by structural-gates"
+            passed_stages.add("fast-gates")
+            write_stage_cache(cache_path, cache_context, passed_stages)
         if mode == "fast":
             if "changed-tests" in passed_stages:
                 changed_result = _cached_stage("changed-tests")
@@ -499,11 +509,13 @@ def _localize_failure(
     history_commits: list[str],
     positions: dict[str, int],
     status: int,
+    max_probes: int | None = None,
 ) -> int:
     """Receipt the longest passing prefix of a failed batch and name the culprit."""
     passing = 0
     failing = len(selected)
-    while failing - passing > 1:
+    probes = 0
+    while failing - passing > 1 and (max_probes is None or probes < max_probes):
         middle = (passing + failing) // 2
         head = selected[middle - 1]
         print(
@@ -522,6 +534,28 @@ def _localize_failure(
         else:
             failing = middle
             status = result
+        probes += 1
+    if failing - passing > 1:
+        boundary_head = selected[passing]
+        print(
+            "validation-queue: bounded localization probing boundary "
+            f"{boundary_head[:12]} after {probes} bisection probe(s)"
+        )
+        boundary_result = _run_batch(
+            paths,
+            mode,
+            head=boundary_head,
+            selected=[boundary_head],
+            history_commits=history_commits[: positions[boundary_head] + 1],
+        )
+        if boundary_result == 0:
+            print(
+                f"validation-queue: receipted boundary {boundary_head[:12]}; "
+                "remaining failure window will continue on the next run"
+            )
+            return status
+        status = boundary_result
+        failing = passing + 1
     print(
         f"validation-queue: first failing pending commit is {selected[passing][:12]}; "
         f"{passing} earlier commit(s) received receipts"
@@ -562,6 +596,7 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         history_commits=history_commits,
         positions=positions,
         status=status,
+        max_probes=5 if len(selected) > FAILURE_LOCALIZATION_MAX_COMMITS else None,
     )
 
 

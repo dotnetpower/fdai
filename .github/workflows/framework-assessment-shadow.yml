@@ -44,6 +44,7 @@ jobs:
           sparse-checkout: .github/actions/verify-protected-workflow-source
           path: .fdai-protected-workflow-verifier
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha }}
@@ -188,7 +189,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Remove live context files
-        if: always()
+        if: always() && steps.protected-source.outcome == 'success'
         run: |
           rm -f -- \
             "$RUNNER_TEMP/framework-assessment-hierarchy-query.json" \

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: e5118028743c866f4a739130784b24700951f9bd }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4e8cd6e5f64de584f443e42285de2d10bb30cbe9 }]
 ---
 
 # Deploy Quickstart
@@ -37,7 +37,9 @@ Executor.
 artifacts, and displays each value-free plan before asking for the exact checkpoint name. One
 invocation can continue through runner image, Foundation, enrollment, state handoff, Entra,
 repository configuration, protected application apply, and a second zero-change plan. It never
-interprets silence as approval.
+interprets silence as approval. Independent artifact, discovery, provider, policy-probe, Entra,
+and image-supply work uses bounded concurrency. Approvals, applies, cleanup, state, and handoffs
+remain serial.
 
 The lower-level Genesis router displays 15 numbered stages, exact progress, skipped-stage counts,
 and remaining work. Its `--apply --allow-probe-resources` flags authorize only missing-provider

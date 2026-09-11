@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 from pathlib import Path
 from types import ModuleType
@@ -71,10 +72,16 @@ def test_action_refs_reject_stale_and_unknown_remote_actions(
     module = _load_contract_module()
     workflow_dir = tmp_path / ".github" / "workflows"
     workflow_dir.mkdir(parents=True)
+    local_action_dir = tmp_path / ".github" / "actions" / "local"
+    local_action_dir.mkdir(parents=True)
+    (local_action_dir / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps: []\n",
+        encoding="utf-8",
+    )
     (workflow_dir / "ci.yml").write_text(
         "steps:\n"
-        "  - uses: actions/checkout@v4\n"
-        "  - uses: example/unreviewed-action@v1\n"
+        "  - uses : 'actions/checkout@v4'\n"
+        '  - uses: "example/unreviewed-action@v1"\n'
         "  - uses: ./.github/actions/local\n",
         encoding="utf-8",
     )
@@ -110,6 +117,218 @@ def test_all_workflows_require_reviewed_immutable_action_refs(
         "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a with trusted version comment # v7.0.1",
         ".github/workflows/deploy-dev.yml uses unapproved remote action "
         f"example/unreviewed-action@{'a' * 40}",
+    ]
+
+
+def test_workflow_layout_rejects_ambiguous_and_indirect_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text("permissions: {}\n", encoding="utf-8")
+    (workflow_dir / "ci.yaml").write_text("permissions: {}\n", encoding="utf-8")
+    nested = workflow_dir / "nested"
+    nested.mkdir()
+    (nested / "ignored.yml").write_text("permissions: {}\n", encoding="utf-8")
+    (workflow_dir / "linked.yml").symlink_to(workflow_dir / "ci.yml")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_workflow_layout() == [
+        ".github/workflows/linked.yml must not be a symbolic link",
+        "workflow stem 'ci' is ambiguous: ci.yaml, ci.yml",
+        ".github/workflows/nested/ignored.yml is nested; workflows must be top-level",
+    ]
+
+
+def test_workflows_require_explicit_top_level_permissions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "implicit.yml").write_text(
+        "jobs:\n  test:\n    permissions:\n      contents: read\n",
+        encoding="utf-8",
+    )
+    (workflow_dir / "explicit.yml").write_text("permissions: {}\njobs: {}\n", encoding="utf-8")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_explicit_workflow_permissions() == [
+        ".github/workflows/implicit.yml must declare top-level permissions explicitly"
+    ]
+
+
+def test_yaml_workflows_require_reviewed_immutable_action_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "example.yaml").write_text(
+        "steps:\n  - uses: actions/checkout@v4\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/example.yaml must pin actions/checkout to an immutable "
+        "40-character SHA; found v4"
+    ]
+
+
+def test_composite_actions_require_reviewed_immutable_action_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    action_dir = tmp_path / ".github" / "actions" / "example"
+    action_dir.mkdir(parents=True)
+    (action_dir / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps:\n    - uses: actions/checkout@v4\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/actions/example/action.yml must pin actions/checkout to an immutable "
+        "40-character SHA; found v4"
+    ]
+
+
+def test_local_actions_must_use_an_audited_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    reviewed_dir = tmp_path / ".github" / "actions" / "reviewed"
+    reviewed_dir.mkdir(parents=True)
+    (reviewed_dir / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps: []\n",
+        encoding="utf-8",
+    )
+    (workflow_dir / "local.yml").write_text(
+        "steps:\n"
+        "  - uses: ./tools/unreviewed-action\n"
+        "  - uses: ./.github/actions/../escaped\n"
+        "  - uses: ./.github/actions/reviewed\n"
+        "  - uses: ./.fdai-protected-workflow-verifier/.github/actions/"
+        "verify-protected-workflow-source\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/local.yml uses local action without an audited regular manifest: "
+        "./tools/unreviewed-action",
+        ".github/workflows/local.yml uses local action without an audited regular manifest: "
+        "./.github/actions/../escaped",
+    ]
+
+
+def test_local_action_symlinks_cannot_escape_the_audited_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    target = tmp_path / "tools" / "outside-action"
+    target.mkdir(parents=True)
+    (target / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps: []\n",
+        encoding="utf-8",
+    )
+    action_dir = tmp_path / ".github" / "actions"
+    action_dir.mkdir(parents=True)
+    (action_dir / "reviewed").symlink_to(target, target_is_directory=True)
+    (workflow_dir / "local.yml").write_text(
+        "steps:\n  - uses: ./.github/actions/reviewed\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/local.yml uses local action without an audited regular manifest: "
+        "./.github/actions/reviewed"
+    ]
+
+
+def test_docker_actions_require_immutable_image_digests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "container.yml").write_text(
+        "steps:\n"
+        "  - uses : 'docker://example/tool:latest'\n"
+        f'  - uses: "docker://example/tool@sha256:{"a" * 64}"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/container.yml must pin docker action image "
+        "example/tool:latest to a sha256 digest"
+    ]
+
+
+def test_docker_action_manifests_require_immutable_external_images(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    mutable_dir = tmp_path / ".github" / "actions" / "mutable"
+    mutable_dir.mkdir(parents=True)
+    (mutable_dir / "action.yml").write_text(
+        "runs:\n  using: docker\n  image: 'docker://example/tool:latest'\n",
+        encoding="utf-8",
+    )
+    local_dir = tmp_path / ".github" / "actions" / "local"
+    local_dir.mkdir(parents=True)
+    (local_dir / "action.yml").write_text(
+        "runs:\n  using: docker\n  image: Dockerfile\n",
+        encoding="utf-8",
+    )
+    (local_dir / "Dockerfile").write_text(
+        f"FROM example/base@sha256:{'a' * 64}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/actions/mutable/action.yml must pin Docker action image "
+        "example/tool:latest to a sha256 digest"
+    ]
+
+
+def test_local_docker_actions_require_digest_pinned_base_images(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    action_dir = tmp_path / ".github" / "actions" / "local"
+    action_dir.mkdir(parents=True)
+    (action_dir / "action.yml").write_text(
+        "runs:\n  using: docker\n  image: Dockerfile\n",
+        encoding="utf-8",
+    )
+    (action_dir / "Dockerfile").write_text(
+        "ARG DIGEST\nFROM example/base@sha256:${DIGEST} AS build\nFROM build\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/actions/local/Dockerfile base image example/base@sha256:${DIGEST} "
+        "must be digest-pinned"
     ]
 
 
@@ -231,6 +450,27 @@ def test_destroy_helper_refuses_to_deallocate_an_ephemeral_runner() -> None:
         "jobs:\n  deploy:\n    runs-on: self-hosted\n",
         "jobs:\n  smoke:\n    runs-on:\n      - self-hosted\n      - custom\n",
         "permissions:\n  id-token: write\n",
+        'permissions:\n  contents: "write"\n',
+        'jobs:\n  deploy:\n    runs-on: "self-hosted"\n',
+        "jobs:\n  deploy:\n    runs-on: ${{ vars.RUNNER_LABEL }}\n",
+        "jobs:\n  deploy:\n    runs-on:\n      group: fdai-deploy\n      labels: linux\n",
+        "jobs:\n  deploy:\n    runs-on: fdai-deploy\n",
+        "env:\n"
+        "  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}\n"
+        "steps:\n"
+        "  - run: az deployment group create\n",
+        "env:\n"
+        "  DEPLOY_TOKEN: ${{ secrets[ 'DEPLOY_TOKEN' ] }}\n"
+        "steps:\n"
+        "  - run: bash publish.sh\n",
+        "env:\n"
+        "  DEPLOY_TOKEN: ${{ secrets[inputs.secret_name] }}\n"
+        "steps:\n"
+        "  - run: bash publish.sh\n",
+        "env:\n  DEPLOY_TOKEN: ${{ secrets ['DEPLOY_TOKEN'] }}\nsteps:\n  - run: bash publish.sh\n",
+        "env:\n  DEPLOY_TOKEN: ${{ secrets . DEPLOY_TOKEN }}\nsteps:\n  - run: bash publish.sh\n",
+        "env:\n  ALL_SECRETS: ${{ toJSON(secrets) }}\nsteps:\n  - run: bash publish.sh\n",
+        "steps:\n  - run: az deployment group create\n",
         "steps:\n  - run: terraform apply saved.plan\n",
         "steps:\n  - run: terraform destroy -auto-approve\n",
     ),
@@ -282,17 +522,20 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
     workflow_dir.mkdir(parents=True)
     action_dir = tmp_path / ".github" / "actions" / "verify-protected-workflow-source"
     action_dir.mkdir(parents=True)
-    action_dir.joinpath("action.yml").write_text(
-        "\n".join(
-            (
-                "+refs/heads/main:refs/remotes/origin/main",
-                'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
-                '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
-                '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
-                "diff --quiet",
-            )
-        ),
-        encoding="utf-8",
+    action_content = "\n".join(
+        (
+            "+refs/heads/main:refs/remotes/origin/main",
+            'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+            '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+            '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+            "diff --quiet",
+        )
+    )
+    action_dir.joinpath("action.yml").write_text(action_content, encoding="utf-8")
+    monkeypatch.setattr(
+        module,
+        "PROTECTED_WORKFLOW_ACTION_SHA256",
+        hashlib.sha256(action_content.encode("utf-8")).hexdigest(),
     )
     workflow_dir.joinpath("custom-operation.yml").write_text(
         "on:\n"
@@ -311,6 +554,7 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
         "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n"
         "        with:\n"
         "          ref: main\n"
+        "          fetch-depth: 1\n"
         "          sparse-checkout: .github/actions/verify-protected-workflow-source\n"
         "          path: .fdai-protected-workflow-verifier\n"
         "      - name: Untrusted action\n"
@@ -330,8 +574,497 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
     errors = module._validate_privileged_workflow_guards()
 
     assert errors == [
-        ".github/workflows/custom-operation.yml executes an additional action before its "
-        "protected-source guard"
+        ".github/workflows/custom-operation.yml job apply must start with the exact "
+        "protected-source checkout and verifier steps"
+    ]
+
+
+def test_privileged_jobs_require_their_own_guard_or_guarded_dependency() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "permissions": {"contents": "read"},
+        "jobs": {
+            "guarded": {
+                "runs-on": "ubuntu-24.04",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            },
+            "unguarded": {
+                "runs-on": "self-hosted",
+                "steps": [{"run": "bash deploy.sh"}],
+            },
+        },
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml privileged job unguarded has no direct guarded "
+        "needs dependency"
+    ]
+
+
+def test_secret_bearing_jobs_require_a_direct_guarded_dependency() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "guarded": {
+                "runs-on": "ubuntu-24.04",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            },
+            "publish": {
+                "runs-on": "ubuntu-24.04",
+                "env": {"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"},
+                "steps": [{"run": "curl https://example.com"}],
+            },
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml privileged job publish has no direct guarded "
+        "needs dependency"
+    ]
+
+
+def test_protected_verifier_cannot_be_non_blocking() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "continue-on-error": True,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply has an invalid protected-source verifier"
+    ]
+
+
+def test_guarded_job_cannot_continue_after_verifier_failure() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "continue-on-error": "${{ inputs.ignore_failure }}",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply cannot continue after verifier failure"
+    ]
+
+
+def test_protected_verifier_rejects_job_containers() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "container": {"image": "example/tool:latest"},
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply cannot run its verifier in a job "
+        "container or with service containers"
+    ]
+
+
+def test_action_steps_require_explicit_verifier_success() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "permissions": {"contents": "read", "issues": "write"},
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "id": "protected-source",
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                    {
+                        "if": "always()",
+                        "uses": (
+                            "actions/github-script@"
+                            f"{module.APPROVED_ACTIONS['actions/github-script'][0]}"
+                        ),
+                    },
+                ],
+            }
+        },
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply can execute an action after verifier failure"
+    ]
+
+
+def test_guard_success_must_be_a_required_conjunction() -> None:
+    module = _load_contract_module()
+
+    assert not module.workflow_security.condition_requires_guard_success(
+        "always() && (steps.guard.outcome == 'success' || true)",
+        "guard",
+    )
+    assert module.workflow_security.condition_requires_guard_success(
+        "always() && steps.guard.outcome == 'success' && inputs.publish",
+        "guard",
+    )
+
+
+def test_privileged_execution_cannot_override_verifier_failure() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    guarded_steps = [
+        {
+            "name": "Checkout protected workflow verifier",
+            "uses": f"actions/checkout@{checkout_ref}",
+            "with": {
+                "ref": "main",
+                "fetch-depth": 1,
+                "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                "path": ".fdai-protected-workflow-verifier",
+            },
+        },
+        {
+            "name": "Verify protected workflow source",
+            "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+            "with": {
+                "target-commit-sha": "${{ github.sha }}",
+                "workflow-path": ".github/workflows/example.yml",
+                "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                "github-token": "${{ github.token }}",
+            },
+        },
+        {
+            "if": "always()",
+            "run": "curl https://example.com",
+        },
+    ]
+    document = {
+        "jobs": {
+            "guard": {"runs-on": "self-hosted", "steps": guarded_steps},
+            "dependent": {
+                "needs": "guard",
+                "if": "always()",
+                "runs-on": "self-hosted",
+                "steps": [{"run": "bash deploy.sh"}],
+            },
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
+        ".github/workflows/example.yml privileged job dependent can override guarded "
+        "dependency failure",
+    ]
+
+
+def test_status_predicates_allow_only_required_success() -> None:
+    module = _load_contract_module()
+
+    assert module.workflow_security.condition_overrides_guard_failure("success() != true")
+    assert module.workflow_security.condition_overrides_guard_failure("! success()")
+    assert not module.workflow_security.condition_overrides_guard_failure(
+        "success() && inputs.publish"
+    )
+
+
+def test_verifier_failure_and_intermediate_jobs_cannot_authorize_execution() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "guard": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "id": "guard",
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                    {
+                        "if": "! success() && steps.checkout.outcome == 'success'",
+                        "run": "terraform apply saved.plan",
+                    },
+                ],
+            },
+            "bridge": {
+                "needs": "guard",
+                "if": "always()",
+                "runs-on": "ubuntu-24.04",
+                "steps": [{"run": "echo bridge"}],
+            },
+            "deploy": {
+                "needs": "bridge",
+                "runs-on": "self-hosted",
+                "steps": [{"run": "bash deploy.sh"}],
+            },
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
+        ".github/workflows/example.yml privileged job deploy has no direct guarded "
+        "needs dependency",
+    ]
+
+
+def test_post_verifier_steps_cannot_launder_guard_failure() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "guard": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "id": "protected-source",
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                    {
+                        "id": "bridge",
+                        "if": "always()",
+                        "run": "echo bridge",
+                    },
+                    {
+                        "if": "always() && steps.bridge.outcome == 'success'",
+                        "run": "docker push example/image",
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
+    ]
+
+
+def test_protected_verifier_rejects_literal_target_commits() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "a" * 40,
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply has an invalid protected-source verifier"
+    ]
+
+
+def test_protected_verifier_source_requires_the_reviewed_digest() -> None:
+    module = _load_contract_module()
+    inert_fragments = "\n".join(
+        (
+            "# workflow source ref must resolve to protected main or an immutable release tag",
+            "# +refs/heads/main:refs/remotes/origin/main",
+            '# merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+            '# "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+            '# "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+            "# diff --quiet",
+        )
+    )
+
+    assert module._protected_action_source_errors(inert_fragments) == [
+        "verify-protected-workflow-source/action.yml digest differs from the reviewed source"
     ]
 
 
@@ -346,10 +1079,14 @@ def test_event_scoped_issue_mutation_does_not_require_repository_guard(
         "on:\n"
         "  issues:\n"
         "permissions:\n"
+        "  contents: read\n"
         "  issues: write\n"
         "jobs:\n"
         "  validate:\n"
-        "    if: github.event_name == 'issues' && github.event.issue.pull_request == null\n"
+        "    if: >-\n"
+        "      github.event_name == 'issues' &&\n"
+        "      github.event.issue.pull_request == null &&\n"
+        "      github.actor != 'github-actions[bot]'\n"
         "    steps:\n"
         "      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0\n",
         encoding="utf-8",
@@ -357,6 +1094,134 @@ def test_event_scoped_issue_mutation_does_not_require_repository_guard(
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_privileged_workflow_guards() == []
+
+
+def test_issue_event_exemption_rejects_mixed_dispatch_workflows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "mixed-policy.yml").write_text(
+        "on:\n"
+        "  issues:\n"
+        "  workflow_dispatch:\n"
+        "permissions:\n"
+        "  contents: read\n"
+        "  issues: write\n"
+        "jobs:\n"
+        "  validate:\n"
+        "    if: >-\n"
+        "      github.event_name == 'issues' &&\n"
+        "      github.event.issue.pull_request == null &&\n"
+        "      github.actor != 'github-actions[bot]'\n"
+        "    steps:\n"
+        "      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    errors = module._validate_privileged_workflow_guards()
+
+    assert errors
+    assert any("mixed-policy.yml" in error for error in errors)
+
+
+def test_dispatch_guards_are_parsed_from_triggers_and_root_jobs() -> None:
+    module = _load_contract_module()
+    document = yaml.safe_load(
+        "on:\n"
+        "  workflow_dispatch :\n"
+        "    inputs: {}\n"
+        "jobs:\n"
+        "  apply:\n"
+        "    runs-on: self-hosted\n"
+        "    notes: github.ref == 'refs/heads/main'\n"
+    )
+
+    assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml workflow_dispatch must declare an exact commit_sha input",
+        ".github/workflows/example.yml root job apply must restrict dispatch to protected main",
+    ]
+
+
+@pytest.mark.parametrize(
+    "trigger",
+    (
+        "on: workflow_dispatch\n",
+        "on: [workflow_dispatch]\n",
+    ),
+)
+def test_dispatch_shorthand_still_requires_exact_commit_input(trigger: str) -> None:
+    module = _load_contract_module()
+    document = yaml.safe_load(
+        trigger + "jobs:\n  apply:\n    if: github.ref == 'refs/heads/main'\n"
+    )
+
+    assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml workflow_dispatch must declare an exact commit_sha input"
+    ]
+
+
+def test_dispatch_guard_rejects_a_ref_tautology() -> None:
+    module = _load_contract_module()
+    document = yaml.safe_load(
+        "on:\n"
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      commit_sha:\n"
+        "        required: true\n"
+        "jobs:\n"
+        "  apply:\n"
+        "    if: github.ref != 'refs/heads/main' || github.ref == 'refs/heads/main'\n"
+    )
+
+    assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml root job apply must restrict dispatch to protected main"
+    ]
+
+
+def test_dispatch_guard_accepts_main_bound_nested_alternatives() -> None:
+    module = _load_contract_module()
+
+    assert module.workflow_security.dispatch_condition_is_protected(
+        "github.ref == 'refs/heads/main' && "
+        "(inputs.operation == 'apply' || inputs.operation == 'plan')",
+        {"workflow_dispatch"},
+    )
+
+
+def test_dispatch_guard_rejects_nested_ref_alternatives() -> None:
+    module = _load_contract_module()
+
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "github.event_name == 'workflow_dispatch' && "
+        "(github.ref == 'refs/heads/main' || inputs.force)",
+        {"workflow_dispatch"},
+    )
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "(github.event_name == 'push' || inputs.force)",
+        {"workflow_dispatch"},
+    )
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "github.event_name == 'push' || (true || github.event_name == 'push')",
+        {"workflow_dispatch"},
+    )
+
+
+def test_quoted_parentheses_cannot_hide_condition_alternatives() -> None:
+    module = _load_contract_module()
+
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "github.ref == 'refs/heads/main' && contains('(', github.ref) || "
+        "github.ref != 'refs/heads/main'",
+        {"workflow_dispatch"},
+    )
+    assert not module.workflow_security.condition_requires_guard_success(
+        "always() && steps.guard.outcome == 'success' && contains('(', github.ref) || true",
+        "guard",
+    )
 
 
 def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
@@ -545,6 +1410,56 @@ def test_ci_supports_exact_main_revalidation() -> None:
     assert '--log-opts="HEAD^..HEAD"' in workflow
 
 
+def test_ci_cancels_only_superseded_pull_request_runs() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert (
+        "group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}" in workflow
+    )
+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
+
+
+def test_ci_concurrency_contract_rejects_cancellable_main_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(
+        "concurrency:\n"
+        "  group: ci-${{ github.workflow }}-${{ github.ref }}\n"
+        "  cancel-in-progress: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    errors = module._validate_ci_concurrency()
+
+    assert len(errors) == 2
+    assert all("evidence-preserving concurrency contract" in error for error in errors)
+
+
+def test_ci_concurrency_contract_ignores_commented_fragments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(
+        "# group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}\n"
+        "# cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n"
+        "jobs: {}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert len(module._validate_ci_concurrency()) == 2
+
+
 def test_shipped_workflows_satisfy_security_contracts() -> None:
     module = _load_contract_module()
 
@@ -554,11 +1469,10 @@ def test_shipped_workflows_satisfy_security_contracts() -> None:
 
 def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
     module = _load_contract_module()
-    workflow_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
     privileged = {
         path.name
-        for path in workflow_dir.glob("*.yml")
+        for path in module._workflow_paths()
         if module._is_privileged_workflow(path.read_text(encoding="utf-8"))
     }
 
@@ -924,7 +1838,7 @@ def test_container_scan_blocks_all_medium_high_and_critical_vulnerabilities() ->
         Path(__file__).resolve().parents[3] / ".github" / "workflows" / "container-supply-chain.yml"
     ).read_text(encoding="utf-8")
 
-    assert workflow.count("--severity MEDIUM,HIGH,CRITICAL") == 2
+    assert workflow.count("--severity MEDIUM,HIGH,CRITICAL") == 3
     assert "--ignore-unfixed" not in workflow
 
 
@@ -942,6 +1856,44 @@ def test_container_supply_chain_builds_only_service_owned_dockerfiles() -> None:
     assert "          target:" not in workflow
     for dockerfile in dockerfiles:
         assert (root / dockerfile).is_file()
+
+
+def test_container_pull_requests_use_a_read_only_scan_job() -> None:
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    pr_job = workflow["jobs"]["pr-build-scan"]
+    publish_job = workflow["jobs"]["build-scan-attest"]
+
+    assert pr_job["permissions"] == {"contents": "read"}
+    assert "github.event_name == 'pull_request'" in pr_job["if"]
+    assert "github.event_name == 'pull_request'" not in publish_job["if"]
+    assert publish_job["permissions"] == {
+        "contents": "read",
+        "packages": "write",
+        "attestations": "write",
+        "id-token": "write",
+    }
+
+
+def test_container_pull_request_jobs_cannot_gain_write_or_secret_access() -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    workflow["jobs"]["pr-build-scan"]["permissions"]["packages"] = "write"
+    workflow["jobs"]["pr-build-scan"]["env"] = {"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"}
+    workflow["jobs"]["pr-build-scan"]["if"] = "github.event_name != 'push'"
+
+    errors = module._protected_guard_prefix_errors(
+        workflow,
+        ".github/workflows/container-supply-chain.yml",
+    )
+
+    assert (
+        ".github/workflows/container-supply-chain.yml pull-request job pr-build-scan "
+        "must stay hosted, read-only, and secret-free" in errors
+    )
 
 
 def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
