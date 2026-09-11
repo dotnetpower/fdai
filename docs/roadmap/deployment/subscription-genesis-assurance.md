@@ -65,6 +65,15 @@ a UTC window of no more than one hour. This single-human file transport is limit
 staging and production retain their protected quorum transport. Another stage, changed digest,
 expired record, or silence grants no authority.
 
+Runner-image construction must also remain compatible with the effective Storage policy. The
+implemented private route does not use Azure VM Image Builder because its hidden staging account
+can require Shared Key. Terraform instead owns the complete builder network, an FQDN-allowlisted
+Firewall Basic with two non-VM public egress IPs, private builder and verifier VMs, extensions,
+deallocate/generalize actions, and the managed image. The exact plan
+rejects Storage and image-template resources. Independent acceptance requires the captured image
+provenance, successful builder and verifier extensions, and both VMs in the expected deallocated
+state. A build claim without that evidence remains blocked and cannot be retried.
+
 Each effect writes its immutable claim before mutation. If a claim or terminal receipt already
 exists, a restart selects verification only and never repeats Terraform apply, token enrollment,
 archive transfer, or backend migration. A retained enrollment receipt binds its exact
@@ -128,6 +137,11 @@ is independently designed and approved.
 Before approval, the plan reports the projected monthly cost, one-time model validation budget,
 quota consumption, public IP count, egress profile, backup retention, and resources that do not
 scale to zero. A profile cost ceiling blocks plans above the approved amount.
+The direct Runner image plan reserves a conservative USD 500 monthly fixed-cost upper bound for
+its retained Firewall Basic in threat-intelligence deny mode, public IP, disk, and image graph. A lower profile ceiling blocks the
+plan, and removing the retained build graph remains a separately reviewed cleanup operation.
+The builder subnet and both private VM NICs bind the same explicit inbound-deny NSG; neither VM
+receives a public IP.
 
 ## Network and execution-host assurance
 
@@ -135,6 +149,10 @@ Planning checks address overlap across the ops VNet, application VNet, VPN, peer
 routes, Private DNS Resolver ranges, and selected private endpoint subnets. It validates both
 runner-to-service paths and operator-through-VPN paths without treating VPN access as deployment
 authority.
+Genesis binds discovery to the exact target subscription and includes VNet local and peered
+address spaces, route-table prefixes, local-network-gateway prefixes, and current local host
+routes. Unobservable external ranges remain an explicit operator constraint rather than an
+inferred safe range.
 
 The selected execution profile must prove:
 

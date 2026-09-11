@@ -54,6 +54,7 @@ class PrivateExecutionConfig:
     work_dir: Path
     foundation_inputs: FoundationPlanInputs | None
     approval: GenesisApproval | None
+    approval_path: Path | None
     create_runner_image: bool
     runner_image_terraform: Path | None
     runner_ssh_private_key: Path | None
@@ -266,6 +267,11 @@ class PrivateExecutionCoordinator:
                 str(review["plan_digest"]),
                 "--repository",
                 self.config.repository,
+                *(
+                    ("--approval-file", str(self.config.approval_path))
+                    if self.config.approval_path is not None
+                    else ()
+                ),
                 mode,
                 "--timeout-seconds",
                 str(self._bounded_timeout(7800, minimum=900)),

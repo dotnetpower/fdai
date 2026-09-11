@@ -93,14 +93,14 @@ def _run(
     return result, calls.read_text(encoding="ascii") if calls.exists() else ""
 
 
-def test_exact_context_is_selected_only_after_both_axes_match(tmp_path: Path) -> None:
+def test_exact_context_is_verified_without_mutating_active_selection(tmp_path: Path) -> None:
     result, calls = _run(tmp_path)
 
     assert result.returncode == 0
     assert "exact subscription and tenant verified" in result.stdout
     assert "account show --query tenantId" in calls
     assert "account show --subscription sub-expected" in calls
-    assert "account set --subscription sub-expected" in calls
+    assert "account set --subscription sub-expected" not in calls
 
 
 def test_active_tenant_mismatch_blocks_cross_profile_subscription_lookup(
@@ -495,7 +495,8 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
     assert result.returncode == 0
     azure_calls = az_calls.read_text(encoding="ascii")
     deployment_calls = azd_calls.read_text(encoding="ascii")
-    assert f"account set --subscription {_SUBSCRIPTION}" in azure_calls
+    assert f"account show --subscription {_SUBSCRIPTION}" in azure_calls
+    assert "account set --subscription" not in azure_calls
     assert "provider register" not in azure_calls
     assert "role assignment create" not in azure_calls
     assert "acr build" not in azure_calls

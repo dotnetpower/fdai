@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import ipaddress
+import subprocess
 import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIR = ROOT / "scripts/deployment/azure"
@@ -15,7 +18,13 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import genesis_prepare  # noqa: E402
 import genesis_prepare_inputs  # noqa: E402
 
-SOURCE = "a" * 40
+SOURCE = subprocess.run(
+    ["/usr/bin/git", "rev-parse", "HEAD"],
+    cwd=ROOT,
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout.strip()
 TENANT = "00000000-0000-0000-0000-000000000001"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000002"
 
@@ -120,21 +129,36 @@ def test_prepare_overlaps_kit_staging_with_foundation_input_discovery(
 def test_network_layout_avoids_existing_azure_and_local_ranges(monkeypatch) -> None:
     def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
         del cwd
-        if arguments[:3] == ("az", "network", "vnet"):
-            return '[["172.29.0.0/16"]]'
-        if arguments[:4] == ("ip", "-j", "-4", "route"):
+        if arguments[:3] == ("/usr/bin/az", "network", "vnet"):
+            assert arguments[4:6] == ("--subscription", SUBSCRIPTION)
+            return (
+                '[{"local":["172.29.0.0/16"],"peers":'
+                '[{"state":"Connected","prefixes":["10.0.0.0/8"]}]}]'
+            )
+        if arguments[:3] in {
+            ("/usr/bin/az", "network", "route-table"),
+            ("/usr/bin/az", "network", "local-gateway"),
+        }:
+            assert arguments[4:6] == ("--subscription", SUBSCRIPTION)
+            return "[]"
+        if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
             return '[{"dst":"10.0.0.0/8"}]'
         raise AssertionError(arguments)
 
     monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
 
-    ops, runner, endpoint, bastion = genesis_prepare_inputs.network_layout(ROOT)
+    ops, runner, endpoint, bastion, build, firewall, firewall_management = (
+        genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
+    )
 
     assert str(ops) == "172.30.0.0/16"
     assert runner.subnet_of(ops)
     assert endpoint.subnet_of(ops)
     assert bastion.subnet_of(ops)
     assert not runner.overlaps(endpoint)
+    assert not build.overlaps(ops)
+    assert firewall.subnet_of(build)
+    assert firewall_management.subnet_of(build)
 
 
 def test_foundation_input_discovery_runs_independent_queries_concurrently(monkeypatch) -> None:
@@ -149,11 +173,22 @@ def test_foundation_input_discovery_runs_independent_queries_concurrently(monkey
         barrier.wait(timeout=1)
         return "stateexample"
 
-    def network(_repository_root: Path):
+    def network(_repository_root: Path, *, subscription_id: str):
+        assert subscription_id == SUBSCRIPTION
         barrier.wait(timeout=1)
         ops = ipaddress.ip_network("172.29.0.0/16")
         subnets = list(ops.subnets(new_prefix=24))
-        return ops, subnets[1], subnets[2], next(subnets[3].subnets(new_prefix=26))
+        build = ipaddress.ip_network("172.30.0.0/16")
+        build_subnets = list(build.subnets(new_prefix=26))
+        return (
+            ops,
+            subnets[1],
+            subnets[2],
+            next(subnets[3].subnets(new_prefix=26)),
+            build,
+            build_subnets[1],
+            build_subnets[2],
+        )
 
     monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
     monkeypatch.setattr(genesis_prepare_inputs, "state_account_name", account_name)
@@ -172,3 +207,60 @@ def test_foundation_input_discovery_runs_independent_queries_concurrently(monkey
 
     assert values["state_storage_account_name"] == "stateexample"
     assert values["ops_address_space"] == "172.29.0.0/16"
+    assert values["build_address_space"] == "172.30.0.0/16"
+
+
+def test_network_layout_rejects_incomplete_peer_evidence(monkeypatch) -> None:
+    def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+        del cwd
+        if arguments[:3] == ("/usr/bin/az", "network", "vnet"):
+            return '[{"local":["172.29.0.0/16"],"peers":[{"state":"Connected","prefixes":null}]}]'
+        if arguments[:3] in {
+            ("/usr/bin/az", "network", "route-table"),
+            ("/usr/bin/az", "network", "local-gateway"),
+        }:
+            return "[]"
+        if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
+            return "[]"
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+
+    with pytest.raises(ValueError, match="peering evidence"):
+        genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
+
+
+@pytest.mark.parametrize(
+    ("vnets", "routes", "gateways"),
+    [
+        ([{"local": [], "peers": []}], [], []),
+        ([{"local": [None], "peers": []}], [], []),
+        ([{"local": ["10.0.0.1/16"], "peers": []}], [], []),
+        ([{"local": ["10.0.0.0/16", None], "peers": []}], [], []),
+        ([{"local": ["10.0.0.0/16"], "peers": []}], [{"prefix": "bad"}], []),
+        (
+            [{"local": ["10.0.0.0/16"], "peers": []}],
+            [],
+            [{"name": "gateway", "prefixes": [None]}],
+        ),
+    ],
+)
+def test_network_evidence_rejects_incomplete_or_malformed_prefixes(
+    vnets: object, routes: object, gateways: object
+) -> None:
+    with pytest.raises(ValueError, match="evidence"):
+        genesis_prepare_inputs._require_complete_network_evidence(
+            vnets,
+            routes,
+            gateways,
+            [{"dst": "default"}],
+        )
+
+
+def test_network_evidence_allows_explicit_route_service_tag() -> None:
+    genesis_prepare_inputs._require_complete_network_evidence(
+        [{"local": ["10.0.0.0/16"], "peers": []}],
+        [{"prefix": "VirtualNetwork"}],
+        [],
+        [{"dst": "default"}],
+    )

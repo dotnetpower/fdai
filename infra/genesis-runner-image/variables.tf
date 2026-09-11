@@ -208,7 +208,7 @@ variable "github_runner_sha256" {
 }
 
 variable "build_vm_size" {
-  description = "Bounded Azure Image Builder VM size used only while producing the managed image."
+  description = "Bounded private builder VM size used only while producing the managed image."
   type        = string
   default     = "Standard_D2ds_v5"
   nullable    = false
@@ -216,5 +216,88 @@ variable "build_vm_size" {
   validation {
     condition     = can(regex("^Standard_[A-Za-z0-9_]{1,64}$", var.build_vm_size))
     error_message = "build_vm_size must be a valid Azure standard VM SKU token."
+  }
+}
+
+variable "verify_vm_size" {
+  description = "Bounded private verifier VM size used to boot and inspect the captured image."
+  type        = string
+  default     = "Standard_B2s"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^Standard_[A-Za-z0-9_]{1,64}$", var.verify_vm_size))
+    error_message = "verify_vm_size must be a valid Azure standard VM SKU token."
+  }
+}
+
+variable "build_admin_username" {
+  description = "Non-secret local administrator name for the private builder and verifier VMs."
+  type        = string
+  default     = "fdairunner"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9_-]{2,31}$", var.build_admin_username))
+    error_message = "build_admin_username must be a valid lowercase Linux account name."
+  }
+}
+
+variable "runner_ssh_public_key" {
+  description = "Public SSH key placed on private build VMs; no inbound public path is created."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^ssh-(ed25519|rsa) [A-Za-z0-9+/=]+(?: [^\\r\\n]+)?$", var.runner_ssh_public_key))
+    error_message = "runner_ssh_public_key must be one OpenSSH public key line."
+  }
+}
+
+variable "build_address_space" {
+  description = "Private address space dedicated to the temporary runner-image build network."
+  type        = string
+  default     = "192.168.240.0/24"
+  nullable    = false
+
+  validation {
+    condition     = can(cidrhost(var.build_address_space, 1)) && can(regex("^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)", var.build_address_space))
+    error_message = "build_address_space must be a valid private IPv4 CIDR."
+  }
+}
+
+variable "build_subnet_prefix" {
+  description = "Private subnet used by the builder and verifier VMs."
+  type        = string
+  default     = "192.168.240.0/26"
+  nullable    = false
+
+  validation {
+    condition     = can(cidrhost(var.build_subnet_prefix, 1)) && can(regex("^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)", var.build_subnet_prefix))
+    error_message = "build_subnet_prefix must be a valid private IPv4 CIDR."
+  }
+}
+
+variable "firewall_subnet_prefix" {
+  description = "Dedicated Azure Firewall data subnet for allowlisted build egress."
+  type        = string
+  default     = "192.168.240.64/26"
+  nullable    = false
+
+  validation {
+    condition     = can(cidrhost(var.firewall_subnet_prefix, 1)) && can(regex("^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)", var.firewall_subnet_prefix))
+    error_message = "firewall_subnet_prefix must be a valid private IPv4 CIDR."
+  }
+}
+
+variable "firewall_management_subnet_prefix" {
+  description = "Dedicated Azure Firewall management subnet for the Basic SKU."
+  type        = string
+  default     = "192.168.240.128/26"
+  nullable    = false
+
+  validation {
+    condition     = can(cidrhost(var.firewall_management_subnet_prefix, 1)) && can(regex("^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)", var.firewall_management_subnet_prefix))
+    error_message = "firewall_management_subnet_prefix must be a valid private IPv4 CIDR."
   }
 }

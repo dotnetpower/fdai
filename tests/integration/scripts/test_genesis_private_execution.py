@@ -68,6 +68,7 @@ def _config(
         work_dir=tmp_path / "run",
         foundation_inputs=_inputs(tmp_path),
         approval=approval,
+        approval_path=tmp_path / "approval.json" if approval is not None else None,
         create_runner_image=False,
         runner_image_terraform=None,
         runner_ssh_private_key=private_key,
