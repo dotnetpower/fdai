@@ -513,6 +513,18 @@ jobs:
               --interval 10 --timeout 180 --only-show-errors
             terraform state rm -lock-timeout=5m "$link_address" >/dev/null
           done <"$link_state"
+          state_list="$RUNNER_TEMP/sre-demo-lab-state-list.txt"
+          terraform state list >"$state_list"
+          for configuration in require_secure_transport tls_version; do
+            address="azurerm_mysql_flexible_server_configuration.${configuration}"
+            if grep -Fxq "$address" "$state_list"; then
+              grep -Fxq "azurerm_mysql_flexible_server.scenario_lab" "$state_list" || {
+                echo "scenario-lab MySQL configuration recovery requires the parent server." >&2
+                exit 1
+              }
+              terraform state rm -lock-timeout=5m "$address" >/dev/null
+            fi
+          done
 
       - name: Build bounded plan
         env:
