@@ -136,6 +136,9 @@ longer blocks a fresh authoritative collection that can supersede it. An incompl
 the current collection still fails the run. If that promoted full snapshot skipped a degraded base,
 recovery rebinds it to the actual current manifest generation before projection; a missing manifest
 generation still fails closed.
+A fresh full snapshot whose declared state base never reached ontology can derive transitions from
+the retained complete topology history. This fallback applies only to the exact incomplete-base
+error with retained history; other generation mismatches remain blocked.
 The plan's full JSON projection and value-free summary remain in a current-UID mode-0700 temporary
 directory until bounded plan metadata is sealed, then both private files are removed.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
