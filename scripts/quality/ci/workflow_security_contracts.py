@@ -176,6 +176,27 @@ def job_needs(job: Any) -> set[str]:
     )
 
 
+def condition_overrides_guard_failure(condition: Any) -> bool:
+    """Return whether a condition may run after a failed dependency or step."""
+    if not isinstance(condition, str):
+        return False
+    return any(
+        token in condition for token in ("always()", "failure()", "cancelled()", "!cancelled()")
+    )
+
+
+def condition_requires_prior_step(condition: Any) -> bool:
+    """Return whether a status override is fail-closed on a later step result."""
+    return (
+        isinstance(condition, str)
+        and re.search(
+            r"steps\.[A-Za-z0-9_-]+\.(?:outcome|conclusion|outputs\.[A-Za-z0-9_-]+)\s*==",
+            condition,
+        )
+        is not None
+    )
+
+
 def protected_guard_prefix_errors(
     document: Any,
     relative: str,
@@ -249,6 +270,18 @@ def protected_guard_prefix_errors(
             or guard.get("if") != allowed_condition
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected-source verifier")
+        for step in steps[2:]:
+            if (
+                isinstance(step, dict)
+                and condition_overrides_guard_failure(step.get("if"))
+                and isinstance(step.get("run"), str)
+                and PRIVILEGED_COMMAND_RE.search(step["run"]) is not None
+                and not condition_requires_prior_step(step.get("if"))
+            ):
+                errors.append(
+                    f"{relative} job {job_name} can execute a privileged step after "
+                    "verifier failure"
+                )
     if not guarded_jobs:
         errors.append(f"{relative} is privileged and has no executable protected-source guard")
         return errors
@@ -256,6 +289,11 @@ def protected_guard_prefix_errors(
     default_permissions = document.get("permissions")
     for job_name, job in jobs.items():
         if not job_is_privileged(job, default_permissions) or job_name in guarded_jobs:
+            continue
+        if condition_overrides_guard_failure(job.get("if")):
+            errors.append(
+                f"{relative} privileged job {job_name} can override guarded dependency failure"
+            )
             continue
         pending = list(job_needs(job))
         visited: set[str] = set()
