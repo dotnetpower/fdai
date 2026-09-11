@@ -146,6 +146,10 @@ _LOGGER = logging.getLogger(__name__)
 _COLLECTION_HEALTH_STATE_KEY = "inventory-collection-health"
 
 
+class InventoryOntologyProjectionIncompleteError(RuntimeError):
+    """A promoted snapshot remains pending after a degraded projection."""
+
+
 @dataclass(frozen=True, slots=True)
 class InventoryJobResult:
     """Report one promoted attempt after rereading the durable active pointer."""
@@ -418,12 +422,17 @@ def _build_ontology_observer(
             )
         )
         if result.status is not InventoryOntologyProjectionStatus.AVAILABLE or not result.complete:
-            raise RuntimeError("inventory ontology projection is incomplete")
+            raise InventoryOntologyProjectionIncompleteError(
+                "inventory ontology projection is incomplete"
+            )
 
     async def _recover() -> None:
         pending = await observation_journal.load_pending_promoted_snapshot()
         if pending is not None:
-            await _observe(pending)
+            try:
+                await _observe(pending)
+            except InventoryOntologyProjectionIncompleteError:
+                return
 
     return _observe, _recover
 
