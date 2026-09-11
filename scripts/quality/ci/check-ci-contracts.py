@@ -85,6 +85,22 @@ def _workflow_paths() -> tuple[Path, ...]:
     return tuple(sorted({*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")}))
 
 
+def _action_definition_paths() -> tuple[Path, ...]:
+    action_dir = REPO_ROOT / ".github" / "actions"
+    return tuple(
+        sorted(
+            {
+                *action_dir.rglob("action.yml"),
+                *action_dir.rglob("action.yaml"),
+            }
+        )
+    )
+
+
+def _automation_definition_paths() -> tuple[Path, ...]:
+    return tuple(sorted({*_workflow_paths(), *_action_definition_paths()}))
+
+
 def _service_dockerfiles() -> tuple[Path, ...]:
     return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
 
@@ -312,7 +328,7 @@ def _validate_service_contract_generation() -> list[str]:
 
 def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
-    for path in _workflow_paths():
+    for path in _automation_definition_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
         for match in ACTION_REF_RE.finditer(content):

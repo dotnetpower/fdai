@@ -132,6 +132,25 @@ def test_yaml_workflows_require_reviewed_immutable_action_refs(
     ]
 
 
+def test_composite_actions_require_reviewed_immutable_action_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    action_dir = tmp_path / ".github" / "actions" / "example"
+    action_dir.mkdir(parents=True)
+    (action_dir / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps:\n    - uses: actions/checkout@v4\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/actions/example/action.yml must pin actions/checkout to an immutable "
+        "40-character SHA; found v4"
+    ]
+
+
 def test_workflow_accepts_reviewed_immutable_action_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
