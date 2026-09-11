@@ -10,9 +10,13 @@ set -euo pipefail
 request_id="${1:-}"
 observability_only=false
 deploy_identity_only=false
+runtime_call_evidence_only=false
 if [[ "$request_id" == apply-observability-* ]]; then
   observability_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.observability_analyzer_image_update"
+elif [[ "$request_id" == apply-runtime-* ]]; then
+  runtime_call_evidence_only=true
+  export TF_CLI_ARGS_plan="-target=terraform_data.runtime_call_evidence_transition"
 elif [[ "$request_id" == apply-identity-* ]]; then
   deploy_identity_only=true
 fi
@@ -31,7 +35,7 @@ if (( plan_exit == 2 )); then
   exit 1
 fi
 
-if [[ "$deploy_identity_only" == "true" ]]; then
+if [[ "$deploy_identity_only" == "true" || "$runtime_call_evidence_only" == "true" ]]; then
   exit 0
 fi
 

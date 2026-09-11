@@ -86,6 +86,18 @@ def test_general_apply_keeps_full_plan_and_inventory_verification(tmp_path: Path
     assert "--container inventory" in log
 
 
+def test_runtime_call_apply_replans_only_transition_before_separate_readback(
+    tmp_path: Path,
+) -> None:
+    result, calls, _ = _run(tmp_path, "apply-runtime-" + "a" * 48)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert "target=-target=terraform_data.runtime_call_evidence_transition" in log
+    assert "\naz " not in "\n" + log
+    assert "\nuv " not in "\n" + log
+
+
 def test_nonconverged_plan_stops_before_live_readback(tmp_path: Path) -> None:
     result, calls, _ = _run(
         tmp_path,
