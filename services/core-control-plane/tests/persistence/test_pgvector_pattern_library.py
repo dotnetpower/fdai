@@ -176,13 +176,9 @@ def _distinct_vector(seed: str) -> Sequence[float]:
     """Return a replay-stable vector that avoids shared-database tie collisions."""
 
     digest = hashlib.sha256(seed.encode("utf-8")).digest()
-    first = int.from_bytes(digest[:2]) % 384
-    second = int.from_bytes(digest[2:4]) % 383
-    if second >= first:
-        second += 1
     vec = [0.0] * 384
-    vec[first] = 1.0
-    vec[second] = 0.25 + digest[4] / 1_024
+    for offset, value in enumerate(digest):
+        vec[offset * 11] = (value + 1) / 256
     return vec
 
 
