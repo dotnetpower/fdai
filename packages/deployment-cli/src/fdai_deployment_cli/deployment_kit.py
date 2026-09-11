@@ -39,7 +39,9 @@ _MAX_MEMBER_BYTES: Final = 512 * 1024 * 1024
 _BUFFER_BYTES: Final = 1024 * 1024
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
-_SAFE_ONLINE_HOSTS = frozenset({"github.com", "objects.githubusercontent.com"})
+_SAFE_ONLINE_HOSTS = frozenset(
+    {"github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,17 +236,31 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
 
 def _download(url: str, destination: Path) -> None:
     parsed = urllib.parse.urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in _SAFE_ONLINE_HOSTS:
+    if not _approved_online_url(parsed):
         raise ValueError("online deployment kit URL is not an approved HTTPS release host")
     request = urllib.request.Request(url, headers={"User-Agent": f"fdaictl/{__version__}"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             final = urllib.parse.urlparse(response.geturl())
-            if final.scheme != "https" or final.hostname not in _SAFE_ONLINE_HOSTS:
+            if not _approved_online_url(final):
                 raise ValueError("online deployment kit redirect is not approved")
             _write_bounded_stream(response, destination)
     except (OSError, urllib.error.URLError) as exc:
         raise ValueError("online deployment kit download failed") from exc
+
+
+def _approved_online_url(value: urllib.parse.ParseResult) -> bool:
+    try:
+        port = value.port
+    except ValueError:
+        return False
+    return (
+        value.scheme == "https"
+        and value.hostname in _SAFE_ONLINE_HOSTS
+        and port in {None, 443}
+        and value.username is None
+        and value.password is None
+    )
 
 
 def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:

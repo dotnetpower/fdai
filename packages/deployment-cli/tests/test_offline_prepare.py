@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import stat
 import subprocess
@@ -264,6 +265,42 @@ def test_online_kit_rejects_unapproved_release_host(tmp_path: Path) -> None:
             offline_kit=None,
             online_url="https://example.com/fdai.tar.gz",
         )
+
+
+def test_online_download_accepts_official_release_asset_redirect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Response(io.BytesIO):
+        def geturl(self) -> str:
+            return "https://release-assets.githubusercontent.com/github-production-release-asset"
+
+    monkeypatch.setattr(
+        deployment_kit.urllib.request,
+        "urlopen",
+        lambda _request, timeout: Response(b"signed release archive"),
+    )
+    destination = tmp_path / "download.tar.gz"
+
+    deployment_kit._download(
+        "https://github.com/dotnetpower/fdai/releases/download/v1/kit.tar.gz",
+        destination,
+    )
+
+    assert destination.read_bytes() == b"signed release archive"
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://release-assets.githubusercontent.com:8443/kit.tar.gz",
+        "https://operator@release-assets.githubusercontent.com/kit.tar.gz",
+        "https://release-assets.githubusercontent.com.evil.example/kit.tar.gz",
+    ),
+)
+def test_online_download_rejects_noncanonical_release_asset_urls(tmp_path: Path, url: str) -> None:
+    with pytest.raises(ValueError, match="approved HTTPS release host"):
+        deployment_kit._download(url, tmp_path / "download.tar.gz")
 
 
 def test_preparation_snapshots_complete_release_without_execution(
