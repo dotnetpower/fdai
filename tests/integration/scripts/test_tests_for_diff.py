@@ -854,6 +854,46 @@ def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
     assert all(command.endswith(" " + " ".join(_ALL_TEST_ROOTS)) for command in commands)
 
 
+def test_run_parallelizes_a_broad_owned_directory(git_repo: Path) -> None:
+    test_root = _core_test(git_repo, "core", "risk_gate")
+    for index in range(20):
+        (test_root / f"test_case_{index}.py").write_text(
+            f"def test_case_{index}(): pass\n",
+            encoding="utf-8",
+        )
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add broad suite").returncode == 0
+    source = _core_source(git_repo, "core", "risk_gate", "new_rule.py")
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    args_file = git_repo / "uv-args.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "UV_ARGS_FILE": str(args_file),
+        "FDAI_DATABASE_URL": "",
+    }
+    env.pop("FDAI_PYTEST_MAX_WORKERS", None)
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    commands = args_file.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 4
+    assert all("-p scripts.quality.ci.pytest_shard" in command for command in commands)
+    assert all(
+        command.endswith(" services/core-control-plane/tests/core/risk_gate")
+        for command in commands
+    )
+
+
 def test_run_combines_included_failure_with_delta_and_external_cache(git_repo: Path) -> None:
     prior_failure = _integration_test(git_repo, "scripts", "test_prior.py")
     prior_failure.write_text("def test_prior(): pass\n", encoding="utf-8")
