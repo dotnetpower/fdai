@@ -120,7 +120,18 @@ def test_pre_push_validates_a_new_branch_against_the_remote_default() -> None:
     assert "new; skipping sync + diff checks" not in body
 
 
-def test_pre_push_blocks_non_current_branch_updates(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("local_ref", "expected_message"),
+    (
+        ("refs/heads/topic", "refusing to validate a non-current branch push"),
+        ("HEAD", "unsupported push source ref 'HEAD'"),
+    ),
+)
+def test_pre_push_blocks_unowned_source_refs(
+    tmp_path: Path,
+    local_ref: str,
+    expected_message: str,
+) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
     git_env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
@@ -159,7 +170,7 @@ def test_pre_push_blocks_non_current_branch_updates(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     ).stdout.strip()
-    hook_input = f"refs/heads/topic {commit} refs/heads/topic {'0' * 40}\n"
+    hook_input = f"{local_ref} {commit} refs/heads/topic {'0' * 40}\n"
 
     result = subprocess.run(
         ["bash", str(_PRE_PUSH), "origin"],
@@ -172,7 +183,7 @@ def test_pre_push_blocks_non_current_branch_updates(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 1
-    assert "refusing to validate a non-current branch push" in result.stdout
+    assert expected_message in result.stdout
 
 
 def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None:
