@@ -426,11 +426,26 @@ def _validate_service_contract_generation() -> list[str]:
 
 def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
+    action_definitions = set(_action_definition_paths())
     for path in _automation_definition_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
         uses_values, parse_errors = _uses_values(path)
         errors.extend(parse_errors)
+        if path in action_definitions and not parse_errors:
+            document = yaml.safe_load(content)
+            runs = document.get("runs") if isinstance(document, dict) else None
+            if isinstance(runs, dict) and runs.get("using") == "docker":
+                image = runs.get("image")
+                if not isinstance(image, str):
+                    errors.append(f"{relative} must declare a string Docker action image")
+                elif image.startswith("docker://"):
+                    reference = image.removeprefix("docker://")
+                    if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
+                        errors.append(
+                            f"{relative} must pin Docker action image {reference} "
+                            "to a sha256 digest"
+                        )
         comments = {
             match.group("ref"): (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
             for match in USES_LINE_RE.finditer(content)
