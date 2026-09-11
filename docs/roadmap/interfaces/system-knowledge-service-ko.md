@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 40b8d7e8b318154424d18a9ca9f0c465ae792b5c
+translation_source_sha: 72432e903c3aaedd983e7d28325e0f93b2009d51
 translation_revised: 2026-09-12
 ---
 # 시스템 지식 서비스
@@ -123,6 +123,8 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 고정값과 다이제스트가 release 트리와 일치합니다. 이 기계적 갱신은 수정된 원본 식별자를
 전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
 다시 빌드 규칙을 적용합니다.
+완료 handoff ledger 갱신도 이 규칙을 따릅니다. Source blob pin과 catalog digest만 바꾸며
+검색 권한이나 메시지 전달 동작은 변경하지 않습니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.
