@@ -141,6 +141,7 @@ _RUNTIME_CALL_EVIDENCE_ENVIRONMENT = frozenset(
         "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID",
     }
 )
+_RUNTIME_CALL_OUTBOX_NAMESPACE = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
 _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT = frozenset(
     {
         "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
@@ -1364,6 +1365,31 @@ def _runtime_call_evidence_transition(
     after_environment: dict[str, dict[str, Any]],
     runtime_drift_names: tuple[str, ...],
 ) -> tuple[str, frozenset[str]] | None:
+    if (
+        contract.service in {"operator-service", "operator-channel-edge"}
+        and set(runtime_drift_names) == {f"env:{_RUNTIME_CALL_OUTBOX_NAMESPACE}"}
+        and isinstance(service_name, str)
+    ):
+        if contract.service == "operator-service" and service_name.casefold().endswith(
+            ("-operator-api", "-readapi")
+        ):
+            expected_namespace = "operator-api"
+        elif contract.service == "operator-channel-edge" and service_name.casefold().endswith(
+            "-channel-edge"
+        ):
+            expected_namespace = "operator-channel-edge"
+        else:
+            return None
+        before_binding = _environment_binding(
+            before_environment.get(_RUNTIME_CALL_OUTBOX_NAMESPACE)
+        )
+        after_binding = _environment_binding(after_environment.get(_RUNTIME_CALL_OUTBOX_NAMESPACE))
+        expected_binding = (expected_namespace, None)
+        if before_binding is None and after_binding == expected_binding:
+            return "enable", frozenset()
+        if before_binding == expected_binding and after_binding is None:
+            return "disable", frozenset()
+        return None
     if contract.service not in {"core-control-plane", "operator-service"}:
         return None
     if set(runtime_drift_names) != {f"env:{name}" for name in _RUNTIME_CALL_EVIDENCE_ENVIRONMENT}:
@@ -2225,6 +2251,7 @@ def validate_plan(
                             contract=channel_edge_contract,
                             initial_cutover=False,
                             database_host_binding=False,
+                            runtime_call_evidence_transition=runtime_call_evidence_transition,
                         )
                     )
             elif operator_channel_edge_transition == "disable":
@@ -2249,6 +2276,7 @@ def validate_plan(
                         contract=channel_edge_contract,
                         initial_cutover=False,
                         database_host_binding=False,
+                        runtime_call_evidence_transition=runtime_call_evidence_transition,
                     )
                 )
             continue

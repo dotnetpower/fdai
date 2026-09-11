@@ -106,6 +106,8 @@ cannot carry provider identifiers or arbitrary source text. Exact replica verifi
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
 scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
 verification receipt binds both endpoint Resource IDs and their active-generation Resource types.
+The independent-service runtime-call transition guard admits only the fixed API and channel-edge
+namespace value for the matching Container App; swapped or arbitrary namespaces remain blocked.
 Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
