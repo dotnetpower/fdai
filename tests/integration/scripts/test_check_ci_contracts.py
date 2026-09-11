@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 from pathlib import Path
 from types import ModuleType
@@ -462,17 +463,20 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
     workflow_dir.mkdir(parents=True)
     action_dir = tmp_path / ".github" / "actions" / "verify-protected-workflow-source"
     action_dir.mkdir(parents=True)
-    action_dir.joinpath("action.yml").write_text(
-        "\n".join(
-            (
-                "+refs/heads/main:refs/remotes/origin/main",
-                'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
-                '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
-                '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
-                "diff --quiet",
-            )
-        ),
-        encoding="utf-8",
+    action_content = "\n".join(
+        (
+            "+refs/heads/main:refs/remotes/origin/main",
+            'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+            '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+            '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+            "diff --quiet",
+        )
+    )
+    action_dir.joinpath("action.yml").write_text(action_content, encoding="utf-8")
+    monkeypatch.setattr(
+        module,
+        "PROTECTED_WORKFLOW_ACTION_SHA256",
+        hashlib.sha256(action_content.encode("utf-8")).hexdigest(),
     )
     workflow_dir.joinpath("custom-operation.yml").write_text(
         "on:\n"
@@ -513,6 +517,23 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
     assert errors == [
         ".github/workflows/custom-operation.yml job apply must start with the exact "
         "protected-source checkout and verifier steps"
+    ]
+
+
+def test_protected_verifier_source_requires_the_reviewed_digest() -> None:
+    module = _load_contract_module()
+    inert_fragments = "\n".join(
+        (
+            "# +refs/heads/main:refs/remotes/origin/main",
+            '# merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+            '# "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+            '# "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+            "# diff --quiet",
+        )
+    )
+
+    assert module._protected_action_source_errors(inert_fragments) == [
+        "verify-protected-workflow-source/action.yml digest differs from the reviewed source"
     ]
 
 
