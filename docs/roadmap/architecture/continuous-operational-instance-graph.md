@@ -111,6 +111,8 @@ cannot carry provider identifiers or arbitrary source text. Exact replica verifi
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
 scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
 verification receipt binds both endpoint Resource IDs and their active-generation Resource types.
+Core inventory snapshot and real-time link constraints admit the reviewed `runtime_calls` type.
+Rollback deletes only those rebuildable links before restoring the previous constraint.
 The KQL and parsed endpoint witness value are isolated in a focused contract module; collection,
 ARM verification, reduction, and authentication remain in the source adapter.
 The independent-service runtime-call transition guard admits only the fixed API and channel-edge
