@@ -95,6 +95,7 @@ EXPECTED_RUNTIME_MODULES = {
     "resource_event_providers.py",
     "rule_generation_documents.py",
     "rule_profile.py",
+    "safeguard_isolated_executor.py",
     "semantic_model_identity.py",
     "stewardship_governance.py",
     "stewardship_identity_health.py",
@@ -102,6 +103,7 @@ EXPECTED_RUNTIME_MODULES = {
     "t2_recovery.py",
     "t2_route_registry.py",
     "venue.py",
+    "workflow_action_dispatch.py",
 }
 
 PROHIBITED_WHEEL_PREFIXES = (
