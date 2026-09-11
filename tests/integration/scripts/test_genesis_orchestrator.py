@@ -486,6 +486,55 @@ def test_source_gate_uses_the_latest_exact_required_check(
         )
 
 
+def test_target_gate_reads_exact_subscription_region_without_active_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = GenesisChecks(_ROOT)
+    calls: list[tuple[str, ...]] = []
+
+    def capture(arguments: tuple[str, ...], reason: str, **_kwargs: object) -> str:
+        calls.append(arguments)
+        if reason == "azure_context_mismatch":
+            return json.dumps({"id": _SUBSCRIPTION, "tenantId": _TENANT})
+        if reason == "azure_region_unavailable":
+            return "koreacentral"
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(checks, "capture", capture)
+
+    checks.verify_target(
+        subscription_id=_SUBSCRIPTION,
+        tenant_id=_TENANT,
+        region="koreacentral",
+    )
+
+    region_call = calls[1]
+    assert region_call[1:4] == ("rest", "--method", "get")
+    assert f"/subscriptions/{_SUBSCRIPTION}/locations?" in region_call[5]
+    assert "list-locations" not in region_call
+    assert "account set" not in " ".join(region_call)
+
+
+def test_target_gate_rejects_region_absent_from_exact_subscription(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = GenesisChecks(_ROOT)
+
+    def capture(_arguments: tuple[str, ...], reason: str, **_kwargs: object) -> str:
+        if reason == "azure_context_mismatch":
+            return json.dumps({"id": _SUBSCRIPTION, "tenantId": _TENANT})
+        return ""
+
+    monkeypatch.setattr(checks, "capture", capture)
+
+    with pytest.raises(CheckError, match="azure_region_unavailable"):
+        checks.verify_target(
+            subscription_id=_SUBSCRIPTION,
+            tenant_id=_TENANT,
+            region="koreacentral",
+        )
+
+
 def test_source_gate_rejects_required_ci_from_another_repository(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1030,9 +1079,9 @@ case "$1 $2" in
         ;;
     "resource list")
         if [[ -f "$FAKE_KV_STATE" ]]; then
-            printf '1\t1\n'
+            printf '1\n1\n'
         else
-            printf '0\t0\n'
+            printf '0\n0\n'
         fi
         ;;
     "keyvault create")

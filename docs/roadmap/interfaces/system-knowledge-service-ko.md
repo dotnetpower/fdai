@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 9be2c83aac3bf4c7440afb367423cc5e332cce2a
+translation_source_sha: 0b6a1185df079a0d2a0c0f5e838692adfa6f91e6
 translation_revised: 2026-09-11
 ---
 # 시스템 지식 서비스
@@ -111,8 +111,10 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 
 `catalog_digest`는 스키마 버전, 소스 개정, 빌드 시각, 레코드 및 권한 플래그를 포함합니다. 따라서
 같은 레코드를 다른 시각에 다시 빌드하면 별개의 패키지 산출물이 생성됩니다. 서식만 압축한 경우를
-포함해 인용한 소스가 바뀌면 패키징 전에 카탈로그를 다시 빌드해야 blob 고정값과 다이제스트가
-release 트리와 일치합니다.
+포함해 인용한 소스가 바뀌면 같은 변경 집합에서 패키징 전에 카탈로그를 다시 빌드해야 blob
+고정값과 다이제스트가 release 트리와 일치합니다. 이 기계적 갱신은 수정된 원본 식별자를
+전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
+다시 빌드 규칙을 적용합니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.

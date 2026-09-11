@@ -1705,6 +1705,80 @@ def test_plan_guard_requires_exact_runtime_call_evidence_transition(
         )
 
 
+def test_plan_guard_allows_exact_operator_outbox_namespace_transition(
+    guard: ModuleType,
+) -> None:
+    contract = guard.resolve_service("operator-service", "dev")
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["name"] = "example-operator-api"
+        resource["tags"] = {"fdai:component": "operator-service"}
+    change["after"]["template"][0]["container"][0]["env"].append(
+        {
+            "name": "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE",
+            "value": "operator-api",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        runtime_call_evidence_transition=True,
+    )
+
+
+def test_plan_guard_allows_exact_channel_edge_outbox_namespace_transition(
+    guard: ModuleType,
+) -> None:
+    plan = _channel_edge_update_plan()
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    change["after"]["template"][0]["container"][0]["env"].append(
+        {
+            "name": "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE",
+            "value": "operator-channel-edge",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        runtime_call_evidence_transition=True,
+    )
+
+
+def test_plan_guard_rejects_unbound_outbox_namespace_transition(
+    guard: ModuleType,
+) -> None:
+    contract = guard.resolve_service("operator-service", "dev")
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["name"] = "example-operator-api"
+        resource["tags"] = {"fdai:component": "operator-service"}
+    change["after"]["template"][0]["container"][0]["env"].append(
+        {
+            "name": "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE",
+            "value": "operator-channel-edge",
+        }
+    )
+
+    with pytest.raises(ValueError, match="runtime-call evidence transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            runtime_call_evidence_transition=True,
+        )
+
+
 def test_plan_guard_rejects_runtime_call_self_edge(guard: ModuleType) -> None:
     plan = _runtime_call_evidence_plan(guard, service="operator-service")
     after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]

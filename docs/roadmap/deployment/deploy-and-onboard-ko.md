@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 163d4746e22a34297a5c073c7db795fbd2ca3725
-translation_revised: 2026-09-11
+translation_source_sha: 164795a6e2de3bd307b30d3073c551fe2b0671e5
+translation_revised: 2026-09-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -192,8 +192,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   현재의 각 계획을 승인받고 기반 계층과 테넌트 구성을 완료하며 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행하며, 기반 계층 이전 이미지 계획은 Shared Key에 의존하는 Azure VM Image Builder 대신 FQDN 허용 목록과 위협 인텔리전스 거부 모드가 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM을 사용하고 두 VM NIC를 인바운드 거부 NSG에 명시적으로 연결합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
-- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에
-  Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결합니다.
+- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
   경로입니다. 비공개, 공유, 스테이징 또는 운영 배포 경로로 사용하지 않습니다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh)는 create-state-account -> 초기화
@@ -520,7 +519,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | 선택적 격리 Azure CLI 프로파일입니다. 미설정 시 어댑터가 상속된 `AZURE_CONFIG_DIR`를 제거하고 기본 프로파일을 사용합니다. |
 | `FDAI_POLICIES_ROOT` | env | 배포 | T0 와 검증기 가 소비하는 OPA / Rego 번들 루트의 절대 경로. 미설정 시 in-repo `policies/` 를 기본값. |
 | `FDAI_MI_CLIENT_ID` | env | 업스트림 | 현재 프로세스의 user-assigned MI 클라이언트 id. Core에는 실행기 id를 주입하고 인벤토리 작업에는 별도 읽기 전용 발견 id를 주입합니다. |
-| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 성능이 저하된 대기 중 변환은 실패 근거를 유지하지만 다음 정본 전체 스캔을 차단하지 않으며 현재 변환이 불완전하면 계속 실패합니다. 해당 base를 건너뛴 승격된 전체 스냅샷은 실제 manifest 세대에 다시 결속하며 manifest 세대가 없으면 계속 차단합니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE=true`는 Operator 상태 이행 후 배포된 런타임 호출 원본을 독립적으로 활성화합니다. 보호된 `plan-runtime-*` 및 `apply-runtime-*` 요청은 검증된 업데이터와 롤백이 기존 Job에만 영향을 주는 형제 플래그, workspace 및 정확한 이미지 전환 리소스를 대상으로 합니다. 별도 workspace 전환 리소스는 이미 생성된 플래그 리소스가 새 필수 바인딩을 숨기지 않도록 합니다. 검증된 다이제스트가 바뀌면 이미지 업데이터의 상태 전용 교체만 허용합니다. 런타임 전용 수렴 검사는 세 전환 상태를 확인하며 독립 읽기는 플래그, workspace 다이제스트 및 선택한 이미지 다이제스트를 검증합니다. 범위 검사는 다른 모든 주소를 차단합니다. |
+| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 성능이 저하된 대기 중 변환은 실패 근거를 유지하지만 다음 정본 전체 스캔을 차단하지 않으며 현재 변환이 불완전하면 계속 실패합니다. 해당 base를 건너뛴 승격된 전체 스냅샷은 실제 manifest 세대에 다시 결속하며 manifest 세대가 없으면 계속 차단합니다. 복구는 다시 계산한 배치에서 동일한 콘텐츠 주소 상태 전이 커버리지 레코드를 중복시키거나 약화하지 않고 재사용할 수 있습니다. 이후 기록이 동시에 커밋되더라도 전역 및 활성 범위 변환 checkpoint는 해당 스냅샷 append가 관측한 journal high watermark보다 앞으로 이동하지 않습니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE=true`는 Operator 상태 이행 후 배포된 런타임 호출 원본을 독립적으로 활성화합니다. 독립 Operator API와 채널 경계에는 서로 다른 고정 semantic outbox namespace를 주입하므로 한 런타임이 다른 런타임의 대기 중 요청을 claim할 수 없습니다. 독립 서비스 `runtime_call_evidence_transition` guard는 일치하는 런타임에서 이 정확한 namespace 추가 또는 제거만 허용합니다. 구성한 최신성 구간에서는 ARM replica 검증 전에 정확한 엔드포인트 쌍별 최신 관측을 선택합니다. 더 새로운 검증되지 않은 관측은 실패 시 닫힌 상태가 되고 더 새로운 짝이 없는 관측은 후행 유예 구간 뒤 불완전 상태가 됩니다. 보호된 `plan-runtime-*` 및 `apply-runtime-*` 요청은 검증된 업데이터와 롤백이 기존 Job에만 영향을 주는 형제 플래그, workspace 및 정확한 이미지 전환 리소스를 대상으로 합니다. 별도 workspace 전환 리소스는 이미 생성된 플래그 리소스가 새 필수 바인딩을 숨기지 않도록 합니다. 검증된 다이제스트가 바뀌면 이미지 업데이터의 상태 전용 교체만 허용합니다. 런타임 전용 수렴 검사는 세 전환 상태를 확인하며 독립 읽기는 플래그, workspace 다이제스트 및 선택한 이미지 다이제스트를 검증합니다. 환경 통합 Container Apps 로그 행의 `_ResourceId`가 비어 있을 수 있으므로 원본은 결속되지 않은 이름을 수락하는 대신 플랫폼 컨테이너 이름과 ID가 정확한 ARM replica 응답과 일치하도록 요구합니다. 범위 검사는 다른 모든 주소를 차단합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 선택적 Container Apps 작업 진입점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고, `growth`는 검토된 결과를 패턴 성장 수집으로 전달하며, `operational-promotion`은 승격 없이 변경할 수 없는 작업별 근거를 평가합니다. 모든 작업은 기본적으로 비활성화되며 전용 비실행기 측정 신원을 사용합니다. 액션 권한은 승격 및 안전성 검토가 독립적으로 관리합니다. |

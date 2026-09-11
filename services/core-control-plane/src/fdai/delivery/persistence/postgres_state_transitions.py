@@ -118,7 +118,8 @@ class PostgresStateTransitionStore:
                         "(coverage_id, batch_id, subject_ref, state_type, coverage_start_at, "
                         "coverage_end_at, recorded_at, source_identity, source_revision, "
                         "watermark, evidence_ref, complete, limitation, synthetic) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                        "ON CONFLICT (coverage_id) DO NOTHING",
                         [
                             (
                                 item.coverage_id,
@@ -285,8 +286,8 @@ async def _read_existing_batch(
         "producer_id, producer_version, freshness_ceiling_seconds, "
         "completeness_basis_points, evidence_refs, conflicts, correlation_refs, "
         "synthetic, execution_authority FROM operational_state_transition "
-        "WHERE batch_id = %s ORDER BY transition_id",
-        (batch_id,),
+        "WHERE transition_id = ANY(%s) ORDER BY transition_id",
+        ([item.transition_id for item in expected.transitions],),
     )
     transition_rows = await transition_cursor.fetchall()
     coverage_cursor = await connection.execute(
@@ -294,8 +295,8 @@ async def _read_existing_batch(
         "coverage_end_at, recorded_at, source_identity, source_revision, "
         "watermark, evidence_ref, complete, limitation, synthetic "
         "FROM operational_state_transition_coverage "
-        "WHERE batch_id = %s ORDER BY coverage_id",
-        (batch_id,),
+        "WHERE coverage_id = ANY(%s) ORDER BY coverage_id",
+        ([item.coverage_id for item in expected.coverage],),
     )
     coverage_rows = await coverage_cursor.fetchall()
     if len(batch_rows) != 1:

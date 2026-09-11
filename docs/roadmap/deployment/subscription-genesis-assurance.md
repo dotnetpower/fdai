@@ -51,6 +51,9 @@ External control planes are first-class dependencies:
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
+Region availability uses the exact subscription-bound ARM locations endpoint; it neither relies
+on the active Azure CLI subscription nor passes unsupported selection flags to convenience commands.
+
 Runner enrollment never places a registration token, remove token, database password, or GitHub
 token in Terraform variables, state, process arguments, Azure Run Command payloads, logs, or chat.
 The target implementation uses provider-hosted authorization and a protected input channel. If the
@@ -73,6 +76,8 @@ deallocate/generalize actions, and the managed image. The exact plan
 rejects Storage and image-template resources. Independent acceptance requires the captured image
 provenance, successful builder and verifier extensions, and both VMs in the expected deallocated
 state. A build claim without that evidence remains blocked and cannot be retried.
+Policy-probe cleanup parses multi-value Azure CLI TSV projections as ordered lines, verifies the
+exact tagged group and deleted-vault absence, and never reports completion from command success alone.
 
 Each effect writes its immutable claim before mutation. If a claim or terminal receipt already
 exists, a restart selects verification only and never repeats Terraform apply, token enrollment,

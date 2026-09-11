@@ -89,19 +89,30 @@ the delivery task exits, so no stale progress can survive the target boundary. A
 telemetry envelope exposes no direct conversion to projection
 input. Only the authenticated producer can perform that conversion after it verifies the exact
 envelope digest and independent source context under a finite positive deadline. The Azure Monitor source accepts
-only the matching structured Container Apps log schema, then re-reads each platform-stamped
-Resource ID, revision, and replica under its claimed exact Container App ARM ID. Only those independently bound
-endpoint witnesses convert through the existing canonical Resource ID mapping. The standalone channel edge never receives the caller
-binding, so its requests on the shared topic cannot join a false Operator-to-Core edge. Orphaned,
+only the matching structured Container Apps log schema. A non-empty platform-stamped Resource ID
+must match the claimed endpoint exactly. Environment-integrated Container Apps rows can leave that
+field empty; those rows remain eligible only when the platform-stamped app, revision, replica,
+container name, and container ID all match one container returned by the exact claimed ARM replica
+endpoint. Only those independently bound endpoint witnesses convert through the existing canonical
+Resource ID mapping. The standalone channel edge never receives the caller
+binding and uses a distinct durable outbox namespace, so it cannot claim an Operator API request
+or join its own requests on the shared topic into a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
-newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
-pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do
-not split a retained pair. Incomplete-source coverage accepts only the fixed row-count keys and
+newest observation per exact endpoint pair before ARM replica verification and pair completeness
+are evaluated. A newer
+complete pair supersedes an older unpaired observation, while a newer unpaired observation remains
+pending for a 60-second trailing guard and then makes the source incomplete. The source reads one
+guard interval beyond the freshness window so cutoff boundaries do not split a retained pair.
+Incomplete-source coverage accepts only the fixed row-count keys and
 cannot carry provider identifiers or arbitrary source text. Exact replica verification uses at most four concurrent reads under one
 30-second deadline, and freshness is evaluated only after those reads finish. The
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
 scope, freshness budget, and exact ontology release before it can project `runtime_calls`. The
 verification receipt binds both endpoint Resource IDs and their active-generation Resource types.
+The KQL and parsed endpoint witness value are isolated in a focused contract module; collection,
+ARM verification, reduction, and authentication remain in the source adapter.
+The independent-service runtime-call transition guard admits only the fixed API and channel-edge
+namespace value for the matching Container App; swapped or arbitrary namespaces remain blocked.
 Local
 development, a disabled binding, and an empty witness query report this source unavailable instead
 of fabricating an edge.
@@ -156,6 +167,9 @@ The current-graph checkpoint is bound to the active snapshot generation and exac
 provider snapshot covers same-scope observations from its generation and start time, so the contiguous checkpoint scans only those scopes.
 Inactive-scope observations remain durable history and retention work. Reactivation requires a new complete reconciliation, while active-scope
 post-snapshot observations keep the graph incomplete until projection catches up.
+Checkpoint calculation is bounded by the journal high watermark observed by the same snapshot append.
+Concurrent later journal writes can lower completeness, but cannot advance either global or active-scope
+projection checkpoints beyond that append boundary.
 PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and isolates inventory
 state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
 shared record-validation boundary does not create another graph writer or authority surface.
@@ -482,6 +496,9 @@ Each atomic batch contains zero or more content-addressed transitions and at lea
 coverage record. A transition binds `from_state`, `to_state`, effective time, recorded time,
 evidence cutoff, source identity and revision, producer version, freshness, completeness,
 conflicts, and evidence references. Replayed idempotency keys are no-ops only for identical content.
+Coverage identity is global and content-addressed. A recovered batch can reference an identical
+retained coverage record without inserting a second row, and replay verifies each expected child by
+its content identity rather than requiring the child to have been first inserted by that batch.
 
 The inventory path records operational and availability changes only with property-level evidence.
 Provisioning remains current-state only until it carries equivalent provenance. Every interval is
