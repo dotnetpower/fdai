@@ -99,7 +99,7 @@ command -v setsid >/dev/null 2>&1 || {
   exit 4
 }
 
-"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+/bin/bash "$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
   "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT" >/dev/null
 
 suffix="${RUN_ID:0:12}"

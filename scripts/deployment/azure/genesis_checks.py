@@ -106,6 +106,7 @@ class GenesisChecks:
         self.repository_root = repository_root
         self.environment = environment
         self.az = trusted_tool("az")
+        self.bash = trusted_tool("bash")
         self.source_evidence = SignedSourceEvidence.from_environment()
         self.git = None if self.source_evidence is not None else trusted_tool("git")
         self.gh = None if self.source_evidence is not None else trusted_tool("gh")
@@ -113,7 +114,7 @@ class GenesisChecks:
     def verify_toolchain(self, *, apply: bool) -> None:
         """Require only read tools for inspection and the full apply toolchain for mutation."""
 
-        required = [self.az, trusted_tool("bash"), trusted_tool("python3"), trusted_tool("timeout")]
+        required = [self.az, self.bash, trusted_tool("python3"), trusted_tool("timeout")]
         if self.source_evidence is None:
             git = self._required_git()
             required.append(git)
@@ -130,7 +131,7 @@ class GenesisChecks:
 
         self.run_required(
             (
-                trusted_tool("bash"),
+                self.bash,
                 str(
                     self.repository_root
                     / "scripts/deployment/azure/prepare-genesis-access-tools.sh"

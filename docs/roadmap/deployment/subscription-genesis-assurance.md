@@ -168,6 +168,8 @@ The selected execution profile must prove:
 - effective routes, firewalls, network security groups, service tags, proxy trust, and private DNS
   answers for the target Azure cloud;
 - checksum-pinned tools and images, with no unverified `latest` download during a protected run;
+- mode-restricted authenticated bundle sources launched only through fixed trusted interpreters,
+  without broad execute-bit restoration or ambient-path interpreter selection;
 - distinct authenticated archive and extracted-executable digests where packaging changes bytes,
   with one schema-versioned toolchain digest shared by planning, image tags, and attestation;
 - bounded egress or a complete signed offline kit; and

@@ -205,6 +205,7 @@ def test_started_foundation_effect_selects_verification_only_resume(
 
     assert result["receipt_digest"] == FOUNDATION_RECEIPT_DIGEST
     assert len(calls) == 1
+    assert calls[0][0] == "/bin/bash"
     assert "--resume-verification" in calls[0]
     assert "--approve" not in calls[0]
 
