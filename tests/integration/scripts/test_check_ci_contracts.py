@@ -871,7 +871,7 @@ def test_privileged_execution_cannot_override_verifier_failure() -> None:
         },
         {
             "if": "always()",
-            "run": "terraform apply saved.plan",
+            "run": "curl https://example.com",
         },
     ]
     document = {
@@ -1006,7 +1006,9 @@ def test_post_verifier_steps_cannot_launder_guard_failure() -> None:
 
     assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
         ".github/workflows/example.yml job guard can execute a privileged step after "
-        "verifier failure"
+        "verifier failure",
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
     ]
 
 

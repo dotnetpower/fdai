@@ -469,7 +469,6 @@ def protected_guard_prefix_errors(
                 isinstance(step, dict)
                 and condition_overrides_guard_failure(condition)
                 and isinstance(step.get("run"), str)
-                and PRIVILEGED_COMMAND_RE.search(step["run"]) is not None
                 and not condition_requires_guard_success(condition, guard_id)
             ):
                 errors.append(

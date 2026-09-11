@@ -83,6 +83,7 @@ jobs:
           path: .fdai-protected-workflow-verifier
 
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha }}
@@ -476,7 +477,7 @@ jobs:
           retention-days: 7
 
       - name: Publish summary
-        if: always()
+        if: always() && steps.protected-source.outcome == 'success'
         run: |
           {
             echo "## System Knowledge Service"
@@ -492,7 +493,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Clean sensitive runner artifacts
-        if: always()
+        if: always() && steps.protected-source.outcome == 'success'
         run: |
           set -euo pipefail
           find "$RUNNER_TEMP" -maxdepth 2 -type f -name 'system-knowledge*' \

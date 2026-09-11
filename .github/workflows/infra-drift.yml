@@ -82,6 +82,7 @@ jobs:
           path: .fdai-protected-workflow-verifier
 
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
@@ -378,7 +379,7 @@ jobs:
           exit 0
 
       - name: Enforce complete drift evidence
-        if: always()
+        if: always() && steps.protected-source.outcome == 'success'
         env:
           DRIFT_SCOPE: ${{ inputs.scope || 'all' }}
           LEGACY_OUTCOME: ${{ steps.legacy_drift.outcome }}
