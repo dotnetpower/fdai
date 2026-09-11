@@ -135,6 +135,25 @@ def test_workflow_layout_rejects_ambiguous_and_indirect_entries(
     ]
 
 
+def test_workflows_require_explicit_top_level_permissions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "implicit.yml").write_text(
+        "jobs:\n  test:\n    permissions:\n      contents: read\n",
+        encoding="utf-8",
+    )
+    (workflow_dir / "explicit.yml").write_text("permissions: {}\njobs: {}\n", encoding="utf-8")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_explicit_workflow_permissions() == [
+        ".github/workflows/implicit.yml must declare top-level permissions explicitly"
+    ]
+
+
 def test_yaml_workflows_require_reviewed_immutable_action_refs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -145,6 +145,21 @@ def _validate_workflow_layout() -> list[str]:
     return errors
 
 
+def _validate_explicit_workflow_permissions() -> list[str]:
+    errors: list[str] = []
+    for path in _workflow_paths():
+        content = path.read_text(encoding="utf-8")
+        has_top_level_permissions = any(
+            line == "permissions:" or line.startswith("permissions: ")
+            for line in content.splitlines()
+        )
+        if not has_top_level_permissions:
+            errors.append(
+                f"{path.relative_to(REPO_ROOT)} must declare top-level permissions explicitly"
+            )
+    return errors
+
+
 def _service_dockerfiles() -> tuple[Path, ...]:
     return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
 
@@ -596,6 +611,7 @@ def _validate_live_db_guards() -> list[str]:
 def main() -> int:
     errors = [
         *_validate_workflow_layout(),
+        *_validate_explicit_workflow_permissions(),
         *_validate_build_context(),
         *_validate_base_images(),
         *_validate_shared_runners(),
