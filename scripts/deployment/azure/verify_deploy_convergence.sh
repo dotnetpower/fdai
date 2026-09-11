@@ -16,7 +16,7 @@ if [[ "$request_id" == apply-observability-* ]]; then
   export TF_CLI_ARGS_plan="-target=terraform_data.observability_analyzer_image_update"
 elif [[ "$request_id" == apply-runtime-* ]]; then
   runtime_call_evidence_only=true
-  export TF_CLI_ARGS_plan="-target=terraform_data.runtime_call_evidence_transition"
+  export TF_CLI_ARGS_plan="-target=terraform_data.runtime_call_evidence_transition -target=terraform_data.inventory_runtime_image_update"
 elif [[ "$request_id" == apply-identity-* ]]; then
   deploy_identity_only=true
 fi
