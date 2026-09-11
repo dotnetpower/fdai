@@ -80,6 +80,10 @@ def validation_environment(paths: QueuePaths) -> dict[str, str]:
     for variable in _REPOSITORY_LOCAL_GIT_ENV:
         environment.pop(variable, None)
     environment.setdefault("FDAI_PYTEST_MAX_WORKERS", _recommended_workers())
+    if environment.get("FDAI_VALIDATION_BACKGROUND") == "1":
+        raw_workers = environment["FDAI_PYTEST_MAX_WORKERS"]
+        workers = int(raw_workers) if raw_workers.isdigit() and int(raw_workers) > 0 else 2
+        environment["FDAI_PYTEST_MAX_WORKERS"] = str(min(workers, 2))
     environment.setdefault("MYPY_CACHE_DIR", str(cache_root / "mypy"))
     environment.setdefault("RUFF_CACHE_DIR", str(cache_root / "ruff"))
     environment["UV_PROJECT_ENVIRONMENT"] = str(paths.state_root / "venv")

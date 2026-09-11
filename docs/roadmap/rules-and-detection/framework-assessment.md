@@ -26,6 +26,9 @@ The shared assessment boundary has six deterministic stages:
 6. Retain source changes as review-only proposals until mappings and evidence specifications pass
    independent review.
 
+The protected shadow-assessment workflow runs cleanup only after protected-source verification
+succeeds. A failed verifier cannot execute repository cleanup code with the job's identity.
+
 The runtime shares evidence admission, replay, publication, and projection mechanics. WAF and CAF
 retain different catalogs, scope contracts, provider adapters, and user-facing explanations.
 The shared Operator PostgreSQL reader also serves unrelated operational families. Its scoped AKS

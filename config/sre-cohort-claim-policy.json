@@ -26,6 +26,10 @@
     "allowed_exporter_workflow_paths": {
       "baseline": [],
       "treatment": []
+    },
+    "exporter_measure_bindings": {
+      "baseline": {},
+      "treatment": {}
     }
   },
   "minimum_sample_size": 30,

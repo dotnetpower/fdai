@@ -15,6 +15,7 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
     _active_scope_projection_watermark,
     _append_records,
     _global_projection_watermark,
+    _rebase_recovery_metadata,
     _retained_generation_watermark,
     _snapshot_recovery_observation,
 )
@@ -159,6 +160,22 @@ async def test_active_scope_projection_watermark_rejects_empty_scope() -> None:
         )
 
 
+async def test_active_scope_projection_watermark_stops_at_append_boundary() -> None:
+    class _ConcurrentWatermarkConnection:
+        async def execute(self, _query: str, params: object = None) -> _Cursor:
+            return _Cursor([{"projection_watermark": 54}])
+
+    result = await _active_scope_projection_watermark(
+        _ConcurrentWatermarkConnection(),  # type: ignore[arg-type]
+        high_watermark=50,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 50
+
+
 async def test_global_projection_watermark_preserves_inactive_scope_gaps() -> None:
     class _GlobalWatermarkConnection:
         def __init__(self) -> None:
@@ -187,6 +204,23 @@ async def test_global_projection_watermark_preserves_inactive_scope_gaps() -> No
         NOW,
         ["scope-current"],
     )
+
+
+async def test_global_projection_watermark_stops_at_append_boundary() -> None:
+    class _ConcurrentWatermarkConnection:
+        async def execute(self, _query: str, params: object = None) -> _Cursor:
+            return _Cursor([{"projection_watermark": 54}])
+
+    result = await _global_projection_watermark(
+        _ConcurrentWatermarkConnection(),  # type: ignore[arg-type]
+        high_watermark=50,
+        current_projection=14,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 50
 
 
 def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:
@@ -561,6 +595,32 @@ def test_snapshot_recovery_rebuilds_generation_before_journal_append() -> None:
     assert observation.links[0].link_props["provider_relationship_evidence"] == provider_evidence
     assert observation.state_base_generation == "snapshot-0"
     assert observation.state_base_generation_checked is True
+
+
+def test_recovery_metadata_rebases_full_snapshot_to_current_manifest() -> None:
+    metadata = {
+        "state_base_generation": "snapshot-skipped",
+        "coverage_scope": "full_provider_scope",
+    }
+
+    rebased = _rebase_recovery_metadata(metadata, {"generation": "snapshot-projected"})
+
+    assert rebased == {
+        "state_base_generation": "snapshot-projected",
+        "coverage_scope": "full_provider_scope",
+    }
+    assert metadata["state_base_generation"] == "snapshot-skipped"
+
+
+def test_recovery_metadata_preserves_matching_base() -> None:
+    metadata = {"state_base_generation": "snapshot-projected"}
+
+    assert _rebase_recovery_metadata(metadata, {"generation": "snapshot-projected"}) == metadata
+
+
+def test_recovery_metadata_rejects_missing_manifest_generation() -> None:
+    with pytest.raises(ValueError, match="base generation changed"):
+        _rebase_recovery_metadata({"state_base_generation": "snapshot-skipped"}, {})
 
 
 def test_snapshot_recovery_quarantines_relationship_without_observation_metadata() -> None:

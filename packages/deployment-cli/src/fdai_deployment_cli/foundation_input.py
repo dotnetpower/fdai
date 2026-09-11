@@ -20,6 +20,12 @@ _STRINGS = {
     "runner_image_toolchain_digest": r"[0-9a-f]{64}",
 }
 _NETWORKS = ("ops_address_space", "runner_subnet_prefix", "pe_subnet_prefix")
+_RUNNER_IMAGE_NETWORKS = (
+    "build_address_space",
+    "build_subnet_prefix",
+    "firewall_subnet_prefix",
+    "firewall_management_subnet_prefix",
+)
 _REQUIRED = (
     frozenset(_STRINGS)
     | frozenset(_NETWORKS)
@@ -40,6 +46,7 @@ _OPTIONAL = frozenset(
         "enable_public_egress",
         "enable_bastion",
         "bastion_subnet_prefix",
+        *_RUNNER_IMAGE_NETWORKS,
     }
 )
 _UUID = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
@@ -58,6 +65,7 @@ def snapshot_foundation_input(
     expected_target_binding: str,
     expected_region: str,
     expected_environment: str,
+    preserve_runner_image_networks: bool = False,
 ) -> PlanInputContext:
     """Snapshot only reviewed foundation inputs; never accept credentials.
 
@@ -93,6 +101,7 @@ def snapshot_foundation_input(
     if not isinstance(image, str) or _IMAGE.fullmatch(image) is None:
         raise ValueError("foundation plan requires an exact managed image or gallery version")
     _validate_networks(values)
+    _validate_runner_image_networks(values)
     retention = values.get("state_retention_days", 30)
     if type(retention) is not int or not 1 <= retention <= 365:
         raise ValueError("foundation plan retention MUST be an integer from 1 through 365")
@@ -111,7 +120,10 @@ def snapshot_foundation_input(
     if type(enable_bastion) is not bool:
         raise ValueError("foundation plan Bastion selection MUST be boolean")
     _validate_bastion_network(values, enabled=enable_bastion)
-    terraform_values = {key: value for key, value in values.items() if key != "target_binding"}
+    excluded = {"target_binding"}
+    if not preserve_runner_image_networks:
+        excluded.update(_RUNNER_IMAGE_NETWORKS)
+    terraform_values = {key: value for key, value in values.items() if key not in excluded}
     terraform_values["env"] = expected_environment
     write_plan_input(destination, terraform_values)
     return PlanInputContext(subscription_id=subscription, tenant_id=tenant)
@@ -155,3 +167,31 @@ def _validate_bastion_network(values: dict[str, object], *, enabled: bool) -> No
         or bastion.overlaps(endpoint)
     ):
         raise ValueError("foundation Bastion subnet MUST be disjoint, contained, and at least /26")
+
+
+def _validate_runner_image_networks(values: dict[str, object]) -> None:
+    present = set(_RUNNER_IMAGE_NETWORKS) & values.keys()
+    if not present:
+        return
+    if present != set(_RUNNER_IMAGE_NETWORKS):
+        raise ValueError("runner image network fields MUST be supplied together")
+    try:
+        build, builder, firewall, firewall_management = (
+            ipaddress.IPv4Network(str(values[name])) for name in _RUNNER_IMAGE_NETWORKS
+        )
+        ops = ipaddress.IPv4Network(str(values["ops_address_space"]))
+    except ValueError:
+        raise ValueError("runner image network prefixes MUST be canonical IPv4 CIDRs") from None
+    if (
+        not build.is_private
+        or build.overlaps(ops)
+        or not all(subnet.subnet_of(build) for subnet in (builder, firewall, firewall_management))
+        or builder.overlaps(firewall)
+        or builder.overlaps(firewall_management)
+        or firewall.overlaps(firewall_management)
+        or firewall.prefixlen > 26
+        or firewall_management.prefixlen > 26
+    ):
+        raise ValueError(
+            "runner image subnets MUST be private, disjoint, contained, and policy compatible"
+        )

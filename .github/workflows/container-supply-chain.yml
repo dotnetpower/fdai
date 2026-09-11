@@ -75,6 +75,12 @@ env:
 
 jobs:
   select-images:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+      (github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -82,17 +88,6 @@ jobs:
       matrix: ${{ steps.select.outputs.matrix }}
       has_images: ${{ steps.select.outputs.has_images }}
     steps:
-      - name: Validate manual publication source
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
-        run: |
-          set -euo pipefail
-          [[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {
-            echo "historical manual publication is not supported; commit_sha must equal github.sha so attestation source revision stays exact" >&2
-            exit 1
-          }
-
       - name: Checkout protected workflow verifier
         if: github.event_name != 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,6 +105,17 @@ jobs:
           workflow-path: .github/workflows/container-supply-chain.yml
           origin-url: ${{ github.server_url }}/${{ github.repository }}.git
           github-token: ${{ github.token }}
+
+      - name: Validate manual publication source
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {
+            echo "historical manual publication is not supported; commit_sha must equal github.sha so attestation source revision stays exact" >&2
+            exit 1
+          }
 
       - name: Checkout image selection inputs
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -134,14 +140,125 @@ jobs:
               "${selector[@]}" --nul >> "$GITHUB_OUTPUT"
           fi
 
+  pr-build-scan:
+    needs: select-images
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.select-images.outputs.has_images == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select-images.outputs.matrix) }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TARGET_COMMIT_SHA }}
+
+      - name: Apply tracked service image build override
+        run: python3 scripts/deployment/service/apply_image_build_override.py
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
+
+      - name: Materialize resolved model manifest
+        id: models
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ.get("RESOLVED_MODELS_JSON", "").strip()
+          if not raw:
+              payload = {
+                  "schema_version": "1.0.0",
+                  "capabilities": [],
+                  "mixed_model_mode": "hil-only",
+              }
+          else:
+              payload = json.loads(raw)
+              if not isinstance(payload, dict):
+                  raise SystemExit("RESOLVED_MODELS_JSON must contain a JSON object")
+              capabilities = payload.get("capabilities")
+              if not isinstance(capabilities, list):
+                  raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
+          canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
+          rendered = canonical.decode("utf-8")
+          Path("resolved-models.json").write_text(rendered, encoding="utf-8")
+          Path("services/assets/resolved-models.json").write_text(rendered, encoding="utf-8")
+          predicate = {
+              "schema_version": "1.0.0",
+              "resolved_models": {"canonical_json_sha256": digest},
+          }
+          Path("resolved-models.provenance.json").write_text(
+              json.dumps(predicate, separators=(",", ":"), sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Build image for verification
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0, Node 24
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.TARGET_COMMIT_SHA }}
+
+      - name: Install Trivy
+        env:
+          TRIVY_VERSION: "0.72.0"
+          TRIVY_ARCHIVE_SHA256: "bbb64b9695866ce4a7a8f5c9592002c5961cab378577fa3f8a040df362b9b2ea"
+        run: |
+          archive="$(mktemp)"
+          trap 'rm -f "${archive}"' EXIT
+          curl --fail --location --silent --show-error \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "${archive}"
+          echo "${TRIVY_ARCHIVE_SHA256}  ${archive}" | sha256sum --check --strict
+          sudo tar -xzf "${archive}" -C /usr/local/bin trivy
+          trivy --version
+
+      - name: Scan local image
+        run: >-
+          trivy image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL
+          --ignorefile .trivyignore.yaml
+          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
+
+      - name: Generate CycloneDX SBOM
+        run: >-
+          trivy image --format cyclonedx
+          --output "sbom-${{ matrix.target }}-${TARGET_COMMIT_SHA}.cdx.json"
+          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
+
+      - name: Upload SBOM evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fdai-pr-sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}
+          path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.cdx.json
+          if-no-files-found: error
+          retention-days: 7
+
   build-scan-attest:
     needs: select-images
     if: >-
-      needs.select-images.outputs.has_images == 'true' &&
-      (github.event_name == 'pull_request' ||
-        (github.event_name == 'push' &&
-          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
-        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+      (needs.select-images.outputs.has_images == 'true' &&
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+      (needs.select-images.outputs.has_images == 'true' &&
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false

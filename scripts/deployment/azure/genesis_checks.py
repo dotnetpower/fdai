@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
-import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -15,6 +16,32 @@ _GITHUB_REMOTE = re.compile(
     r"^(?:git@github\.com:|https://github\.com/|ssh://git@github\.com/)"
     r"(?P<repository>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$"
 )
+
+
+def trusted_tool(name: str) -> str:
+    """Resolve one executable only from fixed installation roots."""
+
+    if re.fullmatch(r"[a-z0-9][a-z0-9-]*", name) is None:
+        raise CheckError("required_tool_unavailable")
+    candidates = (
+        Path("/usr/bin") / name,
+        Path("/usr/local/bin") / name,
+        Path.home() / ".local" / "bin" / name,
+    )
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve(strict=True)
+            details = resolved.stat()
+        except OSError:
+            continue
+        if (
+            stat.S_ISREG(details.st_mode)
+            and not details.st_mode & 0o022
+            and details.st_uid in {0, os.getuid()}
+            and os.access(resolved, os.X_OK)
+        ):
+            return str(resolved)
+    raise CheckError("required_tool_unavailable")
 
 
 class CheckError(RuntimeError):
@@ -29,16 +56,28 @@ class CheckError(RuntimeError):
 class GenesisChecks:
     """Execute fixed external checks without exposing provider error output."""
 
-    def __init__(self, repository_root: Path) -> None:
+    def __init__(self, repository_root: Path, *, environment: dict[str, str] | None = None) -> None:
         self.repository_root = repository_root
+        self.environment = environment
+        self.git = trusted_tool("git")
+        self.az = trusted_tool("az")
+        self.gh = trusted_tool("gh")
 
     def verify_toolchain(self, *, apply: bool) -> None:
         """Require only read tools for inspection and the full apply toolchain for mutation."""
 
-        required = ["az", "bash", "git", "python3", "timeout"]
+        required = [
+            self.az,
+            trusted_tool("bash"),
+            self.git,
+            trusted_tool("python3"),
+            trusted_tool("timeout"),
+        ]
         if apply:
-            required.extend(("azd", "bash", "gh", "terraform", "uv"))
-        if any(shutil.which(command) is None for command in required):
+            required.extend(
+                (trusted_tool("azd"), self.gh, trusted_tool("terraform"), trusted_tool("uv"))
+            )
+        if any(not Path(command).is_file() for command in required):
             raise CheckError("required_tool_unavailable")
 
     def prepare_access_tools(self, *, timeout: int) -> None:
@@ -46,7 +85,7 @@ class GenesisChecks:
 
         self.run_required(
             (
-                "bash",
+                trusted_tool("bash"),
                 str(
                     self.repository_root
                     / "scripts/deployment/azure/prepare-genesis-access-tools.sh"
@@ -60,24 +99,44 @@ class GenesisChecks:
     def verify_target(self, *, subscription_id: str, tenant_id: str, region: str) -> None:
         """Verify both Azure identity axes and region availability without mutation."""
 
-        self.run_required(
+        account = self.capture(
             (
-                "bash",
-                str(self.repository_root / "scripts/deployment/azure/verify-azure-context.sh"),
+                self.az,
+                "account",
+                "show",
+                "--subscription",
                 subscription_id,
-                tenant_id,
+                "--query",
+                "{id:id,tenantId:tenantId}",
+                "--output",
+                "json",
+                "--only-show-errors",
             ),
             "azure_context_mismatch",
-            timeout=60,
-            capture=True,
         )
+        try:
+            target = json.loads(account)
+        except json.JSONDecodeError as exc:
+            raise CheckError("azure_context_mismatch") from exc
+        if (
+            not isinstance(target, dict)
+            or target.get("id") != subscription_id
+            or target.get("tenantId") != tenant_id
+        ):
+            raise CheckError("azure_context_mismatch", 3)
         available = self.capture(
             (
-                "az",
-                "account",
-                "list-locations",
+                self.az,
+                "rest",
+                "--method",
+                "get",
+                "--url",
+                (
+                    "https://management.azure.com/subscriptions/"
+                    f"{subscription_id}/locations?api-version=2022-12-01"
+                ),
                 "--query",
-                f"[?name == '{region}'].name | [0]",
+                f"value[?name == '{region}'].name | [0]",
                 "--output",
                 "tsv",
                 "--only-show-errors",
@@ -99,7 +158,7 @@ class GenesisChecks:
         if not apply:
             return
         dirty = self.capture(
-            ("git", "status", "--porcelain", "--untracked-files=all"),
+            (self.git, "status", "--porcelain", "--untracked-files=all"),
             "source_status_unavailable",
         )
         if dirty:
@@ -107,7 +166,7 @@ class GenesisChecks:
         if repository is None:
             raise CheckError("repository_required_for_apply", 64)
         remote = self.capture(
-            ("git", "remote", "get-url", "origin"),
+            (self.git, "remote", "get-url", "origin"),
             "source_repository_unavailable",
         )
         match = _GITHUB_REMOTE.fullmatch(remote)
@@ -115,7 +174,7 @@ class GenesisChecks:
             raise CheckError("repository_context_mismatch", 3)
         checks_raw = self.capture(
             (
-                "gh",
+                self.gh,
                 "api",
                 "-X",
                 "GET",
@@ -151,7 +210,7 @@ class GenesisChecks:
         """Fail when deployment tooling rewrites tracked or untracked source files."""
 
         dirty = self.capture(
-            ("git", "status", "--porcelain", "--untracked-files=all"),
+            (self.git, "status", "--porcelain", "--untracked-files=all"),
             "source_status_unavailable",
         )
         if dirty:
@@ -172,7 +231,7 @@ class GenesisChecks:
             completed = run_with_heartbeat(
                 arguments,
                 cwd=self.repository_root,
-                env=env,
+                env=env or self.environment,
                 capture_output=capture,
                 timeout=timeout,
             )
@@ -196,7 +255,7 @@ class GenesisChecks:
             completed = run_with_heartbeat(
                 arguments,
                 cwd=self.repository_root,
-                env=env,
+                env=env or self.environment,
                 capture_output=True,
                 timeout=timeout,
             )

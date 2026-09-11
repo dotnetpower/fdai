@@ -35,7 +35,13 @@ _RCA_READER_IDENTITY = frozenset(
     }
 )
 _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
-_RUNTIME_CALL_EVIDENCE = frozenset({"module.compute.azurerm_container_app_job.inventory[0]"})
+_RUNTIME_CALL_EVIDENCE = frozenset(
+    {
+        "terraform_data.inventory_runtime_image_update",
+        "terraform_data.runtime_call_evidence_transition",
+        "terraform_data.runtime_workspace_binding_transition",
+    }
+)
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",

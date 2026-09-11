@@ -764,6 +764,12 @@ def test_platform_workflow_uses_compilable_plan_metadata_builder() -> None:
     )[0]
 
     assert "build_deployment_plan_metadata.py" in step
+    assert 'private_dir="$RUNNER_TEMP/deployment-plan-private"' in step
+    assert 'install -d -m 0700 "$private_dir"' in step
+    assert "umask 077" in step
+    assert '--plan-json "$private_dir/deployment-plan.json"' in step
+    assert '--output "$private_dir/deployment-plan-summary.json"' in step
+    assert '--plan-summary "$private_dir/deployment-plan-summary.json"' in step
     compile(_PLAN_METADATA_BUILDER, "build-deployment-plan-metadata", "exec")
     assert "from pathlib import Path" in _PLAN_METADATA_BUILDER
 
@@ -1332,7 +1338,8 @@ def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
         "steps.health.outcome == 'failure') }}"
     )
     final_failure_condition = (
-        "if: ${{ always() && inputs.apply && (steps.apply.outcome == 'failure' || "
+        "if: ${{ always() && steps.protected-source.outcome == 'success' && "
+        "inputs.apply && (steps.apply.outcome == 'failure' || "
         "steps.health.outcome == 'failure') }}"
     )
     assert "id: apply\n        continue-on-error: true" in _WORKFLOW

@@ -114,11 +114,10 @@ def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
         "Microsoft.OperationalInsights",
         "Microsoft.Resources",
         "Microsoft.Storage",
-        "Microsoft.VirtualMachineImages",
     }
 
     assert expected == set((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS))
-    assert len(expected) == 17
+    assert len(expected) == 16
     assert {
         "Microsoft.ApiManagement",
         "Microsoft.BotService",
@@ -454,9 +453,9 @@ def test_source_gate_uses_the_latest_exact_required_check(
     }
 
     def capture(arguments: tuple[str, ...], _reason: str, *, strip: bool = True) -> str:
-        if arguments[:2] == ("git", "status"):
+        if arguments[:2] == ("/usr/bin/git", "status"):
             return ""
-        if arguments[:3] == ("git", "remote", "get-url"):
+        if arguments[:3] == ("/usr/bin/git", "remote", "get-url"):
             return "https://github.com/example/repository.git"
         api_paths.append(arguments[-1])
         value = json.dumps(check_runs)
@@ -487,6 +486,55 @@ def test_source_gate_uses_the_latest_exact_required_check(
         )
 
 
+def test_target_gate_reads_exact_subscription_region_without_active_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = GenesisChecks(_ROOT)
+    calls: list[tuple[str, ...]] = []
+
+    def capture(arguments: tuple[str, ...], reason: str, **_kwargs: object) -> str:
+        calls.append(arguments)
+        if reason == "azure_context_mismatch":
+            return json.dumps({"id": _SUBSCRIPTION, "tenantId": _TENANT})
+        if reason == "azure_region_unavailable":
+            return "koreacentral"
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(checks, "capture", capture)
+
+    checks.verify_target(
+        subscription_id=_SUBSCRIPTION,
+        tenant_id=_TENANT,
+        region="koreacentral",
+    )
+
+    region_call = calls[1]
+    assert region_call[1:4] == ("rest", "--method", "get")
+    assert f"/subscriptions/{_SUBSCRIPTION}/locations?" in region_call[5]
+    assert "list-locations" not in region_call
+    assert "account set" not in " ".join(region_call)
+
+
+def test_target_gate_rejects_region_absent_from_exact_subscription(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = GenesisChecks(_ROOT)
+
+    def capture(_arguments: tuple[str, ...], reason: str, **_kwargs: object) -> str:
+        if reason == "azure_context_mismatch":
+            return json.dumps({"id": _SUBSCRIPTION, "tenantId": _TENANT})
+        return ""
+
+    monkeypatch.setattr(checks, "capture", capture)
+
+    with pytest.raises(CheckError, match="azure_region_unavailable"):
+        checks.verify_target(
+            subscription_id=_SUBSCRIPTION,
+            tenant_id=_TENANT,
+            region="koreacentral",
+        )
+
+
 def test_source_gate_rejects_required_ci_from_another_repository(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -494,9 +542,9 @@ def test_source_gate_rejects_required_ci_from_another_repository(
 
     def capture(arguments: tuple[str, ...], _reason: str, *, strip: bool = True) -> str:
         del strip
-        if arguments[:2] == ("git", "status"):
+        if arguments[:2] == ("/usr/bin/git", "status"):
             return ""
-        if arguments[:3] == ("git", "remote", "get-url"):
+        if arguments[:3] == ("/usr/bin/git", "remote", "get-url"):
             return "git@github.com:example/repository.git"
         raise AssertionError(arguments)
 
@@ -650,7 +698,7 @@ def test_mutation_enabled_toolchain_prepares_access_tools_first(
     assert calls[0] == ("verify", True)
     arguments, reason, timeout, capture = calls[1][1]
     assert arguments == (
-        "bash",
+        "/usr/bin/bash",
         str(_ROOT / "scripts/deployment/azure/prepare-genesis-access-tools.sh"),
     )
     assert reason == "azure_access_tool_preparation_failed"
@@ -1031,9 +1079,9 @@ case "$1 $2" in
         ;;
     "resource list")
         if [[ -f "$FAKE_KV_STATE" ]]; then
-            printf '1\t1\n'
+            printf '1\n1\n'
         else
-            printf '0\t0\n'
+            printf '0\n0\n'
         fi
         ;;
     "keyvault create")

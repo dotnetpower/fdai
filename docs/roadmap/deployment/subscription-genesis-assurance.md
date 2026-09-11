@@ -51,6 +51,9 @@ External control planes are first-class dependencies:
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
+Region availability uses the exact subscription-bound ARM locations endpoint; it neither relies
+on the active Azure CLI subscription nor passes unsupported selection flags to convenience commands.
+
 Runner enrollment never places a registration token, remove token, database password, or GitHub
 token in Terraform variables, state, process arguments, Azure Run Command payloads, logs, or chat.
 The target implementation uses provider-hosted authorization and a protected input channel. If the
@@ -64,6 +67,17 @@ requires a mode-`0600` approval record bound to the run, source, stage, exact ev
 a UTC window of no more than one hour. This single-human file transport is limited to `dev`;
 staging and production retain their protected quorum transport. Another stage, changed digest,
 expired record, or silence grants no authority.
+
+Runner-image construction must also remain compatible with the effective Storage policy. The
+implemented private route does not use Azure VM Image Builder because its hidden staging account
+can require Shared Key. Terraform instead owns the complete builder network, an FQDN-allowlisted
+Firewall Basic with two non-VM public egress IPs, private builder and verifier VMs, extensions,
+deallocate/generalize actions, and the managed image. The exact plan
+rejects Storage and image-template resources. Independent acceptance requires the captured image
+provenance, successful builder and verifier extensions, and both VMs in the expected deallocated
+state. A build claim without that evidence remains blocked and cannot be retried.
+Policy-probe cleanup parses multi-value Azure CLI TSV projections as ordered lines, verifies the
+exact tagged group and deleted-vault absence, and never reports completion from command success alone.
 
 Each effect writes its immutable claim before mutation. If a claim or terminal receipt already
 exists, a restart selects verification only and never repeats Terraform apply, token enrollment,
@@ -128,6 +142,11 @@ is independently designed and approved.
 Before approval, the plan reports the projected monthly cost, one-time model validation budget,
 quota consumption, public IP count, egress profile, backup retention, and resources that do not
 scale to zero. A profile cost ceiling blocks plans above the approved amount.
+The direct Runner image plan reserves a conservative USD 500 monthly fixed-cost upper bound for
+its retained Firewall Basic in threat-intelligence deny mode, public IP, disk, and image graph. A lower profile ceiling blocks the
+plan, and removing the retained build graph remains a separately reviewed cleanup operation.
+The builder subnet and both private VM NICs bind the same explicit inbound-deny NSG; neither VM
+receives a public IP.
 
 ## Network and execution-host assurance
 
@@ -135,6 +154,12 @@ Planning checks address overlap across the ops VNet, application VNet, VPN, peer
 routes, Private DNS Resolver ranges, and selected private endpoint subnets. It validates both
 runner-to-service paths and operator-through-VPN paths without treating VPN access as deployment
 authority.
+Genesis binds discovery to the exact target subscription and includes VNet local and peered
+address spaces, route-table prefixes, local-network-gateway prefixes, and current local host
+routes. Unobservable external ranges remain an explicit operator constraint rather than an
+inferred safe range.
+For resource types whose Azure CLI list command requires a resource group, discovery first lists
+a bounded set of IDs across the exact subscription and then reads each exact ID concurrently.
 
 The selected execution profile must prove:
 

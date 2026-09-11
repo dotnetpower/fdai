@@ -86,6 +86,11 @@ if [[ -n "$DIFF_RANGE" && -n "$PYTEST_PATH" ]]; then
     echo "verify.sh: --fast --diff does not accept a pytest path" >&2
     exit 2
 fi
+if [[ "${FDAI_VERIFY_DEFER_STRUCTURAL_GATES:-0}" == "1" &&
+      "${FDAI_VALIDATION_ACTIVE:-0}" != "1" ]]; then
+    echo "verify.sh: structural gate deferral is restricted to the central validator" >&2
+    exit 2
+fi
 
 CHANGED_FILES=""
 if [[ -n "$DIFF_RANGE" ]]; then
@@ -98,6 +103,7 @@ fi
 declare -a NAMES=()
 declare -a RESULTS=()
 overall=0
+structural_deferred=0
 
 run_gate() {
     local name="$1"
@@ -153,6 +159,20 @@ run_gate_scoped() {
     fi
 }
 
+run_gate_scoped_or_deferred() {
+    local name="$1"
+    local pattern="$2"
+    shift 2
+    if [[ "${FDAI_VERIFY_DEFER_STRUCTURAL_GATES:-0}" == "1" && "$MODE" == "fast" ]]; then
+        printf '\n== %s ==\ndelegated structural stage: DEFERRED\n' "$name"
+        NAMES+=("$name")
+        RESULTS+=("DEFERRED")
+        structural_deferred=1
+    else
+        run_gate_scoped "$name" "$pattern" "$@"
+    fi
+}
+
 # ---- fast gates (always) ----------------------------------------------------
 
 # A missing tool is an environment fault, not a verdict on the code. Refuse up front with a
@@ -200,7 +220,7 @@ fi
 
 run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|services/core-control-plane/tests/persistence/|services/core-control-plane/src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
 run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' "${python_runner[@]}" scripts/quality/repository/check-issue-lifecycle.py
-run_gate_scoped "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
+run_gate_scoped_or_deferred "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
 run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.json$|docs/roadmap/|scripts/quality/architecture/check-constitution\.py$)' python3 scripts/quality/architecture/check-constitution.py
 design_doc_impact=(python3 scripts/quality/architecture/check-design-doc-impact.py)
 if [[ -n "$DIFF_RANGE" ]]; then
@@ -212,10 +232,10 @@ if [[ -n "$DIFF_RANGE" ]]; then
     roadmap_implementation_tracking+=("$DIFF_RANGE")
 fi
 run_gate "roadmap-implementation-tracking" "${roadmap_implementation_tracking[@]}"
-run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
-run_gate_scoped "venue-capability-contract" '^(services/[^/]+/src/|packages/service-contracts/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
-run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
-run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
+run_gate_scoped_or_deferred "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
+run_gate_scoped_or_deferred "venue-capability-contract" '^(services/[^/]+/src/|packages/service-contracts/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
+run_gate_scoped_or_deferred "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
+run_gate_scoped_or_deferred "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
 run_gate_scoped "chat-semantic-routing" '^(services/|packages/|console/|cli/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
 run_gate_scoped "ontology-query-coverage" '^(config/ontology-query-competency\.json|packages/service-contracts/src/fdai_service_contracts/ontology_query\.py|rule-catalog/vocabulary/|services/core-control-plane/src/fdai/core/(conversation|ontology_platform)/|services/core-control-plane/src/fdai/rule_catalog/schema/|scripts/quality/architecture/check-ontology-query-coverage\.py$)' uv run python scripts/quality/architecture/check-ontology-query-coverage.py
 run_gate_scoped "property-semantic-coverage" '^(rule-catalog/(catalog|vocabulary)/|policies/|docs/roadmap/architecture/operating-ontology(-ko)?\.md$|scripts/quality/architecture/check-property-semantic-coverage\.py$)' uv run python scripts/quality/architecture/check-property-semantic-coverage.py
@@ -271,7 +291,10 @@ for i in "${!NAMES[@]}"; do
     printf '  %-24s %s\n' "${NAMES[$i]}" "${RESULTS[$i]}"
 done
 
-if [[ $overall -eq 0 ]]; then
+if [[ $overall -eq 0 && $structural_deferred -eq 1 ]]; then
+    printf '\nverify.sh: incomplete until delegated structural gates pass\n' >&2
+    exit 126
+elif [[ $overall -eq 0 ]]; then
     printf '\nverify.sh: all gates green\n'
 else
     printf '\nverify.sh: at least one gate failed\n' >&2

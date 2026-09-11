@@ -132,6 +132,58 @@ def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> No
             checkout_commit=_COMMIT,
         )
 
+    image_values = {
+        **values,
+        "PROMOTE_RUNTIME_IMAGE": "true",
+        "RUNTIME_IMAGE_REVISION": "c" * 40,
+    }
+    image_context = _MODULE._deployment_context_digest(image_values)
+    image_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=image_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    validate(
+        {
+            **image_values,
+            "REQUEST_ID": f"plan-runtime-{image_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": image_context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+        },
+        checkout_commit=_COMMIT,
+    )
+    apply_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=image_context,
+        mode="apply",
+        region="koreacentral",
+    )
+    validate(
+        {
+            **image_values,
+            "APPLY": "true",
+            "PROMOTE_RUNTIME_IMAGE": "false",
+            "REQUEST_ID": f"apply-runtime-{apply_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": image_context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": "d" * 64,
+        },
+        checkout_commit=_COMMIT,
+    )
+    with pytest.raises(ValueError, match="revision and promotion"):
+        validate(
+            {
+                **image_values,
+                "PROMOTE_RUNTIME_IMAGE": "false",
+                "REQUEST_ID": f"plan-runtime-{image_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": image_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+
 
 def test_document_ocr_proposal_plan_derives_action_from_policy() -> None:
     request_id = f"plan-ocr-{'a' * 32}-{'b' * 64}"

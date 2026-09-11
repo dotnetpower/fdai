@@ -1454,6 +1454,37 @@ async def test_ontology_observer_keeps_incomplete_projection_pending(
     assert activity.status.value == "degraded"
 
 
+async def test_ontology_recovery_allows_fresh_collection_after_degraded_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        _observer,
+        recovery,
+        observation_journal,
+        _ontology_store,
+        _history_store,
+        projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    observation_journal.load_pending_promoted_snapshot.return_value = _promoted_observation(
+        "snapshot-incomplete-recovery"
+    )
+    projector.apply.return_value = SimpleNamespace(
+        status=InventoryOntologyProjectionStatus.UNAVAILABLE,
+        object_count=0,
+        link_count=0,
+        complete=False,
+        dropped_reasons=("unmapped_resource_type",),
+    )
+
+    await recovery()
+
+    observation_journal.load_pending_promoted_snapshot.assert_awaited_once()
+    activity = activity_publisher.publish.await_args.args[0]
+    assert activity.status.value == "degraded"
+
+
 async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPatch) -> None:
     config = InventoryJobConfig.from_env(
         {

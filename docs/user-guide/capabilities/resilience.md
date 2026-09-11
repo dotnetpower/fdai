@@ -5,7 +5,7 @@ description: >-
   bounded chaos experiments, and self-healing for known failure patterns.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: ca1357bfee72706e45bffae16aa7065faa8b3a5d
+    sha: 877d3b1ed5f9ee433b02ae0b12269712b3c698ca
 ---
 
 # Resilience

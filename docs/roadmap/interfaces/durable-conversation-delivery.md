@@ -22,6 +22,9 @@ server-derived opaque `operator-conversation:<digest>` reference for the session
 id or raw session id. Turns in one session therefore retain broker order, while different sessions
 use independent keys and can progress on separate partitions. Local Redpanda and deployed Event
 Hubs keep at least two partitions for the shared physical topic.
+The deployed Operator API and standalone channel edge also use distinct fixed semantic outbox
+namespaces. Each drainer can claim only requests persisted by its own runtime, so a channel-edge
+publisher cannot bypass the API's caller-bound post-acceptance witness.
 
 ## Read-investigation terminal completion
 
@@ -86,6 +89,7 @@ grants Core an Operator database writer.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Assigned distinct fixed semantic outbox namespaces to the independent Operator API and channel edge so each runtime claims only its own durable requests. | `infra/services/operator-service/modules/operator-service/main.tf`; focused Terraform semantic transport checks; live target-only observations under the shared empty namespace. | Apply the independent Operator service transition and retain a fresh paired runtime-call witness. |
 | 2026-09-09 | implemented | Bound semantic Kafka partitioning to the opaque session reference and reconciled the local physical topic to the deployed two-partition floor. | `current change`; focused Operator bridge and local startup checks. | Retain the governed authenticated subscription receipt required by issue #151. |
 | 2026-09-08 | implemented | Revalidated semantic request claims, delayed projection waiting, first-terminal fencing, late-projection rejection, timeout holds, replay cursors, poison quarantine, and receipt-bound confirmed delivery after the streaming change. | `current change`; focused Operator semantic bridge passed 151 tests. | Governed restart and external broker evidence remain separate validation work. |
 | 2026-09-05 | implemented | Added a web-only handover proposal decorator that verifies principal, goal, agent, and session before the existing semantic persistence boundary. It does not alter Slack, Teams, outbound delivery, or provider acknowledgement state. | `current change`; focused Operator handover and route-composition tests passed. | Retain the separately required channel and deployment receipts. |

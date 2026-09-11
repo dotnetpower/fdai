@@ -8,14 +8,16 @@ import hashlib
 import json
 import re
 import sys
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _OCI_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _COMMIT = re.compile(r"^[a-f0-9]{40}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
+_STATE_ONLY_REQUEST = re.compile(r"^plan-(?:observability|runtime)-[0-9a-f]{48}$")
 _ENVIRONMENT = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _SHA256_REF = re.compile(r"^sha256:[a-f0-9]{64}$")
 _REQUEST_KINDS = frozenset({"standard", "model", "event-bus", "event-bus-jobs"})
@@ -43,6 +45,25 @@ _BASE_METADATA_FIELDS = frozenset(
 _RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest"})
 _MODEL_RESOLUTION_FIELDS = frozenset({"resolved_models_digest", "deployment_models_digest"})
 _MODEL_VALIDATION_FIELDS = frozenset({"chatops_channel_validation"})
+_PLAN_SUMMARY_ACTIONS = frozenset({"create", "delete", "no_op", "read", "replace", "update"})
+_PLAN_SUMMARY_FIELDS = frozenset(
+    {
+        "schema_version",
+        "action_counts",
+        "resource_type_counts",
+        "managed_resources",
+        "destructive",
+        "summary_digest",
+    }
+)
+_RESOURCE_TYPE = re.compile(r"^[a-z][a-z0-9_]{0,127}$")
+_POST_APPLY_OBSERVATIONS = [
+    "database-migrations",
+    "runtime-health",
+    "initial-inventory-execution",
+    "canary-publisher",
+    "terraform-zero-change",
+]
 _MODEL_BINDING_FIELDS = frozenset(
     {
         "binding_policy_environment",
@@ -95,11 +116,26 @@ def verify_plan(
         raise PlanVerificationError("plan metadata has an unexpected schema")
     optional_fields = set(metadata) - _BASE_METADATA_FIELDS
     if not _BASE_METADATA_FIELDS.issubset(metadata) or not optional_fields.issubset(
-        {"runtime_image", "model_resolution"}
+        {"runtime_image", "model_resolution", "plan_summary", "post_apply_observations"}
     ):
         raise PlanVerificationError("plan metadata has an unexpected schema")
     if metadata.get("schema_version") != "fdai.deployment-plan.v1":
         raise PlanVerificationError("plan metadata schema version is unsupported")
+    has_plan_summary = "plan_summary" in metadata
+    has_post_apply_observations = "post_apply_observations" in metadata
+    if has_plan_summary != has_post_apply_observations:
+        raise PlanVerificationError("plan metadata summary evidence is incomplete")
+    if has_plan_summary:
+        request_id = metadata.get("request_id")
+        _verify_plan_summary(
+            metadata["plan_summary"],
+            allow_state_only_replace=(
+                isinstance(request_id, str)
+                and _STATE_ONLY_REQUEST.fullmatch(request_id) is not None
+            ),
+        )
+        if metadata["post_apply_observations"] != _POST_APPLY_OBSERVATIONS:
+            raise PlanVerificationError("plan metadata post-apply observations are invalid")
     _expect(metadata, "plan_id", expected_plan_id, _PLAN_ID)
     _expect(metadata, "plan_digest", expected_plan_digest, _DIGEST)
     source_artifact_digest = metadata.get("source_artifact_digest")
@@ -203,6 +239,65 @@ def verify_plan(
     actual_digest = _sha256(plan_path)
     if actual_digest != expected_plan_digest:
         raise PlanVerificationError("binary plan digest does not match metadata")
+
+
+def _verify_plan_summary(value: object, *, allow_state_only_replace: bool) -> None:
+    if not isinstance(value, dict) or set(value) != _PLAN_SUMMARY_FIELDS:
+        raise PlanVerificationError("plan metadata summary has an unexpected schema")
+    if value.get("schema_version") != "fdai.deployment-plan-summary.v1":
+        raise PlanVerificationError("plan metadata summary version is unsupported")
+    action_counts = value.get("action_counts")
+    if (
+        not isinstance(action_counts, dict)
+        or set(action_counts) != _PLAN_SUMMARY_ACTIONS
+        or any(type(count) is not int or count < 0 for count in action_counts.values())
+    ):
+        raise PlanVerificationError("plan metadata summary action counts are invalid")
+    managed_resources = value.get("managed_resources")
+    if type(managed_resources) is not int or managed_resources != sum(action_counts.values()):
+        raise PlanVerificationError("plan metadata summary resource count is invalid")
+    destructive = value.get("destructive")
+    expected_destructive = bool(action_counts["delete"] or action_counts["replace"])
+    if type(destructive) is not bool or destructive != expected_destructive:
+        raise PlanVerificationError("plan metadata summary destructive flag is invalid")
+    resource_type_counts = value.get("resource_type_counts")
+    if not isinstance(resource_type_counts, dict) or len(resource_type_counts) > 1_000:
+        raise PlanVerificationError("plan metadata summary resource type counts are invalid")
+    totals: Counter[str] = Counter()
+    for resource_type, counts in resource_type_counts.items():
+        if (
+            not isinstance(resource_type, str)
+            or _RESOURCE_TYPE.fullmatch(resource_type) is None
+            or not isinstance(counts, dict)
+            or not counts
+            or not set(counts).issubset(_PLAN_SUMMARY_ACTIONS)
+            or any(type(count) is not int or count <= 0 for count in counts.values())
+        ):
+            raise PlanVerificationError("plan metadata summary resource type counts are invalid")
+        totals.update(counts)
+    expected_totals = {name: count for name, count in action_counts.items() if count}
+    if dict(totals) != expected_totals:
+        raise PlanVerificationError("plan metadata summary type totals do not match actions")
+    state_only_replace = (
+        allow_state_only_replace
+        and action_counts["replace"] == 1
+        and all(action_counts[name] == 0 for name in ("create", "delete", "update"))
+        and set(resource_type_counts) == {"terraform_data"}
+        and resource_type_counts["terraform_data"].get("replace") == 1
+    )
+    if destructive and not state_only_replace:
+        raise PlanVerificationError("plan metadata summary is destructive")
+    summary_digest = value.get("summary_digest")
+    if not isinstance(summary_digest, str) or _DIGEST.fullmatch(summary_digest) is None:
+        raise PlanVerificationError("plan metadata summary digest is invalid")
+    digest_body: dict[str, Any] = {
+        key: item for key, item in value.items() if key != "summary_digest"
+    }
+    expected_digest = hashlib.sha256(
+        json.dumps(digest_body, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+    if summary_digest != expected_digest:
+        raise PlanVerificationError("plan metadata summary digest does not match")
 
 
 def _expect(

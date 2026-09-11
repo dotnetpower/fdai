@@ -152,6 +152,7 @@ jobs:
       TF_VAR_enable_design_mocks: ${{ inputs.deploy_design_mocks }}
       TF_VAR_enable_operator_api: ${{ inputs.deploy_operator_api }}
       TF_VAR_enable_runtime_call_evidence: ${{ vars.ENABLE_RUNTIME_CALL_EVIDENCE == 'true' }}
+      TF_VAR_runtime_call_evidence_transition: ${{ startsWith(inputs.request_id, 'plan-runtime-') || startsWith(inputs.request_id, 'apply-runtime-') }}
       TF_VAR_enable_operator_channel_edge: ${{ inputs.deploy_operator_channel_edge }}
       TF_VAR_operator_channel_edge_secret_ids: "${{ vars.OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON || '[]' }}"
       TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}
@@ -166,7 +167,7 @@ jobs:
       TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
       TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
       TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
-      TF_CLI_ARGS_plan: ${{ (startsWith(inputs.request_id, 'plan-runtime-') || startsWith(inputs.request_id, 'apply-runtime-')) && '-target=module.compute.azurerm_container_app_job.inventory[0]' || (startsWith(inputs.request_id, 'plan-history-') || startsWith(inputs.request_id, 'apply-history-')) && '-target=module.resource_group.azurerm_resource_group.primary -target=module.operational_history_storage[0] -target=azurerm_private_endpoint.operational_history_blob[0] -target=module.decision_evidence_storage[0] -target=azurerm_private_endpoint.decision_evidence_blob[0] -target=azurerm_private_dns_a_record.decision_evidence_runner_blob[0] -target=azurerm_role_assignment.decision_evidence_inventory_reader[0] -target=azurerm_container_app_job.operational_history_lifecycle[0]' || (startsWith(inputs.request_id, 'plan-rca-') || startsWith(inputs.request_id, 'apply-rca-')) && '-target=module.rca_reader_identity -target=azurerm_role_assignment.rca_monitoring_reader' || (startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-')) && '-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t1.judge\"] -target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]' || inputs.deploy_design_mocks && '-target=module.design_mocks' || (inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && inputs.document_ocr_action == 'preserve') && '-target=module.monitoring' || (inputs.deploy_operator_channel_edge && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && !inputs.deploy_monitoring && inputs.document_ocr_action == 'preserve') && '-target=module.resource_group.azurerm_resource_group.primary -target=module.operator_channel_edge_identity -target=azurerm_role_assignment.operator_channel_edge_acr_pull -target=azurerm_role_assignment.operator_channel_edge_eventhubs_sender -target=azurerm_role_assignment.operator_channel_edge_eventhubs_receiver -target=azurerm_role_assignment.operator_channel_edge_kv_secrets_user' || inputs.deploy_dev_operations_gateway && '-target=module.resource_group.azurerm_resource_group.primary -target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.compute.azurerm_container_app_job.oob -target=module.compute.azurerm_container_app_job.rule_watcher -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=module.measurement_runners.azurerm_container_app_job.baseline_regression -target=module.measurement_runners.azurerm_container_app_job.pattern_growth -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
+      TF_CLI_ARGS_plan: ${{ (startsWith(inputs.request_id, 'plan-runtime-') || startsWith(inputs.request_id, 'apply-runtime-')) && '-target=terraform_data.runtime_call_evidence_transition -target=terraform_data.inventory_runtime_image_update -target=terraform_data.runtime_workspace_binding_transition' || (startsWith(inputs.request_id, 'plan-history-') || startsWith(inputs.request_id, 'apply-history-')) && '-target=module.resource_group.azurerm_resource_group.primary -target=module.operational_history_storage[0] -target=azurerm_private_endpoint.operational_history_blob[0] -target=module.decision_evidence_storage[0] -target=azurerm_private_endpoint.decision_evidence_blob[0] -target=azurerm_private_dns_a_record.decision_evidence_runner_blob[0] -target=azurerm_role_assignment.decision_evidence_inventory_reader[0] -target=azurerm_container_app_job.operational_history_lifecycle[0]' || (startsWith(inputs.request_id, 'plan-rca-') || startsWith(inputs.request_id, 'apply-rca-')) && '-target=module.rca_reader_identity -target=azurerm_role_assignment.rca_monitoring_reader' || (startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-')) && '-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t1.judge\"] -target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]' || inputs.deploy_design_mocks && '-target=module.design_mocks' || (inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && inputs.document_ocr_action == 'preserve') && '-target=module.monitoring' || (inputs.deploy_operator_channel_edge && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && !inputs.deploy_monitoring && inputs.document_ocr_action == 'preserve') && '-target=module.resource_group.azurerm_resource_group.primary -target=module.operator_channel_edge_identity -target=azurerm_role_assignment.operator_channel_edge_acr_pull -target=azurerm_role_assignment.operator_channel_edge_eventhubs_sender -target=azurerm_role_assignment.operator_channel_edge_eventhubs_receiver -target=azurerm_role_assignment.operator_channel_edge_kv_secrets_user' || inputs.deploy_dev_operations_gateway && '-target=module.resource_group.azurerm_resource_group.primary -target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.compute.azurerm_container_app_job.oob -target=module.compute.azurerm_container_app_job.rule_watcher -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=module.measurement_runners.azurerm_container_app_job.baseline_regression -target=module.measurement_runners.azurerm_container_app_job.pattern_growth -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') || startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') || inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
@@ -242,6 +243,7 @@ jobs:
           sparse-checkout: .github/actions/verify-protected-workflow-source
           path: .fdai-protected-workflow-verifier
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
@@ -851,7 +853,7 @@ jobs:
             address: tuple(change.get("change", {}).get("actions", []))
             for address, change in resource_changes.items()
           }
-          state_only_replacements = {"terraform_data.observability_analyzer_image_update"} if "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" else set()
+          state_only_replacements = ({"terraform_data.observability_analyzer_image_update"} if "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" else set()) | ({"terraform_data.inventory_runtime_image_update"} if "${{ startsWith(inputs.request_id, 'plan-runtime-') }}" == "true" else set())
 
           def singleton_block(resource, key):
             blocks = resource.get(key) if isinstance(resource, dict) else None
@@ -940,7 +942,7 @@ jobs:
               print(f"- {address}")
             raise SystemExit(1)
           for address, _actions in destructive:
-            if address in state_only_replacements: print(f"Protected plan permits state-only analyzer updater replacement: {address}")
+            if address in state_only_replacements: print(f"Protected plan permits state-only updater replacement: {address}")
             elif address in approved_model_replacements:
               print(f"Protected plan permits exact Azure OpenAI replacement: {address}")
             else:
@@ -1133,11 +1135,15 @@ jobs:
           source_artifact_digest="$(sha256sum "$source_artifact" | cut -d' ' -f1)"
           preflight_evidence_digest="$(sha256sum runner-egress-evidence.json | cut -d' ' -f1)"
           azure_preflight_evidence_digest="$(sha256sum azure-preflight-evidence.json | cut -d' ' -f1)"
-          terraform show -json dev.plan > "$RUNNER_TEMP/deployment-plan.json"
+          private_dir="$RUNNER_TEMP/deployment-plan-private"
+          install -d -m 0700 "$private_dir"
+          trap 'rm -f -- "$private_dir/deployment-plan.json" "$private_dir/deployment-plan-summary.json"; rmdir -- "$private_dir" 2>/dev/null || true' EXIT
+          umask 077
+          terraform show -json dev.plan > "$private_dir/deployment-plan.json"
           PYTHONPATH=../packages/deployment-cli/src python3 \
             ../scripts/deployment/azure/genesis_private_plan_summary.py \
-            --plan-json "$RUNNER_TEMP/deployment-plan.json" \
-            --output "$RUNNER_TEMP/deployment-plan-summary.json"
+            --plan-json "$private_dir/deployment-plan.json" \
+            --output "$private_dir/deployment-plan-summary.json"
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           expires_at="$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%SZ')"
           export PLAN_ID="$plan_id" PLAN_DIGEST="$plan_digest" \
@@ -1146,7 +1152,7 @@ jobs:
             AZURE_PREFLIGHT_EVIDENCE_DIGEST="$azure_preflight_evidence_digest" \
             EXPIRES_AT="$expires_at"
           python3 ../scripts/deployment/azure/build_deployment_plan_metadata.py \
-            --plan-summary "$RUNNER_TEMP/deployment-plan-summary.json" \
+            --plan-summary "$private_dir/deployment-plan-summary.json" \
             --output plan-metadata.json
           blob_prefix="${TF_VAR_env}/${plan_id}"
           az storage blob upload \
@@ -1517,6 +1523,7 @@ jobs:
         run: |
           bash ../scripts/deployment/azure/verify_deploy_convergence.sh "${{ inputs.request_id }}"
           [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || bash ../scripts/deployment/azure/verify-deploy-identity-effect.sh "$RUNNER_TEMP/deploy-identity-applied-plan.json" "$DEPLOY_RUNNER_PRINCIPAL_ID" "$RUNNER_TEMP/deploy-identity-effect-receipt.json" "${{ vars.STATE_STORAGE_ACCOUNT }}" "$TF_VAR_env" "${{ inputs.plan_id }}"
+          [[ "${{ startsWith(inputs.request_id, 'apply-runtime-') }}" != "true" ]] || bash ../scripts/deployment/azure/verify-runtime-call-evidence-job.sh "${{ inputs.commit_sha }}" "${{ inputs.plan_id }}" runtime-call-evidence-job-readback.json
 
       - name: Verify model deployment readback
         if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
@@ -1804,7 +1811,7 @@ jobs:
           fi
 
       - name: Publish integrated migration adoption evidence
-        if: ${{ always() && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integrated-service-migration-adoption-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -2260,6 +2267,9 @@ jobs:
           fi
           if [[ -f initial-inventory-receipt.json ]]; then
             install -m 0600 initial-inventory-receipt.json "$candidate/initial-inventory-receipt.json"
+          fi
+          if [[ -f runtime-call-evidence-job-readback.json ]]; then
+            install -m 0600 runtime-call-evidence-job-readback.json "$candidate/runtime-call-evidence-job-readback.json"
           fi
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
 

@@ -14,7 +14,8 @@ query, approval, or execution path.
 >
 > **Deployment boundary:** This is an independently packaged sixth-service candidate with its own
 > image, health boundary, Teams application identity, and release artifact. It does not run inside
-> Core, Operator Service, or the existing A3 channel-edge workload.
+> Core, Operator Service, or the existing A3 channel-edge workload. Protected deployment summary
+> and cleanup steps run only after the protected-source verifier succeeds.
 >
 > **Authority boundary:** Every response carries `execution_authority=false`. A Teams mention,
 > retrieved record, implementation status, or cited source can explain FDAI behavior but cannot
@@ -111,7 +112,9 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 `catalog_digest` covers the schema version, source revision, build time, records, and authority
 flag. Rebuilding the same records at a different time therefore creates a distinct packaged
 artifact. Any change to a cited source, including formatting-only compaction, requires a catalog
-rebuild before packaging so its blob pins and digest match the release tree.
+rebuild in the same change before packaging so its blob pins and digest match the release tree.
+This mechanical refresh carries the revised source identity and does not add operational,
+approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of

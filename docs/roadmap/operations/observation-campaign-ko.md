@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 3b85fecbff23bc89595f141931d9dd55a073a786
-translation_revised: 2026-09-08
+translation_source_sha: c0dcc6a268440fcc4a4f59565b283217f9776e6e
+translation_revised: 2026-09-11
 ---
 
 # 권한 인식 관측 캠페인
@@ -38,6 +38,12 @@ translation_revised: 2026-09-08
 계약과 분리됩니다. 캠페인 출처를 추가하거나 관측 소유자, 생산자, 범위 또는 권한을 넓히지
 않습니다. 역방향 스키마 조건도 `assurance-twin` 생산자를 `assurance-twin.posture` 종류에만
 예약하므로 이 생산자는 캠페인 또는 인벤토리 활동을 가장할 수 없습니다.
+
+운영 코호트 출처 연결도 이 캠페인 레지스트리와 분리됩니다. 코호트 연결은 배정된 지표 또는
+가드에 대해 검토된 exporter workflow 하나와 고정 논리 출처 식별자를 참조합니다. 캠페인
+준비 상태, 출처의 빈 결과 또는 광범위한 공급자 역할을 코호트 근거로 바꾸지 않습니다.
+제품별 어댑터는 각 exporter workflow 뒤에 유지되므로 배포는 Core 또는 이 캠페인
+카탈로그를 바꾸지 않고 서로 다른 정본 시스템을 선택할 수 있습니다.
 
 ### 구현 이력
 

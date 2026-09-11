@@ -363,14 +363,16 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             or rca_reader_identity
             or deploy_identity_migration
             or _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
-            or promote_image
-            or runtime_image_revision
             or cutover
             or verify_effect
             or resume
         ):
             raise ValueError(
                 "runtime-call evidence transition cannot be combined with another target"
+            )
+        if not apply and bool(runtime_image_revision) != promote_image:
+            raise ValueError(
+                "runtime-call evidence plan image revision and promotion must be selected together"
             )
 
     if model_only:
