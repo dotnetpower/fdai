@@ -108,7 +108,9 @@ of fabricating an edge.
 The platform's `enable_runtime_call_evidence` input controls this Inventory Job source independently
 of the legacy Operator API module, so state migration cannot silently remove collection. Schema-valid
 `plan-runtime-*` and `apply-runtime-*` requests target only that Inventory Job and reject mixed targets.
-The post-plan scope guard rejects every dependency-induced change outside the exact Job address.
+The sealed transition plan uses the last committed Terraform state without refreshing unrelated
+dependencies, and the post-plan scope guard rejects every change outside the exact Job address.
+Post-apply verification independently reads the deployed Job before the source is treated as enabled.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
 or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
 or mutation authority at runtime rather than relying on type annotations alone. The projected

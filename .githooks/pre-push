@@ -214,6 +214,11 @@ if ! git worktree add --quiet --detach "$validation_root" "$local_sha"; then
   exit 1
 fi
 cd "$validation_root" || exit 1
+# Git exports repository-local variables to hooks. Clear them only after the
+# detached worktree exists so every nested Git command resolves from that
+# worktree instead of mutating the branch that invoked this hook.
+mapfile -t repository_local_git_env < <(git rev-parse --local-env-vars)
+unset "${repository_local_git_env[@]}"
 echo "pre-push: validating committed HEAD in an isolated worktree..."
 
 # ---------------------------------------------------------------------------
@@ -293,7 +298,8 @@ if [ "$workflow_contract_changed" -eq 1 ]; then
     echo "pre-push: BLOCKED - clean-checkout CI contracts failed."
     exit 1
   fi
-  if ! uv run --extra dev pytest -q --no-cov \
+  if ! env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+    uv run --extra dev pytest -q --no-cov \
     tests/integration/scripts/test_check_ci_contracts.py \
     tests/integration/test_structural_gates_drift.py; then
     echo "pre-push: BLOCKED - workflow contract regression tests failed."
