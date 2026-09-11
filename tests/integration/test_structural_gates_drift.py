@@ -111,6 +111,97 @@ def test_pre_push_validates_workflow_contract_changes_before_structural_gates() 
     assert body.index(contract_check) < body.index(structural_check)
 
 
+def test_pre_push_clears_repo_local_git_environment_before_validation(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    fake_bin = tmp_path / "bin"
+    repository.mkdir()
+    fake_bin.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    structural = repository / "scripts" / "automation" / "run-pre-push-structural-gates.sh"
+    structural.parent.mkdir(parents=True)
+    structural.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    workflow = repository / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("name: initial\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], cwd=repository, check=True)
+    initial_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", initial_commit],
+        cwd=repository,
+        check=True,
+    )
+    workflow.write_text("name: changed\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(workflow)], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "changed"], cwd=repository, check=True)
+    changed_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    fake_uv = fake_bin / "uv"
+    fake_uv.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "${GIT_DIR+x}" == x || "${GIT_WORK_TREE+x}" == x ]]; then\n'
+        '  echo "repository-local Git environment leaked into validation" >&2\n'
+        "  exit 42\n"
+        "fi\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    environment = os.environ.copy()
+    environment["GIT_DIR"] = str(repository / ".git")
+    environment["GIT_WORK_TREE"] = str(repository)
+    environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
+    hook_input = f"refs/heads/main {changed_commit} refs/heads/main {initial_commit}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        env=environment,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "pre-push: OK" in result.stdout
+    assert (
+        subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        == ""
+    )
+
+
 def test_pre_push_validates_a_new_branch_against_the_remote_default() -> None:
     body = _PRE_PUSH.read_text()
 
