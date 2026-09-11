@@ -469,6 +469,7 @@ def test_destroy_helper_refuses_to_deallocate_an_ephemeral_runner() -> None:
         "  - run: bash publish.sh\n",
         "env:\n  DEPLOY_TOKEN: ${{ secrets ['DEPLOY_TOKEN'] }}\nsteps:\n  - run: bash publish.sh\n",
         "env:\n  DEPLOY_TOKEN: ${{ secrets . DEPLOY_TOKEN }}\nsteps:\n  - run: bash publish.sh\n",
+        "env:\n  ALL_SECRETS: ${{ toJSON(secrets) }}\nsteps:\n  - run: bash publish.sh\n",
         "steps:\n  - run: az deployment group create\n",
         "steps:\n  - run: terraform apply saved.plan\n",
         "steps:\n  - run: terraform destroy -auto-approve\n",
