@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e7f1e48527a7b7b94d0e3542ec8dab8b0fa500e3
+translation_source_sha: 1ab38c3ab2deb7e36a9f3a5c3b4040dbb7f08f11
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -97,8 +97,9 @@ fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락
 플랫폼이 기록한 앱, revision, replica, 컨테이너 이름 및 컨테이너 ID가 주장한 정확한 ARM replica
 엔드포인트가 반환한 한 컨테이너와 모두 일치할 때만 행을 사용할 수 있습니다. 이 방식으로 독립적으로
 결속된 엔드포인트 증표만 기존 정식 Resource ID 매핑으로 변환합니다. 독립 채널
-경계 프로세스는 호출자 바인딩을 받지 않으므로 공유 토픽의 요청을 잘못된 Operator-to-Core
-edge로 결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 일치하지 않는 증표가 있으면 원본은
+경계 프로세스는 호출자 바인딩을 받지 않고 별도의 내구성 있는 outbox namespace를 사용하므로
+Operator API 요청을 claim하거나 공유 토픽의 자체 요청을 잘못된 Operator-to-Core edge로
+결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 일치하지 않는 증표가 있으면 원본은
 불완전 상태가 됩니다. 결합된 반복 호출은 정확한 엔드포인트 쌍별 최신 관측으로 축약합니다.
 60초 후행 유예 구간은 처리 중인 쌍을 대기 상태로 유지하며, 원본은 최신성 구간보다 유예 구간
 하나를 더 읽어 기준 시점 경계가 보존 대상 쌍을 나누지 않도록 합니다. 불완전 원본의 범위
