@@ -121,8 +121,9 @@ artifact. Any change to a cited source, including formatting-only compaction, re
 rebuild in the same change before packaging so its blob pins and digest match the release tree.
 This mechanical refresh carries the revised source identity and does not add operational,
 approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
-A completion-handoff ledger refresh follows this rule: it changes source blob pins and the catalog
-digest only, without changing retrieval authority or message-delivery behavior.
+Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source
+blob pins and the catalog digest only, without changing retrieval authority or message-delivery
+behavior.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of
