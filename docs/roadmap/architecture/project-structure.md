@@ -15,7 +15,9 @@ objective as met. A parked HIL record without a recorded action digest fails the
 cannot authorize a tampered payload. The quality gate refuses duplicate cross-check models, so one model cannot agree with itself and
 satisfy the mixed-model quorum. An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority instead of being
 skipped. A change event stamped further ahead than the configured clock-skew tolerance reports out-of-band instead of being suppressed by
-the settling window. Tolerated negative age never creates suppression when the configured settling window is zero. A missed breach is scored
+the settling window. Tolerated negative age never creates suppression when the configured settling window is zero.
+Pre-authority Change Safety evidence uses the same injected control-loop clock as action creation,
+dispatch, and audit, so frozen replay cannot become stale from host wall time. A missed breach is scored
 only from complete telemetry, so a false-negative outcome never publishes a completeness claim its observation did not make. Forecast
 closure attempts every claimed episode before re-raising the first failure, so one failing episode cannot hold the whole due queue open. T1
 contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
