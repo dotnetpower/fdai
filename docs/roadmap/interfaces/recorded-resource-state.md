@@ -170,6 +170,10 @@ the exact ResourceTypes whose ARM type is supported:
 ## Presentation and compatibility
 
 - Dashboard v2 uses the shared state query, not the legacy `inventory/graph` status string.
+- Dashboard v2 presents returned scope and snapshot counts in one quiet summary surface, keeps the
+  Resource landscape as the primary workspace, aligns evidence coverage beneath it, and reserves
+  the secondary rail for Check first highlights or the selected Resource Inspector. This hierarchy
+  changes presentation only; every count retains its filtered recorded-state destination.
 - Ontology directory and exploration records expose the same additive `states` field from the
   ontology-owned current Resource state.
 - The Ontology Instances graph reserves its reviewed viewport height even when a result contains
