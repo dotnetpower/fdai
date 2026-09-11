@@ -1,7 +1,7 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: 5eb27f7bbe12d0a48feb7904b4fc565db949ca64
+translation_source_sha: 4c47554eba7cd09657ff03777dab58222cf80ec8
 translation_revised: 2026-09-12
 ---
 # 제품화 및 확장성 계획
@@ -47,7 +47,7 @@ Install과 진단은 단순해지고, 채널은 실행 권한 없이 bidirection
 | P0-05 | Static 배포 preflight | 구현됨 | 결정론적 입력, Terraform 계획 JSON, 실제 운영 Azure Policy/할당량/신원/시크릿, hash-only 근거 및 실패 시 차단 오류를 사용하는 범위가 제한된 실행기 TLS egress 통과 |
 | P0-06 | 원격 계획 제출 | 구현됨 | 대상 id를 전송 계층 산출물에 넣지 않는 doctor-gated plan-only 전달, exact-commit 가드, 비공개 변경할 수 없는 binary 계획, 정제된 메타데이터 상태, 다이제스트/만료, 범위가 제한된 정리 통과 |
 | P0-07 | Exact-plan 적용 | 구현됨 | Protected 계획이 완전한 enforce-mode Policy/할당량/신원/시크릿 검사 커버리지 및 범위가 제한된 egress 근거를 요구하며 separate 변경할 수 없는 근거 다이제스트를 점유, approval-gated 적용, convergence, 이행, 상태, 증적 전에 복원하고 verify |
-| P0-08 | Signed 배포 번들 | 부분 구현 | 추적되는 허용 목록, 결정론적 CycloneDX 빌드/보관, 외부 Ed25519 서명, double-build 바이트 비교, 검증기 round-trip 통과. 승인이 필요한 게시는 남은 작업 |
+| P0-08 | Signed 배포 번들 | 부분 구현 | 추적되는 허용 목록, 결정론적 CycloneDX 빌드/보관, 외부 Ed25519 서명, 검증기 round-trip 통과. 재현 가능한 double-build 검증과 승인이 필요한 게시는 남은 작업 |
 | P0-09 | 로컬 security 감사 | 구현됨 | 고정된 발견 사항이 auth bypass, Entra 구성, 실행 플래그, 샌드박스 준비 상태, 구성 hygiene 포함 |
 | P0-10 | Narrow security auto-fix | 구현됨 | Regular 파일 `0600` 및 상위 디렉터리 `0700` 변경만 허용 |
 | P0-11 | Bidirectional 채널 계약 | 구현됨 | 범위가 제한된 `InboundTurn` 및 thread-preserving `OutboundResponse` 프로토콜 테스트 통과 |
