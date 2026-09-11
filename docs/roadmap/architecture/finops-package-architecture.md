@@ -41,7 +41,8 @@ domain code and assets. It does not create another control plane or move authori
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
 > validation code runs and restricts root dispatch jobs to protected `main`, so unverified
-> workflow text cannot execute ahead of the provenance gate.
+> workflow text cannot execute ahead of the provenance gate. The verifier also rejects an
+> executing workflow source ref outside protected `main` or an immutable `v*` release tag.
 
 ## Design at a glance
 
