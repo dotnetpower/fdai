@@ -272,11 +272,6 @@ class PostgresInventoryDeltaProjector:
                         connection,
                         watermark=journal_result.high_watermark,
                     )
-                    await _record_inventory_delta_receipt(
-                        connection,
-                        event_id=event_id,
-                        outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
-                    )
                     _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.SNAPSHOT_COVERED)
                     return InventoryDeltaApplyResult(
                         resources=0,
@@ -304,11 +299,6 @@ class PostgresInventoryDeltaProjector:
                     await self._observation_journal.mark_overlay_projected(
                         connection,
                         watermark=journal_result.high_watermark,
-                    )
-                    await _record_inventory_delta_receipt(
-                        connection,
-                        event_id=event_id,
-                        outcome=InventoryDeltaApplyOutcome.APPLIED,
                     )
                     return InventoryDeltaApplyResult(
                         resources=0,
@@ -377,11 +367,6 @@ class PostgresInventoryDeltaProjector:
                         connection,
                         watermark=journal_result.high_watermark,
                     )
-                    await _record_inventory_delta_receipt(
-                        connection,
-                        event_id=event_id,
-                        outcome=InventoryDeltaApplyOutcome.ORDERING_REJECTED,
-                    )
                     _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.ORDERING_REJECTED)
                     return InventoryDeltaApplyResult(
                         resources=0,
@@ -440,11 +425,6 @@ class PostgresInventoryDeltaProjector:
                     connection,
                     watermark=journal_result.high_watermark,
                 )
-                await _record_inventory_delta_receipt(
-                    connection,
-                    event_id=event_id,
-                    outcome=InventoryDeltaApplyOutcome.APPLIED,
-                )
         return InventoryDeltaApplyResult(
             resources=max(0, resource_cursor.rowcount),
             links=applied_links,
@@ -486,19 +466,6 @@ async def _acquire_inventory_locks(
     """Block promotion, then serialize graph changes that share an endpoint."""
     await _acquire_inventory_gate(connection, exclusive_graph=False)
     await _acquire_resource_locks(connection, resource_ids)
-
-
-async def _record_inventory_delta_receipt(
-    connection: psycopg.AsyncConnection[Any],
-    *,
-    event_id: str,
-    outcome: InventoryDeltaApplyOutcome,
-) -> None:
-    await connection.execute(
-        "INSERT INTO inventory_change_event_receipt (source_event_id, outcome) "
-        "VALUES (%s, %s) ON CONFLICT (source_event_id) DO NOTHING",
-        (event_id, outcome.value),
-    )
 
 
 async def _acquire_inventory_gate(

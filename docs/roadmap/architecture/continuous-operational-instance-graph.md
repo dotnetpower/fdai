@@ -194,9 +194,9 @@ ordered oldest first, boundary duplicates are idempotent, and the cursor advance
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation
 before proving absence. A tokenless truncated page advances through the same stable keyset cursor,
-and the next poll waits until every published event id appears in the observation journal or a
-durable terminal-processing receipt. Snapshot-covered and ordering-rejected changes therefore
-release the producer fence without being misrepresented as current overlay changes.
+and the next poll waits until every published event id appears in the observation journal.
+Snapshot-covered and ordering-rejected changes therefore release the producer fence without being
+misrepresented as current overlay changes.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
@@ -211,7 +211,7 @@ than a model-supplied scope. It selects only ARG create, update, and delete obse
 operation-bearing Activity Log observations, excludes periodic snapshots and live refreshes, and
 reports complete only after the fresh cursor and every exact event-id fence verify. The reader
 fetches one row beyond the requested limit and reports `result_limit` rather than claiming that a
-bounded subset is complete. Rows, cursor state, and terminal processing receipts are read from one
+bounded subset is complete. Rows, cursor state, and journal fence evidence are read from one
 read-only repeatable-read snapshot and are all bounded by the answer's `known_at` cutoff.
 
 The change accelerator batches bursts for at most two seconds, applies per-resource ordering, and
