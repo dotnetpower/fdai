@@ -26,22 +26,30 @@ branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
 local_sha=""
 remote_sha=""
 remote_ref=""
+zero_sha="0000000000000000000000000000000000000000"
+non_current_branch_ref=""
 
 while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
   if [[ "$candidate_local_ref" == "refs/heads/$branch" ]]; then
     local_sha="$candidate_local_sha"
     remote_ref="$candidate_remote_ref"
     remote_sha="$candidate_remote_sha"
+  elif [[ "$candidate_local_ref" == refs/heads/* && "$candidate_local_sha" != "$zero_sha" ]]; then
+    non_current_branch_ref="$candidate_local_ref"
   fi
 done
 
 echo "pre-push: lightweight checks (branch: ${branch:-detached})..."
+if [[ -n "$non_current_branch_ref" ]]; then
+  echo "pre-push: BLOCKED - refusing to validate a non-current branch push."
+  echo "  Check out '${non_current_branch_ref#refs/heads/}' in its own worktree, then push again."
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Sync guard - use the remote ref Git already negotiated for this push.
 # ---------------------------------------------------------------------------
 range=""
-zero_sha="0000000000000000000000000000000000000000"
 if [[ -n "$branch" && -n "$local_sha" && "$remote_sha" != "$zero_sha" ]]; then
   if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
     echo "pre-push: BLOCKED - $remote_name/${remote_ref#refs/heads/} has commits missing locally."
@@ -82,9 +90,11 @@ if [ -z "$range" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Files changed in the commits being pushed (skip deletions).
+# Files changed in the commits being pushed. Keep deleted paths for contract
+# routing, but only inspect materialized paths for content checks.
+mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTD "$range" 2>/dev/null || true)
 mapfile -t changed < <(git diff --name-only --diff-filter=d "$range" 2>/dev/null || true)
-if [ "${#changed[@]}" -eq 0 ]; then
+if [ "${#changed_paths[@]}" -eq 0 ]; then
   echo "pre-push: OK (no file changes to lint)"
   exit 0
 fi
@@ -161,9 +171,10 @@ fi
 #     focused tests and authoritative remote integration.
 # ---------------------------------------------------------------------------
 workflow_contract_changed=0
-for f in "${changed[@]}"; do
+for f in "${changed_paths[@]}"; do
   case "$f" in
     .github/workflows/*.yml | \
+    .github/workflows/*.yaml | \
     .githooks/pre-push | \
     scripts/quality/ci/* | \
     tests/integration/scripts/test_check_ci_contracts.py | \

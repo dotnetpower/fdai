@@ -80,6 +80,11 @@ BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
 
 
+def _workflow_paths() -> tuple[Path, ...]:
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    return tuple(sorted({*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")}))
+
+
 def _service_dockerfiles() -> tuple[Path, ...]:
     return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
 
@@ -307,7 +312,7 @@ def _validate_service_contract_generation() -> list[str]:
 
 def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
-    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    for path in _workflow_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
         for match in ACTION_REF_RE.finditer(content):
@@ -363,7 +368,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
         "diff --quiet",
     )
     action_checked = False
-    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    for path in _workflow_paths():
         content = path.read_text(encoding="utf-8")
         if not _is_privileged_workflow(content):
             continue
