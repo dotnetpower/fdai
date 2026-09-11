@@ -1,10 +1,4 @@
 mock_provider "azapi" {
-  override_resource {
-    target = azapi_resource.template
-    values = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.VirtualMachineImages/imageTemplates/it-example-runner-krc-2e17f214622f"
-    }
-  }
   override_data {
     target = data.azapi_resource.runner_image
     values = {
@@ -12,21 +6,28 @@ mock_provider "azapi" {
         id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.Compute/images/img-runner-example-dev-krc-2e17f214622f"
         location = "koreacentral"
         properties = {
+          hyperVGeneration  = "V2"
           provisioningState = "Succeeded"
+          sourceVirtualMachine = {
+            id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Compute/virtualMachines/vm-runner-build-example-dev-krc-2e17f214622f"
+          }
           storageProfile = {
             osDisk = {
-              osType = "Linux"
+              osState = "Generalized"
+              osType  = "Linux"
             }
           }
         }
         tags = {
           "fdai:source-commit"    = "0000000000000000000000000000000000000000"
+          "fdai:run-digest"       = "0000000000000000000000000000000000000000000000000000000000000000"
           "fdai:toolchain-digest" = "2e17f214622f0459c1c104c5d0caf970ea2ea940fea71a092d6da1320370dcb1"
         }
       }
     }
   }
 }
+
 mock_provider "azurerm" {
   override_resource {
     target = azurerm_resource_group.image
@@ -41,10 +42,93 @@ mock_provider "azurerm" {
     }
   }
   override_resource {
-    target = azurerm_user_assigned_identity.builder
+    target = azurerm_linux_virtual_machine.builder
     values = {
-      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-runner-build-krc-2e17f214622f"
-      principal_id = "00000000-0000-0000-0000-000000000001"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Compute/virtualMachines/vm-runner-build-example-dev-krc-2e17f214622f"
+    }
+  }
+  override_resource {
+    target = azurerm_linux_virtual_machine.verifier
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Compute/virtualMachines/vm-runner-verify-example-dev-krc-2e17f214622f"
+    }
+  }
+  override_resource {
+    target = azurerm_image.runner
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-image-krc-2e17f214622f/providers/Microsoft.Compute/images/img-runner-example-dev-krc-2e17f214622f"
+    }
+  }
+  override_resource {
+    target = azurerm_subnet.builder
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/virtualNetworks/vnet-example/subnets/snet-runner-build"
+    }
+  }
+  override_resource {
+    target = azurerm_network_security_group.builder
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/networkSecurityGroups/nsg-example"
+    }
+  }
+  override_resource {
+    target = azurerm_subnet.firewall
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/virtualNetworks/vnet-example/subnets/AzureFirewallSubnet"
+    }
+  }
+  override_resource {
+    target = azurerm_subnet.firewall_management
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/virtualNetworks/vnet-example/subnets/AzureFirewallManagementSubnet"
+    }
+  }
+  override_resource {
+    target = azurerm_public_ip.firewall
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/publicIPAddresses/pip-firewall"
+    }
+  }
+  override_resource {
+    target = azurerm_public_ip.firewall_management
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/publicIPAddresses/pip-firewall-management"
+    }
+  }
+  override_resource {
+    target = azurerm_firewall_policy.builder
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/firewallPolicies/afwp-example"
+    }
+  }
+  override_resource {
+    target = azurerm_firewall.builder
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/azureFirewalls/afw-example"
+      ip_configuration = {
+        name                 = "data"
+        private_ip_address   = "192.168.240.68"
+        public_ip_address_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/publicIPAddresses/pip-firewall"
+        subnet_id            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/virtualNetworks/vnet-example/subnets/AzureFirewallSubnet"
+      }
+    }
+  }
+  override_resource {
+    target = azurerm_route_table.builder
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/routeTables/rt-example"
+    }
+  }
+  override_resource {
+    target = azurerm_network_interface.builder
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/networkInterfaces/nic-builder"
+    }
+  }
+  override_resource {
+    target = azurerm_network_interface.verifier
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-runner-build-krc-2e17f214622f/providers/Microsoft.Network/networkInterfaces/nic-verifier"
     }
   }
 }
@@ -69,63 +153,96 @@ variables {
   opa_sha256                        = "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa"
   github_runner_version             = "2.337.0"
   github_runner_sha256              = "0000000000000000000000000000000000000000000000000000000000000001"
+  runner_ssh_public_key             = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHA6I7nugiew177uO389Zhg2zliPDuRZdNRwT2lKu3To terraform-plan-evaluation-only"
 }
 
-run "exact_image_builder_contract" {
-  command = apply
+run "exact_direct_builder_contract" {
+  command = plan
 
   assert {
     condition = (
-      azapi_resource.template.type == "Microsoft.VirtualMachineImages/imageTemplates@2024-02-01" &&
-      azapi_resource.template.body.properties.source.type == "PlatformImage" &&
-      azapi_resource.template.body.properties.source.publisher == "Canonical" &&
-      azapi_resource.template.body.properties.source.offer == "ubuntu-24_04-lts" &&
-      azapi_resource.template.body.properties.source.sku == "server" &&
-      azapi_resource.template.body.properties.source.version == var.source_image_version &&
-      azapi_resource.template.body.properties.autoRun.state == "Disabled"
+      azurerm_linux_virtual_machine.builder.source_image_reference[0].publisher == "Canonical" &&
+      azurerm_linux_virtual_machine.builder.source_image_reference[0].offer == "ubuntu-24_04-lts" &&
+      azurerm_linux_virtual_machine.builder.source_image_reference[0].sku == "server" &&
+      azurerm_linux_virtual_machine.builder.source_image_reference[0].version == var.source_image_version
     )
-    error_message = "Runner image build must use only the exact Canonical source and explicit run action."
+    error_message = "The builder must use the exact Canonical source image."
   }
 
   assert {
     condition = (
-      azapi_resource_action.build.action == "run" &&
-      azapi_resource_action.build.method == "POST" &&
-      azapi_resource_action.build.when == "apply" &&
-      azapi_resource.template.body.properties.errorHandling.onCustomizerError == "cleanup" &&
-      azapi_resource.template.body.properties.errorHandling.onValidationError == "cleanup" &&
-      !azapi_resource.template.body.properties.validate.continueDistributeOnFailure
+      length(azurerm_linux_virtual_machine.builder.network_interface_ids) == 1 &&
+      azurerm_network_interface.builder.ip_configuration[0].public_ip_address_id == null
     )
-    error_message = "Image build must fail closed and clean temporary resources on customization or validation failure."
+    error_message = "The builder must use one private NIC without a public IP."
   }
 
   assert {
     condition = (
-      length(azapi_resource.template.body.properties.customize) == 1 &&
-      length(azapi_resource.template.body.properties.validate.inVMValidations) == 1 &&
+      azurerm_route.builder_default.next_hop_type == "VirtualAppliance" &&
+      azurerm_firewall.builder.sku_tier == "Basic" &&
+      one(azurerm_network_security_group.builder.security_rule).access == "Deny" &&
+      one(azurerm_network_security_group.builder.security_rule).direction == "Inbound"
+    )
+    error_message = "The build network must route through Firewall Basic and deny inbound traffic."
+  }
+
+  assert {
+    condition = (
+      toset(flatten([
+        for collection in azurerm_firewall_policy_rule_collection_group.builder.application_rule_collection : [
+          for rule in collection.rule : rule.destination_fqdns
+        ]
+        ])) == toset([
+        "azure.archive.ubuntu.com",
+        "github.com",
+        "*.githubusercontent.com",
+        "packages.microsoft.com",
+        "releases.hashicorp.com",
+        "security.ubuntu.com",
+      ])
+    )
+    error_message = "The build firewall must allow only exact package and toolchain source FQDNs."
+  }
+
+  assert {
+    condition = (
       strcontains(file("${path.module}/enroll-runner.sh"), "ACTIONS_RUNNER_INPUT_TOKEN") &&
-      strcontains(local.customizer, "/usr/local/sbin/fdai-attest-runner") &&
-      strcontains(local.customizer, "/usr/local/sbin/fdai-migrate-foundation-state") &&
-      strcontains(local.customizer, var.terraform_binary_sha256) &&
       !strcontains(file("${path.module}/enroll-runner.sh"), "--token") &&
-      local.toolchain_digest == "2e17f214622f0459c1c104c5d0caf970ea2ea940fea71a092d6da1320370dcb1" &&
-      azapi_resource.template.body.properties.distribute[0].type == "ManagedImage" &&
-      azapi_resource.template.body.properties.distribute[0].imageId == local.image_id &&
-      azapi_resource.template.body.properties.distribute[0].artifactTags["fdai:toolchain-digest"] == local.toolchain_digest &&
+      strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "cloud-init clean") &&
+      strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "waagent -force -deprovision+user") &&
+      strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "systemctl poweroff") &&
+      strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "systemd-run --unit=fdai-deprovision") &&
+      strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "/var/lib/fdai/image-deprovisioned") &&
+      !strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "systemctl enable") &&
+      !strcontains(azapi_resource.builder_deprovision.body.properties.source.script, "/etc/systemd/system/fdai-deprovision.service") &&
+      azapi_resource.builder_deprovision.body.properties.treatFailureAsDeploymentFailure == true &&
+      length(terraform_data.await_builder_poweroff.triggers_replace) == 1 &&
+      azapi_resource_action.builder_deallocate.action == "deallocate" &&
+      azapi_resource_action.builder_generalize.action == "generalize" &&
+      azurerm_image.runner.hyper_v_generation == "V2"
+    )
+    error_message = "The exact toolchain must complete before ordered deallocation, generalization, and capture."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_linux_virtual_machine.verifier.network_interface_ids) == 1 &&
+      azurerm_network_interface.verifier.ip_configuration[0].public_ip_address_id == null &&
+      strcontains(local.verifier_command, local.toolchain_digest) &&
+      azapi_resource_action.verifier_deallocate.action == "deallocate" &&
       output.runner_image.runner_registered == false &&
       output.runner_image.subscription_ready == false
     )
-    error_message = "Only an exact validated managed image may be distributed, without runner registration or readiness claims."
+    error_message = "A private verifier must boot the captured image and complete before the no-readiness output."
   }
 
   assert {
     condition = (
-      azurerm_role_assignment.builder_image_contributor.scope == azurerm_resource_group.image.id &&
-      azurerm_role_assignment.builder_staging_contributor.scope == azurerm_resource_group.staging.id &&
-      azapi_resource.template.body.properties.stagingResourceGroup == azurerm_resource_group.staging.id &&
-      azapi_resource.template.body.properties.vmProfile.userAssignedIdentities == [azurerm_user_assigned_identity.builder.id]
+      local.toolchain_digest == "2e17f214622f0459c1c104c5d0caf970ea2ea940fea71a092d6da1320370dcb1" &&
+      output.runner_image.toolchain_digest == local.toolchain_digest
     )
-    error_message = "The image builder identity must remain limited to its exact image and staging groups."
+    error_message = "The captured image must bind the exact source VM and toolchain provenance."
   }
 }
 
@@ -157,4 +274,14 @@ run "reject_malformed_terraform_binary_digest" {
   }
 
   expect_failures = [var.terraform_binary_sha256]
+}
+
+run "reject_public_or_malformed_build_network" {
+  command = plan
+
+  variables {
+    build_address_space = "8.8.8.0/24"
+  }
+
+  expect_failures = [var.build_address_space]
 }

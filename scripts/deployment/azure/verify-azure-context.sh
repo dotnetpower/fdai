@@ -54,5 +54,4 @@ if [[ "$actual_tenant" != "$expected_tenant" ]]; then
   exit 1
 fi
 
-az account set --subscription "$expected_subscription" --only-show-errors
 echo "verify-azure-context: exact subscription and tenant verified."

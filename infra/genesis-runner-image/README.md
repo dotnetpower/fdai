@@ -10,6 +10,12 @@ The local Genesis coordinator snapshots this root, resolves one numeric Canonica
 image version, and creates a saved Terraform plan. The plan can run only after a current approval
 file binds its review and plan digests.
 
+Terraform creates a private builder VM behind an FQDN-allowlisted Firewall Basic, runs one exact Custom Script
+extension, deallocates and generalizes that VM, captures a managed image, then boots a second
+private verifier VM from the captured image. The verifier repeats the toolchain and credential
+absence checks before it is deallocated. No Azure VM Image Builder template or staging Storage
+account is used, so a tenant policy that disables Storage Shared Key cannot break the build.
+
 The image customization installs the versions and SHA-256 values declared in `toolchain.json`:
 
 - Azure CLI and its Microsoft package-signing key
@@ -37,11 +43,12 @@ registration token only through SSH standard input over an exact Azure Bastion t
 
 ## Safety boundaries
 
-- Plans accept create and read actions only. Update, replacement, and delete actions are blocked.
+- Plans require the exact direct-builder resource and action set and accept create and read actions
+  only. Update, replacement, delete, Storage, and VM Image Builder actions are blocked.
 - The local Terraform executable must match the pinned Terraform SHA-256.
 - Apply writes an immutable claim before Terraform. A retry after that claim can verify only.
-- Independent Azure Resource Manager readback must match the source and toolchain tags before a
-  receipt is written.
+- Independent Azure Resource Manager readback must match the source and toolchain tags, successful
+  builder and verifier extensions, and deallocated VM states before a receipt is written.
 - Managed-image IDs and local state paths remain in private receipts and are omitted from portable
   Genesis status.
 

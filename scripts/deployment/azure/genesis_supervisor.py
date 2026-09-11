@@ -25,6 +25,7 @@ from genesis_application import (
 )
 from genesis_approval import GenesisApprovalExpiredError, load_genesis_approval
 from genesis_approval_prompt import create_approval, current_actor_digest
+from genesis_checks import trusted_tool
 from genesis_entra import EntraPlan, apply_entra, plan_entra, read_entra_bindings
 from genesis_images import resolve_exact_images
 from genesis_prepare import PreparedGenesis, prepare_genesis
@@ -45,12 +46,12 @@ def supervise(
     monthly_cost_ceiling: int,
     work_dir: Path,
     timeout_seconds: int,
+    verified_context: tuple[str, str, str] | None = None,
 ) -> dict[str, object]:
     """Advance every checkpoint, prompting only for the exact current effect."""
 
-    source_commit, subscription_id, tenant_id = _preflight(
-        repository_root=repository_root,
-        repository=repository,
+    source_commit, subscription_id, tenant_id = verified_context or _preflight(
+        repository_root=repository_root, repository=repository
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         entra_plan_future = executor.submit(plan_entra)
@@ -159,11 +160,19 @@ def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str
 
     if _REPOSITORY.fullmatch(repository) is None:
         raise ValueError("Genesis repository must be owner/name")
-    _required(("git", "fetch", "origin", "main"), cwd=repository_root, timeout=300)
-    source_commit = _capture(("git", "rev-parse", "HEAD"), cwd=repository_root)
-    origin_main = _capture(("git", "rev-parse", "origin/main"), cwd=repository_root)
-    branch = _capture(("git", "branch", "--show-current"), cwd=repository_root)
-    dirty = _capture(("git", "status", "--porcelain", "--untracked-files=all"), cwd=repository_root)
+    environment = _preflight_environment()
+    git = trusted_tool("git")
+    az = trusted_tool("az")
+    gh = trusted_tool("gh")
+    _required((git, "fetch", "origin", "main"), cwd=repository_root, timeout=300, env=environment)
+    source_commit = _capture((git, "rev-parse", "HEAD"), cwd=repository_root, env=environment)
+    origin_main = _capture((git, "rev-parse", "origin/main"), cwd=repository_root, env=environment)
+    branch = _capture((git, "branch", "--show-current"), cwd=repository_root, env=environment)
+    dirty = _capture(
+        (git, "status", "--porcelain", "--untracked-files=all"),
+        cwd=repository_root,
+        env=environment,
+    )
     if (
         _COMMIT.fullmatch(source_commit) is None
         or source_commit != origin_main
@@ -171,7 +180,7 @@ def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str
         or dirty
     ):
         raise ValueError("Genesis requires a clean checkout at exact origin/main")
-    remote = _capture(("git", "remote", "get-url", "origin"), cwd=repository_root)
+    remote = _capture((git, "remote", "get-url", "origin"), cwd=repository_root, env=environment)
     normalized = remote.removesuffix(".git")
     detected = (
         normalized.split("github.com/", 1)[1]
@@ -183,7 +192,7 @@ def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str
     check_runs = json.loads(
         _capture(
             (
-                "gh",
+                gh,
                 "api",
                 "-X",
                 "GET",
@@ -191,6 +200,7 @@ def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str
                 "?check_name=required&filter=latest&per_page=100",
             ),
             cwd=repository_root,
+            env=environment,
         )
     )
     required = check_runs.get("check_runs") if isinstance(check_runs, dict) else None
@@ -214,7 +224,7 @@ def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str
     account = json.loads(
         _capture(
             (
-                "az",
+                az,
                 "account",
                 "show",
                 "--query",
@@ -224,11 +234,34 @@ def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str
                 "--only-show-errors",
             ),
             cwd=repository_root,
+            env=environment,
         )
     )
     if not isinstance(account, dict) or account.get("user_type") != "user":
         raise ValueError("Genesis requires an authenticated Azure human")
     return source_commit, str(account["subscription_id"]), str(account["tenant_id"])
+
+
+def _preflight_environment() -> dict[str, str]:
+    azure_config = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
+        strict=True
+    )
+    github_config = Path(
+        os.environ.get("GH_CONFIG_DIR", str(Path.home() / ".config" / "gh"))
+    ).resolve(strict=True)
+    if (
+        not azure_config.is_dir()
+        or azure_config.stat().st_mode & 0o022
+        or not github_config.is_dir()
+        or github_config.stat().st_mode & 0o022
+    ):
+        raise ValueError("Genesis identity configuration is not trusted")
+    return {
+        "AZURE_CONFIG_DIR": str(azure_config),
+        "GH_CONFIG_DIR": str(github_config),
+        "HOME": str(azure_config.parent),
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    }
 
 
 def _run_foundation_loop(
@@ -593,17 +626,19 @@ def _private_json(path: Path, label: str) -> dict[str, Any]:
     )
 
 
-def _required(arguments: tuple[str, ...], *, cwd: Path, timeout: int) -> None:
+def _required(
+    arguments: tuple[str, ...], *, cwd: Path, timeout: int, env: dict[str, str] | None = None
+) -> None:
     completed = subprocess.run(
-        arguments, cwd=cwd, check=False, capture_output=True, text=True, timeout=timeout
+        arguments, cwd=cwd, env=env, check=False, capture_output=True, text=True, timeout=timeout
     )
     if completed.returncode != 0:
         raise ValueError("Genesis prerequisite command failed")
 
 
-def _capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+def _capture(arguments: tuple[str, ...], *, cwd: Path, env: dict[str, str] | None = None) -> str:
     completed = subprocess.run(
-        arguments, cwd=cwd, check=False, capture_output=True, text=True, timeout=120
+        arguments, cwd=cwd, env=env, check=False, capture_output=True, text=True, timeout=120
     )
     if completed.returncode != 0:
         raise ValueError("Genesis prerequisite query failed")
@@ -623,9 +658,16 @@ def main() -> int:
     repository_root = Path(__file__).resolve().parents[3]
     if not 1800 <= args.timeout_seconds <= 43_200:
         raise ValueError("Genesis timeout must be from 1800 through 43200 seconds")
-    work_dir = args.work_dir or repository_root / ".fdai/deploy/fdai-up"
-    work_dir = work_dir if work_dir.is_absolute() else repository_root / work_dir
     try:
+        verified_context = None
+        if args.work_dir is None:
+            verified_context = _preflight(
+                repository_root=repository_root, repository=args.repository
+            )
+            work_dir = repository_root / f".fdai/deploy/fdai-up-{verified_context[0][:12]}"
+        else:
+            work_dir = args.work_dir
+        work_dir = work_dir if work_dir.is_absolute() else repository_root / work_dir
         result = supervise(
             repository_root=repository_root,
             repository=args.repository,
@@ -633,6 +675,7 @@ def main() -> int:
             monthly_cost_ceiling=args.monthly_cost_ceiling,
             work_dir=work_dir,
             timeout_seconds=args.timeout_seconds,
+            verified_context=verified_context,
         )
     except TimeoutError:
         print("fdai-up: supervised deployment deadline exceeded", file=sys.stderr)
