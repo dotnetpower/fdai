@@ -256,17 +256,26 @@ def condition_overrides_guard_failure(condition: Any) -> bool:
     """Return whether a condition may run after a failed dependency or step."""
     if not isinstance(condition, str):
         return False
+    normalized = " ".join(condition.split())
+    if normalized.startswith("${{") and normalized.endswith("}}"):
+        normalized = normalized[3:-2].strip()
+    status_functions = set(
+        re.findall(r"\b(always|failure|cancelled|success)\s*\(\s*\)", normalized)
+    )
+    if not status_functions:
+        return False
+    if status_functions != {"success"}:
+        return True
     return any(
-        token in condition
-        for token in (
-            "always()",
-            "failure()",
-            "cancelled()",
-            "!cancelled()",
-            "! success()",
-            "!success()",
-            "success() == false",
-        )
+        "success()"
+        not in {
+            strip_outer_parentheses(value)
+            for value in split_top_level_operator(
+                strip_outer_parentheses(clause),
+                "&&",
+            )
+        }
+        for clause in split_top_level_operator(normalized, "||")
     )
 
 

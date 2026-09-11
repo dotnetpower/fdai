@@ -797,6 +797,16 @@ def test_privileged_execution_cannot_override_verifier_failure() -> None:
     ]
 
 
+def test_status_predicates_allow_only_required_success() -> None:
+    module = _load_contract_module()
+
+    assert module.workflow_security.condition_overrides_guard_failure("success() != true")
+    assert module.workflow_security.condition_overrides_guard_failure("! success()")
+    assert not module.workflow_security.condition_overrides_guard_failure(
+        "success() && inputs.publish"
+    )
+
+
 def test_verifier_failure_and_intermediate_jobs_cannot_authorize_execution() -> None:
     module = _load_contract_module()
     checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
