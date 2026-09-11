@@ -14,7 +14,7 @@ PRIVILEGED_COMMAND_RE = re.compile(
     r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
     r"az(?:\s+\S+){1,3}\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
 )
-SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets\.([A-Za-z_][A-Za-z0-9_]*)")
+SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets(?:\.|\[['\"])([A-Za-z_][A-Za-z0-9_]*)(?:['\"]\])?")
 BUILTIN_CONTEXT_NAMES = frozenset(("GITHUB_TOKEN",))
 
 
