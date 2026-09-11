@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: b4e772cfca66f01caf6fc4afcb267b21d87a5fb2
+translation_source_sha: d1e7c12ee7d8c19a4d7fe8243b40d684f29e135d
 translation_revised: 2026-09-11
 ---
 # 서비스 승격과 데이터 소유권

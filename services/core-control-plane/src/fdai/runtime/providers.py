@@ -185,6 +185,7 @@ def _build_safeguard_lifecycle_coordinator(
         SafeguardLifecycleCoordinatorConfig,
     )
     from fdai.core.executor.target_dispatch_fence_store import TargetDispatchFenceStore
+    from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
     from fdai.core.workflow.safeguard_commitment import (
         ProcessRuntimeSafeguardCommitmentStore,
     )
@@ -277,6 +278,7 @@ def _build_safeguard_lifecycle_coordinator(
             production=production,
         ),
         commitment_store=ProcessRuntimeSafeguardCommitmentStore(process_store),
+        hold_state_reader=StateStoreAutomationHoldLedger(audit_store),
     )
     _LOGGER.info(
         "safeguard_lifecycle_backend",

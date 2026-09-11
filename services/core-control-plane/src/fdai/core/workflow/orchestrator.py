@@ -15,6 +15,7 @@ from fdai.core.runbook.runner import RunbookRunner
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.compensation import WorkflowCompensationCoordinator
 from fdai.core.workflow.compiler import compile_workflow
+from fdai.core.workflow.recovery_coordinator import WorkflowRecoveryCoordinator
 from fdai.core.workflow.workflow_cancellation import (
     WorkflowCancellationCoordinator,
     WorkflowCancellationError,
@@ -88,6 +89,7 @@ class WorkflowOrchestrator:
         "_guard_evaluator",
         "_outcome_verifier",
         "_process_store",
+        "_recovery_coordinator",
     )
 
     def __init__(
@@ -103,6 +105,7 @@ class WorkflowOrchestrator:
         approval_decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         outcome_verifier: WorkflowOutcomeVerifier | None = None,
+        recovery_coordinator: WorkflowRecoveryCoordinator | None = None,
     ) -> None:
         self._planner = planner
         self._action_types = action_types
@@ -114,6 +117,7 @@ class WorkflowOrchestrator:
         self._guard_evaluator = guard_evaluator
         self._outcome_verifier = outcome_verifier
         self._process_store = process_store
+        self._recovery_coordinator = recovery_coordinator
 
     def with_action_dispatcher(
         self,
@@ -131,6 +135,7 @@ class WorkflowOrchestrator:
             approval_decision_evidence_provider=self._approval_decision_evidence_provider,
             evidence_dispatcher=self._evidence_dispatcher,
             outcome_verifier=self._outcome_verifier,
+            recovery_coordinator=self._recovery_coordinator,
         )
 
     def with_evidence_dispatcher(
@@ -149,6 +154,7 @@ class WorkflowOrchestrator:
             approval_decision_evidence_provider=self._approval_decision_evidence_provider,
             evidence_dispatcher=dispatcher,
             outcome_verifier=self._outcome_verifier,
+            recovery_coordinator=self._recovery_coordinator,
         )
 
     async def resume_metadata(
@@ -235,6 +241,7 @@ class WorkflowOrchestrator:
             audit_store=self._audit,
             dispatcher=self._action_dispatcher,
             outcome_verifier=self._outcome_verifier,
+            recovery_coordinator=self._recovery_coordinator,
         )
         cancellation = WorkflowCancellationCoordinator(
             process_store=self._process_store,
@@ -349,6 +356,7 @@ class WorkflowOrchestrator:
             audit_store=self._audit,
             dispatcher=self._action_dispatcher,
             outcome_verifier=self._outcome_verifier,
+            recovery_coordinator=self._recovery_coordinator,
         )
         cancellation = WorkflowCancellationCoordinator(
             process_store=self._process_store,

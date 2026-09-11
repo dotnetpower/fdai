@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: e172358358aeb7bdd2a242db48c86cfe457fc7df
+translation_source_sha: 5c426a633e25f360d75caa363346cb5bfd9c90ad
 translation_revised: 2026-09-11
 ---
 
@@ -24,7 +24,7 @@ translation_revised: 2026-09-11
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
 | 실행기 안전조건과 독립 효과 종결 | in-progress | 운영 안전조건 coordinator와 경로 adapter, Isolated 실행기 묶음 resolver와 validator, 집중 생성기, Workflow, 서비스 경계, 영속성 및 이행 테스트 | Core의 네 실행 경로와 Workflow action이 하나의 운영 coordinator로 공유 묶음을 생성하고 보존하며, Isolated 실행기가 효과 전에 묶음을 독립적으로 다시 검증합니다. #633의 통제된 교차 경로 효과 근거는 남아 있습니다. |
 | 전역 kill switch와 break-glass 컨트롤 | implemented | `core/rbac/kill_switch_command.py`; `core/control_loop/_execution.py`; `core/conversation/_write_break_glass_tool.py`; 집중 RBAC 및 제어 루프 테스트 | 개정 번호 안전 상태, 실패 시 차단 갱신, 권한 상한, 시간 제한 활성화, 감사 및 호출 경로가 있습니다. 보존된 운영 예행 연습은 아직 필요합니다. |
-| 자동화 보류 복구 승인 강화 | in-progress | `core/workflow/{recovery_admission,automation_hold}.py`; 보호 조건을 적용한 메모리 내 및 PostgreSQL 상태 어댑터; [프로세스 자동화 구현 상태](../../roadmap-implementation/decisioning/process-automation.md#implementation-status); 이슈 `#622`, `#630`, `#640` | 정확한 승인과 원자적 보류 해제 기본 연산을 구현했지만 운영 보상은 여전히 기존 해제 호출을 사용합니다. `#630`이 해당 통합, `#640`이 최종 실행 경로 fence를 담당합니다. FDAI-CONST-009는 `implemented`를 유지합니다. |
+| 자동화 보류 복구 승인 강화 | implemented | `core/workflow/{recovery_admission,automation_hold,recovery_coordinator}.py`; `delivery/persistence/workflow_recovery.py`; `core/executor/safeguard_lifecycle_coordinator.py`; 보호 조건을 적용한 메모리 내 및 PostgreSQL 상태 어댑터; [프로세스 자동화 구현 상태](../../roadmap-implementation/decisioning/process-automation.md#implementation-status); 이슈 `#622`, `#630`, `#640`, `#652`, `#656`, `#658` | 이제 운영 보상은 보호된 해제로만 보류를 닫으며 기존의 검증된 복구 호출은 제거했습니다. 복구 시도, 효과 주장, 최종 처리, 보류 디스패치 fence가 모두 운영 소스에서 실행됩니다. FDAI-CONST-009는 `implemented`를 유지합니다. |
 | 데이터 보호와 privacy 근거 | in-progress | [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 해당 문서가 인용한 민감정보 제거 및 보존 경로; 이슈 `#371` | 주요 경계는 이제 공유 최소화와 민감정보 제거를 구현했지만 배포 privacy 승인과 보존된 운영 근거는 계속 열려 있습니다. |
 | 사전 사람 권한 부여(A3-E) | in-progress | `config/constitution-traceability.json`의 `FDAI-CONST-008` 요구 사항; [에스컬레이션과 사전 권한](../decisioning/escalation-and-standing-authority-ko.md); `core/standing_authority/{lease,promotion_candidate*,shadow_cohort_runner}.py`; 완료된 이슈 `#331`, `#621`, `#629`, `#631`; 이슈 `#632` | 스키마, 평가기, 변경할 수 없는 수명 주기, 읽기 시점 fence, 효과 전체 구간 lease, 비활성 승격 후보 수명 주기, 로컬 합성 shadow 집단이 있지만 의도적으로 연결하지 않은 상태입니다. 통제된 런타임 근거와 별도 승인된 승격이 남아 있습니다. |
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 기존의 검증된 복구 보류 해제를 영구 운영 복구 조정기로 교체했습니다. 이제 보류 중인 프로세스는 구별되는 복구 시도, 별도의 변경 불가 사람 승인, 확정된 안전장치 번들, fence가 적용된 정확히 한 번의 청구, 독립적인 권위 사후 효과 관측, 승인이 보호하는 해제를 통한 정확한 최신 성공 완료 주장 사용을 모두 요구하며, 실행기는 공급자 호출 직전에 자신의 논리 대상 잠금 안에서 보류 상태를 다시 확인합니다. | `current change`; `recovery_coordinator.py`; `workflow_recovery.py`; `safeguard_lifecycle_coordinator.py`; 워크플로, 실행기, 런타임 집중 검사 1377건 통과; 2426개 파일에 대한 Ruff 및 strict mypy. | 이슈 `#633`에서 경로 간 통제된 안전장치 근거를 완료합니다. |
 | 2026-09-11 | implemented | 모든 Core 실행 경로와 Workflow action을 운영 안전조건 coordinator에 연결했습니다. 런타임은 하나의 근거 있는 대상 잠금, 멱등성 예약, 감사 의도 readback, 공유 묶음 최종화와 영속화, 디스패치 시작 검증, 최종 연속성 기록, 원자적 종결 또는 격리를 수행합니다. Isolated 실행은 정확한 PostgreSQL 묶음을 읽고 효과 전에 독립 검증합니다. | `current change`; 운영 coordinator, 경로 adapter, Workflow commitment journal, Isolated resolver, 이행 의존성, 집중 운영 연결 테스트; 회귀 테스트 1,137개 통과; 최종 독립 검토에서 Medium 이상 문제가 없습니다. | #633에서 통제된 교차 경로 안전조건 및 독립 효과 근거를 보존합니다. |
 | 2026-09-11 | implemented | 완료 outbox 항목을 복원할 때 변경 불가 내용 주소를 검증하게 했습니다. 위조된 항목은 더 이상 Process 또는 Saga 전달 재생에 들어갈 수 없습니다. | `current change`; `recovery_terminalization.py`; 집중 outbox 변조 테스트. | #630에서 운영 보상을 보호된 해제 기본 연산으로 연결합니다. |
 | 2026-09-11 | implemented | 영속 상태에서 복원한 보류 복구 승인 및 안전장치 증적이 자체 내용 주소를 검증하게 했습니다. 변조된 provenance는 복구 주장이 사용하기 전에 차단됩니다. | `current change`; `recovery_attempt.py`; 집중 변조 테스트. | #630에서 운영 보상을 보호된 해제 기본 연산으로 연결합니다. |
@@ -92,9 +93,9 @@ translation_revised: 2026-09-11
 - [ ] 이슈 `#633`에서 별도 승인된 통제된 교차 경로 안전조건 및 독립 효과 근거를 보존합니다.
 - [x] 이슈 `#622`에서 보류를 변경하지 않고 기존 승인 및 의사 결정 근거 계약을 통해 별도 승인된 복구를 결속했습니다. 근거: `recovery_admission.py`, `test_recovery_admission.py`, 통과한 집중 검사 46개.
 - [x] 승인 보호 원자적 해제 기본 연산과 무권한 증적을 구현했습니다. 근거: 통과한 집중 검사 63개.
-- [ ] 이슈 `#630`에서 운영 보상을 해당 연산에 연결하고 정확한 해제 증적을 보존합니다.
-- [ ] 실패한 변경 불가능 제안을 재사용하거나 효과 근거를 약화하지 않고 #652, #656, #658에서 #630 운영 경로를 완료합니다.
-- [ ] 이슈 `#640`에서 각 실행 경로의 기존 논리 대상 잠금 안에서 해제 증적과 더 최신 보류가 없음을 다시 검사합니다. 이 강화 중에도 FDAI-CONST-009는 `implemented`를 유지합니다.
+- [x] 이슈 `#630`에서 운영 보상을 해당 연산에 연결하고 정확한 해제 증적을 보존합니다. 근거: `recovery_coordinator.py`가 `release_admitted`를 사용하고 변경 불가 해제 조회 레코드를 저장하며, 기존 `release_verified` 경로는 제거했습니다.
+- [x] 실패한 변경 불가능 제안을 재사용하거나 효과 근거를 약화하지 않고 #652, #656, #658에서 #630 운영 경로를 완료합니다. 근거: 승인 누락, 잘못된 신원, 오래된 보류, 중복 및 재시작 전달, 의심 상태 조정, 해제 증적 복구, 완료 아웃박스 전달을 다루는 집중 호출 지점 검사 14개.
+- [x] 이슈 `#640`에서 각 실행 경로의 기존 논리 대상 잠금 안에서 해제 증적과 더 최신 보류가 없음을 다시 검사합니다. 이 강화 중에도 FDAI-CONST-009는 `implemented`를 유지합니다. 근거: `SafeguardLifecycleCoordinator` 내부의 `_HoldFencedDispatchPort`와 활성 보류, 재발행 보류, 판독 불가 보류, 계보 일치 실행기 테스트.
 - [ ] 하나의 고정된 배포 개정에서 통제된 kill switch, break-glass, 롤백, 신원 재인증 및 감사 앵커 예행 연습 증적을 보존합니다. 이 작업은 이슈 `#372`에서 추적합니다.
 - [ ] Privacy 검증을 주장하기 전에 데이터 거버넌스 운영 게이트를 완료합니다. 이 작업은 이슈 `#371`에서 추적합니다.
 - [x] 이슈 `#621`에서 비활성 효과 전체 구간 lease와 공급자 커밋 fence를 정의했습니다. 근거: 집중 테스트 82개, Ruff, strict mypy, 권한 경로 파일 208개 정적 검사, Medium 이상 독립 비평 발견 0건.

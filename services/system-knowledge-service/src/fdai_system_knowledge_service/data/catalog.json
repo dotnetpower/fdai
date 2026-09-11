@@ -461,9 +461,9 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "b4e772cfca66f01caf6fc4afcb267b21d87a5fb2",
-          "line_end": 91,
-          "line_start": 91,
+          "blob_sha": "d1e7c12ee7d8c19a4d7fe8243b40d684f29e135d",
+          "line_end": 96,
+          "line_start": 96,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"

@@ -35,16 +35,25 @@ from fdai.core.workflow import (
     ChangeWindowWorkflowGuardEvaluator,
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
+    RecoveryCoordinatorConfig,
+    StateStoreAutomationHoldLedger,
     StateStoreWorkflowOutcomeLedger,
     WorkflowApprovalPlanner,
     WorkflowContextualGuardEvaluator,
     WorkflowGuardEvaluator,
     WorkflowOrchestrator,
+    WorkflowRecoveryCoordinator,
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
 )
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
+from fdai.delivery.persistence.workflow_recovery import (
+    StateStoreRecoveryApprovalReader,
+    StateStoreRecoveryEffectObserver,
+    StateStoreRecoverySafeguardBundleReader,
+    WorkflowActionRecoveryDispatchPort,
+)
 from fdai.runtime.operating_intent_binding import (
     operating_intent_admission_expectation_from_env,
 )
@@ -162,11 +171,59 @@ def build_workflow_coordinator(
         approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
         approval_decision_evidence_provider=decision_evidence_provider,
         outcome_verifier=outcome_verifier,
+        recovery_coordinator=build_workflow_recovery_coordinator(
+            audit_store=audit_store,
+            process_store=runtime_store,
+            action_dispatcher=action_dispatcher,
+            decision_evidence_provider=decision_evidence_provider,
+        ),
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
     return WorkflowTriggerCoordinator(
         index=WorkflowTriggerIndex.build(workflows),
         orchestrator=orchestrator,
+    )
+
+
+def build_workflow_recovery_coordinator(
+    *,
+    audit_store: Any,
+    process_store: Any,
+    action_dispatcher: WorkflowActionDispatcher | None,
+    decision_evidence_provider: DecisionEvidenceAdmissionProvider | None,
+    environ: Mapping[str, str] | None = None,
+) -> WorkflowRecoveryCoordinator:
+    """Compose the durable recovery path that closes an automation hold."""
+
+    values = environ if environ is not None else os.environ
+    raw_revision = values.get("FDAI_SOURCE_REVISION", "").strip()
+    if raw_revision and not raw_revision.startswith("commit:"):
+        raw_revision = f"commit:{raw_revision}"
+    if not raw_revision:
+        raw_revision = "commit:" + "0" * 40
+    executor_identity = (
+        values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip() or "fdai.core.workflow.executor"
+    )
+    return WorkflowRecoveryCoordinator(
+        process_store=process_store,
+        audit_store=audit_store,
+        holds=StateStoreAutomationHoldLedger(audit_store),
+        config=RecoveryCoordinatorConfig(
+            executor_identity=executor_identity,
+            source_revision=raw_revision,
+        ),
+        dispatcher=(
+            WorkflowActionRecoveryDispatchPort(
+                dispatcher=action_dispatcher,
+                store=audit_store,
+            )
+            if action_dispatcher is not None
+            else None
+        ),
+        effect_observer=StateStoreRecoveryEffectObserver(audit_store),
+        approval_reader=StateStoreRecoveryApprovalReader(audit_store),
+        admission_provider=decision_evidence_provider,
+        bundle_reader=StateStoreRecoverySafeguardBundleReader(audit_store),
     )
 
 
@@ -215,6 +272,7 @@ def load_hil_escalation_rungs(catalog_root: Path) -> tuple[EscalationRung, ...]:
 
 __all__ = [
     "build_workflow_coordinator",
+    "build_workflow_recovery_coordinator",
     "load_approval_load_policy",
     "load_hil_escalation_rungs",
     "pending_index_writer",

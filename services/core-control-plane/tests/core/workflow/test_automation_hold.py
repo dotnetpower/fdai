@@ -215,7 +215,7 @@ async def test_active_hold_survives_restart_and_duplicate_delivery() -> None:
     assert record["reason"] == "compensation_failed"
 
 
-async def test_only_matching_compensation_can_release_verified_hold() -> None:
+async def test_only_matching_compensation_is_recovery_eligible() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAutomationHoldLedger(store)
     await ledger.issue(
@@ -240,45 +240,31 @@ async def test_only_matching_compensation_can_release_verified_hold() -> None:
         step_id="compensate_start",
     )
 
-    assert await ledger.release_verified(
-        target_ref="resource-1",
-        process_id="process-1",
-        recovery_receipt_ref="workflow-outcome:verified",
-    )
-    assert not await ledger.is_held(target_ref="resource-1")
-    assert not await ledger.release_verified(
-        target_ref="resource-1",
-        process_id="process-1",
-        recovery_receipt_ref="workflow-outcome:second",
-    )
+    assert await ledger.is_held(target_ref="resource-1")
+    assert await ledger.read_hold_record(target_ref="resource-1") is not None
 
 
 async def test_reissued_hold_rejects_stale_process_release() -> None:
-    store = InMemoryStateStore()
-    ledger = StateStoreAutomationHoldLedger(store)
+    store = InMemoryStateStore(linearization_clock=lambda: _NOW)
+    ledger = _admitted_ledger(store)
     await ledger.issue(
         target_ref="resource-1",
         process_id="process-1",
         reason="first_failure",
     )
-    assert await ledger.release_verified(
-        target_ref="resource-1",
-        process_id="process-1",
-        recovery_receipt_ref="workflow-outcome:first",
-    )
+    assert await _release(ledger, await _release_args(store)) is not None
 
     await ledger.issue(
         target_ref="resource-1",
         process_id="process-2",
         reason="second_failure",
     )
+    reissued = await ledger.read_hold_record(target_ref="resource-1")
 
     assert await ledger.is_held(target_ref="resource-1")
-    assert not await ledger.release_verified(
-        target_ref="resource-1",
-        process_id="process-1",
-        recovery_receipt_ref="workflow-outcome:stale",
-    )
+    assert reissued is not None
+    assert reissued["revision"] == 3
+    assert await _release(ledger, await _release_args(store)) is None
 
 
 async def test_admitted_release_is_two_phase_atomic_and_content_addressed() -> None:

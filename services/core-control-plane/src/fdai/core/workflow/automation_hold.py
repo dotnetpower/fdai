@@ -207,47 +207,6 @@ class StateStoreAutomationHoldLedger:
             and step_id.startswith("compensate_")
         )
 
-    async def release_verified(
-        self,
-        *,
-        target_ref: str,
-        process_id: str,
-        recovery_receipt_ref: str,
-    ) -> bool:
-        key = _state_key(target_ref)
-        record = await self.store.read_state(key)
-        if not (
-            record is not None
-            and record.get("target_digest") == _target_digest(target_ref)
-            and record.get("state") == "active"
-            and record.get("process_id") == process_id
-            and isinstance(record.get("revision"), int)
-            and recovery_receipt_ref
-        ):
-            return False
-        revision = int(record["revision"])
-        released_at = datetime.now(tz=UTC).isoformat()
-        released = {
-            **dict(record),
-            "state": "released",
-            "recovery_receipt_ref": recovery_receipt_ref,
-            "released_at": released_at,
-            "revision": revision + 1,
-        }
-        return await self.store.compare_and_set_state_with_audit(
-            key,
-            released,
-            expected_revision=revision,
-            audit_entry={
-                "actor": "fdai.core.workflow.automation_hold",
-                "action_kind": "workflow.automation_hold.released",
-                "target_digest": record["target_digest"],
-                "process_id": process_id,
-                "recovery_receipt_ref": recovery_receipt_ref,
-                "released_at": released_at,
-            },
-        )
-
     async def release_admitted(
         self,
         *,
@@ -461,6 +420,18 @@ class StateStoreAutomationHoldLedger:
             record.get("target_digest") == _target_digest(target_ref)
             and record.get("state") == "released"
         )
+
+    async def read_hold_record(self, *, target_ref: str) -> Mapping[str, object] | None:
+        """Return the raw hold record for fencing and recovery reads.
+
+        The record is evidence only. Callers MUST classify it before acting;
+        it never grants execution, release, or approval authority.
+        """
+
+        record = await self.store.read_state(_state_key(target_ref))
+        if record is None or record.get("target_digest") != _target_digest(target_ref):
+            return None
+        return dict(record)
 
 
 def _target_digest(target_ref: str) -> str:

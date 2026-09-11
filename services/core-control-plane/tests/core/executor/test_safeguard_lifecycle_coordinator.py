@@ -51,6 +51,8 @@ _ROOT = Path(__file__).resolve().parents[5]
 
 def _coordinator(
     audit: InMemoryStateStore,
+    *,
+    hold_state_reader: object | None = None,
 ) -> tuple[SafeguardLifecycleCoordinator, ResourceLockManager]:
     lock = ResourceLockManager(clock=lambda: _NOW, acquisition_id_factory=lambda: "test")
     reservations = InMemoryIdempotencyReservationStore()
@@ -83,6 +85,7 @@ def _coordinator(
             expected_lock_verifier_version="1.0.0",
             expected_lock_trust_anchor_id="fdai:local-test-only",
         ),
+        hold_state_reader=hold_state_reader,  # type: ignore[arg-type]
         clock=lambda: _NOW,
     )
     return coordinator, lock
@@ -241,3 +244,140 @@ def test_production_coordinator_rejects_test_stores() -> None:
             ),
             clock=lambda: _NOW,
         )
+
+
+class _StaticHoldReader:
+    """Return one fixed durable automation-hold record for fencing."""
+
+    def __init__(self, record: dict[str, object] | None) -> None:
+        self.record = record
+        self.reads = 0
+
+    async def read_hold_record(self, *, target_ref: str) -> dict[str, object] | None:
+        del target_ref
+        self.reads += 1
+        return self.record
+
+
+class _UnreadableHoldReader:
+    """Fail every hold read so dispatch fences closed."""
+
+    async def read_hold_record(self, *, target_ref: str) -> dict[str, object] | None:
+        del target_ref
+        raise RuntimeError("automation hold state is unreadable")
+
+
+async def test_active_hold_fences_direct_api_dispatch_inside_the_lock() -> None:
+    audit = InMemoryStateStore()
+    reader = _StaticHoldReader({"state": "active", "revision": 3})
+    coordinator, lock = _coordinator(audit, hold_state_reader=reader)
+    adapter = RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    result = await executor.execute(action=_direct_action())
+
+    assert reader.reads == 1
+    assert len(adapter.records) == 0
+    assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
+    denial = next(
+        row["entry"]
+        for row in audit.audit_entries
+        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
+    )
+    assert denial["rejection_reasons"] == ["active_hold"]
+    assert denial["outcome"] == "not_invoked"
+    assert denial["execution_authority"] is False
+
+
+async def test_hold_reissued_after_release_fences_tool_dispatch() -> None:
+    audit = InMemoryStateStore()
+    reader = _StaticHoldReader(
+        {
+            "state": "released",
+            "revision": 9,
+            "fencing_generation": 2,
+            "release_receipt": {
+                "receipt_digest": "sha256:" + "b" * 64,
+                "released_hold_revision": 1,
+            },
+        }
+    )
+    coordinator, lock = _coordinator(audit, hold_state_reader=reader)
+    adapter = RecordingToolExecutor()
+    executor = ToolCallShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    result = await executor.execute(action=_tool_action())
+
+    assert len(adapter.records) == 0
+    assert result.outcome is not ToolCallExecutionOutcome.DISPATCHED
+    denial = next(
+        row["entry"]
+        for row in audit.audit_entries
+        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
+    )
+    assert "hold_reissued_after_release" in denial["rejection_reasons"]
+
+
+async def test_unreadable_hold_state_fences_dispatch_closed() -> None:
+    audit = InMemoryStateStore()
+    coordinator, lock = _coordinator(audit, hold_state_reader=_UnreadableHoldReader())
+    adapter = RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    result = await executor.execute(action=_direct_action())
+
+    assert len(adapter.records) == 0
+    assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
+    denial = next(
+        row["entry"]
+        for row in audit.audit_entries
+        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
+    )
+    assert denial["rejection_reasons"] == ["unreadable_state"]
+
+
+async def test_released_hold_with_matching_lineage_permits_dispatch() -> None:
+    audit = InMemoryStateStore()
+    reader = _StaticHoldReader(
+        {
+            "state": "released",
+            "revision": 2,
+            "fencing_generation": 2,
+            "release_receipt": {
+                "receipt_digest": "sha256:" + "b" * 64,
+                "released_hold_revision": 1,
+            },
+        }
+    )
+    coordinator, lock = _coordinator(audit, hold_state_reader=reader)
+    adapter = RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    result = await executor.execute(action=_direct_action())
+
+    assert result.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert len(adapter.records) == 1
+    assert not any(
+        row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
+        for row in audit.audit_entries
+    )
