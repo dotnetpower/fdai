@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: d54b4f124164c8fa0683c77f2b69f41fd688c957
+translation_source_sha: 67be7b27ff368d5ac2eee98874a0a85f75866be7
 translation_revised: 2026-09-11
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -230,9 +230,12 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 outbox, 현재 Process revision과 효과 주장, 해제 증적, 정확한 완료 다이제스트를 결속하는
 최종 전환 보호, 재생 멱등성을 제공합니다. 복원된 각 outbox 항목은 변경 불가 내용 주소를
 검증합니다. `recovery_effect_ingress.py`는 독립적인 사후 효과 관측이 들어오는 버전이 지정된
-타입 안전 운영 수집 지점입니다. 이 경로는 관측자 경로에 속합니다. 전용
-`recovery-effect-observer` 소비자 그룹이 어떤 에이전트의 레코드도 가져가지 않고
-`workflow.recovery.effect_observed.v1` 이벤트를 팬테온 버스에서 수신하면, 수집 지점은 지원되는
+타입 안전 운영 수집 지점입니다. 이 경로는 관측자 경로에 속합니다. Huginn이 원시 외부 신호를
+`object.event`로 정규화하면, Heimdall이 Huginn이 생산했음을 입증하고 선언된 필드만 범위를 제한해
+자신이 소유한 `object.recovery-effect-observation` 토픽으로 중계하며, 전용
+`recovery-effect-observer` 소비자 그룹은 그 토픽만 읽습니다. 따라서 허가된 생산 주체는 Heimdall
+하나뿐이고 유일한 특권 실행기는 그 경로에서 어떤 토픽도 소유하지 않으므로, 공유 수신 토픽에
+완성된 페이로드를 발행하는 방식으로 수집 지점에 도달하는 생산자는 없습니다. 수집 지점은 지원되는
 `observation_schema_version`, 버스가 발행 시점에 인증했으며 유일한 특권 실행기가 아닌 허가된 생산
 주체, `authoritative_external` 권위 등급, 실행기 및
 공급자와 구별되는 관측자 신원, 영구 저장된 Process와 복구 단계 계보에서 해석한 시도 결속,

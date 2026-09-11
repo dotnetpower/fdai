@@ -30,6 +30,11 @@ from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldes
 from fdai.agents._framework.heimdall_helpers import (
     trace_continuity_evidence as _trace_continuity_evidence,
 )
+from fdai.agents._framework.heimdall_huginn_projection import (
+    RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
+    evidence_conflict_record,
+    recovery_effect_observation_record,
+)
 from fdai.agents._framework.heimdall_provider_schema import HeimdallProviderSchemaMixin
 from fdai.agents._framework.heimdall_retrieval_validation import (
     retrieval_validation_from_event,
@@ -46,11 +51,6 @@ from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
-from fdai.core.ontology_platform.evidence_conflict import (
-    EvidenceConflictRevision,
-    EvidenceConflictStatus,
-    EvidenceSourceLineage,
-)
 from fdai.core.readiness import (
     AuthorityCeiling,
     DetectionReadinessDimension,
@@ -210,6 +210,9 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
             if payload.get("event_type") == "evidence.conflict.candidate.v1":
                 await self._publish_evidence_conflict(payload)
                 return
+            if payload.get("event_type") == RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE:
+                await self._publish_recovery_effect_observation(payload)
+                return
             retrieval_validation = retrieval_validation_from_event(payload)
             if retrieval_validation is not None:
                 await self._publish_retrieval_validation(retrieval_validation)
@@ -243,42 +246,32 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
     async def _publish_evidence_conflict(self, payload: dict[str, Any]) -> None:
         """Validate one candidate and publish the authoritative immutable revision."""
 
-        attributes = payload.get("attributes")
-        if payload.get("producer_principal") != "Huginn" or not isinstance(attributes, Mapping):
-            self.record_behavior("evidence_conflict:invalid_candidate")
-            return
-        try:
-            revision = EvidenceConflictRevision.create(
-                status=EvidenceConflictStatus(str(attributes.get("status") or "")),
-                target_ref=str(attributes.get("target_ref") or ""),
-                scope_ref=str(attributes.get("scope_ref") or ""),
-                generation_ref=str(attributes.get("generation_ref") or ""),
-                semantic_refs=tuple(attributes.get("semantic_refs") or ()),
-                conflicting_fields=tuple(attributes.get("conflicting_fields") or ()),
-                source_a=EvidenceSourceLineage.model_validate(attributes.get("source_a")),
-                source_b=EvidenceSourceLineage.model_validate(attributes.get("source_b")),
-                supersedes_revision_ref=(
-                    str(attributes["supersedes_revision_ref"])
-                    if attributes.get("supersedes_revision_ref") is not None
-                    else None
-                ),
-            )
-        except (TypeError, ValueError):
+        record = evidence_conflict_record(payload)
+        if record is None:
             self.record_behavior("evidence_conflict:invalid_candidate")
             return
         if self.bus is None:
             raise RuntimeError("Heimdall evidence-conflict bus is unavailable")
-        await self.bus.publish(
-            "Heimdall",
-            "object.evidence-conflict",
-            {
-                **revision.model_dump(mode="json"),
-                "correlation_id": revision.slot_ref,
-                "idempotency_key": revision.revision_ref,
-                "resource_id": revision.target_ref,
-            },
-        )
-        self.record_behavior(f"evidence_conflict:{revision.status.value}")
+        await self.bus.publish("Heimdall", "object.evidence-conflict", record)
+        self.record_behavior(f"evidence_conflict:{record['status']}")
+
+    async def _publish_recovery_effect_observation(self, payload: dict[str, Any]) -> None:
+        """Relay one external recovery post-effect observation onto the owned topic.
+
+        Heimdall is the terminal effect observer, so the independent observation
+        enters through Huginn and leaves on a Heimdall-owned topic that the
+        privileged executor can never publish to. The relay proves provenance
+        and shape only; it verifies no effect and grants no authority.
+        """
+
+        record = recovery_effect_observation_record(payload)
+        if record is None:
+            self.record_behavior("recovery_effect_observation:invalid_signal")
+            return
+        if self.bus is None:
+            raise RuntimeError("Heimdall recovery effect observation bus is unavailable")
+        await self.bus.publish("Heimdall", "object.recovery-effect-observation", record)
+        self.record_behavior("recovery_effect_observation:relayed")
 
     async def _publish_retrieval_validation(self, payload: dict[str, object]) -> None:
         self.record_behavior("semantic_retrieval_validation:accepted")

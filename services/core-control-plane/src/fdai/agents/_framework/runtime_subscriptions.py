@@ -24,6 +24,9 @@ from fdai.shared.providers.state_store import StateStore
 RECOVERY_EFFECT_OBSERVER_PRINCIPAL = "recovery-effect-observer"
 """Consumer group that relays independent recovery post-effect observations."""
 
+RECOVERY_EFFECT_OBSERVATION_TOPIC = "object.recovery-effect-observation"
+"""Heimdall-owned topic the independent recovery observation intake reads."""
+
 
 @dataclass(frozen=True, slots=True)
 class RuleGenerationWorkerBindings:
@@ -107,19 +110,28 @@ def bind_recovery_effect_observation(
 ) -> int:
     """Subscribe the independent recovery post-effect observation intake.
 
-    A dedicated observer group receives the versioned observation event without
-    taking records from the agents that also subscribe `object.event`. The sole
-    privileged executor never publishes here, and the intake re-authenticates
-    the producing principal the bus recorded on the envelope.
+    The intake listens only on `object.recovery-effect-observation`, the topic
+    Heimdall owns as the terminal effect observer. An external observation
+    therefore reaches it only after Huginn normalized it and Heimdall relayed
+    it, so no producer can reach the intake by publishing a fully-formed
+    payload onto the shared ingress topic. A dedicated observer group receives
+    the record without taking it from the agents that subscribe elsewhere, the
+    sole privileged executor owns no topic on this path, and the intake
+    re-authenticates the producing principal the bus recorded on the envelope.
     """
 
     if handler is None:
         return 0
-    bridge.subscribe("object.event", RECOVERY_EFFECT_OBSERVER_PRINCIPAL, handler)
+    bridge.subscribe(
+        RECOVERY_EFFECT_OBSERVATION_TOPIC,
+        RECOVERY_EFFECT_OBSERVER_PRINCIPAL,
+        handler,
+    )
     return 1
 
 
 __all__ = [
+    "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
     "RuleGenerationWorkerBindings",
     "bind_recovery_effect_observation",

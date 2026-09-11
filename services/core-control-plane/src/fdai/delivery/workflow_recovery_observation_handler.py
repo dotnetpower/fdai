@@ -1,10 +1,12 @@
 """Observer-path handler for independent recovery post-effect observations.
 
 The recovery effect observation reaches its durable intake through a dedicated
-observer consumer group, never through the executor. The handler adds no
-judgement: it takes the producing principal the bus authenticated on the
-envelope, hands it to the Core ingress together with the payload, and lets the
-ingress own every validation.
+observer consumer group on the Heimdall-owned
+`object.recovery-effect-observation` topic, never through the executor and
+never from the shared ingress topic. The handler adds no judgement: it takes
+the producing principal the bus authenticated on the envelope, hands it to the
+Core ingress together with the payload, and lets the ingress own every
+validation.
 """
 
 from __future__ import annotations

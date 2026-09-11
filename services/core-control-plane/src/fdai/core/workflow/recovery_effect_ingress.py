@@ -51,12 +51,16 @@ SUPPORTED_RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSIONS = frozenset(
 )
 """Every payload schema version this ingress accepts."""
 
-DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS = frozenset({"Heimdall", "Huginn"})
+DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS = frozenset({"Heimdall"})
 """Principals allowed to publish an independent recovery effect observation.
 
-Both are sensing or observer principals. The sole privileged executor is never
-in this set, so an executor-published observation is refused on identity before
-any evidence is read.
+Heimdall is the pantheon's terminal effect observer and the sole owner of the
+topic this ingress reads, so it is the only principal that can reach the
+intake. An external observation still enters through Huginn, which normalizes
+it onto the shared ingress topic; Heimdall relays the bounded record onto its
+own topic. The sole privileged executor owns no topic on that path, so an
+executor-published observation is refused on identity before any evidence is
+read, and no producer can bypass the relay with a fully-formed payload.
 """
 
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
