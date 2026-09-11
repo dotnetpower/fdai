@@ -131,6 +131,12 @@ while IFS= read -r file; do
             ;;
     esac
 
+    if [[ ("$file" == services/*/src/* || "$file" == packages/*/src/*) && "$file" != *.py ]]; then
+        owner_root="${file%%/src/*}"
+        add_test "$owner_root/tests"
+        continue
+    fi
+
     if [[ ("$file" == tests/* || "$file" == services/*/src/* || "$file" == services/*/tests/* || "$file" == packages/*/src/* || "$file" == packages/*/tests/* || "$file" == src/*) && "$file" != *.py ]]; then
         add_all_tests
         continue
