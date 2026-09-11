@@ -1079,9 +1079,9 @@ case "$1 $2" in
         ;;
     "resource list")
         if [[ -f "$FAKE_KV_STATE" ]]; then
-            printf '1\t1\n'
+            printf '1\n1\n'
         else
-            printf '0\t0\n'
+            printf '0\n0\n'
         fi
         ;;
     "keyvault create")
