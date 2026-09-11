@@ -211,6 +211,8 @@ class AzureResourceChangeFeedConfig:
             raise ValueError("page_size MUST be in [1, 1000]")
         if self.max_pages < 1:
             raise ValueError("max_pages MUST be >= 1")
+        if self.page_size * self.max_pages > 1_000:
+            raise ValueError("page_size * max_pages MUST be <= 1000")
         if not 1 <= self.max_hydration_batch <= _MAX_HYDRATION_BATCH_CAP:
             raise ValueError(f"max_hydration_batch MUST be in [1, {_MAX_HYDRATION_BATCH_CAP}]")
         if self.max_response_bytes < 1:

@@ -879,6 +879,11 @@ def test_config_accepts_the_hydration_batch_cap_boundary() -> None:
     assert _config(max_hydration_batch=100).max_hydration_batch == 100
 
 
+def test_config_bounds_pending_event_batch() -> None:
+    with pytest.raises(ValueError, match=r"page_size \* max_pages MUST be <= 1000"):
+        _config(page_size=201, max_pages=5)
+
+
 def test_config_rejects_zero_page_size() -> None:
     with pytest.raises(ValueError, match="page_size"):
         _config(page_size=0)
