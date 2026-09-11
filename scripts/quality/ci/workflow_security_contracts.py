@@ -12,8 +12,10 @@ import yaml
 PRIVILEGED_COMMAND_RE = re.compile(
     r"\b(?:terraform\s+(?:apply|destroy)|git\s+push|docker\s+push|"
     r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
-    r"az\s+\S+\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
+    r"az(?:\s+\S+){1,3}\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
 )
+SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets\.([A-Za-z_][A-Za-z0-9_]*)")
+BUILTIN_CONTEXT_NAMES = frozenset(("GITHUB_TOKEN",))
 
 
 def is_privileged_workflow(content: str) -> bool:
@@ -42,6 +44,11 @@ def is_privileged_workflow(content: str) -> bool:
                     return True
         elif isinstance(node, list):
             return any(is_privileged(value) for value in node)
+        elif isinstance(node, str):
+            return any(
+                secret_name not in BUILTIN_CONTEXT_NAMES
+                for secret_name in SECRET_REF_RE.findall(node)
+            )
         return False
 
     return is_privileged(document)
@@ -142,6 +149,8 @@ def permissions_are_privileged(permissions: Any) -> bool:
 
 def runner_is_privileged(runner: Any) -> bool:
     """Treat self-hosted and unresolved expression runners as privileged."""
+    if isinstance(runner, dict):
+        return True
     runners = runner if isinstance(runner, list) else [runner]
     return any(
         value == "self-hosted" or (isinstance(value, str) and "${{" in value) for value in runners
