@@ -7,7 +7,6 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from urllib.parse import quote, urlparse
@@ -20,6 +19,12 @@ from fdai.core.ontology_platform.runtime_call_telemetry import (
     RuntimeCallTelemetryEnvelope,
 )
 from fdai.delivery.azure.arg_projection import to_neutral_id
+from fdai.delivery.azure.runtime_call_telemetry_contract import (
+    RUNTIME_CALL_TELEMETRY_KQL,
+)
+from fdai.delivery.azure.runtime_call_telemetry_contract import (
+    RuntimeCallEndpointWitness as _EndpointWitness,
+)
 from fdai.delivery.runtime_call_inventory import (
     RuntimeCallTelemetryBatch,
     RuntimeCallTelemetryRecord,
@@ -41,31 +46,6 @@ _CONTAINER_APP_PROVIDER_TYPE = "microsoft.app/containerapps"
 _CONTAINER_APP_API_VERSION = "2025-01-01"
 _REVISION_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9-]{0,63}$")
 _REPLICA_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9-]{0,127}$")
-
-RUNTIME_CALL_TELEMETRY_KQL = """
-ContainerAppConsoleLogs_CL
-| extend record = parse_json(Log_s)
-| where tostring(record.message) == "runtime_call_endpoint_observed"
-| project
-    observed_at = TimeGenerated,
-    schema_version = tostring(record.schema_version),
-    observation_id = tostring(record.observation_id),
-    caller_resource_id = tostring(record.caller_resource_id),
-    target_resource_id = tostring(record.target_resource_id),
-    endpoint_role = tostring(record.endpoint_role),
-    platform_resource_id = tostring(_ResourceId),
-    platform_name = tostring(ContainerAppName_s),
-    platform_revision_name = tostring(RevisionName_s),
-    platform_replica_name = tostring(ContainerGroupName_s),
-    source_container_name = tostring(ContainerName_s),
-    execution_authority = tobool(record.execution_authority),
-    mutation_authority = tobool(record.mutation_authority),
-    source_container_group_id = tostring(ContainerGroupId_g),
-    source_container_id = tostring(ContainerId_g),
-    source_platform_timestamp = tostring(_timestamp_d),
-    table_name = "ContainerAppConsoleLogs_CL"
-| order by observed_at asc, observation_id asc, source_container_id asc
-""".strip()
 
 
 class RuntimeCallTelemetryContextProvider(Protocol):
@@ -243,26 +223,6 @@ class AzureMonitorRuntimeCallAuthenticator:
         ):
             raise ValueError("runtime call telemetry authentication lineage is not trusted")
         return claimed_context
-
-
-@dataclass(frozen=True, slots=True)
-class _EndpointWitness:
-    observation_id: str
-    endpoint_role: str
-    caller_arm_id: str
-    target_arm_id: str
-    platform_revision_name: str
-    platform_replica_name: str
-    source_container_name: str
-    source_container_id: str
-    observed_at: datetime
-    evidence_ref: str
-
-    @property
-    def endpoint_arm_id(self) -> str:
-        """Return the endpoint asserted by this witness role."""
-
-        return self.caller_arm_id if self.endpoint_role == "caller" else self.target_arm_id
 
 
 class AzureRuntimeCallTelemetrySource:
@@ -489,8 +449,8 @@ class AzureRuntimeCallTelemetrySource:
             latest_observed_at = max(witness.observed_at for witness in by_role.values())
             edge_key = (caller_arm_id, target_arm_id)
             candidate = (latest_observed_at, observation_id, witness_key)
-            previous = latest_observation_by_edge.get(edge_key)
-            if previous is None or candidate > previous:
+            previous_observation = latest_observation_by_edge.get(edge_key)
+            if previous_observation is None or candidate > previous_observation:
                 latest_observation_by_edge[edge_key] = candidate
         selected_witness_keys = {candidate[2] for candidate in latest_observation_by_edge.values()}
         records_by_edge: dict[tuple[str, str], RuntimeCallTelemetryRecord] = {}
@@ -519,8 +479,8 @@ class AzureRuntimeCallTelemetrySource:
                 continue
             record = RuntimeCallTelemetryRecord(envelope, context)
             edge_key = (envelope.caller_resource_ids[0], envelope.target_resource_ids[0])
-            previous = records_by_edge.get(edge_key)
-            if previous is None or _record_order(record) > _record_order(previous):
+            previous_record = records_by_edge.get(edge_key)
+            if previous_record is None or _record_order(record) > _record_order(previous_record):
                 records_by_edge[edge_key] = record
         if any(coverage.values()):
             return RuntimeCallTelemetryBatch(
