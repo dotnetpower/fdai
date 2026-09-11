@@ -207,6 +207,7 @@ for f in "${changed_paths[@]}"; do
   case "$f" in
     .github/workflows/*.yml | \
     .github/workflows/*.yaml | \
+    .github/actions/* | \
     .githooks/pre-push | \
     scripts/quality/ci/* | \
     tests/integration/scripts/test_check_ci_contracts.py | \

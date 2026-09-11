@@ -251,6 +251,7 @@ def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None
     assert "mapfile -d '' -t changed_paths" in body
     assert 'git diff --name-only -z --diff-filter=ACMRTD "$range"' in body
     assert ".github/workflows/*.yaml" in body
+    assert ".github/actions/*" in body
     assert 'for f in "${changed_paths[@]}"; do' in body
 
 
