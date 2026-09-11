@@ -624,6 +624,48 @@ async def test_missing_hydration_race_retains_cursor_for_retry() -> None:
     assert result.complete is False
 
 
+@pytest.mark.asyncio
+async def test_oversized_hydration_fails_before_cursor_advance() -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = _arm_id(arm_type, "thing-oversized")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _hydration_row(
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                    properties={"payload": "x" * 2_000},
+                )
+            ]
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+        vocab=vocab,
+        cfg=_config(max_props_bytes=1_024),
+    )
+    try:
+        with pytest.raises(ArgResourceChangeError, match="exceed the configured bound"):
+            await feed.poll("")
+    finally:
+        await client.aclose()
+
+
 # ---------------------------------------------------------------------------
 # Unknown types skipped gracefully, cursor still advances
 # ---------------------------------------------------------------------------

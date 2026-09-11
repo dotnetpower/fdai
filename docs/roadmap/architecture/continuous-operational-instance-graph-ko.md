@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: aeb6b23e0b0277fcf3ac3a720f983ea389e9e847
+translation_source_sha: a46640179cb014e19c2f41b400d25dd4de5d8a0b
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -198,7 +198,8 @@ Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone�
 재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
 해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
 카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
-실패시킵니다.
+실패시킵니다. 속성 payload 한도를 넘은 재조회도 잘린 전체 교체를 주장하지 않도록 게시하거나
+cursor를 진행하기 전에 실패시킵니다.
 
 읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 구독 범위를
 조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 작업 정보가 있는 Activity Log 관측만 선택하고
