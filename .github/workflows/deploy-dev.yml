@@ -1135,11 +1135,15 @@ jobs:
           source_artifact_digest="$(sha256sum "$source_artifact" | cut -d' ' -f1)"
           preflight_evidence_digest="$(sha256sum runner-egress-evidence.json | cut -d' ' -f1)"
           azure_preflight_evidence_digest="$(sha256sum azure-preflight-evidence.json | cut -d' ' -f1)"
-          terraform show -json dev.plan > "$RUNNER_TEMP/deployment-plan.json"
+          private_dir="$RUNNER_TEMP/deployment-plan-private"
+          install -d -m 0700 "$private_dir"
+          trap 'rm -f -- "$private_dir/deployment-plan.json" "$private_dir/deployment-plan-summary.json"; rmdir -- "$private_dir" 2>/dev/null || true' EXIT
+          umask 077
+          terraform show -json dev.plan > "$private_dir/deployment-plan.json"
           PYTHONPATH=../packages/deployment-cli/src python3 \
             ../scripts/deployment/azure/genesis_private_plan_summary.py \
-            --plan-json "$RUNNER_TEMP/deployment-plan.json" \
-            --output "$RUNNER_TEMP/deployment-plan-summary.json"
+            --plan-json "$private_dir/deployment-plan.json" \
+            --output "$private_dir/deployment-plan-summary.json"
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           expires_at="$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%SZ')"
           export PLAN_ID="$plan_id" PLAN_DIGEST="$plan_digest" \
@@ -1148,7 +1152,7 @@ jobs:
             AZURE_PREFLIGHT_EVIDENCE_DIGEST="$azure_preflight_evidence_digest" \
             EXPIRES_AT="$expires_at"
           python3 ../scripts/deployment/azure/build_deployment_plan_metadata.py \
-            --plan-summary "$RUNNER_TEMP/deployment-plan-summary.json" \
+            --plan-summary "$private_dir/deployment-plan-summary.json" \
             --output plan-metadata.json
           blob_prefix="${TF_VAR_env}/${plan_id}"
           az storage blob upload \

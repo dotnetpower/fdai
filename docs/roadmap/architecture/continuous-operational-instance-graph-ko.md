@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 829258c2af61d30329eda44d3e88b071751dcf1a
+translation_source_sha: cd7734911f6de49e8482942a97a4ee992a74d234
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -116,6 +116,8 @@ Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수
 계획하지 않고 기존 Inventory Job을 활성화합니다. 계획 후 범위 검사는 전환 주소 밖의 모든
 변경을 차단하며, 적용 후 검증은 원본을 활성 상태로 처리하기 전에 배포된 Job을 독립적으로
 읽습니다.
+계획의 전체 JSON 변환 결과와 값 없는 요약은 범위가 제한된 계획 메타데이터를 봉인할 때까지
+현재 UID가 소유한 mode-0700 임시 디렉터리에 유지하며, 이후 두 비공개 파일을 제거합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
 결과로 유지합니다. 관측, 정제된 근거 및 변환 결과 계약은 형식 주석에만 의존하지 않고 실행
 중에도 실행 또는 변경 권한을 각각 거부합니다. 변환된 principal handle은 불투명한 인증 근거

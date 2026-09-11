@@ -112,6 +112,8 @@ mixed targets. The transition uses a bounded updater with verified rollback to e
 Inventory Job without planning its unrelated module dependencies. The post-plan scope guard rejects
 every change outside the transition address, and post-apply verification independently reads the
 deployed Job before the source is treated as enabled.
+The plan's full JSON projection and value-free summary remain in a current-UID mode-0700 temporary
+directory until bounded plan metadata is sealed, then both private files are removed.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
 or Link shape. The observation, sanitized evidence, and projection contracts each reject execution
 or mutation authority at runtime rather than relying on type annotations alone. The projected
