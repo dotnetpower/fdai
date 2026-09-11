@@ -26,3 +26,16 @@ def test_deploy_workflow_forwards_source_revision_to_tfvars() -> None:
     assert 'echo "SOURCE_REVISION=$SOURCE_REVISION" >> "$GITHUB_ENV"' in workflow
     assert 'if [[ "$SERVICE" == "core-control-plane" ]]; then' in workflow
     assert 'SOURCE_REVISION="$source_revision_binding" \\' in workflow
+
+
+def test_core_service_always_binds_the_recovery_observer_identity() -> None:
+    module = (SERVICE_ROOT / "modules/core-control-plane/main.tf").read_text(encoding="utf-8")
+    observer_binding = (
+        '{ name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", '
+        'value = "observer:heimdall:azure-container-apps" }'
+    )
+
+    assert module.count(observer_binding) == 1
+    assert module.index(observer_binding) < module.index(
+        'var.teams_approval_destination.team_id == ""'
+    )
