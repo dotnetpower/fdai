@@ -72,6 +72,12 @@ def test_action_refs_reject_stale_and_unknown_remote_actions(
     module = _load_contract_module()
     workflow_dir = tmp_path / ".github" / "workflows"
     workflow_dir.mkdir(parents=True)
+    local_action_dir = tmp_path / ".github" / "actions" / "local"
+    local_action_dir.mkdir(parents=True)
+    (local_action_dir / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps: []\n",
+        encoding="utf-8",
+    )
     (workflow_dir / "ci.yml").write_text(
         "steps:\n"
         "  - uses : 'actions/checkout@v4'\n"
@@ -200,6 +206,12 @@ def test_local_actions_must_use_an_audited_root(
     module = _load_contract_module()
     workflow_dir = tmp_path / ".github" / "workflows"
     workflow_dir.mkdir(parents=True)
+    reviewed_dir = tmp_path / ".github" / "actions" / "reviewed"
+    reviewed_dir.mkdir(parents=True)
+    (reviewed_dir / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps: []\n",
+        encoding="utf-8",
+    )
     (workflow_dir / "local.yml").write_text(
         "steps:\n"
         "  - uses: ./tools/unreviewed-action\n"
@@ -212,10 +224,38 @@ def test_local_actions_must_use_an_audited_root(
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_action_runtime_versions() == [
-        ".github/workflows/local.yml uses local action outside audited roots: "
+        ".github/workflows/local.yml uses local action without an audited regular manifest: "
         "./tools/unreviewed-action",
-        ".github/workflows/local.yml uses local action outside audited roots: "
+        ".github/workflows/local.yml uses local action without an audited regular manifest: "
         "./.github/actions/../escaped",
+    ]
+
+
+def test_local_action_symlinks_cannot_escape_the_audited_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    target = tmp_path / "tools" / "outside-action"
+    target.mkdir(parents=True)
+    (target / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps: []\n",
+        encoding="utf-8",
+    )
+    action_dir = tmp_path / ".github" / "actions"
+    action_dir.mkdir(parents=True)
+    (action_dir / "reviewed").symlink_to(target, target_is_directory=True)
+    (workflow_dir / "local.yml").write_text(
+        "steps:\n  - uses: ./.github/actions/reviewed\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/local.yml uses local action without an audited regular manifest: "
+        "./.github/actions/reviewed"
     ]
 
 
