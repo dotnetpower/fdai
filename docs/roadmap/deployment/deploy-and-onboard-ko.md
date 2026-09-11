@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c526881fb8fb75369f7e4bdbb1f9af2451a9e950
+translation_source_sha: a6ac0738552892079ac90dbe4e054245a94e0385
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -192,7 +192,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   현재의 각 계획을 승인받고 기반 계층과 테넌트 구성을 완료하며 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행하며, 기반 계층 이전 이미지 계획은 Shared Key에 의존하는 Azure VM Image Builder 대신 FQDN 허용 목록과 위협 인텔리전스 거부 모드가 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM을 사용하고 두 VM NIC를 인바운드 거부 NSG에 명시적으로 연결합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
-- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인합니다.
+- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
   경로입니다. 비공개, 공유, 스테이징 또는 운영 배포 경로로 사용하지 않습니다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh)는 create-state-account -> 초기화
