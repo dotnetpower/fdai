@@ -1464,7 +1464,7 @@ def test_container_scan_blocks_all_medium_high_and_critical_vulnerabilities() ->
         Path(__file__).resolve().parents[3] / ".github" / "workflows" / "container-supply-chain.yml"
     ).read_text(encoding="utf-8")
 
-    assert workflow.count("--severity MEDIUM,HIGH,CRITICAL") == 2
+    assert workflow.count("--severity MEDIUM,HIGH,CRITICAL") == 3
     assert "--ignore-unfixed" not in workflow
 
 
@@ -1482,6 +1482,24 @@ def test_container_supply_chain_builds_only_service_owned_dockerfiles() -> None:
     assert "          target:" not in workflow
     for dockerfile in dockerfiles:
         assert (root / dockerfile).is_file()
+
+
+def test_container_pull_requests_use_a_read_only_scan_job() -> None:
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    pr_job = workflow["jobs"]["pr-build-scan"]
+    publish_job = workflow["jobs"]["build-scan-attest"]
+
+    assert pr_job["permissions"] == {"contents": "read"}
+    assert "github.event_name == 'pull_request'" in pr_job["if"]
+    assert "github.event_name == 'pull_request'" not in publish_job["if"]
+    assert publish_job["permissions"] == {
+        "contents": "read",
+        "packages": "write",
+        "attestations": "write",
+        "id-token": "write",
+    }
 
 
 def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
