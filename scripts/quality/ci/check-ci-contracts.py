@@ -120,6 +120,31 @@ def _top_level_block(content: str, key: str) -> tuple[str, ...]:
     return tuple(block)
 
 
+def _validate_workflow_layout() -> list[str]:
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    workflows = _workflow_paths()
+    errors = [
+        f"{path.relative_to(REPO_ROOT)} must not be a symbolic link"
+        for path in workflows
+        if path.is_symlink()
+    ]
+    stems: dict[str, list[str]] = {}
+    for path in workflows:
+        stems.setdefault(path.stem.casefold(), []).append(path.name)
+    for stem, names in sorted(stems.items()):
+        if len(names) > 1:
+            errors.append(f"workflow stem '{stem}' is ambiguous: {', '.join(sorted(names))}")
+    nested = {
+        *workflow_dir.rglob("*.yml"),
+        *workflow_dir.rglob("*.yaml"),
+    } - set(workflows)
+    errors.extend(
+        f"{path.relative_to(REPO_ROOT)} is nested; workflows must be top-level"
+        for path in sorted(nested)
+    )
+    return errors
+
+
 def _service_dockerfiles() -> tuple[Path, ...]:
     return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
 
@@ -570,6 +595,7 @@ def _validate_live_db_guards() -> list[str]:
 
 def main() -> int:
     errors = [
+        *_validate_workflow_layout(),
         *_validate_build_context(),
         *_validate_base_images(),
         *_validate_shared_runners(),
