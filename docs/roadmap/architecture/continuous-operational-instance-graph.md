@@ -198,7 +198,8 @@ and the next poll waits until every published event id appears in the observatio
 durable terminal-processing receipt. Snapshot-covered and ordering-rejected changes therefore
 release the producer fence without being misrepresented as current overlay changes.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
-queryable while the newer snapshot remains authoritative for current state.
+queryable while the newer snapshot remains authoritative for current state. The history-only path
+does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
 A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
 later poll can observe either the Resource or its delete record. A returned Resource type outside
 the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still

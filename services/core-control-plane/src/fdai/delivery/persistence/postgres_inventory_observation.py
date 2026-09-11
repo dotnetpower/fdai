@@ -143,6 +143,15 @@ class PostgresInventoryObservationJournal:
                 )
         return result
 
+    async def append_history_only(
+        self,
+        connection: psycopg.AsyncConnection[Any],
+        observations: Sequence[NormalizedInventoryObservation],
+    ) -> InventoryObservationAppendResult:
+        """Append observations that a newer active snapshot already covers."""
+
+        return await _append_records(connection, observations)
+
     async def append_change_batch(
         self,
         observations: Sequence[NormalizedInventoryObservation],

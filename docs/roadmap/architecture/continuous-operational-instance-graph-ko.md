@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a46640179cb014e19c2f41b400d25dd4de5d8a0b
+translation_source_sha: 9c91d5fa94eb5afca8531307c4dd65cf96ed1288
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -194,7 +194,8 @@ Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone�
 나타날 때까지 기다립니다. 따라서 snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로
 잘못 표현되지 않으면서 생산자 fence를 해제합니다. Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
-있습니다.
+있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
+현재 overlay를 변경하지 않습니다.
 재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
 해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
 카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
