@@ -107,11 +107,12 @@ development, a disabled binding, and an empty witness query report this source u
 of fabricating an edge.
 The platform's `enable_runtime_call_evidence` input controls this Inventory Job source independently
 of the legacy Operator API module, so state migration cannot silently remove collection. Schema-valid
-`plan-runtime-*` and `apply-runtime-*` requests target one dedicated transition resource and reject
-mixed targets. The transition uses a bounded updater with verified rollback to enable the existing
-Inventory Job without planning its unrelated module dependencies. The post-plan scope guard rejects
-every change outside the transition address, and post-apply verification independently reads the
-deployed Job before the source is treated as enabled.
+`plan-runtime-*` and `apply-runtime-*` requests target dedicated binding and exact-image transition
+resources and reject mixed targets. The transitions use bounded updaters with verified rollback to
+enable the existing Inventory Job and, when an attested revision is selected, replace its stale
+image without planning unrelated module dependencies. The post-plan scope guard rejects every
+other address, and post-apply verification independently reads both the binding and image digest
+before the source is treated as enabled.
 The plan's full JSON projection and value-free summary remain in a current-UID mode-0700 temporary
 directory until bounded plan metadata is sealed, then both private files are removed.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource

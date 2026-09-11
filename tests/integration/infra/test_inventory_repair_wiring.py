@@ -67,12 +67,16 @@ def test_runtime_call_source_survives_operator_service_state_migration() -> None
     assert "triggers_replace = [var.enable_runtime_call_evidence]" in transition
     assert "ENABLE_RUNTIME_CALL_EVIDENCE = tostring(var.enable_runtime_call_evidence)" in transition
     assert "update_inventory_job_runtime_call_evidence.sh" in transition
+    assert 'resource "terraform_data" "inventory_runtime_image_update"' in transition
+    assert "triggers_replace = [var.core_image]" in transition
+    assert 'TARGET_CONTAINER_NAME   = "inventory"' in transition
     assert "      runtime_call_evidence_transition:" not in workflow
     assert "RUNTIME_CALL_EVIDENCE_TRANSITION:" in workflow
     assert (
         "startsWith(inputs.request_id, 'plan-runtime-') || "
         "startsWith(inputs.request_id, 'apply-runtime-')) && "
-        "'-target=terraform_data.runtime_call_evidence_transition'"
+        "'-target=terraform_data.runtime_call_evidence_transition "
+        "-target=terraform_data.inventory_runtime_image_update'"
     ) in workflow
     assert "verify-runtime-call-evidence-job.sh" in workflow
     assert 'install -m 0600 runtime-call-evidence-job-readback.json "$candidate/' in workflow
