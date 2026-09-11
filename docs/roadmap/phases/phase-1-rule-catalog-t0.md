@@ -68,6 +68,8 @@ package boundary and requires explicit package composition for cost replay.
   shadow-first invariant at load-time so an accidental `default_mode: enforce` cannot ship.
 - **T0 deterministic engine**: policy-as-code gate (OPA/Rego) + what-if (dry-run) + drift
   detection, emitting a verdict and the citing rule ids for every event.
+  Pre-authority evidence uses the control loop's injected clock, so frozen replay evaluates
+  freshness on the same timeline as action creation and audit instead of the host wall clock.
   [`services/core-control-plane/src/fdai/core/tiers/t0_deterministic/`](../../../services/core-control-plane/src/fdai/core/tiers/t0_deterministic)
   ships a `RuleIndex` keyed on `resource_type` (severity-desc ordered), a `T0Engine`
   orchestrator, and a `PolicyEvaluator` DI seam. Two evaluators land in P1:

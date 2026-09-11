@@ -1,8 +1,8 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 71231f4c81ea6dafed5a8b3d1904c828f6cbdc90
-translation_revised: 2026-08-31
+translation_source_sha: e8218f27cec3ea341477145c2c591bf8052a0c85
+translation_revised: 2026-09-12
 ---
 
 # 단계 1 - 규칙 카탈로그와 T0 결정론적 엔진
@@ -68,6 +68,8 @@ translation_revised: 2026-08-31
   배송되는 것을 차단.
 - **T0 결정론 엔진**: policy-as-code 게이트(OPA/Rego) + what-if(예행 실행) + 표류 감지, 모든
   이벤트에 대해 판정과 인용 규칙 id 발행.
+  사전 권한 근거는 control loop에 주입된 clock을 사용하므로 고정 replay는 host wall clock이
+  아니라 작업 생성 및 감사와 동일한 시간축에서 최신성을 평가합니다.
   [`services/core-control-plane/src/fdai/core/tiers/t0_deterministic/`](../../../services/core-control-plane/src/fdai/core/tiers/t0_deterministic)
   는 `resource_type` 으로 키잉된 `RuleIndex` (severity-desc 정렬), `T0Engine` 오케스트레이터,
   그리고 `PolicyEvaluator` DI 심을 배송. P1 에 평가기 두 개가 랜딩:

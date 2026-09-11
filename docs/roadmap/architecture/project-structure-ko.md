@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 285d23eb88f4814b6b6cfce7809ad461143561a7
+translation_source_sha: b39c0632e7e23392dac9491a284662c48da1a227
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -14,7 +14,7 @@ translation_revised: 2026-09-12
 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적은 cohort도 가장 느린 측정 실행을 유지하며 목표 달성으로 잘못 보고하지 않습니다. 기록된 action 다이제스트가 없는 park된 HIL 레코드는 재개하지 않고 무결성
 게이트에서 실패합니다. 따라서 다이제스트를 제거해도 변조된 payload를 승인할 수 없습니다. 품질 게이트는 중복된 교차 검사 모델을 거부합니다. 따라서 한 모델이 자기 자신과 동의해 혼합 모델 정족수를 충족할 수 없습니다. 사용할 수 없는 경계를
 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수 권한을 거부합니다. 구성된 시계 오차 허용치보다 더 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지 않고 out-of-band로 보고합니다.
-허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
+허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 사전 권한 Change Safety 근거는 작업 생성, dispatch, 감사와 동일하게 주입된 control-loop clock을 사용하므로 고정 replay가 host wall time 때문에 stale 상태가 되지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
 않습니다. 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한 episode 하나가 due 대기열 전체를 막을 수 없습니다. T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트
 리소스 유형을 읽습니다. 따라서 이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
 기록된 Resource 상태 정규화는 Core와 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다. 구성 표류 전달도 `delivery/azure/`와 보호된 Core 서비스 구성에 유지합니다. 검토된 스냅샷은 콘텐츠 주소 기반 private Blob을 통해서만 전달하고, 런타임은 Managed Identity로 읽으며, 적용 후에는 정확한 서버 소유 바인딩을 독립적으로 검증합니다.
