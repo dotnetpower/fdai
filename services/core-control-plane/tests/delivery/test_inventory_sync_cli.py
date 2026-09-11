@@ -24,7 +24,11 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.inventory_change_acceleration import (
     forward_recovery_deltas as _forward_recovery_deltas,
 )
-from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
+from fdai.delivery.inventory_job_config import (
+    InventoryJobConfig,
+    inventory_scopes_from_env,
+    verify_declarative_sha256,
+)
 from fdai.delivery.inventory_scheduler import (
     CollectionScheduleAction,
     CollectionScheduleDecision,
@@ -87,6 +91,16 @@ def _vocabulary() -> ResourceTypeRegistry:
     return load_resource_type_registry_from_mapping(
         yaml.safe_load(path.read_text(encoding="utf-8"))
     )
+
+
+def test_inventory_scopes_prefer_authoritative_multi_scope_setting() -> None:
+    assert inventory_scopes_from_env(
+        {
+            "AZURE_SUBSCRIPTION_ID": "legacy-scope",
+            "FDAI_INVENTORY_SCOPES": "scope-b, scope-a, scope-b",
+        }
+    ) == ("scope-b", "scope-a")
+    assert inventory_scopes_from_env({"AZURE_SUBSCRIPTION_ID": "legacy-scope"}) == ("legacy-scope",)
 
 
 def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ...]:
