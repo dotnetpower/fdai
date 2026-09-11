@@ -644,6 +644,12 @@ def test_pre_push_rejects_ref_deletion(tmp_path: Path) -> None:
     assert "ref deletion requires explicit remote administration: refs/heads/main" in result.stdout
 
 
+def test_pre_push_clears_parent_git_context_before_workflow_contract_tests() -> None:
+    hook = _PRE_PUSH.read_text(encoding="utf-8")
+
+    assert "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE" in hook
+
+
 def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None:
     body = _PRE_PUSH.read_text()
 
