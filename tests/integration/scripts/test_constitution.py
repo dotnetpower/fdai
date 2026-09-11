@@ -39,9 +39,10 @@ def test_repository_constitution_is_consistent() -> None:
 
 def test_agent_contract_requires_clean_snapshot_for_delegated_validation() -> None:
     instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    normalized = " ".join(instructions.split())
 
-    assert "MUST NOT delegate validation of a dirty worktree" in instructions
-    assert "clean committed snapshot in an isolated worktree" in instructions
+    assert "MUST NOT delegate validation of a dirty worktree" in normalized
+    assert "clean committed snapshot in an isolated worktree" in normalized
 
 
 def test_agent_contract_requires_local_first_commits() -> None:
