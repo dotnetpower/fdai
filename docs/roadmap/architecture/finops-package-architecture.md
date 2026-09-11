@@ -39,6 +39,8 @@ domain code and assets. It does not create another control plane or move authori
 > quorum failed before Terraform, so the package and its actions remain unvalidated and unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
+> Container publication verifies the protected workflow source before any manual-dispatch
+> validation code runs, so unverified workflow text cannot execute ahead of the provenance gate.
 
 ## Design at a glance
 

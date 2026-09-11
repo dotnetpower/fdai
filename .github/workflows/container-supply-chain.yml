@@ -82,17 +82,6 @@ jobs:
       matrix: ${{ steps.select.outputs.matrix }}
       has_images: ${{ steps.select.outputs.has_images }}
     steps:
-      - name: Validate manual publication source
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
-        run: |
-          set -euo pipefail
-          [[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {
-            echo "historical manual publication is not supported; commit_sha must equal github.sha so attestation source revision stays exact" >&2
-            exit 1
-          }
-
       - name: Checkout protected workflow verifier
         if: github.event_name != 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,6 +99,17 @@ jobs:
           workflow-path: .github/workflows/container-supply-chain.yml
           origin-url: ${{ github.server_url }}/${{ github.repository }}.git
           github-token: ${{ github.token }}
+
+      - name: Validate manual publication source
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {
+            echo "historical manual publication is not supported; commit_sha must equal github.sha so attestation source revision stays exact" >&2
+            exit 1
+          }
 
       - name: Checkout image selection inputs
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

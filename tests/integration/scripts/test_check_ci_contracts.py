@@ -464,6 +464,7 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
         "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n"
         "        with:\n"
         "          ref: main\n"
+        "          fetch-depth: 1\n"
         "          sparse-checkout: .github/actions/verify-protected-workflow-source\n"
         "          path: .fdai-protected-workflow-verifier\n"
         "      - name: Untrusted action\n"
@@ -483,8 +484,8 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
     errors = module._validate_privileged_workflow_guards()
 
     assert errors == [
-        ".github/workflows/custom-operation.yml executes an additional action before its "
-        "protected-source guard"
+        ".github/workflows/custom-operation.yml job apply must start with the exact "
+        "protected-source checkout and verifier steps"
     ]
 
 
