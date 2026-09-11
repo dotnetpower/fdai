@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 7b930b7565eb8de2eb8efd5f27fb134d5c06f227
-translation_revised: 2026-09-11
+translation_source_sha: d2e475f56d10714c27ac208e38a7320a1320a221
+translation_revised: 2026-09-12
 ---
 # 운영 배포 강화
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | GitHub와 독립적인 관리 호스트가 애플리케이션 활성화 전에 서명된 런타임 이미지를 가져올 수 있도록 구성된 안정적 배포 실행기에 정확한 ACR 범위의 `AcrPush` 배정을 추가했습니다. 이 배정은 생성된 registry로 범위가 제한되며 구독 전체 이미지 또는 역할 관리 권한을 부여하지 않습니다. | `current change`, `infra/main.tf`, standalone 관리 호스트 이미지 가져오기 및 다이제스트 재확인, root Terraform 검증, 라우팅된 deployment 및 Genesis 테스트 | 관리 ID가 모든 서명 이미지 다이제스트를 가져오고 독립적으로 재확인했음을 입증하는 활성 로그인 배포 증적을 하나 보존합니다. |
 | 2026-09-11 | implemented | 보호된 배포 인벤토리에서 상태를 재정의하는 모든 실행 단계로 검증기 성공 직접 결속을 확장했습니다. 여기에는 코호트 정리, 채널 비밀 정리, 프레임워크 컨텍스트 정리, 드리프트 근거 강제, 시스템 지식 요약 및 정리, 서비스 롤백 보고, 시나리오 근거와 권한 정리가 포함됩니다. | `current change`, 보호된 워크플로 인벤토리, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 이후 실패 처리 경로를 실행하고 검증기 실패 시 이후 실행 단계가 실행되지 않음을 입증하는 보호 실행을 보존합니다. |
 | 2026-09-11 | implemented | 플랫폼, 서비스 및 시나리오 워크플로에서 상태를 재정의하는 아티팩트 및 권한 정리 작업을 보호된 원본 검증기의 성공 결과에 직접 결속했습니다. 검증기가 실패하거나 건너뛰어지면 작업 권한을 가진 `always()` 작업으로 더 이상 진행할 수 없습니다. | `current change`, `.github/workflows/{deploy-dev,service-deploy,sre-demo-lab}.yml`, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 성공 후 아티팩트 게시와 권한 정리가 실행되고 검증기 실패 시 아무것도 게시하거나 변경하지 않음을 입증하는 보호 실행을 보존합니다. |
 | 2026-09-11 | implemented | 기준선 없는 Checkov와 Trivy 검사를 경로 범위가 지정된 `terraform-validate` 작업에 통합하면서 필수 CI 그래프를 20개 작업에서 13개 작업으로 줄였습니다. 스캐너 버전, 검토된 예외, 기준선을 사용하지 않는 정책 및 집계 `required` 결과는 그대로 유지합니다. | `current change`, `.github/workflows/ci.yml`, 집중 CI workflow 계약 테스트, `check-ci-contracts.py`, `actionlint` | 최소화된 필수 그래프의 보호된 main 실행이 한 번 통과한 뒤 새 배치를 런타임 검증 근거로 취급합니다. |
@@ -101,6 +102,9 @@ measurement Job state 주소 두 개를 조정합니다. 그런 다음
   `Cost Management Reader` 배정만 허용하는 조건부 `Role Based Access Control Administrator`를
   사용합니다. 별도의 `Cognitive Services Contributor` 배정은 model 해석기를 충족하며 역할을
   위임할 수 없습니다.
+- 애플리케이션 root는 생성하는 정확한 registry에서만 안정적 배포 실행기에 `AcrPush`를
+  부여합니다. 관리 호스트는 이 역할로 서명되고 다이제스트에 연결된 이미지를 가져오며
+  애플리케이션 활성화 전에 각 registry 다이제스트를 확인합니다.
 - 실행기의 **작업 허용 목록**에 맞는 subscription-scoped 역할만 부여합니다. [보안 및
   신원](../architecture/security-and-identity-ko.md)을 참조하세요.
 - 배포자 권한을 패키징하는 목적별 custom 역할은 열린 설계 선택으로 남습니다.

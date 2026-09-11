@@ -27,11 +27,15 @@ else:
     from secure_work_file import open_work_file, write_work_file
 
 _ROOTS: Final[tuple[str, ...]] = (
+    "alembic",
+    "alembic.ini",
+    "config/deployment-preflight-template.json",
     "infra",
     "policies",
-    "rule-catalog/schema",
-    "rule-catalog/profiles",
-    "rule-catalog/risk-classification.yaml",
+    "rule-catalog",
+    "service-migrations",
+    "scripts/deployment/azure",
+    "scripts/deployment/local/materialize-authoritative-catalogs.py",
 )
 _FORBIDDEN_NAMES = frozenset({"bootstrap.tfvars", "terraform.tfstate", "terraform.tfstate.backup"})
 _FORBIDDEN_SUFFIXES = (".plan", ".tfvars", ".pem", ".key")

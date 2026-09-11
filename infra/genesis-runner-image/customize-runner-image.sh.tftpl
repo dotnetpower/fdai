@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+# Terraform renders the referenced variables and template directives before execution.
+# shellcheck disable=SC1083,SC2016,SC2154,SC2288
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -y
-apt-get install -y --no-install-recommends ca-certificates curl git gnupg jq tar unzip
+apt-get install -y --no-install-recommends ca-certificates curl git gnupg jq python3-venv tar unzip
 
 install -d -m 0755 /etc/apt/keyrings
 key_file="$(mktemp)"
@@ -37,6 +39,15 @@ curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 180 \
 printf '%s  %s\n' '${opa_sha256}' "$work_dir/opa" | sha256sum -c -
 install -m 0755 "$work_dir/opa" /usr/local/bin/opa
 
+curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 180 \
+  "https://github.com/oras-project/oras/releases/download/v${oras_version}/oras_${oras_version}_linux_amd64.tar.gz" \
+  -o "$work_dir/oras.tar.gz"
+printf '%s  %s\n' '${oras_sha256}' "$work_dir/oras.tar.gz" | sha256sum -c -
+tar -xzf "$work_dir/oras.tar.gz" -C "$work_dir" oras
+printf '%s  %s\n' '${oras_binary_sha256}' "$work_dir/oras" | sha256sum -c -
+install -m 0755 "$work_dir/oras" /usr/local/bin/oras
+
+%{ if execution_transport == "github-actions" ~}
 install -d -m 0755 /opt/fdai/runner
 runner_archive="/opt/fdai/runner/actions-runner-linux-x64-${github_runner_version}.tar.gz"
 curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 300 \
@@ -44,13 +55,16 @@ curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 300 \
   -o "$runner_archive"
 printf '%s  %s\n' '${github_runner_sha256}' "$runner_archive" | sha256sum -c -
 tar -tzf "$runner_archive" >/dev/null
+%{ endif ~}
 
 cat >/etc/fdai-runner-image.json <<'JSON'
-{"azure_cli_version":"${azure_cli_version}","github_runner_sha256":"${github_runner_sha256}","github_runner_version":"${github_runner_version}","opa_sha256":"${opa_sha256}","opa_version":"${opa_version}","schema_version":"fdai.genesis-runner-image.v1","source_commit":"${source_commit}","source_image_version":"${source_image_version}","terraform_binary_sha256":"${terraform_binary_sha256}","terraform_sha256":"${terraform_sha256}","terraform_version":"${terraform_version}","toolchain_digest":"${toolchain_digest}"}
+{"azure_cli_version":"${azure_cli_version}","execution_transport":"${execution_transport}","github_runner_sha256":"${github_runner_sha256}","github_runner_version":"${github_runner_version}","opa_sha256":"${opa_sha256}","opa_version":"${opa_version}","oras_binary_sha256":"${oras_binary_sha256}","oras_sha256":"${oras_sha256}","oras_version":"${oras_version}","schema_version":"fdai.genesis-runner-image.v1","source_commit":"${source_commit}","source_image_version":"${source_image_version}","terraform_binary_sha256":"${terraform_binary_sha256}","terraform_sha256":"${terraform_sha256}","terraform_version":"${terraform_version}","toolchain_digest":"${toolchain_digest}"}
 JSON
 chmod 0644 /etc/fdai-runner-image.json
+%{ if execution_transport == "github-actions" ~}
 printf '%s' '${enrollment_script}' | base64 -d >/usr/local/sbin/fdai-enroll-runner
 chmod 0755 /usr/local/sbin/fdai-enroll-runner
+%{ endif ~}
 printf '%s' '${attestation_script}' | base64 -d >/usr/local/sbin/fdai-attest-runner
 chmod 0755 /usr/local/sbin/fdai-attest-runner
 printf '%s' '${state_migration_script}' | base64 -d >/usr/local/sbin/fdai-migrate-foundation-state
@@ -59,6 +73,7 @@ chmod 0755 /usr/local/sbin/fdai-migrate-foundation-state
 test "$(az version --query '"azure-cli"' --output tsv)" = "${azure_cli_version}"
 test "$(terraform version -json | jq -r .terraform_version)" = "${terraform_version}"
 opa version | grep -F "Version: ${opa_version}" >/dev/null
+oras version | grep -F "Version:        ${oras_version}" >/dev/null
 test "$(jq -r .toolchain_digest /etc/fdai-runner-image.json)" = "${toolchain_digest}"
 
 rm -rf /root/.azure /root/.config/gh /root/.docker /root/.git-credentials

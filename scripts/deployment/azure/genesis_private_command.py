@@ -88,6 +88,7 @@ _SAFE_RESULT_FIELDS: dict[str, frozenset[str]] = {
             "identity_attested",
             "services_attested",
             "github_readback_verified",
+            "manual_host_readback_verified",
             "effect_verified",
             "mutation_performed",
             "subscription_ready",

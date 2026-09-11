@@ -8,6 +8,7 @@ import os
 import re
 import stat
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from genesis_subprocess import run_with_heartbeat
@@ -16,6 +17,51 @@ _GITHUB_REMOTE = re.compile(
     r"^(?:git@github\.com:|https://github\.com/|ssh://git@github\.com/)"
     r"(?P<repository>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$"
 )
+_DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+
+
+@dataclass(frozen=True, slots=True)
+class SignedSourceEvidence:
+    """Verified distribution evidence supplied by the installed package boundary."""
+
+    source_commit: str
+    kit_manifest_digest: str
+    bundle_manifest_digest: str
+    runtime_release_digest: str
+
+    @classmethod
+    def from_environment(cls) -> SignedSourceEvidence | None:
+        """Load a bounded non-secret projection created after package-level verification."""
+
+        raw = os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE")
+        if raw is None:
+            return None
+        if len(raw) > 4096:
+            raise CheckError("signed_source_evidence_invalid", 64)
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise CheckError("signed_source_evidence_invalid", 64) from exc
+        expected = {
+            "source_commit",
+            "kit_manifest_digest",
+            "bundle_manifest_digest",
+            "runtime_release_digest",
+        }
+        if not isinstance(value, dict) or set(value) != expected:
+            raise CheckError("signed_source_evidence_invalid", 64)
+        evidence = cls(**{name: str(value[name]) for name in expected})
+        if _COMMIT.fullmatch(evidence.source_commit) is None or any(
+            _DIGEST.fullmatch(item) is None
+            for item in (
+                evidence.kit_manifest_digest,
+                evidence.bundle_manifest_digest,
+                evidence.runtime_release_digest,
+            )
+        ):
+            raise CheckError("signed_source_evidence_invalid", 64)
+        return evidence
 
 
 def trusted_tool(name: str) -> str:
@@ -59,24 +105,23 @@ class GenesisChecks:
     def __init__(self, repository_root: Path, *, environment: dict[str, str] | None = None) -> None:
         self.repository_root = repository_root
         self.environment = environment
-        self.git = trusted_tool("git")
         self.az = trusted_tool("az")
-        self.gh = trusted_tool("gh")
+        self.source_evidence = SignedSourceEvidence.from_environment()
+        self.git = None if self.source_evidence is not None else trusted_tool("git")
+        self.gh = None if self.source_evidence is not None else trusted_tool("gh")
 
     def verify_toolchain(self, *, apply: bool) -> None:
         """Require only read tools for inspection and the full apply toolchain for mutation."""
 
-        required = [
-            self.az,
-            trusted_tool("bash"),
-            self.git,
-            trusted_tool("python3"),
-            trusted_tool("timeout"),
-        ]
-        if apply:
-            required.extend(
-                (trusted_tool("azd"), self.gh, trusted_tool("terraform"), trusted_tool("uv"))
-            )
+        required = [self.az, trusted_tool("bash"), trusted_tool("python3"), trusted_tool("timeout")]
+        if self.source_evidence is None:
+            git = self._required_git()
+            required.append(git)
+            if apply:
+                gh = self._required_gh()
+                required.extend(
+                    (trusted_tool("azd"), gh, trusted_tool("terraform"), trusted_tool("uv"))
+                )
         if any(not Path(command).is_file() for command in required):
             raise CheckError("required_tool_unavailable")
 
@@ -157,8 +202,14 @@ class GenesisChecks:
 
         if not apply:
             return
+        if self.source_evidence is not None:
+            if source_commit != self.source_evidence.source_commit:
+                raise CheckError("signed_source_revision_mismatch", 3)
+            return
+        git = self._required_git()
+        gh = self._required_gh()
         dirty = self.capture(
-            (self.git, "status", "--porcelain", "--untracked-files=all"),
+            (git, "status", "--porcelain", "--untracked-files=all"),
             "source_status_unavailable",
         )
         if dirty:
@@ -166,7 +217,7 @@ class GenesisChecks:
         if repository is None:
             raise CheckError("repository_required_for_apply", 64)
         remote = self.capture(
-            (self.git, "remote", "get-url", "origin"),
+            (git, "remote", "get-url", "origin"),
             "source_repository_unavailable",
         )
         match = _GITHUB_REMOTE.fullmatch(remote)
@@ -174,7 +225,7 @@ class GenesisChecks:
             raise CheckError("repository_context_mismatch", 3)
         checks_raw = self.capture(
             (
-                self.gh,
+                gh,
                 "api",
                 "-X",
                 "GET",
@@ -209,12 +260,25 @@ class GenesisChecks:
     def verify_checkout_unchanged(self) -> None:
         """Fail when deployment tooling rewrites tracked or untracked source files."""
 
+        if self.source_evidence is not None:
+            return
+        git = self._required_git()
         dirty = self.capture(
-            (self.git, "status", "--porcelain", "--untracked-files=all"),
+            (git, "status", "--porcelain", "--untracked-files=all"),
             "source_status_unavailable",
         )
         if dirty:
             raise CheckError("deployment_changed_tracked_source")
+
+    def _required_git(self) -> str:
+        if self.git is None:
+            raise CheckError("source_verifier_unavailable")
+        return self.git
+
+    def _required_gh(self) -> str:
+        if self.gh is None:
+            raise CheckError("source_verifier_unavailable")
+        return self.gh
 
     def run_required(
         self,

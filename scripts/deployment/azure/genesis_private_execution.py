@@ -511,7 +511,7 @@ class PrivateExecutionCoordinator:
             state="attested",
             receipt=True,
         )
-        self.store.mutation_performed = True
+        self.store.mutation_performed |= result.get("mutation_performed") is True
         self._record_checkpoint(
             stage="runner-enrollment",
             checkpoint="runner-enrollment",

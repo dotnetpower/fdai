@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: fd4185e23710ce39212011126141ac10aae02b75
-translation_revised: 2026-09-11
+translation_source_sha: f4cb23d8daaa6b5d2fb66df68f70f31d67259a82
+translation_revised: 2026-09-12
 ---
 # 프로비저닝 실행 프로파일
 
@@ -21,11 +21,11 @@ translation_revised: 2026-09-11
 |------|------|------|------|
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
 | 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 정확한 애플리케이션 적용 동작이 구현되어 있습니다. |
-| 신규 구독 로컬 조정기 | implemented | `fdai-up.sh`, 비공개 준비, 승인, 이미지, 기반 계층, Bastion, Entra, 저장소 및 보호된 애플리케이션 모듈과 집중 수명 주기 테스트 | 감독형 `dev` 프로세스 하나가 독립적인 준비, 읽기 또는 요청 작업에만 범위가 제한된 병렬 실행을 사용하고 점유를 검증으로 재개하며 두 번째 변경 없음 계획을 요구합니다. 이미지 그래프는 FQDN 허용 목록이 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM으로 구성해 Storage Shared Key 거부에 정책 예외가 필요하지 않습니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
+| 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 독립적인 준비, 읽기 또는 요청 작업에만 범위가 제한된 병렬 실행을 사용하며 상태 변경 전이는 직렬로 유지합니다. GitHub Actions는 선택적 전송 계층으로 남습니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
-| 배포 후 검증 | in-progress | 보호된 작업 흐름 검사 및 `docs/roadmap/operations/operating-and-verification.md` | 실행기 측 수렴, 마이그레이션, 상태 및 canary 검사는 있지만 완전한 CLI 기반 수명 주기와 폐쇄망 증적은 없습니다. |
+| 배포 후 검증 | in-progress | 관리 호스트 exact-plan 적용 증적, ACR 다이제스트 재확인, 마이그레이션, 상태 재확인, 두 번째 변경 없음 계획 및 라우팅된 수명 주기 테스트 | 구현은 존재하지만 완전한 CLI 기반 Azure 수명 주기와 아티팩트 오프라인 운영 증적은 아직 없습니다. |
 
 ### 구현 이력
 
@@ -38,13 +38,16 @@ translation_revised: 2026-09-11
 | 2026-09-06 | implemented | Exact image Container Apps rehearsal을 위해 positional `once` 또는 `loop` mode만 허용하는 설치형 inventory wrapper를 추가했습니다. Collection, projection, identity 또는 execution 권한을 바꾸지 않고 기존 CLI로 변환합니다. | `current change`, 집중 inventory CLI 테스트, strict mypy, package build 및 entrypoint 검색 | 운영 이력 certification 전에 exact image inventory projection refresh 증적 1개를 보존합니다. |
 | 2026-09-06 | implemented | 보호된 OI-16 실행 profile에 deadline이 제한된 active generation projection release migration을 추가했습니다. Provider read를 수행하지 않고 이전 manifest와 journal fence를 보존하며 불완전하거나 변경된 content는 write 전에 차단합니다. | `current change`, 집중 replay CLI, projection, persistence, workflow 및 package 검사 | 보호된 dev campaign에서 성공한 exact release migration 증적 1개를 보존합니다. |
 | 2026-09-11 | implemented | 서로 독립적인 로컬 아티팩트 경로, 기반 계층 입력 검색, 공급자 점검과 등록 요청, 정책 프로브 리소스 작업, 테넌트 디렉터리 읽기에 범위가 제한된 병렬 실행을 추가했습니다. 상태를 변경하는 적용, 승인, 정리, 인계, 저장소 쓰기, 보호된 애플리케이션 전이는 계속 직렬로 수행합니다. | `current change`, 집중 Genesis, 공급자 미러, 준비, Entra 및 제품화 테스트 | 경과 시간을 준비 상태 근거로 사용하지 않고 다음 exact-main 감독형 배포에서 시간 측정 근거를 보존합니다. |
+| 2026-09-11 | implemented | GitHub Actions를 요구하지 않고 활성 `az login` 대상을 사용하는 online 및 아티팩트 오프라인 설치 패키지 배포를 추가했습니다. 완전한 서명 키트, GitHub 없는 관리 호스트, 정확한 애플리케이션 승인, 운영자 발급 또는 Trial 라이선스, 이미지 재확인, 활성화 전 마이그레이션 및 수렴 검사가 하나의 경로를 공유합니다. | `current change`, deployment CLI 및 Genesis 소스, strict mypy, 패키지 빌드와 새 환경 설치, 라우팅된 deployment 및 Genesis 테스트 | 깨끗한 스냅샷에서 완전한 서명 release 키트를 빌드하고 online 및 아티팩트 오프라인 Azure 수렴 증적을 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 전용 CLI 패키지에 `provision inspect`와 `provision init`을 구현하고 무변경, mode-`0600`/`0700`, 덮어쓰기, symbolic link 및 안정적 JSON 테스트를 통과합니다.
-- [ ] 주입된 release 루트 뒤에 offline-kit 검증을 복원하고 서명 우선 확인, exact 파일 집합, no-follow 다이제스트, 호환성 및 한계 테스트를 통과합니다.
+- [x] 전용 CLI 패키지에 `provision inspect`와 `provision init`을 구현하고 무변경, mode-`0600`/`0700`, 덮어쓰기, symbolic link 및 안정적 JSON 테스트를 통과합니다.
+- [x] 주입된 release 루트 뒤에 offline-kit 검증을 복원하고 서명 우선 확인, exact 파일 집합, no-follow 다이제스트, 호환성 및 한계 테스트를 통과합니다.
 - [ ] Temporary 공개 접근 생성과 정리를 구현하여 정리 실패가 감사된 불완전 작업으로 남게 하고 CIDR, 기간, 인증, 롤백 및 멱등성 테스트를 통과합니다.
-- [ ] TUF 루트 의식과 패키지 초기화를 완료하고 inspect부터 plan, apply, cleanup, verification까지의 통제 증적을 보존합니다.
+- [ ] TUF 루트 의식과 패키지 초기화를 완료하고 offline trust ceremony가 수락한 서명 루트 및 교대 근거를 남깁니다.
+- [ ] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다.
+- [ ] 전체 구독 준비 상태를 주장하지 않고 두 활성 로그인 모드의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -56,8 +59,51 @@ translation_revised: 2026-09-11
 |----|---------|-----------|
 | Connectivity | `online`, `offline` | 제한된 TLS 검사를 통과한 후에만 online 출처를 사용하고, 그렇지 않으면 signed offline 키트를 요구합니다. |
 | 실행 호스트 | `existing-host`, `managed-vm` | 적합한 private-network 호스트를 재사용하고, 적합한 호스트가 없으면 managed VM을 생성합니다. |
-| 전송 계층 | `manual`, `github-actions` | 사람이 exact-plan 흐름을 직접 시작하거나 GitHub Actions를 통해 같은 흐름을 제출합니다. |
+| 전송 계층 | `manual`, `github-actions` | 설치 패키지의 기본 흐름에는 `manual`을 사용합니다. GitHub Actions는 선택적인 저장소 소유 CI/CD 전송 계층이며 구독 배포 필수 조건이 아닙니다. |
 | 소유권 | `fdai-managed` | 승인 후 Terraform이 선언된 리소스와 역할 배정을 관리합니다. |
+
+### 활성 로그인 기반 독립 실행형 배포
+
+설치 패키지는 `az login` 후 하나의 기본 구독 배포 경계를 지원합니다.
+
+```bash
+fdaictl provision azure --online
+fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
+# 소스 checkout 편의 wrapper이며 online이 기본값입니다.
+scripts/deployment/azure/fdai-up.sh
+```
+
+두 명령은 활성 Azure CLI 사용자 컨텍스트에서만 테넌트와 구독을 결정합니다. 소스 checkout,
+Git remote, GitHub 계정, GitHub 저장소, required CI 검사, 저장소 변수, 저장소 비밀, 작업 흐름
+dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드는 범위가 제한된 HTTPS로
+버전이 지정된 완전한 키트 하나를 다운로드합니다. Offline 모드는 같은 키트 형식을 로컬
+경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. 여기서 offline은 아티팩트가
+오프라인이라는 뜻이며 선택한 Azure control plane 또는 Bastion 엔드포인트와 단절된다는 뜻은
+아닙니다.
+
+패키지는 키트와 별도로 release 및 bundle 검증 루트를 고정합니다. 완전한 키트에는 배포
+bundle, Terraform과 OPA, provider mirror, runtime OCI archive, Console 콘텐츠, migration 지원
+및 각 SBOM이 포함됩니다. Azure 변경 전에 서명, 정확한 파일 집합, 플랫폼, 소스 revision,
+runtime 콘텐츠 검증을 완료합니다.
+
+비공개 경로에서 로그인한 사용자는 범위가 제한된 Foundation control-plane 적용만 수행합니다.
+생성된 Bastion 접근 가능 VM은 사용자 할당 관리 ID와 GitHub runner 소프트웨어가 없는 manual
+host 이미지를 사용합니다. 이 호스트는 키트를 다시 검증하고 별도의 exact plan을 통해 비공개
+application backend와 registry 경로를 만든 뒤 검증된 OCI archive를 가져와 재확인합니다. 배포에
+연결된 라이선스를 설치하고 애플리케이션 활성화 전에 migration을 실행한 다음 application plan과
+apply, 상태 검사 및 두 번째 변경 없음 계획을 실행합니다. 비공개
+data-plane 작업은 운영자 workstation으로 대체되지 않습니다.
+
+모든 변경 checkpoint는 exact-plan 승인, 변경 전 불변 claim, 범위가 제한된 중지 및 정리 경로,
+대상 lock, 안정적 멱등성 및 독립적인 효과 재확인을 유지합니다. 기본 standalone `dev` 경로는
+각 exact plan마다 현재 로컬 사용자 승인 하나를 받습니다. Staging과 production은 구성된 독립
+정족수와 승인된 실행 호스트를 계속 요구합니다.
+
+명령은 명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
+key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이미지에 연결된 token을 발급합니다.
+키가 없으면 터미널에서 미리 발급된 mode-`0600` Trial token 파일을 요구합니다. Token은 Bastion
+표준 입력으로 전달되고 관리 ID가 Key Vault에 기록합니다. 인자, Terraform state, portable status
+또는 로그에는 포함되지 않습니다.
 
 ## 읽기 전용 검사
 
@@ -158,8 +204,9 @@ persistent 공개 IP는 허용되지 않습니다. 정리는 연산 성공 기�
 
 ## Online 및 offline 전달
 
-Online 전달은 PyPI의 공개 `fdai` 패키지와 version-matched signed 배포 번들을
-사용합니다. 실행기는 허용 목록 TLS 검사를 통과한 후에만 공개 출처를 사용할 수 있습니다.
+Online 전달은 공개 `fdai-deployment-cli` 패키지와 버전이 일치하는 완전한 서명 배포 키트를
+사용합니다. 관리 호스트는 키트의 인증된 binary, provider, runtime image 및 migration wheel만
+사용합니다.
 
 목표 release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
 번들 버전이 일치하는지 검사합니다. 일치하는 signed 번들을 게시한 후에만 같은 산출물을

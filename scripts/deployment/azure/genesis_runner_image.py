@@ -92,20 +92,28 @@ def _plan(args: argparse.Namespace) -> int:
         repository_root=root,
         destination=variables,
     )
-    current_source = _capture(
-        ["/usr/bin/git", "rev-parse", "HEAD"],
-        cwd=root,
-        timeout=30,
-        reason="runner image source revision is unavailable",
-    ).strip()
+    signed_source = os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE") is not None
+    current_source = (
+        inputs.source_commit
+        if signed_source
+        else _capture(
+            ["/usr/bin/git", "rev-parse", "HEAD"],
+            cwd=root,
+            timeout=30,
+            reason="runner image source revision is unavailable",
+        ).strip()
+    )
     if current_source != inputs.source_commit:
         raise ValueError("runner image input source does not match the active checkout")
-    if _capture(
-        ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"],
-        cwd=root,
-        timeout=30,
-        reason="runner image checkout status is unavailable",
-    ).strip():
+    if (
+        not signed_source
+        and _capture(
+            ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=root,
+            timeout=30,
+            reason="runner image checkout status is unavailable",
+        ).strip()
+    ):
         raise ValueError("runner image planning requires a clean checkout")
     environment = _terraform_environment(
         work_dir,
@@ -146,7 +154,7 @@ def _plan(args: argparse.Namespace) -> int:
         terraform_root,
         source_commit=inputs.source_commit,
     )
-    if (
+    if not signed_source and (
         _capture(
             ["/usr/bin/git", "rev-parse", "HEAD"],
             cwd=root,
@@ -273,12 +281,16 @@ def _apply(args: argparse.Namespace) -> int:
     checks.verify_source(
         source_commit=str(review["source_commit"]), repository=args.repository, apply=True
     )
-    current_source = _capture(
-        ["/usr/bin/git", "rev-parse", "HEAD"],
-        cwd=root,
-        timeout=30,
-        reason="runner image source revision is unavailable",
-    ).strip()
+    current_source = (
+        str(review["source_commit"])
+        if checks.source_evidence is not None
+        else _capture(
+            ["/usr/bin/git", "rev-parse", "HEAD"],
+            cwd=root,
+            timeout=30,
+            reason="runner image source revision is unavailable",
+        ).strip()
+    )
     if current_source != review["source_commit"]:
         raise ValueError("runner image review source does not match the active checkout")
     claim = _load_apply_claim(claim_path, review=review)
@@ -679,20 +691,21 @@ def _terraform_environment(
     )
     if not azure_config.is_dir() or azure_config.stat().st_mode & 0o022:
         raise ValueError("Azure CLI configuration directory is not trusted")
-    github_config = Path(
-        os.environ.get("GH_CONFIG_DIR", str(Path.home() / ".config" / "gh"))
-    ).resolve(strict=True)
-    if not github_config.is_dir() or github_config.stat().st_mode & 0o022:
-        raise ValueError("GitHub CLI configuration directory is not trusted")
+    github_config: Path | None = None
+    if os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE") is None:
+        github_config = Path(
+            os.environ.get("GH_CONFIG_DIR", str(Path.home() / ".config" / "gh"))
+        ).resolve(strict=True)
+        if not github_config.is_dir() or github_config.stat().st_mode & 0o022:
+            raise ValueError("GitHub CLI configuration directory is not trusted")
     trusted_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     az_cli = shutil.which("az", path=trusted_path)
     if az_cli is None or _trusted_executable(Path(az_cli), label="Azure CLI") != Path(
         "/usr/bin/az"
     ).resolve(strict=True):
         raise ValueError("Azure CLI executable is not trusted")
-    return {
+    environment = {
         "AZURE_CONFIG_DIR": str(azure_config),
-        "GH_CONFIG_DIR": str(github_config),
         "HOME": str(terraform_home),
         "PATH": trusted_path,
         "TF_CLI_CONFIG_FILE": str(cli_config),
@@ -702,6 +715,9 @@ def _terraform_environment(
         "ARM_TENANT_ID": tenant_id,
         "ARM_RESOURCE_PROVIDER_REGISTRATIONS": "none",
     }
+    if github_config is not None:
+        environment["GH_CONFIG_DIR"] = str(github_config)
+    return environment
 
 
 def _trusted_terraform(path: Path) -> Path:

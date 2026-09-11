@@ -19,6 +19,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT_DIR = _ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(_SCRIPT_DIR))
 
+import genesis_checks as genesis_checks_module  # noqa: E402
 import genesis_orchestrator as orchestrator  # noqa: E402
 import genesis_private_execution as private_execution  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile  # noqa: E402
@@ -127,6 +128,37 @@ def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
         "Microsoft.DBforMySQL",
         "Microsoft.Web",
     }.isdisjoint(expected)
+
+
+def test_signed_kit_source_evidence_requires_no_git_or_github(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = "a" * 40
+    monkeypatch.setenv(
+        "FDAI_SIGNED_SOURCE_EVIDENCE",
+        json.dumps(
+            {
+                "source_commit": source,
+                "kit_manifest_digest": "b" * 64,
+                "bundle_manifest_digest": "c" * 64,
+                "runtime_release_digest": "d" * 64,
+            }
+        ),
+    )
+    original = genesis_checks_module.trusted_tool
+
+    def trusted_tool(name: str) -> str:
+        if name in {"git", "gh"}:
+            raise AssertionError(f"standalone source verification requested {name}")
+        return original(name)
+
+    monkeypatch.setattr(genesis_checks_module, "trusted_tool", trusted_tool)
+    checks = GenesisChecks(_ROOT)
+
+    checks.verify_source(source_commit=source, repository=None, apply=True)
+
+    with pytest.raises(CheckError, match="signed_source_revision_mismatch"):
+        checks.verify_source(source_commit="e" * 40, repository=None, apply=True)
 
 
 def test_provider_preview_reports_every_missing_namespace_without_mutation() -> None:
