@@ -202,7 +202,8 @@ queryable while the newer snapshot remains authoritative for current state.
 A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
 later poll can observe either the Resource or its delete record. A returned Resource type outside
 the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
-fails the batch.
+fails the batch. Hydration that exceeds the bounded property payload also fails before publication
+or cursor advancement rather than asserting a truncated full replacement.
 
 The read-only recent-change FunctionType queries the server-configured subscription scope rather
 than a model-supplied scope. It selects only ARG create, update, and delete observations or

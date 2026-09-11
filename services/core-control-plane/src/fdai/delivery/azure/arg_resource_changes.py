@@ -532,6 +532,10 @@ class AzureResourceChangeFeed:
         if status := resource_operational_status(row):
             props["status"] = status
         props = truncate_props(props, max_bytes=self._config.max_props_bytes)
+        if props.get("_truncated") is True:
+            raise ArgResourceChangeError(
+                "resourcechanges hydration properties exceed the configured bound"
+            )
         if (parent_id := parent_neutral_id(arm_id)) is not None:
             props["parent_id"] = parent_id
         record = ResourceRecord(
