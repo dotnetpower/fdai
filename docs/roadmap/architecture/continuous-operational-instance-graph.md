@@ -107,8 +107,8 @@ development, a disabled binding, and an empty witness query report this source u
 of fabricating an edge.
 The platform's `enable_runtime_call_evidence` input controls this Inventory Job source independently
 of the legacy Operator API module, so state migration cannot silently remove collection. Schema-valid
-`plan-runtime-*` and `apply-runtime-*` requests target dedicated binding and exact-image transition
-resources and reject mixed targets. The transitions use bounded updaters with verified rollback to
+`plan-runtime-*` and `apply-runtime-*` requests target dedicated flag, workspace, and exact-image
+transition resources and reject mixed targets. The transitions use bounded updaters with verified rollback to
 enable the existing Inventory Job and, when an attested revision is selected, replace its stale
 image without planning unrelated module dependencies. The binding updater also resolves the exact
 Log Analytics customer ID and applies it with the runtime flag; rollback restores both prior values.

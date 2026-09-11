@@ -95,7 +95,8 @@ def test_runtime_call_apply_replans_only_transition_before_separate_readback(
     log = calls.read_text(encoding="ascii")
     assert (
         "target=-target=terraform_data.runtime_call_evidence_transition "
-        "-target=terraform_data.inventory_runtime_image_update"
+        "-target=terraform_data.inventory_runtime_image_update "
+        "-target=terraform_data.runtime_workspace_binding_transition"
     ) in log
     assert "\naz " not in "\n" + log
     assert "\nuv " not in "\n" + log
