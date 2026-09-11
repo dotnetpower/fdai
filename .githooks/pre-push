@@ -101,6 +101,10 @@ if [[ "${#tag_refs[@]}" -gt 0 ]]; then
      git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
     tag_base="$local_sha"
   fi
+  protected_release_paths=(
+    ".github/workflows/container-supply-chain.yml"
+    ".github/actions/verify-protected-workflow-source/action.yml"
+  )
   for index in "${!tag_refs[@]}"; do
     if [[ "${tag_remote_shas[$index]}" != "$zero_sha" && \
           "${tag_remote_shas[$index]}" != "${tag_shas[$index]}" ]]; then
@@ -112,6 +116,14 @@ if [[ "${#tag_refs[@]}" -gt 0 ]]; then
       echo "pre-push: BLOCKED - tag '${tag_refs[$index]#refs/tags/}' is not on $protected_ref."
       exit 1
     fi
+    for protected_path in "${protected_release_paths[@]}"; do
+      if git cat-file -e "$tag_base:$protected_path" 2>/dev/null &&
+         { ! git cat-file -e "$tag_commit:$protected_path" 2>/dev/null ||
+           ! git diff --quiet "$tag_commit:$protected_path" "$tag_base:$protected_path"; }; then
+        echo "pre-push: BLOCKED - tag '${tag_refs[$index]#refs/tags/}' uses stale release controls."
+        exit 1
+      fi
+    done
   done
 fi
 
