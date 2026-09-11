@@ -478,9 +478,24 @@ class AzureRuntimeCallTelemetrySource:
             if len(endpoint_pairs) != 1
         }
         coverage["malformed_rows"] += len(ambiguous_observations)
+        latest_observation_by_edge: dict[
+            tuple[str, str],
+            tuple[datetime, str, tuple[str, str, str]],
+        ] = {}
+        for witness_key, by_role in witnesses.items():
+            observation_id, caller_arm_id, target_arm_id = witness_key
+            if observation_id in ambiguous_observations:
+                continue
+            latest_observed_at = max(witness.observed_at for witness in by_role.values())
+            edge_key = (caller_arm_id, target_arm_id)
+            candidate = (latest_observed_at, observation_id, witness_key)
+            previous = latest_observation_by_edge.get(edge_key)
+            if previous is None or candidate > previous:
+                latest_observation_by_edge[edge_key] = candidate
+        selected_witness_keys = {candidate[2] for candidate in latest_observation_by_edge.values()}
         records_by_edge: dict[tuple[str, str], RuntimeCallTelemetryRecord] = {}
         for witness_key in sorted(witnesses):
-            if witness_key[0] in ambiguous_observations:
+            if witness_key not in selected_witness_keys:
                 continue
             by_role = witnesses[witness_key]
             latest_observed_at = max(witness.observed_at for witness in by_role.values())

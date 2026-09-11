@@ -98,9 +98,11 @@ Resource ID mapping. The standalone channel edge never receives the caller
 binding and uses a distinct durable outbox namespace, so it cannot claim an Operator API request
 or join its own requests on the shared topic into a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
-newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
-pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do
-not split a retained pair. Incomplete-source coverage accepts only the fixed row-count keys and
+newest verified observation per exact endpoint pair before pair completeness is evaluated. A newer
+complete pair supersedes an older unpaired observation, while a newer unpaired observation remains
+pending for a 60-second trailing guard and then makes the source incomplete. The source reads one
+guard interval beyond the freshness window so cutoff boundaries do not split a retained pair.
+Incomplete-source coverage accepts only the fixed row-count keys and
 cannot carry provider identifiers or arbitrary source text. Exact replica verification uses at most four concurrent reads under one
 30-second deadline, and freshness is evaluated only after those reads finish. The
 inventory writer then rechecks both endpoint IDs against the complete active generation, principal
