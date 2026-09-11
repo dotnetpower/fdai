@@ -193,6 +193,19 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     )
 
     assert config.source_order == ("arg", "arm")
+    assert config.operator_requested is False
+
+
+def test_job_config_accepts_one_shot_operator_reconciliation_request() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_OPERATOR_REQUESTED": "1",
+        }
+    )
+
+    assert config.operator_requested is True
     assert config.scopes == ("sub-1",)
     assert config.freshness_budget_seconds == 86_400
     assert config.reconciliation_interval_seconds == 21_600
@@ -1019,9 +1032,10 @@ async def test_not_due_tick_flushes_service_readiness_status(
         "fdai.delivery.inventory_sync_cli._drain_change_stream",
         AsyncMock(return_value=ChangeStreamDrainResult(published=0)),
     )
+    gate = AsyncMock(return_value=False)
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.PostgresInventoryReconciliationGate",
-        lambda **_: AsyncMock(return_value=False),
+        lambda **_: gate,
     )
     monkeypatch.setattr("builtins.print", printed)
 
@@ -1029,6 +1043,10 @@ async def test_not_due_tick_flushes_service_readiness_status(
     printed.assert_called_once_with(
         "inventory reconciliation not due; change records published 0",
         flush=True,
+    )
+    gate.assert_awaited_once_with(
+        config.reconciliation_interval_seconds,
+        operator_requested=False,
     )
 
 

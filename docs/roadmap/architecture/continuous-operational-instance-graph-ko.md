@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: dfcd197944522457141ff0599ef6464ed2fe4fb5
+translation_source_sha: 3b60d40ad1fb16a0b70ec63081d511050aa52724
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -161,6 +161,10 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 대체하지 않습니다.
 
 지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
+명시적으로 요청한 one-shot Inventory 실행은 `FDAI_INVENTORY_OPERATOR_REQUESTED=1`을 설정해
+adaptive scheduler의 기존 operator 우선순위를 활성화할 수 있습니다. 원본이 정상이고 활성
+수집이 없을 때만 즉시 수집하며 provider pressure, backoff, throttling, circuit 상태 및 모든
+근거 gate를 계속 적용합니다. 영속 Job template에서는 이 입력을 설정하지 않습니다.
 
 현재 그래프 checkpoint는 활성 스냅샷 세대와 정확한 범위 집합에 결속됩니다. 완전한 프로바이더 스냅샷은 같은 범위의 해당 세대 및 시작 시각 이전 관측을 포함하므로 연속된 checkpoint는 해당 범위만 탐색합니다.
 비활성 범위 관측은 내구성 있는 이력과 보존 작업으로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
