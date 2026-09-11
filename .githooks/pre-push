@@ -28,6 +28,7 @@ remote_sha=""
 remote_ref=""
 zero_sha="0000000000000000000000000000000000000000"
 non_current_branch_ref=""
+unsupported_source_ref=""
 
 while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
   if [[ "$candidate_local_ref" == "refs/heads/$branch" ]]; then
@@ -36,6 +37,8 @@ while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_r
     remote_sha="$candidate_remote_sha"
   elif [[ "$candidate_local_ref" == refs/heads/* && "$candidate_local_sha" != "$zero_sha" ]]; then
     non_current_branch_ref="$candidate_local_ref"
+  elif [[ "$candidate_local_ref" != refs/tags/* && "$candidate_local_sha" != "$zero_sha" ]]; then
+    unsupported_source_ref="$candidate_local_ref"
   fi
 done
 
@@ -43,6 +46,11 @@ echo "pre-push: lightweight checks (branch: ${branch:-detached})..."
 if [[ -n "$non_current_branch_ref" ]]; then
   echo "pre-push: BLOCKED - refusing to validate a non-current branch push."
   echo "  Check out '${non_current_branch_ref#refs/heads/}' in its own worktree, then push again."
+  exit 1
+fi
+if [[ -n "$unsupported_source_ref" ]]; then
+  echo "pre-push: BLOCKED - unsupported push source ref '$unsupported_source_ref'."
+  echo "  Push the checked-out branch from its own worktree."
   exit 1
 fi
 
