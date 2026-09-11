@@ -15,6 +15,7 @@ from fdai.delivery.persistence.postgres_inventory_observation import (
     _active_scope_projection_watermark,
     _append_records,
     _global_projection_watermark,
+    _rebase_recovery_metadata,
     _retained_generation_watermark,
     _snapshot_recovery_observation,
 )
@@ -561,6 +562,32 @@ def test_snapshot_recovery_rebuilds_generation_before_journal_append() -> None:
     assert observation.links[0].link_props["provider_relationship_evidence"] == provider_evidence
     assert observation.state_base_generation == "snapshot-0"
     assert observation.state_base_generation_checked is True
+
+
+def test_recovery_metadata_rebases_full_snapshot_to_current_manifest() -> None:
+    metadata = {
+        "state_base_generation": "snapshot-skipped",
+        "coverage_scope": "full_provider_scope",
+    }
+
+    rebased = _rebase_recovery_metadata(metadata, {"generation": "snapshot-projected"})
+
+    assert rebased == {
+        "state_base_generation": "snapshot-projected",
+        "coverage_scope": "full_provider_scope",
+    }
+    assert metadata["state_base_generation"] == "snapshot-skipped"
+
+
+def test_recovery_metadata_preserves_matching_base() -> None:
+    metadata = {"state_base_generation": "snapshot-projected"}
+
+    assert _rebase_recovery_metadata(metadata, {"generation": "snapshot-projected"}) == metadata
+
+
+def test_recovery_metadata_rejects_missing_manifest_generation() -> None:
+    with pytest.raises(ValueError, match="base generation changed"):
+        _rebase_recovery_metadata({"state_base_generation": "snapshot-skipped"}, {})
 
 
 def test_snapshot_recovery_quarantines_relationship_without_observation_metadata() -> None:

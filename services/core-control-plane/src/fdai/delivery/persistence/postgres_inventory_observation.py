@@ -333,9 +333,7 @@ class PostgresInventoryObservationJournal:
                     raise ValueError(
                         "inventory ontology manifest advanced without its atomic watermark"
                     )
-                expected_base = metadata.get("state_base_generation")
-                if manifest.get("generation") != expected_base:
-                    raise ValueError("pending inventory ontology base generation changed")
+                metadata = _rebase_recovery_metadata(metadata, manifest)
                 resource_cursor = await connection.execute(
                     "SELECT resource_id, resource_type, props, provider_ref, last_seen "
                     "FROM inventory_snapshot_resource WHERE snapshot_id=%s "
@@ -600,6 +598,21 @@ def _snapshot_recovery_observation(
         ),
         state_base_generation_checked="state_base_generation" in metadata,
     )
+
+
+def _rebase_recovery_metadata(
+    metadata: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+) -> dict[str, Any]:
+    rebased = dict(metadata)
+    expected_base = metadata.get("state_base_generation")
+    actual_base = manifest.get("generation")
+    if actual_base == expected_base:
+        return rebased
+    if not isinstance(actual_base, str) or not actual_base.strip():
+        raise ValueError("pending inventory ontology base generation changed")
+    rebased["state_base_generation"] = actual_base
+    return rebased
 
 
 _SELECT_OBSERVATIONS = (
