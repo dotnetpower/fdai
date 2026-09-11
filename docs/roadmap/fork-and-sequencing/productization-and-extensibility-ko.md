@@ -1,8 +1,8 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: 32051765185fdf15bfd444e822cdecb56c296edf
-translation_revised: 2026-08-24
+translation_source_sha: 501f271c70806760b4ce28ade7f95ba0c6ebd486
+translation_revised: 2026-09-12
 ---
 # 제품화 및 확장성 계획
 
@@ -194,9 +194,10 @@ PostgreSQL 데이터베이스에서 이행 업그레이드 검사를 실행합�
 gated 번들 작업만 저장소 쓰기 권한을 받습니다.
 
 Executable productization 게이트에는 `scripts/deployment/release/verify-productization.sh`를 실행합니다. 이 계획의
-subsystem을 검사하고 Alembic 헤드가 하나인지 확인하고 휠을 빌드하고 isolated `uvx`
-install로 `fdaictl version --output json`을 실행합니다. Full 저장소 게이트 또는 실제 운영 disposable
-데이터베이스 이행 실행을 대체하지 않습니다.
+subsystem을 검사하고 Alembic 헤드가 하나인지 확인하며 package project 환경에서
+`fdaictl version --output json`을 실행한 뒤 휠을 빌드합니다. 이 휠을 설치하지 않으며 full 저장소
+게이트, release batch의 isolated install 또는 실제 운영 disposable 데이터베이스 이행 실행을
+대체하지 않습니다.
 
 ## 관련 문서
 
