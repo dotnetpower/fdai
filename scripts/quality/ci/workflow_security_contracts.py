@@ -36,6 +36,15 @@ def secret_context_is_privileged(value: Any) -> bool:
     return re.search(r"\bsecrets\b", SECRET_REF_RE.sub("", value)) is not None
 
 
+def node_uses_privileged_secret(node: Any) -> bool:
+    """Return whether a parsed YAML subtree consumes a privileged secret context."""
+    if isinstance(node, dict):
+        return any(node_uses_privileged_secret(value) for value in node.values())
+    if isinstance(node, list):
+        return any(node_uses_privileged_secret(value) for value in node)
+    return secret_context_is_privileged(node)
+
+
 def is_privileged_workflow(content: str) -> bool:
     """Return whether parsed workflow behavior can use a privileged boundary."""
     try:
@@ -257,12 +266,21 @@ def runner_is_privileged(runner: Any) -> bool:
     )
 
 
-def job_is_privileged(job: Any, default_permissions: Any) -> bool:
+def job_is_privileged(
+    job: Any,
+    default_permissions: Any,
+    default_env: Any,
+) -> bool:
     """Return whether one job needs an executable provenance chain."""
     if not isinstance(job, dict):
         return False
     permissions = job.get("permissions", default_permissions)
-    if permissions_are_privileged(permissions) or runner_is_privileged(job.get("runs-on")):
+    if (
+        permissions_are_privileged(permissions)
+        or runner_is_privileged(job.get("runs-on"))
+        or node_uses_privileged_secret(job)
+        or node_uses_privileged_secret(default_env)
+    ):
         return True
     steps = job.get("steps")
     return isinstance(steps, list) and any(
@@ -485,8 +503,9 @@ def protected_guard_prefix_errors(
         return errors
     jobs = document["jobs"]
     default_permissions = document.get("permissions")
+    default_env = document.get("env")
     for job_name, job in jobs.items():
-        if not job_is_privileged(job, default_permissions) or job_name in guarded_jobs:
+        if not job_is_privileged(job, default_permissions, default_env) or job_name in guarded_jobs:
             continue
         if condition_overrides_guard_failure(job.get("if")):
             errors.append(
