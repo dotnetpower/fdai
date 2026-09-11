@@ -102,7 +102,7 @@ def test_pre_push_runs_the_structural_gate_helper() -> None:
 def test_pre_push_validates_workflow_contract_changes_before_structural_gates() -> None:
     body = _PRE_PUSH.read_text()
 
-    contract_check = "python3 scripts/quality/ci/check-ci-contracts.py"
+    contract_check = "uv run --extra dev python scripts/quality/ci/check-ci-contracts.py"
     regression_test = "tests/integration/scripts/test_check_ci_contracts.py"
     structural_check = "bash scripts/automation/run-pre-push-structural-gates.sh"
     assert ".github/workflows/*.yml" in body

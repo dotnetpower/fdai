@@ -10,6 +10,9 @@ import shlex
 import subprocess
 from fnmatch import fnmatchcase
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REQUIRED_TRACKED_PATHS = (
@@ -46,12 +49,14 @@ APPROVED_ACTIONS = {
     "pypa/gh-action-pip-audit": ("1220774d901786e6f652ae159f7b6bc8fea6d266", "v1.1.0"),
     "pypa/gh-action-pypi-publish": ("2834a314042ef964da07689278dd1e9d773e8afd", "v1.14.1"),
 }
-ACTION_REF_RE = re.compile(
-    r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)"
+REMOTE_ACTION_REF_RE = re.compile(
+    r"(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)"
     r"@(?P<ref>[^\s#]+)"
-    r"(?:\s*#\s*(?P<comment>[^\r\n]+))?"
 )
-DOCKER_ACTION_REF_RE = re.compile(r"uses:\s*docker://(?P<ref>[^\s#]+)")
+USES_LINE_RE = re.compile(
+    r"(?m)^\s*(?:-\s*)?uses\s*:\s*(?P<quote>['\"]?)"
+    r"(?P<ref>[^'\"\s#]+)(?P=quote)\s*(?:#\s*(?P<comment>[^\r\n]+))?$"
+)
 DOCKER_ACTION_DIGEST_RE = re.compile(r".+@sha256:[0-9a-f]{64}")
 IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
 WRITE_PERMISSION_RE = re.compile(r"(?m)^\s+[a-z-]+:\s*write\s*(?:#.*)?$")
@@ -101,6 +106,38 @@ def _action_definition_paths() -> tuple[Path, ...]:
 
 def _automation_definition_paths() -> tuple[Path, ...]:
     return tuple(sorted({*_workflow_paths(), *_action_definition_paths()}))
+
+
+def _uses_values_from_content(content: str, relative: Path) -> tuple[list[str], list[str]]:
+    try:
+        document: Any = yaml.safe_load(content)
+    except yaml.YAMLError as exc:
+        return [], [f"{relative} is not valid YAML: {exc}"]
+    values: list[str] = []
+    errors: list[str] = []
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "uses":
+                    if isinstance(value, str):
+                        values.append(value)
+                    else:
+                        errors.append(f"{relative} has a non-string uses value")
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(document)
+    return values, errors
+
+
+def _uses_values(path: Path) -> tuple[list[str], list[str]]:
+    return _uses_values_from_content(
+        path.read_text(encoding="utf-8"),
+        path.relative_to(REPO_ROOT),
+    )
 
 
 def _top_level_block(content: str, key: str) -> tuple[str, ...]:
@@ -391,13 +428,26 @@ def _validate_action_runtime_versions() -> list[str]:
     for path in _automation_definition_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
-        for match in DOCKER_ACTION_REF_RE.finditer(content):
-            reference = match.group("ref")
-            if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
-                errors.append(
-                    f"{relative} must pin docker action image {reference} to a sha256 digest"
-                )
-        for match in ACTION_REF_RE.finditer(content):
+        uses_values, parse_errors = _uses_values(path)
+        errors.extend(parse_errors)
+        comments = {
+            match.group("ref"): (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
+            for match in USES_LINE_RE.finditer(content)
+        }
+        for reference in uses_values:
+            if reference.startswith("./"):
+                continue
+            if reference.startswith("docker://"):
+                image = reference.removeprefix("docker://")
+                if DOCKER_ACTION_DIGEST_RE.fullmatch(image) is None:
+                    errors.append(
+                        f"{relative} must pin docker action image {image} to a sha256 digest"
+                    )
+                continue
+            match = REMOTE_ACTION_REF_RE.fullmatch(reference)
+            if match is None:
+                errors.append(f"{relative} uses unsupported action reference {reference}")
+                continue
             action = match.group("action")
             actual_ref = match.group("ref")
             approved = APPROVED_ACTIONS.get(action)
@@ -413,7 +463,7 @@ def _validate_action_runtime_versions() -> list[str]:
             elif actual_ref != expected_ref:
                 errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
             else:
-                comment = (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
+                comment = comments.get(reference, "")
                 if comment != expected_version:
                     errors.append(
                         f"{relative} must document {action}@{actual_ref} with trusted "
@@ -513,8 +563,15 @@ def _validate_privileged_workflow_guards() -> list[str]:
             )
         else:
             pre_guard_actions = [
-                f"{match.group('action')}@{match.group('ref')}"
-                for match in ACTION_REF_RE.finditer(content[:guard_index])
+                match.group("ref")
+                for match in USES_LINE_RE.finditer(content[:guard_index])
+                if match.group("ref").startswith(("./", "docker://"))
+                or REMOTE_ACTION_REF_RE.fullmatch(match.group("ref")) is not None
+            ]
+            pre_guard_actions = [
+                reference
+                for reference in pre_guard_actions
+                if not reference.startswith(("./", "docker://"))
             ]
             expected_checkout = f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}"
             if pre_guard_actions != [expected_checkout]:

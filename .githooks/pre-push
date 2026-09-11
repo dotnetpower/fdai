@@ -237,7 +237,7 @@ if [ "$workflow_contract_changed" -eq 1 ]; then
     exit 1
   fi
   echo "pre-push: validating workflow contracts..."
-  if ! python3 scripts/quality/ci/check-ci-contracts.py; then
+  if ! uv run --extra dev python scripts/quality/ci/check-ci-contracts.py; then
     echo "pre-push: BLOCKED - clean-checkout CI contracts failed."
     exit 1
   fi

@@ -73,8 +73,8 @@ def test_action_refs_reject_stale_and_unknown_remote_actions(
     workflow_dir.mkdir(parents=True)
     (workflow_dir / "ci.yml").write_text(
         "steps:\n"
-        "  - uses: actions/checkout@v4\n"
-        "  - uses: example/unreviewed-action@v1\n"
+        "  - uses : 'actions/checkout@v4'\n"
+        '  - uses: "example/unreviewed-action@v1"\n'
         "  - uses: ./.github/actions/local\n",
         encoding="utf-8",
     )
@@ -201,8 +201,8 @@ def test_docker_actions_require_immutable_image_digests(
     workflow_dir.mkdir(parents=True)
     (workflow_dir / "container.yml").write_text(
         "steps:\n"
-        "  - uses: docker://example/tool:latest\n"
-        f"  - uses: docker://example/tool@sha256:{'a' * 64}\n",
+        "  - uses : 'docker://example/tool:latest'\n"
+        f'  - uses: "docker://example/tool@sha256:{"a" * 64}"\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
