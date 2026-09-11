@@ -267,7 +267,7 @@ for name in (
         expected_manifest_digest=declared_manifest(archive),
         expected_platform_tag="linux-x86_64",
     )
-    services[name] = metadata(name, archive, verified.manifest_digest)
+    services[name] = metadata(name, archive, verified.manifest.digest)
 clamav_archive = root / "images/clamav.oci.tar"
 clamav = validate_dependency_oci_archive(
     clamav_archive,
@@ -305,7 +305,7 @@ payload = {
     "source_commit": source_commit,
     "platform_tag": "linux-x86_64",
     "services": services,
-    "sidecars": {"clamav": metadata("clamav", clamav_archive, clamav.manifest_digest)},
+    "sidecars": {"clamav": metadata("clamav", clamav_archive, clamav.manifest.digest)},
     "console": artifact("console.tar.gz"),
     "deployment_support": artifact("deployment-support.tar.gz"),
 }

@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 253838c0041519cb9a2fea62be5e4e43d74cc757
+translation_source_sha: 1d446a5c6b9b76421597928e318958d881948056
 translation_revised: 2026-09-12
 ---
 # 프로비저닝 실행 프로파일
@@ -40,6 +40,7 @@ translation_revised: 2026-09-12
 | 2026-09-11 | implemented | 서로 독립적인 로컬 아티팩트 경로, 기반 계층 입력 검색, 공급자 점검과 등록 요청, 정책 프로브 리소스 작업, 테넌트 디렉터리 읽기에 범위가 제한된 병렬 실행을 추가했습니다. 상태를 변경하는 적용, 승인, 정리, 인계, 저장소 쓰기, 보호된 애플리케이션 전이는 계속 직렬로 수행합니다. | `current change`, 집중 Genesis, 공급자 미러, 준비, Entra 및 제품화 테스트 | 경과 시간을 준비 상태 근거로 사용하지 않고 다음 exact-main 감독형 배포에서 시간 측정 근거를 보존합니다. |
 | 2026-09-11 | implemented | GitHub Actions를 요구하지 않고 활성 `az login` 대상을 사용하는 online 및 아티팩트 오프라인 설치 패키지 배포를 추가했습니다. 완전한 서명 키트, GitHub 없는 관리 호스트, 정확한 애플리케이션 승인, 운영자 발급 또는 Trial 라이선스, 이미지 재확인, 활성화 전 마이그레이션 및 수렴 검사가 하나의 경로를 공유합니다. | `current change`, deployment CLI 및 Genesis 소스, strict mypy, 패키지 빌드와 새 환경 설치, 라우팅된 deployment 및 Genesis 테스트 | 깨끗한 스냅샷에서 완전한 서명 release 키트를 빌드하고 online 및 아티팩트 오프라인 Azure 수렴 증적을 보존합니다. |
 | 2026-09-12 | implemented | 독립 실행형 배포에 대해 16회의 비평 및 하드닝 라운드를 완료했습니다. 전송 재사용은 정확한 서명 키트에 연결되고 trust root는 Ed25519를 요구하며 파괴적 plan은 두 번째 정확한 확인을 요구합니다. 모호한 apply는 검증으로만 재개하고 보존된 Foundation 및 Entra context를 정확히 확인하며 provider 대체 경로를 차단합니다. License, migration, image, revision 상태 및 변경 없음 효과는 독립적인 재확인이 필요합니다. | `current change`, deployment CLI, release builder, ShellCheck, strict mypy, 집중 package 및 Genesis 테스트, 독립적인 수정 후 비평 | 깨끗한 서명 키트를 빌드하고 다시 검증한 뒤 validation 상태를 높이기 전에 online 및 아티팩트 오프라인 Azure 수렴 증적을 보존합니다. |
+| 2026-09-12 | implemented | 첫 번째 깨끗한 빌드가 해당 API 경계에 도달한 뒤 완전한 키트 런타임 메타데이터가 검증된 OCI manifest descriptor의 digest를 읽도록 수정했습니다. | `current change`, `build-standalone-deployment-kit.sh`, 깨끗한 로컬 OCI 및 Console 빌드 | 배포 전에 완전한 서명 키트를 다시 빌드하고 검증합니다. |
 
 ### 남은 작업
 
