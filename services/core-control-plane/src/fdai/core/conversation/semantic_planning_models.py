@@ -180,6 +180,7 @@ class SemanticOutputShape(StrEnum):
     CONTEXTUAL_RESOURCE_LIST = "contextual_resource_list"
     PROPERTY_FILTERED_RESOURCES = "property_filtered_resources"
     RESOURCE_LIST = "resource_list"
+    RESOURCE_CHANGES = "resource_changes"
     RESOURCE_EVENT_HISTORY = "resource_event_history"
     RESOURCE_CONDITION_SECTIONS = "resource_condition_sections"
     RESOURCE_CONFIGURATION_CHANGES = "resource_configuration_changes"
