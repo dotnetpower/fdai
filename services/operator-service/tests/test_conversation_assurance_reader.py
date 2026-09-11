@@ -125,8 +125,9 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
             return [dispute]
         if "AS question" in statement:
             assert "result.value ->> 'principal_id' = %s" in statement
-            assert "request.key LIKE 'operator-semantic-outbox:%'" in statement
-            assert "result.key LIKE 'operator-semantic-result:%'" in statement
+            assert "request.key LIKE 'operator-semantic-outbox:%%'" in statement
+            assert "request.key LIKE 'operator-semantic-namespaced-outbox:%%'" in statement
+            assert "result.key LIKE 'operator-semantic-result:%%'" in statement
             assert parameters == ("operator-a", "conversation-1", "turn-1", "operator-a")
             return [{"question": "What changed?", "answer": "One database changed."}]
         return [assessment]

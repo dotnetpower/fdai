@@ -181,7 +181,7 @@ SELECT COUNT(*) AS total_count,
    AND NOT EXISTS (
        SELECT 1
          FROM state_kv AS decision
-        WHERE decision.key = 'operator-hil-decision:' || state_kv.value->>'approval_id'
+        WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
    )
    AND (value#>>'{approval_context,expires_at}' IS NULL
        OR CASE
@@ -201,7 +201,7 @@ SELECT value, updated_at, COUNT(*) OVER() AS total_count
    AND NOT EXISTS (
        SELECT 1
          FROM state_kv AS decision
-        WHERE decision.key = 'operator-hil-decision:' || state_kv.value->>'approval_id'
+        WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
    )
    AND (value#>>'{approval_context,expires_at}' IS NULL
        OR CASE

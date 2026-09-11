@@ -10,6 +10,7 @@ const panels = readFileSync(
   fileURLToPath(new URL("./live.panels.tsx", import.meta.url)),
   "utf8",
 );
+const mockAlignedStyles = styles.slice(styles.indexOf("/* Mock-aligned Live cockpit"));
 
 function ruleBody(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -37,6 +38,15 @@ describe("Live responsive header", () => {
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.live-swarm\s*\{[^}]*grid-template-columns: 1fr/);
     expect(styles).toMatch(/\.live-queue\s*\{[^}]*min-width: 1080px/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.live-queue\s*\{[^}]*min-width: 0/);
+  });
+
+  it("keeps the mock-aligned health grid responsive", () => {
+    expect(mockAlignedStyles).toMatch(
+      /@media \(max-width: 900px\)[\s\S]*?\.live-health\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+    );
+    expect(mockAlignedStyles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.live-health\s*\{[^}]*grid-template-columns: 1fr/,
+    );
   });
 
   it("keeps flow slots stable while signaling semantic updates", () => {
