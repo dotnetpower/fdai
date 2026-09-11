@@ -289,6 +289,7 @@ class PrivateExecutionCoordinator:
             state="applied",
             receipt=True,
         )
+        self._require_runner_image_effect(result)
         self.store.mutation_performed = True
         self._record_checkpoint(
             stage="runner-image-apply",
@@ -752,3 +753,13 @@ class PrivateExecutionCoordinator:
             state=state,
             receipt=receipt,
         )
+
+    @staticmethod
+    def _require_runner_image_effect(value: Mapping[str, object]) -> None:
+        if (
+            value.get("public_ip_policy_effect_verified") is not True
+            or value.get("terraform_zero_change_verified") is not True
+        ):
+            raise PrivateExecutionError(
+                "runner-image-apply", "runner_image_effect_evidence_incomplete"
+            )

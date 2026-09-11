@@ -158,6 +158,11 @@ policy, migration, and public-path callers launch those authenticated sources on
 trusted interpreters. They never restore execute bits broadly or select an interpreter from an
 untrusted ambient path.
 
+The Genesis image builder treats only tenant-policy-appended `ip_tags` on its two Firewall public
+IPs as externally owned. It accepts only matching absence or
+`FirstPartyUsage=/Unprivileged`, rejects every other value through independent ARM readback, and
+requires a refreshed zero-change Terraform plan before publishing the image receipt.
+
 ## Private data services
 
 `enable_private_postgres` adds a dedicated subnet delegated to PostgreSQL Flexible Server, links a

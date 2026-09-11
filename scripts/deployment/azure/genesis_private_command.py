@@ -41,6 +41,8 @@ _SAFE_RESULT_FIELDS: dict[str, frozenset[str]] = {
             "plan_digest",
             "toolchain_digest",
             "effect_verified",
+            "public_ip_policy_effect_verified",
+            "terraform_zero_change_verified",
             "runner_registered",
             "mutation_performed",
             "subscription_ready",
