@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1582b3292dda3084eeae15ab2be5ce09f897df4f
+translation_source_sha: 5832937946e2e09d3133dfa76d771049cee7bc5e
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -118,6 +118,8 @@ Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수
 해석해 런타임 플래그와 함께 적용하며 롤백은 두 이전 값을 복원합니다. 계획 후 범위 검사는
 다른 모든 주소를 차단하며, 적용 후 검증은 원본을 활성 상태로 처리하기 전에 플래그, workspace
 다이제스트 및 이미지 다이제스트를 모두 독립적으로 읽습니다.
+검증된 이미지 다이제스트가 바뀌면 이미지 업데이터의 상태 전용 교체만 허용하며, 업데이터가
+검증된 Azure 갱신 또는 롤백을 직접 수행합니다.
 계획의 전체 JSON 변환 결과와 값 없는 요약은 범위가 제한된 계획 메타데이터를 봉인할 때까지
 현재 UID가 소유한 mode-0700 임시 디렉터리에 유지하며, 이후 두 비공개 파일을 제거합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
