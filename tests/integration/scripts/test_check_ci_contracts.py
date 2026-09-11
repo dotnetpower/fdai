@@ -1050,6 +1050,20 @@ def test_dispatch_guard_rejects_nested_ref_alternatives() -> None:
     )
 
 
+def test_quoted_parentheses_cannot_hide_condition_alternatives() -> None:
+    module = _load_contract_module()
+
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "github.ref == 'refs/heads/main' && contains('(', github.ref) || "
+        "github.ref != 'refs/heads/main'",
+        {"workflow_dispatch"},
+    )
+    assert not module.workflow_security.condition_requires_guard_success(
+        "always() && steps.guard.outcome == 'success' && contains('(', github.ref) || true",
+        "guard",
+    )
+
+
 def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/issue-lifecycle.yml").read_text(encoding="utf-8")
 
