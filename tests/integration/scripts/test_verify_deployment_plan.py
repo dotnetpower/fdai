@@ -32,13 +32,13 @@ _POST_APPLY_OBSERVATIONS = [
 ]
 
 
-def _plan_summary(*, create: int = 1, delete: int = 0) -> dict[str, object]:
+def _plan_summary(*, create: int = 1, delete: int = 0, replace: int = 0) -> dict[str, object]:
     action_counts = {
         "create": create,
         "delete": delete,
         "no_op": 0,
         "read": 0,
-        "replace": 0,
+        "replace": replace,
         "update": 0,
     }
     type_counts = {
@@ -49,7 +49,7 @@ def _plan_summary(*, create: int = 1, delete: int = 0) -> dict[str, object]:
         "action_counts": action_counts,
         "resource_type_counts": type_counts,
         "managed_resources": sum(action_counts.values()),
-        "destructive": bool(delete),
+        "destructive": bool(delete or replace),
     }
     body["summary_digest"] = hashlib.sha256(
         json.dumps(body, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
@@ -74,6 +74,7 @@ def _write_artifacts(
     runtime_image: dict[str, str] | None = None,
     model_resolution: dict[str, object] | None = None,
     request_kind: str = "standard",
+    request_id: str = "plan-request",
     include_summary: bool = True,
     plan_summary: dict[str, object] | None = None,
 ) -> tuple[Path, Path, Path, Path, Path, str]:
@@ -97,7 +98,7 @@ def _write_artifacts(
         "azure_preflight_evidence_digest": hashlib.sha256(azure_preflight.read_bytes()).hexdigest(),
         "preflight_blocks": False,
         "commit_sha": _COMMIT_SHA,
-        "request_id": "plan-request",
+        "request_id": request_id,
         "request_kind": request_kind,
         "created_at": (_NOW - timedelta(minutes=5)).isoformat(),
         "expires_at": expires_at.isoformat(),
@@ -204,6 +205,73 @@ def test_destructive_plan_summary_is_rejected(verify_module: ModuleType, tmp_pat
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
         plan_summary=_plan_summary(create=0, delete=1),
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="summary is destructive"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
+
+
+def test_runtime_state_only_replacement_summary_passes(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        plan_summary=_plan_summary(create=0, replace=1),
+        request_id=f"plan-runtime-{'a' * 48}",
+    )
+
+    _verify(
+        verify_module,
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        digest,
+    )
+
+
+def test_standard_state_only_replacement_summary_is_rejected(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        plan_summary=_plan_summary(create=0, replace=1),
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="summary is destructive"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
+
+
+def test_runtime_state_only_replacement_cannot_include_create(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        plan_summary=_plan_summary(create=1, replace=1),
+        request_id=f"plan-runtime-{'a' * 48}",
     )
 
     with pytest.raises(verify_module.PlanVerificationError, match="summary is destructive"):
