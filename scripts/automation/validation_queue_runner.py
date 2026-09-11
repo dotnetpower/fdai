@@ -67,6 +67,7 @@ STAGE_KILLED_STATUS = 124
 # A gate that could not run because its toolchain is absent says nothing about the snapshot.
 # It needs its own status, or the localizer blames a commit for a fault of the machine.
 STAGE_ENVIRONMENT_STATUS = 125
+STAGE_DEFERRED_STATUS = 126
 ENVIRONMENT_MARKER = "validation-environment: "
 FAILURE_LOCALIZATION_MAX_COMMITS = 32
 
@@ -378,11 +379,9 @@ def _run_batch(
                     cwd=validation_root,
                     env=fast_environment,
                 )
-                if verify_result["status"] == 0:
-                    passed_stages.add("fast-gates")
-                    write_stage_cache(cache_path, cache_context, passed_stages)
             stages.append(verify_result)
-            if verify_result["status"] != 0:
+            verify_deferred = verify_result["status"] == STAGE_DEFERRED_STATUS
+            if verify_result["status"] not in {0, STAGE_DEFERRED_STATUS}:
                 status = int(verify_result["status"])
                 return status
         else:
@@ -408,6 +407,12 @@ def _run_batch(
         if structural_result["status"] != 0:
             status = int(structural_result["status"])
             return status
+        if mode == "fast":
+            if verify_deferred:
+                verify_result["status"] = 0
+                verify_result["detail"] = "completed by structural-gates"
+            passed_stages.add("fast-gates")
+            write_stage_cache(cache_path, cache_context, passed_stages)
         if mode == "fast":
             if "changed-tests" in passed_stages:
                 changed_result = _cached_stage("changed-tests")
