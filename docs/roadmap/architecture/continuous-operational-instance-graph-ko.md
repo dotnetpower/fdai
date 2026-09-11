@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e0f3cba150d8dae8a83071744b33b2ed50b80c92
+translation_source_sha: 829258c2af61d30329eda44d3e88b071751dcf1a
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -111,11 +111,11 @@ ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID�
 사용 불가 결과를 유지합니다.
 플랫폼의 `enable_runtime_call_evidence` 입력은 기존 Operator API 모듈과 독립적으로 이 Inventory
 Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수 없습니다. 스키마가 유효한
-`plan-runtime-*` 및 `apply-runtime-*` 요청은 해당 Inventory Job만 대상으로 하며 혼합 대상을
-거부합니다. 봉인된 전환 계획은 관련 없는 의존성을 새로 고치지 않고 마지막으로 커밋된
-Terraform 상태를 사용하며, 계획 후 범위 검사는 정확한 Job 주소 밖의 모든 변경을 차단합니다.
-적용 후 검증은 원본을 활성 상태로 처리하기 전에 배포된 Job을 독립적으로 읽습니다.
-계획 후 범위 검사는 정확한 Job 주소 밖에서 의존성이 유발한 모든 변경을 거부합니다.
+`plan-runtime-*` 및 `apply-runtime-*` 요청은 전용 전환 리소스 하나만 대상으로 하며 혼합 대상을
+거부합니다. 전환은 검증된 롤백을 포함한 제한된 업데이터를 사용해 관련 없는 모듈 의존성을
+계획하지 않고 기존 Inventory Job을 활성화합니다. 계획 후 범위 검사는 전환 주소 밖의 모든
+변경을 차단하며, 적용 후 검증은 원본을 활성 상태로 처리하기 전에 배포된 Job을 독립적으로
+읽습니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
 결과로 유지합니다. 관측, 정제된 근거 및 변환 결과 계약은 형식 주석에만 의존하지 않고 실행
 중에도 실행 또는 변경 권한을 각각 거부합니다. 변환된 principal handle은 불투명한 인증 근거
