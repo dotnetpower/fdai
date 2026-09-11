@@ -103,6 +103,7 @@ fi
 declare -a NAMES=()
 declare -a RESULTS=()
 overall=0
+structural_deferred=0
 
 run_gate() {
     local name="$1"
@@ -166,6 +167,7 @@ run_gate_scoped_or_deferred() {
         printf '\n== %s ==\ndelegated structural stage: DEFERRED\n' "$name"
         NAMES+=("$name")
         RESULTS+=("DEFERRED")
+        structural_deferred=1
     else
         run_gate_scoped "$name" "$pattern" "$@"
     fi
@@ -289,7 +291,10 @@ for i in "${!NAMES[@]}"; do
     printf '  %-24s %s\n' "${NAMES[$i]}" "${RESULTS[$i]}"
 done
 
-if [[ $overall -eq 0 ]]; then
+if [[ $overall -eq 0 && $structural_deferred -eq 1 ]]; then
+    printf '\nverify.sh: incomplete until delegated structural gates pass\n' >&2
+    exit 126
+elif [[ $overall -eq 0 ]]; then
     printf '\nverify.sh: all gates green\n'
 else
     printf '\nverify.sh: at least one gate failed\n' >&2

@@ -16,6 +16,7 @@ import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
 from scripts.automation.validation_queue_runner import (
+    STAGE_DEFERRED_STATUS,
     STAGE_ENVIRONMENT_STATUS,
     STAGE_KILLED_STATUS,
     _prepare_validation_worktree,
@@ -590,6 +591,44 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     )
     assert structural_stale.returncode == 1
     assert (state_root / "worktree").is_dir()
+
+
+def test_deferred_fast_stage_requires_structural_completion(
+    git_repo: Path,
+    tmp_path: Path,
+) -> None:
+    commit = _commit_change(git_repo)
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    verify = git_repo / "scripts" / "verify.sh"
+    verify.write_text(
+        verify.read_text(encoding="utf-8")
+        + '\n[[ "${FDAI_VALIDATION_TEST_DEFER:-0}" != 1 ]] || exit '
+        + str(STAGE_DEFERRED_STATUS)
+        + "\n",
+        encoding="utf-8",
+    )
+    assert _run(git_repo, "git", "add", "scripts/verify.sh").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "deferred verify").returncode == 0
+    commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_DEFER": "1"},
+    )
+
+    assert validated.returncode == 0, validated.stderr
+    receipt = json.loads(
+        (git_repo / ".git" / "fdai-validation-queue" / "receipts" / f"{commit}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fast_stage = next(stage for stage in receipt["stages"] if stage["name"] == "fast-gates")
+    assert fast_stage["status"] == 0
+    assert fast_stage["detail"] == "completed by structural-gates"
 
 
 def test_run_validates_every_reachable_pending_commit_in_one_snapshot(

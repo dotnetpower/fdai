@@ -187,9 +187,10 @@ def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None
         check=False,
     )
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 126
     assert result.stdout.count("delegated structural stage: DEFERRED") == 5
     assert "check-design-routes.py" not in command_log.read_text(encoding="utf-8")
+    assert "incomplete until delegated structural gates pass" in result.stderr
 
 
 def test_direct_fast_verification_rejects_structural_deferral() -> None:
