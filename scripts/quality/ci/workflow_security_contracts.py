@@ -123,7 +123,20 @@ def strip_outer_parentheses(expression: str) -> str:
     while stripped.startswith("(") and stripped.endswith(")"):
         depth = 0
         closes_at_end = False
+        quote: str | None = None
+        escaped = False
         for index, character in enumerate(stripped):
+            if quote is not None:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == quote:
+                    quote = None
+                continue
+            if character in {"'", '"'}:
+                quote = character
+                continue
             if character == "(":
                 depth += 1
             elif character == ")":
@@ -143,8 +156,23 @@ def split_top_level_operator(expression: str, operator: str) -> list[str]:
     start = 0
     depth = 0
     index = 0
+    quote: str | None = None
+    escaped = False
     while index < len(expression) - 1:
         character = expression[index]
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            index += 1
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            index += 1
+            continue
         if character == "(":
             depth += 1
         elif character == ")":
