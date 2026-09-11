@@ -159,6 +159,10 @@ scripts/integrity/check-integrity.sh        # signature + content, fully offline
 The `framework-integrity` gate in `scripts/verify.sh` runs it
 automatically once the signed manifest exists.
 
+The executable productization gate validates package contracts, exercises the deployment CLI from
+its project environment, and builds the wheel. A clean isolated wheel installation remains a
+separate release-batch check and is not implied by the local productization result.
+
 In the upstream signer checkout, the tracked pre-commit wrapper hashes the staged Git index and
 writes the refreshed manifest and signature directly to the index before quality gates snapshot
 it. It does not modify worktree copies.
