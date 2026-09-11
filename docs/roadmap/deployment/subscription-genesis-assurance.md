@@ -153,6 +153,8 @@ Genesis binds discovery to the exact target subscription and includes VNet local
 address spaces, route-table prefixes, local-network-gateway prefixes, and current local host
 routes. Unobservable external ranges remain an explicit operator constraint rather than an
 inferred safe range.
+For resource types whose Azure CLI list command requires a resource group, discovery first lists
+a bounded set of IDs across the exact subscription and then reads each exact ID concurrently.
 
 The selected execution profile must prove:
 
