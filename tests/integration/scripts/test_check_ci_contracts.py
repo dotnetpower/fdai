@@ -635,6 +635,25 @@ def test_ci_concurrency_contract_rejects_cancellable_main_runs(
     assert all("evidence-preserving concurrency contract" in error for error in errors)
 
 
+def test_ci_concurrency_contract_ignores_commented_fragments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(
+        "# group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}\n"
+        "# cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n"
+        "jobs: {}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert len(module._validate_ci_concurrency()) == 2
+
+
 def test_shipped_workflows_satisfy_security_contracts() -> None:
     module = _load_contract_module()
 
