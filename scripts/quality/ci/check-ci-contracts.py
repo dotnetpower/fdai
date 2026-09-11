@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 import shlex
@@ -69,6 +70,9 @@ PROTECTED_WORKFLOW_ACTION_USE = (
     "uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source"
 )
 PROTECTED_WORKFLOW_ACTION_REF = PROTECTED_WORKFLOW_ACTION_USE.removeprefix("uses: ")
+PROTECTED_WORKFLOW_ACTION_SHA256 = (
+    "050dc8dae76db685024f450724665435d63acf294e2a5712734000218481f88c"
+)
 UV_SETUP_BLOCK_RE = re.compile(
     r"(?ms)^\s+- name: [^\n]+\n"
     r"\s+uses: astral-sh/setup-uv@[^\n]+.*?(?=^\s+- name:|\Z)"
@@ -687,6 +691,28 @@ def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
     return errors
 
 
+def _protected_action_source_errors(content: str) -> list[str]:
+    actual_digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    errors = []
+    if actual_digest != PROTECTED_WORKFLOW_ACTION_SHA256:
+        errors.append(
+            "verify-protected-workflow-source/action.yml digest differs from the reviewed source"
+        )
+    required_fragments = (
+        "+refs/heads/main:refs/remotes/origin/main",
+        'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+        '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+        '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+        "diff --quiet",
+    )
+    errors.extend(
+        f"verify-protected-workflow-source/action.yml lacks protected-source guard: {fragment}"
+        for fragment in required_fragments
+        if fragment not in content
+    )
+    return errors
+
+
 def _validate_privileged_workflow_guards() -> list[str]:
     """Require protected source provenance before privileged repository code executes."""
     errors: list[str] = []
@@ -694,13 +720,6 @@ def _validate_privileged_workflow_guards() -> list[str]:
         REPO_ROOT / ".github" / "actions" / "verify-protected-workflow-source" / "action.yml"
     )
     action = action_path.read_text(encoding="utf-8") if action_path.is_file() else ""
-    action_fragments = (
-        "+refs/heads/main:refs/remotes/origin/main",
-        'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
-        '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
-        '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
-        "diff --quiet",
-    )
     action_checked = False
     for path in _workflow_paths():
         content = path.read_text(encoding="utf-8")
@@ -714,12 +733,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
         guard_errors = _protected_guard_prefix_errors(document, relative)
         errors.extend(guard_errors)
         if not guard_errors and not action_checked:
-            for fragment in action_fragments:
-                if fragment not in action:
-                    errors.append(
-                        ".github/actions/verify-protected-workflow-source/action.yml "
-                        f"lacks protected-source guard: {fragment}"
-                    )
+            errors.extend(_protected_action_source_errors(action))
             action_checked = True
     return errors
 
