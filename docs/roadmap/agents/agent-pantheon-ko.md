@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 9bace1a77dfeb260e936520e1fc714fc2714bc28
-translation_revised: 2026-09-08
+translation_source_sha: c55492f16c833115ef3509b4b7cff765212fcb53
+translation_revised: 2026-09-11
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -325,7 +325,7 @@ properties:
 ## 6. 통신 계약
 
 판테온은 Event Hubs `:9093`의 Kafka 또는 프로세스 내 로컬 어댑터인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 준비 상태 통과의 6개 dimension이 모두 도착한 뒤 표류를 게시하며 Muninn은 엄격히 더 새로운 스냅샷만 수락합니다.
-최선 노력 `AgentHandlerObserver`는 전달, judgment, 실행을 변경하지 않고 핸들러 수명 주기를 보고합니다. 로컬 조립은 SSE로, deployed 조립은 shared 단계 토픽으로 게시해 Operator API가 중계합니다. 관측 대상은 등록된 15개 에이전트뿐이며, 같은 브리지로 구독하는 내부 프레임워크 principal은 에이전트 활동을 투영하지 않고 전달도 영향을 받지 않습니다.
+최선 노력 `AgentHandlerObserver`는 전달, judgment, 실행을 변경하지 않고 핸들러 수명 주기를 보고합니다. 로컬 조립은 SSE로, deployed 조립은 shared 단계 토픽으로 게시해 Operator API가 중계합니다. 관측 대상은 등록된 15개 에이전트뿐이며, 같은 브리지로 구독하는 내부 프레임워크 principal은 에이전트 활동을 투영하지 않고 전달도 영향을 받지 않습니다. `recovery-effect-observer`가 그런 principal 중 하나로, 버전이 지정된 `workflow.recovery.effect_observed.v1` 관측을 Workflow 복구 수집 지점으로 전달하는 전용 소비자 그룹입니다. 이 주체는 어떤 객체 타입도 소유하지 않고 아무것도 발행하지 않으며 에이전트의 레코드를 가져가지 않습니다. 유일한 특권 실행기가 그 근거를 생산하는 일 없이 독립적인 권위가 복구 효과를 보고할 수 있게 하려고 존재하며, 수집 지점은 영구 저장 전에 버스가 찍은 `producer_principal`을 다시 인증합니다.
 
 ### 6.1 타입이 지정된 포트
 
@@ -335,7 +335,7 @@ Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독�
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다. 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|
-| 객체.이벤트 | Huginn | Heimdall, Muninn(보존 틱), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
+| 객체.이벤트 | Huginn | Heimdall, Muninn(보존 틱), Njord/Freyr/Loki(범위가 제한된 전문가 신호), `recovery-effect-observer`(독립적인 복구 사후 효과 관측) |
 | 객체.변경 | Huginn | Muninn (변경할 수 없는 변경 개정 번호), Forseti (관찰 모드 ARB 결합) |
 | 객체.anomaly, 객체.표류, 객체.예측 | Heimdall | Forseti; Muninn은 감지 준비도 표류만 읽음 |
 | 객체.forecast-outcome | Heimdall | Saga, Muninn |

@@ -151,6 +151,9 @@ class WorkflowCompensationCoordinator:
         if not intents:
             failed = await self._fail(snapshot, reason="compensation_intent_missing")
             return CompensationResult(failed, recovery_incomplete=True)
+        repaired = await self._heal_released_recovery(snapshot)
+        if repaired is not None:
+            return repaired
         dispatched_steps = {
             str(event.payload.get("compensates_step_id") or "")
             for event in events
@@ -316,6 +319,59 @@ class WorkflowCompensationCoordinator:
             },
         )
         return CompensationResult(completed)
+
+    async def _heal_released_recovery(
+        self,
+        snapshot: ProcessSnapshot,
+    ) -> CompensationResult | None:
+        """Repair a recovery that released its hold but never terminalized.
+
+        A crash between the guarded hold release and the Process transition
+        leaves the hold released while the Process and its Saga delivery are
+        still open. The hold is gone, so the ordinary held-recovery branch can
+        no longer see the work; without this the resume would close the Process
+        outside the recovery completion it was released under. Healing runs
+        first, repairs from the durable release binding after an arbitrary
+        delay, and returns ``None`` when nothing durable is left to repair.
+        """
+
+        coordinator = self._recovery_coordinator
+        if coordinator is None:
+            return None
+        try:
+            healed = await coordinator.heal(snapshot=snapshot)
+        except Exception:  # noqa: BLE001 - an unreadable recovery state fails closed
+            failed = await self._fail(snapshot, reason="workflow_recovery_heal_failed")
+            return CompensationResult(failed, recovery_incomplete=True)
+        if healed is None:
+            return None
+        await self._audit(
+            snapshot,
+            action_kind="workflow.compensation.recovery_healed",
+            suffix=f"heal:{healed.disposition.value}",
+            payload={
+                "disposition": healed.disposition.value,
+                "reason": healed.reason,
+                "attempt_identity_digest": healed.attempt_identity_digest,
+                "effect_claim_digest": healed.effect_claim_digest,
+                "release_receipt_digest": healed.release_receipt_digest,
+                "completion_digest": healed.completion_digest,
+            },
+        )
+        if healed.recovery_incomplete:
+            failed = await self._fail(
+                snapshot,
+                reason="workflow_recovery_heal_incomplete",
+                payload={
+                    "recovery_disposition": healed.disposition.value,
+                    "recovery_reason": healed.reason,
+                },
+            )
+            return CompensationResult(failed, recovery_incomplete=True)
+        terminal = await self._process_store.get(snapshot.process_id)
+        if terminal is None or not terminal.status.terminal:
+            return None
+        return CompensationResult(terminal)
 
     async def _recover_under_hold(
         self,

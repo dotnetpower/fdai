@@ -35,10 +35,16 @@ from fdai.core.workflow.recovery_effect_claim import (
     EffectEvidenceRecord,
     FinalizedWatermark,
 )
+from fdai.core.workflow.recovery_effect_ingress import (
+    RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
+    RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSION,
+    RecoveryEffectObservationIngress,
+)
 from fdai.delivery.persistence.state_store_hil_registry import StateStoreHilApprovalRegistry
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.delivery.persistence.workflow_recovery import (
     StateStoreRecoveryApprovalJournal,
+    StateStoreRecoveryAttemptResolver,
     StateStoreRecoveryEffectObservationJournal,
     StateStoreRecoveryEffectObserver,
     StateStoreRecoverySafeguardBundleReader,
@@ -46,6 +52,9 @@ from fdai.delivery.persistence.workflow_recovery import (
     WorkflowRecoveryOutcomeRecorder,
     recovery_effect_observation_key,
     recovery_safeguard_bundle_key,
+)
+from fdai.delivery.workflow_recovery_observation_handler import (
+    RecoveryEffectObservationHandler,
 )
 from fdai.runtime.control_loop_support import (
     build_workflow_recovery_effect_observation_journal,
@@ -83,6 +92,7 @@ _EXECUTOR = "executor@example.com"
 _REQUESTER = "fdai.core.workflow.recovery-requester"
 _APPROVER = "approver@example.com"
 _OBSERVER = "heimdall-observer@example.com"
+_OBSERVER_PRINCIPAL = "Heimdall"
 _PROVIDER = "provider@example.com"
 _FAILED_PROPOSAL = "sha256:" + "b" * 64
 _BUNDLE_DIGEST = "sha256:" + "c" * 64
@@ -396,6 +406,73 @@ async def _approve(store: InMemoryStateStore, *, approver: str = _APPROVER) -> N
             approver_oid=approver,
             justification="recovery approved by a separate human",
         )
+
+
+async def _observe_through_the_production_ingress(
+    store: InMemoryStateStore,
+    attempt: RecoveryAttemptIdentity,
+) -> bool:
+    """Deliver the observation the way an independent observer really does.
+
+    The event travels the observer path: Heimdall relays the versioned payload,
+    the ingress proves the reporting principal, the authority class, the attempt
+    binding, finality, containment, and freshness, and only then does the
+    journal hold it. No test seeds recovery evidence directly.
+    """
+
+    ingress = RecoveryEffectObservationIngress(
+        attempts=StateStoreRecoveryAttemptResolver(store),
+        journal=build_workflow_recovery_effect_observation_journal(
+            audit_store=store,
+            environ={"FDAI_WORKFLOW_EXECUTOR_IDENTITY": _EXECUTOR},
+        ),
+        executor_identity=_EXECUTOR,
+        authorized_principals=frozenset({_OBSERVER_PRINCIPAL}),
+        clock=lambda: _NOW,
+    )
+    handler = RecoveryEffectObservationHandler(ingress=ingress)
+    return await handler.handle(
+        {
+            "event_type": RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
+            "observation_schema_version": RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSION,
+            "producer_principal": _OBSERVER_PRINCIPAL,
+            "process_id": _PROCESS_ID,
+            "recovery_step_id": recovery_attempt_step_id(attempt),
+            "attempt_identity_digest": attempt.identity_digest,
+            "target_resource_id": _TARGET,
+            "provider_receipt_digest": _RECEIPT_DIGEST,
+            "observer_identity": _OBSERVER,
+            "observer_authority_class": "authoritative_external",
+            "provider_identity": _PROVIDER,
+            "purpose_version": "1.0.0",
+            "method_version": "1.0.0",
+            "event_time": (_NOW - timedelta(minutes=3)).isoformat(),
+            "recorded_time": (_NOW - timedelta(minutes=2)).isoformat(),
+            "freshness_policy_seconds": 600,
+            "completeness": True,
+            "provenance": "azure-resource-graph",
+            "conflict_status": "none",
+            "synthetic": False,
+            "evidence_digest": "sha256:" + "7" * 64,
+            "expected_effect_digest": "sha256:" + "8" * 64,
+            "approved_envelope_digest": "sha256:" + "9" * 64,
+            "action_digest": "sha256:" + "3" * 64,
+            "evidence_window_start": (_NOW - timedelta(minutes=4)).isoformat(),
+            "evidence_window_end": (_NOW - timedelta(minutes=1)).isoformat(),
+            "watermarks": [
+                {
+                    "source_id": "azure-activity-log",
+                    "watermark": (_NOW - timedelta(minutes=1)).isoformat(),
+                    "final": True,
+                    "watermark_digest": "sha256:" + "4" * 64,
+                }
+            ],
+            "forbidden_effect_observed": False,
+            "envelope_contained": True,
+            "success": True,
+        },
+        _OBSERVER_PRINCIPAL,
+    )
 
 
 class TestRecoveryApprovalJournalWriter:
@@ -722,13 +799,9 @@ class TestRecoveryCompletesThroughProductionWritersOnly:
         )
         unobserved = await _recover(coordinator, snapshot)
         assert unobserved.disposition is RecoveryDisposition.EFFECT_UNVERIFIED
+        assert unobserved.reason == "effect_observation_missing"
 
-        assert await coordinator.record_independent_observation(
-            attempt=attempt,
-            target_resource_id=_TARGET,
-            provider_receipt_digest=_RECEIPT_DIGEST,
-            observation=_observation(),
-        )
+        assert await _observe_through_the_production_ingress(store, attempt)
 
         completed = await _recover(coordinator, snapshot)
 
@@ -740,6 +813,48 @@ class TestRecoveryCompletesThroughProductionWritersOnly:
         terminal = await process_store.get(_PROCESS_ID)
         assert terminal is not None
         assert terminal.status is ProcessStatus.COMPENSATED
+
+    async def test_a_missing_observation_intake_is_a_named_readiness_outcome(self) -> None:
+        store, process_store, snapshot = await _held()
+        dispatcher = _Dispatcher()
+        coordinator = _coordinator(
+            store,
+            process_store,
+            dispatcher=dispatcher,
+            bind_observations=False,
+        )
+        attempt = _attempt()
+
+        await _recover(coordinator, snapshot)
+        await _approve(store)
+        await _recover(coordinator, snapshot)
+        action = _executed_action(attempt)
+        await WorkflowRecoveryOutcomeRecorder(
+            inner=_RecordingOutcomeLedger(),  # type: ignore[arg-type]
+            store=store,
+            retention=StateStoreRecoverySafeguardBundleRetention(store),
+            clock=lambda: _NOW,
+        ).record(
+            action=action,
+            execution_outcome="dispatched",
+            execution_receipt_ref="provider-receipt-1",
+            safeguard_bundle_digest=_BUNDLE_DIGEST,
+            response_outcome=_response(action),
+        )
+
+        unavailable = await _recover(coordinator, snapshot)
+
+        assert unavailable.disposition is RecoveryDisposition.OBSERVER_UNAVAILABLE
+        assert unavailable.reason == "effect_observation_intake_unbound"
+        assert unavailable.recovery_incomplete is True
+        assert await StateStoreAutomationHoldLedger(store).is_held(target_ref=_TARGET)
+        rejection = next(
+            row["entry"]
+            for row in store.audit_entries
+            if row["entry"].get("action_kind") == "workflow.recovery.rejected"
+            and row["entry"].get("reason") == "effect_observation_intake_unbound"
+        )
+        assert rejection["recovery_incomplete"] is True
 
     async def test_a_missing_approval_writer_stays_visibly_fail_closed(self) -> None:
         store, process_store, snapshot = await _held()

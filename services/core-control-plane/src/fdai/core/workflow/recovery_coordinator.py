@@ -98,6 +98,7 @@ class RecoveryDisposition(StrEnum):
     NOT_REQUIRED = "not_required"
     REJECTED = "rejected"
     IN_DOUBT = "in_doubt"
+    OBSERVER_UNAVAILABLE = "observer_unavailable"
     EFFECT_UNVERIFIED = "effect_unverified"
     COMPLETED = "completed"
     REPLAYED = "replayed"
@@ -117,6 +118,19 @@ class _InFlightLease:
 
     owner: str
     took_over: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _EffectClaimOutcome:
+    """One effect-claim attempt with the exact reason it did not complete.
+
+    A missing observer or intake binding is a readiness fact, not an unverified
+    effect, so the two never collapse into the same silent disposition.
+    """
+
+    claim: EffectCompletionClaim | None
+    reason: str
+    disposition: RecoveryDisposition
 
 
 @dataclass(frozen=True, slots=True)
@@ -510,7 +524,7 @@ class WorkflowRecoveryCoordinator:
                 claim=claim,
             )
 
-        effect_claim = await self._claim_effect(
+        effect = await self._claim_effect(
             snapshot=snapshot,
             attempt=attempt,
             hold_revision=hold_revision,
@@ -519,13 +533,14 @@ class WorkflowRecoveryCoordinator:
             approval=approval,
             compensation_receipt_digests=compensation_receipt_digests,
         )
+        effect_claim = effect.claim
         if effect_claim is None or not is_current_success(effect_claim, now=self._now()):
             return await self._reject(
                 snapshot,
-                reason=CompletionClaimRejectionReason.EVIDENCE_INELIGIBLE.value,
+                reason=effect.reason,
                 attempt=attempt,
                 claim=claim,
-                disposition=RecoveryDisposition.EFFECT_UNVERIFIED,
+                disposition=effect.disposition,
             )
 
         return await self._terminalize(
@@ -1173,9 +1188,9 @@ class WorkflowRecoveryCoordinator:
         provider_receipt_digest: str,
         approval: WorkflowApprovalSnapshot,
         compensation_receipt_digests: tuple[str, ...],
-    ) -> EffectCompletionClaim | None:
+    ) -> _EffectClaimOutcome:
         if self._effect_observer is None:
-            return None
+            return _unavailable(RecoveryAttemptRejectionReason.EFFECT_OBSERVER_UNBOUND)
         observed_at = self._now()
         try:
             observation = await self._effect_observer.observe_recovery_effect(
@@ -1189,9 +1204,16 @@ class WorkflowRecoveryCoordinator:
                 "workflow_recovery_effect_observation_failed",
                 extra={"process_id": snapshot.process_id},
             )
-            return None
+            return _unavailable(RecoveryAttemptRejectionReason.EFFECT_OBSERVATION_UNREADABLE)
         if observation is None:
-            return None
+            if self._effect_observations is None:
+                # No independent observation was recorded and no intake is
+                # bound, so none can ever arrive: that is a readiness fact
+                # about this deployment, not an unverified effect.
+                return _unavailable(
+                    RecoveryAttemptRejectionReason.EFFECT_OBSERVATION_INTAKE_UNBOUND,
+                )
+            return _unverified(RecoveryAttemptRejectionReason.EFFECT_OBSERVATION_MISSING)
         eligible, reasons = verify_effect_evidence(
             evidence=observation.evidence,
             executor_identity=self._config.executor_identity,
@@ -1207,7 +1229,7 @@ class WorkflowRecoveryCoordinator:
                     "finalized": observation.finalized,
                 },
             )
-            return None
+            return _unverified(CompletionClaimRejectionReason.EVIDENCE_INELIGIBLE.value)
         admission_digest = await self._admission_digest(
             snapshot=snapshot,
             approval=approval,
@@ -1215,7 +1237,7 @@ class WorkflowRecoveryCoordinator:
             compensation_receipt_digests=compensation_receipt_digests,
         )
         if admission_digest is None:
-            return None
+            return _unavailable(RecoveryAttemptRejectionReason.EFFECT_ADMISSION_UNAVAILABLE)
         generation = await self._next_generation(attempt)
         validity_start = observation.evidence_window_end
         claim = (
@@ -1246,7 +1268,13 @@ class WorkflowRecoveryCoordinator:
             claim=claim,
             observation=observation,
         )
-        return persisted
+        if persisted is None:
+            return _unverified(CompletionClaimRejectionReason.DUPLICATE_CLAIM.value)
+        return _EffectClaimOutcome(
+            claim=persisted,
+            reason=CompletionClaimRejectionReason.EVIDENCE_INELIGIBLE.value,
+            disposition=RecoveryDisposition.EFFECT_UNVERIFIED,
+        )
 
     async def _persist_claim(
         self,
@@ -1879,6 +1907,26 @@ _DIGEST_LENGTH = len("sha256:") + 64
 
 def _target_evidence_digest(target_ref: str) -> str:
     return f"sha256:{hashlib.sha256(target_ref.encode()).hexdigest()}"
+
+
+def _unavailable(reason: str) -> _EffectClaimOutcome:
+    """Name a missing or unreadable observation binding as a readiness fact."""
+
+    return _EffectClaimOutcome(
+        claim=None,
+        reason=reason,
+        disposition=RecoveryDisposition.OBSERVER_UNAVAILABLE,
+    )
+
+
+def _unverified(reason: str) -> _EffectClaimOutcome:
+    """Name why an available observation still did not verify the effect."""
+
+    return _EffectClaimOutcome(
+        claim=None,
+        reason=reason,
+        disposition=RecoveryDisposition.EFFECT_UNVERIFIED,
+    )
 
 
 async def read_recovery_attempt(
