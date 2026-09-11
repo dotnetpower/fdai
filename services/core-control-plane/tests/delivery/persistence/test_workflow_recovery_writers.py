@@ -439,6 +439,7 @@ async def _observe_through_the_production_chain(
         ),
         executor_identity=_EXECUTOR,
         authorized_principals=DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+        trusted_observer_identities=frozenset({_OBSERVER}),
         clock=lambda: _NOW,
     )
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)

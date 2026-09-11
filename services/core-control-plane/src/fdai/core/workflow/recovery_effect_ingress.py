@@ -63,6 +63,11 @@ executor-published observation is refused on identity before any evidence is
 read, and no producer can bypass the relay with a fully-formed payload.
 """
 
+DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES = frozenset(
+    {"observer:heimdall:azure-container-apps"}
+)
+"""Deployment-neutral default identity accepted from the Heimdall observer adapter."""
+
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _MAX_TEXT = 512
 
@@ -75,6 +80,7 @@ class RecoveryEffectObservationRejection(StrEnum):
     MALFORMED_PAYLOAD = "malformed_payload"
     OBSERVER_UNAUTHENTICATED = "observer_unauthenticated"
     OBSERVER_NOT_AUTHORIZED = "observer_not_authorized"
+    OBSERVER_IDENTITY_UNTRUSTED = "observer_identity_untrusted"
     OBSERVER_NOT_INDEPENDENT = "observer_not_independent"
     AUTHORITY_CLASS_INELIGIBLE = "authority_class_ineligible"
     SYNTHETIC_EVIDENCE = "synthetic_evidence"
@@ -165,7 +171,17 @@ class RecoveryEffectObservationIngress:
     journal: IndependentRecoveryEffectObservationJournal | None
     executor_identity: str
     authorized_principals: frozenset[str] = DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS
+    trusted_observer_identities: frozenset[str] = (
+        DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES
+    )
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(tz=UTC))
+
+    def __post_init__(self) -> None:
+        if not self.trusted_observer_identities:
+            raise ValueError("recovery effect ingress requires trusted observer identities")
+        normalized = {item.strip().casefold() for item in self.trusted_observer_identities}
+        if "" in normalized or self.executor_identity.strip().casefold() in normalized:
+            raise ValueError("trusted recovery observers MUST be non-empty and not the executor")
 
     async def observe(
         self,
@@ -276,6 +292,9 @@ class RecoveryEffectObservationIngress:
             observation.provider_identity.strip().casefold(),
         }:
             return RecoveryEffectObservationRejection.OBSERVER_NOT_INDEPENDENT
+        trusted_observers = {item.strip().casefold() for item in self.trusted_observer_identities}
+        if observer not in trusted_observers:
+            return RecoveryEffectObservationRejection.OBSERVER_IDENTITY_UNTRUSTED
         if evidence.observer_authority_class is not EffectEvidenceClass.AUTHORITATIVE_EXTERNAL:
             return RecoveryEffectObservationRejection.AUTHORITY_CLASS_INELIGIBLE
         if not evidence.completeness or evidence.conflict_status != "none":
@@ -467,6 +486,7 @@ def _target_evidence_digest(target_ref: str) -> str:
 
 __all__ = [
     "DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS",
+    "DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES",
     "RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE",
     "RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSION",
     "SUPPORTED_RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSIONS",

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 51ed722651a7f93717faff1a04becf2c870341b8
+translation_source_sha: d4daa5cf157c21e780c054f93d0b8069e45dc47c
 translation_revised: 2026-09-11
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -9,6 +9,7 @@ translation_revised: 2026-09-11
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동, 프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다. 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다. 독립 배포 service는 inactive revision 2개를 보존하므로 보호된 apply가 apply 이전 current revision과 exact last-ready rollback baseline을 모두 유지할 수 있습니다. Core 안전조건 근거는 정확한 배포 소스 revision을 결속하며, Isolated 실행은 기본값이 꺼진 명시적 권한 전환 transition에서만 기존 결속되지 않은 명령을 허용할 수 있습니다.
+  복구 효과 수신은 타입이 지정된 agent relay 이후 구성된 Heimdall observer 신원만 허용하며, 신원이 없거나 신뢰되지 않으면 실패 시 차단합니다.
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장하며, 배포 환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault 시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 시크릿이 없는 메타데이터만 반환합니다. 저장은 로컬 또는 배포 A2/A4의 명시적 활성화와 분리됩니다. 표준 `console: prepare full stack` 작업은 `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`을 통해 로컬 프로필의 활성화 결정을 명시적으로 설정하며, 스크립트를 직접 실행하면 기본적으로 비활성 상태를 유지합니다. 런타임 환경 캐시는 이 값과 선택적 Kubernetes 수명 주기 플래그를 다이제스트에 결속하므로 두 입력 중 하나를 변경하면 항상 환경을 다시 생성합니다.
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포 프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된 출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된 `Last-Event-ID` 헤더를 허용합니다.
 공유 Operator 데이터 출처 매니페스트도 두 프로필에서 Assurance Twin 읽기 경로 3개를 같은 서비스 로컬 변환 결과에 할당합니다. 이 소유권은 PostgreSQL이 구성되지 않았을 때 명시적인 사용 불가 이유를 보고하며 WARA, 비용 거버넌스 또는 다른 경로의 권한을 바꾸지 않습니다. 두 프로필 모두 전용 보낼 편지함 수명 주기 facade를 사용하며 PostgreSQL과 이벤트 버스가 구성된 경우에만 재시도 가능한 Incident 개입 작업자를 시작합니다. 같은 준비 상태 검사는 해당 작업자가 중지되면 서비스 준비를 차단하며 Console 또는 Operator API에 실행 권한을 부여하지 않습니다.
