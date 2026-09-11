@@ -9,8 +9,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Executable productization verification | implemented | `scripts/deployment/release/verify-productization.sh`; `tests/integration/scripts/test_verify_productization.py`; focused productization tests (`11 passed`) | The gate checks repository structure, one Alembic head, package build, isolated CLI install/version, and required productization contracts. It does not replace full release or live deployment evidence. |
-| Installable deployment CLI packaging | implemented | `packages/deployment-cli/`; `tests/integration/scripts/test_deployment_cli_productization.py`; focused productization tests (`11 passed`) | The package and isolated installation contract are locally testable without granting deployment authority or publishing a release. |
+| Executable productization verification | implemented | `scripts/deployment/release/verify-productization.sh`; `tests/integration/scripts/test_verify_productization.py`; focused productization tests (`11 passed`) | The gate checks repository structure, one Alembic head, CLI wheel build, and required packaging and productization contracts. It does not install the built wheel or replace full release and live deployment evidence. |
+| Deployment CLI package and project-environment command | implemented | `packages/deployment-cli/`; `tests/integration/scripts/test_deployment_cli_productization.py`; focused productization tests (`11 passed`) | Package metadata and the version command are verified through the project environment. Isolated wheel installation and clean external installation remain open and grant no deployment authority. |
 | Signed release publication and deployed installation | in-progress | Owner release and deployment sections | Approval-gated signed bundle publication, clean external installation, and governed deployment evidence remain outside the local productization tests. |
 
 ### Implementation history
