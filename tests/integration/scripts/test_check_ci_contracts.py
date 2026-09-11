@@ -1848,6 +1848,25 @@ def test_container_pull_requests_use_a_read_only_scan_job() -> None:
     }
 
 
+def test_container_pull_request_jobs_cannot_gain_write_or_secret_access() -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    workflow["jobs"]["pr-build-scan"]["permissions"]["packages"] = "write"
+    workflow["jobs"]["pr-build-scan"]["env"] = {"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"}
+
+    errors = module._protected_guard_prefix_errors(
+        workflow,
+        ".github/workflows/container-supply-chain.yml",
+    )
+
+    assert (
+        ".github/workflows/container-supply-chain.yml pull-request job pr-build-scan "
+        "must stay hosted, read-only, and secret-free" in errors
+    )
+
+
 def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
     workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
