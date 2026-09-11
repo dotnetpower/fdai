@@ -309,7 +309,11 @@ class AzureResourceChangeFeed:
             truncation_observer=observe_truncation,
         )
         if not rows:
-            return ResourceChangeFeedResult(events=(), next_cursor=cursor)
+            return ResourceChangeFeedResult(
+                events=(),
+                next_cursor=cursor,
+                complete=not tokenless_truncated,
+            )
 
         changes = [self._parse_change_row(row) for row in rows]
         newest = max((change.change_time, change.change_id) for change in changes)

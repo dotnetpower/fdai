@@ -198,6 +198,7 @@ and the next poll waits until every published event id appears in the observatio
 Snapshot-covered and ordering-rejected changes therefore release the producer fence without being
 misrepresented as current overlay changes.
 The configured page-size and page-count product cannot exceed the 1,000-id durable fence bound.
+An empty provider page that still reports truncation also remains incomplete.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
