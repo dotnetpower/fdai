@@ -197,8 +197,10 @@ before proving absence. A tokenless truncated page advances through the same sta
 and the next poll waits until every published event id appears in the observation journal or a
 durable terminal-processing receipt. Snapshot-covered and ordering-rejected changes therefore
 release the producer fence without being misrepresented as current change observations.
-A Resource that disappears before hydration is skipped without blocking later changes; malformed
-or partial hydration still fails the batch.
+A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
+later poll can observe either the Resource or its delete record. A returned Resource type outside
+the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
+fails the batch.
 
 The read-only recent-change FunctionType queries the server-configured subscription scope rather
 than a model-supplied scope. It selects only ARG create, update, and delete observations or
