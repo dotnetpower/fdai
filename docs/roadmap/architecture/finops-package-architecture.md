@@ -44,7 +44,9 @@ domain code and assets. It does not create another control plane or move authori
 > workflow text cannot execute ahead of the provenance gate. The verifier also rejects an
 > executing workflow source ref outside protected `main` or an immutable `v*` release tag.
 > Pull requests build, scan, and retain short-lived SBOM evidence in a separate read-only job;
-> registry publication and attestations remain exclusive to verified protected revisions.
+> registry publication and attestations remain exclusive to verified protected revisions. The
+> publication job uses explicit top-level push and manual-dispatch clauses, so no alternate pull
+> request condition can inherit its write permissions.
 
 ## Design at a glance
 

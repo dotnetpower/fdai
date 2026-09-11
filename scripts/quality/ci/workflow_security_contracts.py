@@ -310,6 +310,40 @@ def job_needs(job: Any) -> set[str]:
     )
 
 
+def condition_can_run_for_event(condition: Any, event_name: str) -> bool:
+    """Conservatively decide whether any condition branch admits one event."""
+    if not isinstance(condition, str):
+        return True
+    normalized = strip_outer_parentheses(" ".join(condition.split()))
+    for raw_clause in split_top_level_operator(normalized, "||"):
+        conjuncts = {
+            strip_outer_parentheses(value)
+            for value in split_top_level_operator(
+                strip_outer_parentheses(raw_clause),
+                "&&",
+            )
+        }
+        equal_events = {
+            match.group(1)
+            for conjunct in conjuncts
+            if (
+                match := re.fullmatch(
+                    r"github\.event_name\s*==\s*'([A-Za-z_]+)'",
+                    conjunct,
+                )
+            )
+            is not None
+        }
+        explicitly_excluded = (
+            f"github.event_name != '{event_name}'" in conjuncts
+            or bool(equal_events)
+            and event_name not in equal_events
+        )
+        if not explicitly_excluded:
+            return True
+    return False
+
+
 def container_pr_boundary_errors(document: Any, relative: str) -> list[str]:
     """Keep every pull-request reachable supply-chain job read-only and hosted."""
     if relative != ".github/workflows/container-supply-chain.yml":
@@ -322,10 +356,7 @@ def container_pr_boundary_errors(document: Any, relative: str) -> list[str]:
         if not isinstance(job, dict):
             continue
         condition = job.get("if")
-        pull_request_reachable = condition is None or (
-            isinstance(condition, str) and "github.event_name == 'pull_request'" in condition
-        )
-        if not pull_request_reachable:
+        if not condition_can_run_for_event(condition, "pull_request"):
             continue
         permissions = job.get("permissions", default_permissions)
         if (

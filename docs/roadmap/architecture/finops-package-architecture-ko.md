@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 9ca2e697ddbb66b9ec27fb7fd19aa4813b54a03a
+translation_source_sha: 252dd4163e08be753dceed7ce1c9cf0fb767435f
 translation_revised: 2026-09-11
 ---
 
@@ -46,7 +46,9 @@ translation_revised: 2026-09-11
 > 출처 확인 게이트보다 먼저 실행될 수 없습니다. 검증기는 실행 중인 워크플로 원본 참조가
 > 보호된 `main` 또는 변경할 수 없는 `v*` 릴리스 태그가 아니면 차단합니다.
 > 끌어오기 요청은 별도의 읽기 전용 작업에서 이미지를 빌드하고 검사하며 단기 SBOM 근거를
-> 보존합니다. 레지스트리 게시와 증명은 검증된 보호 리비전에서만 수행합니다.
+> 보존합니다. 레지스트리 게시와 증명은 검증된 보호 리비전에서만 수행합니다. 게시 작업은
+> 최상위 push 및 수동 디스패치 절을 명시적으로 사용하므로 다른 끌어오기 요청 조건이 쓰기
+> 권한을 상속할 수 없습니다.
 
 ## 설계 개요
 
