@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: d1b99d81754bea8206bb83da2c72cb81abbb48dd
+translation_source_sha: af33185abc39eb8fe9472fe31587496ce6e0dc20
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -91,10 +91,12 @@ fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락
 오래된 진행상황 작업이 남지 않습니다. Azure Monitor
 원본으로부터 받은 신뢰할 수 없는 원격 분석 묶음은 변환 결과 입력으로 직접 바꾸는 기능을
 제공하지 않습니다. 인증된 생성기만 정확한 묶음 다이제스트와 독립 원본 컨텍스트를 검증한 뒤
-유한한 양의 기한 안에서 변환할 수 있습니다. Azure Monitor 원본은 일치하는 구조의 Container Apps 로그
-스키마만 수락한 다음 플랫폼이 기록한 각 Resource ID, revision 및 replica를 해당 증표가 주장한 정확한
-Container App ARM ID 아래에서 다시 읽습니다. 이 방식으로 독립적으로 결속된 엔드포인트 증표만
-기존 정식 Resource ID 매핑으로 변환합니다. 독립 채널
+유한한 양의 기한 안에서 변환할 수 있습니다. Azure Monitor 원본은 일치하는 구조의 Container Apps
+로그 스키마만 수락합니다. 플랫폼이 기록한 Resource ID가 비어 있지 않으면 주장한 엔드포인트와
+정확히 일치해야 합니다. 환경 통합 Container Apps 행에서는 이 필드가 비어 있을 수 있으며, 이 경우
+플랫폼이 기록한 앱, revision, replica, 컨테이너 이름 및 컨테이너 ID가 주장한 정확한 ARM replica
+엔드포인트가 반환한 한 컨테이너와 모두 일치할 때만 행을 사용할 수 있습니다. 이 방식으로 독립적으로
+결속된 엔드포인트 증표만 기존 정식 Resource ID 매핑으로 변환합니다. 독립 채널
 경계 프로세스는 호출자 바인딩을 받지 않으므로 공유 토픽의 요청을 잘못된 Operator-to-Core
 edge로 결합할 수 없습니다. 짝이 없거나 형식이 잘못되거나 일치하지 않는 증표가 있으면 원본은
 불완전 상태가 됩니다. 결합된 반복 호출은 정확한 엔드포인트 쌍별 최신 관측으로 축약합니다.
