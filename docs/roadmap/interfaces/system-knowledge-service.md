@@ -5,17 +5,18 @@ title: System Knowledge Service
 
 This document defines the independent FDAI microservice that answers bounded questions about
 FDAI's own design, implementation, verification status, and known gaps through a dedicated Teams
-mention bot. The service is a read-only product-knowledge surface and never becomes an operational
-query, approval, or execution path.
+mention endpoint. A deployment chooses either a Bot Framework application or a team-scoped Teams
+Outgoing Webhook named `FDAI-bot`. The service is a read-only product-knowledge surface and never
+becomes an operational query, approval, or execution path.
 
 > **Scope:** The service answers only from release-bound FDAI repository knowledge. Customer
 > documents, live Azure state, incident evidence, user conversation history, and managed-resource
 > actions stay outside this service.
 >
 > **Deployment boundary:** This is an independently packaged sixth-service candidate with its own
-> image, health boundary, Teams application identity, and release artifact. It does not run inside
-> Core, Operator Service, or the existing A3 channel-edge workload. Protected deployment summary
-> and cleanup steps run only after the protected-source verifier succeeds.
+> image, health boundary, Teams transport configuration, and release artifact. It does not run
+> inside Core, Operator Service, or the existing A3 channel-edge workload. Protected deployment
+> summary and cleanup steps run only after the protected-source verifier succeeds.
 >
 > **Authority boundary:** Every response carries `execution_authority=false`. A Teams mention,
 > retrieved record, implementation status, or cited source can explain FDAI behavior but cannot
@@ -23,16 +24,19 @@ query, approval, or execution path.
 
 ## Design at a glance
 
-A dedicated Teams bot receives a direct mention, verifies the Bot service token, tenant, team,
-channel, recipient, and sender mapping, then removes only the verified bot mention. The service
-searches an immutable catalog compiled from tracked design documents and bounded source metadata.
-It renders one concise response with design, implementation, limitations, and citations, records a
+A dedicated Teams transport receives a direct mention. The Bot Framework path verifies the service
+token and configured application identity. The Outgoing Webhook path verifies the raw request body
+with the per-team HMAC key issued by Teams. Both paths then verify tenant, team, channel, recipient,
+mention entity, and sender mapping before removing only the verified mention. The service searches
+an immutable catalog compiled from tracked design documents and bounded source metadata. It renders
+one concise response with design, implementation, limitations, and citations, records a
 safe-to-retry message claim, and replies in the same Teams conversation.
 
 ```text
 Teams @mention
   -> System Knowledge Service
-  -> service-token, tenant, team, channel, recipient, and sender verification
+  -> Bot service JWT or Outgoing Webhook HMAC verification
+  -> tenant, team, channel, recipient, mention, and sender verification
   -> release-bound SystemKnowledgeCatalog
   -> deterministic exact and bilingual lexical retrieval
   -> design + implementation + limitations + citations
@@ -78,9 +82,11 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 
 - **Separate process:** The service has its own package, entry point, image, health probes, and
   bounded configuration.
-- **Separate Teams app:** A deployment supplies a dedicated bot application and installs it only in
-  approved standard channels. The initial release does not request resource-specific consent (RSC)
-  to read all messages.
+- **Separate Teams transport:** A deployment selects exactly one transport. `bot_framework`
+  supplies a dedicated application installed only in approved standard channels.
+  `outgoing_webhook` uses the team-scoped mention endpoint created by a Team owner and requires no
+  Entra application registration or Teams app package. Neither path requests resource-specific
+  consent (RSC) to read all messages.
 - **Mention-only ingress:** Channel messages are accepted only when the authenticated activity
   contains a mention entity for the exact bot recipient.
 - **Release-bound catalog:** A build command compiles structured records and source citations from
@@ -125,28 +131,51 @@ without assigning side-branch lineage to the release anchor.
 
 ## Teams trust boundary
 
-The service validates these values before search:
+The service validates these common values before search:
 
-1. Bot service JWT signature, fixed algorithm, issuer, audience, time, and `serviceurl`.
-2. Activity `channelId=msteams` and exact allowed service URL.
-3. Configured tenant, team, and channel.
-4. Sender `aadObjectId` mapped to one enabled knowledge principal.
-5. Activity recipient equal to the configured bot application.
-6. A mention entity whose `mentioned.id` equals that recipient.
+1. Activity `type=message`, `channelId=msteams`, and channel conversation type.
+2. Configured tenant, team, and standard channel.
+3. Sender `aadObjectId` mapped to one enabled knowledge principal.
+4. A bounded recipient and mention entity whose `mentioned.id` equals that recipient.
 
 The service derives the query by removing the exact mention entity text. It does not infer mention
 identity from `<at>` markup alone. Unsupported activities, oversized bodies, and unknown mappings
 are rejected before search. Private and shared channels are not supported in the initial release,
 so deployments must exclude them from the configured team and channel allowlists.
 
+The Bot Framework transport additionally validates the service JWT signature, fixed algorithm,
+issuer, audience, time, `serviceurl`, allowed service URL, and recipient equal to the configured
+bot application. The Outgoing Webhook transport validates `Authorization: HMAC <value>` against the
+unchanged raw request body with SHA-256 and a constant-time comparison. Its HMAC key is unique to
+one Team webhook, is never accepted through request data, and is loaded only from the deployment
+secret store. The signed activity timestamp must remain within five minutes of receipt, and one
+Outgoing Webhook profile selects exactly one Team.
+
+### Outgoing Webhook bootstrap
+
+Teams issues the HMAC key only after a Team owner supplies a reachable callback URL. The protected
+deployment therefore separates two transitions:
+
+1. `bootstrap` creates the independent service endpoint without an HMAC binding. Health remains
+   available, but the Outgoing Webhook route returns `503 outgoing_webhook_unconfigured`.
+2. A Team owner creates `FDAI-bot` as an Outgoing Webhook for that exact callback URL and stores the
+   displayed key directly as a protected deployment secret.
+3. `enable` writes and reads back the key inside the private Key Vault boundary, binds the
+   versionless secret reference to a new Container App revision, and activates HMAC verification.
+
+The workflow never places the HMAC key in Terraform values, plan artifacts, command arguments, or
+logs. Bot Framework deployments do not use the `bootstrap` transition.
+
 ## Delivery and failure behavior
 
 | Failure | Safe behavior |
 |---------|---------------|
 | Invalid service token | Return `401`; search and send nothing |
+| Missing or invalid Outgoing Webhook HMAC | Return `401` or `503`; search and return no answer |
 | Unknown tenant, team, channel, sender, or recipient | Return `403`; search and send nothing |
 | Missing direct bot mention | Return `202`; record no query and send nothing |
 | Empty question after mention removal | Send bounded usage guidance |
+| Outgoing Webhook processing exceeds four seconds | Return `503` before the Teams five-second deadline |
 | Catalog revision mismatch | Readiness remains unavailable and no answer is sent |
 | No relevant record | State that no verified system-knowledge record matched |
 | Provider rejection before acknowledgement | Release the retryable claim |
@@ -160,20 +189,24 @@ interrupted `processing` claims, and converts interrupted `sending` claims to te
 The first deployment retains one replica; higher replica counts remain blocked until concurrency,
 cost, and rollback evidence closes the service-graduation scorecard.
 
-The standalone Terraform root owns one dedicated user-assigned managed identity (UAMI), one private
-claim container, `AcrPull`, `Storage Blob Data Contributor`, and `Key Vault Secrets User`, one
-single-replica Container App, one F0 Azure Bot, and one Teams channel. A protected workflow creates
-plan-only output by default and requires exact CI, image attestations, plan and context digests, and
-an explicit `enable` or `disable` transition before apply.
+The standalone Terraform root always owns one dedicated user-assigned managed identity (UAMI), one
+private claim container, `AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User`, and
+one single-replica Container App. A `bot_framework` deployment also owns one F0 Azure Bot and Teams
+channel. An `outgoing_webhook` deployment owns no Bot or Graph resource and optionally binds one
+Key Vault HMAC secret after bootstrap. A protected workflow creates plan-only output by default and
+requires exact CI, image attestations, plan and context digests, and an explicit `bootstrap`,
+`enable`, or `disable` transition before apply.
 
 ## Rollout
 
 1. Build and test the catalog, deterministic search, mention verification, and reply renderer.
 2. Package the service and image without repository source.
-3. Run a local Activity Protocol canary against synthetic signed activities.
-4. Apply the guarded Terraform plan, build the deterministic Teams package, and install it through
-   a tenant administrator with the required Microsoft Graph app-catalog permission.
-5. Validate mention-only receipt, same-conversation reply, restart deduplication, disable, and
+3. Run a local Activity Protocol or Outgoing Webhook canary against synthetic signed activities.
+4. For Bot Framework, apply the guarded plan, build the deterministic Teams package, and install it
+   through a tenant administrator with the required Microsoft Graph app-catalog permission.
+5. For Outgoing Webhook, apply `bootstrap`, create the team-scoped `FDAI-bot` webhook, store its
+   HMAC key, and apply a fresh guarded `enable` plan.
+6. Validate mention-only receipt, same-conversation reply, restart deduplication, disable, and
    rollback before declaring the service production-ready.
 
 ## Related docs

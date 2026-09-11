@@ -107,4 +107,32 @@ def teams_payload(
     return payload
 
 
-__all__ = ["render_answer", "teams_payload"]
+def outgoing_webhook_payload(
+    response: SystemKnowledgeQueryResponse,
+    *,
+    locale: str,
+) -> dict[str, object]:
+    """Build one bounded synchronous Outgoing Webhook response."""
+
+    text = render_answer(response, locale=locale)
+    payload: dict[str, object] = {
+        "type": "message",
+        "text": text,
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [{"type": "TextBlock", "text": text, "wrap": True}],
+                },
+            }
+        ],
+    }
+    if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > _MAX_PAYLOAD_BYTES:
+        return {"type": "message", "text": text[:2000]}
+    return payload
+
+
+__all__ = ["outgoing_webhook_payload", "render_answer", "teams_payload"]

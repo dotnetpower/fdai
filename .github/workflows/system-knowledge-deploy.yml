@@ -18,7 +18,7 @@ on:
       transition:
         description: "Explicit complete-service transition."
         type: choice
-        options: [enable, disable]
+        options: [bootstrap, enable, disable]
         required: true
       apply:
         description: "Apply one previously sealed plan."
@@ -71,6 +71,7 @@ jobs:
       STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
       SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON: ${{ secrets.SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON }}
       SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON: ${{ secrets.SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON }}
+      SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET: ${{ secrets.SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
     steps:
@@ -210,8 +211,13 @@ jobs:
               --tfvars-output "$RUNNER_TEMP/system-knowledge.tfvars.json" \
               --context-output "$RUNNER_TEMP/system-knowledge-context.json"
           )"
+          teams_transport="$(
+            jq -er '.transport // "bot_framework"' \
+              <<<"$SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON"
+          )"
           echo "context_digest=$context_digest" >> "$GITHUB_OUTPUT"
           echo "catalog_source_revision=$catalog_revision" >> "$GITHUB_OUTPUT"
+          echo "teams_transport=$teams_transport" >> "$GITHUB_OUTPUT"
 
       - name: Initialize and validate isolated service state
         run: |
@@ -241,6 +247,7 @@ jobs:
             scripts/deployment/system_knowledge/guard_plan.py \
             --plan-json "$RUNNER_TEMP/system-knowledge-plan.json" \
             --transition "${{ inputs.transition }}" \
+            --transport "${{ steps.context.outputs.teams_transport }}" \
             --image-ref "${{ inputs.image_ref }}"
           plan_digest="$(sha256sum "$RUNNER_TEMP/system-knowledge.plan" | awk '{print $1}')"
           context_digest="${{ steps.context.outputs.context_digest }}"
@@ -249,11 +256,12 @@ jobs:
             --arg image_ref "${{ inputs.image_ref }}" \
             --arg previous_image_ref "${{ inputs.previous_image_ref }}" \
             --arg transition "${{ inputs.transition }}" \
+            --arg teams_transport "${{ steps.context.outputs.teams_transport }}" \
             --arg plan_digest "$plan_digest" \
             --arg context_digest "$context_digest" \
             --arg run_id "$GITHUB_RUN_ID" \
             --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
-            '{schema_version:"fdai.system-knowledge-plan.v1",commit_sha:$commit_sha,image_ref:$image_ref,previous_image_ref:$previous_image_ref,transition:$transition,plan_digest:$plan_digest,context_digest:$context_digest,run_id:$run_id,run_attempt:$run_attempt}' \
+            '{schema_version:"fdai.system-knowledge-plan.v1",commit_sha:$commit_sha,image_ref:$image_ref,previous_image_ref:$previous_image_ref,transition:$transition,teams_transport:$teams_transport,plan_digest:$plan_digest,context_digest:$context_digest,run_id:$run_id,run_attempt:$run_attempt}' \
             > "$RUNNER_TEMP/system-knowledge-plan-metadata.json"
           chmod 600 "$RUNNER_TEMP"/system-knowledge-*
           echo "plan_digest=$plan_digest" >> "$GITHUB_OUTPUT"
@@ -294,11 +302,12 @@ jobs:
             --arg image_ref "${{ inputs.image_ref }}" \
             --arg previous_image_ref "${{ inputs.previous_image_ref }}" \
             --arg transition "${{ inputs.transition }}" \
+            --arg teams_transport "${{ steps.context.outputs.teams_transport }}" \
             --arg plan_digest "${{ inputs.plan_digest }}" \
             --arg context_digest "${{ inputs.context_digest }}" \
             --arg run_id "${{ inputs.plan_run_id }}" \
             --arg run_attempt "${{ inputs.plan_run_attempt }}" \
-            '.schema_version == "fdai.system-knowledge-plan.v1" and .commit_sha == $commit_sha and .image_ref == $image_ref and .previous_image_ref == $previous_image_ref and .transition == $transition and .plan_digest == $plan_digest and .context_digest == $context_digest and .run_id == $run_id and .run_attempt == $run_attempt' \
+            '.schema_version == "fdai.system-knowledge-plan.v1" and .commit_sha == $commit_sha and .image_ref == $image_ref and .previous_image_ref == $previous_image_ref and .transition == $transition and .teams_transport == $teams_transport and .plan_digest == $plan_digest and .context_digest == $context_digest and .run_id == $run_id and .run_attempt == $run_attempt' \
             "$metadata" >/dev/null
           [[ "$(sha256sum "$bundle/system-knowledge.plan" | awk '{print $1}')" == "${{ inputs.plan_digest }}" ]]
           cmp "$bundle/system-knowledge-context.json" \
@@ -311,16 +320,23 @@ jobs:
             scripts/deployment/system_knowledge/guard_plan.py \
             --plan-json "$RUNNER_TEMP/replayed-system-knowledge-plan.json" \
             --transition "${{ inputs.transition }}" \
+            --transport "${{ steps.context.outputs.teams_transport }}" \
             --image-ref "${{ inputs.image_ref }}"
 
-      - name: Materialize principal map in private Key Vault
-        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+      - name: Materialize Teams secrets in private Key Vault
+        if: ${{ inputs.apply && inputs.transition != 'disable' }}
         run: |
           set -euo pipefail
           vault_uri="$(jq -er '.key_vault_uri.value' "$RUNNER_TEMP/system-knowledge-platform.json")"
+          options=()
+          if [[ "${{ steps.context.outputs.teams_transport }}" == "outgoing_webhook" \
+             && "${{ inputs.transition }}" == "enable" ]]; then
+            options+=(--include-outgoing-hmac)
+          fi
           uv run --frozen --package fdai-system-knowledge-service python \
             scripts/deployment/azure/materialize_system_knowledge_secret.py \
-            --vault-uri "$vault_uri"
+            --vault-uri "$vault_uri" \
+            "${options[@]}"
 
       - name: Apply exact guarded plan
         if: ${{ inputs.apply }}
@@ -338,15 +354,14 @@ jobs:
           terraform -chdir=infra/services/system-knowledge-service output -json \
             > "$RUNNER_TEMP/system-knowledge-outputs.json"
 
-      - name: Verify enabled runtime and build Teams package
-        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+      - name: Verify active runtime and prepare Bot package
+        if: ${{ inputs.apply && inputs.transition != 'disable' }}
         run: |
           set -euo pipefail
           service_id="$(jq -er '.service.value.id' "$RUNNER_TEMP/system-knowledge-outputs.json")"
           service_name="$(jq -er '.service.value.name' "$RUNNER_TEMP/system-knowledge-outputs.json")"
           revision_name="$(jq -er '.service.value.latest_revision_name' "$RUNNER_TEMP/system-knowledge-outputs.json")"
           service_fqdn="$(jq -er '.service.value.fqdn' "$RUNNER_TEMP/system-knowledge-outputs.json")"
-          app_id="$(jq -er '.bot.value.app_id' "$RUNNER_TEMP/system-knowledge-outputs.json")"
           claim_url="$(jq -er '.claim_store.value.container_url' "$RUNNER_TEMP/system-knowledge-outputs.json")"
           timeout 60s az containerapp revision show \
             --name "$service_name" \
@@ -363,17 +378,35 @@ jobs:
             --connect-timeout 5 --max-time 15 \
             "https://${service_fqdn}/health/ready" \
             | jq -e '.status == "ok"' >/dev/null
+          if [[ "${{ steps.context.outputs.teams_transport }}" == "outgoing_webhook" ]]; then
+            {
+              echo "### System Knowledge Outgoing Webhook"
+              echo
+              echo "Callback URL: \`https://${service_fqdn}/api/teams/outgoing-webhook\`"
+              echo
+              if [[ "${{ inputs.transition }}" == "bootstrap" ]]; then
+                echo "The endpoint is fail-closed until its Teams-issued HMAC key is applied."
+              else
+                echo "The endpoint has an HMAC Key Vault binding."
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
           storage_account="$(jq -er '.document_storage_account_name.value' "$RUNNER_TEMP/system-knowledge-platform.json")"
           timeout 60s az storage container show \
             --auth-mode login \
             --account-name "$storage_account" \
             --name system-knowledge-claims \
             --only-show-errors --output none
-          uv run --frozen --package fdai-system-knowledge-service python \
-            scripts/deployment/system_knowledge/build_teams_app.py \
-            --app-id "$app_id" \
-            --bot-id "$app_id" \
-            --output "$RUNNER_TEMP/fdai-system-knowledge-teams.zip"
+          if [[ "${{ steps.context.outputs.teams_transport }}" == "bot_framework" ]]; then
+            app_id="$(jq -er '.bot.value.app_id' "$RUNNER_TEMP/system-knowledge-outputs.json")"
+            uv run --frozen --package fdai-system-knowledge-service python \
+              scripts/deployment/system_knowledge/build_teams_app.py \
+              --app-id "$app_id" \
+              --bot-id "$app_id" \
+              --output "$RUNNER_TEMP/fdai-system-knowledge-teams.zip"
+          else
+            jq -e '.bot.value == null' "$RUNNER_TEMP/system-knowledge-outputs.json" >/dev/null
+          fi
           SERVICE_ID="$service_id" CLAIM_URL="$claim_url" \
             python3 - > "$RUNNER_TEMP/system-knowledge-runtime-receipt.json" <<'PY'
           import hashlib
@@ -389,6 +422,7 @@ jobs:
               "claim_url_digest": digest(os.environ["CLAIM_URL"]),
               "deployment_revision": os.environ["GITHUB_SHA"],
               "catalog_source_revision": os.environ["CATALOG_SOURCE_REVISION"],
+              "teams_transport": os.environ["TEAMS_TRANSPORT"],
               "image_digest": os.environ["IMAGE_REF"].rsplit("@", 1)[1],
               "health": "ready",
               "execution_authority": False,
@@ -397,6 +431,7 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           CATALOG_SOURCE_REVISION: ${{ steps.context.outputs.catalog_source_revision }}
+          TEAMS_TRANSPORT: ${{ steps.context.outputs.teams_transport }}
 
       - name: Verify disabled rollback state
         if: ${{ inputs.apply && inputs.transition == 'disable' }}
@@ -411,7 +446,7 @@ jobs:
           }
 
       - name: Install Teams package with deployment-only identity
-        if: ${{ inputs.apply && inputs.transition == 'enable' }}
+        if: ${{ inputs.apply && inputs.transition == 'enable' && steps.context.outputs.teams_transport == 'bot_framework' }}
         env:
           INSTALLER_CLIENT_ID: ${{ vars.SYSTEM_KNOWLEDGE_INSTALLER_CLIENT_ID }}
         run: |
