@@ -425,6 +425,8 @@ def protected_guard_prefix_errors(
         if not guard_indexes:
             continue
         guarded_jobs.add(job_name)
+        if job.get("continue-on-error") not in {None, False}:
+            errors.append(f"{relative} job {job_name} cannot continue after verifier failure")
         if job.get("container") is not None or job.get("services") is not None:
             errors.append(
                 f"{relative} job {job_name} cannot run its verifier in a job container "
