@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
 from fdai_deployment_cli.cli import main
-from fdai_deployment_cli.contracts import ProvisionProfile
+from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.github_actions import (
     CommandResult,
@@ -26,6 +28,34 @@ _TARGET = "e" * 64
 _REGION = "koreacentral"
 _FUTURE_EXPIRY = "2099-12-31T23:59:59Z"
 _PAST_EXPIRY = "2020-01-01T00:00:00Z"
+
+
+def _summary(*, create: int = 1) -> dict[str, object]:
+    body: dict[str, object] = {
+        "schema_version": "fdai.deployment-plan-summary.v1",
+        "action_counts": {
+            "create": create,
+            "update": 0,
+            "delete": 0,
+            "replace": 0,
+            "no_op": 0,
+            "read": 0,
+        },
+        "resource_type_counts": ({"azurerm_resource_group": {"create": create}} if create else {}),
+        "managed_resources": create,
+        "destructive": False,
+    }
+    body["summary_digest"] = canonical_digest(body)
+    return body
+
+
+_POST_APPLY_OBSERVATIONS = [
+    "database-migrations",
+    "runtime-health",
+    "initial-inventory-execution",
+    "canary-publisher",
+    "terraform-zero-change",
+]
 
 
 class RecordingRunner:
@@ -317,6 +347,8 @@ def test_status_requires_one_exact_run_title() -> None:
                             "plan_digest": "c" * 64,
                             "context_digest": context_digest,
                             "expires_at": "2026-08-31T12:00:00Z",
+                            "plan_summary": _summary(),
+                            "post_apply_observations": _POST_APPLY_OBSERVATIONS,
                         },
                         stream,
                     )
@@ -400,6 +432,105 @@ def test_status_rejects_absent_or_ambiguous_runs() -> None:
             expected_region=_REGION,
             run=RecordingRunner(CommandResult(0, json.dumps([duplicate, duplicate]))),
         )
+
+
+def test_apply_status_validates_terminal_receipt_and_initial_inventory() -> None:
+    selection = DeploymentSelection()
+    dispatched = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.apply-status",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=False,
+        selection=selection,
+        run=RecordingRunner(),
+    )
+
+    class ApplyArtifactRunner(RecordingRunner):
+        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
+            self.calls.append(arguments)
+            if arguments[:2] == ("run", "download"):
+                directory = Path(arguments[arguments.index("--dir") + 1])
+                inventory: dict[str, object] = {
+                    "schema_version": ("fdai.genesis-initial-inventory-execution-receipt.v1"),
+                    "source_commit": _COMMIT,
+                    "apply_claimed_at": "2026-09-11T00:00:00Z",
+                    "execution_ref_digest": "d" * 64,
+                    "status": "succeeded",
+                    "observer": "azure-container-apps-jobs",
+                    "active_generation_verified": False,
+                    "subscription_ready": False,
+                }
+                inventory["receipt_digest"] = canonical_digest(inventory)
+                inventory_bytes = (
+                    json.dumps(inventory, sort_keys=True, separators=(",", ":")) + "\n"
+                ).encode()
+                (directory / "initial-inventory-receipt.json").write_bytes(inventory_bytes)
+                receipt = {
+                    "schema_version": "fdai.deployment-apply-receipt.v1",
+                    "plan_id": "plan-123-1",
+                    "plan_digest": "c" * 64,
+                    "request_id": dispatched.request_id,
+                    "context_digest": dispatched.context_digest,
+                    "source_commit": _COMMIT,
+                    "workflow_run_id": "123",
+                    "workflow_run_attempt": "1",
+                    "applied_at": "2026-09-11T00:05:00Z",
+                    "status": "applied",
+                    "terraform_zero_change_verified": True,
+                    "migration_stage_verified": True,
+                    "runtime_health_verified": True,
+                    "canary_verified": True,
+                    "initial_inventory_execution_receipt_digest": hashlib.sha256(
+                        inventory_bytes
+                    ).hexdigest(),
+                    "subscription_ready": False,
+                }
+                receipt["receipt_digest"] = canonical_digest(receipt)
+                (directory / "apply-receipt.json").write_text(
+                    json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+                    encoding="utf-8",
+                )
+                return CommandResult(0, "")
+            return CommandResult(
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": 123,
+                            "displayTitle": f"deploy-{dispatched.request_id}",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "url": "https://example.com/run/123",
+                            "headSha": _COMMIT,
+                        }
+                    ]
+                ),
+            )
+
+    status = workflow_status(
+        repository="example/fdai",
+        request_id_value=dispatched.request_id,
+        expected_commit=_COMMIT,
+        expected_context_digest=dispatched.context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        expected_plan_id="plan-123-1",
+        expected_plan_digest="c" * 64,
+        run=ApplyArtifactRunner(),
+    )
+
+    receipt = status["apply_receipt"]
+    assert isinstance(receipt, dict)
+    assert receipt["terraform_zero_change_verified"] is True
+    assert receipt["runtime_health_verified"] is True
+    assert receipt["subscription_ready"] is False
 
 
 def test_context_changes_when_any_feature_selection_changes() -> None:
@@ -663,6 +794,8 @@ def test_status_exposes_expired_field_without_blocking_read() -> None:
                             "plan_digest": "c" * 64,
                             "context_digest": context_digest,
                             "expires_at": _PAST_EXPIRY,
+                            "plan_summary": _summary(),
+                            "post_apply_observations": _POST_APPLY_OBSERVATIONS,
                         },
                         stream,
                     )

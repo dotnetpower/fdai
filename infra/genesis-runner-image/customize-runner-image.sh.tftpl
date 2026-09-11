@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update -y
+apt-get install -y --no-install-recommends ca-certificates curl git gnupg jq tar unzip
+
+install -d -m 0755 /etc/apt/keyrings
+key_file="$(mktemp)"
+trap 'rm -f "$key_file"' EXIT
+curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 90 \
+  https://packages.microsoft.com/keys/microsoft.asc -o "$key_file"
+fingerprint="$(gpg --show-keys --with-colons "$key_file" | awk -F: '$1 == "fpr" {print $10; exit}')"
+test "$fingerprint" = "${microsoft_package_key_fingerprint}"
+gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg "$key_file"
+printf '%s\n' \
+  'deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ noble main' \
+  >/etc/apt/sources.list.d/azure-cli.list
+apt-get update -y
+apt-get install -y --no-install-recommends "azure-cli=${azure_cli_package_version}"
+apt-mark hold azure-cli
+
+work_dir="$(mktemp -d)"
+trap 'rm -rf "$work_dir" "$key_file"' EXIT
+
+curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 180 \
+  "https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip" \
+  -o "$work_dir/terraform.zip"
+printf '%s  %s\n' '${terraform_sha256}' "$work_dir/terraform.zip" | sha256sum -c -
+unzip -q "$work_dir/terraform.zip" -d "$work_dir/terraform"
+printf '%s  %s\n' '${terraform_binary_sha256}' "$work_dir/terraform/terraform" | sha256sum -c -
+install -m 0755 "$work_dir/terraform/terraform" /usr/local/bin/terraform
+
+curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 180 \
+  "https://github.com/open-policy-agent/opa/releases/download/v${opa_version}/opa_linux_amd64_static" \
+  -o "$work_dir/opa"
+printf '%s  %s\n' '${opa_sha256}' "$work_dir/opa" | sha256sum -c -
+install -m 0755 "$work_dir/opa" /usr/local/bin/opa
+
+install -d -m 0755 /opt/fdai/runner
+runner_archive="/opt/fdai/runner/actions-runner-linux-x64-${github_runner_version}.tar.gz"
+curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 300 \
+  "https://github.com/actions/runner/releases/download/v${github_runner_version}/actions-runner-linux-x64-${github_runner_version}.tar.gz" \
+  -o "$runner_archive"
+printf '%s  %s\n' '${github_runner_sha256}' "$runner_archive" | sha256sum -c -
+tar -tzf "$runner_archive" >/dev/null
+
+cat >/etc/fdai-runner-image.json <<'JSON'
+{"azure_cli_version":"${azure_cli_version}","github_runner_sha256":"${github_runner_sha256}","github_runner_version":"${github_runner_version}","opa_sha256":"${opa_sha256}","opa_version":"${opa_version}","schema_version":"fdai.genesis-runner-image.v1","source_commit":"${source_commit}","source_image_version":"${source_image_version}","terraform_binary_sha256":"${terraform_binary_sha256}","terraform_sha256":"${terraform_sha256}","terraform_version":"${terraform_version}","toolchain_digest":"${toolchain_digest}"}
+JSON
+chmod 0644 /etc/fdai-runner-image.json
+printf '%s' '${enrollment_script}' | base64 -d >/usr/local/sbin/fdai-enroll-runner
+chmod 0755 /usr/local/sbin/fdai-enroll-runner
+printf '%s' '${attestation_script}' | base64 -d >/usr/local/sbin/fdai-attest-runner
+chmod 0755 /usr/local/sbin/fdai-attest-runner
+printf '%s' '${state_migration_script}' | base64 -d >/usr/local/sbin/fdai-migrate-foundation-state
+chmod 0755 /usr/local/sbin/fdai-migrate-foundation-state
+
+test "$(az version --query '"azure-cli"' --output tsv)" = "${azure_cli_version}"
+test "$(terraform version -json | jq -r .terraform_version)" = "${terraform_version}"
+opa version | grep -F "Version: ${opa_version}" >/dev/null
+test "$(jq -r .toolchain_digest /etc/fdai-runner-image.json)" = "${toolchain_digest}"
+
+rm -rf /root/.azure /root/.config/gh /root/.docker /root/.git-credentials
+find /home -mindepth 2 -maxdepth 2 \
+  \( -name .azure -o -name .config -o -name .docker -o -name .git-credentials \) \
+  -exec rm -rf -- {} + 2>/dev/null || true
+rm -rf /var/lib/apt/lists/*

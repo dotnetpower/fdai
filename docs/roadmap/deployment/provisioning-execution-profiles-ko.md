@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: fcf456dcf297e92fb4ef65c6954ec510a8802d9e
-translation_revised: 2026-09-06
+translation_source_sha: 060dff31fb76ddbc5e7b3624ad44744be34efb24
+translation_revised: 2026-09-11
 ---
 # 프로비저닝 실행 프로파일
 
@@ -20,7 +20,8 @@ translation_revised: 2026-09-06
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
-| 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 exact-apply 동작은 로컬 CLI 파사드 없이 존재합니다. |
+| 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 정확한 애플리케이션 적용 동작이 구현되어 있습니다. |
+| 신규 구독 로컬 조정기 | implemented | `fdai-up.sh`, 비공개 준비, 승인, 이미지, 기반 계층, Bastion, Entra, 저장소 및 보호된 애플리케이션 모듈과 집중 수명 주기 테스트 | 감독형 `dev` 프로세스 하나가 점유를 검증으로 재개하고 두 번째 변경 없음 계획을 요구합니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
@@ -143,6 +144,10 @@ Managed-host 접근 순서는 다음과 같이 고정합니다.
 3. 자체 호스팅 실행기의 GitHub Actions.
 4. Azure Bastion.
 5. 감사되는 비상 경로인 Azure Run Command.
+
+신규 구독 Genesis는 이 목록을 차례로 대체 시도하지 않습니다. `access_method=bastion`인
+프로파일은 기반 계층이 만든 정확한 Standard Bastion 네이티브 터널을 선택합니다. 등록 자료는
+SSH 표준 입력으로만 전달하며 상태 인계는 고정된 같은 호스트 키 경계를 사용합니다.
 
 Temporary 공개 접근은 silent 대체 경로로 사용하지 않습니다. 계획에는 허용 목록에 포함된
 출처 CIDR, 키 또는 certificate만 사용하는 SSH, 제한된 접근 구간, 공개 IP와 temporary

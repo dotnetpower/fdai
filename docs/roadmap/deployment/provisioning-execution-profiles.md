@@ -17,7 +17,8 @@ that applies before Terraform changes infrastructure or role assignments.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
-| Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact-apply mechanics exist without the local CLI facade. |
+| Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact application-apply mechanics exist. |
+| Fresh-subscription local coordinator | implemented | `fdai-up.sh`; private preparation, approval, image, Foundation, Bastion, Entra, repository, and protected application modules; focused lifecycle tests | One supervised `dev` process resumes claims by verification and requires a second zero-change plan. A governed Azure receipt and complete readiness evidence remain open. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
@@ -139,6 +140,10 @@ The managed-host access order is fixed:
 3. GitHub Actions on a self-hosted runner.
 4. Azure Bastion.
 5. Azure Run Command as an audited emergency path.
+
+Fresh-subscription Genesis doesn't fall through this list. A profile with `access_method=bastion`
+selects the exact Standard Bastion native tunnel created by Foundation. Enrollment material then
+travels only through SSH standard input, and state handoff uses the same pinned host-key boundary.
 
 Temporary public access is never a silent fallback. Its plan requires an allowlisted source CIDR,
 key- or certificate-only SSH, a bounded access window, and automatic removal of the public IP and

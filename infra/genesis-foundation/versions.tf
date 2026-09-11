@@ -1,8 +1,11 @@
-# Local, control-plane-only foundation. The installer must isolate this root's
-# state in its private run directory; this root never migrates a backend.
+# Local, control-plane-only foundation. The installer isolates the first state
+# in its private run directory, then the attested VNet runner migrates that exact
+# state into this partial AzureRM backend after Foundation effect verification.
 # Design: docs/roadmap/deployment/subscription-genesis-{provisioning,assurance}.md.
 terraform {
   required_version = ">= 1.9"
+
+  backend "azurerm" {}
 
   required_providers {
     azapi = {

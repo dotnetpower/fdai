@@ -251,6 +251,7 @@ docs/internals/*
 *.tfvars
 *.tfvars.json
 !*.tfvars.example
+!infra/main.tfvars.json
 .terraform/
 # .terraform.lock.hcl is intentionally NOT ignored: per HashiCorp guidance,
 # the provider lock file must be committed so every contributor and every CI

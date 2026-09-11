@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 4c40e6dd017e6fcf2d88e36ba57bb28f189a4c36
-translation_revised: 2026-09-10
+translation_source_sha: ef42dd8640239e69720123e6eeaffe0b8258580c
+translation_revised: 2026-09-11
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -94,6 +94,9 @@ translation_revised: 2026-09-10
 > 검토된 `Identifiable` Interface를 부하하고 모든 현재 ObjectType의 명시적 연결을 검증하며
 > polymorphic 카탈로그를 compile하고 exact 런타임 release에 선언을 포함합니다. 이 매니페스트를
 > 서술기 및 범용 조회 표면에 연결하는 작업은 남아 있습니다.
+> 검토 가능한 400개 질문 산출물은 출처 파일 11개를 SHA-256으로 추적합니다. 출처가 바뀐 뒤
+> 다시 생성하면 출처 다이제스트와 지역화된 문구가 갱신될 수 있지만, 그 자체로 런타임 커버리지나
+> 보증 상태가 높아지지는 않습니다.
 > OQ-03에는 이제 범위가 제한된 의존성 wave, 동시성, 시간 초과, 취소, blocked-descendant 처리,
 > 고정된 실패 사유 및 작업 증적을 갖춘 exact-release 조회 DAG 실행기가 포함됩니다. Built-in
 > 핸들러는 이제 secured ObjectSet 구체화, union, intersection, subtraction, 정렬,

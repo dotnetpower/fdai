@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 217e07d07b4bf8663a43d5404ef1e064e87d0922
+translation_source_sha: a47b14f620bcf29c34ef26b8ae9a50023cb78296
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -27,6 +27,9 @@ translation_revised: 2026-09-11
 
 - **관측된 사실:** 인증된 공급자 관측만 `observed` 상태 lane에 들어갈 수 있습니다. 질문,
   모델 출력, 의도 상태, dispatch 증적, 실행기 결과는 관측 사실을 만들 수 없습니다.
+- **배포 근거:** 보호된 플랫폼 계획 메타데이터는 전용 저장소 모듈에서 생성합니다. 워크플로
+  YAML은 봉인된 입력을 이 모듈에 전달하며, 계획과 해당 증적은 관측 그래프 사실을 만들 수
+  없습니다.
 - **단일 작성자:** 수집기는 타입이 지정된 관측을 추가합니다. 온톨로지 인스턴스를 직접
   변경하지 않습니다. 하나의 변환 결과 소유자가 관측을 판정하고 현재 하위 그래프를 원자적으로
   전진시킵니다.

@@ -35,6 +35,7 @@ roots=(
   infra
   infra/bootstrap
   infra/genesis-foundation
+  infra/genesis-runner-image
   infra/scenario-lab
   infra/services/core-control-plane
   infra/services/operator-service

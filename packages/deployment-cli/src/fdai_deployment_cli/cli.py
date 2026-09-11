@@ -32,6 +32,7 @@ from fdai_deployment_cli.doctor import (
     inspect_tools,
 )
 from fdai_deployment_cli.foundation_input import snapshot_foundation_input
+from fdai_deployment_cli.foundation_image import verify_foundation_runner_image
 from fdai_deployment_cli.foundation_plan import (
     foundation_plan_context,
     register_foundation_plan_command,
@@ -502,6 +503,14 @@ def _provision_plan(args: argparse.Namespace) -> int:
             azure_cli_path=Path(azure_cli) if (azure_cli := shutil.which("az")) else None,
         )
         variables = read_plan_input(variables_file) if args.save_plan else {}
+        if args.save_plan and foundation and profile.access_method == "bastion":
+            if variables.get("enable_bastion") is not True:
+                raise ValueError("Foundation Bastion profile requires Bastion in the exact plan")
+        runner_image_observation_digest = (
+            verify_foundation_runner_image(variables, expected_region=profile.region)
+            if args.save_plan and foundation
+            else ""
+        )
         provider_lock = (infra_dir / ".terraform.lock.hcl").read_bytes() if args.save_plan else b""
         saved_context = (
             foundation_plan_context(
@@ -511,6 +520,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
                 deployment_bundle_digest=bundle_verification.manifest_digest,
                 terraform_digest=dict(verification.file_digests)[verification.terraform_binary],
                 provider_lock=provider_lock,
+                runner_image_observation_digest=runner_image_observation_digest,
             )
             if args.save_plan
             else {}
