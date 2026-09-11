@@ -853,7 +853,7 @@ jobs:
             address: tuple(change.get("change", {}).get("actions", []))
             for address, change in resource_changes.items()
           }
-          state_only_replacements = {"terraform_data.observability_analyzer_image_update"} if "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" else set()
+          state_only_replacements = ({"terraform_data.observability_analyzer_image_update"} if "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" else set()) | ({"terraform_data.inventory_runtime_image_update"} if "${{ startsWith(inputs.request_id, 'plan-runtime-') }}" == "true" else set())
 
           def singleton_block(resource, key):
             blocks = resource.get(key) if isinstance(resource, dict) else None
@@ -942,7 +942,7 @@ jobs:
               print(f"- {address}")
             raise SystemExit(1)
           for address, _actions in destructive:
-            if address in state_only_replacements: print(f"Protected plan permits state-only analyzer updater replacement: {address}")
+            if address in state_only_replacements: print(f"Protected plan permits state-only updater replacement: {address}")
             elif address in approved_model_replacements:
               print(f"Protected plan permits exact Azure OpenAI replacement: {address}")
             else:

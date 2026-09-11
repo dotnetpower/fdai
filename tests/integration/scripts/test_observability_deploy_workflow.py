@@ -18,8 +18,8 @@ def test_observability_request_targets_only_the_stateful_image_updater() -> None
     assert "reconcile_rca_bootstrap_state.sh observability" not in _WORKFLOW
     assert "mode=observability-analyzer" in _WORKFLOW
     assert (
-        'state_only_replacements = {"terraform_data.observability_analyzer_image_update"}'
-        in _WORKFLOW
-    )
-    assert "state-only analyzer updater replacement" in _WORKFLOW
+        '{"terraform_data.observability_analyzer_image_update"} '
+        'if "${{ startsWith(inputs.request_id, \'plan-observability-\') }}" == "true"'
+    ) in _WORKFLOW
+    assert "state-only updater replacement" in _WORKFLOW
     assert 'verify_deploy_convergence.sh "${{ inputs.request_id }}"' in _WORKFLOW

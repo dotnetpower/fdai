@@ -114,6 +114,8 @@ image without planning unrelated module dependencies. The binding updater also r
 Log Analytics customer ID and applies it with the runtime flag; rollback restores both prior values.
 The post-plan scope guard rejects every other address, and post-apply verification independently
 reads the flag, workspace digest, and image digest before the source is treated as enabled.
+When the attested image digest changes, only the image updater's state-only replacement is allowed;
+the updater itself performs the verified Azure update or rollback.
 The plan's full JSON projection and value-free summary remain in a current-UID mode-0700 temporary
 directory until bounded plan metadata is sealed, then both private files are removed.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
