@@ -17,6 +17,7 @@ _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _OCI_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _COMMIT = re.compile(r"^[a-f0-9]{40}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
+_STATE_ONLY_REQUEST = re.compile(r"^plan-(?:observability|runtime)-[0-9a-f]{48}$")
 _ENVIRONMENT = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _SHA256_REF = re.compile(r"^sha256:[a-f0-9]{64}$")
 _REQUEST_KINDS = frozenset({"standard", "model", "event-bus", "event-bus-jobs"})
@@ -125,7 +126,14 @@ def verify_plan(
     if has_plan_summary != has_post_apply_observations:
         raise PlanVerificationError("plan metadata summary evidence is incomplete")
     if has_plan_summary:
-        _verify_plan_summary(metadata["plan_summary"])
+        request_id = metadata.get("request_id")
+        _verify_plan_summary(
+            metadata["plan_summary"],
+            allow_state_only_replace=(
+                isinstance(request_id, str)
+                and _STATE_ONLY_REQUEST.fullmatch(request_id) is not None
+            ),
+        )
         if metadata["post_apply_observations"] != _POST_APPLY_OBSERVATIONS:
             raise PlanVerificationError("plan metadata post-apply observations are invalid")
     _expect(metadata, "plan_id", expected_plan_id, _PLAN_ID)
@@ -233,7 +241,7 @@ def verify_plan(
         raise PlanVerificationError("binary plan digest does not match metadata")
 
 
-def _verify_plan_summary(value: object) -> None:
+def _verify_plan_summary(value: object, *, allow_state_only_replace: bool) -> None:
     if not isinstance(value, dict) or set(value) != _PLAN_SUMMARY_FIELDS:
         raise PlanVerificationError("plan metadata summary has an unexpected schema")
     if value.get("schema_version") != "fdai.deployment-plan-summary.v1":
@@ -252,8 +260,6 @@ def _verify_plan_summary(value: object) -> None:
     expected_destructive = bool(action_counts["delete"] or action_counts["replace"])
     if type(destructive) is not bool or destructive != expected_destructive:
         raise PlanVerificationError("plan metadata summary destructive flag is invalid")
-    if destructive:
-        raise PlanVerificationError("plan metadata summary is destructive")
     resource_type_counts = value.get("resource_type_counts")
     if not isinstance(resource_type_counts, dict) or len(resource_type_counts) > 1_000:
         raise PlanVerificationError("plan metadata summary resource type counts are invalid")
@@ -272,6 +278,15 @@ def _verify_plan_summary(value: object) -> None:
     expected_totals = {name: count for name, count in action_counts.items() if count}
     if dict(totals) != expected_totals:
         raise PlanVerificationError("plan metadata summary type totals do not match actions")
+    state_only_replace = (
+        allow_state_only_replace
+        and action_counts["replace"] == 1
+        and all(action_counts[name] == 0 for name in ("create", "delete", "update"))
+        and set(resource_type_counts) == {"terraform_data"}
+        and resource_type_counts["terraform_data"].get("replace") == 1
+    )
+    if destructive and not state_only_replace:
+        raise PlanVerificationError("plan metadata summary is destructive")
     summary_digest = value.get("summary_digest")
     if not isinstance(summary_digest, str) or _DIGEST.fullmatch(summary_digest) is None:
         raise PlanVerificationError("plan metadata summary digest is invalid")
