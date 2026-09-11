@@ -280,9 +280,12 @@ async def fetch_arg_row_pages(
 
         next_token = payload.get("$skipToken")
         if not isinstance(next_token, str) or not next_token:
-            tokenless_truncated = payload.get("resultTruncated") is True or _count_is_truncated(
-                payload
-            )
+            tokenless_truncated = _result_is_truncated(
+                payload,
+                error_type=error_type,
+                result_name=result_name,
+                page=page,
+            ) or _count_is_truncated(payload)
             if not allow_truncated_without_token and tokenless_truncated:
                 raise error_type(
                     f"ARG returned a truncated result without a continuation token for "
@@ -307,6 +310,27 @@ async def fetch_arg_row_pages(
             truncation_observer(True)
 
     return tuple(collected)
+
+
+def _result_is_truncated(
+    payload: Mapping[str, Any],
+    *,
+    error_type: type[RuntimeError],
+    result_name: str,
+    page: int,
+) -> bool:
+    value = payload.get("resultTruncated")
+    if value is None or value is False:
+        return False
+    if value is True:
+        return True
+    if isinstance(value, str):
+        normalized = value.strip().casefold()
+        if normalized == "false":
+            return False
+        if normalized == "true":
+            return True
+    raise error_type(f"ARG resultTruncated flag was invalid for {result_name!r} (page {page})")
 
 
 async def _post_with_retry(
