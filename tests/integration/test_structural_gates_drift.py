@@ -10,6 +10,7 @@ mandatory.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -153,6 +154,17 @@ def test_pre_push_blocks_non_current_branch_updates(tmp_path: Path) -> None:
     result = subprocess.run(
         ["bash", str(_PRE_PUSH), "origin"],
         cwd=repository,
+        env={
+            name: value
+            for name, value in os.environ.items()
+            if name
+            not in {
+                "GIT_DIR",
+                "GIT_INDEX_FILE",
+                "GIT_OBJECT_DIRECTORY",
+                "GIT_WORK_TREE",
+            }
+        },
         input=hook_input,
         capture_output=True,
         text=True,
