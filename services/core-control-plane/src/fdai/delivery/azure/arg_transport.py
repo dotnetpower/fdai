@@ -183,6 +183,7 @@ async def fetch_arg_row_pages(
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
     request_headers: Mapping[str, str] | None = None,
     allow_truncated_without_token: bool = False,
+    allow_page_cap_truncation: bool = False,
     truncation_observer: Callable[[bool], None] | None = None,
     max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
     max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
@@ -297,10 +298,13 @@ async def fetch_arg_row_pages(
         seen_skip_tokens.add(next_token)
         skip_token = next_token
     else:
-        raise error_type(
-            f"ARG pagination cap ({max_pages}) exceeded for {result_name!r}; "
-            "narrow the query or raise max_pages via config"
-        )
+        if not allow_page_cap_truncation:
+            raise error_type(
+                f"ARG pagination cap ({max_pages}) exceeded for {result_name!r}; "
+                "narrow the query or raise max_pages via config"
+            )
+        if truncation_observer is not None:
+            truncation_observer(True)
 
     return tuple(collected)
 
