@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 3b60d40ad1fb16a0b70ec63081d511050aa52724
+translation_source_sha: 45f1d3403e62b38abbac247f1e51effd7b171322
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -51,7 +51,9 @@ translation_revised: 2026-09-12
   범위가 제한된 조회는 사용 가능한 범위의 검증된 양성 관측을 반환할 수 있지만 결과를
   불완전하게 유지하며, 누락 범위를 다른 관측이 없다는 증거로 취급하지 않습니다.
 - **조회와 쓰기 분리:** 공급자 관측과 온톨로지 변환 결과는 조회 플레인 작업입니다. 관리
-  리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다.
+  리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다. 독립 실행형
+  배포 호스트의 정확한 registry 범위 `AcrPush` 배정은 쓰기 플레인 전달 권한으로 유지됩니다.
+  이미지 가져오기와 다이제스트 재확인은 운영 그래프 사실이나 관측 권한을 만들지 않습니다.
 - **제한된 보존:** rollup 또는 archive 매니페스트가 완전한 원본 범위를 검증하고 적용되는
   보존 hold가 삭제를 허용한 후에만 hot 또는 warm 저장소에서 원시 데이터를 제거합니다.
 

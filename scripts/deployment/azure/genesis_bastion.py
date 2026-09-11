@@ -155,7 +155,7 @@ class BastionTunnel:
     def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
         """Copy one private regular file to the runner over the held tunnel."""
 
-        _require_private_regular_file(source, max_bytes=1024 * 1024 * 1024)
+        _require_private_regular_file(source, max_bytes=8 * 1024 * 1024 * 1024)
         prefix = f"/home/{self.username}/.fdai-transfer-"
         if not destination.startswith(prefix) or "\n" in destination:
             raise ValueError("Bastion remote destination is invalid")

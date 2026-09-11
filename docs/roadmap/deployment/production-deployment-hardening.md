@@ -29,6 +29,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Added an exact-ACR `AcrPush` assignment for the configured stable deploy runner so the GitHub-independent managed host can import signed runtime images before application activation. The assignment is scoped to the created registry and does not grant subscription-wide image or role-management authority. | `current change`; `infra/main.tf`; standalone managed-host image import and digest readback; root Terraform validation; routed deployment and Genesis tests | Retain one active-login deployment receipt that proves the managed identity imported and independently read back every signed image digest. |
 | 2026-09-11 | implemented | Extended direct verifier-success binding to every status-overriding run step in the protected deployment inventory, including cohort cleanup, channel secret cleanup, framework context cleanup, drift evidence enforcement, system-knowledge summary and cleanup, service rollback reporting, and scenario evidence and authority cleanup. | `current change`; protected workflow inventory; focused CI security contract tests; `check-ci-contracts.py` | Retain governed protected runs that exercise post-verifier failure handling and prove verifier failure executes no later run step. |
 | 2026-09-11 | implemented | Bound status-overriding artifact and authority-cleanup actions in platform, service, and scenario workflows directly to the successful protected-source verifier outcome. A failed or skipped verifier can no longer fall through to an `always()` action with the job's permissions. | `current change`; `.github/workflows/{deploy-dev,service-deploy,sre-demo-lab}.yml`; focused CI security contract tests; `check-ci-contracts.py` | Retain governed protected runs that exercise artifact publication and authority cleanup after verifier success and prove verifier failure publishes or mutates nothing. |
 | 2026-09-11 | implemented | Folded baseline-free Checkov and Trivy into the path-scoped `terraform-validate` job while reducing the required CI graph from 20 jobs to 13. Scanner versions, reviewed exceptions, the no-baseline policy, and the aggregate `required` result remain unchanged. | `current change`; `.github/workflows/ci.yml`; focused CI workflow contract tests; `check-ci-contracts.py`; `actionlint`. | Retain one green protected-main run of the minimized required graph before treating the new layout as runtime-validated evidence. |
@@ -98,6 +99,9 @@ on ambiguous or coexisting addresses, and retains both plan guards.
     Control Administrator` assignment limited to `Reader`, `Monitoring Reader`, and
     `Cost Management Reader` grants for service principals. Its separate `Cognitive Services
     Contributor` assignment satisfies the model resolver and cannot delegate roles.
+- The application root grants the stable deploy runner `AcrPush` only on the exact registry it
+    creates. The managed host uses that role to import signed, digest-bound images and verifies each
+    registry digest before application activation.
 - Grant only the subscription-scoped roles matching the executor's **action whitelist**. See
     [Security and Identity](../architecture/security-and-identity.md).
 - A purpose-built custom role that packages the deployer permissions remains an open design choice.

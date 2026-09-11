@@ -375,6 +375,12 @@ resource "azurerm_role_assignment" "executor_acr_pull" {
   principal_id         = module.identity.principal_id
 }
 
+resource "azurerm_role_assignment" "deploy_runner_acr_push" {
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPush"
+  principal_id         = var.deploy_runner_principal_id
+}
+
 # -----------------------------------------------------------------------
 # Executor Managed Identity - RG-scoped, action-whitelisted (Phase 1 = Change).
 # -----------------------------------------------------------------------

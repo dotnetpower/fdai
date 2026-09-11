@@ -49,7 +49,9 @@ unbounded tight polling loop.
   the result incomplete and never treats the missing scope as proof that no other observation exists.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.
   Managed-resource writeback remains in the governed action path and closes only after independent
-  re-observation.
+  re-observation. The standalone deploy host's exact-registry `AcrPush` assignment remains a
+  write-plane delivery permission. Image import and digest readback create no operational graph
+  fact or observation authority.
 - **Bounded retention:** Raw data is removed from hot or warm storage only after a rollup or archive
   manifest verifies complete source coverage and the applicable retention hold permits deletion.
 

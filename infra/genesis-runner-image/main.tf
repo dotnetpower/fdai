@@ -1,5 +1,5 @@
 locals {
-  toolchain_manifest = {
+  toolchain_manifest = merge({
     schema_version                    = "fdai.genesis-runner-image.v1"
     source_commit                     = var.source_commit
     source_image_version              = var.source_image_version
@@ -11,9 +11,12 @@ locals {
     terraform_sha256                  = var.terraform_sha256
     opa_version                       = var.opa_version
     opa_sha256                        = var.opa_sha256
+    oras_version                      = var.oras_version
+    oras_sha256                       = var.oras_sha256
+    oras_binary_sha256                = var.oras_binary_sha256
     github_runner_version             = var.github_runner_version
     github_runner_sha256              = var.github_runner_sha256
-  }
+  }, var.execution_transport == "manual" ? { execution_transport = "manual" } : {})
   toolchain_digest = sha256(jsonencode(local.toolchain_manifest))
   digest_prefix    = substr(local.toolchain_digest, 0, 12)
   suffix           = "${var.workload}-${var.env}-${var.region_short}-${local.digest_prefix}"
@@ -28,6 +31,10 @@ locals {
     terraform_sha256                  = var.terraform_sha256
     opa_version                       = var.opa_version
     opa_sha256                        = var.opa_sha256
+    oras_version                      = var.oras_version
+    oras_sha256                       = var.oras_sha256
+    oras_binary_sha256                = var.oras_binary_sha256
+    execution_transport               = var.execution_transport
     github_runner_version             = var.github_runner_version
     github_runner_sha256              = var.github_runner_sha256
     source_commit                     = var.source_commit
@@ -47,13 +54,15 @@ locals {
     "test \"$(az version --query '\"azure-cli\"' --output tsv)\" = '${var.azure_cli_version}'",
     "test \"$(terraform version -json | jq -r .terraform_version)\" = '${var.terraform_version}'",
     "opa version | grep -F 'Version: ${var.opa_version}' >/dev/null",
-    "printf '%s  %s\\n' '${var.github_runner_sha256}' '/opt/fdai/runner/actions-runner-linux-x64-${var.github_runner_version}.tar.gz' | sha256sum -c -",
+    "oras version | grep -F 'Version:        ${var.oras_version}' >/dev/null",
+    var.execution_transport == "github-actions" ? "printf '%s  %s\n' '${var.github_runner_sha256}' '/opt/fdai/runner/actions-runner-linux-x64-${var.github_runner_version}.tar.gz' | sha256sum -c -" : "test ! -e /opt/fdai/runner",
     "printf '%s  %s\\n' '${var.terraform_binary_sha256}' '/usr/local/bin/terraform' | sha256sum -c -",
     "printf '%s  %s\\n' '${var.opa_sha256}' '/usr/local/bin/opa' | sha256sum -c -",
     "test \"$(jq -r .toolchain_digest /etc/fdai-runner-image.json)\" = '${local.toolchain_digest}'",
-    "test -x /usr/local/sbin/fdai-enroll-runner",
+    var.execution_transport == "github-actions" ? "test -x /usr/local/sbin/fdai-enroll-runner" : "test ! -e /usr/local/sbin/fdai-enroll-runner",
     "test -x /usr/local/sbin/fdai-attest-runner",
     "test -x /usr/local/sbin/fdai-migrate-foundation-state",
+    "test \"$(jq -r .execution_transport /etc/fdai-runner-image.json)\" = '${var.execution_transport}'",
     "test ! -e /root/.azure && test ! -e /root/.config/gh && test ! -e /root/.docker && test ! -e /root/.git-credentials",
     "test \"$(cat /var/lib/fdai/image-deprovisioned)\" = 'complete'",
     "test ! -e /etc/systemd/system/fdai-deprovision.service",

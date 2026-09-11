@@ -33,6 +33,9 @@ domain code and assets. It does not create another control plane or move authori
 > Terraform deployer roles use the configured stable runner UAMI principal, and planning stops
 > when the authenticated principal differs. Replacing the runner host doesn't change package or
 > observation authority.
+> The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
+> not a Cost Governance package input and cannot install, enable, promote, or grant package data
+> access.
 > Live-authoritative lifecycle, observation
 > cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability

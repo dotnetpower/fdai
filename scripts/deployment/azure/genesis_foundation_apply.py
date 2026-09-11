@@ -103,12 +103,16 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         repository=args.repository,
         apply=True,
     )
-    current_source = _capture(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repository_root,
-        timeout=30,
-        reason="Foundation source revision is unavailable",
-    ).strip()
+    current_source = (
+        str(context["source_commit"])
+        if checks.source_evidence is not None
+        else _capture(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository_root,
+            timeout=30,
+            reason="Foundation source revision is unavailable",
+        ).strip()
+    )
     if current_source != context["source_commit"]:
         raise ValueError("Foundation review source does not match the active checkout")
     claim = load_apply_claim(claim_path, review=review, profile=profile)

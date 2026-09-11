@@ -46,6 +46,7 @@ _OPTIONAL = frozenset(
         "enable_public_egress",
         "enable_bastion",
         "bastion_subnet_prefix",
+        "execution_transport",
         *_RUNNER_IMAGE_NETWORKS,
     }
 )
@@ -114,6 +115,11 @@ def snapshot_foundation_input(
     parallelism = values.get("runner_parallelism", 1)
     if type(parallelism) is not int or not 1 <= parallelism <= 5:
         raise ValueError("foundation plan runner parallelism MUST be an integer from 1 through 5")
+    if values.get("execution_transport", "github-actions") not in {
+        "manual",
+        "github-actions",
+    }:
+        raise ValueError("foundation plan execution transport is invalid")
     if type(values.get("enable_public_egress", False)) is not bool:
         raise ValueError("foundation plan public egress selection MUST be boolean")
     enable_bastion = values.get("enable_bastion", False)

@@ -18,11 +18,11 @@ that applies before Terraform changes infrastructure or role assignments.
 |------|-------|----------|-------|
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
 | Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact application-apply mechanics exist. |
-| Fresh-subscription local coordinator | implemented | `fdai-up.sh`; private preparation, approval, image, Foundation, Bastion, Entra, repository, and protected application modules; focused lifecycle tests | One supervised `dev` process uses bounded concurrency only for independent preparation and read or request siblings, resumes claims by verification, and requires a second zero-change plan. Its image graph uses private builder and verifier VMs behind an FQDN-allowlisted Firewall Basic so Storage Shared Key denial needs no policy exception. A governed Azure receipt and complete readiness evidence remain open. |
+| Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user, uses bounded concurrency only for independent preparation and read or request siblings, and keeps stateful transitions serial. GitHub Actions remains an optional transport. A governed Azure receipt and complete readiness evidence remain open. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
-| Post-provision verification | in-progress | Protected workflow checks and `docs/roadmap/operations/operating-and-verification.md` | Runner-side convergence, migrations, health, and canary checks exist; the complete CLI-driven lifecycle and disconnected receipt do not. |
+| Post-provision verification | in-progress | Managed-host exact-plan apply receipts, ACR digest readback, migrations, health readback, and second zero-change plan; routed lifecycle tests | The implementation exists, but the complete CLI-driven Azure lifecycle and artifact-offline operational receipt remain open. |
 
 ### Implementation history
 
@@ -35,13 +35,18 @@ that applies before Terraform changes infrastructure or role assignments.
 | 2026-09-06 | implemented | Added an installed inventory wrapper that accepts only positional `once` or `loop` modes for exact-image Container Apps rehearsals. It translates to the existing CLI without changing collection, projection, identity, or execution authority. | `current change`; focused inventory CLI tests, strict mypy, package build, and entrypoint discovery. | Retain one exact-image inventory projection refresh receipt before operational-history certification. |
 | 2026-09-06 | implemented | Added a deadline-bounded active-generation projection release migration to the protected OI-16 execution profile. It performs no provider read, preserves the prior manifest and journal fences, and refuses incomplete or changed content before writing. | `current change`; focused replay CLI, projection, persistence, workflow, and package checks. | Retain one successful exact-release migration receipt from the protected dev campaign. |
 | 2026-09-11 | implemented | Added bounded parallel execution for independent local artifact lanes, Foundation input discovery, provider inspection and registration requests, policy-probe resource operations, and tenant-directory reads. Stateful applies, approvals, cleanup, handoffs, repository writes, and protected application transitions remain serial. | `current change`; focused Genesis, provider-mirror, preparation, Entra, and productization tests | Retain timing evidence from the next exact-main supervised deployment without treating elapsed time as readiness. |
+| 2026-09-11 | implemented | Added online and artifact-offline installed-package deployment from the active `az login` target without requiring GitHub Actions. Complete signed kits, a no-GitHub managed host, exact application approvals, operator-issued or Trial licensing, image readback, pre-activation migrations, and convergence checks share one path. | `current change`; deployment CLI and Genesis source; strict mypy; package build and cold install; routed deployment and Genesis tests | Build the complete signed release kit from a clean snapshot and retain online and artifact-offline Azure convergence receipts. |
+| 2026-09-12 | implemented | Completed 16 standalone deployment critique and hardening rounds. Transport reuse now binds the exact signed kit, trust roots require Ed25519, destructive plans require a second exact confirmation, ambiguous applies resume by verification only, retained Foundation and Entra context is exact, provider fallback remains blocked, and license, migration, image, revision-health, and zero-change effects require independent readback. | `current change`; deployment CLI, release builder, ShellCheck, strict mypy, focused package and Genesis tests, and independent post-fix critiques | Build and reverify the clean signed kit, then retain online and artifact-offline Azure convergence receipts before raising validation state. |
+| 2026-09-12 | implemented | Corrected complete-kit runtime metadata to read the digest from the verified OCI manifest descriptor after the first clean build reached that API boundary. | `current change`; `build-standalone-deployment-kit.sh`; clean local OCI and Console build | Rebuild and reverify the complete signed kit before deployment. |
 
 ### Remaining work
 
-- [ ] Implement `provision inspect` and `provision init` in the dedicated CLI package and pass no-mutation, mode-`0600`/`0700`, overwrite, symlink, and stable-JSON tests.
-- [ ] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
+- [x] Implement `provision inspect` and `provision init` in the dedicated CLI package and pass no-mutation, mode-`0600`/`0700`, overwrite, symlink, and stable-JSON tests.
+- [x] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
 - [ ] Implement temporary public-access creation and cleanup so cleanup failure leaves an incomplete audited operation, then pass CIDR, duration, authentication, rollback, and idempotency tests.
-- [ ] Complete the TUF root ceremony and package bootstrap, then retain a governed inspect-to-plan-to-apply-to-cleanup-to-verification receipt.
+- [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
+- [ ] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths.
+- [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
 
 ## Design at a glance
 
@@ -53,8 +58,56 @@ operator installed the wheel.
 |------|------------------|----------------|
 | Connectivity | `online`, `offline` | Use online sources only after bounded TLS checks pass; otherwise require a signed offline kit |
 | Execution host | `existing-host`, `managed-vm` | Reuse a suitable private-network host; create a managed VM when no suitable host is available |
-| Transport | `manual`, `github-actions` | Let a person start the exact-plan flow directly, or submit the same flow through GitHub Actions |
+| Transport | `manual`, `github-actions` | Use `manual` for the default installed-package flow. GitHub Actions is an optional repository-owned CI/CD transport, not a subscription deployment prerequisite. |
 | Ownership | `fdai-managed` | Terraform manages declared resources and role assignments after approval |
+
+### Standalone active-login deployment
+
+The installed package supports one default subscription deployment boundary after `az login`:
+
+```bash
+fdaictl provision azure --online
+fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
+# Source-checkout convenience wrapper; online is the default.
+scripts/deployment/azure/fdai-up.sh
+```
+
+Both commands derive the tenant and subscription only from the active Azure CLI user context. They
+do not require a source checkout, Git remote, GitHub account, GitHub repository, required CI check,
+repository variable, repository secret, workflow dispatch, or GitHub runner registration. Online
+mode downloads one versioned complete kit over bounded HTTPS. Offline mode reads that same kit
+format from a local path and blocks every public artifact fallback. Offline means artifact-offline,
+not disconnected from the selected Azure control plane or Bastion endpoint.
+
+The package pins the release and bundle verification roots independently from the kit. A complete
+kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,
+Console content, migration support, and their software bills of materials. Signature, exact-file,
+platform, source-revision, and runtime-content verification completes before Azure mutation.
+The current managed-host image and complete-kit builder support Linux x86_64. Other host
+architectures fail before kit acquisition rather than crossing an untested execution boundary.
+
+For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
+The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image
+that contains no GitHub runner software. It verifies the kit again, creates the private application
+backend and registry path through a separate exact plan, imports and reads back the verified OCI
+archives, installs the deployment-bound license, runs migrations before application activation,
+and then runs the application plan, apply, health checks, and second zero-change plan.
+Private data-plane work never falls back to the operator workstation.
+
+Every mutating checkpoint retains exact-plan approval, an immutable pre-effect claim, a bounded
+stop and cleanup path, target locking, stable idempotency, and independent effect readback. The
+default standalone `dev` path accepts one current local human approval per exact plan. Staging and
+production continue to require the configured independent quorum and approved execution host.
+If an apply outcome is ambiguous, the next invocation runs a zero-change plan and authoritative
+readback only. It never repeats the apply from the retained claim. A changed Foundation run,
+network/state handoff, Entra binding, provider configuration, or signed kit requires a distinct
+prepared context.
+
+The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
+documented user configuration path. When the key exists, it issues a deployment- and image-bound
+token without copying the key. Otherwise it requires a pre-issued mode-`0600` Trial token file from
+the terminal. The token crosses Bastion through standard input and is written to Key Vault by the
+managed identity; it never appears in arguments, Terraform state, portable status, or logs.
 
 ## Read-only inspection
 
@@ -154,8 +207,9 @@ operation incomplete and writes an audit record.
 
 ## Online and offline delivery
 
-Online delivery uses the public `fdai` package from PyPI and a version-matched signed deployment
-bundle. The runner may use public sources only after the allowlisted TLS checks pass.
+Online delivery uses the public `fdai-deployment-cli` package and a version-matched complete signed
+deployment kit. The managed host consumes only the kit's authenticated binaries, providers,
+runtime images, and migration wheels.
 
 The target release workflow builds the wheel and source distribution once in a read-only job, checks that
 the Python and bundle versions match, and publishes that exact artifact through PyPI Trusted

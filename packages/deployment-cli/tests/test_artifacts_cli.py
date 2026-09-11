@@ -39,6 +39,7 @@ from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.contracts import ProvisionProfile
 from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
+from fdai_deployment_cli import license_issue
 from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
@@ -597,6 +598,57 @@ def test_license_inspection_verifies_signature_and_time() -> None:
             public_key_pem=public,
             now=now + timedelta(minutes=1),
         )
+
+
+def test_standalone_license_issuer_binds_image_and_deployment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private, public = _keys()
+    key = tmp_path / "license-signing-key.pem"
+    key.write_bytes(
+        private.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    key.chmod(0o600)
+    monkeypatch.setattr(license_issue, "license_public_key_pem", lambda: public)
+
+    token = license_issue.issue_deployment_license(
+        private_key=key,
+        image_digest="a" * 64,
+        deployment_binding="b" * 64,
+        license_id="lic-standalone-test",
+    )
+
+    result = inspect_license(
+        token,
+        public_key_pem=public,
+        expected_image_digest="a" * 64,
+        expected_tenant_binding="b" * 64,
+    )
+    assert result.active
+    assert "operations.typed-mutation" in result.capability_ids
+
+
+def test_standalone_license_key_discovery_rejects_public_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private, public = _keys()
+    key = tmp_path / "license-signing-key.pem"
+    key.write_bytes(
+        private.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    key.chmod(0o644)
+    monkeypatch.setattr(license_issue, "license_public_key_pem", lambda: public)
+
+    with pytest.raises(PermissionError, match="mode-0600"):
+        license_issue.discover_license_signing_key(key)
 
 
 def test_license_inspection_rejects_a_signed_window_longer_than_30_days() -> None:

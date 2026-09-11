@@ -12,7 +12,8 @@ def test_platform_deployer_roles_use_the_configured_stable_principal() -> None:
     main = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
 
     assert 'variable "deploy_runner_principal_id"' in variables
-    assert main.count("var.deploy_runner_principal_id") == 11
+    assert main.count("var.deploy_runner_principal_id") == 12
+    assert 'resource "azurerm_role_assignment" "deploy_runner_acr_push"' in main
     assert not any(
         "data.azurerm_client_config.current.object_id" in line
         and ("deployer_principal_id" in line or "deployer =" in line)
