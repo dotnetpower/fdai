@@ -603,6 +603,55 @@ def test_protected_verifier_cannot_be_non_blocking() -> None:
     ]
 
 
+def test_privileged_execution_cannot_override_verifier_failure() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    guarded_steps = [
+        {
+            "name": "Checkout protected workflow verifier",
+            "uses": f"actions/checkout@{checkout_ref}",
+            "with": {
+                "ref": "main",
+                "fetch-depth": 1,
+                "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                "path": ".fdai-protected-workflow-verifier",
+            },
+        },
+        {
+            "name": "Verify protected workflow source",
+            "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+            "with": {
+                "target-commit-sha": "${{ github.sha }}",
+                "workflow-path": ".github/workflows/example.yml",
+                "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                "github-token": "${{ github.token }}",
+            },
+        },
+        {
+            "if": "always()",
+            "run": "terraform apply saved.plan",
+        },
+    ]
+    document = {
+        "jobs": {
+            "guard": {"runs-on": "self-hosted", "steps": guarded_steps},
+            "dependent": {
+                "needs": "guard",
+                "if": "always()",
+                "runs-on": "self-hosted",
+                "steps": [{"run": "bash deploy.sh"}],
+            },
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
+        ".github/workflows/example.yml privileged job dependent can override guarded "
+        "dependency failure",
+    ]
+
+
 def test_protected_verifier_rejects_literal_target_commits() -> None:
     module = _load_contract_module()
     checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
