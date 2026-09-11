@@ -169,17 +169,6 @@ while IFS= read -r file; do
 
     [[ "$file" == *.py ]] || continue
 
-    if [[ "$file" == services/*/src/* ]]; then
-        service_root="${file%%/src/*}"
-        add_test "$service_root/tests"
-        continue
-    fi
-
-    if [[ "$file" == packages/*/src/* ]]; then
-        add_all_tests
-        continue
-    fi
-
     # Developer-facing gateway packages live at the repository root instead
     # of under src/fdai, but retain the same mirrored delivery test layout.
     if [[ "$file" == delivery/* ]]; then
@@ -202,31 +191,47 @@ while IFS= read -r file; do
     #   services/core-control-plane/src/fdai/rule_catalog/*.py          -> services/core-control-plane/tests/rule_catalog/
     #   services/core-control-plane/src/fdai/composition/*.py           -> services/core-control-plane/tests/composition/
     if [[ "$file" == services/core-control-plane/src/fdai/* ]]; then
+        core_test_root="services/core-control-plane/tests"
         rel="${file#services/core-control-plane/src/fdai/}"           # e.g. core/risk_gate/foo.py
         first="${rel%%/*}"                # core
         rest="${rel#*/}"                  # risk_gate/foo.py
         if [[ "$rest" == "$rel" ]]; then
             # Flat file directly under services/core-control-plane/src/fdai/
-            candidate="tests"
+            candidate="$core_test_root"
         else
             case "$first" in
                 core|delivery|shared)
                     sub="${rest%%/*}"     # risk_gate
                     if [[ "$sub" == "$rest" ]]; then
-                        candidate="tests/${first}"
+                        candidate="$core_test_root/${first}"
                     else
-                        candidate="tests/${first}/${sub}"
+                        candidate="$core_test_root/${first}/${sub}"
                     fi
                     ;;
                 agents|rule_catalog|composition)
-                    candidate="tests/${first}"
+                    candidate="$core_test_root/${first}"
                     ;;
                 *)
-                    candidate="tests/${first}"
+                    candidate="$core_test_root"
                     ;;
             esac
         fi
-        add_test "$candidate"
+        if [[ -e "$candidate" ]]; then
+            add_test "$candidate"
+        else
+            add_test "$core_test_root"
+        fi
+        continue
+    fi
+
+    if [[ "$file" == services/*/src/* ]]; then
+        service_root="${file%%/src/*}"
+        add_test "$service_root/tests"
+        continue
+    fi
+
+    if [[ "$file" == packages/*/src/* ]]; then
+        add_all_tests
         continue
     fi
 
@@ -236,14 +241,8 @@ while IFS= read -r file; do
     add_all_tests
 done <<< "$changed"
 
-if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
+if [[ ${#python_sources[@]} -gt 0 && $full_suite_selected -eq 0 && -z "${seen[tests]:-}" ]]; then
     impact_resolver="${FDAI_TEST_IMPACT_RESOLVER:-$selector_dir/resolve_test_impact.py}"
-    ownership_resolver="${FDAI_TEST_OWNERSHIP_RESOLVER:-$selector_dir/resolve_test_ownership.py}"
-    ownership_threshold="${FDAI_TEST_IMPACT_SERVICE_THRESHOLD:-250}"
-    if [[ ! "$ownership_threshold" =~ ^[1-9][0-9]*$ ]]; then
-        echo "tests-for-diff.sh: FDAI_TEST_IMPACT_SERVICE_THRESHOLD must be a positive integer" >&2
-        exit 2
-    fi
     set +e
     impacted_output=$(
         python3 "$impact_resolver" --root "$repo_root" "${python_sources[@]}"
@@ -254,28 +253,9 @@ if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
         echo "tests-for-diff.sh: impact resolver failed with status $impact_status" >&2
         exit "$impact_status"
     fi
-    mapfile -t impacted_tests < <(printf '%s\n' "$impacted_output" | sed '/^$/d')
-    owned_output=""
-    if [[ ${#impacted_tests[@]} -ge $ownership_threshold ]]; then
-        set +e
-        owned_output=$(
-            python3 "$ownership_resolver" --root "$repo_root" "${python_sources[@]}"
-        )
-        ownership_status=$?
-        set -e
-        if [[ $ownership_status -ne 0 ]]; then
-            echo "tests-for-diff.sh: ownership resolver failed; using import impact" >&2
-            owned_output=""
-        fi
-    fi
-    selected_impact="$impacted_output"
-    if [[ -n "$owned_output" ]]; then
-        selected_impact=$(printf '%s\n%s\n' "$owned_output" "$impacted_output")
-        echo "tests-for-diff.sh: broad import impact compressed with service-owned suites" >&2
-    fi
     while IFS= read -r impacted_test; do
         add_test "$impacted_test"
-    done <<< "$selected_impact"
+    done <<< "$impacted_output"
 fi
 
 for test_nodeid in "${include_tests[@]}"; do
@@ -292,23 +272,31 @@ mapfile -t tests < <(printf '%s\n' "${tests[@]}" | sort -u)
 # Avoid duplicate pytest collection when both a directory and one of its
 # children were selected by different changed files.
 selected=()
+declare -A selected_dirs=()
+declare -A selected_files=()
 for path in "${tests[@]}"; do
     covered=0
-    for parent in "${selected[@]}"; do
-        path_file="${path%%::*}"
-        parent_file="${parent%%::*}"
-        if [[ "$path" != "$path_file" ]] && \
-            [[ "$path_file" == "$parent_file" || "$path_file" == "$parent_file"/* ]]; then
-            covered=1
-            break
-        fi
-        if [[ "$path" == "$parent"/* ]]; then
+    path_file="${path%%::*}"
+    if [[ "$path" != "$path_file" && -n "${selected_files[$path_file]:-}" ]]; then
+        covered=1
+    fi
+    ancestor="$path_file"
+    while [[ $covered -eq 0 && "$ancestor" == */* ]]; do
+        ancestor="${ancestor%/*}"
+        if [[ -n "${selected_dirs[$ancestor]:-}" ]]; then
             covered=1
             break
         fi
     done
     if [[ $covered -eq 0 ]]; then
         selected+=("$path")
+        if [[ "$path" == "$path_file" ]]; then
+            if [[ -d "$path_file" ]]; then
+                selected_dirs["$path_file"]=1
+            else
+                selected_files["$path_file"]=1
+            fi
+        fi
     fi
 done
 tests=("${selected[@]}")

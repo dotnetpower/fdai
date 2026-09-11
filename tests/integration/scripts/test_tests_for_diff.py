@@ -135,7 +135,7 @@ def test_selects_service_owned_and_integration_consumers(git_repo: Path) -> None
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.splitlines() == [
-        "services/core-control-plane/tests",
+        "services/core-control-plane/tests/core/risk_gate",
         "tests/integration/test_risk_consumer.py",
     ]
 
@@ -199,7 +199,10 @@ def test_selects_tests_for_untracked_python_source(git_repo: Path) -> None:
     result = _run(git_repo, "bash", str(_SELECTOR))
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["services/core-control-plane/tests"]
+    assert result.stdout.splitlines() == [
+        "services/core-control-plane/tests/core/risk_gate",
+        "services/core-control-plane/tests/verticals/test_risk_consumer.py",
+    ]
 
 
 def test_shared_contract_change_falls_back_to_full_suite(git_repo: Path) -> None:
@@ -309,7 +312,10 @@ def test_cross_subsystem_rename_selects_old_and_new_tests(git_repo: Path) -> Non
     result = _run(git_repo, "bash", str(_SELECTOR))
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["services/core-control-plane/tests"]
+    assert result.stdout.splitlines() == [
+        "services/core-control-plane/tests/core/risk_gate",
+        "services/core-control-plane/tests/delivery/dev_operations_gateway",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -446,6 +452,49 @@ def test_parent_test_directory_suppresses_duplicate_child_path(git_repo: Path) -
     assert result.stdout.splitlines() == [_SCRIPT_TEST_ROOT]
 
 
+def test_selected_test_file_suppresses_duplicate_nodeid(git_repo: Path) -> None:
+    test_file = _integration_test(git_repo, "scripts", "test_changed.py")
+    test_file.write_text("def test_changed(): pass\n", encoding="utf-8")
+
+    result = _run(
+        git_repo,
+        "bash",
+        str(_SELECTOR),
+        "--include-test",
+        f"{test_file.relative_to(git_repo).as_posix()}::test_changed",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [test_file.relative_to(git_repo).as_posix()]
+
+
+def test_distinct_selected_nodeids_are_preserved(git_repo: Path) -> None:
+    test_file = _integration_test(git_repo, "scripts", "test_changed.py")
+    test_file.write_text(
+        "def test_one(): pass\ndef test_two(): pass\n",
+        encoding="utf-8",
+    )
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add tests").returncode == 0
+    relative = test_file.relative_to(git_repo).as_posix()
+
+    result = _run(
+        git_repo,
+        "bash",
+        str(_SELECTOR),
+        "--include-test",
+        f"{relative}::test_one",
+        "--include-test",
+        f"{relative}::test_two",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        f"{relative}::test_one",
+        f"{relative}::test_two",
+    ]
+
+
 def test_impact_resolver_failure_aborts_selection(git_repo: Path) -> None:
     source = _core_source(git_repo, "core", "risk_gate", "new_rule.py")
     source.write_text("VALUE = 1\n", encoding="utf-8")
@@ -462,7 +511,24 @@ def test_impact_resolver_failure_aborts_selection(git_repo: Path) -> None:
     assert "impact resolver failed" in result.stderr
 
 
-def test_broad_import_impact_uses_service_owned_suite(git_repo: Path, tmp_path: Path) -> None:
+def test_full_suite_selection_skips_redundant_impact_resolution(git_repo: Path) -> None:
+    (git_repo / "pyproject.toml").write_text("[tool.pytest.ini_options]\n", encoding="utf-8")
+    source = _core_source(git_repo, "core", "risk_gate", "new_rule.py")
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    failing_resolver = git_repo.parent / f"{git_repo.name}-failing-resolver.py"
+    failing_resolver.write_text("raise SystemExit(7)\n", encoding="utf-8")
+    env = {
+        **os.environ,
+        "FDAI_TEST_IMPACT_RESOLVER": str(failing_resolver),
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), env=env)
+
+    assert result.returncode == 0, result.stderr
+    _assert_full_suite(result)
+
+
+def test_broad_import_impact_preserves_exact_consumers(git_repo: Path, tmp_path: Path) -> None:
     owned_test = _core_test(git_repo, "core", "risk_gate", "test_one.py")
     owned_test.parent.mkdir(parents=True, exist_ok=True)
     owned_test.write_text("def test_one(): pass\n", encoding="utf-8")
@@ -473,26 +539,22 @@ def test_broad_import_impact_uses_service_owned_suite(git_repo: Path, tmp_path: 
         "print('services/core-control-plane/tests/core/risk_gate/test_one.py')\nprint('services/core-control-plane/tests/verticals/test_two.py')\n",
         encoding="utf-8",
     )
-    ownership_resolver = tmp_path / "ownership.py"
-    ownership_resolver.write_text(
-        "print('services/core-control-plane/tests/core/risk_gate')\n", encoding="utf-8"
-    )
-    assert _run(git_repo, "git", "add", "impact.py", "ownership.py").returncode == 0
+    assert _run(git_repo, "git", "add", "impact.py").returncode == 0
     assert _run(git_repo, "git", "commit", "--quiet", "-m", "add resolvers").returncode == 0
     source = _core_source(git_repo, "core", "risk_gate", "new_rule.py")
     source.write_text("VALUE = 1\n", encoding="utf-8")
     env = {
         **os.environ,
         "FDAI_TEST_IMPACT_RESOLVER": str(impact_resolver),
-        "FDAI_TEST_OWNERSHIP_RESOLVER": str(ownership_resolver),
-        "FDAI_TEST_IMPACT_SERVICE_THRESHOLD": "2",
     }
 
     result = _run(git_repo, "bash", str(_SELECTOR), env=env)
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["services/core-control-plane/tests"]
-    assert "compressed with service-owned suites" in result.stderr
+    assert result.stdout.splitlines() == [
+        "services/core-control-plane/tests/core/risk_gate",
+        "services/core-control-plane/tests/verticals/test_two.py",
+    ]
 
 
 def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:

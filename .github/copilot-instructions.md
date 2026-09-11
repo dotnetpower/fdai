@@ -58,11 +58,16 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    hand-edit generated artifacts, and keep the user's requested outcome ahead of incidental tooling.
 3. Derive plans from the revised design. Parallelize only independent work with bounded outputs and
    an explicit merge or verification point; keep shared files, state, and authority decisions serial.
-4. Run the narrowest executable check that can falsify the change. Worker sessions MUST NOT run
-   repository-wide checks or `verify.sh --fast` / `--all` unless explicitly requested. A session
-   MUST NOT delegate validation of a dirty worktree. Delegated validation requires a clean committed snapshot in an isolated worktree.
-   CI owns integration validation for pushed SHAs, and
-   `make validation-all` is reserved for explicit merge or release boundaries.
+4. Run the narrowest executable check that can falsify the change. Use local focused tests instead
+   of a push or pull request as the edit-loop test runner. For a completed isolated batch, run
+   `make test-changed`; for an exact committed snapshot, run
+   `make test-changed DIFF=<commit>^..<commit>` and
+   `bash scripts/verify.sh --fast --diff <commit>^..<commit>` before requesting or waiting for
+   remote CI. Worker sessions MUST NOT run repository-wide checks, bare `verify.sh --fast`, or
+   `verify.sh --all` unless explicitly requested. A session MUST NOT delegate validation of a
+   dirty worktree. Delegated validation requires a clean committed snapshot in an isolated
+   worktree. CI owns integration validation for pushed SHAs, and `make validation-all` is reserved
+   for explicit merge or release boundaries.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
    workflow or external operation. After authorization, every agent-authored commit MUST originate
    in the local checkout. After focused validation and diff review, commit only task-owned
@@ -76,8 +81,10 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    MUST NOT substitute for the local commit. Push only when requested and only after the local
    commit exists, then verify the remote ref resolves to the expected local commit.
 6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
-   post-validation phase. Deployment and release target a pushed SHA with required CI and protected
-   preflight; local validation receipts never grant authority.
+   post-validation phase. Local checks are preflight, not complete GitHub Actions parity; CI-only
+   jobs and the exact pushed-SHA environment remain authoritative. Deployment and release target a
+   pushed SHA with required CI and protected preflight; local validation receipts never grant
+   authority.
 7. Prevent sensitive-input prompts. Secrets MUST NOT cross chat, tools, command lines, generated
    files, logs, or task output. Use existing identity or provider-hosted authorization; if a running
    terminal requests a secret, the user enters it directly. Never weaken a security control.
