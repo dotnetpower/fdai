@@ -58,13 +58,14 @@ class WorkflowCompensationCoordinator:
         context: Mapping[str, str],
     ) -> CompensationResult | None:
         events = await self._process_store.events(snapshot.process_id)
-        applied = tuple(
-            event.step_id
+        applied_events = tuple(
+            event
             for event in events
             if event.kind is ProcessEventKind.STEP_COMPLETED
             and event.step_id is not None
             and event.payload.get("reason") == "action_effect_verified"
         )
+        applied = tuple(event.step_id for event in applied_events if event.step_id is not None)
         if not applied:
             return None
         dispatched_actions = {
@@ -80,6 +81,23 @@ class WorkflowCompensationCoordinator:
                 payload={"uncompensated_step_ids": list(missing)},
             )
             return CompensationResult(failed, recovery_incomplete=True)
+        missing_bundles = tuple(
+            event.step_id
+            for event in applied_events
+            if not isinstance(event.payload.get("safeguard_bundle_digest"), str)
+        )
+        if missing_bundles:
+            failed = await self._fail(
+                snapshot,
+                reason="applied_step_missing_safeguard_bundle",
+                payload={"unbound_step_ids": list(missing_bundles)},
+            )
+            return CompensationResult(failed, recovery_incomplete=True)
+        original_bundle_by_step = {
+            event.step_id: str(event.payload["safeguard_bundle_digest"])
+            for event in applied_events
+            if event.step_id is not None
+        }
 
         current = snapshot
         for step_id in reversed(applied):
@@ -98,6 +116,7 @@ class WorkflowCompensationCoordinator:
                 step_id=step_id,
                 compensation_action_type=compensations[step_id],
                 compensation_params=compensation_params,
+                original_safeguard_bundle_digest=original_bundle_by_step[step_id],
             )
             dispatched = await self._dispatch_intent(
                 current,
@@ -158,10 +177,18 @@ class WorkflowCompensationCoordinator:
                 current = dispatched.snapshot
 
         receipt_refs: list[str] = []
+        safeguard_bundle_digests: list[str] = []
         for intent in intents:
             step_id = str(intent.payload["compensates_step_id"])
             status = context.get(f"compensation.{step_id}.status")
             receipt_ref = context.get(f"compensation.{step_id}.receipt_ref", "").strip()
+            safeguard_bundle_digest: str | None = (
+                context.get(
+                    f"compensation.{step_id}.safeguard_bundle_digest",
+                    "",
+                ).strip()
+                or None
+            )
             dispatch_event = dispatched_by_step.get(step_id)
             proposal_ref = (
                 str(dispatch_event.payload.get("proposal_ref") or "").strip()
@@ -187,6 +214,7 @@ class WorkflowCompensationCoordinator:
                         return CompensationResult(current)
                     outcome = resolved.outcome
                     receipt_ref = resolved.receipt_ref
+                    safeguard_bundle_digest = resolved.safeguard_bundle_digest
                 else:
                     if status is None:
                         return CompensationResult(current)
@@ -197,7 +225,9 @@ class WorkflowCompensationCoordinator:
                             payload={"failed_step_id": step_id},
                         )
                         return CompensationResult(failed, recovery_incomplete=True)
-                    if not receipt_ref:
+                    if not receipt_ref or (
+                        status == "verified" and safeguard_bundle_digest is None
+                    ):
                         failed = await self._fail(
                             current,
                             reason="compensation_unscorable",
@@ -227,7 +257,15 @@ class WorkflowCompensationCoordinator:
                     payload={"failed_step_id": step_id},
                 )
                 return CompensationResult(failed, recovery_incomplete=True)
+            if safeguard_bundle_digest is None:
+                failed = await self._fail(
+                    current,
+                    reason="compensation_unscorable",
+                    payload={"failed_step_id": step_id},
+                )
+                return CompensationResult(failed, recovery_incomplete=True)
             receipt_refs.append(receipt_ref)
+            safeguard_bundle_digests.append(safeguard_bundle_digest)
 
         if await self._automation_holds.is_held(target_ref=current.target_resource_id):
             recovery_receipt_ref = _recovery_receipt_ref(
@@ -262,14 +300,20 @@ class WorkflowCompensationCoordinator:
                 idempotency_key=f"{current.process_id}:compensation:completed",
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=current.correlation_id,
-                payload={"receipt_refs": receipt_refs},
+                payload={
+                    "receipt_refs": receipt_refs,
+                    "safeguard_bundle_digests": safeguard_bundle_digests,
+                },
             ),
         )
         await self._audit(
             current,
             action_kind="workflow.compensation.verified",
             suffix="terminal",
-            payload={"receipt_refs": receipt_refs},
+            payload={
+                "receipt_refs": receipt_refs,
+                "safeguard_bundle_digests": safeguard_bundle_digests,
+            },
         )
         return CompensationResult(completed)
 
@@ -280,6 +324,7 @@ class WorkflowCompensationCoordinator:
         step_id: str,
         compensation_action_type: str,
         compensation_params: Mapping[str, object],
+        original_safeguard_bundle_digest: str,
     ) -> ProcessSnapshot:
         compensation_step_id = f"compensate_{step_id}"
         await self._audit(
@@ -291,6 +336,7 @@ class WorkflowCompensationCoordinator:
                 "compensates_step_id": step_id,
                 "action_type": compensation_action_type,
                 "params": dict(compensation_params),
+                "original_safeguard_bundle_digest": original_safeguard_bundle_digest,
             },
         )
         return await self._process_store.transition(
@@ -310,6 +356,7 @@ class WorkflowCompensationCoordinator:
                     "compensates_step_id": step_id,
                     "action_type": compensation_action_type,
                     "params": dict(compensation_params),
+                    "original_safeguard_bundle_digest": (original_safeguard_bundle_digest),
                 },
             ),
         )

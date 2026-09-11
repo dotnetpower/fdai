@@ -557,6 +557,20 @@ class WorkflowOrchestrator:
             if status is ProcessStatus.SUCCEEDED
             else ProcessEventKind.PROCESS_FAILED
         )
+        terminal_events = await self._process_store.events(process_id)
+        safeguard_bundle_digests = tuple(
+            sorted(
+                {
+                    digest
+                    for event in terminal_events
+                    if event.attempt == attempt
+                    and isinstance(
+                        digest := event.payload.get("safeguard_bundle_digest"),
+                        str,
+                    )
+                }
+            )
+        )
         await self._process_store.transition(
             process_id=process_id,
             expected_revision=current.revision,
@@ -570,7 +584,10 @@ class WorkflowOrchestrator:
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=resolved_correlation_id,
                 attempt=attempt,
-                payload={"terminal_outcome": result.terminal_outcome.value},
+                payload={
+                    "terminal_outcome": result.terminal_outcome.value,
+                    "safeguard_bundle_digests": safeguard_bundle_digests,
+                },
             ),
         )
         return ProcessRun(

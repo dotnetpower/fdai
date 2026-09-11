@@ -429,6 +429,7 @@ def select_tfvars(
     stewardship_gitops: dict[str, Any] | None = None,
     decision_evidence_container_url: str = "",
     runtime_call_evidence: dict[str, Any] | None = None,
+    source_revision: str | None = None,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -443,11 +444,23 @@ def select_tfvars(
         raise TfvarsError(f"tfvars payload has no non-empty entry for {service}")
     if "image" in selected:
         raise TfvarsError("tfvars payload must not set image; the attested workflow input owns it")
+    if "source_revision" in selected:
+        raise TfvarsError(
+            "tfvars payload must not set source_revision; the attested workflow input owns it"
+        )
     if "runtime_call_evidence" in selected:
         raise TfvarsError(
             "tfvars payload must not set runtime_call_evidence; platform state owns it"
         )
     materialized = copy.deepcopy(selected)
+    if source_revision is not None:
+        if service != "core-control-plane":
+            if source_revision:
+                raise TfvarsError("source revision binding is valid only for core-control-plane")
+        elif re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", source_revision) is None:
+            raise TfvarsError("Core source revision must be a full lowercase Git SHA-1 or SHA-256")
+        else:
+            materialized["source_revision"] = source_revision
     if operator_channel_edge_enabled is not None:
         if service != "operator-service":
             raise TfvarsError("operator channel edge override is valid only for operator-service")
@@ -603,6 +616,7 @@ def main() -> int:
                 "",
             ),
             runtime_call_evidence=_optional_object_environment("RUNTIME_CALL_EVIDENCE_JSON"),
+            source_revision=os.environ.get("SOURCE_REVISION"),
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:

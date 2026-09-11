@@ -12,6 +12,9 @@ from typing import Any
 import httpx
 
 from fdai.core.executor.direct_api import DirectApiShadowExecutor
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
+)
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
@@ -234,6 +237,7 @@ def _build_direct_api_executor(
     graph_model_promotion_registry: Any = None,
     action_types_by_name: Mapping[str, Any] | None = None,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
+    safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
@@ -351,6 +355,7 @@ def _build_direct_api_executor(
         resource_lock=resource_lock,
         idempotency=idempotency,
         allow_enforce=allow_enforce,
+        safeguard_coordinator=safeguard_coordinator,
     )
 
 
@@ -364,6 +369,7 @@ def _build_tool_executor(
     metric_provider: Any = None,
     chaos_catalog_root: Path | None = None,
     governed_chaos_execution: Any = None,
+    safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
 ) -> ToolCallShadowExecutor | None:
     """Select the tool-call executor for this process.
 
@@ -596,6 +602,7 @@ def _build_tool_executor(
         idempotency=idempotency,
         receipt_observer=receipt_observer,
         enforce=bool(enforce_actions),
+        safeguard_coordinator=safeguard_coordinator,
     )
 
 

@@ -43,6 +43,7 @@ from fdai.core.workflow import (
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
 )
+from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.runtime.operating_intent_binding import (
     operating_intent_admission_expectation_from_env,
@@ -86,6 +87,7 @@ def build_workflow_coordinator(
     outcome_verifier: StateStoreWorkflowOutcomeLedger | None = None,
     architecture_evidence_provider: ProductionEvidenceProvider | None = None,
     decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
+    action_dispatcher: WorkflowActionDispatcher | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the default-on shadow workflow coordinator without widening authority."""
     if not workflows:
@@ -156,6 +158,7 @@ def build_workflow_coordinator(
         audit_store=audit_store,
         process_store=runtime_store,
         guard_evaluator=guard_evaluator,
+        action_dispatcher=action_dispatcher,
         approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
         approval_decision_evidence_provider=decision_evidence_provider,
         outcome_verifier=outcome_verifier,

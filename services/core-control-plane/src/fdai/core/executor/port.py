@@ -95,6 +95,11 @@ class ThorExecutionPort(Protocol):
         ...
 
     @property
+    def safeguard_lifecycle_ready(self) -> bool:
+        """Whether every real dispatch is bound to the shared lifecycle."""
+        ...
+
+    @property
     def direct_api(self) -> DirectApiExecutionPort | None:
         """Return the optional direct-API execution surface."""
         ...
@@ -112,6 +117,7 @@ class InProcessThorExecutionPort:
     pr_native: ShadowExecutor
     direct_api: DirectApiExecutionPort | None = None
     tool_call: ToolCallShadowExecutor | None = None
+    safeguard_lifecycle_ready: bool = False
 
 
 ThorSafetyDependencyReadiness = MutationDependencyReadiness

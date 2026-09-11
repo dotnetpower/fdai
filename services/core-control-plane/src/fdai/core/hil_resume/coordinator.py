@@ -61,6 +61,9 @@ from fdai.core.executor import (
 from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
 )
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
+)
 from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
     ToolCallShadowExecutor,
@@ -225,6 +228,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         thor_execution_port: ThorExecutionPort | None = None,
         mutation_dependency_readiness: MutationDependencyReadiness | None = None,
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
+        safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -264,6 +268,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         self._default_escalation_rungs = tuple(default_escalation_rungs)
         self._pre_dispatch_kinetic_safety_writer = pre_dispatch_kinetic_safety_writer
         self._evidence_conflict_reader = evidence_conflict_reader
+        self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.
@@ -722,6 +727,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "delegation_mode": delegation_mode,
                 "action_type": action.action_type,
                 "mode": action.mode.value,
+                "safeguard_bundle_digest": result.safeguard_bundle_digest,
             },
         )
         return ResolveResult(

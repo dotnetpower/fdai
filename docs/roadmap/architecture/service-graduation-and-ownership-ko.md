@@ -52,6 +52,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | Core의 정확한 안전조건 묶음에 대한 Isolated 실행기 읽기 전용 접근을 추가하고 명시적 Core 이행 의존성과 일치하는 JSONB 인덱스를 결속했습니다. 기본 효과 서비스는 기존 결속되지 않은 명령을 차단하며, 권한 전환 중에만 사용할 수 있는 제한된 업그레이드 또는 rollback 전환 플래그는 기본값이 꺼짐입니다. | `current change`; Isolated 묶음 resolver, 이행, 소유권 매니페스트, 서비스 Terraform, 런타임 구성, 집중 rollout 테스트. | 최종 revision에서 전환을 끈 상태의 통제된 서비스 간 rollout 근거를 보존합니다. |
 | 2026-09-11 | implemented | 서비스 소유 테스트 모음 매니페스트에서 Isolated 실행기 기한 helper 테스트를 unit 범위로, 안전조건 묶음 재검증 테스트를 contract 범위로 등록했습니다. | `current change`; `tests/integration/service-suites.json`; 집중 서비스 모음 소유권 테스트 29개 통과. | 모든 새 서비스 테스트를 정확히 하나의 서비스 소유 그룹에 할당합니다. |
 | 2026-09-11 | implemented | 안전조건 결속 실행기 명령 및 관측 스키마 변경 뒤 저장소 소유 Python 및 Console TypeScript 서비스 계약 변환 결과를 다시 생성했습니다. 5개 서비스 토폴로지와 권한 할당은 바뀌지 않았습니다. | `current change`; `generate_service_contracts.py`; 집중 생성 drift 테스트. | 새 명령을 운영에서 활성화하기 전에 통제된 서비스 간 근거를 보존합니다. |
 | 2026-09-11 | implemented | Isolated 실행기 기한 검사를 timezone-aware 단일 경계로 통합하고 정확한 기한 시각에는 새 프로바이더 호출 전에 만료되도록 했습니다. | `current change`; `effect_safety.py`; Isolated 실행기 효과 안전성 테스트. | 승격된 서비스 revision에서 통제된 기한 및 프로바이더 상태 조정 근거를 보존합니다. |

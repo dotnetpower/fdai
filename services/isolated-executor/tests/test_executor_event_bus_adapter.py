@@ -121,6 +121,20 @@ def test_local_executor_rejects_authority_cutover() -> None:
         executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
 
 
+def test_legacy_unbound_transition_requires_authority_cutover() -> None:
+    environment = {
+        "RUNTIME_ENV": "dev",
+        "FDAI_EXECUTION_VENUE": "local",
+        "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+        "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
+        "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION": "1",
+    }
+
+    with pytest.raises(RuntimeError, match="requires authority cutover"):
+        executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
+
+
 def test_executor_cli_composes_the_service_owned_kafka_config() -> None:
     assert executor_cli.EventHubsKafkaBusConfig is EventHubsKafkaBusConfig
 

@@ -15,6 +15,9 @@ from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationTransitionReceipt,
     ReservationState,
 )
+from fdai.core.executor.safeguard_pre_bundle import (
+    SafeguardPreBundleCommitment,
+)
 from fdai.core.executor.safeguard_proofs import (
     AuditIntentProof,
     IdempotencyReservationProof,
@@ -44,6 +47,7 @@ class SafeguardBundlePersistenceContext:
     """Exact operation receipts and proof statements persisted with one bundle."""
 
     action: Action
+    pre_bundle_commitment: SafeguardPreBundleCommitment
     safeguard_receipt: SafeguardReceipt
     reservation_receipt: IdempotencyReservationTransitionReceipt
     audit_append_receipt: AuditIntentAppendReceipt
@@ -55,6 +59,11 @@ class SafeguardBundlePersistenceContext:
     def __post_init__(self) -> None:
         expected_types = (
             (self.action, Action, "action"),
+            (
+                self.pre_bundle_commitment,
+                SafeguardPreBundleCommitment,
+                "pre-bundle commitment",
+            ),
             (self.safeguard_receipt, SafeguardReceipt, "safeguard receipt"),
             (
                 self.reservation_receipt,
@@ -107,6 +116,13 @@ class SafeguardBundlePersistenceContext:
             action=self.action,
             execution_path=reservation.identity.execution_path,
         )
+        self.pre_bundle_commitment.require_matches(
+            action=self.action,
+            execution_path=reservation.identity.execution_path,
+            source_revision=reservation.identity.source_revision,
+        )
+        if self.pre_bundle_commitment.committed_at > reservation.reserved_at:
+            raise ValueError("safeguard pre-bundle commitment followed reservation")
         expected_dry_run = dry_run_receipt(
             execution_fingerprint=expected_fingerprint,
             plan_digest=self.safeguard_receipt.plan_digest,
@@ -211,6 +227,7 @@ class SafeguardBundlePersistenceContext:
             raise ValueError("safeguard bundle operation proofs mismatched context")
         latest_prerequisite = max(
             preparing_fence.state_changed_at,
+            self.pre_bundle_commitment.committed_at,
             self.reservation_receipt.recorded_at,
             self.audit_append_receipt.read_back_at,
             self.lock_assessment.evaluated_at,

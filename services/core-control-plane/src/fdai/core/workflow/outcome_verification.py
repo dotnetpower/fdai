@@ -51,6 +51,7 @@ class StateStoreWorkflowOutcomeLedger:
         action: Action,
         execution_outcome: str,
         execution_receipt_ref: str | None,
+        safeguard_bundle_digest: str | None,
         response_outcome: ResponseOutcome,
     ) -> str | None:
         lineage = action.workflow_action
@@ -70,6 +71,12 @@ class StateStoreWorkflowOutcomeLedger:
         )
         if outcome is None:
             return None
+        if outcome == "succeeded" and safeguard_bundle_digest is None:
+            raise ValueError("successful workflow outcome requires a finalized safeguard bundle")
+        if safeguard_bundle_digest is not None and (
+            not safeguard_bundle_digest.startswith("sha256:") or len(safeguard_bundle_digest) != 71
+        ):
+            raise ValueError("workflow outcome safeguard bundle digest is malformed")
         evidence_status = "effect_verified" if outcome == "succeeded" else "terminal_failure"
         receipt_payload: dict[str, object] = {
             "process_id": lineage.process_id,
@@ -80,6 +87,7 @@ class StateStoreWorkflowOutcomeLedger:
             "evidence_status": evidence_status,
             "execution_outcome": execution_outcome,
             "execution_receipt_ref": execution_receipt_ref,
+            "safeguard_bundle_digest": safeguard_bundle_digest,
             "response_outcome_id": str(response_outcome.outcome_id),
         }
         receipt_ref = f"workflow-outcome:{_digest(receipt_payload)}"
@@ -180,7 +188,16 @@ class StateStoreWorkflowOutcomeLedger:
         )
         if not accepted:
             raise ValueError("durable workflow outcome receipt does not match Process lineage")
-        return WorkflowVerifiedOutcome(outcome=outcome, receipt_ref=receipt_ref)
+        bundle_digest = record.get("safeguard_bundle_digest")
+        if outcome == "succeeded" and not isinstance(bundle_digest, str):
+            raise ValueError("successful workflow outcome lacks a safeguard bundle digest")
+        if bundle_digest is not None and not isinstance(bundle_digest, str):
+            raise ValueError("durable workflow outcome safeguard bundle digest is malformed")
+        return WorkflowVerifiedOutcome(
+            outcome=outcome,
+            receipt_ref=receipt_ref,
+            safeguard_bundle_digest=bundle_digest,
+        )
 
 
 def workflow_outcome_evidence_digest(record: Mapping[str, object]) -> str:
@@ -197,6 +214,7 @@ def workflow_outcome_evidence_digest(record: Mapping[str, object]) -> str:
             "proposal_ref": _text(record, "proposal_ref"),
             "receipt_ref": _text(record, "receipt_ref"),
             "response_outcome_id": _text(record, "response_outcome_id"),
+            "safeguard_bundle_digest": record.get("safeguard_bundle_digest"),
             "step_id": _text(record, "step_id"),
         }
     )

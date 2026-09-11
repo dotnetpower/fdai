@@ -33,6 +33,16 @@ variable "image" {
   type        = string
 }
 
+variable "source_revision" {
+  description = "Exact source commit represented by the promoted Core image."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}([0-9a-f]{24})?$", var.source_revision))
+    error_message = "source_revision must be a full lowercase Git SHA-1 or SHA-256."
+  }
+}
+
 variable "bootstrap" {
   description = "Required provider and PostgreSQL coordinates consumed by the Core bootstrap."
   type = object({

@@ -60,6 +60,7 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 _TRIGGER_TS = datetime(2026, 7, 9, 12, 0, 0, tzinfo=UTC)
+_BUNDLE_DIGEST = "sha256:" + "b" * 64
 
 
 def _approval_now() -> datetime:
@@ -247,6 +248,7 @@ class _ResolvingOutcomeVerifier(_AcceptingOutcomeVerifier):
         return WorkflowVerifiedOutcome(
             outcome="succeeded",
             receipt_ref=f"receipt:{kwargs['step_id']}",
+            safeguard_bundle_digest="sha256:" + "b" * 64,
         )
 
 
@@ -288,11 +290,12 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
         group_mapping=_group_mapping(),
         matrix=_matrix(),
     )
+    process_store = InMemoryProcessRuntimeStore()
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=_ACTION_TYPES,
         audit_store=audit,
-        process_store=InMemoryProcessRuntimeStore(),
+        process_store=process_store,
         action_dispatcher=dispatcher,
         outcome_verifier=verifier,
     )
@@ -312,6 +315,7 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
             "requester.principal": "operator-1",
             "action.auto_step.status": "verified",
             "action.auto_step.receipt_ref": "receipt:auto",
+            "action.auto_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -323,8 +327,10 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
             "requester.principal": "operator-1",
             "action.auto_step.status": "verified",
             "action.auto_step.receipt_ref": "receipt:auto",
+            "action.auto_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
             "action.gated_step.status": "verified",
             "action.gated_step.receipt_ref": "receipt:gated",
+            "action.gated_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -336,6 +342,8 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
     assert len(dispatcher.calls) == 2
     assert run.step_results[-1].reason == "action_effect_verified"
     assert [call["outcome"] for call in verifier.calls] == ["succeeded", "succeeded"]
+    terminal = (await process_store.events(run.process_id))[-1]
+    assert terminal.payload["safeguard_bundle_digests"] == (_BUNDLE_DIGEST,)
     workflow_entries = [
         row["entry"]
         for row in audit.audit_entries
@@ -463,6 +471,7 @@ async def test_effect_free_failure_retries_with_distinct_attempt_identity() -> N
         if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.attempt == 2
     )
     assert retry_event.attempt == 2
+    assert retry_event.payload["prior_safeguard_bundle_digests"] == ()
     assert dispatch_event.payload["proposal_ref"] == "proposal-1"
     assert ":attempt:2:" in dispatch_event.idempotency_key
 
@@ -744,6 +753,7 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
             "requester.principal": "operator-1",
             "action.apply_first.status": "verified",
             "action.apply_first.receipt_ref": "receipt:apply:1",
+            "action.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -765,6 +775,7 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
     ]
     assert len(compensation) == 1
     assert compensation[0].payload["compensates_step_id"] == "apply_first"
+    assert compensation[0].payload["original_safeguard_bundle_digest"] == _BUNDLE_DIGEST
     dispatched = [
         event for event in events if event.kind is ProcessEventKind.COMPENSATION_DISPATCHED
     ]
@@ -785,6 +796,7 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
             "requester.principal": "operator-1",
             "compensation.apply_first.status": "verified",
             "compensation.apply_first.receipt_ref": "receipt:rollback:1",
+            "compensation.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -794,6 +806,7 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
     final_events = await process_store.events(completed.process_id)
     assert final_events[-1].kind is ProcessEventKind.COMPENSATION_COMPLETED
     assert final_events[-1].payload["receipt_refs"] == ["receipt:rollback:1"]
+    assert final_events[-1].payload["safeguard_bundle_digests"] == [_BUNDLE_DIGEST]
     assert verifier.calls[-1]["outcome"] == "succeeded"
     assert not await holds.is_held(target_ref="res-1")
     assert any(
@@ -833,6 +846,7 @@ async def test_verified_compensation_cannot_release_another_process_hold() -> No
             "requester.principal": "operator-1",
             "action.apply_first.status": "verified",
             "action.apply_first.receipt_ref": "receipt:apply:1",
+            "action.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -851,6 +865,7 @@ async def test_verified_compensation_cannot_release_another_process_hold() -> No
             "requester.principal": "operator-1",
             "compensation.apply_first.status": "verified",
             "compensation.apply_first.receipt_ref": "receipt:rollback:1",
+            "compensation.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -895,6 +910,7 @@ async def test_compensation_failure_closes_process_as_recovery_incomplete() -> N
             "requester.principal": "operator-1",
             "action.apply_first.status": "verified",
             "action.apply_first.receipt_ref": "receipt:apply:1",
+            "action.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -906,6 +922,7 @@ async def test_compensation_failure_closes_process_as_recovery_incomplete() -> N
             "requester.principal": "operator-1",
             "compensation.apply_first.status": "failed",
             "compensation.apply_first.receipt_ref": "receipt:rollback:failed",
+            "compensation.apply_first.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )
@@ -952,6 +969,7 @@ async def test_action_outcome_context_cannot_advance_without_verifier() -> None:
             "requester.principal": "operator-1",
             "action.auto_step.status": "verified",
             "action.auto_step.receipt_ref": "forged-receipt",
+            "action.auto_step.safeguard_bundle_digest": _BUNDLE_DIGEST,
         },
         mode=Mode.ENFORCE,
     )

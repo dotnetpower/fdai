@@ -57,6 +57,8 @@ class PostgresIdempotencyReservationStoreConfig:
 class PostgresIdempotencyReservationStore:
     """Atomic reserve, exact predecessor CAS, and authoritative readback."""
 
+    production_eligible = True
+
     def __init__(
         self,
         *,

@@ -41,6 +41,9 @@ from typing import Any
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
 from fdai.core.executor.executor import ExecutorConfig
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
+)
 from fdai.core.executor.safeguards import (
     SafeguardRefusal,
     evaluate_pre_dispatch,
@@ -49,9 +52,12 @@ from fdai.core.executor.safeguards import (
     plan_digest_for_mapping,
     resource_lock_key,
 )
+from fdai.core.executor.tool_safeguard_dispatch import (
+    execute_tool_with_safeguard_lifecycle,
+)
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode
 from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.resource_lock import EvidenceResourceLock, ResourceLock
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.tool import (
     ToolCallOutcome,
@@ -126,6 +132,7 @@ class ToolCallExecutionResult:
     outcome: ToolCallExecutionOutcome
     mode: Mode = Mode.SHADOW
     receipt_ref: str | None = None
+    safeguard_bundle_digest: str | None = None
     rollback_succeeded: bool | None = None
     reason: str | None = None
     audit_context: dict[str, Any] = field(default_factory=dict)
@@ -147,6 +154,7 @@ def _tc_result_to_payload(result: ToolCallExecutionResult) -> dict[str, Any]:
         "outcome": result.outcome.value,
         "mode": result.mode.value,
         "receipt_ref": result.receipt_ref,
+        "safeguard_bundle_digest": result.safeguard_bundle_digest,
         "rollback_succeeded": result.rollback_succeeded,
         "reason": result.reason,
         "audit_context": dict(result.audit_context),
@@ -161,6 +169,11 @@ def _tc_result_from_payload(payload: Mapping[str, Any]) -> ToolCallExecutionResu
         outcome=ToolCallExecutionOutcome(str(payload["outcome"])),
         mode=Mode(str(payload.get("mode", Mode.SHADOW.value))),
         receipt_ref=None if payload.get("receipt_ref") is None else str(payload["receipt_ref"]),
+        safeguard_bundle_digest=(
+            None
+            if payload.get("safeguard_bundle_digest") is None
+            else str(payload["safeguard_bundle_digest"])
+        ),
         rollback_succeeded=rollback if isinstance(rollback, bool) else None,
         reason=None if payload.get("reason") is None else str(payload["reason"]),
         audit_context=dict(ctx) if isinstance(ctx, Mapping) else {},
@@ -180,6 +193,7 @@ class ToolCallShadowExecutor:
         idempotency: IdempotencyStore | None = None,
         receipt_observer: ToolReceiptObserver | None = None,
         enforce: bool = False,
+        safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
     ) -> None:
         self._executor = executor
         self._audit_store = audit_store
@@ -188,6 +202,7 @@ class ToolCallShadowExecutor:
         self._idempotency = idempotency
         self._receipt_observer = receipt_observer
         self._enforce = enforce
+        self._safeguard_coordinator = safeguard_coordinator
         # idempotency_key -> ToolCallExecutionResult. Same FIFO-bounded
         # policy as :class:`ShadowExecutor` so a long-running control
         # loop cannot grow unbounded memory on distinct events. The
@@ -231,6 +246,20 @@ class ToolCallShadowExecutor:
         cached = self._dedupe.get(action.idempotency_key)
         if cached is not None:
             return cached
+        if self._safeguard_coordinator is not None:
+            return await execute_tool_with_safeguard_lifecycle(
+                self,
+                action=action,
+            )
+        if (
+            isinstance(self._resource_lock, EvidenceResourceLock)
+            and self._resource_lock.production_eligible is True
+        ):
+            return await self._finish(
+                action=action,
+                outcome=ToolCallExecutionOutcome.REJECTED_INVARIANT,
+                reason="production safeguard lifecycle is unavailable",
+            )
 
         async with AsyncExitStack() as locks:
             await locks.enter_async_context(
@@ -360,7 +389,12 @@ class ToolCallShadowExecutor:
         return blast_radius_refusal(action, self._config)
 
     async def _finish_from_receipt(
-        self, *, action: Action, receipt: ToolCallReceipt, dry_run_receipt: str
+        self,
+        *,
+        action: Action,
+        receipt: ToolCallReceipt,
+        dry_run_receipt: str,
+        safeguard_bundle_digest: str | None = None,
     ) -> ToolCallExecutionResult:
         """Map an adapter :class:`ToolCallReceipt` -> executor outcome + audit."""
 
@@ -377,6 +411,7 @@ class ToolCallShadowExecutor:
             outcome=outcome,
             reason=receipt.detail,
             receipt_ref=receipt.receipt_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
             rollback_succeeded=receipt.rollback_succeeded,
             remember=receipt.outcome is not ToolCallOutcome.FAILED,
             dry_run_receipt=dry_run_receipt,
@@ -389,6 +424,7 @@ class ToolCallShadowExecutor:
         outcome: ToolCallExecutionOutcome,
         reason: str | None,
         receipt_ref: str | None = None,
+        safeguard_bundle_digest: str | None = None,
         rollback_succeeded: bool | None = None,
         remember: bool = True,
         dry_run_receipt: str | None = None,
@@ -398,6 +434,7 @@ class ToolCallShadowExecutor:
             outcome=outcome,
             mode=action.mode,
             receipt_ref=receipt_ref,
+            safeguard_bundle_digest=safeguard_bundle_digest,
             rollback_succeeded=rollback_succeeded,
             reason=reason,
             audit_context={
@@ -407,6 +444,7 @@ class ToolCallShadowExecutor:
                 "executor_identity_ref": action.executor_identity_ref,
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "dry_run_receipt": dry_run_receipt,
+                "safeguard_bundle_digest": safeguard_bundle_digest,
             },
         )
         # Cache non-degenerate outcomes so a retry does not re-hit the
@@ -447,6 +485,7 @@ class ToolCallShadowExecutor:
             "citing_rule_ids": list(action.citing_rules),
             "outcome": result.outcome.value,
             "receipt_ref": result.receipt_ref,
+            "safeguard_bundle_digest": result.safeguard_bundle_digest,
             "rollback_succeeded": result.rollback_succeeded,
             "reason": result.reason,
             "dry_run_receipt": result.audit_context.get("dry_run_receipt"),

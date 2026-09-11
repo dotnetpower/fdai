@@ -60,6 +60,7 @@ class DirectApiCommandExecutor(Protocol):
         *,
         action: Action,
         deadline_at: datetime,
+        upstream_target_lock_held: bool = False,
     ) -> DirectApiExecutionResultLike: ...
 
     async def recover(
@@ -79,6 +80,7 @@ class IsolatedExecutorEffectService:
         contract_validator: ContractValidator,
         executor_instance_id: str,
         bundle_store: SafeguardBundleStore | None = None,
+        allow_legacy_unbound_commands: bool = False,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not executor_instance_id or len(executor_instance_id) > 512:
@@ -87,6 +89,7 @@ class IsolatedExecutorEffectService:
         self._contract_validator = contract_validator
         self._executor_instance_id = executor_instance_id
         self._bundle_store = bundle_store
+        self._allow_legacy_unbound_commands = allow_legacy_unbound_commands
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def handle(self, command: AnyExecutorCommand) -> ExecutorEffectReceipt:
@@ -120,6 +123,14 @@ class IsolatedExecutorEffectService:
                     completed_at=received_at,
                     safeguard_proof_bundle_digest=bundle_digest,
                 )
+        elif not self._allow_legacy_unbound_commands:
+            return self._effect_receipt(
+                command,
+                status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                reason="production effect dispatch requires a safeguard-bound command",
+                received_at=received_at,
+                completed_at=received_at,
+            )
 
         action = Action.model_validate(command.action_payload)
         if deadline_expired(received_at, command.deadline_at):
@@ -154,6 +165,10 @@ class IsolatedExecutorEffectService:
         result = await self._direct_api_executor.execute(
             action=action,
             deadline_at=command.deadline_at,
+            upstream_target_lock_held=isinstance(
+                command,
+                SafeguardBoundExecutorCommand,
+            ),
         )
         return self._receipt_from_result(
             command,

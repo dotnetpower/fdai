@@ -220,12 +220,10 @@ same Process after a crash. A proposal reference proves dispatch only. `Workflow
 must independently validate each action and compensation receipt before a forward step completes or the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
 closes as `recovery_incomplete`; it never becomes success.
 
+Before executor selection or target-lock acquisition, each Workflow action attempt records one immutable pre-bundle commitment over the full Action digest, selected execution path, execution fingerprint, and source revision. The selected executor must match that commitment and carries the finalized bundle digest through action, retry, compensation, and terminal Process evidence.
 The recovery-admission boundary separately binds the complete `WorkflowApprovalSnapshot` quorum, exact hold revision, approval step and attempt, target digest, compensation receipt digests, distinct requester, approver, and executor identities, and source revision to one current `DecisionEvidenceAdmission`. It returns typed eligibility only and cannot release a hold or grant authority. The hold ledger exposes an atomic release operation that guards the current durable approval policy and admission window, consumes that admission, increments the fencing generation, and stores a content-addressed no-authority release receipt with terminal audit. The production compensation coordinator still uses the legacy verified-recovery release and must adopt the guarded operation under issue #630. Issue #640 then owns the final dispatch recheck inside each execution path's existing logical-target lock.
 
-The production integration is split into #652 for a distinct approval-before-dispatch recovery
-attempt, #656 for authoritative post-effect completion claims, and #658 for claim-fenced release
-and crash-safe Process and Saga terminalization. A failed immutable compensation proposal is never
-relabelled as a later successful recovery.
+The production integration is split into #652 for a distinct approval-before-dispatch recovery attempt, #656 for authoritative post-effect completion claims, and #658 for claim-fenced release and crash-safe Process and Saga terminalization. A failed immutable compensation proposal is never relabelled as a later successful recovery.
 
 `recovery_attempt.py` now provides the attempt identity, exclusive pre-dispatch claim, separate
 approval and safeguard evidence binding, and stable attempt-derived idempotency key. Approval and
@@ -236,7 +234,7 @@ supersession/revocation. `recovery_terminalization.py` provides the completion d
 receipt lookup, completion outbox with independent delivery, and a terminal-transition guard that
 binds the current Process revision, effect claim, release receipt, and exact completion digest,
 while each reconstructed outbox entry verifies its immutable content address.
-and replay idempotency. `hold_dispatch_fence.py` fences forward dispatch against
+`hold_dispatch_fence.py` fences forward dispatch against
 active, malformed, or unreadable hold state inside the logical-target lock, with an isolated-Executor
 equivalent that performs the same check without importing Core implementation.
 
