@@ -16,6 +16,11 @@ PRIVILEGED_COMMAND_RE = re.compile(
 )
 SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets(?:\.|\[['\"])([A-Za-z_][A-Za-z0-9_]*)(?:['\"]\])?")
 BUILTIN_CONTEXT_NAMES = frozenset(("GITHUB_TOKEN",))
+GITHUB_HOSTED_RUNNER_RE = re.compile(
+    r"(?:ubuntu-(?:latest|\d{2}\.\d{2})(?:-arm)?"
+    r"|windows-(?:latest|\d{4})"
+    r"|macos-(?:latest|\d+(?:-large)?(?:-arm64)?))"
+)
 
 
 def is_privileged_workflow(content: str) -> bool:
@@ -149,11 +154,14 @@ def permissions_are_privileged(permissions: Any) -> bool:
 
 def runner_is_privileged(runner: Any) -> bool:
     """Treat self-hosted and unresolved expression runners as privileged."""
+    if runner is None:
+        return False
     if isinstance(runner, dict):
         return True
-    runners = runner if isinstance(runner, list) else [runner]
-    return any(
-        value == "self-hosted" or (isinstance(value, str) and "${{" in value) for value in runners
+    if isinstance(runner, list):
+        return len(runner) != 1 or runner_is_privileged(runner[0])
+    return not isinstance(runner, str) or (
+        "${{" in runner or GITHUB_HOSTED_RUNNER_RE.fullmatch(runner) is None
     )
 
 
