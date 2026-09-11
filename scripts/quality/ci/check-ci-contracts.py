@@ -103,6 +103,23 @@ def _automation_definition_paths() -> tuple[Path, ...]:
     return tuple(sorted({*_workflow_paths(), *_action_definition_paths()}))
 
 
+def _top_level_block(content: str, key: str) -> tuple[str, ...]:
+    lines = content.splitlines()
+    marker = f"{key}:"
+    try:
+        start = lines.index(marker)
+    except ValueError:
+        return ()
+    block: list[str] = []
+    for line in lines[start + 1 :]:
+        if line and not line[0].isspace() and not line.lstrip().startswith("#"):
+            break
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            block.append(stripped)
+    return tuple(block)
+
+
 def _service_dockerfiles() -> tuple[Path, ...]:
     return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
 
@@ -310,15 +327,16 @@ def _validate_python_test_partitioning() -> list[str]:
 
 def _validate_ci_concurrency() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    required_fragments = (
+    concurrency = _top_level_block(workflow, "concurrency")
+    required_entries = (
         "group: ci-${{ github.workflow }}-${{ github.event_name }}-"
         "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}",
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
     )
     return [
-        f"ci.yml is missing evidence-preserving concurrency contract: {fragment}"
-        for fragment in required_fragments
-        if fragment not in workflow
+        f"ci.yml is missing evidence-preserving concurrency contract: {entry}"
+        for entry in required_entries
+        if entry not in concurrency
     ]
 
 
