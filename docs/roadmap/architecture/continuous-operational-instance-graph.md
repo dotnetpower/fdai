@@ -162,6 +162,11 @@ whitespace-padded, or same-endpoint pairs fail validation. A failed or ambiguous
 read blocks the plan and never falls back to a constructed identity.
 
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
+An explicitly requested one-shot Inventory execution can set
+`FDAI_INVENTORY_OPERATOR_REQUESTED=1` to activate the adaptive scheduler's existing operator
+priority. The request collects immediately only when the source is healthy and no collection is
+active; provider pressure, backoff, throttling, circuit state, and every evidence gate still apply.
+The persisted Job template leaves this input unset.
 
 The current-graph checkpoint is bound to the active snapshot generation and exact scope set. A complete
 provider snapshot covers same-scope observations from its generation and start time, so the contiguous checkpoint scans only those scopes.

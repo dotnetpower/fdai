@@ -158,6 +158,31 @@ def test_failure_backoff_outranks_interval_and_change_demand() -> None:
     )
 
 
+def test_operator_request_is_immediate_but_does_not_bypass_failure_backoff() -> None:
+    assert (
+        inventory_reconciliation_due(
+            age_seconds=1.0,
+            in_progress=False,
+            abandoned_attempt=False,
+            interval_seconds=21_600,
+            operator_requested=True,
+        )
+        is True
+    )
+    assert (
+        inventory_reconciliation_due(
+            age_seconds=100_000.0,
+            in_progress=False,
+            abandoned_attempt=False,
+            interval_seconds=21_600,
+            failure_streak=1,
+            failure_age_seconds=1.0,
+            operator_requested=True,
+        )
+        is False
+    )
+
+
 def _adaptive_policy() -> SourceCollectionPolicy:
     return SourceCollectionPolicy(
         source_id="arg-snapshot",
@@ -221,6 +246,36 @@ def test_adaptive_gate_maps_durable_failure_pressure(
 
     assert decision.action is CollectionScheduleAction.WAIT
     assert decision.reason_codes == (expected_reason,)
+
+
+def test_adaptive_gate_preserves_operator_request_without_bypassing_in_progress() -> None:
+    requested = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=1,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        operator_requested=True,
+    )
+    in_progress = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=1,
+        in_progress=True,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=False,
+        operator_requested=True,
+    )
+
+    assert requested.action is CollectionScheduleAction.COLLECT
+    assert requested.reason_codes == ("operator_requested",)
+    assert in_progress.action is CollectionScheduleAction.WAIT
+    assert in_progress.reason_codes == ("in_progress",)
 
 
 def test_adaptive_gate_collects_stale_snapshot_without_failure_timestamp() -> None:

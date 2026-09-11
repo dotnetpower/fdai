@@ -90,11 +90,19 @@ class PostgresInventoryReconciliationGate:
 
         return self._last_health_state
 
-    async def __call__(self, interval_seconds: int) -> bool:
-        decision = await self.schedule(interval_seconds)
+    async def __call__(self, interval_seconds: int, *, operator_requested: bool = False) -> bool:
+        decision = await self.schedule(
+            interval_seconds,
+            operator_requested=operator_requested,
+        )
         return decision.due
 
-    async def schedule(self, interval_seconds: int) -> CollectionScheduleDecision:
+    async def schedule(
+        self,
+        interval_seconds: int,
+        *,
+        operator_requested: bool = False,
+    ) -> CollectionScheduleDecision:
         """Read durable attempt state and calculate one bounded next action."""
 
         if interval_seconds < 60:
@@ -223,6 +231,7 @@ class PostgresInventoryReconciliationGate:
                 change_demand=change_demand,
                 overlay_open=bool(overlay_resource_count or overlay_relationship_count),
                 projection_pending=projection_pending,
+                operator_requested=operator_requested,
                 cursor_lag_seconds=(
                     max(0.0, float(cursor_lag) - self._cursor_stale_after_seconds)
                     if cursor_lag is not None
@@ -239,6 +248,7 @@ class PostgresInventoryReconciliationGate:
             interval_seconds=interval_seconds,
             change_demand=change_demand,
             change_min_interval_seconds=self._change_min_interval_seconds,
+            operator_requested=operator_requested,
         )
         self._last_decision = CollectionScheduleDecision(
             action=(CollectionScheduleAction.COLLECT if due else CollectionScheduleAction.WAIT),
@@ -264,6 +274,7 @@ def adaptive_reconciliation_decision(
     change_demand: bool,
     overlay_open: bool = False,
     projection_pending: bool = False,
+    operator_requested: bool = False,
     cursor_lag_seconds: float = 0.0,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
@@ -293,6 +304,7 @@ def adaptive_reconciliation_decision(
             change_demand=change_demand,
             overlay_open=overlay_open,
             projection_pending=projection_pending,
+            operator_requested=operator_requested,
             cursor_lag_seconds=cursor_lag_seconds,
             failure_streak=failure_streak,
             provider_pressure=pressure,
@@ -414,6 +426,7 @@ def inventory_reconciliation_due(
     change_demand: bool = False,
     change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
     failure_backoff_seconds: int = _DEFAULT_FAILURE_BACKOFF_SECONDS,
+    operator_requested: bool = False,
 ) -> bool:
     """Reduce durable attempt and change state to one deterministic decision."""
 
@@ -433,6 +446,8 @@ def inventory_reconciliation_due(
             interval_seconds=interval_seconds,
             backoff_seconds=failure_backoff_seconds,
         )
+    if operator_requested:
+        return True
     if abandoned_attempt or age_seconds is None:
         return True
     if change_demand and age_seconds >= change_min_interval_seconds:

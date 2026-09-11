@@ -618,7 +618,10 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
             default=0.0,
         ),
     )
-    due = await reconciliation_gate(config.reconciliation_interval_seconds)
+    due = await reconciliation_gate(
+        config.reconciliation_interval_seconds,
+        operator_requested=config.operator_requested,
+    )
     await _publish_collection_health(
         config,
         health_state=reconciliation_gate.last_health_state,
