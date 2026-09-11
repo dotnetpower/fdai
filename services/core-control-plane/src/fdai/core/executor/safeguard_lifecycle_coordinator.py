@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -17,6 +17,12 @@ from fdai.core.executor.audit_intent import (
     AuditIntentAppendDecision,
     AuditIntentStore,
     PreEffectAuditIntent,
+)
+from fdai.core.executor.hold_dispatch_fence import (
+    HoldFenceAuditResult,
+    HoldFenceCheckResult,
+    HoldLineage,
+    recheck_hold_fence,
 )
 from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationIdentity,
@@ -39,6 +45,8 @@ from fdai.core.executor.safeguard_bundle_context import (
     SafeguardBundlePersistenceContext,
 )
 from fdai.core.executor.safeguard_dispatch_checkpoint import (
+    AuthoritativeSinkState,
+    DispatchTransportState,
     SafeguardDispatchEvidenceRecord,
 )
 from fdai.core.executor.safeguard_dispatch_store import (
@@ -72,6 +80,7 @@ from fdai.core.executor.target_dispatch_fence_store import (
     TargetDispatchFenceStore,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath
+from fdai.shared.providers.automation_hold_state import AutomationHoldStateReader
 from fdai.shared.providers.resource_lock import (
     EvidenceResourceLock,
     HeldResourceLock,
@@ -178,6 +187,7 @@ class SafeguardLifecycleCoordinator:
         continuity_policy: EffectSinkContinuityPolicy,
         config: SafeguardLifecycleCoordinatorConfig,
         commitment_store: SafeguardPreBundleCommitmentStore | None = None,
+        hold_state_reader: AutomationHoldStateReader | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._resource_lock = require_evidence_resource_lock(
@@ -193,6 +203,7 @@ class SafeguardLifecycleCoordinator:
         self._continuity_policy = continuity_policy
         self._config = config
         self._commitment_store = commitment_store
+        self._hold_state_reader = hold_state_reader
         self._clock = clock or (lambda: datetime.now(UTC))
         if config.production:
             stores = (
@@ -600,7 +611,17 @@ class SafeguardLifecycleCoordinator:
                 reservation_store=self._reservation_store,
                 fence_store=self._fence_store,
                 evidence_store=self._evidence_store,
-                dispatch_port=dispatch_port,
+                dispatch_port=_HoldFencedDispatchPort(
+                    inner=dispatch_port,
+                    hold_state_reader=self._hold_state_reader,
+                    target_ref=action.target_resource_ref,
+                    target_digest=acquisition.target_digest,
+                    lock_ownership_token=acquisition.receipt_digest,
+                    denial_audit_store=self._denial_audit_store,
+                    actor=self._config.actor,
+                    action_id=str(action.action_id),
+                    clock=self._now,
+                ),
                 now=bundle_time,
             )
         except (Exception, asyncio.CancelledError):
@@ -702,6 +723,157 @@ class SafeguardLifecycleCoordinator:
         if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("safeguard lifecycle clock MUST return an aware datetime")
         return value.astimezone(UTC)
+
+
+class _HoldFencedDispatchPort:
+    """Recheck automation-hold state inside the held lock before invocation.
+
+    A previously held target keeps its release receipt on the durable hold
+    record, so a hold reissued between the last check and provider invocation
+    denies dispatch instead of racing it (#640).
+    """
+
+    __slots__ = (
+        "_inner",
+        "_hold_state_reader",
+        "_target_ref",
+        "_target_digest",
+        "_lock_ownership_token",
+        "_denial_audit_store",
+        "_actor",
+        "_action_id",
+        "_clock",
+    )
+
+    def __init__(
+        self,
+        *,
+        inner: DispatchPort,
+        hold_state_reader: AutomationHoldStateReader | None,
+        target_ref: str,
+        target_digest: str,
+        lock_ownership_token: str,
+        denial_audit_store: StateStore,
+        actor: str,
+        action_id: str,
+        clock: Callable[[], datetime],
+    ) -> None:
+        self._inner = inner
+        self._hold_state_reader = hold_state_reader
+        self._target_ref = target_ref
+        self._target_digest = target_digest
+        self._lock_ownership_token = lock_ownership_token
+        self._denial_audit_store = denial_audit_store
+        self._actor = actor
+        self._action_id = action_id
+        self._clock = clock
+
+    async def dispatch(
+        self,
+        *,
+        evidence_record: SafeguardDispatchEvidenceRecord,
+        started_at: datetime,
+    ) -> tuple[
+        DispatchTransportState,
+        AuthoritativeSinkState,
+        str | None,
+        str | None,
+    ]:
+        """Fence the target, then delegate exactly once when it stays eligible."""
+
+        check = await self._recheck()
+        if check is not None and not check.eligible:
+            audit = HoldFenceAuditResult.create(
+                check_result=check,
+                recorded_at=self._clock(),
+            )
+            await self._denial_audit_store.append_audit_entry(
+                {
+                    "action_id": self._action_id,
+                    "actor": self._actor,
+                    "action_kind": "executor.hold_dispatch_fence.denied",
+                    "audit_phase": "pre-dispatch",
+                    "outcome": "not_invoked",
+                    "target_digest": audit.target_digest,
+                    "hold_state": audit.hold_state.value,
+                    "rejection_reasons": [reason.value for reason in audit.rejection_reasons],
+                    "audit_digest": audit.audit_digest,
+                    "recorded_at": audit.recorded_at.isoformat(),
+                    "execution_authority": False,
+                    "effect_verified": False,
+                }
+            )
+            return (
+                DispatchTransportState.FAILED,
+                AuthoritativeSinkState.NOT_ACCEPTED,
+                None,
+                audit.audit_digest,
+            )
+        return await self._inner.dispatch(
+            evidence_record=evidence_record,
+            started_at=started_at,
+        )
+
+    async def _recheck(self) -> HoldFenceCheckResult | None:
+        reader = self._hold_state_reader
+        if reader is None:
+            return None
+        record: Mapping[str, Any] | None
+        try:
+            record = await reader.read_hold_record(target_ref=self._target_ref)
+        except Exception:  # noqa: BLE001 - an unreadable hold fails dispatch closed
+            _LOGGER.exception(
+                "hold_dispatch_fence_read_failed",
+                extra={"action_id": self._action_id},
+            )
+            return recheck_hold_fence(
+                target_digest=self._target_digest,
+                hold_record=_UNREADABLE_HOLD,
+                expected_lineage=None,
+                lock_ownership_token=self._lock_ownership_token,
+                checked_at=self._clock(),
+            )
+        if record is None:
+            return None
+        return recheck_hold_fence(
+            target_digest=self._target_digest,
+            hold_record=dict(record),
+            expected_lineage=_hold_lineage(record),
+            lock_ownership_token=self._lock_ownership_token,
+            checked_at=self._clock(),
+        )
+
+
+_UNREADABLE_HOLD = object()
+
+
+def _hold_lineage(record: object) -> HoldLineage | None:
+    """Rebuild the expected release lineage for a previously held target."""
+
+    if not isinstance(record, Mapping) or record.get("state") != "released":
+        return None
+    receipt = record.get("release_receipt")
+    fencing_generation = record.get("fencing_generation")
+    released_hold_revision = (
+        receipt.get("released_hold_revision") if isinstance(receipt, Mapping) else None
+    )
+    receipt_digest = receipt.get("receipt_digest") if isinstance(receipt, Mapping) else None
+    if (
+        not isinstance(receipt_digest, str)
+        or not isinstance(fencing_generation, int)
+        or isinstance(fencing_generation, bool)
+        or not isinstance(released_hold_revision, int)
+        or isinstance(released_hold_revision, bool)
+    ):
+        return None
+    try:
+        return HoldLineage.create(
+            release_receipt_digest=receipt_digest,
+            released_hold_revision=released_hold_revision,
+            fencing_generation=fencing_generation,
+        )
+    except ValueError:
+        return None
 
 
 __all__ = [

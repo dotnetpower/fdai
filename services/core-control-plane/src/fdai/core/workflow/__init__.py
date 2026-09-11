@@ -34,6 +34,12 @@ from .orchestrator import (
 )
 from .outcome_verification import StateStoreWorkflowOutcomeLedger
 from .projection import ProcessOntologyProjector, ProjectingProcessRuntimeStore
+from .recovery_coordinator import (
+    RecoveryCoordinationResult,
+    RecoveryCoordinatorConfig,
+    RecoveryDisposition,
+    WorkflowRecoveryCoordinator,
+)
 from .safeguard_commitment import ProcessRuntimeSafeguardCommitmentStore
 from .trigger_index import WorkflowTriggerIndex
 from .workflow_runtime import (
@@ -62,6 +68,10 @@ __all__ = [
     "StateStoreAutomationHoldLedger",
     "StateStoreWorkflowOutcomeLedger",
     "ProcessRuntimeSafeguardCommitmentStore",
+    "RecoveryCoordinationResult",
+    "RecoveryCoordinatorConfig",
+    "RecoveryDisposition",
+    "WorkflowRecoveryCoordinator",
     "WorkflowApprovalPlanner",
     "WorkflowGuardEvaluator",
     "WorkflowActionDispatcher",

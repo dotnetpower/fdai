@@ -10,6 +10,10 @@ from datetime import UTC, datetime
 
 from fdai.core.runbook.models import RunbookStep
 from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
+from fdai.core.workflow.recovery_coordinator import (
+    RecoveryDisposition,
+    WorkflowRecoveryCoordinator,
+)
 from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowOutcomeResolver,
@@ -42,12 +46,14 @@ class WorkflowCompensationCoordinator:
         audit_store: StateStore,
         dispatcher: WorkflowActionDispatcher | None,
         outcome_verifier: WorkflowOutcomeVerifier | None,
+        recovery_coordinator: WorkflowRecoveryCoordinator | None = None,
     ) -> None:
         self._process_store = process_store
         self._audit_store = audit_store
         self._dispatcher = dispatcher
         self._outcome_verifier = outcome_verifier
         self._automation_holds = StateStoreAutomationHoldLedger(audit_store)
+        self._recovery_coordinator = recovery_coordinator
 
     async def start(
         self,
@@ -268,25 +274,19 @@ class WorkflowCompensationCoordinator:
             safeguard_bundle_digests.append(safeguard_bundle_digest)
 
         if await self._automation_holds.is_held(target_ref=current.target_resource_id):
-            recovery_receipt_ref = _recovery_receipt_ref(
-                process_id=current.process_id,
+            recovery = await self._recover_under_hold(
+                current,
                 receipt_refs=receipt_refs,
+                safeguard_bundle_digests=safeguard_bundle_digests,
+                intents=intents,
             )
-            try:
-                released = await self._automation_holds.release_verified(
-                    target_ref=current.target_resource_id,
-                    process_id=current.process_id,
-                    recovery_receipt_ref=recovery_receipt_ref,
-                )
-            except Exception:  # noqa: BLE001 - release persistence fails recovery closed
-                released = False
-            if not released:
-                failed = await self._fail(
-                    current,
-                    reason="automation_hold_release_failed",
-                    payload={"recovery_receipt_ref": recovery_receipt_ref},
-                )
-                return CompensationResult(failed, recovery_incomplete=True)
+            if recovery is not None:
+                return recovery
+            refreshed = await self._process_store.get(current.process_id)
+            if refreshed is not None:
+                if refreshed.status.terminal:
+                    return CompensationResult(refreshed)
+                current = refreshed
 
         completed = await self._process_store.transition(
             process_id=current.process_id,
@@ -316,6 +316,98 @@ class WorkflowCompensationCoordinator:
             },
         )
         return CompensationResult(completed)
+
+    async def _recover_under_hold(
+        self,
+        snapshot: ProcessSnapshot,
+        *,
+        receipt_refs: list[str],
+        safeguard_bundle_digests: list[str],
+        intents: tuple[ProcessEvent, ...],
+    ) -> CompensationResult | None:
+        """Close a held recovery only through the durable recovery path.
+
+        Returns a terminal result when the hold MUST stay in force, and
+        ``None`` when the recovery path released it and the Process may
+        continue to its own terminal transition.
+        """
+
+        coordinator = self._recovery_coordinator
+        recovery_receipt_ref = _recovery_receipt_ref(
+            process_id=snapshot.process_id,
+            receipt_refs=receipt_refs,
+        )
+        if coordinator is None:
+            failed = await self._fail(
+                snapshot,
+                reason="recovery_coordinator_not_configured",
+                payload={"recovery_receipt_ref": recovery_receipt_ref},
+            )
+            return CompensationResult(failed, recovery_incomplete=True)
+        last_intent = intents[-1] if intents else None
+        recovery_action_type = (
+            str(last_intent.payload.get("action_type") or "") if last_intent is not None else ""
+        )
+        recovery_params = (
+            dict(last_intent.payload.get("params") or {})
+            if last_intent is not None and isinstance(last_intent.payload.get("params"), Mapping)
+            else {}
+        )
+        try:
+            outcome = await coordinator.recover(
+                snapshot=snapshot,
+                failed_compensation_proposal_digest=_compensation_proposal_digest(
+                    process_id=snapshot.process_id,
+                    receipt_refs=receipt_refs,
+                ),
+                recovery_action_type=recovery_action_type or "workflow.recovery.reconcile",
+                recovery_params=recovery_params,
+                compensation_receipt_digests=tuple(
+                    sorted({_evidence_digest(digest) for digest in safeguard_bundle_digests})
+                ),
+            )
+        except Exception:  # noqa: BLE001 - recovery outage keeps the hold in force
+            failed = await self._fail(
+                snapshot,
+                reason="automation_hold_recovery_failed",
+                payload={"recovery_receipt_ref": recovery_receipt_ref},
+            )
+            return CompensationResult(failed, recovery_incomplete=True)
+        await self._audit(
+            snapshot,
+            action_kind="workflow.compensation.recovery",
+            suffix=f"recovery:{outcome.disposition.value}",
+            payload={
+                "disposition": outcome.disposition.value,
+                "reason": outcome.reason,
+                "attempt_identity_digest": outcome.attempt_identity_digest,
+                "effect_claim_digest": outcome.effect_claim_digest,
+                "release_receipt_digest": outcome.release_receipt_digest,
+                "completion_digest": outcome.completion_digest,
+                "recovery_receipt_ref": recovery_receipt_ref,
+            },
+        )
+        if outcome.recovery_incomplete or await self._automation_holds.is_held(
+            target_ref=snapshot.target_resource_id
+        ):
+            failed = await self._fail(
+                snapshot,
+                reason="automation_hold_release_failed",
+                payload={
+                    "recovery_receipt_ref": recovery_receipt_ref,
+                    "recovery_disposition": outcome.disposition.value,
+                    "recovery_reason": outcome.reason,
+                },
+            )
+            return CompensationResult(failed, recovery_incomplete=True)
+        if outcome.disposition in {
+            RecoveryDisposition.COMPLETED,
+            RecoveryDisposition.REPLAYED,
+        }:
+            terminal = await self._process_store.get(snapshot.process_id)
+            if terminal is not None and terminal.status.terminal:
+                return CompensationResult(terminal)
+        return None
 
     async def _record_intent(
         self,
@@ -485,6 +577,30 @@ def _recovery_receipt_ref(*, process_id: str, receipt_refs: list[str]) -> str:
         sort_keys=True,
     )
     return f"workflow-recovery:{hashlib.sha256(canonical.encode()).hexdigest()}"
+
+
+def _compensation_proposal_digest(*, process_id: str, receipt_refs: list[str]) -> str:
+    """Bind the failed compensation proposal so recovery never reuses it."""
+
+    canonical = json.dumps(
+        {
+            "domain": "workflow-failed-compensation-proposal",
+            "process_id": process_id,
+            "receipt_refs": sorted(receipt_refs),
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return f"sha256:{hashlib.sha256(canonical.encode()).hexdigest()}"
+
+
+def _evidence_digest(value: str) -> str:
+    """Normalize a compensation receipt reference to a canonical digest."""
+
+    if value.startswith("sha256:") and len(value) == len("sha256:") + 64:
+        return value
+    return f"sha256:{hashlib.sha256(value.encode()).hexdigest()}"
 
 
 __all__ = ["CompensationResult", "WorkflowCompensationCoordinator"]

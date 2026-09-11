@@ -54,6 +54,7 @@ class ProcessEventKind(StrEnum):
     COMPENSATION_STARTED = "compensation.started"
     COMPENSATION_DISPATCHED = "compensation.dispatched"
     COMPENSATION_COMPLETED = "compensation.completed"
+    RECOVERY_COMPLETED = "recovery.completed"
     PROCESS_COMPLETED = "process.completed"
     PROCESS_FAILED = "process.failed"
     PROCESS_CANCELLATION_REQUESTED = "process.cancellation-requested"
