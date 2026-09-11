@@ -95,7 +95,8 @@ field empty; those rows remain eligible only when the platform-stamped app, revi
 container name, and container ID all match one container returned by the exact claimed ARM replica
 endpoint. Only those independently bound endpoint witnesses convert through the existing canonical
 Resource ID mapping. The standalone channel edge never receives the caller
-binding, so its requests on the shared topic cannot join a false Operator-to-Core edge. Orphaned,
+binding and uses a distinct durable outbox namespace, so it cannot claim an Operator API request
+or join its own requests on the shared topic into a false Operator-to-Core edge. Orphaned,
 malformed, or mismatched witnesses make the source incomplete. Repeated joined calls reduce to the
 newest observation per exact endpoint pair. A 60-second trailing guard keeps an in-flight pair
 pending, and the source reads one guard interval beyond the freshness window so cutoff boundaries do

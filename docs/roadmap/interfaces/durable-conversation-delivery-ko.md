@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 664de8ec47ff606f898924c6e8c9fdf22a67bd0f
-translation_revised: 2026-09-09
+translation_source_sha: 14fc7dd983f6bef41c214339f240529c8bac9d21
+translation_revised: 2026-09-11
 ---
 # 영구 대화 전송
 
@@ -23,6 +23,9 @@ session id가 아니라 서버에서 파생한 불투명한 session 참조
 `operator-conversation:<digest>`입니다. 따라서 한 session의 turn은 broker 순서를 유지하고,
 서로 다른 session은 독립 key를 사용해 별도 partition에서 진행할 수 있습니다. 로컬 Redpanda와
 배포된 Event Hubs는 공유 physical topic에 partition을 두 개 이상 유지합니다.
+배포된 Operator API와 독립 채널 경계도 서로 다른 고정 semantic outbox namespace를 사용합니다.
+각 drainer는 자체 런타임이 영속화한 요청만 claim할 수 있으므로 채널 경계 publisher가 API의
+호출자 결속 사후 수락 증표를 우회할 수 없습니다.
 
 ## 읽기 조사 최종 완료
 
@@ -86,6 +89,7 @@ writer를 부여하지 않습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | 구현됨 | 독립 Operator API와 채널 경계에 서로 다른 고정 semantic outbox namespace를 할당해 각 런타임이 자체 내구성 요청만 claim하도록 했습니다. | `infra/services/operator-service/modules/operator-service/main.tf`, 집중 Terraform semantic transport 검사, 공유 빈 namespace에서 관측한 live target-only 증표 | 독립 Operator 서비스 전환을 적용하고 새로 짝지어진 런타임 호출 증표를 보존합니다. |
 | 2026-09-09 | implemented | 의미 Kafka partitioning을 불투명한 session 참조에 결속하고 로컬 physical topic을 배포 환경과 같은 최소 두 partition으로 조정했습니다. | `current change`, 집중 Operator bridge 및 로컬 시작 검사 | 이슈 #151에 필요한 통제된 인증 구독 증적을 보존합니다. |
 | 2026-09-08 | implemented | 스트리밍 변경 뒤 의미 요청 점유, 지연된 변환 결과 대기, 첫 최종 결과 고정, 뒤늦은 변환 결과 차단, 시간 초과 보류, 재생 cursor, 잘못된 레코드 격리 및 증적에 결속된 확정 전달을 다시 검증했습니다. | `current change`, 집중 Operator 의미 bridge 테스트 151개 통과 | 통제된 재시작 및 외부 broker 근거는 별도 검증 작업으로 유지합니다. |
 | 2026-09-05 | 구현됨 | 기존 의미 기반 영속 경계 전에 주체, 목표, 에이전트, 세션을 검증하는 웹 전용 인수인계 제안 데코레이터를 추가했습니다. Slack, Teams, 외부 전달, 공급자 승인 상태는 변경하지 않습니다. | `current change`; 집중 Operator 인수인계 및 경로 조립 테스트가 통과했습니다. | 별도로 필요한 채널 및 배포 증적을 보존합니다. |

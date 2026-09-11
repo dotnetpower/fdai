@@ -39,6 +39,12 @@ def test_independent_operator_module_maps_topics_once_per_runtime() -> None:
         assert environment.count('name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"') == 1
         assert environment.count('name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"') == 1
         assert environment.count('name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"') == 1
+        assert environment.count('name = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"') == 1
+    assert '{ name = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE", value = "operator-api" }' in module
+    assert (
+        '{ name = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE", value = "operator-channel-edge" }'
+        in module
+    )
     assert "var.event_topics.semantic_requests" in module
     assert "var.event_topics.semantic_projections" in module
     assert "var.event_topics.semantic_physical" in module
