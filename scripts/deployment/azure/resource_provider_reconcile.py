@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import re
 import subprocess
@@ -138,8 +139,9 @@ def reconcile_resource_providers(
 ) -> ProviderReport:
     """Inspect providers and optionally register only missing namespaces.
 
-    Registration requests are issued once, then observed under one cumulative
-    deadline. Existing registrations are never removed automatically.
+    Independent inspections and registration requests use bounded workers and
+    aggregate in required order under one cumulative deadline. Existing
+    registrations are never removed automatically.
     """
 
     if _GUID.fullmatch(subscription_id) is None:
@@ -168,20 +170,16 @@ def reconcile_resource_providers(
     if not apply or not missing:
         return _report(profile, required, states, (), False)
 
-    requested: list[str] = []
-    for index, namespace in enumerate(missing, start=1):
-        if states[namespace] in _PENDING_STATES:
-            continue
-        remaining_seconds = deadline - monotonic()
-        if remaining_seconds <= 0:
-            raise ProviderReconcileError(
-                "Azure resource provider registration did not converge",
-                mutation_performed=bool(requested),
-            )
-        if progress is not None:
-            progress(namespace, index, len(missing))
-        try:
-            completed = run(
+    candidates = tuple(
+        namespace for namespace in missing if states[namespace] not in _PENDING_STATES
+    )
+    if progress is not None:
+        for index, namespace in enumerate(candidates, start=1):
+            progress(namespace, index, len(candidates))
+    try:
+        registration_results = _run_parallel(
+            candidates,
+            lambda namespace, timeout: run(
                 (
                     "provider",
                     "register",
@@ -193,19 +191,25 @@ def reconcile_resource_providers(
                     "none",
                     "--only-show-errors",
                 ),
-                min(60, remaining_seconds),
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ProviderReconcileError(
-                "Azure resource provider registration request timed out",
-                mutation_performed=True,
-            ) from exc
-        if completed.returncode != 0:
-            raise ProviderReconcileError(
-                "Azure resource provider registration request failed",
-                mutation_performed=True,
-            )
-        requested.append(namespace)
+                min(60, timeout),
+            ),
+            deadline=deadline,
+            monotonic=monotonic,
+            command="az provider register",
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ProviderReconcileError(
+            "Azure resource provider registration request timed out",
+            mutation_performed=bool(candidates),
+        ) from exc
+    requested = tuple(
+        namespace for namespace in candidates if registration_results[namespace].returncode == 0
+    )
+    if len(requested) != len(candidates):
+        raise ProviderReconcileError(
+            "Azure resource provider registration request failed",
+            mutation_performed=bool(candidates),
+        )
 
     last_registered = -1
     while True:
@@ -224,7 +228,7 @@ def reconcile_resource_providers(
             progress("readback", registered_count, len(required))
             last_registered = registered_count
         if not remaining:
-            return _report(profile, required, states, tuple(requested), bool(requested))
+            return _report(profile, required, states, requested, bool(requested))
         if any(
             states[namespace] not in _MISSING_STATES | _PENDING_STATES for namespace in remaining
         ):
@@ -253,12 +257,9 @@ def _inspect_all(
     deadline: float,
     monotonic: Callable[[], float],
 ) -> dict[str, str]:
-    states: dict[str, str] = {}
-    for namespace in required:
-        remaining_seconds = deadline - monotonic()
-        if remaining_seconds <= 0:
-            raise subprocess.TimeoutExpired("az provider show", 0)
-        completed = run(
+    results = _run_parallel(
+        required,
+        lambda namespace, timeout: run(
             (
                 "provider",
                 "show",
@@ -272,8 +273,15 @@ def _inspect_all(
                 "tsv",
                 "--only-show-errors",
             ),
-            min(30, remaining_seconds),
-        )
+            min(30, timeout),
+        ),
+        deadline=deadline,
+        monotonic=monotonic,
+        command="az provider show",
+    )
+    states: dict[str, str] = {}
+    for namespace in required:
+        completed = results[namespace]
         if completed.returncode != 0:
             raise ProviderReconcileError("Azure resource provider inspection failed")
         state = completed.stdout.strip().casefold()
@@ -281,6 +289,44 @@ def _inspect_all(
             state = "indeterminate"
         states[namespace] = state
     return states
+
+
+def _run_parallel(
+    namespaces: tuple[str, ...],
+    operation: Callable[[str, float], subprocess.CompletedProcess[str]],
+    *,
+    deadline: float,
+    monotonic: Callable[[], float],
+    command: str,
+) -> dict[str, subprocess.CompletedProcess[str]]:
+    """Run independent provider operations with one cumulative deadline."""
+
+    if not namespaces:
+        return {}
+    remaining_seconds = deadline - monotonic()
+    if remaining_seconds <= 0:
+        raise subprocess.TimeoutExpired(command, 0)
+
+    def invoke(namespace: str) -> subprocess.CompletedProcess[str]:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(command, 0)
+        return operation(namespace, remaining)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(namespaces))) as executor:
+        futures = {namespace: executor.submit(invoke, namespace) for namespace in namespaces}
+        done, pending = concurrent.futures.wait(
+            tuple(futures.values()),
+            timeout=max(0.0, deadline - monotonic()),
+        )
+        if pending:
+            for future in pending:
+                future.cancel()
+            raise subprocess.TimeoutExpired(command, max(0.0, remaining_seconds))
+        results: dict[str, subprocess.CompletedProcess[str]] = {}
+        for namespace in namespaces:
+            results[namespace] = futures[namespace].result()
+        return results
 
 
 def _report(

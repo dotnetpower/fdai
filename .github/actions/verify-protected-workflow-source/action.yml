@@ -37,6 +37,14 @@ runs:
           echo "workflow path must identify a workflow under .github/workflows." >&2
           exit 1
         }
+        workflow_ref_prefix="$GITHUB_REPOSITORY/$PROTECTED_WORKFLOW_PATH@"
+        workflow_source_ref="${GITHUB_WORKFLOW_REF#"$workflow_ref_prefix"}"
+        if [[ "$workflow_source_ref" == "$GITHUB_WORKFLOW_REF" ]] ||
+           { [[ "$workflow_source_ref" != "refs/heads/main" ]] &&
+             [[ ! "$workflow_source_ref" =~ ^refs/tags/v[A-Za-z0-9._-]+$ ]]; }; then
+          echo "workflow source ref must resolve to protected main or an immutable release tag." >&2
+          exit 1
+        fi
         guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
         rm -rf -- "$guard_repo"
         git init --bare "$guard_repo" >/dev/null

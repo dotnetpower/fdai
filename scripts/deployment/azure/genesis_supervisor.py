@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import os
 import re
@@ -24,7 +25,7 @@ from genesis_application import (
 )
 from genesis_approval import GenesisApprovalExpiredError, load_genesis_approval
 from genesis_approval_prompt import create_approval, current_actor_digest
-from genesis_entra import apply_entra, plan_entra, read_entra_bindings
+from genesis_entra import EntraPlan, apply_entra, plan_entra, read_entra_bindings
 from genesis_images import resolve_exact_images
 from genesis_prepare import PreparedGenesis, prepare_genesis
 from genesis_repository_config import (
@@ -51,16 +52,19 @@ def supervise(
         repository_root=repository_root,
         repository=repository,
     )
-    prepared = prepare_genesis(
-        repository_root=repository_root,
-        repository=repository,
-        source_commit=source_commit,
-        tenant_id=tenant_id,
-        subscription_id=subscription_id,
-        region=region,
-        monthly_cost_ceiling=monthly_cost_ceiling,
-        root=work_dir,
-    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        entra_plan_future = executor.submit(plan_entra)
+        prepared = prepare_genesis(
+            repository_root=repository_root,
+            repository=repository,
+            source_commit=source_commit,
+            tenant_id=tenant_id,
+            subscription_id=subscription_id,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+            root=work_dir,
+        )
+        planned_entra = entra_plan_future.result(timeout=min(120, timeout_seconds))
     actor_digest = current_actor_digest(prepared.run_binding)
     status = _run_foundation_loop(
         repository_root=repository_root,
@@ -72,23 +76,27 @@ def supervise(
         actor_digest=actor_digest,
         timeout_seconds=timeout_seconds,
     )
-    entra_bindings = _configure_entra(
-        prepared=prepared,
-        status=status,
-        actor_digest=actor_digest,
-    )
-    ensure_container_supply_chain(
-        repository=repository,
-        source_commit=source_commit,
-        timeout_seconds=min(timeout_seconds, 5400),
-    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        image_refs_future = executor.submit(
+            _ensure_and_resolve_images,
+            repository=repository,
+            source_commit=source_commit,
+            timeout_seconds=min(timeout_seconds, 5400),
+        )
+        entra_bindings = _configure_entra(
+            prepared=prepared,
+            status=status,
+            actor_digest=actor_digest,
+            plan=planned_entra,
+        )
+        image_refs = image_refs_future.result()
     repository_receipt = _configure_repository(
         repository_root=repository_root,
         repository=repository,
         prepared=prepared,
         status=status,
         actor_digest=actor_digest,
-        image_refs=resolve_exact_images(repository, source_commit),
+        image_refs=image_refs,
         entra_bindings=entra_bindings,
     )
     application_receipt = run_application(
@@ -131,6 +139,19 @@ def supervise(
             json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
         )
     return receipt
+
+
+def _ensure_and_resolve_images(
+    *, repository: str, source_commit: str, timeout_seconds: int
+) -> dict[str, str]:
+    """Join exact image publication and resolve its immutable references."""
+
+    ensure_container_supply_chain(
+        repository=repository,
+        source_commit=source_commit,
+        timeout_seconds=timeout_seconds,
+    )
+    return resolve_exact_images(repository, source_commit)
 
 
 def _preflight(*, repository_root: Path, repository: str) -> tuple[str, str, str]:
@@ -400,6 +421,7 @@ def _configure_entra(
     prepared: PreparedGenesis,
     status: dict[str, Any],
     actor_digest: str,
+    plan: EntraPlan | None = None,
 ) -> dict[str, str]:
     """Plan, approve, apply, and reobserve tenant-local identity bindings."""
 
@@ -453,7 +475,7 @@ def _configure_entra(
     runner_principal = runner.get("principal_id") if isinstance(runner, dict) else None
     if not isinstance(runner_principal, str):
         raise ValueError("Foundation runner principal is unavailable")
-    plan = plan_entra()
+    plan = plan or plan_entra()
     projection = plan.projection()
     print(json.dumps(projection, indent=2, sort_keys=True), file=sys.stderr)
     approval_path = prepared.root / "entra-config-approval.json"

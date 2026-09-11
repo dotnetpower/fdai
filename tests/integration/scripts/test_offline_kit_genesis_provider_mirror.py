@@ -149,8 +149,12 @@ def test_all_bundled_roots_contribute_locked_providers(tmp_path: Path, platform:
 
     assert result.returncode == 0, result.stderr
     records = [json.loads(line) for line in (tmp_path / "commands.jsonl").read_text().splitlines()]
-    assert [(record["root"], record["args"][0]) for record in records] == [
-        (root, command) for root in ROOTS for command in ("init", "providers")
+    initialization = records[: len(ROOTS)]
+    mirroring = records[len(ROOTS) :]
+    assert {record["root"] for record in initialization} == set(ROOTS)
+    assert all(record["args"][0] == "init" for record in initialization)
+    assert [(record["root"], record["args"][0]) for record in mirroring] == [
+        (root, "providers") for root in ROOTS
     ]
     artifacts = {
         path.relative_to(tmp_path / "mirror").as_posix()
@@ -202,9 +206,21 @@ def test_terraform_failure_aborts_remaining_roots_without_changing_bundle(
     assert result.returncode == 17
     assert "synthetic Terraform failure" in result.stderr
     records = [json.loads(line) for line in (tmp_path / "commands.jsonl").read_text().splitlines()]
-    assert records[-1]["root"] == "infra/genesis-foundation"
-    assert records[-1]["args"][0] == command
-    assert not any(record["root"].startswith("infra/services/") for record in records)
+    failed = [
+        record
+        for record in records
+        if record["root"] == "infra/genesis-foundation" and record["args"][0] == command
+    ]
+    assert len(failed) == 1
+    if command == "init":
+        assert not any(record["args"][0] == "providers" for record in records)
+        assert not any(record["root"].startswith("infra/services/") for record in records)
+    else:
+        assert all(record["args"][0] == "init" for record in records[: len(ROOTS)])
+        assert not any(
+            record["args"][0] == "providers" and record["root"].startswith("infra/services/")
+            for record in records
+        )
     assert not list((tmp_path / "mirror").rglob("terraform-provider-azapi*"))
     assert _snapshot(bundle) == before
     assert not (tmp_path / "mirror-src").exists()
@@ -259,7 +275,7 @@ os.execv(arguments[3], arguments[3:])
     result = _run(tmp_path)
 
     assert result.returncode == (124 if expire else 0), result.stderr
-    assert len(timeout_log.read_text().splitlines()) == (1 if expire else 2 * len(ROOTS))
+    assert len(timeout_log.read_text().splitlines()) == (4 if expire else 2 * len(ROOTS))
     assert not (tmp_path / "mirror-src").exists()
     if expire:
         assert not (tmp_path / "commands.jsonl").exists()

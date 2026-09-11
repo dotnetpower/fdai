@@ -145,6 +145,74 @@ def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     assert "CACHED" in second.stdout
 
 
+def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None:
+    assert _git(tmp_path, "init", "--quiet").returncode == 0
+    assert _git(tmp_path, "config", "user.email", "tests@example.com").returncode == 0
+    assert _git(tmp_path, "config", "user.name", "FDAI Tests").returncode == 0
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "guide.md").write_text("initial\n", encoding="utf-8")
+    assert _git(tmp_path, "add", ".").returncode == 0
+    assert _git(tmp_path, "commit", "--quiet", "-m", "initial").returncode == 0
+    (docs / "guide.md").write_text("changed\n", encoding="utf-8")
+    assert _git(tmp_path, "add", ".").returncode == 0
+    assert _git(tmp_path, "commit", "--quiet", "-m", "docs").returncode == 0
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    command_log = tmp_path / "commands.log"
+    fake = bin_dir / "fake"
+    fake.write_text(
+        '#!/bin/sh\nprintf "%s:%s\\n" "$(basename "$0")" "$*" >> "$FDAI_VERIFY_TEST_LOG"\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    for name in ("bash", "python3", "uv"):
+        (bin_dir / name).symlink_to(fake)
+    real_bash = shutil.which("bash", path=os.environ["PATH"])
+    assert real_bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed script and test-controlled environment
+        [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD^..HEAD"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FDAI_VALIDATION_ACTIVE": "1",
+            "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
+            "FDAI_VERIFY_TEST_LOG": str(command_log),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 126
+    assert result.stdout.count("delegated structural stage: DEFERRED") == 5
+    assert "check-design-routes.py" not in command_log.read_text(encoding="utf-8")
+    assert "incomplete until delegated structural gates pass" in result.stderr
+
+
+def test_direct_fast_verification_rejects_structural_deferral() -> None:
+    real_bash = shutil.which("bash", path=os.environ["PATH"])
+    assert real_bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script and arguments
+        [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD..HEAD"],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "restricted to the central validator" in result.stderr
+
+
 def test_diff_is_rejected_outside_fast_mode() -> None:
     result = _run("--all", "--diff", "HEAD^..HEAD")
 

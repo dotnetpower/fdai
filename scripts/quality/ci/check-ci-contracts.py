@@ -8,10 +8,19 @@ import json
 import re
 import shlex
 import subprocess
+import sys
 from fnmatch import fnmatchcase
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.quality.ci import workflow_security_contracts as workflow_security  # noqa: E402
+
 REQUIRED_TRACKED_PATHS = (
     "scripts/lib/framework-surface.txt",
     "console/package-lock.json",
@@ -46,29 +55,23 @@ APPROVED_ACTIONS = {
     "pypa/gh-action-pip-audit": ("1220774d901786e6f652ae159f7b6bc8fea6d266", "v1.1.0"),
     "pypa/gh-action-pypi-publish": ("2834a314042ef964da07689278dd1e9d773e8afd", "v1.14.1"),
 }
-ACTION_REF_RE = re.compile(
-    r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)"
+REMOTE_ACTION_REF_RE = re.compile(
+    r"(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)"
     r"@(?P<ref>[^\s#]+)"
-    r"(?:\s*#\s*(?P<comment>[^\r\n]+))?"
 )
+USES_LINE_RE = re.compile(
+    r"(?m)^\s*(?:-\s*)?uses\s*:\s*(?P<quote>['\"]?)"
+    r"(?P<ref>[^'\"\s#]+)(?P=quote)\s*(?:#\s*(?P<comment>[^\r\n]+))?$"
+)
+DOCKER_ACTION_DIGEST_RE = re.compile(r".+@sha256:[0-9a-f]{64}")
 IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
-WRITE_PERMISSION_RE = re.compile(r"(?m)^\s+[a-z-]+:\s*write\s*(?:#.*)?$")
-WRITE_ALL_PERMISSION_RE = re.compile(r"(?m)^\s*permissions:\s*write-all\s*(?:#.*)?$")
-INLINE_WRITE_PERMISSION_RE = re.compile(r"permissions:\s*\{[^}\n]*:\s*write(?:\s*[,}])")
-SELF_HOSTED_RUNNER_RE = re.compile(
-    r"(?m)^[ \t]*runs-on:[ \t]*"
-    r"(?:\[[^\]\n]*\bself-hosted\b[^\]\n]*\]|self-hosted)[ \t]*(?:#.*)?$"
-    r"|^[ \t]*runs-on:[ \t]*(?:#.*)?$\n"
-    r"(?:^[ \t]+-[^\n]*\n)*?^[ \t]+-[ \t]*self-hosted[ \t]*(?:#.*)?$"
-)
-PRIVILEGED_COMMAND_RE = re.compile(
-    r"\b(?:terraform\s+(?:apply|destroy)|git\s+push|docker\s+push|"
-    r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
-    r"az\s+\S+\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
-)
 PROTECTED_WORKFLOW_GUARD = "Verify protected workflow source"
 PROTECTED_WORKFLOW_ACTION_USE = (
     "uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source"
+)
+PROTECTED_WORKFLOW_ACTION_REF = PROTECTED_WORKFLOW_ACTION_USE.removeprefix("uses: ")
+PROTECTED_WORKFLOW_ACTION_SHA256 = (
+    "1bc92d97af33c5055fbb2acea9999ae78c24525254d37f06da34de9075c17fc9"
 )
 UV_SETUP_BLOCK_RE = re.compile(
     r"(?ms)^\s+- name: [^\n]+\n"
@@ -78,6 +81,140 @@ CI_UV_VERSION = "0.12.11"
 CI_PYTHON_VERSION = "3.13"
 BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
+
+
+def _workflow_paths() -> tuple[Path, ...]:
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    return tuple(sorted({*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")}))
+
+
+def _action_definition_paths() -> tuple[Path, ...]:
+    action_dir = REPO_ROOT / ".github" / "actions"
+    return tuple(
+        sorted(
+            {
+                *action_dir.rglob("action.yml"),
+                *action_dir.rglob("action.yaml"),
+            }
+        )
+    )
+
+
+def _automation_definition_paths() -> tuple[Path, ...]:
+    return tuple(sorted({*_workflow_paths(), *_action_definition_paths()}))
+
+
+def _local_action_is_audited(reference: str, action_definitions: set[Path]) -> bool:
+    local_path = PurePosixPath(reference.removeprefix("./"))
+    if (
+        local_path.is_absolute()
+        or len(local_path.parts) < 3
+        or local_path.parts[:2] != (".github", "actions")
+        or ".." in local_path.parts
+    ):
+        return False
+    candidate = REPO_ROOT
+    for part in local_path.parts:
+        candidate /= part
+        if candidate.is_symlink():
+            return False
+    if not candidate.is_dir():
+        return False
+    manifests = {
+        manifest
+        for manifest in (candidate / "action.yml", candidate / "action.yaml")
+        if manifest.is_file() and not manifest.is_symlink()
+    }
+    return len(manifests) == 1 and manifests <= action_definitions
+
+
+def _uses_values_from_content(content: str, relative: Path) -> tuple[list[str], list[str]]:
+    try:
+        document: Any = yaml.safe_load(content)
+    except yaml.YAMLError as exc:
+        return [], [f"{relative} is not valid YAML: {exc}"]
+    values: list[str] = []
+    errors: list[str] = []
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "uses":
+                    if isinstance(value, str):
+                        values.append(value)
+                    else:
+                        errors.append(f"{relative} has a non-string uses value")
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(document)
+    return values, errors
+
+
+def _uses_values(path: Path) -> tuple[list[str], list[str]]:
+    return _uses_values_from_content(
+        path.read_text(encoding="utf-8"),
+        path.relative_to(REPO_ROOT),
+    )
+
+
+def _top_level_block(content: str, key: str) -> tuple[str, ...]:
+    lines = content.splitlines()
+    marker = f"{key}:"
+    try:
+        start = lines.index(marker)
+    except ValueError:
+        return ()
+    block: list[str] = []
+    for line in lines[start + 1 :]:
+        if line and not line[0].isspace() and not line.lstrip().startswith("#"):
+            break
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            block.append(stripped)
+    return tuple(block)
+
+
+def _validate_workflow_layout() -> list[str]:
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    workflows = _workflow_paths()
+    errors = [
+        f"{path.relative_to(REPO_ROOT)} must not be a symbolic link"
+        for path in workflows
+        if path.is_symlink()
+    ]
+    stems: dict[str, list[str]] = {}
+    for path in workflows:
+        stems.setdefault(path.stem.casefold(), []).append(path.name)
+    for stem, names in sorted(stems.items()):
+        if len(names) > 1:
+            errors.append(f"workflow stem '{stem}' is ambiguous: {', '.join(sorted(names))}")
+    nested = {
+        *workflow_dir.rglob("*.yml"),
+        *workflow_dir.rglob("*.yaml"),
+    } - set(workflows)
+    errors.extend(
+        f"{path.relative_to(REPO_ROOT)} is nested; workflows must be top-level"
+        for path in sorted(nested)
+    )
+    return errors
+
+
+def _validate_explicit_workflow_permissions() -> list[str]:
+    errors: list[str] = []
+    for path in _workflow_paths():
+        content = path.read_text(encoding="utf-8")
+        has_top_level_permissions = any(
+            line == "permissions:" or line.startswith("permissions: ")
+            for line in content.splitlines()
+        )
+        if not has_top_level_permissions:
+            errors.append(
+                f"{path.relative_to(REPO_ROOT)} must declare top-level permissions explicitly"
+            )
+    return errors
 
 
 def _service_dockerfiles() -> tuple[Path, ...]:
@@ -233,7 +370,7 @@ def _validate_base_images() -> list[str]:
                 errors.append(
                     f"Dockerfile base image {reference} must be prefixed with {BASE_IMAGE_PREFIX}"
                 )
-            if "@sha256:" not in reference:
+            if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
                 errors.append(f"Dockerfile base image {reference} must be digest-pinned")
     return errors
 
@@ -285,6 +422,21 @@ def _validate_python_test_partitioning() -> list[str]:
     return errors
 
 
+def _validate_ci_concurrency() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    concurrency = _top_level_block(workflow, "concurrency")
+    required_entries = (
+        "group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}",
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    )
+    return [
+        f"ci.yml is missing evidence-preserving concurrency contract: {entry}"
+        for entry in required_entries
+        if entry not in concurrency
+    ]
+
+
 def _validate_service_contract_generation() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     command = "python3 scripts/quality/contracts/generate_service_contracts.py --check"
@@ -293,10 +445,89 @@ def _validate_service_contract_generation() -> list[str]:
 
 def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
-    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    action_definitions = set(_action_definition_paths())
+    for path in _automation_definition_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
-        for match in ACTION_REF_RE.finditer(content):
+        uses_values, parse_errors = _uses_values(path)
+        errors.extend(parse_errors)
+        if path in action_definitions and not parse_errors:
+            document = yaml.safe_load(content)
+            runs = document.get("runs") if isinstance(document, dict) else None
+            if isinstance(runs, dict) and runs.get("using") == "docker":
+                image = runs.get("image")
+                if not isinstance(image, str):
+                    errors.append(f"{relative} must declare a string Docker action image")
+                elif image.startswith("docker://"):
+                    reference = image.removeprefix("docker://")
+                    if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
+                        errors.append(
+                            f"{relative} must pin Docker action image {reference} "
+                            "to a sha256 digest"
+                        )
+                else:
+                    dockerfile_path = PurePosixPath(image)
+                    dockerfile = path.parent.joinpath(*dockerfile_path.parts)
+                    if (
+                        dockerfile_path.is_absolute()
+                        or ".." in dockerfile_path.parts
+                        or not dockerfile.is_file()
+                        or dockerfile.is_symlink()
+                    ):
+                        errors.append(
+                            f"{relative} must reference a local regular Dockerfile: {image}"
+                        )
+                    else:
+                        stages: set[str] = set()
+                        base_count = 0
+                        for line in dockerfile.read_text(encoding="utf-8").splitlines():
+                            parts = line.strip().split()
+                            if len(parts) < 2 or parts[0].upper() != "FROM":
+                                continue
+                            reference_index = 2 if parts[1].startswith("--platform=") else 1
+                            if len(parts) <= reference_index:
+                                continue
+                            reference = parts[reference_index]
+                            as_index = reference_index + 1
+                            if len(parts) > as_index + 1 and parts[as_index].upper() == "AS":
+                                stages.add(parts[as_index + 1])
+                            if reference in stages:
+                                continue
+                            base_count += 1
+                            if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
+                                errors.append(
+                                    f"{dockerfile.relative_to(REPO_ROOT)} base image "
+                                    f"{reference} must be digest-pinned"
+                                )
+                        if base_count == 0:
+                            errors.append(
+                                f"{dockerfile.relative_to(REPO_ROOT)} must declare a base image"
+                            )
+        comments = {
+            match.group("ref"): (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
+            for match in USES_LINE_RE.finditer(content)
+        }
+        for reference in uses_values:
+            if reference.startswith("./"):
+                if reference != PROTECTED_WORKFLOW_ACTION_REF and not _local_action_is_audited(
+                    reference, action_definitions
+                ):
+                    errors.append(
+                        f"{relative} uses local action without an audited regular manifest: "
+                        f"{reference}"
+                    )
+                continue
+            if reference.startswith("docker://"):
+                image = reference.removeprefix("docker://")
+                if DOCKER_ACTION_DIGEST_RE.fullmatch(image) is None:
+                    errors.append(
+                        f"{relative} must pin docker action image {image} to a sha256 digest"
+                    )
+                continue
+            match = REMOTE_ACTION_REF_RE.fullmatch(reference)
+            if match is None:
+                errors.append(f"{relative} uses unsupported action reference {reference}")
+                continue
             action = match.group("action")
             actual_ref = match.group("ref")
             approved = APPROVED_ACTIONS.get(action)
@@ -312,7 +543,7 @@ def _validate_action_runtime_versions() -> list[str]:
             elif actual_ref != expected_ref:
                 errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
             else:
-                comment = (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
+                comment = comments.get(reference, "")
                 if comment != expected_version:
                     errors.append(
                         f"{relative} must document {action}@{actual_ref} with trusted "
@@ -322,110 +553,39 @@ def _validate_action_runtime_versions() -> list[str]:
 
 
 def _is_privileged_workflow(content: str) -> bool:
-    """Detect workflows that can mutate durable state or use a privileged identity."""
-    return any(
-        (
-            WRITE_PERMISSION_RE.search(content),
-            WRITE_ALL_PERMISSION_RE.search(content),
-            INLINE_WRITE_PERMISSION_RE.search(content),
-            SELF_HOSTED_RUNNER_RE.search(content),
-            PRIVILEGED_COMMAND_RE.search(content),
-        )
+    return workflow_security.is_privileged_workflow(content)
+
+
+def _dispatch_guard_errors(document: object, relative: str) -> list[str]:
+    return workflow_security.dispatch_guard_errors(document, relative)
+
+
+def _protected_guard_prefix_errors(document: object, relative: str) -> list[str]:
+    return workflow_security.protected_guard_prefix_errors(
+        document,
+        relative,
+        approved_checkout_ref=f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}",
+        protected_action_ref=PROTECTED_WORKFLOW_ACTION_REF,
+        guard_name=PROTECTED_WORKFLOW_GUARD,
+    )
+
+
+def _protected_action_source_errors(content: str) -> list[str]:
+    return workflow_security.protected_action_source_errors(
+        content,
+        PROTECTED_WORKFLOW_ACTION_SHA256,
     )
 
 
 def _validate_privileged_workflow_guards() -> list[str]:
-    """Require protected source provenance before privileged repository code executes."""
-    errors: list[str] = []
-    action_path = (
-        REPO_ROOT / ".github" / "actions" / "verify-protected-workflow-source" / "action.yml"
+    return workflow_security.validate_privileged_workflow_guards(
+        REPO_ROOT,
+        _workflow_paths(),
+        approved_actions=APPROVED_ACTIONS,
+        protected_action_ref=PROTECTED_WORKFLOW_ACTION_REF,
+        guard_name=PROTECTED_WORKFLOW_GUARD,
+        expected_verifier_digest=PROTECTED_WORKFLOW_ACTION_SHA256,
     )
-    action = action_path.read_text(encoding="utf-8") if action_path.is_file() else ""
-    action_fragments = (
-        "+refs/heads/main:refs/remotes/origin/main",
-        'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
-        '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
-        '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
-        "diff --quiet",
-    )
-    action_checked = False
-    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
-        content = path.read_text(encoding="utf-8")
-        if not _is_privileged_workflow(content):
-            continue
-        relative = path.relative_to(REPO_ROOT).as_posix()
-        event_scoped_issue_mutation = (
-            re.search(r"(?m)^\s+issues:\s*$", content) is not None
-            and "github.event_name == 'issues'" in content
-            and "github.event.issue.pull_request == null" in content
-            and "actions/checkout@" not in content
-            and "\n        run:" not in content
-        )
-        if event_scoped_issue_mutation:
-            continue
-        if PROTECTED_WORKFLOW_ACTION_USE in content and not action_checked:
-            for fragment in action_fragments:
-                if fragment not in action:
-                    errors.append(
-                        ".github/actions/verify-protected-workflow-source/action.yml "
-                        f"lacks protected-source guard: {fragment}"
-                    )
-            action_checked = True
-        common_fragments = (
-            "Checkout protected workflow verifier",
-            PROTECTED_WORKFLOW_GUARD,
-            "ref: main",
-            "sparse-checkout: .github/actions/verify-protected-workflow-source",
-            "path: .fdai-protected-workflow-verifier",
-            PROTECTED_WORKFLOW_ACTION_USE,
-            "target-commit-sha:",
-            f"workflow-path: {relative}",
-            "origin-url: ${{ github.server_url }}/${{ github.repository }}.git",
-            "github-token: ${{ github.token }}",
-        )
-        for fragment in common_fragments:
-            if fragment not in content:
-                errors.append(
-                    f"{relative} is privileged and lacks protected-source guard: {fragment}"
-                )
-        has_exact_source_guard = all(fragment in content for fragment in common_fragments)
-        protected_controls_fragments = (
-            "path: trusted-controls",
-            "ref: main",
-            f'expected_workflow_ref="$GITHUB_REPOSITORY/{relative}@refs/heads/main"',
-            '[[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]',
-            'controls_commit_sha="$(git -C "$TRUSTED_CONTROLS" rev-parse HEAD)"',
-            "deployment controls do not match protected origin/main.",
-        )
-        if not has_exact_source_guard and not all(
-            fragment in content for fragment in protected_controls_fragments
-        ):
-            errors.append(
-                f"{relative} is privileged and lacks a complete exact-source or "
-                "protected-controls guard"
-            )
-        verifier_checkout_index = content.find("- name: Checkout protected workflow verifier")
-        guard_index = content.find(f"- name: {PROTECTED_WORKFLOW_GUARD}")
-        if verifier_checkout_index < 0 or guard_index < verifier_checkout_index:
-            errors.append(
-                f"{relative} does not load the protected verifier before its source guard"
-            )
-        else:
-            pre_guard_actions = [
-                f"{match.group('action')}@{match.group('ref')}"
-                for match in ACTION_REF_RE.finditer(content[:guard_index])
-            ]
-            expected_checkout = f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}"
-            if pre_guard_actions != [expected_checkout]:
-                errors.append(
-                    f"{relative} executes an additional action before its protected-source guard"
-                )
-        if "workflow_dispatch:" in content or "workflow_call:" in content:
-            if "commit_sha:" not in content:
-                errors.append(f"{relative} must accept an exact commit_sha for privileged dispatch")
-            if "github.ref == 'refs/heads/main'" not in content:
-                errors.append(f"{relative} must restrict privileged dispatch to protected main")
-    return errors
 
 
 def _validate_uv_cache_writers() -> list[str]:
@@ -509,10 +669,13 @@ def _validate_live_db_guards() -> list[str]:
 
 def main() -> int:
     errors = [
+        *_validate_workflow_layout(),
+        *_validate_explicit_workflow_permissions(),
         *_validate_build_context(),
         *_validate_base_images(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
+        *_validate_ci_concurrency(),
         *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),

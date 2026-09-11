@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 060dff31fb76ddbc5e7b3624ad44744be34efb24
+translation_source_sha: 4346d8d43cab80050d5c3478ee5218273de14367
 translation_revised: 2026-09-11
 ---
 # 프로비저닝 실행 프로파일
@@ -21,7 +21,7 @@ translation_revised: 2026-09-11
 |------|------|------|------|
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
 | 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 정확한 애플리케이션 적용 동작이 구현되어 있습니다. |
-| 신규 구독 로컬 조정기 | implemented | `fdai-up.sh`, 비공개 준비, 승인, 이미지, 기반 계층, Bastion, Entra, 저장소 및 보호된 애플리케이션 모듈과 집중 수명 주기 테스트 | 감독형 `dev` 프로세스 하나가 점유를 검증으로 재개하고 두 번째 변경 없음 계획을 요구합니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
+| 신규 구독 로컬 조정기 | implemented | `fdai-up.sh`, 비공개 준비, 승인, 이미지, 기반 계층, Bastion, Entra, 저장소 및 보호된 애플리케이션 모듈과 집중 수명 주기 테스트 | 감독형 `dev` 프로세스 하나가 독립적인 준비, 읽기 또는 요청 작업에만 범위가 제한된 병렬 실행을 사용하고 점유를 검증으로 재개하며 두 번째 변경 없음 계획을 요구합니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
@@ -37,6 +37,7 @@ translation_revised: 2026-09-11
 | 2026-09-05 | implemented | 실행 venue가 선택한 workload identity, 비공개 runner transport, scope별 lock, durable cursor fence 및 complete-reconciliation 권위를 보존하면서 읽기 전용 inventory change accelerator를 scheduled inventory 진입점에서 분리했습니다. | `current change`, inventory accelerator와 job 검사, strict mypy 및 강제 file-size gate | operating-instance owner가 추적하는 통합 change-feed timing 증적을 보존합니다. |
 | 2026-09-06 | implemented | Exact image Container Apps rehearsal을 위해 positional `once` 또는 `loop` mode만 허용하는 설치형 inventory wrapper를 추가했습니다. Collection, projection, identity 또는 execution 권한을 바꾸지 않고 기존 CLI로 변환합니다. | `current change`, 집중 inventory CLI 테스트, strict mypy, package build 및 entrypoint 검색 | 운영 이력 certification 전에 exact image inventory projection refresh 증적 1개를 보존합니다. |
 | 2026-09-06 | implemented | 보호된 OI-16 실행 profile에 deadline이 제한된 active generation projection release migration을 추가했습니다. Provider read를 수행하지 않고 이전 manifest와 journal fence를 보존하며 불완전하거나 변경된 content는 write 전에 차단합니다. | `current change`, 집중 replay CLI, projection, persistence, workflow 및 package 검사 | 보호된 dev campaign에서 성공한 exact release migration 증적 1개를 보존합니다. |
+| 2026-09-11 | implemented | 서로 독립적인 로컬 아티팩트 경로, 기반 계층 입력 검색, 공급자 점검과 등록 요청, 정책 프로브 리소스 작업, 테넌트 디렉터리 읽기에 범위가 제한된 병렬 실행을 추가했습니다. 상태를 변경하는 적용, 승인, 정리, 인계, 저장소 쓰기, 보호된 애플리케이션 전이는 계속 직렬로 수행합니다. | `current change`, 집중 Genesis, 공급자 미러, 준비, Entra 및 제품화 테스트 | 경과 시간을 준비 상태 근거로 사용하지 않고 다음 exact-main 감독형 배포에서 시간 측정 근거를 보존합니다. |
 
 ### 남은 작업
 

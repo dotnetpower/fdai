@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:0c6b46e24480a9247065b9c13421069129dd0feb91f664a364529da8abc878e6",
+  "catalog_digest": "sha256:ddb1820012a943c85891d91d100f0d5cac0695dc743a2b55d8ac28ce15b6865c",
   "execution_authority": false,
-  "generated_at": "2026-09-10T22:50:24.474420Z",
+  "generated_at": "2026-09-11T02:38:02.345747Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,13 +448,13 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:5fd9d94d28cbe0e5a36b728343a7b7bb4d8331b1e12b6a22a09a13d3200608e4",
+      "record_digest": "sha256:6af7de0b2491993b472130183fcb3d0890075a4f4f4c0e4b161a993d73a1ba28",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a308dc0bc83462d5fc4d59aa3dfb13da39bc0686",
-          "line_end": 74,
-          "line_start": 74,
+          "blob_sha": "9be2c83aac3bf4c7440afb367423cc5e332cce2a",
+          "line_end": 75,
+          "line_start": 75,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -491,13 +491,13 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:441c08a52a73a593a44a581c737523ef2d50f9bd06c3d3ce04c2b9d6f2a17f5d",
+      "record_digest": "sha256:aaabddbf80347f030c917b5443a01cce8f4784dd672ee6fbe3eca4a4d51a7e05",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a308dc0bc83462d5fc4d59aa3dfb13da39bc0686",
-          "line_end": 74,
-          "line_start": 74,
+          "blob_sha": "9be2c83aac3bf4c7440afb367423cc5e332cce2a",
+          "line_end": 75,
+          "line_start": 75,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "f96254f34cdeb00dd74eaf19461172abc28fe7e9"
+  "source_revision": "f1ead027a969464ab8c429c9d5b61d55e8694316"
 }

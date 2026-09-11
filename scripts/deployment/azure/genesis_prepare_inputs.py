@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
 import ipaddress
 import json
@@ -24,26 +25,38 @@ def foundation_values(
     run_binding: str,
     ssh_public_key: str,
 ) -> dict[str, object]:
-    """Resolve exact image, globally unique name, and non-overlapping network inputs."""
+    """Resolve independent exact image, unique name, and network inputs concurrently."""
 
-    version = _capture(
-        (
-            "az",
-            "vm",
-            "image",
-            "show",
-            "--location",
-            region,
-            "--urn",
-            "Canonical:ubuntu-24_04-lts:server:latest",
-            "--query",
-            "name",
-            "--output",
-            "tsv",
-            "--only-show-errors",
-        ),
-        cwd=repository_root,
-    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        version_future = executor.submit(
+            _capture,
+            (
+                "az",
+                "vm",
+                "image",
+                "show",
+                "--location",
+                region,
+                "--urn",
+                "Canonical:ubuntu-24_04-lts:server:latest",
+                "--query",
+                "name",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ),
+            cwd=repository_root,
+        )
+        account_future = executor.submit(
+            state_account_name,
+            repository_root=repository_root,
+            target_binding=target_binding,
+            source_commit=source_commit,
+        )
+        network_future = executor.submit(network_layout, repository_root)
+        version = version_future.result()
+        account_name = account_future.result()
+        ops, runner, endpoint, bastion = network_future.result()
     if re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", version) is None:
         raise ValueError("Azure Marketplace image version is not exact")
     toolchain = json.loads(
@@ -65,12 +78,6 @@ def foundation_values(
             "run_digest": run_binding,
         }
     )
-    account_name = state_account_name(
-        repository_root=repository_root,
-        target_binding=target_binding,
-        source_commit=source_commit,
-    )
-    ops, runner, endpoint, bastion = network_layout(repository_root)
     return {
         "tenant_id": tenant_id,
         "subscription_id": subscription_id,
@@ -137,10 +144,11 @@ def network_layout(
     ipaddress.IPv4Network,
     ipaddress.IPv4Network,
 ]:
-    """Select one reviewed operations CIDR disjoint from Azure and local routes."""
+    """Select a reviewed operations CIDR from concurrent Azure and local route reads."""
 
-    vnets = json.loads(
-        _capture(
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        vnets_future = executor.submit(
+            _capture,
             (
                 "az",
                 "network",
@@ -154,8 +162,13 @@ def network_layout(
             ),
             cwd=repository_root,
         )
-    )
-    routes = json.loads(_capture(("ip", "-j", "-4", "route", "show"), cwd=repository_root))
+        routes_future = executor.submit(
+            _capture,
+            ("ip", "-j", "-4", "route", "show"),
+            cwd=repository_root,
+        )
+        vnets = json.loads(vnets_future.result())
+        routes = json.loads(routes_future.result())
     used: list[ipaddress.IPv4Network] = []
     for group in vnets:
         for value in group or []:

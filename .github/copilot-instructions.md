@@ -64,10 +64,12 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    `make test-changed DIFF=<commit>^..<commit>` and
    `bash scripts/verify.sh --fast --diff <commit>^..<commit>` before requesting or waiting for
    remote CI. Worker sessions MUST NOT run repository-wide checks, bare `verify.sh --fast`, or
-   `verify.sh --all` unless explicitly requested. A session MUST NOT delegate validation of a
-   dirty worktree. Delegated validation requires a clean committed snapshot in an isolated
-   worktree. CI owns integration validation for pushed SHAs, and `make validation-all` is reserved
-   for explicit merge or release boundaries.
+   `verify.sh --all` unless explicitly requested.
+   A session MUST NOT delegate validation of a dirty worktree. Delegated validation requires a
+   clean committed snapshot in an isolated worktree. CI owns integration validation for pushed
+   SHAs, and `make validation-all` is reserved for explicit merge or release boundaries. The
+   central fast validator MAY defer gates duplicated by its mandatory structural stage, but both
+   stages and the exact structural input digest remain in the same snapshot receipt.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
    workflow or external operation. After authorization, every agent-authored commit MUST originate
    in the local checkout. After focused validation and diff review, commit only task-owned
@@ -84,7 +86,10 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    post-validation phase. Local checks are preflight, not complete GitHub Actions parity; CI-only
    jobs and the exact pushed-SHA environment remain authoritative. Deployment and release target a
    pushed SHA with required CI and protected preflight; local validation receipts never grant
-   authority.
+   authority. Use a task branch or isolated worktree for each active outcome. Only superseded PR
+   runs may be cancelled; every integrated `main` revision must reach a terminal CI result before
+   another change enters `main`. A session waiting on external evidence is blocked or idle, not
+   active WIP.
 7. Prevent sensitive-input prompts. Secrets MUST NOT cross chat, tools, command lines, generated
    files, logs, or task output. Use existing identity or provider-hosted authorization; if a running
    terminal requests a secret, the user enters it directly. Never weaken a security control.
