@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: e4de03ffc66c688b0898b27e801d7f7aa9bd152e
+translation_source_sha: 591dfd99b1bdfae2e06382e5c31992fadd8f7b85
 translation_revised: 2026-08-29
 ---
 # Rule 의미 검색
@@ -55,12 +55,12 @@ translation_revised: 2026-08-29
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
 | 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. 부분 검색 성능 저하는 집단별로 측정되며 승격 검토 대상이 되지 않습니다. 증적 스키마 `1.1.0`은 평가한 정확한 세대와 카탈로그 다이제스트를 고정합니다. |
-| 카탈로그 기반 승격 보증 | implemented | `rule-catalog/surfaces/kubernetes-node-pool.multi-zone.ko.yaml`; `rule-catalog/surface-validation-receipts/`; `tests/rule_catalog/test_discovery_catalog_search.py`; current change 집중 검사 | 실제 활성 Rule 62개 세대는 영어, 한국어, 모호성, 적대적 no-match, 코퍼스 격리 및 정확한 세대로 통제된 집단 7개를 모두 통과합니다. 승격된 한국어 표면은 정확한 통과 검증 전용 증적을 replay하고 후보 형식과 동일한 세대를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 구현 근거이며 통제된 실제 런타임 근거가 아닙니다. |
+| 카탈로그 기반 승격 보증 | implemented | `rule-catalog/surfaces/kubernetes-node-pool.multi-zone.ko.yaml`; `rule-catalog/surface-validation-receipts/`; `tests/rule_catalog/test_discovery_catalog_search.py`; current change 집중 검사 | 현재 활성 Rule 50개 세대는 영어, 한국어, 모호성, 적대적 no-match, 코퍼스 격리 및 정확한 세대로 통제된 집단 7개를 모두 통과합니다. 승격된 한국어 표면은 정확한 통과 검증 전용 증적을 replay하고 후보 형식과 동일한 세대를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 구현 근거이며 통제된 실제 런타임 근거가 아닙니다. |
 | 검증 증적 카탈로그 | implemented | `rule_catalog/schema/rule_semantic_validation_receipt_catalog.py`; `rule_semantic_validation_receipt.schema.json`; `tests/rule_catalog/test_rule_semantic_validation_receipt_catalog.py`; current change 집중 검사 | 내용 기반 주소를 가진 JSON에서 통과 증적 전체 본문을 strict하게 로드합니다. 증적이 없거나, malformed, 변조되었거나, 통과하지 않았거나, 권한을 포함하거나, 대상이 다르거나, 정책이 오래된 경우 승격된 표면을 안전하게 차단합니다. |
 | 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책, 세대 또는 카탈로그 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
-| 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
+| 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 50개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
 | 독립 세대 스냅샷 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/postgres.py`; 집중 단위 및 실제 PostgreSQL 수명 주기 검사 | 읽기 전용 스냅샷을 통해 정확한 준비 상태 메타데이터와 정규 순서의 행을 노출합니다. 두 어댑터는 검증, 승격 또는 실행 권한을 부여하지 않으면서 수명 주기, 행 식별자, 내용 해시, 순서, 개수 또는 매니페스트 차이를 거부합니다. |
 | 운영 세대 reconciliation | implemented | `runtime/rule_generation_documents.py`; `delivery/catalog_search/rule_generation_worker.py`; `agents/mimir.py`; `agents/heimdall.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 시작할 때 엄격하게 검증한 승격 표면 문서를 고정하고 활성 세대가 없거나 오래되었거나 접근할 수 없으면 replay가 동일한 요청 하나를 영속화합니다. Mimir와 Heimdall은 소유 topic으로 빌드와 검증을 전달하며 활성화 명령을 발행하기 전에 정확한 증적을 연결합니다. |
 | 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
@@ -72,6 +72,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 역사적 Rule 62개 inventory 기록은 다시 쓰지 않고 현재 코퍼스 근거를 활성 문서 50개와 발견 문서 8,487개로 정합화했습니다. | `current change`; in-memory 코퍼스 검사(`12 passed`); 로컬 PostgreSQL 전체 코퍼스 수명 주기(`1 passed`). | 통제된 실제 런타임 근거는 별도로 보존합니다. |
 | 2026-08-13 | in-progress | 구현 ledger를 도입하고 근거 없는 운영 바인딩 주장을 수정했습니다. 선택적 정확한 다이제스트 구성과 바인딩되지 않은 Rule 검색의 타입이 지정된 planner unavailable 처리를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py`에서 focused 테스트 19개가 통과했습니다. | 영속 운영 인덱스, 운영 bootstrap 바인딩, Core-to-Operator 변환 결과 발행 및 실제 증적을 추가합니다. |
 | 2026-08-13 | in-progress | 최대 256개 행의 세대에는 순서가 있는 인라인 다이제스트를 유지하면서 코퍼스 규모 세대에 범위가 제한된 계층형 문서 식별자를 추가했습니다. | `current change`; 집중 `test_rule_semantic_retrieval.py` 모음에서 8,549개 행과 청크 34개 매니페스트, 256/257개 행 경계 및 실패 시 안전하게 닫히는 변조 사례를 포함한 테스트 17개가 통과했습니다. | 매니페스트를 제공 메타데이터와 통합하고 활성 및 발견 코퍼스의 독립적인 활성화와 롤백을 증명합니다. |
 | 2026-08-13 | implemented | In-memory 활성 및 발견 세대가 독립적인 포인터를 통해 준비, 활성화, 검색 및 롤백됨을 보여 주는 집중 근거를 추가했습니다. 준비된 발견 데이터는 보이지 않으며 발견 롤백은 활성 결과를 바꾸지 않습니다. | `current change`; 집중 `test_active_and_discovery_generation_pointers_are_independent` 테스트가 통과했습니다. | 전체 코퍼스에 대한 수명 주기 증명을 영속 운영 어댑터에서 반복합니다. |
@@ -133,7 +134,7 @@ translation_revised: 2026-08-29
 - [x] 배포된 카탈로그 probe는 영어 및 한국어 양성, 모호성, 적대적 입력, 코퍼스 격리 및
   실제 인덱스의 오래된 세대 집단을 포함합니다. 적대적 입력과 발견 전용 no-match 정밀도는
   `1.0`이며 발견 문서는 활성 결과와 격리됩니다.
-- [x] 통제된 한국어 표면과 내용 기반 주소를 가진 전체 검증 증적이 실제 Rule 62개 세대에서
+- [x] 통제된 한국어 표면과 내용 기반 주소를 가진 전체 검증 증적이 현재 Rule 50개 세대에서
   replay됩니다. 정확한 세대, no-match 및 코퍼스 격리 검사를 약화하지 않고 필수 집단 7개가
   모두 통과하며 후보와 승격의 변환 결과가 동일함을 명시적으로 검사합니다.
 - [x] 평가 임계값과 필수 집단을 내용 기반 주소를 가진 통제된 구성에서 로드합니다. 결정론적인
