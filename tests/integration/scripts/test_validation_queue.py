@@ -63,6 +63,18 @@ def test_validation_environment_puts_the_queue_toolchain_on_path(git_repo: Path)
     assert entries[0] != str(paths.state_root / "venv" / "bin")
 
 
+def test_background_validation_clamps_inherited_worker_override(
+    git_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_VALIDATION_BACKGROUND", "1")
+    monkeypatch.setenv("FDAI_PYTEST_MAX_WORKERS", "8")
+
+    environment = validation_environment(queue_paths(git_repo))
+
+    assert environment["FDAI_PYTEST_MAX_WORKERS"] == "2"
+
+
 def test_a_missing_toolchain_is_an_environment_fault_not_a_failing_gate(tmp_path: Path) -> None:
     stage = tmp_path / "stage.sh"
     stage.write_text(
