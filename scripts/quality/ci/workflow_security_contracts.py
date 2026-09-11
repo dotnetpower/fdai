@@ -14,7 +14,10 @@ PRIVILEGED_COMMAND_RE = re.compile(
     r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
     r"az(?:\s+\S+){1,3}\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
 )
-SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets(?:\.|\[['\"])([A-Za-z_][A-Za-z0-9_]*)(?:['\"]\])?")
+SECRET_REF_RE = re.compile(
+    r"\$\{\{\s*secrets\s*(?:\.\s*|\[\s*['\"]?)"
+    r"([A-Za-z_][A-Za-z0-9_]*)(?:['\"]?\s*\])?"
+)
 BUILTIN_CONTEXT_NAMES = frozenset(("GITHUB_TOKEN",))
 GITHUB_HOSTED_RUNNER_RE = re.compile(
     r"(?:ubuntu-(?:latest|\d{2}\.\d{2})(?:-arm)?"
@@ -50,7 +53,7 @@ def is_privileged_workflow(content: str) -> bool:
         elif isinstance(node, list):
             return any(is_privileged(value) for value in node)
         elif isinstance(node, str):
-            if "secrets[" in node:
+            if re.search(r"\bsecrets\s*\[", node) is not None:
                 return True
             return any(
                 secret_name not in BUILTIN_CONTEXT_NAMES
