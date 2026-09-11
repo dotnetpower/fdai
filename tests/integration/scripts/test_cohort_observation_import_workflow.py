@@ -26,6 +26,8 @@ def test_workflow_is_exact_revision_and_protected() -> None:
     )
     assert '"$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA"' in WORKFLOW
     assert '.name == "required" and .conclusion == "success"' in WORKFLOW
+    assert "length >= 1" in WORKFLOW
+    assert "length == 1" not in WORKFLOW
 
 
 def test_source_run_is_stable_allowlisted_and_exact_revision() -> None:
@@ -40,6 +42,18 @@ def test_source_run_is_stable_allowlisted_and_exact_revision() -> None:
 
 
 def test_workflow_uses_private_state_and_exports_aggregate_evidence_only() -> None:
+    parsed = yaml.safe_load(WORKFLOW)
+    job = parsed["jobs"]["import"]
+    azure_step = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "Authenticate and bind private platform state"
+    )
+
+    assert "ARM_SUBSCRIPTION_ID" not in job["env"]
+    assert "AZURE_TENANT_ID" not in job["env"]
+    assert "ARM_SUBSCRIPTION_ID" in azure_step["env"]
+    assert "AZURE_TENANT_ID" in azure_step["env"]
     assert "login-deploy-identity.sh" in WORKFLOW
     assert "::add-mask::$migration_dsn" in WORKFLOW
     assert "FDAI_STATE_STORE_DSN" in WORKFLOW

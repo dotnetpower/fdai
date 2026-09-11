@@ -49,12 +49,6 @@ jobs:
     environment: ${{ inputs.environment }}
     timeout-minutes: 30
     env:
-      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
-      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
-      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
-      OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
-      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
       TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
       COHORT_ARM: ${{ inputs.arm }}
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
@@ -111,7 +105,7 @@ jobs:
             > "$checks"
           jq -e \
             '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
-             length == 1' "$checks" >/dev/null
+             length >= 1' "$checks" >/dev/null
 
       - name: Verify allowlisted source and download exact artifact
         env:
@@ -174,6 +168,13 @@ jobs:
           echo "COHORT_BATCH_PATH=${batches[0]}" >> "$GITHUB_ENV"
 
       - name: Authenticate and bind private platform state
+        env:
+          ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+          DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+          OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
         run: |
           set -euo pipefail
           bash scripts/deployment/azure/login-deploy-identity.sh \

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7a21cf7b8db9e28e1dc6dd2b42c18f7b0a5517c5
+translation_source_sha: 5f9b4e4f95a0fcfc3e801b28c4a5604cf2707389
 translation_revised: 2026-09-11
 ---
 # 프로젝트 구조
@@ -428,7 +428,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   제공된 Rule loader, shadow evaluator, regression gate를 재사용합니다.
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
   `operational-promotion` 작업은 상태 변경 없이 exact-digest 근거를 저장하고, `cohort_observation_import`는 산출물이 선언한 군, 리비전, 프로토콜, 승인 또는 권한을 받지 않습니다.
-  보호된 workflow가 정확한 정책 필드를 주입해 멱등하게 보존하며, 군별 exporter allowlist는 검토된 exporter와 정책 항목이 함께 추가될 때까지 경로를 차단합니다.
+  보호된 workflow가 묶음당 관측값을 1,000개로 제한하고 중복 JSON 키를 차단하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 멱등 재생을 검증합니다. 군별 exporter allowlist는 저장소 내부의 일반 workflow만 허용하며 그 외에는 경로를 차단합니다.
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule

@@ -178,7 +178,7 @@ def test_an_exporter_cannot_be_authorized_before_its_workflow_exists(
         ".github/workflows/cohort-baseline-export.yml"
     ]
 
-    with pytest.raises(CohortClaimPolicyError, match="MUST exist"):
+    with pytest.raises(CohortClaimPolicyError, match="regular in-repository file"):
         load_cohort_claim_policy(_written(tmp_path, body))
 
 
@@ -194,6 +194,21 @@ def test_an_existing_exporter_can_be_authorized_atomically(tmp_path: Path) -> No
     policy = load_cohort_claim_policy(_written(tmp_path, body))
 
     assert policy.allowed_exporters("baseline") == (".github/workflows/cohort-baseline-export.yml",)
+
+
+def test_an_exporter_workflow_symlink_is_not_authorized(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.yml"
+    outside.write_text("name: outside\n", encoding="utf-8")
+    workflow = tmp_path / ".github/workflows/cohort-baseline-export.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.symlink_to(outside)
+    body = _body()
+    body["observation_import"]["allowed_exporter_workflow_paths"]["baseline"] = [
+        ".github/workflows/cohort-baseline-export.yml"
+    ]
+
+    with pytest.raises(CohortClaimPolicyError, match="regular in-repository file"):
+        load_cohort_claim_policy(_written(tmp_path, body))
 
 
 def test_an_incomplete_evidence_floor_is_refused(tmp_path: Path) -> None:
