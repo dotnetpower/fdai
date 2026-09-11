@@ -248,7 +248,8 @@ def test_pre_push_rejects_a_tag_outside_protected_main(tmp_path: Path) -> None:
 def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None:
     body = _PRE_PUSH.read_text()
 
-    assert 'changed_paths < <(git diff --name-only --diff-filter=ACMRTD "$range"' in body
+    assert "mapfile -d '' -t changed_paths" in body
+    assert 'git diff --name-only -z --diff-filter=ACMRTD "$range"' in body
     assert ".github/workflows/*.yaml" in body
     assert 'for f in "${changed_paths[@]}"; do' in body
 

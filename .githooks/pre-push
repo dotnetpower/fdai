@@ -120,8 +120,12 @@ fi
 # ---------------------------------------------------------------------------
 # Files changed in the commits being pushed. Keep deleted paths for contract
 # routing, but only inspect materialized paths for content checks.
-mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTD "$range" 2>/dev/null || true)
-mapfile -t changed < <(git diff --name-only --diff-filter=d "$range" 2>/dev/null || true)
+mapfile -d '' -t changed_paths < <(
+  git diff --name-only -z --diff-filter=ACMRTD "$range" 2>/dev/null || true
+)
+mapfile -d '' -t changed < <(
+  git diff --name-only -z --diff-filter=d "$range" 2>/dev/null || true
+)
 if [ "${#changed_paths[@]}" -eq 0 ]; then
   echo "pre-push: OK (no file changes to lint)"
   exit 0
