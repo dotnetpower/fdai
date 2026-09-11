@@ -85,6 +85,14 @@ complete group before the router records failure. Captured stdout and diagnostic
 or copied into portable status. The local sequence stops after verified Foundation state handoff;
 protected application planning and complete readiness remain separate evidence gates.
 
+Bounded concurrency is allowed only for siblings with separate outputs and no causal, approval,
+state, or cleanup dependency. Workers never write the portable status record. The owning parent
+waits for all siblings, orders their results deterministically, and emits one transition. On a
+failure it waits for or terminates every bounded sibling before recording the failure. Azure
+provider registrations remain retained mutations, while policy-probe resources still use one
+serial ownership-checked cleanup path. No parallel branch can publish approval, claim success,
+advance a Terraform state, or authorize a dependent stage.
+
 Repository settings are compiled from the manifest and applied idempotently. The operation reports
 the names of missing variables and secret references but never their values. Database credentials
 are generated on the private execution host, stored in the approved secret provider, and consumed

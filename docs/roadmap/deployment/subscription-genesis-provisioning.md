@@ -110,6 +110,24 @@ preview and waits for an exact approved plan. A private result waits for the sep
 Foundation plan and VNet runner. Neither result falls back to another route, applies an unsealed
 preview, or sets subscription readiness.
 
+### Safe bounded concurrency
+
+The one-command path runs independent work concurrently inside a dependency-ordered stage. Local
+preparation overlaps signed-kit staging with read-only Foundation input discovery. Kit staging uses
+separate toolchain, bundle, and CLI artifact lanes, while each Terraform root initializes in an
+isolated directory before provider-mirror writes resume serially. Provider inspection and explicit
+registration requests use bounded workers. After the probe resource group is verified, Key Vault
+and Storage creation and their posture reads run concurrently. Target and source verification
+overlap after tool preparation. Tenant-directory planning overlaps local preparation, and exact
+image supply overlaps Entra configuration after Foundation convergence.
+
+Concurrency never changes authority or stage order. The parent process aggregates results in a
+stable order and publishes one status transition only after every required sibling succeeds.
+Terraform apply, exact approval, claim and receipt publication, state handoff, cleanup, repository
+mutation, and protected application plan/apply remain serial. A failed sibling stops the stage;
+already accepted provider registrations are retained, and probe cleanup still completes before a
+route can be accepted.
+
 When private artifacts aren't supplied, the stable stop reason is
 `private_foundation_external_artifacts_required`. The next action names the signed kit, exact
 runner image, Foundation profile, and exact plan generation instead of suggesting an apply that

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b6d9633dacb1b74389548929de629d3b02a4a6b4
+translation_source_sha: 7f7eda6a63d827b15d9da775ba0530f8eb3d8b68
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -188,9 +188,8 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev`
-  단일 명령 경로입니다. 정확한 green `main`을 요구하고 현재의 각 계획을 승인받으며 기반 계층과
-  테넌트 구성을 완료하고 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 정확한 green `main`을 요구하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
+  현재의 각 계획을 승인받고 기반 계층과 테넌트 구성을 완료하며 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -62,7 +63,7 @@ def prepare_genesis(
     monthly_cost_ceiling: int,
     root: Path,
 ) -> PreparedGenesis:
-    """Create or verify all local inputs required by the existing Genesis router."""
+    """Create or verify local inputs, overlapping independent kit and target discovery."""
 
     if (
         _COMMIT.fullmatch(source_commit) is None
@@ -81,14 +82,6 @@ def prepare_genesis(
     _ensure_ed25519_key(ssh_key, openssh=True)
     ssh_public = root / "runner_ed25519.pub"
     _ensure_ssh_public_key(ssh_key, ssh_public)
-    stage = root / "stage"
-    verification = _ensure_kit(
-        repository_root=repository_root,
-        stage=stage,
-        release_key=release_key,
-        bundle_key=bundle_key,
-        source_commit=source_commit,
-    )
     target_binding = compute_target_binding(
         tenant_id=tenant_id,
         subscription_id=subscription_id,
@@ -112,50 +105,63 @@ def prepare_genesis(
         approval_quorum=1,
         monthly_cost_ceiling=monthly_cost_ceiling,
     )
-    if profile_path.exists():
-        if load_profile(profile_path) != desired_profile:
-            raise ValueError("existing Genesis profile differs from the requested deployment")
-    else:
-        write_profile(profile_path, desired_profile)
-    variables_path = root / "foundation-variables.json"
-    check = root / ".foundation-variables-check.json"
-    check.unlink(missing_ok=True)
-    if variables_path.exists():
-        try:
-            snapshot_foundation_input(
-                variables_path,
-                check,
-                expected_target_binding=target_binding,
-                expected_region=region,
-                expected_environment="dev",
-            )
-        finally:
-            check.unlink(missing_ok=True)
-        values = read_plan_input(variables_path)
-        if values.get("source_commit") != source_commit:
-            raise ValueError("existing Foundation variables use another source revision")
-    else:
-        values = foundation_values(
+    stage = root / "stage"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        kit_future = executor.submit(
+            _ensure_kit,
             repository_root=repository_root,
+            stage=stage,
+            release_key=release_key,
+            bundle_key=bundle_key,
             source_commit=source_commit,
-            tenant_id=tenant_id,
-            subscription_id=subscription_id,
-            region=region,
-            target_binding=target_binding,
-            run_binding=run_binding,
-            ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384).decode("ascii").strip(),
         )
-        write_plan_input(variables_path, values)
-        try:
-            snapshot_foundation_input(
-                variables_path,
-                check,
-                expected_target_binding=target_binding,
-                expected_region=region,
-                expected_environment="dev",
+        if profile_path.exists():
+            if load_profile(profile_path) != desired_profile:
+                raise ValueError("existing Genesis profile differs from the requested deployment")
+        else:
+            write_profile(profile_path, desired_profile)
+        variables_path = root / "foundation-variables.json"
+        check = root / ".foundation-variables-check.json"
+        check.unlink(missing_ok=True)
+        if variables_path.exists():
+            try:
+                snapshot_foundation_input(
+                    variables_path,
+                    check,
+                    expected_target_binding=target_binding,
+                    expected_region=region,
+                    expected_environment="dev",
+                )
+            finally:
+                check.unlink(missing_ok=True)
+            values = read_plan_input(variables_path)
+            if values.get("source_commit") != source_commit:
+                raise ValueError("existing Foundation variables use another source revision")
+        else:
+            values = foundation_values(
+                repository_root=repository_root,
+                source_commit=source_commit,
+                tenant_id=tenant_id,
+                subscription_id=subscription_id,
+                region=region,
+                target_binding=target_binding,
+                run_binding=run_binding,
+                ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384)
+                .decode("ascii")
+                .strip(),
             )
-        finally:
-            check.unlink(missing_ok=True)
+            write_plan_input(variables_path, values)
+            try:
+                snapshot_foundation_input(
+                    variables_path,
+                    check,
+                    expected_target_binding=target_binding,
+                    expected_region=region,
+                    expected_environment="dev",
+                )
+            finally:
+                check.unlink(missing_ok=True)
+        verification = kit_future.result()
     return PreparedGenesis(
         root=root,
         stage=stage,

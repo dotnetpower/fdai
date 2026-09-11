@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 31918828c73752363a656f946c43b929bd84d385
+translation_source_sha: d1684626c5101e6b598c1d6e89de54af31a761e0
 translation_revised: 2026-09-11
 ---
 
@@ -36,7 +36,9 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 필수 CI가 green인 깨끗한 `origin/main` 리비전을 요구하며, 서명된 산출물을 준비한 뒤 각 값 비공개
 계획을 표시하고 정확한 검사점 이름을 입력받습니다. 한 번의 실행으로 runner 이미지, 기반 계층,
 등록, 상태 인계, Entra, 저장소 구성, 보호된 애플리케이션 적용 및 두 번째 변경 없음 계획까지
-계속할 수 있습니다. 응답이 없다고 승인한 것으로 해석하지 않습니다.
+계속할 수 있습니다. 응답이 없다고 승인한 것으로 해석하지 않습니다. 독립적인 아티팩트, 검색,
+공급자, 정책 프로브, Entra, 이미지 공급 작업에는 범위가 제한된 병렬 실행을 사용합니다. 승인,
+적용, 정리, 상태, 인계는 계속 직렬로 수행합니다.
 
 하위 수준 Genesis 라우터는 번호가 지정된 15개 단계, 정확한 진행률, 건너뛴 단계 수, 남은 작업을
 표시합니다. `--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및 Storage 정책

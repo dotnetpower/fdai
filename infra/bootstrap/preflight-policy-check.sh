@@ -14,6 +14,39 @@ OUTPUT_FILE=""
 GROUP_CLEANUP_REQUIRED=0
 KEY_VAULT_PURGE_REQUIRED=0
 PROBE_COMPLETE=0
+ACTIVE_PIDS=()
+TEMPORARY_FILES=()
+
+remember_child() {
+  ACTIVE_PIDS+=("$1")
+}
+
+forget_child() {
+  local completed="$1" retained=() pid
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    [[ "$pid" == "$completed" ]] || retained+=("$pid")
+  done
+  ACTIVE_PIDS=("${retained[@]}")
+}
+
+wait_child() {
+  local pid="$1" status=0
+  wait "$pid" || status=$?
+  forget_child "$pid"
+  return "$status"
+}
+
+stop_children() {
+  local pid
+  ((${#ACTIVE_PIDS[@]} > 0)) || return 0
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    kill -TERM -- "-$pid" >/dev/null 2>&1 || true
+  done
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    wait "$pid" >/dev/null 2>&1 || true
+  done
+  ACTIVE_PIDS=()
+}
 
 usage() {
   cat >&2 <<'EOF'
@@ -60,6 +93,10 @@ done
 [[ "$OUTPUT_FILE" == /* && ! -e "$OUTPUT_FILE" && ! -L "$OUTPUT_FILE" ]] || {
   echo "policy probe output must be a new absolute path" >&2
   exit 64
+}
+command -v setsid >/dev/null 2>&1 || {
+  echo "policy probe requires setsid for bounded parallel process cleanup" >&2
+  exit 4
 }
 
 "$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
@@ -241,13 +278,17 @@ cleanup_probe() {
 on_exit() {
   local status=$?
   trap - EXIT
+  stop_children
   if ((PROBE_COMPLETE == 0)) && ! cleanup_probe; then
     echo "policy probe cleanup did not converge" >&2
     status=4
   fi
+  ((${#TEMPORARY_FILES[@]} == 0)) || rm -f -- "${TEMPORARY_FILES[@]}"
   exit "$status"
 }
 trap on_exit EXIT
+trap 'stop_children; exit 130' INT
+trap 'stop_children; exit 143' TERM
 
 case "$(group_state)" in
   absent)
@@ -304,7 +345,7 @@ fi
 
 key_vault_created=false
 storage_created=false
-if timeout 120s az keyvault create \
+setsid timeout 120s az keyvault create \
   --subscription "$EXPECTED_SUBSCRIPTION" \
   --name "$key_vault" \
   --resource-group "$resource_group" \
@@ -312,11 +353,10 @@ if timeout 120s az keyvault create \
   --enable-rbac-authorization true \
   --public-network-access Enabled \
   --tags fdai:managed=true fdai:layer=policy-probe fdai:run-id="$RUN_ID" \
-  --output none --only-show-errors >/dev/null 2>&1; then
-  key_vault_created=true
-  KEY_VAULT_PURGE_REQUIRED=1
-fi
-if timeout 120s az storage account create \
+  --output none --only-show-errors >/dev/null 2>&1 &
+key_vault_create_pid=$!
+remember_child "$key_vault_create_pid"
+setsid timeout 120s az storage account create \
   --subscription "$EXPECTED_SUBSCRIPTION" \
   --name "$storage_account" \
   --resource-group "$resource_group" \
@@ -326,7 +366,14 @@ if timeout 120s az storage account create \
   --public-network-access Enabled \
   --allow-shared-key-access true \
   --allow-blob-public-access false \
-  --output none --only-show-errors >/dev/null 2>&1; then
+  --output none --only-show-errors >/dev/null 2>&1 &
+storage_create_pid=$!
+remember_child "$storage_create_pid"
+if wait_child "$key_vault_create_pid"; then
+  key_vault_created=true
+  KEY_VAULT_PURGE_REQUIRED=1
+fi
+if wait_child "$storage_create_pid"; then
   storage_created=true
 fi
 
@@ -342,18 +389,35 @@ if [[ "$storage_created" != "true" ]]; then
   reason_codes+=(storage_probe_create_failed)
 fi
 if [[ "$key_vault_created" == "true" && "$storage_created" == "true" ]]; then
-  key_vault_access="$(timeout 30s az keyvault show \
+  key_vault_posture_file="$(mktemp "$(dirname "$OUTPUT_FILE")/.policy-kv-XXXXXX")"
+  storage_posture_file="$(mktemp "$(dirname "$OUTPUT_FILE")/.policy-storage-XXXXXX")"
+  TEMPORARY_FILES+=("$key_vault_posture_file" "$storage_posture_file")
+  setsid timeout 30s az keyvault show \
     --subscription "$EXPECTED_SUBSCRIPTION" \
     --name "$key_vault" \
     --resource-group "$resource_group" \
     --query properties.publicNetworkAccess \
-    --output tsv --only-show-errors 2>/dev/null || echo unknown)"
-  readarray -t storage_posture < <(timeout 30s az storage account show \
+    --output tsv --only-show-errors >"$key_vault_posture_file" 2>/dev/null &
+  key_vault_posture_pid=$!
+  remember_child "$key_vault_posture_pid"
+  setsid timeout 30s az storage account show \
     --subscription "$EXPECTED_SUBSCRIPTION" \
     --name "$storage_account" \
     --resource-group "$resource_group" \
     --query '[publicNetworkAccess,allowSharedKeyAccess]' \
-    --output tsv --only-show-errors 2>/dev/null || printf 'unknown\nunknown\n')
+    --output tsv --only-show-errors >"$storage_posture_file" 2>/dev/null &
+  storage_posture_pid=$!
+  remember_child "$storage_posture_pid"
+  if ! wait_child "$key_vault_posture_pid"; then
+    printf 'unknown\n' >"$key_vault_posture_file"
+  fi
+  if ! wait_child "$storage_posture_pid"; then
+    printf 'unknown\nunknown\n' >"$storage_posture_file"
+  fi
+  key_vault_access="$(<"$key_vault_posture_file")"
+  readarray -t storage_posture <"$storage_posture_file"
+  rm -f -- "$key_vault_posture_file" "$storage_posture_file"
+  TEMPORARY_FILES=()
   storage_access="${storage_posture[0]:-unknown}"
   storage_shared_key="${storage_posture[1]:-unknown}"
   if [[ "${key_vault_access,,}" == "disabled" ]]; then

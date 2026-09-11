@@ -7,6 +7,8 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -167,10 +169,10 @@ def test_provider_apply_registers_only_missing_namespaces_and_reads_them_back() 
     )
 
     register_calls = [call for call in runner.calls if call[:2] == ("provider", "register")]
-    assert [call[call.index("--namespace") + 1] for call in register_calls] == [
+    assert {call[call.index("--namespace") + 1] for call in register_calls} == {
         "Microsoft.Network",
         "Microsoft.KeyVault",
-    ]
+    }
     assert all("--wait" not in call for call in register_calls)
     assert report.state == "ready"
     assert report.requested == ("Microsoft.Network", "Microsoft.KeyVault")
@@ -204,29 +206,67 @@ def test_provider_preview_rejects_an_indeterminate_state() -> None:
         )
 
 
-def test_provider_reconciliation_uses_one_cumulative_deadline() -> None:
-    clock = [0.0]
+def test_provider_inspection_runs_with_bounded_parallelism() -> None:
+    required = tuple(dict.fromkeys((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS)))
+    active = 0
+    maximum_active = 0
+    lock = threading.Lock()
     calls: list[float] = []
 
-    def monotonic() -> float:
-        return clock[0]
-
     def run(arguments: tuple[str, ...], timeout_seconds: float) -> subprocess.CompletedProcess[str]:
+        nonlocal active, maximum_active
         calls.append(timeout_seconds)
-        clock[0] += 10
+        with lock:
+            active += 1
+            maximum_active = max(maximum_active, active)
+        time.sleep(0.02)
+        with lock:
+            active -= 1
         return subprocess.CompletedProcess(arguments, 0, "Registered\n", "")
 
-    with pytest.raises(ProviderReconcileError, match="inspection timed out"):
-        reconcile_resource_providers(
-            subscription_id=_SUBSCRIPTION,
-            profile="complete",
-            apply=False,
-            run=run,
-            timeout_seconds=30,
-            monotonic=monotonic,
-        )
+    report = reconcile_resource_providers(
+        subscription_id=_SUBSCRIPTION,
+        profile="complete",
+        apply=False,
+        run=run,
+        timeout_seconds=30,
+    )
 
-    assert calls == [30, 20, 10]
+    assert report.state == "ready"
+    assert len(calls) == len(required)
+    assert maximum_active > 1
+    assert all(0 < timeout <= 30 for timeout in calls)
+
+
+def test_provider_registration_requests_run_concurrently() -> None:
+    states = {namespace: "Registered" for namespace in FOUNDATION_PROVIDERS}
+    missing = ("Microsoft.Compute", "Microsoft.Network", "Microsoft.Storage")
+    for namespace in missing:
+        states[namespace] = "NotRegistered"
+    barrier = threading.Barrier(len(missing))
+
+    class ConcurrentRegistrationRunner(ProviderRunner):
+        def __call__(
+            self, arguments: tuple[str, ...], timeout_seconds: float
+        ) -> subprocess.CompletedProcess[str]:
+            if arguments[:2] == ("provider", "register"):
+                namespace = arguments[arguments.index("--namespace") + 1]
+                self.calls.append(arguments)
+                barrier.wait(timeout=1)
+                self.states[namespace] = "Registered"
+                return subprocess.CompletedProcess(arguments, 0, "", "")
+            return super().__call__(arguments, timeout_seconds)
+
+    report = reconcile_resource_providers(
+        subscription_id=_SUBSCRIPTION,
+        profile="foundation",
+        apply=True,
+        run=ConcurrentRegistrationRunner(states),
+        poll_seconds=0.01,
+        sleep=lambda _seconds: None,
+    )
+
+    assert report.requested == missing
 
 
 def test_failed_provider_registration_conservatively_records_mutation() -> None:
@@ -698,6 +738,20 @@ def test_expired_total_deadline_blocks_the_next_stage(
     assert invoked == []
 
 
+def test_target_and_source_verification_reads_run_concurrently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    instance = _new_orchestrator(tmp_path, monkeypatch)
+    barrier = threading.Barrier(2)
+    monkeypatch.setattr(instance, "_verify_target", lambda: barrier.wait(timeout=1))
+    monkeypatch.setattr(instance, "_verify_source", lambda: barrier.wait(timeout=1))
+
+    instance._verify_target_and_source()
+
+    assert {"target", "source"} <= instance.store.completed
+    assert instance.store.payload["current_stage"] == "source"
+
+
 def test_orchestrator_preserves_provider_mutation_evidence_on_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -984,6 +1038,14 @@ case "$1 $2" in
         ;;
     "keyvault create")
         touch "$FAKE_KV_STATE"
+            if [[ -n "${FAKE_KV_CREATE_STARTED:-}" ]]; then
+                touch "$FAKE_KV_CREATE_STARTED"
+                for _ in {1..100}; do
+                    [[ -f "$FAKE_STORAGE_CREATE_STARTED" ]] && break
+                    sleep 0.01
+                done
+                [[ -f "$FAKE_STORAGE_CREATE_STARTED" ]] || exit 42
+            fi
         [[ "${FAKE_KV_CREATE_MODE:-success}" != "timeout_after_create" ]] || exit 124
         ;;
   "keyvault show") echo "${FAKE_KV_ACCESS:-Enabled}" ;;
@@ -1001,7 +1063,14 @@ case "$1 $2" in
         rm -f "$FAKE_KV_DELETED_STATE"
         ;;
   "storage account")
-    if [[ "$3" == "show" ]]; then
+        if [[ "$3" == "create" && -n "${FAKE_STORAGE_CREATE_STARTED:-}" ]]; then
+            touch "$FAKE_STORAGE_CREATE_STARTED"
+            for _ in {1..100}; do
+                [[ -f "$FAKE_KV_CREATE_STARTED" ]] && break
+                sleep 0.01
+            done
+            [[ -f "$FAKE_KV_CREATE_STARTED" ]] || exit 43
+        elif [[ "$3" == "show" ]]; then
       printf '%s\n%s\n' "${FAKE_STORAGE_ACCESS:-Enabled}" "${FAKE_SHARED_KEY:-True}"
     fi
     ;;
@@ -1104,6 +1173,21 @@ def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
     assert execution.invocations.index("group delete") < execution.invocations.index(
         "keyvault purge"
     )
+
+
+def test_policy_probe_creates_independent_resources_concurrently(tmp_path: Path) -> None:
+    execution = _run_policy_probe(
+        tmp_path,
+        environment={
+            "FAKE_KV_CREATE_STARTED": str(tmp_path / "kv-started"),
+            "FAKE_STORAGE_CREATE_STARTED": str(tmp_path / "storage-started"),
+        },
+    )
+
+    assert execution.result.returncode == 0, execution.result.stderr
+    payload = json.loads(execution.output.read_text(encoding="utf-8"))
+    assert payload["key_vault_probe_created"] is True
+    assert payload["storage_probe_created"] is True
 
 
 def test_policy_probe_cleans_up_after_ambiguous_group_create_timeout(tmp_path: Path) -> None:
