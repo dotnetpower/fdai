@@ -21,6 +21,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-11 | implemented | Refreshed the derived System Knowledge catalog after recovery decision and semantic coverage records changed. | `current change`; derived-source gate. | No service authority change. |
 | 2026-09-11 | implemented | Refreshed the derived System Knowledge catalog after the final upstream rebase and registered the two new Core runtime modules in the wheel inventory. | `current change`; focused catalog and Core package tests passed 11 cases. | No residual packaging work for the safeguard runtime modules. |
 | 2026-09-11 | implemented | Bound recovery observation intake to the deployment-configured trusted observer identity set. | `current change`; service Terraform and recovery ingress tests. | Retain governed runtime identity evidence. |
 | 2026-09-11 | implemented | Added exact Core safeguard-bundle readback for isolated execution, fenced by a cross-service migration dependency, a matching JSONB index, and a bounded authority-cutover-only legacy transition that defaults off. | `current change`; resolver, migration ownership, service Terraform, runtime config, and focused rollout tests. | Retain governed cross-service rollout evidence with strict bundle enforcement restored. |
