@@ -1146,6 +1146,24 @@ def test_dispatch_guards_are_parsed_from_triggers_and_root_jobs() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "trigger",
+    (
+        "on: workflow_dispatch\n",
+        "on: [workflow_dispatch]\n",
+    ),
+)
+def test_dispatch_shorthand_still_requires_exact_commit_input(trigger: str) -> None:
+    module = _load_contract_module()
+    document = yaml.safe_load(
+        trigger + "jobs:\n  apply:\n    if: github.ref == 'refs/heads/main'\n"
+    )
+
+    assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml workflow_dispatch must declare an exact commit_sha input"
+    ]
+
+
 def test_dispatch_guard_rejects_a_ref_tautology() -> None:
     module = _load_contract_module()
     document = yaml.safe_load(

@@ -123,7 +123,13 @@ def workflow_triggers(document: Any) -> dict[str, Any]:
     if not isinstance(document, dict):
         return {}
     triggers = document.get("on", document.get(True))
-    return triggers if isinstance(triggers, dict) else {}
+    if isinstance(triggers, dict):
+        return triggers
+    if isinstance(triggers, str):
+        return {triggers: None}
+    if isinstance(triggers, list) and all(isinstance(trigger, str) for trigger in triggers):
+        return dict.fromkeys(triggers)
+    return {}
 
 
 def strip_outer_parentheses(expression: str) -> str:
