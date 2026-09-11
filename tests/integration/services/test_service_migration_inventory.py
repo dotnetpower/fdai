@@ -292,6 +292,25 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
     assert len(version_tables) == 5
 
 
+def test_core_runtime_call_link_migration_extends_both_inventory_constraints() -> None:
+    path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/"
+        "20260912_core_runtime_call_snapshot_links.py"
+    )
+    metadata = inventory_module.load_revision_metadata(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert metadata.revision == "core_runtime_call_snapshot_links_20260912"
+    assert (
+        'down_revision: str | Sequence[str] | None = "core_post_release_closure_20260912"' in source
+    )
+    assert source.count("'runtime_calls'") == 4
+    assert source.count("inventory_snapshot_link_link_type_check") == 4
+    assert source.count("inventory_realtime_link_link_type_check") == 4
+    assert "DELETE FROM inventory_snapshot_link WHERE link_type = 'runtime_calls'" in source
+    assert "DELETE FROM inventory_realtime_link WHERE link_type = 'runtime_calls'" in source
+
+
 def test_service_migrations_serialize_cross_service_ddl_before_service_lock() -> None:
     environment_source = (MIGRATION_ROOT / "runtime/env.py").read_text(encoding="utf-8")
     legacy_environment_source = (REPO_ROOT / "alembic/env.py").read_text(encoding="utf-8")

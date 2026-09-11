@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 45f1d3403e62b38abbac247f1e51effd7b171322
+translation_source_sha: 9b4dff0a01c4e51d1ddce32508043acb48ea4cb0
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -113,7 +113,9 @@ ARM replica 검증과 짝 완전성을 평가하기 전에 정확한 엔드포�
 읽기가 끝난 뒤에만 평가합니다. 그런 다음 인벤토리 기록기는 `runtime_calls`를 변환하기 전에
 완전한 활성 세대, principal 범위, 최신성 예산 및 정확한 온톨로지 릴리스에 대해 두 엔드포인트
 ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID와 활성 세대의 Resource 형식을
-함께 결속합니다. KQL과 파싱한 엔드포인트 증표 값은 집중 contract 모듈에 격리하며 수집, ARM
+함께 결속합니다. Core 인벤토리 snapshot과 실시간 link constraint는 검토된 `runtime_calls`
+형식을 허용합니다. 롤백은 다시 만들 수 있는 해당 link만 삭제한 뒤 이전 constraint를 복원합니다.
+KQL과 파싱한 엔드포인트 증표 값은 집중 contract 모듈에 격리하며 수집, ARM
 검증, 축약 및 인증은 원본 어댑터에 유지합니다. 독립 서비스 런타임 호출 전환 guard는 일치하는 Container App의 고정 API
 또는 채널 경계 namespace 값만 허용하며 서로 바뀌거나 임의의 namespace는 계속 차단합니다.
 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
