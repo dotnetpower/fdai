@@ -303,6 +303,37 @@ def job_needs(job: Any) -> set[str]:
     )
 
 
+def container_pr_boundary_errors(document: Any, relative: str) -> list[str]:
+    """Keep every pull-request reachable supply-chain job read-only and hosted."""
+    if relative != ".github/workflows/container-supply-chain.yml":
+        return []
+    if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
+        return [f"{relative} must declare supply-chain jobs"]
+    errors: list[str] = []
+    default_permissions = document.get("permissions")
+    for job_name, job in document["jobs"].items():
+        if not isinstance(job, dict):
+            continue
+        condition = job.get("if")
+        pull_request_reachable = condition is None or (
+            isinstance(condition, str) and "github.event_name == 'pull_request'" in condition
+        )
+        if not pull_request_reachable:
+            continue
+        permissions = job.get("permissions", default_permissions)
+        if (
+            permissions_are_privileged(permissions)
+            or runner_is_privileged(job.get("runs-on"))
+            or node_uses_privileged_secret(job)
+            or node_uses_privileged_secret(document.get("env"))
+        ):
+            errors.append(
+                f"{relative} pull-request job {job_name} must stay hosted, read-only, "
+                "and secret-free"
+            )
+    return errors
+
+
 def condition_overrides_guard_failure(condition: Any) -> bool:
     """Return whether a condition may run after a failed dependency or step."""
     if not isinstance(condition, str):
@@ -362,7 +393,7 @@ def protected_guard_prefix_errors(
     """Require each privileged job to own or depend on an exact verifier prefix."""
     if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
         return [f"{relative} is privileged and has no executable protected-source guard"]
-    errors: list[str] = []
+    errors = container_pr_boundary_errors(document, relative)
     guarded_jobs: set[str] = set()
     expected_checkout_with = {
         "ref": "main",
