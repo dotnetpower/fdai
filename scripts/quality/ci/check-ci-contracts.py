@@ -104,6 +104,30 @@ def _automation_definition_paths() -> tuple[Path, ...]:
     return tuple(sorted({*_workflow_paths(), *_action_definition_paths()}))
 
 
+def _local_action_is_audited(reference: str, action_definitions: set[Path]) -> bool:
+    local_path = PurePosixPath(reference.removeprefix("./"))
+    if (
+        local_path.is_absolute()
+        or len(local_path.parts) < 3
+        or local_path.parts[:2] != (".github", "actions")
+        or ".." in local_path.parts
+    ):
+        return False
+    candidate = REPO_ROOT
+    for part in local_path.parts:
+        candidate /= part
+        if candidate.is_symlink():
+            return False
+    if not candidate.is_dir():
+        return False
+    manifests = {
+        manifest
+        for manifest in (candidate / "action.yml", candidate / "action.yaml")
+        if manifest.is_file() and not manifest.is_symlink()
+    }
+    return len(manifests) == 1 and manifests <= action_definitions
+
+
 def _uses_values_from_content(content: str, relative: Path) -> tuple[list[str], list[str]]:
     try:
         document: Any = yaml.safe_load(content)
@@ -485,15 +509,12 @@ def _validate_action_runtime_versions() -> list[str]:
         }
         for reference in uses_values:
             if reference.startswith("./"):
-                local_path = PurePosixPath(reference.removeprefix("./"))
-                is_audited_action = (
-                    len(local_path.parts) >= 3
-                    and local_path.parts[:2] == (".github", "actions")
-                    and ".." not in local_path.parts
-                )
-                if not is_audited_action and reference != PROTECTED_WORKFLOW_ACTION_REF:
+                if reference != PROTECTED_WORKFLOW_ACTION_REF and not _local_action_is_audited(
+                    reference, action_definitions
+                ):
                     errors.append(
-                        f"{relative} uses local action outside audited roots: {reference}"
+                        f"{relative} uses local action without an audited regular manifest: "
+                        f"{reference}"
                     )
                 continue
             if reference.startswith("docker://"):
