@@ -45,7 +45,7 @@ class _Connection:
 
     async def execute(self, statement: str, params: object = None) -> _Cursor:
         del params
-        if "AS processed" in statement:
+        if "count(DISTINCT source_event_id)" in statement:
             return _Cursor([{"count": self.ingested_count}])
         return _Cursor(self.rows)
 
@@ -199,7 +199,7 @@ async def test_cursor_coverage_rejects_poll_after_known_at() -> None:
     )
 
 
-async def test_ingestion_fence_accepts_terminal_processing_receipts(
+async def test_ingestion_fence_accepts_journaled_events(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from fdai.delivery.persistence import postgres_recent_resource_changes as module

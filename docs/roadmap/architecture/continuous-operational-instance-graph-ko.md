@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 9c91d5fa94eb5afca8531307c4dd65cf96ed1288
+translation_source_sha: 559e080facb280b394cef96c071ce2cd5c18cd5b
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -190,9 +190,9 @@ PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하�
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
 부재를 입증할 때까지 기다립니다. 연속 토큰이 없는 잘린 페이지는 같은 안정적인 keyset cursor로
-진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal 또는 내구성 있는 최종 처리 receipt에
-나타날 때까지 기다립니다. 따라서 snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로
-잘못 표현되지 않으면서 생산자 fence를 해제합니다. Snapshot에 포함된 이벤트도 이력 전용 관측을
+진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal에 나타날 때까지 기다립니다. 따라서
+snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로 잘못 표현되지 않으면서 생산자
+fence를 해제합니다. Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
 있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
 현재 overlay를 변경하지 않습니다.
@@ -206,8 +206,8 @@ cursor를 진행하기 전에 실패시킵니다.
 조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 작업 정보가 있는 Activity Log 관측만 선택하고
 주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든 정확한 이벤트 ID fence를 검증한
 뒤에만 완전한 결과로 보고합니다. 조회기는 요청 한도보다 한 행을 더 가져오며, 범위가 제한된
-부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다. 행, cursor 상태, 최종 처리
-receipt는 하나의 읽기 전용 repeatable-read snapshot에서 읽고 모두 답변의 `known_at` 경계로
+부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다. 행, cursor 상태, journal fence
+근거는 하나의 읽기 전용 repeatable-read snapshot에서 읽고 모두 답변의 `known_at` 경계로
 제한합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된

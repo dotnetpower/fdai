@@ -1274,8 +1274,8 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
 
     result = await projector(
         {
-            "event_id": "event-before-snapshot-history-v3",
-            "idempotency_key": "inventory-before-snapshot-history-v3",
+            "event_id": "event-before-snapshot-history-v4",
+            "idempotency_key": "inventory-before-snapshot-history-v4",
             "inventory_change": {
                 "kind": "upsert",
                 "resource": {
@@ -1299,14 +1299,9 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
     async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
         journal = await connection.execute(
             "SELECT count(*) FROM inventory_observation_journal "
-            "WHERE source_event_id='event-before-snapshot-history-v3'"
-        )
-        receipt = await connection.execute(
-            "SELECT outcome FROM inventory_change_event_receipt "
-            "WHERE source_event_id='event-before-snapshot-history-v3'"
+            "WHERE source_event_id='event-before-snapshot-history-v4'"
         )
         assert (await journal.fetchone()) == (1,)
-        assert (await receipt.fetchone()) == ("snapshot_covered",)
 
 
 @pytest.mark.parametrize("present_in_snapshot", [True, False])
@@ -1329,7 +1324,7 @@ async def test_snapshot_covered_delete_is_history_only(
     await store.stage(attempt, InventoryBatch(resources=resources))
     await store.promote(attempt, manifest)
     assert manifest.started_at is not None
-    event_id = f"event-delete-history-v3-{present_in_snapshot}"
+    event_id = f"event-delete-history-v4-{present_in_snapshot}"
     projector = PostgresInventoryDeltaProjector(
         config=config,
         clock=lambda: manifest.started_at + timedelta(seconds=1),
@@ -1338,7 +1333,7 @@ async def test_snapshot_covered_delete_is_history_only(
     result = await projector(
         {
             "event_id": event_id,
-            "idempotency_key": f"inventory-delete-history-v3-{present_in_snapshot}",
+            "idempotency_key": f"inventory-delete-history-v4-{present_in_snapshot}",
             "inventory_change": {
                 "kind": "delete",
                 "observation_kind": "tombstone",

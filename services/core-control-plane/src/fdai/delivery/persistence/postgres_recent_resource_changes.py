@@ -132,7 +132,7 @@ class PostgresResourceChangeIngestionFence:
             )
             cursor = await connection.execute(
                 _PROCESSED_EVENT_COUNT_SQL,
-                (list(event_ids), list(event_ids)),
+                (list(event_ids),),
             )
             row = await cursor.fetchone()
         return row is not None and int(row["count"]) == len(event_ids)
@@ -209,7 +209,7 @@ async def _cursor_coverage_complete(
             continue
         ingested = await connection.execute(
             _PROCESSED_EVENT_COUNT_AT_SQL,
-            (pending, known_at, pending, known_at),
+            (pending, known_at),
         )
         ingested_row = await ingested.fetchone()
         if (
@@ -222,20 +222,16 @@ async def _cursor_coverage_complete(
 
 
 _PROCESSED_EVENT_COUNT_SQL = (
-    "SELECT count(*) AS count FROM ("
-    "SELECT source_event_id FROM inventory_observation_journal "
+    "SELECT count(DISTINCT source_event_id) AS count "
+    "FROM inventory_observation_journal "
     "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
-    "AND source_event_id=ANY(%s::text[]) "
-    "UNION SELECT source_event_id FROM inventory_change_event_receipt "
-    "WHERE source_event_id=ANY(%s::text[])) AS processed"
+    "AND source_event_id=ANY(%s::text[])"
 )
 _PROCESSED_EVENT_COUNT_AT_SQL = (
-    "SELECT count(*) AS count FROM ("
-    "SELECT source_event_id FROM inventory_observation_journal "
+    "SELECT count(DISTINCT source_event_id) AS count "
+    "FROM inventory_observation_journal "
     "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
-    "AND source_event_id=ANY(%s::text[]) AND recorded_at<=%s "
-    "UNION SELECT source_event_id FROM inventory_change_event_receipt "
-    "WHERE source_event_id=ANY(%s::text[]) AND processed_at<=%s) AS processed"
+    "AND source_event_id=ANY(%s::text[]) AND recorded_at<=%s"
 )
 
 
