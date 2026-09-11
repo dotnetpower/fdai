@@ -1332,7 +1332,8 @@ def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
         "steps.health.outcome == 'failure') }}"
     )
     final_failure_condition = (
-        "if: ${{ always() && inputs.apply && (steps.apply.outcome == 'failure' || "
+        "if: ${{ always() && steps.protected-source.outcome == 'success' && "
+        "inputs.apply && (steps.apply.outcome == 'failure' || "
         "steps.health.outcome == 'failure') }}"
     )
     assert "id: apply\n        continue-on-error: true" in _WORKFLOW
