@@ -623,6 +623,50 @@ def test_privileged_jobs_require_their_own_guard_or_guarded_dependency() -> None
     ]
 
 
+def test_secret_bearing_jobs_require_a_direct_guarded_dependency() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "guarded": {
+                "runs-on": "ubuntu-24.04",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            },
+            "publish": {
+                "runs-on": "ubuntu-24.04",
+                "env": {"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"},
+                "steps": [{"run": "curl https://example.com"}],
+            },
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml privileged job publish has no direct guarded "
+        "needs dependency"
+    ]
+
+
 def test_protected_verifier_cannot_be_non_blocking() -> None:
     module = _load_contract_module()
     checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
