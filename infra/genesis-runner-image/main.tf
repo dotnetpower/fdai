@@ -101,6 +101,7 @@ resource "azurerm_subnet" "builder" {
 }
 
 resource "azurerm_subnet" "firewall" {
+  # checkov:skip=CKV2_AZURE_31:Azure Firewall exclusively owns AzureFirewallSubnet; an NSG can interrupt the managed service.
   name                 = "AzureFirewallSubnet"
   resource_group_name  = azurerm_resource_group.staging.name
   virtual_network_name = azurerm_virtual_network.builder.name
@@ -108,6 +109,7 @@ resource "azurerm_subnet" "firewall" {
 }
 
 resource "azurerm_subnet" "firewall_management" {
+  # checkov:skip=CKV2_AZURE_31:Azure Firewall exclusively owns AzureFirewallManagementSubnet; an NSG can interrupt the managed service.
   name                 = "AzureFirewallManagementSubnet"
   resource_group_name  = azurerm_resource_group.staging.name
   virtual_network_name = azurerm_virtual_network.builder.name
@@ -157,6 +159,7 @@ resource "azurerm_public_ip" "firewall_management" {
 }
 
 resource "azurerm_firewall_policy" "builder" {
+  # checkov:skip=CKV_AZURE_220:Firewall Basic does not support IDPS; exact FQDN rules and threat-intelligence deny mode bound this temporary build path.
   name                = "afwp-runner-build-${local.suffix}"
   resource_group_name = azurerm_resource_group.staging.name
   location            = var.region
@@ -212,6 +215,7 @@ resource "azurerm_firewall" "builder" {
   resource_group_name = azurerm_resource_group.staging.name
   sku_name            = "AZFW_VNet"
   sku_tier            = "Basic"
+  threat_intel_mode   = "Deny"
   firewall_policy_id  = azurerm_firewall_policy.builder.id
   tags                = local.tags
 
@@ -276,6 +280,7 @@ resource "azurerm_network_interface_security_group_association" "builder" {
 }
 
 resource "azurerm_linux_virtual_machine" "builder" {
+  # checkov:skip=CKV_AZURE_50:The ephemeral builder requires one exact Custom Script extension whose toolchain bytes and digests are plan-bound.
   name                            = "vm-runner-build-${local.suffix}"
   computer_name                   = "fdai-runner-build"
   location                        = var.region
@@ -431,6 +436,7 @@ resource "azurerm_network_interface_security_group_association" "verifier" {
 }
 
 resource "azurerm_linux_virtual_machine" "verifier" {
+  # checkov:skip=CKV_AZURE_50:The ephemeral verifier requires one exact Custom Script extension to independently validate the captured image.
   name                            = "vm-runner-verify-${local.suffix}"
   computer_name                   = "fdai-runner-verify"
   location                        = var.region

@@ -181,6 +181,7 @@ run "exact_direct_builder_contract" {
     condition = (
       azurerm_route.builder_default.next_hop_type == "VirtualAppliance" &&
       azurerm_firewall.builder.sku_tier == "Basic" &&
+      azurerm_firewall.builder.threat_intel_mode == "Deny" &&
       one(azurerm_network_security_group.builder.security_rule).access == "Deny" &&
       one(azurerm_network_security_group.builder.security_rule).direction == "Inbound"
     )

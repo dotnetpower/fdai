@@ -138,7 +138,7 @@ Before approval, the plan reports the projected monthly cost, one-time model val
 quota consumption, public IP count, egress profile, backup retention, and resources that do not
 scale to zero. A profile cost ceiling blocks plans above the approved amount.
 The direct Runner image plan reserves a conservative USD 500 monthly fixed-cost upper bound for
-its retained Firewall Basic, public IP, disk, and image graph. A lower profile ceiling blocks the
+its retained Firewall Basic in threat-intelligence deny mode, public IP, disk, and image graph. A lower profile ceiling blocks the
 plan, and removing the retained build graph remains a separately reviewed cleanup operation.
 The builder subnet and both private VM NICs bind the same explicit inbound-deny NSG; neither VM
 receives a public IP.
