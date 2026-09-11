@@ -87,19 +87,26 @@ class PostgresRecentResourceChangeReader:
                     start_at,
                     end_at,
                     known_at,
-                    limit,
+                    limit + 1,
                 ),
             )
             rows = await cursor.fetchall()
-            complete = await _cursor_coverage_complete(
+            source_complete = await _cursor_coverage_complete(
                 connection,
                 scope_refs=self._config.scope_refs,
                 required_at=end_at - timedelta(seconds=self._config.cursor_freshness_seconds),
             )
+        truncated = len(rows) > limit
         return RecentResourceChangeRead(
-            tuple(_change(row) for row in rows),
-            complete,
-            None if complete else "resource_change_coverage_unverified",
+            tuple(_change(row) for row in rows[:limit]),
+            source_complete and not truncated,
+            (
+                "result_limit"
+                if truncated
+                else None
+                if source_complete
+                else "resource_change_coverage_unverified"
+            ),
         )
 
 
