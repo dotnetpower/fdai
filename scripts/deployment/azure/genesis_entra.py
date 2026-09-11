@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import re
 import subprocess
@@ -49,10 +50,9 @@ class EntraPlan:
 
 
 def plan_entra() -> EntraPlan:
-    """Inspect exact display names and block ambiguous or incompatible adoption."""
+    """Inspect independent exact names concurrently and block ambiguous adoption."""
 
-    apps = {name: _single_app(name) for name in _APP_NAMES}
-    groups = {name: _single_group(name) for name, _role in _GROUPS.values()}
+    apps, groups = _directory_inventory()
     for name, app in apps.items():
         if app is not None:
             _validate_app(name, app)
@@ -96,12 +96,14 @@ def apply_entra(plan: EntraPlan, *, runner_principal_id: str) -> dict[str, str]:
 
 
 def read_entra_bindings() -> dict[str, str]:
-    """Read and validate the exact tenant-local app and group bindings."""
+    """Read tenant-local app and group bindings concurrently, then validate them."""
 
-    api_app = _single_app("fdai-api")
-    spa_app = _single_app("fdai-console-spa")
+    apps, groups_by_name = _directory_inventory()
+    api_app = apps["fdai-api"]
+    spa_app = apps["fdai-console-spa"]
     groups = {
-        variable: _single_group(display_name) for variable, (display_name, _role) in _GROUPS.items()
+        variable: groups_by_name[display_name]
+        for variable, (display_name, _role) in _GROUPS.items()
     }
     if api_app is None or spa_app is None or any(value is None for value in groups.values()):
         raise ValueError("Entra binding readback is incomplete")
@@ -114,6 +116,22 @@ def read_entra_bindings() -> dict[str, str]:
         "OPERATOR_API_AUDIENCE": f"api://{api_app['appId']}",
         **{variable: str(value["id"]) for variable, value in groups.items() if value is not None},
     }
+
+
+def _directory_inventory() -> tuple[
+    dict[str, dict[str, Any] | None], dict[str, dict[str, Any] | None]
+]:
+    """Read independent app and group identities concurrently, then restore stable key order."""
+
+    group_names = tuple(display_name for display_name, _role in _GROUPS.values())
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=len(_APP_NAMES) + len(group_names)
+    ) as executor:
+        app_futures = {name: executor.submit(_single_app, name) for name in _APP_NAMES}
+        group_futures = {name: executor.submit(_single_group, name) for name in group_names}
+        apps = {name: app_futures[name].result() for name in _APP_NAMES}
+        groups = {name: group_futures[name].result() for name in group_names}
+    return apps, groups
 
 
 def _ensure_api_app() -> dict[str, Any]:

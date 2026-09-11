@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +31,26 @@ def test_entra_plan_lists_only_missing_generic_objects(monkeypatch) -> None:
     )
     assert plan.projection()["subscription_ready"] is False
     assert len(plan.digest) == 64
+
+
+def test_entra_plan_reads_independent_directory_objects_concurrently(monkeypatch) -> None:
+    barrier = threading.Barrier(7)
+
+    def read_app(_name: str):
+        barrier.wait(timeout=1)
+        return None
+
+    def read_group(_name: str):
+        barrier.wait(timeout=1)
+        return None
+
+    monkeypatch.setattr(genesis_entra, "_single_app", read_app)
+    monkeypatch.setattr(genesis_entra, "_single_group", read_group)
+
+    plan = genesis_entra.plan_entra()
+
+    assert len(plan.create_apps) == 2
+    assert len(plan.create_groups) == 5
 
 
 def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatch) -> None:

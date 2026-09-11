@@ -10,6 +10,7 @@ mandatory.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -122,28 +123,38 @@ def test_pre_push_validates_a_new_branch_against_the_remote_default() -> None:
 def test_pre_push_blocks_non_current_branch_updates(tmp_path: Path) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
+    git_env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
     subprocess.run(
         ["git", "init", "--quiet", "--initial-branch=main"],
         cwd=repository,
+        env=git_env,
         check=True,
     )
     subprocess.run(
         ["git", "config", "user.email", "tests@example.com"],
         cwd=repository,
+        env=git_env,
         check=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "FDAI Tests"],
         cwd=repository,
+        env=git_env,
         check=True,
     )
     tracked = repository / "tracked.txt"
     tracked.write_text("value\n", encoding="utf-8")
-    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
-    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], cwd=repository, check=True)
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, env=git_env, check=True)
+    subprocess.run(
+        ["git", "commit", "--quiet", "-m", "initial"],
+        cwd=repository,
+        env=git_env,
+        check=True,
+    )
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=repository,
+        env=git_env,
         check=True,
         capture_output=True,
         text=True,
@@ -153,6 +164,7 @@ def test_pre_push_blocks_non_current_branch_updates(tmp_path: Path) -> None:
     result = subprocess.run(
         ["bash", str(_PRE_PUSH), "origin"],
         cwd=repository,
+        env=git_env,
         input=hook_input,
         capture_output=True,
         text=True,

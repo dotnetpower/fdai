@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -37,6 +38,7 @@ def test_supervisor_composes_foundation_images_repository_and_application(
         lambda **_: (SOURCE, "subscription", "tenant"),
     )
     monkeypatch.setattr(genesis_supervisor, "prepare_genesis", lambda **_: prepared)
+    monkeypatch.setattr(genesis_supervisor, "plan_entra", lambda: object())
     monkeypatch.setattr(genesis_supervisor, "current_actor_digest", lambda _: "e" * 64)
     monkeypatch.setattr(
         genesis_supervisor,
@@ -84,6 +86,134 @@ def test_supervisor_composes_foundation_images_repository_and_application(
     assert receipt["active_inventory_generation_verified"] is False
     assert receipt["subscription_ready"] is False
     assert (tmp_path / "terminal-receipt.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_supervisor_overlaps_entra_plan_with_local_preparation(tmp_path: Path, monkeypatch) -> None:
+    tmp_path.chmod(0o700)
+    prepared = PreparedGenesis(
+        root=tmp_path,
+        stage=tmp_path / "stage",
+        profile=tmp_path / "profile.json",
+        variables=tmp_path / "variables.json",
+        ssh_private_key=tmp_path / "runner_ed25519",
+        source_commit=SOURCE,
+        target_binding="b" * 64,
+        run_binding="c" * 64,
+        kit_manifest_digest="d" * 64,
+    )
+    plan_started = threading.Event()
+    preparation_started = threading.Event()
+
+    def plan_entra():
+        plan_started.set()
+        assert preparation_started.wait(timeout=1)
+        return object()
+
+    def prepare(**_kwargs):
+        preparation_started.set()
+        assert plan_started.wait(timeout=1)
+        return prepared
+
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "_preflight",
+        lambda **_: (SOURCE, "subscription", "tenant"),
+    )
+    monkeypatch.setattr(genesis_supervisor, "plan_entra", plan_entra)
+    monkeypatch.setattr(genesis_supervisor, "prepare_genesis", prepare)
+    monkeypatch.setattr(genesis_supervisor, "current_actor_digest", lambda _: "e" * 64)
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "_run_foundation_loop",
+        lambda **_: {"run_id": "run-1", "state": "waiting"},
+    )
+    monkeypatch.setattr(genesis_supervisor, "_configure_entra", lambda **_: {})
+    monkeypatch.setattr(genesis_supervisor, "ensure_container_supply_chain", lambda **_: None)
+    monkeypatch.setattr(genesis_supervisor, "resolve_exact_images", lambda *_: {})
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "_configure_repository",
+        lambda **_: {"receipt_digest": "f" * 64},
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "run_application",
+        lambda _: {"receipt_digest": "1" * 64},
+    )
+
+    receipt = genesis_supervisor.supervise(
+        repository_root=ROOT,
+        repository="example/fdai",
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        work_dir=tmp_path,
+        timeout_seconds=1800,
+    )
+
+    assert receipt["application_converged"] is True
+
+
+def test_supervisor_overlaps_image_supply_with_entra_configuration(
+    tmp_path: Path, monkeypatch
+) -> None:
+    tmp_path.chmod(0o700)
+    prepared = PreparedGenesis(
+        root=tmp_path,
+        stage=tmp_path / "stage",
+        profile=tmp_path / "profile.json",
+        variables=tmp_path / "variables.json",
+        ssh_private_key=tmp_path / "runner_ed25519",
+        source_commit=SOURCE,
+        target_binding="b" * 64,
+        run_binding="c" * 64,
+        kit_manifest_digest="d" * 64,
+    )
+    barrier = threading.Barrier(2)
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "_preflight",
+        lambda **_: (SOURCE, "subscription", "tenant"),
+    )
+    monkeypatch.setattr(genesis_supervisor, "plan_entra", lambda: object())
+    monkeypatch.setattr(genesis_supervisor, "prepare_genesis", lambda **_: prepared)
+    monkeypatch.setattr(genesis_supervisor, "current_actor_digest", lambda _: "e" * 64)
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "_run_foundation_loop",
+        lambda **_: {"run_id": "run-1", "state": "waiting"},
+    )
+
+    def configure_entra(**_kwargs):
+        barrier.wait(timeout=1)
+        return {}
+
+    def supply_chain(**_kwargs):
+        barrier.wait(timeout=1)
+
+    monkeypatch.setattr(genesis_supervisor, "_configure_entra", configure_entra)
+    monkeypatch.setattr(genesis_supervisor, "ensure_container_supply_chain", supply_chain)
+    monkeypatch.setattr(genesis_supervisor, "resolve_exact_images", lambda *_: {})
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "_configure_repository",
+        lambda **_: {"receipt_digest": "f" * 64},
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "run_application",
+        lambda _: {"receipt_digest": "1" * 64},
+    )
+
+    receipt = genesis_supervisor.supervise(
+        repository_root=ROOT,
+        repository="example/fdai",
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        work_dir=tmp_path,
+        timeout_seconds=1800,
+    )
+
+    assert receipt["application_converged"] is True
 
 
 def test_foundation_checkpoint_reducer_accepts_only_current_exact_evidence() -> None:

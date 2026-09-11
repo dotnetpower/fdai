@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import fcntl
 import hashlib
 import json
@@ -192,8 +193,7 @@ class GenesisOrchestrator:
             self._acquire_lock()
             render_plan(self.store.mode)
             self._stage("toolchain", self._verify_toolchain)
-            self._stage("target", self._verify_target)
-            self._stage("source", self._verify_source)
+            self._verify_target_and_source()
             if not self._reconcile_providers():
                 return self._finish_waiting(
                     "providers",
@@ -273,6 +273,21 @@ class GenesisOrchestrator:
             repository=self.config.repository,
             apply=self.config.apply,
         )
+
+    def _verify_target_and_source(self) -> None:
+        """Run independent target and source reads concurrently, then record them in stage order."""
+
+        stages = (("target", self._verify_target), ("source", self._verify_source))
+        self.current_stage = "target"
+        self._bounded_timeout(1)
+        self.store.update(stage="target", state="running")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {stage: executor.submit(operation) for stage, operation in stages}
+            for stage, _operation in stages:
+                self.current_stage = stage
+                futures[stage].result()
+                self._bounded_timeout(1)
+                self.store.update(stage=stage, state="running", completed=True)
 
     def _reconcile_providers(self) -> bool:
         self.current_stage = "providers"

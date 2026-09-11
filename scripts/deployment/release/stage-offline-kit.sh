@@ -168,6 +168,58 @@ esac
 CLI_VERSION=""
 KIT="$OUT/kit"
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
+ACTIVE_PIDS=()
+
+remember_background() {
+  ACTIVE_PIDS+=("$1")
+}
+
+forget_background() {
+  local completed="$1" retained=() pid
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    [[ "$pid" == "$completed" ]] || retained+=("$pid")
+  done
+  ACTIVE_PIDS=("${retained[@]}")
+}
+
+wait_background() {
+  local pid="$1" status=0
+  wait "$pid" || status=$?
+  forget_background "$pid"
+  return "$status"
+}
+
+stop_background() {
+  local pid
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    kill -TERM "$pid" >/dev/null 2>&1 || true
+  done
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    wait "$pid" >/dev/null 2>&1 || true
+  done
+  ACTIVE_PIDS=()
+}
+
+drain_background() {
+  local pid
+  for pid in "${ACTIVE_PIDS[@]}"; do
+    wait "$pid" >/dev/null 2>&1 || true
+  done
+  ACTIVE_PIDS=()
+}
+
+wait_or_stop() {
+  local pid="$1" status=0
+  wait_background "$pid" || status=$?
+  if ((status != 0)); then
+    drain_background
+    return "$status"
+  fi
+}
+
+trap stop_background EXIT
+trap 'stop_background; exit 130' INT
+trap 'stop_background; exit 143' TERM
 
 rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
   "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python"
@@ -195,30 +247,74 @@ sys.stdout.buffer.write(
 ' "$RELEASE_KEY" |
   "$PYTHON" "$SAFE_WRITER" --path "$OUT/release-root.pub" --mode 644 --replace
 
-echo "-- pinned release toolchain"
-curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-  --retry-max-time 120 --connect-timeout 10 --max-time 90 \
-  -o "$OUT/toolchain/terraform.zip" \
-  "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${HOST_PLATFORM}.zip"
-echo "$TERRAFORM_SHA256  $OUT/toolchain/terraform.zip" | sha256sum -c -
 TERRAFORM_BIN="$OUT/toolchain/terraform"
-"$PYTHON" scripts/deployment/release/extract-terraform-archive.py \
-  --archive "$OUT/toolchain/terraform.zip" --output "$TERRAFORM_BIN"
-curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-  --retry-max-time 120 --connect-timeout 10 --max-time 90 \
-  -o "$OUT/toolchain/opa" \
-  "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/${OPA_ASSET}"
-echo "$OPA_SHA256  $OUT/toolchain/opa" | sha256sum -c -
-chmod 755 "$TERRAFORM_BIN" "$OUT/toolchain/opa"
 
+download_terraform() {
+  curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+    --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+    -o "$OUT/toolchain/terraform.zip" \
+    "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${HOST_PLATFORM}.zip"
+  echo "$TERRAFORM_SHA256  $OUT/toolchain/terraform.zip" | sha256sum -c -
+  timeout --signal=TERM --kill-after=15 120 \
+    "$PYTHON" scripts/deployment/release/extract-terraform-archive.py \
+    --archive "$OUT/toolchain/terraform.zip" --output "$TERRAFORM_BIN"
+  chmod 755 "$TERRAFORM_BIN"
+}
+
+download_opa() {
+  curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+    --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+    -o "$OUT/toolchain/opa" \
+    "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/${OPA_ASSET}"
+  echo "$OPA_SHA256  $OUT/toolchain/opa" | sha256sum -c -
+  chmod 755 "$OUT/toolchain/opa"
+}
+
+build_bundle() {
+  timeout --signal=TERM --kill-after=15 900 env \
+    SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
+    PYTHONPATH=services/core-control-plane/src "$PYTHON" \
+    scripts/deployment/release/build-deployment-bundle.py \
+    --destination "$OUT/bundle" --archive "$OUT/bundle.tar.gz" \
+    --private-key "$BUNDLE_KEY" --public-key-output "$OUT/bundle-key.pub" \
+    --bundle-version "$BUNDLE_VERSION" --release-channel development \
+    --min-cli-version 0.1.0 >/dev/null
+}
+
+build_cli_wheels() {
+  timeout --signal=TERM --kill-after=15 300 \
+    uv lock --check --project packages/deployment-cli >/dev/null
+  timeout --signal=TERM --kill-after=15 600 \
+    uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
+  timeout --signal=TERM --kill-after=15 300 \
+    uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
+    --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
+  timeout --signal=TERM --kill-after=15 900 \
+    uv run --project packages/deployment-cli --locked --no-dev --group release \
+    --python "$PYTHON" python -m pip download --only-binary=:all: --require-hashes \
+    --dest "$OUT/wheels" --requirement "$OUT/cli-requirements.txt" >/dev/null
+}
+
+echo "-- pinned release toolchain"
+echo "   terraform"
+download_terraform &
+terraform_pid=$!
+remember_background "$terraform_pid"
+echo "   OPA"
+download_opa &
+opa_pid=$!
+remember_background "$opa_pid"
 echo "-- signed deployment bundle"
-SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
-  PYTHONPATH=services/core-control-plane/src "$PYTHON" \
-  scripts/deployment/release/build-deployment-bundle.py \
-  --destination "$OUT/bundle" --archive "$OUT/bundle.tar.gz" \
-  --private-key "$BUNDLE_KEY" --public-key-output "$OUT/bundle-key.pub" \
-  --bundle-version "$BUNDLE_VERSION" --release-channel development \
-  --min-cli-version 0.1.0 >/dev/null
+build_bundle &
+bundle_pid=$!
+remember_background "$bundle_pid"
+echo "-- fdai deployment CLI wheel"
+build_cli_wheels &
+cli_pid=$!
+remember_background "$cli_pid"
+
+wait_or_stop "$terraform_pid"
+wait_or_stop "$bundle_pid"
 
 if [[ -n "$RUNTIME_DESCRIPTOR" ]]; then
   echo "-- runtime release bound to signed deployment bundle"
@@ -231,16 +327,13 @@ fi
 
 echo "-- terraform provider mirror"
 bash scripts/deployment/release/mirror-locked-providers.sh \
-  "$OUT/bundle" "$OUT" "$TERRAFORM_BIN" "$PLATFORM"
+  "$OUT/bundle" "$OUT" "$TERRAFORM_BIN" "$PLATFORM" &
+mirror_pid=$!
+remember_background "$mirror_pid"
 
-echo "-- fdai deployment CLI wheel"
-uv lock --check --project packages/deployment-cli >/dev/null
-uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
-uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
-  --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
-uv run --project packages/deployment-cli --locked --no-dev --group release \
-  --python "$PYTHON" python -m pip download --only-binary=:all: --require-hashes \
-  --dest "$OUT/wheels" --requirement "$OUT/cli-requirements.txt" >/dev/null
+wait_or_stop "$opa_pid"
+wait_or_stop "$cli_pid"
+wait_or_stop "$mirror_pid"
 # The kit's CLI version is the version of the wheel it actually carries. Reading
 # it from the installed package instead would silently disagree whenever the
 # source tree has moved ahead of the environment.
