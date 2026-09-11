@@ -58,6 +58,7 @@ EXPECTED_RUNTIME_MODULES = {
     "consumers.py",
     "control_loop.py",
     "control_loop_auxiliary.py",
+    "control_loop_execution_ports.py",
     "control_loop_support.py",
     "conversation_assurance.py",
     "conversation_assurance_lifecycle.py",
