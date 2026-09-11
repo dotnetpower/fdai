@@ -31,6 +31,9 @@ from fdai.core.executor import (
     ThorExecutionPort,
 )
 from fdai.core.executor.action_builder import ActionBuilder
+from fdai.core.executor.safeguard_lifecycle_coordinator import (
+    SafeguardLifecycleCoordinator,
+)
 from fdai.core.executor.tool_call import ToolCallShadowExecutor
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
@@ -164,6 +167,7 @@ class ControlLoop(
         thor_execution_port: ThorExecutionPort | None = None,
         mutation_dependency_readiness: MutationDependencyReadiness | None = None,
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
+        safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
@@ -213,6 +217,7 @@ class ControlLoop(
         self._thor_execution_port = thor_execution_port
         self._mutation_dependency_readiness = mutation_dependency_readiness
         self._evidence_conflict_reader = evidence_conflict_reader
+        self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)

@@ -11,6 +11,10 @@ from fdai.core.workflow.approval import StepApproval
 from fdai.core.workflow.approval_admission import (
     workflow_approval_admission_rejection_reasons,
 )
+from fdai.core.workflow.workflow_action_outcome import (
+    ActionOutcomeDisposition,
+    resolve_action_outcome,
+)
 from fdai.core.workflow.workflow_cancellation import cancellation_blocks_new_step
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
@@ -20,7 +24,6 @@ from fdai.core.workflow.workflow_runtime import (
     WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
-    WorkflowOutcomeResolver,
     WorkflowOutcomeVerifier,
     approval_decisions,
     event_id,
@@ -75,6 +78,7 @@ class ShadowWorkflowStepExecutor:
         "_mode",
         "_target_resource_id",
         "_attempt",
+        "_bundle_digests",
     )
 
     def __init__(
@@ -125,6 +129,7 @@ class ShadowWorkflowStepExecutor:
         self._mode = mode
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
         self._attempt = attempt
+        self._bundle_digests: dict[str, str] = {}
 
     async def _evaluate_guard(
         self,
@@ -277,6 +282,9 @@ class ShadowWorkflowStepExecutor:
             "reason": result.reason,
             "step_kind": step.kind.value,
         }
+        bundle_digest = self._bundle_digests.get(step.id)
+        if bundle_digest is not None:
+            event_payload["safeguard_bundle_digest"] = bundle_digest
         if step.kind is WorkflowStepKind.APPROVAL:
             approval_decision = {
                 "approval_recorded": "approved",
@@ -341,48 +349,32 @@ class ShadowWorkflowStepExecutor:
                     RunbookStepOutcome.WAITING,
                     "waiting_for_action_outcome_verifier",
                 )
-            status = self._context.get(f"action.{step.id}.status")
-            receipt_ref = self._context.get(f"action.{step.id}.receipt_ref", "").strip()
-            outcome = "succeeded" if status == "verified" else "failed"
-            try:
-                if isinstance(self._outcome_verifier, WorkflowOutcomeResolver):
-                    resolved = await self._outcome_verifier.resolve(
-                        process_id=self._process_id,
-                        step_id=step.id,
-                        proposal_ref=proposal_ref,
-                    )
-                    if resolved is None:
-                        return step_result(
-                            step,
-                            RunbookStepOutcome.WAITING,
-                            "waiting_for_action_outcome",
-                        )
-                    outcome = resolved.outcome
-                    receipt_ref = resolved.receipt_ref
-                elif status not in {"verified", "failed"} or not receipt_ref:
-                    return step_result(
-                        step,
-                        RunbookStepOutcome.WAITING,
-                        "waiting_for_action_outcome",
-                    )
-                accepted = await self._outcome_verifier.verify(
-                    process_id=self._process_id,
-                    step_id=step.id,
-                    proposal_ref=proposal_ref,
-                    outcome=outcome,
-                    receipt_ref=receipt_ref,
-                )
-            except Exception:  # noqa: BLE001 - verifier outage holds the Process
-                accepted = False
-            if not accepted:
+            resolution = await resolve_action_outcome(
+                self._outcome_verifier,
+                process_id=self._process_id,
+                step_id=step.id,
+                proposal_ref=proposal_ref,
+                context=self._context,
+            )
+            if resolution.disposition is not ActionOutcomeDisposition.RESOLVED:
                 return step_result(
                     step,
                     RunbookStepOutcome.WAITING,
-                    "waiting_for_action_outcome_verifier",
+                    resolution.disposition.value,
                 )
+            outcome = resolution.outcome
+            bundle_digest = resolution.safeguard_bundle_digest
+            if bundle_digest:
+                self._bundle_digests[step.id] = bundle_digest
             if outcome == "failed":
                 return step_result(step, RunbookStepOutcome.FAILURE, "action_failed")
             if outcome == "succeeded":
+                if bundle_digest is None:
+                    return step_result(
+                        step,
+                        RunbookStepOutcome.WAITING,
+                        "waiting_for_action_outcome_verifier",
+                    )
                 return step_result(step, RunbookStepOutcome.SUCCESS, "action_effect_verified")
             return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
         if self._action_dispatcher is None:

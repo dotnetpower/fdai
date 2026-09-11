@@ -43,6 +43,8 @@ class PostgresAuditIntentStoreConfig:
 class PostgresAuditIntentStore:
     """Atomic append, duplicate/conflict classification, and exact readback."""
 
+    production_eligible = True
+
     def __init__(self, *, config: PostgresAuditIntentStoreConfig) -> None:
         if not config.dsn:
             raise ValueError("PostgresAuditIntentStoreConfig.dsn MUST NOT be empty")

@@ -69,7 +69,8 @@
       "properties": {
         "process_id": {"type": "string", "minLength": 1, "maxLength": 200},
         "step_id": {"type": "string", "minLength": 1, "maxLength": 200},
-        "proposal_ref": {"type": "string", "minLength": 1, "maxLength": 512}
+        "proposal_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+        "attempt": {"type": "integer", "minimum": 1, "default": 1}
       },
       "description": "Workflow Process lineage. It is not part of ActionType params."
     },

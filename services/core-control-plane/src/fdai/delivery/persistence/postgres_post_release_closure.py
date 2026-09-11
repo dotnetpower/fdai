@@ -121,6 +121,8 @@ class PostgresPostReleaseClosureStoreConfig:
 class PostgresPostReleaseClosureStore:
     """Atomically close or reconcile one exact reservation and target generation."""
 
+    production_eligible = True
+
     def __init__(
         self,
         *,

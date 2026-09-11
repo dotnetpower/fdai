@@ -193,9 +193,17 @@ def _valid_incident_id(value: object) -> bool:
 
 
 def _valid_workflow_action(value: object, *, idempotency_key: str) -> bool:
-    if not isinstance(value, Mapping) or set(value) != {"process_id", "step_id", "proposal_ref"}:
+    required = {"process_id", "step_id", "proposal_ref"}
+    if (
+        not isinstance(value, Mapping)
+        or not required.issubset(value)
+        or set(value) - (required | {"attempt"})
+    ):
         return False
-    if any(not isinstance(value[field], str) or not value[field] for field in value):
+    if any(not isinstance(value[field], str) or not value[field] for field in required):
+        return False
+    attempt = value.get("attempt", 1)
+    if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
         return False
     proposal_ref = value.get("proposal_ref")
     return isinstance(proposal_ref, str) and proposal_ref == idempotency_key

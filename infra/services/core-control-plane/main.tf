@@ -4,6 +4,7 @@ module "core_control_plane" {
   name                       = var.name
   platform                   = var.platform
   image                      = var.image
+  source_revision            = var.source_revision
   bootstrap                  = var.bootstrap
   identity                   = var.identity
   rca_reader_identity        = var.rca_reader_identity

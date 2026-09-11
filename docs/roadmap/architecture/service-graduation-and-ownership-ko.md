@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: b4e772cfca66f01caf6fc4afcb267b21d87a5fb2
+translation_source_sha: 6652d93da2df0c25d295c3f94a7037ef4f1714a4
 translation_revised: 2026-09-11
 ---
 # 서비스 승격과 데이터 소유권
@@ -52,6 +52,14 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 복구 결정 및 semantic coverage 레코드 변경 뒤 파생 System Knowledge catalog를 갱신했습니다. | `current change`; 파생 소스 gate. | 서비스 권한 변경은 없습니다. |
+| 2026-09-11 | implemented | 최종 upstream rebase 뒤 파생 System Knowledge catalog를 갱신하고 Core runtime module 2개를 wheel inventory에 등록했습니다. | `current change`; 집중 catalog 및 Core package 테스트 11개 통과. | 안전조건 runtime module의 package 잔여 작업은 없습니다. |
+| 2026-09-11 | implemented | payload 신원을 신뢰하지 않고 Core 복구 관측 수신을 명시적인 배포 구성 신뢰 observer 신원에 결속했습니다. | `current change`; Core 서비스 Terraform, observer ingress, 운영 writer 테스트. | 배포 신원의 통제된 런타임 근거를 보존합니다. |
+| 2026-09-11 | implemented | Core의 정확한 안전조건 묶음에 대한 Isolated 실행기 읽기 전용 접근을 추가하고 명시적 Core 이행 의존성과 일치하는 JSONB 인덱스를 결속했습니다. 기본 효과 서비스는 기존 결속되지 않은 명령을 차단하며, 권한 전환 중에만 사용할 수 있는 제한된 업그레이드 또는 rollback 전환 플래그는 기본값이 꺼짐입니다. | `current change`; Isolated 묶음 resolver, 이행, 소유권 매니페스트, 서비스 Terraform, 런타임 구성, 집중 rollout 테스트. | 최종 revision에서 전환을 끈 상태의 통제된 서비스 간 rollout 근거를 보존합니다. |
+| 2026-09-11 | implemented | 서비스 소유 테스트 모음 매니페스트에서 Isolated 실행기 기한 helper 테스트를 unit 범위로, 안전조건 묶음 재검증 테스트를 contract 범위로 등록했습니다. | `current change`; `tests/integration/service-suites.json`; 집중 서비스 모음 소유권 테스트 29개 통과. | 모든 새 서비스 테스트를 정확히 하나의 서비스 소유 그룹에 할당합니다. |
+| 2026-09-11 | implemented | 안전조건 결속 실행기 명령 및 관측 스키마 변경 뒤 저장소 소유 Python 및 Console TypeScript 서비스 계약 변환 결과를 다시 생성했습니다. 5개 서비스 토폴로지와 권한 할당은 바뀌지 않았습니다. | `current change`; `generate_service_contracts.py`; 집중 생성 drift 테스트. | 새 명령을 운영에서 활성화하기 전에 통제된 서비스 간 근거를 보존합니다. |
+| 2026-09-11 | implemented | Isolated 실행기 기한 검사를 timezone-aware 단일 경계로 통합하고 정확한 기한 시각에는 새 프로바이더 호출 전에 만료되도록 했습니다. | `current change`; `effect_safety.py`; Isolated 실행기 효과 안전성 테스트. | 승격된 서비스 revision에서 통제된 기한 및 프로바이더 상태 조정 근거를 보존합니다. |
+| 2026-09-11 | implemented | 브로커 역압 시 범위가 제한된 각 outbox claim이 전체 테이블 스캔으로 바뀌지 않도록 미발행 증적 전용 Isolated 실행기 소유 부분 인덱스를 추가했습니다. 이행은 서비스 가지의 최신 revision을 따르며 명시적인 rollback을 제공합니다. | `current change`; `executor_outbox_pending_index_20260911`; 집중 서비스 이행 inventory 검사. | 정확히 배포된 이행 revision에서 통제된 런타임 큐 깊이와 claim 지연 시간 근거를 보존합니다. |
 | 2026-09-09 | in-progress | 저장소 지식을 Core, Operator Service 또는 A3 edge에 합치지 않고 시스템 지식 서비스를 여섯 번째 읽기 전용 후보로 승인하고 구현했습니다. | `current change`, 패키지, 계약, 카탈로그, Teams 멘션, 원장, 이미지 및 집중 검사 경로입니다. | 운영 승격 전에 persistent volume, 신원, 비용, 프로바이더 canary, 비활성화 및 15분 이내 롤백 근거를 기록합니다. |
 | 2026-09-06 | validated | 서비스, 작성자 또는 서비스 간 구현 가져오기를 추가하지 않고 기존 Core, delivery, Operator 및 Console 소유권에 이유 기반 기록 Resource 상태를 추가했습니다. | `current change`, 집중 경계 검사, 로컬 PostgreSQL로 실제 ARG 수집 및 인증된 표준 포트 브라우저 검증이 통과했습니다. | 범위가 제한된 이 읽기 경로에는 서비스 승격 작업이 남아 있지 않습니다. |
 | 2026-09-06 | validated | 서비스 또는 작성자 소유권을 바꾸지 않고 새로 병합된 `llm-model-deployment` 유형을 기존 Operator 읽기 변환 결과에 분류했습니다. | `current change`, 병합된 main 스냅샷에서 정확한 카탈로그 일치와 집중 backend 검사 268개가 통과했습니다. | 이후 ResourceType을 추가할 때는 같은 읽기 계약을 갱신해야 합니다. |

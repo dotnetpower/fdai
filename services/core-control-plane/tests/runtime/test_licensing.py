@@ -181,7 +181,12 @@ def test_runtime_execution_gate_is_optional_and_wraps_all_thor_paths(tmp_path: P
     )
     delegate = cast(
         ThorExecutionPort,
-        SimpleNamespace(pr_native=object(), direct_api=None, tool_call=None),
+        SimpleNamespace(
+            pr_native=object(),
+            direct_api=None,
+            tool_call=None,
+            safeguard_lifecycle_ready=False,
+        ),
     )
     store = InMemoryStateStore()
 

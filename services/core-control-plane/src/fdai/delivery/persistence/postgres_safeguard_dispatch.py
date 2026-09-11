@@ -69,6 +69,8 @@ class PostgresSafeguardDispatchEvidenceStoreConfig:
 class PostgresSafeguardDispatchEvidenceStore:
     """Generation-unique insert, exact-record CAS, and strict readback."""
 
+    production_eligible = True
+
     def __init__(
         self,
         *,

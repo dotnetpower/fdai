@@ -82,6 +82,16 @@
       "provider_rollback": "blocked-until-executor-baseline"
     },
     {
+      "consumer_service": "isolated-executor",
+      "consumer_revision": "executor_safeguard_bundle_read_20260912",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_safeguard_dispatch_evidence_20260911",
+      "schema_prerequisites": [
+        "safeguard_dispatch_evidence"
+      ],
+      "provider_rollback": "blocked-until-executor-bundle-read-rollback"
+    },
+    {
       "consumer_service": "document-processing-worker",
       "consumer_revision": "document_worker_outbox_20260808",
       "provider_service": "document-ingestion-api",

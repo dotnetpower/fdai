@@ -22,6 +22,7 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 _EPOCH = datetime(2026, 8, 1, tzinfo=UTC)
+_BUNDLE_DIGEST = "sha256:" + "b" * 64
 
 
 class _Admissions(StubDecisionEvidenceAdmissionProvider):
@@ -107,6 +108,7 @@ async def test_verified_success_requires_exact_durable_lineage_and_receipt() -> 
         action=action,
         execution_outcome="dispatched",
         execution_receipt_ref="provider-receipt-1",
+        safeguard_bundle_digest=_BUNDLE_DIGEST,
         response_outcome=_response(action, verified=True),
     )
 
@@ -150,10 +152,37 @@ async def test_unverified_execution_success_does_not_create_success_receipt() ->
         action=action,
         execution_outcome="dispatched",
         execution_receipt_ref="provider-receipt-1",
+        safeguard_bundle_digest=_BUNDLE_DIGEST,
         response_outcome=_response(action, verified=False),
     )
 
     assert receipt_ref is None
+
+
+async def test_pre_dispatch_rejection_records_failure_without_bundle() -> None:
+    ledger = _ledger()
+    action = _action()
+    response = _response(action, verified=False).model_copy(
+        update={"execution_outcome": "rejected_invariant"},
+    )
+
+    receipt_ref = await ledger.record(
+        action=action,
+        execution_outcome="rejected_invariant",
+        execution_receipt_ref=None,
+        safeguard_bundle_digest=None,
+        response_outcome=response,
+    )
+
+    assert receipt_ref is not None
+    resolved = await ledger.resolve(
+        process_id="process-1",
+        step_id="restart",
+        proposal_ref="process-1:step:restart:attempt:1",
+    )
+    assert resolved is not None
+    assert resolved.outcome == "failed"
+    assert resolved.safeguard_bundle_digest is None
 
 
 async def test_verified_shadow_execution_does_not_advance_enforce_workflow() -> None:
@@ -164,6 +193,7 @@ async def test_verified_shadow_execution_does_not_advance_enforce_workflow() -> 
         action=action,
         execution_outcome="dispatched",
         execution_receipt_ref="shadow-receipt-1",
+        safeguard_bundle_digest=_BUNDLE_DIGEST,
         response_outcome=_response(action, verified=True),
     )
 
@@ -177,6 +207,7 @@ async def test_an_unbound_admission_provider_cannot_verify_a_durable_receipt() -
         action=action,
         execution_outcome="dispatched",
         execution_receipt_ref="provider-receipt-1",
+        safeguard_bundle_digest=_BUNDLE_DIGEST,
         response_outcome=_response(action, verified=True),
     )
 
@@ -218,6 +249,7 @@ async def test_a_mismatched_admission_cannot_verify_a_durable_receipt(
         action=action,
         execution_outcome="dispatched",
         execution_receipt_ref="provider-receipt-1",
+        safeguard_bundle_digest=_BUNDLE_DIGEST,
         response_outcome=_response(action, verified=True),
     )
 

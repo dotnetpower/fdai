@@ -1,13 +1,11 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ff6194e654f5df0374782fa129a01052c5f7277e
-translation_revised: 2026-09-11
+translation_source_sha: a64487a39e4e7af532205601ed948f369640f3ee
+translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
-
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
-
 ## 설계 개요
 
 물리적인 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소
@@ -502,6 +500,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 | **네트워크 조회 증적 검증** | `services/core-control-plane/src/fdai/core/ontology_platform/network_path.py`의 `NetworkQueryReceiptVerifier`와 조립이 소유한 opaque 검증 맥락 하나 | - | Unbound 상태이며 증적 발급자와 검증기 없이는 `query.network_path_segments`를 인증된 운영 함수로 등록할 수 없습니다. | Secured 증적 역할, singleton 용도, exact 온톨로지 release, projected-result 다이제스트 및 `FunctionInvocationContext`를 인증하는 issuer-backed 검증기를 inject합니다. Opaque 맥락은 함수 인자에 포함되지 않으며 검증은 실행 권한을 부여하지 않습니다. |
 | **Runtime-call 근거 변환** | `services/core-control-plane/src/fdai/{core/ontology_platform,delivery}/`의 `RuntimeCallObservation`, `RuntimeCallTelemetryProducer`, `RuntimeCallInventoryEnricher` | - | 예약 인벤토리 작업이 기존 single-writer enrichment 경계를 연결하며, 인증된 source가 정확한 caller 및 target Resource id를 제공할 때까지 edge를 추가하지 않고 `telemetry_source_unavailable`을 기록합니다. AKS Pod 로그 근거는 별도의 내용 없는 읽기 경로를 사용하며 출처 revision, 프로바이더 기준 시점 및 구간 범위를 독립적으로 연결하기 전까지 불완전 상태로 유지됩니다. AKS 결정론적 축약기는 인과관계와 실행 권한을 거짓으로 고정한 Forseti 소유 T0 근거 증적을 생성합니다. | Exact-release, active-generation, scope, freshness, independent-verifier, no-authority 검사를 보존하면서 권위 있는 telemetry source를 주입합니다. |
 | **작업 흐름 카탈로그 (프로세스 자동화)** | `services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `services/core-control-plane/src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first 작업 흐름입니다. 각 액션 단계는 `ActionType`을 cross-reference하고 근거/컨트롤 단계는 전용 타입이 지정된 계약을 사용합니다. | 포크는 자체 `fork/workflows/` 디렉토리에 작업 흐름 YAML을 추가로 로드해 concatenate한 ActionType / 룰 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입합니다. 두 루트 간 `name` 중복은 실패 시 차단됩니다. 자세한 내용은 [(4[56])](../decisioning/process-automation-ko.md)을 참고하세요. |
+| **복구 시도 및 디스패치** | `core/workflow/`의 `recovery_attempt.py`, `recovery_effect_claim.py`, `recovery_terminalization.py`, `recovery_coordinator*.py` 계열(`recovery_coordinator.py`가 경로 순서를 소유하고 `_models`, `_records`, `_support`, `_binding`, `_dispatch`, `_effect`, `_release`, `_terminalization`이 각각 한 단계를 소유), `recovery_effect_ingress.py`; `core/executor/`의 `hold_dispatch_fence.py`; `shared/providers/automation_hold_state.py`의 `AutomationHoldStateReader`와 `HoldReleaseAuthorizationReader`; `delivery/persistence/`의 `workflow_recovery.py`; `delivery/`의 `workflow_recovery_observation_handler.py`; `agents/_framework/`의 `heimdall_huginn_projection.py` | - | 영속적 복구 시도 신원 결속, 배타적인 compare-and-set 사전 디스패치 청구 하나, 별도 승인/안전장치 증적, 신원 분리가 적용된 권위 있는 효과 완료 주장, 비정상 종료에 안전한 최종 Process/Saga outbox, 논리 대상 잠금 내부의 권한 부여 결속 디스패치 fence, 독립적인 사후 효과 관측을 위한 버전이 지정된 타입 안전 관측자 경로 수집 지점 하나. 이 수집 지점은 Heimdall이 소유한 `object.recovery-effect-observation` 토픽만 읽습니다. 외부 관측은 Huginn이 `object.event`로 정규화하고, Heimdall이 `heimdall_huginn_projection.py`로 선언된 필드를 자신의 토픽에 투영합니다. 이 모듈은 투영 로직을 `heimdall.py` 밖에 두며 어떤 권한도 부여하지 않습니다. 런타임은 복구 승인 저널, Workflow 결과 기록기를 감싼 확정 안전장치 번들 보존, 독립 효과 관측 저널, 관측자 그룹 관측 수집 지점을 연결합니다 | 새 모듈은 기존 자동화 보류, 승인 저널, 복구 승인 계약을 사용하며 새로운 실행 권한이나 프로바이더 연결을 도입하지 않습니다. 포크는 각 읽기 및 기록 seam을 교체할 수 있지만 영속성이 승인이나 효과 검증 권한을 부여하게 만들 수는 없습니다. [#652, #656, #658, #640](../decisioning/process-automation-ko.md) 참조. |
 | **통제된 Python 작업** | `shared/providers/`의 `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, `VmTaskRunner` | - | 로컬 템플릿 작성자 + in-memory 산출물/대상 + 계획 수립 실행기; 운영은 변경할 수 없는 산출물을 Postgres에 저장하고 활성 인벤토리에서 대상을 해석하며 headless 실행기가 Azure Managed Run Command를 연결 | 포크는 내용 해시, declared 기능, 멱등성, non-executing Operator API 계획, 타입이 지정된 제안 전달을 유지하면서 다른 작성자, 산출물 저장소, 대상 해석기, compute 실행기를 제공. [(4[56]) § 4.5](../decisioning/workflow-control-loop-integration-ko.md#45-governed-python-task-및-cron-schedule) 참조. |
 | **통제된 샌드박스 프로파일** | `core/sandbox/`의 `SandboxProfileCatalog`, `VmTaskSandboxCatalog`, `ToolSandboxCatalog`, `DocumentConverterSandboxCatalog`; `shared/providers/`의 `DocumentConverter` | - | 프로파일이 없는 명령, VM-task, 도구, converter 요청은 실패 시 차단합니다. Profiled 래퍼는 구체적인 어댑터 직전에 기능, 모드, 접미사, 시간 초과, 인자/입력/출력 바이트, workspace/네트워크 상한을 적용합니다. | 포크는 각 어댑터 연결과 함께 명시적 서버가 소유한 프로파일을 제공합니다. 프로바이더 계약 뒤에서 converter 또는 alternate 실행기를 구현할 수 있지만 호스트 경로, executable, 자격 증명 또는 더 넓은 요청 권한을 노출하지 않습니다. [(4[56]) § 4.6](../decisioning/workflow-control-loop-integration-ko.md#46-governed-command-및-shell-artifact) 참조. |
 | **통제된 실행 백엔드** | `shared/providers/execution_backend.py`의 `ExecutionBackend`와 `ExecutionSubmissionLedger`; `core/execution_backend/`의 프로파일 intersection 및 조정기; `composition/`의 `bind_execution_backends(...)` | - | 프로파일은 비활성화된 상태로 로드되고 기존 샌드박스 검증이 먼저 실행됩니다. PostgreSQL은 멱등적 수명 주기 시도를 저장하고 bubblewrap 및 VM 어댑터는 기존 동작을 보존하며 Azure Container Apps 작업은 pre-provisioned pinned 템플릿만 시작합니다. | 조립에서 서버가 소유한 프로파일과 구체적인 어댑터를 제공합니다. 연결은 워크로드, 자격 증명, 네트워크, workspace 접근, 한도, 지역, 범위를 추가하지 않고 낮출 수만 있습니다. 충족 여부, 승인, 롤백, 감사 결정을 소유하지 않습니다. [execution-backends-ko.md](../interfaces/execution-backends-ko.md)를 참조하세요. |
@@ -601,8 +600,9 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
-  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
+  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 현재 생성된 보기는 안전조건 결속 명령 및 관측 스키마에서 갱신됩니다. 이 파일은 읽기 전용 개발
   변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다. `state_kv`의 Core 소유 부분 인덱스는 테이블 소유권을 이전하지 않고 Operator 의미 claim 정렬과 principal 범위 replay를 지원합니다.
+  `executor-command` 1.1은 `safeguard_proof_bundle_digest`와 `source_revision` 바인딩을 추가합니다. Isolated 실행기는 프로바이더 디스패치 전에 증명 묶음을 재검증하고 터미널 증적에 digest를 `effect_verified=false`로 포함합니다. 묶음 근거가 없거나 일치하지 않으면 기한 복구 또는 프로바이더 호출 전에 `rejected_invariant`를 반환합니다. 별도의 `observation-receipt` 1.0 계약은 실행 권한을 부여하지 않고 효과를 verified/failed/censored/unavailable로 검증하거나 반박합니다.
   `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
   `semantic_turn.bound_context`를 추가했고, version 1.4는 범위가 제한된
   `semantic_turn.include_model_trace` 활성화 설정을 추가했으며, version 1.5는 실행 권한을

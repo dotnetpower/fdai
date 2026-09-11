@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fdai.core.standing_authority import shadow_cohort_runner as shadow_cohort_runner_module
 from fdai.core.standing_authority.lifecycle import LifecycleFence
 from fdai.core.standing_authority.lifecycle_codec import (
     AuthorizationLifecycleError,
@@ -526,24 +527,49 @@ def test_authority_flags_cannot_be_set() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_registry_mutation_sets_incomplete(tmp_path: Path) -> None:
-    reg = tmp_path / "gate.py"
-    reg.write_text("# original", encoding="utf-8")
+def test_registry_mutation_sets_incomplete(monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest, corpus, elapsed = _make_full_corpus()
+    digests = iter(("sha256:" + "1" * 64, "sha256:" + "2" * 64))
+    monkeypatch.setattr(
+        shadow_cohort_runner_module,
+        "_compute_registry_digest",
+        lambda _path: next(digests),
+    )
+
+    receipt = run_cohort(manifest, corpus, elapsed)
+
+    assert receipt.registry_before_digest != receipt.registry_after_digest
+    assert receipt.complete is False
+    assert receipt.zero_policy_escapes is False
+
+
+def test_inaccessible_registry_sets_incomplete(tmp_path: Path) -> None:
     manifest, corpus, elapsed = _make_full_corpus()
 
-    # Mutate the registry between "before" and "after" reads by writing after the runner starts.
-    # We simulate mutation by having the runner read from a file we control, then patching
-    # the after-digest by providing a different file for the second read.
-    # Since run_cohort reads before AND after in the same call we can't inject mutation mid-run.
-    # Instead verify: if before != after, complete=False and zero_policy_escapes=False.
-    r_before = run_cohort(manifest, corpus, elapsed, registry_path=reg)
-    reg.write_text("# mutated", encoding="utf-8")
-    r_after = run_cohort(manifest, corpus, elapsed, registry_path=reg)
+    receipt = run_cohort(
+        manifest,
+        corpus,
+        elapsed,
+        registry_path=tmp_path / "missing-gate.py",
+    )
 
-    assert r_before.registry_before_digest == r_before.registry_after_digest
-    assert r_after.registry_before_digest == r_after.registry_after_digest
-    # Prove different content produces different digest.
-    assert r_before.registry_before_digest != r_after.registry_before_digest
+    assert receipt.registry_before_digest == "sha256:" + "0" * 64
+    assert receipt.registry_after_digest == receipt.registry_before_digest
+    assert receipt.complete is False
+    assert receipt.zero_policy_escapes is False
+
+
+@pytest.mark.parametrize("invalid_elapsed", [-1.0, float("nan"), float("inf")])
+def test_invalid_elapsed_measurement_sets_incomplete(invalid_elapsed: float) -> None:
+    manifest, corpus, elapsed = _make_full_corpus()
+    elapsed[manifest.entries[0].case_id] = invalid_elapsed
+
+    receipt = run_cohort(manifest, corpus, elapsed)
+
+    assert receipt.outcomes[0].outcome_status is CohortOutcomeStatus.ERRORED
+    assert receipt.outcomes[0].per_case_elapsed_s == 0.0
+    assert receipt.complete is False
+    assert receipt.zero_policy_escapes is False
 
 
 def test_registry_mutation_produces_incomplete_receipt() -> None:

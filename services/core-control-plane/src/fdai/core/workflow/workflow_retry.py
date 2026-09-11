@@ -153,6 +153,18 @@ class WorkflowRetryCoordinator:
                 "Process retry requires an authenticated actor",
             )
         attempt = failed_attempt + 1
+        safeguard_bundle_digests = tuple(
+            sorted(
+                {
+                    digest
+                    for event in attempt_events
+                    if isinstance(
+                        digest := event.payload.get("safeguard_bundle_digest"),
+                        str,
+                    )
+                }
+            )
+        )
         await self._audit_store.append_audit_entry(
             {
                 "event_id": event_id(
@@ -166,6 +178,7 @@ class WorkflowRetryCoordinator:
                 "step_id": failed_step.step_id,
                 "attempt": attempt,
                 "causation_id": terminal.event_id,
+                "prior_safeguard_bundle_digests": safeguard_bundle_digests,
                 "recorded_at": requested_at.isoformat(),
             }
         )
@@ -186,7 +199,11 @@ class WorkflowRetryCoordinator:
                 causation_id=terminal.event_id,
                 step_id=failed_step.step_id,
                 attempt=attempt,
-                payload={"actor_oid": actor, "failed_attempt": failed_attempt},
+                payload={
+                    "actor_oid": actor,
+                    "failed_attempt": failed_attempt,
+                    "prior_safeguard_bundle_digests": safeguard_bundle_digests,
+                },
             ),
         )
         return WorkflowRetryRequest(snapshot=retried, attempt=attempt)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -16,6 +17,7 @@ from fdai.core.workflow.recovery_admission import (
     workflow_recovery_evidence_digest,
     workflow_recovery_scope_digest,
 )
+from fdai.core.workflow.recovery_attempt import is_recovery_attempt_step_id
 from fdai.core.workflow.workflow_runtime import (
     WorkflowApprovalSnapshot,
     workflow_approval_state_key,
@@ -23,8 +25,13 @@ from fdai.core.workflow.workflow_runtime import (
 from fdai.shared.providers.decision_evidence_verifier import assess_decision_evidence_admission
 from fdai.shared.providers.state_store import StateStore
 
+_LOGGER = logging.getLogger(__name__)
+
 _KEY_PREFIX = "workflow:automation-hold:"
 _RELEASE_INTENT_PREFIX = "workflow:automation-hold-release-intent:"
+_RELEASE_AUTHORIZATION_PREFIX = "workflow:automation-hold-dispatch-authorization:"
+HOLD_SCOPED_AUTHORIZATION = "hold_scoped"
+RELEASED_AUTHORIZATION = "released"
 
 
 @runtime_checkable
@@ -198,54 +205,34 @@ class StateStoreAutomationHoldLedger:
         process_id: str,
         step_id: str,
     ) -> bool:
-        record = await self.store.read_state(_state_key(target_ref))
-        return bool(
-            record is not None
-            and record.get("target_digest") == _target_digest(target_ref)
-            and record.get("state") == "active"
-            and record.get("process_id") == process_id
-            and step_id.startswith("compensate_")
-        )
+        """Whether one exact step holds proven authority to act under this hold.
 
-    async def release_verified(
-        self,
-        *,
-        target_ref: str,
-        process_id: str,
-        recovery_receipt_ref: str,
-    ) -> bool:
-        key = _state_key(target_ref)
-        record = await self.store.read_state(key)
-        if not (
-            record is not None
-            and record.get("target_digest") == _target_digest(target_ref)
-            and record.get("state") == "active"
-            and record.get("process_id") == process_id
-            and isinstance(record.get("revision"), int)
-            and recovery_receipt_ref
+        The hold denies every ordinary forward dispatch on the target. The one
+        exception is the recovery step the coordinator separately authorized
+        under the hold revision that is still active, so this reads that proof
+        instead of inferring intent from a step name. A readable prefix is not
+        authority: a step that does not have the canonical recovery-attempt
+        shape, belongs to another Process, names another target, or cites a
+        superseded hold revision is refused. An authorization that exists but
+        cannot be read raises, so the caller fails closed instead of reading
+        unusable evidence as "no exception".
+        """
+
+        if not is_recovery_attempt_step_id(step_id):
+            return False
+        record = await self.store.read_state(_state_key(target_ref))
+        revision = _int_or_none(record.get("revision")) if isinstance(record, Mapping) else None
+        if revision is None or not _matches_active_hold(
+            record, target_ref=target_ref, process_id=process_id, hold_revision=revision
         ):
             return False
-        revision = int(record["revision"])
-        released_at = datetime.now(tz=UTC).isoformat()
-        released = {
-            **dict(record),
-            "state": "released",
-            "recovery_receipt_ref": recovery_receipt_ref,
-            "released_at": released_at,
-            "revision": revision + 1,
-        }
-        return await self.store.compare_and_set_state_with_audit(
-            key,
-            released,
-            expected_revision=revision,
-            audit_entry={
-                "actor": "fdai.core.workflow.automation_hold",
-                "action_kind": "workflow.automation_hold.released",
-                "target_digest": record["target_digest"],
-                "process_id": process_id,
-                "recovery_receipt_ref": recovery_receipt_ref,
-                "released_at": released_at,
-            },
+        authorization = await self.read_dispatch_authorization(
+            target_ref=target_ref, process_id=process_id, step_id=step_id
+        )
+        return bool(
+            authorization is not None
+            and authorization.get("authorization_kind") == HOLD_SCOPED_AUTHORIZATION
+            and authorization.get("authorized_hold_revision") == revision
         )
 
     async def release_admitted(
@@ -262,8 +249,15 @@ class StateStoreAutomationHoldLedger:
         executor_identity: str,
         source_revision: str,
         assessment: WorkflowRecoveryAdmissionAssessment,
+        workflow_lineage: tuple[str, str] | None = None,
     ) -> AutomationHoldReleaseReceipt | None:
-        """Atomically consume exact admitted recovery and release one hold revision."""
+        """Atomically consume exact admitted recovery and release one hold revision.
+
+        ``workflow_lineage`` is the exact ``(process_id, step_id)`` the released
+        target authorizes for forward dispatch. The executor fence reads its
+        expected lineage from that binding, so a hold reissued and re-released
+        afterwards denies dispatch instead of matching it.
+        """
 
         if not action_id.strip() or not assessment.eligible or assessment.admission is None:
             return None
@@ -308,6 +302,12 @@ class StateStoreAutomationHoldLedger:
             recovery_admission_digest=assessment.admission.receipt_digest,
         )
         if existing_receipt is not None:
+            await self._record_release_authorization(
+                target_ref=target_ref,
+                receipt=existing_receipt,
+                recovery_admission_digest=assessment.admission.receipt_digest,
+                workflow_lineage=workflow_lineage,
+            )
             return existing_receipt
         evaluated_at = self.clock()
         if not _approval_is_current(approval_snapshot, evaluated_at=evaluated_at):
@@ -444,14 +444,200 @@ class StateStoreAutomationHoldLedger:
             },
         )
         if committed:
+            await self._record_release_authorization(
+                target_ref=target_ref,
+                receipt=receipt,
+                recovery_admission_digest=assessment.admission.receipt_digest,
+                workflow_lineage=workflow_lineage,
+            )
             return receipt
-        return _matching_release_receipt(
+        existing = _matching_release_receipt(
             await self.store.read_state(key),
             action_id=action_id,
             process_id=process_id,
             hold_revision=hold_revision,
             recovery_admission_digest=assessment.admission.receipt_digest,
         )
+        if existing is not None:
+            await self._record_release_authorization(
+                target_ref=target_ref,
+                receipt=existing,
+                recovery_admission_digest=assessment.admission.receipt_digest,
+                workflow_lineage=workflow_lineage,
+            )
+        return existing
+
+    async def authorize_hold_scoped_dispatch(
+        self,
+        *,
+        target_ref: str,
+        process_id: str,
+        step_id: str,
+        hold_revision: int,
+    ) -> bool:
+        """Authorize one approved step to dispatch under this exact hold revision.
+
+        A held target denies every ordinary forward dispatch. The approved
+        recovery step for the Process that owns the hold is the one exception,
+        and it is bound to the exact hold revision it was approved under, so a
+        hold reissued or released after this authorization denies dispatch
+        instead of racing it (#640).
+        """
+
+        if not step_id.strip() or not process_id.strip() or hold_revision < 1:
+            return False
+        record = await self.store.read_state(_state_key(target_ref))
+        if not _matches_active_hold(
+            record,
+            target_ref=target_ref,
+            process_id=process_id,
+            hold_revision=hold_revision,
+        ):
+            return False
+        authorization = {
+            "target_digest": _target_evidence_digest(target_ref),
+            "authorization_kind": HOLD_SCOPED_AUTHORIZATION,
+            "process_id": process_id,
+            "step_id": step_id,
+            "authorized_hold_revision": hold_revision,
+            "execution_authority": False,
+            "revision": 1,
+        }
+        key = _dispatch_authorization_key(target_ref, process_id, step_id)
+        created = await self.store.write_state_with_audit_if_absent(
+            key,
+            authorization,
+            {
+                "actor": "fdai.core.workflow.automation_hold",
+                "action_kind": "workflow.automation_hold.hold_scoped_dispatch_authorized",
+                **authorization,
+            },
+        )
+        if created:
+            return True
+        stored = await self.store.read_state(key)
+        return bool(
+            stored is not None
+            and stored.get("authorization_kind") == HOLD_SCOPED_AUTHORIZATION
+            and stored.get("process_id") == process_id
+            and stored.get("step_id") == step_id
+            and stored.get("authorized_hold_revision") == hold_revision
+        )
+
+    async def _record_release_authorization(
+        self,
+        *,
+        target_ref: str,
+        receipt: AutomationHoldReleaseReceipt,
+        recovery_admission_digest: str,
+        workflow_lineage: tuple[str, str] | None,
+    ) -> None:
+        """Bind the exact release lineage one action was authorized under.
+
+        A later forward dispatch MUST take its expected lineage from this
+        immutable authorization, never from whatever hold record happens to be
+        current at dispatch time (#640). The release itself already committed,
+        so a write failure here is logged and never discards the receipt.
+        """
+
+        if workflow_lineage is None:
+            return
+        process_id, step_id = workflow_lineage
+        if not process_id.strip() or not step_id.strip():
+            return
+        key = _dispatch_authorization_key(target_ref, process_id, step_id)
+        record = {
+            "target_digest": receipt.target_digest,
+            "authorization_kind": RELEASED_AUTHORIZATION,
+            "action_id": receipt.action_id,
+            "process_id": process_id,
+            "step_id": step_id,
+            "release_receipt_digest": receipt.receipt_digest,
+            "released_hold_revision": receipt.released_hold_revision,
+            "fencing_generation": receipt.fencing_generation,
+            "recovery_admission_digest": recovery_admission_digest,
+            "source_revision": receipt.source_revision,
+            "released_at": receipt.released_at.astimezone(UTC).isoformat(),
+            "execution_authority": False,
+            "revision": 1,
+        }
+        try:
+            created = await self.store.write_state_with_audit_if_absent(
+                key,
+                record,
+                {
+                    "actor": "fdai.core.workflow.automation_hold",
+                    "action_kind": "workflow.automation_hold.release_authorization_bound",
+                    **record,
+                },
+            )
+            if created:
+                return
+            await self._replace_hold_scoped_authorization(key=key, record=record)
+        except Exception:  # noqa: BLE001 - the release already committed
+            _LOGGER.exception(
+                "automation_hold_release_authorization_write_failed",
+                extra={"process_id": process_id},
+            )
+
+    async def _replace_hold_scoped_authorization(
+        self,
+        *,
+        key: str,
+        record: Mapping[str, object],
+    ) -> None:
+        """Promote the hold-scoped authorization to the release it produced."""
+
+        for _ in range(3):
+            stored = await self.store.read_state(key)
+            if stored is None:
+                return
+            if stored.get("authorization_kind") == RELEASED_AUTHORIZATION:
+                return
+            revision = stored.get("revision")
+            if not isinstance(revision, int) or isinstance(revision, bool):
+                return
+            if await self.store.compare_and_set_state_with_audit(
+                key,
+                {**dict(record), "revision": revision + 1},
+                expected_revision=revision,
+                audit_entry={
+                    "actor": "fdai.core.workflow.automation_hold",
+                    "action_kind": "workflow.automation_hold.release_authorization_bound",
+                    **dict(record),
+                },
+            ):
+                return
+
+    async def read_dispatch_authorization(
+        self,
+        *,
+        target_ref: str,
+        process_id: str,
+        step_id: str,
+    ) -> Mapping[str, object] | None:
+        """Return the dispatch authorization bound to one exact workflow step.
+
+        A stored authorization that does not belong to this target and step is
+        unusable evidence, so it raises instead of reading as "no authorization".
+        """
+
+        if not process_id.strip() or not step_id.strip():
+            return None
+        record = await self.store.read_state(
+            _dispatch_authorization_key(target_ref, process_id, step_id)
+        )
+        if record is None:
+            return None
+        if (
+            record.get("target_digest") != _target_evidence_digest(target_ref)
+            or record.get("process_id") != process_id
+            or record.get("step_id") != step_id
+            or record.get("authorization_kind")
+            not in {HOLD_SCOPED_AUTHORIZATION, RELEASED_AUTHORIZATION}
+        ):
+            raise ValueError("automation hold dispatch authorization is unreadable")
+        return dict(record)
 
     async def is_held(self, *, target_ref: str) -> bool:
         record = await self.store.read_state(_state_key(target_ref))
@@ -461,6 +647,18 @@ class StateStoreAutomationHoldLedger:
             record.get("target_digest") == _target_digest(target_ref)
             and record.get("state") == "released"
         )
+
+    async def read_hold_record(self, *, target_ref: str) -> Mapping[str, object] | None:
+        """Return the raw hold record for fencing and recovery reads.
+
+        The record is evidence only. Callers MUST classify it before acting;
+        it never grants execution, release, or approval authority.
+        """
+
+        record = await self.store.read_state(_state_key(target_ref))
+        if record is None or record.get("target_digest") != _target_digest(target_ref):
+            return None
+        return dict(record)
 
 
 def _target_digest(target_ref: str) -> str:
@@ -479,6 +677,12 @@ def _release_intent_key(admission_digest: str) -> str:
     return f"{_RELEASE_INTENT_PREFIX}{admission_digest.removeprefix('sha256:')}"
 
 
+def _dispatch_authorization_key(target_ref: str, process_id: str, step_id: str) -> str:
+    identity = f"{_target_digest(target_ref)}\0{process_id}\0{step_id}"
+    digest = hashlib.sha256(identity.encode()).hexdigest()
+    return f"{_RELEASE_AUTHORIZATION_PREFIX}{digest}"
+
+
 def _matches_active_hold(
     record: object,
     *,
@@ -493,6 +697,12 @@ def _matches_active_hold(
         and record.get("process_id") == process_id
         and record.get("revision") == hold_revision
     )
+
+
+def _int_or_none(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        return None
+    return value
 
 
 def _same_release_intent(record: object, expected: Mapping[str, object]) -> bool:

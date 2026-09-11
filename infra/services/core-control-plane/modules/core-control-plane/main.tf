@@ -69,6 +69,7 @@ module "container_app" {
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
     { name = "RUNTIME_ENV", value = var.runtime_env },
+    { name = "FDAI_SOURCE_REVISION", value = var.source_revision },
     { name = "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", value = tostring(var.stewardship_audit_interval_seconds) },
     { name = "FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS", value = tostring(var.handover_knowledge_interval_seconds) },
     { name = "AZURE_TENANT_ID", value = var.bootstrap.azure_tenant_id },
@@ -102,6 +103,7 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
     { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
+    { name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", value = "observer:heimdall:azure-container-apps" },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
     ], trimspace(var.runtime_call_evidence.caller_resource_id) == "" ? [] : [

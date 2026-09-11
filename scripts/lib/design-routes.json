@@ -787,11 +787,14 @@
       ],
       "optional_paths": [
         "services/core-control-plane/src/fdai/core/control_loop/_execution.py",
+        "services/core-control-plane/src/fdai/core/control_loop/_governance.py",
+        "services/core-control-plane/src/fdai/core/control_loop/_safeguard_commitment.py",
         "services/core-control-plane/src/fdai/core/control_loop/_process.py",
         "services/core-control-plane/src/fdai/core/control_loop/operator_request.py",
         "services/core-control-plane/src/fdai/core/control_loop/orchestrator.py",
         "services/core-control-plane/src/fdai/composition/_helpers.py",
         "services/core-control-plane/src/fdai/runtime/control_loop.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop_execution_ports.py",
         "services/core-control-plane/src/fdai/shared/providers/direct_api.py",
         "services/core-control-plane/src/fdai/core/executor/direct_api.py",
         "services/core-control-plane/src/fdai/delivery/azure/gateway_direct_api.py"
