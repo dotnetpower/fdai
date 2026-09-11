@@ -161,6 +161,7 @@ async def test_append_writes_transition_and_coverage_atomically() -> None:
     assert len(connection.many) == 2
     assert "INSERT INTO operational_state_transition " in connection.many[0][0]
     assert "INSERT INTO operational_state_transition_coverage" in connection.many[1][0]
+    assert "ON CONFLICT (coverage_id) DO NOTHING" in connection.many[1][0]
 
 
 async def test_read_requires_positive_coverage_for_every_requested_pair() -> None:
@@ -245,6 +246,11 @@ async def test_identical_batch_replay_verifies_retained_children() -> None:
 
     assert inserted is False
     assert len(connection.many) == 0
+    replay_queries = [
+        query for query, _params in connection.executions if query.startswith("SELECT")
+    ]
+    assert any("WHERE transition_id = ANY" in query for query in replay_queries)
+    assert any("WHERE coverage_id = ANY" in query for query in replay_queries)
 
 
 async def test_batch_replay_restores_the_digest_bearing_child_order() -> None:
