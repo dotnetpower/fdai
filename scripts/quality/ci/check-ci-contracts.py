@@ -560,6 +560,60 @@ def _is_event_scoped_issue_mutation(document: Any) -> bool:
     return True
 
 
+def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
+    if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
+        return [f"{relative} is privileged and has no executable protected-source guard"]
+    errors: list[str] = []
+    guarded_job_found = False
+    expected_checkout = f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}"
+    expected_checkout_with = {
+        "ref": "main",
+        "fetch-depth": 1,
+        "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+        "path": ".fdai-protected-workflow-verifier",
+    }
+    for job_name, job in document["jobs"].items():
+        if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
+            continue
+        steps = job["steps"]
+        guard_indexes = [
+            index
+            for index, step in enumerate(steps)
+            if isinstance(step, dict) and step.get("uses") == PROTECTED_WORKFLOW_ACTION_REF
+        ]
+        if not guard_indexes:
+            continue
+        guarded_job_found = True
+        if len(guard_indexes) != 1 or guard_indexes[0] != 1 or len(steps) < 2:
+            errors.append(
+                f"{relative} job {job_name} must start with the exact protected-source "
+                "checkout and verifier steps"
+            )
+            continue
+        checkout, guard = steps[:2]
+        if not isinstance(checkout, dict) or (
+            checkout.get("name") != "Checkout protected workflow verifier"
+            or checkout.get("uses") != expected_checkout
+            or checkout.get("with") != expected_checkout_with
+        ):
+            errors.append(f"{relative} job {job_name} has an invalid protected verifier checkout")
+        guard_with = guard.get("with") if isinstance(guard, dict) else None
+        if not isinstance(guard, dict) or (
+            guard.get("name") != PROTECTED_WORKFLOW_GUARD
+            or guard.get("uses") != PROTECTED_WORKFLOW_ACTION_REF
+            or not isinstance(guard_with, dict)
+            or not isinstance(guard_with.get("target-commit-sha"), str)
+            or guard_with.get("workflow-path") != relative
+            or guard_with.get("origin-url")
+            != "${{ github.server_url }}/${{ github.repository }}.git"
+            or guard_with.get("github-token") != "${{ github.token }}"
+        ):
+            errors.append(f"{relative} job {job_name} has an invalid protected-source verifier")
+    if not guarded_job_found:
+        errors.append(f"{relative} is privileged and has no executable protected-source guard")
+    return errors
+
+
 def _validate_privileged_workflow_guards() -> list[str]:
     """Require protected source provenance before privileged repository code executes."""
     errors: list[str] = []
@@ -583,7 +637,9 @@ def _validate_privileged_workflow_guards() -> list[str]:
         document = yaml.safe_load(content)
         if _is_event_scoped_issue_mutation(document):
             continue
-        if PROTECTED_WORKFLOW_ACTION_USE in content and not action_checked:
+        guard_errors = _protected_guard_prefix_errors(document, relative)
+        errors.extend(guard_errors)
+        if not guard_errors and not action_checked:
             for fragment in action_fragments:
                 if fragment not in action:
                     errors.append(
@@ -591,62 +647,6 @@ def _validate_privileged_workflow_guards() -> list[str]:
                         f"lacks protected-source guard: {fragment}"
                     )
             action_checked = True
-        common_fragments = (
-            "Checkout protected workflow verifier",
-            PROTECTED_WORKFLOW_GUARD,
-            "ref: main",
-            "sparse-checkout: .github/actions/verify-protected-workflow-source",
-            "path: .fdai-protected-workflow-verifier",
-            PROTECTED_WORKFLOW_ACTION_USE,
-            "target-commit-sha:",
-            f"workflow-path: {relative}",
-            "origin-url: ${{ github.server_url }}/${{ github.repository }}.git",
-            "github-token: ${{ github.token }}",
-        )
-        for fragment in common_fragments:
-            if fragment not in content:
-                errors.append(
-                    f"{relative} is privileged and lacks protected-source guard: {fragment}"
-                )
-        has_exact_source_guard = all(fragment in content for fragment in common_fragments)
-        protected_controls_fragments = (
-            "path: trusted-controls",
-            "ref: main",
-            f'expected_workflow_ref="$GITHUB_REPOSITORY/{relative}@refs/heads/main"',
-            '[[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]',
-            'controls_commit_sha="$(git -C "$TRUSTED_CONTROLS" rev-parse HEAD)"',
-            "deployment controls do not match protected origin/main.",
-        )
-        if not has_exact_source_guard and not all(
-            fragment in content for fragment in protected_controls_fragments
-        ):
-            errors.append(
-                f"{relative} is privileged and lacks a complete exact-source or "
-                "protected-controls guard"
-            )
-        verifier_checkout_index = content.find("- name: Checkout protected workflow verifier")
-        guard_index = content.find(f"- name: {PROTECTED_WORKFLOW_GUARD}")
-        if verifier_checkout_index < 0 or guard_index < verifier_checkout_index:
-            errors.append(
-                f"{relative} does not load the protected verifier before its source guard"
-            )
-        else:
-            pre_guard_actions = [
-                match.group("ref")
-                for match in USES_LINE_RE.finditer(content[:guard_index])
-                if match.group("ref").startswith(("./", "docker://"))
-                or REMOTE_ACTION_REF_RE.fullmatch(match.group("ref")) is not None
-            ]
-            pre_guard_actions = [
-                reference
-                for reference in pre_guard_actions
-                if not reference.startswith(("./", "docker://"))
-            ]
-            expected_checkout = f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}"
-            if pre_guard_actions != [expected_checkout]:
-                errors.append(
-                    f"{relative} executes an additional action before its protected-source guard"
-                )
         if "workflow_dispatch:" in content or "workflow_call:" in content:
             if "commit_sha:" not in content:
                 errors.append(f"{relative} must accept an exact commit_sha for privileged dispatch")
