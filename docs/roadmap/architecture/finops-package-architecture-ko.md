@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 4f092298c4ca193149bcb3c183c56b30e6ac15db
+translation_source_sha: 9ca2e697ddbb66b9ec27fb7fd19aa4813b54a03a
 translation_revised: 2026-09-11
 ---
 
@@ -45,6 +45,8 @@ translation_revised: 2026-09-11
 > 루트 디스패치 작업을 보호된 `main`으로 제한합니다. 따라서 검증되지 않은 워크플로 텍스트가
 > 출처 확인 게이트보다 먼저 실행될 수 없습니다. 검증기는 실행 중인 워크플로 원본 참조가
 > 보호된 `main` 또는 변경할 수 없는 `v*` 릴리스 태그가 아니면 차단합니다.
+> 끌어오기 요청은 별도의 읽기 전용 작업에서 이미지를 빌드하고 검사하며 단기 SBOM 근거를
+> 보존합니다. 레지스트리 게시와 증명은 검증된 보호 리비전에서만 수행합니다.
 
 ## 설계 개요
 
