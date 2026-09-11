@@ -30,6 +30,10 @@ def test_supervisor_composes_foundation_images_repository_and_application(
         target_binding="b" * 64,
         run_binding="c" * 64,
         kit_manifest_digest="d" * 64,
+        offline_kit=tmp_path / "offline-kit",
+        release_root=tmp_path / "release-root.pub",
+        bundle_public_key=tmp_path / "bundle-public-key.pub",
+        terraform=tmp_path / "terraform",
     )
     calls = []
     monkeypatch.setattr(
@@ -100,6 +104,10 @@ def test_supervisor_overlaps_entra_plan_with_local_preparation(tmp_path: Path, m
         target_binding="b" * 64,
         run_binding="c" * 64,
         kit_manifest_digest="d" * 64,
+        offline_kit=tmp_path / "offline-kit",
+        release_root=tmp_path / "release-root.pub",
+        bundle_public_key=tmp_path / "bundle-public-key.pub",
+        terraform=tmp_path / "terraform",
     )
     plan_started = threading.Event()
     preparation_started = threading.Event()
@@ -167,6 +175,10 @@ def test_supervisor_overlaps_image_supply_with_entra_configuration(
         target_binding="b" * 64,
         run_binding="c" * 64,
         kit_manifest_digest="d" * 64,
+        offline_kit=tmp_path / "offline-kit",
+        release_root=tmp_path / "release-root.pub",
+        bundle_public_key=tmp_path / "bundle-public-key.pub",
+        terraform=tmp_path / "terraform",
     )
     barrier = threading.Barrier(2)
     monkeypatch.setattr(
