@@ -29,6 +29,8 @@ remote_ref=""
 zero_sha="0000000000000000000000000000000000000000"
 non_current_branch_ref=""
 unsupported_source_ref=""
+tag_refs=()
+tag_shas=()
 
 while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
   if [[ "$candidate_local_ref" == "refs/heads/$branch" ]]; then
@@ -37,6 +39,9 @@ while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_r
     remote_sha="$candidate_remote_sha"
   elif [[ "$candidate_local_ref" == refs/heads/* && "$candidate_local_sha" != "$zero_sha" ]]; then
     non_current_branch_ref="$candidate_local_ref"
+  elif [[ "$candidate_local_ref" == refs/tags/* && "$candidate_local_sha" != "$zero_sha" ]]; then
+    tag_refs+=("$candidate_local_ref")
+    tag_shas+=("$candidate_local_sha")
   elif [[ "$candidate_local_ref" != refs/tags/* && "$candidate_local_sha" != "$zero_sha" ]]; then
     unsupported_source_ref="$candidate_local_ref"
   fi
@@ -52,6 +57,21 @@ if [[ -n "$unsupported_source_ref" ]]; then
   echo "pre-push: BLOCKED - unsupported push source ref '$unsupported_source_ref'."
   echo "  Push the checked-out branch from its own worktree."
   exit 1
+fi
+if [[ "${#tag_refs[@]}" -gt 0 ]]; then
+  protected_ref="$(git symbolic-ref --quiet "refs/remotes/$remote_name/HEAD" 2>/dev/null || true)"
+  protected_ref="${protected_ref:-refs/remotes/$remote_name/main}"
+  if ! git cat-file -e "${protected_ref}^{commit}" 2>/dev/null; then
+    echo "pre-push: BLOCKED - cannot resolve protected branch '$protected_ref' for tag validation."
+    exit 1
+  fi
+  for index in "${!tag_refs[@]}"; do
+    tag_commit="$(git rev-parse --verify "${tag_shas[$index]}^{commit}" 2>/dev/null || true)"
+    if [[ -z "$tag_commit" ]] || ! git merge-base --is-ancestor "$tag_commit" "$protected_ref"; then
+      echo "pre-push: BLOCKED - tag '${tag_refs[$index]#refs/tags/}' is not on $protected_ref."
+      exit 1
+    fi
+  done
 fi
 
 # ---------------------------------------------------------------------------
