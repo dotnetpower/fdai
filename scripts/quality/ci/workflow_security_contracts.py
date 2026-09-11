@@ -330,49 +330,6 @@ def condition_overrides_guard_failure(condition: Any) -> bool:
     )
 
 
-def condition_requires_prior_step(
-    condition: Any,
-    eligible_step_ids: set[str],
-) -> bool:
-    """Return whether a status override is fail-closed on a later step result."""
-    if not isinstance(condition, str):
-        return False
-    normalized = " ".join(condition.split())
-    if normalized.startswith("${{") and normalized.endswith("}}"):
-        normalized = normalized[3:-2].strip()
-    for raw_clause in split_top_level_operator(normalized, "||"):
-        conjuncts = {
-            strip_outer_parentheses(value)
-            for value in split_top_level_operator(
-                strip_outer_parentheses(raw_clause),
-                "&&",
-            )
-        }
-        valid = False
-        for conjunct in conjuncts:
-            success_match = re.fullmatch(
-                r"steps\.([A-Za-z0-9_-]+)\.(?:outcome|conclusion)\s*==\s*'success'",
-                conjunct,
-            )
-            output_match = re.fullmatch(
-                r"steps\.([A-Za-z0-9_-]+)\.outputs\.[A-Za-z0-9_-]+\s*==\s*'true'",
-                conjunct,
-            )
-            step_id = (
-                success_match.group(1)
-                if success_match is not None
-                else output_match.group(1)
-                if output_match is not None
-                else None
-            )
-            if step_id in eligible_step_ids:
-                valid = True
-                break
-        if not valid:
-            return False
-    return True
-
-
 def condition_requires_guard_success(condition: Any, guard_id: Any) -> bool:
     """Return whether an override explicitly requires verifier success."""
     if not isinstance(condition, str) or not isinstance(guard_id, str):
@@ -475,7 +432,6 @@ def protected_guard_prefix_errors(
             or guard.get("if") != allowed_condition
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected-source verifier")
-        post_verifier_ids: set[str] = set()
         for step in steps[2:]:
             condition = step.get("if") if isinstance(step, dict) else None
             if (
@@ -483,7 +439,7 @@ def protected_guard_prefix_errors(
                 and condition_overrides_guard_failure(condition)
                 and isinstance(step.get("run"), str)
                 and PRIVILEGED_COMMAND_RE.search(step["run"]) is not None
-                and not condition_requires_prior_step(condition, post_verifier_ids)
+                and not condition_requires_guard_success(condition, guard_id)
             ):
                 errors.append(
                     f"{relative} job {job_name} can execute a privileged step after "
@@ -498,8 +454,6 @@ def protected_guard_prefix_errors(
                 errors.append(
                     f"{relative} job {job_name} can execute an action after verifier failure"
                 )
-            if isinstance(step, dict) and isinstance(step.get("id"), str):
-                post_verifier_ids.add(step["id"])
     if not guarded_jobs:
         errors.append(f"{relative} is privileged and has no executable protected-source guard")
         return errors

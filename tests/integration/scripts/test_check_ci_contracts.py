@@ -961,6 +961,55 @@ def test_verifier_failure_and_intermediate_jobs_cannot_authorize_execution() -> 
     ]
 
 
+def test_post_verifier_steps_cannot_launder_guard_failure() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "guard": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "id": "protected-source",
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                    {
+                        "id": "bridge",
+                        "if": "always()",
+                        "run": "echo bridge",
+                    },
+                    {
+                        "if": "always() && steps.bridge.outcome == 'success'",
+                        "run": "docker push example/image",
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure"
+    ]
+
+
 def test_protected_verifier_rejects_literal_target_commits() -> None:
     module = _load_contract_module()
     checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]

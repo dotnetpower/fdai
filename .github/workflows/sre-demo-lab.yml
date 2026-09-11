@@ -929,7 +929,11 @@ jobs:
           done
 
       - name: Revoke bounded scenario-lab deployment authority
-        if: always() && inputs.action != 'plan' && steps.deployment-authority.outputs.remove_after_run == 'true'
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          inputs.action != 'plan' &&
+          steps.deployment-authority.outputs.remove_after_run == 'true'
         working-directory: ${{ runner.temp }}
         env:
           ROLE_ASSIGNMENT_ID: ${{ steps.deployment-authority.outputs.role_assignment_id }}
@@ -939,7 +943,11 @@ jobs:
           --only-show-errors
 
       - name: Revoke bounded operator network authority
-        if: always() && inputs.action != 'plan' && steps.operator-network-authority.outputs.remove_after_run == 'true'
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          inputs.action != 'plan' &&
+          steps.operator-network-authority.outputs.remove_after_run == 'true'
         working-directory: ${{ runner.temp }}
         env:
           ROLE_ASSIGNMENT_ID: ${{ steps.operator-network-authority.outputs.role_assignment_id }}
