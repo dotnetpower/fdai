@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: af33185abc39eb8fe9472fe31587496ce6e0dc20
+translation_source_sha: eac23fc4b552210a7e85b03e7302ead5ae2af03b
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -476,6 +476,9 @@ Event Hubs는 관측을 전달하고 OpenTelemetry는 진단을 보고하며, �
 포함합니다. 상태 전이는 `from_state`, `to_state`, 유효 시각, 기록 시각, 근거 기준 시점, 원본
 신원과 개정, 생산자 버전, 최신성, 완전성, 충돌, 근거 참조를 결합합니다. 다시 전달된 멱등성
 키는 콘텐츠가 같을 때만 변경 없는 처리로 끝납니다.
+커버리지 식별자는 전역 콘텐츠 주소입니다. 복구된 배치는 두 번째 행을 삽입하지 않고도 동일하게
+보존된 커버리지 레코드를 참조할 수 있으며, replay는 자식이 해당 배치에서 처음 삽입됐다고
+요구하는 대신 예상한 각 자식을 콘텐츠 식별자로 검증합니다.
 
 인벤토리 경로는 속성 수준 근거가 있는 운영 및 가용성 변경만 기록합니다. 프로비저닝은 같은
 출처 정보가 생길 때까지 현재 상태로만 유지합니다. 모든 구간은 `initial_state_only` 또는

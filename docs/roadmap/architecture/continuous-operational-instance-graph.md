@@ -485,6 +485,9 @@ Each atomic batch contains zero or more content-addressed transitions and at lea
 coverage record. A transition binds `from_state`, `to_state`, effective time, recorded time,
 evidence cutoff, source identity and revision, producer version, freshness, completeness,
 conflicts, and evidence references. Replayed idempotency keys are no-ops only for identical content.
+Coverage identity is global and content-addressed. A recovered batch can reference an identical
+retained coverage record without inserting a second row, and replay verifies each expected child by
+its content identity rather than requiring the child to have been first inserted by that batch.
 
 The inventory path records operational and availability changes only with property-level evidence.
 Provisioning remains current-state only until it carries equivalent provenance. Every interval is
