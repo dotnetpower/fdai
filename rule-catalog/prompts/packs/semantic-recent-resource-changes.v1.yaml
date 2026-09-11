@@ -1,0 +1,11 @@
+id: semantic-recent-resource-changes
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 160
+default_mode: shadow
+body: |-
+  A targetless request for recently changed Resources without explicit state wording uses query.resource_change_activity, no targets, and facets changed_resources and resource_count. Provider create, update, delete, and change operations are Resource changes. Operational-state transitions require explicit state meaning. Do not turn changed Resources into a resource_name_filter or exact Resource clarification.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Separates provider-observed Resource changes from state transitions.

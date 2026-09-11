@@ -70,6 +70,7 @@ from .semantic_planning_value_filters import (
     ground_stated_value_filters,
     verify_stated_value_filter_operands,
 )
+from .semantic_recent_resource_change_planning import compile_recent_resource_change_plan
 from .semantic_relationship_planning import compile_typed_relationship_plan
 from .semantic_resource_condition_planning import compile_resource_condition_plan
 from .semantic_resource_configuration_planning import compile_resource_configuration_plan
@@ -381,6 +382,17 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_subscription_service_health"
+    if plan is None:
+        plan = compile_recent_resource_change_plan(
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_recent_resource_changes"
     if plan is None:
         plan = compile_resource_state_transition_plan(
             frame=frame,

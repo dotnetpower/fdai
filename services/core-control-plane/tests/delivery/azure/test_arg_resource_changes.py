@@ -317,6 +317,38 @@ async def test_create_row_also_hydrates_as_upsert() -> None:
     assert result.events[0].payload["inventory_change"]["kind"] == "upsert"
 
 
+@pytest.mark.asyncio
+async def test_ambiguous_arm_type_is_resolved_from_hydrated_kind() -> None:
+    arm_type = "Microsoft.Web/sites"
+    arm_id = _arm_id(arm_type, "function-a")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [_hydration_row(arm_id=arm_id, arm_type=arm_type, kind="functionapp")]
+        )
+
+    feed, client, _ = _factory(_router(on_changes=on_changes, on_hydration=on_hydration))
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert result.events[0].payload["inventory_change"]["resource"]["type"] == "compute.function"
+
+
 # ---------------------------------------------------------------------------
 # Delete tombstone
 # ---------------------------------------------------------------------------
@@ -454,7 +486,7 @@ async def test_multiple_changes_to_one_resource_dedupe_to_the_latest() -> None:
 
 
 @pytest.mark.asyncio
-async def test_truncated_page_without_continuation_token_raises() -> None:
+async def test_truncated_page_without_continuation_token_advances_keyset_cursor() -> None:
     async def on_changes(_request: httpx.Request) -> httpx.Response:
         return _changes_response(
             [
@@ -470,10 +502,46 @@ async def test_truncated_page_without_continuation_token_raises() -> None:
 
     feed, client, _ = _factory(_router(on_changes=on_changes))
     try:
-        with pytest.raises(ArgResourceChangeError, match="truncated"):
-            await feed.poll("")
+        result = await feed.poll("")
     finally:
         await client.aclose()
+
+    assert len(result.events) == 1
+    assert result.next_cursor != ""
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
+async def test_tokenless_truncated_page_resumes_without_duplicates() -> None:
+    async def on_changes(request: httpx.Request) -> httpx.Response:
+        query = str(json.loads(request.content)["query"])
+        change_id = "c2" if "strcmp(tostring(id), 'c1') > 0" in query else "c1"
+        return _changes_response(
+            [
+                _change_row(
+                    change_id=change_id,
+                    change_time=f"2026-07-10T06:00:0{int(change_id == 'c2')}Z",
+                    change_type="Delete",
+                    arm_id=_arm_id("Microsoft.Compute/virtualMachines", change_id),
+                )
+            ],
+            resultTruncated=change_id == "c1",
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes),
+        cfg=_config(page_size=1, max_pages=1),
+    )
+    try:
+        first = await feed.poll("")
+        second = await feed.poll(first.next_cursor)
+    finally:
+        await client.aclose()
+
+    assert first.complete is False
+    assert second.complete is True
+    assert first.next_cursor != second.next_cursor
+    assert len({event.idempotency_key for event in (*first.events, *second.events)}) == 2
 
 
 @pytest.mark.asyncio
@@ -522,8 +590,7 @@ async def test_resourcechanges_http_failure_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_hydration_fails_before_cursor_advance() -> None:
-    """A missing hydration cannot silently discard a potentially new resource."""
+async def test_missing_hydration_race_skips_resource_and_advances_cursor() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
     arm_id = _arm_id(arm_type, "thing-vanished")
@@ -548,10 +615,12 @@ async def test_missing_hydration_fails_before_cursor_advance() -> None:
         _router(on_changes=on_changes, on_hydration=on_hydration), vocab=vocab
     )
     try:
-        with pytest.raises(ArgResourceChangeError, match="did not resolve every mapped upsert"):
-            await feed.poll("")
+        result = await feed.poll("")
     finally:
         await client.aclose()
+
+    assert result.events == ()
+    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 
 # ---------------------------------------------------------------------------
@@ -956,9 +1025,56 @@ async def test_forward_resumes_from_the_persisted_cursor() -> None:
     assert "strcmp(tostring(id), 'c1') > 0" in seen_cursors[0]
     saved = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
     assert saved == {
+        "complete": True,
         "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_event_cursor": None,
         "last_polled_at": "2026-07-10T06:01:00+00:00",
+        "pending_event_ids": [],
+        "published_event_count": 0,
     }
+
+
+@pytest.mark.asyncio
+async def test_forward_preserves_an_uningested_batch_without_polling() -> None:
+    calls = 0
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _changes_response([])
+
+    class PendingFence:
+        async def contains(self, event_ids: tuple[str, ...]) -> bool:
+            assert event_ids == ("event-1",)
+            return False
+
+    feed, client, _ = _factory(_router(on_changes=on_changes))
+    state_store = InMemoryStateStore()
+    key = f"arg_resource_change_cursor:{_SCOPE}"
+    retained = {
+        "complete": True,
+        "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_event_cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_polled_at": "2026-07-10T06:01:00+00:00",
+        "pending_event_ids": ["event-1"],
+        "published_event_count": 1,
+    }
+    await state_store.write_state(key, retained)
+    try:
+        published = await forward_arg_resource_changes(
+            feed=feed,
+            state_store=state_store,
+            event_bus=InMemoryEventBus(),
+            topic="inventory.events",
+            scope=_SCOPE,
+            ingestion_fence=PendingFence(),
+        )
+    finally:
+        await client.aclose()
+
+    assert published == 0
+    assert calls == 0
+    assert await state_store.read_state(key) == retained
 
 
 @pytest.mark.asyncio

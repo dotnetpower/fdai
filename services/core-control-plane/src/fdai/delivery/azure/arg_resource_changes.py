@@ -73,7 +73,7 @@ import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, Protocol
 from urllib.parse import urlparse
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -144,6 +144,10 @@ class ArgResourceChangeError(RuntimeError):
     The message is safe to log - it never carries raw response bodies or
     tenant-identifying values, only a short, bounded reason string.
     """
+
+
+class ResourceChangeIngestionFence(Protocol):
+    async def contains(self, event_ids: tuple[str, ...]) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +240,8 @@ class ResourceChangeFeedResult:
 
     events: tuple[Event, ...]
     next_cursor: str
+    complete: bool = True
+    last_event_cursor: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +280,12 @@ class AzureResourceChangeFeed:
 
         lower_ts, lower_id = _decode_cursor(cursor)
         query = self._build_change_query(lower_ts=lower_ts, lower_id=lower_id)
+        tokenless_truncated = False
+
+        def observe_truncation(value: bool) -> None:
+            nonlocal tokenless_truncated
+            tokenless_truncated = value
+
         rows = await fetch_arg_row_pages(
             identity=self._identity,
             http_client=self._http,
@@ -291,6 +303,8 @@ class AzureResourceChangeFeed:
             rate_limiter=self._rate_limiter,
             max_response_bytes=self._config.max_response_bytes,
             max_total_response_bytes=self._config.max_total_response_bytes,
+            allow_truncated_without_token=True,
+            truncation_observer=observe_truncation,
         )
         if not rows:
             return ResourceChangeFeedResult(events=(), next_cursor=cursor)
@@ -322,34 +336,31 @@ class AzureResourceChangeFeed:
         )
 
         events: list[Event] = []
+        published_cursors: list[str] = []
         for change in deletes:
             resource_type = self._resolve_delete_type(change)
             if resource_type is None:
                 continue  # ARM type outside the vocabulary - drop, don't fail closed.
             events.append(self._tombstone_event(change, resource_type=resource_type))
+            published_cursors.append(_encode_cursor(change.change_time, change.change_id))
 
-        hydration_candidates = [
-            change
-            for change in upserts
-            if change.arm_type is None or change.arm_type.casefold() in self._arm_to_neutral
-        ]
+        hydration_candidates = upserts
         hydration = await self._hydrate([change.arm_id for change in hydration_candidates])
-        unresolved_hydrations: list[_ChangeRow] = []
         for change in hydration_candidates:
             provider_key = change.arm_id.casefold()
             record = hydration.records.get(provider_key)
             if record is None:
-                if provider_key not in hydration.seen_provider_refs:
-                    unresolved_hydrations.append(change)
                 continue
             events.append(self._upsert_event(change, record=record))
-        if unresolved_hydrations:
-            raise ArgResourceChangeError(
-                "resourcechanges hydration did not resolve every mapped upsert"
-            )
+            published_cursors.append(_encode_cursor(change.change_time, change.change_id))
 
         next_cursor = _encode_cursor(newest[0], newest[1])
-        return ResourceChangeFeedResult(events=tuple(events), next_cursor=next_cursor)
+        return ResourceChangeFeedResult(
+            events=tuple(events),
+            next_cursor=next_cursor,
+            complete=not tokenless_truncated,
+            last_event_cursor=max(published_cursors, default=None),
+        )
 
     # ------------------------------------------------------------------
     # Query construction
@@ -579,6 +590,7 @@ class AzureResourceChangeFeed:
                 "inventory_change": {
                     "kind": "upsert",
                     "observation_kind": "full",
+                    "source_revision": _encode_cursor(change.change_time, change.change_id),
                     "properties_complete": True,
                     "property_mask": sorted(resource.props),
                     "tombstone_confirmed": False,
@@ -616,6 +628,7 @@ class AzureResourceChangeFeed:
                 "inventory_change": {
                     "kind": "delete",
                     "observation_kind": "tombstone",
+                    "source_revision": _encode_cursor(change.change_time, change.change_id),
                     "properties_complete": False,
                     "property_mask": [],
                     "tombstone_confirmed": False,
@@ -639,6 +652,7 @@ async def forward_arg_resource_changes(
     event_bus: EventBus,
     topic: str,
     scope: str,
+    ingestion_fence: ResourceChangeIngestionFence | None = None,
     deadline_seconds: float = DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
     clock: Callable[[], datetime] | None = None,
 ) -> int:
@@ -654,6 +668,11 @@ async def forward_arg_resource_changes(
         raise ValueError("resource change feed deadline_seconds MUST be > 0")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
+    pending_event_ids = _pending_event_ids(saved.get("pending_event_ids"))
+    if pending_event_ids and (
+        ingestion_fence is None or not await ingestion_fence.contains(pending_event_ids)
+    ):
+        return 0
     cursor = str(saved.get("cursor") or "")
     result: ResourceChangeFeedResult | None = None
     try:
@@ -675,8 +694,12 @@ async def forward_arg_resource_changes(
     await state_store.write_state(
         cursor_key,
         {
+            "complete": result.complete,
             "cursor": result.next_cursor,
+            "last_event_cursor": result.last_event_cursor,
             "last_polled_at": polled_at.astimezone(UTC).isoformat(),
+            "pending_event_ids": [str(event.event_id) for event in result.events],
+            "published_event_count": len(result.events),
         },
     )
     return len(result.events)
@@ -689,6 +712,19 @@ async def forward_arg_resource_changes(
 
 def _event_uuid(scope: str, change_id: str) -> UUID:
     return uuid5(NAMESPACE_URL, f"fdai.arg-resource-change://{scope}/{change_id}")
+
+
+def _pending_event_ids(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if (
+        not isinstance(value, list)
+        or len(value) > 1_000
+        or any(not isinstance(item, str) or not item or len(item) > 128 for item in value)
+        or len(set(value)) != len(value)
+    ):
+        raise ArgResourceChangeError("resource change ingestion fence is malformed")
+    return tuple(sorted(value))
 
 
 def _encode_cursor(change_time: datetime, change_id: str) -> str:

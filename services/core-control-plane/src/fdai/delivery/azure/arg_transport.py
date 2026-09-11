@@ -183,6 +183,7 @@ async def fetch_arg_row_pages(
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
     request_headers: Mapping[str, str] | None = None,
     allow_truncated_without_token: bool = False,
+    truncation_observer: Callable[[bool], None] | None = None,
     max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
     max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
 ) -> tuple[Mapping[str, Any], ...]:
@@ -278,13 +279,16 @@ async def fetch_arg_row_pages(
 
         next_token = payload.get("$skipToken")
         if not isinstance(next_token, str) or not next_token:
-            if not allow_truncated_without_token and (
-                payload.get("resultTruncated") is True or _count_is_truncated(payload)
-            ):
+            tokenless_truncated = payload.get("resultTruncated") is True or _count_is_truncated(
+                payload
+            )
+            if not allow_truncated_without_token and tokenless_truncated:
                 raise error_type(
                     f"ARG returned a truncated result without a continuation token for "
                     f"{result_name!r} (page {page})"
                 )
+            if truncation_observer is not None:
+                truncation_observer(tokenless_truncated)
             break
         if next_token in seen_skip_tokens:
             raise error_type(

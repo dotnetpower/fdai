@@ -18,6 +18,10 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+from fdai.delivery.persistence.postgres_recent_resource_changes import (
+    PostgresRecentResourceChangeReaderConfig,
+    PostgresResourceChangeIngestionFence,
+)
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
@@ -206,6 +210,9 @@ async def _forward_resource_changes(
                 event_bus=event_bus,
                 topic=topic,
                 scope=scope,
+                ingestion_fence=PostgresResourceChangeIngestionFence(
+                    config=PostgresRecentResourceChangeReaderConfig(dsn=config.dsn)
+                ),
             )
     return published
 

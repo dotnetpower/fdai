@@ -51,6 +51,9 @@ _SUBSCRIPTION_SERVICE_HEALTH_FACETS = frozenset({"service_health"})
 _RECENT_RESOURCE_STATE_CHANGE_FACETS = frozenset(
     {"recently_changed", "resource_count", "default_recent_window"}
 )
+_RECENT_RESOURCE_CHANGE_FACETS = frozenset(
+    {"changed_resources", "resource_count", "default_recent_window"}
+)
 _RESOURCE_COLLECTION_FACET_ALIASES = {
     "resource_name_filter": "name_filter",
     "resource_state_filter": "current_state",
@@ -194,6 +197,7 @@ class OperationalPreflightFamily(StrEnum):
     RESOURCE_CURRENT_STATE = "resource_current_state"
     SUBSCRIPTION_SCOPE_IDENTITY = "subscription_scope_identity"
     SUBSCRIPTION_SERVICE_HEALTH = "subscription_service_health"
+    RECENT_RESOURCE_CHANGES = "recent_resource_changes"
     RECENT_RESOURCE_STATE_CHANGES = "recent_resource_state_changes"
     RESOURCE_CONFIGURATION_CHANGES = "resource_configuration_changes"
     GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
@@ -675,6 +679,7 @@ def preflight_operational_judgment(
             "query.gateway_diagnostic_evidence"
         ),
         OperationalPreflightFamily.RESOURCE_CURRENT_STATE: "query.resource_current_state",
+        OperationalPreflightFamily.RECENT_RESOURCE_CHANGES: "query.resource_change_activity",
         OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES: (
             "query.resource_change_activity"
         ),
@@ -743,6 +748,24 @@ def preflight_operational_judgment(
             not target_kinds
             and facets == _SUBSCRIPTION_SERVICE_HEALTH_FACETS
             and not named_subscription_requested(utterance)
+        )
+    elif proposal.operational_family is OperationalPreflightFamily.RECENT_RESOURCE_CHANGES:
+        result_limit = proposal.operational_result_limit
+        allowed_facets = _RECENT_RESOURCE_CHANGE_FACETS.union(
+            {"limit_N", f"limit_{result_limit}"} if result_limit is not None else {"limit_N"}
+        )
+        normalized_operational_facets = (
+            "changed_resources",
+            "resource_count",
+            "default_recent_window",
+            f"limit_{result_limit}",
+        )
+        family_valid = (
+            not target_kinds
+            and result_limit is not None
+            and proposal.operational_window
+            in {OperationalWindowMode.NONE, OperationalWindowMode.SERVER_RECENT_DEFAULT}
+            and {"changed_resources", "resource_count"} <= facets <= allowed_facets
         )
     elif proposal.operational_family is OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES:
         result_limit = proposal.operational_result_limit
@@ -868,7 +891,11 @@ def preflight_operational_judgment(
     else:
         family_valid = False
     if (
-        proposal.operational_family is not OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES
+        proposal.operational_family
+        not in {
+            OperationalPreflightFamily.RECENT_RESOURCE_CHANGES,
+            OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
+        }
         and proposal.operational_result_limit is not None
     ):
         family_valid = False

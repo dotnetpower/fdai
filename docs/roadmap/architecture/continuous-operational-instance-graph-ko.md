@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 14898c035fa97e0aebd83ed9f143ce98aad7e671
+translation_source_sha: 014d1a0608c839286726345eb452c8782899419e
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -189,8 +189,15 @@ PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하�
 정렬하고 경계 중복을 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤 cursor를
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
-부재를 입증할 때까지 기다립니다. 부분 페이지나 매핑된 대상의 누락은 cursor와 overlay를 진행하지
-않으며, 반환된 미지원 공급자 형식은 명시적인 커버리지 공백으로 유지합니다.
+부재를 입증할 때까지 기다립니다. 연속 토큰이 없는 잘린 페이지는 같은 안정적인 keyset cursor로
+진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal에 나타날 때까지 기다립니다.
+재조회 전에 사라진 Resource는 이후 변경을 막지 않고 건너뛰며, 잘못되거나 부분적인 재조회 결과는
+계속 해당 배치를 실패시킵니다.
+
+읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 구독 범위를
+조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 작업 정보가 있는 Activity Log 관측만 선택하고
+주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든 정확한 이벤트 ID fence를 검증한
+뒤에만 완전한 결과로 보고합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
 mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구
