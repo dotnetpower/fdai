@@ -280,19 +280,24 @@ class AzureResourceChangeFeed:
             requests_per_second=config.requests_per_second
         )
 
+    def initial_cursor(self) -> str:
+        """Return one stable lower bound for the first persisted poll."""
+
+        anchored_at = self._clock()
+        if anchored_at.tzinfo is None:
+            raise ArgResourceChangeError("resourcechanges clock MUST be timezone-aware")
+        lower_ts = anchored_at.astimezone(UTC) - timedelta(
+            seconds=self._config.initial_lookback_seconds
+        )
+        return _encode_cursor(lower_ts, _INITIAL_CURSOR_ID)
+
     async def poll(self, cursor: str) -> ResourceChangeFeedResult:
         """Fetch one bounded, oldest-first page of changes past ``cursor``."""
 
         lower_ts, lower_id = _decode_cursor(cursor)
         if lower_ts is None:
-            anchored_at = self._clock()
-            if anchored_at.tzinfo is None:
-                raise ArgResourceChangeError("resourcechanges clock MUST be timezone-aware")
-            lower_ts = anchored_at.astimezone(UTC) - timedelta(
-                seconds=self._config.initial_lookback_seconds
-            )
-            lower_id = _INITIAL_CURSOR_ID
-            cursor = _encode_cursor(lower_ts, lower_id)
+            cursor = self.initial_cursor()
+            lower_ts, lower_id = _decode_cursor(cursor)
         query = self._build_change_query(lower_ts=lower_ts, lower_id=lower_id)
         tokenless_truncated = False
 
@@ -698,6 +703,18 @@ async def forward_arg_resource_changes(
     ):
         return 0
     cursor = str(saved.get("cursor") or "")
+    if not cursor:
+        cursor = feed.initial_cursor()
+        await state_store.write_state(
+            cursor_key,
+            {
+                "complete": False,
+                "cursor": cursor,
+                "last_event_cursor": None,
+                "pending_event_ids": [],
+                "published_event_count": 0,
+            },
+        )
     result: ResourceChangeFeedResult | None = None
     try:
         async with asyncio.timeout(deadline_seconds):

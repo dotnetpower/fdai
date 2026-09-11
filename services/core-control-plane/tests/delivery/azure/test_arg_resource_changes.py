@@ -1085,7 +1085,7 @@ async def test_forward_publishes_and_persists_cursor_on_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_forward_does_not_persist_cursor_when_the_poll_fails() -> None:
+async def test_forward_persists_initial_cursor_before_poll_failure() -> None:
     async def on_changes(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="boom")
 
@@ -1105,7 +1105,13 @@ async def test_forward_does_not_persist_cursor_when_the_poll_fails() -> None:
         await client.aclose()
 
     saved = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
-    assert saved is None
+    assert saved == {
+        "complete": False,
+        "cursor": "2026-07-10T05:59:00+00:00\x1f__fdai_initial__",
+        "last_event_cursor": None,
+        "pending_event_ids": [],
+        "published_event_count": 0,
+    }
     assert event_bus._records == {}
 
 

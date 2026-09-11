@@ -203,7 +203,8 @@ only the documented boolean and string forms of `resultTruncated` and rejects ot
 If the final bounded page still carries a continuation token, the feed returns the oldest collected
 rows as incomplete and advances the stable keyset cursor after their ingestion fence clears.
 The first poll persists its calculated lookback boundary as an initial cursor, so incomplete empty
-or hydration retries cannot drift forward and skip changes.
+or hydration retries cannot drift forward and skip changes. This anchor is committed before the
+first provider query or publication, so a failed first attempt reuses the same boundary.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
