@@ -51,6 +51,9 @@ def test_inventory_job_carries_continuous_collection_budgets() -> None:
 def test_runtime_call_source_survives_operator_service_state_migration() -> None:
     root_variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
     module_call = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    transition = (_ROOT / "infra" / "runtime-call-evidence-transition.tf").read_text(
+        encoding="utf-8"
+    )
     workflow = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 
     assert 'variable "enable_runtime_call_evidence"' in root_variables
@@ -59,13 +62,17 @@ def test_runtime_call_source_survives_operator_service_state_migration() -> None
     assert (
         "TF_VAR_enable_runtime_call_evidence: ${{ vars.ENABLE_RUNTIME_CALL_EVIDENCE == 'true' }}"
     ) in workflow
-    assert workflow.count("-refresh=false") == 1
+    assert "TF_VAR_runtime_call_evidence_transition:" in workflow
+    assert 'resource "terraform_data" "runtime_call_evidence_transition"' in transition
+    assert "triggers_replace = [var.enable_runtime_call_evidence]" in transition
+    assert "ENABLE_RUNTIME_CALL_EVIDENCE = tostring(var.enable_runtime_call_evidence)" in transition
+    assert "update_inventory_job_runtime_call_evidence.sh" in transition
     assert "      runtime_call_evidence_transition:" not in workflow
     assert "RUNTIME_CALL_EVIDENCE_TRANSITION:" in workflow
     assert (
         "startsWith(inputs.request_id, 'plan-runtime-') || "
         "startsWith(inputs.request_id, 'apply-runtime-')) && "
-        "'-refresh=false -target=module.compute.azurerm_container_app_job.inventory[0]'"
+        "'-target=terraform_data.runtime_call_evidence_transition'"
     ) in workflow
     assert "verify-runtime-call-evidence-job.sh" in workflow
     assert 'install -m 0600 runtime-call-evidence-job-readback.json "$candidate/' in workflow
