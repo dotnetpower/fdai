@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 607f18d96199874f9c8f4c862c279008f69964bb
+translation_source_sha: 1582b3292dda3084eeae15ab2be5ce09f897df4f
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -111,7 +111,7 @@ ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID�
 사용 불가 결과를 유지합니다.
 플랫폼의 `enable_runtime_call_evidence` 입력은 기존 Operator API 모듈과 독립적으로 이 Inventory
 Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수 없습니다. 스키마가 유효한
-`plan-runtime-*` 및 `apply-runtime-*` 요청은 전용 바인딩 및 정확한 이미지 전환 리소스를
+`plan-runtime-*` 및 `apply-runtime-*` 요청은 전용 플래그, workspace 및 정확한 이미지 전환 리소스를
 대상으로 하며 혼합 대상을 거부합니다. 전환은 검증된 롤백을 포함한 제한된 업데이터를 사용해
 관련 없는 모듈 의존성을 계획하지 않고 기존 Inventory Job을 활성화합니다. 검증된 개정 번호를
 선택하면 오래된 이미지도 교체합니다. 바인딩 업데이터는 정확한 Log Analytics customer ID도

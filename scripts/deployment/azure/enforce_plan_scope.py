@@ -39,6 +39,7 @@ _RUNTIME_CALL_EVIDENCE = frozenset(
     {
         "terraform_data.inventory_runtime_image_update",
         "terraform_data.runtime_call_evidence_transition",
+        "terraform_data.runtime_workspace_binding_transition",
     }
 )
 _OPERATIONAL_HISTORY_PREFIXES = (

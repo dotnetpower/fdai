@@ -104,8 +104,9 @@ def test_observability_analyzer_scope_accepts_only_the_analyzer_job() -> None:
 def test_runtime_call_evidence_scope_accepts_only_transition_resources() -> None:
     transition = "terraform_data.runtime_call_evidence_transition"
     image = "terraform_data.inventory_runtime_image_update"
-    assert enforce(_plan(transition, image), mode="runtime-call-evidence") == frozenset(
-        {transition, image}
+    workspace = "terraform_data.runtime_workspace_binding_transition"
+    assert enforce(_plan(transition, image, workspace), mode="runtime-call-evidence") == frozenset(
+        {transition, image, workspace}
     )
     assert enforce({"resource_changes": []}, mode="runtime-call-evidence") == frozenset()
     with pytest.raises(ValueError, match="outside its bounded scope"):
