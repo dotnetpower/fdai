@@ -201,6 +201,15 @@ def split_top_level_operator(expression: str, operator: str) -> list[str]:
     return clauses
 
 
+def flatten_logical_or(expression: str) -> list[str]:
+    """Recursively expose OR branches after removing wrapping parentheses."""
+    stripped = strip_outer_parentheses(expression)
+    clauses = split_top_level_operator(stripped, "||")
+    if len(clauses) == 1:
+        return [stripped]
+    return [nested for clause in clauses for nested in flatten_logical_or(clause)]
+
+
 def dispatch_condition_is_protected(
     condition: Any,
     dispatch_triggers: set[str],
@@ -210,7 +219,7 @@ def dispatch_condition_is_protected(
         return False
     protected_main = "github.ref == 'refs/heads/main'"
     normalized = strip_outer_parentheses(" ".join(condition.split()))
-    for raw_clause in split_top_level_operator(normalized, "||"):
+    for raw_clause in flatten_logical_or(normalized):
         clause = strip_outer_parentheses(raw_clause)
         event_matches = set(re.findall(r"github\.event_name\s*==\s*'([A-Za-z_]+)'", clause))
         if event_matches and not (event_matches & dispatch_triggers):
@@ -315,7 +324,7 @@ def condition_can_run_for_event(condition: Any, event_name: str) -> bool:
     if not isinstance(condition, str):
         return True
     normalized = strip_outer_parentheses(" ".join(condition.split()))
-    for raw_clause in split_top_level_operator(normalized, "||"):
+    for raw_clause in flatten_logical_or(normalized):
         conjuncts = {
             strip_outer_parentheses(value)
             for value in split_top_level_operator(
@@ -395,7 +404,7 @@ def condition_overrides_guard_failure(condition: Any) -> bool:
                 "&&",
             )
         }
-        for clause in split_top_level_operator(normalized, "||")
+        for clause in flatten_logical_or(normalized)
     )
 
 
@@ -416,7 +425,7 @@ def condition_requires_guard_success(condition: Any, guard_id: Any) -> bool:
                 "&&",
             )
         }
-        for clause in split_top_level_operator(normalized, "||")
+        for clause in flatten_logical_or(normalized)
     )
 
 

@@ -1204,6 +1204,10 @@ def test_dispatch_guard_rejects_nested_ref_alternatives() -> None:
         "(github.event_name == 'push' || inputs.force)",
         {"workflow_dispatch"},
     )
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "github.event_name == 'push' || (true || github.event_name == 'push')",
+        {"workflow_dispatch"},
+    )
 
 
 def test_quoted_parentheses_cannot_hide_condition_alternatives() -> None:
