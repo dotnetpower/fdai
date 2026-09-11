@@ -332,7 +332,7 @@ ownership](../architecture/operating-ontology.md#agent-ownership) for the curren
 ## 6. Communication contract
 
 The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall emits Drift only after one readiness pass has all six dimensions; Muninn accepts only a strictly newer snapshot.
-A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for Operator API relay. Observation covers only the 15 registered agents; internal framework principals that subscribe through the same bridge project no agent activity and their delivery is unaffected.
+A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for Operator API relay. Observation covers only the 15 registered agents; internal framework principals that subscribe through the same bridge project no agent activity and their delivery is unaffected. One such principal is `recovery-effect-observer`, a dedicated consumer group that carries the versioned `workflow.recovery.effect_observed.v1` observation to the workflow recovery intake. It owns no object type, publishes nothing, and takes no record from an agent; it exists so an independent authority can report a recovery effect without the sole privileged executor ever producing that evidence, and the intake re-authenticates the `producer_principal` the bus stamped before persisting anything.
 
 ### 6.1 Typed port
 
@@ -344,7 +344,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn (retention ticks), Njord/Freyr/Loki (bounded specialist signals) |
+| object.event | Huginn | Heimdall, Muninn (retention ticks), Njord/Freyr/Loki (bounded specialist signals), `recovery-effect-observer` (independent recovery post-effect observations) |
 | object.change | Huginn | Muninn (immutable change revisions), Forseti (observation-mode ARB join) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |

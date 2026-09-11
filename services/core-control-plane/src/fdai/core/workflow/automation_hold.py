@@ -17,6 +17,7 @@ from fdai.core.workflow.recovery_admission import (
     workflow_recovery_evidence_digest,
     workflow_recovery_scope_digest,
 )
+from fdai.core.workflow.recovery_attempt import is_recovery_attempt_step_id
 from fdai.core.workflow.workflow_runtime import (
     WorkflowApprovalSnapshot,
     workflow_approval_state_key,
@@ -204,13 +205,34 @@ class StateStoreAutomationHoldLedger:
         process_id: str,
         step_id: str,
     ) -> bool:
+        """Whether one exact step holds proven authority to act under this hold.
+
+        The hold denies every ordinary forward dispatch on the target. The one
+        exception is the recovery step the coordinator separately authorized
+        under the hold revision that is still active, so this reads that proof
+        instead of inferring intent from a step name. A readable prefix is not
+        authority: a step that does not have the canonical recovery-attempt
+        shape, belongs to another Process, names another target, or cites a
+        superseded hold revision is refused. An authorization that exists but
+        cannot be read raises, so the caller fails closed instead of reading
+        unusable evidence as "no exception".
+        """
+
+        if not is_recovery_attempt_step_id(step_id):
+            return False
         record = await self.store.read_state(_state_key(target_ref))
+        revision = _int_or_none(record.get("revision")) if isinstance(record, Mapping) else None
+        if revision is None or not _matches_active_hold(
+            record, target_ref=target_ref, process_id=process_id, hold_revision=revision
+        ):
+            return False
+        authorization = await self.read_dispatch_authorization(
+            target_ref=target_ref, process_id=process_id, step_id=step_id
+        )
         return bool(
-            record is not None
-            and record.get("target_digest") == _target_digest(target_ref)
-            and record.get("state") == "active"
-            and record.get("process_id") == process_id
-            and step_id.startswith("compensate_")
+            authorization is not None
+            and authorization.get("authorization_kind") == HOLD_SCOPED_AUTHORIZATION
+            and authorization.get("authorized_hold_revision") == revision
         )
 
     async def release_admitted(
@@ -675,6 +697,12 @@ def _matches_active_hold(
         and record.get("process_id") == process_id
         and record.get("revision") == hold_revision
     )
+
+
+def _int_or_none(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        return None
+    return value
 
 
 def _same_release_intent(record: object, expected: Mapping[str, object]) -> bool:

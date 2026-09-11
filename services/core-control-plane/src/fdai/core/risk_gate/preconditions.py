@@ -69,7 +69,14 @@ class AutomationHoldReader(Protocol):
 
 @runtime_checkable
 class AutomationHoldRecoveryReader(AutomationHoldReader, Protocol):
-    """Check whether an exact held-Process compensation may request HIL."""
+    """Read whether one exact step proved authority to act under a hold.
+
+    This is evidence, not authority. An implementation MUST answer ``True``
+    only when durable state already proves that this exact target, Process,
+    recovery step, and currently active hold revision were separately
+    authorized; the gate never infers the exception from a step name and never
+    decides eligibility itself.
+    """
 
     async def recovery_eligible(
         self,

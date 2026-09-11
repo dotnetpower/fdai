@@ -46,10 +46,15 @@ from fdai.core.workflow import (
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
 )
+from fdai.core.workflow.recovery_effect_ingress import (
+    DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+    RecoveryEffectObservationIngress,
+)
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.delivery.persistence.workflow_recovery import (
     StateStoreRecoveryApprovalJournal,
+    StateStoreRecoveryAttemptResolver,
     StateStoreRecoveryEffectObservationJournal,
     StateStoreRecoveryEffectObserver,
     StateStoreRecoverySafeguardBundleReader,
@@ -278,6 +283,38 @@ def build_workflow_recovery_effect_observation_journal(
     )
 
 
+def build_workflow_recovery_effect_observation_ingress(
+    *,
+    audit_store: Any,
+    environ: Mapping[str, str] | None = None,
+) -> RecoveryEffectObservationIngress:
+    """Compose the versioned observer-path ingress for recovery effects.
+
+    The authorized observer principals and the executor identity come from
+    composition, never from an event, so a published payload cannot nominate
+    the identity it is validated against.
+    """
+
+    values = environ if environ is not None else os.environ
+    principals = frozenset(
+        item.strip()
+        for item in values.get("FDAI_WORKFLOW_RECOVERY_OBSERVER_PRINCIPALS", "").split(",")
+        if item.strip()
+    )
+    return RecoveryEffectObservationIngress(
+        attempts=StateStoreRecoveryAttemptResolver(audit_store),
+        journal=build_workflow_recovery_effect_observation_journal(
+            audit_store=audit_store,
+            environ=values,
+        ),
+        executor_identity=(
+            values.get("FDAI_WORKFLOW_EXECUTOR_IDENTITY", "").strip()
+            or "fdai.core.workflow.executor"
+        ),
+        authorized_principals=principals or DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+    )
+
+
 def load_approval_load_policy(catalog_root: Path) -> ApprovalLoadPolicy | None:
     """Load the optional bounded approval load policy."""
     configured = os.environ.get("FDAI_APPROVAL_LOAD_POLICY", "").strip()
@@ -324,6 +361,7 @@ def load_hil_escalation_rungs(catalog_root: Path) -> tuple[EscalationRung, ...]:
 __all__ = [
     "build_workflow_coordinator",
     "build_workflow_recovery_coordinator",
+    "build_workflow_recovery_effect_observation_ingress",
     "load_approval_load_policy",
     "load_hil_escalation_rungs",
     "pending_index_writer",

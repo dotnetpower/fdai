@@ -17,6 +17,7 @@ from fdai_service_contracts.ontology_query import content_digest
 
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _POSITIVE_INT = re.compile(r"^[1-9]\d*$")
+_RECOVERY_STEP = re.compile(r"^recover_[a-f0-9]{32}$")
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +45,11 @@ class RecoveryAttemptRejectionReason:
     CRASH_RECOVERY_NEEDED = "crash_recovery_needed"
     IN_DOUBT = "in_doubt"
     NOT_INVOKED = "not_invoked"
+    EFFECT_OBSERVER_UNBOUND = "effect_observer_unbound"
+    EFFECT_OBSERVATION_INTAKE_UNBOUND = "effect_observation_intake_unbound"
+    EFFECT_OBSERVATION_UNREADABLE = "effect_observation_unreadable"
+    EFFECT_OBSERVATION_MISSING = "effect_observation_missing"
+    EFFECT_ADMISSION_UNAVAILABLE = "effect_admission_unavailable"
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +434,18 @@ def recovery_attempt_step_id(identity: RecoveryAttemptIdentity) -> str:
     return f"recover_{identity.identity_digest.removeprefix('sha256:')[:32]}"
 
 
+def is_recovery_attempt_step_id(step_id: str) -> bool:
+    """Whether one step id has the exact shape a recovery attempt derives.
+
+    Only a step derived from an immutable attempt identity may claim the
+    recovery exception to an automation hold. A readable ``recover_`` prefix
+    is not evidence of anything, so a generic or hand-written ``recover_``
+    string is refused here rather than trusted downstream.
+    """
+
+    return _RECOVERY_STEP.fullmatch(step_id) is not None
+
+
 def recovery_attempt_idempotency_key(identity: RecoveryAttemptIdentity) -> str:
     """Derive one stable idempotency key from the immutable attempt identity."""
 
@@ -524,6 +542,7 @@ __all__ = [
     "RecoveryDispatchResult",
     "RecoveryPreDispatchClaim",
     "RecoverySafeguardEvidence",
+    "is_recovery_attempt_step_id",
     "recovery_attempt_idempotency_key",
     "recovery_attempt_step_id",
 ]

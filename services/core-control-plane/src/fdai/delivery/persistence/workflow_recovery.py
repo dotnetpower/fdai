@@ -32,6 +32,7 @@ from fdai.core.workflow.recovery_effect_claim import (
     EffectEvidenceRecord,
     FinalizedWatermark,
 )
+from fdai.core.workflow.recovery_effect_ingress import RecoveryEffectObservationWrite
 from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowApprovalDecision,
@@ -271,6 +272,32 @@ class StateStoreRecoverySafeguardBundleRetention:
 
 
 @dataclass(frozen=True, slots=True)
+class StateStoreRecoveryAttemptResolver:
+    """Resolve one persisted recovery attempt from workflow lineage only.
+
+    The observer path sees a Process and a recovery step, never the attempt
+    identity the coordinator derived, so this rebinds the event to the exact
+    attempt already persisted instead of trusting a payload-supplied identity.
+    """
+
+    store: StateStore
+
+    async def resolve_recovery_attempt(
+        self,
+        *,
+        process_id: str,
+        recovery_step_id: str,
+    ) -> RecoveryAttemptIdentity | None:
+        """Return the durable attempt, or ``None`` when the lineage is unknown."""
+
+        return await read_recovery_attempt(
+            self.store,
+            process_id=process_id,
+            recovery_step_id=recovery_step_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class StateStoreRecoveryEffectObservationJournal:
     """Persist one independent authoritative post-effect observation.
 
@@ -292,22 +319,49 @@ class StateStoreRecoveryEffectObservationJournal:
     ) -> bool:
         """Return whether the durable observation now holds this evidence."""
 
+        write = await self.record_independent_observation(
+            attempt=attempt,
+            target_resource_id=target_resource_id,
+            provider_receipt_digest=provider_receipt_digest,
+            observation=observation,
+        )
+        return write in {
+            RecoveryEffectObservationWrite.RECORDED,
+            RecoveryEffectObservationWrite.DUPLICATE,
+        }
+
+    async def record_independent_observation(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        target_resource_id: str,
+        provider_receipt_digest: str,
+        observation: RecoveryEffectObservation,
+    ) -> RecoveryEffectObservationWrite:
+        """Return the durable outcome of one independent observation write.
+
+        The first authoritative observation for an attempt and provider receipt
+        wins. A repeat of that exact evidence is a duplicate, and a later event
+        that disagrees is a conflict, so a replayed or reordered delivery can
+        never overwrite what an authority already reported.
+        """
+
         evidence = observation.evidence
         if not _is_digest(provider_receipt_digest):
-            return False
+            return RecoveryEffectObservationWrite.REFUSED
         if (
             evidence.synthetic
             or evidence.observer_authority_class is not EffectEvidenceClass.AUTHORITATIVE_EXTERNAL
         ):
-            return False
+            return RecoveryEffectObservationWrite.REFUSED
         normalized_executor = self.executor_identity.strip().casefold()
         if evidence.observer_identity.strip().casefold() in {
             normalized_executor,
             observation.provider_identity.strip().casefold(),
         }:
-            return False
+            return RecoveryEffectObservationWrite.REFUSED
         if not observation.finalized:
-            return False
+            return RecoveryEffectObservationWrite.REFUSED
         key = recovery_effect_observation_key(attempt, provider_receipt_digest)
         record: dict[str, Any] = {
             "process_id": attempt.process_id,
@@ -364,13 +418,17 @@ class StateStoreRecoveryEffectObservationJournal:
             },
         )
         if created:
-            return True
+            return RecoveryEffectObservationWrite.RECORDED
         stored = await self.store.read_state(key)
-        return bool(
-            stored is not None
-            and stored.get("attempt_identity_digest") == attempt.identity_digest
+        if stored is None:
+            return RecoveryEffectObservationWrite.REFUSED
+        if (
+            stored.get("attempt_identity_digest") == attempt.identity_digest
             and stored.get("evidence_digest") == evidence.evidence_digest
-        )
+            and stored.get("success") == observation.success
+        ):
+            return RecoveryEffectObservationWrite.DUPLICATE
+        return RecoveryEffectObservationWrite.CONFLICT
 
 
 @dataclass(frozen=True, slots=True)

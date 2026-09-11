@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bus import Handler
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
@@ -19,6 +20,9 @@ from fdai.core.rule_semantic_generation import (
     RuleGenerationValidationHandler,
 )
 from fdai.shared.providers.state_store import StateStore
+
+RECOVERY_EFFECT_OBSERVER_PRINCIPAL = "recovery-effect-observer"
+"""Consumer group that relays independent recovery post-effect observations."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,8 +101,28 @@ def bind_runtime_subscriptions(
     return subscription_count
 
 
+def bind_recovery_effect_observation(
+    bridge: EventBusBridge,
+    handler: Handler | None,
+) -> int:
+    """Subscribe the independent recovery post-effect observation intake.
+
+    A dedicated observer group receives the versioned observation event without
+    taking records from the agents that also subscribe `object.event`. The sole
+    privileged executor never publishes here, and the intake re-authenticates
+    the producing principal the bus recorded on the envelope.
+    """
+
+    if handler is None:
+        return 0
+    bridge.subscribe("object.event", RECOVERY_EFFECT_OBSERVER_PRINCIPAL, handler)
+    return 1
+
+
 __all__ = [
+    "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
     "RuleGenerationWorkerBindings",
+    "bind_recovery_effect_observation",
     "bind_runtime_subscriptions",
     "build_ingress_handler",
 ]

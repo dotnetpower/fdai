@@ -9,6 +9,7 @@ import pytest
 from fdai.core.workflow.automation_hold import (
     AutomationHoldReleaseReceipt,
     StateStoreAutomationHoldLedger,
+    _dispatch_authorization_key,
 )
 from fdai.core.workflow.recovery_admission import (
     WorkflowRecoveryAdmissionAssessment,
@@ -218,7 +219,7 @@ async def test_active_hold_survives_restart_and_duplicate_delivery() -> None:
     assert record["reason"] == "compensation_failed"
 
 
-async def test_only_matching_compensation_is_recovery_eligible() -> None:
+async def test_only_proven_hold_scoped_authorization_is_recovery_eligible() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAutomationHoldLedger(store)
     await ledger.issue(
@@ -226,25 +227,138 @@ async def test_only_matching_compensation_is_recovery_eligible() -> None:
         process_id="process-1",
         reason="compensation_failed",
     )
+    step_id = f"recover_{'a' * 32}"
 
     assert not await ledger.recovery_eligible(
         target_ref="resource-1",
-        process_id="process-other",
-        step_id="compensate_start",
+        process_id="process-1",
+        step_id=step_id,
     )
-    assert not await ledger.recovery_eligible(
+    assert await ledger.authorize_hold_scoped_dispatch(
         target_ref="resource-1",
         process_id="process-1",
-        step_id="ordinary_step",
+        step_id=step_id,
+        hold_revision=1,
     )
+
     assert await ledger.recovery_eligible(
         target_ref="resource-1",
         process_id="process-1",
-        step_id="compensate_start",
+        step_id=step_id,
+    )
+    assert not await ledger.recovery_eligible(
+        target_ref="resource-1",
+        process_id="process-other",
+        step_id=step_id,
+    )
+    assert not await ledger.recovery_eligible(
+        target_ref="resource-2",
+        process_id="process-1",
+        step_id=step_id,
     )
 
     assert await ledger.is_held(target_ref="resource-1")
     assert await ledger.read_hold_record(target_ref="resource-1") is not None
+
+
+@pytest.mark.parametrize(
+    "step_id",
+    [
+        "compensate_start",
+        "ordinary_step",
+        "recover_",
+        "recover_anything",
+        f"recover_{'a' * 31}",
+        f"recover_{'A' * 32}",
+        f"recover_{'a' * 32}_extra",
+    ],
+)
+async def test_a_readable_step_name_is_never_recovery_authority(step_id: str) -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAutomationHoldLedger(store)
+    await ledger.issue(
+        target_ref="resource-1",
+        process_id="process-1",
+        reason="compensation_failed",
+    )
+    await store.write_state(
+        _dispatch_authorization_key("resource-1", "process-1", step_id),
+        {
+            "target_digest": "sha256:" + hashlib.sha256(b"resource-1").hexdigest(),
+            "authorization_kind": "hold_scoped",
+            "process_id": "process-1",
+            "step_id": step_id,
+            "authorized_hold_revision": 1,
+            "execution_authority": False,
+            "revision": 1,
+        },
+    )
+
+    assert not await ledger.recovery_eligible(
+        target_ref="resource-1",
+        process_id="process-1",
+        step_id=step_id,
+    )
+
+
+async def test_a_superseded_hold_revision_denies_recovery_eligibility() -> None:
+    store = InMemoryStateStore(linearization_clock=lambda: _NOW)
+    ledger = _admitted_ledger(store)
+    await ledger.issue(
+        target_ref="resource-1",
+        process_id="process-1",
+        reason="first_failure",
+    )
+    step_id = f"recover_{'b' * 32}"
+    assert await ledger.authorize_hold_scoped_dispatch(
+        target_ref="resource-1",
+        process_id="process-1",
+        step_id=step_id,
+        hold_revision=1,
+    )
+    assert await _release(ledger, await _release_args(store)) is not None
+    await ledger.issue(
+        target_ref="resource-1",
+        process_id="process-1",
+        reason="second_failure",
+    )
+
+    assert await ledger.is_held(target_ref="resource-1")
+    assert not await ledger.recovery_eligible(
+        target_ref="resource-1",
+        process_id="process-1",
+        step_id=step_id,
+    )
+
+
+async def test_an_unreadable_authorization_raises_instead_of_denying_silently() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreAutomationHoldLedger(store)
+    await ledger.issue(
+        target_ref="resource-1",
+        process_id="process-1",
+        reason="compensation_failed",
+    )
+    step_id = f"recover_{'c' * 32}"
+    await store.write_state(
+        _dispatch_authorization_key("resource-1", "process-1", step_id),
+        {
+            "target_digest": "sha256:" + "0" * 64,
+            "authorization_kind": "hold_scoped",
+            "process_id": "process-1",
+            "step_id": step_id,
+            "authorized_hold_revision": 1,
+            "execution_authority": False,
+            "revision": 1,
+        },
+    )
+
+    with pytest.raises(ValueError):
+        await ledger.recovery_eligible(
+            target_ref="resource-1",
+            process_id="process-1",
+            step_id=step_id,
+        )
 
 
 async def test_reissued_hold_rejects_stale_process_release() -> None:
