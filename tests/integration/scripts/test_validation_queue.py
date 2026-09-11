@@ -657,6 +657,44 @@ def test_failed_batch_receipts_its_longest_passing_prefix(git_repo: Path, tmp_pa
     assert f"first failing pending commit is {commits[2][:12]}" in validated.stdout
 
 
+def test_large_failed_batch_skips_repeated_localization(
+    git_repo: Path,
+    tmp_path: Path,
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "bounded-localization.log"
+    commits: list[str] = []
+    (git_repo / "broken.txt").write_text("broken\n", encoding="utf-8")
+    for index in range(33):
+        (git_repo / "source.txt").write_text(f"change {index}\n", encoding="utf-8")
+        paths = ["source.txt", *(["broken.txt"] if index == 0 else [])]
+        assert _run(git_repo, "git", "add", *paths).returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"change {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_VERIFY_FAIL_WITH_MARKER": "1",
+        },
+    )
+
+    assert validated.returncode != 0
+    assert "skipping failure localization for 33 pending commits; limit=32" in validated.stdout
+    verify_runs = [
+        line
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("verify:")
+    ]
+    assert len(verify_runs) == 1
+
+
 def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
     git_repo: Path, tmp_path: Path
 ) -> None:
