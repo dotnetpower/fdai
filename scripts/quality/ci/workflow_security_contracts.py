@@ -114,7 +114,18 @@ def dispatch_guard_errors(document: Any, relative: str) -> list[str]:
         if not isinstance(job, dict) or "needs" in job:
             continue
         condition = job.get("if")
-        if not isinstance(condition, str) or "github.ref == 'refs/heads/main'" not in condition:
+        normalized = " ".join(condition.split()) if isinstance(condition, str) else ""
+        protected_main = "github.ref == 'refs/heads/main'"
+        if normalized == protected_main or normalized.startswith(f"{protected_main} &&"):
+            dispatch_is_protected = True
+        elif "||" in normalized:
+            dispatch_is_protected = all(
+                f"github.event_name == '{trigger}' && {protected_main}" in normalized
+                for trigger in dispatch_triggers
+            )
+        else:
+            dispatch_is_protected = protected_main in normalized
+        if not dispatch_is_protected:
             errors.append(
                 f"{relative} root job {job_name} must restrict dispatch to protected main"
             )
@@ -218,11 +229,18 @@ def protected_guard_prefix_errors(
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected verifier checkout")
         guard_with = guard.get("with") if isinstance(guard, dict) else None
+        allowed_targets = {
+            "${{ github.sha }}",
+            "${{ inputs.commit_sha }}",
+            "${{ env.TARGET_COMMIT_SHA }}",
+            "${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}",
+            "${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}",
+        }
         if not isinstance(guard, dict) or (
             guard.get("name") != guard_name
             or guard.get("uses") != protected_action_ref
             or not isinstance(guard_with, dict)
-            or not isinstance(guard_with.get("target-commit-sha"), str)
+            or guard_with.get("target-commit-sha") not in allowed_targets
             or guard_with.get("workflow-path") != relative
             or guard_with.get("origin-url")
             != "${{ github.server_url }}/${{ github.repository }}.git"
@@ -265,6 +283,7 @@ def protected_action_source_errors(content: str, expected_digest: str) -> list[s
             "verify-protected-workflow-source/action.yml digest differs from the reviewed source"
         )
     required_fragments = (
+        "workflow source ref must resolve to protected main or an immutable release tag",
         "+refs/heads/main:refs/remotes/origin/main",
         'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
         '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',

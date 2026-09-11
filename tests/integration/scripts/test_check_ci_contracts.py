@@ -603,10 +603,49 @@ def test_protected_verifier_cannot_be_non_blocking() -> None:
     ]
 
 
+def test_protected_verifier_rejects_literal_target_commits() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "a" * 40,
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply has an invalid protected-source verifier"
+    ]
+
+
 def test_protected_verifier_source_requires_the_reviewed_digest() -> None:
     module = _load_contract_module()
     inert_fragments = "\n".join(
         (
+            "# workflow source ref must resolve to protected main or an immutable release tag",
             "# +refs/heads/main:refs/remotes/origin/main",
             '# merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
             '# "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
@@ -695,6 +734,24 @@ def test_dispatch_guards_are_parsed_from_triggers_and_root_jobs() -> None:
     assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
         ".github/workflows/example.yml workflow_dispatch must declare an exact commit_sha input",
         ".github/workflows/example.yml root job apply must restrict dispatch to protected main",
+    ]
+
+
+def test_dispatch_guard_rejects_a_ref_tautology() -> None:
+    module = _load_contract_module()
+    document = yaml.safe_load(
+        "on:\n"
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      commit_sha:\n"
+        "        required: true\n"
+        "jobs:\n"
+        "  apply:\n"
+        "    if: github.ref != 'refs/heads/main' || github.ref == 'refs/heads/main'\n"
+    )
+
+    assert module._dispatch_guard_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml root job apply must restrict dispatch to protected main"
     ]
 
 
