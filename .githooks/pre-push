@@ -214,6 +214,11 @@ if ! git worktree add --quiet --detach "$validation_root" "$local_sha"; then
   exit 1
 fi
 cd "$validation_root" || exit 1
+# Git exports repository-local variables to hooks. Clear them only after the
+# detached worktree exists so every nested Git command resolves from that
+# worktree instead of mutating the branch that invoked this hook.
+mapfile -t repository_local_git_env < <(git rev-parse --local-env-vars)
+unset "${repository_local_git_env[@]}"
 echo "pre-push: validating committed HEAD in an isolated worktree..."
 
 # ---------------------------------------------------------------------------
