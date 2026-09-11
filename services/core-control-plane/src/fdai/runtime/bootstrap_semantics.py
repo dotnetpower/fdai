@@ -32,6 +32,7 @@ from fdai.delivery.evidence_conflict import (
     EventBusEvidenceConflictCandidatePublisher,
     StateStoreEvidenceConflictProjection,
 )
+from fdai.delivery.inventory_job_config import inventory_scopes_from_env
 from fdai.delivery.inventory_live_evidence import (
     InventoryGraphLiveRefreshProvider,
     InventoryLiveEvidenceWriter,
@@ -220,15 +221,7 @@ async def build_semantic_runtime(
         PostgresRecentResourceChangeReader(
             config=PostgresRecentResourceChangeReaderConfig(
                 dsn=state_store_dsn,
-                scope_refs=tuple(
-                    sorted(
-                        {
-                            scope.strip()
-                            for scope in environment.get("AZURE_SUBSCRIPTION_ID", "").split(",")
-                            if scope.strip()
-                        }
-                    )
-                ),
+                scope_refs=tuple(sorted(inventory_scopes_from_env(environment))),
             )
         )
         if state_store_dsn

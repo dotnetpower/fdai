@@ -89,8 +89,7 @@ class InventoryJobConfig:
 
         source = env if env is not None else os.environ
         dsn = source.get("FDAI_INVENTORY_DSN", "").strip()
-        default_scope = source.get("AZURE_SUBSCRIPTION_ID", "").strip()
-        scopes = _csv(source.get("FDAI_INVENTORY_SCOPES", default_scope))
+        scopes = inventory_scopes_from_env(source)
         source_order = _csv(source.get("FDAI_INVENTORY_SOURCES", "arg,arm"))
         resource_types = _csv(source.get("FDAI_INVENTORY_RESOURCE_TYPES", ""))
         management_endpoint = source.get(
@@ -443,6 +442,13 @@ def _csv(value: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
 
 
+def inventory_scopes_from_env(source: Mapping[str, str]) -> tuple[str, ...]:
+    """Resolve the authoritative inventory scopes with the legacy fallback."""
+
+    default_scope = source.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    return _csv(source.get("FDAI_INVENTORY_SCOPES", default_scope))
+
+
 def read_bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
     raw = source.get(key)
     if raw is None:
@@ -455,4 +461,9 @@ def read_bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
     raise ValueError(f"{key} MUST be one of 1, 0, true, false")
 
 
-__all__ = ["InventoryJobConfig", "read_bool_env", "verify_declarative_sha256"]
+__all__ = [
+    "InventoryJobConfig",
+    "inventory_scopes_from_env",
+    "read_bool_env",
+    "verify_declarative_sha256",
+]

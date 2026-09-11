@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6f7ece6f7a6920eea14945db727de6ea5a351d7d
+translation_source_sha: 87d878fac5094872e305ac9f12976f49050d4fe3
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -209,8 +209,10 @@ Snapshot에 포함된 이벤트도 이력 전용 관측을
 실패시킵니다. 속성 payload 한도를 넘은 재조회도 잘린 전체 교체를 주장하지 않도록 게시하거나
 cursor를 진행하기 전에 실패시킵니다.
 
-읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 구독 범위를
-조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 검토된 Event Grid Resource 변경 adapter가 만든
+읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 인벤토리 범위를
+조회합니다. 수집과 동일한 `FDAI_INVENTORY_SCOPES` parser를 사용하며,
+`AZURE_SUBSCRIPTION_ID`는 기존 단일 범위 fallback으로만 사용합니다. ARG 생성, 업데이트, 삭제
+관측 또는 검토된 Event Grid Resource 변경 adapter가 만든
 작업 정보 포함 관측만 선택하며, 주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든
 정확한 이벤트 ID fence를 검증한
 뒤에만 완전한 결과로 보고합니다. 조회기는 요청 한도보다 한 행을 더 가져오며, 범위가 제한된

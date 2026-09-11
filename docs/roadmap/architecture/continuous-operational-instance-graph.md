@@ -213,8 +213,10 @@ the reviewed mapping catalog is skipped without blocking later changes; malforme
 fails the batch. Hydration that exceeds the bounded property payload also fails before publication
 or cursor advancement rather than asserting a truncated full replacement.
 
-The read-only recent-change FunctionType queries the server-configured subscription scope rather
-than a model-supplied scope. It selects only ARG create, update, and delete observations or
+The read-only recent-change FunctionType queries the server-configured inventory scopes rather than
+a model-supplied scope. It uses the same `FDAI_INVENTORY_SCOPES` parser as collection, with
+`AZURE_SUBSCRIPTION_ID` only as the legacy single-scope fallback. It selects only ARG create,
+update, and delete observations or
 operation-bearing observations from the reviewed Event Grid Resource-change adapter, excludes
 periodic snapshots and live refreshes, and
 reports complete only after the fresh cursor and every exact event-id fence verify. The reader
