@@ -118,7 +118,9 @@ When the attested image digest changes, only the image updater's state-only repl
 the updater itself performs the verified Azure update or rollback.
 A degraded pending projection retains its failed activity and remains incomplete, but recovery no
 longer blocks a fresh authoritative collection that can supersede it. An incomplete projection from
-the current collection still fails the run.
+the current collection still fails the run. If that promoted full snapshot skipped a degraded base,
+recovery rebinds it to the actual current manifest generation before projection; a missing manifest
+generation still fails closed.
 The plan's full JSON projection and value-free summary remain in a current-UID mode-0700 temporary
 directory until bounded plan metadata is sealed, then both private files are removed.
 PostgreSQL database-role observations remain a separate principal-safe projection with no Resource
