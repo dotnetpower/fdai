@@ -72,7 +72,12 @@ from fdai.agents._framework.runtime_health import (
     bind_availability_probe,
     evaluate_degradation,
 )
-from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBindings
+from fdai.agents._framework.runtime_subscriptions import (
+    RECOVERY_EFFECT_OBSERVATION_TOPIC,
+    RECOVERY_EFFECT_OBSERVER_PRINCIPAL,
+    RuleGenerationWorkerBindings,
+    bind_recovery_effect_observation,
+)
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
@@ -89,6 +94,7 @@ from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
 from fdai.agents.heimdall import Heimdall
+from fdai.agents.huginn import Huginn
 from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
@@ -141,6 +147,7 @@ __all__ = [
     "DeliberationRequest",
     "EventBusBridge",
     "Heimdall",
+    "Huginn",
     "GitHubIssue",
     "IssueTrackerAdapter",
     "Layer",
@@ -151,6 +158,8 @@ __all__ = [
     "PantheonRegistry",
     "PantheonRuntime",
     "PromptAuditResult",
+    "RECOVERY_EFFECT_OBSERVATION_TOPIC",
+    "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
     "RuleGenerationWorkerBindings",
     "Saga",
     "SemanticRouterConfig",
@@ -159,6 +168,7 @@ __all__ = [
     "StateStoreAuditChainAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",
+    "bind_recovery_effect_observation",
     "plan_conversation_tools",
     "request_rule_generation",
     "load_pantheon",

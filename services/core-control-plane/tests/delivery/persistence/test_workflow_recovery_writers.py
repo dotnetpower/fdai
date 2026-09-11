@@ -16,6 +16,14 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid5
 
 import pytest
+from fdai.agents import (
+    RECOVERY_EFFECT_OBSERVATION_TOPIC,
+    Heimdall,
+    Huginn,
+    InMemoryBus,
+    bind_recovery_effect_observation,
+    load_pantheon,
+)
 from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
 from fdai.core.workflow.recovery_attempt import (
     RecoveryAttemptIdentity,
@@ -36,6 +44,7 @@ from fdai.core.workflow.recovery_effect_claim import (
     FinalizedWatermark,
 )
 from fdai.core.workflow.recovery_effect_ingress import (
+    DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
     RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
     RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSION,
     RecoveryEffectObservationIngress,
@@ -408,16 +417,18 @@ async def _approve(store: InMemoryStateStore, *, approver: str = _APPROVER) -> N
         )
 
 
-async def _observe_through_the_production_ingress(
+async def _observe_through_the_production_chain(
     store: InMemoryStateStore,
     attempt: RecoveryAttemptIdentity,
 ) -> bool:
     """Deliver the observation the way an independent observer really does.
 
-    The event travels the observer path: Heimdall relays the versioned payload,
-    the ingress proves the reporting principal, the authority class, the attempt
-    binding, finality, containment, and freshness, and only then does the
-    journal hold it. No test seeds recovery evidence directly.
+    The raw external signal enters through Huginn, the sole ingress. Heimdall,
+    the terminal effect observer, relays the bounded record onto the topic it
+    owns, and the dedicated observer group hands it to the production ingress,
+    which proves the reporting principal, the authority class, the attempt
+    binding, finality, containment, and freshness before the journal holds it.
+    Nothing here seeds recovery evidence and nothing bypasses a handler.
     """
 
     ingress = RecoveryEffectObservationIngress(
@@ -427,51 +438,69 @@ async def _observe_through_the_production_ingress(
             environ={"FDAI_WORKFLOW_EXECUTOR_IDENTITY": _EXECUTOR},
         ),
         executor_identity=_EXECUTOR,
-        authorized_principals=frozenset({_OBSERVER_PRINCIPAL}),
+        authorized_principals=DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
         clock=lambda: _NOW,
     )
-    handler = RecoveryEffectObservationHandler(ingress=ingress)
-    return await handler.handle(
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    heimdall = Heimdall(bus=bus)
+    bus.subscribe("object.event", "Heimdall", heimdall.on_typed_message)
+    bind_recovery_effect_observation(
+        bus,  # type: ignore[arg-type]
+        RecoveryEffectObservationHandler(ingress=ingress).observe,
+    )
+
+    await Huginn(bus=bus).ingest(
         {
+            "id": f"recovery-effect:{attempt.identity_digest}",
+            "correlation_id": _CORRELATION_ID,
+            "resource_id": _TARGET,
+            "source": "azure-resource-graph",
             "event_type": RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
-            "observation_schema_version": RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSION,
-            "producer_principal": _OBSERVER_PRINCIPAL,
-            "process_id": _PROCESS_ID,
-            "recovery_step_id": recovery_attempt_step_id(attempt),
-            "attempt_identity_digest": attempt.identity_digest,
-            "target_resource_id": _TARGET,
-            "provider_receipt_digest": _RECEIPT_DIGEST,
-            "observer_identity": _OBSERVER,
-            "observer_authority_class": "authoritative_external",
-            "provider_identity": _PROVIDER,
-            "purpose_version": "1.0.0",
-            "method_version": "1.0.0",
-            "event_time": (_NOW - timedelta(minutes=3)).isoformat(),
-            "recorded_time": (_NOW - timedelta(minutes=2)).isoformat(),
-            "freshness_policy_seconds": 600,
-            "completeness": True,
-            "provenance": "azure-resource-graph",
-            "conflict_status": "none",
-            "synthetic": False,
-            "evidence_digest": "sha256:" + "7" * 64,
-            "expected_effect_digest": "sha256:" + "8" * 64,
-            "approved_envelope_digest": "sha256:" + "9" * 64,
-            "action_digest": "sha256:" + "3" * 64,
-            "evidence_window_start": (_NOW - timedelta(minutes=4)).isoformat(),
-            "evidence_window_end": (_NOW - timedelta(minutes=1)).isoformat(),
-            "watermarks": [
-                {
-                    "source_id": "azure-activity-log",
-                    "watermark": (_NOW - timedelta(minutes=1)).isoformat(),
-                    "final": True,
-                    "watermark_digest": "sha256:" + "4" * 64,
-                }
-            ],
-            "forbidden_effect_observed": False,
-            "envelope_contained": True,
-            "success": True,
-        },
-        _OBSERVER_PRINCIPAL,
+            "attributes": {
+                "observation_schema_version": RECOVERY_EFFECT_OBSERVATION_SCHEMA_VERSION,
+                "process_id": _PROCESS_ID,
+                "recovery_step_id": recovery_attempt_step_id(attempt),
+                "attempt_identity_digest": attempt.identity_digest,
+                "target_resource_id": _TARGET,
+                "provider_receipt_digest": _RECEIPT_DIGEST,
+                "observer_identity": _OBSERVER,
+                "observer_authority_class": "authoritative_external",
+                "provider_identity": _PROVIDER,
+                "purpose_version": "1.0.0",
+                "method_version": "1.0.0",
+                "event_time": (_NOW - timedelta(minutes=3)).isoformat(),
+                "recorded_time": (_NOW - timedelta(minutes=2)).isoformat(),
+                "freshness_policy_seconds": 600,
+                "completeness": True,
+                "provenance": "azure-resource-graph",
+                "conflict_status": "none",
+                "synthetic": False,
+                "evidence_digest": "sha256:" + "7" * 64,
+                "expected_effect_digest": "sha256:" + "8" * 64,
+                "approved_envelope_digest": "sha256:" + "9" * 64,
+                "action_digest": "sha256:" + "3" * 64,
+                "evidence_window_start": (_NOW - timedelta(minutes=4)).isoformat(),
+                "evidence_window_end": (_NOW - timedelta(minutes=1)).isoformat(),
+                "watermarks": [
+                    {
+                        "source_id": "azure-activity-log",
+                        "watermark": (_NOW - timedelta(minutes=1)).isoformat(),
+                        "final": True,
+                        "watermark_digest": "sha256:" + "4" * 64,
+                    }
+                ],
+                "forbidden_effect_observed": False,
+                "envelope_contained": True,
+                "success": True,
+            },
+        }
+    )
+
+    relayed = bus.messages_on(RECOVERY_EFFECT_OBSERVATION_TOPIC)
+    assert [message.principal for message in relayed] == [_OBSERVER_PRINCIPAL]
+    return (
+        await store.read_state(recovery_effect_observation_key(attempt, _RECEIPT_DIGEST))
+        is not None
     )
 
 
@@ -801,7 +830,7 @@ class TestRecoveryCompletesThroughProductionWritersOnly:
         assert unobserved.disposition is RecoveryDisposition.EFFECT_UNVERIFIED
         assert unobserved.reason == "effect_observation_missing"
 
-        assert await _observe_through_the_production_ingress(store, attempt)
+        assert await _observe_through_the_production_chain(store, attempt)
 
         completed = await _recover(coordinator, snapshot)
 
