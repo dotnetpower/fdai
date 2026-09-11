@@ -58,6 +58,9 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    hand-edit generated artifacts, and keep the user's requested outcome ahead of incidental tooling.
 3. Derive plans from the revised design. Parallelize only independent work with bounded outputs and
    an explicit merge or verification point; keep shared files, state, and authority decisions serial.
+   For coding-session delegation, limit model-backed `runSubagent` calls to two concurrent calls;
+   local read-only tools may use wider batches. A provider `429` ends concurrent fan-out; continue
+   with local tools or one serial subagent, and do not retry until a new hypothesis requires it.
 4. Run the narrowest executable check that can falsify the change. Use local focused tests instead
    of a push or pull request as the edit-loop test runner. For a completed isolated batch, run
    `make test-changed`; for an exact committed snapshot, run
