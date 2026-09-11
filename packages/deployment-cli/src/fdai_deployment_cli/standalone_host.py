@@ -664,6 +664,7 @@ def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             raise ValueError("service migration order is invalid")
         _run_env(
             (
+                "/bin/sh",
                 str(bundle / f"service-migrations/bin/{service}"),
                 "bootstrap",
                 "--evidence-output",

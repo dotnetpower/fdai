@@ -155,7 +155,7 @@ class PrivateCommandExecutor:
         }
         try:
             completed = self._run_child(
-                ("bash", str(script), *arguments),
+                ("/bin/bash", str(script), *arguments),
                 cwd=self.context.repository_root,
                 env=environment,
                 capture_output=True,

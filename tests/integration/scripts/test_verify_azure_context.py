@@ -323,6 +323,27 @@ def test_private_bootstrap_callers_verify_before_mutation() -> None:
         content = (_ROOT / relative).read_text(encoding="utf-8")
         assert content.index("verify-azure-context.sh") < content.index(first_mutation)
 
+    context_callers = (
+        "infra/bootstrap/check-runner-storage-posture.sh",
+        "infra/bootstrap/create-state-account.sh",
+        "infra/bootstrap/onboard.sh",
+        "infra/bootstrap/preflight-policy-check.sh",
+        "infra/bootstrap/register-runner.sh",
+        "scripts/deployment/azure/azd-up.sh",
+        "scripts/deployment/azure/set-gh-actions-config.sh",
+    )
+    for relative in context_callers:
+        content = (_ROOT / relative).read_text(encoding="utf-8")
+        verifier_call = next(
+            line
+            for line in content.splitlines()
+            if "verify-azure-context.sh" in line and not line.lstrip().startswith("#")
+        )
+        assert verifier_call.lstrip().startswith('/bin/bash "$HERE/')
+
+    onboard = (_ROOT / "infra/bootstrap/onboard.sh").read_text(encoding="utf-8")
+    assert onboard.count("/bin/bash ./create-state-account.sh") == 2
+
     workflow = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
     assert workflow.index("Verify exact Azure context") < workflow.index(
         "Verify protected storage containers"

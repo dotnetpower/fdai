@@ -22,7 +22,7 @@ EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
 EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
 NAME="${1:-st$(openssl rand -hex 8 | cut -c1-16)}"
 
-"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+/bin/bash "$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
   "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 # Ensure the ops RG exists (control plane).

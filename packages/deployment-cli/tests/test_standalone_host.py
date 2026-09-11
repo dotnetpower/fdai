@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -258,3 +261,99 @@ def test_ambiguous_apply_recovers_by_verification_without_reapply(
     assert commands and commands[0][1] == "plan"
     assert all("apply" not in command for command in commands)
     assert written["state"] == "applied"
+
+
+def test_standalone_migration_uses_interpreter_for_private_bundle_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "bundle"
+    infra = bundle / "infra"
+    infra.mkdir(parents=True)
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    (work_dir / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        if path.name == "context.json":
+            return {"infra": str(infra), "source_commit": "c" * 40}
+        service_id = "core-control-plane"
+        if path.name.endswith("-schema.json"):
+            return {
+                "schema_version": 1,
+                "service_id": service_id,
+                "observed_schema_fingerprint": "fingerprint",
+            }
+        return {
+            "service_id": service_id,
+            "observed_schema_fingerprint": "fingerprint",
+        }
+
+    def run_env(
+        command: tuple[str, ...],
+        **_kwargs: object,
+    ) -> None:
+        commands.append(command)
+        if "--evidence-output" in command:
+            evidence = Path(command[command.index("--evidence-output") + 1])
+            schema = Path(command[command.index("--schema-output") + 1])
+            evidence.write_text("{}", encoding="utf-8")
+            schema.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_terraform_output", lambda *_: "unused")
+    monkeypatch.setattr(standalone_host, "_vault_name", lambda *_: "vault")
+    monkeypatch.setattr(standalone_host, "_capture", lambda *_args, **_kwargs: "dsn")
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture_env",
+        lambda *_args, **_kwargs: "core-control-plane\n",
+    )
+    monkeypatch.setattr(standalone_host, "_run_env", run_env)
+    monkeypatch.setattr(standalone_host, "_replace_private_json", lambda *_: None)
+
+    result = standalone_host._migrate(SimpleNamespace(), work_dir)
+
+    migration_commands = [command for command in commands if "--evidence-output" in command]
+    assert migration_commands == [
+        (
+            "/bin/sh",
+            str(bundle / "service-migrations/bin/core-control-plane"),
+            "bootstrap",
+            "--evidence-output",
+            str(work_dir / "migration-evidence/core-control-plane.json"),
+            "--schema-output",
+            str(work_dir / "migration-evidence/core-control-plane-schema.json"),
+            "--rollback-reference",
+            "bundle:cccccccccccccccccccccccccccccccccccccccc:service-migrations/branches/core-control-plane/adoption.json#rollback",
+        )
+    ]
+    assert result["state"] == "migrated"
+
+
+def test_private_service_migration_launcher_runs_through_fixed_interpreter(
+    tmp_path: Path,
+) -> None:
+    repository = Path(__file__).resolve().parents[3]
+    launcher = tmp_path / "service-migrations/bin/core-control-plane"
+    launcher.parent.mkdir(parents=True)
+    shutil.copyfile(repository / "service-migrations/bin/core-control-plane", launcher)
+    launcher.chmod(0o600)
+    fake_python = tmp_path / "migration-python"
+    fake_python.write_text(
+        "#!/bin/sh\nprintf '%s\\n' \"$*\"\n",
+        encoding="ascii",
+    )
+    fake_python.chmod(0o700)
+
+    result = subprocess.run(
+        ["/bin/sh", str(launcher), "bootstrap"],
+        env={**os.environ, "FDAI_MIGRATION_PYTHON": str(fake_python)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.endswith("service-migrations/migrate.py core-control-plane bootstrap\n")

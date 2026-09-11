@@ -153,6 +153,11 @@ which bytes are accepted. `scripts/quality/ci/check-ci-contracts.py` fails the b
 image loses either property. The same contract pins security-upgraded runtime libraries that are
 newer than vulnerable versions retained in the accepted base image.
 
+Signed deployment bundles keep regular source files non-executable after extraction. Bootstrap,
+policy, migration, and public-path callers launch those authenticated sources only through fixed
+trusted interpreters. They never restore execute bits broadly or select an interpreter from an
+untrusted ambient path.
+
 ## Private data services
 
 `enable_private_postgres` adds a dedicated subnet delegated to PostgreSQL Flexible Server, links a
