@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 6e497e1ce974d409e515cc90e0efb37db1e8f3df
+translation_source_sha: 6652d93da2df0c25d295c3f94a7037ef4f1714a4
 translation_revised: 2026-09-11
 ---
 # 서비스 승격과 데이터 소유권
@@ -52,6 +52,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 복구 결정 및 semantic coverage 레코드 변경 뒤 파생 System Knowledge catalog를 갱신했습니다. | `current change`; 파생 소스 gate. | 서비스 권한 변경은 없습니다. |
 | 2026-09-11 | implemented | 최종 upstream rebase 뒤 파생 System Knowledge catalog를 갱신하고 Core runtime module 2개를 wheel inventory에 등록했습니다. | `current change`; 집중 catalog 및 Core package 테스트 11개 통과. | 안전조건 runtime module의 package 잔여 작업은 없습니다. |
 | 2026-09-11 | implemented | payload 신원을 신뢰하지 않고 Core 복구 관측 수신을 명시적인 배포 구성 신뢰 observer 신원에 결속했습니다. | `current change`; Core 서비스 Terraform, observer ingress, 운영 writer 테스트. | 배포 신원의 통제된 런타임 근거를 보존합니다. |
 | 2026-09-11 | implemented | Core의 정확한 안전조건 묶음에 대한 Isolated 실행기 읽기 전용 접근을 추가하고 명시적 Core 이행 의존성과 일치하는 JSONB 인덱스를 결속했습니다. 기본 효과 서비스는 기존 결속되지 않은 명령을 차단하며, 권한 전환 중에만 사용할 수 있는 제한된 업그레이드 또는 rollback 전환 플래그는 기본값이 꺼짐입니다. | `current change`; Isolated 묶음 resolver, 이행, 소유권 매니페스트, 서비스 Terraform, 런타임 구성, 집중 rollout 테스트. | 최종 revision에서 전환을 끈 상태의 통제된 서비스 간 rollout 근거를 보존합니다. |

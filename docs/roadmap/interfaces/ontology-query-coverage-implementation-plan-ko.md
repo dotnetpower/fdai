@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 316a534811a3f79280e937d8092e19dbe50ce6f0
+translation_source_sha: 08a0d97c93ccca5d179e31401aeb4509271a893f
 translation_revised: 2026-09-11
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -224,6 +224,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-11 | implemented | 복구 결정 경계와 agent 소유 관측 경로가 권위 있는 소스 집합을 바꾼 뒤 semantic-intent coverage를 갱신했습니다. | `current change`; semantic coverage 및 결정 경계 테스트 15개 통과. | 이 갱신은 query 권한 또는 준비 상태 주장을 바꾸지 않습니다. |
 | 2026-09-11 | implemented | 안전조건 결속 서비스 계약 변환 결과가 바뀐 뒤 질문 400개 검토 bank를 갱신했습니다. 질문 신원과 권한은 바뀌지 않았습니다. | `current change`; 생성된 질문 bank 산출물과 집중 동등성 테스트. | 운영 준비 상태를 주장하기 전에 통제된 무작위 및 서비스 간 보증 근거를 보존합니다. |
 | 2026-09-11 | implemented | 생성된 Console 계약 소스가 바뀐 뒤 질문 400개 검토 bank를 다시 구체화했습니다. 질문 신원, 준비 상태 분류, 소스 수, 실행 권한은 바뀌지 않았습니다. | `current change`; `build_question_bank.py`; 집중 질문 bank 소스 동등성 테스트. | 운영 준비 상태를 주장하기 전에 통제된 무작위 및 서비스 간 보증 근거를 보존합니다. |
 | 2026-09-10 | implemented | 승인된 무대상 queryable ObjectType inventory를 기존 principal 범위 `query.manifest` FunctionType으로 컴파일했습니다. 결정론적 frame과 단일 node plan은 전체 매니페스트를 모델에 전달하지 않고 canonical 결과 신원, 읽기 전용 근거 및 실행 권한 0을 보존합니다. | `current change`, `semantic_manifest_planning.py`, `semantic_planning_plan_dispatch.py`, 집중 매니페스트 계획 및 조립 검사, request token budget 거부 후 기존 `semantic_planner_unavailable` 보류를 재현한 인증된 Browser Entra | 결정론적 compiler를 게시하고 이슈 #262에서 통과한 인증된 5273/8010 무권한 artifact를 보존합니다. |
