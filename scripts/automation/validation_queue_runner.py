@@ -504,11 +504,13 @@ def _localize_failure(
     history_commits: list[str],
     positions: dict[str, int],
     status: int,
+    max_probes: int | None = None,
 ) -> int:
     """Receipt the longest passing prefix of a failed batch and name the culprit."""
     passing = 0
     failing = len(selected)
-    while failing - passing > 1:
+    probes = 0
+    while failing - passing > 1 and (max_probes is None or probes < max_probes):
         middle = (passing + failing) // 2
         head = selected[middle - 1]
         print(
@@ -527,6 +529,28 @@ def _localize_failure(
         else:
             failing = middle
             status = result
+        probes += 1
+    if failing - passing > 1:
+        boundary_head = selected[passing]
+        print(
+            "validation-queue: bounded localization probing boundary "
+            f"{boundary_head[:12]} after {probes} bisection probe(s)"
+        )
+        boundary_result = _run_batch(
+            paths,
+            mode,
+            head=boundary_head,
+            selected=[boundary_head],
+            history_commits=history_commits[: positions[boundary_head] + 1],
+        )
+        if boundary_result == 0:
+            print(
+                f"validation-queue: receipted boundary {boundary_head[:12]}; "
+                "remaining failure window will continue on the next run"
+            )
+            return status
+        status = boundary_result
+        failing = passing + 1
     print(
         f"validation-queue: first failing pending commit is {selected[passing][:12]}; "
         f"{passing} earlier commit(s) received receipts"
@@ -560,12 +584,6 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         or status in {STAGE_KILLED_STATUS, STAGE_ENVIRONMENT_STATUS}
     ):
         return status
-    if len(selected) > FAILURE_LOCALIZATION_MAX_COMMITS:
-        print(
-            "validation-queue: skipping failure localization for "
-            f"{len(selected)} pending commits; limit={FAILURE_LOCALIZATION_MAX_COMMITS}"
-        )
-        return status
     return _localize_failure(
         paths,
         mode,
@@ -573,6 +591,7 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         history_commits=history_commits,
         positions=positions,
         status=status,
+        max_probes=5 if len(selected) > FAILURE_LOCALIZATION_MAX_COMMITS else None,
     )
 
 
