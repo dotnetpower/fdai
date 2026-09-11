@@ -270,12 +270,21 @@ class AzureResourceChangeFeed:
         http_client: httpx.AsyncClient,
         config: AzureResourceChangeFeedConfig,
         clock: Callable[[], datetime] | None = None,
+        allowed_resource_types: frozenset[str] | None = None,
     ) -> None:
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureResourceChangeFeedConfig] = config
         self._clock: Final[Callable[[], datetime]] = clock or (lambda: datetime.now(tz=UTC))
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
+        if allowed_resource_types is not None:
+            missing = allowed_resource_types - resource_types.ids()
+            if missing:
+                raise ValueError(
+                    "allowed Resource change types are absent from the vocabulary: "
+                    f"{sorted(missing)}"
+                )
+        self._allowed_resource_types: Final[frozenset[str] | None] = allowed_resource_types
         # ARM type -> CSP-neutral resource_type reverse map for delete
         # tombstones, which carry no `kind` disambiguator.
         self._arm_to_neutral: Final[Mapping[str, str]] = build_arm_to_neutral_map(resource_types)
@@ -487,7 +496,14 @@ class AzureResourceChangeFeed:
         arm_type = change.arm_type or arm_id_to_type(change.arm_id)
         if arm_type is None:
             return None
-        return self._arm_to_neutral.get(arm_type.casefold())
+        resolved = self._arm_to_neutral.get(arm_type.casefold())
+        if (
+            resolved is None
+            or self._allowed_resource_types is not None
+            and resolved not in self._allowed_resource_types
+        ):
+            return None
+        return resolved
 
     async def _hydrate(self, arm_ids: Sequence[str]) -> _HydrationResult:
         if not arm_ids:
@@ -543,6 +559,11 @@ class AzureResourceChangeFeed:
         )
         if resolved_type is None:
             return None  # Unmapped or ambiguous ARM type - drop, don't fail closed.
+        if (
+            self._allowed_resource_types is not None
+            and resolved_type not in self._allowed_resource_types
+        ):
+            return None
 
         neutral_id = to_neutral_id(arm_id)
         props: dict[str, Any] = {"providerType": arm_type}

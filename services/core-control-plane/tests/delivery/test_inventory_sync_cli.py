@@ -22,9 +22,6 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_change_acceleration import (
-    _resource_change_registry,
-)
-from fdai.delivery.inventory_change_acceleration import (
     forward_recovery_deltas as _forward_recovery_deltas,
 )
 from fdai.delivery.inventory_job_config import (
@@ -104,17 +101,6 @@ def test_inventory_scopes_prefer_authoritative_multi_scope_setting() -> None:
         }
     ) == ("scope-b", "scope-a")
     assert inventory_scopes_from_env({"AZURE_SUBSCRIPTION_ID": "legacy-scope"}) == ("legacy-scope",)
-
-
-def test_resource_change_registry_respects_inventory_type_filter() -> None:
-    vocabulary = _vocabulary()
-    selected = vocabulary.types[0].id
-
-    restricted = _resource_change_registry(vocabulary, (selected,))
-
-    assert restricted.ids() == {selected}
-    with pytest.raises(ValueError, match="absent from the vocabulary"):
-        _resource_change_registry(vocabulary, ("unknown.resource-type",))
 
 
 def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ...]:

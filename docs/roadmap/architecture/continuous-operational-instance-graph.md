@@ -230,8 +230,10 @@ read-only repeatable-read snapshot and are all bounded by the answer's `known_at
 
 The change accelerator batches bursts for at most two seconds, applies per-resource ordering, and
 publishes no relationship that the exact hydration and reviewed mapping catalog did not support.
-When `FDAI_INVENTORY_RESOURCE_TYPES` restricts collection, the accelerator resolves changes through
-the same filtered vocabulary so excluded types cannot enter and block the ingestion fence.
+When `FDAI_INVENTORY_RESOURCE_TYPES` restricts collection, the accelerator first resolves ARM type
+and `kind` through the complete reviewed vocabulary, then applies the configured neutral-type
+allowlist. Excluded types cannot enter and block the ingestion fence, and shared ARM types cannot be
+misclassified by a prematurely filtered registry.
 Azure Activity Log remains an audit and recovery source, while complete ARG and ARM reconciliation
 continues to repair missed changes and collect child topology. Resource Graph change availability is
 eventually consistent, so this path is near-real-time rather than an immediate provider guarantee.
