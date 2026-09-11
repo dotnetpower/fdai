@@ -114,11 +114,10 @@ def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
         "Microsoft.OperationalInsights",
         "Microsoft.Resources",
         "Microsoft.Storage",
-        "Microsoft.VirtualMachineImages",
     }
 
     assert expected == set((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS))
-    assert len(expected) == 17
+    assert len(expected) == 16
     assert {
         "Microsoft.ApiManagement",
         "Microsoft.BotService",
@@ -454,9 +453,9 @@ def test_source_gate_uses_the_latest_exact_required_check(
     }
 
     def capture(arguments: tuple[str, ...], _reason: str, *, strip: bool = True) -> str:
-        if arguments[:2] == ("git", "status"):
+        if arguments[:2] == ("/usr/bin/git", "status"):
             return ""
-        if arguments[:3] == ("git", "remote", "get-url"):
+        if arguments[:3] == ("/usr/bin/git", "remote", "get-url"):
             return "https://github.com/example/repository.git"
         api_paths.append(arguments[-1])
         value = json.dumps(check_runs)
@@ -494,9 +493,9 @@ def test_source_gate_rejects_required_ci_from_another_repository(
 
     def capture(arguments: tuple[str, ...], _reason: str, *, strip: bool = True) -> str:
         del strip
-        if arguments[:2] == ("git", "status"):
+        if arguments[:2] == ("/usr/bin/git", "status"):
             return ""
-        if arguments[:3] == ("git", "remote", "get-url"):
+        if arguments[:3] == ("/usr/bin/git", "remote", "get-url"):
             return "git@github.com:example/repository.git"
         raise AssertionError(arguments)
 
@@ -650,7 +649,7 @@ def test_mutation_enabled_toolchain_prepares_access_tools_first(
     assert calls[0] == ("verify", True)
     arguments, reason, timeout, capture = calls[1][1]
     assert arguments == (
-        "bash",
+        "/usr/bin/bash",
         str(_ROOT / "scripts/deployment/azure/prepare-genesis-access-tools.sh"),
     )
     assert reason == "azure_access_tool_preparation_failed"

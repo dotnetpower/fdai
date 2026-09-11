@@ -140,6 +140,15 @@ the implemented local Foundation lifecycle. Add `--create-runner-image` and an a
 mode-`0600` SSH private-key path only for Bastion enrollment and state handoff. A partial Foundation
 input set stops before Terraform.
 
+The managed image is built without Azure VM Image Builder. Some policy profiles force Shared Key
+off on every Storage account, while that managed service still creates a staging account that uses
+key-based authentication. The reviewed path instead plans a private builder VM, FQDN-allowlisted
+Firewall Basic egress, an exact toolchain extension, deallocate and generalize actions, managed-image capture, and a
+private verifier VM as explicit Terraform resources. Neither VM has a public IP. The verifier boots
+the captured image, rechecks the exact toolchain and credential absence, and is deallocated before
+the image receipt is accepted. Builder resources remain until a separately reviewed cleanup plan;
+Genesis never weakens Storage policy or retries a claimed build automatically.
+
 Every new effect requires one mode-`0600` approval file. The file binds the run digest, source
 commit, current stage, exact evidence digests, and a UTC approval window of no more than one hour.
 One file authorizes only one of `runner-image`, `foundation-apply`, `runner-enrollment`, or

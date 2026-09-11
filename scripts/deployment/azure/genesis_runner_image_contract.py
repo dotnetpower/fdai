@@ -7,8 +7,9 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
+import subprocess
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -26,7 +27,10 @@ REVIEW_NAME = "runner-image-review.json"
 CLAIM_NAME = "runner-image-apply-claim.json"
 RECEIPT_NAME = "runner-image-apply-receipt.json"
 _MAX_PLAN_BYTES = 64 * 1024 * 1024
+_MONTHLY_FIXED_COST_UPPER_BOUND_USD = 500
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_SOURCE_OBJECT = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+_UUID = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
 _TOOLCHAIN_FIELDS = {
     "schema_version",
     "azure_cli_package_version",
@@ -40,6 +44,76 @@ _TOOLCHAIN_FIELDS = {
     "terraform_sha256",
     "terraform_version",
 }
+_EXPECTED_CREATE_ADDRESSES = frozenset(
+    {
+        "azapi_resource_action.builder_deallocate",
+        "azapi_resource_action.builder_generalize",
+        "azapi_resource_action.verifier_deallocate",
+        "azapi_resource.builder_deprovision",
+        "azurerm_image.runner",
+        "azurerm_linux_virtual_machine.builder",
+        "azurerm_linux_virtual_machine.verifier",
+        "azurerm_firewall.builder",
+        "azurerm_firewall_policy.builder",
+        "azurerm_firewall_policy_rule_collection_group.builder",
+        "azurerm_network_interface.builder",
+        "azurerm_network_interface.verifier",
+        "azurerm_network_security_group.builder",
+        "azurerm_public_ip.firewall",
+        "azurerm_public_ip.firewall_management",
+        "azurerm_resource_group.image",
+        "azurerm_resource_group.staging",
+        "azurerm_route.builder_default",
+        "azurerm_route_table.builder",
+        "azurerm_subnet.builder",
+        "azurerm_subnet.firewall",
+        "azurerm_subnet.firewall_management",
+        "azurerm_subnet_network_security_group_association.builder",
+        "azurerm_subnet_route_table_association.builder",
+        "azurerm_virtual_machine_extension.builder",
+        "azurerm_virtual_machine_extension.verifier",
+        "azurerm_virtual_network.builder",
+        "terraform_data.await_builder_poweroff",
+    }
+)
+_EXPECTED_READ_ADDRESSES = frozenset({"data.azapi_resource.runner_image"})
+_EXPECTED_RESOURCE_TYPES = {
+    **{
+        address: "azapi_resource_action"
+        for address in _EXPECTED_CREATE_ADDRESSES
+        if address.startswith("azapi_resource_action.")
+    },
+    "azapi_resource.builder_deprovision": "azapi_resource",
+    "azurerm_image.runner": "azurerm_image",
+    "azurerm_linux_virtual_machine.builder": "azurerm_linux_virtual_machine",
+    "azurerm_linux_virtual_machine.verifier": "azurerm_linux_virtual_machine",
+    "azurerm_firewall.builder": "azurerm_firewall",
+    "azurerm_firewall_policy.builder": "azurerm_firewall_policy",
+    "azurerm_firewall_policy_rule_collection_group.builder": (
+        "azurerm_firewall_policy_rule_collection_group"
+    ),
+    "azurerm_network_interface.builder": "azurerm_network_interface",
+    "azurerm_network_interface.verifier": "azurerm_network_interface",
+    "azurerm_network_security_group.builder": "azurerm_network_security_group",
+    "azurerm_public_ip.firewall": "azurerm_public_ip",
+    "azurerm_public_ip.firewall_management": "azurerm_public_ip",
+    "azurerm_resource_group.image": "azurerm_resource_group",
+    "azurerm_resource_group.staging": "azurerm_resource_group",
+    "azurerm_route.builder_default": "azurerm_route",
+    "azurerm_route_table.builder": "azurerm_route_table",
+    "azurerm_subnet.builder": "azurerm_subnet",
+    "azurerm_subnet.firewall": "azurerm_subnet",
+    "azurerm_subnet.firewall_management": "azurerm_subnet",
+    "azurerm_subnet_network_security_group_association.builder": (
+        "azurerm_subnet_network_security_group_association"
+    ),
+    "azurerm_subnet_route_table_association.builder": ("azurerm_subnet_route_table_association"),
+    "azurerm_virtual_machine_extension.builder": "azurerm_virtual_machine_extension",
+    "azurerm_virtual_machine_extension.verifier": "azurerm_virtual_machine_extension",
+    "azurerm_virtual_network.builder": "azurerm_virtual_network",
+    "terraform_data.await_builder_poweroff": "terraform_data",
+    "data.azapi_resource.runner_image": "azapi_resource",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +125,10 @@ class RunnerImageInputs:
     source_commit: str
     run_digest: str
     toolchain_digest: str
+    monthly_cost_ceiling: int
+    environment: str
+    region: str
+    profile_digest: str
 
 
 def load_runner_image_inputs(
@@ -67,13 +145,33 @@ def load_runner_image_inputs(
             expected_target_binding=profile.target_binding,
             expected_region=profile.region,
             expected_environment=profile.environment,
+            preserve_runner_image_networks=True,
         )
         foundation = read_plan_input(normalized)
-    toolchain_path = repository_root / "infra/genesis-runner-image/toolchain.json"
+    source_commit = str(foundation["source_commit"])
+    if re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
+        raise ValueError("runner image source commit is invalid")
+    toolchain_blob = subprocess.run(
+        [
+            "/usr/bin/git",
+            "show",
+            f"{source_commit}:infra/genesis-runner-image/toolchain.json",
+        ],
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    if toolchain_blob.returncode != 0:
+        raise ValueError("runner image toolchain object is unavailable")
     toolchain = load_json_object(
-        toolchain_path.read_bytes(), label="runner image toolchain", max_bytes=65_536
+        toolchain_blob.stdout, label="runner image toolchain", max_bytes=65_536
     )
     _validate_toolchain(toolchain)
+    if profile.monthly_cost_ceiling < _MONTHLY_FIXED_COST_UPPER_BOUND_USD:
+        raise ValueError(
+            "runner image retained build graph exceeds the approved monthly cost ceiling"
+        )
     variables: dict[str, object] = {
         "subscription_id": foundation["subscription_id"],
         "tenant_id": foundation["tenant_id"],
@@ -83,6 +181,11 @@ def load_runner_image_inputs(
         "region_short": foundation["region_short"],
         "source_commit": foundation["source_commit"],
         "run_digest": foundation["run_digest"],
+        "runner_ssh_public_key": foundation["runner_ssh_public_key"],
+        "build_address_space": foundation["build_address_space"],
+        "build_subnet_prefix": foundation["build_subnet_prefix"],
+        "firewall_subnet_prefix": foundation["firewall_subnet_prefix"],
+        "firewall_management_subnet_prefix": foundation["firewall_management_subnet_prefix"],
         **{key: value for key, value in toolchain.items() if key != "schema_version"},
     }
     write_plan_input(destination, variables)
@@ -95,9 +198,13 @@ def load_runner_image_inputs(
     return RunnerImageInputs(
         terraform_values=variables,
         target_binding=profile.target_binding,
-        source_commit=str(foundation["source_commit"]),
+        source_commit=source_commit,
         run_digest=str(foundation["run_digest"]),
         toolchain_digest=canonical_digest(manifest),
+        monthly_cost_ceiling=profile.monthly_cost_ceiling,
+        environment=profile.environment,
+        region=profile.region,
+        profile_digest=canonical_digest(profile.to_mapping()),
     )
 
 
@@ -139,18 +246,74 @@ def add_source_image_version(
         source_commit=inputs.source_commit,
         run_digest=inputs.run_digest,
         toolchain_digest=canonical_digest(manifest),
+        monthly_cost_ceiling=inputs.monthly_cost_ceiling,
+        environment=inputs.environment,
+        region=inputs.region,
+        profile_digest=inputs.profile_digest,
     )
 
 
-def snapshot_terraform_root(source: Path, destination: Path) -> str:
+def snapshot_terraform_root(source: Path, destination: Path, *, source_commit: str) -> str:
     """Copy a link-free Terraform root and return its exact content digest."""
-
-    def ignored(_: str, names: list[str]) -> set[str]:
-        return {
-            name for name in names if name == ".terraform" or name.startswith("terraform.tfstate")
-        }
-
-    shutil.copytree(source, destination, symlinks=False, ignore=ignored)
+    if re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
+        raise ValueError("runner image source commit is invalid")
+    repository_root = source.parents[1]
+    relative_root = source.relative_to(repository_root)
+    completed = subprocess.run(
+        [
+            "/usr/bin/git",
+            "ls-tree",
+            "-r",
+            "-z",
+            source_commit,
+            "--",
+            relative_root.as_posix(),
+        ],
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    if completed.returncode != 0:
+        raise ValueError("runner image tracked source inventory is unavailable")
+    files: list[tuple[Path, str]] = []
+    for record in completed.stdout.split(b"\0"):
+        if not record:
+            continue
+        metadata, separator, raw_path = record.partition(b"\t")
+        fields = metadata.decode("ascii").split()
+        if separator != b"\t" or len(fields) != 3:
+            raise ValueError("runner image tracked source inventory is invalid")
+        mode, kind, object_id = fields
+        if (
+            mode not in {"100644", "100755"}
+            or kind != "blob"
+            or _SOURCE_OBJECT.fullmatch(object_id) is None
+        ):
+            raise ValueError("runner image Terraform root contains an unsafe Git object")
+        try:
+            relative = Path(raw_path.decode("utf-8")).relative_to(relative_root)
+        except (UnicodeDecodeError, ValueError):
+            raise ValueError("runner image tracked source path is invalid") from None
+        files.append((relative, object_id))
+    if not files:
+        raise ValueError("runner image Terraform root has no tracked files")
+    destination.mkdir(mode=0o700)
+    for relative, object_id in files:
+        if relative.name.startswith("terraform.tfstate") or relative.name.endswith(".auto.tfvars"):
+            raise ValueError("runner image Terraform root contains an unsafe tracked artifact")
+        target = destination / relative
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        blob = subprocess.run(
+            ["/usr/bin/git", "cat-file", "blob", object_id],
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        if blob.returncode != 0:
+            raise ValueError("runner image tracked source object is unavailable")
+        target.write_bytes(blob.stdout)
     for entry in destination.rglob("*"):
         details = entry.lstat()
         if stat.S_ISLNK(details.st_mode) or not (entry.is_dir() or entry.is_file()):
@@ -186,7 +349,12 @@ def hash_tree(root: Path) -> str:
 
 
 def create_review(
-    *, directory: Path, inputs: RunnerImageInputs, root_digest: str, terraform_digest: str
+    *,
+    directory: Path,
+    inputs: RunnerImageInputs,
+    root_digest: str,
+    terraform_digest: str,
+    provider_digest: str,
 ) -> dict[str, object]:
     """Validate the private plan projection and write one expiring no-authority review."""
 
@@ -196,6 +364,33 @@ def create_review(
         projection_bytes, label="runner image plan", max_bytes=16 * 1024 * 1024
     )
     create_count = _validate_projection(projection, inputs.terraform_values)
+    retained_resource_count = create_count - sum(
+        address.startswith(("azapi_resource_action.", "terraform_data."))
+        for address in _EXPECTED_CREATE_ADDRESSES
+    )
+    lifecycle_actions = [
+        "builder-customize",
+        "builder-deprovision",
+        "builder-deallocate",
+        "builder-generalize",
+        "image-capture",
+        "verifier-boot",
+        "verifier-validate",
+        "verifier-deallocate",
+    ]
+    retained_types = Counter(
+        str(entry["type"])
+        for entry in projection["resource_changes"]
+        if entry["change"]["actions"] == ["create"]
+        and not str(entry["address"]).startswith(("azapi_resource_action.", "terraform_data."))
+    )
+    effect_summary = {
+        "egress_class": "fqdn-allowlisted-firewall-basic",
+        "public_ip_count": retained_types["azurerm_public_ip"],
+        "retained_type_counts": dict(sorted(retained_types.items())),
+        "monthly_fixed_cost_upper_bound_usd": _MONTHLY_FIXED_COST_UPPER_BOUND_USD,
+        "approved_monthly_cost_ceiling_usd": inputs.monthly_cost_ceiling,
+    }
     now = datetime.now(timezone.utc).replace(  # noqa: UP017 - Python 3.10 entrypoint
         microsecond=0
     )
@@ -205,13 +400,20 @@ def create_review(
         "target_binding": inputs.target_binding,
         "source_commit": inputs.source_commit,
         "run_digest": inputs.run_digest,
+        "environment": inputs.environment,
+        "region": inputs.region,
+        "profile_digest": inputs.profile_digest,
         "toolchain_digest": inputs.toolchain_digest,
         "variables_digest": canonical_digest(inputs.terraform_values),
         "terraform_root_digest": root_digest,
         "terraform_digest": terraform_digest,
+        "provider_digest": provider_digest,
         "plan_digest": hashlib.sha256(plan).hexdigest(),
         "plan_json_digest": hashlib.sha256(projection_bytes).hexdigest(),
         "create_count": create_count,
+        "retained_resource_count": retained_resource_count,
+        "lifecycle_actions": lifecycle_actions,
+        "effect_summary": effect_summary,
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(hours=1)).isoformat(),
         "apply_authorized": False,
@@ -245,6 +447,8 @@ def load_review(
         or review.get("apply_authorized") is not False
         or review.get("mutation_performed") is not False
         or review.get("subscription_ready") is not False
+        or not isinstance(review.get("provider_digest"), str)
+        or _DIGEST.fullmatch(str(review["provider_digest"])) is None
     ):
         raise ValueError("runner image review authority is invalid")
     created = datetime.fromisoformat(str(review["created_at"]))
@@ -265,6 +469,28 @@ def load_review(
         raise ValueError("runner image plan digest does not match")
     review["review_digest"] = digest
     return review
+
+
+def executor_identity_digest(review: dict[str, object]) -> str:
+    """Derive the deterministic software executor identity from sealed artifacts."""
+
+    fields = {
+        "component": "fdai.genesis-runner-image-executor.v1",
+        "source_commit": review.get("source_commit"),
+        "terraform_digest": review.get("terraform_digest"),
+        "provider_digest": review.get("provider_digest"),
+        "plan_digest": review.get("plan_digest"),
+    }
+    if (
+        not isinstance(fields["source_commit"], str)
+        or re.fullmatch(r"[0-9a-f]{40}", str(fields["source_commit"])) is None
+        or any(
+            not isinstance(fields[name], str) or _DIGEST.fullmatch(str(fields[name])) is None
+            for name in ("terraform_digest", "provider_digest", "plan_digest")
+        )
+    ):
+        raise ValueError("runner image executor identity inputs are invalid")
+    return canonical_digest(fields)
 
 
 def create_private_directory(path: Path) -> None:
@@ -348,7 +574,32 @@ def _foundation_image_values(
     receipt = read_plan_input(image_receipt)
     receipt_digest = receipt.pop("receipt_digest", None)
     if (
-        receipt.get("schema_version") != "fdai.genesis-runner-image-apply-receipt.v1"
+        set(receipt)
+        != {
+            "schema_version",
+            "state",
+            "review_digest",
+            "plan_digest",
+            "target_binding",
+            "source_commit",
+            "run_digest",
+            "environment",
+            "region",
+            "profile_digest",
+            "toolchain_digest",
+            "claim_digest",
+            "approver_actor_digest",
+            "credential_actor_digest",
+            "executor_identity_digest",
+            "runner_image_id",
+            "state_ref",
+            "effect_verified",
+            "runner_registered",
+            "mutation_performed",
+            "subscription_ready",
+            "completed_at",
+        }
+        or receipt.get("schema_version") != "fdai.genesis-runner-image-apply-receipt.v1"
         or receipt.get("state") != "applied"
         or receipt.get("effect_verified") is not True
         or receipt.get("runner_registered") is not False
@@ -358,6 +609,88 @@ def _foundation_image_values(
         or canonical_digest(receipt) != receipt_digest
     ):
         raise ValueError("runner image apply receipt is invalid")
+    review = load_review(
+        image_receipt.parent,
+        expected_review_digest=str(receipt.get("review_digest", "")),
+        require_unexpired=False,
+    )
+    claim = read_plan_input(image_receipt.with_name(CLAIM_NAME))
+    if (
+        set(claim)
+        != {
+            "schema_version",
+            "state",
+            "review_digest",
+            "plan_digest",
+            "target_binding",
+            "source_commit",
+            "run_digest",
+            "environment",
+            "region",
+            "profile_digest",
+            "approver_actor_digest",
+            "credential_actor_digest",
+            "executor_identity_digest",
+            "idempotency_key",
+            "claimed_at",
+            "mutation_performed",
+            "subscription_ready",
+        }
+        or claim.get("schema_version") != "fdai.genesis-runner-image-apply-claim.v1"
+        or claim.get("state") != "applying"
+        or claim.get("review_digest") != receipt.get("review_digest")
+        or claim.get("plan_digest") != receipt.get("plan_digest")
+        or claim.get("target_binding") != receipt.get("target_binding")
+        or claim.get("source_commit") != receipt.get("source_commit")
+        or claim.get("run_digest") != receipt.get("run_digest")
+        or claim.get("environment") != receipt.get("environment")
+        or claim.get("region") != receipt.get("region")
+        or claim.get("profile_digest") != receipt.get("profile_digest")
+        or claim.get("approver_actor_digest") != receipt.get("approver_actor_digest")
+        or claim.get("credential_actor_digest") != receipt.get("credential_actor_digest")
+        or claim.get("executor_identity_digest") != receipt.get("executor_identity_digest")
+        or claim.get("executor_identity_digest") != executor_identity_digest(review)
+        or claim.get("credential_actor_digest") != claim.get("approver_actor_digest")
+        or claim.get("executor_identity_digest") == claim.get("approver_actor_digest")
+        or any(
+            not isinstance(claim.get(name), str) or _DIGEST.fullmatch(str(claim[name])) is None
+            for name in (
+                "approver_actor_digest",
+                "credential_actor_digest",
+                "executor_identity_digest",
+            )
+        )
+        or claim.get("idempotency_key")
+        != canonical_digest(
+            {
+                "target_binding": receipt.get("target_binding"),
+                "plan_digest": receipt.get("plan_digest"),
+            }
+        )
+        or claim.get("mutation_performed") is not False
+        or claim.get("subscription_ready") is not False
+        or receipt.get("claim_digest") != canonical_digest(claim)
+        or any(
+            receipt.get(name) != review.get(name)
+            for name in (
+                "plan_digest",
+                "target_binding",
+                "source_commit",
+                "run_digest",
+                "environment",
+                "region",
+                "profile_digest",
+                "toolchain_digest",
+            )
+        )
+    ):
+        raise ValueError("runner image apply claim is invalid")
+    try:
+        claimed_at = datetime.fromisoformat(str(claim["claimed_at"]).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("runner image apply claim timestamp is invalid") from exc
+    if claimed_at.tzinfo is None or claimed_at.utcoffset() != timedelta(0):
+        raise ValueError("runner image apply claim timestamp is invalid")
     image_id = receipt.get("runner_image_id")
     toolchain_digest = receipt.get("toolchain_digest")
     source_commit = receipt.get("source_commit")
@@ -376,8 +709,22 @@ def _foundation_image_values(
     values = read_plan_input(source)
     if (
         profile.target_binding != target_binding
+        or receipt.get("environment") != profile.environment
+        or receipt.get("region") != profile.region
+        or receipt.get("profile_digest") != canonical_digest(profile.to_mapping())
         or values.get("target_binding") != target_binding
         or values.get("source_commit") != source_commit
+        or values.get("run_digest") != receipt.get("run_digest")
+        or not image_id.casefold().startswith(
+            f"/subscriptions/{str(values.get('subscription_id', '')).casefold()}/"
+        )
+        or re.fullmatch(
+            rf"/subscriptions/{_UUID}/resourceGroups/[A-Za-z0-9._()-]+/providers/"
+            rf"Microsoft\.Compute/images/[A-Za-z0-9._()-]+",
+            image_id,
+            re.IGNORECASE,
+        )
+        is None
     ):
         raise ValueError("runner image receipt does not match the Foundation input")
     return {
@@ -414,18 +761,137 @@ def _validate_projection(plan: dict[str, object], variables: dict[str, object]) 
         actual.get(key) != {"value": value} for key, value in variables.items()
     ):
         raise ValueError("runner image plan variables do not match the sealed input")
-    create_count = 0
+    create_addresses: set[str] = set()
+    read_addresses: set[str] = set()
     changes = plan.get("resource_changes")
     if not isinstance(changes, list) or not changes:
         raise ValueError("runner image plan contains no managed changes")
     for entry in changes:
         if not isinstance(entry, dict) or not isinstance(entry.get("change"), dict):
             raise ValueError("runner image plan contains an invalid resource change")
+        address = entry.get("address")
+        if not isinstance(address, str):
+            raise ValueError("runner image plan contains an invalid resource address")
+        if entry.get("type") != _EXPECTED_RESOURCE_TYPES.get(address):
+            raise ValueError("runner image plan contains an unexpected resource type")
         actions = entry["change"].get("actions")
         if actions == ["create"]:
-            create_count += 1
-        elif actions not in (["read"], ["no-op"]):
+            create_addresses.add(address)
+        elif actions == ["read"]:
+            read_addresses.add(address)
+        elif actions != ["no-op"]:
             raise ValueError("runner image plan contains an update, replacement, or deletion")
-    if create_count == 0:
-        raise ValueError("runner image plan contains no create action")
-    return create_count
+    if create_addresses != _EXPECTED_CREATE_ADDRESSES or read_addresses != _EXPECTED_READ_ADDRESSES:
+        raise ValueError("runner image plan does not match the exact direct-builder graph")
+    by_address = {str(entry["address"]): entry for entry in changes}
+    _require_after_value(
+        by_address, "azapi_resource_action.builder_deallocate", "action", "deallocate"
+    )
+    _require_after_value(
+        by_address, "azapi_resource_action.builder_generalize", "action", "generalize"
+    )
+    _require_after_value(
+        by_address, "azapi_resource_action.verifier_deallocate", "action", "deallocate"
+    )
+    _require_after_value(by_address, "azurerm_image.runner", "hyper_v_generation", "V2")
+    deprovision_change = by_address["azapi_resource.builder_deprovision"]["change"]
+    deprovision_after = (
+        deprovision_change.get("after") if isinstance(deprovision_change, dict) else None
+    )
+    deprovision_body = (
+        deprovision_after.get("body") if isinstance(deprovision_after, dict) else None
+    )
+    deprovision_properties = (
+        deprovision_body.get("properties") if isinstance(deprovision_body, dict) else None
+    )
+    if (
+        not isinstance(deprovision_properties, dict)
+        or deprovision_properties.get("treatFailureAsDeploymentFailure") is not True
+    ):
+        raise ValueError("runner image plan does not fail closed on deprovision error")
+    deprovision_source = deprovision_properties.get("source")
+    deprovision_script = (
+        deprovision_source.get("script") if isinstance(deprovision_source, dict) else None
+    )
+    if (
+        not isinstance(deprovision_script, str)
+        or "systemd-run --unit=fdai-deprovision" not in deprovision_script
+        or "/var/lib/fdai/image-deprovisioned" not in deprovision_script
+        or "systemctl poweroff" not in deprovision_script
+        or "systemctl enable" in deprovision_script
+        or "/etc/systemd/system/fdai-deprovision.service" in deprovision_script
+    ):
+        raise ValueError("runner image plan contains an unsafe deprovision lifecycle")
+    _require_after_value(by_address, "azurerm_firewall.builder", "sku_tier", "Basic")
+    _require_after_value(
+        by_address, "azurerm_route.builder_default", "next_hop_type", "VirtualAppliance"
+    )
+    firewall_change = by_address["azurerm_firewall_policy_rule_collection_group.builder"]["change"]
+    firewall_after = firewall_change.get("after") if isinstance(firewall_change, dict) else None
+    collections = (
+        firewall_after.get("application_rule_collection")
+        if isinstance(firewall_after, dict)
+        else None
+    )
+    if not isinstance(collections, list) or len(collections) != 1:
+        raise ValueError("runner image plan contains an invalid egress allowlist")
+    collection = collections[0]
+    if collection.get("action") != "Allow" or collection.get("priority") != 100:
+        raise ValueError("runner image plan contains an invalid egress allowlist")
+    rules = collection.get("rule")
+    if not isinstance(rules, list) or len(rules) != 2:
+        raise ValueError("runner image plan contains an invalid egress allowlist")
+    expected_protocols = {
+        (("Https", 443),): 6,
+        (("Http", 80),): 2,
+    }
+    actual_protocols: dict[tuple[tuple[str, int], ...], int] = {}
+    for rule in rules:
+        protocols = tuple(
+            sorted(
+                (str(item.get("type")), int(item.get("port"))) for item in rule.get("protocols", [])
+            )
+        )
+        actual_protocols[protocols] = len(rule.get("destination_fqdns", []))
+        if rule.get("source_addresses") != [variables["build_subnet_prefix"]]:
+            raise ValueError("runner image plan contains an invalid egress allowlist")
+    if actual_protocols != expected_protocols:
+        raise ValueError("runner image plan contains an invalid egress allowlist")
+    if firewall_after.get("network_rule_collection") not in (None, []):
+        raise ValueError("runner image plan contains an unexpected network egress rule")
+    if firewall_after.get("nat_rule_collection") not in (None, []):
+        raise ValueError("runner image plan contains an unexpected NAT rule")
+    destinations = {
+        value
+        for rule in rules or []
+        for value in rule.get("destination_fqdns", [])
+        if isinstance(value, str)
+    }
+    if destinations != {
+        "*.githubusercontent.com",
+        "azure.archive.ubuntu.com",
+        "github.com",
+        "packages.microsoft.com",
+        "releases.hashicorp.com",
+        "security.ubuntu.com",
+    }:
+        raise ValueError("runner image plan contains an invalid egress allowlist")
+    for address in ("azurerm_network_interface.builder", "azurerm_network_interface.verifier"):
+        after = by_address[address]["change"].get("after")
+        configurations = after.get("ip_configuration") if isinstance(after, dict) else None
+        if (
+            not isinstance(configurations, list)
+            or len(configurations) != 1
+            or configurations[0].get("public_ip_address_id") is not None
+        ):
+            raise ValueError("runner image plan contains a public VM interface")
+    return len(create_addresses)
+
+
+def _require_after_value(
+    changes: dict[str, dict[str, object]], address: str, key: str, expected: object
+) -> None:
+    change = changes[address].get("change")
+    after = change.get("after") if isinstance(change, dict) else None
+    if not isinstance(after, dict) or after.get(key) != expected:
+        raise ValueError("runner image plan contains an invalid lifecycle effect")

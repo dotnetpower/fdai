@@ -38,26 +38,29 @@ guid='^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$'
   exit 64
 }
 
-test "$(jq -r .source_commit /etc/fdai-runner-image.json)" = "$source_commit"
-test "$(jq -r .toolchain_digest /etc/fdai-runner-image.json)" = "$toolchain_digest"
-test "$(az version --query '"azure-cli"' --output tsv)" = "$(jq -r .azure_cli_version /etc/fdai-runner-image.json)"
-test "$(terraform version -json | jq -r .terraform_version)" = "$(jq -r .terraform_version /etc/fdai-runner-image.json)"
-printf '%s  %s\n' "$(jq -r .terraform_binary_sha256 /etc/fdai-runner-image.json)" /usr/local/bin/terraform | sha256sum -c - >/dev/null
-opa version | grep -F "Version: $(jq -r .opa_version /etc/fdai-runner-image.json)" >/dev/null
+test "$(/usr/bin/jq -r .source_commit /etc/fdai-runner-image.json)" = "$source_commit"
+test "$(/usr/bin/jq -r .toolchain_digest /etc/fdai-runner-image.json)" = "$toolchain_digest"
+test "$(/usr/bin/az version --query '"azure-cli"' --output tsv)" = "$(/usr/bin/jq -r .azure_cli_version /etc/fdai-runner-image.json)"
+test "$(/usr/local/bin/terraform version -json | /usr/bin/jq -r .terraform_version)" = "$(/usr/bin/jq -r .terraform_version /etc/fdai-runner-image.json)"
+printf '%s  %s\n' "$(/usr/bin/jq -r .terraform_binary_sha256 /etc/fdai-runner-image.json)" /usr/local/bin/terraform | /usr/bin/sha256sum -c - >/dev/null
+/usr/local/bin/opa version | /usr/bin/grep -F "Version: $(/usr/bin/jq -r .opa_version /etc/fdai-runner-image.json)" >/dev/null
 
-azure_config="$(mktemp -d)"
-trap 'rm -rf -- "$azure_config"' EXIT
+azure_config="$(/usr/bin/mktemp -d)"
+trap '/usr/bin/rm -rf -- "$azure_config"' EXIT
 export AZURE_CONFIG_DIR="$azure_config"
-az login --identity --client-id "$client_id" --allow-no-subscriptions --output none --only-show-errors
-az account set --subscription "$subscription_id" --only-show-errors
-read -r observed_subscription observed_tenant < <(
-  az account show --query '[id,tenantId]' --output tsv --only-show-errors
+/usr/bin/az login --identity --client-id "$client_id" --allow-no-subscriptions --output none --only-show-errors
+mapfile -t observed_account < <(
+  /usr/bin/az account show --subscription "$subscription_id" \
+    --query '[id,tenantId]' --output tsv --only-show-errors
 )
+observed_subscription="${observed_account[0]:-}"
+observed_tenant="${observed_account[1]:-}"
 [[ "${observed_subscription,,}" = "${subscription_id,,}" && "${observed_tenant,,}" = "${tenant_id,,}" ]]
 observed_principal="$({
-  az account get-access-token --resource https://management.azure.com/ \
+  /usr/bin/az account get-access-token --subscription "$subscription_id" \
+    --resource https://management.azure.com/ \
     --query accessToken --output tsv --only-show-errors
-} | python3 -c '
+} | /usr/bin/python3 -c '
 import base64
 import json
 import sys
@@ -75,13 +78,13 @@ print(principal)
 ')"
 [[ "${observed_principal,,}" = "${principal_id,,}" ]]
 
-for slot in $(seq 1 "$parallelism"); do
+for slot in $(/usr/bin/seq 1 "$parallelism"); do
   runner_home="$HOME/actions-runner"
   if [[ "$slot" != "1" ]]; then
     runner_home="${runner_home}-${slot}"
   fi
   test -f "$runner_home/.runner"
-  (cd "$runner_home" && sudo -n ./svc.sh status >/dev/null 2>&1)
+  (cd "$runner_home" && /usr/bin/sudo -n ./svc.sh status >/dev/null 2>&1)
 done
 
 printf 'attestation_complete slots=%s\n' "$parallelism"

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: aa480669975d71449dbc900d51b129b009b383cf
+translation_source_sha: 98ada9d01ef7bf3ae113e9209431c63d638f8f95
 translation_revised: 2026-09-11
 ---
 # 구독 초기 프로비저닝
@@ -139,6 +139,15 @@ Storage 생성 및 상태 읽기를 각각 동시에 실행합니다. 도구 준
 `--create-runner-image`와 절대 경로의 `--runner-image-terraform`을 추가합니다. Bastion 등록과
 상태 이전 단계에서만 모드 `0600` SSH 비공개 키 경로를 제공합니다. 기반 계층 입력 일부만
 제공하면 Terraform 전에 중단합니다.
+
+관리형 이미지는 Azure VM Image Builder 없이 빌드합니다. 일부 정책 프로필은 모든 Storage
+계정에서 Shared Key를 강제로 끄지만 해당 관리형 서비스는 여전히 키 기반 인증을 사용하는
+스테이징 계정을 만듭니다. 검토된 경로는 대신 비공개 빌더 VM, FQDN 허용 목록이 있는 Firewall Basic egress,
+정확한 도구 체인 확장, 할당 해제 및 일반화 작업, 관리형 이미지 캡처, 비공개 검증기 VM을
+명시적인 Terraform 리소스로 계획합니다. 두 VM 모두 공개 IP가 없습니다. 검증기는 캡처한
+이미지를 부팅하고 정확한 도구 체인과 자격 증명 부재를 다시 확인한 뒤 이미지 증적을 수락하기
+전에 할당 해제됩니다. 빌더 리소스는 별도로 검토한 정리 계획 전까지 유지합니다. 초기 구성은
+Storage 정책을 약화하거나 이미 점유한 빌드를 자동으로 재시도하지 않습니다.
 
 새 효과마다 모드 `0600` 승인 파일 하나가 필요합니다. 이 파일은 실행 다이제스트, 소스 커밋,
 현재 단계, 정확한 근거 다이제스트, 최대 1시간인 UTC 승인 구간을 연결합니다. 파일 하나는

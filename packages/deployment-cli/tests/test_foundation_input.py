@@ -159,6 +159,54 @@ def test_foundation_optional_inputs_are_preserved(tmp_path: Path) -> None:
         assert actual[name] == values[name]
 
 
+def test_runner_image_networks_are_validated_but_not_forwarded_to_foundation(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "input.json"
+    values = foundation_values()
+    values.update(
+        build_address_space="10.41.0.0/16",
+        build_subnet_prefix="10.41.0.0/26",
+        firewall_subnet_prefix="10.41.0.64/26",
+        firewall_management_subnet_prefix="10.41.0.128/26",
+    )
+    write_values(source, values)
+    output = tmp_path / "output.json"
+    snapshot(source, output)
+    actual = json.loads(output.read_bytes())
+    assert set(actual).isdisjoint(
+        {
+            "build_address_space",
+            "build_subnet_prefix",
+            "firewall_subnet_prefix",
+            "firewall_management_subnet_prefix",
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("build_subnet_prefix", "10.42.0.0/26"),
+        ("firewall_subnet_prefix", "10.41.0.0/26"),
+        ("firewall_management_subnet_prefix", "10.41.0.65/26"),
+    ],
+)
+def test_runner_image_networks_reject_invalid_layout(tmp_path: Path, name: str, value: str) -> None:
+    source = tmp_path / "input.json"
+    values = foundation_values()
+    values.update(
+        build_address_space="10.41.0.0/16",
+        build_subnet_prefix="10.41.0.0/26",
+        firewall_subnet_prefix="10.41.0.64/26",
+        firewall_management_subnet_prefix="10.41.0.128/26",
+    )
+    values[name] = value
+    write_values(source, values)
+    with pytest.raises(ValueError, match="runner image"):
+        snapshot(source, tmp_path / "output.json")
+
+
 @pytest.mark.parametrize(
     "prefix",
     [None, "10.40.1.0/24", "10.41.0.0/24", "10.40.3.0/27", "10.40.3.1/24"],

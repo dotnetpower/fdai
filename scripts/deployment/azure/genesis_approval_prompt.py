@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import stat
 import subprocess
@@ -19,6 +20,7 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SOURCE = re.compile(r"[0-9a-f]{40}")
+_UUID = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
 _EVIDENCE_FIELDS = {
     "runner-image": ("review_digest", "plan_digest"),
     "foundation-apply": ("review_digest", "plan_digest"),
@@ -92,13 +94,14 @@ def create_approval(
 def current_actor_digest(run_binding: str) -> str:
     """Bind approval to the currently authenticated Azure human without persisting identity."""
 
-    completed = subprocess.run(
+    environment = _azure_identity_environment()
+    account = subprocess.run(
         [
-            "az",
+            "/usr/bin/az",
             "account",
             "show",
             "--query",
-            "{type:user.type,name:user.name}",
+            "{tenantId:tenantId,type:user.type}",
             "--output",
             "json",
             "--only-show-errors",
@@ -107,18 +110,54 @@ def current_actor_digest(run_binding: str) -> str:
         capture_output=True,
         text=True,
         timeout=30,
+        env=environment,
     )
-    if completed.returncode != 0:
+    principal = subprocess.run(
+        [
+            "/usr/bin/az",
+            "ad",
+            "signed-in-user",
+            "show",
+            "--query",
+            "id",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=environment,
+    )
+    if account.returncode != 0 or principal.returncode != 0:
         raise ValueError("authenticated Azure operator identity is unavailable")
-    value = json.loads(completed.stdout)
+    value = json.loads(account.stdout)
+    object_id = principal.stdout.strip().casefold()
     if (
         not isinstance(value, dict)
         or value.get("type") != "user"
-        or not isinstance(value.get("name"), str)
-        or not value["name"]
+        or not isinstance(value.get("tenantId"), str)
+        or re.fullmatch(_UUID, str(value["tenantId"])) is None
+        or re.fullmatch(_UUID, object_id) is None
     ):
         raise ValueError("Genesis exact approval requires an authenticated human operator")
-    return hashlib.sha256(f"{run_binding}:{value['name'].casefold()}".encode()).hexdigest()
+    return hashlib.sha256(
+        f"{run_binding}:{str(value['tenantId']).casefold()}:{object_id}".encode()
+    ).hexdigest()
+
+
+def _azure_identity_environment() -> dict[str, str]:
+    azure_config = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
+        strict=True
+    )
+    if not azure_config.is_dir() or azure_config.stat().st_mode & 0o022:
+        raise ValueError("Azure CLI configuration directory is not trusted")
+    return {
+        "AZURE_CONFIG_DIR": str(azure_config),
+        "HOME": str(azure_config.parent),
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    }
 
 
 def _load_status(path: Path) -> dict[str, object]:

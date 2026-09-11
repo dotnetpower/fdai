@@ -187,7 +187,7 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 These customer-agnostic helpers keep both deployment routes repeatable:
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the one-command private `dev` path after `az login`. It requires exact green `main` and uses bounded concurrency for independent artifact preparation, read-only discovery, provider requests, and policy-probe siblings.
-  It prompts for each current exact plan, configures Foundation and tenant bindings, applies through the protected runner, and requires zero-change. Approval, apply, cleanup, state, and handoff boundaries remain serial.
+  It prompts for each current exact plan, configures Foundation and tenant bindings, applies through the protected runner, and requires zero-change. Approval, apply, cleanup, state, and handoff boundaries remain serial; its pre-Foundation image plan uses private builder and verifier VMs behind an FQDN-allowlisted Firewall Basic rather than the Shared-Key-dependent Azure VM Image Builder staging path.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) retains the lower-level 15-stage
   Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
