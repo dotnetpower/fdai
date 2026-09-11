@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 817623e91f8cd21c29e55f75b7bd63a3ddddf17c
+translation_source_sha: fbe877009c16077af13807f4a2cf4c33aa774e4d
 translation_revised: 2026-09-12
 ---
 
@@ -163,7 +163,9 @@ scripts/integrity/check-integrity.sh        # 서명 + 콘텐츠, 완전 오프�
 
 Executable productization gate는 package 계약을 검증하고 휠을 빌드합니다. 별도 focused
 integration test가 project 환경에서 deployment CLI를 실행합니다. Clean isolated wheel 설치는
-release-batch 검사이며 두 로컬 결과만으로 입증되지 않습니다.
+release-batch 검사이며 두 로컬 결과만으로 입증되지 않습니다. 현재 automatic-version 작업 흐름은
+버전 메타데이터와 태그만 게시합니다. 포크에서 이를 보호되는 release 배치, signed 번들 게시 또는
+설치 게이트로 간주해서는 안 됩니다.
 
 업스트림 서명자 체크아웃에서 추적되는 pre-commit wrapper는 품질 게이트가 스냅샷을 만들기 전에
 준비 영역의 Git 인덱스를 해시하고 갱신한 매니페스트와 서명을 인덱스에 직접 기록합니다. 작업 트리

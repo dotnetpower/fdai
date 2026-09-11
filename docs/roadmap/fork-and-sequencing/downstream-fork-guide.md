@@ -162,7 +162,8 @@ automatically once the signed manifest exists.
 The executable productization gate validates package contracts and builds the wheel. A separate
 focused integration test exercises the deployment CLI from its project environment. A clean
 isolated wheel installation remains a release-batch check and is not implied by either local
-result.
+result. The current automatic-version workflow publishes version metadata and a tag only; forks
+must not treat it as a protected release-batch, signed-bundle publication, or installation gate.
 
 In the upstream signer checkout, the tracked pre-commit wrapper hashes the staged Git index and
 writes the refreshed manifest and signature directly to the index before quality gates snapshot
