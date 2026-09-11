@@ -346,19 +346,22 @@ class AzureResourceChangeFeed:
 
         hydration_candidates = upserts
         hydration = await self._hydrate([change.arm_id for change in hydration_candidates])
+        hydration_incomplete = False
         for change in hydration_candidates:
             provider_key = change.arm_id.casefold()
             record = hydration.records.get(provider_key)
             if record is None:
+                if provider_key not in hydration.seen_provider_refs:
+                    hydration_incomplete = True
                 continue
             events.append(self._upsert_event(change, record=record))
             published_cursors.append(_encode_cursor(change.change_time, change.change_id))
 
-        next_cursor = _encode_cursor(newest[0], newest[1])
+        next_cursor = cursor if hydration_incomplete else _encode_cursor(newest[0], newest[1])
         return ResourceChangeFeedResult(
             events=tuple(events),
             next_cursor=next_cursor,
-            complete=not tokenless_truncated,
+            complete=not tokenless_truncated and not hydration_incomplete,
             last_event_cursor=max(published_cursors, default=None),
         )
 

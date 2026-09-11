@@ -590,7 +590,7 @@ async def test_resourcechanges_http_failure_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_hydration_race_skips_resource_and_advances_cursor() -> None:
+async def test_missing_hydration_race_retains_cursor_for_retry() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
     arm_id = _arm_id(arm_type, "thing-vanished")
@@ -620,7 +620,8 @@ async def test_missing_hydration_race_skips_resource_and_advances_cursor() -> No
         await client.aclose()
 
     assert result.events == ()
-    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
+    assert result.next_cursor == ""
+    assert result.complete is False
 
 
 # ---------------------------------------------------------------------------
