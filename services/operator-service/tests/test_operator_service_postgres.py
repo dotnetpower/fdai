@@ -1906,7 +1906,7 @@ async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() ->
 def test_hil_queue_excludes_approvals_with_a_durable_decision_receipt() -> None:
     for statement in (HIL_COUNT_SQL, HIL_PAGE_SQL):
         assert "NOT EXISTS" in statement
-        assert "'operator-hil-decision:' || state_kv.value->>'approval_id'" in statement
+        assert "'operator-hil-decision:' || (state_kv.value->>'approval_id')" in statement
 
 
 @pytest.mark.asyncio
