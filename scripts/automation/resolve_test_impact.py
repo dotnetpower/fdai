@@ -6,8 +6,13 @@ from __future__ import annotations
 import argparse
 import ast
 import importlib.util
+import json
+import os
+import tempfile
 from collections import defaultdict, deque
 from pathlib import Path
+
+CACHE_SCHEMA_VERSION = 1
 
 
 def _module_chain(module: str) -> set[str]:
@@ -132,7 +137,89 @@ def _depends_on(dependencies: set[str], affected: set[str]) -> bool:
     return False
 
 
-def resolve_tests(root: Path, changed_paths: list[Path]) -> list[Path]:
+def _fingerprint(path: Path) -> list[int] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return [stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns]
+
+
+def _load_cache(path: Path, source_inventory: list[str]) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {}
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") != CACHE_SCHEMA_VERSION
+        or payload.get("source_inventory") != source_inventory
+    ):
+        return {}
+    entries = payload.get("entries")
+    return entries if isinstance(entries, dict) else {}
+
+
+def _write_cache(path: Path, source_inventory: list[str], entries: dict[str, object]) -> None:
+    payload = {
+        "schema_version": CACHE_SCHEMA_VERSION,
+        "source_inventory": source_inventory,
+        "entries": entries,
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(payload, stream, sort_keys=True, separators=(",", ":"))
+                stream.write("\n")
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    except OSError:
+        return
+
+
+def _cached_imports(
+    path: Path,
+    module: str,
+    known_modules: set[str],
+    root: Path,
+    cached_entries: dict[str, object],
+    updated_entries: dict[str, object],
+) -> set[str]:
+    relative = path.relative_to(root).as_posix()
+    fingerprint = _fingerprint(path)
+    entry = cached_entries.get(relative)
+    if isinstance(entry, dict):
+        cached_imports = entry.get("imports")
+        if (
+            fingerprint is not None
+            and entry.get("fingerprint") == fingerprint
+            and entry.get("module") == module
+            and isinstance(cached_imports, list)
+            and all(isinstance(item, str) for item in cached_imports)
+        ):
+            updated_entries[relative] = entry
+            return set(cached_imports)
+
+    dependencies = _imports(path, module, known_modules)
+    if fingerprint is not None:
+        updated_entries[relative] = {
+            "fingerprint": fingerprint,
+            "module": module,
+            "imports": sorted(dependencies),
+        }
+    return dependencies
+
+
+def resolve_tests(
+    root: Path,
+    changed_paths: list[Path],
+    *,
+    cache_path: Path | None = None,
+) -> list[Path]:
     source_files = [
         *_owned_python_files(root, "src"),
         *_python_files(root, "src/fdai", "delivery", "scripts", "tools"),
@@ -148,10 +235,23 @@ def resolve_tests(root: Path, changed_paths: list[Path]) -> list[Path]:
         return []
 
     known_modules = set(source_modules) | changed_modules
+    source_inventory = sorted(
+        f"{path.relative_to(root).as_posix()}:{module}" for module, path in source_modules.items()
+    )
+    resolved_cache_path = cache_path or root / ".pytest_cache" / "fdai-test-impact-v1.json"
+    cached_entries = _load_cache(resolved_cache_path, source_inventory)
+    updated_entries: dict[str, object] = {}
     reverse_imports: dict[str, set[str]] = defaultdict(set)
     wildcard_imports: list[tuple[str, str]] = []
     for module, path in source_modules.items():
-        dependencies = _imports(path, module, known_modules)
+        dependencies = _cached_imports(
+            path,
+            module,
+            known_modules,
+            root,
+            cached_entries,
+            updated_entries,
+        )
         for dependency in dependencies:
             if dependency.endswith(".*"):
                 wildcard_imports.append((dependency[:-2], module))
@@ -180,19 +280,32 @@ def resolve_tests(root: Path, changed_paths: list[Path]) -> list[Path]:
     selected: list[Path] = []
     for path in test_files:
         module = _test_module_name(path, root)
-        if _depends_on(_imports(path, module, known_modules), affected):
+        dependencies = _cached_imports(
+            path,
+            module,
+            known_modules,
+            root,
+            cached_entries,
+            updated_entries,
+        )
+        if _depends_on(dependencies, affected):
             selected.append(path.relative_to(root))
+    _write_cache(resolved_cache_path, source_inventory, updated_entries)
     return sorted(selected)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--cache-path", type=Path)
     parser.add_argument("paths", nargs="*", type=Path)
     args = parser.parse_args()
     root = args.root.resolve()
     changed_paths = [path if path.is_absolute() else root / path for path in args.paths]
-    for path in resolve_tests(root, changed_paths):
+    cache_path = args.cache_path
+    if cache_path is not None and not cache_path.is_absolute():
+        cache_path = root / cache_path
+    for path in resolve_tests(root, changed_paths, cache_path=cache_path):
         print(path.as_posix())
     return 0
 

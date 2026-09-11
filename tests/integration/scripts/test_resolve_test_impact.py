@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import scripts.automation.resolve_test_impact as impact_resolver
 from scripts.automation.resolve_test_impact import (
     _imports,
     _module_name,
@@ -169,6 +170,109 @@ def test_non_source_change_has_no_python_impact(tmp_path: Path) -> None:
     _write(tmp_path, "tests/integration/test_example.py", "def test_example(): pass\n")
 
     assert resolve_tests(tmp_path, [tmp_path / "README.md"]) == []
+
+
+def test_reuses_cached_imports_for_unchanged_inventory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    changed = _write(
+        tmp_path,
+        "services/core-control-plane/src/fdai/core/risk_gate/rule.py",
+        "VALUE = 1\n",
+    )
+    consumer = _write(
+        tmp_path,
+        "services/core-control-plane/tests/core/risk_gate/test_rule.py",
+        "from fdai.core.risk_gate import rule\n",
+    )
+    cache_path = tmp_path / "impact-cache.json"
+    assert resolve_tests(tmp_path, [changed], cache_path=cache_path) == [
+        consumer.relative_to(tmp_path)
+    ]
+
+    def fail_if_parsed(*args: object, **kwargs: object) -> set[str]:
+        raise AssertionError(f"unexpected cache miss: {args!r} {kwargs!r}")
+
+    monkeypatch.setattr(impact_resolver, "_imports", fail_if_parsed)
+
+    assert resolve_tests(tmp_path, [changed], cache_path=cache_path) == [
+        consumer.relative_to(tmp_path)
+    ]
+
+
+def test_invalidates_only_changed_file_cache(tmp_path: Path) -> None:
+    changed = _write(
+        tmp_path,
+        "services/core-control-plane/src/fdai/core/risk_gate/rule.py",
+        "VALUE = 1\n",
+    )
+    consumer = _write(
+        tmp_path,
+        "services/core-control-plane/tests/core/risk_gate/test_rule.py",
+        "from fdai.core.risk_gate import rule\n",
+    )
+    cache_path = tmp_path / "impact-cache.json"
+    assert resolve_tests(tmp_path, [changed], cache_path=cache_path) == [
+        consumer.relative_to(tmp_path)
+    ]
+
+    consumer.write_text("VALUE = 'unrelated'\n", encoding="utf-8")
+
+    assert resolve_tests(tmp_path, [changed], cache_path=cache_path) == []
+
+
+def test_source_inventory_change_rebuilds_cached_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    changed = _write(
+        tmp_path,
+        "services/core-control-plane/src/fdai/core/risk_gate/rule.py",
+        "VALUE = 1\n",
+    )
+    _write(
+        tmp_path,
+        "services/core-control-plane/tests/core/risk_gate/test_rule.py",
+        "from fdai.core.risk_gate import rule\n",
+    )
+    cache_path = tmp_path / "impact-cache.json"
+    resolve_tests(tmp_path, [changed], cache_path=cache_path)
+    original_imports = impact_resolver._imports
+    parsed: list[Path] = []
+
+    def record_parse(path: Path, module: str, known_modules: set[str]) -> set[str]:
+        parsed.append(path)
+        return original_imports(path, module, known_modules)
+
+    monkeypatch.setattr(impact_resolver, "_imports", record_parse)
+    added = _write(
+        tmp_path,
+        "services/core-control-plane/src/fdai/core/risk_gate/added.py",
+        "VALUE = 2\n",
+    )
+
+    resolve_tests(tmp_path, [added], cache_path=cache_path)
+
+    assert changed in parsed
+
+
+def test_corrupt_cache_is_rebuilt(tmp_path: Path) -> None:
+    changed = _write(
+        tmp_path,
+        "services/core-control-plane/src/fdai/core/risk_gate/rule.py",
+        "VALUE = 1\n",
+    )
+    consumer = _write(
+        tmp_path,
+        "services/core-control-plane/tests/core/risk_gate/test_rule.py",
+        "from fdai.core.risk_gate import rule\n",
+    )
+    cache_path = tmp_path / "impact-cache.json"
+    cache_path.write_text("{not-json\n", encoding="utf-8")
+
+    assert resolve_tests(tmp_path, [changed], cache_path=cache_path) == [
+        consumer.relative_to(tmp_path)
+    ]
+    assert cache_path.read_text(encoding="utf-8").startswith('{"entries":')
 
 
 def test_cli_prints_selected_tests(
