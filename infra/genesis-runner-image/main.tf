@@ -270,6 +270,11 @@ resource "azurerm_network_interface" "builder" {
   ]
 }
 
+resource "azurerm_network_interface_security_group_association" "builder" {
+  network_interface_id      = azurerm_network_interface.builder.id
+  network_security_group_id = azurerm_network_security_group.builder.id
+}
+
 resource "azurerm_linux_virtual_machine" "builder" {
   name                            = "vm-runner-build-${local.suffix}"
   computer_name                   = "fdai-runner-build"
@@ -418,6 +423,11 @@ resource "azurerm_network_interface" "verifier" {
     azurerm_firewall_policy_rule_collection_group.builder,
     azurerm_route.builder_default,
   ]
+}
+
+resource "azurerm_network_interface_security_group_association" "verifier" {
+  network_interface_id      = azurerm_network_interface.verifier.id
+  network_security_group_id = azurerm_network_security_group.builder.id
 }
 
 resource "azurerm_linux_virtual_machine" "verifier" {

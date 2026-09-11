@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 3d8cbe372f53273b22c0fd899c144e143411b0d3
+translation_source_sha: bedc0cf4a31938b8687cfb707400f3482cadd0ed
 translation_revised: 2026-09-11
 ---
 # 구독 초기 구성 보증
@@ -133,6 +133,8 @@ Command, 로그, 상태, 증적에 넣지 않습니다. 이식 가능한 상태�
 직접 Runner 이미지 계획은 유지되는 Firewall Basic, 공개 IP, 디스크, 이미지 그래프에 대해
 보수적인 월 고정 비용 상한 미화 500달러를 예약합니다. 프로필 상한이 더 낮으면 계획을
 차단하며, 유지되는 빌드 그래프 제거는 별도로 검토하는 정리 작업으로 남습니다.
+빌더 서브넷과 두 비공개 VM NIC는 동일한 명시적 인바운드 거부 NSG에 연결되며 어느 VM에도
+공개 IP를 연결하지 않습니다.
 
 ## 네트워크 및 실행 호스트 보증
 

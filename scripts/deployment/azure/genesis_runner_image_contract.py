@@ -58,6 +58,8 @@ _EXPECTED_CREATE_ADDRESSES = frozenset(
         "azurerm_firewall_policy_rule_collection_group.builder",
         "azurerm_network_interface.builder",
         "azurerm_network_interface.verifier",
+        "azurerm_network_interface_security_group_association.builder",
+        "azurerm_network_interface_security_group_association.verifier",
         "azurerm_network_security_group.builder",
         "azurerm_public_ip.firewall",
         "azurerm_public_ip.firewall_management",
@@ -94,6 +96,12 @@ _EXPECTED_RESOURCE_TYPES = {
     ),
     "azurerm_network_interface.builder": "azurerm_network_interface",
     "azurerm_network_interface.verifier": "azurerm_network_interface",
+    "azurerm_network_interface_security_group_association.builder": (
+        "azurerm_network_interface_security_group_association"
+    ),
+    "azurerm_network_interface_security_group_association.verifier": (
+        "azurerm_network_interface_security_group_association"
+    ),
     "azurerm_network_security_group.builder": "azurerm_network_security_group",
     "azurerm_public_ip.firewall": "azurerm_public_ip",
     "azurerm_public_ip.firewall_management": "azurerm_public_ip",
