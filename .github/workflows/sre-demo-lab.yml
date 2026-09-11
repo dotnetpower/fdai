@@ -726,7 +726,11 @@ jobs:
           "${{ steps.prepare.outputs.environment_file }}"
 
       - name: Project repository-safe sweep evidence
-        if: always() && inputs.action == 'apply' && inputs.run_reference_sweep
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          inputs.action == 'apply' &&
+          inputs.run_reference_sweep
         working-directory: ${{ github.workspace }}
         env:
           FDAI_ENFORCE_REPORT_ROOT: ${{ runner.temp }}/sre-demo-lab-report
@@ -898,7 +902,7 @@ jobs:
           echo "scenario-lab Terraform destroy completed after bounded DNS reconciliation."
 
       - name: Clean runner artifacts
-        if: always()
+        if: always() && steps.protected-source.outcome == 'success'
         working-directory: ${{ github.workspace }}
         env:
           FDAI_ENFORCE_REPORT_ROOT: ${{ runner.temp }}/sre-demo-lab-report

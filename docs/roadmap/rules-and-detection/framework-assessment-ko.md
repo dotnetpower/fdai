@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 25866de54774369200bd978f3f2104f83904ac40
+translation_source_sha: b2fce2ad6946a3ce058bb614d4f314a35e0caa17
 translation_revised: 2026-09-11
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -27,6 +27,9 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 4. 각 요구 사항을 독립적으로 평가하고 누락되거나 유효하지 않은 근거를 알 수 없음으로 유지합니다.
 5. 변경 불가능한 결과를 저장하고 Operator 변환 결과에 비권한 이벤트를 게시합니다.
 6. 매핑 및 근거 명세가 독립 검토를 통과할 때까지 원본 변경을 검토 전용 제안으로 유지합니다.
+
+보호된 shadow 평가 워크플로는 보호된 원본 검증에 성공한 후에만 정리 단계를 실행합니다.
+검증기가 실패하면 작업 신원으로 저장소 정리 코드를 실행할 수 없습니다.
 
 런타임은 근거 수락, 재현, 게시, 변환 결과 생성 방식을 공유합니다. WAF와 CAF는 서로 다른
 카탈로그, 범위 계약, 공급자 어댑터, 사용자 설명을 유지합니다.

@@ -1891,7 +1891,7 @@ jobs:
           fi
 
       - name: Fail deployment after automatic rollback
-        if: ${{ always() && inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         run: |
           rollback_dir="$RUNNER_TEMP/service-rollback"
           if [[ "${{ steps.rollback.outcome }}" != "success" ]]; then
@@ -1911,7 +1911,7 @@ jobs:
           exit 1
 
       - name: Remove temporary deployment material
-        if: ${{ always() }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' }}
         run: |
           for sensitive_file in \
             "$RUNNER_TEMP/configuration-baseline.json" \

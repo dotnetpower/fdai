@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: a308dc0bc83462d5fc4d59aa3dfb13da39bc0686
+translation_source_sha: 9be2c83aac3bf4c7440afb367423cc5e332cce2a
 translation_revised: 2026-09-11
 ---
 # 시스템 지식 서비스
@@ -16,7 +16,8 @@ translation_revised: 2026-09-11
 >
 > **배포 경계:** 이 서비스는 자체 이미지, 상태 확인 경계, Teams 애플리케이션 신원 및 release
 > 산출물을 갖는 독립 패키지 형태의 여섯 번째 서비스 후보입니다. Core, Operator Service 또는 기존
-> A3 채널 edge workload 안에서 실행하지 않습니다.
+> A3 채널 edge workload 안에서 실행하지 않습니다. 보호된 배포 요약 및 정리 단계는 보호된 원본
+> 검증기가 성공한 후에만 실행합니다.
 >
 > **권한 경계:** 모든 응답은 `execution_authority=false`를 포함합니다. Teams 멘션, 검색한 레코드,
 > 구현 상태 또는 인용한 소스는 FDAI 동작을 설명할 수 있지만 변경을 승인할 수 없습니다.

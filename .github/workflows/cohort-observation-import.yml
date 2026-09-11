@@ -70,6 +70,7 @@ jobs:
           path: .fdai-protected-workflow-verifier
 
       - name: Verify protected workflow source
+        id: protected-source
         uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
         with:
           target-commit-sha: ${{ inputs.commit_sha }}
@@ -280,7 +281,7 @@ jobs:
           retention-days: 90
 
       - name: Clean private state material
-        if: always()
+        if: always() && steps.protected-source.outcome == 'success'
         run: |
           unset FDAI_STATE_STORE_DSN migration_dsn
           rm -f infra/backend.tf

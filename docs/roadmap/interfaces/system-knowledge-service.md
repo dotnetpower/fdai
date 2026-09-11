@@ -14,7 +14,8 @@ query, approval, or execution path.
 >
 > **Deployment boundary:** This is an independently packaged sixth-service candidate with its own
 > image, health boundary, Teams application identity, and release artifact. It does not run inside
-> Core, Operator Service, or the existing A3 channel-edge workload.
+> Core, Operator Service, or the existing A3 channel-edge workload. Protected deployment summary
+> and cleanup steps run only after the protected-source verifier succeeds.
 >
 > **Authority boundary:** Every response carries `execution_authority=false`. A Teams mention,
 > retrieved record, implementation status, or cited source can explain FDAI behavior but cannot
