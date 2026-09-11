@@ -1879,6 +1879,7 @@ def test_container_pull_request_jobs_cannot_gain_write_or_secret_access() -> Non
     )
     workflow["jobs"]["pr-build-scan"]["permissions"]["packages"] = "write"
     workflow["jobs"]["pr-build-scan"]["env"] = {"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"}
+    workflow["jobs"]["pr-build-scan"]["if"] = "github.event_name != 'push'"
 
     errors = module._protected_guard_prefix_errors(
         workflow,
