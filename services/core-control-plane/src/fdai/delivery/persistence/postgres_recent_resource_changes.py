@@ -11,6 +11,8 @@ from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
 from fdai.core.ontology_platform.recent_resource_changes import (
+    ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
+    ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
     RecentResourceChange,
     RecentResourceChangeRead,
 )
@@ -75,16 +77,19 @@ class PostgresRecentResourceChangeReader:
                 "effective_at, source_identity, observation_id "
                 "FROM inventory_observation_journal "
                 "WHERE subject_kind='object' "
-                "AND ((source_identity='fdai.delivery.azure.arg_resource_changes' "
+                "AND ((source_identity=%s "
                 "AND observation_kind=ANY(%s::text[])) "
-                "OR (operation IS NOT NULL AND observation_kind=ANY(%s::text[]))) "
+                "OR (source_identity=%s "
+                "AND operation IS NOT NULL AND observation_kind=ANY(%s::text[]))) "
                 "AND scope_ref=ANY(%s::text[]) "
                 "AND effective_at>=%s AND effective_at<=%s AND recorded_at<=%s "
                 "ORDER BY subject_ref, effective_at DESC, recorded_at DESC, "
                 "source_event_id DESC, content_digest DESC) AS newest "
                 "ORDER BY effective_at DESC, subject_ref LIMIT %s",
                 (
+                    ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
                     ["full", "tombstone"],
+                    ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
                     ["partial", "change_hint", "tombstone"],
                     list(self._config.scope_refs),
                     start_at,
@@ -132,7 +137,7 @@ class PostgresResourceChangeIngestionFence:
             )
             cursor = await connection.execute(
                 _PROCESSED_EVENT_COUNT_SQL,
-                (list(event_ids),),
+                (ARG_RESOURCE_CHANGE_SOURCE_IDENTITY, list(event_ids)),
             )
             row = await cursor.fetchone()
         return row is not None and int(row["count"]) == len(event_ids)
@@ -209,7 +214,7 @@ async def _cursor_coverage_complete(
             continue
         ingested = await connection.execute(
             _PROCESSED_EVENT_COUNT_AT_SQL,
-            (pending, known_at),
+            (ARG_RESOURCE_CHANGE_SOURCE_IDENTITY, pending, known_at),
         )
         ingested_row = await ingested.fetchone()
         if (
@@ -224,13 +229,13 @@ async def _cursor_coverage_complete(
 _PROCESSED_EVENT_COUNT_SQL = (
     "SELECT count(DISTINCT source_event_id) AS count "
     "FROM inventory_observation_journal "
-    "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
+    "WHERE source_identity=%s "
     "AND source_event_id=ANY(%s::text[])"
 )
 _PROCESSED_EVENT_COUNT_AT_SQL = (
     "SELECT count(DISTINCT source_event_id) AS count "
     "FROM inventory_observation_journal "
-    "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
+    "WHERE source_identity=%s "
     "AND source_event_id=ANY(%s::text[]) AND recorded_at<=%s"
 )
 

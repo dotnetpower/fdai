@@ -108,6 +108,8 @@ async def test_recent_change_reader_reports_result_limit(
             if "SELECT * FROM" in statement:
                 assert isinstance(params, tuple)
                 assert params[-1] == 6
+                assert "source_identity=%s" in statement
+                assert "azure_event_grid.resource_change" in params
                 return _Cursor(rows)
             if "SELECT key, value" in statement:
                 return _Cursor([state])

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 706233b1d738379b95fbf9570b31b357825b06d9
+translation_source_sha: 0dd0dbcf4f193bf3116c8cf3ae9f54519eab337f
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -209,8 +209,9 @@ Snapshot에 포함된 이벤트도 이력 전용 관측을
 cursor를 진행하기 전에 실패시킵니다.
 
 읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 구독 범위를
-조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 작업 정보가 있는 Activity Log 관측만 선택하고
-주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든 정확한 이벤트 ID fence를 검증한
+조회합니다. ARG 생성, 업데이트, 삭제 관측 또는 검토된 Event Grid Resource 변경 adapter가 만든
+작업 정보 포함 관측만 선택하며, 주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든
+정확한 이벤트 ID fence를 검증한
 뒤에만 완전한 결과로 보고합니다. 조회기는 요청 한도보다 한 행을 더 가져오며, 범위가 제한된
 부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다. 행, cursor 상태, journal fence
 근거는 하나의 읽기 전용 repeatable-read snapshot에서 읽고 모두 답변의 `known_at` 경계로

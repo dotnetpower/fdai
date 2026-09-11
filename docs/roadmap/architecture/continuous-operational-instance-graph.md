@@ -214,7 +214,8 @@ or cursor advancement rather than asserting a truncated full replacement.
 
 The read-only recent-change FunctionType queries the server-configured subscription scope rather
 than a model-supplied scope. It selects only ARG create, update, and delete observations or
-operation-bearing Activity Log observations, excludes periodic snapshots and live refreshes, and
+operation-bearing observations from the reviewed Event Grid Resource-change adapter, excludes
+periodic snapshots and live refreshes, and
 reports complete only after the fresh cursor and every exact event-id fence verify. The reader
 fetches one row beyond the requested limit and reports `result_limit` rather than claiming that a
 bounded subset is complete. Rows, cursor state, and journal fence evidence are read from one
