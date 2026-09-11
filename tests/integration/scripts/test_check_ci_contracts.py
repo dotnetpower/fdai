@@ -113,6 +113,25 @@ def test_all_workflows_require_reviewed_immutable_action_refs(
     ]
 
 
+def test_yaml_workflows_require_reviewed_immutable_action_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "example.yaml").write_text(
+        "steps:\n  - uses: actions/checkout@v4\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/example.yaml must pin actions/checkout to an immutable "
+        "40-character SHA; found v4"
+    ]
+
+
 def test_workflow_accepts_reviewed_immutable_action_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -545,6 +564,37 @@ def test_ci_supports_exact_main_revalidation() -> None:
     assert '--log-opts="HEAD^..HEAD"' in workflow
 
 
+def test_ci_cancels_only_superseded_pull_request_runs() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert (
+        "group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}" in workflow
+    )
+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
+
+
+def test_ci_concurrency_contract_rejects_cancellable_main_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(
+        "concurrency:\n"
+        "  group: ci-${{ github.workflow }}-${{ github.ref }}\n"
+        "  cancel-in-progress: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    errors = module._validate_ci_concurrency()
+
+    assert len(errors) == 2
+    assert all("evidence-preserving concurrency contract" in error for error in errors)
+
+
 def test_shipped_workflows_satisfy_security_contracts() -> None:
     module = _load_contract_module()
 
@@ -554,11 +604,10 @@ def test_shipped_workflows_satisfy_security_contracts() -> None:
 
 def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
     module = _load_contract_module()
-    workflow_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
     privileged = {
         path.name
-        for path in workflow_dir.glob("*.yml")
+        for path in module._workflow_paths()
         if module._is_privileged_workflow(path.read_text(encoding="utf-8"))
     }
 

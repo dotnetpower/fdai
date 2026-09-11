@@ -26,22 +26,30 @@ branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
 local_sha=""
 remote_sha=""
 remote_ref=""
+zero_sha="0000000000000000000000000000000000000000"
+non_current_branch_ref=""
 
 while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
   if [[ "$candidate_local_ref" == "refs/heads/$branch" ]]; then
     local_sha="$candidate_local_sha"
     remote_ref="$candidate_remote_ref"
     remote_sha="$candidate_remote_sha"
+  elif [[ "$candidate_local_ref" == refs/heads/* && "$candidate_local_sha" != "$zero_sha" ]]; then
+    non_current_branch_ref="$candidate_local_ref"
   fi
 done
 
 echo "pre-push: lightweight checks (branch: ${branch:-detached})..."
+if [[ -n "$non_current_branch_ref" ]]; then
+  echo "pre-push: BLOCKED - refusing to validate a non-current branch push."
+  echo "  Check out '${non_current_branch_ref#refs/heads/}' in its own worktree, then push again."
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Sync guard - use the remote ref Git already negotiated for this push.
 # ---------------------------------------------------------------------------
 range=""
-zero_sha="0000000000000000000000000000000000000000"
 if [[ -n "$branch" && -n "$local_sha" && "$remote_sha" != "$zero_sha" ]]; then
   if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
     echo "pre-push: BLOCKED - $remote_name/${remote_ref#refs/heads/} has commits missing locally."
@@ -57,21 +65,36 @@ if [[ -n "$branch" && -n "$local_sha" && "$remote_sha" != "$zero_sha" ]]; then
   fi
   range="$remote_sha..$local_sha"
 elif [[ -n "$branch" && -n "$local_sha" ]]; then
-  echo "pre-push: note - '${remote_ref#refs/heads/}' is new; skipping sync + diff checks."
+  remote_head="$(git symbolic-ref --quiet "refs/remotes/$remote_name/HEAD" 2>/dev/null || true)"
+  base_ref="${remote_head:-refs/remotes/$remote_name/main}"
+  if ! git cat-file -e "${base_ref}^{commit}" 2>/dev/null; then
+    echo "pre-push: BLOCKED - cannot resolve the protected base for new branch '$branch'."
+    echo "  Refresh the $remote_name tracking refs, then retry."
+    exit 1
+  fi
+  base_sha="$(git merge-base "$base_ref" "$local_sha" 2>/dev/null || true)"
+  if [[ -z "$base_sha" ]]; then
+    echo "pre-push: BLOCKED - new branch '$branch' has no merge base with $base_ref."
+    exit 1
+  fi
+  range="$base_sha..$local_sha"
+  echo "pre-push: validating new branch against ${base_ref#refs/remotes/}."
 else
   echo "pre-push: note - current branch is not part of this push; skipping sync + diff checks."
 fi
 
-# Nothing more to check for a brand-new branch with no remote counterpart.
+# Nothing more to check when the current branch is not part of this push.
 if [ -z "$range" ]; then
   echo "pre-push: OK"
   exit 0
 fi
 
 # ---------------------------------------------------------------------------
-# Files changed in the commits being pushed (skip deletions).
+# Files changed in the commits being pushed. Keep deleted paths for contract
+# routing, but only inspect materialized paths for content checks.
+mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTD "$range" 2>/dev/null || true)
 mapfile -t changed < <(git diff --name-only --diff-filter=d "$range" 2>/dev/null || true)
-if [ "${#changed[@]}" -eq 0 ]; then
+if [ "${#changed_paths[@]}" -eq 0 ]; then
   echo "pre-push: OK (no file changes to lint)"
   exit 0
 fi
@@ -138,6 +161,44 @@ if [ "${#py[@]}" -gt 0 ]; then
     fi
   else
     echo "pre-push: note - uv not found; skipping ruff lint."
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 3b. Workflow contract regression gate. CI orchestration changes previously
+#     reached the remote before their focused contract suite ran. Keep this
+#     bounded to workflow and CI-gate paths; product changes use their owning
+#     focused tests and authoritative remote integration.
+# ---------------------------------------------------------------------------
+workflow_contract_changed=0
+for f in "${changed_paths[@]}"; do
+  case "$f" in
+    .github/workflows/*.yml | \
+    .github/workflows/*.yaml | \
+    .githooks/pre-push | \
+    scripts/quality/ci/* | \
+    tests/integration/scripts/test_check_ci_contracts.py | \
+    tests/integration/test_structural_gates_drift.py)
+      workflow_contract_changed=1
+      break
+      ;;
+  esac
+done
+if [ "$workflow_contract_changed" -eq 1 ]; then
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "pre-push: BLOCKED - uv is required to validate workflow contract changes."
+    exit 1
+  fi
+  echo "pre-push: validating workflow contracts..."
+  if ! python3 scripts/quality/ci/check-ci-contracts.py; then
+    echo "pre-push: BLOCKED - clean-checkout CI contracts failed."
+    exit 1
+  fi
+  if ! uv run --extra dev pytest -q --no-cov \
+    tests/integration/scripts/test_check_ci_contracts.py \
+    tests/integration/test_structural_gates_drift.py; then
+    echo "pre-push: BLOCKED - workflow contract regression tests failed."
+    exit 1
   fi
 fi
 

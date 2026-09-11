@@ -80,6 +80,11 @@ BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
 
 
+def _workflow_paths() -> tuple[Path, ...]:
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    return tuple(sorted({*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")}))
+
+
 def _service_dockerfiles() -> tuple[Path, ...]:
     return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
 
@@ -285,6 +290,20 @@ def _validate_python_test_partitioning() -> list[str]:
     return errors
 
 
+def _validate_ci_concurrency() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    required_fragments = (
+        "group: ci-${{ github.workflow }}-${{ github.event_name }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.run_id }}",
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    )
+    return [
+        f"ci.yml is missing evidence-preserving concurrency contract: {fragment}"
+        for fragment in required_fragments
+        if fragment not in workflow
+    ]
+
+
 def _validate_service_contract_generation() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     command = "python3 scripts/quality/contracts/generate_service_contracts.py --check"
@@ -293,7 +312,7 @@ def _validate_service_contract_generation() -> list[str]:
 
 def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
-    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    for path in _workflow_paths():
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
         for match in ACTION_REF_RE.finditer(content):
@@ -349,7 +368,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
         "diff --quiet",
     )
     action_checked = False
-    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    for path in _workflow_paths():
         content = path.read_text(encoding="utf-8")
         if not _is_privileged_workflow(content):
             continue
@@ -513,6 +532,7 @@ def main() -> int:
         *_validate_base_images(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
+        *_validate_ci_concurrency(),
         *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),
