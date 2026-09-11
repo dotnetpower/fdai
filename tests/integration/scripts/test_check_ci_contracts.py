@@ -113,6 +113,25 @@ def test_all_workflows_require_reviewed_immutable_action_refs(
     ]
 
 
+def test_yaml_workflows_require_reviewed_immutable_action_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "example.yaml").write_text(
+        "steps:\n  - uses: actions/checkout@v4\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/example.yaml must pin actions/checkout to an immutable "
+        "40-character SHA; found v4"
+    ]
+
+
 def test_workflow_accepts_reviewed_immutable_action_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -585,11 +604,10 @@ def test_shipped_workflows_satisfy_security_contracts() -> None:
 
 def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
     module = _load_contract_module()
-    workflow_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
     privileged = {
         path.name
-        for path in workflow_dir.glob("*.yml")
+        for path in module._workflow_paths()
         if module._is_privileged_workflow(path.read_text(encoding="utf-8"))
     }
 
