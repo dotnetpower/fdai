@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: eea61d27a15f78a76b378a52477a794fcabe1184
+translation_source_sha: aeb6b23e0b0277fcf3ac3a720f983ea389e9e847
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -191,8 +191,10 @@ PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하�
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
 부재를 입증할 때까지 기다립니다. 연속 토큰이 없는 잘린 페이지는 같은 안정적인 keyset cursor로
 진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal 또는 내구성 있는 최종 처리 receipt에
-나타날 때까지 기다립니다. 따라서 snapshot에 포함된 변경과 순서상 거부된 변경은 현재 변경 관측으로
-잘못 표현되지 않으면서 생산자 fence를 해제합니다.
+나타날 때까지 기다립니다. 따라서 snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로
+잘못 표현되지 않으면서 생산자 fence를 해제합니다. Snapshot에 포함된 이벤트도 이력 전용 관측을
+추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
+있습니다.
 재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
 해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
 카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를

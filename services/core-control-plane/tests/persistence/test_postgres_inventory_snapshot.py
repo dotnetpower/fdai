@@ -1293,3 +1293,14 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
     context = await context_provider("rg-stale/vm")
     assert context is not None
     assert context["props"] == {"name": "snapshot"}
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        journal = await connection.execute(
+            "SELECT count(*) FROM inventory_observation_journal "
+            "WHERE source_event_id='event-before-snapshot'"
+        )
+        receipt = await connection.execute(
+            "SELECT outcome FROM inventory_change_event_receipt "
+            "WHERE source_event_id='event-before-snapshot'"
+        )
+        assert (await journal.fetchone()) == (1,)
+        assert (await receipt.fetchone()) == ("snapshot_covered",)
