@@ -470,7 +470,7 @@ def _validate_action_runtime_versions() -> list[str]:
                             if reference in stages:
                                 continue
                             base_count += 1
-                            if "@sha256:" not in reference:
+                            if DOCKER_ACTION_DIGEST_RE.fullmatch(reference) is None:
                                 errors.append(
                                     f"{dockerfile.relative_to(REPO_ROOT)} base image "
                                     f"{reference} must be digest-pinned"
