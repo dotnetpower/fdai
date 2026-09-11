@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: da79be962b4a7c9dc51a8f99d70fcbe8529471c9
+translation_source_sha: 71ae28a8e84bf6aa336fc7ed8af25a8f567bd005
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -193,7 +193,8 @@ Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone�
 진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal에 나타날 때까지 기다립니다. 따라서
 snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로 잘못 표현되지 않으면서 생산자
 fence를 해제합니다. 구성된 페이지 크기와 페이지 수의 곱은 1,000개 ID로 제한된 내구성 있는
-fence 한도를 넘을 수 없습니다. Snapshot에 포함된 이벤트도 이력 전용 관측을
+fence 한도를 넘을 수 없습니다. 프로바이더가 여전히 잘림을 보고한 빈 페이지도 불완전한 상태를
+유지합니다. Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
 있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
 현재 overlay를 변경하지 않습니다.

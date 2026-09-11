@@ -512,6 +512,22 @@ async def test_truncated_page_without_continuation_token_advances_keyset_cursor(
 
 
 @pytest.mark.asyncio
+async def test_empty_tokenless_truncated_page_remains_incomplete() -> None:
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([], resultTruncated=True)
+
+    feed, client, _ = _factory(_router(on_changes=on_changes))
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert result.events == ()
+    assert result.next_cursor == ""
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
 async def test_tokenless_truncated_page_resumes_without_duplicates() -> None:
     async def on_changes(request: httpx.Request) -> httpx.Response:
         query = str(json.loads(request.content)["query"])
