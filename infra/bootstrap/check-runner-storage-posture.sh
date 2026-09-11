@@ -10,7 +10,7 @@ EXPECTED_VM_SIZE="${5:?expected runner VM size is required}"
 EXPECTED_PRINCIPAL_ID="${6:?expected runner principal id is required}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+/bin/bash "$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
   "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 runner_storage="$({

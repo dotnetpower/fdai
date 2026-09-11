@@ -21,7 +21,7 @@ if [[ ! "$PARALLELISM" =~ ^[1-5]$ ]]; then
   exit 2
 fi
 
-"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+/bin/bash "$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
   "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 echo "== minting registration token =="

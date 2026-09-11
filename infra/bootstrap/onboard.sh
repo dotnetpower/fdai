@@ -23,7 +23,7 @@ if [[ ! -f bootstrap.tfvars || -L bootstrap.tfvars ]]; then
   exit 1
 fi
 
-"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+/bin/bash "$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
   "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 echo "== 1/3 state storage account (control plane) =="
@@ -44,10 +44,10 @@ if matches and re.fullmatch(r"[a-z0-9]{3,24}", matches[0]):
 PY
 )"
 if [[ -n "$configured_state_account_name" ]]; then
-  SA_LINE=$(OPS_RG="$OPS_RG" REGION="$REGION" ./create-state-account.sh \
+  SA_LINE=$(OPS_RG="$OPS_RG" REGION="$REGION" /bin/bash ./create-state-account.sh \
   "$configured_state_account_name" | tail -1)
 else
-  SA_LINE=$(OPS_RG="$OPS_RG" REGION="$REGION" ./create-state-account.sh | tail -1)
+  SA_LINE=$(OPS_RG="$OPS_RG" REGION="$REGION" /bin/bash ./create-state-account.sh | tail -1)
 fi
 echo "$SA_LINE"
 SA_NAME=$(echo "$SA_LINE" | sed -E 's/.*"([^"]+)".*/\1/')

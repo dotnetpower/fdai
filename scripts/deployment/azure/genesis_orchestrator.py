@@ -370,7 +370,7 @@ class GenesisOrchestrator:
         }
         self.checks.run_required(
             (
-                "bash",
+                self.checks.bash,
                 str(self.config.repository_root / "infra/bootstrap/preflight-policy-check.sh"),
                 "--run-id",
                 probe_run_id,
@@ -415,7 +415,10 @@ class GenesisOrchestrator:
             "FDAI_AZURE_REGION": self.config.region,
         }
         self.checks.run_required(
-            ("bash", str(self.config.repository_root / "scripts/deployment/azure/azd-up.sh")),
+            (
+                self.checks.bash,
+                str(self.config.repository_root / "scripts/deployment/azure/azd-up.sh"),
+            ),
             "public_preview_failed",
             timeout=self._bounded_timeout(self.config.execution_timeout_seconds),
             env=environment,

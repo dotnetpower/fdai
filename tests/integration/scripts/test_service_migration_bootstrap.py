@@ -19,6 +19,7 @@ def test_bootstrap_script_has_bounded_secret_safe_contract() -> None:
     assert "uv run --frozen --extra dev alembic upgrade head" in source
     assert "service-migrations/migrate.py all order" in source
     assert 'for service in "${migration_services[@]}"' in source
+    assert 'run_migration /bin/sh "service-migrations/bin/$service" bootstrap' in source
     assert "integrated bootstrap requires one shared migration DSN secret" in source
     assert "prepare-adoption" not in source
     assert "stamp-baseline" not in source
