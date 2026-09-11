@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: bedc0cf4a31938b8687cfb707400f3482cadd0ed
+translation_source_sha: 8212c77dbb3bb9909429d6fc6048cd72e7c990db
 translation_revised: 2026-09-11
 ---
 # 구독 초기 구성 보증
@@ -130,7 +130,7 @@ Command, 로그, 상태, 증적에 넣지 않습니다. 이식 가능한 상태�
 승인 전에 계획은 예상 월별 비용, 일회성 모델 검증 예산, 할당량 사용량, 공개 IP 개수, 송신
 프로필, 백업 보존, 0으로 축소되지 않는 리소스를 보고합니다. 프로필 비용 상한보다 높은
 계획은 차단합니다.
-직접 Runner 이미지 계획은 유지되는 Firewall Basic, 공개 IP, 디스크, 이미지 그래프에 대해
+직접 Runner 이미지 계획은 위협 인텔리전스 거부 모드의 Firewall Basic, 공개 IP, 디스크, 이미지 그래프에 대해
 보수적인 월 고정 비용 상한 미화 500달러를 예약합니다. 프로필 상한이 더 낮으면 계획을
 차단하며, 유지되는 빌드 그래프 제거는 별도로 검토하는 정리 작업으로 남습니다.
 빌더 서브넷과 두 비공개 VM NIC는 동일한 명시적 인바운드 거부 NSG에 연결되며 어느 VM에도

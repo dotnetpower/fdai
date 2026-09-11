@@ -237,7 +237,7 @@ def _plan_projection(values: dict[str, object]) -> dict[str, object]:
         if address == "azurerm_image.runner":
             return {"hyper_v_generation": "V2"}
         if address == "azurerm_firewall.builder":
-            return {"sku_tier": "Basic"}
+            return {"sku_tier": "Basic", "threat_intel_mode": "Deny"}
         if address == "azurerm_route.builder_default":
             return {"next_hop_type": "VirtualAppliance"}
         if address == "azurerm_firewall_policy_rule_collection_group.builder":
@@ -561,6 +561,12 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", SUBSCRIPTION)
     monkeypatch.setenv("AZURE_TENANT_ID", TENANT)
+    azure_config = tmp_path / "azure-config"
+    github_config = tmp_path / "github-config"
+    azure_config.mkdir(mode=0o700)
+    github_config.mkdir(mode=0o700)
+    monkeypatch.setenv("AZURE_CONFIG_DIR", str(azure_config))
+    monkeypatch.setenv("GH_CONFIG_DIR", str(github_config))
     monkeypatch.setattr(command.GenesisChecks, "verify_target", lambda *a, **kw: None)
     monkeypatch.setattr(command.GenesisChecks, "verify_source", lambda *a, **kw: None)
     monkeypatch.setattr(command, "_required", lambda cmd, **kw: calls.append(cmd))

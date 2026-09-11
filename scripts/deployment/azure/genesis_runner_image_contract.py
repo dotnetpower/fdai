@@ -831,6 +831,7 @@ def _validate_projection(plan: dict[str, object], variables: dict[str, object]) 
     ):
         raise ValueError("runner image plan contains an unsafe deprovision lifecycle")
     _require_after_value(by_address, "azurerm_firewall.builder", "sku_tier", "Basic")
+    _require_after_value(by_address, "azurerm_firewall.builder", "threat_intel_mode", "Deny")
     _require_after_value(
         by_address, "azurerm_route.builder_default", "next_hop_type", "VirtualAppliance"
     )
