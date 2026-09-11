@@ -48,6 +48,7 @@ from fdai.core.workflow import (
 )
 from fdai.core.workflow.recovery_effect_ingress import (
     DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+    DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES,
     RecoveryEffectObservationIngress,
 )
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
@@ -301,6 +302,14 @@ def build_workflow_recovery_effect_observation_ingress(
         for item in values.get("FDAI_WORKFLOW_RECOVERY_OBSERVER_PRINCIPALS", "").split(",")
         if item.strip()
     )
+    trusted_observers = frozenset(
+        item.strip()
+        for item in values.get(
+            "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "",
+        ).split(",")
+        if item.strip()
+    )
     return RecoveryEffectObservationIngress(
         attempts=StateStoreRecoveryAttemptResolver(audit_store),
         journal=build_workflow_recovery_effect_observation_journal(
@@ -312,6 +321,9 @@ def build_workflow_recovery_effect_observation_ingress(
             or "fdai.core.workflow.executor"
         ),
         authorized_principals=principals or DEFAULT_RECOVERY_EFFECT_OBSERVER_PRINCIPALS,
+        trusted_observer_identities=(
+            trusted_observers or DEFAULT_TRUSTED_RECOVERY_EFFECT_OBSERVER_IDENTITIES
+        ),
     )
 
 

@@ -371,6 +371,7 @@ async def _observe(store: InMemoryStateStore, attempt: RecoveryAttemptIdentity) 
             ),
             executor_identity=_EXECUTOR,
             authorized_principals=frozenset({_OBSERVER_PRINCIPAL}),
+            trusted_observer_identities=frozenset({_OBSERVER}),
             clock=lambda: _NOW,
         )
     )

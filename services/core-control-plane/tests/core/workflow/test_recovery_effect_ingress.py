@@ -168,6 +168,7 @@ def _ingress(
         ),
         executor_identity=_EXECUTOR,
         authorized_principals=frozenset({_OBSERVER_PRINCIPAL}),
+        trusted_observer_identities=frozenset({_OBSERVER}),
         clock=lambda: _NOW,
     )
 
@@ -469,6 +470,16 @@ class TestObserverAuthentication:
 
         assert result.rejection is RecoveryEffectObservationRejection.OBSERVER_UNAUTHENTICATED
 
+    async def test_an_untrusted_observer_identity_is_refused(self) -> None:
+        store, attempt = await _bound()
+
+        result = await _ingress(store).observe(
+            _event(attempt, observer_identity="attacker-declared-observer"),
+            authenticated_principal=_OBSERVER_PRINCIPAL,
+        )
+
+        assert result.rejection is RecoveryEffectObservationRejection.OBSERVER_IDENTITY_UNTRUSTED
+
     async def test_an_executor_relay_is_never_independent(self) -> None:
         store, attempt = await _bound()
         ingress = RecoveryEffectObservationIngress(
@@ -479,6 +490,7 @@ class TestObserverAuthentication:
             ),
             executor_identity=_OBSERVER_PRINCIPAL,
             authorized_principals=frozenset({_OBSERVER_PRINCIPAL}),
+            trusted_observer_identities=frozenset({_OBSERVER}),
             clock=lambda: _NOW,
         )
 

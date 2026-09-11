@@ -458,15 +458,6 @@
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "d1e7c12ee7d8c19a4d7fe8243b40d684f29e135d",
-          "line_end": 96,
-          "line_start": 96,
-          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
-          "source_kind": "doc",
-          "symbol": "Graduation scorecard"
         }
       ],
       "status": "in_progress",

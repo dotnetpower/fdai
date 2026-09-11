@@ -138,6 +138,7 @@ module "container_app" {
     { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },
     { name = "FDAI_TEAMS_APPROVAL_ACTIVITY_URL", value = var.teams_approval_destination.activity_url },
     { name = "FDAI_TEAMS_BOT_MI_CLIENT_ID", value = var.teams_approval_destination.identity_client_id },
+    { name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", value = "observer:heimdall:azure-container-apps" },
     ], !var.observation_context.enabled ? [] : [
     { name = "FDAI_OHL_OBSERVATION_SIGNING_SEED", secret_name = "ohl-observation-signing-seed" },
     { name = "FDAI_OHL_OBSERVER_IDENTITY", value = "observer:heimdall:azure-container-apps" },
