@@ -122,19 +122,26 @@ def deploy_azure_foundation(
             "--output",
             "json",
         )
-        completed = subprocess.run(
-            command,
-            cwd=kit.bundle_root,
-            env={
-                **os.environ,
-                "PYTHONPATH": os.pathsep.join((str(scripts), str(Path(__file__).parent.parent))),
-                "AZURE_SUBSCRIPTION_ID": target.subscription_id,
-                "AZURE_TENANT_ID": target.tenant_id,
-                "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
-            },
-            check=False,
-            timeout=min(14_400, remaining),
-        )
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=kit.bundle_root,
+                env={
+                    **os.environ,
+                    "PYTHONPATH": os.pathsep.join(
+                        (str(scripts), str(Path(__file__).parent.parent))
+                    ),
+                    "AZURE_SUBSCRIPTION_ID": target.subscription_id,
+                    "AZURE_TENANT_ID": target.tenant_id,
+                    "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
+                },
+                check=False,
+                timeout=min(14_400, remaining),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(
+                "standalone Foundation orchestration timed out; inspect retained status before recovery"
+            ) from exc
         status = _private_json(status_path)
         completed_stages = status.get("completed_stages")
         if (
@@ -183,24 +190,29 @@ def deploy_azure_foundation(
         if completed.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
         approval.unlink(missing_ok=True)
-        prompt = subprocess.run(
-            (
-                sys.executable,
-                str(scripts / "genesis_approval_prompt.py"),
-                "--status",
-                str(status_path),
-                "--output",
-                str(approval),
-            ),
-            cwd=kit.bundle_root,
-            env={
-                **os.environ,
-                "PYTHONPATH": os.pathsep.join((str(scripts), str(Path(__file__).parent.parent))),
-                "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
-            },
-            check=False,
-            timeout=600,
-        )
+        try:
+            prompt = subprocess.run(
+                (
+                    sys.executable,
+                    str(scripts / "genesis_approval_prompt.py"),
+                    "--status",
+                    str(status_path),
+                    "--output",
+                    str(approval),
+                ),
+                cwd=kit.bundle_root,
+                env={
+                    **os.environ,
+                    "PYTHONPATH": os.pathsep.join(
+                        (str(scripts), str(Path(__file__).parent.parent))
+                    ),
+                    "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
+                },
+                check=False,
+                timeout=600,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError("standalone Foundation approval prompt timed out") from exc
         if prompt.returncode != 0:
             raise ValueError("standalone Foundation approval was not granted")
 

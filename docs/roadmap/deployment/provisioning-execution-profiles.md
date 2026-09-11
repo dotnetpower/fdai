@@ -36,6 +36,7 @@ that applies before Terraform changes infrastructure or role assignments.
 | 2026-09-06 | implemented | Added a deadline-bounded active-generation projection release migration to the protected OI-16 execution profile. It performs no provider read, preserves the prior manifest and journal fences, and refuses incomplete or changed content before writing. | `current change`; focused replay CLI, projection, persistence, workflow, and package checks. | Retain one successful exact-release migration receipt from the protected dev campaign. |
 | 2026-09-11 | implemented | Added bounded parallel execution for independent local artifact lanes, Foundation input discovery, provider inspection and registration requests, policy-probe resource operations, and tenant-directory reads. Stateful applies, approvals, cleanup, handoffs, repository writes, and protected application transitions remain serial. | `current change`; focused Genesis, provider-mirror, preparation, Entra, and productization tests | Retain timing evidence from the next exact-main supervised deployment without treating elapsed time as readiness. |
 | 2026-09-11 | implemented | Added online and artifact-offline installed-package deployment from the active `az login` target without requiring GitHub Actions. Complete signed kits, a no-GitHub managed host, exact application approvals, operator-issued or Trial licensing, image readback, pre-activation migrations, and convergence checks share one path. | `current change`; deployment CLI and Genesis source; strict mypy; package build and cold install; routed deployment and Genesis tests | Build the complete signed release kit from a clean snapshot and retain online and artifact-offline Azure convergence receipts. |
+| 2026-09-12 | implemented | Completed 16 standalone deployment critique and hardening rounds. Transport reuse now binds the exact signed kit, trust roots require Ed25519, destructive plans require a second exact confirmation, ambiguous applies resume by verification only, retained Foundation and Entra context is exact, provider fallback remains blocked, and license, migration, image, revision-health, and zero-change effects require independent readback. | `current change`; deployment CLI, release builder, ShellCheck, strict mypy, focused package and Genesis tests, and independent post-fix critiques | Build and reverify the clean signed kit, then retain online and artifact-offline Azure convergence receipts before raising validation state. |
 
 ### Remaining work
 
@@ -81,6 +82,8 @@ The package pins the release and bundle verification roots independently from th
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,
 Console content, migration support, and their software bills of materials. Signature, exact-file,
 platform, source-revision, and runtime-content verification completes before Azure mutation.
+The current managed-host image and complete-kit builder support Linux x86_64. Other host
+architectures fail before kit acquisition rather than crossing an untested execution boundary.
 
 For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
 The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image
@@ -94,6 +97,10 @@ Every mutating checkpoint retains exact-plan approval, an immutable pre-effect c
 stop and cleanup path, target locking, stable idempotency, and independent effect readback. The
 default standalone `dev` path accepts one current local human approval per exact plan. Staging and
 production continue to require the configured independent quorum and approved execution host.
+If an apply outcome is ambiguous, the next invocation runs a zero-change plan and authoritative
+readback only. It never repeats the apply from the retained claim. A changed Foundation run,
+network/state handoff, Entra binding, provider configuration, or signed kit requires a distinct
+prepared context.
 
 The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound

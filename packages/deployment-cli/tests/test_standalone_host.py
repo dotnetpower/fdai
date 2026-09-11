@@ -184,3 +184,77 @@ def test_remote_preparation_uses_only_fixed_argument_commands(tmp_path: Path) ->
     assert all(command[0] not in {"bash", "sh"} for command in tunnel.commands)
     assert any(command[:3] == ("python3", "-m", "venv") for command in tunnel.commands)
     assert tunnel.commands[-1][1:3] == ("-m", "fdai_deployment_cli.standalone_host")
+
+
+def test_destructive_plan_requires_a_second_exact_confirmation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    review = _review()
+    review["stage"] = "application"
+    review["summary"] = {"action_counts": {"create": 0, "update": 0, "delete": 1, "replace": 1}}
+    review["review_digest"] = canonical_digest(
+        {key: value for key, value in review.items() if key != "review_digest"}
+    )
+    answers = iter(("application-apply", "denied"))
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    monkeypatch.setattr(standalone_application, "_azure_actor_digest", lambda _binding: "d" * 64)
+
+    with pytest.raises(ValueError, match="destructive"):
+        standalone_application._approve_plan(tmp_path, review)
+    assert not (tmp_path / "application-approval.json").exists()
+
+
+def test_ambiguous_apply_recovers_by_verification_without_reapply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    claim_path = tmp_path / "substrate-claim.json"
+    claim_path.write_text("claim", encoding="utf-8")
+    context = {
+        "target_binding": "b" * 64,
+        "infra": str(tmp_path),
+    }
+    review = {"plan_digest": "a" * 64}
+    claim = {
+        "schema_version": "fdai.standalone-application-claim.v1",
+        "stage": "substrate",
+        "plan_digest": review["plan_digest"],
+        "idempotency_key": canonical_digest(
+            {
+                "target_binding": context["target_binding"],
+                "plan_digest": review["plan_digest"],
+            }
+        ),
+    }
+
+    def private_json(path: Path, _label: str):
+        if path.name == "context.json":
+            return context
+        if path.name == "substrate-review.json":
+            return review
+        return claim
+
+    commands: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: object):
+        commands.append(command)
+        return SimpleNamespace(returncode=0)
+
+    written: dict[str, object] = {}
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host.subprocess, "run", run)
+    monkeypatch.setattr(standalone_host, "_readback_stage", lambda *_: True)
+    monkeypatch.setattr(
+        standalone_host,
+        "_replace_private_json",
+        lambda _path, value: written.update(value),
+    )
+
+    result = standalone_host._recover_apply(SimpleNamespace(stage="substrate"), tmp_path)
+
+    assert result["verification_only_recovery"] is True
+    assert result["control_plane_readback_verified"] is True
+    assert commands and commands[0][1] == "plan"
+    assert all("apply" not in command for command in commands)
+    assert written["state"] == "applied"

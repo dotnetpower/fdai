@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from importlib.resources import files
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
 _TRUST_PACKAGE = "fdai_deployment_cli"
 _TRUST_DIRECTORY = "trust"
 
@@ -31,4 +34,10 @@ def _read(name: str) -> bytes:
     value = resource.read_bytes()
     if not value.startswith(b"-----BEGIN PUBLIC KEY-----\n") or len(value) > 65_536:
         raise ValueError("packaged deployment trust root is invalid")
+    try:
+        key = load_pem_public_key(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("packaged deployment trust root is invalid") from exc
+    if not isinstance(key, Ed25519PublicKey):
+        raise ValueError("packaged deployment trust root must be Ed25519")
     return value

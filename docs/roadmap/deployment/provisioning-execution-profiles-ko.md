@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: f4cb23d8daaa6b5d2fb66df68f70f31d67259a82
+translation_source_sha: 253838c0041519cb9a2fea62be5e4e43d74cc757
 translation_revised: 2026-09-12
 ---
 # 프로비저닝 실행 프로파일
@@ -39,6 +39,7 @@ translation_revised: 2026-09-12
 | 2026-09-06 | implemented | 보호된 OI-16 실행 profile에 deadline이 제한된 active generation projection release migration을 추가했습니다. Provider read를 수행하지 않고 이전 manifest와 journal fence를 보존하며 불완전하거나 변경된 content는 write 전에 차단합니다. | `current change`, 집중 replay CLI, projection, persistence, workflow 및 package 검사 | 보호된 dev campaign에서 성공한 exact release migration 증적 1개를 보존합니다. |
 | 2026-09-11 | implemented | 서로 독립적인 로컬 아티팩트 경로, 기반 계층 입력 검색, 공급자 점검과 등록 요청, 정책 프로브 리소스 작업, 테넌트 디렉터리 읽기에 범위가 제한된 병렬 실행을 추가했습니다. 상태를 변경하는 적용, 승인, 정리, 인계, 저장소 쓰기, 보호된 애플리케이션 전이는 계속 직렬로 수행합니다. | `current change`, 집중 Genesis, 공급자 미러, 준비, Entra 및 제품화 테스트 | 경과 시간을 준비 상태 근거로 사용하지 않고 다음 exact-main 감독형 배포에서 시간 측정 근거를 보존합니다. |
 | 2026-09-11 | implemented | GitHub Actions를 요구하지 않고 활성 `az login` 대상을 사용하는 online 및 아티팩트 오프라인 설치 패키지 배포를 추가했습니다. 완전한 서명 키트, GitHub 없는 관리 호스트, 정확한 애플리케이션 승인, 운영자 발급 또는 Trial 라이선스, 이미지 재확인, 활성화 전 마이그레이션 및 수렴 검사가 하나의 경로를 공유합니다. | `current change`, deployment CLI 및 Genesis 소스, strict mypy, 패키지 빌드와 새 환경 설치, 라우팅된 deployment 및 Genesis 테스트 | 깨끗한 스냅샷에서 완전한 서명 release 키트를 빌드하고 online 및 아티팩트 오프라인 Azure 수렴 증적을 보존합니다. |
+| 2026-09-12 | implemented | 독립 실행형 배포에 대해 16회의 비평 및 하드닝 라운드를 완료했습니다. 전송 재사용은 정확한 서명 키트에 연결되고 trust root는 Ed25519를 요구하며 파괴적 plan은 두 번째 정확한 확인을 요구합니다. 모호한 apply는 검증으로만 재개하고 보존된 Foundation 및 Entra context를 정확히 확인하며 provider 대체 경로를 차단합니다. License, migration, image, revision 상태 및 변경 없음 효과는 독립적인 재확인이 필요합니다. | `current change`, deployment CLI, release builder, ShellCheck, strict mypy, 집중 package 및 Genesis 테스트, 독립적인 수정 후 비평 | 깨끗한 서명 키트를 빌드하고 다시 검증한 뒤 validation 상태를 높이기 전에 online 및 아티팩트 오프라인 Azure 수렴 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -85,6 +86,8 @@ dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드
 bundle, Terraform과 OPA, provider mirror, runtime OCI archive, Console 콘텐츠, migration 지원
 및 각 SBOM이 포함됩니다. Azure 변경 전에 서명, 정확한 파일 집합, 플랫폼, 소스 revision,
 runtime 콘텐츠 검증을 완료합니다.
+현재 관리 호스트 이미지와 완전한 키트 builder는 Linux x86_64를 지원합니다. 다른 호스트
+architecture는 검증되지 않은 실행 경계를 넘지 않고 키트 획득 전에 실패합니다.
 
 비공개 경로에서 로그인한 사용자는 범위가 제한된 Foundation control-plane 적용만 수행합니다.
 생성된 Bastion 접근 가능 VM은 사용자 할당 관리 ID와 GitHub runner 소프트웨어가 없는 manual
@@ -98,6 +101,9 @@ data-plane 작업은 운영자 workstation으로 대체되지 않습니다.
 대상 lock, 안정적 멱등성 및 독립적인 효과 재확인을 유지합니다. 기본 standalone `dev` 경로는
 각 exact plan마다 현재 로컬 사용자 승인 하나를 받습니다. Staging과 production은 구성된 독립
 정족수와 승인된 실행 호스트를 계속 요구합니다.
+Apply 결과가 모호하면 다음 호출은 변경 없음 plan과 권위 있는 재확인만 실행합니다. 보존된
+claim으로 apply를 반복하지 않습니다. Foundation run, network/state handoff, Entra binding,
+provider 구성 또는 서명 키트가 바뀌면 별도의 준비 context가 필요합니다.
 
 명령은 명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
 key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이미지에 연결된 token을 발급합니다.

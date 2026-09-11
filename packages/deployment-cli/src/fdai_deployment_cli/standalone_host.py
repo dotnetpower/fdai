@@ -76,6 +76,10 @@ def main(argv: list[str] | None = None) -> int:
     apply.add_argument("--approval", type=Path, required=True)
     apply.set_defaults(handler=_apply)
 
+    recover = subcommands.add_parser("recover-apply")
+    recover.add_argument("--stage", choices=_STAGES, required=True)
+    recover.set_defaults(handler=_recover_apply)
+
     images = subcommands.add_parser("import-images")
     images.set_defaults(handler=_import_images)
 
@@ -113,6 +117,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     tenant = _required_guid(handoff, "tenant_id")
     client_id = _required_guid(runner, "client_id")
     principal_id = _required_guid(runner, "principal_id")
+    foundation_binding_digest = _foundation_binding_digest(
+        handoff,
+        runner=runner,
+        state=state,
+        ops=ops,
+        app=app,
+    )
+    entra_binding_digest = canonical_digest(entra)
     _managed_identity_login(subscription, tenant, client_id, principal_id, work_dir)
     retained_context = work_dir / "context.json"
     retained_variables = work_dir / "application.auto.tfvars.json"
@@ -126,6 +138,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("tenant_id") != tenant
             or retained.get("client_id") != client_id
             or retained.get("principal_id") != principal_id
+            or retained.get("foundation_binding_digest") != foundation_binding_digest
+            or retained.get("entra_binding_digest") != entra_binding_digest
         ):
             raise ValueError("standalone host retained context differs")
         _terraform_init(work_dir, retained)
@@ -152,19 +166,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     terraform = kit.materialized_root / kit.verification.terraform_binary
     provider_mirror = kit.materialized_root / kit.verification.provider_mirror_prefix
     terraform_config = work_dir / "terraform.rc"
+    expected_terraform_config = _terraform_configuration(provider_mirror)
     if not terraform_config.exists():
-        write_private_output(
-            terraform_config,
-            "provider_installation {\n"
-            "  filesystem_mirror {\n"
-            f'    path = "{provider_mirror}"\n'
-            '    include = ["*/*"]\n'
-            "  }\n"
-            "  direct {\n"
-            '    exclude = ["*/*"]\n'
-            "  }\n"
-            "}\n",
-        )
+        write_private_output(terraform_config, expected_terraform_config)
+    elif (
+        read_private_bytes(terraform_config, max_bytes=16_384).decode("utf-8")
+        != expected_terraform_config
+    ):
+        raise ValueError("retained Terraform provider configuration differs")
     backend_example = infra / "backend.azurerm.tf.example"
     backend = infra / "backend.tf"
     if not backend.exists():
@@ -252,6 +261,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "tenant_id": tenant,
         "client_id": client_id,
         "principal_id": principal_id,
+        "foundation_binding_digest": foundation_binding_digest,
+        "entra_binding_digest": entra_binding_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
@@ -263,6 +274,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "image_refs": refs,
         "infra": str(infra),
         "terraform": str(terraform),
+        "provider_mirror": str(provider_mirror),
         "terraform_config": str(terraform_config),
         "terraform_data": str(work_dir / "terraform-data"),
     }
@@ -365,13 +377,82 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         timeout=7200,
         reason=f"{stage} exact apply failed; verification-only recovery is required",
     )
+    effect_verified = _readback_stage(stage, context)
+    if not effect_verified:
+        raise ValueError(f"{stage} apply effect readback is incomplete")
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
         "stage": stage,
         "plan_digest": review["plan_digest"],
         "claim_digest": canonical_digest(claim),
-        "control_plane_readback_verified": _readback_stage(stage, context),
+        "control_plane_readback_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    _replace_private_json(receipt_path, receipt)
+    return receipt
+
+
+def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    """Verify an ambiguous prior apply without repeating its mutation."""
+
+    stage = str(args.stage)
+    receipt_path = work_dir / f"{stage}-receipt.json"
+    if receipt_path.exists():
+        return _private_json(receipt_path, "standalone apply receipt")
+    claim_path = work_dir / f"{stage}-claim.json"
+    if not claim_path.exists():
+        return {
+            "schema_version": "fdai.standalone-application-recovery.v1",
+            "state": "not-required",
+            "stage": stage,
+            "mutation_performed": False,
+            "subscription_ready": False,
+        }
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    review = _private_json(work_dir / f"{stage}-review.json", "standalone plan review")
+    claim = _private_json(claim_path, "standalone apply claim")
+    if (
+        claim.get("schema_version") != "fdai.standalone-application-claim.v1"
+        or claim.get("stage") != stage
+        or claim.get("plan_digest") != review.get("plan_digest")
+        or claim.get("idempotency_key")
+        != canonical_digest(
+            {
+                "target_binding": context["target_binding"],
+                "plan_digest": review["plan_digest"],
+            }
+        )
+    ):
+        raise ValueError("standalone apply recovery claim is invalid")
+    _managed_identity_login_from_context(context, work_dir)
+    infra = Path(str(context["infra"]))
+    command = [
+        "terraform",
+        "plan",
+        "-detailed-exitcode",
+        "-input=false",
+        "-no-color",
+        f"-var-file={work_dir / 'application.auto.tfvars.json'}",
+    ]
+    if stage == "substrate":
+        command.extend(f"-target={target}" for target in _SUBSTRATE_TARGETS)
+    completed = subprocess.run(command, cwd=infra, check=False, capture_output=True, timeout=1800)
+    if completed.returncode != 0:
+        raise ValueError("standalone apply effect is not recoverably converged")
+    effect_verified = _readback_stage(stage, context)
+    if not effect_verified:
+        raise ValueError("standalone apply effect readback is incomplete")
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.standalone-application-apply-receipt.v1",
+        "state": "applied",
+        "stage": stage,
+        "plan_digest": review["plan_digest"],
+        "claim_digest": canonical_digest(claim),
+        "control_plane_readback_verified": True,
+        "verification_only_recovery": True,
         "mutation_performed": True,
         "subscription_ready": False,
     }
@@ -597,6 +678,23 @@ def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             timeout=1200,
             reason="service database migration failed",
         )
+        (evidence / f"{service}.json").chmod(0o600)
+        (evidence / f"{service}-schema.json").chmod(0o600)
+        migration_evidence = _private_json(
+            evidence / f"{service}.json", f"{service} migration evidence"
+        )
+        schema_evidence = _private_json(
+            evidence / f"{service}-schema.json", f"{service} migration schema"
+        )
+        if (
+            migration_evidence.get("service_id") != service
+            or not isinstance(migration_evidence.get("observed_schema_fingerprint"), str)
+            or schema_evidence.get("schema_version") != 1
+            or schema_evidence.get("service_id") != service
+            or schema_evidence.get("observed_schema_fingerprint")
+            != migration_evidence.get("observed_schema_fingerprint")
+        ):
+            raise ValueError("service migration evidence is incomplete")
     _run_env(
         (
             str(runtime_python),
@@ -634,6 +732,7 @@ def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, obje
         expected_image_digest=args.image_digest,
         expected_tenant_binding=args.deployment_binding,
     )
+    token_digest = hashlib.sha256(token.encode("ascii")).hexdigest()
     infra = Path(str(context["infra"]))
     vault_uri = _terraform_output(infra, "key_vault_uri")
     vault_name = _vault_name(vault_uri)
@@ -666,9 +765,41 @@ def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, obje
     token = ""
     if result.returncode != 0:
         raise ValueError("license token Key Vault installation failed")
-    secret_id = result.stdout.strip().rsplit("/", 1)[0]
-    if not secret_id.startswith("https://"):
+    versioned_secret_id = result.stdout.strip()
+    match = re.fullmatch(
+        rf"https://{re.escape(vault_name)}[.]vault[.]azure[.]net/secrets/"
+        r"fdai-capability-license/([0-9a-f]{32})",
+        versioned_secret_id,
+    )
+    if match is None:
         raise ValueError("license token Key Vault readback is invalid")
+    readback = _capture(
+        (
+            "az",
+            "keyvault",
+            "secret",
+            "show",
+            "--id",
+            versioned_secret_id,
+            "--query",
+            "value",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=120,
+        reason="license token Key Vault content readback failed",
+    ).strip()
+    inspect_license(
+        readback,
+        public_key_pem=license_public_key_pem(),
+        expected_image_digest=args.image_digest,
+        expected_tenant_binding=args.deployment_binding,
+    )
+    if hashlib.sha256(readback.encode("ascii")).hexdigest() != token_digest:
+        raise ValueError("license token Key Vault content differs")
+    secret_id = versioned_secret_id.rsplit("/", 1)[0]
     values = _private_json(work_dir / "application.auto.tfvars.json", "application variables")
     values["license"] = {
         "token_secret_id": secret_id,
@@ -683,6 +814,7 @@ def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, obje
         "schema_version": "fdai.standalone-license-installation.v1",
         "state": "installed",
         "secret_metadata_verified": True,
+        "secret_content_verified": True,
         "mutation_performed": True,
         "subscription_ready": False,
     }
@@ -704,11 +836,13 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if completed.returncode != 0:
         raise ValueError("standalone application second plan is not zero-change")
     health = _container_app_health(context, infra)
+    if not health:
+        raise ValueError("standalone application runtime health is incomplete")
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-verification.v1",
         "state": "verified",
         "terraform_zero_change_verified": True,
-        "runtime_health_verified": health,
+        "runtime_health_verified": True,
         "effect_verified": True,
         "mutation_performed": False,
         "subscription_ready": False,
@@ -777,10 +911,15 @@ def _managed_identity_login_from_context(context: dict[str, object], work_dir: P
 
 def _configure_terraform(context: dict[str, object]) -> None:
     terraform = Path(str(context["terraform"]))
+    provider_mirror = Path(str(context["provider_mirror"]))
     config = Path(str(context["terraform_config"]))
     data = Path(str(context["terraform_data"]))
     if not terraform.is_file() or not config.is_file():
         raise ValueError("verified Terraform execution context is unavailable")
+    if read_private_bytes(config, max_bytes=16_384).decode("utf-8") != _terraform_configuration(
+        provider_mirror
+    ):
+        raise ValueError("Terraform provider configuration differs from the verified kit")
     data.mkdir(mode=0o700, exist_ok=True)
     os.environ["PATH"] = os.pathsep.join(
         (str(terraform.parent), "/usr/local/bin", "/usr/bin", "/bin")
@@ -792,6 +931,20 @@ def _configure_terraform(context: dict[str, object]) -> None:
     os.environ["ARM_TENANT_ID"] = str(context["tenant_id"])
     os.environ["ARM_USE_CLI"] = "true"
     os.environ["ARM_RESOURCE_PROVIDER_REGISTRATIONS"] = "none"
+
+
+def _terraform_configuration(provider_mirror: Path) -> str:
+    return (
+        "provider_installation {\n"
+        "  filesystem_mirror {\n"
+        f'    path = "{provider_mirror}"\n'
+        '    include = ["*/*"]\n'
+        "  }\n"
+        "  direct {\n"
+        '    exclude = ["*/*"]\n'
+        "  }\n"
+        "}\n"
+    )
 
 
 def _managed_identity_login(
@@ -954,26 +1107,65 @@ def _container_app_health(context: dict[str, object], infra: Path) -> bool:
     resource_group = _terraform_output(infra, "resource_group_name")
     names = (_terraform_output(infra, "core_app_name"),)
     for name in names:
-        state = _capture(
-            (
-                "az",
-                "containerapp",
-                "show",
-                "--resource-group",
-                resource_group,
-                "--name",
-                name,
-                "--query",
-                "properties.provisioningState",
-                "--output",
-                "tsv",
-                "--only-show-errors",
-            ),
-            cwd=infra,
-            timeout=60,
-            reason="standalone runtime health readback failed",
+        app = json.loads(
+            _capture(
+                (
+                    "az",
+                    "containerapp",
+                    "show",
+                    "--resource-group",
+                    resource_group,
+                    "--name",
+                    name,
+                    "--output",
+                    "json",
+                    "--only-show-errors",
+                ),
+                cwd=infra,
+                timeout=60,
+                reason="standalone runtime health readback failed",
+            )
         )
-        if state.strip() != "Succeeded":
+        properties = app.get("properties") if isinstance(app, dict) else None
+        revision = (
+            properties.get("latestReadyRevisionName") if isinstance(properties, dict) else None
+        )
+        if (
+            not isinstance(properties, dict)
+            or properties.get("provisioningState") != "Succeeded"
+            or not isinstance(revision, str)
+            or not revision
+        ):
+            return False
+        observed = json.loads(
+            _capture(
+                (
+                    "az",
+                    "containerapp",
+                    "revision",
+                    "show",
+                    "--resource-group",
+                    resource_group,
+                    "--name",
+                    name,
+                    "--revision",
+                    revision,
+                    "--output",
+                    "json",
+                    "--only-show-errors",
+                ),
+                cwd=infra,
+                timeout=60,
+                reason="standalone runtime revision readback failed",
+            )
+        )
+        revision_properties = observed.get("properties") if isinstance(observed, dict) else None
+        if (
+            not isinstance(revision_properties, dict)
+            or revision_properties.get("active") is not True
+            or revision_properties.get("provisioningState") != "Provisioned"
+            or revision_properties.get("healthState") != "Healthy"
+        ):
             return False
     return True
 
@@ -1019,6 +1211,27 @@ def _required_image_digest(records: dict[str, object], name: str) -> str:
     if not isinstance(digest, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
         raise ValueError("runtime image digest is invalid")
     return digest
+
+
+def _foundation_binding_digest(
+    handoff: dict[str, object],
+    *,
+    runner: dict[str, object],
+    state: dict[str, object],
+    ops: dict[str, object],
+    app: dict[str, object],
+) -> str:
+    return canonical_digest(
+        {
+            "source_commit": handoff.get("source_commit"),
+            "run_digest": handoff.get("run_digest"),
+            "region": handoff.get("region"),
+            "runner": runner,
+            "state": state,
+            "ops": ops,
+            "app_resource_group": app,
+        }
+    )
 
 
 def _vault_name(uri: str) -> str:

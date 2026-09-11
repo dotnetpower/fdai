@@ -25,6 +25,7 @@ from fdai_deployment_cli.offline_kit import (
     materialize_verified_artifacts,
     verify_offline_kit,
 )
+from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_release import RuntimeRelease, load_runtime_release
 from fdai_deployment_cli.runtime_release import validate_runtime_images
 from fdai_deployment_cli.trust_roots import (
@@ -163,11 +164,9 @@ def runtime_platform_tag() -> str:
     architecture = {
         "x86_64": "x86_64",
         "amd64": "x86_64",
-        "aarch64": "aarch64",
-        "arm64": "aarch64",
     }.get(platform.machine().casefold())
     if os.name != "posix" or architecture is None:
-        raise ValueError("standalone deployment supports Linux x86_64 or aarch64")
+        raise ValueError("standalone deployment currently supports Linux x86_64")
     return f"linux-{architecture}"
 
 
@@ -176,8 +175,8 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
 
     expected = dict(kit.verification.file_digests)
     if destination.exists() or destination.is_symlink():
-        digest = _sha256_file(destination)
-        if digest != _archive_digest_sidecar(destination):
+        digest = _sha256_private_file(destination)
+        if _archive_binding(destination) != _expected_archive_binding(kit, digest):
             raise ValueError("existing deployment kit transport archive is invalid")
         return digest
     descriptor = os.open(
@@ -191,23 +190,12 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
                 with tarfile.open(fileobj=zipped, mode="w", format=tarfile.GNU_FORMAT) as archive:
                     for relative, digest in sorted(expected.items()):
                         source = kit.root / relative
-                        details = source.lstat()
-                        if (
-                            not stat.S_ISREG(details.st_mode)
-                            or details.st_size > _MAX_MEMBER_BYTES
-                            or _sha256_file(source) != digest
-                        ):
-                            raise ValueError("deployment kit changed before transport")
-                        info = tarfile.TarInfo(f"kit/{relative}")
-                        info.size = details.st_size
-                        info.mode = 0o600
-                        info.mtime = 0
-                        info.uid = 0
-                        info.gid = 0
-                        info.uname = ""
-                        info.gname = ""
-                        with source.open("rb") as stream:
-                            archive.addfile(info, stream)
+                        _add_verified_member(
+                            archive,
+                            source,
+                            f"kit/{relative}",
+                            expected_digest=digest,
+                        )
                     for name in ("offline-kit.json", "offline-kit.json.sig"):
                         if name in expected:
                             continue
@@ -232,9 +220,15 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
         raise
     digest = _sha256_file(destination)
     sidecar = destination.with_suffix(destination.suffix + ".sha256")
-    descriptor = os.open(sidecar, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(descriptor, "w", encoding="ascii") as stream:
-        stream.write(digest)
+    write_private_output(
+        sidecar,
+        json.dumps(
+            _expected_archive_binding(kit, digest),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+    )
     return digest
 
 
@@ -346,6 +340,50 @@ def _write_bounded_member(source: IO[bytes], destination: Path, expected_size: i
         raise ValueError("deployment kit archive member is truncated")
 
 
+def _add_verified_member(
+    archive: tarfile.TarFile,
+    source: Path,
+    member_name: str,
+    *,
+    expected_digest: str,
+) -> None:
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    digest = hashlib.sha256()
+
+    class DigestingReader:
+        def __init__(self, stream: BinaryIO) -> None:
+            self.stream = stream
+
+        def read(self, size: int = -1) -> bytes:
+            chunk = self.stream.read(size)
+            digest.update(chunk)
+            return chunk
+
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if not stat.S_ISREG(details.st_mode) or not 0 < details.st_size <= _MAX_MEMBER_BYTES:
+            raise ValueError("deployment kit changed before transport")
+        info = tarfile.TarInfo(member_name)
+        info.size = details.st_size
+        info.mode = 0o600
+        info.mtime = 0
+        info.uid = 0
+        info.gid = 0
+        info.uname = ""
+        info.gname = ""
+        archive.addfile(info, DigestingReader(stream))
+        after = os.fstat(stream.fileno())
+    if (
+        digest.hexdigest() != expected_digest
+        or after.st_dev != details.st_dev
+        or after.st_ino != details.st_ino
+        or after.st_size != details.st_size
+        or after.st_mtime_ns != details.st_mtime_ns
+        or after.st_ctime_ns != details.st_ctime_ns
+    ):
+        raise ValueError("deployment kit changed before transport")
+
+
 def _runtime_source_commit(root: Path) -> str:
     try:
         value = json.loads((root / "runtime/release.json").read_text(encoding="utf-8"))
@@ -376,12 +414,54 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _archive_digest_sidecar(path: Path) -> str:
+def _sha256_private_file(path: Path) -> str:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    digest = hashlib.sha256()
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or stat.S_IMODE(details.st_mode) != 0o600
+            or details.st_uid != os.geteuid()
+            or details.st_nlink != 1
+        ):
+            raise ValueError("existing deployment kit transport archive is invalid")
+        for chunk in iter(lambda: stream.read(_BUFFER_BYTES), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _archive_binding(path: Path) -> dict[str, str]:
     sidecar = path.with_suffix(path.suffix + ".sha256")
-    details = sidecar.lstat()
-    if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
-        raise ValueError("deployment kit transport digest is invalid")
-    value = sidecar.read_text(encoding="ascii")
-    if _DIGEST.fullmatch(value) is None:
-        raise ValueError("deployment kit transport digest is invalid")
-    return value
+    try:
+        value = json.loads(read_private_bytes(sidecar, max_bytes=4096))
+    except json.JSONDecodeError as exc:
+        raise ValueError("deployment kit transport binding is invalid") from exc
+    expected = {
+        "schema_version",
+        "archive_sha256",
+        "kit_manifest_digest",
+        "bundle_manifest_digest",
+        "runtime_release_digest",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != expected
+        or value.get("schema_version") != "fdai.standalone-kit-transport.v1"
+        or any(
+            not isinstance(value.get(key), str) or _DIGEST.fullmatch(str(value[key])) is None
+            for key in expected - {"schema_version"}
+        )
+    ):
+        raise ValueError("deployment kit transport binding is invalid")
+    return {str(key): str(item) for key, item in value.items()}
+
+
+def _expected_archive_binding(kit: DeploymentKit, digest: str) -> dict[str, str]:
+    return {
+        "schema_version": "fdai.standalone-kit-transport.v1",
+        "archive_sha256": digest,
+        "kit_manifest_digest": kit.verification.manifest_digest,
+        "bundle_manifest_digest": kit.bundle_manifest_digest,
+        "runtime_release_digest": kit.runtime.digest,
+    }

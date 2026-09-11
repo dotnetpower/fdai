@@ -104,22 +104,34 @@ def deploy_standalone_application(
             app_work=app_work,
             timeout_seconds=timeout_seconds,
         )
-        substrate_plan = _remote_json(
+        substrate_recovery = _remote_json(
             tunnel,
             remote_root,
             app_work,
-            ("plan", "--stage", "substrate"),
+            ("recover-apply", "--stage", "substrate"),
             timeout=3600,
         )
-        substrate_approval = _approve_plan(prepared.root, substrate_plan)
-        tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
-        substrate_receipt = _remote_json(
-            tunnel,
-            remote_root,
-            app_work,
-            ("apply", "--stage", "substrate", "--approval", remote_approval),
-            timeout=7200,
-        )
+        if substrate_recovery.get("state") == "applied":
+            substrate_receipt = substrate_recovery
+        else:
+            substrate_plan = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("plan", "--stage", "substrate"),
+                timeout=3600,
+            )
+            substrate_approval = _approve_plan(prepared.root, substrate_plan)
+            tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
+            substrate_receipt = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("apply", "--stage", "substrate", "--approval", remote_approval),
+                timeout=7200,
+            )
+            substrate_approval.unlink(missing_ok=True)
+            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(substrate_receipt, "substrate")
         image_receipt = _remote_json(
             tunnel,
@@ -156,7 +168,10 @@ def deploy_standalone_application(
             input_text=token,
         )
         token = ""
-        if license_receipt.get("secret_metadata_verified") is not True:
+        if (
+            license_receipt.get("secret_metadata_verified") is not True
+            or license_receipt.get("secret_content_verified") is not True
+        ):
             raise ValueError("standalone license installation was not verified")
         migration_receipt = _remote_json(
             tunnel,
@@ -170,23 +185,35 @@ def deploy_standalone_application(
             or migration_receipt.get("catalogs_materialized") is not True
         ):
             raise ValueError("standalone database and catalog bootstrap is incomplete")
-        application_plan = _remote_json(
+        application_recovery = _remote_json(
             tunnel,
             remote_root,
             app_work,
-            ("plan", "--stage", "application"),
+            ("recover-apply", "--stage", "application"),
             timeout=3600,
         )
-        application_approval = _approve_plan(prepared.root, application_plan)
-        tunnel.ssh(("rm", "-f", remote_approval), timeout=60)
-        tunnel.copy_to(application_approval, remote_approval, timeout=120)
-        application_receipt = _remote_json(
-            tunnel,
-            remote_root,
-            app_work,
-            ("apply", "--stage", "application", "--approval", remote_approval),
-            timeout=7200,
-        )
+        if application_recovery.get("state") == "applied":
+            application_receipt = application_recovery
+        else:
+            application_plan = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("plan", "--stage", "application"),
+                timeout=3600,
+            )
+            application_approval = _approve_plan(prepared.root, application_plan)
+            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            tunnel.copy_to(application_approval, remote_approval, timeout=120)
+            application_receipt = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("apply", "--stage", "application", "--approval", remote_approval),
+                timeout=7200,
+            )
+            application_approval.unlink(missing_ok=True)
+            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(application_receipt, "application")
         verification = _remote_json(
             tunnel,
@@ -329,6 +356,16 @@ def _approve_plan(root: Path, review: dict[str, Any]) -> Path:
     supplied = input(f"Type the exact stage name to approve ({expected}): ").strip()
     if supplied != expected:
         raise ValueError("standalone application plan approval was denied")
+    summary = _mapping(review.get("summary"), "standalone plan summary")
+    counts = _mapping(summary.get("action_counts"), "standalone plan action counts")
+    destructive = int(counts.get("delete", 0)) + int(counts.get("replace", 0))
+    if destructive:
+        confirmation = input(
+            f"Plan contains {destructive} delete or replacement action(s); type "
+            f"{expected}-destructive to approve: "
+        ).strip()
+        if confirmation != f"{expected}-destructive":
+            raise ValueError("standalone destructive application plan approval was denied")
     actor = _azure_actor_digest(str(review["target_binding"]))
     now = datetime.now(UTC).replace(microsecond=0)
     expires = min(_parse_moment(str(review["expires_at"])), now + timedelta(hours=1))

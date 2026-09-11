@@ -21,6 +21,11 @@ done
   echo "build-standalone-kit: --out must be an absolute path" >&2
   exit 64
 }
+python="$repo_root/.venv/bin/python"
+[[ -x "$python" ]] || {
+  echo "build-standalone-kit: repository development environment is required" >&2
+  exit 3
+}
 [[ -f "$release_key" && ! -L "$release_key" && "$(stat -c '%a' "$release_key")" == "600" ]] || {
   echo "build-standalone-kit: release signing key must be a mode-0600 regular file" >&2
   exit 3
@@ -85,22 +90,41 @@ PY
 
 source_commit="$(git -C "$repo_root" rev-parse HEAD)"
 source_epoch="$(git -C "$repo_root" show -s --format=%ct HEAD)"
+cli_version="$(PYTHONPATH="$repo_root/packages/deployment-cli/src" "$python" -c \
+  'from fdai_deployment_cli.__about__ import __version__; print(__version__)')"
+[[ "$source_epoch" =~ ^[0-9]+$ && "$cli_version" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
+  echo "build-standalone-kit: release version or source epoch is invalid" >&2
+  exit 3
+}
+if [[ ! -e "$out" ]]; then
+  "$python" "$repo_root/scripts/deployment/release/workdir-guard.py" create \
+    --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1
+elif ! "$python" "$repo_root/scripts/deployment/release/workdir-guard.py" verify \
+  --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1; then
+  echo "build-standalone-kit: existing --out is not an owned release directory" >&2
+  exit 3
+fi
 release_input="$out/release-input"
 stage="$out/stage"
-archive="$out/fdai-deployment-kit-0.1.0-linux-x86_64.tar.gz"
+archive="$out/fdai-deployment-kit-${cli_version}-linux-x86_64.tar.gz"
 rm -rf -- "$release_input"
 rm -f -- "$archive"
 install -d -m 0700 "$release_input" "$release_input/images" "$release_input/metadata"
 
-services=(
-  core-control-plane
-  operator-service
-  document-ingestion-api
-  document-processing-worker
-  isolated-executor
+mapfile -t services < <(
+  PYTHONPATH="$repo_root/packages/deployment-cli/src" "$python" -c \
+    'from fdai_deployment_cli.runtime_release import RUNTIME_SERVICES; print(*sorted(RUNTIME_SERVICES), sep="\n")'
 )
+[[ "${#services[@]}" -gt 0 ]] || {
+  echo "build-standalone-kit: runtime service inventory is empty" >&2
+  exit 3
+}
 
 for service in "${services[@]}"; do
+  [[ -f "$repo_root/services/$service/docker/Dockerfile" ]] || {
+    echo "build-standalone-kit: runtime service Dockerfile is unavailable" >&2
+    exit 3
+  }
   echo "-- build OCI image: $service"
   docker buildx build \
     --platform linux/amd64 \
@@ -295,7 +319,7 @@ SOURCE_DATE_EPOCH="$source_epoch" bash "$repo_root/scripts/deployment/release/st
   --out "$stage" \
   --release-key "$release_key" \
   --bundle-key "$bundle_key" \
-  --bundle-version 0.1.0 \
+  --bundle-version "$cli_version" \
   --runtime-descriptor "$release_input/runtime-release-build.json" \
   --runtime-source-root "$release_input"
 

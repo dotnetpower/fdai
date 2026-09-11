@@ -245,6 +245,13 @@ def test_standalone_transport_archive_rechecks_signed_files(
     with tarfile.open(archive, "r:gz") as payload:
         assert "kit/offline-kit.json" in payload.getnames()
 
+    changed = replace(
+        verified,
+        verification=replace(verified.verification, manifest_digest="f" * 64),
+    )
+    with pytest.raises(ValueError, match="transport archive is invalid"):
+        deployment_kit.archive_verified_kit(changed, archive)
+
 
 def test_online_kit_rejects_unapproved_release_host(tmp_path: Path) -> None:
     work = tmp_path / "online"

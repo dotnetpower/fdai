@@ -33,17 +33,17 @@ def discover_license_signing_key(explicit: Path | None = None) -> Path | None:
 
     configured = os.environ.get("FDAI_LICENSE_SIGNING_KEY_FILE")
     candidates = (
-        explicit,
-        Path(configured) if configured else None,
-        _DEFAULT_USER_KEY,
-        Path.cwd() / _SOURCE_KEY,
+        (explicit, explicit is not None),
+        (Path(configured) if configured else None, configured is not None),
+        (_DEFAULT_USER_KEY, False),
+        (Path.cwd() / _SOURCE_KEY, False),
     )
-    for candidate in candidates:
+    for candidate, required in candidates:
         if candidate is None:
             continue
         path = candidate if candidate.is_absolute() else Path.cwd() / candidate
         if not path.exists() and not path.is_symlink():
-            if candidate is explicit or configured:
+            if required:
                 raise ValueError("configured license signing key is unavailable")
             continue
         _read_private_key(path)
