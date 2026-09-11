@@ -348,6 +348,50 @@ def test_pre_push_rejects_a_tag_source_for_a_branch_destination(tmp_path: Path) 
     assert "unsupported push source ref 'refs/tags/v1'" in result.stdout
 
 
+def test_pre_push_rejects_ref_deletion(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    tracked = repository / "tracked.txt"
+    tracked.write_text("value\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], cwd=repository, check=True)
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    hook_input = f"(delete) {'0' * 40} refs/heads/main {commit}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "ref deletion requires explicit remote administration: refs/heads/main" in result.stdout
+
+
 def test_pre_push_routes_deleted_and_yaml_workflows_to_contract_checks() -> None:
     body = _PRE_PUSH.read_text()
 

@@ -30,11 +30,19 @@ zero_sha="0000000000000000000000000000000000000000"
 non_current_branch_ref=""
 unsupported_source_ref=""
 unsupported_destination_ref=""
+deletion_ref=""
 tag_refs=()
 tag_shas=()
 
 while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
-  [[ "$candidate_local_sha" == "$zero_sha" ]] && continue
+  if [[ "$candidate_local_sha" == "$zero_sha" ]]; then
+    if [[ "$candidate_remote_ref" == refs/heads/* || "$candidate_remote_ref" == refs/tags/* ]]; then
+      deletion_ref="$candidate_remote_ref"
+    else
+      unsupported_destination_ref="$candidate_remote_ref"
+    fi
+    continue
+  fi
   if [[ "$candidate_remote_ref" == refs/heads/* ]]; then
     if [[ "$candidate_local_ref" == "refs/heads/$branch" ]]; then
       if [[ -n "$local_sha" ]]; then
@@ -58,6 +66,10 @@ while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_r
 done
 
 echo "pre-push: lightweight checks (branch: ${branch:-detached})..."
+if [[ -n "$deletion_ref" ]]; then
+  echo "pre-push: BLOCKED - ref deletion requires explicit remote administration: $deletion_ref."
+  exit 1
+fi
 if [[ -n "$non_current_branch_ref" ]]; then
   echo "pre-push: BLOCKED - refusing to validate a non-current branch push."
   echo "  Check out '${non_current_branch_ref#refs/heads/}' in its own worktree, then push again."
