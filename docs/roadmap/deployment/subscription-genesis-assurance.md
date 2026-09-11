@@ -51,6 +51,9 @@ External control planes are first-class dependencies:
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
+Region availability uses the exact subscription-bound ARM locations endpoint; it neither relies
+on the active Azure CLI subscription nor passes unsupported selection flags to convenience commands.
+
 Runner enrollment never places a registration token, remove token, database password, or GitHub
 token in Terraform variables, state, process arguments, Azure Run Command payloads, logs, or chat.
 The target implementation uses provider-hosted authorization and a protected input channel. If the

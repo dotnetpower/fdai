@@ -190,8 +190,7 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   It prompts for each current exact plan, configures Foundation and tenant bindings, applies through the protected runner, and requires zero-change. Approval, apply, cleanup, state, and handoff boundaries remain serial; its pre-Foundation image plan uses private builder and verifier VMs behind an FQDN-allowlisted Firewall Basic in threat-intelligence deny mode rather than the Shared-Key-dependent Azure VM Image Builder staging path, and both VM NICs explicitly bind the inbound-deny NSG.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) retains the lower-level 15-stage
   Foundation route. Claims resume verification only and Foundation never implies readiness.
-- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
-  CLI and `azd` entry points to the approved subscription and tenant pair before mutation.
+- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure CLI and `azd` entry points to the approved subscription and tenant pair before mutation; Genesis verifies region availability through the exact subscription-bound ARM locations endpoint without changing the active CLI selection.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
   `dev` path. It is not a private, shared, staging, or production deployment path.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh) runs create-state-account -> bootstrap

@@ -127,12 +127,16 @@ class GenesisChecks:
         available = self.capture(
             (
                 self.az,
-                "account",
-                "list-locations",
-                "--subscription",
-                subscription_id,
+                "rest",
+                "--method",
+                "get",
+                "--url",
+                (
+                    "https://management.azure.com/subscriptions/"
+                    f"{subscription_id}/locations?api-version=2022-12-01"
+                ),
                 "--query",
-                f"[?name == '{region}'].name | [0]",
+                f"value[?name == '{region}'].name | [0]",
                 "--output",
                 "tsv",
                 "--only-show-errors",
