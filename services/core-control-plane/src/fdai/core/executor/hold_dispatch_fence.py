@@ -45,6 +45,7 @@ class HoldFenceRejectionReason(StrEnum):
     FENCING_GENERATION_MISMATCH = "fencing_generation_mismatch"
     LOCK_OWNERSHIP_UNPROVEN = "lock_ownership_unproven"
     HOLD_REISSUED_AFTER_RELEASE = "hold_reissued_after_release"
+    HOLD_AUTHORIZATION_MISMATCH = "hold_authorization_mismatch"
     RECHECK_FAILED = "recheck_failed"
 
 
@@ -143,11 +144,17 @@ def recheck_hold_fence(
     expected_lineage: HoldLineage | None,
     lock_ownership_token: str | None,
     checked_at: datetime,
+    authorized_hold_revision: int | None = None,
 ) -> HoldFenceCheckResult:
     """Recheck hold state inside the acquired logical-target lock.
 
     This runs inside each execution path's existing critical section,
     immediately before side-effect dispatch.
+
+    ``authorized_hold_revision`` names the one active hold revision this exact
+    step was separately authorized to act under, which is how an approved
+    recovery step dispatches against its own held target. Any other hold state,
+    including a later revision or a release, denies that authorization.
     """
 
     reasons: list[HoldFenceRejectionReason] = []
@@ -156,6 +163,29 @@ def recheck_hold_fence(
     # Lock ownership is required for dispatch eligibility
     if not lock_ownership_token:
         reasons.append(HoldFenceRejectionReason.LOCK_OWNERSHIP_UNPROVEN)
+
+    if authorized_hold_revision is not None:
+        if expected_lineage is not None:
+            reasons.append(HoldFenceRejectionReason.HOLD_AUTHORIZATION_MISMATCH)
+        if hold_state is not HoldFenceState.ACTIVE_HOLD or not _matches_authorized_revision(
+            hold_record,
+            authorized_hold_revision,
+        ):
+            reasons.append(HoldFenceRejectionReason.HOLD_AUTHORIZATION_MISMATCH)
+            if hold_state is HoldFenceState.ACTIVE_HOLD:
+                reasons.append(HoldFenceRejectionReason.ACTIVE_HOLD)
+            elif hold_state is HoldFenceState.MALFORMED_HOLD:
+                reasons.append(HoldFenceRejectionReason.MALFORMED_HOLD)
+            elif hold_state is HoldFenceState.UNREADABLE:
+                reasons.append(HoldFenceRejectionReason.UNREADABLE_STATE)
+        return _result(
+            target_digest=target_digest,
+            hold_state=hold_state,
+            expected_lineage=expected_lineage,
+            reasons=reasons,
+            lock_ownership_token=lock_ownership_token,
+            checked_at=checked_at,
+        )
 
     if hold_state == HoldFenceState.ACTIVE_HOLD:
         reasons.append(HoldFenceRejectionReason.ACTIVE_HOLD)
@@ -178,6 +208,25 @@ def recheck_hold_fence(
         if expected_lineage is not None:
             reasons.append(HoldFenceRejectionReason.RELEASE_RECEIPT_MISSING)
 
+    return _result(
+        target_digest=target_digest,
+        hold_state=hold_state,
+        expected_lineage=expected_lineage,
+        reasons=reasons,
+        lock_ownership_token=lock_ownership_token,
+        checked_at=checked_at,
+    )
+
+
+def _result(
+    *,
+    target_digest: str,
+    hold_state: HoldFenceState,
+    expected_lineage: HoldLineage | None,
+    reasons: list[HoldFenceRejectionReason],
+    lock_ownership_token: str | None,
+    checked_at: datetime,
+) -> HoldFenceCheckResult:
     eligible = len(reasons) == 0
     result_digest = content_digest(
         {
@@ -201,6 +250,17 @@ def recheck_hold_fence(
     )
 
 
+def _matches_authorized_revision(hold_record: object, authorized_hold_revision: int) -> bool:
+    if not isinstance(hold_record, dict):
+        return False
+    revision = hold_record.get("revision")
+    return (
+        isinstance(revision, int)
+        and not isinstance(revision, bool)
+        and revision == authorized_hold_revision
+    )
+
+
 def recheck_hold_fence_isolated(
     *,
     target_digest: str,
@@ -208,6 +268,7 @@ def recheck_hold_fence_isolated(
     expected_lineage: HoldLineage | None,
     lock_ownership_token: str | None,
     checked_at: datetime,
+    authorized_hold_revision: int | None = None,
 ) -> HoldFenceCheckResult:
     """Isolated-Executor equivalent without importing Core implementation."""
 
@@ -217,6 +278,7 @@ def recheck_hold_fence_isolated(
         expected_lineage=expected_lineage,
         lock_ownership_token=lock_ownership_token,
         checked_at=checked_at,
+        authorized_hold_revision=authorized_hold_revision,
     )
 
 

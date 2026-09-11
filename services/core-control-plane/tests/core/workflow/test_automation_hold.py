@@ -121,6 +121,7 @@ async def _release_args(
         executor_identity="executor@example.com",
         source_revision=_SOURCE_REVISION,
         assessment=assessment,
+        workflow_lineage=(process_id, "recover_step"),
     )
 
 
@@ -137,6 +138,7 @@ class _ReleaseArgs:
     executor_identity: str
     source_revision: str
     assessment: WorkflowRecoveryAdmissionAssessment
+    workflow_lineage: tuple[str, str] | None = None
 
 
 async def _release(
@@ -155,6 +157,7 @@ async def _release(
         executor_identity=arguments.executor_identity,
         source_revision=arguments.source_revision,
         assessment=arguments.assessment,
+        workflow_lineage=arguments.workflow_lineage,
     )
 
 
@@ -288,7 +291,27 @@ async def test_admitted_release_is_two_phase_atomic_and_content_addressed() -> N
         "workflow.automation_hold.issued",
         "workflow.automation_hold.release_intent",
         "workflow.automation_hold.released_admitted",
+        "workflow.automation_hold.release_authorization_bound",
     ]
+    authorization = await ledger.read_dispatch_authorization(
+        target_ref="resource-1",
+        process_id="process-1",
+        step_id="recover_step",
+    )
+    assert authorization is not None
+    assert authorization["authorization_kind"] == "released"
+    assert authorization["release_receipt_digest"] == receipt.receipt_digest
+    assert authorization["released_hold_revision"] == 1
+    assert authorization["fencing_generation"] == 2
+    assert authorization["execution_authority"] is False
+    assert (
+        await ledger.read_dispatch_authorization(
+            target_ref="resource-1",
+            process_id="process-1",
+            step_id="another_step",
+        )
+        is None
+    )
 
 
 async def test_duplicate_and_concurrent_release_reuse_one_receipt() -> None:
@@ -308,7 +331,12 @@ async def test_duplicate_and_concurrent_release_reuse_one_receipt() -> None:
     restarted = await _release(_admitted_ledger(store), arguments)
 
     assert first is not None and second == first and restarted == first
-    assert len(store.audit_entries) == 3
+    assert [row["entry"]["action_kind"] for row in store.audit_entries] == [
+        "workflow.automation_hold.issued",
+        "workflow.automation_hold.release_intent",
+        "workflow.automation_hold.released_admitted",
+        "workflow.automation_hold.release_authorization_bound",
+    ]
 
 
 async def test_stale_tampered_or_cross_process_admission_cannot_release() -> None:

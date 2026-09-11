@@ -8,7 +8,9 @@ automation-hold reissue inside the executor lock.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -162,8 +164,12 @@ async def _seed_approval(
     *,
     approver: str = _APPROVER,
     state: str = "pending",
+    decision: str = "approved",
+    expires_at: datetime | None = None,
+    decisions: tuple[tuple[str, str], ...] | None = None,
 ) -> None:
     step_id = recovery_approval_step_id(attempt)
+    claims = decisions if decisions is not None else ((approver, decision),)
     await store.write_state(
         workflow_approval_state_key(_PROCESS_ID, step_id, attempt.attempt_number),
         {
@@ -174,13 +180,18 @@ async def _seed_approval(
             "quorum": 1,
             "no_self_approval": True,
             "requested_at": (_NOW - timedelta(minutes=5)).isoformat(),
-            "expires_at": (_NOW + timedelta(minutes=30)).isoformat(),
+            "expires_at": (
+                expires_at.isoformat()
+                if expires_at is not None
+                else (_NOW + timedelta(minutes=30)).isoformat()
+            ),
             "decision_claims": {
-                "slot-1": {
-                    "principal": approver,
-                    "decision": "approved",
-                    "receipt_ref": "approval:recovery:1",
+                f"slot-{index}": {
+                    "principal": principal,
+                    "decision": claim_decision,
+                    "receipt_ref": f"approval:recovery:{index}",
                 }
+                for index, (principal, claim_decision) in enumerate(claims, start=1)
             },
             "state": state,
             "revision": 3,
@@ -276,10 +287,12 @@ def _coordinator(
     store: InMemoryStateStore,
     process_store: InMemoryProcessRuntimeStore,
     *,
-    dispatcher: _Dispatcher | None,
+    dispatcher: object | None,
     admissions: _Admissions | None = None,
-    approval_reader: StateStoreRecoveryApprovalReader | None = None,
+    approval_reader: object | None = None,
+    approval_requester: object | None = None,
     executor_identity: str = _EXECUTOR,
+    clock: Callable[[], datetime] = lambda: _NOW,
 ) -> WorkflowRecoveryCoordinator:
     return WorkflowRecoveryCoordinator(
         process_store=process_store,
@@ -289,16 +302,17 @@ def _coordinator(
             executor_identity=executor_identity,
             source_revision=_SOURCE_REVISION,
         ),
-        dispatcher=dispatcher,
+        dispatcher=dispatcher,  # type: ignore[arg-type]
         effect_observer=StateStoreRecoveryEffectObserver(store),
-        approval_reader=(
+        approval_reader=(  # type: ignore[arg-type]
             approval_reader
             if approval_reader is not None
             else StateStoreRecoveryApprovalReader(store)
         ),
+        approval_requester=approval_requester,  # type: ignore[arg-type]
         admission_provider=admissions if admissions is not None else _Admissions(),
         bundle_reader=StateStoreRecoverySafeguardBundleReader(store),
-        clock=lambda: _NOW,
+        clock=clock,
     )
 
 
@@ -363,18 +377,25 @@ class TestRecoveryApprovalBinding:
         dispatcher = _Dispatcher()
         result = await _recover(_coordinator(store, process_store, dispatcher=dispatcher), snapshot)
 
-        assert result.disposition is RecoveryDisposition.EFFECT_UNVERIFIED
+        assert result.disposition is RecoveryDisposition.REJECTED
+        assert result.reason == "executor_identity_not_distinct"
+        assert dispatcher.calls == []
         assert await StateStoreAutomationHoldLedger(store).is_held(target_ref=_TARGET)
 
-    async def test_missing_finalized_bundle_denies_dispatch(self) -> None:
+    async def test_unretained_finalized_bundle_never_releases_the_hold(self) -> None:
         store, process_store, snapshot, attempt = await _held_fixture()
         await _seed_approval(store, attempt)
+        await _seed_observation(store, attempt)
         dispatcher = _Dispatcher()
         result = await _recover(_coordinator(store, process_store, dispatcher=dispatcher), snapshot)
 
         assert result.disposition is RecoveryDisposition.REJECTED
         assert result.reason == "safeguard_denied"
-        assert dispatcher.calls == []
+        assert result.release_receipt_digest is None
+        assert await StateStoreAutomationHoldLedger(store).is_held(target_ref=_TARGET)
+        terminal = await process_store.get(_PROCESS_ID)
+        assert terminal is not None
+        assert terminal.status is not ProcessStatus.COMPENSATED
 
     async def test_executor_owned_observation_is_never_authoritative(self) -> None:
         store, process_store, snapshot, attempt = await _held_fixture()
@@ -588,3 +609,305 @@ class _ReissuingHoldStore(InMemoryStateStore):
         if self._hold_reads < 2:
             return record
         return {**dict(record), "revision": int(record["revision"]) + 1}
+
+
+class TestRecoveryAdmissionGate:
+    """No provider dispatch before the full recovery admission is proven."""
+
+    @pytest.mark.parametrize(
+        ("seed", "expected_reason"),
+        [
+            ({"approver": _REQUESTER}, "self_approval"),
+            ({"decision": "rejected"}, "approval_rejected"),
+            ({"state": "cancelled"}, "approval_cancelled"),
+            ({"state": "timed_out"}, "approval_timed_out"),
+            (
+                {"expires_at": _NOW - timedelta(minutes=1)},
+                "approval_expired",
+            ),
+            (
+                {"decisions": ((_REQUESTER, "approved"), (_EXECUTOR, "approved"))},
+                "self_approval",
+            ),
+        ],
+    )
+    async def test_ineligible_approval_never_reaches_the_provider(
+        self,
+        seed: dict[str, object],
+        expected_reason: str,
+    ) -> None:
+        store, process_store, snapshot, attempt = await _held_fixture()
+        await _seed_bundle(store, attempt)
+        await _seed_observation(store, attempt)
+        await _seed_approval(store, attempt, **seed)  # type: ignore[arg-type]
+        dispatcher = _Dispatcher()
+        result = await _recover(_coordinator(store, process_store, dispatcher=dispatcher), snapshot)
+
+        assert result.disposition is RecoveryDisposition.REJECTED
+        assert result.reason == expected_reason
+        assert dispatcher.calls == []
+        assert await StateStoreAutomationHoldLedger(store).is_held(target_ref=_TARGET)
+
+    async def test_quorum_not_met_never_reaches_the_provider(self) -> None:
+        store, process_store, snapshot, attempt = await _held_fixture()
+        await _seed_bundle(store, attempt)
+        await _seed_observation(store, attempt)
+        await _seed_approval(store, attempt, decisions=())
+        dispatcher = _Dispatcher()
+        result = await _recover(_coordinator(store, process_store, dispatcher=dispatcher), snapshot)
+
+        assert result.disposition is RecoveryDisposition.REJECTED
+        assert result.reason == "quorum_not_met"
+        assert dispatcher.calls == []
+
+    async def test_missing_decision_evidence_admission_never_dispatches(self) -> None:
+        store, process_store, snapshot, attempt = await _held_fixture()
+        await _seed_bundle(store, attempt)
+        await _seed_observation(store, attempt)
+        await _seed_approval(store, attempt)
+        dispatcher = _Dispatcher()
+        coordinator = WorkflowRecoveryCoordinator(
+            process_store=process_store,
+            audit_store=store,
+            holds=StateStoreAutomationHoldLedger(store, clock=lambda: _NOW),
+            config=RecoveryCoordinatorConfig(
+                executor_identity=_EXECUTOR,
+                source_revision=_SOURCE_REVISION,
+            ),
+            dispatcher=dispatcher,
+            effect_observer=StateStoreRecoveryEffectObserver(store),
+            approval_reader=StateStoreRecoveryApprovalReader(store),
+            admission_provider=None,
+            bundle_reader=StateStoreRecoverySafeguardBundleReader(store),
+            clock=lambda: _NOW,
+        )
+        result = await _recover(coordinator, snapshot)
+
+        assert result.disposition is RecoveryDisposition.REJECTED
+        assert result.reason == "decision_evidence_admission_missing"
+        assert dispatcher.calls == []
+        assert await StateStoreAutomationHoldLedger(store).is_held(target_ref=_TARGET)
+
+    async def test_failing_admission_provider_never_dispatches(self) -> None:
+        store, process_store, snapshot, attempt = await _held_fixture()
+        await _seed_bundle(store, attempt)
+        await _seed_observation(store, attempt)
+        await _seed_approval(store, attempt)
+        dispatcher = _Dispatcher()
+        result = await _recover(
+            _coordinator(
+                store,
+                process_store,
+                dispatcher=dispatcher,
+                admissions=_FailingAdmissions(),  # type: ignore[arg-type]
+            ),
+            snapshot,
+        )
+
+        assert result.disposition is RecoveryDisposition.REJECTED
+        assert result.reason == "decision_evidence_provider_failed"
+        assert dispatcher.calls == []
+
+
+class TestExclusiveRecoveryClaim:
+    """One exclusive in-flight claim owns the single provider invocation."""
+
+    async def test_concurrent_recovery_dispatches_exactly_once(self) -> None:
+        store, process_store, snapshot, attempt = await _held_fixture()
+        await _seed_bundle(store, attempt)
+        await _seed_approval(store, attempt)
+        await _seed_observation(store, attempt)
+        dispatcher = _BlockingDispatcher()
+        winner = _coordinator(store, process_store, dispatcher=dispatcher)
+        loser = _coordinator(store, process_store, dispatcher=dispatcher)
+
+        winning = asyncio.create_task(_recover(winner, snapshot))
+        await asyncio.wait_for(dispatcher.entered.wait(), timeout=5)
+        losing = await asyncio.wait_for(_recover(loser, snapshot), timeout=5)
+        dispatcher.release.set()
+        won = await asyncio.wait_for(winning, timeout=5)
+
+        assert len(dispatcher.calls) == 1
+        assert won.disposition is RecoveryDisposition.COMPLETED
+        assert losing.disposition is RecoveryDisposition.IN_DOUBT
+        assert losing.reason == "in_doubt"
+
+    async def test_the_loser_waits_without_reissuing_a_hold(self) -> None:
+        store, process_store, snapshot, attempt = await _held_fixture()
+        await _seed_bundle(store, attempt)
+        await _seed_approval(store, attempt)
+        await _seed_observation(store, attempt)
+        dispatcher = _BlockingDispatcher()
+        winner = _coordinator(store, process_store, dispatcher=dispatcher)
+        loser = _coordinator(store, process_store, dispatcher=dispatcher)
+
+        winning = asyncio.create_task(_recover(winner, snapshot))
+        await asyncio.wait_for(dispatcher.entered.wait(), timeout=5)
+        await asyncio.wait_for(_recover(loser, snapshot), timeout=5)
+        dispatcher.release.set()
+        await asyncio.wait_for(winning, timeout=5)
+
+        holds = StateStoreAutomationHoldLedger(store)
+        assert not await holds.is_held(target_ref=_TARGET)
+        after = await _recover(loser, snapshot)
+        assert after.disposition is RecoveryDisposition.NOT_REQUIRED
+        assert not await holds.is_held(target_ref=_TARGET)
+        assert len(dispatcher.calls) == 1
+        terminal_events = [
+            event
+            for event in await process_store.events(_PROCESS_ID)
+            if event.kind is ProcessEventKind.RECOVERY_COMPLETED
+        ]
+        assert len(terminal_events) == 1
+
+
+class TestLateCrashHealing:
+    """A consumed release heals the Process after the claim validity closed."""
+
+    async def _crashed(
+        self,
+    ) -> tuple[InMemoryStateStore, _CrashingProcessStore, ProcessSnapshot, _Dispatcher]:
+        process_store = _CrashingProcessStore()
+        store, _, snapshot, attempt = await _held_fixture(process_store=process_store)
+        await _seed_bundle(store, attempt)
+        await _seed_approval(store, attempt)
+        await _seed_observation(store, attempt)
+        dispatcher = _Dispatcher()
+        coordinator = _coordinator(store, process_store, dispatcher=dispatcher)
+        process_store.arm()
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            await _recover(coordinator, snapshot)
+        assert not await StateStoreAutomationHoldLedger(store).is_held(target_ref=_TARGET)
+        return store, process_store, snapshot, dispatcher
+
+    async def test_heal_terminalizes_after_the_claim_validity_expired(self) -> None:
+        store, process_store, snapshot, dispatcher = await self._crashed()
+        late = _NOW + timedelta(hours=6)
+        coordinator = _coordinator(
+            store,
+            process_store,
+            dispatcher=dispatcher,
+            clock=lambda: late,
+        )
+
+        healed = await coordinator.heal(snapshot=snapshot)
+
+        assert healed is not None
+        assert healed.disposition is RecoveryDisposition.COMPLETED
+        assert healed.release_receipt_digest is not None
+        assert len(dispatcher.calls) == 1
+        events = await process_store.events(_PROCESS_ID)
+        assert events[-1].kind is ProcessEventKind.RECOVERY_COMPLETED
+
+    async def test_heal_rejects_a_release_the_hold_no_longer_proves(self) -> None:
+        store, process_store, snapshot, dispatcher = await self._crashed()
+        hold_key = next(key for key in store._state if key.startswith("workflow:automation-hold:"))
+        record = await store.read_state(hold_key)
+        assert record is not None
+        await store.write_state(
+            hold_key,
+            {
+                **dict(record),
+                "consumed_recovery_admission_digest": "sha256:" + "9" * 64,
+            },
+        )
+        late = _NOW + timedelta(hours=6)
+        coordinator = _coordinator(
+            store,
+            process_store,
+            dispatcher=dispatcher,
+            clock=lambda: late,
+        )
+
+        healed = await coordinator.heal(snapshot=snapshot)
+
+        assert healed is not None
+        assert healed.disposition is RecoveryDisposition.EFFECT_UNVERIFIED
+        assert healed.reason == "release_receipt_missing"
+        events = await process_store.events(_PROCESS_ID)
+        assert all(event.kind is not ProcessEventKind.RECOVERY_COMPLETED for event in events)
+
+    async def test_heal_rejects_a_hold_reissued_after_the_release(self) -> None:
+        store, process_store, snapshot, dispatcher = await self._crashed()
+        await StateStoreAutomationHoldLedger(store, clock=lambda: _NOW).issue(
+            target_ref=_TARGET,
+            process_id=_PROCESS_ID,
+            reason="compensation_failed_again",
+        )
+        late = _NOW + timedelta(hours=6)
+        coordinator = _coordinator(
+            store,
+            process_store,
+            dispatcher=dispatcher,
+            clock=lambda: late,
+        )
+
+        healed = await coordinator.heal(snapshot=snapshot)
+
+        assert healed is not None
+        assert healed.disposition is RecoveryDisposition.EFFECT_UNVERIFIED
+        events = await process_store.events(_PROCESS_ID)
+        assert all(event.kind is not ProcessEventKind.RECOVERY_COMPLETED for event in events)
+
+    async def test_heal_rejects_a_superseded_completion_claim(self) -> None:
+        store, process_store, snapshot, dispatcher = await self._crashed()
+        effect_key = next(
+            key for key in store._state if key.startswith("workflow:recovery-effect:")
+        )
+        record = await store.read_state(effect_key)
+        assert record is not None
+        claims = [dict(claim) for claim in list(record["claims"])]
+        claims[-1]["superseded_by"] = "sha256:" + "5" * 64
+        await store.write_state(effect_key, {**dict(record), "claims": claims})
+        coordinator = _coordinator(store, process_store, dispatcher=dispatcher)
+
+        healed = await coordinator.heal(snapshot=snapshot)
+
+        assert healed is None
+        events = await process_store.events(_PROCESS_ID)
+        assert all(event.kind is not ProcessEventKind.RECOVERY_COMPLETED for event in events)
+
+
+class _FailingAdmissions:
+    """Fail every admission so recovery stays fail-closed."""
+
+    async def admit(
+        self,
+        *,
+        evidence_digest: str,
+        scope_digest: str,
+        purpose_id: str,
+        source_revision: str,
+    ) -> DecisionEvidenceAdmission:
+        del evidence_digest, scope_digest, purpose_id, source_revision
+        raise TimeoutError("decision evidence admission provider is unavailable")
+
+
+class _BlockingDispatcher(_Dispatcher):
+    """Hold one provider invocation open so a concurrent caller can race it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def dispatch_recovery(
+        self,
+        *,
+        attempt: RecoveryAttemptIdentity,
+        claim: RecoveryPreDispatchClaim,
+        safeguard_bundle_digest: str,
+        target_resource_id: str,
+        params: dict[str, object],
+        correlation_id: str,
+    ) -> RecoveryDispatchResult:
+        self.entered.set()
+        await self.release.wait()
+        return await super().dispatch_recovery(
+            attempt=attempt,
+            claim=claim,
+            safeguard_bundle_digest=safeguard_bundle_digest,
+            target_resource_id=target_resource_id,
+            params=params,
+            correlation_id=correlation_id,
+        )

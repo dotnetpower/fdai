@@ -267,7 +267,12 @@ def test_every_exported_class_is_a_model_or_enum() -> None:
     from enum import StrEnum
 
     # Allow: a small set of type aliases and one dict constant.
-    allowed_non_class = {"IdempotencyKey", "SemVer", "CEILING_ROLE_RANK"}
+    allowed_non_class = {
+        "AnyExecutorCommand",
+        "CEILING_ROLE_RANK",
+        "IdempotencyKey",
+        "SemVer",
+    }
     offenders: list[str] = []
     for name in models.__all__:
         obj = getattr(models, name)

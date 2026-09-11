@@ -80,7 +80,10 @@ from fdai.core.executor.target_dispatch_fence_store import (
     TargetDispatchFenceStore,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath
-from fdai.shared.providers.automation_hold_state import AutomationHoldStateReader
+from fdai.shared.providers.automation_hold_state import (
+    AutomationHoldStateReader,
+    HoldReleaseAuthorizationReader,
+)
 from fdai.shared.providers.resource_lock import (
     EvidenceResourceLock,
     HeldResourceLock,
@@ -188,6 +191,7 @@ class SafeguardLifecycleCoordinator:
         config: SafeguardLifecycleCoordinatorConfig,
         commitment_store: SafeguardPreBundleCommitmentStore | None = None,
         hold_state_reader: AutomationHoldStateReader | None = None,
+        hold_release_authorizations: HoldReleaseAuthorizationReader | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._resource_lock = require_evidence_resource_lock(
@@ -204,6 +208,7 @@ class SafeguardLifecycleCoordinator:
         self._config = config
         self._commitment_store = commitment_store
         self._hold_state_reader = hold_state_reader
+        self._hold_release_authorizations = hold_release_authorizations
         self._clock = clock or (lambda: datetime.now(UTC))
         if config.production:
             stores = (
@@ -614,6 +619,12 @@ class SafeguardLifecycleCoordinator:
                 dispatch_port=_HoldFencedDispatchPort(
                     inner=dispatch_port,
                     hold_state_reader=self._hold_state_reader,
+                    lineage_reader=self._hold_release_authorizations,
+                    workflow_lineage=(
+                        (action.workflow_action.process_id, action.workflow_action.step_id)
+                        if action.workflow_action is not None
+                        else None
+                    ),
                     target_ref=action.target_resource_ref,
                     target_digest=acquisition.target_digest,
                     lock_ownership_token=acquisition.receipt_digest,
@@ -728,14 +739,18 @@ class SafeguardLifecycleCoordinator:
 class _HoldFencedDispatchPort:
     """Recheck automation-hold state inside the held lock before invocation.
 
-    A previously held target keeps its release receipt on the durable hold
-    record, so a hold reissued between the last check and provider invocation
-    denies dispatch instead of racing it (#640).
+    The expected release lineage comes from the immutable authorization bound
+    when the hold was released for this exact action, so a hold reissued and
+    re-released between authorization and provider invocation denies dispatch
+    instead of racing it (#640). Deriving lineage from the current hold record
+    would make the fence agree with whatever release happens to be newest.
     """
 
     __slots__ = (
         "_inner",
         "_hold_state_reader",
+        "_lineage_reader",
+        "_workflow_lineage",
         "_target_ref",
         "_target_digest",
         "_lock_ownership_token",
@@ -750,6 +765,8 @@ class _HoldFencedDispatchPort:
         *,
         inner: DispatchPort,
         hold_state_reader: AutomationHoldStateReader | None,
+        lineage_reader: HoldReleaseAuthorizationReader | None,
+        workflow_lineage: tuple[str, str] | None,
         target_ref: str,
         target_digest: str,
         lock_ownership_token: str,
@@ -760,6 +777,8 @@ class _HoldFencedDispatchPort:
     ) -> None:
         self._inner = inner
         self._hold_state_reader = hold_state_reader
+        self._lineage_reader = lineage_reader
+        self._workflow_lineage = workflow_lineage
         self._target_ref = target_ref
         self._target_digest = target_digest
         self._lock_ownership_token = lock_ownership_token
@@ -818,6 +837,24 @@ class _HoldFencedDispatchPort:
         reader = self._hold_state_reader
         if reader is None:
             return None
+        try:
+            authorization = await self._authorization()
+        except Exception:  # noqa: BLE001 - an unreadable authorization fails closed
+            _LOGGER.exception(
+                "hold_dispatch_fence_authorization_read_failed",
+                extra={"action_id": self._action_id},
+            )
+            return self._unreadable_check()
+        expected_lineage = _released_lineage(authorization)
+        authorized_hold_revision = _authorized_hold_revision(authorization)
+        if (
+            authorization is not None
+            and expected_lineage is None
+            and (authorized_hold_revision is None)
+        ):
+            # An authorization exists but cannot be reconstructed: never treat
+            # unusable evidence as "no authorization".
+            return self._unreadable_check()
         record: Mapping[str, Any] | None
         try:
             record = await reader.read_hold_record(target_ref=self._target_ref)
@@ -826,38 +863,72 @@ class _HoldFencedDispatchPort:
                 "hold_dispatch_fence_read_failed",
                 extra={"action_id": self._action_id},
             )
-            return recheck_hold_fence(
-                target_digest=self._target_digest,
-                hold_record=_UNREADABLE_HOLD,
-                expected_lineage=None,
-                lock_ownership_token=self._lock_ownership_token,
-                checked_at=self._clock(),
-            )
-        if record is None:
+            return self._unreadable_check()
+        if record is None and authorization is None:
             return None
         return recheck_hold_fence(
             target_digest=self._target_digest,
-            hold_record=dict(record),
-            expected_lineage=_hold_lineage(record),
+            hold_record=dict(record) if record is not None else None,
+            expected_lineage=expected_lineage,
+            lock_ownership_token=self._lock_ownership_token,
+            checked_at=self._clock(),
+            authorized_hold_revision=authorized_hold_revision,
+        )
+
+    def _unreadable_check(self) -> HoldFenceCheckResult:
+        return recheck_hold_fence(
+            target_digest=self._target_digest,
+            hold_record=_UNREADABLE_HOLD,
+            expected_lineage=None,
             lock_ownership_token=self._lock_ownership_token,
             checked_at=self._clock(),
         )
 
+    async def _authorization(self) -> Mapping[str, Any] | None:
+        reader = self._lineage_reader
+        lineage = self._workflow_lineage
+        if reader is None or lineage is None:
+            return None
+        process_id, step_id = lineage
+        return await reader.read_dispatch_authorization(
+            target_ref=self._target_ref,
+            process_id=process_id,
+            step_id=step_id,
+        )
+
 
 _UNREADABLE_HOLD = object()
+_HOLD_SCOPED_AUTHORIZATION = "hold_scoped"
+_RELEASED_AUTHORIZATION = "released"
 
 
-def _hold_lineage(record: object) -> HoldLineage | None:
-    """Rebuild the expected release lineage for a previously held target."""
+def _authorized_hold_revision(record: object) -> int | None:
+    """Return the exact active hold revision one step may dispatch under."""
 
-    if not isinstance(record, Mapping) or record.get("state") != "released":
+    if not isinstance(record, Mapping):
         return None
-    receipt = record.get("release_receipt")
+    if record.get("authorization_kind") != _HOLD_SCOPED_AUTHORIZATION:
+        return None
+    revision = record.get("authorized_hold_revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        return None
+    return revision
+
+
+def _released_lineage(record: object) -> HoldLineage | None:
+    """Rebuild the release lineage one step was explicitly authorized under.
+
+    The reader owns the target and step binding, so this helper only
+    reconstructs the content-addressed lineage the authorization recorded.
+    """
+
+    if not isinstance(record, Mapping):
+        return None
+    if record.get("authorization_kind") != _RELEASED_AUTHORIZATION:
+        return None
+    receipt_digest = record.get("release_receipt_digest")
+    released_hold_revision = record.get("released_hold_revision")
     fencing_generation = record.get("fencing_generation")
-    released_hold_revision = (
-        receipt.get("released_hold_revision") if isinstance(receipt, Mapping) else None
-    )
-    receipt_digest = receipt.get("receipt_digest") if isinstance(receipt, Mapping) else None
     if (
         not isinstance(receipt_digest, str)
         or not isinstance(fencing_generation, int)

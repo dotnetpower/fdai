@@ -26,4 +26,30 @@ class AutomationHoldStateReader(Protocol):
         ...
 
 
-__all__ = ["AutomationHoldStateReader"]
+@runtime_checkable
+class HoldReleaseAuthorizationReader(Protocol):
+    """Return the dispatch authorization one exact workflow step holds.
+
+    Expected lineage MUST come from the authorization bound when the hold was
+    released for that step, or from the hold-scoped authorization an approved
+    recovery step received, never from whatever hold record happens to be
+    current at dispatch time. Deriving it from the current record would make
+    the fence agree with any reissued-and-re-released hold.
+    """
+
+    async def read_dispatch_authorization(
+        self,
+        *,
+        target_ref: str,
+        process_id: str,
+        step_id: str,
+    ) -> Mapping[str, Any] | None:
+        """Return the durable authorization, or ``None`` when none exists.
+
+        Implementations MUST fail closed by raising rather than returning
+        ``None`` when an authorization exists but cannot be read.
+        """
+        ...
+
+
+__all__ = ["AutomationHoldStateReader", "HoldReleaseAuthorizationReader"]
