@@ -541,7 +541,7 @@ async def test_nonempty_automation_blueprint_projection_is_bounded_and_read_only
             "acceptance_rate": 1.0,
         },
     }
-    assert "LIMIT 200" in statements[0]
+    assert statements[0].rstrip().endswith("LIMIT 200")
 
 
 async def test_empty_autonomy_window_remains_an_authoritative_measurement(
