@@ -428,6 +428,66 @@ def test_pre_push_accepts_an_atomic_main_and_tag_update(tmp_path: Path) -> None:
     assert "pre-push: OK" in result.stdout
 
 
+def test_pre_push_rejects_tags_with_stale_release_controls(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "FDAI Tests"],
+        cwd=repository,
+        check=True,
+    )
+    workflow = repository / ".github" / "workflows" / "container-supply-chain.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("name: legacy\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "legacy"], cwd=repository, check=True)
+    legacy_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    workflow.write_text("name: protected\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(workflow)], cwd=repository, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "protected"], cwd=repository, check=True)
+    protected_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", protected_commit],
+        cwd=repository,
+        check=True,
+    )
+    hook_input = f"refs/tags/v1 {legacy_commit} refs/tags/v1 {'0' * 40}\n"
+
+    result = subprocess.run(
+        ["bash", str(_PRE_PUSH), "origin"],
+        cwd=repository,
+        input=hook_input,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "tag 'v1' uses stale release controls" in result.stdout
+
+
 def test_pre_push_rejects_a_tag_source_for_a_branch_destination(tmp_path: Path) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
