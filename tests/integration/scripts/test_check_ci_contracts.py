@@ -738,7 +738,7 @@ def test_verifier_failure_and_intermediate_jobs_cannot_authorize_execution() -> 
                         },
                     },
                     {
-                        "if": "always() && steps.guard.outcome == 'failure'",
+                        "if": "! success() && steps.checkout.outcome == 'success'",
                         "run": "terraform apply saved.plan",
                     },
                 ],

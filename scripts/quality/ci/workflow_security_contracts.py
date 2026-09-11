@@ -254,21 +254,39 @@ def condition_overrides_guard_failure(condition: Any) -> bool:
     if not isinstance(condition, str):
         return False
     return any(
-        token in condition for token in ("always()", "failure()", "cancelled()", "!cancelled()")
+        token in condition
+        for token in (
+            "always()",
+            "failure()",
+            "cancelled()",
+            "!cancelled()",
+            "! success()",
+            "!success()",
+            "success() == false",
+        )
     )
 
 
-def condition_requires_prior_step(condition: Any) -> bool:
+def condition_requires_prior_step(
+    condition: Any,
+    eligible_step_ids: set[str],
+) -> bool:
     """Return whether a status override is fail-closed on a later step result."""
-    return (
-        isinstance(condition, str)
-        and re.search(
-            r"steps\.[A-Za-z0-9_-]+\.(?:outcome|conclusion)\s*==\s*'success'"
-            r"|steps\.[A-Za-z0-9_-]+\.outputs\.[A-Za-z0-9_-]+\s*==\s*'true'",
+    if not isinstance(condition, str):
+        return False
+    referenced = set(
+        re.findall(
+            r"steps\.([A-Za-z0-9_-]+)\.(?:outcome|conclusion)\s*==\s*'success'",
             condition,
         )
-        is not None
     )
+    referenced.update(
+        re.findall(
+            r"steps\.([A-Za-z0-9_-]+)\.outputs\.[A-Za-z0-9_-]+\s*==\s*'true'",
+            condition,
+        )
+    )
+    return bool(referenced & eligible_step_ids)
 
 
 def protected_guard_prefix_errors(
@@ -344,18 +362,21 @@ def protected_guard_prefix_errors(
             or guard.get("if") != allowed_condition
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected-source verifier")
+        post_verifier_ids: set[str] = set()
         for step in steps[2:]:
             if (
                 isinstance(step, dict)
                 and condition_overrides_guard_failure(step.get("if"))
                 and isinstance(step.get("run"), str)
                 and PRIVILEGED_COMMAND_RE.search(step["run"]) is not None
-                and not condition_requires_prior_step(step.get("if"))
+                and not condition_requires_prior_step(step.get("if"), post_verifier_ids)
             ):
                 errors.append(
                     f"{relative} job {job_name} can execute a privileged step after "
                     "verifier failure"
                 )
+            if isinstance(step, dict) and isinstance(step.get("id"), str):
+                post_verifier_ids.add(step["id"])
     if not guarded_jobs:
         errors.append(f"{relative} is privileged and has no executable protected-source guard")
         return errors
