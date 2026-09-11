@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 8212c77dbb3bb9909429d6fc6048cd72e7c990db
+translation_source_sha: 9ceee243c466ae01036dcb1827d293c2b380af91
 translation_revised: 2026-09-11
 ---
 # 구독 초기 구성 보증
@@ -144,6 +144,8 @@ Command, 로그, 상태, 증적에 넣지 않습니다. 이식 가능한 상태�
 Genesis는 검색을 정확한 대상 구독에 결합하고 VNet 로컬 및 피어링 주소 공간, 경로 테이블
 접두사, 로컬 네트워크 게이트웨이 접두사, 현재 로컬 호스트 경로를 포함합니다. 관찰할 수 없는
 외부 범위는 안전하다고 추론하지 않고 명시적인 운영자 제약 조건으로 유지합니다.
+Azure CLI 목록 명령이 리소스 그룹을 요구하는 리소스 종류는 정확한 구독 전체에서 제한된 ID
+집합을 먼저 조회한 뒤 각 정확한 ID를 병렬로 읽습니다.
 
 선택한 실행 프로필은 다음을 증명해야 합니다.
 
