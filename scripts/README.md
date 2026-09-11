@@ -59,6 +59,9 @@ make test-changed DIFF=origin/main...HEAD
 
 Each pytest shard starts through the locked `uv` development environment, so it always satisfies
 the repository's Python version and dependency contract instead of inheriting a system pytest.
+The static import graph is cached under `.pytest_cache` and reparses only changed Python files.
+Adding, deleting, or moving a source module invalidates the complete graph so module resolution
+cannot reuse a stale inventory.
 
 Changes to global Python test configuration, repository configuration data,
 database migrations, composition wiring, policy data, rule catalog data or
@@ -71,14 +74,9 @@ Non-Python fixtures under `services/core-control-plane/tests/` and package resou
 select the full suite because their consumers can't be inferred from imports.
 
 Known repository inputs can declare a narrower owner before that fail-safe. For
-example, `config/service-decomposition.json` maps to `services/core-control-plane/tests/scripts`. When the
-static import graph selects at least 250 test paths and every changed Python
-source has exactly one owner in `services/core-control-plane/tests/service-suites.json`, the runner uses the
-union of those service-owned suites and every impacted consumer outside them.
-This collapses redundant in-service test files to their owner directory without
-dropping cross-service consumers. Missing or overlapping ownership keeps the
-original import-impact selection. Set `FDAI_TEST_IMPACT_SERVICE_THRESHOLD` to
-a positive integer to tune the crossover without changing the fail-safe.
+example, `config/service-decomposition.json` maps to `services/core-control-plane/tests/scripts`.
+The static import graph retains exact impacted test files instead of replacing a broad result with
+whole service-owned suites, so unrelated tests do not re-enter the focused development loop.
 
 The runner executes non-integration tests first in a sanitized environment. It
 executes selected `integration` tests only when
