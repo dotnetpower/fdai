@@ -637,11 +637,51 @@ def _dispatch_guard_errors(document: Any, relative: str) -> list[str]:
     return errors
 
 
+def _permissions_are_privileged(permissions: Any) -> bool:
+    return permissions == "write-all" or (
+        isinstance(permissions, dict)
+        and any(permission == "write" for permission in permissions.values())
+    )
+
+
+def _runner_is_privileged(runner: Any) -> bool:
+    runners = runner if isinstance(runner, list) else [runner]
+    return any(
+        value == "self-hosted" or (isinstance(value, str) and "${{" in value) for value in runners
+    )
+
+
+def _job_is_privileged(job: Any, default_permissions: Any) -> bool:
+    if not isinstance(job, dict):
+        return False
+    permissions = job.get("permissions", default_permissions)
+    if _permissions_are_privileged(permissions) or _runner_is_privileged(job.get("runs-on")):
+        return True
+    steps = job.get("steps")
+    return isinstance(steps, list) and any(
+        isinstance(step, dict)
+        and isinstance(step.get("run"), str)
+        and PRIVILEGED_COMMAND_RE.search(step["run"]) is not None
+        for step in steps
+    )
+
+
+def _job_needs(job: Any) -> set[str]:
+    if not isinstance(job, dict):
+        return set()
+    needs = job.get("needs", [])
+    if isinstance(needs, str):
+        return {needs}
+    return (
+        {value for value in needs if isinstance(value, str)} if isinstance(needs, list) else set()
+    )
+
+
 def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
     if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
         return [f"{relative} is privileged and has no executable protected-source guard"]
     errors: list[str] = []
-    guarded_job_found = False
+    guarded_jobs: set[str] = set()
     expected_checkout = f"actions/checkout@{APPROVED_ACTIONS['actions/checkout'][0]}"
     expected_checkout_with = {
         "ref": "main",
@@ -660,7 +700,7 @@ def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
         ]
         if not guard_indexes:
             continue
-        guarded_job_found = True
+        guarded_jobs.add(job_name)
         if len(guard_indexes) != 1 or guard_indexes[0] != 1 or len(steps) < 2:
             errors.append(
                 f"{relative} job {job_name} must start with the exact protected-source "
@@ -668,10 +708,18 @@ def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
             )
             continue
         checkout, guard = steps[:2]
+        allowed_condition = (
+            "github.event_name != 'pull_request'"
+            if relative == ".github/workflows/container-supply-chain.yml"
+            and job_name == "select-images"
+            else None
+        )
         if not isinstance(checkout, dict) or (
             checkout.get("name") != "Checkout protected workflow verifier"
             or checkout.get("uses") != expected_checkout
             or checkout.get("with") != expected_checkout_with
+            or checkout.get("continue-on-error") not in {None, False}
+            or checkout.get("if") != allowed_condition
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected verifier checkout")
         guard_with = guard.get("with") if isinstance(guard, dict) else None
@@ -684,10 +732,32 @@ def _protected_guard_prefix_errors(document: Any, relative: str) -> list[str]:
             or guard_with.get("origin-url")
             != "${{ github.server_url }}/${{ github.repository }}.git"
             or guard_with.get("github-token") != "${{ github.token }}"
+            or guard.get("continue-on-error") not in {None, False}
+            or guard.get("if") != allowed_condition
         ):
             errors.append(f"{relative} job {job_name} has an invalid protected-source verifier")
-    if not guarded_job_found:
+    if not guarded_jobs:
         errors.append(f"{relative} is privileged and has no executable protected-source guard")
+        return errors
+    jobs = document["jobs"]
+    default_permissions = document.get("permissions")
+    for job_name, job in jobs.items():
+        if not _job_is_privileged(job, default_permissions) or job_name in guarded_jobs:
+            continue
+        pending = list(_job_needs(job))
+        visited: set[str] = set()
+        protected_by_dependency = False
+        while pending:
+            dependency = pending.pop()
+            if dependency in visited:
+                continue
+            visited.add(dependency)
+            if dependency in guarded_jobs:
+                protected_by_dependency = True
+                break
+            pending.extend(_job_needs(jobs.get(dependency)))
+        if not protected_by_dependency:
+            errors.append(f"{relative} privileged job {job_name} has no guarded needs dependency")
     return errors
 
 

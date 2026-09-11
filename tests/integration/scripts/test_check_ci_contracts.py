@@ -521,6 +521,88 @@ def test_privileged_workflow_rejects_remote_action_before_source_guard(
     ]
 
 
+def test_privileged_jobs_require_their_own_guard_or_guarded_dependency() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "permissions": {"contents": "read"},
+        "jobs": {
+            "guarded": {
+                "runs-on": "ubuntu-24.04",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            },
+            "unguarded": {
+                "runs-on": "self-hosted",
+                "steps": [{"run": "bash deploy.sh"}],
+            },
+        },
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml privileged job unguarded has no guarded needs dependency"
+    ]
+
+
+def test_protected_verifier_cannot_be_non_blocking() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "apply": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "continue-on-error": True,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                ],
+            }
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job apply has an invalid protected-source verifier"
+    ]
+
+
 def test_protected_verifier_source_requires_the_reviewed_digest() -> None:
     module = _load_contract_module()
     inert_fragments = "\n".join(
