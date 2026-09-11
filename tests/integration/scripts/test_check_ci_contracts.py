@@ -927,6 +927,16 @@ def test_dispatch_guard_accepts_main_bound_nested_alternatives() -> None:
     )
 
 
+def test_dispatch_guard_rejects_nested_ref_alternatives() -> None:
+    module = _load_contract_module()
+
+    assert not module.workflow_security.dispatch_condition_is_protected(
+        "github.event_name == 'workflow_dispatch' && "
+        "(github.ref == 'refs/heads/main' || inputs.force)",
+        {"workflow_dispatch"},
+    )
+
+
 def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/issue-lifecycle.yml").read_text(encoding="utf-8")
 
