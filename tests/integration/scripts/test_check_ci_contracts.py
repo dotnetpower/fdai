@@ -281,13 +281,14 @@ def test_local_docker_actions_require_digest_pinned_base_images(
         encoding="utf-8",
     )
     (action_dir / "Dockerfile").write_text(
-        "FROM example/base:latest AS build\nFROM build\n",
+        "ARG DIGEST\nFROM example/base@sha256:${DIGEST} AS build\nFROM build\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_action_runtime_versions() == [
-        ".github/actions/local/Dockerfile base image example/base:latest must be digest-pinned"
+        ".github/actions/local/Dockerfile base image example/base@sha256:${DIGEST} "
+        "must be digest-pinned"
     ]
 
 
