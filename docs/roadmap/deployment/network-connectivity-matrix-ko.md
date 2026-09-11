@@ -1,7 +1,7 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: aa6b5dac7d0de695caa20a6231b44f773b9ec27e
+translation_source_sha: 837cf8e4bee25da2a9029eb91e1cfedcc1c1ccd1
 translation_revised: 2026-08-14
 ---
 # 네트워크 연결 매트릭스
@@ -32,19 +32,24 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | DNS, 주소 정책, TCP, 매니페스트 및 정보 제거 엔진 | implemented | `scripts/deployment/azure/network_connectivity.py` 및 `tests/integration/scripts/test_check_network_connectivity.py` | 집중 테스트는 엔드포인트 구문 분석, 프로파일 발견, 비공개/공개 주소 기대값, 필수/선택 실패, 조치 안내 및 정보 제거를 다룹니다. |
 | 보호된 실행기 연결 게이트 | implemented | `.github/workflows/deploy-dev.yml` 및 네트워크 검사 계약 테스트 | 작업 흐름은 Terraform 출력을 `PREFLIGHT_NETWORK_CHECKS_JSON`과 조립하고 필수 실패를 차단하며, 임시 입력을 제거하고 정제된 리포트만 프리플라이트 근거에 연결합니다. |
+| APIM 경로 정책 계약 | implemented | `infra/modules/llm/apim-ai-gateway/policy.xml.tftpl`; `tests/integration/infra/test_apim_ai_gateway.py`; 집중 검사(`5 passed`) | 정적 정책 검사는 호출자와 backend Entra 인증, HTTP 429에서만 한 번 수행하는 PTU-to-Standard 재시도, FDAI 경로 근거 헤더 세 개를 요구합니다. 이는 실제 서브넷 또는 배포 응답 근거가 아닙니다. |
 | DNS, 프로토콜, 포트 및 실패 참조 매트릭스 | not-applicable | 이 문서의 표와 연결된 Azure 참조 | 설계 및 운영자 참조 자료이며 소스가 존재한다는 사실만으로 배포된 경로를 입증하지는 않습니다. |
-| 런타임 서브넷, APIM, AMPLS 및 운영자 경로 근거 | not-started | 이 문서의 검증 검사 목록 | 실제 서브넷에서 모든 신원, DNS, TLS, APIM 헤더, 이미지 가져오기 및 실패 주입 검사를 입증하는 완전한 환경 중립 증적이 저장소에 없습니다. |
+| 런타임 서브넷, 배포된 APIM, AMPLS 및 운영자 경로 근거 | not-started | 이 문서의 검증 검사 목록 | 실제 서브넷에서 모든 신원, DNS, TLS, 배포된 APIM 헤더, 이미지 가져오기 및 실패 주입 검사를 입증하는 완전한 환경 중립 증적이 저장소에 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 통과한 APIM 정적 경로 정책 계약을 아직 남은 실제 서브넷 및 배포 응답 근거와 분리했습니다. | `current change`; 집중 APIM 모듈 검사(`5 passed`). | PTU 및 강제 429 배포 응답 헤더와 실제 서브넷 경로 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 엔드포인트 검사기와 배포별 네트워크 검증을 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 집중 검사기 테스트 및 보호된 실행기 작업 흐름 근거 | 선택한 각 배포 프로파일에 대해 서브넷 수준의 정상 및 실패 연결 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 실제 런타임, APIM 및 배포 호스트 서브넷에서 신원으로 인증된 DNS와 TLS 검사를 실행하고 모든 필수 경로의 정제된 통제 증적을 보존합니다.
-- [ ] APIM PTU 및 강제 429 spillover 경로가 FDAI 근거 헤더 세 개를 모두 반환하며, 헤더가 없으면 실패 시 차단되는지 검증합니다.
+- [x] APIM 정책이 PTU를 먼저 사용하고 HTTP 429에서만 Standard로 한 번 재시도하며 FDAI
+  경로 근거 헤더 세 개를 내보내는지 정적으로 검증합니다(`5 passed`).
+- [ ] 실제 APIM 경로에서 FDAI 근거 헤더 세 개가 모두 포함된 PTU 및 강제 429 응답을
+  보존하고 헤더가 없으면 실패 시 차단됨을 입증합니다.
 - [ ] 승인된 검증 환경에서 각 필수 의존성을 차단하고 해당 기능이 실패 매트릭스에 지정된 그대로 저하됨을 입증하는 근거를 보존합니다.
 
 ## 한눈에 보는 설계
