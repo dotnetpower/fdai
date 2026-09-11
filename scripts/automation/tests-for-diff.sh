@@ -321,9 +321,23 @@ if [[ $run_pytest -eq 1 ]]; then
         echo "tests-for-diff.sh: FDAI_CHANGED_TEST_PARALLEL_THRESHOLD must be a positive integer" >&2
         exit 2
     fi
+    broad_directory_selected=0
+    for path in "${tests[@]}"; do
+        file_path="${path%%::*}"
+        [[ -d "$file_path" ]] || continue
+        test_file_count=0
+        while IFS= read -r _test_file; do
+            ((test_file_count += 1))
+            (( test_file_count >= parallel_threshold )) && break
+        done < <(find "$file_path" -type f -name 'test_*.py' -print)
+        if (( test_file_count >= parallel_threshold )); then
+            broad_directory_selected=1
+            break
+        fi
+    done
     shard_count=1
     if [[ "${FDAI_PYTEST_XDIST:-1}" == "1" ]] && \
-        [[ $full_suite_selected -eq 1 || -n "${seen[tests]:-}" || ${#tests[@]} -ge $parallel_threshold ]]; then
+        [[ $full_suite_selected -eq 1 || $broad_directory_selected -eq 1 || -n "${seen[tests]:-}" || ${#tests[@]} -ge $parallel_threshold ]]; then
         shard_count="${FDAI_PYTEST_MAX_WORKERS:-4}"
         if [[ ! "$shard_count" =~ ^[1-9][0-9]*$ ]]; then
             echo "tests-for-diff.sh: FDAI_PYTEST_MAX_WORKERS must be a positive integer" >&2
