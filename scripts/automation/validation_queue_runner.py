@@ -68,6 +68,7 @@ STAGE_KILLED_STATUS = 124
 # It needs its own status, or the localizer blames a commit for a fault of the machine.
 STAGE_ENVIRONMENT_STATUS = 125
 ENVIRONMENT_MARKER = "validation-environment: "
+FAILURE_LOCALIZATION_MAX_COMMITS = 32
 
 
 @dataclass
@@ -558,6 +559,12 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         or len(selected) == 1
         or status in {STAGE_KILLED_STATUS, STAGE_ENVIRONMENT_STATUS}
     ):
+        return status
+    if len(selected) > FAILURE_LOCALIZATION_MAX_COMMITS:
+        print(
+            "validation-queue: skipping failure localization for "
+            f"{len(selected)} pending commits; limit={FAILURE_LOCALIZATION_MAX_COMMITS}"
+        )
         return status
     return _localize_failure(
         paths,
