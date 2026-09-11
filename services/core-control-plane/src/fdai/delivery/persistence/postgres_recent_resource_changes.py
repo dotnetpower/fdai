@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg
+from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
 from fdai.core.ontology_platform.recent_resource_changes import (
@@ -61,6 +62,8 @@ class PostgresRecentResourceChangeReader:
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         ) as connection:
+            await connection.set_isolation_level(IsolationLevel.REPEATABLE_READ)
+            await connection.set_read_only(True)
             await connection.execute(
                 "SELECT set_config('statement_timeout', %s, true)",
                 (str(self._config.statement_timeout_ms),),
@@ -95,6 +98,7 @@ class PostgresRecentResourceChangeReader:
                 connection,
                 scope_refs=self._config.scope_refs,
                 required_at=end_at - timedelta(seconds=self._config.cursor_freshness_seconds),
+                known_at=known_at,
             )
         truncated = len(rows) > limit
         return RecentResourceChangeRead(
@@ -163,6 +167,7 @@ async def _cursor_coverage_complete(
     *,
     scope_refs: tuple[str, ...],
     required_at: datetime,
+    known_at: datetime,
 ) -> bool:
     if not scope_refs:
         return False
@@ -186,7 +191,11 @@ async def _cursor_coverage_complete(
             polled_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         except ValueError:
             return False
-        if polled_at.tzinfo is None or polled_at.astimezone(UTC) < required_at.astimezone(UTC):
+        if (
+            polled_at.tzinfo is None
+            or polled_at.astimezone(UTC) < required_at.astimezone(UTC)
+            or polled_at.astimezone(UTC) > known_at.astimezone(UTC)
+        ):
             return False
         pending = value.get("pending_event_ids")
         if (
@@ -199,8 +208,8 @@ async def _cursor_coverage_complete(
         if not pending:
             continue
         ingested = await connection.execute(
-            _PROCESSED_EVENT_COUNT_SQL,
-            (pending, pending),
+            _PROCESSED_EVENT_COUNT_AT_SQL,
+            (pending, known_at, pending, known_at),
         )
         ingested_row = await ingested.fetchone()
         if (
@@ -219,6 +228,14 @@ _PROCESSED_EVENT_COUNT_SQL = (
     "AND source_event_id=ANY(%s::text[]) "
     "UNION SELECT source_event_id FROM inventory_change_event_receipt "
     "WHERE source_event_id=ANY(%s::text[])) AS processed"
+)
+_PROCESSED_EVENT_COUNT_AT_SQL = (
+    "SELECT count(*) AS count FROM ("
+    "SELECT source_event_id FROM inventory_observation_journal "
+    "WHERE source_identity='fdai.delivery.azure.arg_resource_changes' "
+    "AND source_event_id=ANY(%s::text[]) AND recorded_at<=%s "
+    "UNION SELECT source_event_id FROM inventory_change_event_receipt "
+    "WHERE source_event_id=ANY(%s::text[]) AND processed_at<=%s) AS processed"
 )
 
 
