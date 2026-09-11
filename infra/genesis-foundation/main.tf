@@ -123,7 +123,8 @@ module "bootstrap" {
     subscription_id = var.subscription_id
     tenant_id       = var.tenant_id
   }
-  genesis_state_account_id = azapi_resource.state.id
+  genesis_state_account_id      = azapi_resource.state.id
+  genesis_app_resource_group_id = azapi_resource.app_resource_group.id
 
   workload                     = var.workload
   env                          = var.env
@@ -134,10 +135,14 @@ module "bootstrap" {
   ops_address_space            = var.ops_address_space
   runner_subnet_prefix         = var.runner_subnet_prefix
   pe_subnet_prefix             = var.pe_subnet_prefix
+  enable_bastion               = var.enable_bastion
+  bastion_subnet_prefix        = var.bastion_subnet_prefix
   enable_public_egress         = var.enable_public_egress
   runner_bootstrap_mode        = local.runner_bootstrap_mode
   runner_source_image_id       = var.runner_source_image_id
   runner_ssh_public_key        = var.runner_ssh_public_key
+  runner_admin_username        = var.runner_admin_username
+  runner_parallelism           = var.runner_parallelism
   runner_vm_size               = var.runner_vm_size
   create_runner_vm             = true
   enable_deploy_identity_roles = true

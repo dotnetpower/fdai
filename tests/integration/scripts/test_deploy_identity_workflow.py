@@ -17,6 +17,9 @@ _EFFECT_WRAPPER = _EFFECT_WRAPPER_PATH.read_text(encoding="utf-8")
 _STATE_RECONCILER = (
     _ROOT / "scripts" / "deployment" / "azure" / "reconcile_deploy_identity_state.py"
 ).read_text(encoding="utf-8")
+_APPLY_RECEIPT_BUILDER = (
+    _ROOT / "scripts" / "deployment" / "azure" / "build_deployment_apply_receipt.py"
+).read_text(encoding="utf-8")
 
 
 def test_workflow_binds_and_guards_only_the_identity_migration_plan() -> None:
@@ -51,7 +54,7 @@ def test_identity_apply_uses_targeted_convergence_without_runtime_checks() -> No
     assert "deploy-identity-applied-plan.json" in _WORKFLOW
     assert "- name: Verify stable deploy identity effect" not in _WORKFLOW
     assert "verify-deploy-identity-effect.sh" in _WORKFLOW
-    assert "deploy_identity_effect_digest" in _WORKFLOW
+    assert "deploy_identity_effect_digest" in _APPLY_RECEIPT_BUILDER
     canary = _WORKFLOW.split("- name: Run canary publisher smoke", maxsplit=1)[1].split(
         "- name: Record exact plan apply receipt", maxsplit=1
     )[0]

@@ -17,6 +17,7 @@ _STRINGS = {
     "source_commit": r"[0-9a-f]{40}",
     "run_digest": r"[0-9a-f]{64}",
     "foundation_context_digest": r"[0-9a-f]{64}",
+    "runner_image_toolchain_digest": r"[0-9a-f]{64}",
 }
 _NETWORKS = ("ops_address_space", "runner_subnet_prefix", "pe_subnet_prefix")
 _REQUIRED = (
@@ -30,7 +31,17 @@ _REQUIRED = (
         "runner_source_image_id",
     }
 )
-_OPTIONAL = frozenset({"state_retention_days", "runner_vm_size", "enable_public_egress"})
+_OPTIONAL = frozenset(
+    {
+        "state_retention_days",
+        "runner_vm_size",
+        "runner_admin_username",
+        "runner_parallelism",
+        "enable_public_egress",
+        "enable_bastion",
+        "bastion_subnet_prefix",
+    }
+)
 _UUID = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
 _SEGMENT = r"[A-Za-z0-9._()-]+"
 _IMAGE = re.compile(
@@ -88,8 +99,18 @@ def snapshot_foundation_input(
     size = values.get("runner_vm_size", "Standard_D4ds_v5")
     if not isinstance(size, str) or re.fullmatch(r"Standard_[A-Za-z0-9_]{1,64}", size) is None:
         raise ValueError("foundation plan runner size is invalid")
+    username = values.get("runner_admin_username", "fdairunner")
+    if not isinstance(username, str) or re.fullmatch(r"[a-z_][a-z0-9_-]{0,30}", username) is None:
+        raise ValueError("foundation plan runner username is invalid")
+    parallelism = values.get("runner_parallelism", 1)
+    if type(parallelism) is not int or not 1 <= parallelism <= 5:
+        raise ValueError("foundation plan runner parallelism MUST be an integer from 1 through 5")
     if type(values.get("enable_public_egress", False)) is not bool:
         raise ValueError("foundation plan public egress selection MUST be boolean")
+    enable_bastion = values.get("enable_bastion", False)
+    if type(enable_bastion) is not bool:
+        raise ValueError("foundation plan Bastion selection MUST be boolean")
+    _validate_bastion_network(values, enabled=enable_bastion)
     terraform_values = {key: value for key, value in values.items() if key != "target_binding"}
     terraform_values["env"] = expected_environment
     write_plan_input(destination, terraform_values)
@@ -110,3 +131,27 @@ def _validate_networks(values: dict[str, object]) -> None:
     hub, runner, endpoint = networks
     if not runner.subnet_of(hub) or not endpoint.subnet_of(hub) or runner.overlaps(endpoint):
         raise ValueError("foundation subnets MUST be disjoint and contained in the ops network")
+
+
+def _validate_bastion_network(values: dict[str, object], *, enabled: bool) -> None:
+    value = values.get("bastion_subnet_prefix")
+    if not enabled:
+        if value is not None:
+            raise ValueError("foundation Bastion subnet requires Bastion to be enabled")
+        return
+    if not isinstance(value, str) or "/" not in value:
+        raise ValueError("foundation Bastion requires an IPv4 /26-or-larger subnet")
+    try:
+        bastion = ipaddress.IPv4Network(value)
+        hub = ipaddress.IPv4Network(str(values["ops_address_space"]))
+        runner = ipaddress.IPv4Network(str(values["runner_subnet_prefix"]))
+        endpoint = ipaddress.IPv4Network(str(values["pe_subnet_prefix"]))
+    except ValueError:
+        raise ValueError("foundation Bastion subnet MUST be a canonical IPv4 CIDR") from None
+    if (
+        bastion.prefixlen > 26
+        or not bastion.subnet_of(hub)
+        or bastion.overlaps(runner)
+        or bastion.overlaps(endpoint)
+    ):
+        raise ValueError("foundation Bastion subnet MUST be disjoint, contained, and at least /26")

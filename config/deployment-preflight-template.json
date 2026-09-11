@@ -1,0 +1,92 @@
+{
+  "schema_version": "fdai.deployment.preflight-input.v1",
+  "scope": "resource-group-equivalent:deployment",
+  "mode": "enforce",
+  "resource_types": [],
+  "egress_hosts": [],
+  "terraform_resource_type_map": {
+    "azurerm_cognitive_account": "azure.ai.account",
+    "azurerm_communication_service": "azure.communication.service",
+    "azurerm_communication_service_email_domain_association": "azure.communication.domain-association",
+    "azurerm_container_app": "runtime.container-app",
+    "azurerm_container_app_job": "runtime.job",
+    "azurerm_email_communication_service": "azure.email.service",
+    "azurerm_email_communication_service_domain": "azure.email.domain",
+    "azurerm_eventgrid_event_subscription": "event.subscription",
+    "azurerm_eventgrid_system_topic": "Microsoft.EventGrid/systemTopics",
+    "azurerm_eventgrid_system_topic_event_subscription": "event.subscription",
+    "azurerm_eventhub": "event.stream",
+    "azurerm_eventhub_namespace": "Microsoft.EventHub/namespaces",
+    "azurerm_function_app_flex_consumption": "runtime.function",
+    "azurerm_key_vault_secret": "secret.config",
+    "azurerm_private_dns_a_record": "Microsoft.Network/privateDnsZones/A",
+    "azurerm_private_dns_zone": "network.dns-zone",
+    "azurerm_private_dns_zone_virtual_network_link": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+    "azurerm_private_endpoint": "network.private-endpoint",
+    "azurerm_role_assignment": "identity.role-assignment",
+    "azurerm_service_plan": "runtime.service-plan",
+    "azurerm_storage_account": "storage.object",
+    "azurerm_storage_container": "storage.container",
+    "azurerm_storage_container_immutability_policy": "storage.container",
+    "azurerm_subnet": "network.subnet",
+    "azurerm_user_assigned_identity": "identity.workload",
+    "azurerm_virtual_network": "network.vnet"
+  },
+  "required_links": [],
+  "policy": {
+    "denied_resource_types": [],
+    "blocked_egress_hosts": [],
+    "firewall_source": "runner-egress:bounded-tls",
+    "policy_source": "azure-policy:live"
+  },
+  "azure_live": {
+    "required_categories": [
+      "policy_guardrail",
+      "quota_capacity",
+      "identity_rbac",
+      "secret_config"
+    ],
+    "resource_group": "resolved-by-genesis",
+    "arm_resource_type_map": {
+      "azure.ai.account": "Microsoft.CognitiveServices/accounts",
+      "azure.communication.domain-association": "Microsoft.Communication/communicationServices/domains",
+      "azure.communication.service": "Microsoft.Communication/communicationServices",
+      "azure.email.domain": "Microsoft.Communication/emailServices/domains",
+      "azure.email.service": "Microsoft.Communication/emailServices",
+      "event.stream": "Microsoft.EventHub/namespaces/eventhubs",
+      "event.subscription": "Microsoft.EventGrid/eventSubscriptions",
+      "identity.role-assignment": "Microsoft.Authorization/roleAssignments",
+      "identity.workload": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "network.dns-zone": "Microsoft.Network/privateDnsZones",
+      "network.private-endpoint": "Microsoft.Network/privateEndpoints",
+      "network.subnet": "Microsoft.Network/virtualNetworks/subnets",
+      "network.vnet": "Microsoft.Network/virtualNetworks",
+      "runtime.container-app": "Microsoft.App/containerApps",
+      "runtime.function": "Microsoft.Web/sites",
+      "runtime.job": "Microsoft.App/jobs",
+      "runtime.service-plan": "Microsoft.Web/serverfarms",
+      "secret.config": "Microsoft.KeyVault/vaults/secrets",
+      "storage.container": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "storage.object": "Microsoft.Storage/storageAccounts"
+    },
+    "quota_checks": [
+      {
+        "quota_name": "cores",
+        "required": 1
+      }
+    ],
+    "identity_rbac": {
+      "allow_planned_creation": true,
+      "required_role_names": [
+        "Azure Event Hubs Data Owner",
+        "Key Vault Secrets User"
+      ]
+    },
+    "key_vault": {
+      "allow_planned_creation": true,
+      "required_secret_names": [
+        "fdai-state-store-dsn"
+      ]
+    }
+  }
+}

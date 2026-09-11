@@ -9,17 +9,23 @@ mock_provider "azurerm" {}
 override_module {
   target = module.bootstrap
   outputs = {
-    ops_resource_group_name    = "rg-example-ops-krc"
-    ops_vnet_id                = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Network/virtualNetworks/vnet-example-ops-krc"
-    ops_vnet_name              = "vnet-example-ops-krc"
-    state_storage_account_name = "stexamplegenesis"
-    state_container_name       = "tfstate"
-    runner_vm_name             = "vm-example-runner-krc"
-    runner_principal_id        = "00000000-0000-0000-0000-000000000002"
-    deploy_runner_identity_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-deploy-krc"
-    deploy_runner_client_id    = "00000000-0000-0000-0000-000000000001"
-    deploy_runner_principal_id = "00000000-0000-0000-0000-000000000002"
-    backend_config_hint        = "synthetic-handoff-only"
+    ops_resource_group_name      = "rg-example-ops-krc"
+    ops_vnet_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Network/virtualNetworks/vnet-example-ops-krc"
+    ops_vnet_name                = "vnet-example-ops-krc"
+    state_storage_account_name   = "stexamplegenesis"
+    state_container_name         = "tfstate"
+    runner_vm_name               = "vm-example-runner-krc"
+    runner_vm_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Compute/virtualMachines/vm-example-runner-krc"
+    runner_admin_username        = "fdairunner"
+    runner_parallelism           = 1
+    runner_ssh_public_key_digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    bastion_name                 = null
+    bastion_id                   = null
+    runner_principal_id          = "00000000-0000-0000-0000-000000000002"
+    deploy_runner_identity_id    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-deploy-krc"
+    deploy_runner_client_id      = "00000000-0000-0000-0000-000000000001"
+    deploy_runner_principal_id   = "00000000-0000-0000-0000-000000000002"
+    backend_config_hint          = "synthetic-handoff-only"
     deploy_runner_role_manifest = {
       app_contributor = {
         role_definition_name = "Contributor"
@@ -54,21 +60,22 @@ override_module {
 }
 
 variables {
-  subscription_id            = "00000000-0000-0000-0000-000000000000"
-  tenant_id                  = "00000000-0000-0000-0000-000000000000"
-  workload                   = "example"
-  env                        = "dev"
-  region                     = "koreacentral"
-  region_short               = "krc"
-  state_storage_account_name = "stexamplegenesis"
-  ops_address_space          = "10.70.0.0/24"
-  runner_subnet_prefix       = "10.70.0.0/26"
-  pe_subnet_prefix           = "10.70.0.64/26"
-  runner_ssh_public_key      = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHA6I7nugiew177uO389Zhg2zliPDuRZdNRwT2lKu3To terraform-plan-evaluation-only"
-  runner_source_image_id     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-images/providers/Microsoft.Compute/galleries/example_gallery/images/runner/versions/1.2.3"
-  source_commit              = "0000000000000000000000000000000000000000"
-  run_digest                 = "0000000000000000000000000000000000000000000000000000000000000000"
-  foundation_context_digest  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  subscription_id               = "00000000-0000-0000-0000-000000000000"
+  tenant_id                     = "00000000-0000-0000-0000-000000000000"
+  workload                      = "example"
+  env                           = "dev"
+  region                        = "koreacentral"
+  region_short                  = "krc"
+  state_storage_account_name    = "stexamplegenesis"
+  ops_address_space             = "10.70.0.0/24"
+  runner_subnet_prefix          = "10.70.0.0/26"
+  pe_subnet_prefix              = "10.70.0.64/26"
+  runner_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHA6I7nugiew177uO389Zhg2zliPDuRZdNRwT2lKu3To terraform-plan-evaluation-only"
+  runner_source_image_id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-images/providers/Microsoft.Compute/galleries/example_gallery/images/runner/versions/1.2.3"
+  runner_image_toolchain_digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  source_commit                 = "0000000000000000000000000000000000000000"
+  run_digest                    = "0000000000000000000000000000000000000000000000000000000000000000"
+  foundation_context_digest     = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 
 run "foundation_contracts_with_bootstrap_outputs" {
@@ -152,7 +159,12 @@ run "foundation_contracts_with_bootstrap_outputs" {
   assert {
     condition = (
       output.private_handoff.runner.bootstrap_mode == "offline" &&
+      output.private_handoff.runner.admin_username == "fdairunner" &&
+      output.private_handoff.runner.parallelism == 1 &&
+      output.private_handoff.runner.ssh_key_digest == module.bootstrap.runner_ssh_public_key_digest &&
+      !output.private_handoff.runner.public_egress &&
       output.private_handoff.runner.source_image_id == var.runner_source_image_id &&
+      output.private_handoff.runner.toolchain_digest == var.runner_image_toolchain_digest &&
       output.private_handoff.state.account_name == var.state_storage_account_name &&
       output.private_handoff.state.use_azuread_auth &&
       output.private_handoff.runner.role_manifest == module.bootstrap.deploy_runner_role_manifest &&

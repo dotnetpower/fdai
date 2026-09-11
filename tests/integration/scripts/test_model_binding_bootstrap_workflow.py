@@ -11,6 +11,9 @@ _WORKFLOW = _ROOT / ".github/workflows/deploy-dev.yml"
 _CAPABILITY_GATE = (_ROOT / "scripts/deployment/azure/require_resolved_capability.py").read_text(
     encoding="utf-8"
 )
+_PLAN_METADATA_BUILDER = (
+    _ROOT / "scripts/deployment/azure/build_deployment_plan_metadata.py"
+).read_text(encoding="utf-8")
 _STEP_NAME = "Verify model binding policy active digest"
 
 
@@ -97,7 +100,7 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     assert '--endpoint-ref "azure-foundry:aif-fdai-models-' in script
 
     workflow_text = _WORKFLOW.read_text(encoding="utf-8")
-    assert '"chatops_channel_validation": os.environ' in workflow_text
+    assert '"chatops_channel_validation": environ' in _PLAN_METADATA_BUILDER
     assert "ChatOps validation input does not match the protected plan" in _CAPABILITY_GATE
     assert workflow_text.count("require_resolved_capability.py") == 2
     assert workflow_text.index("verify-deployment-plan.py") < workflow_text.rindex(

@@ -103,20 +103,24 @@ run "explicit_context_preserves_private_offline_runner" {
       subscription_id = "00000000-0000-0000-0000-000000000000"
       tenant_id       = "00000000-0000-0000-0000-000000000000"
     }
-    genesis_state_account_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
-    runner_bootstrap_mode    = "offline"
-    runner_source_image_id   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-images/providers/Microsoft.Compute/galleries/example_gallery/images/runner/versions/1.2.3"
-    enable_public_egress     = false
+    genesis_state_account_id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
+    genesis_app_resource_group_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-dev-krc"
+    runner_bootstrap_mode         = "offline"
+    runner_source_image_id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-images/providers/Microsoft.Compute/galleries/example_gallery/images/runner/versions/1.2.3"
+    enable_public_egress          = false
   }
 
   assert {
     condition = (
       length(data.azurerm_storage_account.state) == 0 &&
+      length(data.azurerm_resource_group.app) == 0 &&
       local.state_account_id == var.genesis_state_account_id &&
+      local.app_resource_group_id == var.genesis_app_resource_group_id &&
+      local.deploy_runner_role_manifest.app_contributor.scope == var.genesis_app_resource_group_id &&
       local.deploy_runner_role_manifest.state_blob_data_contributor.scope == var.genesis_state_account_id &&
       output.state_storage_account_name == var.state_storage_account_name
     )
-    error_message = "Genesis must bypass the key-returning account lookup and use only the exact ARM reference."
+    error_message = "Genesis must bypass plan-time account and application-group lookups and use only the exact ARM references."
   }
 
   assert {
@@ -157,8 +161,11 @@ run "standalone_bootstrap_preserves_defaults" {
     condition = (
       var.genesis_provider_context == null &&
       var.genesis_state_account_id == null &&
+      var.genesis_app_resource_group_id == null &&
       length(data.azurerm_storage_account.state) == 1 &&
+      length(data.azurerm_resource_group.app) == 1 &&
       local.state_account_id == data.azurerm_storage_account.state[0].id &&
+      local.app_resource_group_id == data.azurerm_resource_group.app[0].id &&
       var.runner_bootstrap_mode == "online" &&
       azurerm_linux_virtual_machine.runner[0].source_image_id == null &&
       length(azurerm_linux_virtual_machine.runner[0].source_image_reference) == 1 &&
@@ -191,8 +198,24 @@ run "genesis_requires_state_reference" {
       subscription_id = "00000000-0000-0000-0000-000000000000"
       tenant_id       = "00000000-0000-0000-0000-000000000000"
     }
+    genesis_app_resource_group_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-dev-krc"
   }
   expect_failures = [var.genesis_state_account_id]
+}
+
+run "genesis_requires_application_group_reference" {
+  command = plan
+  module {
+    source = "../bootstrap"
+  }
+  variables {
+    genesis_provider_context = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000000"
+    }
+    genesis_state_account_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
+  }
+  expect_failures = [var.genesis_app_resource_group_id]
 }
 
 run "genesis_rejects_foreign_state_reference" {
@@ -205,9 +228,26 @@ run "genesis_rejects_foreign_state_reference" {
       subscription_id = "00000000-0000-0000-0000-000000000000"
       tenant_id       = "00000000-0000-0000-0000-000000000000"
     }
-    genesis_state_account_id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
+    genesis_state_account_id      = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
+    genesis_app_resource_group_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-dev-krc"
   }
   expect_failures = [var.genesis_state_account_id]
+}
+
+run "genesis_rejects_foreign_application_group_reference" {
+  command = plan
+  module {
+    source = "../bootstrap"
+  }
+  variables {
+    genesis_provider_context = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000000"
+    }
+    genesis_state_account_id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
+    genesis_app_resource_group_id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example-dev-krc"
+  }
+  expect_failures = [var.genesis_app_resource_group_id]
 }
 
 run "standalone_rejects_genesis_state_reference" {
@@ -219,4 +259,15 @@ run "standalone_rejects_genesis_state_reference" {
     genesis_state_account_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-ops-krc/providers/Microsoft.Storage/storageAccounts/stexamplegenesis"
   }
   expect_failures = [var.genesis_state_account_id]
+}
+
+run "standalone_rejects_genesis_application_group_reference" {
+  command = plan
+  module {
+    source = "../bootstrap"
+  }
+  variables {
+    genesis_app_resource_group_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-dev-krc"
+  }
+  expect_failures = [var.genesis_app_resource_group_id]
 }

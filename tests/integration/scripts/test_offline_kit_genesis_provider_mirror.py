@@ -16,6 +16,7 @@ ROOTS = (
     "infra",
     "infra/bootstrap",
     "infra/genesis-foundation",
+    "infra/genesis-runner-image",
     "infra/scenario-lab",
     "infra/services/core-control-plane",
     "infra/services/operator-service",
@@ -34,7 +35,7 @@ def _bundle(path: Path) -> None:
         directory = path / root
         directory.mkdir(parents=True)
         providers = [(AZURERM, "4.80.0" if root == "infra/bootstrap" else "4.81.0")]
-        if root == "infra/genesis-foundation":
+        if root in {"infra/genesis-foundation", "infra/genesis-runner-image"}:
             providers.append((AZAPI, "2.12.0"))
         if root == "infra/scenario-lab":
             providers.append((RANDOM, "3.7.2"))

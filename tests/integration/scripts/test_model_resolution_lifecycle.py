@@ -29,6 +29,12 @@ _PROPOSAL_HELPER = (
     _ROOT / "scripts/deployment/azure/materialize-model-binding-proposal.sh"
 ).read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
+_PLAN_METADATA_BUILDER = (
+    _ROOT / "scripts/deployment/azure/build_deployment_plan_metadata.py"
+).read_text(encoding="utf-8")
+_APPLY_RECEIPT_BUILDER = (
+    _ROOT / "scripts/deployment/azure/build_deployment_apply_receipt.py"
+).read_text(encoding="utf-8")
 
 
 def _workflow_step(name: str) -> dict[str, object]:
@@ -146,24 +152,24 @@ def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
 
 
 def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
-    assert 'metadata["model_resolution"]' in _DEPLOY
-    assert '"resolved_models_digest"' in _DEPLOY
-    assert '"deployment_models_digest"' in _DEPLOY
+    assert 'metadata["model_resolution"]' in _PLAN_METADATA_BUILDER
+    assert '"resolved_models_digest"' in _PLAN_METADATA_BUILDER
+    assert '"deployment_models_digest"' in _PLAN_METADATA_BUILDER
     assert '"${blob_prefix}/resolved-models.json"' in _DEPLOY
     assert '"${blob_prefix}/deployment-models.json"' in _DEPLOY
     assert '"${blob_prefix}/resolved-models.sha256"' in _DEPLOY
     assert '"${blob_prefix}/deployment-models.sha256"' in _DEPLOY
-    assert "protected plan model-resolution evidence is incomplete" in _DEPLOY
+    assert "protected plan model-resolution evidence is incomplete" in _PLAN_METADATA_BUILDER
     assert 'echo "$resolved_models_digest  resolved-models.json" | sha256sum --check' in _DEPLOY
     assert 'echo "$deployment_models_digest  deployment-models.json" | sha256sum --check' in _DEPLOY
     assert 'echo "TF_VAR_resolved_capabilities=$capabilities_json"' in _DEPLOY
     assert _DEPLOY.count('item for item in capabilities if item.get("status") != "hil-only"') == 2
-    assert '"request_kind"' in _DEPLOY
-    assert '"binding_policy_environment"' in _DEPLOY
-    assert '"binding_policy_revision"' in _DEPLOY
-    assert '"active_core_revision"' in _DEPLOY
-    assert '"active_core_image_digest"' in _DEPLOY
-    assert '"active_core_model_digest"' in _DEPLOY
+    assert '"request_kind"' in _PLAN_METADATA_BUILDER
+    assert '"binding_policy_environment"' in _PLAN_METADATA_BUILDER
+    assert '"binding_policy_revision"' in _PLAN_METADATA_BUILDER
+    assert '"active_core_revision"' in _PLAN_METADATA_BUILDER
+    assert '"active_core_image_digest"' in _PLAN_METADATA_BUILDER
+    assert '"active_core_model_digest"' in _PLAN_METADATA_BUILDER
     assert '--request-kind "$apply_request_kind"' in _DEPLOY
     assert '--environment "$APPLY_ENVIRONMENT"' in _DEPLOY
     assert "Verify model deployment readback" in _DEPLOY
@@ -175,7 +181,7 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert "t1.judge,t2.reasoner.primary" in _DEPLOY
     assert '--capabilities "$MODEL_READBACK_CAPABILITIES"' in _DEPLOY
     assert "model-binding-readback.json" in _DEPLOY
-    assert '"readback_receipt_digest"' in _DEPLOY
+    assert '"readback_receipt_digest"' in _APPLY_RECEIPT_BUILDER
     assert "Reverify active Core model fence" in _DEPLOY
     assert "active Core revision changed after protected model planning" in _DEPLOY
     health_step = _DEPLOY.split("- name: Verify deployed health endpoints", maxsplit=1)[1].split(
@@ -187,13 +193,28 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
 @pytest.mark.parametrize(
     "step_name",
     [
-        "Store protected plan artifact",
         "Reverify active Core model fence",
-        "Record exact plan apply receipt",
     ],
 )
 def test_protected_model_evidence_python_compiles(step_name: str) -> None:
     compile(_embedded_python(step_name), step_name, "exec")
+
+
+@pytest.mark.parametrize(
+    ("step_name", "helper"),
+    [
+        ("Store protected plan artifact", "build_deployment_plan_metadata.py"),
+        ("Record exact plan apply receipt", "build_deployment_apply_receipt.py"),
+    ],
+)
+def test_protected_model_evidence_uses_reviewable_helpers(
+    step_name: str,
+    helper: str,
+) -> None:
+    run = _workflow_step(step_name)["run"]
+
+    assert isinstance(run, str)
+    assert f"../scripts/deployment/azure/{helper}" in run
 
 
 def test_model_replacement_allows_only_the_exact_sealed_cross_family_target(

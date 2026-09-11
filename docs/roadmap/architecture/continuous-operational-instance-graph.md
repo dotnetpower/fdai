@@ -23,6 +23,9 @@ unbounded tight polling loop.
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
   Questions, model output, intended state, dispatch receipts, and executor results cannot create an
   observed fact.
+- **Deployment evidence:** Protected platform plan metadata is built by a focused repository
+  module. Workflow YAML passes sealed inputs to it; neither the plan nor its receipt can establish
+  an observed graph fact.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph.

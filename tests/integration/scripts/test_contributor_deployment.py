@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
 _AZD_UP = _ROOT / "scripts/deployment/azure/azd-up.sh"
+_GENESIS_UP = _ROOT / "scripts/deployment/azure/genesis-up.sh"
+_CONTRIBUTOR_TERRAFORM = _ROOT / "scripts/deployment/azure/contributor-terraform.sh"
 _REPO_CONFIG = _ROOT / "scripts/deployment/azure/set-gh-actions-config.sh"
 _PRIVATE_ONBOARD = _ROOT / "infra/bootstrap/onboard.sh"
+_BASH = shutil.which("bash")
+assert _BASH is not None
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -89,9 +94,14 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     main = source.split("for command_name in az azd curl date flock git", maxsplit=1)[1]
     gitignore = (_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     dockerignore = (_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    genesis_wrapper = _GENESIS_UP.read_text(encoding="utf-8")
 
     assert "secrets/" in gitignore
     assert "secrets/" in dockerignore
+    assert genesis_wrapper.index("umask 077") < genesis_wrapper.index(
+        'exec "$ROOT/.venv/bin/python"'
+    )
+    assert "exec uv run --frozen --project" in genesis_wrapper
     assert 'resource_provider_registrations = "none"' in (_ROOT / "infra/versions.tf").read_text(
         encoding="utf-8"
     )
@@ -140,7 +150,18 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert 'run_job "$inventory_job" "inventory" 1800' in source
     assert "azd up" not in main
     assert 'source "$HERE/contributor-target.sh"' in source
+    assert 'source "$HERE/contributor-terraform.sh"' in source
+    assert 'prepare_contributor_terraform "$REPO_ROOT" "$WORK_DIR"' in source
+    assert 'PLATFORM_STATE="$REPO_ROOT/.azure/$AZD_ENVIRONMENT/infra/terraform.tfstate"' in source
     assert 'ensure_contributor_azd_login "$TARGET_HAS_TERMINAL" "$EXPECTED_TENANT"' in source
+    assert source.count('TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE"') == 4
+    assert '"$HERE/resource_provider_reconcile.py"' in source
+    assert "--profile application" in source
+    assert "FDAI_RESOURCE_PROVIDER_TIMEOUT_SECONDS must be from 30 through 1800" in source
+    assert "az provider register" not in source
+    assert 'verify_private_state_file "$PLATFORM_STATE" "platform apply"' in source
+    assert 'verify_private_state_file "$CORE_STATE" "Core apply"' in source
+    assert "stat -c '%a:%u'" in source
 
     assert main.index("ensure_resource_providers") < main.index("resolve_models")
     assert main.index("resolve_models") < main.index("platform_preview")
@@ -151,6 +172,115 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert main.index("deploy_core") < main.index("set_scheduled_jobs true")
     assert main.index("set_scheduled_jobs true") < main.rindex("platform_apply")
     assert main.rindex("platform_apply") < main.index("wait_for_core")
+
+    orchestrator = (_ROOT / "scripts/deployment/azure/genesis_orchestrator.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"FDAI_AZD_CONFIRM": "0"' in orchestrator
+    assert '"FDAI_AZD_CONFIRM": "1"' not in orchestrator
+    assert "public_exact_plan_approval_required" in orchestrator
+
+
+def test_public_deployment_pins_azd_to_the_committed_provider_lock() -> None:
+    helper = _CONTRIBUTOR_TERRAFORM.read_text(encoding="utf-8")
+    parameter_template = _ROOT / "infra/main.tfvars.json"
+    gitignore = (_ROOT / ".gitignore").read_text(encoding="utf-8")
+
+    assert parameter_template.read_text(encoding="utf-8") == "{}\n"
+    assert "!infra/main.tfvars.json" in gitignore
+    assert "-lockfile=readonly" in helper
+    assert "providers mirror" in helper
+    assert 'stream.write("provider_installation {\\n  direct {}\\n}\\n")' in helper
+    assert 'export TF_CLI_CONFIG_FILE="$bootstrap_config"' in helper
+    assert 'exclude = ["registry.terraform.io/*/*"]' in helper
+    assert "-backend=false -input=false -upgrade" in helper
+    assert helper.count("-upgrade -lockfile=readonly") == 2
+    assert 'platform_lock="$platform_root/.terraform.lock.hcl"' in helper
+    assert 'core_lock="$core_root/.terraform.lock.hcl"' in helper
+    assert 'platform_mirror="$mirror_root/platform"' in helper
+    assert 'core_mirror="$mirror_root/core"' in helper
+    assert 'export PLATFORM_TF_CLI_CONFIG_FILE="$platform_config"' in helper
+    assert 'export CORE_TF_CLI_CONFIG_FILE="$core_config"' in helper
+    assert 'export TF_CLI_CONFIG_FILE="$PLATFORM_TF_CLI_CONFIG_FILE"' in helper
+    assert 'sha256sum "$platform_lock"' in helper
+    assert 'sha256sum "$core_lock"' in helper
+
+
+def test_contributor_provider_mirror_is_restart_safe(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    infra = repository / "infra"
+    infra.mkdir(parents=True)
+    (infra / ".terraform.lock.hcl").write_text("locked\n", encoding="ascii")
+    core = infra / "services/core-control-plane"
+    core.mkdir(parents=True)
+    (core / ".terraform.lock.hcl").write_text("core-locked\n", encoding="ascii")
+    work_dir = tmp_path / "work"
+    work_dir.mkdir(mode=0o700)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "terraform-calls"
+    _write_executable(
+        fake_bin / "terraform",
+        """#!/usr/bin/env bash
+set -euo pipefail
+mode=direct
+grep -q filesystem_mirror "$TF_CLI_CONFIG_FILE" && mode=mirror
+printf '%s|%s\n' "$mode" "$*" >> "$FAKE_TERRAFORM_CALLS"
+""",
+    )
+    command = """
+set -euo pipefail
+source "$1"
+prepare_contributor_terraform "$2" "$3"
+prepare_contributor_terraform "$2" "$3"
+"""
+
+    result = subprocess.run(  # noqa: S603 - controlled helper and fake executable
+        [
+            _BASH,
+            "-c",
+            command,
+            "bash",
+            str(_CONTRIBUTOR_TERRAFORM),
+            str(repository),
+            str(work_dir),
+        ],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "FAKE_TERRAFORM_CALLS": str(calls),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    invocations = calls.read_text(encoding="ascii").splitlines()
+    modes = [line.split("|", maxsplit=1)[0] for line in invocations]
+    assert modes == [
+        "direct",
+        "direct",
+        "direct",
+        "direct",
+        "mirror",
+        "mirror",
+        "direct",
+        "direct",
+        "direct",
+        "direct",
+        "mirror",
+        "mirror",
+    ]
+    assert sum("services/core-control-plane" in line for line in invocations) == 6
+    platform_configs = list(work_dir.glob("terraformrc-platform-*"))
+    core_configs = list(work_dir.glob("terraformrc-core-*"))
+    assert len(platform_configs) == len(core_configs) == 1
+    platform_config = platform_configs[0].read_text(encoding="utf-8")
+    core_config = core_configs[0].read_text(encoding="utf-8")
+    assert '/platform"' in platform_config and '/core"' not in platform_config
+    assert '/core"' in core_config and '/platform"' not in core_config
 
 
 def test_post_deploy_jobs_track_only_the_new_execution() -> None:

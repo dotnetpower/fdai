@@ -242,7 +242,7 @@ resource "azurerm_linux_virtual_machine" "runner" {
 # consumes runner_principal_id from this layer's output.
 # -----------------------------------------------------------------------
 data "azurerm_resource_group" "app" {
-  count = var.enable_deploy_identity_roles ? 1 : 0
+  count = var.enable_deploy_identity_roles && var.genesis_provider_context == null ? 1 : 0
   name  = var.app_resource_group_name
 }
 
@@ -260,14 +260,19 @@ data "azurerm_role_definition" "subscription_observation" {
 }
 
 locals {
+  app_resource_group_id = var.enable_deploy_identity_roles ? (
+    var.genesis_provider_context != null
+    ? var.genesis_app_resource_group_id
+    : data.azurerm_resource_group.app[0].id
+  ) : null
   deploy_runner_role_manifest = var.enable_deploy_identity_roles ? {
     app_contributor = {
       role_definition_name = "Contributor"
-      scope                = data.azurerm_resource_group.app[0].id
+      scope                = local.app_resource_group_id
     }
     app_user_access_administrator = {
       role_definition_name = "User Access Administrator"
-      scope                = data.azurerm_resource_group.app[0].id
+      scope                = local.app_resource_group_id
     }
     ops_network_contributor = {
       role_definition_name = "Network Contributor"

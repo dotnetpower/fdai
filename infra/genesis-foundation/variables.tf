@@ -120,6 +120,27 @@ variable "pe_subnet_prefix" {
   }
 }
 
+variable "enable_bastion" {
+  description = "Explicitly add Standard Bastion native tunneling for the private runner. It is never inferred from tool availability."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
+variable "bastion_subnet_prefix" {
+  description = "Dedicated /26 AzureBastionSubnet prefix inside the reviewed ops CIDR."
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.enable_bastion ? try(
+      tonumber(split("/", var.bastion_subnet_prefix)[1]) <= 26,
+      false
+    ) : var.bastion_subnet_prefix == null
+    error_message = "Bastion requires a supplied /26-or-larger subnet; disabled Bastion must omit the prefix."
+  }
+}
+
 variable "enable_public_egress" {
   description = "Explicitly opt into bootstrap's outbound-only NAT path. False creates no public IP or replacement route; the deployment must provide an approved private management, identity, and artifact path."
   type        = bool
@@ -138,10 +159,45 @@ variable "runner_ssh_public_key" {
   }
 }
 
+variable "runner_admin_username" {
+  description = "Lowercase Linux username used only for key-authenticated private runner access."
+  type        = string
+  default     = "fdairunner"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z_][a-z0-9_-]{0,30}$", var.runner_admin_username))
+    error_message = "runner_admin_username must be a valid lowercase Linux username of at most 31 characters."
+  }
+}
+
+variable "runner_parallelism" {
+  description = "Number of isolated GitHub Actions runner slots to enroll after Foundation verification."
+  type        = number
+  default     = 1
+  nullable    = false
+
+  validation {
+    condition     = var.runner_parallelism >= 1 && var.runner_parallelism <= 5 && floor(var.runner_parallelism) == var.runner_parallelism
+    error_message = "runner_parallelism must be an integer from 1 through 5."
+  }
+}
+
 variable "runner_source_image_id" {
   description = "Exact prebuilt managed-image or numeric gallery image-version ARM ID. Image trust, availability, installed tools, and ephemeral ResourceDisk compatibility must be verified before approval; bootstrap rejects latest and unversioned galleries."
   type        = string
   nullable    = false
+}
+
+variable "runner_image_toolchain_digest" {
+  description = "SHA-256 provenance binding read back from the exact runner image before Foundation planning. It grants no apply or readiness authority."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.runner_image_toolchain_digest))
+    error_message = "runner_image_toolchain_digest must be a lowercase SHA-256 digest."
+  }
 }
 
 variable "runner_vm_size" {

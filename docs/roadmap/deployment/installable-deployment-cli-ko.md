@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ffb948d29b494d7c5ae53c0c8298db26fa972999
+translation_source_sha: 3aeac9fd07b056e0c5d41d20351448eeb6c98018
 translation_revised: 2026-09-11
 ---
 # 설치형 배포 CLI
@@ -221,7 +221,7 @@ overwrite도 차단합니다. 시크릿 프로바이더 또는 Terraform 상태 
 ## Guided 배포 onboarding
 
 안전한 구독 초기 구성 단계를 하나의 영속적인 실패 시 차단 순서로 실행하려면 `fdaictl onboard guided`를 사용하세요. 이 명령은 보호된 승인 지점마다 일시 중지하고 하위 `deploy plan`, `deploy apply`, `deploy status` 계약을 구성합니다.
-Azure 실행 호스트가 아직 없으므로 봉인된 기반 단계만 로컬에서 Terraform을 실행할 수 있으며, 비공개 데이터 플레인에는 쓰지 않습니다. 전체 수명 주기는 [구독 초기 프로비저닝](subscription-genesis-provisioning-ko.md)에 정의되어 있습니다.
+`genesis-up.sh`는 하위 수준 기반 계층 경계를 유지합니다. `fdai-up.sh`는 정확한 TTY 승인, 테넌트 로컬 구성, 정확한 `main` 이미지, 보호된 애플리케이션 적용 및 두 번째 변경 없음 계획을 감독하며, 남은 근거 범주가 완료될 때까지 최종 구독 준비 상태를 false로 유지합니다. 전체 수명 주기는 [구독 초기 프로비저닝](subscription-genesis-provisioning-ko.md)에 정의되어 있습니다.
 안전, 취소, 비밀 전송, 동시성, 비용, 최종 준비도 게이트는 [구독 초기 구성 보증](subscription-genesis-assurance-ko.md)에 정의되어 있습니다.
 
 순서는 다음 순서로 고정됩니다.

@@ -962,6 +962,15 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$DEPLOY_PREFLIGHT_INPUT_JSON" > runner-live-preflight-input.json
+          export PREFLIGHT_EXECUTOR_PRINCIPAL_ID="$(terraform output -raw executor_identity_principal_id 2>/dev/null || true)"
+          export PREFLIGHT_KEY_VAULT_URI="$(terraform output -raw key_vault_uri 2>/dev/null || true)"
+          if [[ -n "$PREFLIGHT_EXECUTOR_PRINCIPAL_ID" ]]; then
+            export PREFLIGHT_EVENT_ROLE_DEFINITION_ID="$(az role definition list --name 'Azure Event Hubs Data Owner' --query '[0].name' --output tsv --only-show-errors)"
+            export PREFLIGHT_SECRET_ROLE_DEFINITION_ID="$(az role definition list --name 'Key Vault Secrets User' --query '[0].name' --output tsv --only-show-errors)"
+          else
+            export PREFLIGHT_EVENT_ROLE_DEFINITION_ID=""
+            export PREFLIGHT_SECRET_ROLE_DEFINITION_ID=""
+          fi
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           export CREATED_AT="$created_at"
           python3 - <<'PY'
@@ -983,6 +992,20 @@ jobs:
           arm_types = live.setdefault("arm_resource_type_map", {})
           if not isinstance(terraform_types, dict) or not isinstance(arm_types, dict):
             raise SystemExit("runner preflight resource type mappings must be objects")
+          identity = live.get("identity_rbac")
+          key_vault = live.get("key_vault")
+          if not isinstance(identity, dict) or not isinstance(key_vault, dict):
+            raise SystemExit("runner preflight identity or secret profile is invalid")
+          principal = os.environ["PREFLIGHT_EXECUTOR_PRINCIPAL_ID"]
+          event_role = os.environ["PREFLIGHT_EVENT_ROLE_DEFINITION_ID"]
+          secret_role = os.environ["PREFLIGHT_SECRET_ROLE_DEFINITION_ID"]
+          if principal:
+            if not event_role or not secret_role:
+              raise SystemExit("runner preflight role definitions are unavailable")
+            identity.update({"executor_principal_id": principal, "event_role_definition_id": event_role, "secret_role_definition_id": secret_role})
+          vault_uri = os.environ["PREFLIGHT_KEY_VAULT_URI"]
+          if vault_uri:
+            key_vault["vault_endpoint"] = vault_uri
           terraform_types.update({"azurerm_application_insights": "observability.application-insights", "azurerm_cognitive_account": "azure.ai.account", "azurerm_cognitive_account_project": "azure.ai.project", "azurerm_cognitive_deployment": "azure.ai.deployment", "azurerm_container_app_environment": "runtime.container-app-environment", "azurerm_container_registry": "storage.container-registry", "azurerm_key_vault": "secret.vault", "azurerm_log_analytics_workspace": "observability.log-analytics", "azurerm_monitor_diagnostic_setting": "diagnostic-settings", "azurerm_postgresql_flexible_server": "data.postgresql", "azurerm_postgresql_flexible_server_configuration": "data.postgresql-configuration", "azurerm_postgresql_flexible_server_database": "data.postgresql-database", "azurerm_resource_group": "deployment.resource-group", "azurerm_storage_management_policy": "storage.management-policy", "azurerm_virtual_network_peering": "network.vnet-peering"})
           arm_types.update({"azure.ai.account": "Microsoft.CognitiveServices/accounts", "azure.ai.project": "Microsoft.CognitiveServices/accounts/projects", "azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments", "data.postgresql": "Microsoft.DBforPostgreSQL/flexibleServers", "data.postgresql-configuration": "Microsoft.DBforPostgreSQL/flexibleServers/configurations", "data.postgresql-database": "Microsoft.DBforPostgreSQL/flexibleServers/databases", "deployment.resource-group": "Microsoft.Resources/resourceGroups", "diagnostic-settings": "Microsoft.Insights/diagnosticSettings", "network.vnet-peering": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings", "observability.application-insights": "Microsoft.Insights/components", "observability.log-analytics": "Microsoft.OperationalInsights/workspaces", "runtime.container-app-environment": "Microsoft.App/managedEnvironments", "secret.vault": "Microsoft.KeyVault/vaults", "storage.container-registry": "Microsoft.ContainerRegistry/registries", "storage.management-policy": "Microsoft.Storage/storageAccounts/managementPolicies"})
           live["additional_policy_scopes"] = [{"resource_group": os.environ["TF_VAR_ops_resource_group_name"], "resource_types": ["network.vnet-peering"]}]
@@ -1110,6 +1133,11 @@ jobs:
           source_artifact_digest="$(sha256sum "$source_artifact" | cut -d' ' -f1)"
           preflight_evidence_digest="$(sha256sum runner-egress-evidence.json | cut -d' ' -f1)"
           azure_preflight_evidence_digest="$(sha256sum azure-preflight-evidence.json | cut -d' ' -f1)"
+          terraform show -json dev.plan > "$RUNNER_TEMP/deployment-plan.json"
+          PYTHONPATH=../packages/deployment-cli/src python3 \
+            ../scripts/deployment/azure/genesis_private_plan_summary.py \
+            --plan-json "$RUNNER_TEMP/deployment-plan.json" \
+            --output "$RUNNER_TEMP/deployment-plan-summary.json"
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           expires_at="$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%SZ')"
           export PLAN_ID="$plan_id" PLAN_DIGEST="$plan_digest" \
@@ -1117,92 +1145,9 @@ jobs:
             PREFLIGHT_EVIDENCE_DIGEST="$preflight_evidence_digest" CREATED_AT="$created_at" \
             AZURE_PREFLIGHT_EVIDENCE_DIGEST="$azure_preflight_evidence_digest" \
             EXPIRES_AT="$expires_at"
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          runtime_image_revision = os.environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
-          runtime_image_digest = os.environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
-          if bool(runtime_image_revision) != bool(runtime_image_digest):
-              raise SystemExit("runtime image plan evidence is incomplete")
-          metadata = {
-              "schema_version": "fdai.deployment-plan.v1",
-              "plan_id": os.environ["PLAN_ID"],
-              "plan_digest": os.environ["PLAN_DIGEST"],
-              "source_artifact_digest": os.environ["SOURCE_ARTIFACT_DIGEST"],
-              "context_digest": os.environ["PLAN_CONTEXT_DIGEST"],
-              "preflight_evidence_digest": os.environ["PREFLIGHT_EVIDENCE_DIGEST"],
-              "azure_preflight_evidence_digest": os.environ[
-                  "AZURE_PREFLIGHT_EVIDENCE_DIGEST"
-              ],
-              "preflight_blocks": False,
-              "commit_sha": os.environ["PLAN_COMMIT_SHA"],
-              "request_id": os.environ["PLAN_REQUEST_ID"],
-                "request_kind": (
-                  "model"
-                  if os.environ["PLAN_REQUEST_ID"].startswith("plan-model-")
-                  else "standard"
-                ),
-              "created_at": os.environ["CREATED_AT"],
-              "expires_at": os.environ["EXPIRES_AT"],
-              "status": "ready",
-              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
-          }
-          if runtime_image_revision:
-              metadata["runtime_image"] = {
-                  "source_revision": runtime_image_revision,
-                  "digest": runtime_image_digest,
-              }
-          resolved_models_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH", "")
-          deployment_models_path = os.environ.get("FDAI_DEPLOYMENT_MODELS_PATH", "")
-          if bool(resolved_models_path) != bool(deployment_models_path):
-              raise SystemExit("protected plan model-resolution evidence is incomplete")
-          if resolved_models_path:
-              resolved_digest = os.environ.get("FDAI_RESOLVED_MODELS_SHA256", "")
-              deployment_digest = os.environ.get("FDAI_DEPLOYMENT_MODELS_SHA256", "")
-              if not all(
-                  len(value) == 64 and all(char in "0123456789abcdef" for char in value)
-                  for value in (resolved_digest, deployment_digest)
-              ):
-                  raise SystemExit("protected plan model-resolution evidence is incomplete")
-              if not Path(resolved_models_path).is_file() or not Path(deployment_models_path).is_file():
-                  raise SystemExit("protected plan model-resolution evidence is incomplete")
-              with open(resolved_models_path, encoding="utf-8") as stream:
-                  resolved_payload = json.load(stream)
-              model_resolution = {
-                  "resolved_models_digest": resolved_digest,
-                  "deployment_models_digest": deployment_digest,
-                  "chatops_channel_validation": os.environ.get("VALIDATE_CHATOPS_CHANNELS") == "true",
-              }
-              binding_policy = resolved_payload.get("binding_policy")
-              if binding_policy is not None:
-                  if not isinstance(binding_policy, dict):
-                      raise SystemExit("protected plan binding-policy evidence is invalid")
-                  model_resolution.update(
-                      {
-                          "binding_policy_environment": binding_policy.get("environment"),
-                          "binding_policy_revision": binding_policy.get("revision"),
-                          "binding_policy_digest": binding_policy.get("digest"),
-                          "binding_policy_expected_active_digest": binding_policy.get(
-                              "expected_active_digest"
-                          ),
-                            "active_core_revision": os.environ.get("ACTIVE_CORE_REVISION"),
-                            "active_core_image_digest": os.environ.get(
-                              "ACTIVE_CORE_IMAGE_DIGEST"
-                            ),
-                            "active_core_model_digest": os.environ.get(
-                              "ACTIVE_CORE_MODEL_DIGEST"
-                            ),
-                      }
-                  )
-              if metadata["request_kind"] == "model" and binding_policy is None:
-                  raise SystemExit("model plan has no binding-policy evidence")
-              metadata["model_resolution"] = model_resolution
-          with open("plan-metadata.json", "w", encoding="utf-8") as stream:
-              json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
-              stream.write("\n")
-          PY
+          python3 ../scripts/deployment/azure/build_deployment_plan_metadata.py \
+            --plan-summary "$RUNNER_TEMP/deployment-plan-summary.json" \
+            --output plan-metadata.json
           blob_prefix="${TF_VAR_env}/${plan_id}"
           az storage blob upload \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
@@ -1922,6 +1867,53 @@ jobs:
             printf '%s' "$payload" | python3 -c \
               "import json, sys; value=json.load(sys.stdin); assert value == {'status': 'ok'}"
           done
+          if [[ "${MONITORING_ONLY:-false}" != "true" \
+            && "${OPERATIONAL_HISTORY_ONLY:-false}" != "true" \
+            && "${CORE_MODEL_QUORUM_ONLY:-false}" != "true" \
+            && "${RCA_READER_IDENTITY_ONLY:-false}" != "true" \
+            && "${MODEL_BINDING_ONLY:-false}" != "true" ]]; then
+            job="$(terraform output -raw inventory_job_name)"
+            [[ -n "$job" ]] || { echo "scheduled inventory Job is unavailable" >&2; exit 1; }
+            claim_time="$(python3 -c 'import json; print(json.load(open("apply-claim.json", encoding="utf-8"))["claimed_at"])')"
+            execution_name="$(az containerapp job start --name "$job" --resource-group "$rg" \
+              --query name --output tsv --only-show-errors)"
+            [[ -n "$execution_name" ]] || { echo "scheduled initial inventory did not return an execution identity" >&2; exit 1; }
+            deadline=$((SECONDS + 1800))
+            status=""
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              status="$(az containerapp job execution show --name "$job" --resource-group "$rg" \
+                --job-execution-name "$execution_name" --query properties.status \
+                --output tsv --only-show-errors 2>/dev/null || true)"
+              if [[ "$status" == "Succeeded" ]]; then break; fi
+              [[ "$status" != "Failed" ]] || { echo "scheduled initial inventory failed" >&2; exit 1; }
+              sleep 15
+            done
+            [[ "$status" == "Succeeded" ]] || { echo "scheduled initial inventory did not succeed within 1800 seconds" >&2; exit 1; }
+            export INVENTORY_EXECUTION_NAME="$execution_name" INVENTORY_CLAIM_TIME="$claim_time" \
+              INVENTORY_SOURCE_COMMIT="${{ inputs.commit_sha }}"
+            python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          name = os.environ["INVENTORY_EXECUTION_NAME"]
+          receipt = {
+              "schema_version": "fdai.genesis-initial-inventory-execution-receipt.v1",
+              "source_commit": os.environ["INVENTORY_SOURCE_COMMIT"],
+              "apply_claimed_at": os.environ["INVENTORY_CLAIM_TIME"],
+              "execution_ref_digest": hashlib.sha256(name.encode()).hexdigest(),
+              "status": "succeeded",
+              "observer": "azure-container-apps-jobs",
+              "active_generation_verified": False,
+              "subscription_ready": False,
+          }
+          body = json.dumps(receipt, sort_keys=True, separators=(",", ":"))
+          receipt["receipt_digest"] = hashlib.sha256(body.encode()).hexdigest()
+          with open("initial-inventory-receipt.json", "w", encoding="utf-8") as stream:
+              json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          PY
+          fi
 
       - name: Verify independent Executor effect and rollback
         if: ${{ inputs.apply && !inputs.resume_verification && inputs.verify_executor_effect }}
@@ -2236,46 +2228,18 @@ jobs:
         env:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          APPLY_REQUEST_ID: ${{ inputs.request_id }}
+          APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
+          APPLY_SOURCE_COMMIT: ${{ inputs.commit_sha }}
           DEPLOY_IDENTITY_EFFECT_DIGEST: ${{ env.DEPLOY_IDENTITY_EFFECT_DIGEST }}
           MODEL_BINDING_READBACK_DIGEST: ${{ env.MODEL_BINDING_READBACK_DIGEST }}
         run: |
           set -euo pipefail
           applied_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-          export APPLIED_AT="$applied_at" APPLY_PLAN_ID APPLY_PLAN_DIGEST
-          python3 - <<'PY'
-          import json
-          import os
-
-          receipt = {
-              "schema_version": "fdai.deployment-apply-receipt.v1",
-              "plan_id": os.environ["APPLY_PLAN_ID"],
-              "plan_digest": os.environ["APPLY_PLAN_DIGEST"],
-              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
-              "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-              "applied_at": os.environ["APPLIED_AT"],
-              "status": "applied",
-          }
-          readback_digest = os.environ.get("MODEL_BINDING_READBACK_DIGEST", "")
-          if readback_digest:
-              if len(readback_digest) != 64 or any(
-                  character not in "0123456789abcdef" for character in readback_digest
-              ):
-                  raise SystemExit("model binding readback digest is invalid")
-              with open("plan-metadata.json", encoding="utf-8") as stream:
-                  model_resolution = json.load(stream).get("model_resolution")
-              if not isinstance(model_resolution, dict):
-                  raise SystemExit("model binding apply receipt has no model resolution")
-              receipt["model_binding"] = {
-                  "model_resolution": model_resolution,
-                  "readback_receipt_digest": readback_digest,
-              }
-          identity_effect_digest = os.environ.get("DEPLOY_IDENTITY_EFFECT_DIGEST", "")
-          if identity_effect_digest:
-              receipt["deploy_identity_effect_digest"] = identity_effect_digest
-          with open("apply-receipt.json", "w", encoding="utf-8") as stream:
-              json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
-              stream.write("\n")
-          PY
+          export APPLIED_AT="$applied_at" APPLY_PLAN_ID APPLY_PLAN_DIGEST \
+            APPLY_REQUEST_ID APPLY_CONTEXT_DIGEST APPLY_SOURCE_COMMIT
+          python3 ../scripts/deployment/azure/build_deployment_apply_receipt.py \
+            --output apply-receipt.json
           az storage blob upload \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
             --container-name deployment-plans \
@@ -2293,6 +2257,9 @@ jobs:
           else
             mkdir -m 0700 "$candidate"
             install -m 0600 apply-receipt.json "$candidate/apply-receipt.json"
+          fi
+          if [[ -f initial-inventory-receipt.json ]]; then
+            install -m 0600 initial-inventory-receipt.json "$candidate/initial-inventory-receipt.json"
           fi
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
 

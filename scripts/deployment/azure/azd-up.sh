@@ -33,6 +33,8 @@ fail() { log "ERROR: $*"; exit 1; }
 
 # shellcheck source=scripts/deployment/azure/contributor-target.sh
 source "$HERE/contributor-target.sh"
+# shellcheck source=scripts/deployment/azure/contributor-terraform.sh
+source "$HERE/contributor-terraform.sh"
 TARGET_HAS_TERMINAL=0
 if [[ -t 0 && -t 2 ]]; then
   TARGET_HAS_TERMINAL=1
@@ -64,9 +66,9 @@ WORK_DIR="${FDAI_AZD_WORK_DIR:-$REPO_ROOT/.fdai/deploy/public-dev-$RESOURCE_NAME
 LOCK_ROOT="$REPO_ROOT/.fdai/deploy"
 PLATFORM_OVERRIDE="$PLATFORM_ROOT/contributor_override.tf.json"
 CORE_OVERRIDE="$CORE_ROOT/contributor_override.tf.json"
-PLATFORM_STATE="$WORK_DIR/platform.tfstate"
+PLATFORM_STATE="$REPO_ROOT/.azure/$AZD_ENVIRONMENT/infra/terraform.tfstate"
 CORE_STATE="$WORK_DIR/core-control-plane.tfstate"
-PLATFORM_TF_DATA="$WORK_DIR/platform-terraform-data"
+PLATFORM_TF_DATA="$REPO_ROOT/.azure/$AZD_ENVIRONMENT/infra/.terraform"
 CORE_TF_DATA="$WORK_DIR/core-terraform-data"
 RESOLVED_MODELS="$WORK_DIR/resolved-models.json"
 CORE_TFVARS="$WORK_DIR/core.auto.tfvars.json"
@@ -179,56 +181,30 @@ set_scheduled_jobs() {
   fi
 }
 
-provider_state() {
-  timeout 30s az provider show \
-    --subscription "$EXPECTED_SUBSCRIPTION" \
-    --namespace "$1" \
-    --query registrationState \
-    --output tsv \
-    --only-show-errors 2>/dev/null || true
-}
-
 ensure_resource_providers() {
-  local -a missing=()
-  local namespace state
-  local -a required=(
-    Microsoft.App
-    Microsoft.Authorization
-    Microsoft.CognitiveServices
-    Microsoft.ContainerRegistry
-    Microsoft.DBforPostgreSQL
-    Microsoft.EventGrid
-    Microsoft.EventHub
-    Microsoft.Insights
-    Microsoft.KeyVault
-    Microsoft.ManagedIdentity
-    Microsoft.OperationalInsights
-    Microsoft.Resources
-    Microsoft.Storage
+  local provider_timeout="${FDAI_RESOURCE_PROVIDER_TIMEOUT_SECONDS:-900}"
+  [[ "$provider_timeout" =~ ^[0-9]+$ ]] \
+    && ((provider_timeout >= 30 && provider_timeout <= 1800)) || {
+    fail "FDAI_RESOURCE_PROVIDER_TIMEOUT_SECONDS must be from 30 through 1800"
+  }
+  local -a arguments=(
+    python3 "$HERE/resource_provider_reconcile.py"
+    --subscription-id "$EXPECTED_SUBSCRIPTION"
+    --profile application
+    --timeout-seconds "$provider_timeout"
+    --output text
   )
-  for namespace in "${required[@]}"; do
-    state="$(provider_state "$namespace")"
-    [[ "${state,,}" == "registered" ]] || missing+=("$namespace")
-  done
-  if ((${#missing[@]} == 0)); then
-    return
+  local status=0
+  if [[ "$CONFIRM" == "1" ]]; then
+    arguments+=(--apply)
   fi
-  if [[ "$CONFIRM" != "1" ]]; then
-    log "preview stopped: these Azure resource providers require registration:"
-    printf '  - %s\n' "${missing[@]}" >&2
-    log "registration is an Azure mutation; rerun with FDAI_AZD_CONFIRM=1"
-    exit 2
+  "${arguments[@]}" || status=$?
+  if ((status == 2)); then
+    log "preview stopped: Azure resource providers require registration, which is a mutation"
+  elif ((status != 0)); then
+    log "ERROR: Azure resource provider reconciliation failed"
   fi
-  for namespace in "${missing[@]}"; do
-    log "registering Azure resource provider $namespace"
-    timeout 600s az provider register \
-      --subscription "$EXPECTED_SUBSCRIPTION" \
-      --namespace "$namespace" \
-      --wait --only-show-errors
-    [[ "$(provider_state "$namespace" | tr '[:upper:]' '[:lower:]')" == "registered" ]] || {
-      fail "Azure resource provider registration did not converge: $namespace"
-    }
-  done
+  return "$status"
 }
 
 ensure_model_deployer_role() {
@@ -326,6 +302,17 @@ platform_preview() {
     --preview --no-prompt
 }
 
+verify_private_state_file() {
+  local state_file="$1"
+  local label="$2"
+  [[ -f "$state_file" && ! -L "$state_file" && -s "$state_file" ]] || {
+    fail "$label did not retain a regular local Terraform state file"
+  }
+  [[ "$(stat -c '%a:%u' "$state_file")" == "600:$EUID" ]] || {
+    fail "$label Terraform state is not owner-only"
+  }
+}
+
 platform_apply() {
   log "applying the reviewed public development platform"
   azd provision \
@@ -333,9 +320,7 @@ platform_apply() {
     --subscription "$EXPECTED_SUBSCRIPTION" \
     --location "$REGION" \
     --no-prompt
-  [[ -f "$PLATFORM_STATE" && ! -L "$PLATFORM_STATE" && -s "$PLATFORM_STATE" ]] || {
-    fail "platform apply did not retain a regular local Terraform state file"
-  }
+  verify_private_state_file "$PLATFORM_STATE" "platform apply"
   terraform -chdir="$PLATFORM_ROOT" state list >/dev/null || {
     fail "platform Terraform state is unreadable"
   }
@@ -522,14 +507,19 @@ PY
   mv -f -- "$tfvars_tmp" "$CORE_TFVARS"
   rm -f -- "$CORE_PLAN"
   log "planning the independent Core service with local development state"
+  TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE" \
   TF_DATA_DIR="$CORE_TF_DATA" terraform -chdir="$CORE_ROOT" init \
     -reconfigure -input=false -lockfile=readonly
+  TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE" \
   TF_DATA_DIR="$CORE_TF_DATA" terraform -chdir="$CORE_ROOT" validate
+  TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE" \
   TF_DATA_DIR="$CORE_TF_DATA" terraform -chdir="$CORE_ROOT" plan \
     -input=false -lock-timeout=5m -out="$CORE_PLAN" -var-file="$CORE_TFVARS"
   log "applying the exact Core service plan"
+  TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE" \
   TF_DATA_DIR="$CORE_TF_DATA" terraform -chdir="$CORE_ROOT" apply \
     -input=false -lock-timeout=5m "$CORE_PLAN"
+  verify_private_state_file "$CORE_STATE" "Core apply"
 }
 
 wait_for_core() {
@@ -656,6 +646,9 @@ done
 for variable_name in ${!TF_VAR_@} ${!TF_CLI_ARGS@}; do
   fail "clear ambient Terraform control before using the contributor path: $variable_name"
 done
+[[ -z "${TF_CLI_CONFIG_FILE:-}" ]] || {
+  fail "clear ambient Terraform control before using the contributor path: TF_CLI_CONFIG_FILE"
+}
 for variable_name in ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_CLIENT_CERTIFICATE_PATH ARM_OIDC_TOKEN ARM_USE_MSI ARM_USE_OIDC; do
   [[ -z "${!variable_name:-}" ]] || fail "the direct path requires interactive Azure CLI auth; clear $variable_name"
 done
@@ -696,6 +689,7 @@ exec 9>"$LOCK_ROOT/public-dev.lock"
 flock -n 9 || fail "another public development deployment is already running"
 install -d -m 0700 "$WORK_DIR"
 trap cleanup EXIT
+prepare_contributor_terraform "$REPO_ROOT" "$WORK_DIR"
 write_local_backend_override "$PLATFORM_OVERRIDE" "$PLATFORM_STATE"
 PLATFORM_OVERRIDE_CREATED=1
 

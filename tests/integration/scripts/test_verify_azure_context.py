@@ -13,6 +13,7 @@ _VERIFY = _ROOT / "scripts" / "deployment" / "azure" / "verify-azure-context.sh"
 _AZD_UP = _ROOT / "scripts" / "deployment" / "azure" / "azd-up.sh"
 _CONTRIBUTOR_TARGET = _ROOT / "scripts" / "deployment" / "azure" / "contributor-target.sh"
 _BASH = shutil.which("bash")
+_SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 assert _BASH is not None
 
 
@@ -206,7 +207,8 @@ def test_contributor_target_reads_active_login_and_accepts_default_region(
     assert result.stdout == "run|sub-active|tenant-active|koreacentral|1|1\n"
     assert "Azure subscription: sub-active" in result.stderr
     assert "account show --query [id,tenantId]" in calls
-    assert "account list-locations --subscription sub-active" in calls
+    assert "account list-locations --query" in calls
+    assert "account list-locations --subscription" not in calls
 
 
 def test_contributor_target_accepts_an_available_alternate_region(tmp_path: Path) -> None:
@@ -472,11 +474,11 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
         "FAKE_AZ_CALLS": str(az_calls),
-        "FAKE_AZ_SUBSCRIPTION": "sub-expected",
+        "FAKE_AZ_SUBSCRIPTION": _SUBSCRIPTION,
         "FAKE_AZ_TENANT": "tenant-expected",
         "FAKE_AZD_CALLS": str(azd_calls),
-        "FAKE_AZD_SUBSCRIPTION": "sub-expected",
-        "AZURE_SUBSCRIPTION_ID": "sub-expected",
+        "FAKE_AZD_SUBSCRIPTION": _SUBSCRIPTION,
+        "AZURE_SUBSCRIPTION_ID": _SUBSCRIPTION,
         "AZURE_TENANT_ID": "tenant-expected",
         "FDAI_AZD_WORK_DIR": str(tmp_path / "work"),
     }
@@ -493,7 +495,7 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
     assert result.returncode == 0
     azure_calls = az_calls.read_text(encoding="ascii")
     deployment_calls = azd_calls.read_text(encoding="ascii")
-    assert "account set --subscription sub-expected" in azure_calls
+    assert f"account set --subscription {_SUBSCRIPTION}" in azure_calls
     assert "provider register" not in azure_calls
     assert "role assignment create" not in azure_calls
     assert "acr build" not in azure_calls
@@ -513,12 +515,12 @@ def test_azd_wrapper_reports_provider_registration_without_mutating(
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
         "FAKE_AZ_CALLS": str(az_calls),
-        "FAKE_AZ_SUBSCRIPTION": "sub-expected",
+        "FAKE_AZ_SUBSCRIPTION": _SUBSCRIPTION,
         "FAKE_AZ_TENANT": "tenant-expected",
         "FAKE_AZ_PROVIDER_STATE": "NotRegistered",
         "FAKE_AZD_CALLS": str(azd_calls),
-        "FAKE_AZD_SUBSCRIPTION": "sub-expected",
-        "AZURE_SUBSCRIPTION_ID": "sub-expected",
+        "FAKE_AZD_SUBSCRIPTION": _SUBSCRIPTION,
+        "AZURE_SUBSCRIPTION_ID": _SUBSCRIPTION,
         "AZURE_TENANT_ID": "tenant-expected",
         "FDAI_AZD_WORK_DIR": str(tmp_path / "work"),
     }

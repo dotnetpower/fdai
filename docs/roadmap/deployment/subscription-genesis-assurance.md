@@ -57,6 +57,34 @@ The target implementation uses provider-hosted authorization and a protected inp
 selected transport cannot meet that condition, the run pauses for an approved existing host rather
 than weakening secret handling.
 
+The local router can compose signed-kit image planning and apply, Foundation planning and apply,
+Bastion enrollment, host attestation, and private-state handoff only when all artifact, trust,
+profile, variables, and stage-specific access paths are complete and absolute. Every new effect
+requires a mode-`0600` approval record bound to the run, source, stage, exact evidence digests, and
+a UTC window of no more than one hour. This single-human file transport is limited to `dev`;
+staging and production retain their protected quorum transport. Another stage, changed digest,
+expired record, or silence grants no authority.
+
+Each effect writes its immutable claim before mutation. If a claim or terminal receipt already
+exists, a restart selects verification only and never repeats Terraform apply, token enrollment,
+archive transfer, or backend migration. A retained enrollment receipt binds its exact
+human-attributed claim and is accepted only after a fresh Bastion identity, toolchain, service, and
+GitHub runner readback. Runner registration material travels only through SSH standard input over
+the exact Bastion tunnel. It never enters Terraform, process arguments, Azure Run Command, logs,
+status, or receipts. Portable status retains only digests, counts, stage state, and safe booleans;
+resource IDs, SSH paths, local state paths, and raw plans remain private. The state-handoff claim
+binds a target-scoped digest of the authenticated human Azure operator, and both backend authority
+and the terminal receipt bind that exact claim.
+Remote cleanup persists an exact intent, deletes the transfer archive and raw work tree, verifies
+their absence, and only then writes terminal cleanup evidence. A retained terminal marker with any
+raw residue blocks completion.
+
+Every bounded child command runs in a separate process group. A presentation-only dot goes to
+stderr every 10 seconds while the command is still running, and timeout cleanup terminates the
+complete group before the router records failure. Captured stdout and diagnostics aren't rewritten
+or copied into portable status. The local sequence stops after verified Foundation state handoff;
+protected application planning and complete readiness remain separate evidence gates.
+
 Repository settings are compiled from the manifest and applied idempotently. The operation reports
 the names of missing variables and secret references but never their values. Database credentials
 are generated on the private execution host, stored in the approved secret provider, and consumed
@@ -107,6 +135,8 @@ The selected execution profile must prove:
 - effective routes, firewalls, network security groups, service tags, proxy trust, and private DNS
   answers for the target Azure cloud;
 - checksum-pinned tools and images, with no unverified `latest` download during a protected run;
+- distinct authenticated archive and extracted-executable digests where packaging changes bytes,
+  with one schema-versioned toolchain digest shared by planning, image tags, and attestation;
 - bounded egress or a complete signed offline kit; and
 - a healthy runner heartbeat after reboot or deallocation behavior appropriate to its disk model.
 

@@ -146,6 +146,28 @@ def test_saved_plan_text_exposes_digest_but_not_provider_values(
     assert "private-provider-marker" not in output.out + output.err
 
 
+def test_expired_foundation_plan_is_accepted_only_for_claimed_effect_verification(
+    saved_command: tuple[list[str], Path, ProvisionProfile, dict[str, object], list[list[str]]],
+) -> None:
+    args, work, profile, _, _ = saved_command
+    assert cli.main(args) == 0
+    receipt = _receipt(work)
+    receipt["created_at"] = "2000-01-01T00:00:00+00:00"
+    receipt["expires_at"] = "2000-01-01T01:00:00+00:00"
+    receipt = _rewrite_receipt(work, receipt)
+
+    with pytest.raises(ValueError, match="expired"):
+        _verify(work, profile, receipt)
+    verified = foundation_plan.verify_foundation_plan(
+        directory=work,
+        profile=profile,
+        expected_review_digest=str(receipt["review_digest"]),
+        require_unexpired=False,
+    )
+
+    assert verified["plan_digest"] == receipt["plan_digest"]
+
+
 @pytest.mark.parametrize(
     ("key", "value"),
     [

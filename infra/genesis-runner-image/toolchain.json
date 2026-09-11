@@ -1,0 +1,13 @@
+{
+  "azure_cli_package_version": "2.88.0-1~noble",
+  "azure_cli_version": "2.88.0",
+  "github_runner_sha256": "70920811a4f8ad4328818682bca5c6469c1c942fab52448868071d0063816613",
+  "github_runner_version": "2.337.0",
+  "microsoft_package_key_fingerprint": "BC528686B50D79E339D3721CEB3E94ADBE1229CF",
+  "opa_sha256": "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa",
+  "opa_version": "0.68.0",
+  "schema_version": "fdai.genesis-runner-toolchain.v1",
+  "terraform_binary_sha256": "7386e89a97d0f24024955acc79ccf693b75b97f7c6383cb9d966e7d59aa5b223",
+  "terraform_sha256": "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8",
+  "terraform_version": "1.9.8"
+}

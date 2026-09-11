@@ -31,6 +31,7 @@ def foundation_command(
     )
     monkeypatch.setattr(cli, "load_profile", lambda _: profile)
     monkeypatch.setattr(cli, "azure_active_target_binding", lambda: BINDING)
+    monkeypatch.setattr(cli, "verify_foundation_runner_image", lambda *a, **kw: "f" * 64)
     monkeypatch.setattr(cli, "_read_public_key", lambda _: b"synthetic-public-key")
     monkeypatch.setattr(
         cli,

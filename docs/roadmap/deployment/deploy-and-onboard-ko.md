@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e83ad249bac369631c10e6dcaa488eb4e8cef065
+translation_source_sha: b6d9633dacb1b74389548929de629d3b02a4a6b4
 translation_revised: 2026-09-11
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -46,11 +46,13 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 - **배포자 신원:** 역할 할당에는 User Access Administrator가 필요하며 Contributor만으로는 부족합니다.
 - **상태 저장소:** 독립 Bootstrap은 `infra/bootstrap/create-state-account.sh`로 만든 기존 계정을 읽습니다. AzureRM 조회가 계정 키를 읽을 수 있으므로 로컬 상태는 비밀을 포함한 자료로 보호합니다.
 - **애플리케이션 리소스 그룹:** 독립 Bootstrap은 실행기 역할을 할당하기 전에 그룹이 존재해야 합니다.
-- **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
+- **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 변경 허용 Genesis는 공급자나 정책을 변경하기 전에 `prepare-genesis-access-tools.sh`를 실행해 Azure 리소스를 만들지 않고 안정적인 Bastion 및 Microsoft Entra SSH CLI 확장을 고정합니다. 로컬 CLI를 미리 준비하거나 복구할 때만 직접 실행하며 검사 모드는 읽기 전용입니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
 
-[Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다.
+[Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다. 선택적 Standard Bastion 서브넷에는 Azure가 요구하는 전체 인바운드 및 아웃바운드 Network Security Group 규칙을 연결하며, 필수 플랫폼 규칙이 하나라도 없으면 터널 생성을 차단합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
-`fdaictl provision plan --stage foundation`은 선택적 비공개 `--save-plan` 저장을 지원하는 모의 실행입니다. 승인, 호스트 등록, 원격 상태 이전은 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
+`fdaictl provision plan --stage foundation`은 비공개 모의 실행을 제공합니다. 로컬 Genesis
+조정기는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증한 뒤 승인된 이미지 및 기반 계층
+적용, Bastion 등록, 검증된 상태 이전을 추가합니다. 보호된 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다
@@ -107,6 +109,8 @@ Protected 실행기는 Terraform 계획 이후 `scripts/deployment/azure/run_liv
 `fdaictl` package에 의존하지 않고 Azure Policy, Compute quota, executor RBAC 및 value-blind
 Key Vault secret metadata를 검사합니다. Mapping, 자격 증명, category 또는 probe 결과가 없으면
 계획 산출물을 저장하기 전에 실패 시 차단됩니다.
+워크플로를 검토 가능한 크기로 유지하기 위해 보호된 계획 메타데이터와 적용 증적은 전용 저장소
+모듈에서 생성합니다. YAML은 봉인된 입력과 명시적인 출력 경로만 해당 생성기에 전달합니다.
 Protected 계획은 binary Terraform 계획, 범위가 제한된 preflight 근거, 함수 출처 보관을
 각각 별도 SHA-256 다이제스트와 함께 저장합니다. Exact 적용은 모든 산출물을 download하고
 검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 봉인하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 구성된 경우 이력 계획은 전용 의사 결정 근거 계정, 비공개 엔드포인트 및 읽기 전용 신원 부여를 대상으로 하며, 별도 워크플로는 보호된 `main`의 first-parent 근거만 검증하고 게시 전에 증명한 뒤 런타임이 읽기만 할 수 있는 불변 저장소에 수렴 가능한 기록을 씁니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,
@@ -182,26 +186,23 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 #### 온보딩 자동화
 
-두 배포 경로를 반복 가능하게 만드는 customer-agnostic 파라미터형 헬퍼는 다음과 같습니다.
-보호된 호출자와 비대화형 호출자는 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 명시합니다.
-대화형 `azd-up.sh`는 활성 `az login` 쌍을 읽고 `y` 또는 검증된 다른 리전을 입력한 경우에만
-배포합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
-두 축을 계속 증명하며 신원이 정확한 쌍에 접근할 수 없으면 변경 전에 중단합니다.
+다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
-  CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 대화형 Azure CLI 대상을 읽고 `koreacentral` 리전을 확인하거나 교체한 뒤 하나의 명령으로 공개 `dev` 플랫폼, 정확한 Core 이미지, 마이그레이션, 카탈로그, 독립 Core, canary 및 초기 인벤토리를 미리 보고 배포합니다. 빈 입력은 배포를 승인하지 않습니다. 고정된 소유자 전용 라이선스 키가 있고 패키지 공개 키와 일치하면 최대 30일 토큰도 발급하고 Key Vault 파일 입력 경계를 통해 토큰별 다이제스트 기반 이름으로 업로드한 뒤 해당 비밀이 아닌 다이제스트로 새 Core 개정 번호를 만듭니다. 키가 없으면 같은 이미지를 관찰 전용 Trial로 배포합니다. 비공개 또는 운영 경로로 사용하지 않습니다.
-- [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh)는 throwaway
-  KV + 저장소를 프로브해 테난트가 private-everything를 강제하는지(러너 경로 필수 여부)
-  사전에 알려줍니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev`
+  단일 명령 경로입니다. 정확한 green `main`을 요구하고 현재의 각 계획을 승인받으며 기반 계층과
+  테넌트 구성을 완료하고 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다.
+- [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
+  경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
+- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에
+  Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결합니다.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
+  경로입니다. 비공개, 공유, 스테이징 또는 운영 배포 경로로 사용하지 않습니다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh)는 create-state-account -> 초기화
   적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 초기화 출력에서
   repo Variables + Secrets를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
-- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 러너 토큰을 발급하고
-  `run-command`로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
-  뒤 수명이 짧은 제거 토큰으로 stale 로컬 및 GitHub 등록을 제거하고 fresh 서비스를
-  설치합니다. 따라서 토큰을 보관하지 않고 broker-session 손상을 복구합니다.
+- [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 기존 `run-command` 복구
+  도구입니다. Genesis는 대신 Bastion을 통한 SSH 표준 입력으로만 등록 자료를 전달합니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
 

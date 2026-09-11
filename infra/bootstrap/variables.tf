@@ -33,6 +33,20 @@ variable "genesis_state_account_id" {
   }
 }
 
+variable "genesis_app_resource_group_id" {
+  description = "ARM-managed application resource-group reference supplied only with genesis_provider_context. Genesis skips the plan-time group lookup because the same root creates that group."
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.genesis_provider_context == null ? var.genesis_app_resource_group_id == null : try(
+      lower(var.genesis_app_resource_group_id) == lower("/subscriptions/${var.genesis_provider_context.subscription_id}/resourceGroups/${var.app_resource_group_name}"),
+      false
+    )
+    error_message = "Genesis requires the exact application resource-group ARM ID in its configured subscription; standalone bootstrap must omit it."
+  }
+}
+
 variable "workload" {
   description = "Workload short name used in every resource name (e.g. fdai)."
   type        = string
@@ -75,6 +89,26 @@ variable "pe_subnet_prefix" {
   description = "Subnet prefix for the state-storage private endpoint inside the ops VNet."
   type        = string
   default     = "10.70.0.64/26"
+}
+
+variable "enable_bastion" {
+  description = "Create an explicit Standard Bastion native-tunnel path for private runner enrollment and state handoff. False preserves the existing topology and cost."
+  type        = bool
+  default     = false
+}
+
+variable "bastion_subnet_prefix" {
+  description = "Dedicated /26 AzureBastionSubnet prefix inside the ops VNet. Required only when enable_bastion is true."
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.enable_bastion ? try(
+      tonumber(split("/", var.bastion_subnet_prefix)[1]) <= 26,
+      false
+    ) : var.bastion_subnet_prefix == null
+    error_message = "Bastion requires a supplied /26-or-larger subnet; disabled Bastion must omit the prefix."
+  }
 }
 
 variable "state_container_name" {
@@ -156,6 +190,11 @@ variable "runner_admin_username" {
   description = "Admin username on the runner VM (SSH is key-only; no public IP)."
   type        = string
   default     = "fdairunner"
+
+  validation {
+    condition     = can(regex("^[a-z_][a-z0-9_-]{0,30}$", var.runner_admin_username))
+    error_message = "runner_admin_username must be a valid lowercase Linux username of at most 31 characters."
+  }
 }
 
 variable "runner_ssh_public_key" {

@@ -34,6 +34,7 @@ def foundation_values() -> dict[str, object]:
         "source_commit": "a" * 40,
         "run_digest": "b" * 64,
         "foundation_context_digest": "c" * 64,
+        "runner_image_toolchain_digest": "d" * 64,
     }
 
 
@@ -86,6 +87,7 @@ def test_foundation_input_preserves_explicit_provider_context(tmp_path: Path) ->
         ("state_retention_days", 30.5),
         ("runner_vm_size", None),
         ("enable_public_egress", "true"),
+        ("enable_bastion", "true"),
         ("ops_address_space", None),
         ("ops_address_space", "::/64"),
         ("ops_address_space", "10.40.0.1/16"),
@@ -93,6 +95,8 @@ def test_foundation_input_preserves_explicit_provider_context(tmp_path: Path) ->
         ("pe_subnet_prefix", "10.40.1.128/25"),
         ("runner_source_image_id", "https://example.com/image"),
         ("runner_source_image_id", "/subscriptions/example/images/latest"),
+        ("runner_admin_username", "Invalid User"),
+        ("runner_parallelism", 0),
         ("postgres_admin_password", "not-accepted"),
         ("github_runner_token", "not-accepted"),
         ("env", "prod"),
@@ -131,14 +135,46 @@ def test_foundation_optional_inputs_are_preserved(tmp_path: Path) -> None:
     source = tmp_path / "input.json"
     values = foundation_values()
     values.update(
-        state_retention_days=45, runner_vm_size="Standard_D8ds_v5", enable_public_egress=True
+        state_retention_days=45,
+        runner_vm_size="Standard_D8ds_v5",
+        runner_admin_username="fdairunner",
+        runner_parallelism=3,
+        enable_public_egress=True,
+        enable_bastion=True,
+        bastion_subnet_prefix="10.40.3.0/24",
     )
     write_values(source, values)
     output = tmp_path / "output.json"
     snapshot(source, output)
     actual = json.loads(output.read_bytes())
-    for name in ("state_retention_days", "runner_vm_size", "enable_public_egress"):
+    for name in (
+        "state_retention_days",
+        "runner_vm_size",
+        "runner_admin_username",
+        "runner_parallelism",
+        "enable_public_egress",
+        "enable_bastion",
+        "bastion_subnet_prefix",
+    ):
         assert actual[name] == values[name]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [None, "10.40.1.0/24", "10.41.0.0/24", "10.40.3.0/27", "10.40.3.1/24"],
+)
+def test_bastion_subnet_must_be_disjoint_contained_and_at_least_26(
+    tmp_path: Path, prefix: str | None
+) -> None:
+    source = tmp_path / "input.json"
+    values = foundation_values()
+    values["enable_bastion"] = True
+    if prefix is not None:
+        values["bastion_subnet_prefix"] = prefix
+    write_values(source, values)
+
+    with pytest.raises(ValueError, match="Bastion"):
+        snapshot(source, tmp_path / "output.json")
 
 
 @pytest.mark.parametrize("kind", ["missing", "duplicate", "public", "link", "fifo", "oversized"])

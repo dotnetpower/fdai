@@ -41,8 +41,12 @@ read_active_azure_account() {
 contributor_region_is_available() {
   local candidate="$1"
   local available
+  if ! timeout 30s az account set \
+    --subscription "$EXPECTED_SUBSCRIPTION" 2>/dev/null; then
+    target_log "ERROR: could not select the reviewed Azure subscription"
+    return 1
+  fi
   if ! available="$(timeout 30s az account list-locations \
-    --subscription "$EXPECTED_SUBSCRIPTION" \
     --query "[?name == '$candidate'].name | [0]" \
     --output tsv --only-show-errors 2>/dev/null)"; then
     target_log "ERROR: could not verify Azure regions for the selected subscription"

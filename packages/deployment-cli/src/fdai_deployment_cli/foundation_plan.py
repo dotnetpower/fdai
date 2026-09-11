@@ -38,6 +38,7 @@ _CONTEXT_KEYS = {
     "variables_digest",
     "terraform_digest",
     "provider_lock_digest",
+    "runner_image_observation_digest",
     "run_digest",
     "foundation_context_digest",
     "source_commit",
@@ -59,6 +60,7 @@ def foundation_plan_context(
     deployment_bundle_digest: str,
     terraform_digest: str,
     provider_lock: bytes,
+    runner_image_observation_digest: str,
 ) -> dict[str, object]:
     """Bind verified artifact metadata to normalized variables, not source eligibility."""
 
@@ -70,6 +72,7 @@ def foundation_plan_context(
         "variables_digest": canonical_digest(variables),
         "terraform_digest": terraform_digest,
         "provider_lock_digest": hashlib.sha256(provider_lock).hexdigest(),
+        "runner_image_observation_digest": runner_image_observation_digest,
         "source_commit": variables["source_commit"],
         "run_digest": variables["run_digest"],
         "foundation_context_digest": variables["foundation_context_digest"],
@@ -145,7 +148,11 @@ def save_foundation_plan(
 
 
 def verify_foundation_plan(
-    *, directory: Path, profile: ProvisionProfile, expected_review_digest: str
+    *,
+    directory: Path,
+    profile: ProvisionProfile,
+    expected_review_digest: str,
+    require_unexpired: bool = True,
 ) -> dict[str, object]:
     """Check private saved bytes against a separately retained digest; never approve apply."""
 
@@ -186,7 +193,7 @@ def verify_foundation_plan(
         or context["target_binding"] != profile.target_binding
     ):
         raise ValueError("foundation review does not match the profile")
-    _validate_review_time(receipt)
+    _validate_review_time(receipt, require_unexpired=require_unexpired)
     payload = read_private_bytes(directory / PLAN_NAME, max_bytes=_MAX_PLAN_BYTES)
     if hashlib.sha256(payload).hexdigest() != receipt["plan_digest"]:
         raise ValueError("saved foundation plan digest does not match")
@@ -230,7 +237,7 @@ def _validate_projection(details: dict[str, object], variables: dict[str, object
     return version
 
 
-def _validate_review_time(receipt: dict[str, object]) -> None:
+def _validate_review_time(receipt: dict[str, object], *, require_unexpired: bool = True) -> None:
     timestamps: list[datetime] = []
     for key in ("created_at", "expires_at"):
         value = receipt[key]
@@ -244,7 +251,12 @@ def _validate_review_time(receipt: dict[str, object]) -> None:
             raise ValueError("foundation review timestamp MUST be UTC")
         timestamps.append(parsed)
     created, expires = timestamps
-    if expires - created != timedelta(hours=1) or not created <= datetime.now(UTC) < expires:
+    now = datetime.now(UTC)
+    if (
+        expires - created != timedelta(hours=1)
+        or created > now
+        or (require_unexpired and now >= expires)
+    ):
         raise ValueError("foundation review is expired or outside its local time window")
 
 
@@ -257,6 +269,7 @@ def register_foundation_plan_command(
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--expected-review-digest", required=True)
+    parser.add_argument("--allow-expired-after-claim", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--output", choices=("text", "json"), default="text")
     parser.set_defaults(handler=_verify_command)
 
@@ -266,6 +279,7 @@ def _verify_command(args: argparse.Namespace) -> int:
         directory=args.directory,
         profile=load_profile(args.profile),
         expected_review_digest=args.expected_review_digest,
+        require_unexpired=not args.allow_expired_after_claim,
     )
     print(
         json.dumps(result, sort_keys=True, separators=(",", ":"))

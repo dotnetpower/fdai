@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -296,7 +297,8 @@ def dispatch_apply(
         raise ValueError("plan_id is invalid")
     if _DIGEST.fullmatch(plan_digest) is None:
         raise ValueError("plan_digest MUST be a lowercase SHA-256")
-    enforce_plan_not_expired(plan_expires_at)
+    if not resume_verification:
+        enforce_plan_not_expired(plan_expires_at)
     context_digest = deployment_context_digest(
         environment=environment,
         commit_sha=commit_sha,
@@ -351,6 +353,8 @@ def workflow_status(
     target_binding: str,
     expected_region: str,
     resume_verification: bool = False,
+    expected_plan_id: str | None = None,
+    expected_plan_digest: str | None = None,
     run: CommandRunner | None = None,
 ) -> dict[str, object]:
     """Read one uniquely matched workflow run without polling."""
@@ -431,6 +435,7 @@ def workflow_status(
             workflow_run_id=database_id,
             request_id_value=request_id_value,
             expected_commit=expected_commit,
+            expected_context_digest=expected_context_digest,
             run=_artifact_runner(runner),
         )
         # Expose expired as read-only status without blocking the status query.
@@ -442,6 +447,23 @@ def workflow_status(
             except ValueError:
                 plan_meta["expired"] = True  # Fail-closed on unparseable expiry.
         projected["plan"] = plan_meta
+    elif (
+        status == "completed"
+        and conclusion == "success"
+        and (expected_plan_id is not None or expected_plan_digest is not None)
+    ):
+        if expected_plan_id is None or expected_plan_digest is None:
+            raise ValueError("apply status requires plan id and digest together")
+        projected["apply_receipt"] = _download_apply_receipt(
+            repository=repository,
+            workflow_run_id=database_id,
+            request_id_value=request_id_value,
+            expected_commit=expected_commit,
+            expected_context_digest=expected_context_digest,
+            expected_plan_id=expected_plan_id,
+            expected_plan_digest=expected_plan_digest,
+            run=_artifact_runner(runner),
+        )
     return projected
 
 
@@ -616,6 +638,7 @@ def _download_plan_metadata(
     workflow_run_id: int,
     request_id_value: str,
     expected_commit: str,
+    expected_context_digest: str,
     run: CommandRunner,
 ) -> dict[str, object]:
     with tempfile.TemporaryDirectory(prefix="fdai-plan-status-") as raw_directory:
@@ -648,6 +671,7 @@ def _download_plan_metadata(
         "schema_version": "fdai.deployment-plan.v1",
         "request_id": request_id_value,
         "commit_sha": expected_commit,
+        "context_digest": expected_context_digest,
         "status": "ready",
     }
     if any(payload.get(key) != value for key, value in required.items()):
@@ -666,13 +690,190 @@ def _download_plan_metadata(
         or not isinstance(expires_at, str)
     ):
         raise ValueError("github_plan_metadata_invalid")
+    summary = _plan_summary(payload.get("plan_summary"))
+    observations = payload.get("post_apply_observations")
+    if observations != [
+        "database-migrations",
+        "runtime-health",
+        "initial-inventory-execution",
+        "canary-publisher",
+        "terraform-zero-change",
+    ]:
+        raise ValueError("github_plan_metadata_observations_invalid")
     return {
         "plan_id": plan_id,
         "plan_digest": plan_digest,
         "context_digest": context_digest,
         "expires_at": expires_at,
         "status": "ready",
+        "plan_summary": summary,
+        "post_apply_observations": observations,
     }
+
+
+def _plan_summary(value: object) -> dict[str, object]:
+    """Validate one address-free protected-plan action summary."""
+
+    if not isinstance(value, dict) or set(value) != {
+        "schema_version",
+        "action_counts",
+        "resource_type_counts",
+        "managed_resources",
+        "destructive",
+        "summary_digest",
+    }:
+        raise ValueError("github_plan_summary_invalid")
+    digest = value.get("summary_digest")
+    body = {key: item for key, item in value.items() if key != "summary_digest"}
+    if (
+        value.get("schema_version") != "fdai.deployment-plan-summary.v1"
+        or not isinstance(digest, str)
+        or _DIGEST.fullmatch(digest) is None
+        or canonical_digest(body) != digest
+        or type(value.get("managed_resources")) is not int
+        or int(value["managed_resources"]) < 0
+        or type(value.get("destructive")) is not bool
+    ):
+        raise ValueError("github_plan_summary_invalid")
+    actions = value.get("action_counts")
+    expected_actions = {"create", "update", "delete", "replace", "no_op", "read"}
+    if (
+        not isinstance(actions, dict)
+        or set(actions) != expected_actions
+        or any(type(count) is not int or count < 0 for count in actions.values())
+        or sum(actions.values()) != value["managed_resources"]
+    ):
+        raise ValueError("github_plan_summary_invalid")
+    resource_types = value.get("resource_type_counts")
+    if not isinstance(resource_types, dict) or len(resource_types) > 256:
+        raise ValueError("github_plan_summary_invalid")
+    for resource_type, counts in resource_types.items():
+        if (
+            not isinstance(resource_type, str)
+            or not resource_type
+            or len(resource_type) > 128
+            or not isinstance(counts, dict)
+            or not set(counts).issubset(expected_actions)
+            or any(type(count) is not int or count <= 0 for count in counts.values())
+        ):
+            raise ValueError("github_plan_summary_invalid")
+    return {str(key): item for key, item in value.items()}
+
+
+def _download_apply_receipt(
+    *,
+    repository: str,
+    workflow_run_id: int,
+    request_id_value: str,
+    expected_commit: str,
+    expected_context_digest: str,
+    expected_plan_id: str,
+    expected_plan_digest: str,
+    run: CommandRunner,
+) -> dict[str, object]:
+    """Download and validate one standard application receipt and inventory observation."""
+
+    if (
+        _PLAN_ID.fullmatch(expected_plan_id) is None
+        or _DIGEST.fullmatch(expected_plan_digest) is None
+    ):
+        raise ValueError("expected apply plan identity is invalid")
+    with tempfile.TemporaryDirectory(prefix="fdai-apply-status-") as raw_directory:
+        directory = Path(raw_directory)
+        result = run(
+            (
+                "run",
+                "download",
+                str(workflow_run_id),
+                "--repo",
+                repository,
+                "--name",
+                f"deployment-apply-receipt-{expected_plan_id}",
+                "--dir",
+                str(directory),
+            )
+        )
+        if result.returncode != 0:
+            raise ValueError("github_apply_receipt_unavailable")
+        receipt = _private_artifact_json(directory / "apply-receipt.json", "apply receipt")
+        inventory_path = directory / "initial-inventory-receipt.json"
+        inventory_bytes = _private_artifact_bytes(
+            inventory_path, "initial inventory execution receipt"
+        )
+        inventory = dict(_json_object(inventory_bytes.decode("utf-8"), "initial inventory receipt"))
+    expected = {
+        "schema_version": "fdai.deployment-apply-receipt.v1",
+        "plan_id": expected_plan_id,
+        "plan_digest": expected_plan_digest,
+        "request_id": request_id_value,
+        "context_digest": expected_context_digest,
+        "source_commit": expected_commit,
+        "status": "applied",
+        "terraform_zero_change_verified": True,
+        "migration_stage_verified": True,
+        "runtime_health_verified": True,
+        "canary_verified": True,
+        "subscription_ready": False,
+    }
+    receipt_digest = receipt.get("receipt_digest")
+    receipt_body = {key: item for key, item in receipt.items() if key != "receipt_digest"}
+    if any(receipt.get(key) != item for key, item in expected.items()):
+        raise ValueError("github_apply_receipt_context_mismatch")
+    if (
+        not isinstance(receipt_digest, str)
+        or _DIGEST.fullmatch(receipt_digest) is None
+        or canonical_digest(receipt_body) != receipt_digest
+    ):
+        raise ValueError("github_apply_receipt_digest_invalid")
+    inventory_digest = hashlib.sha256(inventory_bytes).hexdigest()
+    inventory_receipt_digest = inventory.get("receipt_digest")
+    inventory_body = {key: item for key, item in inventory.items() if key != "receipt_digest"}
+    if (
+        receipt.get("initial_inventory_execution_receipt_digest") != inventory_digest
+        or inventory.get("schema_version") != "fdai.genesis-initial-inventory-execution-receipt.v1"
+        or inventory.get("source_commit") != expected_commit
+        or inventory.get("status") != "succeeded"
+        or inventory.get("active_generation_verified") is not False
+        or inventory.get("subscription_ready") is not False
+        or not isinstance(inventory_receipt_digest, str)
+        or _DIGEST.fullmatch(inventory_receipt_digest) is None
+        or hashlib.sha256(
+            json.dumps(inventory_body, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        != inventory_receipt_digest
+    ):
+        raise ValueError("github_initial_inventory_receipt_invalid")
+    return {
+        "plan_id": expected_plan_id,
+        "plan_digest": expected_plan_digest,
+        "request_id": request_id_value,
+        "context_digest": expected_context_digest,
+        "source_commit": expected_commit,
+        "status": "applied",
+        "terraform_zero_change_verified": True,
+        "migration_stage_verified": True,
+        "runtime_health_verified": True,
+        "canary_verified": True,
+        "initial_inventory_execution_receipt_digest": inventory_digest,
+        "subscription_ready": False,
+    }
+
+
+def _private_artifact_json(path: Path, label: str) -> dict[str, object]:
+    return dict(_json_object(_private_artifact_bytes(path, label).decode("utf-8"), label))
+
+
+def _private_artifact_bytes(path: Path, label: str) -> bytes:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or details.st_size > 262_144
+        ):
+            raise ValueError(f"github_{label.replace(' ', '_')}_file_invalid")
+        return stream.read(262_145)
 
 
 def _json_array(raw: str, label: str) -> list[Mapping[str, object]]:

@@ -17,6 +17,7 @@ makes that possible, and it survives app rebuilds.
 | NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. Set `enable_public_egress = false` on a closed network: the host becomes a jumpbox rather than a GitHub-registered runner, no public IP is created at all, and the tenant supplies its own approved path to the management and identity planes. |
 | Stable deploy UAMI | Survives runner VM replacement and exposes separate client and principal IDs for login and token verification. |
 | Runner VM (no public IP) | `Standard_D4ds_v5` provides sustained CPU and a local SSD-backed ephemeral OS disk. The permanent runner attaches only the stable UAMI after migration. |
+| Optional Azure Bastion Standard | `enable_bastion = true` adds a dedicated `AzureBastionSubnet`, native tunneling, and file copy for exact runner enrollment and state handoff. Copy/paste, IP connect, and shareable links remain disabled. |
 | Role assignments | Stable deploy UAMI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor + Cognitive Services Contributor + Reader + conditional Role Based Access Control Administrator on the subscription. The condition permits only Reader, Monitoring Reader, and Cost Management Reader grants to service principals. |
 
 The app config (`../`) peers its spoke VNet to `ops_vnet_id`, links its
@@ -98,8 +99,10 @@ the current CLI profile happens to select.
 The [genesis foundation root](../genesis-foundation/) composes this module with an
 Azure Resource Manager (ARM)-managed private state account and an empty application resource
 group. It selects a pinned offline image, disables automatic provider registration, and defaults
-to no public egress. Registered providers, image trust, quota, and a reachable private host remain
-prerequisites; this root is not the complete installer or an approval mechanism.
+to no public egress. The separate [Genesis runner image](../genesis-runner-image/) root can build
+the exact image from a pinned toolchain before Foundation planning. Registered providers, image
+trust, quota, and a reachable private host remain prerequisites; neither root is an approval
+mechanism.
 
 The composition supplies `genesis_provider_context` and `genesis_state_account_id`. The account
 reference must match the configured subscription, ops group, and account name. This mode skips
@@ -113,8 +116,13 @@ Existing platform state retains managed ownership. Once the ownership record exi
 the mode is blocked. Older states should first record their existing managed mode; a matching
 tag never authorizes adoption or replaces a reviewed state handoff.
 
-Private container creation, backend migration and readback, protected execution, and final
-Console/discovery verification are still separate work. The root emits references, not readiness.
+The Foundation root creates both private containers through Azure Resource Manager and can add an
+explicit Bastion Standard tunnel. Its dedicated subnet uses the complete Azure-required inbound
+and outbound Network Security Group rule set. `genesis-foundation-apply.sh` independently reads back the
+control-plane effect, `genesis-runner-enrollment.sh` enrolls and attests the exact VM, and
+`genesis-foundation-state.sh` migrates state through that VM before deleting the local recovery
+copy. Protected application deployment and final Console/discovery verification remain separate.
+The root emits private references, never readiness.
 
 ### Offline prebuilt image
 
@@ -129,9 +137,20 @@ The default remains `online`, using the existing marketplace image and installat
 to the Azure management and identity planes exists. State/account prerequisites, exact-plan approval,
 private data-plane execution, and backend migration are unchanged.
 
+### Genesis enrollment
+
+The resumable Genesis path uses Azure Bastion native tunneling and the image-installed
+`fdai-enroll-runner` helper. It requests a short-lived registration token through the authenticated
+GitHub CLI and sends that token only through SSH standard input. The token doesn't enter Terraform,
+an argument, Azure Run Command, a status record, or a receipt.
+
+After registration, `fdai-attest-runner` verifies the exact managed identity, source revision,
+toolchain digest, slot services, and GitHub label set. An immutable enrollment claim blocks a
+second enrollment effect. A retry can only re-run attestation and GitHub readback.
+
 ### Online registration
 
-Two options:
+These options are standalone recovery paths and aren't used by Genesis:
 
 1. **Manual (recommended)** - leave `github_runner_token` empty, then on the VM
    (reach it via `az vm run-command invoke` or Azure Bastion):
