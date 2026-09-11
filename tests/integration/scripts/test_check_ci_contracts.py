@@ -748,6 +748,19 @@ def test_action_steps_require_explicit_verifier_success() -> None:
     ]
 
 
+def test_guard_success_must_be_a_required_conjunction() -> None:
+    module = _load_contract_module()
+
+    assert not module.workflow_security.condition_requires_guard_success(
+        "always() && (steps.guard.outcome == 'success' || true)",
+        "guard",
+    )
+    assert module.workflow_security.condition_requires_guard_success(
+        "always() && steps.guard.outcome == 'success' && inputs.publish",
+        "guard",
+    )
+
+
 def test_privileged_execution_cannot_override_verifier_failure() -> None:
     module = _load_contract_module()
     checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]

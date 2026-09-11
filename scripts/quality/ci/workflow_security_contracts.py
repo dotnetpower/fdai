@@ -286,27 +286,60 @@ def condition_requires_prior_step(
     """Return whether a status override is fail-closed on a later step result."""
     if not isinstance(condition, str):
         return False
-    referenced = set(
-        re.findall(
-            r"steps\.([A-Za-z0-9_-]+)\.(?:outcome|conclusion)\s*==\s*'success'",
-            condition,
-        )
-    )
-    referenced.update(
-        re.findall(
-            r"steps\.([A-Za-z0-9_-]+)\.outputs\.[A-Za-z0-9_-]+\s*==\s*'true'",
-            condition,
-        )
-    )
-    return bool(referenced & eligible_step_ids)
+    normalized = " ".join(condition.split())
+    if normalized.startswith("${{") and normalized.endswith("}}"):
+        normalized = normalized[3:-2].strip()
+    for raw_clause in split_top_level_operator(normalized, "||"):
+        conjuncts = {
+            strip_outer_parentheses(value)
+            for value in split_top_level_operator(
+                strip_outer_parentheses(raw_clause),
+                "&&",
+            )
+        }
+        valid = False
+        for conjunct in conjuncts:
+            success_match = re.fullmatch(
+                r"steps\.([A-Za-z0-9_-]+)\.(?:outcome|conclusion)\s*==\s*'success'",
+                conjunct,
+            )
+            output_match = re.fullmatch(
+                r"steps\.([A-Za-z0-9_-]+)\.outputs\.[A-Za-z0-9_-]+\s*==\s*'true'",
+                conjunct,
+            )
+            step_id = (
+                success_match.group(1)
+                if success_match is not None
+                else output_match.group(1)
+                if output_match is not None
+                else None
+            )
+            if step_id in eligible_step_ids:
+                valid = True
+                break
+        if not valid:
+            return False
+    return True
 
 
 def condition_requires_guard_success(condition: Any, guard_id: Any) -> bool:
     """Return whether an override explicitly requires verifier success."""
-    return (
-        isinstance(condition, str)
-        and isinstance(guard_id, str)
-        and f"steps.{guard_id}.outcome == 'success'" in condition
+    if not isinstance(condition, str) or not isinstance(guard_id, str):
+        return False
+    normalized = " ".join(condition.split())
+    if normalized.startswith("${{") and normalized.endswith("}}"):
+        normalized = normalized[3:-2].strip()
+    required = f"steps.{guard_id}.outcome == 'success'"
+    return all(
+        required
+        in {
+            strip_outer_parentheses(value)
+            for value in split_top_level_operator(
+                strip_outer_parentheses(clause),
+                "&&",
+            )
+        }
+        for clause in split_top_level_operator(normalized, "||")
     )
 
 
