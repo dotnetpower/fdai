@@ -56,6 +56,7 @@ class InventoryJobConfig:
     arg_requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
     recovery_delta_enabled: bool = True
     resource_change_feed_enabled: bool = True
+    operator_requested: bool = False
     declarative_path: Path | None = None
     declarative_sha256: str | None = None
     kubernetes_api_server: str | None = None
@@ -135,6 +136,11 @@ class InventoryJobConfig:
             source,
             "FDAI_INVENTORY_RESOURCE_CHANGE_FEED",
             True,
+        )
+        operator_requested = read_bool_env(
+            source,
+            "FDAI_INVENTORY_OPERATOR_REQUESTED",
+            False,
         )
         declarative_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
         declarative_sha256 = source.get("FDAI_INVENTORY_DECLARATIVE_SHA256", "").strip() or None
@@ -304,6 +310,7 @@ class InventoryJobConfig:
             arg_requests_per_second=arg_requests_per_second,
             recovery_delta_enabled=recovery_delta_enabled,
             resource_change_feed_enabled=resource_change_feed_enabled,
+            operator_requested=operator_requested,
             declarative_path=Path(declarative_value) if declarative_value else None,
             declarative_sha256=declarative_sha256,
             kubernetes_api_server=kubernetes_api_server,
