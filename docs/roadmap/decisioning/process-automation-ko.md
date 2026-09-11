@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 75c0ae042129c6705701a634f5d1fe85fba2359b
-translation_revised: 2026-09-11
+translation_source_sha: b5f6848ce2814e3aeacf3ed01c431353c5a2107a
+translation_revised: 2026-09-12
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -309,23 +309,23 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 재시도하므로 기한 뒤 완성된 정족수가 프로세스를 진행시키지 못합니다. 기한 전에 완성된 정족수는 프로세스 조정이 나중에 재개되어도 유효합니다. 콜백과 대화 승인 표면은 no-self-approval을 위해 정규화된 principal을 비교합니다.
 Approval 점유 CAS 재시도는 fixed contention 한계 대신 변경할 수 없는 자리 정족수에 따라 확장됩니다.
 
-정족수 슬롯 결정의 소유자는 작업 흐름 승인 레지스트리 **뿐** 입니다. `fdai.hil.decisions`에
-게시된 영속 결정 레코드는 park의 `decision_route`로 라우팅합니다. `workflow` park는 레지스트리를
-통해 기록하고, `action` park만 HIL 코디네이터로 재개하며 이 경로만이 실행기에 도달할 수 있습니다.
-슬롯을 코디네이터로 보내면 정족수 집계, 중복 승인자 거부, 요청자 자기 승인 거부를 우회하게 되므로,
-이제 레지스트리 자체가 `no_self_approval`이 설정된 상태에서 정규화된 principal이 기록된
-`requester_principal`과 같은 결정을 거부합니다. 이 거부는 Operator 콜백, 재생된 결정 이벤트,
-콘솔 도구에 동일하게 적용됩니다.
+정족수 슬롯 결정의 소유자는 작업 흐름 승인 레지스트리 **뿐** 입니다. `fdai.hil.decisions`에 게시된 영속 결정 레코드는 park의
+`decision_route`로 라우팅합니다. `workflow` park는 레지스트리를 통해 기록하고, `action` park만 HIL 코디네이터로 재개하며 이
+경로만이 실행기에 도달할 수 있습니다. 슬롯을 코디네이터로 보내면 정족수 집계, 중복 승인자 거부, 요청자 자기 승인 거부를
+우회하게 되므로, 이제 레지스트리 자체가 `no_self_approval`이 설정된 상태에서 정규화된 principal이 기록된
+`requester_principal`과 같은 결정을 거부합니다. 이 거부는 Operator 콜백, 재생된 결정 이벤트, 콘솔 도구에 동일하게 적용됩니다.
 
-작업 흐름 감사는 각 ActionType의 `x-fdai-redact` 경로를 사용합니다. 민감정보가 제거된 필드는
-`[REDACTED]`로 표시되며 프로세스 저널에 들어가지 않습니다. 작업 흐름 런타임에는 시크릿 보관
-프로바이더가 없으므로 resolved params에 민감정보가 제거된 필드가 있는 강제 적용 액션은 타입이 지정된 전달 전에
-실패합니다. Secret-bearing 작업 흐름 단계는 값을 감사 또는 재생 상태에 저장하지 않고 공급할
-전용 보관 경계가 생길 때까지 사용 불가 상태를 유지합니다.
+작업 흐름 감사는 각 ActionType의 `x-fdai-redact` 경로를 사용합니다. 민감정보가 제거된 필드는 `[REDACTED]`로 표시되며 프로세스
+저널에 들어가지 않습니다. 작업 흐름 런타임에는 시크릿 보관 프로바이더가 없으므로 resolved params에 민감정보가 제거된 필드가 있는
+강제 적용 액션은 타입이 지정된 전달 전에 실패합니다. Secret-bearing 작업 흐름 단계는 값을 감사 또는 재생 상태에 저장하지 않고
+공급할 전용 보관 경계가 생길 때까지 사용 불가 상태를 유지합니다.
 
-ChangeWindow 평가는 온톨로지 vocabulary를 따릅니다. `reviewed`와 `active`는 effective 상태이고
-`allow`, `maintenance`, `emergency`는 게이트를 허용하며 `freeze`, `quiet`는 차단합니다. Malformed,
-out-of-range, 잘린 근거는 계속 차단됩니다.
+ChangeWindow 평가는 온톨로지 vocabulary를 따릅니다. `reviewed`와 `active`는 effective 상태이고 `allow`, `maintenance`,
+`emergency`는 게이트를 허용하며 `freeze`, `quiet`는 차단합니다. Malformed, out-of-range, 잘린 근거는 계속 차단됩니다.
+
+복구는 집중된 `recovery_coordinator_*` 단계 모듈과 `workflow_action_outcome.py`로 구성하므로 어떤 모듈도 두 단계 이상을
+소유하지 않습니다. 경로 순서에 대한 권위 있는 기술은 `recovery_coordinator.py`가 계속 유지하며, 각 단계 모듈은 증적과 협업
+seam만 보유하고 실행, 승인, 효과 검증 권한은 어느 것도 부여하지 않습니다.
 
 ## 6. 거버넌스
 

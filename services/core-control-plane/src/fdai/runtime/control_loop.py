@@ -24,7 +24,6 @@ from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     DirectApiExecutionPort,
-    InProcessThorExecutionPort,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
@@ -109,6 +108,11 @@ from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
+from fdai.runtime.control_loop_execution_ports import (
+    build_thor_execution_port,
+    build_workflow_action_dispatcher,
+    require_production_safeguard_readiness,
+)
 from fdai.runtime.control_loop_support import (
     build_operating_intent_change_window_provider as _build_intent_windows,
 )
@@ -127,12 +131,7 @@ from fdai.runtime.control_loop_support import (
 from fdai.runtime.control_loop_support import (
     pending_index_writer as _pending_index_writer,
 )
-from fdai.runtime.delivery import (
-    _build_direct_api_executor,
-    _build_hil_channel,
-    _build_publisher,
-    _build_tool_executor,
-)
+from fdai.runtime.delivery import _build_hil_channel, _build_publisher
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient as EventBusDirectApiExecutionClient,
 )
@@ -150,10 +149,6 @@ from fdai.runtime.providers import (
     _build_safeguard_lifecycle_coordinator,
 )
 from fdai.runtime.rule_profile import bind_rule_profile
-from fdai.runtime.safeguard_isolated_executor import (
-    SafeguardBoundEventBusDirectApiExecutionClient,
-)
-from fdai.runtime.workflow_action_dispatch import EventBusWorkflowActionDispatcher
 from fdai.shared.contracts.models import Mode, ResponseOutcome, Rule
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
@@ -279,17 +274,7 @@ def _build_control_loop(
     the container runs in fake-publisher mode (dev / unit tests).
     """
     catalog_root = _resolve_catalog_root()
-    production_runtime = os.environ.get("RUNTIME_ENV", "").strip().lower() in {
-        "staging",
-        "prod",
-        "production",
-    }
-    if (
-        production_runtime
-        and thor_execution_port is not None
-        and thor_execution_port.safeguard_lifecycle_ready is not True
-    ):
-        raise RuntimeError("production Thor port lacks shared safeguard lifecycle readiness")
+    require_production_safeguard_readiness(thor_execution_port)
     policies_root = _resolve_policies_root(catalog_root)
     action_types_root = catalog_root / "action-types"
     object_types_root = catalog_root / "vocabulary" / "object-types"
@@ -527,62 +512,27 @@ def _build_control_loop(
         self_consistency=_build_self_consistency_cascade(container, llm_bindings),
     )
 
-    if thor_execution_port is None:
-        graph_model_promotion_registry = None
-        if os.environ.get("FDAI_STATE_STORE_DSN", "").strip():
-            from fdai.delivery.persistence.state_store_graph_model_promotion import (
-                StateStoreGraphModelPromotionRegistry,
-            )
-
-            graph_model_promotion_registry = StateStoreGraphModelPromotionRegistry(
-                store=audit_store,
-                ontology_release_digest=ontology_release.digest.removeprefix("sha256:"),
-                property_semantics_digest=property_semantics.content_digest.removeprefix("sha256:"),
-                decision_evidence_provider=container.decision_evidence_admission_provider,
-            )
-        executor = ShadowExecutor(
-            publisher=publisher,
-            audit_store=audit_store,
-            renderer=cast(TemplateRenderer, renderer),
-            resource_lock=resource_lock,
-            idempotency=idempotency_store,
-            safeguard_coordinator=safeguard_coordinator,
-        )
-        if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient):
-            direct_api_executor = SafeguardBoundEventBusDirectApiExecutionClient(
-                client=direct_api_execution_port,
-                coordinator=safeguard_coordinator,
-            )
-        else:
-            direct_api_executor = direct_api_execution_port or _build_direct_api_executor(
-                audit_store=audit_store,
-                resource_lock=resource_lock,
-                idempotency=idempotency_store,
-                http_client=http_client,
-                identity=identity,
-                human_access_enabled=human_access_enabled,
-                promotion_registry=promotion_registry,
-                graph_model_promotion_registry=graph_model_promotion_registry,
-                action_types_by_name=action_types_by_name,
-                execution_identities=execution_identities,
-                safeguard_coordinator=safeguard_coordinator,
-            )
-        tool_executor = _build_tool_executor(
-            audit_store=audit_store,
-            resource_lock=resource_lock,
-            idempotency=idempotency_store,
-            receipt_observer=tool_receipt_observer,
-            http_client=http_client,
-            metric_provider=container.metric_provider,
-            chaos_catalog_root=catalog_root / "chaos-scenarios",
-            safeguard_coordinator=safeguard_coordinator,
-        )
-        thor_execution_port = InProcessThorExecutionPort(
-            pr_native=executor,
-            direct_api=direct_api_executor,
-            tool_call=tool_executor,
-            safeguard_lifecycle_ready=True,
-        )
+    thor_execution_port = build_thor_execution_port(
+        thor_execution_port,
+        container=container,
+        audit_store=audit_store,
+        publisher=publisher,
+        renderer=renderer,
+        resource_lock=resource_lock,
+        idempotency_store=idempotency_store,
+        safeguard_coordinator=safeguard_coordinator,
+        direct_api_execution_port=direct_api_execution_port,
+        tool_receipt_observer=tool_receipt_observer,
+        http_client=http_client,
+        identity=identity,
+        human_access_enabled=human_access_enabled,
+        execution_identities=execution_identities,
+        promotion_registry=promotion_registry,
+        action_types_by_name=action_types_by_name,
+        ontology_release=ontology_release,
+        property_semantics=property_semantics,
+        catalog_root=catalog_root,
+    )
     thor_execution_port = gate_execution(thor_execution_port, license_authority, audit_store)
     executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)
     # Detection-and-explanation seams (observability-and-detection.md).
@@ -764,20 +714,11 @@ def _build_control_loop(
         audit_store,
         decision_evidence_provider=container.decision_evidence_admission_provider,
     )
-    workflow_action_dispatcher = (
-        EventBusWorkflowActionDispatcher(
-            event_bus=workflow_event_bus,
-            topic=container.config.kafka.topic_events,
-        )
-        if workflow_event_bus is not None
-        else None
+    workflow_action_dispatcher = build_workflow_action_dispatcher(
+        event_bus=workflow_event_bus,
+        topic=container.config.kafka.topic_events,
+        workflows_present=bool(workflows),
     )
-    if (
-        workflows
-        and os.environ.get("RUNTIME_ENV", "").strip().lower() in {"staging", "prod", "production"}
-        and workflow_action_dispatcher is None
-    ):
-        raise RuntimeError("production Workflow action dispatcher is unavailable")
     workflow_automation_holds = StateStoreAutomationHoldLedger(audit_store)
     return ControlLoop(
         event_ingest=event_ingest,

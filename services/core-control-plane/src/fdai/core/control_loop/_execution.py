@@ -4,21 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 
+from fdai.core.control_loop._governance import ControlLoopGovernanceMixin
 from fdai.core.control_loop._helpers import (
     _unified_audit_dict,
     build_shadow_authority_audit,
     evaluate_unified,
 )
+from fdai.core.control_loop._safeguard_commitment import ControlLoopSafeguardCommitmentMixin
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.port import DirectApiExecutionPort
-from fdai.core.executor.safeguard_lifecycle_coordinator import (
-    SafeguardLifecycleCoordinator,
-)
 from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
     ToolCallShadowExecutor,
@@ -61,13 +60,6 @@ from fdai.core.risk_gate.preconditions import (
 )
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.workflow.workflow_runtime import WorkflowOutcomeRecorder
-from fdai.rule_catalog.schema.assignment import (
-    Assignment,
-    AssignmentResolution,
-    resolve_assignments,
-)
-from fdai.rule_catalog.schema.override import Override, resolve_override
-from fdai.rule_catalog.schema.scope import ResourceContext
 from fdai.shared.contracts.models import (
     Action,
     Event,
@@ -81,10 +73,6 @@ from fdai.shared.providers.blast_probe import (
     LiveBlastProbe,
     ProbeQuery,
     ProbeVerdict,
-)
-from fdai.shared.providers.cost_estimator import (
-    CostEstimator,
-    resolve_cost_impact_monthly,
 )
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
@@ -101,21 +89,21 @@ _LIVE_PROBE_MAX_DEADLINE_SECONDS = 60.0
 _LIVE_PROBE_TIMEOUT_SLACK_SECONDS = 1.0
 
 
-class ControlLoopExecutionMixin:
+class ControlLoopExecutionMixin(
+    ControlLoopGovernanceMixin,
+    ControlLoopSafeguardCommitmentMixin,
+):
     """Resolve governance, execution authority, and executor selection."""
 
     _action_types_by_name: Mapping[str, OntologyActionType]
     _audit_store: StateStore
     _clock: Callable[[], datetime]
-    _cost_estimator: CostEstimator | None
     _degradation: DegradationController | None
     _direct_api_executor: DirectApiExecutionPort | None
     _executor: ShadowExecutor
     _execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None
     _execution_access_grant_sink: ExecutionAccessGrantSink | None
     _evidence_conflict_reader: EvidenceConflictCurrentReader | None
-    _governance_assignments: Sequence[Assignment]
-    _governance_overrides: Sequence[Override]
     _inventory_age_provider: Callable[[str], Awaitable[int | None]] | None
     _kill_switch: KillSwitch | None
     _kill_switch_refresher: Callable[[], Awaitable[None]] | None
@@ -131,7 +119,6 @@ class ControlLoopExecutionMixin:
     _automation_hold_reader: AutomationHoldReader | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
-    _safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None
     _tool_executor: ToolCallShadowExecutor | None
 
     async def _measure_live_probe(
@@ -322,99 +309,6 @@ class ControlLoopExecutionMixin:
         )
         return result
 
-    def _governance_resource_context(
-        self,
-        *,
-        event: Event,
-        resource_id: str,
-        resource_type: str,
-    ) -> ResourceContext:
-        """Build the resource hierarchy context shared by assignment and override
-        resolution, so both read the same event-derived scope facts."""
-        payload = event.payload
-        resource = payload.get("resource")
-        resource_data = resource if isinstance(resource, dict) else {}
-        props = resource_data.get("props")
-        props_data = props if isinstance(props, dict) else {}
-        tags = props_data.get("tags")
-        tag_data = tags if isinstance(tags, dict) else {}
-
-        def _text(*keys: str) -> str:
-            for key in keys:
-                value = resource_data.get(key, payload.get(key))
-                if isinstance(value, str) and value:
-                    return value
-            return ""
-
-        return ResourceContext(
-            organization=_text("organization", "tenant_id"),
-            account=_text("account", "subscription_id"),
-            resource_group=_text("resource_group"),
-            resource_id=resource_id,
-            resource_type=resource_type,
-            tags={str(key): str(value) for key, value in tag_data.items()},
-        )
-
-    def _resolve_governance_assignment(
-        self,
-        *,
-        event: Event,
-        resource_id: str,
-        resource_type: str,
-        rule_id: str,
-    ) -> AssignmentResolution | None:
-        if not self._governance_assignments:
-            return None
-        context = self._governance_resource_context(
-            event=event, resource_id=resource_id, resource_type=resource_type
-        )
-        return resolve_assignments(
-            assignments=self._governance_assignments,
-            ctx=context,
-            rule_id=rule_id,
-        )
-
-    def _resolve_governance_override(
-        self,
-        *,
-        event: Event,
-        resource_id: str,
-        resource_type: str,
-        rule_id: str,
-    ) -> Override | None:
-        """Resolve the narrowest-covering override for ``rule_id`` on this
-        resource "on top of" any assignment resolution
-        (rule-governance.md "Overrides § Precedence").
-
-        Uses the same event-derived :class:`ResourceContext` as
-        :meth:`_resolve_governance_assignment` so scope facts never diverge
-        between the two resolutions.
-        """
-        if not self._governance_overrides:
-            return None
-        context = self._governance_resource_context(
-            event=event, resource_id=resource_id, resource_type=resource_type
-        )
-        return resolve_override(
-            overrides=self._governance_overrides,
-            ctx=context,
-            rule_id=rule_id,
-            at=datetime.now(tz=UTC),
-        )
-
-    async def _resolve_cost_override(
-        self,
-        *,
-        rule: Rule,
-        action_type: OntologyActionType,
-    ) -> float | None:
-        """Return the cost override for the authority pipeline."""
-        if rule.remediation.cost_impact_monthly_usd is not None:
-            return None
-        if self._cost_estimator is None:
-            return None
-        return await resolve_cost_impact_monthly(self._cost_estimator, action_type, arguments=None)
-
     async def _dispatch_action(
         self,
         *,
@@ -534,42 +428,6 @@ class ControlLoopExecutionMixin:
             result,
             audit_context=audit_context,
         )
-
-    async def _prepare_workflow_safeguard_commitment(
-        self,
-        *,
-        action: Action,
-        correlation_id: str,
-    ) -> str | None:
-        """Persist the exact workflow commitment before selecting an executor."""
-
-        if action.workflow_action is None:
-            return None
-        coordinator = self._safeguard_lifecycle_coordinator
-        if coordinator is None:
-            return "workflow safeguard pre-bundle coordinator is unavailable"
-        action_type = self._action_types_by_name.get(action.action_type)
-        execution_path = (
-            action_type.execution_path
-            if action_type is not None and action_type.execution_path is not None
-            else ExecutionPath.PR_NATIVE
-        )
-        try:
-            await coordinator.prepare_pre_bundle_commitment(
-                action=action,
-                execution_path=execution_path,
-                correlation_id=correlation_id,
-            )
-        except Exception as exc:  # noqa: BLE001 - missing commitment blocks dispatch
-            _LOGGER.warning(
-                "workflow_pre_bundle_commitment_failed",
-                extra={
-                    "action_type": action.action_type,
-                    "error_kind": type(exc).__name__,
-                },
-            )
-            return f"workflow safeguard pre-bundle commitment failed: {type(exc).__name__}"
-        return None
 
     async def _produce_effect_reconciliation_request(
         self,
