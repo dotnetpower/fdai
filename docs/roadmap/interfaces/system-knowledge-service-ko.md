@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 0b6a1185df079a0d2a0c0f5e838692adfa6f91e6
-translation_revised: 2026-09-11
+translation_source_sha: 40b8d7e8b318154424d18a9ca9f0c465ae792b5c
+translation_revised: 2026-09-12
 ---
 # 시스템 지식 서비스
 
