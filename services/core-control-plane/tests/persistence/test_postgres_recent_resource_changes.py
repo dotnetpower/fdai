@@ -66,6 +66,71 @@ def test_recent_change_row_requires_timezone_aware_time() -> None:
         _change(row)
 
 
+async def test_recent_change_reader_reports_result_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.delivery.persistence import postgres_recent_resource_changes as module
+
+    rows = [
+        {
+            "subject_ref": f"resource-{index}",
+            "subject_name": f"resource-{index}",
+            "subject_type": "container-app",
+            "operation": "update",
+            "operation_status": "succeeded",
+            "mutation_kind": "upsert",
+            "observation_kind": "change_hint",
+            "effective_at": NOW - timedelta(seconds=index),
+            "source_identity": "activity-log",
+            "observation_id": f"observation-{index}",
+        }
+        for index in range(6)
+    ]
+    state = {
+        "key": "arg_resource_change_cursor:scope-a",
+        "value": {
+            "complete": True,
+            "last_polled_at": NOW.isoformat(),
+            "pending_event_ids": [],
+        },
+    }
+
+    class ReaderConnection(_Connection):
+        async def execute(self, statement: str, params: object = None) -> _Cursor:
+            if "SELECT * FROM" in statement:
+                assert isinstance(params, tuple)
+                assert params[-1] == 6
+                return _Cursor(rows)
+            if "SELECT key, value" in statement:
+                return _Cursor([state])
+            return _Cursor([])
+
+    connection = ReaderConnection([])
+
+    async def connect(*args: object, **kwargs: object) -> ReaderConnection:
+        del args, kwargs
+        return connection
+
+    monkeypatch.setattr(module.psycopg.AsyncConnection, "connect", connect)
+    reader = module.PostgresRecentResourceChangeReader(
+        config=module.PostgresRecentResourceChangeReaderConfig(
+            dsn="postgresql://unused",
+            scope_refs=("scope-a",),
+        )
+    )
+
+    result = await reader.read_recent_resource_changes(
+        start_at=NOW - timedelta(hours=1),
+        end_at=NOW,
+        known_at=NOW,
+        limit=5,
+    )
+
+    assert len(result.changes) == 5
+    assert result.complete is False
+    assert result.limitation == "result_limit"
+
+
 async def test_cursor_coverage_requires_fresh_drained_state() -> None:
     state = {
         "key": "arg_resource_change_cursor:scope-a",
