@@ -398,15 +398,8 @@ def test_global_test_configuration_falls_back_to_full_suite(git_repo: Path) -> N
     _assert_full_suite(result)
 
 
-@pytest.mark.parametrize(
-    "path",
-    (
-        "services/core-control-plane/tests/scenarios/fixture.json",
-        "services/core-control-plane/src/fdai/delivery/operator_api/schema.json",
-    ),
-)
-def test_python_resource_change_falls_back_to_full_suite(git_repo: Path, path: str) -> None:
-    resource = git_repo / path
+def test_python_test_resource_change_falls_back_to_full_suite(git_repo: Path) -> None:
+    resource = git_repo / "services/core-control-plane/tests/scenarios/fixture.json"
     resource.parent.mkdir(parents=True, exist_ok=True)
     resource.write_text("{}\n", encoding="utf-8")
 
@@ -414,6 +407,39 @@ def test_python_resource_change_falls_back_to_full_suite(git_repo: Path, path: s
 
     assert result.returncode == 0, result.stderr
     _assert_full_suite(result)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    (
+        (
+            "services/core-control-plane/src/fdai/delivery/operator_api/schema.json",
+            "services/core-control-plane/tests",
+        ),
+        (
+            "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
+            "services/system-knowledge-service/tests",
+        ),
+    ),
+)
+def test_service_source_resource_selects_owner_tests(
+    git_repo: Path,
+    path: str,
+    expected: str,
+) -> None:
+    owner_tests = git_repo / expected
+    owner_tests.mkdir(parents=True, exist_ok=True)
+    (owner_tests / ".keep").write_text("\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", expected).returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add owner tests").returncode == 0
+    resource = git_repo / path
+    resource.parent.mkdir(parents=True, exist_ok=True)
+    resource.write_text("{}\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [expected]
 
 
 @pytest.mark.parametrize("path", sorted(_PYTHON_FILES))
