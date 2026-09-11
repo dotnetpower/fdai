@@ -264,7 +264,7 @@ class PostgresInventoryDeltaProjector:
                     active_scope_refs=tuple(str(value) for value in coverage["scopes"]),
                 )
                 if observed_at <= coverage["started_at"]:
-                    journal_result = await self._observation_journal.append_change(
+                    journal_result = await self._observation_journal.append_history_only(
                         connection,
                         observations,
                     )
