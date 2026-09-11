@@ -606,7 +606,8 @@ def test_privileged_jobs_require_their_own_guard_or_guarded_dependency() -> None
     }
 
     assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
-        ".github/workflows/example.yml privileged job unguarded has no guarded needs dependency"
+        ".github/workflows/example.yml privileged job unguarded has no direct guarded "
+        "needs dependency"
     ]
 
 
@@ -695,6 +696,63 @@ def test_privileged_execution_cannot_override_verifier_failure() -> None:
         "verifier failure",
         ".github/workflows/example.yml privileged job dependent can override guarded "
         "dependency failure",
+    ]
+
+
+def test_verifier_failure_and_intermediate_jobs_cannot_authorize_execution() -> None:
+    module = _load_contract_module()
+    checkout_ref = module.APPROVED_ACTIONS["actions/checkout"][0]
+    document = {
+        "jobs": {
+            "guard": {
+                "runs-on": "self-hosted",
+                "steps": [
+                    {
+                        "name": "Checkout protected workflow verifier",
+                        "uses": f"actions/checkout@{checkout_ref}",
+                        "with": {
+                            "ref": "main",
+                            "fetch-depth": 1,
+                            "sparse-checkout": ".github/actions/verify-protected-workflow-source",
+                            "path": ".fdai-protected-workflow-verifier",
+                        },
+                    },
+                    {
+                        "id": "guard",
+                        "name": "Verify protected workflow source",
+                        "uses": module.PROTECTED_WORKFLOW_ACTION_REF,
+                        "with": {
+                            "target-commit-sha": "${{ github.sha }}",
+                            "workflow-path": ".github/workflows/example.yml",
+                            "origin-url": "${{ github.server_url }}/${{ github.repository }}.git",
+                            "github-token": "${{ github.token }}",
+                        },
+                    },
+                    {
+                        "if": "always() && steps.guard.outcome == 'failure'",
+                        "run": "terraform apply saved.plan",
+                    },
+                ],
+            },
+            "bridge": {
+                "needs": "guard",
+                "if": "always()",
+                "runs-on": "ubuntu-24.04",
+                "steps": [{"run": "echo bridge"}],
+            },
+            "deploy": {
+                "needs": "bridge",
+                "runs-on": "self-hosted",
+                "steps": [{"run": "bash deploy.sh"}],
+            },
+        }
+    }
+
+    assert module._protected_guard_prefix_errors(document, ".github/workflows/example.yml") == [
+        ".github/workflows/example.yml job guard can execute a privileged step after "
+        "verifier failure",
+        ".github/workflows/example.yml privileged job deploy has no direct guarded "
+        "needs dependency",
     ]
 
 

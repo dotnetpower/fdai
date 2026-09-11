@@ -199,7 +199,8 @@ def condition_requires_prior_step(condition: Any) -> bool:
     return (
         isinstance(condition, str)
         and re.search(
-            r"steps\.[A-Za-z0-9_-]+\.(?:outcome|conclusion|outputs\.[A-Za-z0-9_-]+)\s*==",
+            r"steps\.[A-Za-z0-9_-]+\.(?:outcome|conclusion)\s*==\s*'success'"
+            r"|steps\.[A-Za-z0-9_-]+\.outputs\.[A-Za-z0-9_-]+\s*==\s*'true'",
             condition,
         )
         is not None
@@ -304,20 +305,10 @@ def protected_guard_prefix_errors(
                 f"{relative} privileged job {job_name} can override guarded dependency failure"
             )
             continue
-        pending = list(job_needs(job))
-        visited: set[str] = set()
-        protected_by_dependency = False
-        while pending:
-            dependency = pending.pop()
-            if dependency in visited:
-                continue
-            visited.add(dependency)
-            if dependency in guarded_jobs:
-                protected_by_dependency = True
-                break
-            pending.extend(job_needs(jobs.get(dependency)))
-        if not protected_by_dependency:
-            errors.append(f"{relative} privileged job {job_name} has no guarded needs dependency")
+        if not (job_needs(job) & guarded_jobs):
+            errors.append(
+                f"{relative} privileged job {job_name} has no direct guarded needs dependency"
+            )
     return errors
 
 
