@@ -669,7 +669,7 @@ def test_failed_batch_receipts_its_longest_passing_prefix(git_repo: Path, tmp_pa
     assert f"first failing pending commit is {commits[2][:12]}" in validated.stdout
 
 
-def test_large_failed_batch_skips_repeated_localization(
+def test_large_failed_batch_bounds_localization_and_identifies_boundary(
     git_repo: Path,
     tmp_path: Path,
 ) -> None:
@@ -677,7 +677,7 @@ def test_large_failed_batch_skips_repeated_localization(
     log_path = tmp_path / "bounded-localization.log"
     commits: list[str] = []
     (git_repo / "broken.txt").write_text("broken\n", encoding="utf-8")
-    for index in range(33):
+    for index in range(65):
         (git_repo / "source.txt").write_text(f"change {index}\n", encoding="utf-8")
         paths = ["source.txt", *(["broken.txt"] if index == 0 else [])]
         assert _run(git_repo, "git", "add", *paths).returncode == 0
@@ -698,13 +698,14 @@ def test_large_failed_batch_skips_repeated_localization(
     )
 
     assert validated.returncode != 0
-    assert "skipping failure localization for 33 pending commits; limit=32" in validated.stdout
+    assert "bounded localization probing boundary" in validated.stdout
+    assert f"first failing pending commit is {commits[0][:12]}" in validated.stdout
     verify_runs = [
         line
         for line in log_path.read_text(encoding="utf-8").splitlines()
         if line.startswith("verify:")
     ]
-    assert len(verify_runs) == 1
+    assert 1 < len(verify_runs) <= 7
 
 
 def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
