@@ -218,6 +218,20 @@ async def import_cohort_observation_batch(
         raise CohortClaimPolicyError(
             f"cohort {context.arm.value} source workflow is not authorized"
         )
+    source_binding = policy.exporter_binding(
+        context.arm.value,
+        context.source_workflow_path,
+    )
+    for observation in batch.observations:
+        if isinstance(observation, NormalizedCohortMetricObservation):
+            if not source_binding.allows_metric(observation.metric_id):
+                raise CohortClaimPolicyError(
+                    f"cohort source workflow is not authorized for metric: {observation.metric_id}"
+                )
+        elif not source_binding.allows_guard(observation.guard_id):
+            raise CohortClaimPolicyError(
+                f"cohort source workflow is not authorized for guard: {observation.guard_id}"
+            )
 
     imported_at = _aware_utc(context.imported_at, "cohort import time")
     earliest = imported_at - timedelta(seconds=policy.maximum_window_seconds)
@@ -227,6 +241,7 @@ async def import_cohort_observation_batch(
             batch_digest=batch.batch_digest,
             context=context,
             policy=policy,
+            source_binding_id=source_binding.source_id,
             earliest=earliest,
         )
         for item in batch.observations
@@ -283,6 +298,7 @@ def _record(
     batch_digest: str,
     context: CohortObservationImportContext,
     policy: CohortClaimPolicy,
+    source_binding_id: str,
     earliest: datetime,
 ) -> tuple[str, dict[str, object], dict[str, object]]:
     observed_at = observation.observed_at.astimezone(UTC)
@@ -311,6 +327,7 @@ def _record(
         "kind": observation.kind,
         "measure_id": measure_id,
         "measurement_protocol_digest": policy.measurement_protocol_digest,
+        "source_binding_id": source_binding_id,
         "source_cluster_digest": observation.source_cluster_digest,
     }
     identity_digest = content_digest(identity)
@@ -320,6 +337,7 @@ def _record(
         "fdai_revision": context.fdai_revision,
         "measurement_protocol_version": policy.measurement_protocol_version,
         "measurement_protocol_digest": policy.measurement_protocol_digest,
+        "source_binding_id": source_binding_id,
         "source_workflow_path": context.source_workflow_path,
         "source_cluster_digest": observation.source_cluster_digest,
         "observed_at": observed_at.isoformat(),
@@ -342,6 +360,7 @@ def _record(
         "observation_digest": observation_digest,
         "import_provenance": {
             "batch_digest": batch_digest,
+            "source_binding_id": source_binding_id,
             "source_workflow_path": context.source_workflow_path,
             "source_run_id": context.source_run_id,
             "source_run_attempt": context.source_run_attempt,
