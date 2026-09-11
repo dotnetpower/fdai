@@ -910,6 +910,16 @@ def test_dispatch_guard_rejects_a_ref_tautology() -> None:
     ]
 
 
+def test_dispatch_guard_accepts_main_bound_nested_alternatives() -> None:
+    module = _load_contract_module()
+
+    assert module.workflow_security.dispatch_condition_is_protected(
+        "github.ref == 'refs/heads/main' && "
+        "(inputs.operation == 'apply' || inputs.operation == 'plan')",
+        {"workflow_dispatch"},
+    )
+
+
 def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/issue-lifecycle.yml").read_text(encoding="utf-8")
 
