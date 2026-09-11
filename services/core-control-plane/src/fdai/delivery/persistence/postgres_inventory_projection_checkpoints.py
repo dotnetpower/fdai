@@ -35,7 +35,7 @@ async def active_scope_projection_watermark(
     row = await cursor.fetchone()
     if row is None:
         raise RuntimeError("inventory observation projection watermark is unavailable")
-    return int(row["projection_watermark"])
+    return min(high_watermark, int(row["projection_watermark"]))
 
 
 async def global_projection_watermark(
@@ -65,7 +65,10 @@ async def global_projection_watermark(
     row = await cursor.fetchone()
     if row is None:
         raise RuntimeError("inventory observation projection watermark is unavailable")
-    return max(current_projection, int(row["projection_watermark"]))
+    return min(
+        high_watermark,
+        max(current_projection, int(row["projection_watermark"])),
+    )
 
 
 __all__ = ["active_scope_projection_watermark", "global_projection_watermark"]

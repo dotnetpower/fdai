@@ -160,6 +160,22 @@ async def test_active_scope_projection_watermark_rejects_empty_scope() -> None:
         )
 
 
+async def test_active_scope_projection_watermark_stops_at_append_boundary() -> None:
+    class _ConcurrentWatermarkConnection:
+        async def execute(self, _query: str, params: object = None) -> _Cursor:
+            return _Cursor([{"projection_watermark": 54}])
+
+    result = await _active_scope_projection_watermark(
+        _ConcurrentWatermarkConnection(),  # type: ignore[arg-type]
+        high_watermark=50,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 50
+
+
 async def test_global_projection_watermark_preserves_inactive_scope_gaps() -> None:
     class _GlobalWatermarkConnection:
         def __init__(self) -> None:
@@ -188,6 +204,23 @@ async def test_global_projection_watermark_preserves_inactive_scope_gaps() -> No
         NOW,
         ["scope-current"],
     )
+
+
+async def test_global_projection_watermark_stops_at_append_boundary() -> None:
+    class _ConcurrentWatermarkConnection:
+        async def execute(self, _query: str, params: object = None) -> _Cursor:
+            return _Cursor([{"projection_watermark": 54}])
+
+    result = await _global_projection_watermark(
+        _ConcurrentWatermarkConnection(),  # type: ignore[arg-type]
+        high_watermark=50,
+        current_projection=14,
+        generation="snapshot-current",
+        snapshot_started_at=NOW,
+        scope_refs=("scope-current",),
+    )
+
+    assert result == 50
 
 
 def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: eac23fc4b552210a7e85b03e7302ead5ae2af03b
+translation_source_sha: e7f1e48527a7b7b94d0e3542ec8dab8b0fa500e3
 translation_revised: 2026-09-11
 ---
 # 지속형 운영 인스턴스 그래프
@@ -158,6 +158,9 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 
 현재 그래프 checkpoint는 활성 스냅샷 세대와 정확한 범위 집합에 결속됩니다. 완전한 프로바이더 스냅샷은 같은 범위의 해당 세대 및 시작 시각 이전 관측을 포함하므로 연속된 checkpoint는 해당 범위만 탐색합니다.
 비활성 범위 관측은 내구성 있는 이력과 보존 작업으로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
+Checkpoint 계산은 같은 스냅샷 append가 관측한 journal high watermark로 제한합니다. 이후의 동시
+journal 기록은 완전성을 낮출 수 있지만 전역 또는 활성 범위 변환 checkpoint를 해당 append
+경계보다 앞으로 이동시킬 수 없습니다.
 PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하고 인벤토리 상태 기준의 완전성과
 객체 소유권 검증을 `postgres_ontology_records.py`에 통합합니다. 이 공통 레코드 검증 경계는
 다른 그래프 기록기나 권한 표면을 만들지 않습니다.
