@@ -117,6 +117,7 @@ _MAX_HYDRATION_BATCH_CAP: Final[int] = 100
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 10_000_000
 _DEFAULT_MAX_TOTAL_RESPONSE_BYTES: Final[int] = 64_000_000
 _CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in an RFC 3339 ts or a GUID.
+_INITIAL_CURSOR_ID: Final[str] = "__fdai_initial__"
 _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
     "create": "upsert",
     "update": "upsert",
@@ -264,10 +265,12 @@ class AzureResourceChangeFeed:
         resource_types: ResourceTypeRegistry,
         http_client: httpx.AsyncClient,
         config: AzureResourceChangeFeedConfig,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureResourceChangeFeedConfig] = config
+        self._clock: Final[Callable[[], datetime]] = clock or (lambda: datetime.now(tz=UTC))
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
         # ARM type -> CSP-neutral resource_type reverse map for delete
         # tombstones, which carry no `kind` disambiguator.
@@ -281,6 +284,15 @@ class AzureResourceChangeFeed:
         """Fetch one bounded, oldest-first page of changes past ``cursor``."""
 
         lower_ts, lower_id = _decode_cursor(cursor)
+        if lower_ts is None:
+            anchored_at = self._clock()
+            if anchored_at.tzinfo is None:
+                raise ArgResourceChangeError("resourcechanges clock MUST be timezone-aware")
+            lower_ts = anchored_at.astimezone(UTC) - timedelta(
+                seconds=self._config.initial_lookback_seconds
+            )
+            lower_id = _INITIAL_CURSOR_ID
+            cursor = _encode_cursor(lower_ts, lower_id)
         query = self._build_change_query(lower_ts=lower_ts, lower_id=lower_id)
         tokenless_truncated = False
 
@@ -377,13 +389,11 @@ class AzureResourceChangeFeed:
     # ------------------------------------------------------------------
 
     def _build_change_query(self, *, lower_ts: datetime | None, lower_id: str | None) -> str:
-        if lower_ts is None:
-            lookback = datetime.now(tz=UTC) - timedelta(
-                seconds=self._config.initial_lookback_seconds
-            )
-            predicate = f"| where changeTime > datetime('{lookback.isoformat()}') "
+        if lower_ts is None or lower_id is None:
+            raise ArgResourceChangeError("resourcechanges cursor initialization failed")
+        if lower_id == _INITIAL_CURSOR_ID:
+            predicate = f"| where changeTime > datetime('{lower_ts.isoformat()}') "
         else:
-            assert lower_id is not None  # noqa: S101 - decoded together, never one without the other
             if "'" in lower_id:
                 raise ArgResourceChangeError("illegal character in resourcechanges cursor id")
             predicate = (

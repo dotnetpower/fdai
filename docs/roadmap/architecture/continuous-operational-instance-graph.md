@@ -201,6 +201,8 @@ The configured page-size and page-count product cannot exceed the 1,000-id durab
 An empty provider page that still reports truncation also remains incomplete.
 If the final bounded page still carries a continuation token, the feed returns the oldest collected
 rows as incomplete and advances the stable keyset cursor after their ingestion fence clears.
+The first poll persists its calculated lookback boundary as an initial cursor, so incomplete empty
+or hydration retries cannot drift forward and skip changes.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.

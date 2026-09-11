@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e82b99232be0c9b6223484adf1aba7957b33b176
+translation_source_sha: 706233b1d738379b95fbf9570b31b357825b06d9
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -196,6 +196,8 @@ fence를 해제합니다. 구성된 페이지 크기와 페이지 수의 곱은 
 fence 한도를 넘을 수 없습니다. 프로바이더가 여전히 잘림을 보고한 빈 페이지도 불완전한 상태를
 유지합니다. 범위가 제한된 마지막 페이지에 연속 토큰이 남아 있으면 feed는 수집한 가장 오래된 행을
 불완전 상태로 반환하고 수신 fence가 해제된 뒤 안정적인 keyset cursor를 진행합니다.
+첫 폴링은 계산한 lookback 경계를 초기 cursor로 영속화하므로 불완전한 빈 응답이나 재조회 재시도가
+앞으로 이동하여 변경을 건너뛸 수 없습니다.
 Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
 있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나

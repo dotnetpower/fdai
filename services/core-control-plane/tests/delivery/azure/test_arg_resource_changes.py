@@ -161,6 +161,7 @@ def _factory(
         resource_types=vocabulary,
         http_client=client,
         config=cfg or _config(),
+        clock=lambda: datetime(2026, 7, 10, 6, 59, tzinfo=UTC),
     )
     return feed, client, vocabulary
 
@@ -211,7 +212,7 @@ async def test_empty_cursor_uses_lookback_window() -> None:
         await client.aclose()
 
     assert result.events == ()
-    assert result.next_cursor == ""
+    assert result.next_cursor.endswith("\x1f__fdai_initial__")
     assert "changeTime > datetime(" in captured[0].content.decode("utf-8")
 
 
@@ -523,7 +524,7 @@ async def test_empty_tokenless_truncated_page_remains_incomplete() -> None:
         await client.aclose()
 
     assert result.events == ()
-    assert result.next_cursor == ""
+    assert result.next_cursor.endswith("\x1f__fdai_initial__")
     assert result.complete is False
 
 
@@ -639,8 +640,10 @@ async def test_missing_hydration_race_retains_cursor_for_retry() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
     arm_id = _arm_id(arm_type, "thing-vanished")
+    queries: list[str] = []
 
-    async def on_changes(_request: httpx.Request) -> httpx.Response:
+    async def on_changes(request: httpx.Request) -> httpx.Response:
+        queries.append(str(json.loads(request.content)["query"]))
         return _changes_response(
             [
                 _change_row(
@@ -661,12 +664,15 @@ async def test_missing_hydration_race_retains_cursor_for_retry() -> None:
     )
     try:
         result = await feed.poll("")
+        retry = await feed.poll(result.next_cursor)
     finally:
         await client.aclose()
 
     assert result.events == ()
-    assert result.next_cursor == ""
+    assert result.next_cursor.endswith("\x1f__fdai_initial__")
     assert result.complete is False
+    assert retry.next_cursor == result.next_cursor
+    assert queries[0] == queries[1]
 
 
 @pytest.mark.asyncio
