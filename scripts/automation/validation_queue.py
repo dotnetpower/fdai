@@ -362,6 +362,42 @@ def _last_reachable_failed_stage(paths: QueuePaths, head: str) -> str | None:
     return None
 
 
+def _latest_run_summary(paths: QueuePaths) -> str | None:
+    candidates: list[tuple[int, Path]] = []
+    for path in paths.runs.glob("*.json"):
+        try:
+            candidates.append((path.stat().st_mtime_ns, path))
+        except OSError:
+            continue
+    for _modified_at, path in sorted(candidates, reverse=True):
+        try:
+            payload: object = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("duration_seconds"), int | float
+        ):
+            continue
+        stages = payload.get("stages")
+        if not isinstance(stages, list):
+            continue
+        stage_summaries = []
+        for stage in stages:
+            if not isinstance(stage, dict) or not isinstance(stage.get("name"), str):
+                continue
+            duration = stage.get("duration_seconds")
+            if not isinstance(duration, int | float):
+                continue
+            cached = "*" if stage.get("cached") is True else ""
+            stage_summaries.append(f"{stage['name']}={float(duration):.1f}s{cached}")
+        return (
+            f"latest-run={path.stem[:12]} status={payload.get('status', 'unknown')} "
+            f"duration={float(payload['duration_seconds']):.1f}s "
+            f"stages=[{', '.join(stage_summaries)}]"
+        )
+    return None
+
+
 def status(paths: QueuePaths, *, show_all: bool = False) -> int:
     pending = pending_commits(paths)
     head = resolve_commit(paths, "HEAD")
@@ -377,9 +413,14 @@ def status(paths: QueuePaths, *, show_all: bool = False) -> int:
         f"validation-queue: {len(reachable)} reachable pending commit(s), "
         f"{len(elsewhere)} elsewhere, validator {validator_state}"
     )
-    for commit in reachable:
-        print(f"  {commit}")
+    if reachable:
+        print(f"  oldest={reachable[0]} newest={reachable[-1]}")
+    latest_run = _latest_run_summary(paths)
+    if latest_run is not None:
+        print(f"  {latest_run}")
     if show_all:
+        for commit in reachable:
+            print(f"  {commit}")
         for commit in elsewhere:
             print(f"  {commit} (elsewhere)")
     return 0

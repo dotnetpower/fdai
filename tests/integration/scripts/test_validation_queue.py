@@ -1040,6 +1040,51 @@ def test_status_separates_reachable_and_elsewhere_pending(git_repo: Path) -> Non
     assert f"{elsewhere} (elsewhere)" in verbose.stdout
 
 
+def test_status_bounds_reachable_output_and_reports_latest_timing(git_repo: Path) -> None:
+    commits: list[str] = []
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    for index in range(20):
+        (git_repo / "source.txt").write_text(f"status {index}\n", encoding="utf-8")
+        assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"status {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+    runs = git_repo / ".git" / "fdai-validation-queue" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    (runs / f"{commits[-1]}.json").write_text(
+        json.dumps(
+            {
+                "duration_seconds": 12.5,
+                "status": 0,
+                "stages": [
+                    {
+                        "cached": False,
+                        "duration_seconds": 7.25,
+                        "name": "fast-gates",
+                    },
+                    {
+                        "cached": True,
+                        "duration_seconds": 0,
+                        "name": "changed-tests",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = _run(git_repo, "python3", str(script), "status")
+    verbose = _run(git_repo, "python3", str(script), "status", "--all")
+
+    assert status.returncode == 0
+    assert len(status.stdout.splitlines()) == 3
+    assert f"oldest={commits[0]} newest={commits[-1]}" in status.stdout
+    assert "duration=12.5s stages=[fast-gates=7.2s, changed-tests=0.0s*]" in status.stdout
+    assert commits[1] not in status.stdout
+    assert all(commit in verbose.stdout for commit in commits)
+
+
 def test_status_and_commit_check_report_an_active_validator(git_repo: Path) -> None:
     import fcntl
 
