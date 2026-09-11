@@ -26,6 +26,7 @@ mixed-family review, durable deduplication, governed routing, and read-only oper
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Extracted and tested the production bootstrap binding that places Norns post-turn rule hints behind the current discovery-activation publication gate. | `current change`; focused bootstrap binding checks (`2 passed`). | Retain the full Bragi envelope scenario and deployed duplicate-delivery receipt. |
 | 2026-09-12 | implemented | Bound verified post-turn evidence references into runtime skill draft identity, Operator-owned PostgreSQL persistence, restart readback, and audit metadata without activating the skill. | `current change`; migration `operator_skill_proposal_evidence_20260912`; focused skill, routing, and PostgreSQL checks (`12 passed`). | Retain bootstrap-composed scenario evidence and deployed duplicate-delivery receipts. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain end-to-end scenario and deployed transport evidence. |
 

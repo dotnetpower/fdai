@@ -1,7 +1,7 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: a06352fd73526016d5b555a3e9ca794c14a67fc3
+translation_source_sha: 7a696aa292a80b5117316814b8346fb7538d9e34
 translation_revised: 2026-08-20
 ---
 
@@ -29,6 +29,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | Norns post-turn 룰 힌트를 현재 discovery-activation 게시 게이트 뒤에 두는 운영 bootstrap 결속을 추출하고 테스트했습니다. | `current change`; 집중 bootstrap 결속 검사(`2 passed`). | 전체 Bragi 묶음 시나리오와 배포된 중복 전달 증적을 보존합니다. |
 | 2026-09-12 | implemented | 스킬을 활성화하지 않고 검증된 post-turn 근거 참조를 런타임 스킬 초안 식별자, Operator 소유 PostgreSQL 영속성, 재시작 readback 및 감사 메타데이터에 결속했습니다. | `current change`; migration `operator_skill_proposal_evidence_20260912`; 집중 스킬, 라우팅 및 PostgreSQL 검사(`12 passed`). | bootstrap으로 조립한 시나리오 근거와 배포된 중복 전달 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 종단 간 시나리오와 배포된 전송 근거를 보존해야 합니다. |
 

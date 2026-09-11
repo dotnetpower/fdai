@@ -38,7 +38,7 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
     operational_planning_capability_status,
 )
-from fdai.core.readiness import AuthorityCeiling
+from fdai.core.readiness import AuthorityCeiling, DiscoveryActivationReport
 from fdai.delivery.agent_activity import (
     AgentRuntimeStatePublisher,
     EventBusPantheonActivityObserver,
@@ -70,6 +70,7 @@ from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import build_forecast_learning_runtime
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
 from fdai.runtime.post_turn_review import (
+    PostTurnReviewRuntime,
     build_azure_post_turn_models,
     build_post_turn_review_runtime,
     post_turn_review_dsn,
@@ -85,6 +86,25 @@ from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
+
+
+async def _bind_post_turn_learning(
+    *,
+    pantheon_runtime: PantheonRuntime,
+    post_turn_review: PostTurnReviewRuntime,
+    discovery_activation: DiscoveryActivationRuntime,
+) -> DiscoveryActivationReport | None:
+    """Bind post-turn rule hints behind the current discovery activation decision."""
+    norns = pantheon_runtime.agents.get("Norns")
+    if norns is None:
+        return None
+    norns_agent = cast(Norns, norns)
+    post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
+    norns_agent.bind_candidate_publication_gate(discovery_activation.is_enabled)
+    discovery_activation.bind_shadow_decision_count(
+        lambda: sum(pantheon_runtime.shadow_decisions.values())
+    )
+    return await discovery_activation.evaluate()
 
 
 @dataclass(frozen=True, slots=True)
@@ -626,16 +646,13 @@ async def initialize_pantheon(
         snapshot_factory=lambda: runtime_agent_state_snapshot(pantheon_runtime.health()),
         topic=config.stage_topic,
     )
-    norns = pantheon_runtime.agents.get("Norns")
     discovery_activation = None
-    if norns is not None:
-        norns_agent = cast(Norns, norns)
-        post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
-        norns_agent.bind_candidate_publication_gate(config.discovery_activation.is_enabled)
-        config.discovery_activation.bind_shadow_decision_count(
-            lambda: sum(pantheon_runtime.shadow_decisions.values())
-        )
-        discovery_report = await config.discovery_activation.evaluate()
+    discovery_report = await _bind_post_turn_learning(
+        pantheon_runtime=pantheon_runtime,
+        post_turn_review=post_turn_review,
+        discovery_activation=config.discovery_activation,
+    )
+    if discovery_report is not None:
         discovery_activation = config.discovery_activation
         _LOGGER.info(
             "discovery_activation_evaluated",
