@@ -340,10 +340,37 @@ class AzureRuntimeCallTelemetrySource:
             ).total_seconds()
             > self._freshness_ceiling_seconds
         }
+        endpoint_pairs_by_observation: dict[str, set[tuple[str, str]]] = {}
+        for observation_id, caller_arm_id, target_arm_id in witnesses_by_observation:
+            if (observation_id, caller_arm_id, target_arm_id) not in stale_observations:
+                endpoint_pairs_by_observation.setdefault(observation_id, set()).add(
+                    (caller_arm_id, target_arm_id)
+                )
+        ambiguous_observations = {
+            observation_id
+            for observation_id, endpoint_pairs in endpoint_pairs_by_observation.items()
+            if len(endpoint_pairs) != 1
+        }
+        coverage["malformed_rows"] += len(ambiguous_observations)
+        latest_observation_by_edge: dict[
+            tuple[str, str],
+            tuple[datetime, str, tuple[str, str, str]],
+        ] = {}
+        for witness_key, grouped_witnesses in witnesses_by_observation.items():
+            observation_id, caller_arm_id, target_arm_id = witness_key
+            if witness_key in stale_observations or observation_id in ambiguous_observations:
+                continue
+            latest_observed_at = max(witness.observed_at for witness in grouped_witnesses)
+            edge_key = (caller_arm_id, target_arm_id)
+            candidate = (latest_observed_at, observation_id, witness_key)
+            previous_observation = latest_observation_by_edge.get(edge_key)
+            if previous_observation is None or candidate > previous_observation:
+                latest_observation_by_edge[edge_key] = candidate
+        selected_witness_keys = {candidate[2] for candidate in latest_observation_by_edge.values()}
         current_witnesses = [
             witness
             for key, grouped_witnesses in witnesses_by_observation.items()
-            if key not in stale_observations
+            if key in selected_witness_keys
             for witness in grouped_witnesses
         ]
         replica_keys = {
@@ -427,36 +454,8 @@ class AzureRuntimeCallTelemetrySource:
                 previous_witness
             ):
                 by_role[witness.endpoint_role] = witness
-        endpoint_pairs_by_observation: dict[str, set[tuple[str, str]]] = {}
-        for observation_id, caller_arm_id, target_arm_id in witnesses:
-            endpoint_pairs_by_observation.setdefault(observation_id, set()).add(
-                (caller_arm_id, target_arm_id)
-            )
-        ambiguous_observations = {
-            observation_id
-            for observation_id, endpoint_pairs in endpoint_pairs_by_observation.items()
-            if len(endpoint_pairs) != 1
-        }
-        coverage["malformed_rows"] += len(ambiguous_observations)
-        latest_observation_by_edge: dict[
-            tuple[str, str],
-            tuple[datetime, str, tuple[str, str, str]],
-        ] = {}
-        for witness_key, by_role in witnesses.items():
-            observation_id, caller_arm_id, target_arm_id = witness_key
-            if observation_id in ambiguous_observations:
-                continue
-            latest_observed_at = max(witness.observed_at for witness in by_role.values())
-            edge_key = (caller_arm_id, target_arm_id)
-            candidate = (latest_observed_at, observation_id, witness_key)
-            previous_observation = latest_observation_by_edge.get(edge_key)
-            if previous_observation is None or candidate > previous_observation:
-                latest_observation_by_edge[edge_key] = candidate
-        selected_witness_keys = {candidate[2] for candidate in latest_observation_by_edge.values()}
         records_by_edge: dict[tuple[str, str], RuntimeCallTelemetryRecord] = {}
         for witness_key in sorted(witnesses):
-            if witness_key not in selected_witness_keys:
-                continue
             by_role = witnesses[witness_key]
             latest_observed_at = max(witness.observed_at for witness in by_role.values())
             age_seconds = (recorded_at - latest_observed_at).total_seconds()
