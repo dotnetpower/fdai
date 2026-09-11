@@ -62,6 +62,7 @@ class GovernedPostTurnProposalRouter:
                 proposal.markdown,
                 proposed_by_agent=proposed_by,
                 at=at,
+                evidence_refs=proposal.evidence_refs,
             )
             return skill_proposal.proposal_id
         return await self._rule_hints.submit_rule_hint(

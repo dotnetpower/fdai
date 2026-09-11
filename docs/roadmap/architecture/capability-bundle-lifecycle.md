@@ -7,6 +7,8 @@ This document defines how a fork registers a discoverable capability, verifies i
 moves it through install, enable, disable, and uninstall without creating another execution path.
 It refines the dependency-injection model in [Project Structure](project-structure.md) and keeps all
 mutating requests on the ordinary trust, risk, execution, recovery, and audit path.
+Runtime skill proposal evidence remains attached to the inert draft and its audit record; it does
+not enable, materialize, or promote the skill.
 
 > **Authority boundary:** Bundle and extension activation registers typed metadata, references,
 > and reviewed providers only. It never grants approval or execution authority.

@@ -10,6 +10,7 @@ from fdai.core.skills import (
     InMemorySkillProposalStore,
     RuntimeSkill,
     SkillCatalog,
+    SkillProposal,
     SkillProposalState,
     SkillWorkshop,
     SkillWorkshopError,
@@ -65,6 +66,21 @@ def _workshop() -> tuple[SkillWorkshop, _Audit]:
         ),
         audit,
     )
+
+
+def test_skill_proposal_preserves_positional_state_compatibility() -> None:
+    proposal = SkillProposal(
+        "skill-proposal:positional",
+        "inventory-citations",
+        "a" * 64,
+        _skill(),
+        "Bragi",
+        _NOW,
+        SkillProposalState.APPROVED,
+    )
+
+    assert proposal.state is SkillProposalState.APPROVED
+    assert proposal.evidence_refs == ()
 
 
 async def test_propose_review_materialize_is_audited_and_inert() -> None:
@@ -151,6 +167,26 @@ async def test_identical_agent_proposal_is_deduplicated() -> None:
 
     assert first.proposal_id == second.proposal_id
     assert len(audit.events) == 2
+
+
+async def test_proposal_retains_canonical_evidence_in_identity_and_audit() -> None:
+    workshop, audit = _workshop()
+    proposal = await workshop.propose(
+        _skill(),
+        proposed_by_agent="Norns",
+        at=_NOW,
+        evidence_refs=("audit:2", "audit:1", "audit:2"),
+    )
+    different_evidence = await workshop.propose(
+        _skill(),
+        proposed_by_agent="Norns",
+        at=_NOW,
+        evidence_refs=("audit:3",),
+    )
+
+    assert proposal.evidence_refs == ("audit:1", "audit:2")
+    assert proposal.proposal_id != different_evidence.proposal_id
+    assert audit.events[0]["evidence_refs"] == ["audit:1", "audit:2"]
 
 
 async def test_promotion_rechecks_trust_and_installs_disabled() -> None:

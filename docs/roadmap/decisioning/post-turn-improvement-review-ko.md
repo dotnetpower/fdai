@@ -1,7 +1,7 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: 697b74ff99ec9d39a750c8212e6892be3be6aeb2
+translation_source_sha: a06352fd73526016d5b555a3e9ca794c14a67fc3
 translation_revised: 2026-08-20
 ---
 
@@ -21,7 +21,7 @@ translation_revised: 2026-08-20
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 충족 여부 및 제한된 입력 계약 | implemented | [`test_eligibility.py`](../../../services/core-control-plane/tests/core/learning/test_eligibility.py), [`test_norns_post_turn.py`](../../../services/core-control-plane/tests/agents/test_norns_post_turn.py) | 동의, 생산자 소유권, 근거 범위 및 결정론적 충족 여부에 집중 테스트가 있습니다. |
-| 독립 검토 및 통제된 라우팅 | implemented | [`test_consensus.py`](../../../services/core-control-plane/tests/core/learning/test_consensus.py), [`test_routing.py`](../../../services/core-control-plane/tests/core/learning/test_routing.py) | 서로 다른 모델 계열의 완전한 합의만 비활성 기억, 스킬 또는 룰 힌트 초안을 라우팅합니다. |
+| 독립 검토 및 통제된 라우팅 | implemented | [`test_consensus.py`](../../../services/core-control-plane/tests/core/learning/test_consensus.py), [`test_routing.py`](../../../services/core-control-plane/tests/core/learning/test_routing.py), [`test_workshop.py`](../../../services/core-control-plane/tests/core/skills/test_workshop.py), [`test_postgres_skill_proposal.py`](../../../services/core-control-plane/tests/persistence/test_postgres_skill_proposal.py) | 서로 다른 모델 계열의 완전한 합의만 비활성 기억, 스킬 또는 룰 힌트 초안을 라우팅합니다. 스킬 초안은 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 이벤트에 결속합니다. |
 | 영속 중복 제거 및 런타임 연결 | implemented | [`test_service.py`](../../../services/core-control-plane/tests/core/learning/test_service.py), [`test_post_turn_review.py`](../../../services/core-control-plane/tests/runtime/test_post_turn_review.py) | 응답 경로를 지연하지 않는 최종 기록과 중복 억제가 테스트되어 있습니다. |
 | 운영 시나리오 근거 | in-progress | [검증](#검증) | 집중 동작은 구현되어 있지만 세 가지 종단 간 학습 시나리오와 배포된 다중 서비스 증적은 보존되지 않았습니다. |
 
@@ -29,6 +29,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 스킬을 활성화하지 않고 검증된 post-turn 근거 참조를 런타임 스킬 초안 식별자, Operator 소유 PostgreSQL 영속성, 재시작 readback 및 감사 메타데이터에 결속했습니다. | `current change`; migration `operator_skill_proposal_evidence_20260912`; 집중 스킬, 라우팅 및 PostgreSQL 검사(`12 passed`). | bootstrap으로 조립한 시나리오 근거와 배포된 중복 전달 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 종단 간 시나리오와 배포된 전송 근거를 보존해야 합니다. |
 
 ### 남은 작업
