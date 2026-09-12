@@ -85,6 +85,16 @@ from fdai.core.standing_authority.record import (
     StandingAuthorizationError,
     load_schema,
 )
+from fdai.core.standing_authority.shadow_reversion_command import (
+    SHADOW_REVERSION_CONTRACT_VERSION,
+    ExpectedAuthorizationState,
+    ShadowReversionCommand,
+    ShadowReversionIntent,
+    ShadowReversionOutcome,
+    ShadowReversionSafetyBindings,
+    ShadowReversionTerminal,
+    build_shadow_reversion_command,
+)
 
 __all__ = [
     "AuthorizationRequest",
@@ -112,7 +122,9 @@ __all__ = [
     "EffectEvidenceDisposition",
     "EffectVerificationFinding",
     "Eligibility",
+    "ExpectedAuthorizationState",
     "LEASE_CONTRACT_VERSION",
+    "SHADOW_REVERSION_CONTRACT_VERSION",
     "LeaseAcquisitionRequest",
     "LeaseAcquisitionResult",
     "LeaseCheckpoint",
@@ -127,7 +139,12 @@ __all__ = [
     "ProviderCommitFenceResult",
     "ReviewDecision",
     "ShadowReversionPlan",
+    "ShadowReversionCommand",
+    "ShadowReversionIntent",
+    "ShadowReversionOutcome",
     "ShadowReversionTransition",
+    "ShadowReversionSafetyBindings",
+    "ShadowReversionTerminal",
     "StandingAuthorization",
     "StandingAuthorizationDecision",
     "StandingAuthorizationError",
@@ -142,6 +159,7 @@ __all__ = [
     "build_checkpoint",
     "build_effect_verification_finding",
     "build_provider_commit_fence_request",
+    "build_shadow_reversion_command",
     "build_terminal_record",
     "evaluate_standing_authorization",
     "fence_matches",
