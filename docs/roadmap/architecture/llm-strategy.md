@@ -203,7 +203,7 @@ the Operator API stores intent while only a reviewed protected plan can replace 
 |----------------|-------------------|------------------|
 | `auto` | Evaluate complete registry candidates in order. | Continue to the next candidate; use `hil-only` if none qualify. |
 | `pinned` | Evaluate only the requested publisher, family, SKU, and capacity. | Hold for human review; never substitute another family. |
-| `hil-only` | Bind no model for the capability. | Keep dependent decisions at human review. |
+| `hil-only` | Bind no model for the capability. | Keep dependent decisions at human review. An explicit hold on either T2 reasoner binds a deterministic disagreement sentinel, so one live reasoner can never satisfy quorum. |
 
 ```yaml
 capability: t2.reasoner.primary
@@ -220,7 +220,9 @@ capacity: { unit: ptu, value: 30 }
 - **Candidate completeness:** `auto` evaluates complete publisher-family-version-SKU-capacity
   candidates. Missing TPM or PTU capacity advances to the next preference.
 - **Capacity units:** Standard SKUs use TPM. Provisioned SKUs use PTU without conversion.
-- **T2 pair atomicity:** Primary and secondary must resolve to distinct publishers unless held.
+- **T2 pair atomicity:** Primary and secondary need distinct publishers unless a digest-bound policy
+  holds either at `hil-only`. That hold forces Human approval; its deterministic disagreement
+  sentinel is not a startup model candidate and emits no model invocation or metering record.
 - **No Console authority:** Draft, assessment, and plan requests perform no provider mutation. A protected model plan identifies the exact Operator proposal and policy digest in one request id; the runner reads PostgreSQL without writes and rejects stale or authority-bearing state. The protected model Settings producer refreshes the digest-bound model projection, creates the runtime Settings baseline only when missing, preserves existing runtime evidence, and verifies both rows against the deployment environment before reporting success.
 - **Independent tools:** Search, RCA, rubric, escalation, and tool calling retain separate gates.
 
@@ -255,13 +257,11 @@ this section shows the happy-path shape.
 
 ### Provisioning Completeness Gate
 
-The resolver degrades an unprovisionable capability to `hil-only` and continues -
-it never blocks the whole bootstrap on one missing family - so a **partial
-deployment is silent**: `resolved-models.json` can carry only the T1 pair plus
-`t2.reasoner.primary` while the registry also declares a secondary reasoner, a
-critic, an RCA reasoner, and an escalation ceiling. The composition root then
-quietly falls back to a forced-disagree cross-check and every T2 case routes to
-HIL, with no signal at deploy time that the reasoning tier is effectively off.
+The resolver marks an unprovisionable capability `hil-only` and continues, so a **partial deployment
+can otherwise be silent**: the artifact may contain the T1 pair and primary reasoner while the
+registry declares more. A digest-bound policy holding either reasoner uses forced disagreement and
+sends every T2 case to Human approval. An unexpected missing reasoner under `auto` or `pinned`
+leaves the mode unchanged and blocks runtime; deployment assessment exposes the quorum failure.
 
 [`assess_provisioning`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provisioning_assessment.py)
 closes that gap. It compares the authoritative `llm-registry.yaml` (intended)
@@ -307,9 +307,9 @@ return quorum_result(cand_a, cand_b)
 ```
 
 - No model id appears in `core/`.
-- A missing deployment is treated as an outage: the request routes to HIL and emits an
-  operational alert (A2 per [channels-and-notifications.md](../interfaces/channels-and-notifications.md#3-categories-a1a4)).
-  A silent switch to a different capability isn't supported.
+- An explicitly held reasoner uses a deterministic disagreement and routes the request to Human
+  approval. An unexpectedly missing deployment is treated as an outage and blocks runtime startup.
+  Both cases emit operational evidence; neither silently switches to another capability.
 
 ### Escalation Ladder Policy
 

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from fdai.core.quality_gate.testing import MismatchCrossCheckModel
 from fdai.core.readiness import (
     AuthorityCeiling,
     ProbeStatus,
@@ -183,6 +184,34 @@ async def test_runtime_probes_every_candidate_inside_cross_check_pool() -> None:
     assert report.decision is ReadinessDecision.READY
     assert [candidate.calls for candidate in candidates] == [2, 2]
     assert len(report.results) == 13
+
+
+async def test_runtime_skips_deterministic_hil_cross_check_sentinel() -> None:
+    candidate = _CrossCheck()
+    runtime = build_startup_readiness_runtime(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
+        event_validator=_Validator(),  # type: ignore[arg-type]
+        identity=LocalWorkloadIdentity(),
+        embedding_model=_Embedding(),
+        policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
+        cross_check_models=(
+            candidate,
+            MismatchCrossCheckModel(model_id="hil-only-force-disagree"),
+        ),
+        environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
+    )
+
+    report = await runtime.evaluate()
+
+    assert candidate.calls == 2
+    assert [
+        result.probe_id
+        for result in report.results
+        if result.probe_id.startswith("model.cross-check.")
+    ] == ["model.cross-check.0.0"]
 
 
 async def test_audit_chain_timeout_degrades_and_disables_autonomous_action() -> None:
