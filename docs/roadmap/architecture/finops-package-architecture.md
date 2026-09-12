@@ -36,11 +36,11 @@ domain code and assets. It does not create another control plane or move authori
 > The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
 > not a Cost Governance package input and cannot install, enable, promote, or grant package data
 > access.
-> Live-authoritative install and enable receipts now exist, but independent readback found that the
-> enable-triggered collector attempts ended on Azure Cost Management HTTP `429`. Activation is
-> verified, while successful collection, the remaining lifecycle operations, the observation
-> cohort, and independent promotion evidence remain open. The package and its actions remain
-> unvalidated and unpromoted.
+> Live-authoritative install, enable, and disable receipts now exist, but independent readback
+> found that the enable-triggered collector attempts ended on Azure Cost Management HTTP `429`.
+> The three activation transitions are verified, while successful collection, upgrade, rollback,
+> final enablement, the observation cohort, and independent promotion evidence remain open. The
+> package and its actions remain unvalidated and unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch

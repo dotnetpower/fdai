@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 4c4c4dd345148881f815b767640e4264908f0fc8
+translation_source_sha: 5c269255a12b75a75d91ccfe7202229506ad742a
 translation_revised: 2026-09-12
 ---
 
@@ -38,10 +38,11 @@ translation_revised: 2026-09-12
 > 실행기의 정확한 registry 범위 `AcrPush` 배정은 서명된 공유 런타임 이미지만 가져옵니다. 이
 > 배정은 Cost Governance 패키지 입력이 아니며 패키지 설치, 활성화, 승격 또는 데이터 접근 권한
 > 부여에 사용할 수 없습니다.
-> Live-authoritative 설치 및 활성화 증적은 현재 존재하지만, 독립 readback에서는 활성화로 시작한
-> collector 시도가 Azure Cost Management HTTP `429`로 종료된 것을 확인했습니다. 활성화는
-> 검증됐지만 성공한 수집, 나머지 수명 주기 작업, 관찰 실측군 및 독립 승격 근거는 아직
-> 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
+> Live-authoritative 설치, 활성화 및 비활성화 증적은 현재 존재하지만, 독립 readback에서는
+> 활성화로 시작한 collector 시도가 Azure Cost Management HTTP `429`로 종료된 것을
+> 확인했습니다. 세 활성화 전이는 검증됐지만 성공한 수집, 업그레이드, 롤백, 최종 활성화, 관찰
+> 실측군 및 독립 승격 근거는 아직 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료
+> 상태가 아닙니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
