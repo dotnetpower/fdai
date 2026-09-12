@@ -133,6 +133,20 @@ def test_runtime_call_apply_replans_only_transition_before_separate_readback(
     assert "\nuv " not in "\n" + log
 
 
+def test_model_binding_apply_replans_only_deployments_before_separate_readback(
+    tmp_path: Path,
+) -> None:
+    result, calls, _ = _run(tmp_path, "apply-model-" + "a" * 64)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert (
+        "target=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability"
+    ) in log
+    assert "\naz " not in "\n" + log
+    assert "\nuv " not in "\n" + log
+
+
 def test_provider_schema_apply_replans_and_reads_only_provider_job(tmp_path: Path) -> None:
     result, calls, _ = _run(tmp_path, "apply-provider-" + "a" * 48)
 

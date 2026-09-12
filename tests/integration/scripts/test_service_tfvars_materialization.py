@@ -332,6 +332,30 @@ def test_derives_foundry_endpoint_from_authoritative_platform_map(tfvars: Module
     }
 
 
+def test_derives_primary_endpoint_from_platform_map_without_narrator_metadata(
+    tfvars: ModuleType,
+) -> None:
+    resolved_models = {
+        "schema_version": "1.0.0",
+        "capabilities": [
+            {
+                "name": "t2.reasoner.primary",
+                "status": "resolved",
+                "family": "gpt-5.4",
+            }
+        ],
+    }
+
+    materialized = tfvars.materialize_core_llm(
+        resolved_models,
+        expected_digest=_digest(resolved_models),
+        model_endpoints=_MODEL_ENDPOINTS,
+    )
+
+    assert materialized["endpoint"] == _PRIMARY_ENDPOINT
+    assert materialized["model_endpoints"] == _MODEL_ENDPOINTS
+
+
 def test_rejects_missing_foundry_endpoint_for_sealed_binding(tfvars: ModuleType) -> None:
     resolved_models = {
         "schema_version": "1.0.0",
@@ -825,7 +849,6 @@ def test_enables_web_search_only_with_attested_candidate_and_policy(tfvars: Modu
 @pytest.mark.parametrize(
     ("mutation", "error"),
     [
-        (lambda payload: payload.pop("narrator_candidates"), "exactly one narrator endpoint"),
         (
             lambda payload: payload["narrator_candidates"].append(
                 {
@@ -833,7 +856,7 @@ def test_enables_web_search_only_with_attested_candidate_and_policy(tfvars: Modu
                     "deployment": "other",
                 }
             ),
-            "exactly one narrator endpoint",
+            "exactly one primary model endpoint",
         ),
         (
             lambda payload: payload["narrator_candidates"].append(

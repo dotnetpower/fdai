@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 5c198f4660d9248c5c31ef619536ad9fbac34b8a
+translation_source_sha: fd976d7cb5666fa795bb9844eabab1b2057a54ea
 translation_revised: 2026-09-12
 ---
 
@@ -101,6 +101,7 @@ translation_revised: 2026-09-12
 | 2026-09-12 | in-progress | PR 패키징 집중 검사와 보호된 main의 명시적 이미지 게시를 분리했습니다. main/tag 자동 게시와 PR SBOM 생성을 제거하고 전체 이미지 기본값 없이 입력을 검증하는 이미지 선택을 추가했습니다. | `current change`; `container-supply-chain.yml`, `select_changed_images.py`, 선택기 및 작업 흐름 집중 회귀 테스트를 추가했으나 아직 실행하지 않았습니다. | 집중 검사 통과 결과를 기록합니다. 별도로 승인한 후보 실행은 로컬 구현과 구분합니다. |
 | 2026-09-12 | implemented | PR 패키징 집중 검사와 보호된 main의 명시적 게시를 분리했습니다. main/tag 자동 게시와 PR SBOM 생성을 제거하고 알려진 소스 전용 PR 변경을 트리거에서 제외했으며 이미지 선택을 필수로 만들었습니다. Genesis 디스패치와 재사용은 필요한 이미지 집합을 확인하고 PR 또는 일부 후보의 성공을 수락하지 않습니다. | `current change`; 선택기, CI 계약, Genesis 애플리케이션, 감독기 및 이미지 테스트 182개와 CI 계약 검사 통과. | 명시적으로 승인한 후보 실행과 변경 후 지연 측정은 로컬 구현과 별도로 남습니다. |
 | 2026-09-12 | implemented | 모든 Core `FDAI_SOURCE_REVISION` 변경을 정확한 보호 커밋에 결속하고, 고정 Heimdall 복구 관찰자의 최초 채택을 명시적 Core 근거 전환으로 제한했습니다. | 실패한 보호 Core 계획 `34637615112`; 현재 변경의 `guard_plan.py`, `service-deploy.yml`, `service-matrix.json` 및 집중 service-deploy 검사 299개 통과. | 수정한 제어를 게시하고 새 exact Core 후보를 만든 뒤 이슈 #290에 필요한 zero-destroy 계획, exact 적용 및 롤백 근거를 보존합니다. |
+| 2026-09-12 | implemented | 모델 전용 적용이 Terraform 수렴 후 관련 없는 inventory Job 이미지 검사에서 실패한 문제를 해결하면서 모델 산출물 전달을 완성했습니다. Resolver 산출물은 해시 전에 정본화하고, 산출물 전용 복구 계획은 해당 다이제스트가 증명된 활성 Core 다이제스트와 다를 때만 허용하며, 모델 수렴은 프로바이더 readback 전에 deployment만 다시 계획합니다. 선택적 서술기 라우팅이 없으면 Core는 권위 있는 플랫폼 상태에서 단일 기본 엔드포인트를 도출할 수 있습니다. | 실패한 적용 `34691214670`, `current change`, `deploy-dev.yml`, `enforce_plan_scope.py`, `verify_deploy_convergence.sh`, `materialize_tfvars.py`, 집중 테스트 131개 통과, Ruff, 셸 구문 및 strict mypy 통과. | 수정한 제어를 게시하고 산출물 전용 플랫폼 계획과 적용을 완료한 뒤 보호된 Core 이미지, rollout, 상태 및 모델 연결 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] 정확한 clean revision, 검토한 미리보기, 임시 접근 정리, Core 상태, canary, 초기
@@ -202,7 +203,12 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   이 모드를 `database_host_binding` 및 정확한
   최초 notification receipt topic 추가와만 함께 사용할 수 있습니다. 각 guard는 전체 허용 목록을
   검증하고 호스트, topic 및 endpoint map은 권위 있는 platform state 출력에서 가져오며 봉인된
-  배포 모드는 정확한 조합을 기록합니다. 검증된 endpoint map을 처음 추가하는 model binding이면
+  배포 모드는 정확한 조합을 기록합니다. resolver 전용 매니페스트에서 선택적 서술기 라우팅
+  메타데이터를 생략하면 구체화 단계는 이 권위 있는 map에서 단일 Azure OpenAI 엔드포인트를
+  선택하고 프로바이더 참조와 호스트 이름을 계속 검증합니다. Resolver 산출물은 계획 해시 전에
+  정본화하므로 계획과 이미지 증명은 동일한 콘텐츠 다이제스트를 사용합니다. 리소스 변경이 없는
+  복구 계획은 이 다이제스트가 증명된 활성 Core 다이제스트와 다를 때만 수락하며, 적용에는 모델별
+  프로바이더 readback이 계속 필요합니다. 검증된 endpoint map을 처음 추가하는 model binding이면
   증명된 model digest가 그대로일 수 있습니다. 신원, 권한, 시크릿, 명령 또는 관련 없는 환경
   변경은 허용되지 않습니다.
 - **범위가 제한된 Core 근거 연결 도입**: Core 전용
