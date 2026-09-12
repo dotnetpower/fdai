@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 20bae4fb7f0885c211471305db3567e685c6ebc5
-translation_revised: 2026-09-11
+translation_source_sha: 089ef9d4ff5ab5f9a95ad5b635d8fe5ea9387588
+translation_revised: 2026-09-12
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -355,6 +355,11 @@ envelope:                         # 액션은 반드시 이 안에 완전히 들
   유효하고 만료되지 않았으며 범위가 맞고 고정된 리비전과 경계가 계속 성립하는 상시 권한을
   검증합니다. Var는 미리 기록된 사람 Approval을 구체화합니다. 판단자, 승인자 및 실행자는
   계속 분리됩니다.
+- **상시 권한은 승인을 충족할 뿐 모드를 높이지 않습니다.** `ActionPromotionRegistry`는
+  독립적인 shadow/enforce 축으로 유지되며 A3-E를 나타낼 수 없습니다. A3-E 검토는
+  Owner를 포함한 서로 다른 두 명의 피싱 방지형 승인을 요구하는 전용
+  `standing-authority-promotion` 변경 등급을 사용합니다. 일반 `enforce-promotion` 등급은
+  이 권한을 충족할 수 없으며, 검토 결정 자체는 실행 권한을 부여하지 않습니다.
 - **Thor 가 실행** 하고, Vidar 는 롤백 principal 로 남으며, Saga 는 명시적
   `standing-authority` 이유와 권한 id 로 감사한다 - 재현 가능하고 귀속 가능한 기록
   ([architecture.instructions.md § 멱등성, 정렬, and 재생](../../../.github/instructions/architecture.instructions.md#idempotency-ordering-and-replay)).
@@ -404,7 +409,9 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
    무응답 인시던트에 대해 에스컬레이션 타이밍이 검증되면 사다리별로 승격한다.
 2. **상시 권한을 shadow 로.** 모든 상시 권한은 `mode: shadow` 와 측정 가능한 승격
    게이트(예: "N 회 shadow trip, 묶음 escape 0, policy-violation escape 0")를
-   선언한다. 강제 적용 승격은 작성 PR 과 절대 묶이지 않는 별도의 Owner 검토 변경이다
+   선언한다. A3-E shadow 검토에서 상시 승인 경로 자격으로의 승격은 별도의 Owner 검토
+   `standing-authority-promotion` 변경이다. 이 승격은 상시 승인 경로만 적격으로 만들며
+   레지스트리 모드를 바꾸거나 `hil`을 우회하지 않고, 작성 PR과 함께 처리하지 않는다
    ([coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 3. **메트릭**(기존 KPI 스트림에 접기,
    [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)): rung 응답 지연, 에스컬레이션 깊이
