@@ -37,7 +37,7 @@ _RCA_READER_IDENTITY = frozenset(
     }
 )
 _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
-_PROVIDER_SCHEMA = frozenset({"module.compute.azurerm_container_app_job.provider_schema[0]"})
+_PROVIDER_SCHEMA = frozenset({"azurerm_container_app_job.provider_schema[0]"})
 _RUNTIME_CALL_EVIDENCE = frozenset(
     {
         "terraform_data.inventory_runtime_image_update",

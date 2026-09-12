@@ -5,7 +5,6 @@ variables {
   core_app_name                       = "ca-fdai-example-core"
   oob_job_name                        = "caj-fdai-example-oob"
   rule_watcher_job_name               = "caj-fdai-example-watcher"
-  provider_schema_job_name            = "caj-fdai-example-provider-schema"
   browser_evidence_cleanup_job_name   = "caj-fdai-example-browser-gc"
   location                            = "koreacentral"
   resource_group_name                 = "rg-example"

@@ -36,11 +36,6 @@ variable "rule_watcher_job_name" {
   type        = string
 }
 
-variable "provider_schema_job_name" {
-  description = "Container Apps Job name for global provider-schema drift accounting."
-  type        = string
-}
-
 variable "browser_evidence_cleanup_job_name" {
   description = "Container Apps Job name for browser-evidence retention cleanup (CAF: caj-<workload>[-env][-region]-browser-gc)."
   type        = string
@@ -50,12 +45,6 @@ variable "rule_watcher_cron_expression" {
   description = "Cron for the rule watcher job. Daily at 03:00 UTC by default; empty disables the Job during staged bootstrap."
   type        = string
   default     = "0 3 * * *"
-}
-
-variable "provider_schema_cron_expression" {
-  description = "UTC cron for global provider-schema refresh. Empty disables the Job."
-  type        = string
-  default     = ""
 }
 
 variable "location" {

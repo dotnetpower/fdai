@@ -28,7 +28,7 @@ elif [[ "$request_id" == apply-model-* ]]; then
   export TF_CLI_ARGS_plan="-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability"
 elif [[ "$request_id" == apply-provider-* ]]; then
   provider_schema_only=true
-  export TF_CLI_ARGS_plan="-target=module.compute.azurerm_container_app_job.provider_schema[0]"
+  export TF_CLI_ARGS_plan="-target=azurerm_container_app_job.provider_schema[0]"
 elif [[ "$request_id" == apply-identity-* ]]; then
   deploy_identity_only=true
 fi

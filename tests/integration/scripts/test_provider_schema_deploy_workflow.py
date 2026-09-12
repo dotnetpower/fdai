@@ -16,10 +16,7 @@ def test_provider_schema_plan_uses_dedicated_bounded_target() -> None:
     )[0]
     assert "deploy_provider_schema:" not in dispatch_inputs
     assert "Bind model-binding Terraform target" in workflow
-    assert (
-        "TF_CLI_ARGS_plan=-target=module.compute.azurerm_container_app_job.provider_schema[0]"
-        in workflow
-    )
+    assert "TF_CLI_ARGS_plan=-target=azurerm_container_app_job.provider_schema[0]" in workflow
     assert "startsWith(inputs.request_id, 'plan-provider-')" in workflow
     assert "startsWith(inputs.request_id, 'apply-provider-')" in workflow
     assert "mode=provider-schema" in workflow

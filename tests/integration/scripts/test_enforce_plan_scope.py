@@ -118,7 +118,7 @@ def test_runtime_call_evidence_scope_accepts_only_transition_resources() -> None
 
 
 def test_provider_schema_scope_accepts_only_provider_job() -> None:
-    provider_schema = "module.compute.azurerm_container_app_job.provider_schema[0]"
+    provider_schema = "azurerm_container_app_job.provider_schema[0]"
 
     assert enforce(_plan(provider_schema), mode="provider-schema") == frozenset({provider_schema})
     assert enforce({"resource_changes": []}, mode="provider-schema") == frozenset()
