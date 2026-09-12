@@ -20,6 +20,8 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     SafeguardDispatchObservation,
 )
 from fdai.core.executor.safeguard_dispatch_identity import (
+    PROVENANCE_FIELDS,
+    IdentitySchemaVersion,
     SafeguardDispatchEvidenceIdentity,
 )
 from fdai.core.executor.safeguard_dispatch_start import (
@@ -122,6 +124,17 @@ def safeguard_dispatch_record_from_mapping(
 def _identity_mapping(
     identity: SafeguardDispatchEvidenceIdentity,
 ) -> dict[str, object]:
+    mapping = _identity_base_mapping(identity)
+    if identity.schema_version == "1.0.0":
+        return mapping
+    mapping["execution_origin"] = identity.execution_origin
+    mapping["execution_venue"] = identity.execution_venue
+    return mapping
+
+
+def _identity_base_mapping(
+    identity: SafeguardDispatchEvidenceIdentity,
+) -> dict[str, object]:
     return {
         "schema_version": identity.schema_version,
         "action_id": identity.action_id,
@@ -160,51 +173,57 @@ def _identity_mapping(
     }
 
 
+#: Identity keys every revision writes.
+_IDENTITY_BASE_KEYS: frozenset[str] = frozenset(
+    {
+        "schema_version",
+        "action_id",
+        "target_digest",
+        "target_fence_identity_digest",
+        "target_fence_record_digest",
+        "target_fence_generation",
+        "target_fence_revision",
+        "reservation_identity_digest",
+        "reservation_attempt",
+        "acquisition_receipt_digest",
+        "reservation_receipt_digest",
+        "reservation_record_digest",
+        "reservation_revision",
+        "reservation_lease_expires_at",
+        "audit_append_receipt_digest",
+        "lock_assessment_digest",
+        "lock_assessment_valid_until",
+        "lock_proof_digest",
+        "idempotency_proof_digest",
+        "audit_intent_proof_digest",
+        "pre_bundle_commitment_digest",
+        "lock_verifier_id",
+        "lock_verifier_version",
+        "lock_trust_anchor_id",
+        "safeguard_bundle_digest",
+        "continuity_policy_digest",
+        "execution_path",
+        "execution_fingerprint",
+        "source_revision",
+        "client_correlation_id",
+        "sink_idempotency_key",
+        "identity_digest",
+        "execution_authority",
+        "effect_verification_authority",
+    }
+)
+
+
 def _identity_from_mapping(
     value: Mapping[str, object],
 ) -> SafeguardDispatchEvidenceIdentity:
     identity = _exact_mapping(
         value,
-        {
-            "schema_version",
-            "action_id",
-            "target_digest",
-            "target_fence_identity_digest",
-            "target_fence_record_digest",
-            "target_fence_generation",
-            "target_fence_revision",
-            "reservation_identity_digest",
-            "reservation_attempt",
-            "acquisition_receipt_digest",
-            "reservation_receipt_digest",
-            "reservation_record_digest",
-            "reservation_revision",
-            "reservation_lease_expires_at",
-            "audit_append_receipt_digest",
-            "lock_assessment_digest",
-            "lock_assessment_valid_until",
-            "lock_proof_digest",
-            "idempotency_proof_digest",
-            "audit_intent_proof_digest",
-            "pre_bundle_commitment_digest",
-            "lock_verifier_id",
-            "lock_verifier_version",
-            "lock_trust_anchor_id",
-            "safeguard_bundle_digest",
-            "continuity_policy_digest",
-            "execution_path",
-            "execution_fingerprint",
-            "source_revision",
-            "client_correlation_id",
-            "sink_idempotency_key",
-            "identity_digest",
-            "execution_authority",
-            "effect_verification_authority",
-        },
+        _identity_keys(value),
         "identity",
     )
     return SafeguardDispatchEvidenceIdentity(
-        schema_version=_schema_version(identity),
+        schema_version=_identity_schema_version(identity),
         action_id=_str_field(identity, "action_id"),
         target_digest=_str_field(identity, "target_digest"),
         target_fence_identity_digest=_str_field(
@@ -302,6 +321,8 @@ def _identity_from_mapping(
             "sink_idempotency_key",
         ),
         identity_digest=_str_field(identity, "identity_digest"),
+        execution_origin=_optional_str_field(identity, "execution_origin"),
+        execution_venue=_optional_str_field(identity, "execution_venue"),
         execution_authority=_false_field(
             identity,
             "execution_authority",
@@ -311,6 +332,32 @@ def _identity_from_mapping(
             "effect_verification_authority",
         ),
     )
+
+
+def _identity_keys(value: Mapping[str, object]) -> set[str]:
+    """Return the exact key set the stored identity revision must carry.
+
+    Decoding stays strict per revision: a ``1.0.0`` body may not smuggle a
+    provenance key, and a ``1.1.0`` body may not omit one.  An unreadable
+    or unknown revision falls back to the newest key set so the error
+    surfaces as an unsupported schema rather than a key-set mismatch.
+    """
+
+    raw = value.get("schema_version")
+    if raw == "1.0.0":
+        return set(_IDENTITY_BASE_KEYS)
+    return set(_IDENTITY_BASE_KEYS | PROVENANCE_FIELDS)
+
+
+def _identity_schema_version(
+    value: Mapping[str, object],
+) -> IdentitySchemaVersion:
+    raw = _str_field(value, "schema_version")
+    if raw == "1.0.0":
+        return "1.0.0"
+    if raw == "1.1.0":
+        return "1.1.0"
+    raise ValueError("safeguard dispatch schema version is unsupported")
 
 
 def _observation_mapping(

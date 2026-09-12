@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
 
@@ -16,6 +16,7 @@ from fdai.core.executor.safeguard_bundle_context import (
     SafeguardBundlePersistenceContext,
 )
 from fdai.core.executor.safeguard_dispatch_identity import (
+    PROVENANCE_FIELDS,
     SafeguardDispatchEvidenceIdentity,
 )
 from fdai.core.executor.safeguard_dispatch_start import (
@@ -772,7 +773,35 @@ def _content_digest(
         PreReleaseOwnershipCheckpoint: "checkpoint_digest",
         SafeguardDispatchEvidenceRecord: "record_digest",
     }[type(value)]
-    return _payload_digest(asdict(value), domain, digest_field=digest_field)
+    return _payload_digest(
+        _revision_safe_body(value, asdict(value)),
+        domain,
+        digest_field=digest_field,
+    )
+
+
+def _revision_safe_body(
+    value: object,
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    """Reproduce the digest body the nested identity revision actually hashed.
+
+    A record written before execution provenance existed hashed an identity
+    with no provenance keys.  ``asdict`` now materializes those keys as
+    ``None``, so hashing it unchanged would invalidate every historical
+    record.  Dropping them for a ``1.0.0`` identity keeps those records
+    verifiable without weakening the digest for current ones.
+    """
+
+    if type(value) is not SafeguardDispatchEvidenceRecord:
+        return body
+    identity = body.get("identity")
+    if not isinstance(identity, dict) or identity.get("schema_version") != "1.0.0":
+        return body
+    return {
+        **body,
+        "identity": {key: item for key, item in identity.items() if key not in PROVENANCE_FIELDS},
+    }
 
 
 __all__ = [

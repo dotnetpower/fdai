@@ -11,6 +11,7 @@ from fdai_service_contracts.execution_safeguards import (
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.executor.audit_intent import AuditIntentAppendReceipt
+from fdai.core.executor.execution_provenance import SafeguardExecutionVenue
 from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationTransitionReceipt,
     ReservationState,
@@ -55,8 +56,11 @@ class SafeguardBundlePersistenceContext:
     lock_proof: LogicalTargetLockProof
     idempotency_proof: IdempotencyReservationProof
     audit_intent_proof: AuditIntentProof
+    execution_venue: SafeguardExecutionVenue = SafeguardExecutionVenue.CORE
 
     def __post_init__(self) -> None:
+        if type(self.execution_venue) is not SafeguardExecutionVenue:
+            raise ValueError("safeguard bundle context requires an exact execution venue")
         expected_types = (
             (self.action, Action, "action"),
             (
