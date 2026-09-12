@@ -247,15 +247,15 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   values; unsupported objects and `NaN` are rejected before identity calculation, publication, or
   PostgreSQL connection. Realtime projectors and immutable snapshot staging store only prevalidated
   canonical JSON documents; snapshot coverage metadata follows the same rule before begin or
-  promotion. Azure relationship property paths, allowed provider types, semantic direction,
-  source-schema digest, and evidence policy come from the reviewed
-  `provider-relationship-mappings` catalog. A complete-generation verifier activates a candidate
-  only when the same generation observes both endpoints, provider and verifier identities differ,
-  and an immutable verification receipt binds the edge and mapping revision. Missing endpoints,
-  ambiguous orientation, stale schema mappings, duplicate or conflicting observations, and partial
-  generations produce stable dropped reasons and no active graph edge. Verified links carry
-  immutable state-fact and link-observation metadata. Stale or conflicting evidence can only lower
-  operational-context autonomy.
+  promotion. Azure relationship paths, allowed provider types, direction, source-schema digests,
+  and evidence policy come from the reviewed `provider-relationship-mappings` catalog. Its verifier
+  activates a candidate only with endpoints observed in the same complete generation, distinct provider/verifier
+  identities, and an immutable receipt binding the edge and mapping revision. Missing endpoints,
+  ambiguous direction, stale mappings, duplicate/conflicting observations, and partial generations
+  produce stable dropped reasons and no active edge. Open environment values pointing to their
+  owner are identity references, not dependencies. Independently owned and verified reciprocal
+  `depends_on` observations retain both directions. Verified links preserve immutable state-fact
+  and link-observation metadata; stale or conflicting evidence can only lower operational-context autonomy.
   Versioned provider-schema candidate materialization remains a delivery concern:
   `provider_schema_relationship_generation.py` binds the exact provider-schema and REST evidence
   digests, mapping revision, projection manifest, direction, cardinality, and link metadata.

@@ -44,8 +44,8 @@
     .rail-button.is-active { background: rgba(68,104,142,.08); color: var(--cs-navy); }
     .rail-button.is-active::before { position: absolute; inset: 8px auto 8px -6px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cs-steel); content: ""; }
     .rail-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .rail-button[data-tooltip]::after { position: absolute; z-index: 140; top: 50%; left: 52px; max-width: 180px; padding: 5px 8px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-navy); color: #fff; box-shadow: 0 4px 14px rgba(44,51,58,.16); content: attr(data-tooltip); font-size: 12px; font-weight: 600; line-height: 1.3; opacity: 0; pointer-events: none; transform: translateY(calc(-50% + 2px)); transition: opacity 80ms ease, transform 80ms ease; white-space: nowrap; }
-    .app.is-nav-collapsed .rail-button[data-tooltip]:is(:hover, :focus-visible)::after { opacity: 1; transform: translateY(-50%); }
+    .rail-button[data-tooltip]::after { position: absolute; z-index: 140; top: 50%; left: calc(100% - 1px); max-width: 180px; padding: 5px 8px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); box-shadow: 0 2px 8px rgba(44,51,58,.12); content: attr(data-tooltip); font-size: 12px; font-weight: 600; line-height: 1.3; opacity: 0; visibility: hidden; pointer-events: auto; transform: translateY(calc(-50% + 2px)); transition: opacity 80ms ease, transform 80ms ease; white-space: nowrap; }
+    .app.is-nav-collapsed .rail-button[data-tooltip]:not([data-tooltip-dismissed]):is(:hover, :focus-visible)::after { opacity: 1; visibility: visible; transform: translateY(-50%); }
     .nav-toggle:focus-visible, .rail-button:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
     .header-operations { display: inline-flex; align-items: center; gap: 6px; min-width: 0; margin-left: auto; }
     .header-control { min-height: 32px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
@@ -143,6 +143,12 @@
     .nav-empty p { margin: 0 0 12px; }
     .nav-empty button { min-height: 36px; padding: 6px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-steel); font: inherit; cursor: pointer; }
 
+    @media (min-width: 781px) {
+      .app:not(.is-nav-collapsed) { grid-template-columns: var(--activity-bar-w) var(--explorer-w) minmax(0, 1fr); }
+      .app:not(.is-nav-collapsed) .hdr { grid-column: 1 / -1; }
+      .app:not(.is-nav-collapsed) .preview { grid-column: 3; }
+      .side { box-shadow: none; }
+    }
     @media (max-width: 780px) {
       :root { --activity-bar-w: 52px; }
       .app { grid-template-columns: var(--activity-bar-w) minmax(0, 1fr); grid-template-rows: var(--hdr-h) minmax(0, 1fr); }
@@ -437,6 +443,7 @@
     </div>
   </div>
 
+  <script src="mocks/ui/assets/preview-history.js?v=4"></script>
   <script>
     (function () {
       const frame = document.getElementById('preview-frame');
@@ -444,6 +451,18 @@
       const nowPath = document.getElementById('now-path');
       const nowOpen = document.getElementById('now-open');
       const items = Array.from(document.querySelectorAll('.side [data-page]'));
+      const viewHistory = createMockViewHistory(frame, (url) => {
+        if (!items.some(item => item.dataset.page === url.pathname.slice(1))) return false;
+        let section;
+        try { section = decodeURIComponent(url.hash.slice(1)); }
+        catch (error) {
+          if (!(error instanceof URIError)) throw error;
+          console.warn('Invalid preview section encoding.');
+          return false;
+        }
+        open(url.pathname.slice(1) + url.search, '', section);
+        return true;
+      });
       const app = document.getElementById('mock-app');
       const side = document.querySelector('.side');
       const preview = document.getElementById('preview');
@@ -463,6 +482,8 @@
       let currentPage = '';
       let currentSection = '';
       let pendingPage = '';
+      let pendingFocusRestore = false;
+      let traversalHash = null;
       let selectedRailTarget = 'overview';
 
       function parseRouteHash() {
@@ -613,8 +634,11 @@
       });
       side.classList.add('is-enhanced');
 
-      function open(page, title, section, restore) {
+      function open(page, title, section, restore, restoreFocus = false) {
         if (!page) return;
+        if (!restore) viewHistory.capture();
+        viewHistory.detach();
+        pendingFocusRestore = restoreFocus;
         if (!items.some((item) => item.dataset.page === page.split('?')[0])) {
           page = 'mocks/ui/dashboard.html';
           title = '';
@@ -649,7 +673,7 @@
         revealPageGroup(basePage);
         requestAnimationFrame(ensureActiveVisible);
         const hash = routeHash(page, currentSection);
-        if (restore || location.hash === hash) history.replaceState(null, '', hash);
+        if (restore || location.hash === hash) history.replaceState(viewHistory.stateFor(page, currentSection), '', hash);
         else history.pushState(null, '', hash);
         if (mobileQuery.matches) setNavigationOpen(false);
       }
@@ -688,7 +712,9 @@
         incidentControl.classList.toggle('is-current', incidentCurrent);
         if (incidentCurrent) incidentControl.setAttribute('aria-current', 'page'); else incidentControl.removeAttribute('aria-current');
         revealPageGroup(basePage);
-        history.replaceState(null, '', routeHash(currentPage, currentSection));
+        history.replaceState(viewHistory.stateFor(currentPage, currentSection), '', routeHash(currentPage, currentSection));
+        viewHistory.bind(currentPage, currentSection, pendingFocusRestore);
+        pendingFocusRestore = false;
       }
       frame.addEventListener('load', syncFrameRoute);
 
@@ -748,6 +774,10 @@
           setNavigationOpen(false);
           railButtons.find((button) => button.dataset.navTarget === selectedRailTarget)?.focus();
         }
+        document.querySelectorAll('.rail-button[data-tooltip]').forEach(button => button.setAttribute('data-tooltip-dismissed', ''));
+      });
+      document.querySelectorAll('.rail-button[data-tooltip]').forEach(button => {
+        ['pointerenter', 'focusin'].forEach(type => button.addEventListener(type, () => button.removeAttribute('data-tooltip-dismissed')));
       });
 
       document.querySelector('.skip-link').addEventListener('click', (event) => {
@@ -763,18 +793,24 @@
         currentSection = event.data.section;
         const directUrl = nowOpen.getAttribute('href').split('#')[0] + '#' + encodeURIComponent(currentSection);
         nowOpen.setAttribute('href', directUrl);
-        try { history.replaceState(null, '', routeHash(currentPage, currentSection)); } catch (_) { /* opaque hash ok */ }
+        history.replaceState(viewHistory.stateFor(currentPage, currentSection), '', routeHash(currentPage, currentSection));
       });
 
+      window.addEventListener('popstate', () => {
+        traversalHash = location.hash;
+      });
       window.addEventListener('hashchange', () => {
         const route = parseRouteHash();
-        if (route.page) open(route.page, '', route.section, true);
+        const restoreFocus = traversalHash === location.hash;
+        traversalHash = null;
+        if (route.page) open(route.page, '', route.section, true, restoreFocus);
       });
 
       mobileQuery.addEventListener('change', () => setNavigationOpen(!mobileQuery.matches));
 
       const initial = parseRouteHash();
-      open(initial.page || 'mocks/ui/dashboard.html', '', initial.section, true);
+      const initialTraversal = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+      open(initial.page || 'mocks/ui/dashboard.html', '', initial.section, true, initialTraversal);
       setNavigationOpen(!mobileQuery.matches);
     })();
   </script>

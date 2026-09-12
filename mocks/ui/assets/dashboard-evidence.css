@@ -1,0 +1,195 @@
+/* Expanded evidence uses the dashboard's existing color, type, and focus tokens. */
+.cs-dashboard-essential .de-evidence-body {
+  display: grid;
+  gap: 32px;
+  padding-block: 24px;
+}
+
+.cs-dashboard-essential .de-evidence-section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cs-dashboard-essential .de-evidence-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  white-space: nowrap;
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-dashboard-essential .de-source-facts {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr .6fr 1.2fr;
+  gap: 16px 24px;
+  margin: 0;
+  padding-block: 4px 20px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-dashboard-essential .de-source-scope {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-body-size);
+}
+
+.cs-dashboard-essential .de-source-facts > div {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 4px;
+}
+
+.cs-dashboard-essential :is(.de-source-facts, .de-vertical-facts) dt {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-dashboard-essential :is(.de-source-facts, .de-vertical-facts) dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-body-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-dashboard-essential .de-vertical-facts {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.cs-dashboard-essential .de-vertical-facts > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.cs-dashboard-essential .de-vertical-facts dd {
+  font-weight: 600;
+}
+
+.cs-dashboard-essential .de-audit-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+}
+
+.cs-dashboard-essential .de-audit-summary > a {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px;
+  color: var(--cs-text);
+  text-decoration: none;
+}
+
+.cs-dashboard-essential .de-audit-summary > a + a {
+  border-left: 1px solid var(--cs-hairline);
+}
+
+.cs-dashboard-essential .de-audit-summary > a:hover {
+  background: var(--cs-shade);
+}
+
+.cs-dashboard-essential .de-audit-summary small {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-dashboard-essential .de-audit-summary strong {
+  font-size: var(--cs-type-section-title-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-dashboard-essential .de-breakdowns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
+.cs-dashboard-essential .de-breakdowns > section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cs-dashboard-essential .de-breakdowns h3 {
+  margin: 0;
+}
+
+.cs-dashboard-essential .de-breakdowns .cs-table-wrap {
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+}
+
+.cs-dashboard-essential .de-breakdowns .cs-table td {
+  padding-block: 4px;
+  vertical-align: middle;
+}
+
+.cs-dashboard-essential .de-breakdowns .cs-table .de-count {
+  width: 80px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-dashboard-essential .de-breakdowns .cs-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cs-dashboard-essential .de-evidence-note {
+  display: grid;
+  gap: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cs-hairline);
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-dashboard-essential .de-evidence-note p {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-body-size);
+}
+
+@media (max-width: 800px) {
+  .cs-dashboard-essential .de-breakdowns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-dashboard-essential .de-source-facts,
+  .cs-dashboard-essential .de-audit-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cs-dashboard-essential .de-audit-summary > a:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .cs-dashboard-essential .de-audit-summary > a:nth-child(n+3) {
+    border-top: 1px solid var(--cs-hairline);
+  }
+}
+
+@media (max-width: 620px) {
+  .cs-dashboard-essential .de-source-facts,
+  .cs-dashboard-essential .de-audit-summary,
+  .cs-dashboard-essential .de-breakdowns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-dashboard-essential .de-audit-summary > a + a {
+    border-left: 0;
+    border-top: 1px solid var(--cs-hairline);
+  }
+}

@@ -1,10 +1,11 @@
-import { bindWorkspaceTabs } from "./settings-workspace-tabs.js";
+import { bindWorkspaceTabs } from "./settings-workspace-tabs.js?v=overview-quality-v2";
 
 const root = document.querySelector("[data-overview-tabs]");
 bindWorkspaceTabs(root, {
   tabAttribute: "data-overview-tab", panelAttribute: "data-overview-panel",
   openAttribute: "data-open-overview", errorSelector: "[data-overview-error]",
   defaultTab: "overview",
+  resolveContentFragments: true,
   aliases: { "cost-resource-table": "resource-efficiency", "cost-case-list": "optimization-cases", "cost-effect-list": "outcomes" },
 });
 
@@ -18,6 +19,8 @@ const byId = (id) => document.getElementById(id);
 let selectedId = candidates[0].id;
 
 function renderCandidates() {
+  const previousRecord = byId("cost-candidate-evidence");
+  const keepRecordOpen = byId("cost-inspector").dataset.candidate === selectedId && previousRecord?.open;
   const query = byId("cost-search").value.trim().toLowerCase();
   const shown = candidates.filter((row) =>
     `${row.name} ${row.type} ${row.problem} ${row.solution}`.toLowerCase().includes(query));
@@ -26,6 +29,7 @@ function renderCandidates() {
     const name = document.createElement("td");
     const button = document.createElement("button");
     button.type = "button"; button.className = "ow-row-action";
+    button.id = "cost-select-" + row.id;
     button.textContent = row.name; button.dataset.costCandidate = row.id;
     button.setAttribute("aria-pressed", String(row.id === selectedId));
     name.append(button); tr.append(name);
@@ -36,37 +40,54 @@ function renderCandidates() {
   }));
   byId("cost-row-count").textContent = shown.length ? `${shown.length} of 3 candidate rows / Full local fixture` : "No candidate matches. This does not establish absence outside this fixture.";
   const row = candidates.find((item) => item.id === selectedId);
-  byId("cost-inspector").innerHTML = `<h2>${row.name}</h2><p class="ow-note">${row.problem}</p>
+  byId("cost-inspector").dataset.candidate = selectedId;
+  byId("cost-inspector").innerHTML = `<h2 id="cost-inspector-title" tabindex="-1">${row.name}</h2><p class="ow-note">${row.problem}</p>
     ${shown.some((item) => item.id === selectedId) ? "" : '<p class="ow-note">Selected candidate is outside the current filter. Its identity has not changed.</p>'}
-    <dl><div><dt>Resource type</dt><dd>${row.type}</dd></div><div><dt>Utilization</dt><dd>${row.utilization === null ? "Unavailable" : row.utilization + "%"}</dd></div><div><dt>Monthly opportunity</dt><dd>${row.savings === null ? "Unavailable" : "$" + row.savings + " USD"}</dd></div><div><dt>Confidence</dt><dd>${row.confidence ?? "Unavailable"}</dd></div><div><dt>Disposition</dt><dd>Recommendation only</dd></div></dl>
+    <dl class="oq-surface"><div><dt>Resource type</dt><dd>${row.type}</dd></div><div><dt>Utilization</dt><dd>${row.utilization === null ? "Unavailable" : row.utilization + "%"}</dd></div><div><dt>Monthly opportunity</dt><dd>${row.savings === null ? "Unavailable" : "$" + row.savings + " USD"}</dd></div><div><dt>Confidence</dt><dd>${row.confidence ?? "Unavailable"}</dd></div><div><dt>Disposition</dt><dd>Recommendation only</dd></div></dl>
     <h3>Suggested review</h3><p class="ow-note">${row.solution}</p>
     <div class="cg-evidence-rows"><span>Source: ${row.source} / Synthetic</span><span>Observed: ${row.observed ?? "Not recorded"}</span><span>Freshness: ${row.observed ? "Frozen example, not current" : "Unknown"}</span><span>Approval: not projected / Effect: not verified</span></div>
-    <details class="ow-disclosure"><summary>Evidence record</summary><pre></pre></details>
-    <p><a href="audit.html?correlation=${row.id}">Open correlated audit</a></p>`;
+    <details id="cost-candidate-evidence" class="oq-details" data-preview-persist><summary>Evidence record</summary><pre></pre></details>
+    <p><a id="cost-correlated-audit" href="audit.html?correlation=${row.id}">Open correlated audit</a></p>`;
   byId("cost-inspector").querySelector("pre").textContent = JSON.stringify({ ...row, synthetic: true, execution_authority: false }, null, 2);
+  byId("cost-candidate-evidence").open = Boolean(keepRecordOpen);
   document.querySelectorAll(".cg-point").forEach((point) => point.setAttribute("aria-pressed", String(point.dataset.costCandidate === selectedId)));
+  root.dispatchEvent(new Event("fdai-preview-state-change"));
 }
 
 document.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-cost-candidate], [data-open-cost-candidate]");
   if (!trigger) return;
+  const focusedId = document.activeElement === trigger ? trigger.id : null;
   selectedId = trigger.dataset.costCandidate || trigger.dataset.openCostCandidate;
   if (trigger.hasAttribute("data-open-cost-candidate")) {
     byId("cost-search").value = "";
     document.querySelector('[data-overview-tab="resource-efficiency"]').click();
   }
   renderCandidates();
+  byId("cost-selection-status").textContent = candidates.find(row => row.id === selectedId).name + " selected. Recommendation evidence remains read-only.";
+  if (trigger.hasAttribute("data-open-cost-candidate")) {
+    byId("cost-inspector-title").focus({ preventScroll: true });
+    byId("cost-inspector-title").scrollIntoView({ block: "nearest", behavior: "instant" });
+  } else if (focusedId) byId(focusedId).focus({ preventScroll: true });
 });
-byId("cost-search").addEventListener("input", renderCandidates);
-byId("cost-budget").addEventListener("change", (event) => {
-  const main = event.target.value === "main";
+byId("cost-search").addEventListener("input", () => {
+  byId("cost-search").value = byId("cost-search").value.slice(0, 200);
+  renderCandidates();
+});
+function applyBudget() {
+  const value = byId("cost-budget").value;
+  if (!["main", "secondary"].includes(value)) throw new Error("Unknown cost budget fixture.");
+  const main = value === "main";
   byId("budget-current").textContent = main ? "$4,500" : "$1,500";
   byId("budget-forecast").textContent = main ? "$5,700" : "Unavailable";
   byId("budget-share").textContent = main ? "75%" : "60%";
-  byId("budget-total").textContent = main ? "of $6,000" : "of $2,500";
-});
-byId("cost-scenario").addEventListener("change", (event) => {
-  const value = event.target.value;
+  byId("budget-total").textContent = main ? "of $6,000 USD" : "of $2,500 USD";
+  root.dispatchEvent(new Event("fdai-preview-state-change"));
+}
+const scenarios = ["available", "partial", "empty", "unavailable", "denied", "error", "loading"];
+function applyScenario() {
+  const value = byId("cost-scenario").value;
+  if (!scenarios.includes(value)) throw new Error("Unknown cost evidence fixture.");
   const ready = value === "available" || value === "partial";
   byId("cost-data").hidden = !ready;
   byId("cost-read-state").hidden = ready;
@@ -79,7 +100,7 @@ byId("cost-scenario").addEventListener("change", (event) => {
     error: "Read error / No result established",
     loading: "Loading specimen / No request sent",
   }[value];
-  if (ready) return;
+  if (ready) { root.dispatchEvent(new Event("fdai-preview-state-change")); return; }
   const messages = {
     empty: ["No cost records", "The source returned an empty projection. No spend or savings total can be established."],
     unavailable: ["Cost source unavailable", "Connect the owning runtime capability. Missing evidence is not zero spend."],
@@ -88,6 +109,40 @@ byId("cost-scenario").addEventListener("change", (event) => {
     loading: ["Loading cost projection", "Paused loading specimen, not a live request."],
   };
   const [title, message] = messages[value];
-  byId("cost-read-state").innerHTML = `<section class="ow-gap" role="${value === "error" ? "alert" : "status"}" ${value === "loading" ? 'aria-busy="true"' : ""}><h2>${title}</h2><p>${message}</p>${value === "loading" ? '<div class="ow-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>' : ""}${value === "denied" || value === "unavailable" ? '<a href="settings-runtime.html">Review runtime configuration</a>' : ""}</section>`;
+  byId("cost-read-state").innerHTML = `<section class="ow-gap" role="${value === "error" ? "alert" : "status"}" ${value === "loading" ? 'aria-busy="true"' : ""}><h2>${title}</h2><p>${message}</p>${value === "loading" ? '<div class="ow-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>' : ""}${value === "denied" || value === "unavailable" ? '<a href="settings-runtime.html">Review runtime configuration</a>' : ""}<button id="cost-reset-preview" type="button" class="cs-control-button">Show available fixture</button></section>`;
+  byId("cost-reset-preview").addEventListener("click", () => {
+    byId("cost-scenario").value = "available";
+    applyScenario();
+    root.querySelector('[data-overview-tab][aria-selected="true"]')?.focus();
+  });
+  root.dispatchEvent(new Event("fdai-preview-state-change"));
+}
+byId("cost-budget").addEventListener("change", applyBudget);
+byId("cost-scenario").addEventListener("change", applyScenario);
+root.fdaiPreviewState = Object.freeze({
+  capture() {
+    return { version: 1, scenario: byId("cost-scenario").value, budget: byId("cost-budget").value, query: byId("cost-search").value, selected: selectedId };
+  },
+  restore(value) {
+    const keys = ["version", "scenario", "budget", "query", "selected"];
+    if (!value || typeof value !== "object" || Array.isArray(value) ||
+      Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key)) ||
+      value.version !== 1 || !scenarios.includes(value.scenario) ||
+      !["main", "secondary"].includes(value.budget) || typeof value.query !== "string" ||
+      value.query.length > 200 || !candidates.some(row => row.id === value.selected)) {
+      console.warn("Ignoring incompatible cost preview state.");
+      return false;
+    }
+    byId("cost-scenario").value = value.scenario;
+    byId("cost-budget").value = value.budget;
+    byId("cost-search").value = value.query;
+    selectedId = value.selected;
+    applyBudget();
+    applyScenario();
+    renderCandidates();
+    return true;
+  },
 });
+applyBudget();
+applyScenario();
 renderCandidates();

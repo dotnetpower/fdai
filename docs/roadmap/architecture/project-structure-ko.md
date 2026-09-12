@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2ddca56bf4c976f6347a52d909b9b3241c504466
+translation_source_sha: f24fa64f1834179be676e41cfd09e00246dd40a1
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -245,14 +245,15 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   않는 객체와 `NaN`은 신원 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Realtime
   projector와 변경할 수 없는 스냅샷 staging은 사전 검증된 정본 JSON 문서만 저장하며 스냅샷
   커버리지 메타데이터도 begin 또는 승격 전에 같은 규칙을 적용합니다. Azure 관계의 속성 경로,
-  허용된 프로바이더 타입, 의미 방향, 출처 스키마 다이제스트 및 근거 정책은 검토된
-  `provider-relationship-mappings` 카탈로그에서 가져옵니다. 완전한 세대 verifier는 같은 세대에서
-  두 엔드포인트를 모두 관찰하고, 프로바이더와 verifier 신원이 서로 다르며, 변경할 수 없는 검증
-  receipt가 edge와 mapping 개정 번호를 고정한 경우에만 후보를 활성화합니다. 엔드포인트 누락,
-  모호한 방향, stale 스키마 mapping, 중복 또는 conflicting 관찰, 부분 세대는 stable dropped reason을
-  남기고 active graph edge를 만들지 않습니다. 검증된 링크는 변경할 수 없는 state-fact 및 링크 관찰
-  메타데이터를 운반합니다. stale 또는 conflicting 근거는 operational-context 자율성을 낮출 수만
-  있습니다.
+  허용된 공급자 타입, 방향, 출처 스키마 다이제스트 및 근거 정책은 검토된
+  `provider-relationship-mappings` 카탈로그에서 가져옵니다. 완전한 세대에서 두 엔드포인트가
+  관찰되고, 공급자와 검증기의 신원이 다르며, 변경할 수 없는 증적이 연결과 매핑 개정 번호를
+  고정한 경우에만 후보를 활성화합니다. 엔드포인트 누락, 모호한 방향, 오래된 매핑, 중복되거나
+  충돌하는 관찰, 부분 세대는 일정한 제외 사유를 남기고 활성 연결을 만들지 않습니다.
+  소유 리소스를 가리키는 개방형 환경 변수 값은 의존성이 아닌 자기 식별 참조입니다. 각 출발
+  리소스가 근거를 소유하고 독립 검증을 통과한 상호 `depends_on` 관찰은 두 방향을 유지합니다.
+  검증된 연결은 변경할 수 없는 상태 사실과 연결 관찰 메타데이터를 보존하며, 오래되거나
+  충돌하는 근거는 운영 맥락의 자율성을 낮출 수만 있습니다.
   Versioned provider-schema 후보 materialization은 delivery 책임으로 유지합니다.
   `provider_schema_relationship_generation.py`은 정확한 provider-schema 및 REST evidence digest,
   mapping revision, projection manifest, direction, cardinality 및 link metadata를 결속합니다.

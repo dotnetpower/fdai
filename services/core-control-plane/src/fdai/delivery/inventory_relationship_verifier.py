@@ -23,7 +23,7 @@ from fdai.shared.providers.state_evidence import (
 )
 
 DEFAULT_RELATIONSHIP_VERIFIER_IDENTITY = "fdai-inventory-generation-verifier"
-DEFAULT_RELATIONSHIP_VERIFIER_REVISION = "inventory-generation-verifier.v1"
+DEFAULT_RELATIONSHIP_VERIFIER_REVISION = "inventory-generation-verifier.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +77,13 @@ def verify_inventory_relationships(
         link_type, from_id, to_id = key[1], key[0], key[2]
         reverse_key = (to_id, link_type, from_id)
         if link_type != "peered_with" and reverse_key in grouped:
+            if (
+                link_type == "depends_on"
+                and from_id != to_id
+                and len(grouped[key]) == len(grouped[reverse_key]) == 1
+                and _independently_owned_dependencies(grouped[key][0], grouped[reverse_key][0])
+            ):
+                continue
             rejected_keys.update((key, reverse_key))
             dropped.append(_drop(RelationshipDropReason.CONFLICTING_DUPLICATE, grouped[key][0]))
 
@@ -159,6 +166,16 @@ def verify_inventory_relationships(
     return VerifiedInventoryRelationships(
         links=tuple(verified),
         dropped=_canonical_drops(dropped),
+    )
+
+
+def _independently_owned_dependencies(first: LinkRecord, second: LinkRecord) -> bool:
+    """Distinguish two observed prerequisites from one reference with reversed direction."""
+    return all(
+        link.mapping_evidence is not None
+        and link.mapping_evidence.provider_owner_id == link.from_id
+        and link.mapping_evidence.endpoint_orientation == "owner_to_referenced"
+        for link in (first, second)
     )
 
 

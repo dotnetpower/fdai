@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: b164ec6afa2e169e92711c2c2ad7785ff084d00c
+translation_source_sha: 3e418b6df8537479c1301d752b56f23e27aba1f5
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -294,15 +294,19 @@ tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유�
 이전 이벤트는 인스턴스를 뒤로 이동시킬 수 없습니다. Tombstone은 원본, 유효 시간, 세대,
 archive 계보를 유지합니다.
 
-완전한 공급자 세대에는 endpoint가 활성 세대 밖에 있거나 공급자 타입이 모델링되지 않았거나
-정확한 참조가 관측되지 않아 edge가 될 수 없는 검토된 candidate가 포함될 수 있습니다. 이
-타입 지정 non-edge는 최신 Resource 객체와 독립적으로 검증된 link의 전진을 막지 않습니다.
-Ontology projection은 같은 세대를 `relationship_complete=false`로 전진시키고 분류된 모든
-사유를 보존합니다. 관계 커버리지는 관계 주장을 한정합니다. 즉 쿼리가 그래프를 완전한 관계
-근거로 사용하지 못하게 하되, 객체 집합이 집합 내부 edge를 만들 수 없는 스냅샷은 관계에 대해
-아무것도 진술하지 않으므로 자신의 객체 커버리지를 그대로 유지합니다. 분류되지 않은 drop,
-잘못된 검증 metadata, 부분 source 세대, conflict 또는 cardinality 위반은 계속 차단되며 이전
-그래프를 보존합니다.
+완전한 공급자 세대에는 해당 세대 밖의 엔드포인트, 모델링되지 않은 공급자 타입, 관측되지
+않은 정확한 참조처럼 사유가 분류된 미연결 후보가 포함될 수 있습니다. 최신 Resource 객체와
+독립 검증된 연결은 모든 분류 사유를 보존하며 `relationship_complete=false`로 전진할 수 있습니다.
+관계 커버리지는 관계 주장을 한정하지만, 집합 내부 연결이 불가능할 때 객체 커버리지까지
+무효화하지는 않습니다. 잘못된 검증 메타데이터, 미분류 제외 사유, 부분 세대, 충돌 또는
+카디널리티 위반은 기존 그래프 교체를 차단합니다.
+
+개방형 환경 변수의 자기 식별 값(정확한 ARM ID 또는 유일한 엔드포인트 별칭)은 의존성이
+아니며, 명시적인 자기 참조 연결은 계속 차단합니다. 상호 `depends_on` 사실은 방향별 후보가
+하나이고, 각 출발 리소스가 근거를 소유하며, 매핑이 소유자에서 참조 대상으로 향해야 합니다.
+두 연결 모두 `inventory-generation-verifier.v2`의 완전한 세대 엔드포인트, 스키마, 관측 시각,
+독립 검증기 검사를 통과해야 합니다. 중복 연결과 근거 없는 역방향은 계속 차단합니다.
+투영 소스를 변경하면 의미 기반 의도 커버리지 자료도 다시 생성합니다. 소스 해시 갱신은 평가 기준값을 바꾸지 않습니다.
 
 정확히 검토된 공급자 parent는 같은 child에 대한 일반 Resource Group containment를
 shadow합니다. Snapshot promotion은 활성 pointer를 변경하기 전에 child별 `contains` parent가

@@ -183,6 +183,13 @@ def project_provider_relationships(
                 )
                 continue
             referenced_id = to_neutral_id(provider_reference)
+            if (
+                mapping.source_property_path == _OPEN_ENV_VALUE_PATH
+                and mapping.link_type == "depends_on"
+                and referenced_id == owner.resource_id
+            ):
+                # An open environment value can identify its owner without a dependency.
+                continue
             evidence = _mapping_evidence(
                 catalog,
                 mapping,

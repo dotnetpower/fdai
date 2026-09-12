@@ -1,4 +1,4 @@
-import { bindWorkspaceTabs } from "./settings-workspace-tabs.js";
+import { bindWorkspaceTabs } from "./settings-workspace-tabs.js?v=overview-quality-v2";
 
 // Only presentation state changes. Hashes never carry approval or execution authority.
 document.querySelectorAll("[data-overview-tabs]").forEach((root) => {
@@ -8,6 +8,7 @@ document.querySelectorAll("[data-overview-tabs]").forEach((root) => {
     openAttribute: "data-open-overview",
     errorSelector: "[data-overview-error]",
     defaultTab: root.dataset.overviewTabs,
+    resolveContentFragments: true,
     aliases: { touchpoints: "human-touchpoints", "lead-time": "change-lead-time", cost: "cost-per-resolved-event" },
   });
 });
@@ -22,6 +23,7 @@ if (guardFilter) {
       if (!row.hidden) shown += 1;
     });
     document.querySelector("[data-guard-empty]").hidden = shown > 0;
+    document.querySelector(".ov-guard-list").hidden = shown === 0;
     const url = new URL(location.href);
     if (key) url.searchParams.set("guard", key); else url.searchParams.delete("guard");
     history.replaceState(null, "", url);
@@ -45,6 +47,7 @@ if (indicatorFilter) {
       if (!row.hidden) shown += 1;
     });
     document.querySelector("[data-indicator-empty]").hidden = shown > 0;
+    document.querySelector(".ov-guard-list").hidden = shown === 0;
     const url = new URL(location.href);
     if (indicatorFilter.value) url.searchParams.set("indicator", indicatorFilter.value);
     else url.searchParams.delete("indicator");
@@ -57,7 +60,7 @@ if (indicatorFilter) {
   indicatorFilter.addEventListener("change", applyIndicator);
   applyIndicator();
   function markTier() {
-    const active = location.hash.slice(1) || "t2";
+    const active = document.querySelector('[data-overview-tab][aria-selected="true"]')?.dataset.overviewTab || "";
     document.querySelectorAll(".ov-tier").forEach((card) => {
       if (card.getAttribute("href") === "#" + active) card.setAttribute("aria-current", "page");
       else card.removeAttribute("aria-current");

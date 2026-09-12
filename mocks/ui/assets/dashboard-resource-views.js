@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   const { definitions, statusKey, typeNames } = window.FdaiDashboardData;
+  const formatCount = value => value.toLocaleString("en-US");
   function element(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -45,6 +46,8 @@
             });
             const button = element("button", "dr-text-link", resource.name);
             button.type = "button";
+            button.id = "resource-list-" + resource.id;
+            button.dataset.resourceId = resource.id;
             button.setAttribute("aria-controls", "resource-inspector");
             button.addEventListener("click", () => selectResource(resource.id));
             row.children[0].appendChild(button);
@@ -58,7 +61,7 @@
             cluster.setAttribute("aria-label", resource.groupName + " resources");
             const heading = element("h3", "", resource.groupName);
             const count = result.records.filter((item) => item.group === resource.group).length;
-            heading.appendChild(element("span", "", count + " on page"));
+            heading.appendChild(element("span", "", formatCount(count) + " on page"));
             cluster.append(heading, element("div", "dr-hex-pack"));
             map.appendChild(cluster);
             clusters.set(resource.group, { pack: cluster.lastElementChild, count: 0 });
@@ -69,6 +72,7 @@
           if (rowStart) pack.appendChild(element("div", "dr-hex-row"));
           const cell = element("button", "dr-cell");
           cell.type = "button";
+          cell.id = "resource-cell-" + resource.id;
           cell.tabIndex = -1;
           cell.dataset.resourceId = resource.id;
           cell.setAttribute("aria-controls", "resource-inspector");
@@ -97,11 +101,11 @@
           node.setAttribute("aria-label", `${resource.name}, ${typeNames[resource.type]}, ${resource.groupName}, ${label}`);
           node.querySelector(".dr-cell-symbol").textContent = symbol;
         }
-        const cells = [...map.querySelectorAll(".dr-cell")];
-        const tabStop = cells.find((cell) => cell.dataset.resourceId === focusedId)
-          || cells.find((cell) => cell.dataset.resourceId === state.selected) || cells[0];
-        cells.forEach((cell) => { cell.tabIndex = cell === tabStop ? 0 : -1; });
       }
+      const cells = [...map.querySelectorAll(".dr-cell")];
+      const tabStop = cells.find((cell) => cell.dataset.resourceId === focusedId)
+        || cells.find((cell) => cell.dataset.resourceId === state.selected) || cells[0];
+      cells.forEach((cell) => { cell.tabIndex = cell === tabStop ? 0 : -1; });
       groups.replaceChildren();
       result.groups.forEach((group) => {
         const item = element("article", "dr-group");
@@ -109,8 +113,9 @@
         item.dataset.count = String(group.count);
         const button = element("button", "dr-group-open", group.name);
         button.type = "button";
+        button.id = `resource-group-${result.grouping}-${group.key}`;
         button.addEventListener("click", () => drillDown(result.grouping, group.key));
-        button.append(element("span", "", `${group.count.toLocaleString("en-US")} resources`));
+        button.append(element("span", "", `${formatCount(group.count)} resources`));
         const distribution = element("div", "dr-group-distribution");
         const bar = element("div", "dr-group-bar");
         bar.setAttribute("aria-hidden", "true");
@@ -120,7 +125,7 @@
           segment.style.width = (100 * count / group.count) + "%";
           bar.appendChild(segment);
           const status = badge(state.lens, key);
-          status.append(document.createTextNode(" " + count.toLocaleString("en-US")));
+          status.append(document.createTextNode(" " + formatCount(count)));
           status.dataset.state = key;
           status.dataset.count = String(count);
           distribution.appendChild(status);
@@ -144,5 +149,5 @@
     });
     return { render };
   }
-  window.FdaiDashboardViews = Object.freeze({ create, element, badge });
+  window.FdaiDashboardViews = Object.freeze({ create, element, badge, formatCount });
 })();
