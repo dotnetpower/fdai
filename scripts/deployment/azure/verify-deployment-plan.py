@@ -42,7 +42,8 @@ _BASE_METADATA_FIELDS = frozenset(
         "workflow_run_id",
     }
 )
-_RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest"})
+_RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest", "profile"})
+_RUNTIME_IMAGE_PROFILES = frozenset({"core-control-plane", "cost-governance"})
 _MODEL_RESOLUTION_FIELDS = frozenset({"resolved_models_digest", "deployment_models_digest"})
 _MODEL_VALIDATION_FIELDS = frozenset({"chatops_channel_validation"})
 _PLAN_SUMMARY_ACTIONS = frozenset({"create", "delete", "no_op", "read", "replace", "update"})
@@ -57,12 +58,16 @@ _PLAN_SUMMARY_FIELDS = frozenset(
     }
 )
 _RESOURCE_TYPE = re.compile(r"^[a-z][a-z0-9_]{0,127}$")
-_POST_APPLY_OBSERVATIONS = [
+_CORE_POST_APPLY_OBSERVATIONS = [
     "database-migrations",
     "runtime-health",
     "initial-inventory-execution",
     "canary-publisher",
     "terraform-zero-change",
+]
+_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "cost-governance-job-image-readback",
 ]
 _MODEL_BINDING_FIELDS = frozenset(
     {
@@ -125,6 +130,10 @@ def verify_plan(
     has_post_apply_observations = "post_apply_observations" in metadata
     if has_plan_summary != has_post_apply_observations:
         raise PlanVerificationError("plan metadata summary evidence is incomplete")
+    runtime_image = metadata.get("runtime_image")
+    runtime_image_profile = (
+        runtime_image.get("profile") if isinstance(runtime_image, dict) else "core-control-plane"
+    )
     if has_plan_summary:
         request_id = metadata.get("request_id")
         _verify_plan_summary(
@@ -134,7 +143,12 @@ def verify_plan(
                 and _STATE_ONLY_REQUEST.fullmatch(request_id) is not None
             ),
         )
-        if metadata["post_apply_observations"] != _POST_APPLY_OBSERVATIONS:
+        expected_observations = (
+            _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+            if runtime_image_profile == "cost-governance"
+            else _CORE_POST_APPLY_OBSERVATIONS
+        )
+        if metadata["post_apply_observations"] != expected_observations:
             raise PlanVerificationError("plan metadata post-apply observations are invalid")
     _expect(metadata, "plan_id", expected_plan_id, _PLAN_ID)
     _expect(metadata, "plan_digest", expected_plan_digest, _DIGEST)
@@ -166,16 +180,18 @@ def verify_plan(
     request_kind = metadata.get("request_kind")
     if request_kind not in _REQUEST_KINDS or request_kind != expected_request_kind:
         raise PlanVerificationError("plan metadata request kind does not match the request")
-    runtime_image = metadata.get("runtime_image")
     if runtime_image is not None:
         if not isinstance(runtime_image, dict) or set(runtime_image) != _RUNTIME_IMAGE_FIELDS:
             raise PlanVerificationError("plan metadata runtime image has an unexpected schema")
         source_revision = runtime_image.get("source_revision")
         image_digest = runtime_image.get("digest")
+        image_profile = runtime_image.get("profile")
         if not isinstance(source_revision, str) or _COMMIT.fullmatch(source_revision) is None:
             raise PlanVerificationError("plan metadata runtime image revision is invalid")
         if not isinstance(image_digest, str) or _OCI_DIGEST.fullmatch(image_digest) is None:
             raise PlanVerificationError("plan metadata runtime image digest is invalid")
+        if not isinstance(image_profile, str) or image_profile not in _RUNTIME_IMAGE_PROFILES:
+            raise PlanVerificationError("plan metadata runtime image profile is invalid")
     model_resolution = metadata.get("model_resolution")
     if model_resolution is not None:
         fields = set(model_resolution) if isinstance(model_resolution, dict) else set()

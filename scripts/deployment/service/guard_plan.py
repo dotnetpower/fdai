@@ -158,6 +158,9 @@ _CORE_EVIDENCE_BINDING_OPTIONAL_ENVIRONMENT = frozenset(
 _CORE_EVIDENCE_BINDING_ENVIRONMENT = (
     _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT | _CORE_EVIDENCE_BINDING_OPTIONAL_ENVIRONMENT
 )
+_CORE_SOURCE_REVISION_ENVIRONMENT = "FDAI_SOURCE_REVISION"
+_CORE_RECOVERY_OBSERVER_ENVIRONMENT = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES"
+_CORE_RECOVERY_OBSERVER_IDENTITY = "observer:heimdall:azure-container-apps"
 _CONFIGURATION_DRIFT_ENVIRONMENT = frozenset(
     {
         "FDAI_CONFIGURATION_DRIFT_ENABLED",
@@ -444,6 +447,46 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
     return (
         None if normalized_secret is not None else item.get("value"),
         normalized_secret,
+    )
+
+
+def _core_source_revision_transition(
+    *,
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    source_revision: str,
+) -> bool:
+    if (
+        contract.service != "core-control-plane"
+        or re.fullmatch(r"[0-9a-f]{40}", source_revision) is None
+    ):
+        return False
+    before = _environment_binding(before_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT))
+    after = _environment_binding(after_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT))
+    if after != (source_revision, None) or before == after:
+        return False
+    return before is None or (
+        before[1] is None
+        and isinstance(before[0], str)
+        and re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", before[0]) is not None
+    )
+
+
+def _only_core_recovery_observer_adoption(
+    *,
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> bool:
+    return (
+        contract.service == "core-control-plane"
+        and set(runtime_drift_names) == {f"env:{_CORE_RECOVERY_OBSERVER_ENVIRONMENT}"}
+        and _environment_binding(before_environment.get(_CORE_RECOVERY_OBSERVER_ENVIRONMENT))
+        is None
+        and _environment_binding(after_environment.get(_CORE_RECOVERY_OBSERVER_ENVIRONMENT))
+        == (_CORE_RECOVERY_OBSERVER_IDENTITY, None)
     )
 
 
@@ -1469,6 +1512,7 @@ def _guard_update(
     address: str,
     contract: ServiceContract,
     initial_cutover: bool,
+    source_revision: str = "",
     database_host_binding: bool = False,
     core_evidence_bindings_transition: bool = False,
     runtime_call_evidence_transition: bool = False,
@@ -1492,6 +1536,31 @@ def _guard_update(
     after_environment = _environment_by_name(
         _primary_container(after, address=address, contract=contract),
         address=address,
+    )
+    before_source_revision = _environment_binding(
+        before_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT)
+    )
+    after_source_revision = _environment_binding(
+        after_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT)
+    )
+    source_revision_changed = before_source_revision != after_source_revision
+    allowed_core_source_revision = _core_source_revision_transition(
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        source_revision=source_revision,
+    )
+    if contract.service == "core-control-plane" and source_revision:
+        if after_source_revision != (source_revision, None):
+            violations.append(
+                f"Core source revision does not match the protected commit at {address}"
+            )
+        elif source_revision_changed and not allowed_core_source_revision:
+            violations.append(f"Core source revision transition is invalid at {address}")
+    source_revision_companion_names = (
+        frozenset({_CORE_SOURCE_REVISION_ENVIRONMENT})
+        if allowed_core_source_revision
+        else frozenset()
     )
     rca_reader = _environment_binding(after_environment.get("FDAI_RCA_AZURE_READER_CLIENT_ID"))
     valid_rca_reader_binding = (
@@ -1531,9 +1600,9 @@ def _guard_update(
 
     before_authority = _authority_cutover(before, address=address, contract=contract)
     after_authority = _authority_cutover(after, address=address, contract=contract)
-    notification_companion_names = (
-        _MODEL_BINDING_ENVIRONMENT if model_binding_transition else frozenset()
-    )
+    notification_companion_names = source_revision_companion_names
+    if model_binding_transition:
+        notification_companion_names |= _MODEL_BINDING_ENVIRONMENT
     if database_host_binding:
         notification_companion_names |= frozenset({"POSTGRES_HOST"})
     if allowed_rca_binding:
@@ -1554,7 +1623,7 @@ def _guard_update(
     if before_authority != after_authority and not authority_removed_from_core:
         violations.append(f"authority cutover change at {address}")
     if database_host_binding:
-        additional_host_names: frozenset[str] = frozenset()
+        additional_host_names = source_revision_companion_names
         if model_binding_transition:
             additional_host_names |= _MODEL_BINDING_ENVIRONMENT
         if allowed_rca_binding:
@@ -1579,7 +1648,7 @@ def _guard_update(
             )
         )
     if model_binding_transition:
-        model_additional_names: frozenset[str] = frozenset()
+        model_additional_names = source_revision_companion_names
         if database_host_binding:
             model_additional_names |= frozenset({"POSTGRES_HOST"})
         if allowed_rca_binding:
@@ -1608,26 +1677,39 @@ def _guard_update(
         address=address,
         contract=contract,
     )
+    effective_runtime_drift_names = tuple(
+        name
+        for name in runtime_drift_names
+        if not (allowed_core_source_revision and name == f"env:{_CORE_SOURCE_REVISION_ENVIRONMENT}")
+    )
     allowed_core_handover_cadence = _only_core_handover_cadence_adoption(
         contract=contract,
         before_environment=before_environment,
         after_environment=after_environment,
-        runtime_drift_names=runtime_drift_names,
+        runtime_drift_names=effective_runtime_drift_names,
     )
     allowed_core_evidence_bindings = _only_core_evidence_binding_adoption(
         contract=contract,
         before_environment=before_environment,
         after_environment=after_environment,
-        runtime_drift_names=runtime_drift_names,
+        runtime_drift_names=effective_runtime_drift_names,
     )
-    if core_evidence_bindings_transition and not allowed_core_evidence_bindings:
+    allowed_core_recovery_observer = _only_core_recovery_observer_adoption(
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=effective_runtime_drift_names,
+    )
+    if core_evidence_bindings_transition and not (
+        allowed_core_evidence_bindings or allowed_core_recovery_observer
+    ):
         violations.append(f"core evidence binding transition is invalid at {address}")
     runtime_call_transition = _runtime_call_evidence_transition(
         contract=contract,
         service_name=after.get("name"),
         before_environment=before_environment,
         after_environment=after_environment,
-        runtime_drift_names=runtime_drift_names,
+        runtime_drift_names=effective_runtime_drift_names,
     )
     allowed_runtime_call_evidence = runtime_call_transition is not None
     if runtime_call_evidence_transition and not allowed_runtime_call_evidence:
@@ -1638,7 +1720,7 @@ def _guard_update(
         contract=contract,
         before_environment=before_environment,
         after_environment=after_environment,
-        runtime_drift_names=runtime_drift_names,
+        runtime_drift_names=effective_runtime_drift_names,
         after_identities=after_identities,
     )
     allowed_stewardship_adoption = stewardship_secret_ids is not None
@@ -1661,10 +1743,11 @@ def _guard_update(
         and not allowed_notification_topic
         and not allowed_core_handover_cadence
         and not allowed_stewardship_adoption
-        and runtime_drift_names
+        and effective_runtime_drift_names
     ):
         violations.append(
-            f"command or environment drift at {address}: changed={list(runtime_drift_names)!r}"
+            "command or environment drift at "
+            f"{address}: changed={list(effective_runtime_drift_names)!r}"
         )
 
     before_resource_ids = _resource_ids(before)
@@ -1731,6 +1814,7 @@ def _guard_update(
         or allowed_rca_reader
         or allowed_notification_topic
         or allowed_core_handover_cadence
+        or allowed_core_source_revision
         or allowed_stewardship_adoption
         or sharepoint_connector_transition != "none"
     ):
@@ -2051,7 +2135,7 @@ def _guard_revision_metadata_drift(
     contract: ServiceContract,
     planned_before: dict[str, Any] | None,
 ) -> bool:
-    """Accept only computed revision metadata and an attested-image recovery alignment."""
+    """Accept computed revision metadata and an exact recovery alignment."""
     if not isinstance(resource_drift, list) or len(resource_drift) != 1:
         return False
     entry = resource_drift[0]
@@ -2072,6 +2156,64 @@ def _guard_revision_metadata_drift(
     }
     if planned_before is not None:
         allowed_paths.add("$.template[0].container[0].image")
+    aligned_source_revision_index: int | None = None
+    if contract.service == "core-control-plane" and planned_before is not None:
+        try:
+            before_environment = _container_layout(
+                before,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0].get("env")
+            after_environment = _container_layout(
+                after,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0].get("env")
+            planned_environment = _container_layout(
+                planned_before,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0].get("env")
+        except PlanGuardError:
+            return False
+        if (
+            isinstance(before_environment, list)
+            and isinstance(after_environment, list)
+            and isinstance(planned_environment, list)
+            and len(before_environment) == len(after_environment) == len(planned_environment)
+        ):
+            for index, (before_item, after_item, planned_item) in enumerate(
+                zip(before_environment, after_environment, planned_environment, strict=True)
+            ):
+                if not all(
+                    isinstance(item, dict) for item in (before_item, after_item, planned_item)
+                ):
+                    return False
+                if after_item.get("name") != _CORE_SOURCE_REVISION_ENVIRONMENT:
+                    continue
+                before_binding = _environment_binding(before_item)
+                after_binding = _environment_binding(after_item)
+                aligned_source_revision = (
+                    before_binding is not None
+                    and after_binding is not None
+                    and before_binding != after_binding
+                    and after_item == planned_item
+                    and before_binding[1] is None
+                    and after_binding[1] is None
+                    and re.fullmatch(r"[0-9a-f]{40}", before_binding[0]) is not None
+                    and re.fullmatch(r"[0-9a-f]{40}", after_binding[0]) is not None
+                )
+                if aligned_source_revision:
+                    aligned = copy.deepcopy(before)
+                    aligned_environment = _container_layout(
+                        aligned,
+                        address=contract.allowed_resource_address,
+                        contract=contract,
+                    )[0]["env"]
+                    aligned_environment[index] = copy.deepcopy(after_item)
+                    allowed_paths.update(_difference_paths(before, aligned))
+                    aligned_source_revision_index = index
+                break
     if not paths or not paths <= allowed_paths:
         return False
     expected = copy.deepcopy(before)
@@ -2089,6 +2231,20 @@ def _guard_revision_metadata_drift(
     ):
         return False
     expected_templates[0]["revision_suffix"] = after_templates[0].get("revision_suffix")
+    if aligned_source_revision_index is not None:
+        expected_environment = _container_layout(
+            expected,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )[0]["env"]
+        after_environment = _container_layout(
+            after,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )[0]["env"]
+        expected_environment[aligned_source_revision_index] = copy.deepcopy(
+            after_environment[aligned_source_revision_index]
+        )
     if "$.template[0].container[0].image" in paths:
         if planned_before is None:
             return False
@@ -2122,6 +2278,7 @@ def validate_plan(
     service: str,
     environment: str,
     image_ref: str,
+    source_revision: str = "",
     initial_cutover: bool = False,
     database_host_binding: bool = False,
     core_evidence_bindings_transition: bool = False,
@@ -2311,6 +2468,7 @@ def validate_plan(
                 address=address,
                 contract=contract,
                 initial_cutover=initial_cutover,
+                source_revision=source_revision,
                 database_host_binding=database_host_binding,
                 core_evidence_bindings_transition=core_evidence_bindings_transition,
                 runtime_call_evidence_transition=runtime_call_evidence_transition,
@@ -2405,6 +2563,7 @@ def main() -> int:
     parser.add_argument("--service", required=True)
     parser.add_argument("--environment", required=True)
     parser.add_argument("--image-ref", required=True)
+    parser.add_argument("--source-revision", default="")
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument("--core-evidence-bindings-transition", action="store_true")
@@ -2431,6 +2590,7 @@ def main() -> int:
             service=args.service,
             environment=args.environment,
             image_ref=args.image_ref,
+            source_revision=args.source_revision,
             initial_cutover=args.initial_cutover,
             database_host_binding=args.database_host_binding,
             core_evidence_bindings_transition=args.core_evidence_bindings_transition,

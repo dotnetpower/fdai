@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequenc
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from typing import Protocol
+from uuid import uuid4
 
 from fdai.core.quality_gate.gate import CrossCheckModel, QualityCandidate
 from fdai.core.readiness import ModelStartupEvidence, ProbeStatus, StartupProbeResult
@@ -25,13 +26,14 @@ def _result(
     request: StartupProbeRequest,
     model_evidence: ModelStartupEvidence,
     evidence: Mapping[str, bool | float | int | str] | None = None,
+    observed_at: datetime | None = None,
 ) -> StartupProbeResult:
-    observed_at = datetime.now(UTC)
+    recorded_at = observed_at or datetime.now(UTC)
     return StartupProbeResult(
         probe_id=probe_id,
         status=ProbeStatus.PASSED,
-        observed_at=observed_at,
-        expires_at=observed_at + timedelta(seconds=request.evidence_ttl_seconds),
+        observed_at=recorded_at,
+        expires_at=recorded_at + timedelta(seconds=request.evidence_ttl_seconds),
         latency_ms=(perf_counter() - started_at) * 1000,
         evidence=dict(evidence or {}),
         model_evidence=model_evidence,
@@ -79,26 +81,70 @@ class EmbeddingStartupProbe:
 
 
 class CrossCheckModelStartupProbe:
-    """Collect one retryable process-local proof for a T2 model candidate."""
+    """Collect one retryable, traceable process-local proof for a T2 model candidate.
+
+    A successful proof retains an opaque id, its sampling window, and cumulative reuse
+    observations. Failed attempts keep the pending window open so metering cannot omit their cost.
+    """
 
     def __init__(self, *, probe_id: str, model: CrossCheckModel) -> None:
         self.probe_id = probe_id
         self._model = model
         self._proof: ModelStartupEvidence | None = None
+        self._proof_id = ""
+        self._proof_started_at_unix_ms = 0
+        self._proof_sampled_at_unix_ms = 0
+        self._reuse_count = 0
+        self._first_reused_at_unix_ms = 0
+        self._first_reused_expires_at_unix_ms = 0
         self._lock = asyncio.Lock()
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         async with self._lock:
             if self._proof is not None and self._proof.sample_count >= request.model_sample_count:
+                observed_at = datetime.now(UTC)
+                reused_at_unix_ms = int(observed_at.timestamp() * 1000)
+                reused_expires_at_unix_ms = int(
+                    (observed_at + timedelta(seconds=request.evidence_ttl_seconds)).timestamp()
+                    * 1000
+                )
+                self._reuse_count += 1
+                if self._first_reused_at_unix_ms == 0:
+                    self._first_reused_at_unix_ms = reused_at_unix_ms
+                    self._first_reused_expires_at_unix_ms = reused_expires_at_unix_ms
                 return _result(
                     self.probe_id,
                     started_at,
                     request=request,
                     model_evidence=self._proof,
-                    evidence={"sampled": False, "previously_proven": True},
+                    evidence={
+                        "sampled": False,
+                        "previously_proven": True,
+                        "proof_id": self._proof_id,
+                        "proof_started_at_unix_ms": self._proof_started_at_unix_ms,
+                        "proof_sampled_at_unix_ms": self._proof_sampled_at_unix_ms,
+                        "first_reused_at_unix_ms": self._first_reused_at_unix_ms,
+                        "first_reused_expires_at_unix_ms": (self._first_reused_expires_at_unix_ms),
+                        "latest_reused_at_unix_ms": reused_at_unix_ms,
+                        "latest_reused_expires_at_unix_ms": reused_expires_at_unix_ms,
+                        "reuse_count": self._reuse_count,
+                    },
+                    observed_at=observed_at,
                 )
 
+            if self._proof is not None:
+                self._proof = None
+                self._proof_id = ""
+                self._proof_started_at_unix_ms = 0
+                self._proof_sampled_at_unix_ms = 0
+                self._reuse_count = 0
+                self._first_reused_at_unix_ms = 0
+                self._first_reused_expires_at_unix_ms = 0
+            if not self._proof_id:
+                proof_started_at = datetime.now(UTC)
+                self._proof_id = uuid4().hex
+                self._proof_started_at_unix_ms = int(proof_started_at.timestamp() * 1000)
             latencies: list[float] = []
             with with_correlation(_correlation_id(self.probe_id)):
                 for sample in range(request.model_sample_count):
@@ -116,17 +162,28 @@ class CrossCheckModelStartupProbe:
                         raise RuntimeError(
                             "cross-check startup probe returned invalid structured output"
                         )
+            observed_at = datetime.now(UTC)
             self._proof = ModelStartupEvidence(
                 sample_count=request.model_sample_count,
                 total_latency_ms=tuple(latencies),
                 structured_output_proven=True,
             )
+            self._proof_sampled_at_unix_ms = int(observed_at.timestamp() * 1000)
+            self._reuse_count = 0
             return _result(
                 self.probe_id,
                 started_at,
                 request=request,
                 model_evidence=self._proof,
-                evidence={"sampled": True, "previously_proven": False},
+                evidence={
+                    "sampled": True,
+                    "previously_proven": False,
+                    "proof_id": self._proof_id,
+                    "proof_started_at_unix_ms": self._proof_started_at_unix_ms,
+                    "proof_sampled_at_unix_ms": self._proof_sampled_at_unix_ms,
+                    "reuse_count": self._reuse_count,
+                },
+                observed_at=observed_at,
             )
 
 

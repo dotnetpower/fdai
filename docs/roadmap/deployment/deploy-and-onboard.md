@@ -117,8 +117,9 @@ When the development operations gateway is selected, Terraform targets that Func
 ingestion, the isolated Executor when selected, operational canary, inventory reconciliation Job,
 realtime inventory publishers, and their dependency graphs. This keeps the Job's image and required
 shared runtime configuration converged while unrelated runtime-resource changes stay outside the plan.
-The target set includes both source and
-destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
+Terraform owns the provider-schema Job at the root address `azurerm_container_app_job.provider_schema[0]`. Deterministic resource IDs bind the existing Container Apps environment and inventory identity, a read-only identity lookup supplies its client ID, and a `moved` block preserves state from the former compute-module address. The provider-only target therefore does not inherit the compute module's broad platform dependency graph.
+Provider-schema deployment uses `fdaictl deploy plan --deploy-provider-schema` to create a separate `plan-provider-*` and `apply-provider-*` mode instead of that broad gateway target. It admits only the provider-schema Job address, binds the exact attested Core image revision, rejects every mixed target, and requires a targeted zero-change plan after apply. Plan and apply both require that exact image to be the active, healthy, provisioned Core revision with rollback retention enabled. Plan stores that sanitized baseline under its immutable plan path; apply verifies the stored receipt and observes the live baseline again before mutation. A dedicated bounded verifier starts the Job once and retains Core-baseline, source-revision, durable-generation, Heimdall-handoff, and matching Forseti-decision and Saga-audit evidence. A verification-only resume never reapplies Terraform: it reuses exact immutable evidence when present and otherwise reruns only the Job verification. An unchanged schema records agent review as not applicable instead of fabricating a decision.
+The target set includes both source and destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
 those addresses synchronized so state migrations cannot invalidate a protected plan. This includes
 the unindexed destination addresses for the baseline-regression and pattern-growth jobs. A `for_each`
 key rename uses an explicit `moved` block so Terraform preserves the existing resource instead of
@@ -145,7 +146,7 @@ revisions must also be healthy, and their shared ingress `/healthz` responses mu
 fixed success payload. Design-mocks-only applies are the sole exception because they do not plan
 the runtime.
 The protected-plan delete gate permits only bounded security retirements: closing the broad PostgreSQL Azure-services firewall path, or deleting one of the reviewed pre-split ingestion grants when every exact API or worker successor is pure-created in the same plan.
-It also permits the reviewed `t1.embedding` migration only when the plan JSON matches the exact address, account, family, source SKU/capacity, target SKU/capacity, and replacement action.
+It also permits the reviewed `t1.embedding` migration only when the plan JSON matches the exact address, account, family, source SKU/capacity, target SKU/capacity, and replacement action. A model-binding-only plan targets the Azure OpenAI capability deployment collection instead of the enclosing module. Existing account and role-assignment resources therefore remain outside the plan graph before the scope and destructive-change guards run. The workflow canonicalizes the sealed resolver artifact before hashing. A resource-no-op recovery plan is accepted only when that canonical digest differs from the attested active Core model digest; model-specific provider readback remains required after apply.
 A delete-only model change, a drifted replacement, a missing or non-create successor, and every other delete remain blocked.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and
@@ -437,8 +438,7 @@ later stage with a broken earlier one.
   projections. A management-plane prebind or prestart is accepted only when readback proves the
   digest-pinned image and latest successful execution; the VNet runner then compares every expected
   repository projection with PostgreSQL before reporting success. The protected model Settings workflow refreshes the model projection, creates a missing runtime Settings row without replacing existing runtime evidence, and verifies both environment-bound rows in a read-only transaction so a fresh Console can render setup controls.
-- Post-deploy smoke tests and the synthetic canary are defined in
-  [operating-and-verification.md](../operations/operating-and-verification.md).
+- **Cost Governance profile and post-deploy checks**: `plan-cost-*` and `apply-cost-*` request identities bind one exact digest-pinned Cost Governance image to the collector and analyzer Jobs without changing package enablement or action mode. The platform apply proves a targeted zero-change plan and independently reads both Job images into one content-addressed receipt. A separate protected Core service plan binds that same image to Core. The package-only platform path does not run Core-owned migrations, Core health, legacy inventory, or canary checks.
 
 ## Distribution and Deployment Responsibility Matrix
 

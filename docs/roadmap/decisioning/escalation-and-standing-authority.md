@@ -348,6 +348,33 @@ authoritative primary store can compare that fence immediately before effect dis
 read-time check does not close a revoke-during-effect race, so it remains unwired with the evaluator
 in the current shadow slice. Enforcement requires a separately reviewed lock or lease that spans
 the side-effect commit, plus governed shadow evidence and independent promotion review.
+
+The selected `ops.start-vm@1.0.0` development slice adds a provider-boundary shadow probe for
+exactly one VM in one resource group. It compares the acquired lease through the existing
+`StandingAuthorizationLeaseStore` fence and emits a content-addressed receipt, but always records
+`provider_commit_attempted=false`, `effect_applied=false`, and
+`provider_capability_outcome=ineligible_capability`. Azure Resource Manager cannot join its VM
+start acceptance to the PostgreSQL lease transaction, so a current shadow fence is evidence about
+the contract only and does not make the ActionType eligible for A3-E.
+
+The same slice adds a pure effect-result planner. Matched independent evidence proposes no
+transition; failed, timed-out, missing, stale, conflicting, censored, or otherwise unscorable
+evidence proposes `return_to_shadow`. The planner is not a registry writer, does not revoke a
+standing authorization, and grants no recovery authority. A later authority-bearing consumer must
+be separately reviewed and authorized.
+
+The local acceptance-fence model orders one scripted provider submission attempt inside one
+process. It persists `PREPARED` before the callback, rechecks the exact lease fence, issues at most
+one permit for the target-fence digest, and records `ACCEPTED`, positive `NOT_ACCEPTED`, or
+`UNKNOWN`. Every existing state blocks another submission; timeout, cancellation, exception,
+or terminal-write ambiguity stays commit-equivalent and cannot be retried. The deterministic
+`x-ms-client-request-id` is correlation only and is not provider-side deduplication.
+
+This model is not distributed atomicity, does not close the revoke-during-submit race, and does
+not prove the VM effect. It declares `production_eligible=false`, has only a process-local test
+store, and remains unwired. The strict `StandingAuthorizationLeaseStore` provider-commit contract
+and `INELIGIBLE_CAPABILITY` outcome remain unchanged.
+
 - **Execution fits the validity window.** The risk gate requires
   `now + max_duration_seconds <= valid_until` before dispatch. It uses trusted UTC for persisted
   instants and monotonic elapsed time for the running deadline. Clock unavailability or excessive
@@ -377,6 +404,11 @@ When a standing authorization trips, the supervisor does **not** execute. It
   verifies a valid, unexpired, scope-matching standing authorization whose pinned revisions and
   envelope still hold; Var materializes its pre-recorded human Approval. Judge, approver, and
   executor remain distinct.
+- **Standing authority satisfies approval; it does not raise mode.** The `ActionPromotionRegistry`
+  remains an independent shadow/enforce axis and cannot represent A3-E. A3-E review uses the
+  dedicated `standing-authority-promotion` change class, which requires two distinct
+  phishing-resistant approvals including an Owner. The generic `enforce-promotion` class cannot
+  satisfy this authority, and the review decision grants no execution authority.
 - **Thor executes**, Vidar remains the rollback principal, Saga audits with an
   explicit `standing-authority` reason and the authorization id - a replayable,
   attributable record ([architecture.instructions.md § Idempotency, Ordering,
@@ -428,8 +460,10 @@ wider, impact-tiered, time-decaying set of humans were given the chance to act.
    non-response incidents.
 2. **Standing authorization in shadow.** Every standing authorization declares
    `mode: shadow` and a measurable promotion gate (e.g. "N shadow trips, zero
-   envelope escapes, zero policy-violation escapes"). Promotion to enforce is a
-   separate, Owner-reviewed change, never bundled with the authoring PR
+   envelope escapes, zero policy-violation escapes"). Promotion out of A3-E shadow review is a
+   separate, Owner-reviewed `standing-authority-promotion` change that qualifies only the
+   standing-approval lane; it never changes registry mode or bypasses `hil`, and it is never
+   bundled with the authoring PR
    ([coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 3. **Metrics** (fold into the existing KPI stream,
    [goals-and-metrics.md](../architecture/goals-and-metrics.md)): rung-response latency,

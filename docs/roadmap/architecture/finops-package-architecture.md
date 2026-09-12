@@ -62,6 +62,10 @@ domain code and assets. It does not create another control plane or move authori
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.
 
+The shared audit route also preserves measurement source, time-window and sequence filters.
+Reading admitted operational spend or a cohort comparison does not enable Cost Governance,
+start its collectors, reinterpret estimated savings as spend, or grant package data access.
+
 FDAI packages Cost Governance as one exact-release vertical profile: reviewed code, declarative
 assets, ontology references, bounded query profiles, and provider requirements installed into an
 image. The profile lets agents share the same resource identity, service topology, objectives,
@@ -80,7 +84,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 | Area | Current evidence | Packaging implication |
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
-| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images for PR packaging checks; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets; that ordering does not add Cost Governance package inputs. |
+| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency or generic evidence asset such as the reviewed provider-schema catalog changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images for PR packaging checks; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets; that ordering does not add Cost Governance package inputs. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
 | Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |
@@ -138,6 +142,14 @@ independent runtime service, regardless of which other service candidates are re
 The wheel is included through a reviewed image build or downstream composition. Runtime activation
 does not download or import arbitrary code from an uploaded archive. The trusted-artifact record
 binds provenance, version, compatibility, and digest to code already approved for that image.
+
+The platform root owns the optional collector and analyzer Jobs directly rather than placing them
+inside the shared compute module. Their deployment resolves the existing Container Apps
+environment and inventory identity through read-only data sources. This keeps a package-only
+Terraform target from inheriting unrelated scheduler, network, database, or runtime dependencies.
+The provider-schema Job follows the same root-owned isolation pattern, but remains a Core evidence Job and never enters the Cost Governance target, image profile, or activation state.
+The independently owned Core service receives the same distribution image through its ordinary
+service plan and apply boundary; neither deployment activates the package.
 
 ### Keep CapabilityBundle narrow
 
@@ -303,6 +315,14 @@ reasons even while the workspace is disabled. An Owner can change only `enabled`
 exact-revision database function. The function updates the manager-derived activation row and
 appends a retained lifecycle receipt in one transaction. It cannot install an absent package, make
 an unavailable package available, grant cost-data access, or promote an action.
+
+Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
+The workflow verifies protected `main`, required CI, the exact release source, the signed image
+digest, and the deployed Cost Governance jobs before it calls the lifecycle function. Every
+successful receipt includes a canonical digest of all request inputs. Reusing a request id with a
+different operation, artifact, source revision, runtime configuration, actor, desired enablement,
+or expected revision is an idempotency conflict. An exact retry returns the original receipt rather
+than relabeling the current activation state.
 
 ## Autonomous runtime handoff
 

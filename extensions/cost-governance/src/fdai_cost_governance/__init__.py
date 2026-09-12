@@ -42,6 +42,10 @@ from fdai_cost_governance.resource_loader import (
     materialize_cost_governance_catalog,
     resource_manifest_sha256,
 )
+from fdai_cost_governance.review_targets import (
+    CostReadinessTarget,
+    load_cost_readiness_targets,
+)
 from fdai_cost_governance.service import (
     CostAnalyzerService,
     CostCollectorService,
@@ -70,6 +74,7 @@ __all__ = [
     "CostReadinessBlock",
     "CostReadinessDecision",
     "CostReadinessResult",
+    "CostReadinessTarget",
     "CostReadinessTargetKind",
     "CostReadinessThresholds",
     "CostAnalyzerService",
@@ -99,6 +104,7 @@ __all__ = [
     "build_lifecycle_receipt",
     "build_cost_governance_bundle",
     "load_package_resources",
+    "load_cost_readiness_targets",
     "load_resource_bytes",
     "load_resource_manifest",
     "materialize_cost_governance_catalog",

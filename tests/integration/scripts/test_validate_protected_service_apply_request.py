@@ -96,6 +96,16 @@ def test_repository_name_is_normalized_for_ghcr() -> None:
     validate_protected_service_apply_request(**request)
 
 
+def test_core_service_apply_accepts_cost_governance_distribution_image() -> None:
+    request = _valid_request()
+    image_ref = f"ghcr.io/{_REPOSITORY}/fdai-cost-governance@sha256:{'d' * 64}"
+    request["image_ref"] = image_ref
+    request["plan_metadata"]["image_ref"] = image_ref
+    request["plan_metadata"]["image_digest"] = image_ref.rsplit("@", maxsplit=1)[1]
+
+    validate_protected_service_apply_request(**request)
+
+
 @pytest.mark.parametrize(
     "deployment_mode",
     [
@@ -156,13 +166,14 @@ def test_invalid_core_service_apply_request_fails_closed(
 
 
 def test_document_service_apply_rejects_cross_service_image_and_mode() -> None:
-    request = _valid_request(
-        service="document-ingestion-api",
-        deployment_mode="database-host-binding",
-    )
-    request["image_ref"] = f"ghcr.io/{_REPOSITORY}/fdai-core-control-plane@sha256:{'d' * 64}"
-    with pytest.raises(ProtectedServiceApplyRequestError):
-        validate_protected_service_apply_request(**request)
+    for image_name in ("fdai-core-control-plane", "fdai-cost-governance"):
+        request = _valid_request(
+            service="document-ingestion-api",
+            deployment_mode="database-host-binding",
+        )
+        request["image_ref"] = f"ghcr.io/{_REPOSITORY}/{image_name}@sha256:{'d' * 64}"
+        with pytest.raises(ProtectedServiceApplyRequestError):
+            validate_protected_service_apply_request(**request)
 
     request = _valid_request(
         service="document-ingestion-api",

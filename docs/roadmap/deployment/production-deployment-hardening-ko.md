@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: d00fc64c51c6e50395eeb540473f280c149c0065
+translation_source_sha: e5f5f323ef8b64b9e56043f7b7c77d4efbe565d3
 translation_revised: 2026-09-12
 ---
 # 운영 배포 강화
@@ -24,6 +24,7 @@ translation_revised: 2026-09-12
 | 기준선 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-validate` 작업은 Terraform 검증 후 고정 버전 Checkov 및 Trivy를 실행하고 하나의 필수 CI 결과로 집계합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
 | 범위가 제한된 analyzer Job 수렴 | implemented | `deploy-dev.yml`, `observability-analyzer-image.tf`, `update_analyzer_job_image.sh`, 집중 updater, rollback, 범위 및 workflow 테스트 | 보호된 계획은 state 전용 Terraform updater 하나만 대상으로 합니다. Apply는 기존 analyzer container image만 검증된 ACR digest로 변경하고 독립적으로 다시 읽으며, effect 검증이 실패하면 이전 digest로 rollback합니다. 원래 Container Apps Job 리소스가 모든 Job 구성의 선언적 소유자로 유지됩니다. |
+| 범위가 제한된 Cost Governance 패키지 배포 | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, `verify_deploy_convergence.sh`, 집중 범위, 수렴, 증적 및 workflow 테스트 | 요청에 결속된 `plan-cost-*` 또는 `apply-cost-*` 모드는 Cost Management Reader 역할 배정과 collector 및 analyzer Job만 대상으로 합니다. 독립 변경 주소 검증기는 destructive plan 검토 또는 아티팩트 보존 전에 그 밖의 모든 리소스를 거부합니다. 적용 후 검증은 같은 대상 집합을 다시 계획하고 두 Job 이미지를 독립적으로 다시 읽은 다음, 정제된 readback 다이제스트를 apply 증적에 결속합니다. Cost 전용 apply는 Core가 소유하는 migration, health, 기존 inventory 또는 canary 검사를 실행하지 않습니다. |
 | Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
 | Scenario-lab 실행기 도구 준비 | implemented | `sre-demo-lab.yml`, `test_scenario_lab.py`, CI 계약 검사, actionlint, 다운로드한 checksum 검증 | 보호된 workflow는 요청 선행 조건을 확인하기 전에 checksum으로 고정된 Helm과 kubelogin을 실행기 임시 저장소에 설치합니다. 후보 실행기에 Helm이 미리 설치됐다고 가정하지 않으며 설치는 Azure 리소스나 실행기 이미지를 변경하지 않습니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
@@ -32,6 +33,10 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | Platform workflow가 독립 Core 소유 경계를 넘어 후속 검사를 실행하고 재현 가능한 Job readback을 남기지 않던 Cost 전용 적용 계약을 수정했습니다. Cost plan은 이제 대상이 제한된 zero-change와 두 Job image 관찰만 봉인합니다. Apply 증적은 canonical 정제 readback을 요구하고 해당 바이트 다이제스트를 결속합니다. | 실패한 apply `34694583859`, `current change`, `deploy-dev.yml`, Cost readback, plan, 증적, CLI 상태, 수렴 및 workflow 테스트 | 성공한 정확한 platform apply 증적을 보존한 뒤 독립 Core plan을 적용하고 수명 주기 설치 전에 세 런타임이 하나의 다이제스트를 사용하는지 검증합니다. |
+| 2026-09-12 | implemented | Cost Governance 적용 후 검증을 동일한 범위 제한 패키지 표면으로 한정했습니다. 적용 수렴 단계는 정확한 reader, collector 및 analyzer 대상을 다시 계획하고 두 Job 이미지를 독립적으로 검증합니다. 공용 상태 검증은 Core 리비전과 canary 검사를 유지하되 관련 없는 기존 inventory Job은 시작하지 않습니다. | 실패한 적용 `34691578702` 및 `34692383517`, PR #848, PR #849, `current change`, 집중 수렴 및 workflow 계약 테스트 | 성공한 정확 적용 증적을 보존한 뒤 독립 Core 계획을 적용하고 수명 주기 설치 전에 세 런타임이 한 다이제스트를 사용하는지 검증합니다. |
+| 2026-09-12 | implemented | 공유 compute module의 module-level dependency graph가 관련 없는 scheduler, VNet 및 PostgreSQL 변경을 포함한 뒤 두 Cost Governance Job을 해당 module 밖으로 이동했습니다. Root 소유 Job은 이전 state 주소를 보존하고 기존 environment 및 inventory identity 입력만 해석합니다. | `current change`, `infra/cost_governance_jobs.tf`, 집중 Terraform, Job, workflow 및 범위 검사, 실패한 보호 계획 `34687002689`는 아티팩트 보존 또는 apply 전에 중단됨 | Reader 역할 배정과 두 패키지 Job만 포함하는 삭제 없는 Cost Governance 계획을 보존한 뒤 정확한 해당 아티팩트를 적용합니다. |
+| 2026-09-12 | implemented | 보호된 계획에서 관련 없는 root module drift가 드러난 뒤 Cost Governance platform 계획을 격리했습니다. Workflow는 이제 reader 역할 배정과 두 패키지 Job만 정확히 대상으로 하며 별도 허용 목록은 그 밖의 모든 변경 주소를 거부합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `scripts/deployment/azure/enforce_plan_scope.py`, 집중 deployment, request 및 dispatch 테스트 146개, 실패한 보호 계획 `34683751394`는 apply 또는 보존된 plan 아티팩트를 생성하지 않음 | 삭제가 없는 보호 Cost Governance 계획과 exact apply를 하나 보존한 뒤 별도의 W7 수명 주기 및 캠페인 근거를 수집합니다. |
 | 2026-09-12 | implemented | GitHub와 독립적인 관리 호스트가 애플리케이션 활성화 전에 서명된 런타임 이미지를 가져올 수 있도록 구성된 안정적 배포 실행기에 정확한 ACR 범위의 `AcrPush` 배정을 추가했습니다. 이 배정은 생성된 registry로 범위가 제한되며 구독 전체 이미지 또는 역할 관리 권한을 부여하지 않습니다. | `current change`, `infra/main.tf`, standalone 관리 호스트 이미지 가져오기 및 다이제스트 재확인, root Terraform 검증, 라우팅된 deployment 및 Genesis 테스트 | 관리 ID가 모든 서명 이미지 다이제스트를 가져오고 독립적으로 재확인했음을 입증하는 활성 로그인 배포 증적을 하나 보존합니다. |
 | 2026-09-11 | implemented | 보호된 배포 인벤토리에서 상태를 재정의하는 모든 실행 단계로 검증기 성공 직접 결속을 확장했습니다. 여기에는 코호트 정리, 채널 비밀 정리, 프레임워크 컨텍스트 정리, 드리프트 근거 강제, 시스템 지식 요약 및 정리, 서비스 롤백 보고, 시나리오 근거와 권한 정리가 포함됩니다. | `current change`, 보호된 워크플로 인벤토리, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 이후 실패 처리 경로를 실행하고 검증기 실패 시 이후 실행 단계가 실행되지 않음을 입증하는 보호 실행을 보존합니다. |
 | 2026-09-11 | implemented | 플랫폼, 서비스 및 시나리오 워크플로에서 상태를 재정의하는 아티팩트 및 권한 정리 작업을 보호된 원본 검증기의 성공 결과에 직접 결속했습니다. 검증기가 실패하거나 건너뛰어지면 작업 권한을 가진 `always()` 작업으로 더 이상 진행할 수 없습니다. | `current change`, `.github/workflows/{deploy-dev,service-deploy,sre-demo-lab}.yml`, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 성공 후 아티팩트 게시와 권한 정리가 실행되고 검증기 실패 시 아무것도 게시하거나 변경하지 않음을 입증하는 보호 실행을 보존합니다. |
@@ -79,6 +84,8 @@ translation_revised: 2026-09-12
   증적 하나를 보존합니다.
 - [ ] 관련 없는 delete 또는 replacement를 허용하지 않고 범위가 제한된 RCA reader identity 계획,
   exact apply, platform 출력 및 split Core 소비 증적을 보존합니다.
+- [ ] Reader 역할 배정과 두 패키지 Job만 변경하는 삭제 없는 Cost Governance 계획과 exact apply를
+  보존한 뒤 배포된 image digest를 독립적으로 검증합니다.
 
 ## 범위가 제한된 split-service 선행 조건 bootstrap
 

@@ -10,12 +10,16 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-_POST_APPLY_OBSERVATIONS = [
+_CORE_POST_APPLY_OBSERVATIONS = [
     "database-migrations",
     "runtime-health",
     "initial-inventory-execution",
     "canary-publisher",
     "terraform-zero-change",
+]
+_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "cost-governance-job-image-readback",
 ]
 
 
@@ -27,8 +31,13 @@ def build_plan_metadata(
     """Return metadata bound to the exact plan, source, and post-apply evidence."""
     runtime_image_revision = environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
     runtime_image_digest = environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
+    runtime_image_profile = environ.get("FDAI_RUNTIME_IMAGE_PROFILE", "core-control-plane")
+    if runtime_image_profile not in {"core-control-plane", "cost-governance"}:
+        raise ValueError("runtime image profile is unsupported")
     if bool(runtime_image_revision) != bool(runtime_image_digest):
         raise ValueError("runtime image plan evidence is incomplete")
+    if runtime_image_profile != "core-control-plane" and not runtime_image_revision:
+        raise ValueError("non-default runtime image profile requires exact image evidence")
     metadata: dict[str, object] = {
         "schema_version": "fdai.deployment-plan.v1",
         "plan_id": environ["PLAN_ID"],
@@ -48,12 +57,17 @@ def build_plan_metadata(
         "status": "ready",
         "workflow_run_id": environ["GITHUB_RUN_ID"],
         "plan_summary": dict(plan_summary),
-        "post_apply_observations": list(_POST_APPLY_OBSERVATIONS),
+        "post_apply_observations": list(
+            _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+            if runtime_image_profile == "cost-governance"
+            else _CORE_POST_APPLY_OBSERVATIONS
+        ),
     }
     if runtime_image_revision:
         metadata["runtime_image"] = {
             "source_revision": runtime_image_revision,
             "digest": runtime_image_digest,
+            "profile": runtime_image_profile,
         }
     resolved_models_path = environ.get("FDAI_RESOLVED_MODELS_PATH", "")
     deployment_models_path = environ.get("FDAI_DEPLOYMENT_MODELS_PATH", "")

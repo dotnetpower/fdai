@@ -75,6 +75,10 @@ def test_partner_endpoint_bindings_are_sealed_before_manifest_digest() -> None:
     assert script.index("seal_model_endpoint_bindings.py") < script.index(
         'python3 - "$resolved" "$manifest"'
     )
+    assert 'printf \'%s\' "$resolved_json" > "$resolved"' in script
+    assert script.index('printf \'%s\' "$resolved_json" > "$resolved"') < script.index(
+        'resolved_digest="$(sha256sum "$resolved"'
+    )
     assert "git show -s --format=%cI" in script
 
 

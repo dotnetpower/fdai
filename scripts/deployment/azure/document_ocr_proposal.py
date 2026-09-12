@@ -180,7 +180,7 @@ def load_document_ocr_records(
                     """
                     SELECT value
                       FROM state_kv
-                     WHERE key LIKE 'operator-proposal:iam:%'
+                                         WHERE key LIKE 'operator-proposal:iam:%%'
                        AND value ->> 'proposal_id' = %s
                        AND value ->> 'operation' = 'model-settings.document-ocr.plan'
                      LIMIT 2

@@ -88,6 +88,18 @@ def ontology_council_binding_state(
     )
     if not capabilities and not bindings:
         return OntologyCouncilBindingState.ABSENT
+    policy_held_capabilities = {
+        capability.name
+        for capability in capabilities
+        if capability.status == CapabilityStatus.HIL_ONLY
+        and capability.selection_mode == "hil-only"
+    }
+    if (
+        not bindings
+        and resolved.binding_policy_digest is not None
+        and policy_held_capabilities == _COUNCIL_CAPABILITY_SET
+    ):
+        return OntologyCouncilBindingState.ABSENT
     capability_names = {capability.name for capability in capabilities}
     binding_capabilities = {binding.capability for binding in bindings}
     if (

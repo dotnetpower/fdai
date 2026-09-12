@@ -26,7 +26,7 @@ export function buildTargetArchitectureReview() {
             ${archNode("ref-evidence", "OBSERVE", "Telemetry & inventory", "metrics · logs · traces · topology", { tone: "evidence" })}
             ${archNode("ref-people", "HUMAN", "Operator intent", "Console · CLI · ChatOps", { tone: "human" })}
           `, { id: "ref-inputs", classes: "ta-ref-inputs", tone: "external" })}
-          ${archLink("ref-inputs", "ref-control", { kind: "event", label: "typed signals", classes: "ta-ref-input-link" })}
+          ${archLink("ref-inputs", "ref-control", { kind: "event", classes: "ta-ref-input-link" })}
           ${archBoundary("SYSTEM OF INTEREST", "Headless FDAI Control Plane", `
             <div class="ta-ref-control-flow">
               ${archNode("ref-bus", "CHOREOGRAPHY", "Schema-validated Event Bus", "single writer · multi reader · replay", { tone: "event", primary: true })}
@@ -42,13 +42,13 @@ export function buildTargetArchitectureReview() {
               </div>
             </div>
           `, { id: "ref-control", classes: "ta-ref-control", tone: "control", status: "HEADLESS" })}
-          ${archLink("ref-control", "ref-outcomes", { kind: "mutation", label: "eligible action", classes: "ta-ref-out-link" })}
+          ${archLink("ref-control", "ref-outcomes", { kind: "mutation", classes: "ta-ref-out-link" })}
           ${archBoundary("OUTCOME SYSTEMS", "전달과 효과", `
             ${archNode("ref-delivery", "DELIVER", "PR or provider action", "GitOps · bounded direct API", { tone: "execution" })}
             ${archNode("ref-observer", "VERIFY", "Independent observer", "Heimdall · authoritative source", { tone: "evidence" })}
             ${archNode("ref-audit", "RECORD", "Audit and projections", "Saga · PostgreSQL · Console", { tone: "store" })}
           `, { id: "ref-outcomes", classes: "ta-ref-outcomes", tone: "external" })}
-          ${archLink("ref-dependencies", "ref-control", { kind: "read", direction: "up", label: "governed context", classes: "ta-ref-dependency-link", measured: false })}
+          ${archLink("ref-dependencies", "ref-control", { kind: "read", direction: "up", classes: "ta-ref-dependency-link" })}
           ${archBoundary("GOVERNED DEPENDENCIES", "Core 밖의 교체 가능한 기능", `
             ${archNode("ref-models", "REASON", "Models & tools", "Foundry · Azure OpenAI · registered tools", { tone: "model" })}
             ${archNode("ref-semantics", "MEANING", "Ontology · IQL", "typed scope · bounded queries", { tone: "semantic" })}
@@ -79,7 +79,7 @@ export function buildTargetArchitectureReview() {
             ${archNode("ctx-operator", "READ / REQUEST", "Operator", "Console · CLI", { tone: "human", primary: true })}
             ${archNode("ctx-approver", "APPROVE", "Independent approver", "Teams · verified identity", { tone: "approval" })}
           `, { id: "ctx-actors", classes: "ta-context-actors", tone: "external" })}
-          ${archLink("ctx-actors", "ctx-fdai", { kind: "request", label: "query · proposal · approval" })}
+          ${archLink("ctx-actors", "ctx-fdai", { kind: "request" })}
           ${archBoundary("FDAI SYSTEM", "Headless control plane + thin surfaces", `
             <div class="ta-context-fdai-grid">
               ${archNode("ctx-console", "SURFACE", "FDAI Console", "read-only projections", { tone: "surface" })}
@@ -92,8 +92,8 @@ export function buildTargetArchitectureReview() {
             </div>
           `, { id: "ctx-fdai", classes: "ta-context-fdai", tone: "control" })}
           <div class="ta-context-managed-links">
-            ${archLink("ctx-fdai", "ctx-managed", { kind: "mutation", label: "registered effect" })}
-            ${archLink("ctx-managed", "ctx-fdai", { kind: "observation", direction: "left", label: "facts + outcome" })}
+            ${archLink("ctx-fdai", "ctx-managed", { kind: "mutation" })}
+            ${archLink("ctx-managed", "ctx-fdai", { kind: "observation", direction: "left" })}
           </div>
           ${archBoundary("MANAGED ENVIRONMENT", "Azure and delivery systems", `
             ${archNode("ctx-cloud", "TARGET", "Azure resources", "service · workload · resource", { tone: "azure", primary: true })}
@@ -124,13 +124,13 @@ export function buildTargetArchitectureReview() {
           <div class="ta-layer-stack">
             ${archNode("layer-human", "LAYER 05 · HUMAN CHANNEL", "Teams / ChatOps", "승인 요청 · 알림 · 별도 사람 신원", { tone: "human", primary: true })}
             ${archLink("layer-human", "layer-console", { kind: "request", direction: "down" })}
-            ${archNode("layer-console", "LAYER 04 · OPERATOR EXPERIENCE", "FDAI Console + Operator Service", "권위 있는 투영 · 범위가 제한된 요청", { tone: "surface", primary: true })}
+            ${archNode("layer-console", "LAYER 04 · OPERATOR EXPERIENCE", "Console + Operator", "권위 있는 투영 · 범위가 제한된 요청", { tone: "surface", primary: true })}
             ${archLink("layer-console", "layer-core", { kind: "event", direction: "down" })}
-            ${archNode("layer-core", "LAYER 03 · BRAIN", "Headless Core + 15 agents", "normalize · decide · authorize · coordinate · audit", { tone: "control", primary: true })}
+            ${archNode("layer-core", "LAYER 03 · BRAIN", "Core + 15 agents", "normalize · decide · authorize · coordinate · audit", { tone: "control", primary: true })}
             ${archLink("layer-core", "layer-delivery", { kind: "approval", direction: "down" })}
             ${archNode("layer-delivery", "LAYER 02 · HANDS", "Action delivery", "PR-native · Isolated Executor · rollback", { tone: "execution", primary: true })}
             ${archLink("layer-delivery", "layer-catalog", { kind: "audit", direction: "down" })}
-            ${archNode("layer-catalog", "LAYER 01 · MEMORY", "Governed knowledge", "rules · policies · ontology · evidence · case history", { tone: "store", primary: true })}
+            ${archNode("layer-catalog", "LAYER 01 · MEMORY", "Rules & knowledge", "rules · policies · ontology · evidence · case history", { tone: "store", primary: true })}
           </div>
           <aside class="ta-layer-rails">
             <div><b>EVENT BUS</b><span>authority-bearing choreography</span></div>
@@ -178,7 +178,6 @@ export function buildTargetArchitectureReview() {
             ${archNode("loop-observe", "HEIMDALL", "Independent effect", "authoritative observation window", { tone: "evidence", primary: true })}
             ${archLink("loop-observe", "loop-audit", { kind: "audit" })}
             ${archNode("loop-audit", "SAGA", "Audit + replay", "intent · execution · outcome", { tone: "store", primary: true })}
-            ${archLink("loop-audit", "loop-event", { kind: "feedback", direction: "left", label: "learn / replay", measured: false })}
           </div>
           ${archLegend([
             { kind: "event", label: "event" },

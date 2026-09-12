@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from fdai.delivery.provider_schema import ProviderSchemaError
@@ -16,6 +19,15 @@ _BLOB_PREFIX = "provider-schema-ledger:blob:"
 _MAX_FILE_BYTES = 20 * 1024 * 1024
 _MAX_GENERATION_BYTES = 256 * 1024 * 1024
 _MAX_MANIFEST_ENTRIES = 10_000
+_MAX_BASE64_CONTENT_CHARS = 4 * ((_MAX_FILE_BYTES + 2) // 3)
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderSchemaLedgerGeneration:
+    """Identity of one completely hydrated durable ledger generation."""
+
+    revision: int
+    generation_digest: str
 
 
 class StateStoreProviderSchemaLedger:
@@ -27,10 +39,22 @@ class StateStoreProviderSchemaLedger:
     async def hydrate(self, root: Path) -> bool:
         """Restore the latest complete durable generation into an empty local root."""
 
+        return await self.hydrate_generation(root) is not None
+
+    async def hydrate_generation(
+        self,
+        root: Path,
+    ) -> ProviderSchemaLedgerGeneration | None:
+        """Restore and identify the exact latest complete durable generation."""
+
         manifest = await self._store.read_state(_MANIFEST_KEY)
         if manifest is None:
-            return False
+            return None
         entries = _manifest_entries(manifest)
+        generation = ProviderSchemaLedgerGeneration(
+            revision=_manifest_revision(manifest),
+            generation_digest=str(manifest["generation_digest"]),
+        )
         if any(root.iterdir()):
             raise ProviderSchemaError("provider schema hydration root MUST be empty")
         initial_root = root.stat()
@@ -49,7 +73,7 @@ class StateStoreProviderSchemaLedger:
                 content = blob.get("content")
                 if not isinstance(content, str):
                     raise ProviderSchemaError("provider schema durable blob content is invalid")
-                payload = content.encode("utf-8")
+                payload = _decode_blob_content(content, encoding=blob.get("encoding"))
                 generation_bytes += len(payload)
                 if len(payload) > _MAX_FILE_BYTES or generation_bytes > _MAX_GENERATION_BYTES:
                     raise ProviderSchemaError("provider schema durable generation exceeds bound")
@@ -79,7 +103,7 @@ class StateStoreProviderSchemaLedger:
                 raise ProviderSchemaError("provider schema hydration publication failed") from exc
         finally:
             shutil.rmtree(staging, ignore_errors=True)
-        return True
+        return generation
 
     async def persist(self, root: Path) -> str:
         """Store immutable blobs first and atomically publish their complete manifest last."""
@@ -91,7 +115,12 @@ class StateStoreProviderSchemaLedger:
             _manifest_entries(existing_manifest)
             expected_revision = _manifest_revision(existing_manifest)
             previous_generation_digest = str(existing_manifest["generation_digest"])
-        files = tuple(sorted(path for path in root.rglob("*") if path.is_file()))
+        files = tuple(
+            sorted(
+                (path for path in root.rglob("*") if path.is_file()),
+                key=lambda path: path.relative_to(root).as_posix(),
+            )
+        )
         if not files:
             raise ProviderSchemaError("provider schema ledger generation is empty")
         if len(files) > _MAX_MANIFEST_ENTRIES:
@@ -107,8 +136,10 @@ class StateStoreProviderSchemaLedger:
                 raise ProviderSchemaError("provider schema ledger generation exceeds durable bound")
             try:
                 content = payload.decode("utf-8")
-            except UnicodeDecodeError as exc:
-                raise ProviderSchemaError("provider schema ledger file MUST be UTF-8") from exc
+                encoding: str | None = None
+            except UnicodeDecodeError:
+                content = base64.b64encode(payload).decode("ascii")
+                encoding = "base64"
             digest = _digest(payload)
             record = {
                 "schema_version": "1.0.0",
@@ -116,6 +147,8 @@ class StateStoreProviderSchemaLedger:
                 "content": content,
                 "grants_authority": False,
             }
+            if encoding is not None:
+                record["encoding"] = encoding
             inserted = await self._store.write_state_if_absent(
                 f"{_BLOB_PREFIX}{digest}",
                 record,
@@ -199,6 +232,17 @@ def _manifest_revision(manifest: Mapping[str, object]) -> int:
     return raw
 
 
+def _decode_blob_content(content: str, *, encoding: object) -> bytes:
+    if encoding is None:
+        return content.encode("utf-8")
+    if encoding != "base64" or len(content) > _MAX_BASE64_CONTENT_CHARS:
+        raise ProviderSchemaError("provider schema durable blob encoding is invalid")
+    try:
+        return base64.b64decode(content, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ProviderSchemaError("provider schema durable blob encoding is invalid") from exc
+
+
 def _bounded_path(value: str) -> None:
     path = PurePosixPath(value)
     if not value or path.is_absolute() or ".." in path.parts or path.as_posix() != value:
@@ -209,4 +253,4 @@ def _digest(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-__all__ = ["StateStoreProviderSchemaLedger"]
+__all__ = ["ProviderSchemaLedgerGeneration", "StateStoreProviderSchemaLedger"]

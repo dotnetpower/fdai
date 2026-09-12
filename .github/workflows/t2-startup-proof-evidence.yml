@@ -1,0 +1,293 @@
+name: t2-startup-proof-evidence
+run-name: t2-startup-proof-evidence-${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployed environment to observe."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact required-CI-green main revision deployed by Core."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+concurrency:
+  group: t2-startup-proof-evidence-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/main'
+    environment: plan-only
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    timeout-minutes: 30
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/t2-startup-proof-evidence.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Prepare isolated Azure CLI state
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          azure_config_dir="$RUNNER_TEMP/t2-startup-proof-azure"
+          install -d -m 0700 "$azure_config_dir"
+          echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
+
+      - name: Checkout exact evidence revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify required CI for exact revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" refs/remotes/origin/main
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact commit does not have a successful required CI check" >&2
+            exit 1
+          }
+
+      - name: Authenticate read-only observation context
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Resolve and verify the deployed Core process
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          cp backend.azurerm.tf.example backend.tf
+          terraform init -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=fdai-${TARGET_ENVIRONMENT}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+          resource_group="$(terraform output -raw resource_group_name)"
+          app_name="$(terraform output -raw core_app_name)"
+          app_json="$RUNNER_TEMP/t2-startup-proof-app.json"
+          revisions_json="$RUNNER_TEMP/t2-startup-proof-revisions.json"
+          replicas_json="$RUNNER_TEMP/t2-startup-proof-replicas.json"
+          az containerapp show --name "$app_name" --resource-group "$resource_group" \
+            --only-show-errors --output json > "$app_json"
+          latest_revision="$(jq -er '.properties.latestRevisionName' "$app_json")"
+          latest_ready_revision="$(jq -er '.properties.latestReadyRevisionName' "$app_json")"
+          [[ "$latest_revision" == "$latest_ready_revision" ]] || {
+            echo "the latest Core revision is not the latest ready revision" >&2
+            exit 1
+          }
+          az containerapp revision list --name "$app_name" --resource-group "$resource_group" \
+            --only-show-errors --output json > "$revisions_json"
+          active_revision_count="$(jq '[.[] | select(.properties.active == true)] | length' "$revisions_json")"
+          [[ "$active_revision_count" == "1" ]] || {
+            echo "T2 startup evidence requires exactly one active Core revision" >&2
+            exit 1
+          }
+          revision_json="$RUNNER_TEMP/t2-startup-proof-revision.json"
+          az containerapp revision show --name "$app_name" --resource-group "$resource_group" \
+            --revision "$latest_revision" --only-show-errors --output json > "$revision_json"
+          [[ "$(jq -er '.properties.healthState' "$revision_json")" == "Healthy" ]]
+          revision_created_at="$(jq -er '.properties.createdTime' "$revision_json")"
+          deployed_source_revision="$(
+            jq -er '[.properties.template.containers[] | .env[]? | select(.name == "FDAI_SOURCE_REVISION") | .value] | if length == 1 then .[0] else error("source revision binding is not singular") end' \
+              "$revision_json"
+          )"
+          [[ "$deployed_source_revision" == "$TARGET_COMMIT_SHA" ]] || {
+            echo "the deployed Core source revision does not match commit_sha" >&2
+            exit 1
+          }
+          deployed_image="$(
+            jq -er '[.properties.template.containers[] | select(any(.env[]?; .name == "FDAI_SOURCE_REVISION")) | .image] | if length == 1 then .[0] else error("Core image binding is not singular") end' \
+              "$revision_json"
+          )"
+          [[ "$deployed_image" =~ @sha256:([0-9a-f]{64})$ ]] || {
+            echo "the deployed Core image is not digest-pinned" >&2
+            exit 1
+          }
+          image_digest="sha256:${BASH_REMATCH[1]}"
+          az containerapp replica list --name "$app_name" --resource-group "$resource_group" \
+            --revision "$latest_revision" --only-show-errors --output json > "$replicas_json"
+          replica_count="$(jq 'length' "$replicas_json")"
+          [[ "$replica_count" == "1" ]] || {
+            echo "T2 startup evidence requires exactly one running Core replica" >&2
+            exit 1
+          }
+          replica_name="$(jq -er '.[0].name' "$replicas_json")"
+          jq -cn \
+            --arg resource_group "$resource_group" \
+            --arg app_name "$app_name" \
+            --arg revision "$latest_revision" \
+            --arg replica "$replica_name" \
+            '{resource_group: $resource_group, app_name: $app_name, revision: $revision, replica: $replica}' \
+            > "$RUNNER_TEMP/t2-startup-proof-context.json"
+          chmod 0600 "$RUNNER_TEMP/t2-startup-proof-context.json"
+          revision_ref_digest="sha256:$(printf '%s' "$latest_revision" | sha256sum | cut -d' ' -f1)"
+          replica_ref_digest="sha256:$(printf '%s' "$replica_name" | sha256sum | cut -d' ' -f1)"
+          source_identity_digest="sha256:$(printf '%s' "$DEPLOY_RUNNER_PRINCIPAL_ID" | sha256sum | cut -d' ' -f1)"
+          {
+            echo "T2_STARTUP_IMAGE_DIGEST=$image_digest"
+            echo "T2_STARTUP_REVISION_REF_DIGEST=$revision_ref_digest"
+            echo "T2_STARTUP_REPLICA_REF_DIGEST=$replica_ref_digest"
+            echo "T2_STARTUP_SOURCE_IDENTITY_DIGEST=$source_identity_digest"
+            echo "T2_STARTUP_REVISION_CREATED_AT=$revision_created_at"
+          } >> "$GITHUB_ENV"
+          vault_uri="$(terraform output -raw key_vault_uri)"
+          [[ "$vault_uri" =~ ^https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?$ ]]
+          vault_name="${BASH_REMATCH[1]}"
+          dsn_secret_name="$(
+            jq -er '.services["core-control-plane"].migration_dsn_secret_name' \
+              ../scripts/deployment/service/service-matrix.json
+          )"
+          runtime_dsn="$(timeout 60s az keyvault secret show \
+            --vault-name "$vault_name" --name "$dsn_secret_name" \
+            --query value --only-show-errors --output tsv)"
+          [[ -n "$runtime_dsn" ]]
+          echo "::add-mask::$runtime_dsn"
+          printf '%s' "$runtime_dsn" > "$RUNNER_TEMP/t2-startup-proof-dsn"
+          chmod 0600 "$RUNNER_TEMP/t2-startup-proof-dsn"
+
+      - name: Capture bounded startup-proof evidence
+        env:
+          FDAI_STARTUP_EVIDENCE_DSN_FILE: ${{ runner.temp }}/t2-startup-proof-dsn
+        run: |
+          set -euo pipefail
+          export FDAI_STARTUP_EVIDENCE_DSN="$(cat "$FDAI_STARTUP_EVIDENCE_DSN_FILE")"
+          uv run --frozen --package fdai-core-control-plane python \
+            scripts/deployment/azure/capture_t2_startup_proof_evidence.py \
+              --source-revision "$TARGET_COMMIT_SHA" \
+              --image-digest "$T2_STARTUP_IMAGE_DIGEST" \
+              --revision-ref-digest "$T2_STARTUP_REVISION_REF_DIGEST" \
+              --replica-ref-digest "$T2_STARTUP_REPLICA_REF_DIGEST" \
+              --source-identity-digest "$T2_STARTUP_SOURCE_IDENTITY_DIGEST" \
+              --revision-created-at "$T2_STARTUP_REVISION_CREATED_AT" \
+              --environment "$TARGET_ENVIRONMENT" \
+              --workflow-run-id "$GITHUB_RUN_ID" \
+              --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+              --output "$RUNNER_TEMP/t2-startup-proof-live-evidence.json"
+          unset FDAI_STARTUP_EVIDENCE_DSN
+
+      - name: Reverify the observed Core process
+        run: |
+          set -euo pipefail
+          context="$RUNNER_TEMP/t2-startup-proof-context.json"
+          resource_group="$(jq -er '.resource_group' "$context")"
+          app_name="$(jq -er '.app_name' "$context")"
+          expected_revision="$(jq -er '.revision' "$context")"
+          expected_replica="$(jq -er '.replica' "$context")"
+          app_json="$RUNNER_TEMP/t2-startup-proof-app-after.json"
+          revisions_json="$RUNNER_TEMP/t2-startup-proof-revisions-after.json"
+          revision_json="$RUNNER_TEMP/t2-startup-proof-revision-after.json"
+          replicas_json="$RUNNER_TEMP/t2-startup-proof-replicas-after.json"
+          az containerapp show --name "$app_name" --resource-group "$resource_group" \
+            --only-show-errors --output json > "$app_json"
+          [[ "$(jq -er '.properties.latestRevisionName' "$app_json")" == "$expected_revision" ]]
+          [[ "$(jq -er '.properties.latestReadyRevisionName' "$app_json")" == "$expected_revision" ]]
+          az containerapp revision list --name "$app_name" --resource-group "$resource_group" \
+            --only-show-errors --output json > "$revisions_json"
+          [[ "$(jq '[.[] | select(.properties.active == true)] | length' "$revisions_json")" == "1" ]]
+          az containerapp revision show --name "$app_name" --resource-group "$resource_group" \
+            --revision "$expected_revision" --only-show-errors --output json > "$revision_json"
+          [[ "$(jq -er '.properties.healthState' "$revision_json")" == "Healthy" ]]
+          source_revision="$(
+            jq -er '[.properties.template.containers[] | .env[]? | select(.name == "FDAI_SOURCE_REVISION") | .value] | if length == 1 then .[0] else error("source revision binding is not singular") end' \
+              "$revision_json"
+          )"
+          [[ "$source_revision" == "$TARGET_COMMIT_SHA" ]]
+          image="$(
+            jq -er '[.properties.template.containers[] | select(any(.env[]?; .name == "FDAI_SOURCE_REVISION")) | .image] | if length == 1 then .[0] else error("Core image binding is not singular") end' \
+              "$revision_json"
+          )"
+          [[ "$image" =~ @sha256:([0-9a-f]{64})$ ]]
+          [[ "sha256:${BASH_REMATCH[1]}" == "$T2_STARTUP_IMAGE_DIGEST" ]]
+          az containerapp replica list --name "$app_name" --resource-group "$resource_group" \
+            --revision "$expected_revision" --only-show-errors --output json > "$replicas_json"
+          [[ "$(jq 'length' "$replicas_json")" == "1" ]]
+          [[ "$(jq -er '.[0].name' "$replicas_json")" == "$expected_replica" ]] || {
+            echo "the Core replica changed during startup-proof observation" >&2
+            exit 1
+          }
+
+      - name: Retain sanitized startup-proof evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: t2-startup-proof-evidence-${{ inputs.commit_sha }}
+          path: ${{ runner.temp }}/t2-startup-proof-live-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Remove live context files
+        if: always() && steps.protected-source.outcome == 'success'
+        run: |
+          set -euo pipefail
+          rm -f -- \
+            "$RUNNER_TEMP/t2-startup-proof-app.json" \
+            "$RUNNER_TEMP/t2-startup-proof-revision.json" \
+            "$RUNNER_TEMP/t2-startup-proof-revisions.json" \
+            "$RUNNER_TEMP/t2-startup-proof-replicas.json" \
+            "$RUNNER_TEMP/t2-startup-proof-context.json" \
+            "$RUNNER_TEMP/t2-startup-proof-app-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-revision-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-revisions-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-replicas-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-dsn" \
+            "$RUNNER_TEMP/t2-startup-proof-live-evidence.json"
+          if [[ -n "${AZURE_CONFIG_DIR:-}" ]]; then
+            [[ "$AZURE_CONFIG_DIR" == "$RUNNER_TEMP/"* ]]
+            rm -rf -- "$AZURE_CONFIG_DIR"
+          fi

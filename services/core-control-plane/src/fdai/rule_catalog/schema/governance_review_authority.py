@@ -44,6 +44,7 @@ class GovernanceChangeClass(StrEnum):
     RULE_AUTHORING = "rule-authoring"
     ASSIGNMENT = "assignment"
     ENFORCE_PROMOTION = "enforce-promotion"
+    STANDING_AUTHORITY_PROMOTION = "standing-authority-promotion"
     EXEMPTION = "exemption"
     OVERRIDE = "override"
     RISK_CLASSIFICATION_LOOSENING = "risk-classification-loosening"
@@ -79,6 +80,12 @@ _REQUIREMENTS: Final = MappingProxyType(
             quorum=2,
             phishing_resistant=True,
             owner_review=False,
+        ),
+        GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION: ChangeClassRequirement(
+            capability=Capability.APPROVE_QUORUM_PROMOTION,
+            quorum=2,
+            phishing_resistant=True,
+            owner_review=True,
         ),
         GovernanceChangeClass.EXEMPTION: ChangeClassRequirement(
             capability=Capability.APPROVE_EXEMPTION,

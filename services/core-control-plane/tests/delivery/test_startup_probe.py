@@ -36,11 +36,15 @@ from fdai.shared.resilience.kill_switch import StateStoreKillSwitch
 from fdai.shared.telemetry import current_correlation_id
 
 
-def _request(*, synthetic_scope: bool = False) -> StartupProbeRequest:
+def _request(
+    *,
+    synthetic_scope: bool = False,
+    model_sample_count: int = 2,
+) -> StartupProbeRequest:
     return StartupProbeRequest(
         deadline=datetime.now(UTC) + timedelta(seconds=5),
         cost_limit_usd=0.01,
-        model_sample_count=2,
+        model_sample_count=model_sample_count,
         synthetic_scope=synthetic_scope,
     )
 
@@ -347,6 +351,7 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
     request = _request()
     observed_at = (
         datetime(2026, 8, 29, 1, 0, tzinfo=UTC),
+        datetime(2026, 8, 29, 1, 0, 1, tzinfo=UTC),
         datetime(2026, 8, 29, 1, 5, tzinfo=UTC),
         datetime(2026, 8, 29, 1, 10, tzinfo=UTC),
     )
@@ -366,19 +371,55 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
     assert result.model_evidence is not None
     assert result.model_evidence.sample_count == 2
     assert result.model_evidence.structured_output_proven is True
-    assert result.evidence == {"sampled": True, "previously_proven": False}
+    proof_id = result.evidence["proof_id"]
+    assert isinstance(proof_id, str)
+    assert len(proof_id) == 32
+    assert result.evidence == {
+        "sampled": True,
+        "previously_proven": False,
+        "proof_id": proof_id,
+        "proof_started_at_unix_ms": int(observed_at[0].timestamp() * 1000),
+        "proof_sampled_at_unix_ms": int(observed_at[1].timestamp() * 1000),
+        "reuse_count": 0,
+    }
     assert refreshed.model_evidence == refreshed_again.model_evidence == result.model_evidence
-    assert (
-        refreshed.evidence
-        == refreshed_again.evidence
-        == {
-            "sampled": False,
-            "previously_proven": True,
-        }
-    )
-    assert (result.observed_at, refreshed.observed_at, refreshed_again.observed_at) == observed_at
+    assert refreshed.evidence == {
+        "sampled": False,
+        "previously_proven": True,
+        "proof_id": proof_id,
+        "proof_started_at_unix_ms": int(observed_at[0].timestamp() * 1000),
+        "proof_sampled_at_unix_ms": int(observed_at[1].timestamp() * 1000),
+        "first_reused_at_unix_ms": int(observed_at[2].timestamp() * 1000),
+        "first_reused_expires_at_unix_ms": int(
+            (observed_at[2] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
+        "latest_reused_at_unix_ms": int(observed_at[2].timestamp() * 1000),
+        "latest_reused_expires_at_unix_ms": int(
+            (observed_at[2] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
+        "reuse_count": 1,
+    }
+    assert refreshed_again.evidence == {
+        "sampled": False,
+        "previously_proven": True,
+        "proof_id": proof_id,
+        "proof_started_at_unix_ms": int(observed_at[0].timestamp() * 1000),
+        "proof_sampled_at_unix_ms": int(observed_at[1].timestamp() * 1000),
+        "first_reused_at_unix_ms": int(observed_at[2].timestamp() * 1000),
+        "first_reused_expires_at_unix_ms": int(
+            (observed_at[2] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
+        "latest_reused_at_unix_ms": int(observed_at[3].timestamp() * 1000),
+        "latest_reused_expires_at_unix_ms": int(
+            (observed_at[3] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
+        "reuse_count": 2,
+    }
+    assert (result.observed_at, refreshed.observed_at, refreshed_again.observed_at) == observed_at[
+        1:
+    ]
     assert (result.expires_at, refreshed.expires_at, refreshed_again.expires_at) == tuple(
-        instant + timedelta(seconds=request.evidence_ttl_seconds) for instant in observed_at
+        instant + timedelta(seconds=request.evidence_ttl_seconds) for instant in observed_at[1:]
     )
 
 
@@ -392,16 +433,40 @@ async def test_cross_check_probe_retries_after_sampling_failure() -> None:
         ]
     )
     probe = CrossCheckModelStartupProbe(probe_id="model.cross-check", model=model)
+    observed_at = (
+        datetime(2026, 8, 29, 1, 0, tzinfo=UTC),
+        datetime(2026, 8, 29, 1, 0, 1, tzinfo=UTC),
+        datetime(2026, 8, 29, 1, 5, tzinfo=UTC),
+    )
 
-    with patch.object(model, "propose", propose):
+    with (
+        patch.object(model, "propose", propose),
+        patch("fdai.delivery.startup_model_probe.datetime") as clock,
+    ):
+        clock.now.side_effect = observed_at
         with pytest.raises(RuntimeError, match="transient"):
             await probe.run(_request())
         result = await probe.run(_request())
         refreshed = await probe.run(_request())
 
     assert propose.await_count == 3
-    assert result.evidence == {"sampled": True, "previously_proven": False}
-    assert refreshed.evidence == {"sampled": False, "previously_proven": True}
+    assert result.evidence["sampled"] is True
+    assert result.evidence["previously_proven"] is False
+    assert result.evidence["proof_started_at_unix_ms"] == int(observed_at[0].timestamp() * 1000)
+    assert result.evidence["proof_sampled_at_unix_ms"] == int(observed_at[1].timestamp() * 1000)
+    assert result.evidence["reuse_count"] == 0
+    assert refreshed.evidence["sampled"] is False
+    assert refreshed.evidence["previously_proven"] is True
+    assert refreshed.evidence["proof_id"] == result.evidence["proof_id"]
+    assert (
+        refreshed.evidence["proof_started_at_unix_ms"]
+        == result.evidence["proof_started_at_unix_ms"]
+    )
+    assert (
+        refreshed.evidence["proof_sampled_at_unix_ms"]
+        == result.evidence["proof_sampled_at_unix_ms"]
+    )
+    assert refreshed.evidence["reuse_count"] == 1
 
 
 async def test_cross_check_probe_samples_once_across_concurrent_refreshes() -> None:
@@ -416,6 +481,24 @@ async def test_cross_check_probe_samples_once_across_concurrent_refreshes() -> N
     assert model.calls == 2
     assert first.model_evidence == second.model_evidence
     assert {first.evidence["sampled"], second.evidence["sampled"]} == {False, True}
+
+
+async def test_cross_check_probe_replaces_a_proof_for_a_stricter_sample_count() -> None:
+    model = _CrossCheck()
+    probe = CrossCheckModelStartupProbe(probe_id="model.cross-check", model=model)
+
+    first = await probe.run(_request(model_sample_count=2))
+    replacement = await probe.run(_request(model_sample_count=3))
+    reused = await probe.run(_request(model_sample_count=3))
+
+    assert model.calls == 5
+    assert replacement.model_evidence is not None
+    assert replacement.model_evidence.sample_count == 3
+    assert replacement.evidence["sampled"] is True
+    assert replacement.evidence["proof_id"] != first.evidence["proof_id"]
+    assert replacement.evidence["reuse_count"] == 0
+    assert reused.evidence["proof_id"] == replacement.evidence["proof_id"]
+    assert reused.evidence["reuse_count"] == 1
 
 
 async def test_opa_compile_probe_reports_unavailable_binary_at_run_time(

@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: dcbc0a47733237770ded247c89e4d1ac56f51151
-translation_revised: 2026-08-31
+translation_source_sha: 13117dbaa4364c2f9bea452bf1e7d1ebe6b1bf4c
+translation_revised: 2026-09-12
 ---
 # 운영 가설 루프
 
@@ -96,6 +96,20 @@ Provider receipt와 독립 outcome은 분리합니다.
 
 독립 outcome이 없거나 충돌하면 성공한 provider receipt도 `inconclusive`로 남습니다. Provider가
 성공을 보고했더라도 예상 방향과 반대인 완전한 독립 observation은 refutation 근거입니다.
+
+선택된 `ops.start-vm@1.0.0` shadow 패키지는 생성자에서 고정한 리소스 그룹 하나의 VM 하나를
+위한 읽기 전용 Azure VM 전원 상태 소스와 수집기를 추가합니다. 소스는 전용 관찰자 신원을
+사용하고 `instanceView`를 포함한 정확한 ARM VM만 읽습니다. provider receipt에서 성공을
+추론하지 않고 `running`, 불리한 상태, 불완전, 충돌, 검열, 오래된 결과를 그대로 보존합니다.
+수집기는 정확한 의미 V2 계획을 대상으로 기존 provider-authoritative 서명 관측 envelope를
+만듭니다. 명확한 `starting` 상태는 종료 불일치로 만들지 않고 다음 읽기까지 보류합니다.
+마감까지 최종 관측이 없으면 여전히 안전한 방향으로 실패하는 복귀 근거가 됩니다. 이 범위에서는
+수집기를 런타임 구성, 배포 또는 EventBus 구독자에 연결하지 않습니다.
+
+A3-E shadow 복귀 계획기는 정확한 reconciliation 결과를 별도로 소비합니다. `matched` 이외의
+모든 결과와 마감 시점에도 누락된 관측을 proposal-only `return_to_shadow` 요구사항으로
+변환합니다. promotion registry에 쓰거나 복구를 시작하지 않으므로, 이 계약은 두 번째
+reconciliation 또는 승격 시스템이 되지 않으면서 이후 권한을 낮출 수 있습니다.
 
 ## Logic 및 승격 분리
 

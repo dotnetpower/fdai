@@ -40,6 +40,19 @@ export function formatShare(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+/** Preserve the canonical decision sample instead of linking to unrelated audit noise. */
+export function routingSampleParams(kpi: DashboardKpi): Readonly<Record<string, string | number>> {
+  const sample = kpi.routing_sample;
+  if (sample === undefined) return auditSampleParams(kpi);
+  return {
+    action: sample.action_kind,
+    window: `${sample.window_days}d`,
+    ...(sample.from_seq !== null && sample.through_seq !== null
+      ? { from_seq: sample.from_seq, through_seq: sample.through_seq }
+      : {}),
+  };
+}
+
 export function formatUsd(value: number): string {
   return value.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US", {
     style: "currency",

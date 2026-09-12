@@ -137,7 +137,11 @@ def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
     assert "validate_deploy_request.py" in _DEPLOY
     assert "model-binding plan request coordinates are invalid" in _PROPOSAL_HELPER
     assert "Bind model-binding Terraform target" in _DEPLOY
-    assert "-target=module.llm_azure_openai[0]" in _DEPLOY
+    assert (
+        "TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]."
+        "azurerm_cognitive_deployment.capability" in _DEPLOY
+    )
+    assert "echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]'" not in _DEPLOY
     assert "enforce_plan_scope.py" in _DEPLOY
     assert "Model-binding-only" in _PLAN_SCOPE
     assert "plan contains changes outside its bounded scope" in _PLAN_SCOPE

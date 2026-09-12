@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 from pathlib import Path
 
@@ -39,8 +40,72 @@ async def test_persists_and_hydrates_one_complete_generation(tmp_path: Path) -> 
     assert manifest["revision"] == 1
 
 
+async def test_hydrates_and_returns_exact_generation_identity(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "baseline.json").write_text("{}\n", encoding="utf-8")
+    mirror = StateStoreProviderSchemaLedger(InMemoryStateStore())
+    generation_digest = await mirror.persist(source)
+    restored = tmp_path / "restored"
+    restored.mkdir()
+
+    generation = await mirror.hydrate_generation(restored)
+
+    assert generation is not None
+    assert generation.revision == 1
+    assert generation.generation_digest == generation_digest
+
+
+async def test_persists_and_hydrates_binary_artifact_bytes(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "azure" / "reviews").mkdir(parents=True)
+    (source / "azure" / "reviews.json").write_text("{}\n", encoding="utf-8")
+    artifact = source / "azure" / "reviews" / "review.json.gz"
+    artifact.write_bytes(gzip.compress(b'{"review":true}\n'))
+    store = InMemoryStateStore()
+    mirror = StateStoreProviderSchemaLedger(store)
+
+    await mirror.persist(source)
+    restored = tmp_path / "restored"
+    restored.mkdir()
+
+    assert await mirror.hydrate(restored) is True
+    assert (restored / artifact.relative_to(source)).read_bytes() == artifact.read_bytes()
+    digest = "sha256:" + hashlib.sha256(artifact.read_bytes()).hexdigest()
+    blob = await store.read_state(f"provider-schema-ledger:blob:{digest}")
+    assert blob is not None
+    assert blob["encoding"] == "base64"
+
+
+async def test_hydration_rejects_invalid_base64_blob(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    artifact = source / "review.json.gz"
+    artifact.write_bytes(gzip.compress(b'{"review":true}\n'))
+    store = InMemoryStateStore()
+    mirror = StateStoreProviderSchemaLedger(store)
+    await mirror.persist(source)
+    digest = "sha256:" + hashlib.sha256(artifact.read_bytes()).hexdigest()
+    await store.write_state(
+        f"provider-schema-ledger:blob:{digest}",
+        {"content": "not-base64!", "encoding": "base64"},
+    )
+    restored = tmp_path / "restored"
+    restored.mkdir()
+
+    with pytest.raises(ProviderSchemaError, match="blob encoding is invalid"):
+        await mirror.hydrate(restored)
+
+    assert tuple(restored.iterdir()) == ()
+
+
 async def test_empty_store_has_no_generation(tmp_path: Path) -> None:
     assert await StateStoreProviderSchemaLedger(InMemoryStateStore()).hydrate(tmp_path) is False
+    assert (
+        await StateStoreProviderSchemaLedger(InMemoryStateStore()).hydrate_generation(tmp_path)
+        is None
+    )
 
 
 async def test_hydration_rejects_tampered_blob(tmp_path: Path) -> None:

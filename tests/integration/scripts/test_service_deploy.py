@@ -1107,6 +1107,7 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
         "AZURE_REGION",
         "POSTGRES_HOST",
         "POSTGRES_DATABASE",
+        "FDAI_SOURCE_REVISION",
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS",
         "FDAI_CANARY_TOPIC",
         "FDAI_HIL_DECISION_TOPIC",
@@ -1115,6 +1116,7 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
+        "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
         "FDAI_STARTUP_KAFKA_PROBE_TOPIC",
         "FDAI_STARTUP_KAFKA_SETTLE_SECONDS",
         "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS",
@@ -2053,6 +2055,118 @@ def _core_evidence_binding_plan(guard: ModuleType) -> dict[str, object]:
         ]
     )
     return plan
+
+
+def _core_release_binding_plan(guard: ModuleType) -> dict[str, object]:
+    service = "core-control-plane"
+    contract = guard.resolve_service(service, "dev")
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["name"] = service
+        container["command"] = [contract.entrypoint]
+        environment = []
+        for name in contract.required_environment:
+            if name == "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES" and side == "before":
+                continue
+            value = "value"
+            if name == "FDAI_SOURCE_REVISION":
+                value = ("a" if side == "before" else "b") * 40
+            elif name == "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES":
+                value = "observer:heimdall:azure-container-apps"
+            environment.append({"name": name, "value": value})
+        container["env"] = environment
+    return plan
+
+
+def test_plan_guard_allows_exact_core_source_revision_and_observer_adoption(
+    guard: ModuleType,
+) -> None:
+    guard.validate_plan(
+        _core_release_binding_plan(guard),
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        source_revision="b" * 40,
+        core_evidence_bindings_transition=True,
+    )
+
+
+def test_plan_guard_allows_exact_core_source_revision_refresh(guard: ModuleType) -> None:
+    plan = _core_release_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    before_environment.append(
+        {
+            "name": "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "value": "observer:heimdall:azure-container-apps",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        source_revision="b" * 40,
+    )
+
+
+def test_plan_guard_requires_explicit_core_recovery_observer_adoption(
+    guard: ModuleType,
+) -> None:
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            _core_release_binding_plan(guard),
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
+        )
+
+
+def test_plan_guard_rejects_unbound_core_source_revision(guard: ModuleType) -> None:
+    plan = _core_release_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    next(item for item in after_environment if item["name"] == "FDAI_SOURCE_REVISION")["value"] = (
+        "c" * 40
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="does not match the protected commit"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
+            core_evidence_bindings_transition=True,
+        )
+
+
+def test_plan_guard_rejects_rebound_core_recovery_observer(guard: ModuleType) -> None:
+    plan = _core_release_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    before_environment.append(
+        {
+            "name": "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "value": "observer:unreviewed",
+        }
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="core evidence binding transition is invalid"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
+            core_evidence_bindings_transition=True,
+        )
 
 
 def test_plan_guard_allows_exact_core_evidence_binding_adoption(guard: ModuleType) -> None:
@@ -3325,6 +3439,66 @@ def test_plan_guard_allows_recovery_image_aligned_to_attested_plan(guard: Module
             service="operator-service",
             environment="dev",
             image_ref="image",
+        )
+
+
+def test_plan_guard_allows_core_recovery_source_revision_aligned_to_plan(
+    guard: ModuleType,
+) -> None:
+    plan = _core_release_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    planned_before = change["before"]
+    planned_before["template"][0]["container"][0]["env"].append(  # type: ignore[index]
+        {
+            "name": "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "value": "observer:heimdall:azure-container-apps",
+        }
+    )
+    drift_before = copy.deepcopy(planned_before)
+    drift_after = copy.deepcopy(planned_before)
+    drift_before["latest_revision_name"] = "service--terraform-stale"
+    drift_after["latest_revision_name"] = "service--recovered"
+    drift_before["latest_revision_fqdn"] = "stale.example.com"
+    drift_after["latest_revision_fqdn"] = "recovered.example.com"
+    drift_before["template"][0]["revision_suffix"] = "terraform-stale"
+    drift_after["template"][0]["revision_suffix"] = "recovered"
+    drift_before["template"][0]["container"][0]["image"] = "state-image"
+    drift_before_environment = drift_before["template"][0]["container"][0]["env"]
+    next(item for item in drift_before_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "c" * 40
+    plan["resource_drift"] = [
+        {
+            "address": (
+                "module.core_control_plane.module.container_app.azurerm_container_app.service"
+            ),
+            "change": {
+                "actions": ["update"],
+                "before": drift_before,
+                "after": drift_after,
+            },
+        }
+    ]
+
+    guard.validate_plan(
+        plan,
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        source_revision="b" * 40,
+    )
+
+    drift_after_environment = drift_after["template"][0]["container"][0]["env"]
+    next(item for item in drift_after_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "d" * 40
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
         )
 
 

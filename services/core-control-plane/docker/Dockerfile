@@ -91,6 +91,7 @@ WORKDIR /app
 COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
 COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa
 COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
+COPY --chown=65532:65532 provider-schema-catalog/ /app/provider-schema-catalog/
 COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
 COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json /app/docs/internals/sregym-absorption-ledger.json

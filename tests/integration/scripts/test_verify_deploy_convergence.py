@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -26,6 +28,19 @@ set -euo pipefail
 printf 'terraform %s;target=%s\n' "$*" "${TF_CLI_ARGS_plan:-}" >> "$CALLS"
 if [[ "$1" == "plan" ]]; then exit "$PLAN_EXIT"; fi
 if [[ "$*" == "output -raw resource_group_name" ]]; then printf 'rg-fdai-dev-krc'; exit 0; fi
+if [[ "$*" == "output -raw cost_governance_collector_job_name" ]]; then
+    printf 'cost-collector'
+    exit 0
+fi
+if [[ "$*" == "output -raw cost_governance_analyzer_job_name" ]]; then
+    printf 'cost-analyzer'
+    exit 0
+fi
+if [[ "$*" == "output -raw provider_schema_job_id" ]]; then
+    printf '/subscriptions/example/resourceGroups/example/providers/'
+    printf 'Microsoft.App/jobs/provider'
+    exit 0
+fi
 exit 90
 """,
         "az": """#!/usr/bin/env bash
@@ -36,6 +51,19 @@ printf '{"properties":{"template":{"containers":[]}}}'
         "uv": """#!/usr/bin/env bash
 set -euo pipefail
 printf 'uv %s\n' "$*" >> "$CALLS"
+container=""
+expected_image=""
+while (( $# > 0 )); do
+    case "$1" in
+        --container) container="$2"; shift 2 ;;
+        --expected-image) expected_image="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [[ -n "$container" ]]; then
+    printf '{"container":"%s","image_digest":"%s"}\n' \
+        "$container" "${expected_image##*@sha256:}"
+fi
 """,
     }.items():
         path = bin_dir / name
@@ -56,6 +84,7 @@ printf 'uv %s\n' "$*" >> "$CALLS"
             "PATH": f"{bin_dir}:{os.environ['PATH']}",
             "PLAN_EXIT": str(plan_exit),
             "RUNNER_TEMP": str(tmp_path),
+            "TF_VAR_cost_governance_image": _IMAGE,
             "TF_VAR_core_image": _IMAGE,
             "TF_VAR_env": "dev",
             "TF_VAR_region_short": "krc",
@@ -86,6 +115,39 @@ def test_general_apply_keeps_full_plan_and_inventory_verification(tmp_path: Path
     assert "--container inventory" in log
 
 
+def test_cost_apply_replans_and_verifies_both_cost_jobs(tmp_path: Path) -> None:
+    result, calls, evidence_root = _run(tmp_path, "apply-cost-" + "a" * 48)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert (
+        "target=-target=azurerm_role_assignment.inventory_cost_reader "
+        "-target=azurerm_container_app_job.cost_governance_collector[0] "
+        "-target=azurerm_container_app_job.cost_governance_analyzer[0]"
+    ) in log
+    assert "--name cost-collector" in log
+    assert "--container cost-governance-collector" in log
+    assert "--name cost-analyzer" in log
+    assert "--container cost-governance-analyzer" in log
+    assert "--name ca-fdai-dev-krc-core-inventory" not in log
+    readback_path = evidence_root / "cost-governance-job-image-readback.json"
+    assert stat.S_IMODE(readback_path.stat().st_mode) == 0o600
+    assert json.loads(readback_path.read_text(encoding="utf-8")) == {
+        "schema_version": "fdai.cost-governance-job-image-readback.v1",
+        "image_digest": f"sha256:{'a' * 64}",
+        "jobs": {
+            "analyzer": {
+                "container": "cost-governance-analyzer",
+                "image_digest": f"sha256:{'a' * 64}",
+            },
+            "collector": {
+                "container": "cost-governance-collector",
+                "image_digest": f"sha256:{'a' * 64}",
+            },
+        },
+    }
+
+
 def test_runtime_call_apply_replans_only_transition_before_separate_readback(
     tmp_path: Path,
 ) -> None:
@@ -100,6 +162,31 @@ def test_runtime_call_apply_replans_only_transition_before_separate_readback(
     ) in log
     assert "\naz " not in "\n" + log
     assert "\nuv " not in "\n" + log
+
+
+def test_model_binding_apply_replans_only_deployments_before_separate_readback(
+    tmp_path: Path,
+) -> None:
+    result, calls, _ = _run(tmp_path, "apply-model-" + "a" * 64)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert (
+        "target=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability"
+    ) in log
+    assert "\naz " not in "\n" + log
+    assert "\nuv " not in "\n" + log
+
+
+def test_provider_schema_apply_replans_and_reads_only_provider_job(tmp_path: Path) -> None:
+    result, calls, _ = _run(tmp_path, "apply-provider-" + "a" * 48)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert "target=-target=azurerm_container_app_job.provider_schema[0]" in log
+    assert "terraform output -raw provider_schema_job_id" in log
+    assert "az resource show --ids " in log
+    assert "--container provider-schema" in log
 
 
 def test_nonconverged_plan_stops_before_live_readback(tmp_path: Path) -> None:

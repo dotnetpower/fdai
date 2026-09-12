@@ -11,7 +11,7 @@ export function archNode(id, label, title, detail = "", options = {}) {
   } = options;
   return `
     <section class="ta-arch-node ${classes}" data-ta-node="${id}" data-tone="${tone}">
-      <small>${label}</small>
+      ${label ? `<small>${label}</small>` : ""}
       <strong${primary ? " data-ta-primary" : ""}>${title}</strong>
       ${detail ? `<span>${detail}</span>` : ""}
       ${status ? `<em data-status="${status}">${status}</em>` : ""}
@@ -26,11 +26,10 @@ export function archLink(from, to, options = {}) {
     direction = "right",
     label = "",
     classes = "",
-    measured = true,
   } = options;
   return `
     <i class="ta-arch-link ta-link-${kind} ${classes}"
-       ${measured ? `data-ta-link data-ta-from="${from}" data-ta-to="${to}"` : ""}
+       data-ta-link data-ta-from="${from}" data-ta-to="${to}"
        data-ta-direction="${direction}" aria-hidden="true">
       ${label ? `<span>${label}</span>` : ""}
     </i>`;

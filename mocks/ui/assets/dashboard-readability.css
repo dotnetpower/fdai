@@ -1,0 +1,78 @@
+/* Match Console reading rhythm without changing other essential dashboard studies. */
+body.cs-dashboard-overview > main.de-page {
+  row-gap: 32px;
+}
+
+.cs-dashboard-overview:lang(ko) {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.cs-dashboard-overview .de-section {
+  gap: 16px;
+}
+
+.cs-dashboard-overview .de-section-head p {
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-dashboard-overview .de-attention-grid > a {
+  gap: 8px 12px;
+  padding: 16px;
+}
+
+.cs-dashboard-overview .de-status {
+  font-weight: 500;
+}
+
+.cs-dashboard-overview .de-attention-grid strong {
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+  font-weight: 500;
+}
+
+.cs-dashboard-overview .de-posture-grid,
+.cs-dashboard-overview .de-routing-body {
+  gap: 24px;
+}
+
+.cs-dashboard-overview .de-primary-metric {
+  gap: 8px;
+}
+
+.cs-dashboard-overview .de-posture-facts > a {
+  gap: 8px 12px;
+  padding: 12px 8px;
+}
+
+.cs-dashboard-overview .de-posture-facts strong {
+  font-size: var(--cs-type-body-size);
+  font-weight: 500;
+}
+
+.cs-dashboard-overview .de-chart-head h3,
+.cs-dashboard-overview .de-chart-links strong {
+  font-weight: 500;
+}
+
+.cs-dashboard-overview .de-outcome-grid > a {
+  gap: 8px;
+  padding: 16px;
+  min-height: 112px;
+}
+
+body.cs-dashboard-overview :is(
+  .de-attention-grid strong.de-value-unknown,
+  .cs-metric-link > strong.de-value-unknown,
+  .de-posture-facts strong.de-value-unknown
+) {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+  font-weight: 400;
+}
+
+.cs-dashboard-overview .de-evidence > summary {
+  padding-block: 16px;
+  scroll-margin-block: 16px 72px;
+}

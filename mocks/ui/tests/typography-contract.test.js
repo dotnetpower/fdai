@@ -31,9 +31,9 @@ test("direct mock URLs canonicalize through the master hash router", () => {
 });
 
 test("master navigation keeps one quiet, collapsible hierarchy", () => {
-  assert.match(masterLanding, /--nav-w: 248px/);
+  assert.match(masterLanding, /--explorer-w: 248px/);
   assert.match(masterLanding, /src="console\/public\/brand\/fdai-logo\.png"/);
-  assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 7);
+  assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 8);
   assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 5);
   assert.doesNotMatch(masterLanding, /<button[^>]*>[^<]*<h[1-6]>/);
   assert.match(masterLanding, /\.side a \.dot \{ display: none; \}/);

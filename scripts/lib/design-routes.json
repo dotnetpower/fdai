@@ -783,7 +783,7 @@
         "services/core-control-plane/tests/agents/test_provider_schema_drift.py"
       ],
       "optional_paths": [
-        "infra/modules/compute/container-apps/provider_schema_job.tf"
+        "infra/provider_schema_job.tf"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -2064,7 +2064,9 @@
         "infra/main.tf",
         "infra/variables.tf",
         "infra/outputs.tf",
-        "infra/modules/compute/container-apps/*cost*",
+        "infra/cost_governance_jobs.tf",
+        ".github/workflows/cost-governance-lifecycle.yml",
+        ".github/workflows/cost-governance-observation-export.yml",
         "service-migrations/branches/core-control-plane/versions/*cost*",
         "scripts/quality/architecture/check-cost-governance-package-inventory.py",
         "scripts/quality/architecture/check-cost-governance-package-convergence.py",

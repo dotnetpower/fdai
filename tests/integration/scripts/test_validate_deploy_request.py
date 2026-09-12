@@ -30,7 +30,8 @@ _CONTEXT = hashlib.sha256(
         '"deploy_operational_history":false,'
         '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
         '"document_ocr_action":"preserve",'
-        '"runtime_call_evidence_transition":false,"runtime_image_revision":""}}'
+        '"runtime_call_evidence_transition":false,'
+        '"runtime_image_profile":"core-control-plane","runtime_image_revision":""}}'
     ).encode()
 ).hexdigest()
 
@@ -69,9 +70,11 @@ def _request(**overrides: str) -> dict[str, str]:
         "DOCUMENT_OCR_ACTION": "preserve",
         "DEPLOY_MONITORING": "false",
         "DEPLOY_OPERATIONAL_HISTORY": "false",
+        "PROVIDER_SCHEMA_ONLY": "false",
         "RCA_READER_IDENTITY_ONLY": "false",
         "RUNTIME_CALL_EVIDENCE_TRANSITION": "false",
         "RUNTIME_IMAGE_REVISION": "",
+        "RUNTIME_IMAGE_PROFILE": "core-control-plane",
         "REQUEST_ID": "",
         "CONTEXT_DIGEST": "",
         "COMMIT_SHA": "",
@@ -183,6 +186,51 @@ def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> No
             },
             checkout_commit=_COMMIT,
         )
+
+
+def test_cost_governance_image_requests_are_context_bound() -> None:
+    values = _request(
+        COMMIT_SHA=_COMMIT,
+        PROMOTE_RUNTIME_IMAGE="true",
+        RUNTIME_IMAGE_PROFILE="cost-governance",
+        RUNTIME_IMAGE_REVISION="c" * 40,
+    )
+    context = _MODULE._deployment_context_digest(values)
+    plan_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    validate(
+        {
+            **values,
+            "REQUEST_ID": f"plan-cost-{plan_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+        },
+        checkout_commit=_COMMIT,
+    )
+
+    apply_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="apply",
+        region="koreacentral",
+    )
+    validate(
+        {
+            **values,
+            "APPLY": "true",
+            "PROMOTE_RUNTIME_IMAGE": "false",
+            "REQUEST_ID": f"apply-cost-{apply_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": "d" * 64,
+        },
+        checkout_commit=_COMMIT,
+    )
 
 
 def test_document_ocr_proposal_plan_derives_action_from_policy() -> None:
@@ -651,7 +699,8 @@ def _gateway_context() -> str:
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
-            '"runtime_call_evidence_transition":false,"runtime_image_revision":""}}'
+            '"runtime_call_evidence_transition":false,'
+            '"runtime_image_profile":"core-control-plane","runtime_image_revision":""}}'
         ).encode()
     ).hexdigest()
 
@@ -700,6 +749,124 @@ def test_fdaictl_gateway_rejects_non_dev_environment() -> None:
         )
 
 
+def test_provider_schema_plan_and_apply_are_context_bound_and_exclusive() -> None:
+    values = _request(
+        COMMIT_SHA=_COMMIT,
+        PROVIDER_SCHEMA_ONLY="true",
+        RUNTIME_IMAGE_REVISION=_COMMIT,
+    )
+    context = _MODULE._deployment_context_digest(values)
+
+    def bound(mode: str) -> str:
+        prefix = _MODULE._request_binding_prefix(
+            target_binding=_TARGET_BINDING,
+            context_digest=context,
+            mode=mode,
+            region="koreacentral",
+        )
+        wire_mode = "apply" if mode == "resume" else mode
+        return f"{wire_mode}-provider-{prefix}{'abcd' * 5}0001"
+
+    validate(
+        {
+            **values,
+            "REQUEST_ID": bound("plan"),
+            "CONTEXT_DIGEST": context,
+            "PROMOTE_RUNTIME_IMAGE": "true",
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+        },
+        checkout_commit=_COMMIT,
+    )
+    validate(
+        {
+            **values,
+            "APPLY": "true",
+            "REQUEST_ID": bound("apply"),
+            "CONTEXT_DIGEST": context,
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": _DIGEST,
+        },
+        checkout_commit=_COMMIT,
+    )
+    validate(
+        {
+            **values,
+            "APPLY": "true",
+            "RESUME_VERIFICATION": "true",
+            "REQUEST_ID": bound("resume"),
+            "CONTEXT_DIGEST": context,
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": _DIGEST,
+        },
+        checkout_commit=_COMMIT,
+    )
+
+    with pytest.raises(ValueError, match="prefix and mode must match"):
+        validate(
+            {
+                **values,
+                "REQUEST_ID": bound("plan").replace("plan-provider-", "plan-", 1),
+                "CONTEXT_DIGEST": context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    mixed = {**values, "DEPLOY_DEV_OPERATIONS_GATEWAY": "true"}
+    mixed_context = _MODULE._deployment_context_digest(mixed)
+    mixed_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=mixed_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(
+            {
+                **mixed,
+                "REQUEST_ID": f"plan-provider-{mixed_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": mixed_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="requires runtime_image_revision"):
+        missing_image = {**values, "RUNTIME_IMAGE_REVISION": ""}
+        missing_context = _MODULE._deployment_context_digest(missing_image)
+        prefix = _MODULE._request_binding_prefix(
+            target_binding=_TARGET_BINDING,
+            context_digest=missing_context,
+            mode="plan",
+            region="koreacentral",
+        )
+        validate(
+            {
+                **missing_image,
+                "REQUEST_ID": f"plan-provider-{prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": missing_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    wrong_profile = {**values, "RUNTIME_IMAGE_PROFILE": "cost-governance"}
+    wrong_profile_context = _MODULE._deployment_context_digest(wrong_profile)
+    wrong_profile_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=wrong_profile_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    with pytest.raises(ValueError, match="requires the core-control-plane runtime image profile"):
+        validate(
+            {
+                **wrong_profile,
+                "REQUEST_ID": f"plan-provider-{wrong_profile_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": wrong_profile_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+
+
 # -- Runtime image revision via fdaictl --
 
 _IMAGE_REVISION = "24e4df68a50eed8cf355c8278836d40dc399cb54"
@@ -717,7 +884,8 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
-            '"runtime_call_evidence_transition":false,"runtime_image_revision":"'
+            '"runtime_call_evidence_transition":false,'
+            '"runtime_image_profile":"core-control-plane","runtime_image_revision":"'
             + image_revision
             + '"}}'
         ).encode()

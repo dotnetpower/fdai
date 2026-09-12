@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b7992b5c71dae5aded3f5a3cc1f3af1f5174cee6
+translation_source_sha: 302862cb5aabf912f32e80e184ca9c2a5fa6ef53
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -47,7 +47,7 @@ translation_revised: 2026-09-12
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
-  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다.
+  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
@@ -124,8 +124,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
   기능 binding을 해석합니다. Staging ChatOps 검증 모드는 결과를 계획 metadata에 봉인하고 계획과
   적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
-  충족하지 못하게 합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
-  호환성 facade는 안정적인 import를 유지합니다.
+  충족하지 못하게 합니다. 조립은 다이제스트 결속 정책 산출물의 reasoner 수준 `hil-only` 대체 경로만 수락하고 결정론적 불일치를 강제하며, 그 대체 구현을 시작 모델 탐색과 계측에서 제외합니다. 예기치 않은 `auto` 또는 `pinned` 손실은 계속 시작을 차단합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며 호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,
@@ -245,14 +244,15 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   않는 객체와 `NaN`은 신원 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Realtime
   projector와 변경할 수 없는 스냅샷 staging은 사전 검증된 정본 JSON 문서만 저장하며 스냅샷
   커버리지 메타데이터도 begin 또는 승격 전에 같은 규칙을 적용합니다. Azure 관계의 속성 경로,
-  허용된 프로바이더 타입, 의미 방향, 출처 스키마 다이제스트 및 근거 정책은 검토된
-  `provider-relationship-mappings` 카탈로그에서 가져옵니다. 완전한 세대 verifier는 같은 세대에서
-  두 엔드포인트를 모두 관찰하고, 프로바이더와 verifier 신원이 서로 다르며, 변경할 수 없는 검증
-  receipt가 edge와 mapping 개정 번호를 고정한 경우에만 후보를 활성화합니다. 엔드포인트 누락,
-  모호한 방향, stale 스키마 mapping, 중복 또는 conflicting 관찰, 부분 세대는 stable dropped reason을
-  남기고 active graph edge를 만들지 않습니다. 검증된 링크는 변경할 수 없는 state-fact 및 링크 관찰
-  메타데이터를 운반합니다. stale 또는 conflicting 근거는 operational-context 자율성을 낮출 수만
-  있습니다.
+  허용된 공급자 타입, 방향, 출처 스키마 다이제스트 및 근거 정책은 검토된
+  `provider-relationship-mappings` 카탈로그에서 가져옵니다. 완전한 세대에서 두 엔드포인트가
+  관찰되고, 공급자와 검증기의 신원이 다르며, 변경할 수 없는 증적이 연결과 매핑 개정 번호를
+  고정한 경우에만 후보를 활성화합니다. 엔드포인트 누락, 모호한 방향, 오래된 매핑, 중복되거나
+  충돌하는 관찰, 부분 세대는 일정한 제외 사유를 남기고 활성 연결을 만들지 않습니다.
+  소유 리소스를 가리키는 개방형 환경 변수 값은 의존성이 아닌 자기 식별 참조입니다. 각 출발
+  리소스가 근거를 소유하고 독립 검증을 통과한 상호 `depends_on` 관찰은 두 방향을 유지합니다.
+  검증된 연결은 변경할 수 없는 상태 사실과 연결 관찰 메타데이터를 보존하며, 오래되거나
+  충돌하는 근거는 운영 맥락의 자율성을 낮출 수만 있습니다.
   Versioned provider-schema 후보 materialization은 delivery 책임으로 유지합니다.
   `provider_schema_relationship_generation.py`은 정확한 provider-schema 및 REST evidence digest,
   mapping revision, projection manifest, direction, cardinality 및 link metadata를 결속합니다.
@@ -403,7 +403,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   는 공개 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
   조립 루트에서만 가져오기 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
 - **Config-기반 바인딩**: 설정이 각 구현을 선택합니다.
-  `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없으면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
+  `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없거나 엔드포인트 없이 다이제스트 정책에 의해 세 기록이 모두 `hil-only`로 보류되면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분·무서명·엔드포인트 보유 보류 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
   범용 드롭 디렉터리 `ManualSource`는 크기 상한을 넘은 경로를 메타데이터 전용 검토 대기 후보로 유지하므로 읽기 한도가 잘못된 삭제 신호를 만들 수 없습니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
@@ -595,7 +595,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
-  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
+  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3f814162f8ee16a4cffe1bd3f796df8cf5e6dbdb
+translation_source_sha: db82c9e14784a670aab52ace00521ff26fba22d3
 translation_revised: 2026-09-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -83,8 +83,7 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 승격된 VM에는 UAMI만 남고 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
   검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에 `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지 참조를 보존합니다.
   예약 점검은 모든 루트를 강제합니다. 수동 `runner` 범위는 보호된 호스트의 SSH 입력 복구, 실제 디스크 인벤토리, UserAssigned-only 신원, 구성된 UAMI 1개, 빈 구조화 드리프트 작업을 포함해 실행기 저장소와 Bootstrap 상태만 검증합니다. 전체 범위는 Bootstrap과 플랫폼의 정확한 직접 역할 및 일회용 시나리오 상태의 부재 또는 빈 상태도 요구합니다.
-체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다.
-해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
+체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
 `extra_vnet_links` 경계로 ops VNet에 링크해, 러너가 앱 Key Vault를 비공개로 해석하게
 합니다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고의
@@ -119,7 +118,8 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
-제외하면서 작업 이미지와 필수 shared 런타임 구성을 수렴 상태로 유지합니다. 대상 집합에는
+제외하면서 작업 이미지와 필수 shared 런타임 구성을 수렴 상태로 유지합니다.
+Provider-schema Job은 루트 Terraform 리소스 `azurerm_container_app_job.provider_schema[0]`에서 소유합니다. 결정적 리소스 ID는 기존 Container Apps 환경과 인벤토리 신원을 연결하고, 읽기 전용 신원 조회는 클라이언트 ID를 제공하며, `moved` 블록은 이전 compute module 주소의 상태를 보존합니다. 따라서 provider 전용 대상은 compute module의 광범위한 플랫폼 의존성 그래프를 상속하지 않습니다. 배포에는 `fdaictl deploy plan --deploy-provider-schema`를 사용해 이 넓은 gateway 대상 대신 별도의 `plan-provider-*` 및 `apply-provider-*` 모드를 만듭니다. 이 모드는 provider-schema Job 주소 하나만 허용하고, 증명된 정확한 Core image revision을 결속하며, 다른 대상과의 조합을 차단하고, 적용 후 대상이 제한된 zero-change 계획을 요구합니다. 계획과 적용은 모두 정확히 같은 이미지가 rollback retention이 활성화된 active, healthy, provisioned Core revision인지 확인합니다. 계획은 정제된 baseline을 불변 plan 경로에 저장하고, 적용은 저장된 receipt를 검증한 뒤 변경 전에 live baseline을 다시 관측합니다. 전용 bounded verifier는 Job을 한 번 시작하고 Core baseline, source revision, durable generation, Heimdall handoff, 일치하는 Forseti 결정 및 Saga audit record 증적을 보존합니다. 검증 전용 재개는 Terraform을 다시 적용하지 않습니다. 정확한 불변 증적이 있으면 재사용하고, 없으면 Job 검증만 다시 실행합니다. 스키마가 변경되지 않은 실행은 결정을 만들지 않고 agent review를 해당 없음으로 기록합니다. 대상 집합에는
 활성 Terraform `moved` 블록의 출처 및 대상 주소가 모두 포함됩니다. 작업 흐름 계약
 테스트는 이 주소를 동기화하여 상태 이행 때문에 protected 계획이 무효화되지 않도록 합니다.
 여기에는 baseline-regression 및 pattern-growth 작업의 인덱스 없는 대상 주소가 포함됩니다.
@@ -148,7 +148,7 @@ Health acceptance는 적용 증적을 기록하기 전에 코어 Container App�
 하며 shared 유입 `/healthz` 응답은 고정된 성공 페이로드를 반환해야 합니다. 런타임을
 계획하지 않는 design-mocks-only 적용만 예외입니다.
 Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경로를 닫거나, 검토된 분리 이전 인제스트 권한 부여를 삭제하면서 모든 exact API 또는 워커 successor를 같은 계획에서 pure-create하는 범위가 제한된 security retirement만 허용합니다.
-또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다.
+또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다. 모델 연결 전용 계획은 상위 모듈이 아니라 Azure OpenAI 기능 배포 컬렉션을 대상으로 지정합니다. 따라서 범위 및 파괴적 변경 가드를 실행하기 전에 기존 계정과 역할 할당 리소스는 계획 그래프 밖에 남습니다. Workflow는 봉인한 resolver 산출물의 해시를 계산하기 전에 이를 정본화합니다. 리소스 변경이 없는 복구 계획은 이 정본 다이제스트가 증명된 활성 Core 모델 다이제스트와 다를 때만 수락하며, 적용 후에는 모델별 프로바이더 readback을 계속 요구합니다.
 모델 삭제 전용 변경, 값이 달라진 교체, 누락되거나 생성이 아닌 successor, 그 밖의 모든 삭제는 계속 차단됩니다.
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
@@ -436,8 +436,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
   readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
   리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다. 보호된 모델 Settings workflow는 모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 읽기 전용 트랜잭션에서 환경에 결속된 두 행을 검증해 새 Console에서 설정 컨트롤을 표시할 수 있게 합니다.
-- Post-deploy smoke 테스트와 합성 카나리는
-  [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 정의.
+- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 collector 및 analyzer Job에 연결합니다. Platform apply는 대상이 제한된 zero-change plan을 확인하고 두 Job 이미지를 독립적으로 다시 읽어 하나의 content-addressed 증적에 기록합니다. 별도의 보호된 Core service plan이 같은 이미지를 Core에 연결합니다. 패키지 전용 platform 경로는 Core 소유 migration, Core health, 기존 inventory 또는 canary 검사를 실행하지 않습니다.
 
 ## 분포 및 배포 책임 매트릭스
 

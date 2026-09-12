@@ -1,8 +1,3 @@
-import {
-  decodeAutonomyPayload,
-  decodeDashboardKpi,
-  decodeScopeView,
-} from "./api-insights";
 import type { OperatorApiTransport } from "./api-transport";
 import type {
   AutonomyPayload,
@@ -19,11 +14,15 @@ export class InsightsApiClient {
   }
 
   async scope(): Promise<EffectiveScope> {
-    return decodeScopeView(await this.#transport.getJson<unknown>("/scope"));
+    const payload = await this.#transport.getJson<unknown>("/scope");
+    const { decodeScopeView } = await import("./api-insights");
+    return decodeScopeView(payload);
   }
 
   async dashboardMetrics(): Promise<DashboardKpi> {
-    return decodeDashboardKpi(await this.#transport.getJson<unknown>("/kpi"));
+    const payload = await this.#transport.getJson<unknown>("/kpi");
+    const { decodeDashboardKpi } = await import("./api-insights");
+    return decodeDashboardKpi(payload);
   }
 
   async finops(): Promise<FinOpsPayload> {
@@ -31,7 +30,9 @@ export class InsightsApiClient {
   }
 
   async autonomy(): Promise<AutonomyPayload> {
-    return decodeAutonomyPayload(await this.#transport.getJson<unknown>("/kpi/autonomy"));
+    const payload = await this.#transport.getJson<unknown>("/kpi/autonomy");
+    const { decodeAutonomyPayload } = await import("./api-insights");
+    return decodeAutonomyPayload(payload);
   }
 
   async panel<T>(path: string, params?: Record<string, string>): Promise<T> {

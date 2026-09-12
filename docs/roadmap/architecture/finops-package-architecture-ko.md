@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 0a459d2396547a2753be09f3685cf493e6dead3a
+translation_source_sha: d52fcff9bbba67fbfe93bd0351c0266981a4317c
 translation_revised: 2026-09-12
 ---
 
@@ -62,6 +62,10 @@ translation_revised: 2026-09-12
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
 > 데이터 접근 권한을 부여하지 않습니다.
 
+공유 감사 경로도 측정 출처, 시간 구간과 순번 필터를 보존합니다. 승인된 운영 지출이나
+실측군 비교를 읽어도 Cost Governance를 활성화하거나 수집기를 시작하지 않습니다.
+예상 절감액을 지출로 해석하거나 패키지 데이터 접근 권한을 부여하지도 않습니다.
+
 FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패키징합니다. 이 프로필은
 검토된 코드, 선언적 자산, 온톨로지 참조, 범위가 제한된 쿼리 프로필 및 이미지에 설치되는
 프로바이더 요구 사항으로 구성됩니다. 프로필을 사용하면 에이전트가 같은 리소스 식별자, 서비스
@@ -79,7 +83,7 @@ FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패
 | 영역 | 현재 근거 | 패키징 시사점 |
 |------|-----------|---------------|
 | FinOps 가드레일 | `core/verticals/cost_governance/finops.py`와 11개 집중 테스트 | 순수 도메인 로직은 컨트롤 루프나 에이전트를 가져오지 않고 이동할 수 있습니다. |
-| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 PR 패키징 검사에서 영향받는 모든 이미지를 선택하며, 후보 게시에서는 명시적으로 선택한 이미지만 빌드합니다. 정합성 검사는 검토된 OPA 전이 모듈 override를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` override는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core bootstrap import 검증은 runtime 이미지에 필요한 config와 rule-catalog 자산을 복사한 뒤에만 실행하며, 이 순서는 Cost Governance 패키지 입력을 추가하지 않습니다. |
+| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성이나 reviewed provider-schema catalog 같은 일반 evidence asset은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 PR 패키징 검사에서 영향받는 모든 이미지를 선택하며, 후보 게시에서는 명시적으로 선택한 이미지만 빌드합니다. 정합성 검사는 검토된 OPA 전이 모듈 override를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` override는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core bootstrap import 검증은 runtime 이미지에 필요한 config와 rule-catalog 자산을 복사한 뒤에만 실행하며, 이 순서는 Cost Governance 패키지 입력을 추가하지 않습니다. |
 | 비용 추정 | `shared/providers/cost_estimator.py`와 컨트롤 루프의 `_resolve_cost_override` 경로 | Protocol은 Core에 남고 패키지는 구체 추정기를 제공할 수 있습니다. |
 | 오퍼레이터 비용 거버넌스 변환 결과 | `fdai_operator_service/postgres_cost_governance.py`는 직접 psycopg 연결을 통해 서비스 소유 JSON 범위 맵을 읽습니다. | 오퍼레이터 호스트는 드라이버 경계에서 SQLAlchemy 형식 psycopg DSN을 정규화하고, 접근 권한을 선택적 패키지로 옮기지 않으면서 정확한 범위 포함 여부를 평가합니다. |
 | 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord의 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |
@@ -136,6 +140,15 @@ exact release, 프로필 버전, principal, 목적 및 기준 시점에 고정�
 wheel은 검토된 이미지 빌드나 downstream 조립을 통해 포함합니다. 런타임 활성화는 업로드한
 보관 파일에서 임의 코드를 다운로드하거나 가져오지 않습니다. trusted-artifact 기록은 해당
 이미지에서 이미 승인된 코드에 출처, 버전, 호환성 및 다이제스트를 연결합니다.
+
+Platform 루트는 선택적 collector 및 analyzer Job을 공유 compute module 안에 두지 않고 직접
+소유합니다. 이 배포는 기존 Container Apps environment와 inventory identity를 읽기 전용 data
+source로 해석합니다. 따라서 패키지 전용 Terraform target이 관련 없는 scheduler, network,
+database 또는 runtime dependency를 상속하지 않습니다.
+provider-schema Job도 같은 루트 소유 격리 패턴을 따르지만 Core 근거 Job으로 유지되며 Cost Governance 대상, 이미지 프로필 또는 활성화 상태에 포함되지 않습니다.
+독립적으로 소유되는 Core 서비스는
+일반 service plan 및 apply 경계를 통해 같은 배포 이미지를 받으며, 어느 배포도 패키지를
+활성화하지 않습니다.
 
 ### CapabilityBundle을 좁게 유지
 
@@ -295,6 +308,13 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 수명 주기 영수증을 하나의 트랜잭션으로 추가합니다. 설치되지 않은 패키지를 설치하거나, 사용할 수
 없는 패키지를 사용할 수 있게 만들거나, 비용 데이터 접근 권한을 부여하거나, 작업을 승격할 수는
 없습니다.
+
+설치, 업그레이드 및 롤백은 비공개 배포 실행기의 별도 보호 워크플로를 사용합니다. 워크플로는
+수명 주기 함수를 호출하기 전에 보호된 `main`, 필수 CI, 정확한 release 소스, 서명된 이미지
+다이제스트 및 배포된 Cost Governance 작업을 검증합니다. 성공한 모든 증적에는 모든 요청 입력의
+정규 다이제스트가 포함됩니다. 같은 요청 ID를 다른 작업, 아티팩트, 소스 개정, 런타임 구성,
+행위자, 원하는 활성화 상태 또는 예상 개정에 재사용하면 멱등성 충돌로 처리됩니다. 입력이 정확히
+같은 재시도는 현재 활성화 상태를 다시 표시하지 않고 원래 증적을 반환합니다.
 
 ## 자율 런타임 인계
 

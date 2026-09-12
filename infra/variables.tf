@@ -575,9 +575,17 @@ variable "forecast_tick_cron_expression" {
 }
 
 variable "cost_governance_image" {
-  description = "Optional fdai-cost-governance image reference. Empty keeps package jobs absent."
+  description = "Optional digest-pinned fdai-cost-governance image reference. Empty keeps package jobs absent."
   type        = string
   default     = ""
+
+  validation {
+    condition = var.cost_governance_image == "" || can(regex(
+      "^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$",
+      var.cost_governance_image
+    ))
+    error_message = "cost_governance_image must be empty or a digest-pinned lowercase image reference."
+  }
 }
 
 variable "cost_governance_collector_cron_expression" {

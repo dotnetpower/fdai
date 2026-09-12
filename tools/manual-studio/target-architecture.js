@@ -14,6 +14,7 @@ export function buildTargetArchitectureDeck() {
     deckTitle: "FDAI / ARCHITECTURE REVIEW",
     title: "FDAI Target<br>Architecture",
     lead: "에이전트 기반 운영 제어 영역과 Azure 배치",
+    showDate: true,
     layout: "briefing-target-cover deck-target-architecture",
     architecture: {
       id: "cover",

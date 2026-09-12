@@ -1401,7 +1401,11 @@ async def _ground_conflict_options(
                 "execution_modes": sorted({item.mode.value for item in result.execution_results}),
                 "published_pr_modes": sorted({record.mode.value for record in publisher.records}),
                 "audit_action_kinds": sorted(
-                    {str(entry.get("action_kind", "")) for entry in entries}
+                    {
+                        str(entry.get("action_kind", ""))
+                        for entry in entries
+                        if entry.get("action_kind") != "measurement.control_loop.v1"
+                    }
                 ),
                 "audit_phases": sorted(
                     {str(entry["audit_phase"]) for entry in entries if entry.get("audit_phase")}

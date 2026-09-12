@@ -304,6 +304,11 @@ output "inventory_job_name" {
   value       = module.compute.inventory_job_name
 }
 
+output "provider_schema_job_id" {
+  description = "Scheduled provider-schema watcher Job resource id, or null when disabled."
+  value       = try(azurerm_container_app_job.provider_schema[0].id, null)
+}
+
 output "browser_evidence_cleanup_job_id" {
   description = "Scheduled browser-evidence cleanup Job resource id, or null when disabled."
   value       = module.compute.browser_evidence_cleanup_job_id
@@ -327,6 +332,16 @@ output "measurement_growth_job_name" {
 output "measurement_operational_promotion_job_name" {
   description = "Operational-promotion measurement Job name, or null when disabled."
   value       = try(module.measurement_runners[0].operational_promotion_job_name, null)
+}
+
+output "cost_governance_collector_job_name" {
+  description = "Cost Governance collector Job name, or null when absent."
+  value       = try(azurerm_container_app_job.cost_governance_collector[0].name, null)
+}
+
+output "cost_governance_analyzer_job_name" {
+  description = "Cost Governance analyzer Job name, or null when absent."
+  value       = try(azurerm_container_app_job.cost_governance_analyzer[0].name, null)
 }
 
 

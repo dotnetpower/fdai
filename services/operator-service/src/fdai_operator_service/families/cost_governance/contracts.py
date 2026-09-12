@@ -14,6 +14,9 @@ from fdai_service_contracts import (
     CostProjectionRecord,
 )
 
+COST_DISCLOSURE_RETENTION_DAYS = 400
+COST_DISCLOSURE_PURGE_GRACE_DAYS = 30
+
 
 @dataclass(frozen=True, slots=True)
 class CostActivationSnapshot:
@@ -51,6 +54,66 @@ class CostAccessDecision:
     grant: CostAccessGrant | None
     ceiling: CostDisclosureCeiling | None
     reason: CostGovernanceUnavailableReason | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CostDisclosureAuditRecord:
+    """Content-free proof that one authorized disclosure completed."""
+
+    decision_id: str
+    principal_digest: str
+    scope_digest: str
+    surface: str
+    grant_revision: int
+    ceiling_revision: int
+    activation_revision: int
+    disclosure_digest: str
+    record_count: int
+    suppressed_count: int
+    occurred_at: datetime
+    retention_until: datetime
+    legal_hold: bool = False
+    legal_hold_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        digests = (
+            self.decision_id,
+            self.principal_digest,
+            self.scope_digest,
+            self.disclosure_digest,
+        )
+        if any(
+            len(value) != 71
+            or not value.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in value[7:])
+            for value in digests
+        ):
+            raise ValueError("Cost disclosure audit digests MUST use sha256:<digest>")
+        if not self.surface or not self.surface.isascii() or len(self.surface) > 64:
+            raise ValueError("Cost disclosure audit surface MUST be bounded ASCII")
+        counts = (
+            self.grant_revision,
+            self.ceiling_revision,
+            self.activation_revision,
+            self.record_count,
+            self.suppressed_count,
+        )
+        if any(value < 0 for value in counts) or self.suppressed_count > self.record_count:
+            raise ValueError("Cost disclosure audit counts MUST be nonnegative and bounded")
+        for name, value in (
+            ("occurred_at", self.occurred_at),
+            ("retention_until", self.retention_until),
+        ):
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValueError(f"Cost disclosure audit {name} MUST be timezone-aware")
+        if self.retention_until <= self.occurred_at:
+            raise ValueError("Cost disclosure retention MUST follow occurrence")
+        if self.legal_hold != (self.legal_hold_ref is not None):
+            raise ValueError("Cost disclosure legal hold state and reference MUST match")
+        if self.legal_hold_ref is not None and (
+            not self.legal_hold_ref.isascii() or not 1 <= len(self.legal_hold_ref) <= 512
+        ):
+            raise ValueError("Cost disclosure legal hold reference MUST be bounded ASCII")
 
 
 class CostAccessReader(Protocol):
@@ -104,12 +167,22 @@ class CostAnalyticsReader(Protocol):
     async def read_analytics(self, *, scope: str) -> CostAnalyticsProjection | None: ...
 
 
+class CostDisclosureAuditWriter(Protocol):
+    """Append one authorized delivery proof before returning cost data."""
+
+    async def append_disclosure_audit(self, record: CostDisclosureAuditRecord) -> None: ...
+
+
 __all__ = [
+    "COST_DISCLOSURE_PURGE_GRACE_DAYS",
+    "COST_DISCLOSURE_RETENTION_DAYS",
     "CostAccessDecision",
     "CostAccessReader",
     "CostAnalyticsReader",
     "CostActivationReader",
     "CostActivationSnapshot",
     "CostActivationWriter",
+    "CostDisclosureAuditRecord",
+    "CostDisclosureAuditWriter",
     "CostProjectionReader",
 ]

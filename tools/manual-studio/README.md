@@ -4,6 +4,31 @@ Manual Studio presents FDAI reference decks on a fixed 1536x864 canvas. The view
 slide for the available screen; the presentation is a static explanation, not an operational
 control or a source of execution authority.
 
+## Share a manual
+
+Each catalog entry has a stable page named `<manual-id>.html`. Share that page in Microsoft Teams
+instead of the query-based library URL. The static artifact generates crawler-readable Open Graph
+and Twitter metadata from `catalog.json`, including the manual title, description, canonical URL,
+and absolute cover-image URL. Opening the page still launches the selected manual at slide 1.
+
+The local server renders the same metadata. Azure publishing supplies the deployed Manual Studio
+base URL to the artifact builder, so no deployment hostname is stored in the repository. When you
+add or rename a manual, regenerate the static artifact and confirm that its share page contains no
+template tokens and that the cover image returns an image content type without authentication.
+
+## Choose the interface language
+
+Use **EN** or **한국어** in the top bar to change the Manual Studio interface. The selection updates
+the Console preview, guide library, journey stages, guide titles, catalog descriptions, cover
+labels, dates, navigation labels, and viewer controls. Manual Studio preserves the selected locale
+in the current URL and in browser storage, so manual and slide links keep the same interface
+language.
+
+The selector also chooses the locale-specific slide source for every catalog manual. English and
+Korean titles, leads, visual labels, explanatory text, and accessibility labels are maintained as
+separate repository content. Manual Studio does not send slide content to a runtime translation
+service.
+
 ## Use Case and Value Prioritization workshop
 
 The 25-slide L200 workshop helps portfolio sponsors, service owners, and platform or operations
@@ -50,10 +75,18 @@ nodes, directional connections, system or trust boundaries, and explicit impleme
 | [target-architecture.css](target-architecture.css), [target-architecture-visuals.css](target-architecture-visuals.css), and [target-architecture-deployment.css](target-architecture-deployment.css) | Presentation typography, sparse cover, and deck-specific visual systems. |
 | [test/target-architecture.test.mjs](test/target-architecture.test.mjs) and [test/target-architecture-critique.test.mjs](test/target-architecture-critique.test.mjs) | Structure, authority, implementation state, digest, and 30-round architecture critique contracts. |
 | [test/target-architecture-visual.mjs](test/target-architecture-visual.mjs) | Local desktop, tablet, mobile, fullscreen, print, connector, contrast, and PDF validation. |
+| [test/target-architecture-text-geometry.mjs](test/target-architecture-text-geometry.mjs) | Nested clipping, painted edge-label overlap, container overflow, and deliberately broken browser fixtures. |
 
 The architecture decision records a baseline only. It does not deploy a revision, approve
 production, promote a capability, or grant an execution identity. The production gate remains
 blocked until its named owners provide exact evidence for the reviewed deployment.
+
+The visual runner first proves that its checker rejects the original 112px RiskGate boundary and
+scaled clipping fixtures. It waits for slide animations before measuring, includes visually painted
+`aria-hidden` labels, and checks every ancestor that can clip text. Review each full-size desktop
+image before using the generated contact sheets to compare the deck. Recheck the shared browser
+when its font environment differs from local Chromium; geometry success in one is not proof of
+readability in the other.
 
 ## Readiness and maturity workshop
 
@@ -148,6 +181,25 @@ When adding a runtime-loaded asset, update the
 
 Store screenshots and PDFs outside the repository. Record only performed checks, their slide scope,
 and the tested content revision; retain older evidence as history rather than silently relabeling it.
+
+### English presentation layout
+
+[english-layout.css](english-layout.css) contains the English-only typography and layout corrections.
+It loads after the shared styles in both viewers. Keep primary text at presentation size; shorten
+display copy or rebalance the content regions instead of hiding overflow or shrinking the text.
+
+Use [test/english-visual.mjs](test/english-visual.mjs) with an absolute artifact directory outside the
+checkout. Its optional arguments select comma-separated modes (`desktop`, `tablet`, `mobile`,
+`fullscreen`, `print`) and manual IDs. Review desktop captures before the smaller viewports and PDF
+output. The runner waits for fonts and animations, requires painted text, and checks clipping,
+overlap, card bounds, cover-image occlusion, and measured connectors. Its fixtures deliberately
+break these conditions to prove the checks detect them.
+
+Review the actual shared browser as well as the local Chromium output: fallback font metrics can
+change wrapping. PDF contact sheets help compare slides, but inspect corrected pages at full size
+and verify each book's page count and 16:9 MediaBoxes. The append-only English layout review in
+[validation-evidence.json](validation-evidence.json) records the tested scope and source digests;
+it does not grant human approval or remove a manual's `DRAFT` mark.
 
 ## Related guidance
 

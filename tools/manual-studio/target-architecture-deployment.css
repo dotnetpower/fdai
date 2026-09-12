@@ -3,6 +3,11 @@
 /* Slide 16: execution dispatch. */
 .ta-execution-dispatch { display: grid; grid-template-columns: 175px 32px 230px 32px minmax(0, 1fr) 32px 205px; grid-template-rows: minmax(0, 1fr) 38px; }
 .ta-dispatch-gates > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 10px; }
+.ta-dispatch-gates > header {
+  grid-template-columns: 1fr;
+  align-content: center;
+  gap: 2px;
+}
 .ta-dispatch-gates > div > span { display: grid; place-items: center; padding: 8px; border-radius: 6px; background: #fff; color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
 .ta-dispatch-paths > div { padding: 9px; }
 .ta-dispatch-path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; height: 100%; }
@@ -26,32 +31,37 @@
 
 /* Slide 18: identity and trust zones. */
 .ta-trust-zone-architecture { display: grid; grid-template-columns: repeat(4, 1fr 28px) 1fr; grid-template-rows: minmax(0, 1fr) 42px; }
-.ta-trust-zone > div { display: grid; align-items: stretch; padding: 9px; }
+.ta-trust-zone > div { display: grid; grid-auto-rows: minmax(0, 1fr); align-items: stretch; gap: 8px; padding: 9px; }
+.ta-trust-zone > header {
+  grid-template-columns: 1fr;
+  align-content: center;
+  gap: 2px;
+}
 .ta-trust-zone .ta-arch-node { height: 100%; }
 .ta-trust-zone-architecture > footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 13px; padding: 8px 12px; border-radius: 8px; background: #253f52; color: #fff; }
 .ta-trust-zone-architecture > footer span { color: #e6f0f5; font-size: 14px; font-weight: 800; }
 .ta-trust-zone-architecture > footer b { color: #fff; font-size: 13px; }
 
 /* Slide 19: independent effect verification. */
-.ta-effect-verification { position: relative; display: grid; grid-template-rows: 1fr 1fr 38px; gap: 12px; }
-.ta-effect-plan { display: grid; grid-template-columns: 1fr 38px 1fr 38px 1fr; padding: 0 9%; }
-.ta-effect-observation { display: grid; grid-template-columns: 1.2fr 32px 1fr 32px 1fr 32px .8fr; }
+.ta-effect-verification { display: grid; grid-template-rows: minmax(0, 1fr) 28px minmax(0, 1fr) 12px 38px; }
+.ta-effect-plan { grid-row: 1; display: grid; grid-template-columns: 1fr 38px 1fr 38px 1fr; padding: 0 9%; }
+.ta-effect-observation { grid-row: 3; display: grid; grid-template-columns: 1.2fr 32px 1fr 32px 1fr 32px .8fr; direction: rtl; }
+.ta-effect-observation > .ta-arch-node { direction: ltr; }
 .ta-effect-plan .ta-arch-node,
 .ta-effect-observation .ta-arch-node { padding: 8px 11px; }
-.ta-effect-cross-link { position: absolute; top: 120px; left: 75%; width: 2px; height: 20px; }
-.ta-effect-cross-link .ta-arch-link { height: 20px; }
-.ta-effect-verification > footer { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.ta-effect-cross-link { grid-row: 2; display: grid; justify-self: end; width: 2px; margin-right: 15%; }
+.ta-effect-verification > footer { grid-row: 5; display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
 .ta-effect-verification > footer span { width: auto; display: grid; place-items: center; text-align: center; }
 
 /* Slide 20: safe degradation and recovery. */
-.ta-degradation-architecture { display: grid; grid-template-rows: 84px 20px 65px 20px 1fr; }
+.ta-degradation-architecture { display: grid; grid-template-rows: 84px 24px max-content 24px minmax(0, 1fr); }
 .ta-dependency-row,
 .ta-dependency-links { display: grid; grid-template-columns: repeat(6, 1fr); gap: 9px; }
 .ta-dependency-row .ta-arch-node { padding: 6px 8px; }
 .ta-dependency-row .ta-arch-node > span { font-size: 11px; }
 .ta-dependency-eligibility { width: 100%; justify-self: center; }
 .ta-dependency-eligibility > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 7px 10px; }
-.ta-dependency-eligibility > div > span { display: grid; place-items: center; padding: 6px; border-radius: 5px; background: #fff; color: var(--ta-slate); font-size: 12px; font-weight: 700; text-align: center; }
+.ta-dependency-eligibility > div > span { display: grid; place-items: center; padding: 6px; border-radius: 5px; background: #fff; color: var(--ta-slate); font-size: 14px; font-weight: 700; text-align: center; }
 .ta-degradation-architecture > .ta-arch-link { justify-self: center; }
 .ta-dependency-outcomes > div { padding: 8px; }
 .ta-degradation-outcomes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -60,7 +70,7 @@
 .ta-degradation-outcomes b { color: var(--ta-red); font-size: 12px; }
 
 /* Slide 21: ports and adapters. */
-.ta-ports-adapters { display: grid; grid-template-rows: 1fr 18px 1.35fr 18px 1.15fr 18px 1.05fr; }
+.ta-ports-adapters { display: grid; grid-template-rows: max-content 22px max-content 22px max-content 22px max-content; align-content: start; }
 .ta-ports-core > div,
 .ta-ports-azure-adapters > div,
 .ta-ports-services > div { display: grid; align-items: center; gap: 8px; padding: 8px 12px; }
@@ -77,7 +87,7 @@
 .ta-ports-adapters > .ta-arch-link { justify-self: center; }
 
 /* Slide 22: nested Azure deployment topology. */
-.ta-azure-deployment { position: relative; display: grid; grid-template-rows: 58px 14px minmax(0, 1fr) 18px; }
+.ta-azure-deployment { display: grid; grid-template-rows: 40px 18px minmax(0, 1fr) 22px; }
 .ta-azure-outside,
 .ta-azure-outside-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0 12%; }
 .ta-azure-outside .ta-arch-node { padding: 5px 9px; }
@@ -91,31 +101,34 @@
 .ta-azure-apps > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; }
 .ta-azure-data > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; }
 .ta-azure-region-grid .ta-arch-node { gap: 2px; padding: 4px 7px; }
-.ta-azure-region-grid .ta-arch-node > span { font-size: 9.5px; }
+.ta-azure-region-grid .ta-arch-node > span { font-size: 12px; }
 .ta-azure-region-grid .ta-arch-node > strong { font-size: 15px; }
+.ta-azure-region-grid > .ta-arch-boundary > header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 2px 8px;
+}
+.ta-azure-region-grid > .ta-arch-boundary > header > small,
+.ta-azure-region-grid > .ta-arch-boundary > header > strong { grid-column: 1; }
+.ta-azure-region-grid > .ta-arch-boundary > header > em {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+}
 .ta-azure-observability { grid-template-columns: auto 1fr 1.6fr; align-items: center; gap: 10px; }
 .ta-azure-observability > small,
 .ta-azure-observability > strong,
 .ta-azure-observability > span { grid-row: 1; }
-.ta-azure-internal-links { position: absolute; top: 92px; right: 13%; bottom: 40px; left: 15%; pointer-events: none; }
-.ta-azure-internal-links .ta-arch-link { position: absolute; opacity: .68; }
-.ta-azure-internal-links .ta-arch-link:nth-child(1) { top: 30%; left: 25%; width: 16%; transform: rotate(8deg); }
-.ta-azure-internal-links .ta-arch-link:nth-child(2) { top: 54%; left: 54%; width: 20%; transform: rotate(5deg); }
-.ta-azure-internal-links .ta-arch-link:nth-child(3) { top: 76%; left: 50%; width: 2px; height: 34px; }
 .ta-azure-deployment > .ta-arch-legend { align-self: end; }
 
 /* Slide 23: numbered Azure network and data flow. */
-.ta-azure-network-flow { position: relative; display: grid; grid-template-rows: 142px 105px 42px; gap: 12px; }
+.ta-azure-network-flow { display: grid; grid-template-rows: minmax(156px, max-content) max-content 42px; align-content: start; gap: 16px; }
 .ta-network-main { display: grid; grid-template-columns: repeat(6, 1fr 22px) 1fr; }
 .ta-network-main .ta-arch-node { padding: 7px 8px; }
 .ta-network-main .ta-arch-node > span { font-size: 11px; }
 .ta-network-support { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 0 4%; }
 .ta-network-support .ta-arch-node { padding: 7px 9px; }
 .ta-network-support .ta-arch-node > span { font-size: 11px; }
-.ta-network-support-links { position: absolute; inset: 130px 6% 44px; pointer-events: none; }
-.ta-network-support-links .ta-arch-link { position: absolute; opacity: .7; }
-.ta-network-support-links .ta-arch-link:nth-child(1) { top: 8%; left: 90%; width: 2px; height: 45px; }
-.ta-network-support-links .ta-arch-link:nth-child(2) { top: 8%; left: 70%; width: 2px; height: 45px; }
 .ta-azure-network-flow > footer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ta-azure-network-flow > footer span { width: auto; display: grid; place-items: center; text-align: center; }
 
@@ -134,11 +147,27 @@
 .ta-architecture-decision-map { display: grid; grid-template-columns: 1fr 36px 1.05fr 36px 1.25fr; grid-template-rows: minmax(0, 1fr) 44px; }
 .ta-decision-baseline-boundary > div,
 .ta-decision-production > div { padding: 10px; }
+.ta-decision-baseline-boundary > header,
+.ta-decision-production > header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 2px 8px;
+}
+.ta-decision-baseline-boundary > header > small,
+.ta-decision-baseline-boundary > header > strong,
+.ta-decision-production > header > small,
+.ta-decision-production > header > strong { grid-column: 1; }
+.ta-decision-baseline-boundary > header > em,
+.ta-decision-production > header > em {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+}
 .ta-decision-baseline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ta-decision-baseline { height: 100%; grid-template-rows: repeat(3, 1fr); }
 .ta-decision-baseline span { display: grid; place-items: center; padding: 10px 7px; border-radius: 7px; background: #fff; color: var(--ta-slate); font-size: 13px; font-weight: 700; text-align: center; }
 .ta-decision-options-boundary > div { padding: 8px; }
-.ta-decision-options-map { display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; }
+.ta-decision-options-map { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; height: 100%; }
 .ta-decision-options-map .ta-arch-node { padding: 7px 10px; }
 .ta-decision-options-map .ta-arch-node > span { font-size: 12px; }
 .ta-decision-blockers { display: grid; height: 100%; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 7px; }

@@ -22,8 +22,8 @@ export function buildTargetArchitectureRuntime() {
       body: `
         <div class="ta-service-topology" data-ta-diagram="service-topology" data-diagram-kind="container" role="img" aria-label="외부 HTTPS와 내부 Kafka를 통해 연결된 다섯 독립 FDAI 서비스의 컨테이너 아키텍처">
           <div class="ta-service-external">
-            ${archNode("svc-operator-user", "HUMAN", "Operator", "Console · CLI · ChatOps", { tone: "human" })}
-            ${archNode("svc-upload", "CLIENT", "Document source", "upload · connector · email", { tone: "external" })}
+            ${archNode("svc-operator-user", "HUMAN", "Operator", "", { tone: "human" })}
+            ${archNode("svc-upload", "CLIENT", "Document source", "", { tone: "external" })}
           </div>
           <div class="ta-service-external-links">
             ${archLink("svc-operator-user", "svc-operator", { kind: "request", direction: "down", label: "HTTPS" })}
@@ -43,9 +43,7 @@ export function buildTargetArchitectureRuntime() {
             ${archLink("svc-bus", "svc-worker", { kind: "event", direction: "up" })}
             ${archLink("svc-bus", "svc-executor", { kind: "approval", direction: "up" })}
           </div>
-          ${archBoundary("SHARED PLATFORM CONTRACT", "Kafka-compatible Event Fabric", `
-            <div class="ta-service-bus-topics"><span>governed ingress</span><span>document events</span><span>approvals</span><span>executor command</span><span>receipts</span></div>
-          `, { id: "svc-bus", classes: "ta-service-bus", tone: "event" })}
+          ${archNode("svc-bus", "SHARED PLATFORM CONTRACT", "Kafka-compatible Event Fabric", "", { classes: "ta-service-bus", tone: "event", primary: true })}
           <footer><span>공유</span><b>wire contracts · Event Hubs · PostgreSQL host · observability</b><span>분리</span><b>implementation · state · writer role · migration · rollback</b></footer>
         </div>`,
     }),
@@ -62,9 +60,9 @@ export function buildTargetArchitectureRuntime() {
       body: `
         <div class="ta-service-event-topology" data-ta-diagram="service-event-topology" data-diagram-kind="service-flow" role="img" aria-label="Operator, Ingestion, Worker, Core, Executor를 Kafka topic과 projection store로 연결한 서비스 이벤트 토폴로지">
           <div class="ta-service-flow-row ta-flow-producers">
-            ${archNode("flow-operator", "PRODUCER", "Operator Service", "typed request · approval decision", { tone: "service" })}
-            ${archNode("flow-ingestion", "PRODUCER", "Ingestion API", "document accepted · rejected", { tone: "service" })}
-            ${archNode("flow-sources", "PRODUCER", "Provider adapters", "inventory · telemetry · change", { tone: "external" })}
+            ${archNode("flow-operator", "", "Operator Service", "typed request · approval decision", { tone: "service" })}
+            ${archNode("flow-ingestion", "", "Ingestion API", "document accepted · rejected", { tone: "service" })}
+            ${archNode("flow-sources", "", "Provider adapters", "inventory · telemetry · change", { tone: "external" })}
           </div>
           <div class="ta-service-flow-links ta-flow-links-in">
             ${archLink("flow-operator", "flow-bus", { kind: "event", direction: "down" })}
@@ -80,16 +78,16 @@ export function buildTargetArchitectureRuntime() {
             ${archLink("flow-bus", "flow-executor", { kind: "approval", direction: "down" })}
           </div>
           <div class="ta-service-flow-row ta-flow-consumers">
-            ${archNode("flow-worker", "CONSUMER", "Processing Worker", "scan · extract · index", { tone: "service" })}
-            ${archNode("flow-core", "CONSUMER / PRODUCER", "Core Control Plane", "judge · coordinate · audit intent", { tone: "control", primary: true })}
-            ${archNode("flow-executor", "CONSUMER / PRODUCER", "Isolated Executor", "effect · rollback attempt · receipt", { tone: "execution", primary: true })}
+            ${archNode("flow-worker", "", "Processing Worker", "scan · extract · index", { tone: "service" })}
+            ${archNode("flow-core", "", "Core Control Plane", "judge · coordinate · audit intent", { tone: "control", primary: true })}
+            ${archNode("flow-executor", "", "Isolated Executor", "effect · rollback attempt · receipt", { tone: "execution", primary: true })}
           </div>
           <div class="ta-flow-store-links">
             ${archLink("flow-worker", "flow-projection", { kind: "write", direction: "down" })}
             ${archLink("flow-core", "flow-projection", { kind: "write", direction: "down" })}
             ${archLink("flow-executor", "flow-projection", { kind: "audit", direction: "down" })}
           </div>
-          ${archBoundary("SERVICE-OWNED WRITERS", "PostgreSQL projections and ledgers", `<span>Operator reads only its projections · Raw state is not shared workflow memory</span>`, { id: "flow-projection", classes: "ta-flow-projection", tone: "store" })}
+          ${archBoundary("SERVICE-OWNED WRITERS", "PostgreSQL projections and ledgers", "", { id: "flow-projection", classes: "ta-flow-projection", tone: "store" })}
           ${archLegend([
             { kind: "event", label: "event" },
             { kind: "approval", label: "command/authority" },
@@ -184,19 +182,6 @@ export function buildTargetArchitectureRuntime() {
             ${archNode("agent-mimir", "CATALOG", "Mimir", "Rule · Policy", { tone: "policy" })}
             ${archNode("agent-bragi", "NARRATE", "Bragi", "Conversation · typed proposal", { tone: "surface" })}
           </div>
-          <div class="ta-agent-cross-links">
-            ${archLink("agent-heimdall", "agent-forseti", { kind: "observation", measured: false })}
-            ${archLink("agent-njord", "agent-forseti", { kind: "read", direction: "up", measured: false })}
-            ${archLink("agent-freyr", "agent-forseti", { kind: "read", direction: "up", measured: false })}
-            ${archLink("agent-loki", "agent-forseti", { kind: "read", direction: "up", measured: false })}
-            ${archLink("agent-forseti", "agent-thor", { kind: "decision", measured: false })}
-            ${archLink("agent-var", "agent-thor", { kind: "approval", measured: false })}
-            ${archLink("agent-thor", "agent-vidar", { kind: "rollback", measured: false })}
-            ${archLink("agent-thor", "agent-saga", { kind: "audit", direction: "down", measured: false })}
-            ${archLink("agent-saga", "agent-norns", { kind: "feedback", measured: false })}
-            ${archLink("agent-norns", "agent-mimir", { kind: "write", measured: false })}
-            ${archLink("agent-bragi", "agent-huginn", { kind: "event", direction: "left", measured: false })}
-          </div>
           <div class="ta-agent-event-rail"><b>TYPED EVENT FABRIC</b><span>single writer · schema version · correlation · multi-reader fan-out · replay</span></div>
         </div>`,
     }),
@@ -206,18 +191,18 @@ export function buildTargetArchitectureRuntime() {
       chapter: 2,
       state: "VALIDATED",
       diagramKind: "data",
-      title: "운영 상태는 하나의 공유 데이터베이스가 아니라 소유권이 분리된 기록입니다",
+      title: "운영 기록은 서비스별로 소유권을 분리합니다",
       lead: "각 서비스 writer, Event Bus 기록, audit ledger, current ontology projection, case history가 서로 다른 권위를 가지며 Console은 읽기 투영만 사용합니다.",
       evidence: ["architectureGuide", "services", "ontology", "deployment"],
       takeaway: "PostgreSQL host를 공유해도 table role과 migration branch는 분리됩니다. 그래프와 Console 투영은 권위 있는 원장을 대체하지 않습니다.",
       body: `
         <div class="ta-data-ownership" data-ta-diagram="data-ownership-architecture" data-diagram-kind="data" role="img" aria-label="서비스 소유 writer가 PostgreSQL schema, audit, ontology projection, case history를 분리하는 데이터 아키텍처">
           <div class="ta-data-writers">
-            ${archNode("data-core", "WRITER", "Core role", "decision · process · audit intent", { tone: "control" })}
-            ${archNode("data-operator", "WRITER", "Operator role", "conversation · projections · outbox", { tone: "service" })}
-            ${archNode("data-ingestion", "WRITER", "Ingestion role", "upload state · validation", { tone: "service" })}
-            ${archNode("data-worker", "WRITER", "Worker role", "claims · chunks · index", { tone: "service" })}
-            ${archNode("data-executor", "WRITER", "Executor role", "attempt · lock · receipt", { tone: "execution" })}
+            ${archNode("data-core", "", "Core role", "decision · process · audit intent", { tone: "control" })}
+            ${archNode("data-operator", "", "Operator role", "conversation · projections · outbox", { tone: "service" })}
+            ${archNode("data-ingestion", "", "Ingestion role", "upload state · validation", { tone: "service" })}
+            ${archNode("data-worker", "", "Worker role", "claims · chunks · index", { tone: "service" })}
+            ${archNode("data-executor", "", "Executor role", "attempt · lock · receipt", { tone: "execution" })}
           </div>
           <div class="ta-data-write-links">
             ${archLink("data-core", "data-postgres", { kind: "write", direction: "down" })}

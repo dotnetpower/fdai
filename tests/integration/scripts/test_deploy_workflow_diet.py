@@ -38,6 +38,26 @@ def test_deploy_workflow_uses_consolidated_boundaries() -> None:
     assert "Enforce model-binding-only Terraform plan" not in _WORKFLOW
 
 
+def test_deploy_workflow_isolates_cost_governance_plan_changes() -> None:
+    target_step = _WORKFLOW.split("- name: Bind model-binding Terraform target", maxsplit=1)[
+        1
+    ].split("- name: Verify production architecture-review evidence", maxsplit=1)[0]
+
+    assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in target_step
+    for address in (
+        "azurerm_role_assignment.inventory_cost_reader",
+        "azurerm_container_app_job.cost_governance_collector[0]",
+        "azurerm_container_app_job.cost_governance_analyzer[0]",
+    ):
+        assert f"-target={address}" in target_step
+
+    scope_step = _WORKFLOW.split("- name: Enforce bounded Terraform plan scope", maxsplit=1)[
+        1
+    ].split("- name: Reject destructive protected plan", maxsplit=1)[0]
+    assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in scope_step
+    assert "mode=cost-governance" in scope_step
+
+
 def test_pinned_github_cli_precedes_model_and_runtime_image_checks() -> None:
     installer = _WORKFLOW.index("- name: Install pinned GitHub CLI")
     installer_block = _WORKFLOW[installer:].split("      - name:", maxsplit=1)[0]
@@ -92,7 +112,9 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
         assert f"scripts/deployment/azure/{helper}" in _WORKFLOW
         assert (_ROOT / "scripts/deployment/azure" / helper).is_file()
     assert "verify_job_image.py" in _CONVERGENCE
+    assert "build_cost_governance_job_readback.py" in _CONVERGENCE
     assert (_ROOT / "scripts/deployment/azure/verify_job_image.py").is_file()
+    assert (_ROOT / "scripts/deployment/azure/build_cost_governance_job_readback.py").is_file()
 
 
 def test_production_input_helper_preserves_hardening_contract() -> None:
@@ -204,6 +226,26 @@ def test_post_apply_verifies_inventory_job_image() -> None:
     assert 'job_name="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-inventory"' in _CONVERGENCE
     assert 'resource_group="$(terraform output -raw resource_group_name)"' in _CONVERGENCE
     assert 'elif [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then' in _CONVERGENCE
+
+
+def test_cost_apply_uses_only_cost_post_apply_evidence() -> None:
+    for step in (
+        "Run schema migrations",
+        "Publish integrated migration adoption evidence",
+        "Verify deployed health endpoints",
+        "Run canary publisher smoke",
+    ):
+        block = _WORKFLOW.split(f"- name: {step}", maxsplit=1)[1].split(
+            "      - name:", maxsplit=1
+        )[0]
+        assert "env.RUNTIME_IMAGE_PROFILE != 'cost-governance'" in block
+
+    receipt_step = _WORKFLOW.split("- name: Record exact plan apply receipt", maxsplit=1)[1].split(
+        "      - name:", maxsplit=1
+    )[0]
+    assert '--cost-governance-readback "$RUNNER_TEMP/' in receipt_step
+    assert "cost-governance-job-image-readback.json" in receipt_step
+    assert 'install -m 0600 "$RUNNER_TEMP/cost-governance-job-image-readback.json"' in receipt_step
 
 
 def test_operational_history_apply_ignores_unrelated_inventory_image_drift() -> None:

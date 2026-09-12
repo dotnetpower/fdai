@@ -4,24 +4,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vertical outcomes - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=overview-quality-v1" />
   <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v1" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/overview-quality.css?v=overview-quality-v3" />
 </head>
-<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
-  <main class="cs-container cs-page ov-page ow-page">
-    <header class="ov-page-header">
+<body class="cs-operator-neutral cs-overview-quality" data-chat-theme="clear-neutral">
+  <a class="oq-skip-link" href="#vertical-outcomes-main">Skip to vertical outcomes</a>
+  <main id="vertical-outcomes-main" class="cs-container cs-page ov-page ow-page oq-page" data-preview-view="vertical-outcomes-v1" tabindex="-1">
+    <header class="oq-page-header">
       <div>
         <h1>Vertical outcomes</h1>
         <p>One operating view across Resilience, Change Safety, and Cost Governance, with each vertical measured by its own evidence contract.</p>
       </div>
-      <div class="ov-window"><span>Evidence window</span><strong>Last 30 days</strong></div>
+      <div class="ov-window"><span>Frozen example window</span><strong>30 days</strong></div>
     </header>
 
     <div class="cs-readonly-banner"><strong>Synthetic preview.</strong> Three evidence contracts. Example values do not establish measured outcomes, resource health, or execution authority.</div>
-    <details class="ow-reference"><summary>Standard-price reference, not invoice reconciliation</summary><p>Displayed cost and savings amounts use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments.</p></details>
+    <details id="vertical-price-reference" class="oq-details" data-preview-persist><summary>Standard-price reference, not invoice reconciliation</summary><p>Displayed USD cost and savings amounts use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments.</p></details>
     <div class="ov-evidence"><strong>Simulated</strong><span>30 days / 30 classified events</span><span>Confidence unavailable</span><span>Source example-autonomy</span><span>As of 2026-07-22T15:18:00Z</span></div>
 
     <section class="ov-section ov-section-flush">
@@ -30,19 +32,19 @@
         <article class="ov-vertical" id="resilience">
           <div class="ov-vertical-head"><h3>Resilience</h3><span class="ov-status">Simulated</span></div>
           <strong class="ov-vertical-score">83%</strong><small>Auto-resolution rate</small>
-          <details class="ow-vertical-evidence"><summary>3 domain measures unavailable</summary><p class="ov-vertical-purpose">Recovery confidence from incidents, drills, and verified rollback paths.</p><ul class="ov-list"><li><span>Recovery drills passed</span><strong>Unavailable</strong></li><li><span>Median MTTR</span><strong>Unavailable</strong></li><li><span>Rollback paths tested</span><strong>Unavailable</strong></li></ul></details>
+          <details id="resilience-evidence" class="oq-details" data-preview-persist><summary>3 domain measures unavailable</summary><p class="ov-vertical-purpose">Recovery confidence from incidents, drills, and verified rollback paths.</p><ul class="ov-list"><li><span>Recovery drills passed</span><strong>Unavailable</strong></li><li><span>Median recovery time</span><strong>Unavailable</strong></li><li><span>Rollback paths tested</span><strong>Unavailable</strong></li></ul></details>
           <a class="ov-vertical-link" href="incidents.html">Open resilience incidents <span aria-hidden="true">&rarr;</span></a>
         </article>
         <article class="ov-vertical" id="change-safety">
           <div class="ov-vertical-head"><h3>Change safety</h3><span class="ov-status">Simulated</span></div>
-          <strong class="ov-vertical-score">Unavailable</strong><small>Change failure rate / Not connected</small>
-          <details class="ow-vertical-evidence"><summary>3 domain measures unavailable</summary><p class="ov-vertical-purpose">Delivery safety from change outcomes, promotion guards, and rollback verification.</p><ul class="ov-list"><li><span>Rollback success</span><strong>Unavailable</strong></li><li><span>Median lead time</span><strong>Unavailable</strong></li><li><span>Promotion guards passing</span><strong>Unavailable</strong></li></ul></details>
+          <strong class="ov-vertical-score oq-value-label">Unavailable</strong><small>Change failure rate / Not connected</small>
+          <details id="change-safety-evidence" class="oq-details" data-preview-persist><summary>3 domain measures unavailable</summary><p class="ov-vertical-purpose">Delivery safety from change outcomes, promotion guards, and rollback verification.</p><ul class="ov-list"><li><span>Rollback success</span><strong>Unavailable</strong></li><li><span>Median lead time</span><strong>Unavailable</strong></li><li><span>Promotion guards passing</span><strong>Unavailable</strong></li></ul></details>
           <a class="ov-vertical-link" href="promotion.html">Inspect change evidence <span aria-hidden="true">&rarr;</span></a>
         </article>
         <article class="ov-vertical" id="cost-governance">
           <div class="ov-vertical-head"><h3>Cost governance</h3><span class="ov-status">Simulated</span></div>
-          <strong class="ov-vertical-score">$0</strong><small>Monthly savings / Synthetic field</small>
-          <details class="ow-vertical-evidence"><summary>7 events / 3 risks / Budget unavailable</summary><p class="ov-vertical-purpose">Cost event attribution is separate from candidate recommendations and verified settlement.</p><ul class="ov-list"><li><span>Observed cost events</span><strong>7</strong></li><li><span>Open risks</span><strong>3</strong></li><li><span>Budget variance</span><strong>Unavailable</strong></li></ul></details>
+          <strong class="ov-vertical-score">USD 0</strong><small>Monthly savings / Synthetic field</small>
+          <details id="vertical-cost-evidence" class="oq-details" data-preview-persist><summary>7 events / 3 risks / Budget unavailable</summary><p class="ov-vertical-purpose">Cost event attribution is separate from candidate recommendations and verified settlement.</p><ul class="ov-list"><li><span>Observed cost events</span><strong>7</strong></li><li><span>Open risks</span><strong>3</strong></li><li><span>Budget variance</span><strong>Unavailable</strong></li></ul></details>
           <a class="ov-vertical-link" href="audit.html">Inspect cost actions <span aria-hidden="true">&rarr;</span></a>
         </article>
       </div>
@@ -50,7 +52,7 @@
 
     <section class="ov-section">
       <div class="ov-section-head"><div><h2>Shared operating comparison</h2><p>Only measures with the same meaning and calculation across all three verticals.</p></div></div>
-      <div class="cs-table-wrap"><table class="cs-table ov-table"><thead><tr><th>Vertical</th><th class="num">Events</th><th class="num">Auto-resolved</th><th class="num">Resolution rate</th><th class="num">Open risks</th><th class="num">Monthly savings</th></tr></thead><tbody><tr><td><a href="incidents.html">Resilience</a></td><td class="num">12</td><td class="num">10</td><td class="num">83%</td><td class="num">1</td><td class="num">$0</td></tr><tr><td><a href="promotion.html">Change safety</a></td><td class="num">11</td><td class="num">8</td><td class="num">73%</td><td class="num">2</td><td class="num">$0</td></tr><tr><td><a href="audit.html?window=30d">Cost governance</a></td><td class="num">7</td><td class="num">4</td><td class="num">57%</td><td class="num">3</td><td class="num">$0</td></tr></tbody></table></div>
+      <div class="cs-table-wrap" role="region" aria-label="Shared vertical comparison table" tabindex="0"><table class="cs-table ov-table"><caption class="cs-sr-only">Shared measures in the frozen 30-event fixture</caption><thead><tr><th scope="col">Vertical</th><th scope="col" class="num">Events</th><th scope="col" class="num">Auto-resolved</th><th scope="col" class="num">Resolution rate</th><th scope="col" class="num">Open risks</th><th scope="col" class="num">Monthly savings (USD)</th></tr></thead><tbody><tr><td><a href="incidents.html">Resilience</a></td><td class="num">12</td><td class="num">10</td><td class="num">83%</td><td class="num">1</td><td class="num">0</td></tr><tr><td><a href="promotion.html">Change safety</a></td><td class="num">11</td><td class="num">8</td><td class="num">73%</td><td class="num">2</td><td class="num">0</td></tr><tr><td><a href="audit.html?window=30d">Cost governance</a></td><td class="num">7</td><td class="num">4</td><td class="num">57%</td><td class="num">3</td><td class="num">0</td></tr></tbody></table></div>
     </section>
 
     <section class="ov-section">

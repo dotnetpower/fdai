@@ -20,6 +20,7 @@ on:
       - "extensions/cost-governance/**"
       - "src/**"
       - "rule-catalog/**"
+      - "provider-schema-catalog/**"
       - "policies/**"
       - "config/**"
       - "scripts/deployment/service/select_changed_images.py"

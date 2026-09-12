@@ -30,6 +30,10 @@ _POST_APPLY_OBSERVATIONS = [
     "canary-publisher",
     "terraform-zero-change",
 ]
+_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "cost-governance-job-image-readback",
+]
 
 
 def _plan_summary(*, create: int = 1, delete: int = 0, replace: int = 0) -> dict[str, object]:
@@ -77,6 +81,7 @@ def _write_artifacts(
     request_id: str = "plan-request",
     include_summary: bool = True,
     plan_summary: dict[str, object] | None = None,
+    post_apply_observations: list[str] | None = None,
 ) -> tuple[Path, Path, Path, Path, Path, str]:
     plan = root / "terraform.plan"
     plan.write_bytes(b"deterministic-plan")
@@ -107,7 +112,14 @@ def _write_artifacts(
     }
     if include_summary:
         metadata_payload["plan_summary"] = plan_summary or _plan_summary()
-        metadata_payload["post_apply_observations"] = list(_POST_APPLY_OBSERVATIONS)
+        metadata_payload["post_apply_observations"] = list(
+            post_apply_observations
+            or (
+                _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+                if runtime_image is not None and runtime_image.get("profile") == "cost-governance"
+                else _POST_APPLY_OBSERVATIONS
+            )
+        )
     if runtime_image is not None:
         metadata_payload["runtime_image"] = runtime_image
     if model_resolution is not None:
@@ -317,7 +329,11 @@ def test_matching_runtime_image_evidence_passes(
     plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
-        runtime_image={"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}"},
+        runtime_image={
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+        },
     )
 
     _verify(
@@ -329,6 +345,33 @@ def test_matching_runtime_image_evidence_passes(
         azure_preflight,
         digest,
     )
+
+
+def test_cost_runtime_image_rejects_core_post_apply_observations(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        runtime_image={
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+        },
+        post_apply_observations=_POST_APPLY_OBSERVATIONS,
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="observations are invalid"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
 
 
 def test_matching_model_resolution_evidence_passes(
@@ -556,9 +599,24 @@ def test_invalid_model_resolution_evidence_fails(
 @pytest.mark.parametrize(
     "runtime_image",
     [
-        {"source_revision": "bad", "digest": f"sha256:{'c' * 64}"},
-        {"source_revision": "a" * 40, "digest": "bad"},
-        {"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}", "extra": "x"},
+        {
+            "source_revision": "bad",
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+        },
+        {"source_revision": "a" * 40, "digest": "bad", "profile": "cost-governance"},
+        {"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}"},
+        {
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "unknown",
+        },
+        {
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+            "extra": "x",
+        },
     ],
 )
 def test_invalid_runtime_image_evidence_fails(

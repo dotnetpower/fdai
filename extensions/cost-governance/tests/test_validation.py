@@ -25,6 +25,7 @@ from fdai.shared.providers.cost_governance_lifecycle import (
     CostRevisionPin,
 )
 
+from fdai_cost_governance.review_targets import load_cost_readiness_targets
 from fdai_cost_governance.validation import (
     CostObservationCampaignReducer,
     CostPromotionReadinessGate,
@@ -465,6 +466,29 @@ def test_readiness_blocks_revision_lifecycle_and_threshold_failures() -> None:
     } <= set(result.blocks)
 
 
+def test_failed_attempt_at_successful_revision_does_not_poison_readiness() -> None:
+    receipts = (
+        *_receipts(),
+        replace(
+            _receipt(CostLifecycleOperation.ROLLBACK, 5),
+            receipt_id="receipt:rollback:failed",
+            idempotency_key="lifecycle:rollback:failed",
+            outcome=CostLifecycleOutcome.FAILED,
+            enabled=False,
+        ),
+    )
+
+    result = CostPromotionReadinessGate().evaluate(
+        report=_report(),
+        lifecycle_receipts=receipts,
+        thresholds=CostReadinessThresholds(2, 3_600, Decimal("1")),
+        target_kind=CostReadinessTargetKind.PACKAGE_ACTIVATION,
+        target_id="cost-governance",
+    )
+
+    assert result.decision is CostReadinessDecision.READY_FOR_INDEPENDENT_REVIEW
+
+
 def test_receipt_digest_detects_tampering_and_revision_identity() -> None:
     receipt = _receipt(CostLifecycleOperation.ENABLE, 2)
     assert receipt.verify_digest(receipt.digest)
@@ -524,6 +548,23 @@ def test_no_validation_contract_grants_runtime_authority() -> None:
         assert not getattr(value, "approval_authority", False)
         assert not getattr(value, "execution_authority", False)
         assert not getattr(value, "promotion_authority", False)
+
+
+def test_review_targets_cover_every_manifest_action_and_workflow() -> None:
+    targets = load_cost_readiness_targets(_FIXTURE.parents[4] / "rule-catalog")
+
+    assert tuple((target.kind.value, target.target_id) for target in targets) == (
+        ("package-activation", "cost-governance"),
+        ("action-type", "remediate.remove-orphan-resource"),
+        ("action-type", "remediate.right-size"),
+        ("action-type", "remediate.set-retention-policy"),
+        ("action-type", "remediate.tag-add"),
+        ("workflow", "cost-aware-remediation"),
+    )
+    package = targets[0].thresholds
+    assert package.minimum_samples == 100
+    assert package.minimum_shadow_dwell_seconds == 30 * 86_400
+    assert package.minimum_accuracy == Decimal("0.99")
 
 
 def _invalid_fixture(value: object) -> dict[str, Any]:

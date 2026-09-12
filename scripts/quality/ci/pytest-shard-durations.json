@@ -118,7 +118,7 @@
     "tests/integration/scripts/test_cost_governance_package_boundary.py": 2.811,
     "tests/integration/scripts/test_cost_governance_package_convergence.py": 5.537,
     "tests/integration/scripts/test_cost_governance_semantic_profile.py": 2.194,
-    "tests/integration/scripts/test_decision_boundary_coverage.py": 47.654,
+    "tests/integration/scripts/test_decision_boundary_coverage.py": 22.35,
     "tests/integration/scripts/test_design_context.py": 1.796,
     "tests/integration/scripts/test_developer_workflow.py": 1.011,
     "tests/integration/scripts/test_materialize_authoritative_catalogs.py": 119.174,

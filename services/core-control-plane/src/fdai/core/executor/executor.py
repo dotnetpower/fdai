@@ -581,6 +581,11 @@ class ShadowExecutor:
             "executor_identity_ref": action.executor_identity_ref,
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
+            "workflow_action": (
+                action.workflow_action.model_dump(mode="json")
+                if action.workflow_action is not None
+                else None
+            ),
             "stop_condition": action.stop_condition,
             "blast_radius": {
                 "scope": action.blast_radius.scope.value,
@@ -614,6 +619,11 @@ class ShadowExecutor:
                 "rule_version": rule.version,
                 "resource_ref": action.target_resource_ref,
                 "executor_identity_ref": action.executor_identity_ref,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "dry_run_receipt": dry_run_receipt,
                 "dry_run_passed": True,
                 "recorded_at": datetime.now(tz=UTC).isoformat(),

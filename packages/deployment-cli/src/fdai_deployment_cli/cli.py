@@ -237,6 +237,7 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--resume-verification", action="store_true")
     guided.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
     guided.add_argument("--deploy-dev-operations-gateway", action="store_true")
+    guided.add_argument("--deploy-provider-schema", action="store_true")
     guided.add_argument(
         "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
     )
@@ -248,6 +249,11 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--deploy-operational-history", action="store_true")
     guided.add_argument("--deploy-rca-reader-identity", action="store_true")
     guided.add_argument("--runtime-image-revision", default="")
+    guided.add_argument(
+        "--runtime-image-profile",
+        choices=("core-control-plane", "cost-governance"),
+        default="core-control-plane",
+    )
     guided.add_argument("--output", choices=("text", "json"), default="text")
     guided.set_defaults(handler=_onboard_guided)
     status = onboard_commands.add_parser("status")
@@ -264,6 +270,7 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--attempt", type=int, default=1)
     parser.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--deploy-dev-operations-gateway", action="store_true")
+    parser.add_argument("--deploy-provider-schema", action="store_true")
     parser.add_argument(
         "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
     )
@@ -275,6 +282,11 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--deploy-operational-history", action="store_true")
     parser.add_argument("--deploy-rca-reader-identity", action="store_true")
     parser.add_argument("--runtime-image-revision", default="")
+    parser.add_argument(
+        "--runtime-image-profile",
+        choices=("core-control-plane", "cost-governance"),
+        default="core-control-plane",
+    )
     parser.add_argument("--output", choices=("text", "json"), default="text")
 
 
@@ -976,6 +988,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
         deploy_operator_api=args.deploy_operator_api,
         deploy_operator_channel_edge=args.deploy_operator_channel_edge,
+        deploy_provider_schema=args.deploy_provider_schema,
         deploy_document_ingestion=args.deploy_document_ingestion,
         deploy_identity_migration=args.deploy_identity_migration,
         deploy_isolated_executor=args.deploy_isolated_executor,
@@ -983,6 +996,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_operational_history=args.deploy_operational_history,
         deploy_rca_reader_identity=args.deploy_rca_reader_identity,
         runtime_image_revision=args.runtime_image_revision,
+        runtime_image_profile=args.runtime_image_profile,
     )
 
 

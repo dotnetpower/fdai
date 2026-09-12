@@ -23,7 +23,7 @@ export function buildTargetArchitectureDecision() {
         <div class="ta-evidence-admission" data-ta-diagram="evidence-admission" data-diagram-kind="evidence-flow" role="img" aria-label="권위 있는 출처가 근거 봉투 검증과 수용 게이트를 통과해 DecisionCase를 만드는 아키텍처">
           ${archBoundary("AUTHORITATIVE SOURCES", "서로 독립적인 사실 소유자", `
             ${archNode("evidence-inventory", "TOPOLOGY", "Inventory", "Resource · Link · coverage", { tone: "azure" })}
-            ${archNode("evidence-telemetry", "OBSERVATION", "Metrics / logs / traces", "event time · window · source", { tone: "evidence" })}
+            ${archNode("evidence-telemetry", "OBSERVATION", "Telemetry", "event time · window · source", { tone: "evidence" })}
             ${archNode("evidence-intent", "INTENT", "Policy / objectives", "effective interval · owner", { tone: "policy" })}
             ${archNode("evidence-audit", "HISTORY", "Audit / case history", "immutable revision · outcome", { tone: "store" })}
           `, { id: "evidence-sources", classes: "ta-evidence-sources", tone: "external" })}
@@ -50,7 +50,7 @@ export function buildTargetArchitectureDecision() {
       state: "CONTRACT",
       diagramKind: "semantic-graph",
       title: "운영 온톨로지는 범위, 의도, 현실, 판단, 효과를 한 그래프로 연결합니다",
-      lead: "서비스에서 리소스까지의 구조와 목표, 관측, 선택지, 실행, 결과의 방향을 고정해 모든 에이전트가 같은 대상을 같은 의미로 읽게 합니다.",
+      lead: "서비스와 리소스의 관계를 고정하고 관측 근거를 DecisionCase에 연결합니다. 목표, 선택지, 실행, 결과를 모든 에이전트가 같은 의미로 읽습니다.",
       evidence: ["architectureGuide", "ontology", "constitution"],
       takeaway: "온톨로지는 공유 semantic read model입니다. 그래프 쓰기는 외부 사실을 만들지 않으며 정책, RiskGate, 승인, 실행 신원은 그래프 밖에 남습니다.",
       body: `
@@ -75,7 +75,6 @@ export function buildTargetArchitectureDecision() {
             ${archLink("sem-run", "sem-outcome", { kind: "observation", label: "resulted_in" })}
             ${archNode("sem-outcome", "EFFECT", "ObservedOutcome", "independently measured", { tone: "evidence", primary: true })}
           </div>
-          <div class="ta-semantic-context-link">${archLink("sem-observation", "sem-case", { kind: "read", direction: "down", label: "evidence", measured: false })}</div>
           <footer><span><b>GRAPH OWNS</b> meaning · direction · identity · constraints</span><span><b>GRAPH NEVER OWNS</b> judgment · approval · permission · effect</span></footer>
         </div>`,
     }),
@@ -145,8 +144,8 @@ export function buildTargetArchitectureDecision() {
       chapter: 3,
       state: "CURRENT",
       diagramKind: "decision-gate",
-      title: "Unified RiskGate는 기준표와 모든 상한 중 가장 보수적인 결과를 선택합니다",
-      lead: "위험 feature를 first-match table로 분류한 뒤 Tier, ActionType, 정적·실시간 영향, 역할, 환경을 결합하고 성능 저하와 kill switch를 추가 상한으로 적용합니다.",
+      title: "Unified RiskGate는 실행 상한을 높이지 않습니다",
+      lead: "위험은 first-match 기준표로 분류하고 여섯 실행 상한 중 최솟값을 적용합니다. 시스템 상태, kill switch, promotion도 상한만 낮춥니다.",
       evidence: ["execution", "security", "constitution"],
       takeaway: "사람 승인과 promotion도 상한을 높이지 못합니다. 하나라도 deny면 차단되고, shadow_only면 승인 여부와 무관하게 변경하지 않습니다.",
       body: `
@@ -165,7 +164,6 @@ export function buildTargetArchitectureDecision() {
           ${archLink("risk-min", "risk-result", { kind: "decision", direction: "down" })}
           ${archBoundary("UNIFIED RESULT", "One replayable decision", `
             <div class="ta-risk-results"><span>AUTO</span><span>HUMAN APPROVAL</span><span>OBSERVATION ONLY</span><span>DENY</span></div>
-            <b>matched rule · quorum · mode · path · resolved ceiling</b>
           `, { id: "risk-result", classes: "ta-risk-result", tone: "execution" })}
         </div>`,
     }),

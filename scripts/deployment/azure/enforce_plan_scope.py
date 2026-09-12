@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -35,11 +37,19 @@ _RCA_READER_IDENTITY = frozenset(
     }
 )
 _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
+_PROVIDER_SCHEMA = frozenset({"azurerm_container_app_job.provider_schema[0]"})
 _RUNTIME_CALL_EVIDENCE = frozenset(
     {
         "terraform_data.inventory_runtime_image_update",
         "terraform_data.runtime_call_evidence_transition",
         "terraform_data.runtime_workspace_binding_transition",
+    }
+)
+_COST_GOVERNANCE = frozenset(
+    {
+        "azurerm_role_assignment.inventory_cost_reader",
+        "azurerm_container_app_job.cost_governance_analyzer[0]",
+        "azurerm_container_app_job.cost_governance_collector[0]",
     }
 )
 _OPERATIONAL_HISTORY_PREFIXES = (
@@ -83,6 +93,11 @@ def _model_addresses(resolved: dict[str, Any]) -> frozenset[str]:
             raise ValueError("resolved model capability name is required")
         allowed.add(f'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["{name}"]')
     return frozenset(allowed)
+
+
+def _canonical_digest(value: dict[str, Any]) -> str:
+    canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _primary_replacement_is_exact(
@@ -135,6 +150,7 @@ def enforce(
     *,
     mode: str,
     resolved_models: dict[str, Any] | None = None,
+    active_model_digest: str = "",
     expected_deploy_principal_id: str = "",
 ) -> frozenset[str]:
     """Reject changes outside the selected bounded deployment mode."""
@@ -205,11 +221,27 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "provider-schema":
+        unexpected = sorted(changed.difference(_PROVIDER_SCHEMA))
+        if unexpected:
+            raise ValueError(
+                "Provider-schema plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "runtime-call-evidence":
         unexpected = sorted(changed.difference(_RUNTIME_CALL_EVIDENCE))
         if unexpected:
             raise ValueError(
                 "Runtime-call-evidence plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
+    elif mode == "cost-governance":
+        unexpected = sorted(changed.difference(_COST_GOVERNANCE))
+        if unexpected:
+            raise ValueError(
+                "Cost Governance plan contains changes outside its bounded scope: "
                 + ", ".join(unexpected)
             )
         return changed
@@ -231,7 +263,11 @@ def enforce(
         allowed = _model_addresses(resolved_models)
         label = "Model-binding-only"
         if not changed:
-            raise ValueError("model-binding plan contains no deployment change")
+            if not re.fullmatch(r"[0-9a-f]{64}", active_model_digest):
+                raise ValueError("model-binding plan requires an active Core model digest")
+            if _canonical_digest(resolved_models) == active_model_digest:
+                raise ValueError("model-binding plan contains no deployment or artifact change")
+            return changed
     else:
         raise ValueError(f"unsupported plan scope mode: {mode}")
     unexpected = sorted(changed.difference(allowed))
@@ -257,11 +293,13 @@ def main() -> int:
         "--mode",
         choices=(
             "core-model-quorum",
+            "cost-governance",
             "deploy-identity",
             "design-mocks",
             "monitoring",
             "model-binding",
             "observability-analyzer",
+            "provider-schema",
             "rca-reader-identity",
             "operational-history",
             "runtime-call-evidence",
@@ -285,6 +323,7 @@ def main() -> int:
             plan,
             mode=args.mode,
             resolved_models=resolved,
+            active_model_digest=os.environ.get("ACTIVE_CORE_MODEL_DIGEST", ""),
             expected_deploy_principal_id=os.environ.get("DEPLOY_RUNNER_PRINCIPAL_ID", ""),
         )
     except ValueError as exc:

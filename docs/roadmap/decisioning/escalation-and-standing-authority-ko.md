@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 20bae4fb7f0885c211471305db3567e685c6ebc5
-translation_revised: 2026-09-11
+translation_source_sha: a71aa5be7a44dd63da41033035344733cc553553
+translation_revised: 2026-09-12
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -327,6 +327,32 @@ envelope:                         # 액션은 반드시 이 안에 완전히 들
 폐기 경쟁을 막지 못하므로 현재 shadow 범위에서는 평가기와 함께 연결하지 않습니다. 적용 모드에는
 부작용 커밋 동안 유지되는 별도 검토된 잠금 또는 lease, 통제된 shadow 근거 및 독립적인 승격 검토가
 필요합니다.
+
+선택된 `ops.start-vm@1.0.0` 개발 범위는 리소스 그룹 하나의 VM 하나만 대상으로 하는
+프로바이더 경계 shadow probe를 추가합니다. 기존 `StandingAuthorizationLeaseStore` fence를
+통해 획득한 lease를 비교하고 콘텐츠 주소 영수증을 만들지만,
+`provider_commit_attempted=false`, `effect_applied=false`,
+`provider_capability_outcome=ineligible_capability`를 항상 기록합니다. Azure Resource
+Manager는 VM 시작 수락을 PostgreSQL lease 트랜잭션과 결합할 수 없습니다. 따라서 현재
+shadow fence는 계약에 대한 근거일 뿐 ActionType에 A3-E 자격을 부여하지 않습니다.
+
+같은 범위는 순수 효과 결과 계획기도 추가합니다. 일치한 독립 근거는 전이를 제안하지 않고,
+실패, 시간 초과, 누락, 오래됨, 충돌, 검열 또는 그 밖의 채점 불가 근거는
+`return_to_shadow`를 제안합니다. 계획기는 레지스트리 작성자가 아니며, 상시 권한을 취소하거나
+복구 권한을 부여하지 않습니다. 이후 권한을 수반하는 소비자는 별도로 검토하고 승인해야 합니다.
+
+로컬 acceptance fence 모델은 한 프로세스 안에서 스크립트로 만든 provider 제출 시도 하나의
+순서를 정합니다. callback 전에 `PREPARED`를 영구 기록하고 정확한 lease fence를 다시 확인하며,
+target-fence 다이제스트마다 permit을 최대 하나만 발급하고 `ACCEPTED`, 긍정적으로 입증된
+`NOT_ACCEPTED`, 또는 `UNKNOWN`을 기록합니다. 기존 상태는 모두 추가 제출을 차단합니다.
+시간 초과, 취소, 예외 또는 종료 기록 불확실성은 commit-equivalent 상태로 남아 재시도할 수
+없습니다. 결정론적 `x-ms-client-request-id`는 상관관계 용도일 뿐 provider 측 중복 제거가 아닙니다.
+
+이 모델은 분산 원자성이 아니고, 취소와 제출의 경쟁을 닫지 않으며, VM 효과를 증명하지 않습니다.
+`production_eligible=false`를 선언하고 process-local 테스트 저장소만 가지며 연결하지 않은 상태를
+유지합니다. 엄격한 `StandingAuthorizationLeaseStore` provider-commit 계약과
+`INELIGIBLE_CAPABILITY` 결과는 바뀌지 않습니다.
+
 - **실행이 validity 구간 안에 들어갑니다.** Risk 게이트는 전달 전에
   `now + max_duration_seconds <= valid_until`을 요구합니다. 저장된 instant에는 trusted UTC를,
   실행 기한에는 단조 증가 경과 시간을 사용합니다. 시계 사용 불가 또는 과도한 skew가
@@ -355,6 +381,11 @@ envelope:                         # 액션은 반드시 이 안에 완전히 들
   유효하고 만료되지 않았으며 범위가 맞고 고정된 리비전과 경계가 계속 성립하는 상시 권한을
   검증합니다. Var는 미리 기록된 사람 Approval을 구체화합니다. 판단자, 승인자 및 실행자는
   계속 분리됩니다.
+- **상시 권한은 승인을 충족할 뿐 모드를 높이지 않습니다.** `ActionPromotionRegistry`는
+  독립적인 shadow/enforce 축으로 유지되며 A3-E를 나타낼 수 없습니다. A3-E 검토는
+  Owner를 포함한 서로 다른 두 명의 피싱 방지형 승인을 요구하는 전용
+  `standing-authority-promotion` 변경 등급을 사용합니다. 일반 `enforce-promotion` 등급은
+  이 권한을 충족할 수 없으며, 검토 결정 자체는 실행 권한을 부여하지 않습니다.
 - **Thor 가 실행** 하고, Vidar 는 롤백 principal 로 남으며, Saga 는 명시적
   `standing-authority` 이유와 권한 id 로 감사한다 - 재현 가능하고 귀속 가능한 기록
   ([architecture.instructions.md § 멱등성, 정렬, and 재생](../../../.github/instructions/architecture.instructions.md#idempotency-ordering-and-replay)).
@@ -404,7 +435,9 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
    무응답 인시던트에 대해 에스컬레이션 타이밍이 검증되면 사다리별로 승격한다.
 2. **상시 권한을 shadow 로.** 모든 상시 권한은 `mode: shadow` 와 측정 가능한 승격
    게이트(예: "N 회 shadow trip, 묶음 escape 0, policy-violation escape 0")를
-   선언한다. 강제 적용 승격은 작성 PR 과 절대 묶이지 않는 별도의 Owner 검토 변경이다
+   선언한다. A3-E shadow 검토에서 상시 승인 경로 자격으로의 승격은 별도의 Owner 검토
+   `standing-authority-promotion` 변경이다. 이 승격은 상시 승인 경로만 적격으로 만들며
+   레지스트리 모드를 바꾸거나 `hil`을 우회하지 않고, 작성 PR과 함께 처리하지 않는다
    ([coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 3. **메트릭**(기존 KPI 스트림에 접기,
    [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)): rung 응답 지연, 에스컬레이션 깊이

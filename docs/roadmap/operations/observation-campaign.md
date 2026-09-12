@@ -24,7 +24,7 @@ agent or the Console managed-resource execution authority.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Existing Azure read adapters | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `core/read_investigation/` | Source-native ingest and analyzers continue to own semantic evidence. Campaign coverage reads aggregate snapshot counts, ARG counts, and target-free Log Analytics metrics rather than full semantic payloads. |
+| Existing Azure read adapters | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `delivery/azure/vm_power_state.py`, `core/read_investigation/` | Source-native ingest and analyzers continue to own semantic evidence. Campaign coverage reads aggregate snapshot counts, ARG counts, and target-free Log Analytics metrics rather than full semantic payloads. The exact one-VM power-state reader is action-specific and remains outside campaign registration. |
 | Exact WARA assessment reads | implemented | `delivery/azure/wara_observation.py`; `delivery/wara_assessment_cli.py`; exact evaluator overlay; focused adapter tests | The adapter remains separate from general campaign discovery. A dedicated scheduled Job supplies one deployment-declared umbrella workload, runs exact reviewed queries with complete target visibility and bounded deterministic receipts, and multiplexes its logical result over the existing Pantheon Event Hub. It does not register WARA as a campaign source or grant remediation authority. |
 | Campaign contract and source registry | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, focused contract and catalog tests | The strict semantic-digest catalog covers all ten domains and rejects unknown fields, invalid owners, unbounded limits, and raw activity reason text. |
 | Persistent campaign runner | implemented | `delivery/observation_campaign.py`, focused lifecycle tests | Atomic leases, revision-checked terminal writes, crash recovery, current-state cursors, partial isolation, concurrency four, and privacy-bounded activity summaries are executable. |
@@ -44,10 +44,15 @@ metrics or guards. It does not turn campaign readiness, an empty source result, 
 role into cohort evidence. Product-specific adapters remain behind their exporter workflows, so a
 deployment can select different systems of record without changing Core or this campaign catalog.
 
+The `ops.start-vm@1.0.0` power-state observer is another separate read path. It is constructor-pinned
+to one VM and one resource group, has no campaign schedule or source-catalog entry, and cannot use
+campaign readiness as effect evidence. This shadow-only slice adds no runtime binding or live read.
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Added an exact-target Azure VM power-state read contract for independent `ops.start-vm@1.0.0` effect observation without registering another campaign source. | `current change`; `delivery/azure/vm_power_state.py`; focused exact-scope, identity, response-bound, and fail-closed tests. | Keep the adapter unwired until separately authorized A3-E runtime evidence work; retain equivalent deployed evidence before validation. |
 | 2026-09-04 | implemented | Added a dedicated scheduled WARA Job rather than widening the general observation campaign. Its scope reader requires a fresh promoted generation, complete workload relationships, and exact inventory-owned ARM ids before the existing shadow observer runs. | `current change`; focused WARA CLI, PostgreSQL scope, runtime, and Azure adapter checks passed. | Retain the separately authorized deployed WARA receipt; keep WARA outside general source discovery. |
 | 2026-09-04 | implemented | Hardening round 13 added a companion exact-id `Resources` coverage query before each WARA violation query. Zero violations can be satisfied only when every target is visible to the same read identity. | `current change`; focused partial-RBAC and invisible-target regression. | Preserve the same coverage proof in future scheduled source registration. |
 | 2026-09-04 | implemented | Hardening round 3 fixed the remaining WARA transport-bound gap: only the standard HTTPS management port is accepted, with immutable 4 MiB page and 16 MiB total response ceilings above deployment-tunable lower limits. | `current change`; focused endpoint and response-bound regressions. | Preserve these ceilings in any future scheduled source registration. |

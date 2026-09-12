@@ -1079,6 +1079,7 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert '[[ "$commit_digest" == "$IMAGE_DIGEST" ]]' in _WORKFLOW
     assert "scripts/deployment/service/service_contract.py" in _WORKFLOW
     assert _WORKFLOW.count("scripts/deployment/service/guard_plan.py") == 3
+    assert _WORKFLOW.count('--source-revision "$SOURCE_REVISION"') == 2
     assert '--plan-json "$rollback_dir/edge-disable-plan.json"' in _WORKFLOW
     assert 'scripts/deployment/service/plan_bundle.py" create' in _WORKFLOW
     assert 'scripts/deployment/service/plan_bundle.py" verify' in _WORKFLOW
@@ -1226,6 +1227,11 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
     assert '--revision-suffix "r${GITHUB_RUN_ID}"' in _WORKFLOW
+    assert 'expected_recovery_revision="${service_name}--r${GITHUB_RUN_ID}"' in _WORKFLOW
+    assert '[[ "$recovery_revision" != "$expected_recovery_revision" ]]' in _WORKFLOW
+    assert _WORKFLOW.index('[[ "$recovery_revision" != "$expected_recovery_revision" ]]') < (
+        _WORKFLOW.index('--revision "$recovery_revision"')
+    )
     assert "failed-revisions-before.json" in _WORKFLOW
     assert "rollback revision inventory has invalid primary container layout" in _WORKFLOW
     assert '--arg image "${{ inputs.image_ref }}"' in _WORKFLOW

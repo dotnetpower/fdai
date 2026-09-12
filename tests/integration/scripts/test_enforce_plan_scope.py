@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -116,7 +117,35 @@ def test_runtime_call_evidence_scope_accepts_only_transition_resources() -> None
         )
 
 
-def test_cli_admits_observability_analyzer_scope() -> None:
+def test_provider_schema_scope_accepts_only_provider_job() -> None:
+    provider_schema = "azurerm_container_app_job.provider_schema[0]"
+
+    assert enforce(_plan(provider_schema), mode="provider-schema") == frozenset({provider_schema})
+    assert enforce({"resource_changes": []}, mode="provider-schema") == frozenset()
+    with pytest.raises(ValueError, match="Provider-schema plan contains changes outside"):
+        enforce(
+            _plan(provider_schema, "azurerm_role_assignment.unrelated"),
+            mode="provider-schema",
+        )
+
+
+def test_cost_governance_scope_accepts_only_reader_and_package_jobs() -> None:
+    reader = "azurerm_role_assignment.inventory_cost_reader"
+    collector = "azurerm_container_app_job.cost_governance_collector[0]"
+    analyzer = "azurerm_container_app_job.cost_governance_analyzer[0]"
+
+    assert enforce(_plan(reader, collector, analyzer), mode="cost-governance") == frozenset(
+        {reader, collector, analyzer}
+    )
+    assert enforce({"resource_changes": []}, mode="cost-governance") == frozenset()
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(
+            _plan(reader, collector, analyzer, "module.llm_azure_openai[0].role"),
+            mode="cost-governance",
+        )
+
+
+def test_cli_admits_specialized_scopes() -> None:
     result = subprocess.run(  # noqa: S603 - fixed interpreter and repository script
         [sys.executable, str(_PATH), "--help"],
         check=True,
@@ -124,7 +153,9 @@ def test_cli_admits_observability_analyzer_scope() -> None:
         text=True,
     )
 
+    assert "cost-governance" in result.stdout
     assert "observability-analyzer" in result.stdout
+    assert "provider-schema" in result.stdout
 
 
 def test_operational_history_scope_accepts_only_storage_endpoint_and_job() -> None:
@@ -198,12 +229,33 @@ def test_model_scope_uses_non_hil_sealed_capabilities() -> None:
         )
 
 
-def test_model_scope_requires_a_change() -> None:
-    with pytest.raises(ValueError, match="contains no deployment change"):
+def test_model_scope_accepts_artifact_only_transition() -> None:
+    resolved = {"capabilities": []}
+    resolved_digest = hashlib.sha256(
+        json.dumps(resolved, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+
+    assert (
         enforce(
             {"resource_changes": []},
             mode="model-binding",
-            resolved_models={"capabilities": []},
+            resolved_models=resolved,
+            active_model_digest="a" * 64,
+        )
+        == frozenset()
+    )
+    with pytest.raises(ValueError, match="no deployment or artifact change"):
+        enforce(
+            {"resource_changes": []},
+            mode="model-binding",
+            resolved_models=resolved,
+            active_model_digest=resolved_digest,
+        )
+    with pytest.raises(ValueError, match="requires an active Core model digest"):
+        enforce(
+            {"resource_changes": []},
+            mode="model-binding",
+            resolved_models=resolved,
         )
 
 

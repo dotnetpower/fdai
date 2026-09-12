@@ -1,0 +1,322 @@
+name: cost-governance-lifecycle
+run-name: "cost-lifecycle-${{ inputs.operation }}-${{ inputs.request_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Protected environment that owns the package activation store."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact protected-main revision containing this workflow."
+        type: string
+        required: true
+      release_source_revision:
+        description: "Exact reviewed source revision represented by the active package image."
+        type: string
+        required: true
+      operation:
+        description: "One package lifecycle transition."
+        type: choice
+        options: [install, enable, disable, upgrade, rollback]
+        required: true
+      expected_revision:
+        description: "Current activation revision, or 0 for first install."
+        type: string
+        required: true
+      request_id:
+        description: "Stable idempotency key for this reviewed transition."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+  packages: read
+
+concurrency:
+  group: cost-governance-lifecycle-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    env:
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      RELEASE_SOURCE_REVISION: ${{ inputs.release_source_revision }}
+      LIFECYCLE_OPERATION: ${{ inputs.operation }}
+      EXPECTED_REVISION: ${{ inputs.expected_revision }}
+      LIFECYCLE_REQUEST_ID: ${{ inputs.request_id }}
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/cost-governance-lifecycle.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact lifecycle controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Checkout exact package release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_source_revision }}
+          fetch-depth: 1
+          path: .fdai-release-source
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify exact revisions and required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_REVISION" =~ ^[0-9]+$ ]]
+          [[ "$LIFECYCLE_REQUEST_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          [[ "$(git -C .fdai-release-source rev-parse HEAD)" == "$RELEASE_SOURCE_REVISION" ]]
+          git fetch --no-tags origin main
+          for revision in "$TARGET_COMMIT_SHA" "$RELEASE_SOURCE_REVISION"; do
+            git merge-base --is-ancestor "$revision" origin/main
+            checks="$RUNNER_TEMP/required-ci-${revision}.json"
+            gh api "repos/$GITHUB_REPOSITORY/commits/$revision/check-runs?per_page=100" > "$checks"
+            jq -e '[.check_runs[] | select(.name == "required" and .conclusion == "success")] | length >= 1' "$checks" >/dev/null
+          done
+
+      - name: Build exact package wheel
+        working-directory: .fdai-release-source
+        run: |
+          set -euo pipefail
+          wheel_dir="$RUNNER_TEMP/cost-governance-wheel"
+          mkdir -p "$wheel_dir"
+          uv build --frozen --package fdai-cost-governance --wheel --out-dir "$wheel_dir"
+          mapfile -t wheels < <(find "$wheel_dir" -maxdepth 1 -type f -name '*.whl' -print)
+          [[ "${#wheels[@]}" -eq 1 ]]
+          echo "COST_GOVERNANCE_WHEEL=${wheels[0]}" >> "$GITHUB_ENV"
+
+      - name: Authenticate and bind private deployment state
+        env:
+          ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+          DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+          OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+          cp infra/backend.azurerm.tf.example infra/backend.tf
+          terraform -chdir=infra init -input=false \
+            -backend-config="resource_group_name=$OPS_RESOURCE_GROUP_NAME" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Verify active Cost Governance distribution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
+          core_app="$(terraform -chdir=infra output -raw core_app_name)"
+          collector_job="$(terraform -chdir=infra output -raw cost_governance_collector_job_name)"
+          analyzer_job="$(terraform -chdir=infra output -raw cost_governance_analyzer_job_name)"
+          [[ -n "$collector_job" && -n "$analyzer_job" ]]
+          private_dir="$RUNNER_TEMP/cost-governance-runtime"
+          install -d -m 0700 "$private_dir"
+          az containerapp show --resource-group "$resource_group" --name "$core_app" \
+            --output json > "$private_dir/core.json"
+          az containerapp job show --resource-group "$resource_group" --name "$collector_job" \
+            --output json > "$private_dir/collector.json"
+          az containerapp job show --resource-group "$resource_group" --name "$analyzer_job" \
+            --output json > "$private_dir/analyzer.json"
+          export RUNTIME_EVIDENCE_DIR="$private_dir"
+          uv run --frozen --package fdai-cost-governance python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path(os.environ["RUNTIME_EVIDENCE_DIR"])
+          documents = {
+              name: json.loads((root / f"{name}.json").read_text())
+              for name in ("core", "collector", "analyzer")
+          }
+          images = {}
+          runtime = {}
+          for name, document in documents.items():
+              containers = document.get("properties", {}).get("template", {}).get("containers", [])
+              if len(containers) != 1 or not isinstance(containers[0], dict):
+                  raise SystemExit(f"{name} runtime must contain one container")
+              image = containers[0].get("image", "")
+              match = re.fullmatch(
+                  r"[a-z0-9.-]+/[a-z0-9._/-]+@sha256:([0-9a-f]{64})",
+                  image,
+              )
+              if match is None or "/fdai-cost-governance@" not in image:
+                  raise SystemExit(
+                      f"{name} does not use a digest-pinned Cost Governance image"
+                  )
+              images[name] = match.group(1)
+              runtime[name] = {
+                  item["name"]: item.get("value", f"secret:{item.get('secretRef', '')}")
+                  for item in containers[0].get("env", [])
+                  if isinstance(item, dict)
+                  and isinstance(item.get("name"), str)
+                  and item["name"].startswith("FDAI_COST_")
+                  and item["name"] != "FDAI_COST_STORE_DSN"
+              }
+          if len(set(images.values())) != 1:
+              raise SystemExit("Core and Cost Governance jobs must use one image digest")
+          ontology_ids = {
+              values.get("FDAI_COST_ONTOLOGY_RELEASE_ID", "")
+              for name, values in runtime.items()
+              if name != "core"
+          }
+          if len(ontology_ids) != 1 or not next(iter(ontology_ids)):
+              raise SystemExit("Cost Governance jobs must bind one ontology release id")
+          config = {
+              "schema_version": "1.0.0",
+              "image_digest": "sha256:" + next(iter(images.values())),
+              "runtime": runtime,
+          }
+          path = root / "runtime-config.json"
+          path.write_text(
+              json.dumps(config, separators=(",", ":"), sort_keys=True),
+              encoding="utf-8",
+          )
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(
+                  f"COST_GOVERNANCE_IMAGE_DIGEST=sha256:{next(iter(images.values()))}\n"
+              )
+              output.write(
+                  "COST_GOVERNANCE_ONTOLOGY_RELEASE_ID="
+                  f"{next(iter(ontology_ids))}\n"
+              )
+              output.write(f"COST_GOVERNANCE_RUNTIME_CONFIG={path}\n")
+          PY
+          image_digest="$(jq -er '.image_digest' "$private_dir/runtime-config.json")"
+          timeout 60s gh attestation verify \
+            "oci://ghcr.io/${GITHUB_REPOSITORY,,}/fdai-cost-governance@${image_digest}" \
+            --bundle-from-oci \
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "$RELEASE_SOURCE_REVISION" \
+            --predicate-type "https://slsa.dev/provenance/v1" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            >/dev/null
+          {
+            echo "COST_GOVERNANCE_RESOURCE_GROUP=$resource_group"
+            echo "COST_GOVERNANCE_COLLECTOR_JOB=$collector_job"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply exact lifecycle transition
+        id: transition
+        env:
+          LIFECYCLE_ACTOR: github-actions:${{ github.actor }}
+        run: |
+          set -euo pipefail
+          vault_uri="$(terraform -chdir=infra output -raw key_vault_uri)"
+          [[ "$vault_uri" =~ ^https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?$ ]]
+          migration_secret_name="$(jq -er '.services["core-control-plane"].migration_dsn_secret_name' scripts/deployment/service/service-matrix.json)"
+          migration_dsn="$(timeout 60s az keyvault secret show --vault-name "${BASH_REMATCH[1]}" --name "$migration_secret_name" --query value --only-show-errors --output tsv)"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          receipt="$RUNNER_TEMP/cost-governance-lifecycle-receipt.json"
+          command=(
+            uv run --frozen --package fdai-cost-governance
+            python -m fdai_cost_governance.lifecycle_cli
+            "$LIFECYCLE_OPERATION"
+            --expected-revision "$EXPECTED_REVISION"
+            --request-id "$LIFECYCLE_REQUEST_ID"
+          )
+          if [[ "$LIFECYCLE_OPERATION" == "enable" || "$LIFECYCLE_OPERATION" == "disable" ]]; then
+            command+=(--actor-id "$LIFECYCLE_ACTOR")
+          else
+            command+=(
+              --wheel "$COST_GOVERNANCE_WHEEL"
+              --image-digest "$COST_GOVERNANCE_IMAGE_DIGEST"
+              --source-revision "$RELEASE_SOURCE_REVISION"
+              --runtime-config "$COST_GOVERNANCE_RUNTIME_CONFIG"
+              --ontology-release-id "$COST_GOVERNANCE_ONTOLOGY_RELEASE_ID"
+              --evidence-ref "workflow:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
+              --evidence-ref "image:${COST_GOVERNANCE_IMAGE_DIGEST}"
+            )
+          fi
+          "${command[@]}" > "$receipt"
+          jq -e --arg operation "$LIFECYCLE_OPERATION" \
+            --arg revision "$RELEASE_SOURCE_REVISION" \
+            '.operation == $operation and .source_revision == $revision and
+             .evidence_kind == "live-authoritative" and
+             (.replayed | type == "boolean") and
+             (.current_enabled | type == "boolean")' "$receipt" >/dev/null
+          echo "receipt=$receipt" >> "$GITHUB_OUTPUT"
+          echo "start_collector=$(jq -r '
+            .operation == "enable" and .replayed == false and .current_enabled == true
+          ' "$receipt")" >> "$GITHUB_OUTPUT"
+          unset FDAI_STATE_STORE_DSN migration_dsn
+
+      - name: Start first bounded collector pass
+        if: inputs.operation == 'enable' && steps.transition.outputs.start_collector == 'true'
+        run: |
+          set -euo pipefail
+          az containerapp job start \
+            --resource-group "$COST_GOVERNANCE_RESOURCE_GROUP" \
+            --name "$COST_GOVERNANCE_COLLECTOR_JOB" \
+            --output none
+
+      - name: Attest lifecycle receipt
+        id: attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ steps.transition.outputs.receipt }}
+
+      - name: Upload lifecycle evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: cost-governance-lifecycle-${{ inputs.operation }}-${{ inputs.request_id }}
+          path: |
+            ${{ steps.transition.outputs.receipt }}
+            ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Clean private state material
+        if: always() && steps.protected-source.outcome == 'success'
+        run: |
+          unset FDAI_STATE_STORE_DSN migration_dsn
+          rm -f infra/backend.tf
+          rm -rf infra/.terraform "$RUNNER_TEMP/cost-governance-runtime"
