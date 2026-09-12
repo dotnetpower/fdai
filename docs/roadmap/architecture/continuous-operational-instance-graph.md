@@ -308,8 +308,7 @@ Open environment self-identity values (exact ARM IDs or unique endpoint aliases)
 explicit self-links remain blocked. Reciprocal `depends_on` facts require one candidate per direction,
 source-owned evidence, owner-to-reference mappings, and complete-generation endpoint, schema, observation-time,
 and independent-verifier checks under `inventory-generation-verifier.v2`. Duplicate and unsupported reversed edges still block.
-Projection source changes also require regenerating `eval/golden-dataset/semantic-intent-coverage.json`
-with `scripts/automation/build_semantic_intent_coverage.py`; source commitments never change evaluation thresholds.
+Regenerate semantic-intent coverage after projection edits; source commitments never change evaluation thresholds.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
