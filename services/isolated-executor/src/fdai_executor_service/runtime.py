@@ -26,10 +26,10 @@ from fdai_service_contracts.executor import (
     EventBus,
     EventEnvelope,
     ExecutionPath,
-    ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorShadowReceipt,
     Mode,
+    ResourceLock,
     SafeguardBoundExecutorCommand,
     executor_command_id_from_action_payload,
     safeguard_bound_executor_command_id,
@@ -125,6 +125,7 @@ class IsolatedExecutorCommandConsumer:
         receipt_outbox: ExecutorReceiptOutbox | None = None,
         outbox_readiness_freshness_seconds: float | None = None,
         monotonic: Callable[[], float] = time.monotonic,
+        command_lock: ResourceLock | None = None,
     ) -> None:
         if not command_topic or not receipt_topic or not group_id or retry_seconds <= 0:
             raise ValueError("isolated Executor consumer settings MUST be valid")
@@ -145,6 +146,8 @@ class IsolatedExecutorCommandConsumer:
         if self._outbox_readiness_freshness_seconds < retry_seconds:
             raise ValueError("receipt outbox freshness MUST cover at least one retry interval")
         self._monotonic = monotonic
+        self._command_lock = command_lock
+        self._local_command_lock = asyncio.Lock()
         self._outbox_task: asyncio.Task[None] | None = None
         self._last_outbox_success: float | None = None
 
@@ -243,6 +246,29 @@ class IsolatedExecutorCommandConsumer:
                     await self._dead_letter(envelope, "executor_command_identity_conflict")
                     return None
                 legacy_bound_identity = True
+        if self._command_lock is None:
+            async with self._local_command_lock:
+                return await self._handle_validated_command(
+                    envelope,
+                    command,
+                    legacy_bound_identity=legacy_bound_identity,
+                )
+        async with self._command_lock.acquire(f"fdai:executor-command:{command.command_id}"):
+            return await self._handle_validated_command(
+                envelope,
+                command,
+                legacy_bound_identity=legacy_bound_identity,
+            )
+
+    async def _handle_validated_command(
+        self,
+        envelope: EventEnvelope,
+        command: AnyExecutorCommand,
+        *,
+        legacy_bound_identity: bool,
+    ) -> ExecutorReceipt | None:
+        """Run one command and commit its receipt under command serialization."""
+
         existing_payload = await self._receipt_outbox.read_committed_receipt(
             str(command.command_id)
         )
@@ -371,9 +397,9 @@ def _receipt_matches_command(
         and receipt.action_payload_digest == command.action_payload_digest
         and receipt.requested_mode is command.requested_mode
         and not (
-            isinstance(command, ExecutorCommand)
-            and isinstance(receipt, ExecutorEffectReceipt)
+            isinstance(receipt, ExecutorEffectReceipt)
             and command.execution_path is not ExecutionPath.DIRECT_API
+            and not _command_identity_binds_execution_path(command)
         )
         and (
             not isinstance(command, SafeguardBoundExecutorCommand)
@@ -383,6 +409,21 @@ def _receipt_matches_command(
                 and receipt.safeguard_proof_bundle_digest == command.safeguard_proof_bundle_digest
             )
         )
+    )
+
+
+def _command_identity_binds_execution_path(command: AnyExecutorCommand) -> bool:
+    if not isinstance(command, SafeguardBoundExecutorCommand):
+        return False
+    return command.command_id == safeguard_bound_executor_command_id(
+        action_payload=command.action_payload,
+        idempotency_key=command.idempotency_key,
+        execution_path=command.execution_path.value,
+        safeguard_bundle_digest=command.safeguard_proof_bundle_digest,
+        source_revision=command.source_revision,
+        attempt=command.attempt,
+        issued_at=command.issued_at,
+        deadline_at=command.deadline_at,
     )
 
 
