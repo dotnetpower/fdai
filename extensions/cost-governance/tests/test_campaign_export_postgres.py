@@ -73,15 +73,15 @@ async def test_postgres_source_joins_complete_authoritative_lineage() -> None:
             ).format(*(sql.Identifier(schema) for _ in range(5)))
         )
         connection.execute(
-            sql.SQL(
-                "INSERT INTO {}.cost_disclosure_audit VALUES (%s, TRUE, %s)"
-            ).format(sql.Identifier(schema)),
+            sql.SQL("INSERT INTO {}.cost_disclosure_audit VALUES (%s, TRUE, %s)").format(
+                sql.Identifier(schema)
+            ),
             ("decision-001", observed_at),
         )
         connection.execute(
-            sql.SQL(
-                "INSERT INTO {}.cost_disclosure_audit_retention VALUES (%s, NULL)"
-            ).format(sql.Identifier(schema)),
+            sql.SQL("INSERT INTO {}.cost_disclosure_audit_retention VALUES (%s, NULL)").format(
+                sql.Identifier(schema)
+            ),
             ("decision-001",),
         )
         entries = (
@@ -89,13 +89,13 @@ async def test_postgres_source_joins_complete_authoritative_lineage() -> None:
                 "risk_gate.unified",
                 {
                     "action_id": action_id,
-                        "action_type_id": "remediate.right-size",
-                        "authority": {
-                            "ceiling_inputs": {
-                                "kill_switch_engaged": False,
-                                "system_degraded": False,
-                            }
-                        },
+                    "action_type_id": "remediate.right-size",
+                    "authority": {
+                        "ceiling_inputs": {
+                            "kill_switch_engaged": False,
+                            "system_degraded": False,
+                        }
+                    },
                     "correlation_id": "correlation-001",
                     "decision": "shadow",
                     "producer_principal": "Forseti",
@@ -159,15 +159,13 @@ async def test_postgres_source_joins_complete_authoritative_lineage() -> None:
         for offset, (action_kind, entry) in enumerate(entries):
             connection.execute(
                 sql.SQL(
-                    "INSERT INTO {}.audit_log (action_kind, entry, created_at) "
-                    "VALUES (%s, %s, %s)"
+                    "INSERT INTO {}.audit_log (action_kind, entry, created_at) VALUES (%s, %s, %s)"
                 ).format(sql.Identifier(schema)),
                 (action_kind, Jsonb(entry), observed_at + timedelta(seconds=offset)),
             )
         connection.execute(
             sql.SQL(
-                "INSERT INTO {}.audit_log (action_kind, entry, created_at) "
-                "VALUES (%s, %s, %s)"
+                "INSERT INTO {}.audit_log (action_kind, entry, created_at) VALUES (%s, %s, %s)"
             ).format(sql.Identifier(schema)),
             (
                 "risk_gate.unified",
@@ -203,9 +201,7 @@ async def test_postgres_source_joins_complete_authoritative_lineage() -> None:
             ("process-001", "cost-aware-remediation"),
         )
         connection.execute(
-            sql.SQL("INSERT INTO {}.state_kv VALUES (%s, %s)").format(
-                sql.Identifier(schema)
-            ),
+            sql.SQL("INSERT INTO {}.state_kv VALUES (%s, %s)").format(sql.Identifier(schema)),
             (
                 "proposal-001",
                 Jsonb(

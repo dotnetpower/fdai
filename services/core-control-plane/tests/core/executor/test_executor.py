@@ -195,12 +195,16 @@ async def test_workflow_lineage_is_identical_in_intent_and_terminal_audit() -> N
     await executor.execute(action=action, rule=_rule())
 
     entries = [row["entry"] for row in audit.audit_entries]
-    assert entries[0]["workflow_action"] == entries[1]["workflow_action"] == {
-        "process_id": "process-cost-001",
-        "step_id": "apply-rightsize",
-        "proposal_ref": "proposal:cost:001",
-        "attempt": 1,
-    }
+    assert (
+        entries[0]["workflow_action"]
+        == entries[1]["workflow_action"]
+        == {
+            "process_id": "process-cost-001",
+            "step_id": "apply-rightsize",
+            "proposal_ref": "proposal:cost:001",
+            "attempt": 1,
+        }
+    )
 
 
 @pytest.mark.asyncio

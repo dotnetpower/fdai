@@ -313,8 +313,7 @@ class PostgresCostGovernanceReader:
                     (
                         record.decision_id,
                         record.retention_until,
-                        record.retention_until
-                        + timedelta(days=COST_DISCLOSURE_PURGE_GRACE_DAYS),
+                        record.retention_until + timedelta(days=COST_DISCLOSURE_PURGE_GRACE_DAYS),
                         record.legal_hold,
                         record.legal_hold_ref,
                         record.occurred_at,

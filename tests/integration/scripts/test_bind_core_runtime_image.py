@@ -302,10 +302,9 @@ def test_cost_governance_profile_binds_one_digest_to_core_and_jobs(tmp_path: Pat
     )
 
     assert verification.returncode == 0, verification.stderr
-    assert (
-        f"oci://ghcr.io/example/fdai/fdai-cost-governance@{_SOURCE_DIGEST}"
-        in verify_paths["gh_args"].read_text(encoding="ascii")
-    )
+    assert f"oci://ghcr.io/example/fdai/fdai-cost-governance@{_SOURCE_DIGEST}" in verify_paths[
+        "gh_args"
+    ].read_text(encoding="ascii")
 
     bind_root = tmp_path / "bind"
     bind_root.mkdir()

@@ -39,12 +39,12 @@ def test_job_schedules_default_absent() -> None:
 
 def test_cost_governance_image_is_digest_pinned_and_job_names_are_exported() -> None:
     root_variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
-    module_variables = (
-        _ROOT / "infra/modules/compute/container-apps/variables.tf"
-    ).read_text(encoding="utf-8")
-    module_outputs = (
-        _ROOT / "infra/modules/compute/container-apps/outputs.tf"
-    ).read_text(encoding="utf-8")
+    module_variables = (_ROOT / "infra/modules/compute/container-apps/variables.tf").read_text(
+        encoding="utf-8"
+    )
+    module_outputs = (_ROOT / "infra/modules/compute/container-apps/outputs.tf").read_text(
+        encoding="utf-8"
+    )
     root_outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
 
     for source in (root_variables, module_variables):

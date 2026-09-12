@@ -37,8 +37,7 @@ class _Store:
         return tuple(
             item
             for item in self.episodes[:limit]
-            if item.campaign_id == campaign_id
-            and item.revision_pin_digest == revision_pin_digest
+            if item.campaign_id == campaign_id and item.revision_pin_digest == revision_pin_digest
         )
 
     async def append_cost_campaign_episode(

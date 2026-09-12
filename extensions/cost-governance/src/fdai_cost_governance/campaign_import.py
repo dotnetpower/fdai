@@ -393,8 +393,7 @@ def _same_observation(
     prior_body.pop("evidence_refs")
     candidate_body.pop("evidence_refs")
     return (
-        prior_body == candidate_body
-        and f"observation:{observation_digest}" in prior.evidence_refs
+        prior_body == candidate_body and f"observation:{observation_digest}" in prior.evidence_refs
     )
 
 

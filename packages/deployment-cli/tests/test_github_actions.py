@@ -901,7 +901,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "document_ocr_action": "preserve",
                 "runtime_call_evidence_transition": False,
                 "runtime_image_revision": "",
-                    "runtime_image_profile": "core-control-plane",
+                "runtime_image_profile": "core-control-plane",
             },
         },
         ensure_ascii=True,

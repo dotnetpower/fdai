@@ -308,9 +308,7 @@ def test_lifecycle_request_ids_bind_every_release_and_settings_input(
         1,
         "enable-request-identity",
     )
-    settings_statement = (
-        "SELECT * FROM fdai_set_cost_governance_enabled(%s, %s, %s, %s, %s)"
-    )
+    settings_statement = "SELECT * FROM fdai_set_cost_governance_enabled(%s, %s, %s, %s, %s)"
     for values in (settings, settings):
         with psycopg.connect(disposable_database_url) as connection:
             assert connection.execute(settings_statement, values).fetchone() is not None
@@ -332,11 +330,7 @@ def test_lifecycle_request_ids_bind_every_release_and_settings_input(
             """
         ).fetchall()
     assert all(
-        sum(
-            isinstance(item, str) and item.startswith("request:sha256:")
-            for item in row[0]
-        )
-        == 1
+        sum(isinstance(item, str) and item.startswith("request:sha256:") for item in row[0]) == 1
         for row in refs
     )
 
@@ -436,10 +430,13 @@ async def test_campaign_retention_uses_grace_and_legal_hold_before_tombstone(
         recorded_at=observed_at + timedelta(days=1),
         idempotency_key="hold:campaign-retention",
     )
-    assert await store.purge_validation_evidence(
-        now=observed_at + timedelta(days=431),
-        limit=10,
-    ) == ()
+    assert (
+        await store.purge_validation_evidence(
+            now=observed_at + timedelta(days=431),
+            limit=10,
+        )
+        == ()
+    )
     assert await store.set_validation_legal_hold(
         evidence_kind="campaign-episode",
         evidence_id=episode.episode_id,

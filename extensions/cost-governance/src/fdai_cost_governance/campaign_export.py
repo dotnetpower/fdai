@@ -22,6 +22,8 @@ from .validation import CostReadinessTargetKind
 
 _ACTION_OUTCOME = "measurement.action_outcome.v1"
 _RISK_DECISION = "risk_gate.unified"
+
+
 class NoCompleteCostObservationsError(ValueError):
     """The bounded source window contains no complete observation quartet."""
 
@@ -45,9 +47,7 @@ class PostgresCostCampaignObservationSource:
         if not dsn or not operator_dsn:
             raise ValueError("Cost campaign export DSNs MUST be configured")
         self._dsn = dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-        self._operator_dsn = operator_dsn.replace(
-            "postgresql+psycopg://", "postgresql://", 1
-        )
+        self._operator_dsn = operator_dsn.replace("postgresql+psycopg://", "postgresql://", 1)
 
     async def observations(
         self,
@@ -339,9 +339,7 @@ def _normalize_observation(
             terminal,
             rollback=outcome_kind == "rollback",
         ),
-        "rollback_evidence_complete": (
-            outcome_kind != "rollback" or rollback_succeeded is True
-        ),
+        "rollback_evidence_complete": (outcome_kind != "rollback" or rollback_succeeded is True),
         "safeguards_complete": safeguards_complete,
         "settlement_statuses": [settlement],
         "target_refs": target_refs,
@@ -571,10 +569,7 @@ def _protected_objectives_complete(
         not isinstance(decision_case, Mapping)
         or not isinstance(selection, Mapping)
         or not isinstance(mutation_plan, Mapping)
-        or (
-            outcome is not None
-            and mutation_plan.get("plan_id") != outcome.get("prediction_id")
-        )
+        or (outcome is not None and mutation_plan.get("plan_id") != outcome.get("prediction_id"))
     ):
         return False
     protected = _bounded_text_set(decision_case.get("protected_objective_ids"), maximum=32)
@@ -608,9 +603,7 @@ def _protected_objectives_complete(
             return False
         objective_ids.add(objective_id)
         metrics.add(metric)
-    return protected <= objective_ids and (
-        outcome is None or outcome.get("metric") in metrics
-    )
+    return protected <= objective_ids and (outcome is None or outcome.get("metric") in metrics)
 
 
 def load_cost_release_qualification(

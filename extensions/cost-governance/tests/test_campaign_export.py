@@ -106,7 +106,7 @@ def _row() -> dict[str, object]:
                         }
                     ],
                 },
-            }
+            },
         },
     }
 

@@ -104,9 +104,9 @@ async def _run(args: argparse.Namespace, env: Mapping[str, str]) -> dict[str, ob
             ontology_release_id=ontology_release_id,
         )
 
-    receipts = await PostgresCostGovernanceValidationStore(
-        dsn=dsn
-    ).read_cost_lifecycle_receipts(_PACKAGE_ID, limit=10_000)
+    receipts = await PostgresCostGovernanceValidationStore(dsn=dsn).read_cost_lifecycle_receipts(
+        _PACKAGE_ID, limit=10_000
+    )
     receipt = next(
         (item for item in receipts if item.idempotency_key == args.request_id),
         None,
@@ -240,8 +240,7 @@ def _release_identity(path: Path) -> _ReleaseIdentity:
         if sum(item.file_size for item in archive.infolist()) > _MAX_WHEEL_CONTENT_BYTES:
             raise ValueError("wheel uncompressed content exceeds the byte limit")
         if any(
-            PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts
-            for name in names
+            PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts for name in names
         ):
             raise ValueError("wheel member path escapes the package archive")
         metadata_names = tuple(

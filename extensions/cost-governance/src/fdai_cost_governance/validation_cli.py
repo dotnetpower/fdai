@@ -83,9 +83,7 @@ async def _run(args: argparse.Namespace, environ: dict[str, str]) -> tuple[int, 
             maximum_episodes=policy.maximum_batch_episodes,
         )
         imported_at = (
-            datetime.now(tz=UTC)
-            if args.imported_at is None
-            else _timestamp(args.imported_at)
+            datetime.now(tz=UTC) if args.imported_at is None else _timestamp(args.imported_at)
         )
         report = await import_cost_campaign_observations(
             batch,
@@ -138,9 +136,7 @@ def evaluate_cost_campaign(
     results: list[dict[str, object]] = []
     for target in targets:
         review_target = (
-            None
-            if target.kind is CostReadinessTargetKind.PACKAGE_ACTIVATION
-            else target.target_id
+            None if target.kind is CostReadinessTargetKind.PACKAGE_ACTIVATION else target.target_id
         )
         selected = tuple(
             episode

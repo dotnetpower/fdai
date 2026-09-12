@@ -102,9 +102,7 @@ async def test_disclosure_audit_is_content_free_and_idempotent(
         retention_until=datetime(2026, 9, 12, tzinfo=UTC)
         + timedelta(days=COST_DISCLOSURE_RETENTION_DAYS),
     )
-    reader = PostgresCostGovernanceReader(
-        PostgresCostGovernanceConfig(dsn=disposable_database_url)
-    )
+    reader = PostgresCostGovernanceReader(PostgresCostGovernanceConfig(dsn=disposable_database_url))
 
     await reader.append_disclosure_audit(record)
     await reader.append_disclosure_audit(record)
@@ -141,9 +139,7 @@ async def test_disclosure_retention_honors_legal_hold_before_tombstone(
         occurred_at=occurred_at,
         retention_until=occurred_at + timedelta(days=COST_DISCLOSURE_RETENTION_DAYS),
     )
-    reader = PostgresCostGovernanceReader(
-        PostgresCostGovernanceConfig(dsn=disposable_database_url)
-    )
+    reader = PostgresCostGovernanceReader(PostgresCostGovernanceConfig(dsn=disposable_database_url))
     await reader.append_disclosure_audit(record)
 
     assert await reader.set_disclosure_legal_hold(
@@ -153,10 +149,13 @@ async def test_disclosure_retention_honors_legal_hold_before_tombstone(
         recorded_at=occurred_at + timedelta(days=1),
         idempotency_key="hold:case-001",
     )
-    assert await reader.purge_disclosure_audit(
-        now=occurred_at + timedelta(days=431),
-        limit=10,
-    ) == ()
+    assert (
+        await reader.purge_disclosure_audit(
+            now=occurred_at + timedelta(days=431),
+            limit=10,
+        )
+        == ()
+    )
     assert await reader.set_disclosure_legal_hold(
         decision_id=record.decision_id,
         expected_revision=2,
