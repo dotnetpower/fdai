@@ -15,8 +15,8 @@ revisions the user explicitly enqueued or named. When reachable commits are pend
 validator owns the queue lock, run `make validation-run` exactly once and report the validated
 `HEAD`, commit count, and any failed gate. If another manual validator owns the lock, report that
 validation is active and do not wait, poll, or retry. Run `make validation-all` only when the user
-explicitly identifies a merge or release boundary. Do not invoke broad checks outside these
-explicit requests.
+explicitly requests local whole-repository validation. A merge or release request alone does not
+request duplicate local whole-suite checks. Do not invoke broad checks outside explicit requests.
 
 One optional run validates every reachable pending commit as one newest-first snapshot. Each
 snapshot receives dependency, fast-gate, structural-gate, and changed-test evidence before any

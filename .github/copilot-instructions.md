@@ -62,15 +62,16 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    local read-only tools may use wider batches. A provider `429` ends concurrent fan-out; continue
    with local tools or one serial subagent, and do not retry until a new hypothesis requires it.
 4. Run the narrowest executable check that can falsify the change. Use local focused tests instead
-   of a push or pull request as the edit-loop test runner. For a completed isolated batch, run
-   `make test-changed`; for an exact committed snapshot, run
-   `make test-changed DIFF=<commit>^..<commit>` and
-   `bash scripts/verify.sh --fast --diff <commit>^..<commit>` before requesting or waiting for
-   remote CI. Worker sessions MUST NOT run repository-wide checks, bare `verify.sh --fast`, or
+   of a push or pull request as the edit-loop test runner. Follow
+   [the validation stages and reuse contract](instructions/coding-conventions.instructions.md#testing).
+   Commit creation alone is not a reason to repeat a successful check: compare its actual code,
+   test, configuration, dependency, and environment inputs with the content being delivered.
+   Worker sessions MUST NOT run repository-wide checks, bare `verify.sh --fast`, or
    `verify.sh --all` unless explicitly requested.
    A session MUST NOT delegate validation of a dirty worktree. Delegated validation requires a
    clean committed snapshot in an isolated worktree. CI owns integration validation for pushed
-   SHAs, and `make validation-all` is reserved for explicit merge or release boundaries. The
+   SHAs. A merge or release request does not itself require duplicate local whole-suite validation.
+   `make validation-all` requires an explicit local whole-suite request. The
    central fast validator MAY defer gates duplicated by its mandatory structural stage, but both
    stages and the exact structural input digest remain in the same snapshot receipt.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
@@ -92,7 +93,9 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    authority. Use a task branch or isolated worktree for each active outcome. Only superseded PR
    runs may be cancelled; every integrated `main` revision must reach a terminal CI result before
    another change enters `main`. A session waiting on external evidence is blocked or idle, not
-   active WIP.
+   active WIP. Report local implementation, publication, and deployment completion separately.
+   Do not poll or rerun remote work to test an edit. Full image publication and attestation belong
+   to an explicitly selected release or deployment candidate, not every source change.
 7. Prevent sensitive-input prompts. Secrets MUST NOT cross chat, tools, command lines, generated
    files, logs, or task output. Use existing identity or provider-hosted authorization; if a running
    terminal requests a secret, the user enters it directly. Never weaken a security control.

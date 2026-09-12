@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 263e40eb8411c856e8efaacdecb3070a3d5541cb
-translation_revised: 2026-09-10
+translation_source_sha: a3e069235e50361b5b236c4f9fb4c0e2593fe518
+translation_revised: 2026-09-12
 ---
 
 # 배포(배포)
@@ -30,6 +30,7 @@ translation_revised: 2026-09-10
 | 새 clone 공개 개발 Core 경로 | implemented | `azd-up.sh`, 플랫폼 및 Core Terraform 루트, 기여자 배포 테스트, 집중 Terraform 계획 | 확인된 clean-checkout 실행은 공개 `dev` 구독 하나에서 플랫폼, 이미지, 스키마, 카탈로그, Core, Job, canary 및 초기 인벤토리를 단계적으로 배포합니다. 관찰 모드를 유지하며 비공개, 공유, 스테이징 또는 운영 경로가 아닙니다. |
 | 기능 라이선스 Trial 전달 | implemented | Core 라이선스 및 실행 게이트 테스트, 독립 Core Terraform 검증, 기여자 배포 계약 | 토큰 없는 배포는 관찰 전용으로 유지됩니다. 공개 개발 경로는 소유자 전용 로컬 키가 검증될 때만 최대 30일의 전체 카탈로그 토큰을 발급하고 파일 입력으로 토큰별 다이제스트 이름의 Key Vault 시크릿에 전송하며, 버전 없는 참조와 비밀이 아닌 다이제스트만 Terraform에 전달합니다. 실제 Azure 발급, 갱신 또는 만료 증적은 아직 보존하지 않았습니다. |
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
+| 명시적 이미지 후보와 PR 패키징 집중 검사 | implemented | `container-supply-chain.yml`, 이미지 선택기, 워크플로 및 Genesis 회귀 검사; 집중 테스트 182개 통과 | 게시에는 보호된 main의 디스패치와 명시적 이미지 선택이 필요합니다. Genesis는 필요한 이미지만 요청하며 성공한 PR이나 일부 후보를 재사용할 수 없습니다. 다이제스트 검증은 독립적으로 유지합니다. |
 | 보호된 구독 생성 plan-only 검증 | validated | 보호된 실행 `34436576350`, 정제된 `fdai.deployment-plan.v1` 메타데이터, 정확한 이행 및 파괴적 계획 가드 | 필수 CI를 통과한 개정 번호에서 선택한 Console, 운영 게이트웨이, Operator API, 문서 수집, 격리 실행기 범위의 준비된 계획을 생성했습니다. 전체 계획을 검토했으며 apply는 실행하지 않았습니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
 | 단독 유지관리자 직접 개발 적용 | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py` 및 집중 검증기와 작업 흐름 테스트 | `DEV_DEPLOY_REQUIRED_APPROVALS=0`은 검토자 규칙 없는 직접 개발 적용에만 허용됩니다. 정확한 계획, 이미지 증명, 신원 검사, 상태 확인 및 롤백은 계속 필요하며 스테이징, 운영 및 봇 소유 경로는 독립 승인을 유지합니다. |
@@ -93,10 +94,14 @@ translation_revised: 2026-09-10
 | 2026-09-05 | implemented | Azure에 별도의 정상 개정 번호가 없을 때 Operator 데이터베이스 연결 복구에 사용하는 봉인된 성능 저하 복구 경계를 추가했습니다. 기준 개정 번호는 활성, 프로비저닝 완료, 실행 중, 정확히 복원 가능한 상태여야 하며 이 모드는 보호된 Terraform 계획의 범위를 넓히지 않습니다. | `current change`, 집중 계획 묶음, 작업 흐름, 기준 선택, 스냅샷 및 롤백 검사 | 정확한 protected Operator 적용 1회를 실행하고 상태 및 롤백 경계 근거를 보존합니다. |
 | 2026-09-05 | implemented | 성능 저하 상태의 Operator 복구를 검증한 다음, 실제 브라우저 preflight에서 빈 CORS 연결을 확인한 뒤 권위 있는 Console origin hydration을 추가했습니다. 데이터베이스 연결 검증기는 정규화된 단일 Static Web Apps HTTPS origin만 수락하고 관련 없는 환경 변경은 계속 차단합니다. | Protected 계획 `33957891101`, 정확한 적용 `33957993467`, `current change`, 집중 hydration, 검증기 및 작업 흐름 검사 | Console origin 연결을 적용하고 인증된 브라우저 근거를 보존합니다. |
 | 2026-09-05 | validated | 보호된 Console origin을 적용하고 인증된 Help drawer 검증을 완료했습니다. Drawer는 경고나 가로 overflow 없이 여정 단계 5개, manual card 11개 및 로드된 cover image 22개를 표시했고, 선택한 동일 origin manual은 HTTP 200을 반환했습니다. | Protected 계획 `33959768010`, 적용 `33959860773`, 이슈 #414 브라우저 근거. 적용과 상태 검증 단계는 성공했으며, peer 격리 중 Core 상태 serial이 53에서 54로 동시에 증가해 최종 workflow만 실패했습니다. | Operator Console origin 연결에 남은 작업이 없습니다. |
+| 2026-09-12 | in-progress | PR 패키징 집중 검사와 보호된 main의 명시적 이미지 게시를 분리했습니다. main/tag 자동 게시와 PR SBOM 생성을 제거하고 전체 이미지 기본값 없이 입력을 검증하는 이미지 선택을 추가했습니다. | `current change`; `container-supply-chain.yml`, `select_changed_images.py`, 선택기 및 작업 흐름 집중 회귀 테스트를 추가했으나 아직 실행하지 않았습니다. | 집중 검사 통과 결과를 기록합니다. 별도로 승인한 후보 실행은 로컬 구현과 구분합니다. |
+| 2026-09-12 | implemented | PR 패키징 집중 검사와 보호된 main의 명시적 게시를 분리했습니다. main/tag 자동 게시와 PR SBOM 생성을 제거하고 알려진 소스 전용 PR 변경을 트리거에서 제외했으며 이미지 선택을 필수로 만들었습니다. Genesis 디스패치와 재사용은 필요한 이미지 집합을 확인하고 PR 또는 일부 후보의 성공을 수락하지 않습니다. | `current change`; 선택기, CI 계약, Genesis 애플리케이션, 감독기 및 이미지 테스트 182개와 CI 계약 검사 통과. | 명시적으로 승인한 후보 실행과 변경 후 지연 측정은 로컬 구현과 별도로 남습니다. |
 ### 남은 작업
 
 - [ ] 정확한 clean revision, 검토한 미리보기, 임시 접근 정리, Core 상태, canary, 초기
   인벤토리 및 두 번째 실행 no-change 계획을 포함하는 저장소 안전 공개 새 구독 증적 하나를 보존합니다.
+- [x] 후보 전용 게시, PR 패키징 집중 검사 및 Genesis 호출 호환성에 대한 선택기, 워크플로,
+  애플리케이션, 감독기 및 이미지 집중 테스트가 통과했습니다.
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
   key를 읽을 수 있음을 보여 주는 리포지토리에 안전한 통제된 적용 증적을 보존합니다.
 - [ ] 브라우저 근거 보존 Job의 리포지토리에 안전한 protected 적용 및 성공과 실패 실행 증적을 보존합니다.
@@ -278,15 +283,41 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 - **CI 신원**: 파이프라인은 **단명, OIDC-federated** 신원으로 인증(장기 클라우드 키 CI에
   없음). 시크릿은 런타임에 시크릿 저장소에서 pull, 로그·빌드 아티팩트에 **절대 쓰지 않음**
   (시크릿 검사가 머지를 게이팅).
-- **공급망**: `.github/workflows/container-supply-chain.yml`은 변경의 영향을 받는 service-owned
-  Dockerfile을 선택합니다. 한 서비스의 소스만 변경되면 해당 이미지만 빌드하고 공용 계약,
-  잠금 파일, 패키지 메타데이터 또는 워크플로가 변경되면 모든 서비스 이미지를 빌드합니다.
-  수동 실행도 모든 이미지를 빌드합니다. 선택된 각 빌드는 HIGH/CRITICAL Trivy 발견 사항을
-  차단하고 CycloneDX **SBOM**을 생성합니다. `main`/release에서는 검증된 이미지를 GHCR에
-  publish하고 GitHub build-provenance/SBOM 증명을 기록합니다. Dockerfile base는
-  **다이제스트**로 고정되고 uid 65532로 실행됩니다. Core 이미지 빌더는 서비스 wheel 설치 후
-  운영 부트스트랩을 cold import하여 직접 런타임 의존성이 없으면 게시를 차단합니다. 배포는
-  롤아웃 전에 증명과 다이제스트를 검증하며 unattested 이미지를 차단합니다.
+- **PR 패키징 검사**: `.github/workflows/container-supply-chain.yml`은 Dockerfile, 기본 이미지
+  고정값, 의존성 메타데이터, 빌드 보조 도구 또는 패키지에 포함되는 자산이 바뀔 때만 영향을
+  받는 이미지를 빌드하고 검사합니다. 일반 Python 소스, 단위 테스트, 패키지 문서 변경은 이미지
+  빌드를 실행하지 않습니다. 공용 잠금 파일, 작업 영역 메타데이터, 빌드 재정의 및 알 수 없는
+  서비스 입력은 안전을 위해 모든 이미지를 선택합니다. 패키지에 포함되는 시나리오를 비롯한
+  런타임 자산은 해당 소비자 검사를 유지합니다. 포크 PR을 포함한 모든 PR 작업은 호스팅된
+  실행기에서 읽기 전용으로 실행되며 시크릿을 사용하지 않습니다. 이미지 게시, 릴리스 SBOM
+  생성 또는 증명은 수행할 수 없습니다.
+- **명시적 이미지 후보**: 전체 빌드, 검사, 게시, 소프트웨어 구성 명세서(SBOM) 및 출처 증명은
+  보호된 `main`에서 명시적으로 승인한 `workflow_dispatch`로만 실행합니다. 일반 `main` 푸시와
+  버전 태그는 이미지를 게시하지 않습니다. `commit_sha`는 해당 작업 흐름 실행의 `github.sha`와
+  같아야 하며 과거 개정 번호나 다른 참조의 빌드는 지원하지 않습니다. 보호된 작업 흐름
+  검증기는 입력 검증 코드나 후보 소스 체크아웃보다 먼저 실행됩니다. 푸시된 SHA의 필수 CI와
+  배포 사전 검증은 별도의 릴리스 요구 사항으로 유지됩니다.
+- **이미지 선택**: `images`는 필수이며 기본값이 없습니다. 대상을 쉼표로 구분해 입력합니다:
+  `core-control-plane`, `cost-governance`, `operator-service`, `document-ingestion-api`,
+  `document-processing-worker`, `isolated-executor`, `system-knowledge-service`.
+  `fdai-` 접두사가 붙은 이미지 이름도 사용할 수 있습니다. 런타임 서비스를 선택하면 기본
+  이미지만 선택되며 선택적 Cost Governance 프로필은 별도로 선택해야 합니다. 모든 이미지가
+  필요한 경우에만 `all`을 단독으로 사용하세요. 빈 입력, 알 수 없는 대상, 중복 대상 또는
+  다른 대상과 함께 입력한 `all`은 빌드 전에 실패합니다. 예를 들어
+  `images=operator-service,document-ingestion-api`는 두 후보 이미지만 게시합니다.
+- **감독되는 호출 경로**: Genesis는 이미지 해석기가 사용하는 세 이미지만 요청합니다. 성공한
+  실행을 재사용하려면 후보 실행 메타데이터가 이 집합을 포함해야 하며, PR이나 일부 집합의
+  성공으로 대신할 수 없습니다. 해석기는 각 다이제스트와 증명을 계속 독립적으로 검증합니다.
+- **후보 근거**: 선택한 빌드는 게시 전과 정확한 게시 다이제스트 검사에서 모두
+  MEDIUM/HIGH/CRITICAL Trivy 발견 사항을 차단합니다. 각 이미지는 CycloneDX SBOM 근거,
+  빌드 출처 증명 및 SPDX SBOM 증명을 보존하며 Core는 해석된 모델 자료의 다이제스트도
+  연결합니다. 기본 이미지는 다이제스트로 고정하고 uid 65532로 실행합니다. Core 빌더는 wheel
+  설치 후 운영 부트스트랩을 처음 가져오므로 런타임 의존성이 없으면 게시를 차단합니다.
+  배포는 롤아웃 전에 정확한 소스 개정 번호, 신뢰하는 서명 작업 흐름, 증명 및 이미지
+  다이제스트를 계속 검증합니다.
+- **근거 재사용**: 배포 검증기가 소스와 근거를 수락하면 일치하는 기존 검증 다이제스트를
+  다시 빌드하지 않고 승격합니다. 적용되는 최신성 요건과 정책을 다시 확인합니다. 로컬 검증
+  캐시, PR 검사 또는 이미지 태그만으로는 배포 권한을 얻을 수 없습니다.
 - **아티팩트 레지스트리**: 이미지와 그 SBOM/증명을 명시적 보존 정책으로 유지하여 어떤
   prod 개정 번호도 추적·재검증 가능.
 - **ACR 인계**: 업스트림 GHCR은 범용 build-evidence 레지스트리입니다. ACR이 필요한 포크는

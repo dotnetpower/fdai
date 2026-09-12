@@ -292,19 +292,25 @@ operational results. Remove a metric if the deck cannot explain why it changes a
 
 ## Validation
 
-Complete desktop before responsive validation:
+Use [Testing](../../instructions/coding-conventions.instructions.md#testing) for logical batches,
+input-based result reuse, and CI authority. Select the evidence scope from the change:
 
-1. Render every slide at `1440x900`.
-2. Review every slide at actual size and generate a contact sheet for repetition.
-3. Verify text and component bounds programmatically.
-4. Verify every diagram connector against node bounding boxes.
-5. Render every slide at about `993x641`.
-6. Render every slide at `390x844`.
-7. Enter fullscreen through `slide-stage` and recheck all slides.
-8. Export PDF and confirm page count equals `catalog.json` and every MediaBox is 16:9.
-9. Update `validation-evidence.json` only for checks actually performed.
+| Change | Validation scope |
+|--------|------------------|
+| Isolated slide copy or diagram | Changed slides at actual desktop size; text/component bounds and touched connectors. Add affected narrow/fullscreen/print checks when wrapping or geometry can change. |
+| Book layout, typography, or shared slide builder | Every slide in each affected book, with constrained/mobile/fullscreen checks for affected layout behavior. Review a contact sheet for repetition. |
+| Cross-book shared layout or assets | All consuming books and their affected viewport/asset behavior; do not include unrelated books. |
+| Full deliverable release | All slides in the selected deliverable at `1440x900`, about `993x641`, `390x844`, and fullscreen; contact sheets and exported PDFs. |
 
-Required outcomes:
+Complete desktop before responsive validation for the selected scope. Verify geometry with
+bounding boxes and inspect actual-size readability; screenshots alone cannot establish bounds.
+For PDF checks, confirm the selected book's page count equals `catalog.json` and every MediaBox is
+16:9. Print-style, pagination, or export changes require affected-book PDF checks even outside a
+release. A deliverable release requires this evidence, not a whole-repository validation run.
+Reuse unchanged scoped evidence; do not repeat the entire matrix after each unrelated edit.
+Update `validation-evidence.json` only for checks actually performed, with their bounded scope.
+
+Required outcomes within the selected scope (catalog-wide uniqueness uses the owning catalog test):
 
 - No request failures.
 - No text outside the slide.
@@ -315,16 +321,16 @@ Required outcomes:
 - No connector detached from its intended node.
 - All example values are visibly labeled.
 
-Run the focused gates:
+Select executable checks, not an unconditional gate stack:
 
-```bash
-node --check tools/manual-studio/<book-id>.js
-npm --prefix tools/manual-studio run check
-uv run pytest -q --no-cov tests/integration/scripts/test_build_manual_studio_artifact.py
-bash scripts/quality/repository/check-punctuation.sh <changed-files>
-python3 scripts/quality/localization/check-readable-hangul.py <changed-files>
-python3 scripts/quality/architecture/check-design-routes.py
-```
+- Changed JavaScript: `node --check tools/manual-studio/<changed-file>.js` and the owning
+  `node --test tools/manual-studio/test/<owning-test>.test.mjs`.
+- Shared runtime/catalog changes or a full deliverable: `npm --prefix tools/manual-studio run check`
+  when focused tests do not cover the affected contract.
+- Packaging/allowlist changes:
+  `uv run pytest -q --no-cov tests/integration/scripts/test_build_manual_studio_artifact.py`.
+- Changed prose: `bash scripts/quality/repository/check-punctuation.sh <changed-files>` and
+  `python3 scripts/quality/localization/check-readable-hangul.py <changed-files>`.
 
 Store screenshots, contact sheets, and PDFs outside the repository in the session artifact folder.
 Do not commit local validation output.

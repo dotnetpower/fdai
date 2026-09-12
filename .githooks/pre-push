@@ -201,7 +201,12 @@ fi
 # worktree may contain unrelated in-progress files that are absent from the
 # push; scanning those files can either block a valid push or validate content
 # that the remote will never receive.
-validation_parent="$(mktemp -d "${TMPDIR:-/tmp}/fdai-pre-push.XXXXXX")"
+validation_common="$(git rev-parse --path-format=absolute --git-common-dir)"
+validation_parent="$validation_common/fdai-pre-push/push-$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
+if ! mkdir -p -m 700 "$validation_parent"; then
+  echo "pre-push: BLOCKED - cannot create isolated validation state."
+  exit 1
+fi
 validation_root="$validation_parent/worktree"
 cleanup_validation_worktree() {
   cd "$repo_root" >/dev/null 2>&1 || true
@@ -220,6 +225,16 @@ cd "$validation_root" || exit 1
 mapfile -t repository_local_git_env < <(git rev-parse --local-env-vars)
 unset "${repository_local_git_env[@]}"
 echo "pre-push: validating committed HEAD in an isolated worktree..."
+
+# Reuse only the helper from the pushed snapshot. Older snapshots without the
+# helper keep their existing isolated uv behavior, never the dirty caller's code.
+run_project() {
+  if [[ -f scripts/automation/local_validation_cache.py ]]; then
+    python3 scripts/automation/local_validation_cache.py command -- "$@"
+  else
+    "$@"
+  fi
+}
 
 # ---------------------------------------------------------------------------
 # 2. Merge-conflict marker guard.
@@ -251,15 +266,12 @@ done
 if [ "${#py[@]}" -gt 0 ]; then
   echo "pre-push: ruff check on ${#py[@]} changed Python file(s)..."
   if command -v uv >/dev/null 2>&1; then
-    if ! uv run --extra dev ruff check "${py[@]}"; then
-      echo "pre-push: BLOCKED - ruff check failed. Fix, or run: uv run --extra dev ruff check --fix ${py[*]}"
-      exit 1
-    fi
-    # Format gate: CI runs `ruff format --check src tests` and a single
-    # unformatted file fails the whole lint/mypy/pytest job before it even
-    # starts. Catch it here so an unformatted file never reaches CI.
-    if ! uv run --extra dev ruff format --check "${py[@]}"; then
-      echo "pre-push: BLOCKED - ruff format check failed. Run: uv run --extra dev ruff format ${py[*]}"
+    if ! run_project bash -c '
+      set -e
+      uv run --extra dev ruff check "$@"
+      uv run --extra dev ruff format --check "$@"
+    ' -- "${py[@]}"; then
+      echo "pre-push: BLOCKED - Ruff lint or formatting failed on changed Python files."
       exit 1
     fi
   else
@@ -294,14 +306,14 @@ if [ "$workflow_contract_changed" -eq 1 ]; then
     exit 1
   fi
   echo "pre-push: validating workflow contracts..."
-  if ! uv run --extra dev python scripts/quality/ci/check-ci-contracts.py; then
-    echo "pre-push: BLOCKED - clean-checkout CI contracts failed."
-    exit 1
-  fi
-  if ! env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+  if ! run_project bash -c '
+    set -e
+    uv run --extra dev python scripts/quality/ci/check-ci-contracts.py
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
     uv run --extra dev pytest -q --no-cov \
     tests/integration/scripts/test_check_ci_contracts.py \
-    tests/integration/test_structural_gates_drift.py; then
+    tests/integration/test_structural_gates_drift.py
+  '; then
     echo "pre-push: BLOCKED - workflow contract regression tests failed."
     exit 1
   fi

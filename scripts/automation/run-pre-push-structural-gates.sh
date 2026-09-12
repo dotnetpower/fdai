@@ -3,6 +3,12 @@
 
 set -uo pipefail
 
+if [[ "${FDAI_STRUCTURAL_CACHE_ACTIVE:-0}" != "1" &&
+      "${CI:-false}" != "true" && "${CI:-0}" != "1" &&
+      "${GITHUB_ACTIONS:-false}" != "true" && "${GITHUB_ACTIONS:-0}" != "1" ]]; then
+  exec python3 scripts/automation/local_validation_cache.py structural
+fi
+
 for gate_path in \
   scripts/quality/architecture/check-agents-imports.sh \
   scripts/quality/architecture/check-design-routes.py \
@@ -30,10 +36,14 @@ do
   else
     gate_command=(bash "$gate_path")
   fi
-  output="${TMPDIR:-/tmp}/pre-push-${gate}.out"
-  if ! CHECK_QUIET=1 "${gate_command[@]}" > "$output" 2>&1; then
+  started=$SECONDS
+  echo "structural-gates: gate=${gate} status=running"
+  # Capture per process, not in a shared filename that parallel pushes overwrite.
+  if output="$(CHECK_QUIET=1 timeout 600 "${gate_command[@]}" 2>&1)"; then
+    echo "structural-gates: gate=${gate} status=0 duration=$((SECONDS - started))s"
+  else
     echo "structural-gates: BLOCKED - ${gate} failed:" >&2
-    sed 's/^/  /' "$output" >&2
+    printf '%s\n' "$output" | sed 's/^/  /' >&2
     exit 1
   fi
 done

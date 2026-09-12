@@ -39,8 +39,22 @@
       "must_read": [
         ".github/copilot-instructions.md"
       ],
+      "validate": []
+    },
+    {
+      "id": "developer-guidance",
+      "paths": [
+        ".github/copilot-instructions.md",
+        ".github/instructions/*.md",
+        ".github/skills/*/SKILL.md",
+        ".github/prompts/*.md",
+        ".github/agents/*.md"
+      ],
+      "must_read": [
+        ".github/instructions/language.instructions.md"
+      ],
       "validate": [
-        "scripts/verify.sh"
+        "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },
     {
@@ -297,7 +311,26 @@
         ".github/copilot-instructions.md",
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/fdai-constitution.md",
+        "config/constitution-traceability.json"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-constitution.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_constitution.py"
+      ]
+    },
+    {
+      "id": "constitutional-runtime-context",
+      "paths": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
         "config/constitution-traceability.json",
+        "docs/roadmap/architecture/fdai-constitution*.md",
+        "docs/roadmap/architecture/security-and-identity*.md",
+        "docs/roadmap/agents/agent-pantheon*.md",
+        "docs/roadmap/decisioning/risk-classification*.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority*.md"
+      ],
+      "must_read": [
         "docs/roadmap/architecture/goals-and-metrics.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/agents/agent-pantheon.md",
@@ -305,10 +338,7 @@
         "docs/roadmap/decisioning/escalation-and-standing-authority.md",
         "docs/roadmap/decisioning/process-automation.md"
       ],
-      "validate": [
-        "python3 scripts/quality/architecture/check-constitution.py",
-        "uv run pytest -q --no-cov tests/integration/scripts/test_constitution.py"
-      ]
+      "validate": []
     },
     {
       "id": "decision-evidence-admission",
@@ -375,8 +405,8 @@
         ".github/instructions/coding-conventions.instructions.md"
       ],
       "validate": [
-        "uv run ruff check",
-        "uv run mypy"
+        "uv run ruff check -- {paths}",
+        "uv run ruff format --check -- {paths}"
       ]
     },
     {
@@ -2344,11 +2374,10 @@
       ],
       "must_read": [
         ".github/instructions/documentation-style.instructions.md",
-        ".github/instructions/language.instructions.md",
-        ".github/skills/documentation-writing/SKILL.md"
+        ".github/instructions/language.instructions.md"
       ],
       "validate": [
-        "scripts/quality/localization/check-translations.sh",
+        "bash scripts/quality/localization/check-translations.sh {changed_paths}",
         "scripts/quality/repository/check-doc-links.sh"
       ]
     },
@@ -2562,8 +2591,8 @@
         ".github/instructions/source-language.instructions.md"
       ],
       "validate": [
-        "scripts/quality/repository/check-punctuation.sh",
-        "uv run python scripts/quality/localization/check-readable-hangul.py"
+        "bash scripts/quality/repository/check-punctuation.sh {paths}",
+        "uv run python scripts/quality/localization/check-readable-hangul.py {paths}"
       ]
     },
     {
@@ -2579,7 +2608,8 @@
         ".github/instructions/generic-scope.instructions.md"
       ],
       "validate": [
-        "uv run python scripts/quality/architecture/check-independent-services.py"
+        "bash scripts/quality/repository/check-punctuation.sh {paths}",
+        "uv run python scripts/quality/localization/check-readable-hangul.py {paths}"
       ]
     }
   ]

@@ -135,6 +135,8 @@ def test_change_scope_classification_skips_expensive_python_for_docs_and_console
         ("mocks/ui/assets/calm-slate.css", "operator"),
         ("packages/network-topology-contracts/src/index.d.ts", "operator"),
         ("packages/service-contracts/openapi.json", "operator"),
+        ("packages/github-app-auth/pyproject.toml", "operator"),
+        ("services/core-control-plane/src/fdai/shared/contracts/action.py", "operator"),
         ("tools/architecture-diagrams/assets/resource.svg", "operator"),
         ("eval/golden-dataset/example.json", "python"),
         ("eval/golden-dataset/example.json", "operator"),
@@ -154,6 +156,41 @@ def test_change_scope_classification_selects_owning_ci_surface(
 
 def test_ci_workflow_change_runs_every_scoped_surface() -> None:
     assert all(classify_paths([".github/workflows/ci.yml"]))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".github/copilot-instructions.md",
+        ".github/skills/ci-diagnosis/SKILL.md",
+        ".github/prompts/verify.prompt.md",
+        ".github/agents/integration-validator.agent.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+    ],
+)
+def test_developer_guidance_selects_only_documentation(path: str) -> None:
+    assert classify_paths([path]) == ChangeScope(False, True, False, False, False, False, False)
+
+
+def test_guidance_assets_and_unknown_files_still_fail_safe() -> None:
+    assert all(classify_paths([".github/skills/example/run.py"]))
+    assert all(classify_paths([".github/skills/example/config.yaml"]))
+
+
+def test_backend_only_changes_do_not_run_independent_frontend_and_evaluation_suites() -> None:
+    paths = ["services/core-control-plane/src/fdai/core/risk_gate/gate.py"]
+    scope = classify_paths(paths)
+    assert scope.python and scope.docs
+    assert not scope.operator and not scope.evaluation
+    mixed = classify_paths([*paths, "console/src/app.tsx", ".github/skills/example/SKILL.md"])
+    assert mixed.python and mixed.docs and mixed.operator
+
+
+@pytest.mark.parametrize("path", ["pyproject.toml", "uv.lock", "Makefile"])
+def test_shared_build_inputs_keep_consumer_suites(path: str) -> None:
+    scope = classify_paths([path])
+    assert scope.python and scope.operator and scope.evaluation
 
 
 def test_every_system_knowledge_catalog_source_selects_derived_source_validation() -> None:

@@ -6,8 +6,8 @@
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
     ".github/instructions/app-shape.instructions.md": "91cd95de143b0c97250ccf1f7e0ee71d0a30d1e5b1a159bcc213c2d99e25ef9c",
     ".github/instructions/architecture.instructions.md": "073c54f49691ab4091278f81caba0a21647749f743fa4add83f4342a6853bbe2",
-    ".github/instructions/coding-conventions.instructions.md": "4bfce9a9fbd3d466b140a93af70223220dcd284019869c47dc4ad50ee53e63c3",
-    ".github/instructions/documentation-style.instructions.md": "1afe6339d1dd528a8d27e987754fac2d8ec29982b567a7e592dcfe10367f9ec8",
+    ".github/instructions/coding-conventions.instructions.md": "e7a0ad5f5686d7ff90487ffefd4a03c727a2cd10580d490f86b85c90d4df5da5",
+    ".github/instructions/documentation-style.instructions.md": "eb3da1f9381d58c6d9db7bef0aad5b7dcf57745e42c5a52aceec5c55809dae67",
     ".github/instructions/generic-scope.instructions.md": "d91d70b82f93cd2f62dbf2a1ae8b796debc9bed549210972fb3a515ee088bd3e",
     ".github/instructions/language.instructions.md": "f853673010b24293fa263189bb4dd2c149c2428a043913f912879aaa80dd65a3",
     ".github/instructions/roadmap-implementation-tracking.instructions.md": "b0246fffa563885d803ffd7460beb074609ac89d22190fca57a1bcb7b3780bac",
@@ -1460,7 +1460,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-09-11T23:41:23Z",
+  "generated_at": "2026-09-12T01:25:38Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

@@ -13,6 +13,7 @@
 #   scripts/automation/tests-for-diff.sh --run              # also run pytest
 #   scripts/automation/tests-for-diff.sh --run HEAD~1..HEAD # combined
 #   scripts/automation/tests-for-diff.sh --include-test <nodeid> <range>
+#   scripts/automation/tests-for-diff.sh --run --allow-full-suite <range>
 #
 # Notes:
 #   - Working-tree selection includes tracked, staged, and untracked files.
@@ -31,11 +32,13 @@ repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
 run_pytest=0
+allow_full_suite=0
 diff_arg=""
 include_tests=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --run) run_pytest=1 ;;
+        --allow-full-suite) allow_full_suite=1 ;;
         --include-test)
             shift
             if [[ $# -eq 0 || -z "$1" ]]; then
@@ -310,6 +313,11 @@ tests=("${selected[@]}")
 printf '%s\n' "${tests[@]}"
 
 if [[ $run_pytest -eq 1 ]]; then
+    if [[ $allow_full_suite -eq 0 && ( $full_suite_selected -eq 1 || -n "${seen[tests]:-}" ) ]]; then
+        echo "validation-environment: whole-suite fallback requires an explicit local whole-suite request." >&2
+        echo "Run the owning focused tests, or use --run --allow-full-suite after that request." >&2
+        exit 125
+    fi
     if ! command -v uv >/dev/null 2>&1; then
         echo "tests-for-diff.sh: uv not on PATH; install uv before running tests" >&2
         exit 2

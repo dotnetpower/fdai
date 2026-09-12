@@ -13,7 +13,7 @@ the root [README.md](../../README.md) and
 user-facing doc.
 
 > **Full guide**: this file is the short-form contract loaded automatically
-> for every `.md` edit. The complete authoring reference (tiering, tone
+> for the user-facing Markdown paths declared above. The complete authoring reference (tiering, tone
 > tables, before-and-after examples, jargon-gloss table, pre-publish
 > checklist) lives in the
 > [documentation-writing skill](../skills/documentation-writing/SKILL.md).
@@ -140,8 +140,10 @@ These apply to **every** tier:
 - **Bilingual pair**: a change to `foo.md` MUST update `foo-ko.md` in the
   same PR and refresh `translation_source_sha`
   ([language.instructions.md](language.instructions.md#user-facing-doc-translations-ko)).
-  Use `python3 scripts/quality/localization/refresh-translation-sha.py` after editing English
-  docs to re-sync all pairs.
+  After semantic review of the changed Korean translation, pass only that file to
+  `python3 scripts/quality/localization/refresh-translation-sha.py <changed-reviewed-ko.md>`.
+  Never stamp unrelated translations current. Use changed-path checks and result reuse from
+  [Testing](coding-conventions.instructions.md#testing).
 
 ## Anti-Patterns
 

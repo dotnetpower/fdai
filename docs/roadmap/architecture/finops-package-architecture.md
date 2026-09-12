@@ -44,12 +44,17 @@ domain code and assets. It does not create another control plane or move authori
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
 > validation code runs and restricts root dispatch jobs to protected `main`, so unverified
-> workflow text cannot execute ahead of the provenance gate. The verifier also rejects an
-> executing workflow source ref outside protected `main` or an immutable `v*` release tag.
-> Pull requests build, scan, and retain short-lived SBOM evidence in a separate read-only job;
-> registry publication and attestations remain exclusive to verified protected revisions. The
-> publication job uses explicit top-level push and manual-dispatch clauses, so no alternate pull
-> request condition can inherit its write permissions.
+> workflow text cannot execute ahead of the provenance gate. The verifier also rejects a
+> publication workflow dispatch outside protected `main`.
+> Build-input pull requests retain a separate read-only image build and vulnerability scan.
+> Known service source, test, and documentation paths are excluded at the PR trigger, while
+> packaged assets and unknown service inputs remain conservatively selected. A root README-only
+> change is documentation and does not select an image candidate.
+> Registry publication, SBOMs, and attestations require an explicit candidate dispatch with
+> selected images and the exact protected source SHA. Ordinary source pushes and version tags
+> do not publish images, and no pull request condition can inherit publication permissions.
+> The candidate title binds the selected image set, and Genesis reuses only an exact successful
+> candidate for the same protected source revision.
 
 ## Design at a glance
 
@@ -75,7 +80,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 | Area | Current evidence | Packaging implication |
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
-| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes still rebuild all service images for supply-chain evidence, while the parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets; that ordering does not add Cost Governance package inputs. |
+| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images for PR packaging checks; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets; that ordering does not add Cost Governance package inputs. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
 | Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |

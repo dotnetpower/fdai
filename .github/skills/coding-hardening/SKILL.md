@@ -90,21 +90,14 @@ does not authorize a commit.
 
 ### 3. Verify
 
-- Run the most precise known pytest target immediately after each edit.
-- When a batch spans multiple files or the owning test is unclear, run bare
-  `make test-changed` only if the worktree contains that batch alone. Parallel
-  hardening sessions SHOULD use separate Git worktrees. In a shared dirty
-  worktree, run focused checks before committing only owned paths, then run
-  `make test-changed DIFF=<commit>^..<commit>` for the exact hardening commit.
-  For a committed branch range, run `make test-changed DIFF=<base>...HEAD`.
-- Finish with `bash scripts/verify.sh --full <test-path>` for the touched
-  slice when the focused pytest command has not already covered it.
-- Do NOT run `bash scripts/verify.sh --all` after each batch. Run it once at
-  the end of a campaign only when the user explicitly requested a local
-  whole-repository check or the work is at a merge/release boundary. Reuse a
-  green result for the same commit and environment.
-- Diff-scoped tests do not replace full coverage/regression gates before
-  merge or release; those authoritative gates may run in CI.
+- Follow [Testing](../../instructions/coding-conventions.instructions.md#testing) for validation
+  scope, input-based result reuse, and delivery authority.
+- Run `uv run pytest -q --no-cov <test-path-or-node-id>` for the completed logical batch. Combine
+  related selectors in one invocation; unrelated edits or commit metadata do not invalidate a pass.
+- Use `make test-changed` only to fill gaps in known test ownership, with isolated task-owned
+  inputs. A committed range may select missing tests, not mandate a second pass.
+- Whole-repository validation requires an explicit local whole-suite request, not merely a
+  campaign end, merge, or release. Required pushed-SHA CI remains authoritative.
 - For coverage-driven work, use the single-module coverage recipe below.
 - Safety-core property tests MUST still pass unchanged:
   - "high-risk never auto-executes"
@@ -147,34 +140,28 @@ does not authorize a commit.
 The 0-risk companion to the critique loop: raise coverage without
 touching production paths.
 
-1. Establish the campaign baseline once, before the first batch:
-   ```
-   pytest -q -p no:cacheprovider --cov=src/fdai --cov-branch \
-     --cov-report=term-missing
-   ```
-  Record the ordered under-covered module list in the session plan. Every
-  later batch in the same campaign MUST reuse that list instead of rerunning
-  the whole tree. An existing coverage report from another commit may guide
-  candidate selection, but is not verification evidence.
-2. Sort by lowest coverage (skip testing fakes):
-   ```
-   coverage report --skip-covered --sort=cover | grep -vE "/testing/"
-   ```
-3. Pick one module under 90%. Read its "Missing" line ranges.
+1. Reuse the campaign candidate list, an available coverage report, or recorded CI coverage hints.
+   Older reports may guide selection; reuse as verification evidence only under the Testing
+   contract. Do not fetch remote evidence or run a whole-tree baseline just to choose one module.
+2. Rank available candidates by coverage, excluding testing fakes. If no report exists, select one
+   safety-core module from source and owning tests, then measure only that module with step 5.
+   Record measured candidates and missing branches for later batches; do not claim a global ranking
+   from partial evidence.
+3. Pick one measured module under 90%. Read its "Missing" line ranges.
 4. Add tests that exercise exactly those branches. Deterministic:
    seed randomness, no network, no wall clock.
-5. Verify the single module. The `--cov=` flag takes a **dotted
-   module**, not a slash path; `-o addopts=""` drops the project's
-   default `--cov` floor for this single-file check:
+5. Verify the single module using its dotted import name. `--cov=` accepts an import name or source
+   path; the dotted name below avoids obsolete repository-layout paths. The 90% floor comes from
+   `[tool.coverage.report]`, not pytest `addopts`; keep it explicit and retain strict pytest defaults:
    ```
-   pytest <testfile> --cov=fdai.<dotted.module> --cov-branch \
-     --cov-report=term-missing --no-cov-on-fail -o addopts=""
+   uv run pytest -q <testfile> --cov=fdai.<dotted.module> --cov-branch \
+     --cov-report=term-missing --no-cov-on-fail --cov-fail-under=90
    ```
+   An initial below-floor measurement is a baseline, not a passing verification result.
 6. Commit: `test(<scope>): cover <module> (<X% -> Y%>)`.
 
-At the end of a multi-batch campaign, rely on the merge/release CI coverage
-gate by default. Run `scripts/verify.sh --all` locally only under the explicit
-whole-suite conditions in step 3 above.
+At campaign completion, report the measured module coverage and remaining candidates. Focused
+coverage does not replace the required merge/release CI coverage gate.
 
 ## Async-Seam Table
 

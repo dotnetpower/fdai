@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIR = ROOT / "scripts/deployment/azure"
@@ -11,12 +14,80 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_application  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest  # noqa: E402
-from fdai_deployment_cli.github_actions import WorkflowDispatch  # noqa: E402
+from fdai_deployment_cli.github_actions import CommandResult, WorkflowDispatch  # noqa: E402
 from fdai_deployment_cli.profile import write_profile  # noqa: E402
 
 SOURCE = "a" * 40
 RUN_BINDING = "b" * 64
 TARGET = "c" * 64
+
+
+def _candidate_run(images: str, **overrides: str) -> dict[str, str]:
+    return {
+        "headSha": SOURCE,
+        "status": "completed",
+        "conclusion": "success",
+        "event": "workflow_dispatch",
+        "displayTitle": f"Candidate images: {images}",
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize(
+    "prior",
+    [
+        [],
+        [_candidate_run("operator-service")],
+        [_candidate_run("all", event="pull_request")],
+        [_candidate_run("all", headSha="d" * 40)],
+    ],
+)
+def test_image_preflight_dispatches_only_required_images_when_scope_is_missing(
+    monkeypatch: pytest.MonkeyPatch, prior: list[dict[str, str]]
+) -> None:
+    calls: list[tuple[str, ...]] = []
+    responses = iter([prior, [_candidate_run(",".join(genesis_application.REQUIRED_IMAGES))]])
+
+    def github(arguments: tuple[str, ...]) -> CommandResult:
+        calls.append(arguments)
+        return (
+            CommandResult(0, json.dumps(next(responses)))
+            if arguments[0] == "run"
+            else CommandResult(0, "")
+        )
+
+    monkeypatch.setattr(genesis_application, "run_github_cli", github)
+    monkeypatch.setattr(genesis_application.time, "sleep", lambda _: None)
+    genesis_application.ensure_container_supply_chain(
+        repository="example/repo", source_commit=SOURCE
+    )
+
+    dispatch = next(arguments for arguments in calls if arguments[0] == "workflow")
+    assert f"images={','.join(genesis_application.REQUIRED_IMAGES)}" in dispatch
+    assert f"commit_sha={SOURCE}" in dispatch
+    assert len(calls) == 3
+
+
+def test_image_preflight_reuses_matching_candidate_and_rejects_failed_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def github(arguments: tuple[str, ...]) -> CommandResult:
+        assert arguments[0] == "run"
+        return CommandResult(0, json.dumps([_candidate_run("all")]))
+
+    monkeypatch.setattr(genesis_application, "run_github_cli", github)
+    genesis_application.ensure_container_supply_chain(
+        repository="example/repo", source_commit=SOURCE
+    )
+    monkeypatch.setattr(
+        genesis_application,
+        "run_github_cli",
+        lambda _: CommandResult(0, json.dumps([_candidate_run("all", conclusion="failure")])),
+    )
+    with pytest.raises(ValueError, match="exact container supply-chain run failed"):
+        genesis_application.ensure_container_supply_chain(
+            repository="example/repo", source_commit=SOURCE
+        )
 
 
 def _summary(create: int) -> dict[str, object]:

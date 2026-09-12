@@ -89,8 +89,9 @@ def test_operator_api_boundary_gate_is_in_executed_pre_push_loop() -> None:
     execution_block = body[loop_end : body.index("done", loop_end)]
     assert 'gate_command=(uv run --extra dev python "$gate_path")' in execution_block
     assert 'gate_command=(python3 "$gate_path")' not in execution_block
-    assert 'output="${TMPDIR:-/tmp}/pre-push-${gate}.out"' in execution_block
-    assert 'if ! CHECK_QUIET=1 "${gate_command[@]}" > "$output" 2>&1; then' in execution_block
+    assert 'output="$(CHECK_QUIET=1 timeout 600 "${gate_command[@]}" 2>&1)"' in execution_block
+    assert "/tmp/" not in execution_block  # noqa: S108 - shared temp paths are forbidden here
+    assert "exec python3 scripts/automation/local_validation_cache.py structural" in body
 
 
 def test_pre_push_runs_the_structural_gate_helper() -> None:

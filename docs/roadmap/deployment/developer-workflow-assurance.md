@@ -54,10 +54,50 @@ HTTP probes use the committed local port inventory, and Azure reads use at most 
 
 The CI scope resolver is deterministic and fail-safe. A change to the CI workflow selects every
 scoped surface, and an unclassified path falls back to every scoped surface instead of skipping
-unknown consumers. Python changes retain the full regression, safety-core coverage, database,
-governance, derived-source, operator-surface, and evaluation checks. The required join accepts
+unknown consumers. Python changes retain full regression, safety-core coverage, database,
+governance, and derived-source checks. Operator and evaluation checks follow their own source and
+shared dependency inputs. Markdown under the instruction, skill, prompt, and agent directories is
+documentation; executable skill assets remain conservatively classified. The required join accepts
 only successful jobs and intentional skips, so scope routing reduces unrelated work without
 converting a failed or cancelled check into success.
+
+## Validation stages and reuse
+
+Development checks target changed behavior, not the act of creating a commit. A changed-test
+whole-suite fallback prints the selected scope and stops before execution unless an explicitly
+requested local whole-suite run supplies `--allow-full-suite`. The focused
+`verify.sh --full <path>` facade runs only the selected pytest target. Additional owning static
+checks are explicit; route plans never add an unscoped repository runner to every path.
+Workflow guidance keeps the Constitution and traceability context; deeper runtime authority
+documents load for changes to those runtime contracts rather than every CI tooling edit.
+
+| Stage | Required evidence | Reuse boundary |
+|-------|-------------------|----------------|
+| Edit | Owning focused tests and affected static contracts | Reuse only while code, tests, checker, configuration, dependencies, tools, and relevant environment inputs remain equal. |
+| Commit and push | Delivered content matches the tested inputs; hooks retain their owning controls | A new commit identifier alone does not invalidate a content-bound local result. Dirty content cannot certify a clean commit. |
+| Merge | Required CI on the actual integration revision | Local results do not replace required remote checks. A merge request does not also request a local whole-suite run. |
+| Release candidate | Selected images are built, scanned, published, and attested by the protected workflow | Reuse a verified candidate digest instead of building every source commit or every environment. |
+| Deploy | Exact source, digest, provenance, approval, policy, and fresh evidence | Local caches grant no deployment authority; stale vulnerability evidence can require a new scan of the same digest. |
+
+The local structural runner can reuse successful results across the optional validator and push
+hook only when its complete content and execution context match. Gates without a proven narrower
+dependency set use the complete tracked tree. Missing, malformed, failed, or mismatched cache
+records cause execution, never a successful fallback. Cache availability is optional.
+Structural receipts expire after 24 hours and retain at most 128 entries in Git-common-dir
+`fdai-local-validation` state. Related hook commands share one environment preparation per group.
+Fast-gate cache identities are computed once before and after the batch, not once per gate.
+Pure checks bind content; history checks also bind revisions and refs. Input drift rejects the
+batch. Integrity and external-evidence checks remain uncached; CI runs retain their own environment.
+
+Documentation updates refresh only the translated files actually reviewed. Coverage candidate
+selection can use existing reports as hints; a one-module task measures that module, not a mandatory
+whole-tree baseline. Visual validation expands from changed slides or routes to shared-layout
+consumers and complete release deliverables, rather than repeating every viewport for each edit.
+
+The tradeoff is later discovery of unrelated integration or packaging failures. Required CI,
+targeted build-input checks, conservative unknown-path fallback, and protected candidate validation
+retain those checks at the owning boundary. Measure queue, setup, check execution, and repeated
+work separately; this design does not claim a latency reduction without comparable run evidence.
 
 ## Safety boundaries
 
@@ -232,11 +272,13 @@ The remaining Low risks are explicit and bounded:
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
 | Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
 | Developer validation authority | implemented | `.githooks/post-commit`; `.githooks/pre-push`; `scripts/agent/design_context.py`; focused hook and dispatcher tests | Commits and pushes no longer depend on local queue receipts; CI owns pushed-SHA integration. |
+| Local-first validation and candidate publication | implemented | Focused facade, route, guidance, selector, cache, queue, workflow, and Genesis regression suites; static and type checks | Local structural passes bind content and execution inputs. Fast-gate reuse requires verified clean inputs and a final identity recheck. Remote evidence remains independent. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Completed bounded local structural reuse, input-verified fast-gate caching, grouped hook checks, targeted guidance and CI routing, and explicit candidate publication. Final input drift is rejected and unknown or unavailable cache context runs uncached. | `current change`; the integrated focused facade, cache, queue, workflow, Genesis, routing, guidance, text, and selector suites passed 651 cases; Ruff and scoped mypy checks passed. | Retain comparable remote latency evidence after an authorized push; no local result grants deployment authority. |
 | 2026-08-15 | in-progress | Adopted the developer workflow assurance owner and bounded the campaign; earlier implementation provenance was not reconstructed. | Current change and existing controls listed in the scope table. | Complete the focused rounds and final residual-risk review. |
 | 2026-08-15 | in-progress | Revised the design after independent critique by defining the CLI contract, bounded evidence windows, failure behavior, authority separation, and 12-round sequence. | Current change; roadmap, translation, and punctuation checks. | Implement and verify each accepted finding. |
 | 2026-08-15 | implemented | Completed 13 critique-and-hardening rounds and removed every reproducible Medium-or-higher residual. | Current change; 163 focused Python control tests, 6 Playwright port-pool tests, 48 final false-ready tests, Ruff, and the final independent review. | Record the centralized validation receipt for the integrated revision. |
@@ -270,6 +312,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-16 | implemented | Round 29 re-reviewed the round 28 budgets against the real worst case of each job and script and confirmed they sit above it rather than truncating a slow but healthy deploy, that the `timeout` wrappers preserve exit-code propagation under `set -euo pipefail`, and that both job budgets are valid YAML at job level. The campaign exit condition is met: no reproducible finding above Low remains. | Current change; the round 29 confirmation review and the focused suites recorded in the rows above. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | validated | Central validation accepted the integrated bounded wait revision and the outgoing range was pushed to `origin/main`. | `validation_queue.py check-range origin/main..HEAD` passed for revision `85c5aadf4`, and the push reused that exact receipt and the structural evidence. | Complete issue #122 and synchronize the project board. |
 | 2026-08-17 | implemented | Removed centralized validation from the mandatory developer path while preserving focused checks, path reservations, commit scoping, structural pre-push gates, and SHA-addressed CI. | `current change`; issue #148; focused hook, dispatcher, and constitution tests. | Observe CI and push latency after adoption; keep the queue available only for explicit diagnostics. |
+| 2026-09-12 | in-progress | Reconciled validation stages, removed unscoped route defaults, scoped translation checks, and stopped implicit whole-suite execution. The read-only baseline contains 12 completed CI runs at 265-391 seconds (mean 337.2) and six supply-chain runs at 168-281 seconds (mean 192.2). These are workflow elapsed times, not queue-only measurements or proof of a 90% waiting ratio. | `current change`; focused selector, facade, routing, and text-gate tests; baseline CI run `34663201915` and supply-chain run `34663201914`. | Finish local cache integration and focused checks; measure comparable runs only after an authorized push. |
 
 ### Remaining work
 
@@ -286,6 +329,8 @@ The remaining Low risks are explicit and bounded:
 - [x] Removed automatic queue enrollment and per-commit receipt requirements from ordinary commit,
   push, and agent-tool paths in issue #148.
 - [ ] Complete issue #122 and synchronize the project board.
+- [ ] After an authorized push, compare equivalent CI and candidate-publication cohorts with the
+  recorded baseline, separating queue, setup, execution, and repeated work.
 
 ## Bounded wait campaign
 

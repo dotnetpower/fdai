@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[3]
 _VERIFY = _ROOT / "scripts" / "verify.sh"
 _PYTHON_TESTS = _ROOT / "scripts" / "quality" / "ci" / "run-python-tests.sh"
@@ -50,6 +52,28 @@ def test_help_distinguishes_focused_and_whole_suite_modes() -> None:
     assert "--all" in result.stdout
 
 
+@pytest.mark.parametrize("exit_code", [0, 1, 5])
+def test_full_runs_only_targeted_pytest_and_propagates_result(
+    tmp_path: Path, exit_code: int
+) -> None:
+    executable = tmp_path / "uv"
+    executable.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*"\nexit {exit_code}\n', encoding="utf-8")
+    executable.chmod(0o755)
+    bash = shutil.which("bash")
+    assert bash is not None
+    result = subprocess.run(  # noqa: S603 - fixed script and test-owned executable
+        [bash, str(_VERIFY), "--full", "tests/example_test.py::test_case"],
+        cwd=_ROOT,
+        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == exit_code
+    assert result.stdout.strip() == "run pytest -q --no-cov tests/example_test.py::test_case"
+
+
 def test_a_missing_toolchain_refuses_instead_of_failing_a_gate() -> None:
     real_bash = shutil.which("bash", path=os.environ["PATH"])
     assert real_bash is not None
@@ -71,7 +95,7 @@ def test_a_missing_toolchain_refuses_instead_of_failing_a_gate() -> None:
     assert "== summary ==" not in result.stdout
 
 
-def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
+def test_diff_scoping_and_gate_cache_use_verified_context(tmp_path: Path) -> None:
     assert _git(tmp_path, "init", "--quiet").returncode == 0
     assert _git(tmp_path, "config", "user.email", "tests@example.com").returncode == 0
     assert _git(tmp_path, "config", "user.name", "FDAI Tests").returncode == 0
@@ -88,9 +112,27 @@ def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     command_log = tmp_path / "commands.log"
+    context = tmp_path / "scripts/automation/local_validation_context.py"
+    context.parent.mkdir(parents=True)
+    context.write_text(
+        "# Context transport is stubbed; its identity checks have a separate suite.\n"
+    )
     fake = bin_dir / "fake"
     fake.write_text(
-        '#!/bin/sh\nprintf "%s:%s\\n" "$(basename "$0")" "$*" >> "$FDAI_VERIFY_TEST_LOG"\n',
+        "#!/bin/sh\n"
+        'if [ "$1" = "scripts/automation/local_validation_context.py" ]; then\n'
+        '  if [ -n "$FDAI_VERIFY_CONTEXT_DIGEST" ] || '
+        '[ -f "$FDAI_VERIFY_TEST_MUTATION_MARKER" ]; then\n'
+        f'    printf "%s %s\\n" "{"c" * 64}" "{"d" * 64}"\n'
+        "  else\n"
+        f'    printf "%s %s\\n" "{"a" * 64}" "{"b" * 64}"\n'
+        "  fi\n"
+        "  exit 0\n"
+        "fi\n"
+        'printf "%s:%s\\n" "$(basename "$0")" "$*" >> "$FDAI_VERIFY_TEST_LOG"\n'
+        'if [ -n "$FDAI_VERIFY_TEST_MUTATION_MARKER" ]; then\n'
+        '  touch "$FDAI_VERIFY_TEST_MUTATION_MARKER"\n'
+        "fi\n",
         encoding="utf-8",
     )
     fake.chmod(0o755)
@@ -141,8 +183,18 @@ def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     assert "check-translations.sh" in first_commands
     assert "check-design-doc-impact.py HEAD^..HEAD" in first_commands
     assert "check-roadmap-implementation-tracking.py HEAD^..HEAD" in first_commands
-    assert command_log.read_text(encoding="utf-8") == first_commands * 2
+    commands = command_log.read_text(encoding="utf-8")
+    assert commands.count("check-translations.sh") == 2
+    assert commands.count("check-design-doc-impact.py") == 2
+    assert commands.count("check-design-routes.py") == 3
     assert "CACHED" in second.stdout
+    environment.pop("FDAI_VERIFY_CONTEXT_DIGEST")
+    environment["FDAI_VERIFY_TEST_MUTATION_MARKER"] = str(tmp_path / "changed-input")
+    raced = subprocess.run(  # noqa: S603 - fixed script and test-owned arguments
+        command, cwd=tmp_path, env=environment, capture_output=True, text=True, check=False
+    )
+    assert raced.returncode == 125
+    assert "inputs changed during verification" in raced.stderr
 
 
 def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None:

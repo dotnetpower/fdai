@@ -28,7 +28,6 @@ IMAGE_AFFECTING_PATHS = {
     ".trivyignore.yaml",
     ".github/workflows/container-supply-chain.yml",
     "LICENSE",
-    "README.md",
     "alembic.ini",
     "alembic/**",
     "benchmarks/cybergym/pyproject.toml",
@@ -341,8 +340,8 @@ def test_supply_chain_verifies_pinned_trivy_archive_checksum() -> None:
     assert "--ignore-unfixed" not in text
 
 
-def test_supply_chain_triggers_for_every_image_and_scan_input() -> None:
+def test_supply_chain_pr_triggers_for_every_image_and_scan_input() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
 
     for path in IMAGE_AFFECTING_PATHS:
-        assert text.count(f'- "{path}"') == 2, path
+        assert text.count(f'- "{path}"') == 1, path

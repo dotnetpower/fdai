@@ -34,13 +34,11 @@ Ruff lint and formatting plus the repository hygiene gates before it is
 created. This avoids the unsupported combination of generating a hook under
 `.git/hooks` while `core.hooksPath` points somewhere else.
 
-Because we collaborate directly on `main` (no feature branches), the tracked
-`pre-push` hook also keeps pushes safe and fast: it refuses to push when the
-local branch is **behind** `origin` (pull --rebase first, so conflicts surface
-locally instead of as a rejected push), blocks leftover merge-conflict
-markers, and checks changed Python files. It is intentionally light - no full
-test suite, no mypy, no build. Bypass once with `git push --no-verify` or
-`FDAI_SKIP_PUSH_CHECKS=1 git push`.
+Use a task branch or isolated worktree for each active outcome. The tracked
+`pre-push` hook checks the negotiated remote base, merge-conflict markers,
+changed Python files, and owning workflow and structural contracts against
+the committed content. It does not run the full product test suite or build
+release images. Do not bypass hooks; correct the owning failure instead.
 
 Opening the repo in VS Code also runs two folderOpen tasks (see
 [`.vscode/tasks.json`](.vscode/tasks.json)): `hooks: install` wires both
@@ -52,11 +50,11 @@ manually. Allow automatic tasks when VS Code prompts.
 
 ## Everyday workflow
 
-The [`Makefile`](Makefile) is the single entry point for local CI parity:
+The [`Makefile`](Makefile) provides local validation entry points:
 
 | Command | What it runs |
 |--------|--------------|
-| `make check` | `lint` + `gates` + `test` + `operator` - reproduces the CI merge gate for an explicit integration or release boundary. |
+| `make check` | `lint` + `gates` + `test` + `operator` for an explicit broad local validation request; not complete GitHub Actions parity. |
 | `make lint`  | `ruff format --check` + `ruff check` + `mypy --strict`. |
 | `make format`| `ruff format` + `ruff check --fix`. Mutates files - review the diff. |
 | `make gates` | Repository hygiene, localization, and architecture boundary checks. |
@@ -66,7 +64,10 @@ The [`Makefile`](Makefile) is the single entry point for local CI parity:
 The full CI pipeline lives in
 [.github/workflows/ci.yml](.github/workflows/ci.yml). During ordinary development, run the
 narrowest focused check for the changed behavior. CI is the authoritative integration check for
-each pushed SHA; use `make check` when you explicitly need full local parity.
+each pushed SHA; use `make check` only when broad local validation is explicitly requested.
+Do not repeat successful checks merely because a commit was created. Match their actual inputs
+to delivered content as described in the
+[validation stages and reuse contract](.github/instructions/coding-conventions.instructions.md#testing).
 
 ### Prepare a release version
 
@@ -104,8 +105,9 @@ Parallel Python jobs restore one shared uv cache, but only the `ruff • mypy` j
 The other setup-uv steps set `save-cache: false`, preventing concurrent post-job cache
 reservations without disabling cache restores.
 
-Before running tests, `scripts/verify.sh` checks clean-checkout and Docker build
-context contracts. It catches untracked required guard inputs, missing
+`bash scripts/verify.sh --full <path>` runs only the selected pytest target.
+The fast and whole-suite modes also select repository and Docker build
+context contracts. These catch untracked required guard inputs, missing
 Dockerfile `COPY` sources, a broken `services/core-control-plane/tests/scenarios/` re-include, an invalid
 resolved model manifest, and live-DB tests that perform setup before their skip
 guard.
@@ -120,7 +122,7 @@ doc in the same PR. Bilingual pairs (`foo.md` + `foo-ko.md` under
 `docs/**/` and root `README.md`) are gated by
 `scripts/quality/localization/check-translations.sh`; if you edit an English source, run
 [`scripts/quality/localization/refresh-translation-sha.py`](scripts/quality/localization/refresh-translation-sha.py)
-after updating the Korean sibling so the recorded
+with the specific updated `*-ko.md` paths after reviewing the Korean siblings so the recorded
 `translation_source_sha` matches.
 
 ### Optional: dev stack
