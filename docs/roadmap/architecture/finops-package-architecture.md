@@ -320,7 +320,10 @@ an unavailable package available, grant cost-data access, or promote an action.
 
 Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
 The workflow verifies protected `main`, required CI, the exact release source, the signed image
-digest, and the deployed Cost Governance jobs before it calls the lifecycle function. Every
+digest, and the deployed Cost Governance jobs before it calls the lifecycle function. It rebuilds
+the exact release wheel in lockfile-frozen mode through the pinned package toolchain. An unsupported
+build invocation, lock drift, or ambiguous wheel output fails before Azure authentication or
+lifecycle state mutation. Every
 successful receipt includes a canonical digest of all request inputs. Reusing a request id with a
 different operation, artifact, source revision, runtime configuration, actor, desired enablement,
 or expected revision is an idempotency conflict. An exact retry returns the original receipt rather
