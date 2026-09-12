@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 6dc97880184b9e9b1a5b193098649d4483284ef1
-translation_revised: 2026-09-11
+translation_source_sha: 1d2332e76ad45d2f23567b8f904a0032845f4308
+translation_revised: 2026-09-12
 ---
 # 설치형 배포 CLI
 
@@ -575,7 +575,7 @@ Terraform 적용 성공 뒤 신원, 이행, 상태 또는 canary 검사가 실�
 기존 점유와 증적 부재를 검증하고 Terraform 적용을 건너뛰며 convergence와 post-apply
 검사를 다시 수행한 뒤 증적을 기록합니다. 맥락 변경, 누락된 점유, 기존 증적은
 재개를 차단합니다. Targeted 계획이 콘솔 hostname 출력을 비워 두면 Entra sync는 Terraform
-상태의 exact Static Web App id를 사용해 Azure 관리 평면에서 hostname을 읽습니다.
+상태의 exact Static Web App id를 사용해 Azure 관리 평면에서 hostname을 읽습니다. 적용 후 관찰은 봉인된 runtime profile을 따릅니다. Cost Governance plan은 대상이 제한된 zero-change 결과와 collector 및 analyzer Job의 독립 image readback만 요구합니다. `deploy status`는 apply 증적과 함께 정제된 Job readback을 내려받아 두 고정 container binding과 공유 다이제스트를 확인하고, readback 및 증적 다이제스트를 다시 계산합니다. 이 패키지 범위를 Core migration, health, inventory 또는 canary 근거로 대체하지 않습니다.
 
 Post-apply 이행은 같은 작업 흐름 문서가 서로 다른 action-catalog 다이제스트를 pin할 때 변경할 수 없는
 built-in 작업 흐름 정의가 coexist하도록 허용합니다. Unique 데이터베이스 신원은 작업 흐름 이름,
@@ -603,9 +603,7 @@ Physical 정리가 아직 블롭을 제거하지 않았더라도 적용은 logic
 status`는 작업 흐름 호스트를 통해 범위가 제한된 정제 산출물을 조회합니다. 정확한 적용과
 검증 전용 재개는 같은 기능 선택과 맥락 다이제스트를 전달합니다. GitHub 환경 승인 경계,
 변경할 수 없는 점유, 감사 증적은 계속 정본입니다. 실행기 egress preflight 근거는 변경할 수
-없는 계획 메타데이터에 고정되고 post-apply 검사는 증적 기록 전에 Terraform convergence,
-이행 성공, 활성화된 엔드포인트 상태를 요구합니다. 실행기 측 정책, 할당량, 신원, 비밀,
-egress 근거는 C4 exact-plan 게이트의 필수 입력입니다.
+없는 계획 메타데이터에 고정됩니다. 일반 애플리케이션 증적은 Terraform convergence, 이행 성공, 활성화된 엔드포인트 상태를 요구합니다. Cost Governance 증적은 대신 대상이 제한된 convergence와 위에서 설명한 두 Job image readback을 요구합니다. 실행기 측 정책, 할당량, 신원, 비밀, egress 근거는 C4 exact-plan 게이트의 필수 입력입니다.
 
 ## Private-everything 테넌트
 

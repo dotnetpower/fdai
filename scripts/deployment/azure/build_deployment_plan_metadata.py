@@ -10,12 +10,16 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-_POST_APPLY_OBSERVATIONS = [
+_CORE_POST_APPLY_OBSERVATIONS = [
     "database-migrations",
     "runtime-health",
     "initial-inventory-execution",
     "canary-publisher",
     "terraform-zero-change",
+]
+_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "cost-governance-job-image-readback",
 ]
 
 
@@ -53,7 +57,11 @@ def build_plan_metadata(
         "status": "ready",
         "workflow_run_id": environ["GITHUB_RUN_ID"],
         "plan_summary": dict(plan_summary),
-        "post_apply_observations": list(_POST_APPLY_OBSERVATIONS),
+        "post_apply_observations": list(
+            _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+            if runtime_image_profile == "cost-governance"
+            else _CORE_POST_APPLY_OBSERVATIONS
+        ),
     }
     if runtime_image_revision:
         metadata["runtime_image"] = {

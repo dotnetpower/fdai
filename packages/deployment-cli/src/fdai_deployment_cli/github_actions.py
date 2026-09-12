@@ -20,6 +20,7 @@ from fdai_deployment_cli.contracts import canonical_digest
 _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_OCI_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _REQUEST_ID = re.compile(
     r"^(?:plan|apply)-(?:cost-|history-|identity-|provider-|rca-)?[0-9a-f]{48}$"
@@ -41,6 +42,17 @@ _EXPIRES_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 # Artifact downloads are larger than metadata queries; use a longer timeout.
 _ARTIFACT_DOWNLOAD_TIMEOUT = 90
 _DEFAULT_GH_TIMEOUT = 30
+_CORE_POST_APPLY_OBSERVATIONS = [
+    "database-migrations",
+    "runtime-health",
+    "initial-inventory-execution",
+    "canary-publisher",
+    "terraform-zero-change",
+]
+_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "cost-governance-job-image-readback",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -750,14 +762,25 @@ def _download_plan_metadata(
         raise ValueError("github_plan_metadata_invalid")
     summary = _plan_summary(payload.get("plan_summary"))
     observations = payload.get("post_apply_observations")
-    if observations != [
-        "database-migrations",
-        "runtime-health",
-        "initial-inventory-execution",
-        "canary-publisher",
-        "terraform-zero-change",
-    ]:
+    cost_governance = request_id_value.startswith("plan-cost-")
+    expected_observations = (
+        _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+        if cost_governance
+        else _CORE_POST_APPLY_OBSERVATIONS
+    )
+    if observations != expected_observations:
         raise ValueError("github_plan_metadata_observations_invalid")
+    runtime_image = payload.get("runtime_image")
+    if cost_governance and (
+        not isinstance(runtime_image, dict)
+        or set(runtime_image) != {"source_revision", "digest", "profile"}
+        or not isinstance(runtime_image.get("source_revision"), str)
+        or _COMMIT.fullmatch(runtime_image["source_revision"]) is None
+        or not isinstance(runtime_image.get("digest"), str)
+        or _OCI_DIGEST.fullmatch(runtime_image["digest"]) is None
+        or runtime_image.get("profile") != "cost-governance"
+    ):
+        raise ValueError("github_plan_metadata_runtime_image_invalid")
     return {
         "plan_id": plan_id,
         "plan_digest": plan_digest,
@@ -829,7 +852,7 @@ def _download_apply_receipt(
     expected_plan_digest: str,
     run: CommandRunner,
 ) -> dict[str, object]:
-    """Download and validate one standard application receipt and inventory observation."""
+    """Download and validate one application receipt and its profile observation."""
 
     if (
         _PLAN_ID.fullmatch(expected_plan_id) is None
@@ -854,11 +877,19 @@ def _download_apply_receipt(
         if result.returncode != 0:
             raise ValueError("github_apply_receipt_unavailable")
         receipt = _private_artifact_json(directory / "apply-receipt.json", "apply receipt")
-        inventory_path = directory / "initial-inventory-receipt.json"
-        inventory_bytes = _private_artifact_bytes(
-            inventory_path, "initial inventory execution receipt"
+        cost_governance = request_id_value.startswith("apply-cost-")
+        observation_path = directory / (
+            "cost-governance-job-image-readback.json"
+            if cost_governance
+            else "initial-inventory-receipt.json"
         )
-        inventory = dict(_json_object(inventory_bytes.decode("utf-8"), "initial inventory receipt"))
+        observation_label = (
+            "Cost Governance Job image readback"
+            if cost_governance
+            else "initial inventory execution receipt"
+        )
+        observation_bytes = _private_artifact_bytes(observation_path, observation_label)
+        observation = dict(_json_object(observation_bytes.decode("utf-8"), observation_label))
     expected = {
         "schema_version": "fdai.deployment-apply-receipt.v1",
         "plan_id": expected_plan_id,
@@ -868,11 +899,18 @@ def _download_apply_receipt(
         "source_commit": expected_commit,
         "status": "applied",
         "terraform_zero_change_verified": True,
-        "migration_stage_verified": True,
-        "runtime_health_verified": True,
-        "canary_verified": True,
         "subscription_ready": False,
     }
+    if cost_governance:
+        expected["cost_governance_job_images_verified"] = True
+    else:
+        expected.update(
+            {
+                "migration_stage_verified": True,
+                "runtime_health_verified": True,
+                "canary_verified": True,
+            }
+        )
     receipt_digest = receipt.get("receipt_digest")
     receipt_body = {key: item for key, item in receipt.items() if key != "receipt_digest"}
     if any(receipt.get(key) != item for key, item in expected.items()):
@@ -883,16 +921,31 @@ def _download_apply_receipt(
         or canonical_digest(receipt_body) != receipt_digest
     ):
         raise ValueError("github_apply_receipt_digest_invalid")
-    inventory_digest = hashlib.sha256(inventory_bytes).hexdigest()
-    inventory_receipt_digest = inventory.get("receipt_digest")
-    inventory_body = {key: item for key, item in inventory.items() if key != "receipt_digest"}
+    observation_digest = hashlib.sha256(observation_bytes).hexdigest()
+    if cost_governance:
+        image_digest = receipt.get("cost_governance_image_digest")
+        if (
+            receipt.get("cost_governance_job_image_readback_digest") != observation_digest
+            or not isinstance(image_digest, str)
+            or _OCI_DIGEST.fullmatch(image_digest) is None
+        ):
+            raise ValueError("github_cost_governance_readback_invalid")
+        _validate_cost_governance_readback(observation, expected_digest=image_digest)
+        return {
+            **expected,
+            "cost_governance_image_digest": image_digest,
+            "cost_governance_job_image_readback_digest": observation_digest,
+        }
+    inventory_receipt_digest = observation.get("receipt_digest")
+    inventory_body = {key: item for key, item in observation.items() if key != "receipt_digest"}
     if (
-        receipt.get("initial_inventory_execution_receipt_digest") != inventory_digest
-        or inventory.get("schema_version") != "fdai.genesis-initial-inventory-execution-receipt.v1"
-        or inventory.get("source_commit") != expected_commit
-        or inventory.get("status") != "succeeded"
-        or inventory.get("active_generation_verified") is not False
-        or inventory.get("subscription_ready") is not False
+        receipt.get("initial_inventory_execution_receipt_digest") != observation_digest
+        or observation.get("schema_version")
+        != "fdai.genesis-initial-inventory-execution-receipt.v1"
+        or observation.get("source_commit") != expected_commit
+        or observation.get("status") != "succeeded"
+        or observation.get("active_generation_verified") is not False
+        or observation.get("subscription_ready") is not False
         or not isinstance(inventory_receipt_digest, str)
         or _DIGEST.fullmatch(inventory_receipt_digest) is None
         or hashlib.sha256(
@@ -912,9 +965,39 @@ def _download_apply_receipt(
         "migration_stage_verified": True,
         "runtime_health_verified": True,
         "canary_verified": True,
-        "initial_inventory_execution_receipt_digest": inventory_digest,
+        "initial_inventory_execution_receipt_digest": observation_digest,
         "subscription_ready": False,
     }
+
+
+def _validate_cost_governance_readback(
+    value: Mapping[str, object],
+    *,
+    expected_digest: str,
+) -> None:
+    """Reject incomplete or mismatched Cost Governance Job observations."""
+    if (
+        set(value) != {"schema_version", "image_digest", "jobs"}
+        or value.get("schema_version") != "fdai.cost-governance-job-image-readback.v1"
+        or value.get("image_digest") != expected_digest
+    ):
+        raise ValueError("github_cost_governance_readback_invalid")
+    jobs = value.get("jobs")
+    expected_containers = {
+        "analyzer": "cost-governance-analyzer",
+        "collector": "cost-governance-collector",
+    }
+    if not isinstance(jobs, dict) or set(jobs) != set(expected_containers):
+        raise ValueError("github_cost_governance_readback_invalid")
+    for role, container in expected_containers.items():
+        job = jobs[role]
+        if (
+            not isinstance(job, dict)
+            or set(job) != {"container", "image_digest"}
+            or job.get("container") != container
+            or job.get("image_digest") != expected_digest
+        ):
+            raise ValueError("github_cost_governance_readback_invalid")
 
 
 def _private_artifact_json(path: Path, label: str) -> dict[str, object]:
