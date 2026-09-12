@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:9b09337d9c4c2a2c4864cb9d743b787db5f4458bd486f0ec5ea6b8218a3bfdb7",
+  "catalog_digest": "sha256:20056ed9c225bcecd0801ace0f1d5c8a4bfdbf053b4ab6e982f901394ca2d852",
   "execution_authority": false,
-  "generated_at": "2026-09-12T00:43:36.949242Z",
+  "generated_at": "2026-09-12T03:05:30.455525Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:fc5eca42cbe591b75e5520a773c5a48935e4dd19987fc3982ca26aef74cb1ebb",
+      "record_digest": "sha256:10c81c96e28b8a05e2e1fb18e6f12faf6018e13d381fa9407b960ddb6dc2447a",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "b65d8e83bc8778ea794380dda4aea75653e2eea1",
+          "blob_sha": "8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:84f0a537b5bb9c228c9853b9189537a6b327fd4d341b923ce52518642ff3d424",
+      "record_digest": "sha256:9e2a549c09f003cb9a7e9cbd8cb33902b6323030e25bd8da102148e6cbe67f63",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "b65d8e83bc8778ea794380dda4aea75653e2eea1",
+          "blob_sha": "8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -526,17 +526,8 @@
         "How does the existing FDAI Teams conversation path work?",
         "기존 FDAI Teams 대화 경로는 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:76273b646440294597f470bf275a2543f5690a186e10dce9ab14c8a85d37335f",
+      "record_digest": "sha256:a3196336e98d9a475b03ea4e411178d20ee65f13f213d3df31ec5b51e5e67794",
       "sources": [
-        {
-          "authority_role": "verification",
-          "blob_sha": "351b6d4bc18533c5b452c9d287f26a2c04ca3cbd",
-          "line_end": 81,
-          "line_start": 81,
-          "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
-          "source_kind": "doc",
-          "symbol": "Implementation status"
-        },
         {
           "authority_role": "implementation",
           "blob_sha": "a473e1301c05f8eb6401036ab97224e4b6648d87",
@@ -545,6 +536,15 @@
           "path": "services/operator-service/src/fdai_operator_service/families/conversation/channel_edge/teams_ingress.py",
           "source_kind": "code",
           "symbol": "TeamsIngressVerifier"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "a81604eb9d6e4056f17972f4431349014894fbcf",
+          "line_end": 81,
+          "line_start": 81,
+          "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
+          "source_kind": "doc",
+          "symbol": "Implementation status"
         }
       ],
       "status": "implemented",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "4f1bb08d924e530cfb2ebc51ff2a80ace665d574"
+  "source_revision": "3e9c90820479e5e9a6a3b3685d24404b732a36f1"
 }

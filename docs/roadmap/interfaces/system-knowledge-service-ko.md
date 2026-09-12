@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: b65d8e83bc8778ea794380dda4aea75653e2eea1
+translation_source_sha: 8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b
 translation_revised: 2026-09-12
 ---
 # 시스템 지식 서비스
@@ -125,6 +125,9 @@ Markdown 구조를 수정한 경우를 포함해 인용한 소스가 바뀌면 �
 다시 빌드 규칙을 적용합니다.
 완료 handoff 및 behavior-knowledge ledger 갱신도 이 규칙을 따릅니다. Source blob pin과
 catalog digest만 바꾸며 검색 권한이나 메시지 전달 동작은 변경하지 않습니다.
+턴 종료 후 마이그레이션의 인용 근거는 공유 Operator 롤백 계약을 따릅니다. 서비스 버전을
+내려도 legacy `20260912_0090`에서 상속한 근거는 보존됩니다. 이 인용 근거의 갱신은 검토된
+설계를 기록할 뿐, 배포 환경의 롤백이나 중복 전달 증적을 제공하지 않습니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.
