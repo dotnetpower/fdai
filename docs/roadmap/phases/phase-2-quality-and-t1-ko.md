@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: c758cd6c8363107f47074d0025750238b04b87d9
+translation_source_sha: 461cdf1bb801c64fb35bea59a39dec94f946a714
 translation_revised: 2026-09-12
 ---
 
@@ -137,6 +137,11 @@ Terraform은 daily Container Apps Job을 정의하며 런타임 경로는 privat
 통해 append-only ledger를 복원하고 보존할 수 있습니다. Material drift는 Heimdall이 검증하고
 shadow `object.drift` topic에 `event_type: provider.schema_drift`로만 발행합니다. 운영 검증
 전에는 보호된 scheduled-run 증적이 더 필요합니다.
+
+`StateStore`의 영속 blob은 기존 UTF-8 레코드를 변경 없이 보존하고, UTF-8이 아닌 카탈로그
+산출물은 명시적으로 검증되는 `base64` 표식과 함께 인코딩합니다. 세대 식별자를 계산하기 전에
+매니페스트 항목을 정규 상대 POSIX 경로로 정렬하므로, 압축된 검토 및 스냅샷 산출물이 바이트
+단위로 복원되고 결정론적 세대가 호스트 경로 정렬 방식에 의존하지 않습니다.
 
 Protected 배포는 전용 provider-only plan/apply 모드를 사용합니다. 이 모드는 첫 generation
 bootstrap용 reviewed catalog를 image에 포함하고 관련 없는 Terraform 주소를 차단하며, exact Job
