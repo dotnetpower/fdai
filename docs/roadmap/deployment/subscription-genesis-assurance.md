@@ -51,8 +51,12 @@ External control planes are first-class dependencies:
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
-Region availability uses the exact subscription-bound ARM locations endpoint; it neither relies
-on the active Azure CLI subscription nor passes unsupported selection flags to convenience commands.
+New image plans select builder/verifier SKUs from the signed small-VM policy in the chosen region.
+Both need x64, Gen2, reviewed memory, and 64-GiB managed OS disks. Bounded private SKU and aggregate
+quota snapshots make selection replayable; digests and sizes are sealed and shown before approval.
+Apply rechecks only those sizes, quota, expiry, and approval. Unknown evidence blocks; no reselection,
+region change, or capacity reservation occurs. Existing claims verify effects only. Foundation
+selection and recovery remain separate, and the cost review is not a live price guarantee.
 
 Runner enrollment never places a registration token, remove token, database password, or GitHub
 token in Terraform variables, state, process arguments, Azure Run Command payloads, logs, or chat.
@@ -68,18 +72,14 @@ a UTC window of no more than one hour. This single-human file transport is limit
 staging and production retain their protected quorum transport. Another stage, changed digest,
 expired record, or silence grants no authority.
 
-Runner-image construction must also remain compatible with the effective Storage policy. The
-implemented private route does not use Azure VM Image Builder because its hidden staging account
-can require Shared Key. Terraform instead owns the complete builder network, an FQDN-allowlisted
-Firewall Basic with two non-VM public egress IPs, private builder and verifier VMs, extensions,
-deallocate/generalize actions, and the managed image. The exact plan
-rejects Storage and image-template resources. Independent acceptance requires the captured image
-provenance, successful builder and verifier extensions, and both VMs in the expected deallocated
-state. A build claim without that evidence remains blocked and cannot be retried.
-When tenant policy appends `FirstPartyUsage=/Unprivileged` to the two Firewall public IPs,
-Terraform treats only that field as externally owned. Acceptance requires the same bounded value
-or absence on both exact public IPs, no unknown IP tag, and a refreshed zero-change plan. A policy
-effect never authorizes replacement, firewall rebinding, or reuse of an ambiguous apply claim.
+Terraform owns the Storage-policy-compatible direct image graph: private builder and verifier
+VMs, extensions, deallocate/generalize actions, managed-image capture, and the complete network
+behind FQDN-allowlisted Firewall Basic with two non-VM public egress IPs. Azure VM Image Builder,
+Storage and image-template resources remain prohibited because hidden staging can need Shared Key.
+Acceptance requires image provenance, successful extensions, both VMs deallocated, and no retry
+of a claimed build. Only policy-appended `FirstPartyUsage=/Unprivileged` is externally owned; it
+must be absent or equal on both exact Firewall IPs, with no unknown tag and a refreshed zero-change
+plan. That policy effect authorizes no replacement, firewall rebinding, or ambiguous-claim reuse.
 Policy-probe cleanup parses multi-value Azure CLI TSV projections as ordered lines, verifies the
 exact tagged group and deleted-vault absence, and never reports completion from command success alone.
 

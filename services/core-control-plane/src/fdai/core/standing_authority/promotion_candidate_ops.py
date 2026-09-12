@@ -33,6 +33,9 @@ from fdai.core.standing_authority.promotion_candidate_models import (
     TerminalDenialRecord,
     _require_human,
 )
+from fdai.core.standing_authority.provider_eligibility import (
+    derive_ineligible_provider_action_types,
+)
 
 
 def _canonical_values(name: str, values: tuple[str, ...]) -> tuple[str, ...]:
@@ -47,7 +50,6 @@ def build_candidate_record(
     revision_id: str,
     fence: LifecycleFence,
     eligible_action_types: tuple[str, ...],
-    ineligible_provider_action_types: tuple[str, ...],
     evidence_requirements: tuple[str, ...],
     source_revision_id: str,
     creator_principal: str,
@@ -56,14 +58,19 @@ def build_candidate_record(
     required_reviewer_principals: tuple[str, ...],
     quorum_required: int,
 ) -> PromotionCandidateRecord:
-    """Build a creation record, deriving ``candidate_id``."""
+    """Build a creation record, deriving ``candidate_id``.
+
+    ``ineligible_provider_action_types`` is derived from
+    :func:`~fdai.core.standing_authority.provider_eligibility.derive_ineligible_provider_action_types`
+    and is not a parameter: a candidate author cannot claim provider eligibility that
+    no adapter enforces.
+    """
     eligible_action_types = _canonical_values(
         "eligible_action_types",
         eligible_action_types,
     )
-    ineligible_provider_action_types = _canonical_values(
-        "ineligible_provider_action_types",
-        ineligible_provider_action_types,
+    ineligible_provider_action_types = derive_ineligible_provider_action_types(
+        eligible_action_types
     )
     evidence_requirements = _canonical_values(
         "evidence_requirements",

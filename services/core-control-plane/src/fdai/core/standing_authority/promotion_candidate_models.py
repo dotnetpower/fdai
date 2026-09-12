@@ -21,6 +21,9 @@ from fdai.core.standing_authority.lifecycle_codec import (
     require_digest,
     require_text,
 )
+from fdai.core.standing_authority.provider_eligibility import (
+    derive_ineligible_provider_action_types,
+)
 
 LEASE_CONTRACT_VERSION: str = "a3e-lease-v1"
 CANDIDATE_QUORUM: int = 2
@@ -117,6 +120,17 @@ class PromotionCandidateRecord:
             self.ineligible_provider_action_types,
         )
         _require_canonical_distinct("evidence_requirements", self.evidence_requirements)
+        # Provider-commit-fence capability is derived, never declared. This closes the
+        # direct-constructor path as well as the builder, so no caller can assert that
+        # an ActionType is A3-E eligible when its adapter cannot validate the lease and
+        # fencing generation atomically at provider commit.
+        if self.ineligible_provider_action_types != derive_ineligible_provider_action_types(
+            self.eligible_action_types
+        ):
+            raise AuthorizationLifecycleError(
+                "ineligible_provider_action_types MUST equal the derived "
+                "provider-commit-fence partition of eligible_action_types"
+            )
         require_text("source_revision_id", self.source_revision_id)
         _require_human("creator_principal", self.creator_principal)
         require_digest("authentication_evidence_digest", self.authentication_evidence_digest)
