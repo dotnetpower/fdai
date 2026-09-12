@@ -84,6 +84,9 @@ function decodeArm(value: unknown, arm: "baseline" | "treatment"): ComparisonArm
     const lower = apiNumber(metric, "lower_bound", label);
     const upper = apiNumber(metric, "upper_bound", label);
     const id = apiString(metric, "metric_id", label);
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(id)) {
+      throw contractError("dashboard comparison metric identifier is invalid");
+    }
     if (sampleSize < sampleCount || lower < 0 || lower > absolute || absolute > upper ||
         metric["confidence_level_basis_points"] !== 9500 ||
         (id === "auto_resolution_rate" && upper > 1)) {

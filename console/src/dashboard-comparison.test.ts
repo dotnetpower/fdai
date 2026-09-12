@@ -75,4 +75,13 @@ describe("admitted comparison display contract", () => {
       ] },
     })).toThrow();
   });
+  test("rejects noncanonical identifiers even when both arms repeat them", () => {
+    const data = publication();
+    const invalid = "auto_resolution_rate\nother";
+    expect(() => decodeDashboardComparison({
+      ...data,
+      baseline: { ...data.baseline, metrics: [{ ...data.baseline.metrics[0], metric_id: invalid }] },
+      treatment: { ...data.treatment, metrics: [{ ...data.treatment.metrics[0], metric_id: invalid }] },
+    })).toThrow();
+  });
 });

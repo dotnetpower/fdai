@@ -100,6 +100,8 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
 
   usePublishViewContext(
     () => {
+      const comparison = autonomy?.comparison &&
+        Date.parse(autonomy.comparison.valid_until) > Date.now() ? autonomy.comparison : null;
       // The Overview renders an autonomy hero, success-metrics-vs-baseline,
       // per-vertical cards, and guard bands from the /kpi/autonomy panel.
       // Publish that surface (not just the audit KPIs) so the deck can answer
@@ -254,6 +256,20 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
           ...autonomyFacts,
         ],
         records: {
+          cohort_comparison_context: comparison ? [{
+            scope: "separate_admitted_cohort",
+            revision: comparison.fdai_revision,
+            protocol_version: comparison.measurement_protocol_version,
+            published_at: comparison.published_at,
+            valid_until: comparison.valid_until,
+          }] : [],
+          cohort_comparison_metrics: comparison ? comparison.baseline.metrics.map((metric, index) => ({
+            metric: metric.metric_id,
+            baseline: metric.absolute_value,
+            treatment: comparison.treatment.metrics[index]!.absolute_value,
+            baseline_sample_size: metric.sample_size,
+            treatment_sample_size: comparison.treatment.metrics[index]!.sample_size,
+          })) : [],
           sections: [
             {
               position: 1,
