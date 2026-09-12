@@ -238,6 +238,29 @@ def test_risk_classification_loosening_requires_an_owner_review() -> None:
     assert with_owner.allowed is True
 
 
+def test_standing_authority_promotion_requires_owner_tier_quorum_of_two() -> None:
+    without_owner = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_APPROVER_ONE),
+            _approval(_APPROVER_TWO),
+        )
+    )
+    with_owner = validate_governance_review(
+        _request(
+            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            _approval(_APPROVER_ONE),
+            _approval(_OWNER),
+        )
+    )
+
+    assert without_owner.allowed is False
+    assert "owner_review_missing" in _codes(without_owner)
+    assert with_owner.allowed is True
+    assert with_owner.required_quorum == 2
+    assert with_owner.grants_execution_authority is False
+
+
 def test_dismissed_approval_is_silently_uncounted() -> None:
     decision = validate_governance_review(
         _request(
@@ -344,6 +367,7 @@ def test_every_change_class_declares_its_bounded_requirement() -> None:
         GovernanceChangeClass.RULE_AUTHORING: (1, False, False),
         GovernanceChangeClass.ASSIGNMENT: (1, False, False),
         GovernanceChangeClass.ENFORCE_PROMOTION: (2, True, False),
+        GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION: (2, True, True),
         GovernanceChangeClass.EXEMPTION: (2, True, False),
         GovernanceChangeClass.OVERRIDE: (2, True, False),
         GovernanceChangeClass.RISK_CLASSIFICATION_LOOSENING: (2, True, True),

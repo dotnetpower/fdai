@@ -676,6 +676,7 @@ async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation
         promotion_request_fingerprint,
     )
     from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceApproval,
         GovernanceChangeClass,
         GovernancePrincipal,
         GovernanceReviewRequest,
@@ -727,6 +728,44 @@ async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation
                 evidence_digest="b" * 64,
                 idempotency_key="promotion-3",
                 nonce="nonce-3",
+                request_fingerprint=promotion_request_fingerprint(request),
+            ),
+        )
+
+    standing_authority_review = GovernanceReviewRequest(
+        change_class=GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+        author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+        head_revision="a" * 40,
+        head_committed_at=NOW,
+        approvals=(
+            GovernanceApproval(
+                approver=GovernancePrincipal(oid=OID_B, roles=frozenset({Role.APPROVER})),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+            GovernanceApproval(
+                approver=GovernancePrincipal(
+                    oid="00000000-0000-0000-0000-000000000004",
+                    roles=frozenset({Role.OWNER}),
+                ),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+        ),
+    )
+    with pytest.raises(DirectApiPreconditionError, match="approved distinct-approver"):
+        await dispatcher.dispatch(
+            request,
+            attestation=GovernancePromotionAttestation(
+                review=standing_authority_review,
+                action_type_id="remediate.tag-add",
+                fdai_revision="a" * 40,
+                scenario_set_version="scenario-v1",
+                evidence_digest="b" * 64,
+                idempotency_key="promotion-3",
+                nonce="nonce-standing-authority",
                 request_fingerprint=promotion_request_fingerprint(request),
             ),
         )

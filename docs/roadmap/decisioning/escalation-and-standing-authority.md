@@ -377,6 +377,11 @@ When a standing authorization trips, the supervisor does **not** execute. It
   verifies a valid, unexpired, scope-matching standing authorization whose pinned revisions and
   envelope still hold; Var materializes its pre-recorded human Approval. Judge, approver, and
   executor remain distinct.
+- **Standing authority satisfies approval; it does not raise mode.** The `ActionPromotionRegistry`
+  remains an independent shadow/enforce axis and cannot represent A3-E. A3-E review uses the
+  dedicated `standing-authority-promotion` change class, which requires two distinct
+  phishing-resistant approvals including an Owner. The generic `enforce-promotion` class cannot
+  satisfy this authority, and the review decision grants no execution authority.
 - **Thor executes**, Vidar remains the rollback principal, Saga audits with an
   explicit `standing-authority` reason and the authorization id - a replayable,
   attributable record ([architecture.instructions.md § Idempotency, Ordering,
@@ -428,8 +433,10 @@ wider, impact-tiered, time-decaying set of humans were given the chance to act.
    non-response incidents.
 2. **Standing authorization in shadow.** Every standing authorization declares
    `mode: shadow` and a measurable promotion gate (e.g. "N shadow trips, zero
-   envelope escapes, zero policy-violation escapes"). Promotion to enforce is a
-   separate, Owner-reviewed change, never bundled with the authoring PR
+   envelope escapes, zero policy-violation escapes"). Promotion out of A3-E shadow review is a
+   separate, Owner-reviewed `standing-authority-promotion` change that qualifies only the
+   standing-approval lane; it never changes registry mode or bypasses `hil`, and it is never
+   bundled with the authoring PR
    ([coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 3. **Metrics** (fold into the existing KPI stream,
    [goals-and-metrics.md](../architecture/goals-and-metrics.md)): rung-response latency,
