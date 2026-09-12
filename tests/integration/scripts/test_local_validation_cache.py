@@ -155,6 +155,17 @@ def test_environment_identity_verifies_installed_content(tmp_path: Path) -> None
     assert inputs.installed_digest(venv) != before
 
 
+def test_installed_directory_cannot_hide_external_inputs(tmp_path: Path) -> None:
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin/python").write_bytes(b"interpreter")
+    external = tmp_path / "external"
+    external.mkdir()
+    (venv / "hidden-package").symlink_to(external, target_is_directory=True)
+    with pytest.raises(ValueError, match="directory escapes"):
+        inputs.installed_digest(venv)
+
+
 def test_runner_digest_includes_venue_and_helpers(repository: Path) -> None:
     assert (
         "scripts/quality/architecture/check-venue-capability-contract.py" in STRUCTURAL_GATE_INPUTS

@@ -83,6 +83,11 @@ The local structural runner can reuse successful results across the optional val
 hook only when its complete content and execution context match. Gates without a proven narrower
 dependency set use the complete tracked tree. Missing, malformed, failed, or mismatched cache
 records cause execution, never a successful fallback. Cache availability is optional.
+Structural receipts expire after 24 hours and retain at most 128 entries in Git-common-dir
+`fdai-local-validation` state. Related hook commands share one environment preparation per group.
+Fast-gate cache identities are computed once before and after the batch, not once per gate.
+Pure checks bind content; history checks also bind revisions and refs. Input drift rejects the
+batch. Integrity and external-evidence checks remain uncached; CI runs retain their own environment.
 
 Documentation updates refresh only the translated files actually reviewed. Coverage candidate
 selection can use existing reports as hints; a one-module task measures that module, not a mandatory
@@ -267,12 +272,13 @@ The remaining Low risks are explicit and bounded:
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
 | Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
 | Developer validation authority | implemented | `.githooks/post-commit`; `.githooks/pre-push`; `scripts/agent/design_context.py`; focused hook and dispatcher tests | Commits and pushes no longer depend on local queue receipts; CI owns pushed-SHA integration. |
-| Local-first validation and candidate publication | in-progress | `scripts/verify.sh`; `scripts/agent/design_context.py`; `scripts/quality/ci/resolve_test_scope.py`; scoped text and changed-test selectors; focused regression tests | Content-based local reuse, bounded guidance, and candidate-only publication are being integrated. Required remote evidence remains independent. |
+| Local-first validation and candidate publication | implemented | Focused facade, route, guidance, selector, cache, queue, workflow, and Genesis regression suites; static and type checks | Local structural passes bind content and execution inputs. Fast-gate reuse requires verified clean inputs and a final identity recheck. Remote evidence remains independent. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Completed bounded local structural reuse, input-verified fast-gate caching, grouped hook checks, targeted guidance and CI routing, and explicit candidate publication. Final input drift is rejected and unknown or unavailable cache context runs uncached. | `current change`; the integrated focused facade, cache, queue, workflow, Genesis, routing, guidance, text, and selector suites passed 651 cases; Ruff and scoped mypy checks passed. | Retain comparable remote latency evidence after an authorized push; no local result grants deployment authority. |
 | 2026-08-15 | in-progress | Adopted the developer workflow assurance owner and bounded the campaign; earlier implementation provenance was not reconstructed. | Current change and existing controls listed in the scope table. | Complete the focused rounds and final residual-risk review. |
 | 2026-08-15 | in-progress | Revised the design after independent critique by defining the CLI contract, bounded evidence windows, failure behavior, authority separation, and 12-round sequence. | Current change; roadmap, translation, and punctuation checks. | Implement and verify each accepted finding. |
 | 2026-08-15 | implemented | Completed 13 critique-and-hardening rounds and removed every reproducible Medium-or-higher residual. | Current change; 163 focused Python control tests, 6 Playwright port-pool tests, 48 final false-ready tests, Ruff, and the final independent review. | Record the centralized validation receipt for the integrated revision. |

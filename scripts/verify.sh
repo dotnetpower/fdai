@@ -110,19 +110,45 @@ fi
 
 declare -a NAMES=()
 declare -a RESULTS=()
+declare -a PENDING_CACHE=()
 overall=0
 structural_deferred=0
+cache_identity=""
+cache_content=""
+cache_history=""
+read_cache_identity() {
+    python3 scripts/automation/local_validation_context.py --history "$DIFF_RANGE" --format keys
+}
+if [[ -n "${FDAI_VERIFY_CACHE_DIR:-}" && -n "$DIFF_RANGE" && "$MODE" == "fast" &&
+      -f scripts/automation/local_validation_context.py ]]; then
+    if cache_identity=$(read_cache_identity); then
+        read -r cache_content cache_history <<< "$cache_identity"
+        if [[ ! "$cache_content" =~ ^[0-9a-f]{64}$ || ! "$cache_history" =~ ^[0-9a-f]{64}$ ]]; then
+            cache_identity=""
+        fi
+    else
+        cache_identity=""
+        printf 'validation cache: unavailable; running owning checks\n'
+    fi
+fi
 
 run_gate() {
     local name="$1"
     shift
     printf '\n== %s ==\n' "$name"
     local cache_file=""
-    if [[ -n "${FDAI_VERIFY_CACHE_DIR:-}" && -n "$DIFF_RANGE" && "$MODE" == "fast" ]]; then
+    local identity=""
+    case "$name" in
+        "ruff format"*|"ruff lint"*|"mypy (strict)"|punctuation|readable-hangul|guids|root-layout|translations|translation-quality|catalog-parity)
+            identity="$cache_content" ;;
+        design-doc-impact|roadmap-implementation-tracking)
+            identity="$cache_history" ;;
+    esac
+    if [[ -n "$cache_identity" && -n "$identity" ]]; then
         local cache_key
-        cache_key=$(printf '%s\n%s\n%s\n%s\n' "$(git rev-parse HEAD)" "$DIFF_RANGE" "$name" "${FDAI_VERIFY_CONTEXT_DIGEST:-}" | sha256sum | cut -d' ' -f1)
+        cache_key=$(printf '%s\0' "$identity" "$name" "$@" | sha256sum | cut -d' ' -f1)
         cache_file="$FDAI_VERIFY_CACHE_DIR/$cache_key.pass"
-        if [[ -f "$cache_file" ]]; then
+        if [[ -f "$cache_file" && ! -L "$cache_file" ]]; then
             NAMES+=("$name")
             RESULTS+=("CACHED")
             printf 'validation cache: PASS\n'
@@ -135,8 +161,7 @@ run_gate() {
         NAMES+=("$name")
         RESULTS+=("PASS")
         if [[ -n "$cache_file" ]]; then
-            mkdir -p "$(dirname "$cache_file")"
-            : > "$cache_file"
+            PENDING_CACHE+=("$cache_file")
         fi
     else
         NAMES+=("$name")
@@ -291,6 +316,24 @@ if [[ "$MODE" == "all" ]]; then
 fi
 
 # ---- summary ---------------------------------------------------------------
+
+if [[ -n "$cache_identity" ]]; then
+    if current_identity=$(read_cache_identity) && [[ "$current_identity" == "$cache_identity" ]]; then
+        for cache_file in "${PENDING_CACHE[@]}"; do
+            cache_temporary=""
+            if mkdir -p "$(dirname "$cache_file")" &&
+                cache_temporary=$(mktemp "$cache_file.tmp.XXXXXX") &&
+                mv "$cache_temporary" "$cache_file"; then
+                continue
+            fi
+            [[ -z "${cache_temporary:-}" ]] || rm -f -- "$cache_temporary"
+            printf 'validation cache: write unavailable; check result retained\n' >&2
+        done
+    else
+        printf 'validation-environment: inputs changed during verification; no cache evidence accepted\n' >&2
+        overall=125
+    fi
+fi
 
 printf '\n== summary ==\n'
 for i in "${!NAMES[@]}"; do

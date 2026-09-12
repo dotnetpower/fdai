@@ -3,7 +3,9 @@
 
 set -uo pipefail
 
-if [[ "${FDAI_STRUCTURAL_CACHE_ACTIVE:-0}" != "1" ]]; then
+if [[ "${FDAI_STRUCTURAL_CACHE_ACTIVE:-0}" != "1" &&
+      "${CI:-false}" != "true" && "${CI:-0}" != "1" &&
+      "${GITHUB_ACTIONS:-false}" != "true" && "${GITHUB_ACTIONS:-0}" != "1" ]]; then
   exec python3 scripts/automation/local_validation_cache.py structural
 fi
 
