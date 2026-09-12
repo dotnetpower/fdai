@@ -175,6 +175,7 @@ class DeliveryDaemon:
             self.runner(("git", "merge", "--abort"), self.config.worktree, 60)
             raise DeliveryError("base merge conflicted or failed")
         local_head = git(self.runner, self.config, "rev-parse", "HEAD")
+        base_head = git(self.runner, self.config, "rev-parse", base_ref)
         push = self.runner(
             ("git", "push", self.config.remote, self.config.topic_branch),
             self.config.worktree,
@@ -193,6 +194,7 @@ class DeliveryDaemon:
         if remote_sha != local_head:
             raise DeliveryError("pushed topic branch does not match the local commit")
         self.last_progress = time.monotonic()
+        self.state.update(head_sha=local_head, base_sha=base_head)
         self._record("base_synced")
 
     def _enable_auto_merge(self) -> None:
@@ -215,6 +217,7 @@ class DeliveryDaemon:
         )
         require_success(result, "enable protected auto-merge")
         self.last_progress = time.monotonic()
+        self.state["auto_merge_enabled"] = True
         self._record("auto_merge_enabled")
 
     def _verify_merge(self, current: PullRequestSnapshot) -> None:

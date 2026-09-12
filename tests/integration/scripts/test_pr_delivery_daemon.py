@@ -84,6 +84,8 @@ class FakeRunner:
             return support.CommandResult(0, f"{self.worktree}\n", "")
         if args == ("git", "rev-parse", "HEAD"):
             return support.CommandResult(0, f"{self.head}\n", "")
+        if args == ("git", "rev-parse", "refs/remotes/origin/main"):
+            return support.CommandResult(0, f"{_B}\n", "")
         if args == ("git", "worktree", "list", "--porcelain"):
             return support.CommandResult(
                 0,
@@ -213,6 +215,18 @@ def test_daemon_stops_without_enabling_auto_merge_for_a_draft(tmp_path: Path) ->
 
     assert not any(command[:3] == ("gh", "pr", "merge") for command in fake.commands)
     assert support.read_state(coordinator.paths.state)["reason"] == "pull_request_is_draft"  # type: ignore[index]
+
+
+def test_auto_merge_phase_records_enabled_state_immediately(tmp_path: Path) -> None:
+    fake = FakeRunner(tmp_path, [])
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+
+    coordinator._enable_auto_merge()
+
+    state = support.read_state(coordinator.paths.state)
+    assert state is not None
+    assert state["phase"] == "auto_merge_enabled"
+    assert state["auto_merge_enabled"] is True
 
 
 def test_daemon_locally_updates_a_behind_branch_and_restores_auto_merge(tmp_path: Path) -> None:
