@@ -262,7 +262,7 @@
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "a2eca316190e0bd08e3015aaf45a0f9d8cfbc369c6eec77f0e5f8e9adf71d3a5",
+      "case_id": "04cbdf2d8f59b0d059666d81eadd88bd6a9fb2dcc4e3bb85aa4d1cdb5ff29919",
       "context_snapshot_id": "5f18192f4de8a21c90e359857ceb635df5d2647acdbf6262d33d7433ab849392",
       "option_by_domain": {
         "change_safety": "change_safety:remediate.enable-diagnostic-settings",
@@ -280,8 +280,8 @@
         "audit:scenario-12/log-workspace.retention-excessive/example-log-workspace",
         "event:00000000-0000-0000-0000-000000000010",
         "event:00000000-0000-0000-0000-000000000012",
-        "receipt:sha256:2224b2d188e9616ff7add4e40af18f22f4a9bb4e3a551e8c6b4d28cff5fc2d7d",
-        "receipt:sha256:761500102d7ed81b296246fe3447bea2822d8a5670222dc38c14e64187b01d5f",
+        "receipt:sha256:7bfec9f9896eeea0e90a460d1a98df4722a2e1999536cf46d5df5d06f5173f8d",
+        "receipt:sha256:b4822ff456fb02ae1219d60b96daf05a2448f445188d98b8383080546462ef4c",
         "rule:kubernetes-cluster.diagnostic-settings-required",
         "rule:log-workspace.retention-excessive",
         "specialist:change_safety:sre-cross-objective-conflict-v2026-09",
@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:157104a91feba9e00aaad2eb9cfe5c8561c8cc6ea7b811c0f3b15b84b3db2590",
-    "evidence_digest": "sha256:5b45651b0d70f64252d4e6e6affbca86bf3e0a1d7c7de9677f21913b5335b66f"
+    "decision_digest": "sha256:58e3d08466e6f5538cf5d1f4d72c6974c50cdfb82a425401b3a66102a2183a1f",
+    "evidence_digest": "sha256:a7847a029aa2fd29cae30a239e298b601c4ee4ac6ded193386d0c57de9c28fae"
   }
 }

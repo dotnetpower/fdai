@@ -262,7 +262,7 @@
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "9d87d7ae0f55a4877af21c35f164750b31b755823314d010c46b76bd9ab6c4c8",
+      "case_id": "4b7d25b3b05971f95d7b401defd1254dbe6554f6b3fb75df89c9247bcf759a7a",
       "context_snapshot_id": "44c47fbd8bb2c4aa962aa6882479aeca34db0a94131f5eb723e61fd53540892d",
       "option_by_domain": {
         "change_safety": "change_safety:remediate.assign-identity",
@@ -280,8 +280,8 @@
         "audit:scenario-14/disk.unattached/example-disk-fleet-volume",
         "event:00000000-0000-0000-0000-000000000013",
         "event:00000000-0000-0000-0000-000000000014",
-        "receipt:sha256:b22bb648b127f13928251b09cf44a77faeea46f8b72c75a9a7df824bc13967f0",
-        "receipt:sha256:e1fe42d473e879bca7c5d95b25e25156c47103d900bcb43a76d84f4c39ff71fe",
+        "receipt:sha256:119222e39103ce3a9e04dc4ea47e273a4aaaad32227becf879cb9eedf204eb70",
+        "receipt:sha256:a6a3026fe684fbb3f7309b98cd58cf4ed2a9ff3dac1acca20392b3cd33bed8e6",
         "rule:compute.vm.managed-identity.assigned",
         "rule:disk.unattached",
         "specialist:change_safety:arb-cross-objective-conflict-v2026-10",
@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:8135ad872e8b1c11bf9dc48b1493b55375028c8c93ba59ff3f8550a796ec757d",
-    "evidence_digest": "sha256:cd23abc537306cc89c0b87ba78df646443fdb883eeb3baebe1fac70779d8aa9a"
+    "decision_digest": "sha256:96e7f802e7100f82ebe48d2936574947898ac5d71c8616a94f111ec7e0f12411",
+    "evidence_digest": "sha256:6b1a51f255c3a782bf1bc3145dedc6a12ecdd47c6b0aded7e43a1f4ddecf25cf"
   }
 }
