@@ -210,6 +210,13 @@ policy, Action, executor, or managed-resource grant. Durable response JSON round
 version, layout, assembly metadata, facts, limitations, evidence references, activities, progress,
 and thread intent exactly.
 
+The shared Operator migration branch also preserves post-turn skill proposal evidence inherited
+from legacy `20260912_0090`. Downgrading `operator_skill_proposal_evidence_20260912` retains the
+`skill_proposal.evidence_refs` column, its array constraint, and stored references. It does not
+rewrite the legacy chain or grant the channel edge access to skill proposals. The local migration
+round-trip and bootstrap evidence is recorded in the
+[post-turn implementation ledger](../../roadmap-implementation/decisioning/post-turn-improvement-review.md).
+
 ## Runtime lifecycle
 
 `ChannelEdgeRuntime` is composed in the top-level Starlette lifespan:

@@ -125,6 +125,9 @@ approval, or execution authority. Deployment-guard source revisions follow the s
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source
 blob pins and the catalog digest only, without changing retrieval authority or message-delivery
 behavior.
+Post-turn migration citations follow the shared Operator rollback contract: evidence inherited
+from legacy `20260912_0090` survives the service downgrade. Refreshing these citations records
+the reviewed design, not a deployed rollback or duplicate-delivery receipt.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of

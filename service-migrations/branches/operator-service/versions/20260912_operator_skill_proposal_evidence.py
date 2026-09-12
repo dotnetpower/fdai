@@ -14,7 +14,7 @@ depends_on: str | Sequence[str] | None = None
 migration_owner = "operator-service"
 owned_tables = ("skill_proposal",)
 rollback = {
-    "strategy": "drop-skill-proposal-evidence-refs",
+    "strategy": "retain-legacy-skill-proposal-evidence-refs",
     "restores": "operator_conversation_policy_evidence_20260907",
     "requires": "no-runtime-skill-proposal-writers",
 }
@@ -31,4 +31,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("ALTER TABLE skill_proposal DROP COLUMN evidence_refs;")
+    """Retain the evidence column and data inherited from legacy revision 0090."""

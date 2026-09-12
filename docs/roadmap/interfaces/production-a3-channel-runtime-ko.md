@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 351b6d4bc18533c5b452c9d287f26a2c04ca3cbd
-translation_revised: 2026-09-11
+translation_source_sha: a81604eb9d6e4056f17972f4431349014894fbcf
+translation_revised: 2026-09-12
 ---
 # 운영 A3 채널 런타임
 
@@ -213,6 +213,13 @@ Database grant는 edge를 해당 channel table 6개로만 제한합니다. Audit
 Action, executor 또는 managed-resource grant를 받지 않습니다. 영속 response JSON은 artifact version,
 배치, 조립 메타데이터, fact, limitation, evidence reference, activity, progress 및 thread intent를
 정확히 round-trip합니다.
+
+공유 Operator 마이그레이션 분기는 legacy `20260912_0090`에서 상속한 턴 종료 후 스킬 제안의
+근거도 보존합니다. `operator_skill_proposal_evidence_20260912`를 다운그레이드해도
+`skill_proposal.evidence_refs` 열, 배열 제약 조건, 저장된 근거 참조를 유지합니다. 기존
+마이그레이션 이력을 다시 쓰거나 채널 edge에 스킬 제안 접근 권한을 부여하지 않습니다.
+로컬 마이그레이션 왕복 검사와 부트스트랩 검증 근거는
+[턴 종료 후 개선 구현 원장](../../roadmap-implementation/decisioning/post-turn-improvement-review.md)에 기록합니다.
 
 ## 런타임 수명 주기
 
