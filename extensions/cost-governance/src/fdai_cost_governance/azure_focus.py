@@ -149,7 +149,8 @@ class AzureFocusObservationAdapter(CostObservationProvider):
     ) -> CostHttpResponse:
         """Retry one provider-directed read without exceeding the request deadline."""
 
-        for attempt in range(self._max_rate_limit_retries + 1):
+        attempt = 0
+        while True:
             response = await self._transport.post(
                 url,
                 headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
@@ -166,7 +167,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             ):
                 return response
             await self._sleep(retry_after)
-        raise AssertionError("rate-limit recovery loop did not return")
+            attempt += 1
 
     def _url(self, request: CostCollectionRequest, resume_token: str | None) -> str:
         if resume_token:

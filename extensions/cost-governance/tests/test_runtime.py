@@ -704,6 +704,37 @@ def test_azure_focus_does_not_retry_beyond_deadline() -> None:
     assert clock.delays == []
 
 
+def test_azure_focus_does_not_retry_without_provider_guidance() -> None:
+    transport = SequenceTransport((CostHttpResponse(429, b""),))
+    clock = AdvancingClock()
+    adapter = AzureFocusObservationAdapter(
+        transport=transport,
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=clock,
+        sleep=clock.sleep,
+    )
+
+    with pytest.raises(RuntimeError, match="Azure Cost Management read failed: 429"):
+        asyncio.run(
+            adapter.collect_cost_page(
+                CostCollectionRequest(
+                    package_id="cost-governance",
+                    scope_id=_SCOPE,
+                    start_at=_NOW - timedelta(days=1),
+                    end_at=_NOW - timedelta(seconds=1),
+                    page_size=10,
+                    deadline_at=_NOW + timedelta(minutes=1),
+                ),
+                resume_token=None,
+            )
+        )
+
+    assert transport.calls == 1
+    assert clock.delays == []
+
+
 def test_azure_focus_stops_after_rate_limit_retry_budget() -> None:
     transport = SequenceTransport(
         (
