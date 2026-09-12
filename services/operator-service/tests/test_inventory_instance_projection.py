@@ -19,6 +19,8 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceResource,
     InventoryInstanceResourcePage,
     InventoryProjectionSourceState,
+    InventoryProviderScopeCoverage,
+    InventoryProviderTypeCount,
     InventoryRelationshipCoverage,
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
@@ -43,6 +45,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreConfig,
     PostgresFamilyStoreUnavailable,
     _projection_source_states,
+    _provider_scope_coverage,
 )
 from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorRole
@@ -910,6 +913,21 @@ class _FullCoverageReader(_Reader):
                 total_candidates=5,
                 complete=False,
             ),
+            provider_scope_coverage=InventoryProviderScopeCoverage(
+                capture_method="azure-resource-graph",
+                provider_object_count=10,
+                mapped_provider_object_count=7,
+                unmapped_provider_object_count=3,
+                materialized_unmapped_provider_object_count=3,
+                provider_identity_complete=True,
+                provider_type_count=5,
+                unmapped_provider_types=(
+                    InventoryProviderTypeCount(
+                        provider_type="example.provider/widgets",
+                        count=3,
+                    ),
+                ),
+            ),
         )
 
     async def read_inventory_instance_neighborhood(
@@ -975,6 +993,17 @@ async def test_instance_projection_reports_full_source_coverage_and_truncation_r
         "total_candidates": 5,
         "complete": False,
     }
+    assert result["provider_scope_coverage"] == {
+        "capture_method": "azure-resource-graph",
+        "provider_object_count": 10,
+        "mapped_provider_object_count": 7,
+        "unmapped_provider_object_count": 3,
+        "materialized_unmapped_provider_object_count": 3,
+        "provider_identity_complete": True,
+        "provider_type_count": 5,
+        "unmapped_provider_type_count": 1,
+        "unmapped_provider_types": [{"provider_type": "example.provider/widgets", "count": 3}],
+    }
     assert result["truncation_reasons"] == ["resource_limit", "activity_limit"]
     assert result["complete"] is False
     sources = result["sources"]
@@ -993,6 +1022,64 @@ async def test_instance_projection_reports_full_source_coverage_and_truncation_r
             "reason": "activity_log_query_unavailable",
         },
     ]
+
+
+def test_provider_scope_coverage_decodes_canonical_snapshot_metadata() -> None:
+    coverage = _provider_scope_coverage(
+        {
+            "schema_version": "1.1.0",
+            "capture_method": "azure-resource-graph",
+            "provider_object_count": 10,
+            "mapped_provider_object_count": 7,
+            "unmapped_provider_object_count": 3,
+            "materialized_unmapped_provider_object_count": 3,
+            "provider_identity_complete": True,
+            "provider_type_count": 5,
+            "unmapped_provider_type_count": 1,
+            "unmapped_provider_types": [{"provider_type": "example.provider/widgets", "count": 3}],
+        }
+    )
+
+    assert coverage is not None
+    assert coverage.provider_identity_complete is True
+    assert coverage.unmapped_provider_object_count == 3
+    assert coverage.unmapped_provider_types[0].provider_type == "example.provider/widgets"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"provider_object_count": 9},
+        {"provider_identity_complete": False},
+        {"unmapped_provider_type_count": 2},
+        {
+            "unmapped_provider_types": [
+                {"provider_type": "example.provider/widgets", "count": 2},
+                {"provider_type": "example.provider/widgets", "count": 1},
+            ],
+            "unmapped_provider_type_count": 2,
+        },
+    ],
+)
+def test_provider_scope_coverage_rejects_inconsistent_metadata(
+    changes: dict[str, object],
+) -> None:
+    metadata: dict[str, object] = {
+        "schema_version": "1.1.0",
+        "capture_method": "azure-resource-graph",
+        "provider_object_count": 10,
+        "mapped_provider_object_count": 7,
+        "unmapped_provider_object_count": 3,
+        "materialized_unmapped_provider_object_count": 3,
+        "provider_identity_complete": True,
+        "provider_type_count": 5,
+        "unmapped_provider_type_count": 1,
+        "unmapped_provider_types": [{"provider_type": "example.provider/widgets", "count": 3}],
+    }
+    metadata.update(changes)
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="provider scope coverage"):
+        _provider_scope_coverage(metadata)
 
 
 async def test_instance_projection_marks_expired_relationship_evidence_stale() -> None:
