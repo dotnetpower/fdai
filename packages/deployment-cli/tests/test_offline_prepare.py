@@ -10,12 +10,11 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from fdai_deployment_cli import deployment_kit
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from test_oci_archive import make_archive
 
-from fdai_deployment_cli import offline_prepare, runtime_stage
+from fdai_deployment_cli import deployment_kit, offline_prepare, runtime_stage
 from fdai_deployment_cli.cli import main
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_bytes
 from fdai_deployment_cli.offline_kit import (
@@ -288,6 +287,76 @@ def test_online_download_accepts_official_release_asset_redirect(
 
     assert destination.read_bytes() == b"signed release archive"
     assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+
+
+def test_online_complete_kit_resume_reuses_authenticated_download(
+    tmp_path: Path,
+    release: tuple[Path, Ed25519PrivateKey, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit, _key, public = release
+    source = tmp_path / "release.tar.gz"
+    with tarfile.open(source, "w:gz") as archive:
+        archive.add(kit, arcname="kit")
+    monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
+    downloads = 0
+
+    def download(_url: str, destination: Path) -> None:
+        nonlocal downloads
+        downloads += 1
+        destination.write_bytes(source.read_bytes())
+        destination.chmod(0o600)
+
+    monkeypatch.setattr(deployment_kit, "_download", download)
+    work = tmp_path / "online"
+    work.mkdir(mode=0o700)
+
+    first = deployment_kit.acquire_deployment_kit(
+        work_dir=work,
+        online=True,
+        offline_kit=None,
+    )
+    second = deployment_kit.acquire_deployment_kit(
+        work_dir=work,
+        online=True,
+        offline_kit=None,
+    )
+
+    assert downloads == 1
+    assert second.source_commit == first.source_commit == COMMIT
+    assert second.verification.manifest_digest == first.verification.manifest_digest
+    assert second.bundle_manifest_digest == first.bundle_manifest_digest
+
+
+def test_offline_complete_kit_archive_resume_reuses_authenticated_snapshot(
+    tmp_path: Path,
+    release: tuple[Path, Ed25519PrivateKey, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit, _key, public = release
+    source = tmp_path / "release.tar.gz"
+    with tarfile.open(source, "w:gz") as archive:
+        archive.add(kit, arcname="kit")
+    monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
+    work = tmp_path / "offline"
+    work.mkdir(mode=0o700)
+
+    first = deployment_kit.acquire_deployment_kit(
+        work_dir=work,
+        online=False,
+        offline_kit=source,
+    )
+    second = deployment_kit.acquire_deployment_kit(
+        work_dir=work,
+        online=False,
+        offline_kit=source,
+    )
+
+    assert second.source_commit == first.source_commit == COMMIT
+    assert second.verification.manifest_digest == first.verification.manifest_digest
+    assert second.bundle_manifest_digest == first.bundle_manifest_digest
 
 
 @pytest.mark.parametrize(

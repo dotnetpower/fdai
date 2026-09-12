@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gzip
+import hashlib
 import json
 import os
 import platform
@@ -9,14 +11,12 @@ import re
 import shutil
 import stat
 import tarfile
-import gzip
-import hashlib
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO, Final, IO
+from typing import IO, BinaryIO, Final
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
@@ -26,8 +26,11 @@ from fdai_deployment_cli.offline_kit import (
     verify_offline_kit,
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
-from fdai_deployment_cli.runtime_release import RuntimeRelease, load_runtime_release
-from fdai_deployment_cli.runtime_release import validate_runtime_images
+from fdai_deployment_cli.runtime_release import (
+    RuntimeRelease,
+    load_runtime_release,
+    validate_runtime_images,
+)
 from fdai_deployment_cli.trust_roots import (
     deployment_bundle_root_pem,
     deployment_release_root_pem,
@@ -92,8 +95,16 @@ def acquire_deployment_kit(
     kit_root = work_dir / "kit"
     if online:
         archive = work_dir / "downloaded-kit.tar.gz"
-        _download(online_url or default_online_kit_url(), archive)
-        _extract_kit_archive(archive, kit_root)
+        if archive.exists() or archive.is_symlink():
+            _sha256_private_file(archive)
+        else:
+            if kit_root.exists() or kit_root.is_symlink():
+                raise ValueError("online deployment kit acquisition is incomplete")
+            _download(online_url or default_online_kit_url(), archive)
+        if kit_root.exists() or kit_root.is_symlink():
+            _require_private_directory(kit_root)
+        else:
+            _extract_kit_archive(archive, kit_root)
     else:
         assert offline_kit is not None
         source = offline_kit if offline_kit.is_absolute() else Path.cwd() / offline_kit
@@ -101,7 +112,10 @@ def acquire_deployment_kit(
         if stat.S_ISDIR(details.st_mode):
             kit_root = source
         elif stat.S_ISREG(details.st_mode):
-            _extract_kit_archive(source, kit_root)
+            if kit_root.exists() or kit_root.is_symlink():
+                _require_private_directory(kit_root)
+            else:
+                _extract_kit_archive(source, kit_root)
         else:
             raise ValueError("offline kit must be a regular archive or directory")
     verification = verify_offline_kit(
@@ -118,6 +132,7 @@ def acquire_deployment_kit(
     ):
         raise ValueError("complete deployment kit requires runtime migration support wheels")
     materialized = work_dir / "verified"
+    _reset_private_derived_directory(materialized)
     artifacts = materialize_verified_artifacts(
         kit_root,
         verification,
@@ -136,6 +151,7 @@ def acquire_deployment_kit(
     ):
         raise ValueError("complete deployment kit runtime source is invalid")
     validate_runtime_images(materialized, runtime)
+    _reset_private_derived_directory(work_dir / "bundle")
     bundle_root = extract_bundle_archive(
         artifacts.deployment_bundle,
         work_dir / "bundle",
@@ -187,34 +203,36 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
         0o600,
     )
     try:
-        with os.fdopen(descriptor, "wb") as raw:
-            with gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as zipped:
-                with tarfile.open(fileobj=zipped, mode="w", format=tarfile.GNU_FORMAT) as archive:
-                    for relative, digest in sorted(expected.items()):
-                        source = kit.root / relative
-                        _add_verified_member(
-                            archive,
-                            source,
-                            f"kit/{relative}",
-                            expected_digest=digest,
-                        )
-                    for name in ("offline-kit.json", "offline-kit.json.sig"):
-                        if name in expected:
-                            continue
-                        source = kit.root / name
-                        details = source.lstat()
-                        if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_MEMBER_BYTES:
-                            raise ValueError("deployment kit signature material is invalid")
-                        info = tarfile.TarInfo(f"kit/{name}")
-                        info.size = details.st_size
-                        info.mode = 0o600
-                        info.mtime = 0
-                        info.uid = 0
-                        info.gid = 0
-                        info.uname = ""
-                        info.gname = ""
-                        with source.open("rb") as stream:
-                            archive.addfile(info, stream)
+        with (
+            os.fdopen(descriptor, "wb") as raw,
+            gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as zipped,
+            tarfile.open(fileobj=zipped, mode="w", format=tarfile.GNU_FORMAT) as archive,
+        ):
+            for relative, digest in sorted(expected.items()):
+                source = kit.root / relative
+                _add_verified_member(
+                    archive,
+                    source,
+                    f"kit/{relative}",
+                    expected_digest=digest,
+                )
+            for name in ("offline-kit.json", "offline-kit.json.sig"):
+                if name in expected:
+                    continue
+                source = kit.root / name
+                details = source.lstat()
+                if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_MEMBER_BYTES:
+                    raise ValueError("deployment kit signature material is invalid")
+                info = tarfile.TarInfo(f"kit/{name}")
+                info.size = details.st_size
+                info.mode = 0o600
+                info.mtime = 0
+                info.uid = 0
+                info.gid = 0
+                info.uname = ""
+                info.gname = ""
+                with source.open("rb") as stream:
+                    archive.addfile(info, stream)
             raw.flush()
             os.fsync(raw.fileno())
     except BaseException:
@@ -409,6 +427,19 @@ def _runtime_source_commit(root: Path) -> str:
     if not isinstance(source, str) or _COMMIT.fullmatch(source) is None:
         raise ValueError("complete deployment kit runtime source is invalid")
     return source
+
+
+def _reset_private_derived_directory(path: Path) -> None:
+    """Remove one current-UID private derived snapshot before authenticated recreation."""
+
+    if not path.exists() and not path.is_symlink():
+        return
+    _require_private_directory(path)
+    retired = path.parent / f".{path.name}.retired-{os.getpid()}"
+    if retired.exists() or retired.is_symlink():
+        raise ValueError("deployment kit retired snapshot already exists")
+    path.rename(retired)
+    shutil.rmtree(retired)
 
 
 def _require_private_directory(path: Path) -> None:
