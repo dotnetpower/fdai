@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "core_recent_resource_changes_20260912"
-down_revision: str | Sequence[str] | None = "core_post_release_closure_20260912"
+down_revision: str | Sequence[str] | None = "core_runtime_call_snapshot_links_20260912"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "core-control-plane"
 owned_tables = ("inventory_observation_journal",)
 rollback = {
     "strategy": "drop-recent-resource-change-indexes",
-    "restores": "core_post_release_closure_20260912",
+    "restores": "core_runtime_call_snapshot_links_20260912",
     "requires": "none",
 }
 

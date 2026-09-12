@@ -175,7 +175,8 @@ def test_bootstrap_constructs_injects_and_supervises_discovery_activation() -> N
 
     assert "build_discovery_activation_runtime(" in bootstrap
     assert "discovery_activation=discovery_activation" in bootstrap
-    assert "bind_candidate_publication_gate(config.discovery_activation.is_enabled)" in pantheon
+    assert "_bind_post_turn_learning(" in pantheon
+    assert "discovery_activation=config.discovery_activation" in pantheon
     assert "bind_shadow_decision_count(" in pantheon
     assert 'name="discovery-activation-refresh"' in tasks
     assert "discovery_activation_task," in tasks

@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 990fae044ce508f535204fe5f8cfe6baed8df406
+translation_source_sha: 3a9e20bf8dbc85db9cb0dc015d92ab622593ff4c
 translation_revised: 2026-09-12
 ---
 # 영구 대화 전송
@@ -107,7 +107,6 @@ writer를 부여하지 않습니다.
 | 2026-08-26 | 진행 중 | 버전이 지정된 완료 codec, Core publisher, Operator inbox 및 Web 대화 materializer를 구현했습니다. Operator migration은 대화 쓰기를 부여하고 하나의 writable CTE가 영속 제안, assistant turn 및 inbox 행을 dedupe하며 rollback은 inbox를 drop하기 전에 쓰기 권한을 제거합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 검증된 채널 binding 해석과 outbound enqueue, 보존 정리 및 통제된 재시작/process-loss 증적을 추가합니다. |
 | 2026-08-29 | 구현됨 | 감독되는 Operator 수명 주기에 제한된 완료 inbox 보존 정리를 추가했습니다. 저장소는 `SKIP LOCKED`를 사용해 기한이 지난 행만 기한 순서대로 삭제합니다. 후속 migration은 Operator 소유 inbox에만 삭제 권한을 부여하고 정리가 반복해서 실패하면 준비 상태를 닫습니다. | `current change`, Operator 완료 저장소 및 런타임, `operator_completion_retention_20260829`, 집중 완료, 조립, 권한 및 서비스 migration 검사 | 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가한 뒤 통제된 재시작 및 process-loss 증적을 보존합니다. |
 | 2026-09-08 | 구현됨 | 정확한 의미 ObjectSet 입력과 행 수 출력을 최종 Operator 변환 결과부터 재생된 Command Deck 실행 기록까지 함께 유지합니다. 완료 증적으로 뒷받침되는 활동만 범위가 제한된 정의를 표시하고, 진행 상황은 기능 이름만 유지하며, 표시되는 모든 기록은 `execution_authority=false`를 고정합니다. | `current change`, [Issue #241](https://github.com/dotnetpower/fdai/issues/241), 집중 Operator 재생 테스트, Console 타입 검사 및 인증된 데스크톱, 제약된 데스크톱, 모바일 시나리오 통과 | Web 실행 기록 전달에는 남은 작업이 없습니다. 통제된 Slack 및 Teams 전달 근거 범위는 변경되지 않습니다. |
-
 | 2026-09-12 | implemented | Versioned Core-to-Operator 읽기 조사 완료 수신, 멱등적 Web writeback 및 범위가 제한된 inbox 보존을 정합화하면서 채널 및 통제된 재시작 gap을 유지했습니다. | `current change`; 완료 transport, Operator runtime/store 및 writer-grant test(`24 passed`, skip 없음). | 검증된 채널 outbound enqueue를 추가하고 통제된 재시작 근거를 보존합니다. |
 
 ### 남은 작업

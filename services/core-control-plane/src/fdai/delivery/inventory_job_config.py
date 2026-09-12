@@ -28,7 +28,6 @@ from fdai.delivery.repo_assets import repo_asset_root
 
 _DEFAULT_LOOP_SECONDS = 60
 _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS = 120
-_DEFAULT_COLLECTION_POLICY_PATH = repo_asset_root() / "config" / "inventory-collection-policy.json"
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {
     "https://management.azure.com": "https://management.azure.com/.default",
     "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
@@ -165,11 +164,14 @@ class InventoryJobConfig:
             "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED",
             False,
         )
-        collection_policy_path = Path(
-            source.get(
-                "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
-                str(_DEFAULT_COLLECTION_POLICY_PATH),
-            ).strip()
+        collection_policy_value = source.get(
+            "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
+            "",
+        ).strip()
+        collection_policy_path = (
+            Path(collection_policy_value)
+            if collection_policy_value
+            else repo_asset_root() / "config" / "inventory-collection-policy.json"
         )
 
         if not dsn:

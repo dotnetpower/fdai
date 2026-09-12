@@ -63,8 +63,7 @@ RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_core_control_plane-*.whl \
     && test -x /app/.venv/bin/fdai-core-control-plane \
-    && test "$(head -n 1 /app/.venv/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python" \
-    && /app/.venv/bin/python -c "import fdai.runtime.bootstrap"
+    && test "$(head -n 1 /app/.venv/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python"
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
@@ -101,7 +100,8 @@ COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 COPY --chown=65532:65532 scripts/deployment/local/materialize-authoritative-catalogs.py /app/scripts/deployment/local/materialize-authoritative-catalogs.py
 USER 65532
-RUN test -x /app/.venv/bin/fdai-core-control-plane
+RUN test -x /app/.venv/bin/fdai-core-control-plane \
+    && /app/.venv/bin/python -c "import fdai.runtime.bootstrap"
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/live',timeout=2).read()"]

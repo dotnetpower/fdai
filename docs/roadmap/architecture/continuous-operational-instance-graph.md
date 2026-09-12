@@ -185,6 +185,8 @@ projection checkpoints beyond that append boundary.
 PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and isolates inventory
 state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
 shared record-validation boundary does not create another graph writer or authority surface.
+Change-feed value parsing and replay-watermark decoding remain pure delivery helpers, so module
+splits do not change cursor progress, completeness, or writer authority.
 
 ### Private-safe change acceleration
 

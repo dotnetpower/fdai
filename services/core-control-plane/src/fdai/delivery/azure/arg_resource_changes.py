@@ -73,9 +73,9 @@ import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final, Protocol
+from typing import Any, Final
 from urllib.parse import urlparse
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 import httpx
 
@@ -87,6 +87,44 @@ from fdai.delivery.azure.arg_projection import (
     resource_operational_status,
     to_neutral_id,
     truncate_props,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    ArgResourceChangeError,
+    ResourceChangeFeedResult,
+    ResourceChangeIngestionFence,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    ChangeRow as _ChangeRow,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    HydrationResult as _HydrationResult,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    coverage_gap_at as _coverage_gap_at,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    decode_cursor as _decode_cursor,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    encode_cursor as _encode_cursor,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    event_uuid as _event_uuid,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    hydration_retry_count as _hydration_retry_count,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    operational_status_change as _operational_status_change,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    parse_ts as _parse_ts,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    pending_event_ids as _pending_event_ids,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    with_nested_value as _with_nested_value,
 )
 from fdai.delivery.azure.arg_transport import (
     DEFAULT_ARG_REQUESTS_PER_SECOND,
@@ -116,39 +154,16 @@ _DEFAULT_MAX_HYDRATION_BATCH: Final[int] = 100
 _MAX_HYDRATION_BATCH_CAP: Final[int] = 100
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 10_000_000
 _DEFAULT_MAX_TOTAL_RESPONSE_BYTES: Final[int] = 64_000_000
-_CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in an RFC 3339 ts or a GUID.
 _INITIAL_CURSOR_ID: Final[str] = "__fdai_initial__"
 _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
     "create": "upsert",
     "update": "upsert",
     "delete": "delete",
 }
-_OPERATIONAL_STATUS_CHANGE_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
-    "properties.powerState.code": ("properties", "powerState", "code"),
-    "properties.runningStatus": ("properties", "runningStatus"),
-    "properties.operationalState": ("properties", "operationalState"),
-    "properties.dnsResolverState": ("properties", "dnsResolverState"),
-    "properties.resourceState": ("properties", "resourceState"),
-    "properties.state": ("properties", "state"),
-    "properties.status": ("properties", "status"),
-    "properties.userVisibleState": ("properties", "userVisibleState"),
-}
 _SOURCE: Final[str] = "fdai.delivery.azure.arg_resource_changes"
 _SIGNAL_KIND: Final[str] = "azure.resource_graph_change_feed"
 _CURSOR_PREFIX: Final[str] = "arg_resource_change_cursor:"
 DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS: Final[float] = 60.0
-
-
-class ArgResourceChangeError(RuntimeError):
-    """Raised when a ``resourcechanges`` poll or hydration fetch is unusable.
-
-    The message is safe to log - it never carries raw response bodies or
-    tenant-identifying values, only a short, bounded reason string.
-    """
-
-
-class ResourceChangeIngestionFence(Protocol):
-    async def contains(self, event_ids: tuple[str, ...]) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,38 +240,6 @@ class AzureResourceChangeFeedConfig:
             raise ValueError("max_total_response_bytes MUST be >= 1")
         if not 0 < self.requests_per_second <= 100:
             raise ValueError("requests_per_second MUST be in (0, 100]")
-
-
-@dataclass(frozen=True, slots=True)
-class _ChangeRow:
-    """One validated ``resourcechanges`` record."""
-
-    change_id: str
-    change_time: datetime
-    change_kind: str  # "upsert" | "delete"
-    arm_id: str
-    arm_type: str | None
-    neutral_id: str
-    operational_status_change: tuple[tuple[str, ...], str] | None
-
-
-@dataclass(frozen=True, slots=True)
-class ResourceChangeFeedResult:
-    """One bounded poll result: the events to publish and the next cursor."""
-
-    events: tuple[Event, ...]
-    next_cursor: str
-    complete: bool = True
-    last_event_cursor: str | None = None
-    recovery_cursor: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class _HydrationResult:
-    """Mapped records plus every provider identity returned by hydration."""
-
-    records: Mapping[str, ResourceRecord]
-    seen_provider_refs: frozenset[str]
 
 
 class AzureResourceChangeFeed:
@@ -800,103 +783,6 @@ async def forward_arg_resource_changes(
         },
     )
     return len(result.events)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _event_uuid(scope: str, change_id: str) -> UUID:
-    return uuid5(NAMESPACE_URL, f"fdai.arg-resource-change://{scope}/{change_id}")
-
-
-def _pending_event_ids(value: object) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if (
-        not isinstance(value, list)
-        or len(value) > 1_000
-        or any(not isinstance(item, str) or not item or len(item) > 128 for item in value)
-        or len(set(value)) != len(value)
-    ):
-        raise ArgResourceChangeError("resource change ingestion fence is malformed")
-    return tuple(sorted(value))
-
-
-def _hydration_retry_count(value: object) -> int:
-    if value is None:
-        return 0
-    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10:
-        raise ArgResourceChangeError("resourcechanges hydration retry state is malformed")
-    return value
-
-
-def _coverage_gap_at(value: object) -> datetime | None:
-    if value is None:
-        return None
-    parsed = _parse_ts(value)
-    if parsed is None:
-        raise ArgResourceChangeError("resourcechanges coverage gap state is malformed")
-    return parsed
-
-
-def _encode_cursor(change_time: datetime, change_id: str) -> str:
-    return f"{change_time.astimezone(UTC).isoformat()}{_CURSOR_SEP}{change_id}"
-
-
-def _decode_cursor(cursor: str) -> tuple[datetime | None, str | None]:
-    trimmed = cursor.strip()
-    if not trimmed:
-        return None, None
-    if _CURSOR_SEP not in trimmed:
-        raise ArgResourceChangeError("resourcechanges cursor is malformed")
-    ts_part, _, id_part = trimmed.partition(_CURSOR_SEP)
-    parsed = _parse_ts(ts_part)
-    if parsed is None or not id_part:
-        raise ArgResourceChangeError("resourcechanges cursor is malformed")
-    return parsed, id_part
-
-
-def _parse_ts(raw: Any) -> datetime | None:
-    if not isinstance(raw, str) or not raw:
-        return None
-    text = raw.strip().replace("Z", "+00:00") if raw.strip().endswith("Z") else raw.strip()
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    return parsed.astimezone(UTC) if parsed.tzinfo else None
-
-
-def _operational_status_change(
-    changes: Mapping[str, Any],
-) -> tuple[tuple[str, ...], str] | None:
-    for source_path, target_path in _OPERATIONAL_STATUS_CHANGE_PATHS.items():
-        raw_change = changes.get(source_path)
-        if not isinstance(raw_change, Mapping):
-            continue
-        raw_value = raw_change.get("newValue")
-        candidate = raw_value.get("code") if isinstance(raw_value, Mapping) else raw_value
-        if isinstance(candidate, str) and candidate.strip():
-            return target_path, candidate.strip()
-    return None
-
-
-def _with_nested_value(
-    value: Mapping[str, Any],
-    path: tuple[str, ...],
-    replacement: str,
-) -> dict[str, Any]:
-    updated = dict(value)
-    cursor = updated
-    for component in path[:-1]:
-        existing = cursor.get(component)
-        child = dict(existing) if isinstance(existing, Mapping) else {}
-        cursor[component] = child
-        cursor = child
-    cursor[path[-1]] = replacement
-    return updated
 
 
 __all__ = [
