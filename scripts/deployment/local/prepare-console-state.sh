@@ -20,12 +20,14 @@ FDAI_DATABASE_URL="$database_url" \
   "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
 
 mkdir -p "$adoption_dir"
-for service_id in \
-  core-control-plane \
-  operator-service \
-  document-ingestion-api \
-  document-processing-worker \
-  isolated-executor; do
+migration_order="$(
+  PYTHONPATH="$repo_root/service-migrations" \
+    "$repo_root/.venv/bin/python" \
+    "$repo_root/service-migrations/migrate.py" \
+    all order
+)"
+mapfile -t service_ids <<< "$migration_order"
+for service_id in "${service_ids[@]}"; do
   evidence="$adoption_dir/$service_id.json"
   schema_evidence="$adoption_dir/$service_id-schema.json"
   migration_command=(
