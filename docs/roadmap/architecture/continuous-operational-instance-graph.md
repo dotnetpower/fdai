@@ -216,18 +216,9 @@ queryable while the newer snapshot remains authoritative for current state. The 
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
 A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
 later poll can observe either the Resource or its delete record. A returned Resource type outside
-the reviewed mapping catalog is retained with its exact provider identity under the reviewed
-`unclassified-resource` type. An explicit runtime collection filter can still exclude it without
-blocking later changes. Malformed hydration still fails the batch. Hydration that exceeds the
-bounded property payload also fails before publication or cursor advancement rather than asserting
-a truncated full replacement.
-Each complete inventory promotion stores provider-native type accounting in the active snapshot
-metadata. The Operator API validates that the mapped and unmapped object totals, provider type
-counts, materialized unknown identities, and sorted unknown-type counts reconcile before exposing
-them through Ontology Instances. The Console shows the snapshot cutoff, capture method, coverage
-totals, identity-completeness state, and bounded provider type names and counts. It receives no raw
-provider object identity or property payload, and the coverage view grants no catalog or execution
-authority.
+the reviewed mapping catalog retains its exact provider identity as `unclassified-resource`; an explicit collection filter may exclude it.
+Complete promotions reconcile provider-native type coverage before bounded Console exposure under [Recorded Resource State](../interfaces/recorded-resource-state.md), without raw identities or authority.
+Malformed or over-limit hydration fails before publication or cursor advancement rather than asserting a truncated replacement.
 After three unresolved hydration retries, the feed advances past the bounded page and records the
 latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
 remain incomplete, while later windows can recover without permanently blocking the feed.
