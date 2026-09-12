@@ -60,11 +60,11 @@ export function buildTargetArchitectureExecution() {
               ${archLink("executor-safeguards", "executor-lock", { kind: "decision" })}
               ${archNode("executor-lock", "03", "Target lock + attempt", "durable claim · duplicate suppression", { tone: "store" })}
               ${archLink("executor-lock", "executor-identity", { kind: "approval" })}
-              ${archNode("executor-identity", "04", "WorkloadIdentity", "audience-scoped OIDC · action allowlist", { tone: "execution", primary: true })}
+              ${archNode("executor-identity", "04", "Workload identity", "audience-scoped OIDC · action allowlist", { tone: "execution", primary: true })}
             </div>
             <div class="ta-executor-status"><span data-status="VALIDATED">service + identity boundary validated</span><span data-status="GAP">end-to-end receipt parity in progress</span></div>
           `, { id: "executor-boundary", classes: "ta-executor-boundary", tone: "execution", status: "SOLE EFFECT HOLDER" })}
-          ${archLink("executor-boundary", "executor-provider", { kind: "mutation", label: "one attempt" })}
+          ${archLink("executor-boundary", "executor-provider", { kind: "mutation" })}
           ${archNode("executor-provider", "PROVIDER", "Registered effect adapter", "Azure ARM · Git · bounded tool", { tone: "azure", primary: true })}
           <div class="ta-executor-return">
             ${archNode("executor-receipt", "EVENT BUS", "ExecutionReceipt", "attempt · provider ref · rollback ref · terminal status", { tone: "store" })}
@@ -93,20 +93,20 @@ export function buildTargetArchitectureExecution() {
           ${archBoundary("ZONE 1 · HUMAN", "Entra identity", `
             ${archNode("trust-human", "MFA + APP ROLE", "Operator / approver", "requester and approver remain distinct", { tone: "human", primary: true })}
           `, { id: "trust-human-zone", classes: "ta-trust-zone", tone: "human" })}
-          ${archLink("trust-human-zone", "trust-edge-zone", { kind: "request", label: "JWT" })}
+          ${archLink("trust-human-zone", "trust-edge-zone", { kind: "request" })}
           ${archBoundary("ZONE 2 · EDGE", "Console + Operator Service", `
             ${archNode("trust-console", "STATIC", "FDAI Console", "no browser authorization logic", { tone: "surface" })}
             ${archNode("trust-operator", "SERVICE MI", "Operator identity", "read projections · submit typed request", { tone: "service", primary: true })}
           `, { id: "trust-edge-zone", classes: "ta-trust-zone", tone: "surface" })}
-          ${archLink("trust-edge-zone", "trust-core-zone", { kind: "event", label: "typed request" })}
+          ${archLink("trust-edge-zone", "trust-core-zone", { kind: "event" })}
           ${archBoundary("ZONE 3 · DECISION", "Core Control Plane", `
             ${archNode("trust-core", "NO EFFECT ROLE", "Decision identity", "judge · risk · approval join · audit intent", { tone: "control", primary: true })}
           `, { id: "trust-core-zone", classes: "ta-trust-zone", tone: "control" })}
-          ${archLink("trust-core-zone", "trust-executor-zone", { kind: "approval", label: "eligible command" })}
+          ${archLink("trust-core-zone", "trust-executor-zone", { kind: "approval" })}
           ${archBoundary("ZONE 4 · EFFECT", "Isolated Executor", `
-            ${archNode("trust-executor", "UAMI + OIDC", "Non-interactive identity", "exact audience · action whitelist · target scope", { tone: "execution", primary: true })}
+            ${archNode("trust-executor", "UAMI + OIDC", "Workload identity", "non-interactive · exact audience · action whitelist · target scope", { tone: "execution", primary: true })}
           `, { id: "trust-executor-zone", classes: "ta-trust-zone", tone: "execution" })}
-          ${archLink("trust-executor-zone", "trust-provider-zone", { kind: "mutation", label: "provider token" })}
+          ${archLink("trust-executor-zone", "trust-provider-zone", { kind: "mutation" })}
           ${archBoundary("ZONE 5 · PROVIDER", "Azure effective access", `
             ${archNode("trust-provider", "DENY BY DEFAULT", "Scoped provider role", "resource or governed RG · never subscription-wide", { tone: "azure", primary: true })}
           `, { id: "trust-provider-zone", classes: "ta-trust-zone", tone: "external" })}
@@ -134,14 +134,14 @@ export function buildTargetArchitectureExecution() {
           </div>
           <div class="ta-effect-observation">
             ${archNode("effect-source", "SEPARATE CHANNEL", "Authoritative effect source", "telemetry · inventory · health · Git state", { tone: "evidence", primary: true })}
-            ${archLink("effect-source", "effect-heimdall", { kind: "observation" })}
+            ${archLink("effect-source", "effect-heimdall", { kind: "observation", direction: "left" })}
             ${archNode("effect-heimdall", "OBSERVER", "Heimdall", "freshness · completeness · conflict · window", { tone: "evidence" })}
-            ${archLink("effect-heimdall", "effect-outcome", { kind: "observation" })}
+            ${archLink("effect-heimdall", "effect-outcome", { kind: "observation", direction: "left" })}
             ${archNode("effect-outcome", "CLOSE", "ObservedOutcome", "matched · mismatched · timeout · unscorable", { tone: "store", primary: true })}
-            ${archLink("effect-outcome", "effect-saga", { kind: "audit" })}
+            ${archLink("effect-outcome", "effect-saga", { kind: "audit", direction: "left" })}
             ${archNode("effect-saga", "AUDIT", "Saga", "intent + execution + outcome", { tone: "store" })}
           </div>
-          <div class="ta-effect-cross-link">${archLink("effect-target", "effect-source", { kind: "observation", direction: "down", label: "independent read", measured: false })}</div>
+          <div class="ta-effect-cross-link">${archLink("effect-target", "effect-source", { kind: "observation", direction: "down" })}</div>
           <footer><span data-status="IMPLEMENTED">semantic contracts + reducers</span><span data-status="GAP">isolated runtime end-to-end effect closure in progress</span></footer>
         </div>`,
     }),
@@ -151,7 +151,7 @@ export function buildTargetArchitectureExecution() {
       chapter: 4,
       state: "CONTRACT",
       diagramKind: "resilience",
-      title: "핵심 의존성 장애는 다른 역할을 승격하지 않고 mutation eligibility를 낮춥니다",
+      title: "의존성 장애는 다른 역할을 승격하지 않습니다",
       lead: "감사, 복구, 판정, 사람 승인, 독립 관측, 실행의 상태를 각각 검사하고 complete contract가 남지 않으면 변경을 보류하거나 차단합니다.",
       evidence: ["architectureGuide", "constitution", "pantheon", "security"],
       takeaway: "안전한 degradation은 hidden fallback이 아닙니다. 읽기, deny, queue, shadow 중 어떤 경로가 남는지 이름을 붙이고 effect는 추측하지 않습니다.",

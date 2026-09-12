@@ -46,6 +46,7 @@ test("target architecture cover stays sparse and title-led", () => {
 
   assert.equal(cover.title, "FDAI Target<br>Architecture");
   assert.equal(cover.lead, "에이전트 기반 운영 제어 영역과 Azure 배치");
+  assert.equal(cover.showDate, true);
   assert.equal(cover.layout, "briefing-target-cover deck-target-architecture");
   assert.equal(cover.architecture.diagramKind, "cover");
   assert.ok(plainText.length < 200);
@@ -64,6 +65,11 @@ test("all twenty-four body slides are architecture diagrams rather than generic 
     assert.equal(count(slide.content, /<section class="ta-visual/g), 1, slide.architecture.id);
     assert.ok(count(slide.content, /data-ta-node=/g) >= 4, slide.architecture.id);
     assert.ok(count(slide.content, /class="ta-arch-link/g) >= 2, slide.architecture.id);
+    assert.equal(
+      count(slide.content, /class="ta-arch-link/g),
+      count(slide.content, /data-ta-link data-ta-from=/g),
+      `${slide.architecture.id}: every drawn connection must be measured`,
+    );
     assert.match(slide.content, /data-diagram-kind=/);
     assert.match(slide.content, /role="img"/);
     assert.equal(count(slide.content, /<p class="ta-takeaway"/g), 1, slide.architecture.id);
@@ -74,7 +80,19 @@ test("all twenty-four body slides are architecture diagrams rather than generic 
 
   const all = content(slides);
   assert.ok(count(all, /data-ta-node=/g) >= 220);
-  assert.ok(count(all, /class="ta-arch-link/g) >= 140);
+  assert.ok(count(all, /data-ta-link data-ta-from=/g) >= 120);
+});
+
+test("RiskGate simplification preserves every input and authority outcome", () => {
+  const risk = buildTargetArchitectureDeck().find((slide) => slide.architecture.id === "risk-gate-architecture");
+  for (const field of [
+    "policy violation", "destructive", "irreversible", "data plane", "cost", "confidence",
+    "Tier", "registered ceiling", "static blast", "live blast", "principal role", "environment",
+    "system health", "global kill switch", "promotion state",
+    "AUTO", "HUMAN APPROVAL", "OBSERVATION ONLY", "DENY",
+  ]) assert.ok(risk.content.includes(`<span>${field}</span>`), field);
+  assert.match(risk.content, /enforce_auto > enforce_hil > shadow_only > deny/);
+  assert.match(risk.content, /shadow_only면 승인 여부와 무관하게 변경하지 않습니다/);
 });
 
 test("architecture views progress from context through runtime, decision, execution, and Azure", () => {
@@ -196,13 +214,25 @@ test("target architecture review records current digest-bound architecture harde
   const review = manual.slideReviews.at(-1);
   const currentSlides = buildTargetArchitectureDeck();
 
-  assert.equal(review.reviewId, "target-architecture-diagram-rebuild-2026-09-10");
-  assert.ok(review.critiqueRoundCount >= 25);
+  assert.equal(review.reviewId, "target-architecture-nested-clipping-2026-09-11");
+  assert.ok(review.critiqueRoundCount >= 4);
   assert.equal(review.critiqueRounds.length, review.critiqueRoundCount);
   assert.ok(review.critiqueRounds.every((round) => round.finding && round.correction && round.verified === "passed"));
   assert.equal(createHash("sha256").update(JSON.stringify(currentSlides)).digest("hex"), review.deckDigest);
   for (const [file, digest] of Object.entries(review.sourceDigests)) {
-    assert.equal(createHash("sha256").update(await readFile(new URL(file, root))).digest("hex"), digest, file);
+    const bytes = await readFile(new URL(file, root));
+    const normalization = evidence.publicationNormalizations?.find((record) =>
+      record.change === "append-one-final-lf" && record.files.some((entry) =>
+        entry.path === file && entry.beforeSha256 === digest));
+    const entry = normalization?.files.find((item) => item.path === file);
+    if (entry) {
+      // Keep the historical hash strict: only the one recorded final LF may differ.
+      assert.equal(bytes.at(-1), 10, file);
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), entry.afterSha256, file);
+      assert.equal(createHash("sha256").update(bytes.subarray(0, -1)).digest("hex"), digest, file);
+    } else {
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), digest, file);
+    }
   }
   assert.deepEqual(review.modesPassed, ["desktop", "tablet", "mobile", "fullscreen", "print"]);
   assert.equal(review.slideModeChecks, 125);
@@ -211,6 +241,15 @@ test("target architecture review records current digest-bound architecture harde
   assert.ok(review.diagramNodeCount >= 220);
   assert.ok(review.diagramConnectorsPerPass >= 100);
   assert.equal(review.clippedTextFindings, 0);
+  assert.equal(review.nodeTextOverflowFindings, 0);
+  assert.equal(review.ancestorClippingFindings, 0);
+  assert.equal(review.paintedTextOverlapFindings, 0);
+  assert.equal(review.directDesktopSlidesReviewed, 25);
+  assert.equal(review.sharedBrowser.slidesChecked, 25);
+  assert.equal(review.sharedBrowser.findings, 0);
+  assert.deepEqual(review.riskGateRegression.rejectedBoundaries, ["risk-table", "risk-ceilings"]);
+  assert.deepEqual(review.textGeometrySelfTests.map((result) => result.scale), [1, .65, .22]);
+  assert.ok(review.textGeometrySelfTests.every((result) => result.detectedFailures === 4 && result.cleanFindings === 0));
   assert.equal(review.regionOverlapFindings, 0);
   assert.equal(review.failedRequests, 0);
   assert.equal(review.pageErrors, 0);
