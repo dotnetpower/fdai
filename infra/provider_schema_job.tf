@@ -90,7 +90,7 @@ resource "azurerm_container_app_job" "provider_schema" {
       image   = var.core_image
       cpu     = 0.5
       memory  = "1Gi"
-      command = ["python", "-m", "fdai.delivery.provider_schema_watcher_cli"]
+      command = ["python", "-m", "fdai.delivery.provider_schema_watcher_cli", "--force"]
 
       env {
         name        = "FDAI_PROVIDER_SCHEMA_DSN"

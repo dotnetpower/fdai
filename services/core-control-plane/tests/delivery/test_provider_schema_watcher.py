@@ -194,11 +194,13 @@ async def test_unchanged_snapshot_creates_no_review_package(tmp_path: Path) -> N
     receipt = await _watcher(
         tmp_path,
         _binding("public", ProviderSchemaSourceKind.PRIMARY, source),
-    ).run(now=NOW + timedelta(days=1), force=True)
+    ).run(now=NOW + timedelta(days=3), force=True)
 
     assert receipt.disposition is ProviderSchemaRefreshDisposition.UNCHANGED
+    assert receipt.stale is False
     assert receipt.review_required is False
     assert receipt.review_package_digest is None
+    assert ledger.read_baseline_observed_at("azure") == NOW + timedelta(days=3)
     assert not (tmp_path / "azure" / "review-packages").exists()
 
 
