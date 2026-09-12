@@ -47,6 +47,20 @@ from fdai.shared.providers.pattern_library_writer import PatternLibraryWriter
 _LOGGER = logging.getLogger("fdai.persistence.pgvector_pattern_library")
 
 _EMBEDDING_DIM: Final[int] = 384
+_SEARCH_SQL: Final[str] = """
+    SELECT signature,
+           rule_id,
+           action_type,
+           params,
+           source_incident_id,
+           historical_success_rate,
+           reuse_count,
+           operational_case,
+           1.0 - (embedding <=> %s::vector) AS score
+      FROM t1_pattern_library
+     ORDER BY embedding <=> %s::vector ASC
+     LIMIT %s
+"""
 
 
 def _encode_vector(values: Sequence[float]) -> str:
@@ -124,24 +138,13 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
         ) as conn:
             async with conn.transaction():
                 await self._set_session_knobs(conn)
-                cur = await conn.execute(
-                    """
-                    SELECT signature,
-                           rule_id,
-                           action_type,
-                           params,
-                           source_incident_id,
-                           historical_success_rate,
-                           reuse_count,
-                           operational_case,
-                           1.0 - (embedding <=> %s::vector) AS score
-                      FROM t1_pattern_library
-                     ORDER BY embedding <=> %s::vector ASC
-                     LIMIT %s
-                    """,
-                    (literal, literal, int(k)),
-                )
+                cur = await conn.execute(_SEARCH_SQL, (literal, literal, int(k)))
                 rows = await cur.fetchall()
+                if len(rows) < k:
+                    await conn.execute("SET LOCAL enable_indexscan = off")
+                    await conn.execute("SET LOCAL enable_bitmapscan = off")
+                    cur = await conn.execute(_SEARCH_SQL, (literal, literal, int(k)))
+                    rows = await cur.fetchall()
 
         matches: list[SimilarityMatch] = []
         for row in rows:
