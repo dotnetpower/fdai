@@ -1029,6 +1029,7 @@ jobs:
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --image-ref "$IMAGE_REF" \
+            --source-revision "$SOURCE_REVISION" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
@@ -1299,6 +1300,7 @@ jobs:
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --image-ref "$IMAGE_REF" \
+            --source-revision "$SOURCE_REVISION" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \

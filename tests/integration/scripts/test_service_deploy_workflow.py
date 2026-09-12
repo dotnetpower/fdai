@@ -1079,6 +1079,7 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert '[[ "$commit_digest" == "$IMAGE_DIGEST" ]]' in _WORKFLOW
     assert "scripts/deployment/service/service_contract.py" in _WORKFLOW
     assert _WORKFLOW.count("scripts/deployment/service/guard_plan.py") == 3
+    assert _WORKFLOW.count('--source-revision "$SOURCE_REVISION"') == 2
     assert '--plan-json "$rollback_dir/edge-disable-plan.json"' in _WORKFLOW
     assert 'scripts/deployment/service/plan_bundle.py" create' in _WORKFLOW
     assert 'scripts/deployment/service/plan_bundle.py" verify' in _WORKFLOW

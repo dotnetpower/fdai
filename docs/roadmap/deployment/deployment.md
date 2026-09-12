@@ -92,6 +92,7 @@ bindings through configuration (see
 | 2026-09-05 | validated | Applied the protected Console origin and completed authenticated Help drawer validation. The drawer rendered five journey stages, 11 manual cards, and 22 loaded cover images without an alert or horizontal overflow; the selected same-origin manual returned HTTP 200. | Protected plan `33959768010`; apply `33959860773`; Issue #414 browser evidence. The apply and health steps succeeded; the final workflow failed only because concurrent Core state advanced from serial 53 to 54 during peer isolation. | No remaining work for the Operator Console origin binding. |
 | 2026-09-12 | in-progress | Separated targeted PR packaging scans from explicit protected-main image publication. Removed automatic main/tag publication and PR SBOM generation, and added validated image selection without an all-image default. | `current change`; `container-supply-chain.yml`, `select_changed_images.py`, and focused selector/workflow regression tests added but not yet run. | Record passing focused checks; an explicitly authorized candidate run remains separate from local implementation. |
 | 2026-09-12 | implemented | Separated targeted PR packaging from explicit protected-main publication. Removed automatic main/tag publication and PR SBOM generation, excluded known source-only PR changes at the trigger, and required explicit image selection. Genesis dispatch and reuse now bind its required image set without accepting PR or partial-candidate success. | `current change`; selector, CI-contract, Genesis application, supervisor, and image tests passed 182 cases; CI-contract checker passed. | An explicitly authorized candidate run and post-change latency measurement remain separate from local implementation. |
+| 2026-09-12 | implemented | Bound each Core `FDAI_SOURCE_REVISION` change to the exact protected commit and limited first adoption of the fixed Heimdall recovery observer to the explicit Core evidence transition. | Failed protected Core plan `34637615112`; `guard_plan.py`, `service-deploy.yml`, `service-matrix.json`, and the focused service-deploy suites passed 299 cases in the current change. | Publish the corrected controls, create a new exact Core candidate, and retain the zero-destroy plan, exact apply, and rollback evidence required by Issue #290. |
 ### Remaining work
 
 - [ ] Retain one repository-safe public fresh-subscription receipt for the exact clean revision,
@@ -391,7 +392,10 @@ deployment rollback complements, not replaces, per-action rollback.
   baseline and retains one inactive revision. It restores the exact captured revision and
   digest-pinned image after immediate health failure, verifies the recovery revision, then
   deactivates the failed revision and confirms it is inactive before closing the deployment as
-  failed. The isolated Executor also returns its cutover setting to the declared `core-in-process`
+  failed. Core image changes also bind `FDAI_SOURCE_REVISION` to the exact protected commit. The
+  fixed Azure Heimdall recovery observer can be added only once through the explicit
+  `core_evidence_bindings_transition`; rebinding or unrelated environment drift blocks the plan.
+  The isolated Executor also returns its cutover setting to the declared `core-in-process`
   authority fallback.
 - **Ingestion topology rollback**: restore the exact prior Document Ingestion API and Document
   Processing Worker revisions and digest-pinned images without changing consumer groups or

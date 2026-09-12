@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: a3e069235e50361b5b236c4f9fb4c0e2593fe518
+translation_source_sha: b5f5907c91947150fdf03b1ac0b215a5705012e9
 translation_revised: 2026-09-12
 ---
 
@@ -96,6 +96,7 @@ translation_revised: 2026-09-12
 | 2026-09-05 | validated | 보호된 Console origin을 적용하고 인증된 Help drawer 검증을 완료했습니다. Drawer는 경고나 가로 overflow 없이 여정 단계 5개, manual card 11개 및 로드된 cover image 22개를 표시했고, 선택한 동일 origin manual은 HTTP 200을 반환했습니다. | Protected 계획 `33959768010`, 적용 `33959860773`, 이슈 #414 브라우저 근거. 적용과 상태 검증 단계는 성공했으며, peer 격리 중 Core 상태 serial이 53에서 54로 동시에 증가해 최종 workflow만 실패했습니다. | Operator Console origin 연결에 남은 작업이 없습니다. |
 | 2026-09-12 | in-progress | PR 패키징 집중 검사와 보호된 main의 명시적 이미지 게시를 분리했습니다. main/tag 자동 게시와 PR SBOM 생성을 제거하고 전체 이미지 기본값 없이 입력을 검증하는 이미지 선택을 추가했습니다. | `current change`; `container-supply-chain.yml`, `select_changed_images.py`, 선택기 및 작업 흐름 집중 회귀 테스트를 추가했으나 아직 실행하지 않았습니다. | 집중 검사 통과 결과를 기록합니다. 별도로 승인한 후보 실행은 로컬 구현과 구분합니다. |
 | 2026-09-12 | implemented | PR 패키징 집중 검사와 보호된 main의 명시적 게시를 분리했습니다. main/tag 자동 게시와 PR SBOM 생성을 제거하고 알려진 소스 전용 PR 변경을 트리거에서 제외했으며 이미지 선택을 필수로 만들었습니다. Genesis 디스패치와 재사용은 필요한 이미지 집합을 확인하고 PR 또는 일부 후보의 성공을 수락하지 않습니다. | `current change`; 선택기, CI 계약, Genesis 애플리케이션, 감독기 및 이미지 테스트 182개와 CI 계약 검사 통과. | 명시적으로 승인한 후보 실행과 변경 후 지연 측정은 로컬 구현과 별도로 남습니다. |
+| 2026-09-12 | implemented | 모든 Core `FDAI_SOURCE_REVISION` 변경을 정확한 보호 커밋에 결속하고, 고정 Heimdall 복구 관찰자의 최초 채택을 명시적 Core 근거 전환으로 제한했습니다. | 실패한 보호 Core 계획 `34637615112`; 현재 변경의 `guard_plan.py`, `service-deploy.yml`, `service-matrix.json` 및 집중 service-deploy 검사 299개 통과. | 수정한 제어를 게시하고 새 exact Core 후보를 만든 뒤 이슈 #290에 필요한 zero-destroy 계획, exact 적용 및 롤백 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] 정확한 clean revision, 검토한 미리보기, 임시 접근 정리, Core 상태, canary, 초기
@@ -387,7 +388,10 @@ id, 구독, 컴포넌트 tag, 이미지 다이제스트 및 개정 번호를 검
 - **애플리케이션 롤백**: 독립 서비스 배포는 정상인 활성 롤백 기준만 수락하고 비활성 개정 번호
   1개를 보존합니다. Immediate 상태 실패 뒤 정확히 수집한 개정 번호와 digest-pinned 이미지를
   복원하고 복구 개정 번호를 검증한 다음 실패한 개정 번호를 비활성화하고
-  비활성 상태를 확인한 뒤 배포를 실패로 닫습니다. Isolated 실행기는 전환 설정도 선언된
+  비활성 상태를 확인한 뒤 배포를 실패로 닫습니다. Core 이미지를 변경할 때는
+  `FDAI_SOURCE_REVISION`도 정확한 보호 커밋에 결속합니다. 고정 Azure Heimdall 복구 관찰자는
+  명시적 `core_evidence_bindings_transition`을 통해 한 번만 추가할 수 있으며, 신원 재결속이나
+  관련 없는 환경 표류가 있으면 계획을 차단합니다. Isolated 실행기는 전환 설정도 선언된
   `core-in-process` 권한 대체 경로로 되돌립니다.
 - **인제스트 토폴로지 롤백**: 소비자 그룹이나 오프셋을 변경하지 않고 Document Ingestion
   API와 Document Processing Worker의 정확한 이전 개정 번호 및 digest-pinned 이미지를

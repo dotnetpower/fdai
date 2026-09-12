@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e802210cfecea756842a665e2a87bcf8e85cabc3
+translation_source_sha: b164ec6afa2e169e92711c2c2ad7785ff084d00c
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -32,7 +32,9 @@ translation_revised: 2026-09-12
   없습니다. 상태를 재정의하는 모든 서비스 배포 실행 또는 작업 단계는 보호된 원본 검증기가
   성공한 후에만 실행합니다. 정리, 실패 보고 또는 아티팩트 보존은 디스패치를 관측 근거로
   바꾸지 않습니다. 서비스 워크플로 계약 테스트는 최종 롤백 실패 보고에서 이 검증기 성공
-  조건식을 고정합니다.
+  조건식을 고정합니다. 모든 Core 이미지 전환은 `FDAI_SOURCE_REVISION`을 정확한 보호 커밋에 결속합니다.
+  고정 Heimdall 복구 관찰자는 명시적 Core 근거 전환을 통해 최초로 채택할 때만 추가할 수 있으며,
+  신원 재결속이나 관련 없는 환경 표류는 계속 허용하지 않습니다.
 - **단일 작성자:** 수집기는 타입이 지정된 관측을 추가합니다. 온톨로지 인스턴스를 직접
   변경하지 않습니다. 하나의 변환 결과 소유자가 관측을 판정하고 현재 하위 그래프를 원자적으로
   전진시킵니다.
