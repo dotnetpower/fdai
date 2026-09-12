@@ -2333,12 +2333,6 @@ module "compute" {
   enable_legacy_oob_job        = var.enable_legacy_oob_job
   rule_watcher_job_name        = "caj-${var.workload}${local.full_suffix}-watcher"
   rule_watcher_cron_expression = var.rule_watcher_cron_expression
-  provider_schema_job_name = (
-    length("caj-${var.workload}${local.full_suffix}-provider-schema") <= 32
-    ? "caj-${var.workload}${local.full_suffix}-provider-schema"
-    : "caj-${var.workload}${local.env_suffix}-provider"
-  )
-  provider_schema_cron_expression = var.provider_schema_cron_expression
   browser_evidence_cleanup_job_name = (
     "caj-${var.workload}${local.full_suffix}-browser-gc"
   )

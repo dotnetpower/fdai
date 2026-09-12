@@ -152,7 +152,7 @@ def test_provider_schema_apply_replans_and_reads_only_provider_job(tmp_path: Pat
 
     assert result.returncode == 0, result.stderr
     log = calls.read_text(encoding="ascii")
-    assert "target=-target=module.compute.azurerm_container_app_job.provider_schema[0]" in log
+    assert "target=-target=azurerm_container_app_job.provider_schema[0]" in log
     assert "terraform output -raw provider_schema_job_id" in log
     assert "az resource show --ids " in log
     assert "--container provider-schema" in log

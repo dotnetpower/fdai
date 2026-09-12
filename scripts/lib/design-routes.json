@@ -783,7 +783,7 @@
         "services/core-control-plane/tests/agents/test_provider_schema_drift.py"
       ],
       "optional_paths": [
-        "infra/modules/compute/container-apps/provider_schema_job.tf"
+        "infra/provider_schema_job.tf"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

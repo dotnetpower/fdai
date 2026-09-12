@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d6d4bb8e2d0d9d399168964c6c542176679bd741
+translation_source_sha: eecc49910b73541a3fd36466847b976a9d3a3960
 translation_revised: 2026-09-12
 ---
 
@@ -140,7 +140,9 @@ wheel은 검토된 이미지 빌드나 downstream 조립을 통해 포함합니�
 Platform 루트는 선택적 collector 및 analyzer Job을 공유 compute module 안에 두지 않고 직접
 소유합니다. 이 배포는 기존 Container Apps environment와 inventory identity를 읽기 전용 data
 source로 해석합니다. 따라서 패키지 전용 Terraform target이 관련 없는 scheduler, network,
-database 또는 runtime dependency를 상속하지 않습니다. 독립적으로 소유되는 Core 서비스는
+database 또는 runtime dependency를 상속하지 않습니다.
+provider-schema Job도 같은 루트 소유 격리 패턴을 따르지만 Core 근거 Job으로 유지되며 Cost Governance 대상, 이미지 프로필 또는 활성화 상태에 포함되지 않습니다.
+독립적으로 소유되는 Core 서비스는
 일반 service plan 및 apply 경계를 통해 같은 배포 이미지를 받으며, 어느 배포도 패키지를
 활성화하지 않습니다.
 

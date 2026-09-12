@@ -306,7 +306,7 @@ output "inventory_job_name" {
 
 output "provider_schema_job_id" {
   description = "Scheduled provider-schema watcher Job resource id, or null when disabled."
-  value       = module.compute.provider_schema_job_id
+  value       = try(azurerm_container_app_job.provider_schema[0].id, null)
 }
 
 output "browser_evidence_cleanup_job_id" {
