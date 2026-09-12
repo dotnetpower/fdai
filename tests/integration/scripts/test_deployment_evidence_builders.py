@@ -60,6 +60,23 @@ def test_plan_metadata_binds_summary_and_required_observations() -> None:
     assert "subscription_ready" not in metadata
 
 
+def test_plan_metadata_seals_cost_governance_runtime_profile() -> None:
+    environment = {
+        **_plan_environ(),
+        "FDAI_RUNTIME_IMAGE_REVISION": _SOURCE_COMMIT,
+        "FDAI_RUNTIME_IMAGE_DIGEST": f"sha256:{'1' * 64}",
+        "FDAI_RUNTIME_IMAGE_PROFILE": "cost-governance",
+    }
+
+    metadata = build_plan_metadata(environ=environment, plan_summary={})
+
+    assert metadata["runtime_image"] == {
+        "source_revision": _SOURCE_COMMIT,
+        "digest": f"sha256:{'1' * 64}",
+        "profile": "cost-governance",
+    }
+
+
 def test_apply_receipt_binds_inventory_bytes_and_closes_digest(tmp_path: Path) -> None:
     inventory = {
         "schema_version": "fdai.genesis-initial-inventory-execution-receipt.v1",

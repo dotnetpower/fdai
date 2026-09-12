@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -22,6 +22,10 @@ from psycopg.rows import dict_row
 from fdai_operator_service.families.cost_governance import (
     CostAccessDecision,
     CostActivationSnapshot,
+)
+from fdai_operator_service.families.cost_governance.contracts import (
+    COST_DISCLOSURE_PURGE_GRACE_DAYS,
+    CostDisclosureAuditRecord,
 )
 
 
@@ -241,7 +245,7 @@ class PostgresCostGovernanceReader:
                 row = await cursor.fetchone()
         except psycopg.Error as exc:
             message = exc.diag.message_primary or ""
-            if exc.sqlstate in {"CG001", "CG002", "CG003"}:
+            if exc.sqlstate in {"CG001", "CG002", "CG003", "CG004"}:
                 raise ValueError(message or "Cost Governance activation conflict") from exc
             raise RuntimeError("Cost Governance activation persistence is unavailable") from exc
         if row is None:
@@ -259,6 +263,248 @@ class PostgresCostGovernanceReader:
             ontology_release_digest=str(row["ontology_release_digest"]),
             revision=int(row["revision"]),
         )
+
+    async def append_disclosure_audit(self, record: CostDisclosureAuditRecord) -> None:
+        """Append one content-free authorized-disclosure receipt idempotently."""
+
+        values = (
+            record.decision_id,
+            record.principal_digest,
+            record.scope_digest,
+            record.surface,
+            record.grant_revision,
+            record.ceiling_revision,
+            record.activation_revision,
+            record.disclosure_digest,
+            record.record_count,
+            record.suppressed_count,
+            record.occurred_at,
+        )
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                _psycopg_dsn(self._config.dsn),
+                connect_timeout=self._config.connect_timeout_s,
+                row_factory=dict_row,
+            ) as connection:
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._config.statement_timeout_ms),),
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO cost_disclosure_audit (
+                        decision_id, principal_digest, scope_digest, surface,
+                        grant_revision, ceiling_revision, activation_revision,
+                        disclosure_digest, record_count, suppressed_count,
+                        authorized, occurred_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s)
+                    ON CONFLICT (decision_id) DO NOTHING
+                    """,
+                    values,
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO cost_disclosure_audit_retention (
+                        decision_id, revision, retention_until, purge_after,
+                        legal_hold, legal_hold_ref, purged_at, updated_at
+                    ) VALUES (%s, 1, %s, %s, %s, %s, NULL, %s)
+                    ON CONFLICT (decision_id) DO NOTHING
+                    """,
+                    (
+                        record.decision_id,
+                        record.retention_until,
+                        record.retention_until
+                        + timedelta(days=COST_DISCLOSURE_PURGE_GRACE_DAYS),
+                        record.legal_hold,
+                        record.legal_hold_ref,
+                        record.occurred_at,
+                    ),
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO cost_disclosure_audit_retention_event (
+                        decision_id, revision, event_kind, legal_hold_ref,
+                        recorded_at, idempotency_key
+                    ) VALUES (%s, 1, 'created', %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (
+                        record.decision_id,
+                        record.legal_hold_ref,
+                        record.occurred_at,
+                        f"retention:{record.decision_id}",
+                    ),
+                )
+                cursor = await connection.execute(
+                    """
+                    SELECT audit.decision_id, audit.principal_digest,
+                           audit.scope_digest, audit.surface, audit.grant_revision,
+                           audit.ceiling_revision, audit.activation_revision,
+                           audit.disclosure_digest, audit.record_count,
+                           audit.suppressed_count, audit.occurred_at,
+                           retention.retention_until, retention.legal_hold,
+                           retention.legal_hold_ref
+                      FROM cost_disclosure_audit AS audit
+                      JOIN cost_disclosure_audit_retention AS retention
+                        ON retention.decision_id = audit.decision_id
+                     WHERE audit.decision_id = %s
+                       AND audit.authorized
+                       AND retention.purged_at IS NULL
+                    """,
+                    (record.decision_id,),
+                )
+                row = await cursor.fetchone()
+        except psycopg.Error as exc:
+            raise RuntimeError("Cost disclosure audit persistence is unavailable") from exc
+        expected = (
+            *values,
+            record.retention_until,
+            record.legal_hold,
+            record.legal_hold_ref,
+        )
+        if row is None or tuple(row[key] for key in row) != expected:
+            raise RuntimeError("Cost disclosure audit identity conflicts with retained evidence")
+
+    async def set_disclosure_legal_hold(
+        self,
+        *,
+        decision_id: str,
+        expected_revision: int,
+        legal_hold_ref: str | None,
+        recorded_at: datetime,
+        idempotency_key: str,
+    ) -> bool:
+        """Apply or release one CAS-fenced disclosure legal hold."""
+
+        event_kind = "hold-applied" if legal_hold_ref is not None else "hold-released"
+        async with await psycopg.AsyncConnection.connect(
+            _psycopg_dsn(self._config.dsn),
+            connect_timeout=self._config.connect_timeout_s,
+            row_factory=dict_row,
+        ) as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._config.statement_timeout_ms),),
+                )
+                replay_cursor = await connection.execute(
+                    """
+                    SELECT event_kind, legal_hold_ref
+                      FROM cost_disclosure_audit_retention_event
+                     WHERE decision_id = %s AND idempotency_key = %s
+                    """,
+                    (decision_id, idempotency_key),
+                )
+                replay = await replay_cursor.fetchone()
+                if replay is not None:
+                    if (
+                        replay["event_kind"] == event_kind
+                        and replay["legal_hold_ref"] == legal_hold_ref
+                    ):
+                        return True
+                    raise ValueError("Cost disclosure hold idempotency conflict")
+                updated = await connection.execute(
+                    """
+                    UPDATE cost_disclosure_audit_retention
+                       SET revision = revision + 1,
+                           legal_hold = %s,
+                           legal_hold_ref = %s,
+                           updated_at = %s
+                     WHERE decision_id = %s
+                       AND revision = %s
+                       AND purged_at IS NULL
+                    """,
+                    (
+                        legal_hold_ref is not None,
+                        legal_hold_ref,
+                        recorded_at,
+                        decision_id,
+                        expected_revision,
+                    ),
+                )
+                if updated.rowcount != 1:
+                    return False
+                await connection.execute(
+                    """
+                    INSERT INTO cost_disclosure_audit_retention_event (
+                        decision_id, revision, event_kind, legal_hold_ref,
+                        recorded_at, idempotency_key
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        decision_id,
+                        expected_revision + 1,
+                        event_kind,
+                        legal_hold_ref,
+                        recorded_at,
+                        idempotency_key,
+                    ),
+                )
+        return True
+
+    async def purge_disclosure_audit(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> tuple[str, ...]:
+        """Tombstone expired disclosure evidence without deleting its audit row."""
+
+        if not 1 <= limit <= 10_000:
+            raise ValueError("Cost disclosure purge limit MUST be in [1, 10000]")
+        purged: list[str] = []
+        async with await psycopg.AsyncConnection.connect(
+            _psycopg_dsn(self._config.dsn),
+            connect_timeout=self._config.connect_timeout_s,
+            row_factory=dict_row,
+        ) as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._config.statement_timeout_ms),),
+                )
+                cursor = await connection.execute(
+                    """
+                    SELECT decision_id, revision
+                      FROM cost_disclosure_audit_retention
+                     WHERE purge_after <= %s
+                       AND purged_at IS NULL
+                       AND NOT legal_hold
+                     ORDER BY purge_after, decision_id
+                     LIMIT %s
+                     FOR UPDATE SKIP LOCKED
+                    """,
+                    (now, limit),
+                )
+                for row in await cursor.fetchall():
+                    decision_id = str(row["decision_id"])
+                    revision = int(row["revision"])
+                    await connection.execute(
+                        """
+                        UPDATE cost_disclosure_audit_retention
+                           SET revision = revision + 1,
+                               purged_at = %s,
+                               updated_at = %s
+                         WHERE decision_id = %s AND revision = %s
+                        """,
+                        (now, now, decision_id, revision),
+                    )
+                    await connection.execute(
+                        """
+                        INSERT INTO cost_disclosure_audit_retention_event (
+                            decision_id, revision, event_kind, legal_hold_ref,
+                            recorded_at, idempotency_key
+                        ) VALUES (%s, %s, 'purged', NULL, %s, %s)
+                        """,
+                        (
+                            decision_id,
+                            revision + 1,
+                            now,
+                            f"purge:{decision_id}:{revision + 1}",
+                        ),
+                    )
+                    purged.append(decision_id)
+        return tuple(purged)
 
     async def read_records(
         self,

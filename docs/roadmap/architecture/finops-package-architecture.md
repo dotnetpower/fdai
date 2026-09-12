@@ -304,6 +304,14 @@ exact-revision database function. The function updates the manager-derived activ
 appends a retained lifecycle receipt in one transaction. It cannot install an absent package, make
 an unavailable package available, grant cost-data access, or promote an action.
 
+Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
+The workflow verifies protected `main`, required CI, the exact release source, the signed image
+digest, and the deployed Cost Governance jobs before it calls the lifecycle function. Every
+successful receipt includes a canonical digest of all request inputs. Reusing a request id with a
+different operation, artifact, source revision, runtime configuration, actor, desired enablement,
+or expected revision is an idempotency conflict. An exact retry returns the original receipt rather
+than relabeling the current activation state.
+
 ## Autonomous runtime handoff
 
 The package emits only typed inputs to the existing agent choreography. An allowed package guard

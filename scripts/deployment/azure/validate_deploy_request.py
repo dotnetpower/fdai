@@ -75,13 +75,18 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     )
     context_digest = values.get("CONTEXT_DIGEST", "")
     runtime_image_revision = values.get("RUNTIME_IMAGE_REVISION", "")
+    runtime_image_profile = values.get("RUNTIME_IMAGE_PROFILE", "core-control-plane")
+    if runtime_image_profile not in {"core-control-plane", "cost-governance"}:
+        raise ValueError("runtime_image_profile is unsupported")
+    if runtime_image_profile != "core-control-plane" and not runtime_image_revision:
+        raise ValueError("non-default runtime_image_profile requires runtime_image_revision")
     if deploy_console and _API_SCOPE.fullmatch(values.get("ENTRA_CONSOLE_API_SCOPE", "")) is None:
         raise ValueError(
             "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
             "when deploy_console is enabled"
         )
     if re.fullmatch(
-        r"(?:plan|apply)-(?:history-|identity-|observability-|rca-|runtime-)?[0-9a-f]{48}",
+        r"(?:plan|apply)-(?:cost-|history-|identity-|observability-|rca-|runtime-)?[0-9a-f]{48}",
         request_id,
     ):
         if values.get("TARGET_ENVIRONMENT") == "prod":
@@ -108,6 +113,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_suffix.removeprefix("identity-")
         request_suffix = request_suffix.removeprefix("observability-")
         request_suffix = request_suffix.removeprefix("runtime-")
+        request_suffix = request_suffix.removeprefix("cost-")
         if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
         unsupported = (
@@ -491,6 +497,7 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
         ),
         "document_ocr_action": values.get("DOCUMENT_OCR_ACTION", "preserve"),
         "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
+        "runtime_image_profile": values.get("RUNTIME_IMAGE_PROFILE", "core-control-plane"),
     }
     if _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE"):
         selection["deploy_operator_channel_edge"] = True

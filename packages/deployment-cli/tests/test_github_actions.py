@@ -901,6 +901,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "document_ocr_action": "preserve",
                 "runtime_call_evidence_transition": False,
                 "runtime_image_revision": "",
+                    "runtime_image_profile": "core-control-plane",
             },
         },
         ensure_ascii=True,
@@ -1193,6 +1194,7 @@ def test_runtime_image_revision_seals_into_context_and_dispatches() -> None:
     workflow_calls = [call for call in runner.calls if call[:2] == ("workflow", "run")]
     fields = _fields(workflow_calls[0])
     assert fields["runtime_image_revision"] == _IMAGE_REVISION
+    assert "runtime_image_profile" not in fields
     assert fields["deploy_isolated_executor"] == "false"
     assert fields["promote_runtime_image"] == "true"
 
@@ -1219,3 +1221,31 @@ def test_runtime_image_revision_rejects_invalid_sha() -> None:
             deploy_isolated_executor=True,
             runtime_image_revision="NOTASHA",
         )
+
+
+def test_cost_governance_runtime_profile_requires_and_seals_revision() -> None:
+    with pytest.raises(ValueError, match="requires runtime_image_revision"):
+        DeploymentSelection(runtime_image_profile="cost-governance")
+
+    selection = DeploymentSelection(
+        runtime_image_profile="cost-governance",
+        runtime_image_revision=_IMAGE_REVISION,
+    )
+
+    assert selection.to_mapping()["runtime_image_profile"] == "cost-governance"
+
+    runner = RecordingRunner()
+    receipt = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.cost-profile",
+        selection=selection,
+        run=runner,
+    )
+
+    assert receipt.request_id.startswith("plan-cost-")
+    fields = _fields(next(call for call in runner.calls if call[:2] == ("workflow", "run")))
+    assert "runtime_image_profile" not in fields

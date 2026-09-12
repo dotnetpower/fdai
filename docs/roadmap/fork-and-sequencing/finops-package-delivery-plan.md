@@ -219,6 +219,14 @@ Exit gate:
 - independent reviewers approve package activation and separately review each ActionType promotion;
 - zero policy escape, complete hard-dependency evidence, and tested rollback remain release blocks.
 
+The operational path uses two protected boundaries. Lifecycle dispatch verifies the exact release
+wheel, signed image, deployed jobs, runtime configuration, and complete request identity before it
+writes a canonical receipt. Observation dispatch pins the active release, seals F1-F8 and W6
+qualification logs, exports only complete ordered audit lineage, and lets an allowlisted importer
+assign `live-authoritative` after a current-pin check. Review results cover package activation,
+every package-owned `ActionType`, and every package-owned `Workflow`; they never apply promotion.
+Local tests of this path don't satisfy the live cohort or independent-review exit criteria.
+
 ## Validation matrix
 
 | Layer | Focused proof |

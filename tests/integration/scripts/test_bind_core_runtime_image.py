@@ -57,7 +57,10 @@ exit 97
 
 
 def _run_verification(
-    tmp_path: Path, *, gh_exit: int
+    tmp_path: Path,
+    *,
+    gh_exit: int,
+    profile: str = "core-control-plane",
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, Path], str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -104,6 +107,7 @@ def _run_verification(
             "GHCR_TOKEN": _GHCR_CREDENTIAL,
             "RUNNER_TEMP": str(runner_temp),
             "RUNTIME_IMAGE_REVISION": revision,
+            "RUNTIME_IMAGE_PROFILE": profile,
         },
         capture_output=True,
         text=True,
@@ -134,6 +138,7 @@ def test_verifies_registry_bundle_with_exact_provenance_contract(tmp_path: Path)
         "FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY=example/fdai/fdai-core-control-plane",
         f"FDAI_VERIFIED_RUNTIME_IMAGE_REVISION={revision}",
         f"FDAI_VERIFIED_RUNTIME_IMAGE_DIGEST={_SOURCE_DIGEST}",
+        "FDAI_VERIFIED_RUNTIME_IMAGE_PROFILE=core-control-plane",
     ]
     assert not paths["forbidden_calls"].exists()
     assert not list(paths["runner_temp"].glob("fdai-core-image.*"))
@@ -200,6 +205,7 @@ def _run_binding(
         "resourceGroups/example/providers/Microsoft.ContainerRegistry/registries/example"
     ),
     import_exit: int = 0,
+    profile: str = "core-control-plane",
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, Path], str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -233,8 +239,13 @@ def _run_binding(
             "FAKE_SOURCE_DIGEST": _SOURCE_DIGEST,
             "FDAI_ACR_LOGIN_SERVER": "example.azurecr.io",
             "FDAI_VERIFIED_RUNTIME_IMAGE_DIGEST": _SOURCE_DIGEST,
-            "FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY": ("example/fdai/fdai-core-control-plane"),
+            "FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY": (
+                "example/fdai/fdai-cost-governance"
+                if profile == "cost-governance"
+                else "example/fdai/fdai-core-control-plane"
+            ),
             "FDAI_VERIFIED_RUNTIME_IMAGE_REVISION": revision,
+            "FDAI_VERIFIED_RUNTIME_IMAGE_PROFILE": profile,
             "GITHUB_ACTOR": "example-actor",
             "GITHUB_ENV": str(github_env),
             "GITHUB_REPOSITORY": "example/fdai",
@@ -242,6 +253,7 @@ def _run_binding(
             "PROMOTE_RUNTIME_IMAGE": "true",
             "RUNNER_TEMP": str(runner_temp),
             "RUNTIME_IMAGE_REVISION": revision,
+            "RUNTIME_IMAGE_PROFILE": profile,
         },
         capture_output=True,
         text=True,
@@ -271,12 +283,43 @@ def test_binds_verified_digest_after_exact_acr_import(tmp_path: Path) -> None:
     ]
     assert paths["github_env"].read_text(encoding="ascii").splitlines() == [
         f"TF_VAR_core_image=example.azurecr.io/fdai@{_SOURCE_DIGEST}",
+        "FDAI_RUNTIME_IMAGE_PROFILE=core-control-plane",
         f"FDAI_RUNTIME_IMAGE_REVISION={revision}",
         f"FDAI_RUNTIME_IMAGE_DIGEST={_SOURCE_DIGEST}",
     ]
     assert not paths["forbidden_calls"].exists()
     assert not list(paths["runner_temp"].glob("fdai-core-image.*"))
     assert not list(paths["runner_temp"].glob("fdai-ghcr-docker.*"))
+
+
+def test_cost_governance_profile_binds_one_digest_to_core_and_jobs(tmp_path: Path) -> None:
+    verify_root = tmp_path / "verify"
+    verify_root.mkdir()
+    verification, verify_paths, revision = _run_verification(
+        verify_root,
+        gh_exit=0,
+        profile="cost-governance",
+    )
+
+    assert verification.returncode == 0, verification.stderr
+    assert (
+        f"oci://ghcr.io/example/fdai/fdai-cost-governance@{_SOURCE_DIGEST}"
+        in verify_paths["gh_args"].read_text(encoding="ascii")
+    )
+
+    bind_root = tmp_path / "bind"
+    bind_root.mkdir()
+    binding, bind_paths, _ = _run_binding(bind_root, profile="cost-governance")
+
+    assert binding.returncode == 0, binding.stderr
+    assert bind_paths["github_env"].read_text(encoding="ascii").splitlines() == [
+        f"TF_VAR_core_image=example.azurecr.io/fdai-cost-governance@{_SOURCE_DIGEST}",
+        f"TF_VAR_cost_governance_image=example.azurecr.io/fdai-cost-governance@{_SOURCE_DIGEST}",
+        "FDAI_RUNTIME_IMAGE_PROFILE=cost-governance",
+        f"FDAI_RUNTIME_IMAGE_REVISION={revision}",
+        f"FDAI_RUNTIME_IMAGE_DIGEST={_SOURCE_DIGEST}",
+    ]
+    assert "--name fdai-cost-governance" in bind_paths["az_calls"].read_text(encoding="ascii")
 
 
 def test_invalid_acr_id_stops_before_import(tmp_path: Path) -> None:

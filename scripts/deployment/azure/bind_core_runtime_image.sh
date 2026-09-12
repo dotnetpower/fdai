@@ -51,7 +51,20 @@ if ! git merge-base --is-ancestor "$revision" "$checkout_revision"; then
   exit 1
 fi
 
+runtime_image_profile="${RUNTIME_IMAGE_PROFILE:-core-control-plane}"
 source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"
+target_image="fdai"
+case "$runtime_image_profile" in
+  core-control-plane) ;;
+  cost-governance)
+    source_repository="${GITHUB_REPOSITORY,,}/fdai-cost-governance"
+    target_image="fdai-cost-governance"
+    ;;
+  *)
+    echo "runtime image profile must be core-control-plane or cost-governance." >&2
+    exit 1
+    ;;
+esac
 expected_signer_workflow="${GITHUB_REPOSITORY}/.github/workflows/container-supply-chain.yml"
 attestation_signer_workflow="${ATTESTATION_SIGNER_WORKFLOW:-$expected_signer_workflow}"
 if [[ "$attestation_signer_workflow" != "$expected_signer_workflow" ]]; then
@@ -141,12 +154,14 @@ PY
     printf 'FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY=%s\n' "$source_repository"
     printf 'FDAI_VERIFIED_RUNTIME_IMAGE_REVISION=%s\n' "$revision"
     printf 'FDAI_VERIFIED_RUNTIME_IMAGE_DIGEST=%s\n' "$source_digest"
+    printf 'FDAI_VERIFIED_RUNTIME_IMAGE_PROFILE=%s\n' "$runtime_image_profile"
   } >> "$GITHUB_ENV"
 }
 
 load_verified_runtime_image() {
   if [[ "${FDAI_VERIFIED_RUNTIME_IMAGE_REPOSITORY:-}" != "$source_repository" ||
         "${FDAI_VERIFIED_RUNTIME_IMAGE_REVISION:-}" != "$revision" ||
+        "${FDAI_VERIFIED_RUNTIME_IMAGE_PROFILE:-}" != "$runtime_image_profile" ||
         ! "${FDAI_VERIFIED_RUNTIME_IMAGE_DIGEST:-}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
     echo "Core runtime image binding requires exact successful provenance verification." >&2
     exit 1
@@ -194,7 +209,8 @@ bind_verified_runtime_image() {
     fi
     echo "Resolved the target ACR resource."
     SOURCE_REPOSITORY="$source_repository" SOURCE_DIGEST="$source_digest" \
-      TARGET_REVISION="$revision" python3 - "$import_body" <<'PY'
+      TARGET_IMAGE="$target_image" TARGET_REVISION="$revision" \
+      python3 - "$import_body" <<'PY'
 import json
 import os
 import sys
@@ -208,7 +224,7 @@ payload = {
             "password": os.environ["GHCR_TOKEN"],
         },
     },
-    "targetTags": [f"fdai:sha-{os.environ['TARGET_REVISION']}"],
+    "targetTags": [f"{os.environ['TARGET_IMAGE']}:sha-{os.environ['TARGET_REVISION']}"],
     "mode": "Force",
 }
 with open(sys.argv[1], "w", encoding="utf-8") as stream:
@@ -229,7 +245,7 @@ PY
     target_digest="$(
       timeout 30s az acr manifest list-metadata \
         --registry "$registry_name" \
-        --name fdai \
+        --name "$target_image" \
         --query "[?tags != null && contains(tags, 'sha-${revision}')].digest | [0]" \
         --output tsv --only-show-errors || true
     )"
@@ -246,7 +262,11 @@ PY
   fi
   echo "Verified the exact runtime image digest in ACR."
   {
-    echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}"
+    echo "TF_VAR_core_image=${login_server}/${target_image}@${target_digest}"
+    if [[ "$runtime_image_profile" == "cost-governance" ]]; then
+      echo "TF_VAR_cost_governance_image=${login_server}/${target_image}@${target_digest}"
+    fi
+    echo "FDAI_RUNTIME_IMAGE_PROFILE=${runtime_image_profile}"
     echo "FDAI_RUNTIME_IMAGE_REVISION=${revision}"
     echo "FDAI_RUNTIME_IMAGE_DIGEST=${target_digest}"
   } >> "$GITHUB_ENV"

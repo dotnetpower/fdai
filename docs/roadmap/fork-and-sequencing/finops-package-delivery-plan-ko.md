@@ -1,8 +1,8 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 2cc9ccc36678b23c5f46e06bc27b9847dc873836
-translation_revised: 2026-08-28
+translation_source_sha: 55e4f1be2e3a7d3fd535716d378dd370daa44a76
+translation_revised: 2026-09-12
 ---
 
 # FinOps 패키지 전달 계획
@@ -220,6 +220,14 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
   effect settlement, rollback, policy escape 및 objective regression을 보고합니다.
 - 독립 검토자가 package activation을 승인하고 각 ActionType promotion을 별도로 검토합니다.
 - 정책 이탈 0건, 완전한 hard-dependency 근거 및 테스트된 롤백은 계속 release 차단 조건입니다.
+
+운영 경로는 보호된 두 경계를 사용합니다. 수명 주기 디스패치는 정규 증적을 기록하기 전에 정확한
+release wheel, 서명된 이미지, 배포된 작업, 런타임 구성 및 완전한 요청 식별자를 검증합니다. 관찰
+디스패치는 활성 release를 고정하고 F1-F8 및 W6 검증 로그를 봉인하며, 완전하고 순서가 보장된
+감사 계보만 내보냅니다. 허용 목록에 있는 가져오기는 현재 pin을 확인한 뒤에만
+`live-authoritative` 분류를 부여합니다. 검토 결과는 package activation, 패키지 소유
+`ActionType` 각각 및 패키지 소유 `Workflow` 각각을 다루지만 promotion을 적용하지 않습니다.
+이 경로의 로컬 테스트는 실제 cohort 또는 독립 검토 종료 기준을 충족하지 않습니다.
 
 ## 검증 매트릭스
 

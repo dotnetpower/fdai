@@ -1,0 +1,418 @@
+name: cost-governance-observation-export
+run-name: "cost-observation-${{ inputs.campaign_id || 'cost-governance-w7-dev' }}-${{ github.run_attempt }}"
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Protected environment that owns campaign evidence."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact protected-main revision containing campaign controls."
+        type: string
+        required: true
+      campaign_id:
+        description: "Stable campaign identity shared by bounded observation runs."
+        type: string
+        default: cost-governance-w7-dev
+        required: true
+      window_hours:
+        description: "Bounded lookback window in hours, from 1 through 2160."
+        type: string
+        default: "48"
+        required: true
+      require_ready:
+        description: "Fail unless every target is ready for independent review."
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cost-governance-observation-${{ inputs.environment || 'dev' }}-${{ inputs.campaign_id || 'cost-governance-w7-dev' }}
+  cancel-in-progress: false
+
+jobs:
+  observe-import-evaluate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: ${{ inputs.environment || 'dev' }}
+    timeout-minutes: 30
+    env:
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha || github.sha }}
+      CAMPAIGN_ID: ${{ inputs.campaign_id || 'cost-governance-w7-dev' }}
+      WINDOW_HOURS: ${{ inputs.window_hours || '48' }}
+      REQUIRE_READY: ${{ inputs.require_ready || 'false' }}
+      SOURCE_WORKFLOW_PATH: .github/workflows/cost-governance-observation-export.yml
+      SOURCE_ARTIFACT_NAME: cost-governance-observations-${{ inputs.campaign_id || 'cost-governance-w7-dev' }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
+          workflow-path: .github/workflows/cost-governance-observation-export.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact campaign controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify exact revision, required CI, and campaign bounds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CAMPAIGN_ID" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]
+          [[ "$WINDOW_HOURS" =~ ^[1-9][0-9]{0,3}$ ]]
+          (( WINDOW_HOURS >= 1 && WINDOW_HOURS <= 2160 ))
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_ARTIFACT_NAME" =~ ^cost-governance-observations-[a-z0-9][a-z0-9-]{0,99}$ ]]
+          [[ "$REQUIRE_READY" == "true" || "$REQUIRE_READY" == "false" ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
+          git rev-list --first-parent origin/main | grep -Fx "$TARGET_COMMIT_SHA" >/dev/null
+          checks="$RUNNER_TEMP/required-ci.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+            > "$checks"
+          jq -e \
+            '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
+             length >= 1' "$checks" >/dev/null
+
+      - name: Authenticate and bind private platform state
+        env:
+          ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+          DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+          OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+          cp infra/backend.azurerm.tf.example infra/backend.tf
+          terraform -chdir=infra init -input=false \
+            -backend-config="resource_group_name=$OPS_RESOURCE_GROUP_NAME" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${{ inputs.environment || 'dev' }}.tfstate"
+
+      - name: Resolve exact active package pin
+        id: pin
+        run: |
+          set -euo pipefail
+          vault_uri="$(terraform -chdir=infra output -raw key_vault_uri)"
+          [[ "$vault_uri" =~ ^https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?$ ]]
+          migration_secret_name="$(jq -er \
+            '.services["core-control-plane"].migration_dsn_secret_name' \
+            scripts/deployment/service/service-matrix.json)"
+          migration_dsn="$(timeout 60s az keyvault secret show \
+            --vault-name "${BASH_REMATCH[1]}" --name "$migration_secret_name" \
+            --query value --only-show-errors --output tsv)"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          dsn_file="$RUNNER_TEMP/cost-governance-state-dsn"
+          install -m 0600 /dev/null "$dsn_file"
+          printf '%s' "$migration_dsn" > "$dsn_file"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          pin="$RUNNER_TEMP/cost-governance-active-pin.json"
+          uv run --frozen --package fdai-cost-governance \
+            python -m fdai_cost_governance.validation_cli pin > "$pin"
+          jq -e '
+            .enabled == true and
+            .approval_authority == false and .promotion_authority == false and
+            (.revision_pin.source_revision | test("^[0-9a-f]{40}$")) and
+            (.revision_pin_digest | test("^sha256:[0-9a-f]{64}$"))
+          ' "$pin" >/dev/null
+          echo "source_revision=$(jq -er '.revision_pin.source_revision' "$pin")" \
+            >> "$GITHUB_OUTPUT"
+          echo "revision_pin_digest=$(jq -er '.revision_pin_digest' "$pin")" \
+            >> "$GITHUB_OUTPUT"
+          unset FDAI_STATE_STORE_DSN migration_dsn
+
+      - name: Verify active release revision and required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE_REVISION: ${{ steps.pin.outputs.source_revision }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$RELEASE_SOURCE_REVISION" origin/main
+          checks="$RUNNER_TEMP/required-ci-release.json"
+          gh api \
+            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SOURCE_REVISION/check-runs?per_page=100" \
+            > "$checks"
+          jq -e \
+            '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
+             length >= 1' "$checks" >/dev/null
+
+      - name: Checkout exact active package release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.pin.outputs.source_revision }}
+          fetch-depth: 1
+          path: .fdai-release-source
+
+      - name: Qualify exact active package release
+        id: qualify
+        working-directory: .fdai-release-source
+        env:
+          RELEASE_SOURCE_REVISION: ${{ steps.pin.outputs.source_revision }}
+          REVISION_PIN_DIGEST: ${{ steps.pin.outputs.revision_pin_digest }}
+        run: |
+          set -euo pipefail
+          ontology_log="$RUNNER_TEMP/cost-governance-ontology-qualification.txt"
+          parity_log="$RUNNER_TEMP/cost-governance-parity-qualification.txt"
+          uv run --frozen python \
+            scripts/quality/architecture/check-cost-governance-semantic-profile.py \
+            | tee "$ontology_log"
+          uv run --frozen pytest -q --no-cov \
+            extensions/cost-governance/tests/test_parity.py \
+            | tee "$parity_log"
+          qualification="$RUNNER_TEMP/cost-governance-release-qualification.json"
+          python3 - \
+            "$RELEASE_SOURCE_REVISION" "$REVISION_PIN_DIGEST" \
+            "$ontology_log" \
+            "tests/integration/fixtures/cost_governance_w6_parity/parity-corpus.json" \
+            "extensions/cost-governance/src/fdai_cost_governance/resources/manifest.json" \
+            "$qualification" <<'PY'
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+            source_revision, pin_digest, *evidence_names, output_name = sys.argv[1:]
+          evidence_refs = [
+              "sha256:" + hashlib.sha256(Path(name).read_bytes()).hexdigest()
+              for name in evidence_names
+          ]
+          body = {
+              "evidence_refs": evidence_refs,
+              "ontology_competency_passed": True,
+              "parity_explained": True,
+              "revision_pin_digest": pin_digest,
+              "schema_version": "1.0.0",
+              "source_revision": source_revision,
+          }
+          encoded = json.dumps(
+              body,
+              allow_nan=False,
+              ensure_ascii=True,
+              separators=(",", ":"),
+              sort_keys=True,
+          ).encode()
+          document = {
+              **body,
+              "qualification_digest": "sha256:" + hashlib.sha256(encoded).hexdigest(),
+          }
+          Path(output_name).write_text(
+              json.dumps(document, separators=(",", ":"), sort_keys=True),
+              encoding="utf-8",
+          )
+          PY
+          echo "qualification=$qualification" >> "$GITHUB_OUTPUT"
+          echo "ontology_log=$ontology_log" >> "$GITHUB_OUTPUT"
+          echo "parity_log=$parity_log" >> "$GITHUB_OUTPUT"
+
+      - name: Attest active release qualification
+        id: qualification-attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ steps.qualify.outputs.qualification }}
+
+      - name: Export complete authoritative observations
+        id: export
+        working-directory: .fdai-release-source
+        run: |
+          set -euo pipefail
+          migration_dsn="$(<"$RUNNER_TEMP/cost-governance-state-dsn")"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          export FDAI_OPERATOR_STORE_DSN="$migration_dsn"
+          readarray -t bounds < <(python3 - "$WINDOW_HOURS" <<'PY'
+          import sys
+          from datetime import UTC, datetime, timedelta
+
+          end_at = datetime.now(tz=UTC).replace(microsecond=0)
+          start_at = end_at - timedelta(hours=int(sys.argv[1]))
+          print(start_at.isoformat())
+          print(end_at.isoformat())
+          PY
+          )
+          [[ "${#bounds[@]}" -eq 2 ]]
+          batch="$RUNNER_TEMP/cost-governance-observation-batch.json"
+          set +e
+          uv run --frozen --package fdai-cost-governance \
+            python -m fdai_cost_governance.campaign_export \
+              --campaign-id "$CAMPAIGN_ID" \
+              --start-at "${bounds[0]}" \
+              --end-at "${bounds[1]}" \
+              --catalog-root rule-catalog \
+              --qualification "${{ steps.qualify.outputs.qualification }}" \
+              --policy config/cost-governance-w7-policy.json \
+              --output "$batch"
+          export_status="$?"
+          set -e
+          echo "window_end=${bounds[1]}" >> "$GITHUB_OUTPUT"
+          if [[ "$export_status" -eq 3 ]]; then
+            echo "has_observations=false" >> "$GITHUB_OUTPUT"
+            rm -f "$batch"
+          elif [[ "$export_status" -eq 0 ]]; then
+            jq -e --arg campaign "$CAMPAIGN_ID" '
+              .campaign_id == $campaign and
+              (.batch_digest | test("^sha256:[0-9a-f]{64}$")) and
+              (.revision_pin_digest | test("^sha256:[0-9a-f]{64}$")) and
+              (.observations | length >= 1 and length <= 1000) and
+              all(.observations[]; has("evidence_kind") | not)
+            ' "$batch" >/dev/null
+            echo "has_observations=true" >> "$GITHUB_OUTPUT"
+            echo "batch=$batch" >> "$GITHUB_OUTPUT"
+          else
+            exit "$export_status"
+          fi
+          unset FDAI_STATE_STORE_DSN FDAI_OPERATOR_STORE_DSN migration_dsn
+
+      - name: Attest normalized source observations
+        if: steps.export.outputs.has_observations == 'true'
+        id: batch-attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ steps.export.outputs.batch }}
+
+      - name: Upload immutable source observations
+        if: steps.export.outputs.has_observations == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: ${{ env.SOURCE_ARTIFACT_NAME }}
+          path: |
+            ${{ steps.export.outputs.batch }}
+            ${{ steps.batch-attest.outputs.bundle-path }}
+            ${{ steps.qualify.outputs.qualification }}
+            ${{ steps.qualify.outputs.ontology_log }}
+            ${{ steps.qualify.outputs.parity_log }}
+            ${{ steps.qualification-attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Import observations and evaluate every review target
+        id: review
+        working-directory: .fdai-release-source
+        run: |
+          set -euo pipefail
+          migration_dsn="$(<"$RUNNER_TEMP/cost-governance-state-dsn")"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          if [[ "${{ steps.export.outputs.has_observations }}" == "true" ]]; then
+            import_receipt="$RUNNER_TEMP/cost-governance-import-receipt.json"
+            uv run --frozen --package fdai-cost-governance \
+              python -m fdai_cost_governance.validation_cli import \
+                --batch "${{ steps.export.outputs.batch }}" \
+                --policy config/cost-governance-w7-policy.json \
+                --catalog-root rule-catalog \
+                --source-workflow-path "$SOURCE_WORKFLOW_PATH" \
+                --source-run-id "$GITHUB_RUN_ID" \
+                --source-run-attempt "$GITHUB_RUN_ATTEMPT" \
+                --source-artifact-name "$SOURCE_ARTIFACT_NAME" \
+                --imported-at "${{ steps.export.outputs.window_end }}" \
+                > "$import_receipt"
+            jq -e \
+              '.approval_authority == false and .promotion_authority == false' \
+              "$import_receipt" >/dev/null
+            echo "import_receipt=$import_receipt" >> "$GITHUB_OUTPUT"
+          fi
+          review_receipt="$RUNNER_TEMP/cost-governance-review.json"
+          uv run --frozen --package fdai-cost-governance \
+            python -m fdai_cost_governance.validation_cli evaluate \
+              --campaign-id "$CAMPAIGN_ID" \
+              --catalog-root rule-catalog > "$review_receipt"
+          jq -e '
+            .approval_authority == false and .promotion_authority == false and
+            (.targets | length == 6)
+          ' "$review_receipt" >/dev/null
+          if [[ "$REQUIRE_READY" == "true" ]]; then
+            jq -e '.ready == true' "$review_receipt" >/dev/null
+          fi
+          {
+            echo "### Cost Governance W7 campaign"
+            echo
+            echo "- Campaign: \`$CAMPAIGN_ID\`"
+            echo "- Exported observations: \`${{ steps.export.outputs.has_observations }}\`"
+            if [[ -f "$RUNNER_TEMP/cost-governance-import-receipt.json" ]]; then
+              echo "- Accepted: \`$(jq -r .accepted_count "$RUNNER_TEMP/cost-governance-import-receipt.json")\`"
+              echo "- Duplicates: \`$(jq -r .duplicate_count "$RUNNER_TEMP/cost-governance-import-receipt.json")\`"
+            fi
+            echo "- Ready for independent review: \`$(jq -r .ready "$review_receipt")\`"
+            echo "- Approval authority: \`false\`"
+            echo "- Promotion authority: \`false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "review_receipt=$review_receipt" >> "$GITHUB_OUTPUT"
+          unset FDAI_STATE_STORE_DSN migration_dsn
+
+      - name: Attest import receipt
+        if: steps.export.outputs.has_observations == 'true'
+        id: import-attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ steps.review.outputs.import_receipt }}
+
+      - name: Attest review-only result
+        id: review-attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ steps.review.outputs.review_receipt }}
+
+      - name: Upload campaign review evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: cost-governance-review-${{ env.CAMPAIGN_ID }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.review.outputs.review_receipt }}
+            ${{ steps.review.outputs.import_receipt }}
+            ${{ steps.import-attest.outputs.bundle-path }}
+            ${{ steps.review-attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Clean private state material
+        if: always() && steps.protected-source.outcome == 'success'
+        run: |
+          unset FDAI_STATE_STORE_DSN FDAI_OPERATOR_STORE_DSN migration_dsn
+          rm -f infra/backend.tf "$RUNNER_TEMP/cost-governance-state-dsn"
+          rm -rf infra/.terraform

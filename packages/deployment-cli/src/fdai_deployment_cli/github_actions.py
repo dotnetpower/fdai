@@ -21,8 +21,9 @@ _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
-_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:history-|identity-|rca-)?[0-9a-f]{48}$")
+_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:cost-|history-|identity-|rca-)?[0-9a-f]{48}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
+_RUNTIME_IMAGE_PROFILES = frozenset({"core-control-plane", "cost-governance"})
 _BOOL_INPUTS = (
     "deploy_console",
     "deploy_dev_operations_gateway",
@@ -67,6 +68,7 @@ class DeploymentSelection:
     deploy_operator_channel_edge: bool = False
     deploy_rca_reader_identity: bool = False
     runtime_image_revision: str = ""
+    runtime_image_profile: str = "core-control-plane"
 
     def __post_init__(self) -> None:
         application_targets = (
@@ -83,6 +85,18 @@ class DeploymentSelection:
         if self.runtime_image_revision:
             if _COMMIT.fullmatch(self.runtime_image_revision) is None:
                 raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
+        if self.runtime_image_profile not in _RUNTIME_IMAGE_PROFILES:
+            raise ValueError("runtime_image_profile is unsupported")
+        if self.runtime_image_profile != "core-control-plane" and not self.runtime_image_revision:
+            raise ValueError("non-default runtime_image_profile requires runtime_image_revision")
+        if self.runtime_image_profile != "core-control-plane" and (
+            self.deploy_identity_migration
+            or self.deploy_operational_history
+            or self.deploy_rca_reader_identity
+        ):
+            raise ValueError(
+                "non-default runtime_image_profile cannot be combined with a bounded operation"
+            )
         if self.deploy_rca_reader_identity and (
             any(application_targets) or self.deploy_monitoring or self.runtime_image_revision
         ):
@@ -110,6 +124,7 @@ class DeploymentSelection:
         result["document_ocr_action"] = "preserve"
         result["runtime_call_evidence_transition"] = False
         result["runtime_image_revision"] = self.runtime_image_revision
+        result["runtime_image_profile"] = self.runtime_image_profile
         return result
 
 
@@ -251,6 +266,8 @@ def dispatch_plan(
         bounded_request_id = bounded_request_id.replace("plan-", "plan-identity-", 1)
     elif selection.deploy_operational_history:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-history-", 1)
+    elif selection.runtime_image_profile == "cost-governance":
+        bounded_request_id = bounded_request_id.replace("plan-", "plan-cost-", 1)
     _dispatch(
         repository=repository,
         environment=environment,
@@ -323,6 +340,8 @@ def dispatch_apply(
         bounded_request_id = bounded_request_id.replace("apply-", "apply-identity-", 1)
     elif selection.deploy_operational_history:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-history-", 1)
+    elif selection.runtime_image_profile == "cost-governance":
+        bounded_request_id = bounded_request_id.replace("apply-", "apply-cost-", 1)
     _dispatch(
         repository=repository,
         environment=environment,
@@ -477,6 +496,8 @@ def _request_binding_from_id(request_id_value: str) -> str:
         "apply-identity-",
         "plan-rca-",
         "apply-rca-",
+        "plan-cost-",
+        "apply-cost-",
         "plan-",
         "apply-",
     ):
@@ -576,6 +597,7 @@ def _dispatch(
                 "deploy_operational_history",
                 "deploy_rca_reader_identity",
                 "runtime_call_evidence_transition",
+                "runtime_image_profile",
             }
         },
     }

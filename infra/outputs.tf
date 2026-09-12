@@ -329,6 +329,16 @@ output "measurement_operational_promotion_job_name" {
   value       = try(module.measurement_runners[0].operational_promotion_job_name, null)
 }
 
+output "cost_governance_collector_job_name" {
+  description = "Cost Governance collector Job name, or null when absent."
+  value       = module.compute.cost_governance_collector_job_name
+}
+
+output "cost_governance_analyzer_job_name" {
+  description = "Cost Governance analyzer Job name, or null when absent."
+  value       = module.compute.cost_governance_analyzer_job_name
+}
+
 
 # Per-vertical Managed Identities (phase-3 § Unified Control Loop).
 output "identity_change_resource_id" {

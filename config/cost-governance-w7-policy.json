@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "cost-governance-w7",
+  "policy_version": "1.0.0",
+  "allowed_exporter_workflow_paths": [
+    ".github/workflows/cost-governance-observation-export.yml"
+  ],
+  "maximum_window_seconds": 7776000,
+  "maximum_batch_episodes": 1000,
+  "retention_days": 400
+}

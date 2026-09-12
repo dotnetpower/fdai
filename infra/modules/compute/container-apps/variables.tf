@@ -774,9 +774,17 @@ variable "forecast_targets_json" {
 }
 
 variable "cost_governance_image" {
-  description = "Optional Cost Governance distribution image. Empty provisions no package jobs."
+  description = "Optional digest-pinned Cost Governance distribution image. Empty provisions no package jobs."
   type        = string
   default     = ""
+
+  validation {
+    condition = var.cost_governance_image == "" || can(regex(
+      "^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$",
+      var.cost_governance_image
+    ))
+    error_message = "cost_governance_image must be empty or a digest-pinned lowercase image reference."
+  }
 }
 
 variable "cost_governance_collector_cron_expression" {

@@ -248,6 +248,11 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--deploy-operational-history", action="store_true")
     guided.add_argument("--deploy-rca-reader-identity", action="store_true")
     guided.add_argument("--runtime-image-revision", default="")
+    guided.add_argument(
+        "--runtime-image-profile",
+        choices=("core-control-plane", "cost-governance"),
+        default="core-control-plane",
+    )
     guided.add_argument("--output", choices=("text", "json"), default="text")
     guided.set_defaults(handler=_onboard_guided)
     status = onboard_commands.add_parser("status")
@@ -275,6 +280,11 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--deploy-operational-history", action="store_true")
     parser.add_argument("--deploy-rca-reader-identity", action="store_true")
     parser.add_argument("--runtime-image-revision", default="")
+    parser.add_argument(
+        "--runtime-image-profile",
+        choices=("core-control-plane", "cost-governance"),
+        default="core-control-plane",
+    )
     parser.add_argument("--output", choices=("text", "json"), default="text")
 
 
@@ -983,6 +993,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_operational_history=args.deploy_operational_history,
         deploy_rca_reader_identity=args.deploy_rca_reader_identity,
         runtime_image_revision=args.runtime_image_revision,
+        runtime_image_profile=args.runtime_image_profile,
     )
 
 

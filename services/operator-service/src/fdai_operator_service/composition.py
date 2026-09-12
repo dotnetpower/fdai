@@ -619,6 +619,7 @@ def _build_route_families(
             activation_writer=cost_reader,
             projections=cost_reader,
             analytics=cost_reader,
+            disclosure_audit=cost_reader,
             pseudonym_key=(environment.values.get(COST_PSEUDONYM_KEY_ENV, "").encode() or None),
             authenticated_review_access=(
                 environment.values.get(

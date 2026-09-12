@@ -192,9 +192,18 @@ def test_build_unified_risk_audit_shape(
     valid_ontology_action_type: dict[str, Any],
 ) -> None:
     gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))
+    action = Action.model_validate(valid_action).model_copy(
+        update={
+            "workflow_action": WorkflowActionRef(
+                process_id="process-1",
+                step_id="apply_rightsize",
+                proposal_ref="proposal:apply_rightsize",
+            )
+        }
+    )
     entry = build_unified_risk_audit(
         event=Event.model_validate(valid_event),
-        action=Action.model_validate(valid_action),
+        action=action,
         rule=Rule.model_validate(valid_rule),
         action_type=OntologyActionType.model_validate(valid_ontology_action_type),
         table=load_risk_table(TABLE_PATH),
@@ -206,6 +215,12 @@ def test_build_unified_risk_audit_shape(
     assert "winning_side" in entry
     assert "gate_outcome" in entry
     assert "authority" in entry
+    assert entry["workflow_action"] == {
+        "process_id": "process-1",
+        "step_id": "apply_rightsize",
+        "proposal_ref": "proposal:apply_rightsize",
+        "attempt": 1,
+    }
 
 
 def test_build_unified_risk_audit_destructive_is_hil(

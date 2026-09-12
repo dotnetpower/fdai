@@ -186,6 +186,32 @@ autonomy ratio cannot compensate for a policy escape, missing audit, failed roll
 ontology context, or unverified effect. Operational claims require retained exact-revision
 receipts; unit tests prove behavior but not production autonomy.
 
+### Operational evidence admission
+
+The protected W7 workflow reads the current activation pin before it observes a cohort. It checks
+out that exact release, reruns the F1-F8 competency and W6 parity qualifications, and seals their
+logs by digest. The exporter then accepts only ordered audit lineage: Forseti's risk decision,
+executor intent, executor terminal result, and Heimdall's independent response outcome. A terminal
+deny or human-approval decision can be counted without effect settlement only when no later
+execution or response outcome exists.
+
+Workflow evidence also requires the same Process lineage in the risk and executor audits. A
+changed-state outcome must cite the exact durable mutation plan, whose selected option covers every
+protected objective. The source batch cannot declare `live-authoritative`, approval, or promotion
+authority. Only the allowlisted protected importer assigns the evidence class after matching the
+current revision pin and bounded policy. It then evaluates package activation, each package-owned
+`ActionType`, and each package-owned `Workflow` independently.
+
+Cost delivery adds a content-free disclosure receipt before returning data. Its separate retention
+envelope keeps the immutable receipt for 400 days, adds a 30-day purge grace, supports revisioned
+legal hold, and records a tombstone event instead of deleting the receipt. A campaign requires at
+least one retained authorized disclosure in its window, so zero unauthorized disclosures cannot be
+claimed from an empty audit set.
+
+These mechanics don't establish operational readiness by themselves. Readiness stays blocked
+until retained live evidence reaches each catalog-owned sample, dwell, accuracy, settlement,
+rollback, policy, objective, disclosure, and lifecycle threshold, followed by independent review.
+
 ## Degradation behavior
 
 - Missing Saga or Vidar forces new mutations to observation mode.
