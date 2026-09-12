@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2b0a73bd65b43985d47215918286473b793daa87
+translation_source_sha: 427a32ee0a5f9320fd41dd2f82bfeb2195b65291
 translation_revised: 2026-09-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -148,7 +148,7 @@ Health acceptance는 적용 증적을 기록하기 전에 코어 Container App�
 하며 shared 유입 `/healthz` 응답은 고정된 성공 페이로드를 반환해야 합니다. 런타임을
 계획하지 않는 design-mocks-only 적용만 예외입니다.
 Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경로를 닫거나, 검토된 분리 이전 인제스트 권한 부여를 삭제하면서 모든 exact API 또는 워커 successor를 같은 계획에서 pure-create하는 범위가 제한된 security retirement만 허용합니다.
-또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다. 모델 연결 전용 계획은 상위 모듈이 아니라 Azure OpenAI 기능 배포 컬렉션을 대상으로 지정합니다. 따라서 범위 및 파괴적 변경 가드를 실행하기 전에 기존 계정과 역할 할당 리소스는 계획 그래프 밖에 남습니다.
+또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다. 모델 연결 전용 계획은 상위 모듈이 아니라 Azure OpenAI 기능 배포 컬렉션을 대상으로 지정합니다. 따라서 범위 및 파괴적 변경 가드를 실행하기 전에 기존 계정과 역할 할당 리소스는 계획 그래프 밖에 남습니다. Workflow는 봉인한 resolver 산출물의 해시를 계산하기 전에 이를 정본화합니다. 리소스 변경이 없는 복구 계획은 이 정본 다이제스트가 증명된 활성 Core 모델 다이제스트와 다를 때만 수락하며, 적용 후에는 모델별 프로바이더 readback을 계속 요구합니다.
 모델 삭제 전용 변경, 값이 달라진 교체, 누락되거나 생성이 아닌 successor, 그 밖의 모든 삭제는 계속 차단됩니다.
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과

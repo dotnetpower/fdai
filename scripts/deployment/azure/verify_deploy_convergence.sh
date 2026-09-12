@@ -13,6 +13,7 @@ cost_governance_only=false
 deploy_identity_only=false
 provider_schema_only=false
 runtime_call_evidence_only=false
+model_binding_only=false
 if [[ "$request_id" == apply-observability-* ]]; then
   observability_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.observability_analyzer_image_update"
@@ -22,6 +23,9 @@ elif [[ "$request_id" == apply-cost-* ]]; then
 elif [[ "$request_id" == apply-runtime-* ]]; then
   runtime_call_evidence_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.runtime_call_evidence_transition -target=terraform_data.inventory_runtime_image_update -target=terraform_data.runtime_workspace_binding_transition"
+elif [[ "$request_id" == apply-model-* ]]; then
+  model_binding_only=true
+  export TF_CLI_ARGS_plan="-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability"
 elif [[ "$request_id" == apply-provider-* ]]; then
   provider_schema_only=true
   export TF_CLI_ARGS_plan="-target=module.compute.azurerm_container_app_job.provider_schema[0]"
@@ -43,7 +47,9 @@ if (( plan_exit == 2 )); then
   exit 1
 fi
 
-if [[ "$deploy_identity_only" == "true" || "$runtime_call_evidence_only" == "true" ]]; then
+if [[ "$deploy_identity_only" == "true" \
+  || "$runtime_call_evidence_only" == "true" \
+  || "$model_binding_only" == "true" ]]; then
   exit 0
 fi
 

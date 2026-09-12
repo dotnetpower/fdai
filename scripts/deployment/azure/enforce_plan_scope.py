@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -93,6 +95,11 @@ def _model_addresses(resolved: dict[str, Any]) -> frozenset[str]:
     return frozenset(allowed)
 
 
+def _canonical_digest(value: dict[str, Any]) -> str:
+    canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _primary_replacement_is_exact(
     plan: dict[str, Any], resolved_models: dict[str, Any] | None
 ) -> bool:
@@ -143,6 +150,7 @@ def enforce(
     *,
     mode: str,
     resolved_models: dict[str, Any] | None = None,
+    active_model_digest: str = "",
     expected_deploy_principal_id: str = "",
 ) -> frozenset[str]:
     """Reject changes outside the selected bounded deployment mode."""
@@ -255,7 +263,11 @@ def enforce(
         allowed = _model_addresses(resolved_models)
         label = "Model-binding-only"
         if not changed:
-            raise ValueError("model-binding plan contains no deployment change")
+            if not re.fullmatch(r"[0-9a-f]{64}", active_model_digest):
+                raise ValueError("model-binding plan requires an active Core model digest")
+            if _canonical_digest(resolved_models) == active_model_digest:
+                raise ValueError("model-binding plan contains no deployment or artifact change")
+            return changed
     else:
         raise ValueError(f"unsupported plan scope mode: {mode}")
     unexpected = sorted(changed.difference(allowed))
@@ -311,6 +323,7 @@ def main() -> int:
             plan,
             mode=args.mode,
             resolved_models=resolved,
+            active_model_digest=os.environ.get("ACTIVE_CORE_MODEL_DIGEST", ""),
             expected_deploy_principal_id=os.environ.get("DEPLOY_RUNNER_PRINCIPAL_ID", ""),
         )
     except ValueError as exc:
