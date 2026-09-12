@@ -530,6 +530,8 @@ registering an implementation - the strict one-way dependency direction above is
 if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`, `ContractValidator` / `EventValidator`, `ConfigProvider` - stay
 **sync**: they run once at startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add noise. Tests use
 `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def test_...` runs without a per-test marker.
+`tests/integration/service-suites.json` assigns every service-owned test file to exactly one service
+suite; new Operator measurement projection and source tests remain in the Operator unit group.
 
 Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes in `core/readiness`. Runtime schedules
 bounded refresh, closes at original expiry, and exposes the live ceiling that Thor checks before privileged I/O; no layer can raise

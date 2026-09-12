@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f24fa64f1834179be676e41cfd09e00246dd40a1
+translation_source_sha: bb00704206364b6bf2c0547a1ec31be1d55cabfd
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -529,6 +529,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 `ConfigProvider` - 은 **sync 유지**: 시작 시 한 번 실행되거나, I/O 없는 순수 CPU 경계
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다.
+`tests/integration/service-suites.json`은 서비스가 소유한 각 테스트 파일을 정확히 하나의 서비스
+스위트에 할당합니다. 새로운 Operator 측정 projection 및 출처 테스트는 Operator 단위 테스트 그룹에 유지합니다.
 
 시작 준비 상태의 프로바이더 중립 실행 예산, 탐색 시간 제한 및 파생 근거 수명은 `core/readiness`가
 소유합니다. 런타임은 범위가 제한된 새로 고침을 예약하고 기존 만료 시점에 처리를 닫으며, Thor가
