@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 647db5924832554c4dcd08b3ad7e0eb0963e8637
+translation_source_sha: 2c49e31a31a67f9bd62b61a934fd433af6e4f4d0
 translation_revised: 2026-09-12
 ---
 
@@ -313,7 +313,10 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 
 설치, 업그레이드 및 롤백은 비공개 배포 실행기의 별도 보호 워크플로를 사용합니다. 워크플로는
 수명 주기 함수를 호출하기 전에 보호된 `main`, 필수 CI, 정확한 release 소스, 서명된 이미지
-다이제스트 및 배포된 Cost Governance 작업을 검증합니다. 성공한 모든 증적에는 모든 요청 입력의
+다이제스트 및 배포된 Cost Governance 작업을 검증합니다. 고정된 패키지 도구 체계의 lockfile
+고정 모드에서 정확한 release wheel을 다시 빌드합니다. 지원되지 않는 빌드 호출, lock 표류 또는
+여러 개로 해석될 수 있는 wheel 출력은 Azure 인증이나 수명 주기 상태 변경 전에 실패합니다.
+성공한 모든 증적에는 모든 요청 입력의
 정규 다이제스트가 포함됩니다. 같은 요청 ID를 다른 작업, 아티팩트, 소스 개정, 런타임 구성,
 행위자, 원하는 활성화 상태 또는 예상 개정에 재사용하면 멱등성 충돌로 처리됩니다. 입력이 정확히
 같은 재시도는 현재 활성화 상태를 다시 표시하지 않고 원래 증적을 반환합니다.
