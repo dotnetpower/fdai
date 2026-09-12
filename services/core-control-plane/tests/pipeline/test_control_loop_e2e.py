@@ -16,8 +16,8 @@ The pipeline sub-tests assert the property invariants documented in
 
 - **Shadow-mode never mutates** - every executed action produces a
   ``Mode.SHADOW`` receipt and a shadow-labeled draft PR intent.
-- **Every terminal path writes exactly one audit entry** (routing
-  abstain, T0 abstain, execute, dedupe).
+- **Every accepted terminal path writes exactly one canonical measurement**
+  in addition to its existing domain/executor audit entries.
 - **Idempotency across replays** - a second delivery of the same event
   hits the executor's dedupe cache.
 """
@@ -92,6 +92,9 @@ from fdai.shared.providers.testing import (
     RecordingRemediationPrPublisher,
 )
 from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
+from fdai_service_contracts.control_loop_measurement import (
+    CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
@@ -304,7 +307,10 @@ async def test_missing_resource_type_abstains_at_routing(
     assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
     assert result.decision == "abstain"
     assert publisher.records == ()
-    assert len(list(audit.audit_entries)) == 1
+    assert [entry["entry"]["action_kind"] for entry in audit.audit_entries] == [
+        "control_loop.abstain",
+        CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+    ]
 
 
 @pytest.mark.asyncio
@@ -323,7 +329,10 @@ async def test_unknown_resource_type_abstains_at_routing(
     assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
     assert result.reason == "no_rule_matches_resource_and_signal_type"
     assert publisher.records == ()
-    assert len(list(audit.audit_entries)) == 1
+    assert [entry["entry"]["action_kind"] for entry in audit.audit_entries] == [
+        "control_loop.abstain",
+        CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+    ]
 
 
 @pytest.mark.asyncio
@@ -345,7 +354,10 @@ async def test_t0_abstain_writes_audit_and_no_pr(
     assert result.tier == "t0"
     assert result.decision == "abstain"
     assert publisher.records == ()
-    assert len(list(audit.audit_entries)) == 1
+    assert [entry["entry"]["action_kind"] for entry in audit.audit_entries] == [
+        "control_loop.abstain",
+        CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+    ]
 
 
 @pytest.mark.asyncio
@@ -363,8 +375,11 @@ async def test_duplicate_delivery_dedupes_without_audit(
     second = await loop.process(event)
     assert first.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
     assert second.outcome is ControlLoopOutcome.DEDUPED
-    # Only the first delivery wrote an audit entry.
-    assert len(list(audit.audit_entries)) == 1
+    # Only the first delivery wrote its domain audit and canonical measurement.
+    assert [entry["entry"]["action_kind"] for entry in audit.audit_entries] == [
+        "control_loop.abstain",
+        CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+    ]
     assert publisher.records == ()
 
 
@@ -1173,18 +1188,23 @@ async def test_every_terminal_path_writes_audit(
     )
 
     entries = list(audit.audit_entries)
-    # A: 1 abstain entry (routing found no rule)
-    # B: 1 compliant entry (T0 evaluated every candidate and none denied)
+    # A: 1 abstain entry (routing found no rule) plus 1 canonical measurement
+    # B: 1 compliant entry (T0 evaluated every candidate and none denied) plus 1 measurement
     # C: two executor entries per shipped-rule finding (intent + terminal)
+    #    plus 1 canonical measurement
     abstain_entries = sum(
         1 for e in entries if e["entry"].get("action_kind") == "control_loop.abstain"
     )
     compliant_entries = sum(
         1 for e in entries if e["entry"].get("action_kind") == "control_loop.compliant"
     )
-    executor_entries = len(entries) - abstain_entries - compliant_entries
+    measurement_entries = sum(
+        1 for e in entries if e["entry"].get("action_kind") == CONTROL_LOOP_MEASUREMENT_ACTION_KIND
+    )
+    executor_entries = len(entries) - abstain_entries - compliant_entries - measurement_entries
     assert abstain_entries == 1
     assert compliant_entries == 1
+    assert measurement_entries == 3
     assert result_b.outcome is ControlLoopOutcome.COMPLIANT
     # Published results write 2 executor audit entries (intent + terminal);
     # ABSTAINED_BLAST_RADIUS results write 1 (terminal only) because the

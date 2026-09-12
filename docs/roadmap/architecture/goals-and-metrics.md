@@ -19,6 +19,7 @@ operationalized by [phase-0-instrumentation.md](../phases/phase-0-instrumentatio
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Canonical control-loop terminal measurement | implemented | `core/control_loop/_measurement.py`; `fdai_service_contracts/control_loop_measurement.py`; focused contract, producer and stage tests | One normalized event contributes one durable classification; effect verification remains a separate source. Operator and metric-source integration is tracked in #839. |
 | Deterministic KPI and guard-metric aggregation | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; focused tests under `tests/core/measurement/` | MTTR, change, regression, latency, model, and pattern metrics have executable reducers and fail-closed checks. |
 | Promotion and operational evidence evaluation | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; focused promotion tests | Promotion evaluation binds revision, scenario, samples, confidence, guards, and outcome evidence. A result can be ready only when a current shared decision-evidence admission matches the complete batch. Legacy stored receipts remain readable but cannot authorize promotion without receipt and verification-bundle digests. |
 | Complete decision boundary admission coverage | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; focused boundary tests | All 20 registered positive decision boundaries resolve decision-critical evidence through the shared admission contract and hold for review when the admission is absent or rejected. The guard checks the inventory in both directions, so an intentionally uncovered registered boundary fails. The readiness matrix denies missing, stale, incomplete, conflicting, synthetic, wrong-purpose, and wrong-scope evidence by name. |
@@ -40,6 +41,7 @@ operationalized by [phase-0-instrumentation.md](../phases/phase-0-instrumentatio
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Added versioned terminal measurement capture with stable source identity, explicit tier/route/mode, complete attempted-action references, atomic state/audit retention and failed-write retry before ingest deduplication. | `current change`; #839; focused terminal contract, producer and stage-event tests passed. | Complete measured-source and Operator integration, hardening rounds and governed source prerequisites; no operational success or baseline claim follows from a classification. |
 | 2026-09-11 | implemented | Corrected FDAI-CONST-002 completion to the enforceable contract boundary: every registered positive decision is dominated by shared admission and fails closed on absent or rejected evidence. The earlier requirement to retain simultaneous current live admissions for every boundary was withdrawn because dynamic purposes and rare real events make it non-enumerable and impossible to manufacture safely. | `current change`; `config/constitution-traceability.json`; registered constitutional proof selectors; complete boundary inventory and negative evidence matrix; focused Constitution and boundary checks. | Continue collecting genuine positive-path admissions as operational validation when their authoritative events occur; never relabel the unrelated `deployment-apply` record. |
 | 2026-09-11 | implemented | Extended the cohort exporter allowlist into a product-neutral source registry. Each required metric and guard in an arm has exactly one trusted workflow owner and stable source id that the importer injects into provenance. The aggregate inventory recounts only rows whose source id, workflow, arm, and measure still match that registry. Partial coverage, duplicate ownership or source ids, cross-arm workflow reuse, missing workflow files, duplicate policy keys, and observations outside a workflow's assigned measures fail closed. | `current change`; cohort policy, importer, and inventory; focused policy, importer, and inventory tests. | Add complete source-specific workflow bindings after the deployed systems of record are designated, then retain and admit 30 independent observations per required measure in both arms. |
 | 2026-09-11 | implemented | Hardened the trusted observation-import boundary without rewriting its original delivery record. Exporter allowlists now accept only regular, non-symlink workflow files that resolve inside the same repository revision. Strict scalar and workflow-context validation, duplicate-key rejection, a 1,000-observation cap, replay conflict checks, and batch plus exporter provenance binding close the reviewed importer trust gaps. | `current change`; cohort policy, observation importer and CLI, protected workflow, inventory query, and 249 focused contract, importer, inventory, workflow, and CI-contract tests; targeted Ruff and strict mypy checks. | Add one authoritative baseline exporter and one deployed FDAI treatment exporter together with their arm-specific allowlist entries, then retain and admit 30 samples per required measure. |
@@ -317,6 +319,15 @@ Leading indicators trigger investigation before a lagging guard metric regresses
 
 Every metric maps to a concrete telemetry source so the dashboard is buildable, not aspirational:
 
+- **Dashboard event accounting** uses one versioned `measurement.control_loop.v1` record for a
+  nonduplicate normalized event's final control-loop classification. Intermediate evaluations,
+  source transitions, and generic audit rows are not additional events. This record preserves
+  the event identity, tier, route, mode, and time; it does not assert successful remediation.
+- **Live metric observations** use versioned, source-bound records with explicit units,
+  observation identity, event attribution, and effective time. The Operator reads the durable
+  facts through its own role and never imports Core implementation code. Missing, contradictory,
+  truncated, or unverified evidence cannot be converted into a measured zero. Descriptive live
+  values remain separate from admitted baseline/treatment comparisons and promotion eligibility.
 - **Structured events + traces** (OpenTelemetry) carry `event_id`, `tier`, `decision`,
   `mode` (shadow/enforce), and timestamps - sourcing metrics 2, 3a/3b, and leading indicators.
 - **Append-only audit log** sources human touchpoints (metric 4), rollbacks, and policy escapes.
@@ -325,15 +336,16 @@ Every metric maps to a concrete telemetry source so the dashboard is buildable, 
   finalized denominator, and rollback/adverse outcomes remain visible without becoming successes.
   When an action has corrected finalization rows, only its highest audit sequence is authoritative;
   an explicit verification failure remains a rejected observation rather than disappearing.
-- **Explicit metric observations** use the latest row for each `event_id` and metric key. A retry
-  or correction for one event replaces that event's earlier value instead of adding statistical
-  weight; observations from different events remain independent samples.
+- **Explicit metric observations** keep the latest row per natural measurement unit and metric.
+  Timing uses the source incident or change identity, so several events for one incident do not
+  inflate its sample size. Cost remains attributed per normalized event. Retries and corrections
+  replace prior values instead of adding statistical weight.
 - **MTTR (metric 3a)** is computed by the pure aggregator
   [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py), which folds resolved
   incidents (`resolved_at - opened_at`) into **mean, median, and p90** seconds; unresolved and
   integrity-violating incidents are counted but excluded, never contributing a `0` or a
-  negative duration. The delivery-layer wiring that feeds it live incidents (replacing the
-  synthetic dev value in the `/kpi/autonomy` panel) is tracked as follow-up.
+  negative duration. The protected measurement-source importer feeds independently admitted
+  lifecycle facts to this reducer; unverified native lifecycle changes remain unavailable.
 - **Cost/usage records** (model tokens, compute time, storage, bus throughput) source metric 1;
   attribution keys spend to the originating `event_id`. Repeated lifecycle rows for one action
   contribute the latest observed savings value once rather than weighting or summing retries.

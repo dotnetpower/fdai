@@ -47,6 +47,7 @@ from fdai_operator_service.postgres_sql import (
     LLM_USAGE_CONVERSATIONS_SQL,
     LLM_USAGE_RECORDS_SQL,
     LLM_USAGE_SUMMARIES_SQL,
+    ROUTING_SAMPLE_SQL,
     statement_identity,
 )
 from fdai_operator_service.projection_logic import (
@@ -122,6 +123,14 @@ class PostgresOperatorReadModel:
                 "cutoff": cutoff,
                 "correlation_id": query.correlation_id,
                 "fetch": query.limit + 1,
+                "mode": query.mode,
+                "tier": query.tier,
+                "action_kind": query.action_kind,
+                "outcome": query.outcome,
+                "vertical": query.vertical,
+                "window_days": query.window_days,
+                "from_seq": query.from_seq,
+                "through_seq": query.through_seq,
             },
         )
         items = tuple(audit_item(row) for row in rows[: query.limit])
@@ -142,12 +151,21 @@ class PostgresOperatorReadModel:
 
     async def dashboard_metrics(self) -> JsonProjection:
         rows = await self._fetch_all(KPI_SAMPLE_SQL, {"limit": KPI_SAMPLE_LIMIT})
+        cutoff = max((int(row["seq"]) for row in rows), default=0)
+        routing_rows = await self._fetch_all(
+            ROUTING_SAMPLE_SQL, {"limit": KPI_SAMPLE_LIMIT, "cutoff_seq": cutoff}
+        )
         pending_rows = await self._fetch_all(
             HIL_COUNT_SQL,
             {"key_pattern": HIL_KEY_PATTERN},
         )
         pending = int(pending_rows[0]["total_count"]) if pending_rows else 0
-        return JsonProjection(dashboard_kpi(rows, hil_pending=pending))
+        try:
+            return JsonProjection(
+                dashboard_kpi(rows, hil_pending=pending, routing_rows=routing_rows)
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectionUnavailableError("canonical routing evidence is unavailable") from exc
 
     async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection:
         """Read bounded measured invocation facts and exact aggregate summaries."""

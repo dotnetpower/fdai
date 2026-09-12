@@ -1,4 +1,5 @@
 import type { AutonomyPayload, DashboardKpi, EffectiveScope } from "./types";
+import { decodeDashboardComparison } from "./dashboard-comparison";
 import {
   apiBoolean,
   apiNonNegativeInteger,
@@ -16,16 +17,44 @@ export function decodeDashboardKpi(value: unknown): DashboardKpi {
   const root = apiRecord(value, "dashboard KPI");
   const eventCount = apiNonNegativeInteger(root, "event_count", "dashboard KPI");
   const auditSample = decodeAuditSample(root["audit_sample"], eventCount);
+  const routingSample = decodeRoutingSample(root["routing_sample"]);
+  const byTier = apiNumberRecord(root["by_tier"], "dashboard KPI.by_tier");
+  const byOutcome = apiNumberRecord(root["by_outcome"], "dashboard KPI.by_outcome");
+  if (routingSample !== undefined) {
+    const counts = [...Object.values(byTier), ...Object.values(byOutcome)];
+    if (counts.some((count) => !Number.isSafeInteger(count) || count < 0) ||
+        Object.values(byOutcome).reduce((sum, count) => sum + count, 0) !== routingSample.row_count ||
+        Object.values(byTier).reduce((sum, count) => sum + count, 0) > routingSample.row_count) {
+      throw contractError("dashboard routing distribution contradicts its canonical sample");
+    }
+  }
   return {
     event_count: eventCount,
     shadow_share: apiRatio(root, "shadow_share", "dashboard KPI"),
     enforce_share: apiRatio(root, "enforce_share", "dashboard KPI"),
     hil_pending: apiNonNegativeInteger(root, "hil_pending", "dashboard KPI"),
     by_action_kind: apiNumberRecord(root["by_action_kind"], "dashboard KPI.by_action_kind"),
-    by_outcome: apiNumberRecord(root["by_outcome"], "dashboard KPI.by_outcome"),
-    by_tier: apiNumberRecord(root["by_tier"], "dashboard KPI.by_tier"),
+    by_outcome: byOutcome,
+    by_tier: byTier,
     last_recorded_at: apiNullableString(root, "last_recorded_at", "dashboard KPI"),
     audit_sample: auditSample,
+    ...(routingSample ? { routing_sample: routingSample } : {}),
+  };
+}
+
+function decodeRoutingSample(value: unknown): DashboardKpi["routing_sample"] {
+  if (value === undefined) return undefined;
+  const context = "dashboard KPI.routing_sample";
+  const row = apiRecord(value, context);
+  const count = apiNonNegativeInteger(row, "row_count", context);
+  const sample = decodeAuditSample(value, count);
+  if (sample === null || row["action_kind"] !== "measurement.control_loop.v1") {
+    throw contractError("dashboard KPI routing source is invalid");
+  }
+  return {
+    ...sample,
+    action_kind: "measurement.control_loop.v1",
+    window_days: apiPositiveInteger(row, "window_days", context),
   };
 }
 
@@ -43,7 +72,10 @@ function decodeAuditSample(value: unknown, eventCount: number): DashboardKpi["au
   if (
     result.row_count !== eventCount || result.row_count > result.limit ||
     empty !== (result.from_seq === null && result.through_seq === null) ||
-    (!empty && result.from_seq! > result.through_seq!)
+    (!empty && (
+      result.from_seq === null || result.through_seq === null ||
+      result.from_seq > result.through_seq
+    ))
   ) throw contractError("dashboard KPI.audit_sample is inconsistent");
   return result;
 }
@@ -142,8 +174,16 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   if (autoResolvedEvents !== finalizedEvents - adverseEvents) {
     throw contractError("autonomy measurement finalized outcomes are inconsistent");
   }
+  const rulesEvidence = root["rules_evidence"];
+  if (rulesEvidence !== undefined && rulesEvidence !== "measured" && rulesEvidence !== "unavailable") {
+    throw contractError("autonomy rule evidence state is invalid");
+  }
   return {
     synthetic: apiBoolean(root, "synthetic", "autonomy measurement"),
+    ...(root["comparison"] !== undefined
+      ? { comparison: decodeDashboardComparison(root["comparison"]) }
+      : {}),
+    ...(rulesEvidence !== undefined ? { rules_evidence: rulesEvidence } : {}),
     window_days: apiPositiveInteger(root, "window_days", "autonomy measurement"),
     sample_size: sampleSize,
     confidence: root["confidence"] === null

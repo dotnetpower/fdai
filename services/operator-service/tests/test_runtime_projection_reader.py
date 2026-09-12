@@ -555,7 +555,11 @@ async def test_empty_autonomy_window_remains_an_authoritative_measurement(
         parameters: tuple[object, ...] = (),
     ) -> list[dict[str, object]]:
         del self
-        return [{"observed_at": observed_at}] if "MAX(created_at)" in statement else []
+        return (
+            []
+            if "FROM state_kv" in statement
+            else [{"cutoff_seq": 0, "window_end": observed_at, "records": []}]
+        )
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
     reader = RuntimeProjectionReader(
@@ -568,8 +572,8 @@ async def test_empty_autonomy_window_remains_an_authoritative_measurement(
     assert result["synthetic"] is False
     assert result["sample_size"] == 0
     assert result["source"] == {
-        "name": "postgresql:audit_log",
-        "kind": "audit",
+        "name": "postgresql:operational_measurements",
+        "kind": "measurement",
         "as_of": observed_at.isoformat(),
     }
     assert result["success"]["auto_resolution_rate"]["value"] is None
