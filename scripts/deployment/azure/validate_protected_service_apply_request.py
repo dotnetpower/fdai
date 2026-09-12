@@ -13,7 +13,7 @@ _LOWER_HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 _LOWER_HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 _SERVICE_CONTRACTS = {
     "core-control-plane": (
-        "fdai-core-control-plane",
+        ("fdai-core-control-plane", "fdai-cost-governance"),
         frozenset(
             {
                 "standard",
@@ -24,7 +24,7 @@ _SERVICE_CONTRACTS = {
         ),
     ),
     "document-ingestion-api": (
-        "fdai-document-ingestion-api",
+        ("fdai-document-ingestion-api",),
         frozenset(
             {
                 "standard",
@@ -66,7 +66,7 @@ def validate_protected_service_apply_request(
     service_contract = _SERVICE_CONTRACTS.get(service)
     if service_contract is None:
         raise ProtectedServiceApplyRequestError("Service is not approved for bot-owned apply.")
-    image_name, deployment_modes = service_contract
+    image_names, deployment_modes = service_contract
     if not _LOWER_HEX_40.fullmatch(commit_sha):
         raise ProtectedServiceApplyRequestError("Commit SHA must be lowercase 40-character hex.")
     if not _POSITIVE_INTEGER.fullmatch(plan_run_id):
@@ -80,7 +80,8 @@ def validate_protected_service_apply_request(
 
     image_pattern = re.compile(
         rf"^ghcr\.io/{re.escape(repository.lower())}/"
-        rf"{re.escape(image_name)}@sha256:[0-9a-f]{{64}}$"
+        rf"(?:{'|'.join(re.escape(image_name) for image_name in image_names)})"
+        rf"@sha256:[0-9a-f]{{64}}$"
     )
     if not image_pattern.fullmatch(image_ref):
         raise ProtectedServiceApplyRequestError(
