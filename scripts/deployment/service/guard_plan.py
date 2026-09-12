@@ -2135,7 +2135,7 @@ def _guard_revision_metadata_drift(
     contract: ServiceContract,
     planned_before: dict[str, Any] | None,
 ) -> bool:
-    """Accept only computed revision metadata and an attested-image recovery alignment."""
+    """Accept only revision metadata and exact planned-before recovery alignment."""
     if not isinstance(resource_drift, list) or len(resource_drift) != 1:
         return False
     entry = resource_drift[0]
@@ -2154,8 +2154,15 @@ def _guard_revision_metadata_drift(
         "$.latest_revision_name",
         "$.template[0].revision_suffix",
     }
+    source_revision_paths = {
+        path
+        for path in paths
+        if re.fullmatch(r"\$\.template\[0\]\.container\[0\]\.env\[\d+\]\.value", path)
+    }
     if planned_before is not None:
         allowed_paths.add("$.template[0].container[0].image")
+        if contract.service == "core-control-plane":
+            allowed_paths.update(source_revision_paths)
     if not paths or not paths <= allowed_paths:
         return False
     expected = copy.deepcopy(before)
@@ -2173,10 +2180,16 @@ def _guard_revision_metadata_drift(
     ):
         return False
     expected_templates[0]["revision_suffix"] = after_templates[0].get("revision_suffix")
-    if "$.template[0].container[0].image" in paths:
+    image_changed = "$.template[0].container[0].image" in paths
+    if image_changed or source_revision_paths:
         if planned_before is None:
             return False
         try:
+            before_primary = _container_layout(
+                before,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0]
             expected_primary = _container_layout(
                 expected,
                 address=contract.allowed_resource_address,
@@ -2194,9 +2207,59 @@ def _guard_revision_metadata_drift(
             )[0]
         except PlanGuardError:
             return False
+    if image_changed:
         if after_primary.get("image") != planned_primary.get("image"):
             return False
         expected_primary["image"] = after_primary["image"]
+    if source_revision_paths:
+        if _runtime_contract_drift_names(
+            before,
+            after,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        ) != (f"env:{_CORE_SOURCE_REVISION_ENVIRONMENT}",):
+            return False
+        before_environment = _environment_by_name(
+            before_primary,
+            address=contract.allowed_resource_address,
+        )
+        after_environment = _environment_by_name(
+            after_primary,
+            address=contract.allowed_resource_address,
+        )
+        planned_environment = _environment_by_name(
+            planned_primary,
+            address=contract.allowed_resource_address,
+        )
+        before_source = _environment_binding(
+            before_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT)
+        )
+        after_source = _environment_binding(
+            after_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT)
+        )
+        planned_source = _environment_binding(
+            planned_environment.get(_CORE_SOURCE_REVISION_ENVIRONMENT)
+        )
+        if (
+            before_source is None
+            or before_source[1] is not None
+            or not isinstance(before_source[0], str)
+            or re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", before_source[0]) is None
+            or after_source == before_source
+            or after_source != planned_source
+            or after_source is None
+            or after_source[1] is not None
+            or not isinstance(after_source[0], str)
+            or re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", after_source[0]) is None
+        ):
+            return False
+        expected_environment = _environment_by_name(
+            expected_primary,
+            address=contract.allowed_resource_address,
+        )
+        expected_environment[_CORE_SOURCE_REVISION_ENVIRONMENT].update(
+            after_environment[_CORE_SOURCE_REVISION_ENVIRONMENT]
+        )
     return expected == after
 
 

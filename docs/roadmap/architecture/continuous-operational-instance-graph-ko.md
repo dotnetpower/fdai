@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: eed90a1884c72531fdbd0bba9aa4d1b4c01d257f
+translation_source_sha: efdfc43e51be1adba52f8c6723360dccf5112022
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -35,6 +35,9 @@ translation_revised: 2026-09-12
   조건식을 고정합니다. 롤백 상태 검사는 준비 상태를 평가하기 전에 요청한 정확한 복구 수정본을
   기다립니다. 따라서 최종 일관성 때문에 아직 보이는 기존 정상 수정본을 복구 근거로 사용할 수
   없습니다. 모든 Core 이미지 전환은 `FDAI_SOURCE_REVISION`을 정확한 보호 커밋에 결속합니다.
+  롤백 후 다음 계획은 새로 읽은 리소스가 해당 계획의 정확한 변경 전 상태와 일치할 때만 공급자가
+  계산한 수정본 메타데이터, 복원된 검증 이미지 및 `FDAI_SOURCE_REVISION`을 조정할 수 있습니다.
+  다른 환경 표류는 계속 허용하지 않습니다.
   고정 Heimdall 복구 관찰자는 명시적 Core 근거 전환을 통해 최초로 채택할 때만 추가할 수 있으며,
   신원 재결속이나 관련 없는 환경 표류는 계속 허용하지 않습니다.
 - **단일 작성자:** 수집기는 타입이 지정된 관측을 추가합니다. 온톨로지 인스턴스를 직접

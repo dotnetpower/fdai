@@ -3442,6 +3442,79 @@ def test_plan_guard_allows_recovery_image_aligned_to_attested_plan(guard: Module
         )
 
 
+def test_plan_guard_allows_core_recovery_source_aligned_to_planned_before(
+    guard: ModuleType,
+) -> None:
+    plan = _core_release_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    before_environment.append(
+        {
+            "name": "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "value": "observer:heimdall:azure-container-apps",
+        }
+    )
+    planned_before = change["before"]
+    drift_before = copy.deepcopy(planned_before)
+    drift_after = copy.deepcopy(planned_before)
+    drift_before["latest_revision_name"] = "service--terraform-stale"
+    drift_after["latest_revision_name"] = "service--recovered"
+    drift_before["latest_revision_fqdn"] = "stale.example.com"
+    drift_after["latest_revision_fqdn"] = "recovered.example.com"
+    drift_before["template"][0]["revision_suffix"] = "terraform-stale"
+    drift_after["template"][0]["revision_suffix"] = "recovered"
+    drift_before["template"][0]["container"][0]["image"] = "stale-image"
+    stale_environment = drift_before["template"][0]["container"][0]["env"]
+    next(item for item in stale_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "c" * 40
+    plan["resource_drift"] = [
+        {
+            "address": (
+                "module.core_control_plane.module.container_app."
+                "azurerm_container_app.service"
+            ),
+            "change": {"actions": ["update"], "before": drift_before, "after": drift_after},
+        }
+    ]
+
+    guard.validate_plan(
+        plan,
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        source_revision="b" * 40,
+    )
+
+    recovered_environment = drift_after["template"][0]["container"][0]["env"]
+    next(item for item in recovered_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "d" * 40
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
+        )
+
+    next(item for item in recovered_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "a" * 40
+    next(item for item in recovered_environment if item["name"] == "RUNTIME_ENV")[
+        "value"
+    ] = "prod"
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
+        )
+
+
 def test_plan_guard_allows_fresh_bounded_revision_suffix(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
