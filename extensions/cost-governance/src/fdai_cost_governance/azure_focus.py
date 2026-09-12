@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
-from collections.abc import Callable
+import math
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -21,8 +23,17 @@ from fdai.shared.providers.cost_governance import (
 
 @dataclass(frozen=True, slots=True)
 class CostHttpResponse:
+    """Bounded transport result with optional normalized retry guidance."""
+
     status_code: int
     body: bytes
+    retry_after_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.retry_after_seconds is not None and (
+            not math.isfinite(self.retry_after_seconds) or self.retry_after_seconds < 0
+        ):
+            raise ValueError("retry_after_seconds MUST be finite and nonnegative")
 
 
 class CostReadCredential(Protocol):
@@ -46,7 +57,10 @@ class CostHttpTransport(Protocol):
 
 
 class AzureFocusObservationAdapter(CostObservationProvider):
-    """Translate one bounded Azure FOCUS query page into immutable facts."""
+    """Translate one bounded Azure FOCUS query page into immutable facts.
+
+    A rate-limited read retries only with provider guidance inside the request deadline.
+    """
 
     def __init__(
         self,
@@ -57,17 +71,23 @@ class AzureFocusObservationAdapter(CostObservationProvider):
         ontology_release_digest: str,
         max_response_bytes: int = 2_000_000,
         retention: timedelta = timedelta(days=400),
+        max_rate_limit_retries: int = 1,
         clock: Callable[[], datetime] | None = None,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
         if max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be positive")
+        if not 0 <= max_rate_limit_retries <= 3:
+            raise ValueError("max_rate_limit_retries MUST be in [0, 3]")
         self._transport = transport
         self._credential = credential
         self._release_id = ontology_release_id
         self._release_digest = ontology_release_digest
         self._max_bytes = max_response_bytes
         self._retention = retention
+        self._max_rate_limit_retries = max_rate_limit_retries
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._sleep = sleep or asyncio.sleep
 
     async def collect_cost_page(
         self,
@@ -77,13 +97,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
     ) -> CostObservationPage:
         token = await self._credential.access_token(deadline_at=request.deadline_at)
         url = self._url(request, resume_token)
-        response = await self._transport.post(
-            url,
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-            json_body=self._query_body(request),
-            max_bytes=self._max_bytes,
-            deadline_at=request.deadline_at,
-        )
+        response = await self._post_with_rate_limit_recovery(request, url=url, token=token)
         if response.status_code != 200:
             raise RuntimeError(f"Azure Cost Management read failed: {response.status_code}")
         if len(response.body) > self._max_bytes:
@@ -125,6 +139,35 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             bytes_read=len(response.body),
             collected_at=collected_at,
         )
+
+    async def _post_with_rate_limit_recovery(
+        self,
+        request: CostCollectionRequest,
+        *,
+        url: str,
+        token: str,
+    ) -> CostHttpResponse:
+        """Retry one provider-directed read without exceeding the request deadline."""
+
+        attempt = 0
+        while True:
+            response = await self._transport.post(
+                url,
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                json_body=self._query_body(request),
+                max_bytes=self._max_bytes,
+                deadline_at=request.deadline_at,
+            )
+            retry_after = response.retry_after_seconds
+            if (
+                response.status_code != 429
+                or retry_after is None
+                or attempt == self._max_rate_limit_retries
+                or self._clock() + timedelta(seconds=retry_after) >= request.deadline_at
+            ):
+                return response
+            await self._sleep(retry_after)
+            attempt += 1
 
     def _url(self, request: CostCollectionRequest, resume_token: str | None) -> str:
         if resume_token:

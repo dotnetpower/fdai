@@ -568,6 +568,32 @@ class Transport:
         return CostHttpResponse(200, json.dumps(self.body).encode())
 
 
+class SequenceTransport:
+    def __init__(self, responses: tuple[CostHttpResponse, ...]) -> None:
+        self.responses = responses
+        self.calls = 0
+
+    async def post(  # type: ignore[no-untyped-def]
+        self, url, *, headers, json_body, max_bytes, deadline_at
+    ):
+        response = self.responses[self.calls]
+        self.calls += 1
+        return response
+
+
+class AdvancingClock:
+    def __init__(self) -> None:
+        self.now = _NOW
+        self.delays: list[float] = []
+
+    def __call__(self) -> datetime:
+        return self.now
+
+    async def sleep(self, delay_seconds: float) -> None:
+        self.delays.append(delay_seconds)
+        self.now += timedelta(seconds=delay_seconds)
+
+
 def test_azure_focus_adapter_uses_injected_read_boundaries() -> None:
     body: dict[str, object] = {
         "properties": {
@@ -607,6 +633,143 @@ def test_azure_focus_adapter_uses_injected_read_boundaries() -> None:
     assert page.observations[0].amount == Decimal("12.5")
     assert page.observations[0].observed_at == page.observations[0].event_end_at
     assert page.observations[0].source_uri.startswith("cost-service:")
+
+
+def test_azure_focus_retries_one_rate_limited_read_within_deadline() -> None:
+    body: dict[str, object] = {"properties": {"columns": [], "rows": []}}
+    transport = SequenceTransport(
+        (
+            CostHttpResponse(429, b"", retry_after_seconds=2),
+            CostHttpResponse(200, json.dumps(body).encode()),
+        )
+    )
+    clock = AdvancingClock()
+    adapter = AzureFocusObservationAdapter(
+        transport=transport,
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        max_rate_limit_retries=1,
+        clock=clock,
+        sleep=clock.sleep,
+    )
+
+    page = asyncio.run(
+        adapter.collect_cost_page(
+            CostCollectionRequest(
+                package_id="cost-governance",
+                scope_id=_SCOPE,
+                start_at=_NOW - timedelta(days=1),
+                end_at=_NOW - timedelta(seconds=1),
+                page_size=10,
+                deadline_at=_NOW + timedelta(minutes=1),
+            ),
+            resume_token=None,
+        )
+    )
+
+    assert transport.calls == 2
+    assert clock.delays == [2]
+    assert page.complete is True
+
+
+def test_azure_focus_does_not_retry_beyond_deadline() -> None:
+    transport = SequenceTransport((CostHttpResponse(429, b"", retry_after_seconds=60),))
+    clock = AdvancingClock()
+    adapter = AzureFocusObservationAdapter(
+        transport=transport,
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=clock,
+        sleep=clock.sleep,
+    )
+
+    with pytest.raises(RuntimeError, match="Azure Cost Management read failed: 429"):
+        asyncio.run(
+            adapter.collect_cost_page(
+                CostCollectionRequest(
+                    package_id="cost-governance",
+                    scope_id=_SCOPE,
+                    start_at=_NOW - timedelta(days=1),
+                    end_at=_NOW - timedelta(seconds=1),
+                    page_size=10,
+                    deadline_at=_NOW + timedelta(seconds=60),
+                ),
+                resume_token=None,
+            )
+        )
+
+    assert transport.calls == 1
+    assert clock.delays == []
+
+
+def test_azure_focus_does_not_retry_without_provider_guidance() -> None:
+    transport = SequenceTransport((CostHttpResponse(429, b""),))
+    clock = AdvancingClock()
+    adapter = AzureFocusObservationAdapter(
+        transport=transport,
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=clock,
+        sleep=clock.sleep,
+    )
+
+    with pytest.raises(RuntimeError, match="Azure Cost Management read failed: 429"):
+        asyncio.run(
+            adapter.collect_cost_page(
+                CostCollectionRequest(
+                    package_id="cost-governance",
+                    scope_id=_SCOPE,
+                    start_at=_NOW - timedelta(days=1),
+                    end_at=_NOW - timedelta(seconds=1),
+                    page_size=10,
+                    deadline_at=_NOW + timedelta(minutes=1),
+                ),
+                resume_token=None,
+            )
+        )
+
+    assert transport.calls == 1
+    assert clock.delays == []
+
+
+def test_azure_focus_stops_after_rate_limit_retry_budget() -> None:
+    transport = SequenceTransport(
+        (
+            CostHttpResponse(429, b"", retry_after_seconds=2),
+            CostHttpResponse(429, b"", retry_after_seconds=3),
+        )
+    )
+    clock = AdvancingClock()
+    adapter = AzureFocusObservationAdapter(
+        transport=transport,
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        max_rate_limit_retries=1,
+        clock=clock,
+        sleep=clock.sleep,
+    )
+
+    with pytest.raises(RuntimeError, match="Azure Cost Management read failed: 429"):
+        asyncio.run(
+            adapter.collect_cost_page(
+                CostCollectionRequest(
+                    package_id="cost-governance",
+                    scope_id=_SCOPE,
+                    start_at=_NOW - timedelta(days=1),
+                    end_at=_NOW - timedelta(seconds=1),
+                    page_size=10,
+                    deadline_at=_NOW + timedelta(minutes=1),
+                ),
+                resume_token=None,
+            )
+        )
+
+    assert transport.calls == 2
+    assert clock.delays == [2]
 
 
 def test_azure_focus_bounds_current_day_and_scopes_observation_identity() -> None:
