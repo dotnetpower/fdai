@@ -23,6 +23,7 @@ assessment without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Kept the shared promotion-registry join limited to promotion-gate rows while reusing the Operator workflow adapters. | `current change`; focused Operator suites passed 119 tests with one optional PDF skip. | No WARA scope, evidence, satisfaction, publication, replay, or authority behavior changed. |
 | 2026-09-12 | implemented | Kept active-inventory provider type coverage outside WARA scope and evidence admission while extending the shared Operator PostgreSQL store. | `current change`; focused Operator inventory/workflow suites passed 83 tests. | No WARA evaluation, satisfaction, publication, replay, or authority behavior changed. |
 | 2026-09-12 | implemented | Kept the Cost Governance disclosure-audit dependency isolated from WARA while sharing the existing Operator composition root. | `current change`; Operator composition and focused Cost Governance route checks. | No WARA scope, evidence admission, satisfaction, publication, or authority behavior changed. |
 | 2026-09-11 | implemented | Restricted the shared Operator source-state decoder to canonical machine-token reasons so principal text and provider details cannot enter WARA through that storage path. | `current change`; `postgres_family_store.py`; focused principal-text rejection check. | No WARA behavior changed. |

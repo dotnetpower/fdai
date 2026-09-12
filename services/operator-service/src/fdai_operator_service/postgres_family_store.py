@@ -631,6 +631,37 @@ class PostgresFamilyStore:
             )
         return _json_object(rows[0].get("value"), label=key)
 
+    async def read_action_promotion_modes(self) -> dict[str, str]:
+        """Read the bounded durable current mode for every promoted ActionType."""
+
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key LIKE 'action\\_promotion:%' ESCAPE '\\' "
+            "ORDER BY key LIMIT 1001",
+            {},
+        )
+        if len(rows) > 1000:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative ActionType promotion state exceeds its bound"
+            )
+        modes: dict[str, str] = {}
+        for row in rows:
+            value = _json_object(row.get("value"), label="action_promotion")
+            action_type = value.get("action_type")
+            mode = value.get("mode")
+            if (
+                value.get("schema_version") != "1.0.0"
+                or not isinstance(action_type, str)
+                or not action_type
+                or len(action_type) > 256
+                or mode not in {"shadow", "enforce"}
+                or action_type in modes
+            ):
+                raise PostgresFamilyStoreUnavailable(
+                    "authoritative ActionType promotion state is malformed"
+                )
+            modes[action_type] = mode
+        return modes
+
     async def read_wara_catalog(self) -> dict[str, object]:
         """Read the current catalog-plus-assessment WARA projection."""
 
@@ -2970,6 +3001,9 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
     async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
         del family, operation
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
+
+    async def read_action_promotion_modes(self) -> dict[str, str]:
+        raise PostgresFamilyStoreUnavailable("authoritative promotion state is unavailable")
 
     async def list_background_tasks(
         self,
