@@ -48,7 +48,8 @@ domain code and assets. It does not create another control plane or move authori
 > publication workflow dispatch outside protected `main`.
 > Build-input pull requests retain a separate read-only image build and vulnerability scan.
 > Known service source, test, and documentation paths are excluded at the PR trigger, while
-> packaged assets and unknown service inputs remain conservatively selected.
+> packaged assets and unknown service inputs remain conservatively selected. A root README-only
+> change is documentation and does not select an image candidate.
 > Registry publication, SBOMs, and attestations require an explicit candidate dispatch with
 > selected images and the exact protected source SHA. Ordinary source pushes and version tags
 > do not publish images, and no pull request condition can inherit publication permissions.
