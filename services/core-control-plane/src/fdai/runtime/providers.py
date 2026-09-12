@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from fdai.core.executor.lock import ResourceLockManager
+from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
 from fdai.core.tiers.t1_lightweight.tier import PatternLibrary
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.shared.providers.executor_receipt_journal import ExecutorReceiptJournal
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.resource_lock import ResourceLock
@@ -171,12 +173,13 @@ def _build_safeguard_lifecycle_coordinator(
     resource_lock: Any,
     process_store: Any,
     environment: Mapping[str, str] | None = None,
+    receipt_journal_consumer: Callable[[ExecutorReceiptJournal], None] | None = None,
+    receipt_journal_capacity: int = 256,
 ) -> Any:
-    """Bind durable production stores or explicit in-memory test providers."""
+    """Bind lifecycle stores and optionally inject a Core-owned receipt journal."""
 
     from fdai.core.executor.audit_intent import AuditIntentStore
     from fdai.core.executor.idempotency_reservation import IdempotencyReservationStore
-    from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
     from fdai.core.executor.safeguard_dispatch_store import (
         SafeguardDispatchEvidenceStore,
     )
@@ -285,6 +288,14 @@ def _build_safeguard_lifecycle_coordinator(
         "safeguard_lifecycle_backend",
         extra={"backend": "postgres" if dsn else "in-memory-test", "production": production},
     )
+    if receipt_journal_consumer is not None:
+        from fdai.runtime.isolated_executor_receipt_journal import BoundExecutorReceiptJournal
+
+        receipt_journal_consumer(
+            BoundExecutorReceiptJournal(
+                audit_store, capacity=receipt_journal_capacity, closure_store=closures
+            )
+        )
     return coordinator
 
 

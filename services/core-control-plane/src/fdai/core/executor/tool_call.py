@@ -413,7 +413,11 @@ class ToolCallShadowExecutor:
             receipt_ref=receipt.receipt_ref,
             safeguard_bundle_digest=safeguard_bundle_digest,
             rollback_succeeded=receipt.rollback_succeeded,
-            remember=receipt.outcome is not ToolCallOutcome.FAILED,
+            remember=receipt.outcome
+            not in {
+                ToolCallOutcome.PRECONDITION_FAILED,
+                ToolCallOutcome.FAILED,
+            },
             dry_run_receipt=dry_run_receipt,
         )
 

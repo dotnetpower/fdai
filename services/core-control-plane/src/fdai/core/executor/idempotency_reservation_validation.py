@@ -42,7 +42,6 @@ def validate_reservation_state_shape(record: IdempotencyReservationRecord) -> No
     elif record.state is ReservationState.ABANDONED:
         if (
             record.dispatch_started_at is not None
-            or record.state_changed_at < record.lease_expires_at
             or record.evidence_kind is not ReservationEvidenceKind.DISPATCH_NEVER_BEGAN
             or record.evidence_digest is None
             or record.terminal_outcome_digest is not None

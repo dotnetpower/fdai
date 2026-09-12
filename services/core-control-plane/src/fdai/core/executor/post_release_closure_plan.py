@@ -87,6 +87,7 @@ def build_initial_post_release_closure(
     release_pending_fence: TargetDispatchFenceRecord,
     release_receipt: ResourceLockReleaseReceipt,
     closed_at: datetime,
+    force_quarantine: bool = False,
 ) -> PostReleaseClosurePlan:
     """Build one initial resolved or quarantined atomic closure plan."""
 
@@ -107,9 +108,13 @@ def build_initial_post_release_closure(
         raise ValueError("initial post-release closure requires unresolved reservation")
     if release_receipt.acquisition_receipt != reservation_record.identity.acquisition_receipt:
         raise ValueError("post-release release receipt changed acquisition")
-    continuity_state = _initial_continuity_state(
-        pre_release_record=pre_release_record,
-        release_receipt=release_receipt,
+    continuity_state = (
+        PostReleaseContinuityState.CONTINUITY_UNPROVEN
+        if force_quarantine
+        else _initial_continuity_state(
+            pre_release_record=pre_release_record,
+            release_receipt=release_receipt,
+        )
     )
     outcome = (
         PostReleaseClosureOutcome.RESOLVED

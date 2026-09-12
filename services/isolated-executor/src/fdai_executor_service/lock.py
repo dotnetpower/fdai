@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from fdai_service_contracts.executor import ExecutorCommand, ExecutorShadowReceipt, ResourceLock
+from fdai_service_contracts.executor import AnyExecutorCommand, ExecutorShadowReceipt, ResourceLock
 
 
 class ExecutorShadowCommandHandler(Protocol):
     """No-effect command handler invoked inside a logical-target lock."""
 
-    async def handle(self, command: ExecutorCommand) -> ExecutorShadowReceipt:
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorShadowReceipt:
         """Return a terminal shadow receipt without applying an effect."""
 
         ...
@@ -33,7 +33,7 @@ class LockedIsolatedExecutorShadowService:
         self._delegate = delegate
         self._resource_lock = resource_lock
 
-    async def handle(self, command: ExecutorCommand) -> ExecutorShadowReceipt:
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorShadowReceipt:
         """Hold the exact target lock through durable terminal closure."""
 
         async with self._resource_lock.acquire(command.target_resource_ref):

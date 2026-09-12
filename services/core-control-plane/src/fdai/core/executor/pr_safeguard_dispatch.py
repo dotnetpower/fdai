@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
@@ -15,6 +16,7 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     DispatchTransportState,
     SafeguardDispatchEvidenceRecord,
 )
+from fdai.core.executor.safeguard_evidence_lifecycle import DispatchBoundaryGuard
 from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardCoordinationDisposition,
     SafeguardLifecycleCoordinator,
@@ -32,6 +34,8 @@ from fdai.shared.providers.remediation_pr import (
 
 if TYPE_CHECKING:
     from fdai.core.executor.executor import ExecutionResult, ExecutorOutcome
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class PrSafeguardLifecycleOwner(Protocol):
@@ -95,6 +99,7 @@ class PrLifecycleDispatchPort:
         *,
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
     ) -> tuple[
         DispatchTransportState,
         AuthoritativeSinkState,
@@ -109,13 +114,14 @@ class PrLifecycleDispatchPort:
                 "safeguard_bundle_digest": evidence_record.bundle.bundle_digest,
             },
         )
+        await self._owner._write_audit_intent(
+            action=self._action,
+            rule=self._rule,
+            dry_run_receipt=self._dry_run_receipt,
+            execution_path=self._execution_path,
+        )
+        await pre_invoke_guard()
         try:
-            await self._owner._write_audit_intent(
-                action=self._action,
-                rule=self._rule,
-                dry_run_receipt=self._dry_run_receipt,
-                execution_path=self._execution_path,
-            )
             self.receipt = await self._owner._publisher.publish(bound_pr)
         except (asyncio.CancelledError, Exception) as exc:
             self.error = exc
@@ -222,6 +228,41 @@ async def execute_pr_with_safeguard_lifecycle(
         correlation_id=str(action.event_id),
         attempt=action.workflow_action.attempt if action.workflow_action is not None else 1,
     )
+    if dispatch_port.error is not None:
+        try:
+            await owner._finish(
+                action=action,
+                rule=rule,
+                outcome=ExecutorOutcome.PUBLISH_OUTCOME_UNKNOWN,
+                reason="publisher outcome is unknown after an adapter error",
+                safeguard_bundle_digest=coordinated.bundle_digest,
+                dry_run_receipt=safeguards.dry_run_receipt,
+                execution_path=execution_path,
+                remember=False,
+            )
+        except Exception as audit_error:
+            if isinstance(dispatch_port.error, asyncio.CancelledError):
+                _LOGGER.exception(
+                    "pr_cancellation_terminal_audit_failed",
+                    extra={"action_id": str(action.action_id)},
+                )
+                raise dispatch_port.error from audit_error
+            raise
+        raise dispatch_port.error
+    if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED:
+        receipt = dispatch_port.receipt
+        return await owner._finish(
+            action=action,
+            rule=rule,
+            outcome=ExecutorOutcome.PUBLISH_OUTCOME_UNKNOWN,
+            reason=coordinated.reason or "dispatch continuity is quarantined",
+            pr_ref=receipt.pr_ref if receipt is not None else None,
+            pr_url=receipt.url if receipt is not None else None,
+            safeguard_bundle_digest=coordinated.bundle_digest,
+            dry_run_receipt=safeguards.dry_run_receipt,
+            execution_path=execution_path,
+            remember=False,
+        )
     if not coordinated.dispatch_performed:
         return await owner._finish(
             action=action,
@@ -237,18 +278,6 @@ async def execute_pr_with_safeguard_lifecycle(
             execution_path=execution_path,
             remember=False,
         )
-    if dispatch_port.error is not None:
-        await owner._finish(
-            action=action,
-            rule=rule,
-            outcome=ExecutorOutcome.PUBLISH_OUTCOME_UNKNOWN,
-            reason="publisher outcome is unknown after an adapter error",
-            safeguard_bundle_digest=coordinated.bundle_digest,
-            dry_run_receipt=safeguards.dry_run_receipt,
-            execution_path=execution_path,
-            remember=False,
-        )
-        raise dispatch_port.error
     receipt = dispatch_port.receipt
     if receipt is None:
         return await owner._finish(
@@ -265,23 +294,17 @@ async def execute_pr_with_safeguard_lifecycle(
         action=action,
         rule=rule,
         outcome=(
-            ExecutorOutcome.PUBLISH_OUTCOME_UNKNOWN
-            if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED
-            else ExecutorOutcome.ALREADY_EXISTED
+            ExecutorOutcome.ALREADY_EXISTED
             if receipt.already_existed
             else ExecutorOutcome.PUBLISHED
         ),
-        reason=(
-            coordinated.reason or "dispatch continuity is quarantined"
-            if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED
-            else None
-        ),
+        reason=None,
         pr_ref=receipt.pr_ref,
         pr_url=receipt.url,
         safeguard_bundle_digest=coordinated.bundle_digest,
         dry_run_receipt=safeguards.dry_run_receipt,
         execution_path=execution_path,
-        remember=coordinated.disposition is not SafeguardCoordinationDisposition.QUARANTINED,
+        remember=True,
     )
 
 
