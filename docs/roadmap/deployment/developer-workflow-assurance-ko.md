@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 326f3bdf9c8dd8b1df28f18806925fdf98c2383e
+translation_source_sha: 04df56f0e2ee4b86df7a7ad8bd99b61dd3cd2b75
 translation_revised: 2026-09-12
 ---
 
@@ -88,6 +88,11 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 성공한 결과를 재사용합니다. 더 좁은 의존성 범위가 입증되지 않은 검사는 추적 중인 전체
 트리를 사용합니다. 캐시가 없거나 손상되었거나 실패 또는 불일치 기록이면 검사를 실행하며,
 성공으로 대신 처리하지 않습니다. 캐시 사용 가능 여부는 필수 조건이 아닙니다.
+구조 증적은 24시간 후 만료되며 Git common dir의 `fdai-local-validation` 상태에 최대
+128개를 보관합니다. 관련 hook 명령은 그룹마다 환경 준비를 한 번만 수행합니다. 집중 게이트
+캐시 식별자는 게이트마다가 아니라 묶음 실행 전후에 한 번씩 계산합니다. 순수 검사는 내용에,
+이력 검사는 리비전과 참조에도 연결됩니다. 입력이 바뀌면 묶음을 수락하지 않습니다.
+무결성과 외부 근거 검사는 캐시하지 않으며 CI는 자체 실행 환경을 유지합니다.
 
 문서 변경은 실제로 검토한 번역 파일의 SHA만 갱신합니다. 커버리지 후보 선택에는 기존
 보고서를 참고할 수 있으며, 모듈 하나를 다루는 작업은 전체 기준선 대신 그 모듈을 측정합니다.
@@ -273,12 +278,13 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
 | 10회 보증 | validated | 13개 라운드, 최종 독립 재검토 및 `d3f5257b9` 중앙 receipt | Low를 초과하는 잔존 발견 사항이 없습니다. |
 | 개발자 검증 권한 | implemented | `.githooks/post-commit`, `.githooks/pre-push`, `scripts/agent/design_context.py`, focused hook 및 dispatcher 테스트 | Commit과 push는 더 이상 로컬 queue receipt에 의존하지 않으며 CI가 push된 SHA의 integration을 소유합니다. |
-| 로컬 우선 검증과 후보 게시 | in-progress | `scripts/verify.sh`, `scripts/agent/design_context.py`, `scripts/quality/ci/resolve_test_scope.py`, 범위를 제한한 텍스트 및 변경 테스트 선택기, 집중 회귀 테스트 | 내용 기반 로컬 재사용, 범위를 제한한 지침 및 후보 전용 게시를 통합하고 있습니다. 필수 원격 근거는 독립적으로 유지합니다. |
+| 로컬 우선 검증과 후보 게시 | implemented | 집중 실행기, 경로, 지침, 선택기, 캐시, 대기열, 워크플로 및 Genesis 회귀 테스트와 정적 및 타입 검사 | 로컬 구조 검사 결과는 내용과 실행 입력에 연결됩니다. 집중 게이트 재사용에는 검증된 깨끗한 입력과 최종 일치 확인이 필요합니다. 원격 근거는 독립적으로 유지합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 범위를 제한한 로컬 구조 검사 재사용, 입력을 검증하는 집중 게이트 캐시, 그룹별 hook 검사, 지침과 CI 경로 정리 및 명시적 후보 게시를 완료했습니다. 최종 입력 변경은 수락하지 않으며 캐시 문맥이 불명확하거나 없으면 캐시 없이 실행합니다. | `current change`; 집중 실행기, 캐시, 대기열, 워크플로, Genesis, 경로, 지침, 텍스트 및 선택기 통합 집중 테스트 651개 통과; Ruff와 범위를 제한한 mypy 검사 통과. | 승인된 push 이후 비교 가능한 원격 지연 근거를 보관합니다. 로컬 결과는 배포 권한을 부여하지 않습니다. |
 | 2026-08-15 | in-progress | 개발 워크플로 보증 소유 문서를 도입하고 캠페인 범위를 제한했습니다. 이전 구현 출처는 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 나열된 기존 통제입니다. | 집중 라운드와 최종 잔존 위험 검토를 완료합니다. |
 | 2026-08-15 | in-progress | 독립 비평 후 CLI 계약, 제한된 근거 window, 실패 동작, 권한 분리 및 12회 순서를 정의해 설계를 수정했습니다. | 현재 변경, roadmap, 번역 및 punctuation 검사입니다. | 수락된 각 발견 사항을 구현하고 검증합니다. |
 | 2026-08-15 | implemented | 13개의 비평 및 hardening 라운드를 완료하고 재현 가능한 모든 Medium 이상 잔존 사항을 제거했습니다. | 현재 변경, 집중 Python 통제 테스트 163개, Playwright port-pool 테스트 6개, 최종 false-ready 테스트 48개, Ruff 및 최종 독립 검토입니다. | 통합 revision의 중앙 validation receipt를 기록합니다. |

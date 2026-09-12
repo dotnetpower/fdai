@@ -314,7 +314,7 @@ printf '%s\n' "${tests[@]}"
 
 if [[ $run_pytest -eq 1 ]]; then
     if [[ $allow_full_suite -eq 0 && ( $full_suite_selected -eq 1 || -n "${seen[tests]:-}" ) ]]; then
-        echo "tests-for-diff.sh: whole-suite fallback requires an explicit local whole-suite request." >&2
+        echo "validation-environment: whole-suite fallback requires an explicit local whole-suite request." >&2
         echo "Run the owning focused tests, or use --run --allow-full-suite after that request." >&2
         exit 125
     fi

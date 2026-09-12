@@ -95,7 +95,7 @@ def test_a_missing_toolchain_refuses_instead_of_failing_a_gate() -> None:
     assert "== summary ==" not in result.stdout
 
 
-def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
+def test_diff_scoping_and_gate_cache_use_verified_context(tmp_path: Path) -> None:
     assert _git(tmp_path, "init", "--quiet").returncode == 0
     assert _git(tmp_path, "config", "user.email", "tests@example.com").returncode == 0
     assert _git(tmp_path, "config", "user.name", "FDAI Tests").returncode == 0
@@ -112,9 +112,27 @@ def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     command_log = tmp_path / "commands.log"
+    context = tmp_path / "scripts/automation/local_validation_context.py"
+    context.parent.mkdir(parents=True)
+    context.write_text(
+        "# Context transport is stubbed; its identity checks have a separate suite.\n"
+    )
     fake = bin_dir / "fake"
     fake.write_text(
-        '#!/bin/sh\nprintf "%s:%s\\n" "$(basename "$0")" "$*" >> "$FDAI_VERIFY_TEST_LOG"\n',
+        "#!/bin/sh\n"
+        'if [ "$1" = "scripts/automation/local_validation_context.py" ]; then\n'
+        '  if [ -n "$FDAI_VERIFY_CONTEXT_DIGEST" ] || '
+        '[ -f "$FDAI_VERIFY_TEST_MUTATION_MARKER" ]; then\n'
+        f'    printf "%s %s\\n" "{"c" * 64}" "{"d" * 64}"\n'
+        "  else\n"
+        f'    printf "%s %s\\n" "{"a" * 64}" "{"b" * 64}"\n'
+        "  fi\n"
+        "  exit 0\n"
+        "fi\n"
+        'printf "%s:%s\\n" "$(basename "$0")" "$*" >> "$FDAI_VERIFY_TEST_LOG"\n'
+        'if [ -n "$FDAI_VERIFY_TEST_MUTATION_MARKER" ]; then\n'
+        '  touch "$FDAI_VERIFY_TEST_MUTATION_MARKER"\n'
+        "fi\n",
         encoding="utf-8",
     )
     fake.chmod(0o755)
@@ -165,8 +183,18 @@ def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     assert "check-translations.sh" in first_commands
     assert "check-design-doc-impact.py HEAD^..HEAD" in first_commands
     assert "check-roadmap-implementation-tracking.py HEAD^..HEAD" in first_commands
-    assert command_log.read_text(encoding="utf-8") == first_commands * 2
+    commands = command_log.read_text(encoding="utf-8")
+    assert commands.count("check-translations.sh") == 2
+    assert commands.count("check-design-doc-impact.py") == 2
+    assert commands.count("check-design-routes.py") == 3
     assert "CACHED" in second.stdout
+    environment.pop("FDAI_VERIFY_CONTEXT_DIGEST")
+    environment["FDAI_VERIFY_TEST_MUTATION_MARKER"] = str(tmp_path / "changed-input")
+    raced = subprocess.run(  # noqa: S603 - fixed script and test-owned arguments
+        command, cwd=tmp_path, env=environment, capture_output=True, text=True, check=False
+    )
+    assert raced.returncode == 125
+    assert "inputs changed during verification" in raced.stderr
 
 
 def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None:

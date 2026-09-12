@@ -122,6 +122,8 @@ def installed_digest(root: Path) -> str:
     files = {}
     for path in sorted(root.rglob("*")):
         if path.is_dir():
+            if path.is_symlink() and not path.resolve().is_relative_to(root.resolve()):
+                raise ValueError("installed directory escapes the verified environment")
             continue
         files[path.relative_to(root).as_posix()] = (
             stat.S_IMODE(path.stat().st_mode),

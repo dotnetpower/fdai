@@ -77,6 +77,11 @@ def validation_environment(paths: QueuePaths) -> dict[str, str]:
     cache_root = paths.state_root / "cache"
     cache_root.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+    environment.pop("MYPYPATH", None)
+    environment["UV_NO_CONFIG"] = "1"
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     for variable in _REPOSITORY_LOCAL_GIT_ENV:
         environment.pop(variable, None)
     environment.setdefault("FDAI_PYTEST_MAX_WORKERS", _recommended_workers())

@@ -266,15 +266,12 @@ done
 if [ "${#py[@]}" -gt 0 ]; then
   echo "pre-push: ruff check on ${#py[@]} changed Python file(s)..."
   if command -v uv >/dev/null 2>&1; then
-    if ! run_project uv run --extra dev ruff check "${py[@]}"; then
-      echo "pre-push: BLOCKED - ruff check failed. Fix, or run: uv run --extra dev ruff check --fix ${py[*]}"
-      exit 1
-    fi
-    # Format gate: CI runs `ruff format --check src tests` and a single
-    # unformatted file fails the whole lint/mypy/pytest job before it even
-    # starts. Catch it here so an unformatted file never reaches CI.
-    if ! run_project uv run --extra dev ruff format --check "${py[@]}"; then
-      echo "pre-push: BLOCKED - ruff format check failed. Run: uv run --extra dev ruff format ${py[*]}"
+    if ! run_project bash -c '
+      set -e
+      uv run --extra dev ruff check "$@"
+      uv run --extra dev ruff format --check "$@"
+    ' -- "${py[@]}"; then
+      echo "pre-push: BLOCKED - Ruff lint or formatting failed on changed Python files."
       exit 1
     fi
   else
@@ -309,14 +306,14 @@ if [ "$workflow_contract_changed" -eq 1 ]; then
     exit 1
   fi
   echo "pre-push: validating workflow contracts..."
-  if ! run_project uv run --extra dev python scripts/quality/ci/check-ci-contracts.py; then
-    echo "pre-push: BLOCKED - clean-checkout CI contracts failed."
-    exit 1
-  fi
-  if ! run_project env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+  if ! run_project bash -c '
+    set -e
+    uv run --extra dev python scripts/quality/ci/check-ci-contracts.py
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
     uv run --extra dev pytest -q --no-cov \
     tests/integration/scripts/test_check_ci_contracts.py \
-    tests/integration/test_structural_gates_drift.py; then
+    tests/integration/test_structural_gates_drift.py
+  '; then
     echo "pre-push: BLOCKED - workflow contract regression tests failed."
     exit 1
   fi
