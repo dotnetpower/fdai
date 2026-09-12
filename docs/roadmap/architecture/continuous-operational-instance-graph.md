@@ -30,9 +30,9 @@ unbounded tight polling loop.
   retention never converts dispatch into observed evidence. The service workflow contract test
   pins that verifier-success predicate on final rollback failure reporting. Rollback health waits for
   the exact requested recovery revision before evaluating readiness, so an eventually consistent
-  pre-existing healthy revision cannot satisfy recovery evidence. Every Core image
-  transition binds `FDAI_SOURCE_REVISION` to the exact protected commit. The fixed Heimdall recovery observer
-  enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
+  pre-existing healthy revision cannot satisfy recovery evidence. Every Core image transition binds `FDAI_SOURCE_REVISION` to the exact protected commit.
+  A later plan treats a rolled-back image and source revision as recovery metadata only when both source revisions are valid commits and the refreshed source binding exactly matches the plan's `before` state.
+  The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph.
