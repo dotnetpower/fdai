@@ -28,9 +28,11 @@ unbounded tight polling loop.
   an observed graph fact. Every status-overriding service-deployment run or action step executes
   only after the protected-source verifier succeeds; cleanup, failure reporting, or artifact
   retention never converts dispatch into observed evidence. The service workflow contract test
-  pins that verifier-success predicate on final rollback failure reporting. Every Core image transition
-  binds `FDAI_SOURCE_REVISION` to the exact protected commit. The fixed Heimdall recovery observer can
-  enter only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
+  pins that verifier-success predicate on final rollback failure reporting. Rollback health waits for
+  the exact requested recovery revision before evaluating readiness, so an eventually consistent
+  pre-existing healthy revision cannot satisfy recovery evidence. Every Core image
+  transition binds `FDAI_SOURCE_REVISION` to the exact protected commit. The fixed Heimdall recovery observer
+  enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph.

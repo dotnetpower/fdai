@@ -1818,6 +1818,7 @@ jobs:
           resource_id="$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")"
           resource_group="$(jq -er '.resource_group' "$rollback_dir/snapshot.json")"
           service_name="$(jq -er '.service_name' "$rollback_dir/snapshot.json")"
+          expected_recovery_revision="${service_name}--r${GITHUB_RUN_ID}"
           allow_degraded_baseline="$(jq -er '.degraded_baseline' "$rollback_dir/snapshot.json")"
           rollback_health_deadline=$((SECONDS + 1200))
           rollback_health_converged=false
@@ -1827,6 +1828,11 @@ jobs:
               --only-show-errors \
               --output json >"$rollback_dir/app-after.json"
             recovery_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app-after.json")"
+            if [[ "$recovery_revision" != "$expected_recovery_revision" ]]; then
+              echo "rollback health poll: waiting for exact recovery revision remaining=$((rollback_health_deadline - SECONDS))s" >&2
+              sleep 5
+              continue
+            fi
             timeout 60s az containerapp revision show \
               --resource-group "$resource_group" \
               --name "$service_name" \

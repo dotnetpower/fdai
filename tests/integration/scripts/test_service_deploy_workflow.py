@@ -1227,6 +1227,11 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
     assert '--revision-suffix "r${GITHUB_RUN_ID}"' in _WORKFLOW
+    assert 'expected_recovery_revision="${service_name}--r${GITHUB_RUN_ID}"' in _WORKFLOW
+    assert '[[ "$recovery_revision" != "$expected_recovery_revision" ]]' in _WORKFLOW
+    assert _WORKFLOW.index('[[ "$recovery_revision" != "$expected_recovery_revision" ]]') < (
+        _WORKFLOW.index('--revision "$recovery_revision"')
+    )
     assert "failed-revisions-before.json" in _WORKFLOW
     assert "rollback revision inventory has invalid primary container layout" in _WORKFLOW
     assert '--arg image "${{ inputs.image_ref }}"' in _WORKFLOW
