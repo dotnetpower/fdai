@@ -304,6 +304,11 @@ output "inventory_job_name" {
   value       = module.compute.inventory_job_name
 }
 
+output "provider_schema_job_id" {
+  description = "Scheduled provider-schema watcher Job resource id, or null when disabled."
+  value       = module.compute.provider_schema_job_id
+}
+
 output "browser_evidence_cleanup_job_id" {
   description = "Scheduled browser-evidence cleanup Job resource id, or null when disabled."
   value       = module.compute.browser_evidence_cleanup_job_id

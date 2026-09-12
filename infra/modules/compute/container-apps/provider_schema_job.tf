@@ -78,6 +78,10 @@ resource "azurerm_container_app_job" "provider_schema" {
         value = "10000"
       }
       env {
+        name  = "FDAI_PROVIDER_SCHEMA_REVIEW_COMPATIBLE"
+        value = "1"
+      }
+      env {
         name  = "KAFKA_BOOTSTRAP_SERVERS"
         value = var.kafka_bootstrap_servers
       }

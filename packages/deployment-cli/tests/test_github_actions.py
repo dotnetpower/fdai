@@ -951,6 +951,97 @@ def test_gateway_selection_round_trip() -> None:
     assert fields["deploy_dev_operations_gateway"] == "true"
 
 
+def test_provider_schema_selection_round_trip() -> None:
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_provider_schema=True,
+        runtime_image_revision=_COMMIT,
+    )
+
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.provider-schema",
+        selection=selection,
+        run=runner,
+    )
+    apply = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.provider-schema",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=False,
+        selection=selection,
+        run=runner,
+    )
+    resume = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.provider-schema",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=True,
+        selection=selection,
+        run=runner,
+    )
+
+    workflow_calls = [call for call in runner.calls if call[:2] == ("workflow", "run")]
+    plan_fields = _fields(workflow_calls[0])
+    apply_fields = _fields(workflow_calls[1])
+    resume_fields = _fields(workflow_calls[2])
+    assert plan.request_id.startswith("plan-provider-")
+    assert apply.request_id.startswith("apply-provider-")
+    assert resume.request_id.startswith("apply-provider-")
+    assert plan.context_digest == apply.context_digest == resume.context_digest
+    assert resume.mode == "resume-verification"
+    assert "deploy_provider_schema" not in plan_fields
+    assert plan_fields["promote_runtime_image"] == "true"
+    assert "deploy_provider_schema" not in apply_fields
+    assert apply_fields["promote_runtime_image"] == "false"
+    assert resume_fields["resume_verification"] == "true"
+
+
+def test_provider_schema_selection_rejects_mixed_or_unbound_requests() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        DeploymentSelection(
+            deploy_console=False,
+            deploy_operator_api=False,
+            deploy_dev_operations_gateway=True,
+            deploy_provider_schema=True,
+            runtime_image_revision=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="requires runtime_image_revision"):
+        DeploymentSelection(
+            deploy_console=False,
+            deploy_operator_api=False,
+            deploy_provider_schema=True,
+        )
+    with pytest.raises(ValueError, match="requires the core-control-plane runtime image profile"):
+        DeploymentSelection(
+            deploy_console=False,
+            deploy_operator_api=False,
+            deploy_provider_schema=True,
+            runtime_image_revision=_COMMIT,
+            runtime_image_profile="cost-governance",
+        )
+
+
 def test_operational_history_selection_round_trip() -> None:
     runner = RecordingRunner()
     selection = DeploymentSelection(

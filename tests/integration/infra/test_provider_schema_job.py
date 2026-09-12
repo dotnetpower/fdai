@@ -8,6 +8,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 _JOB = _ROOT / "infra/modules/compute/container-apps/provider_schema_job.tf"
 _MAIN = _ROOT / "infra/main.tf"
 _VARIABLES = _ROOT / "infra/variables.tf"
+_CORE_DOCKERFILE = _ROOT / "services/core-control-plane/docker/Dockerfile"
 
 
 def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon() -> None:
@@ -20,11 +21,16 @@ def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon
     assert 'name        = "FDAI_PROVIDER_SCHEMA_DSN"' in job
     assert 'name  = "KAFKA_BOOTSTRAP_SERVERS"' in job
     assert 'name  = "FDAI_MI_CLIENT_ID"' in job
+    assert 'name  = "FDAI_PROVIDER_SCHEMA_REVIEW_COMPATIBLE"' in job
+    assert 'value = "1"' in job
     assert 'value = "public"' in job
     assert "replica_retry_limit          = 0" in job
     assert "provider_schema_cron_expression = var.provider_schema_cron_expression" in main
     assert 'variable "provider_schema_cron_expression"' in variables
     assert 'default     = "0 4 * * *"' in variables
+    assert "COPY --chown=65532:65532 provider-schema-catalog/" in _CORE_DOCKERFILE.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_provider_schema_job_uses_only_the_read_only_inventory_identity() -> None:

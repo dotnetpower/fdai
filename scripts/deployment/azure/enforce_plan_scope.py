@@ -35,6 +35,7 @@ _RCA_READER_IDENTITY = frozenset(
     }
 )
 _OBSERVABILITY_ANALYZER = frozenset({"terraform_data.observability_analyzer_image_update"})
+_PROVIDER_SCHEMA = frozenset({"module.compute.azurerm_container_app_job.provider_schema[0]"})
 _RUNTIME_CALL_EVIDENCE = frozenset(
     {
         "terraform_data.inventory_runtime_image_update",
@@ -205,6 +206,14 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "provider-schema":
+        unexpected = sorted(changed.difference(_PROVIDER_SCHEMA))
+        if unexpected:
+            raise ValueError(
+                "Provider-schema plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "runtime-call-evidence":
         unexpected = sorted(changed.difference(_RUNTIME_CALL_EVIDENCE))
         if unexpected:
@@ -262,6 +271,7 @@ def main() -> int:
             "monitoring",
             "model-binding",
             "observability-analyzer",
+            "provider-schema",
             "rca-reader-identity",
             "operational-history",
             "runtime-call-evidence",

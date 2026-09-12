@@ -11,6 +11,7 @@ from fdai.delivery.provider_schema_watcher_cli import (
     ProviderSchemaNetworkPolicy,
     ProviderSchemaWatcherConfig,
     _build_sources,
+    _seed_reviewed_catalog,
 )
 
 
@@ -42,6 +43,38 @@ def test_config_accepts_authenticated_pantheon_transport(tmp_path: Path) -> None
     )
 
     assert config.kafka_bootstrap_servers == "namespace.servicebus.windows.net:9093"
+
+
+def test_empty_durable_ledger_is_seeded_from_reviewed_catalog(tmp_path: Path) -> None:
+    source = Path(__file__).resolve().parents[4] / "provider-schema-catalog"
+    target = tmp_path / "durable"
+    target.mkdir()
+
+    assert _seed_reviewed_catalog(source, target) is True
+    assert (target / "azure" / "baseline.json").is_file()
+
+
+def test_reviewed_catalog_seed_never_overwrites_hydrated_state(tmp_path: Path) -> None:
+    source = Path(__file__).resolve().parents[4] / "provider-schema-catalog"
+    target = tmp_path / "durable"
+    target.mkdir()
+    (target / "existing.json").write_text("{}\n", encoding="ascii")
+
+    with pytest.raises(ValueError, match="seed target MUST be empty"):
+        _seed_reviewed_catalog(source, target)
+
+
+def test_reviewed_catalog_seed_rejects_symbolic_links(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "baseline.json").symlink_to(
+        Path(__file__).resolve().parents[4] / "provider-schema-catalog/azure/baseline.json"
+    )
+    target = tmp_path / "durable"
+    target.mkdir()
+
+    with pytest.raises(ValueError, match="symbolic links"):
+        _seed_reviewed_catalog(source, target)
 
 
 def test_config_rejects_partial_source_binding(tmp_path: Path) -> None:

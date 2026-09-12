@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 3e7414c5f99add7e3e05102fa44d2d3b6a7aa0a0
+translation_source_sha: 0225f372c285f639264cb64536050404c3577bd4
 translation_revised: 2026-09-12
 ---
 
@@ -48,6 +48,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | Broad operations-gateway 대상이 관련 없는 Operator API 역할 교체를 포함한 뒤 전용 protected provider-schema plan/apply 모드를 추가했습니다. 새 모드는 provider-schema Job만 허용하고 정확히 증명된 Core image 하나를 결속하며, 적용 후 Job을 실행하고 durable source/generation 및 해당하는 Heimdall, Forseti, Saga review chain을 검증합니다. | Protected plan `34677766334` 실패, `current change`, 집중 provider runtime, 배포 workflow, CLI, Terraform 및 evidence 검사 | Exact revision을 게시하고 해당 candidate에서 최종 Core baseline을 반복한 뒤 Issue #290의 zero-destroy provider-schema plan, exact apply 및 deployed agent-chain receipt를 보존합니다. |
 | 2026-09-12 | implemented | 모델 전용 Terraform 계획의 대상을 Azure OpenAI 기능 배포 컬렉션으로 제한했습니다. 이제 상위 모듈 전체를 대상으로 지정해 기존 계정 및 역할 할당 리소스가 계획에 포함되는 일이 없습니다. | `current change`; 실패한 보호 계획 `34677766334`; `.github/workflows/deploy-dev.yml`; 모델 수명 주기 및 배포 작업 흐름 집중 테스트 87개; CI 계약 검사. | 수정된 작업 흐름을 게시하고 관련 없는 변경이 없는 모델 연결 계획을 보존한 뒤 이슈 #90의 정확한 Core 이미지 연결 및 런타임 근거를 완료합니다. |
 | 2026-09-10 | implemented | 배포 실행기가 사용하는 ops 소유의 비공개 DNS 영역에 운영 이력 Blob 계정 전용 A record를 추가했습니다. 범위가 제한된 운영 이력 target은 lifecycle Job 종속성을 통해 record를 가져오고 plan 범위 guard는 해당 주소만 허용합니다. 공용 네트워크 접근과 key 인증은 계속 비활성화합니다. | `current change`; 보호된 OI-12 실행 `34447462177`은 실행기 readback 실패 전에 7개 축을 모두 완료하고 비공개 증적을 기록함; 실행기 VM의 guest DNS 진단; 프로바이더에서 관측한 앱 영역 A record와 누락된 ops 영역 record; 집중 Terraform 및 범위 검사. | 실행기 DNS 연결을 게시하고 보호된 운영 이력 plan/apply를 실행 및 검토한 뒤 실행기의 비공개 Blob 해석을 증명하고 통과한 보호 OI-12 artifact를 보존합니다. |
 | 2026-09-10 | implemented | OI-12 프로바이더 실패 및 복구 쿼리를 현재 활성 세대의 원본과 관측 종류로 제한했습니다. 폐기한 원본이 현재 운영 인스턴스 축을 영구 unavailable 상태로 유지할 수 없습니다. 복구는 여전히 실패 이후에 발생해야 하며 실패의 원본, 관측 종류, 범위와 리소스 종류에 정확히 일치해야 합니다. | `current change`; 실패한 보호 인증 `34445258249`; 정제한 읽기 전용 운영 집계에서 폐기한 `arm/observed` 원본은 이후 성공이 없고 활성 `arg/observed` 원본에는 정확한 194.335387초 복구가 있음을 확인; 집중 PostgreSQL 인증 검사. | 활성 원본 fence를 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |

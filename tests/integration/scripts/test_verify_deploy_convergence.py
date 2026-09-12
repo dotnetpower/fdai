@@ -26,6 +26,11 @@ set -euo pipefail
 printf 'terraform %s;target=%s\n' "$*" "${TF_CLI_ARGS_plan:-}" >> "$CALLS"
 if [[ "$1" == "plan" ]]; then exit "$PLAN_EXIT"; fi
 if [[ "$*" == "output -raw resource_group_name" ]]; then printf 'rg-fdai-dev-krc'; exit 0; fi
+if [[ "$*" == "output -raw provider_schema_job_id" ]]; then
+    printf '/subscriptions/example/resourceGroups/example/providers/'
+    printf 'Microsoft.App/jobs/provider'
+    exit 0
+fi
 exit 90
 """,
         "az": """#!/usr/bin/env bash
@@ -100,6 +105,17 @@ def test_runtime_call_apply_replans_only_transition_before_separate_readback(
     ) in log
     assert "\naz " not in "\n" + log
     assert "\nuv " not in "\n" + log
+
+
+def test_provider_schema_apply_replans_and_reads_only_provider_job(tmp_path: Path) -> None:
+    result, calls, _ = _run(tmp_path, "apply-provider-" + "a" * 48)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert "target=-target=module.compute.azurerm_container_app_job.provider_schema[0]" in log
+    assert "terraform output -raw provider_schema_job_id" in log
+    assert "az resource show --ids " in log
+    assert "--container provider-schema" in log
 
 
 def test_nonconverged_plan_stops_before_live_readback(tmp_path: Path) -> None:

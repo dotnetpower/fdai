@@ -34,6 +34,7 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
     assert (
         "if: ${{ inputs.apply && !inputs.deploy_design_mocks "
         "&& env.CORE_MODEL_QUORUM_ONLY != 'true' "
+        "&& env.PROVIDER_SCHEMA_ONLY != 'true' "
         "&& env.RCA_READER_IDENTITY_ONLY != 'true' "
         "&& env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}"
     ) in health_step

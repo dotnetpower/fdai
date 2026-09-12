@@ -38,6 +38,7 @@ def test_shared_inputs_and_service_metadata_select_all_images() -> None:
 
 
 def test_runtime_assets_select_only_their_consumers() -> None:
+    assert _targets(["provider-schema-catalog/azure/resources.json"]) == ["core-control-plane"]
     assert _targets(["policies/risk.rego"]) == [
         "core-control-plane",
         "cost-governance",
@@ -80,6 +81,7 @@ def test_pr_trigger_excludes_known_runtime_source_but_keeps_build_assets() -> No
     assert workflow["run-name"] == "Candidate images: ${{ inputs.images || 'pr-packaging' }}"
     paths = workflow[True]["pull_request"]["paths"]
     assert "README.md" not in paths
+    assert "provider-schema-catalog/**" in paths
     assert select_image_targets(["README.md"], packaging_only=True) == ()
     for service in {target.service for target in IMAGE_TARGETS}:
         assert f"!services/{service}/src/**/*.py" in paths
@@ -146,6 +148,7 @@ def test_pr_packaging_skips_ordinary_source_tests_and_docs(path: str) -> None:
             "scripts/deployment/local/materialize-authoritative-catalogs.py",
             ["core-control-plane", "cost-governance"],
         ),
+        ("provider-schema-catalog/azure/resources.json", ["core-control-plane"]),
     ),
 )
 def test_pr_packaging_keeps_build_inputs_and_runtime_assets(path: str, expected: list[str]) -> None:

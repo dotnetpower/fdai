@@ -6,6 +6,7 @@ import hashlib
 import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from fdai.delivery.provider_schema import ProviderSchemaError
@@ -18,6 +19,14 @@ _MAX_GENERATION_BYTES = 256 * 1024 * 1024
 _MAX_MANIFEST_ENTRIES = 10_000
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderSchemaLedgerGeneration:
+    """Identity of one completely hydrated durable ledger generation."""
+
+    revision: int
+    generation_digest: str
+
+
 class StateStoreProviderSchemaLedger:
     """Hydrate and persist one verified ledger generation through durable JSON state."""
 
@@ -27,10 +36,22 @@ class StateStoreProviderSchemaLedger:
     async def hydrate(self, root: Path) -> bool:
         """Restore the latest complete durable generation into an empty local root."""
 
+        return await self.hydrate_generation(root) is not None
+
+    async def hydrate_generation(
+        self,
+        root: Path,
+    ) -> ProviderSchemaLedgerGeneration | None:
+        """Restore and identify the exact latest complete durable generation."""
+
         manifest = await self._store.read_state(_MANIFEST_KEY)
         if manifest is None:
-            return False
+            return None
         entries = _manifest_entries(manifest)
+        generation = ProviderSchemaLedgerGeneration(
+            revision=_manifest_revision(manifest),
+            generation_digest=str(manifest["generation_digest"]),
+        )
         if any(root.iterdir()):
             raise ProviderSchemaError("provider schema hydration root MUST be empty")
         initial_root = root.stat()
@@ -79,7 +100,7 @@ class StateStoreProviderSchemaLedger:
                 raise ProviderSchemaError("provider schema hydration publication failed") from exc
         finally:
             shutil.rmtree(staging, ignore_errors=True)
-        return True
+        return generation
 
     async def persist(self, root: Path) -> str:
         """Store immutable blobs first and atomically publish their complete manifest last."""
@@ -209,4 +230,4 @@ def _digest(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-__all__ = ["StateStoreProviderSchemaLedger"]
+__all__ = ["ProviderSchemaLedgerGeneration", "StateStoreProviderSchemaLedger"]

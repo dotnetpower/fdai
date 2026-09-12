@@ -1,8 +1,8 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 1147504f9b8fca9b1f64abe9da21f890c0102d81
-translation_revised: 2026-08-31
+translation_source_sha: e802600d616284201e6eae8fd6071887adeca115
+translation_revised: 2026-09-12
 ---
 
 # 단계 2 - 지속적 규칙 업데이트, Quality 게이트, T1
@@ -137,6 +137,12 @@ Terraform은 daily Container Apps Job을 정의하며 런타임 경로는 privat
 통해 append-only ledger를 복원하고 보존할 수 있습니다. Material drift는 Heimdall이 검증하고
 shadow `object.drift` topic에 `event_type: provider.schema_drift`로만 발행합니다. 운영 검증
 전에는 보호된 scheduled-run 증적이 더 필요합니다.
+
+Protected 배포는 전용 provider-only plan/apply 모드를 사용합니다. 이 모드는 첫 generation
+bootstrap용 reviewed catalog를 image에 포함하고 관련 없는 Terraform 주소를 차단하며, exact Job
+실행과 durable generation의 정제된 적용 후 receipt를 보존합니다. Material review가 존재하면
+검증기는 같은 correlation이 Forseti 사람 검토 결정과 Saga append-only audit까지 도달했는지도
+요구합니다. 변경이 없는 실행은 해당 review 근거를 해당 없음으로 기록합니다.
 
 ## LLM Quality 게이트 (T2 - [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 참조)
 
