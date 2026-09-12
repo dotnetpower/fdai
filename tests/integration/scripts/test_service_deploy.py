@@ -3465,14 +3465,13 @@ def test_plan_guard_allows_core_recovery_source_aligned_to_planned_before(
     drift_after["template"][0]["revision_suffix"] = "recovered"
     drift_before["template"][0]["container"][0]["image"] = "stale-image"
     stale_environment = drift_before["template"][0]["container"][0]["env"]
-    next(item for item in stale_environment if item["name"] == "FDAI_SOURCE_REVISION")[
-        "value"
-    ] = "c" * 40
+    next(item for item in stale_environment if item["name"] == "FDAI_SOURCE_REVISION")["value"] = (
+        "c" * 40
+    )
     plan["resource_drift"] = [
         {
             "address": (
-                "module.core_control_plane.module.container_app."
-                "azurerm_container_app.service"
+                "module.core_control_plane.module.container_app.azurerm_container_app.service"
             ),
             "change": {"actions": ["update"], "before": drift_before, "after": drift_after},
         }
@@ -3502,9 +3501,7 @@ def test_plan_guard_allows_core_recovery_source_aligned_to_planned_before(
     next(item for item in recovered_environment if item["name"] == "FDAI_SOURCE_REVISION")[
         "value"
     ] = "a" * 40
-    next(item for item in recovered_environment if item["name"] == "RUNTIME_ENV")[
-        "value"
-    ] = "prod"
+    next(item for item in recovered_environment if item["name"] == "RUNTIME_ENV")["value"] = "prod"
     with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
         guard.validate_plan(
             plan,
