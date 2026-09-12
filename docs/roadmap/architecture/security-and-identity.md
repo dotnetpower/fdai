@@ -345,7 +345,9 @@ provisional, incomplete, or not provably contained inside the declared logical t
 
 An unreachable or unreadable source produces a retained `unavailable` or `censored` receipt rather
 than silence, so an absent observation and an unreadable one are both visible instead of one of
-them resembling success.
+them resembling success. A reading whose authoritative record predates the widest representable
+evidence window is likewise retained as a `stale` hold rather than dropped, and a dispatch with no
+retained observation at all reads as `missing` rather than as an absent effect.
 
 ## Rate Limiting and Kill-Switch (DoS and containment)
 

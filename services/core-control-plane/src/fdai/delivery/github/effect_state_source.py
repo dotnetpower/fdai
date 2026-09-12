@@ -64,7 +64,15 @@ class GitHubArtifactReading:
 
 
 class GitHubArtifactReader(Protocol):
-    """Read one GitHub artifact through a read-only identity."""
+    """Read one GitHub artifact through a read-only identity.
+
+    Implementations MUST distinguish *absent* from *inaccessible*. GitHub
+    answers ``404`` both for an artifact that does not exist and for one the
+    token may not see. Reporting the second as ``exists=False`` would turn a
+    permission problem into a failed effect, which is recovery-eligible, so
+    an inaccessible artifact MUST raise :class:`GitHubArtifactReadError` or
+    be reported through ``censoring_refs`` instead.
+    """
 
     async def read_artifact(
         self,
@@ -181,9 +189,14 @@ def _expected_state(
 
     Returns ``None`` only when the source genuinely could not decide.  A
     positively-absent artifact is a ``False`` - a failed effect - because the
-    executor claimed to have created it.
+    executor claimed to have created it.  A *censored* read never reaches
+    this decision as ``False``: an inaccessible artifact is the reader's
+    responsibility to report as censored, and a censored reading is
+    classified as a hold before the expected state is consulted.
     """
 
+    if reading.censoring_refs:
+        return None, f"{config.kind.value} {config.number} could not be read completely"
     if not reading.exists:
         return False, f"{config.kind.value} {config.number} does not exist"
     if reading.state is None:

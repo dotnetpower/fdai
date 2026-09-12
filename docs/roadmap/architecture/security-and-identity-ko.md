@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 4b6aed7cb3bc3e86ecad39415461816f980a3af4
+translation_source_sha: 1ff5667bf27d4b64c2202e622f6e05c84e09e632
 translation_revised: 2026-09-12
 ---
 
@@ -338,6 +338,8 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 
 도달할 수 없거나 읽을 수 없는 소스는 침묵이 아니라 보존된 `unavailable` 또는 `censored` 영수증을
 남깁니다. 그래서 관측이 없는 경우와 읽지 못한 경우가 모두 드러나고, 어느 쪽도 성공처럼 보이지 않습니다.
+권위 있는 기록이 표현 가능한 가장 넓은 증적 창보다 오래된 읽기도 버리지 않고 `stale` 보류로 보존하며,
+보존된 관측이 하나도 없는 디스패치는 효과가 없는 것이 아니라 `missing`으로 읽습니다.
 
 ## 비율 Limiting과 비상 정지 (DoS와 억제)
 

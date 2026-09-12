@@ -292,3 +292,29 @@ def test_the_migration_grants_no_mutation_privilege() -> None:
     assert "GRANT SELECT, INSERT ON TABLE independent_effect_observation" in text
     assert "GRANT SELECT, INSERT, UPDATE" not in text
     assert "independent_effect_observation_identities_distinct" in text
+
+
+@pytest.mark.asyncio
+async def test_the_lineage_read_runs_inside_a_bounded_transaction() -> None:
+    """SET LOCAL is discarded outside a transaction under autocommit.
+
+    Without the surrounding transaction the configured statement timeout
+    would silently not apply to an unbounded lineage read.
+    """
+
+    class _TrackingConnection(_Connection):
+        def __init__(self) -> None:
+            super().__init__(None)
+            self.transactions = 0
+
+        def transaction(self) -> _Transaction:
+            self.transactions += 1
+            return _Transaction()
+
+    store = PostgresIndependentEffectObservationStore(config=_config())
+    connection = _TrackingConnection()
+    _bind(store, connection)
+
+    assert await store.read_lineage(_digest("e")) == ()
+    assert connection.transactions == 1
+    assert any(statement.startswith("SET LOCAL") for statement in connection.statements)

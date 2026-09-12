@@ -213,7 +213,49 @@ class SafeguardEffectObserver:
             )
             state = self._unreachable(started_at, exc)
         outcome, reason = classify(state)
-        completed_at = max(self._clock().astimezone(UTC), state.observed_at.astimezone(UTC))
+        try:
+            return self._receipt(
+                state,
+                outcome=outcome,
+                reason=reason,
+                observation_id=observation_id,
+                binding=binding,
+                sequence=sequence,
+                prior_receipt_digest=prior_receipt_digest,
+            )
+        except ValueError as exc:
+            # The reading is real but cannot be expressed as a valid quality
+            # record - most often because the authoritative source state
+            # predates the widest representable evidence window. Dropping it
+            # would hide the very staleness the matrix needs recorded, so it
+            # collapses to a hold anchored at the observation instant.
+            _LOGGER.warning(
+                "independent_effect_observation_unrepresentable",
+                extra={"source": type(exc).__name__},
+            )
+            return self._receipt(
+                self._unrepresentable(state),
+                outcome=IndependentEffectOutcome.STALE,
+                reason=f"authoritative reading is outside the representable window: {exc}",
+                observation_id=observation_id,
+                binding=binding,
+                sequence=sequence,
+                prior_receipt_digest=prior_receipt_digest,
+            )
+
+    def _receipt(
+        self,
+        state: ObservedEffectState,
+        *,
+        outcome: IndependentEffectOutcome,
+        reason: str,
+        observation_id: str,
+        binding: IndependentEffectObservationBinding,
+        sequence: int,
+        prior_receipt_digest: str | None,
+    ) -> IndependentEffectObservationReceipt:
+        observed_at = state.observed_at.astimezone(UTC)
+        completed_at = max(self._clock().astimezone(UTC), observed_at)
         return IndependentEffectObservationReceipt.create(
             observation_id=observation_id,
             binding=binding,
@@ -223,10 +265,32 @@ class SafeguardEffectObserver:
             observer_instance_id=self._observer_instance_id,
             executor_instance_id=self._executor_instance_id,
             source_instance_id=state.source_instance_id,
-            observed_at=state.observed_at.astimezone(UTC),
+            observed_at=observed_at,
             completed_at=completed_at,
             sequence=sequence,
             prior_receipt_digest=prior_receipt_digest,
+        )
+
+    def _unrepresentable(self, state: ObservedEffectState) -> ObservedEffectState:
+        """Collapse an unrepresentable reading onto the observation instant.
+
+        The observer proved nothing about any earlier interval, so the window
+        shrinks to the attempt rather than being clamped: clamping would move
+        the source timestamp outside its own window and fail differently.
+        """
+
+        anchor = state.observed_at.astimezone(UTC)
+        return ObservedEffectState(
+            source_instance_id=state.source_instance_id,
+            observed_at=anchor,
+            source_recorded_at=anchor,
+            evidence_window_start=anchor - timedelta(seconds=1),
+            evidence_window_end=anchor,
+            expected_state_present=None,
+            complete=False,
+            final=False,
+            contained=None,
+            detail=state.detail,
         )
 
     def _unreachable(

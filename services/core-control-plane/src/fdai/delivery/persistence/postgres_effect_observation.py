@@ -111,12 +111,13 @@ class PostgresIndependentEffectObservationStore:
 
         validate_digest("evidence_identity_digest", evidence_identity_digest)
         async with await self._connect() as connection:
-            await self._set_statement_timeout(connection)
-            cursor = await connection.execute(
-                _SELECT_LINEAGE_SQL,
-                (evidence_identity_digest,),
-            )
-            rows = await cursor.fetchall()
+            async with connection.transaction():
+                await self._set_statement_timeout(connection)
+                cursor = await connection.execute(
+                    _SELECT_LINEAGE_SQL,
+                    (evidence_identity_digest,),
+                )
+                rows = await cursor.fetchall()
         return tuple(observation_receipt_from_mapping(row["receipt"]) for row in rows)
 
     async def _connect(self) -> psycopg.AsyncConnection[Any]:

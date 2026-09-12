@@ -553,3 +553,67 @@ async def test_a_raising_artifact_reader_degrades_to_a_hold() -> None:
     )
 
     assert receipt.disposition is IndependentEffectDisposition.UNKNOWN_HOLD
+
+
+@pytest.mark.asyncio
+async def test_a_source_older_than_the_window_is_held_not_dropped() -> None:
+    """A reading the quality contract cannot express is still evidence.
+
+    Dropping it would hide exactly the staleness the matrix needs recorded,
+    so the observer collapses the window onto the observation instant and
+    retains a stale hold.
+    """
+
+    stale_state = _state(
+        source_recorded_at=_NOW - timedelta(days=3),
+        evidence_window_start=_NOW - timedelta(days=3, seconds=1),
+        evidence_window_end=_NOW,
+    )
+    observer = _observer(_StubSource(state=stale_state))
+
+    receipt = await observer.observe(
+        binding=_binding(),
+        observation_id="observation-1",
+        sequence=1,
+        prior_receipt_digest=None,
+    )
+
+    assert receipt.outcome is IndependentEffectOutcome.STALE
+    assert receipt.disposition is IndependentEffectDisposition.UNKNOWN_HOLD
+    assert receipt.effect_verified is False
+    assert "representable window" in receipt.reason
+
+
+@pytest.mark.asyncio
+async def test_an_unrepresentable_reading_never_reports_a_failed_effect() -> None:
+    """A hold may not become a recovery-eligible failure by degradation."""
+
+    absent_and_stale = _state(
+        expected_state_present=False,
+        source_recorded_at=_NOW - timedelta(days=3),
+        evidence_window_start=_NOW - timedelta(days=3, seconds=1),
+        evidence_window_end=_NOW,
+    )
+    observer = _observer(_StubSource(state=absent_and_stale))
+
+    receipt = await observer.observe(
+        binding=_binding(),
+        observation_id="observation-1",
+        sequence=1,
+        prior_receipt_digest=None,
+    )
+
+    assert receipt.outcome is IndependentEffectOutcome.STALE
+    assert receipt.disposition is IndependentEffectDisposition.UNKNOWN_HOLD
+
+
+@pytest.mark.asyncio
+async def test_a_censored_artifact_never_reports_an_absent_effect() -> None:
+    """An inaccessible artifact is a hold, never a recovery-eligible failure."""
+
+    source = _artifact_source(_artifact(exists=False, state=None, censoring_refs=("private",)))
+
+    state = await source.read(binding=_binding())
+
+    assert state.expected_state_present is None
+    assert classify(state)[0] is IndependentEffectOutcome.CENSORED

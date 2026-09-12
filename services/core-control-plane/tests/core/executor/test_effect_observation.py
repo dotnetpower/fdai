@@ -445,10 +445,18 @@ async def test_an_unknown_observation_after_a_verified_one_stays_closed() -> Non
 
 @pytest.mark.asyncio
 async def test_an_absent_lineage_is_a_hold_not_a_success() -> None:
+    """Absence of evidence never reads as absence of effect."""
+
     ledger = IndependentEffectLedger(store=InMemoryIndependentEffectObservationStore())
 
-    with pytest.raises(IndependentEffectLedgerError, match="at least one"):
-        await ledger.state(_digest("e"))
+    state = await ledger.state(_digest("e"))
+
+    assert state.outcome is IndependentEffectOutcome.MISSING
+    assert state.disposition is IndependentEffectDisposition.UNKNOWN_HOLD
+    assert state.effect_verified is False
+    assert state.permits_new_effect is False
+    assert state.observation_count == 0
+    assert state.latest_receipt_digest is None
 
 
 def test_a_broken_lineage_chain_is_refused() -> None:

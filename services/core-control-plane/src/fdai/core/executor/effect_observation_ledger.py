@@ -143,7 +143,7 @@ class IndependentEffectState:
     evidence_identity_digest: str
     disposition: IndependentEffectDisposition
     outcome: IndependentEffectOutcome
-    latest_receipt_digest: str
+    latest_receipt_digest: str | None
     observation_count: int
     effect_verified: bool
     recovery_request: GovernedRecoveryRequest | None = None
@@ -158,6 +158,8 @@ class IndependentEffectState:
             and self.disposition is not IndependentEffectDisposition.RECOVERY_REQUIRED
         ):
             raise ValueError("only a failed effect may carry a recovery request")
+        if (self.latest_receipt_digest is None) != (self.observation_count == 0):
+            raise ValueError("independent effect state receipt lineage is inconsistent")
 
     @property
     def permits_new_effect(self) -> bool:
@@ -230,8 +232,13 @@ def project_state(
 
     validate_digest("evidence_identity_digest", evidence_identity_digest)
     if not receipts:
-        raise IndependentEffectLedgerError(
-            "independent effect state requires at least one retained observation"
+        return IndependentEffectState(
+            evidence_identity_digest=evidence_identity_digest,
+            disposition=IndependentEffectDisposition.UNKNOWN_HOLD,
+            outcome=IndependentEffectOutcome.MISSING,
+            latest_receipt_digest=None,
+            observation_count=0,
+            effect_verified=False,
         )
     validate_lineage(receipts)
     if receipts[0].binding.evidence_identity_digest != evidence_identity_digest:
