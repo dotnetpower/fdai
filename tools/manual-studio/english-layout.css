@@ -1,0 +1,963 @@
+/* Locale-specific layout corrections preserve the fixed 1536 x 864 slide canvas. */
+html[lang="en"] .manual-slide {
+  font-family: "Aptos", "Segoe UI", "Ubuntu", "Arial", sans-serif;
+}
+
+html[lang="en"] .manual-slide .slide-copy h2 {
+  font-family: "Aptos Display", "Segoe UI Variable Display", "Ubuntu", "Arial", sans-serif;
+}
+
+html[lang="en"] .manual-slide:is(.deck-art-of-possible, .deck-value-prioritization, .deck-sre-incident-response) > header {
+  top: 36px;
+}
+
+html[lang="en"] .manual-slide.deck-executive-briefing .slide-copy h2 {
+  line-height: 1.35;
+}
+
+html[lang="en"] .executive-agent-groups article > div {
+  min-width: 0;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+html[lang="en"] .executive-agent-groups article > div small {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+html[lang="en"] .executive-forecast-lane {
+  grid-template-columns: auto minmax(0, 1fr) 32px minmax(0, 1.15fr) minmax(0, 1.2fr);
+}
+
+html[lang="en"] .executive-forecast-lane > :is(strong, span, b) {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+html[lang="en"] .executive-readiness-tree > i,
+html[lang="en"] .executive-adoption-path > i {
+  align-self: center;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-option-board > article {
+  padding-block: 18px;
+  gap: 6px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-data-contract .rm-record-grid > div {
+  padding-block: 8px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-charter .rm-record-grid > div {
+  padding-block: 8px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-economics {
+  gap: 16px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-budget-grid .rm-entry {
+  gap: 6px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-quality-lab > article {
+  align-content: start;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-coverage-head {
+  display: grid;
+  grid-template-columns: 300px 360px minmax(0, 1fr);
+  gap: 32px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-coverage-head strong {
+  line-height: 1.2;
+}
+
+html[lang="en"] .rm-coverage-bar {
+  display: grid;
+  grid-template-rows: 46px auto;
+  gap: 8px;
+}
+
+html[lang="en"] .rm-coverage-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-tier-system {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-tier-lanes,
+html[lang="en"] .deck-readiness-maturity .rm-tier-verifier {
+  min-height: 0;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-tier-lanes > article {
+  padding-block: 8px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-tier-lanes > article > div {
+  gap: 4px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-tier-verifier {
+  gap: 14px;
+  padding-block: 24px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-answer blockquote > span {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-maturity-steps li {
+  gap: 6px;
+  padding-block: 14px;
+  flex-shrink: 0;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-rubric-table :is(td, th) {
+  padding-block: 9px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-profile-table :is(td, th) {
+  padding-block: 3px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-decision-branches {
+  grid-template-rows: 1fr 1fr auto;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-decision-branches > article {
+  padding-block: 14px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-boundary-columns > section,
+html[lang="en"] .deck-readiness-maturity .rm-boundary-columns .rm-entry {
+  gap: 5px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-boundaries {
+  grid-template-rows: 226px minmax(0, 1fr);
+  gap: 12px;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-agenda-ring strong {
+  line-height: 1.25;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-agenda-ring {
+  flex-shrink: 0;
+}
+
+html[lang="en"] .deck-readiness-maturity .rm-next-outcomes {
+  gap: 8px;
+}
+
+html[lang="en"] .deck-art-of-possible .aop-today-pain article {
+  padding-block: 14px;
+  gap: 8px;
+}
+
+html[lang="en"] .deck-art-of-possible .aop-closure-guards > p {
+  display: grid;
+  gap: 6px;
+}
+
+html[lang="en"] .deck-value-prioritization .vp-domain-landscape header {
+  display: grid;
+  gap: 6px;
+  padding-block: 14px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-role-bands .oe-table :is(th, td) {
+  padding-block: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-meaning-ladder .oe-ladder li {
+  padding-block: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-gruber .oe-stack {
+  gap: 16px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-gruber .oe-entry strong {
+  margin-block: 8px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial :is(.oe-authority-lanes, .oe-completeness-tree) .oe-table :is(th, td) {
+  padding-block: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-primitive-map .oe-table :is(th, td) {
+  padding-block: 9px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-identity {
+  gap: 18px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-time-ribbon .oe-table :is(th, td) {
+  padding-block: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .slide-content > .oe-release-rings {
+  gap: 24px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial :is(.oe-similarity-map, .oe-authority-wall) .oe-stack {
+  gap: 16px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial :is(.oe-similarity-map, .oe-authority-wall) .oe-entry strong {
+  margin-block: 8px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-authority-wall .oe-stack {
+  gap: 12px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-authority-wall .oe-split {
+  grid-template-columns: .55fr 1.45fr;
+  gap: 48px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-operating-spine .oe-spine li {
+  padding-block: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-pubsub-map {
+  grid-template-rows: 150px 24px 56px 24px 150px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-agent-port {
+  gap: 8px;
+  grid-template-rows: 25px 36px minmax(0, 1fr);
+  align-content: start;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-bus-connector {
+  height: 24px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-learning-paths {
+  gap: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-learning-paths .oe-entry {
+  padding-block: 10px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-learning-paths .oe-entry strong {
+  margin-block: 6px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-status-roadmap .oe-table :is(th, td) {
+  padding-block: 8px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .slide-content > .oe-status-roadmap {
+  gap: 12px;
+}
+
+html[lang="en"] .manual-slide.ontology-editorial .oe-adoption-steps {
+  gap: 20px;
+}
+
+/* Shared briefing covers keep display copy outside the artwork and at presentation size. */
+html[lang="en"] .manual-slide.slide-briefing-cover > header {
+  display: none;
+}
+
+html[lang="en"] .manual-slide.slide-briefing-cover .slide-copy {
+  position: absolute;
+  top: 270px;
+  left: 74px;
+  width: 660px;
+}
+
+html[lang="en"] .manual-slide.slide-briefing-cover .slide-copy h2 {
+  max-width: 100%;
+  font-size: 44px;
+  line-height: 1.18;
+}
+
+html[lang="en"] .manual-slide.slide-briefing-cover .slide-copy p {
+  max-width: 100%;
+  margin-top: 24px;
+  font-size: 24px;
+  line-height: 1.4;
+}
+
+html[lang="en"] .manual-slide.slide-briefing-cover > footer {
+  position: absolute;
+  bottom: 32px;
+  left: 74px;
+  gap: 16px;
+  font-size: 13px;
+}
+
+html[lang="en"] .slide-briefing-cover .briefing-cover-index span {
+  font-size: 20px;
+}
+
+html[lang="en"] .slide-briefing-cover .briefing-cover-index small,
+html[lang="en"] .slide-briefing-cover .briefing-cover-art figcaption {
+  font-size: 16px;
+}
+
+html[lang="en"] .slide-briefing-cover .evidence-source {
+  font-size: 13px;
+}
+
+/* These four books share the briefing builder, not the specialized workshop layouts. */
+html[lang="en"] .manual-slide:is(
+  .deck-responsible-ai-security,
+  .deck-pilot-production,
+  .deck-ai-operating-model,
+  .deck-enterprise-scale-roadmap
+):not(.slide-briefing-cover) {
+  & > header {
+    top: 48px;
+    right: 74px;
+    font-size: 13px;
+  }
+
+  & > footer {
+    position: absolute;
+    bottom: 28px;
+    left: 74px;
+    right: 74px;
+    font-size: 13px;
+  }
+
+  & .slide-copy {
+    position: absolute;
+    top: 94px;
+    left: 74px;
+    right: 74px;
+    padding: 0;
+  }
+
+  & .slide-copy h2 {
+    max-width: 100%;
+    margin-bottom: 16px;
+    font-size: 43px;
+    line-height: 1.18;
+    text-wrap: balance;
+  }
+
+  & .slide-copy p {
+    max-width: 100%;
+    font-size: 24px;
+    line-height: 1.4;
+  }
+
+  & .slide-content {
+    position: absolute;
+    inset: 302px 74px 64px;
+    grid-template-rows: 32px minmax(0, 1fr) 34px;
+    gap: 24px;
+    padding: 0;
+  }
+
+  & .manual-status {
+    font-size: 16px;
+  }
+
+  & .briefing-status-row > span:last-child {
+    font-size: 18px;
+  }
+
+  & .evidence-source {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  & :is(.agent-constellation, .briefing-number-grid, .briefing-comparison) {
+    gap: 24px;
+  }
+
+  & :is(.agent-constellation > div, .briefing-number-grid article, .briefing-comparison article) {
+    padding: 24px;
+  }
+
+  & .agent-constellation article {
+    grid-template-rows: 74px minmax(0, 1fr);
+    align-content: start;
+    gap: 20px;
+  }
+
+  & .agent-constellation {
+    align-self: center;
+  }
+
+  & :is(.agent-constellation strong, .arch-node strong, .identity-flow strong,
+         .manual-timeline strong, .manual-evidence-chain strong, .briefing-comparison strong,
+         .briefing-layers strong) {
+    font-size: 28px;
+    line-height: 1.3;
+  }
+
+  & :is(.agent-constellation span, .arch-node small, .identity-flow span,
+         .manual-timeline small, .manual-evidence-chain small, .briefing-number-grid span,
+         .briefing-comparison span, .briefing-layers span, .safety-list small) {
+    font-size: 24px;
+    line-height: 1.4;
+  }
+
+  & :is(.identity-flow > div > small, .briefing-comparison small, .manual-evidence-chain figcaption) {
+    font-size: 18px;
+    line-height: 1.35;
+  }
+
+  & .identity-flow > div {
+    padding: 28px;
+    gap: 18px;
+    grid-template-rows: 24px minmax(74px, auto) minmax(0, 1fr);
+  }
+
+  & .identity-flow {
+    align-items: stretch;
+    align-self: center;
+  }
+
+  & .identity-flow > i {
+    align-self: center;
+  }
+
+  & .manual-evidence-chain .journey > span {
+    padding: 24px;
+    align-content: start;
+    gap: 16px;
+  }
+
+  & .manual-evidence-chain .journey > i {
+    width: 32px;
+  }
+
+  & .manual-timeline.journey {
+    align-items: stretch;
+    align-self: center;
+    gap: 0;
+  }
+
+  & .manual-timeline li > span {
+    padding: 24px;
+    align-content: start;
+    gap: 12px;
+  }
+
+  & .manual-timeline > i {
+    width: 32px;
+    align-self: center;
+  }
+
+  & .arch-node {
+    flex: 1;
+    width: auto;
+    aspect-ratio: auto;
+    padding: 24px;
+    gap: 18px;
+    grid-template-rows: 34px auto minmax(0, 1fr);
+  }
+
+  & .arch-node strong {
+    align-self: start;
+  }
+
+  & .architecture-map {
+    align-items: stretch;
+  }
+
+  & .architecture-map > i {
+    flex: 0 0 32px;
+    min-width: 32px;
+    align-self: center;
+  }
+
+  & .arch-node > span {
+    width: 34px;
+    font-size: 18px;
+  }
+
+  & .manual-matrix {
+    font-size: 24px;
+  }
+
+  & .manual-matrix :is(th, td) {
+    padding: 16px 24px;
+    line-height: 1.4;
+  }
+
+  & .manual-matrix thead th {
+    font-size: 20px;
+  }
+
+  & .safety-list strong {
+    font-size: 26px;
+    line-height: 1.3;
+  }
+
+  & .safety-list li::before {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+
+  & .briefing-number-grid strong {
+    font-size: 44px;
+    line-height: 1.15;
+  }
+
+  & .briefing-number-grid article {
+    align-content: start;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  & .briefing-comparison small {
+    margin-bottom: 20px;
+  }
+
+  & :is(.briefing-number-grid span, .briefing-comparison span) {
+    margin-top: 20px;
+  }
+
+  & .briefing-comparison article {
+    align-content: start;
+    grid-template-rows: 26px minmax(74px, auto) 1fr;
+    gap: 12px;
+  }
+
+  & .briefing-comparison :is(small, span) {
+    align-self: start;
+    margin: 0;
+  }
+
+  & .briefing-comparison:has(> article:nth-child(5)) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+
+    & > article {
+      grid-template-columns: 28px minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 8px 12px;
+      padding: 16px;
+    }
+
+    & small {
+      grid-row: 1 / -1;
+    }
+
+    & strong {
+      grid-column: 2;
+      font-size: 26px;
+    }
+
+    & span {
+      grid-column: 2;
+      line-height: 1.3;
+    }
+  }
+
+  & .briefing-comparison:has(> article:nth-child(5)):not(:has(> article:nth-child(7))) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  & .briefing-layers > div {
+    grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr);
+    gap: 24px;
+    padding: 18px 24px;
+  }
+}
+
+/* SRE dashboards retain readable labels without squeezing them inside short bars. */
+html[lang="en"] .manual-slide.deck-sre-incident-response {
+  & .sre-cover-promise {
+    right: calc(100% + 80px);
+    width: 660px;
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr 24px 1fr;
+    gap: 12px;
+    white-space: normal;
+  }
+
+  & .sre-cover-promise span {
+    font-size: 19px;
+  }
+
+  & .sre-cover-promise strong {
+    font-size: 24px;
+    line-height: 1.3;
+  }
+
+  & .sre-cover-promise i {
+    width: 100%;
+  }
+
+  & .manual-status {
+    font-size: 16px;
+  }
+
+  & .briefing-status-row > span:last-child {
+    font-size: 18px;
+  }
+
+  & :is(.sre-signal-board, .sre-option-board, .sre-failover-architecture,
+        .sre-verification-board, .sre-mttr-view) > header {
+    gap: 24px;
+    padding-bottom: 12px;
+  }
+
+  & :is(.sre-signal-board, .sre-option-board, .sre-failover-architecture,
+        .sre-verification-board, .sre-mttr-view) > header :is(span, b) {
+    font-size: 19px;
+    line-height: 1.3;
+  }
+
+  & :is(.sre-signal-kpis small, .sre-mttr-summary small, .sre-signal-detail figcaption,
+        .sre-signal-detail aside > small, .sre-impact-summary small, .sre-impact-legend,
+        .sre-service-map .node small, .sre-recovery-contract small, .sre-decision-core > small,
+        .sre-decision-inputs small, .sre-decision-output small, .sre-option-grid article > small,
+        .sre-agent-lane small, .sre-safeguards header small, .sre-failover-architecture figure small,
+        .sre-verification-ledger small, .sre-mttr-timeline small, .sre-outcome-contract header small,
+        .sre-delivery-path li small, .sre-delivery-path aside small) {
+    font-size: 19px;
+    line-height: 1.3;
+  }
+
+  & :is(.sre-signal-kpis span, .sre-signal-detail figure b, .sre-signal-detail figure i,
+        .sre-signal-detail aside > strong, .sre-signal-detail dt, .sre-signal-detail dd,
+        .sre-service-map .node strong, .sre-service-map .node span, .sre-impact-summary header strong,
+        .sre-impact-summary > div, .sre-recovery-contract header strong, .sre-recovery-contract > div,
+        .sre-decision-inputs strong, .sre-decision-output strong, .sre-decision-inputs span,
+        .sre-decision-output span, .sre-decision-core > div, .sre-decision-system footer,
+        .sre-option-grid article > strong, .sre-option-grid article > p, .sre-option-grid dt,
+        .sre-option-grid dd, .sre-option-board > footer, .sre-agent-lane strong, .sre-agent-lane span,
+        .sre-safeguards li, .sre-safeguards footer, .sre-failover-architecture figure strong,
+        .sre-failover-architecture figure span, .sre-recovery-contract footer,
+        .sre-chart-grid figcaption, .sre-chart-grid figure > small, .sre-verification-ledger strong,
+        .sre-verification-ledger span, .sre-mttr-timeline strong, .sre-mttr-timeline span,
+        .sre-mttr-summary span, .sre-mttr-summary aside strong, .sre-mttr-summary aside p,
+        .sre-outcome-contract header strong, .sre-outcome-scorecard article span,
+        .sre-outcome-scorecard article b, .sre-outcome-scorecard article small,
+        .sre-delivery-path li strong, .sre-delivery-path li span, .sre-delivery-path aside p,
+        .sre-delivery-path aside b) {
+    font-size: 24px;
+    line-height: 1.3;
+  }
+
+  & :is(.sre-signal-kpis strong, .sre-mttr-summary > article strong) {
+    font-size: 44px;
+    line-height: 1.1;
+  }
+
+  & .sre-signal-board {
+    gap: 16px;
+  }
+
+  & .sre-signal-kpis article {
+    padding: 12px 18px;
+    gap: 6px;
+  }
+
+  & .sre-signal-detail {
+    grid-template-columns: 1.25fr .75fr;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  & .sre-signal-detail figure {
+    padding: 18px;
+    gap: 8px;
+  }
+
+  & .sre-signal-detail figure > div {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 16px;
+    background: none;
+  }
+
+  & .sre-signal-detail figure > div > b {
+    color: var(--sre-ink);
+  }
+
+  & .sre-signal-detail figure span {
+    justify-content: flex-end;
+    min-width: 46px;
+  }
+
+  & .sre-signal-detail aside {
+    gap: 8px;
+    padding: 16px;
+  }
+
+  & .sre-impact-view {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 16px 24px;
+  }
+
+  & .sre-service-map {
+    grid-template-columns: repeat(3, minmax(0, 1fr) 24px) minmax(0, 1fr);
+    padding: 16px;
+    row-gap: 16px;
+  }
+
+  & .sre-service-map .node {
+    padding: 8px;
+    gap: 4px;
+  }
+
+  & .sre-service-map .node small {
+    line-height: 1.1;
+  }
+
+  & .sre-impact-summary {
+    padding: 24px;
+  }
+
+  & .sre-impact-summary header {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  & .sre-impact-summary > div {
+    padding-block: 12px;
+    gap: 16px;
+  }
+
+  & .sre-decision-system {
+    gap: 16px 24px;
+  }
+
+  & :is(.sre-decision-inputs, .sre-decision-output) {
+    gap: 10px;
+  }
+
+  & :is(.sre-decision-inputs, .sre-decision-output) article {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 6px 12px;
+    padding: 8px 12px;
+  }
+
+  & .sre-decision-output article {
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+
+  & :is(.sre-decision-inputs, .sre-decision-output) small {
+    grid-row: auto;
+    align-self: center;
+  }
+
+  & :is(.sre-decision-inputs, .sre-decision-output) span {
+    grid-column: 1 / -1;
+  }
+
+  & .sre-decision-core {
+    gap: 12px;
+    padding: 24px;
+  }
+
+  & .sre-decision-core > div {
+    gap: 16px;
+    padding-top: 12px;
+  }
+
+  & .sre-decision-system footer {
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 20px;
+    padding: 12px 20px;
+  }
+
+  & .sre-option-grid article {
+    grid-template-rows: 25px 32px 62px minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px;
+  }
+
+  & .sre-option-grid dl {
+    align-content: start;
+    gap: 12px;
+  }
+
+  & .sre-option-grid dl div {
+    gap: 12px;
+  }
+
+  & .sre-option-grid .blocked {
+    opacity: 1;
+  }
+
+  & .sre-option-board > footer {
+    gap: 24px;
+    padding: 12px 20px;
+  }
+
+  & .sre-agent-lane article {
+    padding: 16px;
+    gap: 12px;
+    align-content: start;
+    grid-template-rows: 25px 94px minmax(0, 1fr);
+  }
+
+  & .sre-agent-lane > i {
+    flex: 0 0 24px;
+  }
+
+  & .sre-safeguards header {
+    padding: 16px;
+  }
+
+  & .sre-safeguards li {
+    padding: 8px;
+  }
+
+  & .sre-failover-plan {
+    grid-template-columns: minmax(0, 1fr) 440px;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  & .sre-failover-architecture figure {
+    padding: 24px;
+  }
+
+  & .sre-failover-architecture figure > :is(div, article) {
+    padding: 16px;
+  }
+
+  & .sre-failover-architecture .inbound {
+    position: relative;
+    align-self: stretch;
+    height: auto;
+    background: none;
+
+    &::before,
+    &::after {
+      position: absolute;
+      background: #8aa4b6;
+      content: "";
+    }
+
+    &::before {
+      top: 25%;
+      bottom: 25%;
+      left: 50%;
+      width: 3px;
+    }
+
+    &::after {
+      top: calc(50% - 1.5px);
+      left: 0;
+      width: 50%;
+      height: 3px;
+    }
+  }
+
+  & .sre-failover-architecture :is(.inbound-primary, .inbound-secondary) {
+    grid-column: 2;
+    justify-self: end;
+    width: 50%;
+  }
+
+  & .sre-failover-architecture .inbound-primary {
+    grid-row: 1;
+  }
+
+  & .sre-failover-architecture .inbound-secondary {
+    grid-row: 2;
+  }
+
+  & .sre-recovery-contract {
+    padding: 20px;
+  }
+
+  & .sre-recovery-contract header {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  & .sre-recovery-contract > div {
+    padding-block: 8px;
+    gap: 12px;
+  }
+
+  & .sre-recovery-contract footer {
+    margin-top: 12px;
+    padding-top: 8px;
+  }
+
+  & .sre-mttr-timeline article {
+    grid-template-rows: 25px 62px 32px;
+    gap: 8px;
+    padding: 20px;
+    align-content: start;
+  }
+
+  & .sre-mttr-summary > article {
+    padding: 20px 16px;
+    gap: 10px;
+    align-content: start;
+  }
+
+  & .sre-outcome-contract {
+    grid-template-rows: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  & .sre-outcome-contract header {
+    gap: 8px;
+    padding: 16px;
+  }
+
+  & .sre-outcome-scorecard {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto repeat(6, minmax(0, 1fr));
+  }
+
+  & .sre-outcome-scorecard article {
+    grid-template-columns: 160px 200px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px;
+    border-right: 0;
+    border-bottom: 1px solid #dce4e9;
+  }
+
+  & .sre-outcome-scorecard article span {
+    grid-row: auto;
+  }
+
+  & .sre-outcome-scorecard article:last-child {
+    border-bottom: 0;
+  }
+
+  & .sre-delivery-path ol {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  & .sre-delivery-path li {
+    grid-template-rows: 25px 62px minmax(0, 1fr);
+    gap: 6px;
+    padding: 0;
+  }
+
+  & .sre-delivery-path li::after {
+    display: none;
+  }
+
+  & .sre-delivery-path aside {
+    gap: 12px;
+    margin: 0 12px 12px;
+    padding: 16px;
+  }
+}
