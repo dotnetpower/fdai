@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 4d774c39532114c27a6c7d36e6474196cf93ad03
+translation_source_sha: 73aa60166d83fc8cedf069b9408c964a306b0409
 translation_revised: 2026-09-12
 ---
 # 온톨로지 구조 모델
@@ -267,6 +267,11 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 있거나 합계가 발견된 전체 후보 수와 다르면 증적은 불완전합니다. 지원 관계 구체화는 명시적인
 프로바이더, release, 출처, principal, 범위, 역량 프로필에 대해서만 100%에 도달할 수 있습니다.
 열린 클라우드 프로바이더 스키마에서 가능한 모든 관계를 의미하지 않습니다.
+
+프로바이더 정본 유형 커버리지는 관계 후보 회계 및 온톨로지 분류와 분리합니다. 활성 snapshot은
+일치하는 mapped 및 unmapped 개체 수와 범위가 제한된 unknown 프로바이더 유형 이름을 보고합니다.
+Operator와 Console은 이 근거를 검증하고 표시하지만, unknown 유형은 `unclassified-resource`로
+유지됩니다. 이 보고서는 ResourceType, 분류 링크, 카탈로그 revision 또는 실행 권한을 만들 수 없습니다.
 
 범위가 제한된 탐색 응답은 반환된 Resource와 링크 수, 정확한 요청 상한, 사유별 잘림을 보고합니다.
 상한에 도달하면 응답은 불완전한 상태를 유지하며 운영자는 LinkType, 깊이 또는 루트를 좁힙니다.

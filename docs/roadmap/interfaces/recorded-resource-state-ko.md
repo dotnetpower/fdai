@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 6b5f676af8812b5585276226ff730b12644f80f4
+translation_source_sha: 45e5ce4b4e20d800af930cdbc502609501dd823c
 translation_revised: 2026-09-12
 ---
 # 기록된 리소스 상태
@@ -23,6 +23,9 @@ Kubernetes 신원과 진단 사실은 별도의 허용 목록 세부 객체로 �
 프로비저닝 상태 축이 되지 않으며 누락된 진단 사실을 상태 값으로 바꾸지 않습니다.
 Fleet 출처 가용성도 Resource 상태와 분리합니다. 인스턴스 상세 정보는 서로 다른 불투명
 `scope_digest` 값으로 한정된 경우에만 이름이 같은 출처 여러 개를 보존합니다.
+프로바이더 정본 유형 커버리지는 활성 세대에 결속된 또 다른 별도 근거 객체입니다. 운영,
+프로비저닝 또는 가용성 값이 되지 않으며, 일치하는 mapped 및 unmapped 개수, 범위가 제한된 unknown
+유형 이름, 수집 방식 및 프로바이더 식별자 완전성을 보고합니다.
 현재 인스턴스 상세 응답은 `runtime_call_graph` 및 `postgres_role_evidence` 원본 상태를 항상
 명시합니다. Console 디코더는 둘 중 하나가 없으면 누락을 가용성이나 측정된 0으로 표시하지 않고
 거부합니다. Operator 판독기는 포함된 인벤토리 세대가 선택한 스냅샷과 다른 런타임 호출 링크도

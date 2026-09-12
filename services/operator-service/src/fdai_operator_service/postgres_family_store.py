@@ -40,6 +40,8 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceResource,
     InventoryInstanceResourcePage,
     InventoryProjectionSourceState,
+    InventoryProviderScopeCoverage,
+    InventoryProviderTypeCount,
     InventoryRelationshipCoverage,
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
@@ -846,6 +848,7 @@ class PostgresFamilyStore:
             metadata.get("derived_source_states", [])
         )
         relationship_coverage = _relationship_coverage(metadata.get("relationship_coverage"))
+        provider_scope_coverage = _provider_scope_coverage(metadata.get("provider_scope_coverage"))
         return InventoryImpactContext(
             snapshot_id=snapshot_id,
             observed_at=_stored_timestamp(
@@ -856,6 +859,7 @@ class PostgresFamilyStore:
             relationship_drop_classifications=relationship_drop_classifications,
             projection_source_states=projection_source_states,
             relationship_coverage=relationship_coverage,
+            provider_scope_coverage=provider_scope_coverage,
         )
 
     async def read_inventory_ontology_context(self) -> InventoryOntologyContext | None:
@@ -4004,6 +4008,93 @@ def _relationship_coverage(value: object) -> InventoryRelationshipCoverage | Non
         unclassified=counts["unclassified"],
         total_candidates=counts["total_candidates"],
         complete=complete,
+    )
+
+
+def _provider_scope_coverage(value: object) -> InventoryProviderScopeCoverage | None:
+    """Decode bounded provider-native type coverage from an active snapshot."""
+
+    if value is None:
+        return None
+    item = _json_object(value, label="active inventory provider scope coverage")
+    if item.get("schema_version") != "1.1.0":
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory provider scope coverage schema is unsupported"
+        )
+    capture_method = item.get("capture_method")
+    if (
+        not isinstance(capture_method, str)
+        or not capture_method.strip()
+        or len(capture_method) > 128
+    ):
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory provider scope coverage is malformed"
+        )
+    counts: dict[str, int] = {}
+    for name in (
+        "provider_object_count",
+        "mapped_provider_object_count",
+        "unmapped_provider_object_count",
+        "materialized_unmapped_provider_object_count",
+        "provider_type_count",
+        "unmapped_provider_type_count",
+    ):
+        raw_count = item.get(name)
+        if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
+            raise PostgresFamilyStoreUnavailable(
+                "active inventory provider scope coverage is malformed"
+            )
+        counts[name] = raw_count
+    raw_types = item.get("unmapped_provider_types")
+    if not isinstance(raw_types, list) or len(raw_types) > 10_000:
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory provider scope coverage is malformed"
+        )
+    provider_types: list[InventoryProviderTypeCount] = []
+    for raw_type in raw_types:
+        type_count = _json_object(raw_type, label="active inventory provider type coverage")
+        provider_type = type_count.get("provider_type")
+        count = type_count.get("count")
+        if (
+            not isinstance(provider_type, str)
+            or not provider_type.strip()
+            or len(provider_type) > 512
+            or isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 1
+        ):
+            raise PostgresFamilyStoreUnavailable(
+                "active inventory provider type coverage is malformed"
+            )
+        provider_types.append(InventoryProviderTypeCount(provider_type=provider_type, count=count))
+    type_names = tuple(entry.provider_type for entry in provider_types)
+    identity_complete = item.get("provider_identity_complete")
+    unmapped_objects = counts["unmapped_provider_object_count"]
+    materialized_objects = counts["materialized_unmapped_provider_object_count"]
+    if (
+        counts["provider_object_count"] != counts["mapped_provider_object_count"] + unmapped_objects
+        or counts["provider_type_count"] > counts["provider_object_count"]
+        or (counts["provider_object_count"] == 0) != (counts["provider_type_count"] == 0)
+        or counts["unmapped_provider_type_count"] != len(provider_types)
+        or len(provider_types) > counts["provider_type_count"]
+        or sum(entry.count for entry in provider_types) != unmapped_objects
+        or type_names != tuple(sorted(set(type_names)))
+        or materialized_objects not in {0, unmapped_objects}
+        or not isinstance(identity_complete, bool)
+        or identity_complete != (materialized_objects == unmapped_objects)
+    ):
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory provider scope coverage is inconsistent"
+        )
+    return InventoryProviderScopeCoverage(
+        capture_method=capture_method,
+        provider_object_count=counts["provider_object_count"],
+        mapped_provider_object_count=counts["mapped_provider_object_count"],
+        unmapped_provider_object_count=unmapped_objects,
+        materialized_unmapped_provider_object_count=materialized_objects,
+        provider_identity_complete=identity_complete,
+        provider_type_count=counts["provider_type_count"],
+        unmapped_provider_types=tuple(provider_types),
     )
 
 
