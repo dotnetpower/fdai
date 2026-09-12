@@ -348,7 +348,7 @@ def test_workflow_accepts_reviewed_immutable_action_ref(
     assert module._validate_action_runtime_versions() == []
 
 
-def test_ci_expensive_jobs_follow_change_scope_and_python_uses_four_shards() -> None:
+def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards() -> None:
     workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
     jobs = workflow["jobs"]
     outputs = jobs["changes"]["outputs"]
@@ -386,11 +386,49 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_four_shards() -> 
     assert python_tests["env"]["FDAI_PYTEST_MODE"] == "regression"
     assert python_tests["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
     assert {step["name"] for step in python_tests["steps"]}.isdisjoint(
-        {"Prepare coverage data", "Upload coverage data"}
+        {
+            "Prepare coverage data",
+            "Run Python lint and static contracts",
+            "Upload coverage data",
+        }
     )
+    python_setup_uv = next(
+        step for step in python_tests["steps"] if step["name"] == "Set up uv (Python 3.13)"
+    )
+    assert python_setup_uv["with"]["save-cache"] is False
+    install_dependencies = next(
+        step for step in python_tests["steps"] if step["name"] == "Install dependencies"
+    )
+    assert install_dependencies["run"] == "uv sync --extra dev --extra pdf-report --frozen"
 
     contracts = jobs["contracts"]
     assert contracts["needs"] == "changes"
+    assert contracts["name"] == "repository, design, and static contracts"
+    static_steps = {
+        step["name"]: step
+        for step in contracts["steps"]
+        if step["name"]
+        in {
+            "Set up Python",
+            "Set up uv (Python 3.13)",
+            "Install static check dependencies",
+            "Run Python lint and static contracts",
+        }
+    }
+    assert set(static_steps) == {
+        "Set up Python",
+        "Set up uv (Python 3.13)",
+        "Install static check dependencies",
+        "Run Python lint and static contracts",
+    }
+    assert all(
+        step["if"] == "needs.changes.outputs.python == 'true'" for step in static_steps.values()
+    )
+    assert static_steps["Set up uv (Python 3.13)"]["with"]["save-cache"] is True
+    assert (
+        static_steps["Install static check dependencies"]["run"]
+        == "uv sync --extra dev --extra pdf-report --extra azure-mcp --frozen"
+    )
     docs_step = next(
         step
         for step in contracts["steps"]
@@ -1314,23 +1352,23 @@ def test_frozen_scenario_additions_reject_manifest_only_version() -> None:
     ]
 
 
-def test_required_python_job_enforces_independent_service_boundaries() -> None:
+def test_required_contract_job_enforces_independent_service_boundaries() -> None:
     workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
 
-    python_job = workflow["jobs"]["python-tests"]
+    contract_job = workflow["jobs"]["contracts"]
     boundary_step = next(
         (
             step
-            for step in python_job["steps"]
+            for step in contract_job["steps"]
             if "uv run python scripts/quality/architecture/check-independent-services.py"
             in step.get("run", "")
         ),
         None,
     )
     assert boundary_step is not None
-    assert boundary_step["if"] == "matrix.shard == 1"
+    assert boundary_step["if"] == "needs.changes.outputs.python == 'true'"
     assert boundary_step.get("continue-on-error") not in {True, "true"}
-    assert "python-tests" in workflow["jobs"]["required"]["needs"]
+    assert "contracts" in workflow["jobs"]["required"]["needs"]
 
 
 def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
@@ -1808,9 +1846,9 @@ def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> No
     assert {step["name"] for step in regression_job["steps"]}.isdisjoint(
         {"Prepare coverage data", "Upload coverage data"}
     )
-    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2]
+    assert shard_job["strategy"]["matrix"]["shard"] == [1, 2, 3]
     assert shard_job["env"]["FDAI_PYTEST_MODE"] == "coverage"
-    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
+    assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "3"
     assert shard_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
     assert merge_job["needs"] == ["changes", "python-coverage-shards"]
     merge_step = next(

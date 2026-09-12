@@ -29,6 +29,7 @@ import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -176,8 +177,11 @@ def _collect_functions(tree: ast.Module) -> dict[str, FunctionNode]:
     return functions
 
 
-def _module_facts(path: Path, assessor: str) -> ModuleFacts:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+@lru_cache(maxsize=4096)
+def _module_facts_from_source(path: Path, assessor: str, source: str) -> ModuleFacts:
+    """Extract immutable AST facts once for one exact source revision."""
+
+    tree = ast.parse(source, filename=str(path))
     imports_assessor = False
     calls_assessor = False
     purpose_constants: dict[str, str | None] = {}
@@ -225,6 +229,10 @@ def _module_facts(path: Path, assessor: str) -> ModuleFacts:
         import_sources=import_sources,
         functions=_collect_functions(tree),
     )
+
+
+def _module_facts(path: Path, assessor: str) -> ModuleFacts:
+    return _module_facts_from_source(path, assessor, path.read_text(encoding="utf-8"))
 
 
 def _iter_source_modules(root: Path, source_roots: Iterable[str]) -> Iterable[Path]:

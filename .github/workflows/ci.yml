@@ -85,25 +85,10 @@ jobs:
           python-version: "3.13"
           enable-cache: true
           cache-dependency-glob: uv.lock
-          save-cache: ${{ matrix.shard == 1 }}
+          save-cache: false
 
       - name: Install dependencies
-        run: |
-          extras=(--extra dev --extra pdf-report)
-          if [[ "${{ matrix.shard }}" == "1" ]]; then
-            extras+=(--extra azure-mcp)
-          fi
-          uv sync "${extras[@]}" --frozen
-
-      - name: Run lint and static contracts
-        if: matrix.shard == 1
-        run: |
-          uv run ruff format --check services packages tests extensions/code-assurance
-          uv run ruff check services packages tests extensions/code-assurance
-          uv run mypy
-          uv run python scripts/quality/documentation/check-action-runbooks.py
-          uv run python scripts/quality/repository/check-reference-only-sources.py
-          uv run python scripts/quality/architecture/check-independent-services.py
+        run: uv sync --extra dev --extra pdf-report --frozen
 
       - name: Materialize resolved model manifest
         env:
@@ -117,20 +102,20 @@ jobs:
         run: bash scripts/quality/ci/run-python-tests.sh
 
   python-coverage-shards:
-    name: pytest safety-core coverage shard ${{ matrix.shard }}/2
+    name: pytest safety-core coverage shard ${{ matrix.shard }}/3
     needs: changes
     if: needs.changes.outputs.python == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
       FDAI_PYTEST_MAX_WORKERS: "4"
       FDAI_PYTEST_MODE: coverage
-      FDAI_PYTEST_SHARD_COUNT: "2"
+      FDAI_PYTEST_SHARD_COUNT: "3"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
       - name: Checkout
@@ -245,7 +230,7 @@ jobs:
         run: bash scripts/quality/ci/run-operator-surfaces.sh
 
   contracts:
-    name: repository and design contracts
+    name: repository, design, and static contracts
     needs: changes
     runs-on: ubuntu-24.04
     steps:
@@ -254,8 +239,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        if: needs.changes.outputs.python == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv (Python 3.13)
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        if: needs.changes.outputs.python == 'true'
+        with:
+          version: "0.12.11"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          save-cache: true
+
+      - name: Install static check dependencies
+        if: needs.changes.outputs.python == 'true'
+        run: uv sync --extra dev --extra pdf-report --extra azure-mcp --frozen
+
       - name: Install contract check dependencies
         run: python3 -m pip install --quiet pyyaml
+
+      - name: Run Python lint and static contracts
+        if: needs.changes.outputs.python == 'true'
+        run: |
+          uv run ruff format --check services packages tests extensions/code-assurance
+          uv run ruff check services packages tests extensions/code-assurance
+          uv run mypy
+          uv run python scripts/quality/documentation/check-action-runbooks.py
+          uv run python scripts/quality/repository/check-reference-only-sources.py
+          uv run python scripts/quality/architecture/check-independent-services.py
 
       - name: Check documentation source contracts
         if: needs.changes.outputs.docs == 'true'

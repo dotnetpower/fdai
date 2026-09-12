@@ -26,12 +26,12 @@ def _load_module() -> ModuleType:
     return module
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def checker() -> ModuleType:
     return _load_module()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def inventory() -> dict[str, Any]:
     return json.loads(INVENTORY.read_text(encoding="utf-8"))
 
@@ -39,6 +39,23 @@ def inventory() -> dict[str, Any]:
 def _write(path: Path, document: dict[str, Any]) -> Path:
     path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def test_module_facts_cache_is_bound_to_exact_source(
+    checker: ModuleType,
+    tmp_path: Path,
+) -> None:
+    module = tmp_path / "boundary.py"
+    module.write_text("BOUNDARY_EVIDENCE_PURPOSE = 'first'\n", encoding="utf-8")
+
+    first = checker._module_facts(module, "assess")
+    assert checker._module_facts(module, "assess") is first
+
+    module.write_text("BOUNDARY_EVIDENCE_PURPOSE = 'other'\n", encoding="utf-8")
+    changed = checker._module_facts(module, "assess")
+
+    assert changed is not first
+    assert changed.purpose_constants["BOUNDARY_EVIDENCE_PURPOSE"] == "other"
 
 
 def test_the_shipped_inventory_covers_every_registered_boundary(checker: ModuleType) -> None:

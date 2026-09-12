@@ -394,7 +394,7 @@ def _validate_python_test_partitioning() -> list[str]:
     )
     required_workflow_fragments = (
         "pytest regression shard ${{ matrix.shard }}/4",
-        "pytest safety-core coverage shard ${{ matrix.shard }}/2",
+        "pytest safety-core coverage shard ${{ matrix.shard }}/3",
         "python-tests:",
         "python-coverage-shards:",
         "python-coverage:",
