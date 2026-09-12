@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|provider-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|provider-cost-[0-9a-f]{48}|provider-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|provider-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|provider-cost-[0-9a-f]{48}|provider-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -87,7 +87,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "when deploy_console is enabled"
         )
     if re.fullmatch(
-        r"(?:plan|apply)-(?:cost-|history-|identity-|observability-|provider-|rca-|runtime-)?[0-9a-f]{48}",
+        r"(?:plan|apply)-(?:cost-|history-|identity-|observability-|provider-cost-|provider-|rca-|runtime-)?[0-9a-f]{48}",
         request_id,
     ):
         if values.get("TARGET_ENVIRONMENT") == "prod":
@@ -113,6 +113,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_suffix.removeprefix("history-")
         request_suffix = request_suffix.removeprefix("identity-")
         request_suffix = request_suffix.removeprefix("observability-")
+        request_suffix = request_suffix.removeprefix("provider-cost-")
         request_suffix = request_suffix.removeprefix("provider-")
         request_suffix = request_suffix.removeprefix("runtime-")
         request_suffix = request_suffix.removeprefix("cost-")
@@ -247,7 +248,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
                 "deploy identity migration cannot be combined with another bounded operation"
             )
     provider_schema_only = (
-        re.fullmatch(r"(?:plan|apply)-provider-[0-9a-f]{48}", request_id) is not None
+        re.fullmatch(r"(?:plan|apply)-provider-(?:cost-)?[0-9a-f]{48}", request_id) is not None
     )
     if deploy_provider_schema != provider_schema_only:
         raise ValueError("provider-schema request prefix and mode must match")
@@ -269,10 +270,13 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         )
         if values.get("TARGET_ENVIRONMENT") != "dev":
             raise ValueError("provider-schema deployment is restricted to dev")
-        if runtime_image_profile != "core-control-plane":
-            raise ValueError(
-                "provider-schema deployment requires the core-control-plane runtime image profile"
-            )
+        provider_schema_profile = (
+            "cost-governance"
+            if re.fullmatch(r"(?:plan|apply)-provider-cost-[0-9a-f]{48}", request_id)
+            else "core-control-plane"
+        )
+        if runtime_image_profile != provider_schema_profile:
+            raise ValueError("provider-schema request prefix and runtime_image_profile must match")
         if (
             any(_enabled(values, key) for key in provider_schema_mixed)
             or document_ocr_action != "preserve"

@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from fdai_deployment_cli.cli import main
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.doctor import ToolCheck
@@ -60,6 +59,57 @@ _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
     "terraform-zero-change",
     "cost-governance-job-image-readback",
 ]
+_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "provider-schema-core-baseline",
+    "provider-schema-job-execution",
+    "provider-schema-durable-generation",
+    "provider-schema-agent-review",
+]
+
+
+def _provider_schema_baseline(*, image_digest: str) -> dict[str, object]:
+    return {
+        "schema_version": "fdai.provider-schema-core-baseline.v1",
+        "source_revision": _COMMIT,
+        "image_digest": image_digest,
+        "core_app_ref_digest": "1" * 64,
+        "active_revision_ref_digest": "2" * 64,
+        "max_inactive_revisions": 1,
+        "health_state": "Healthy",
+        "provisioning_state": "Provisioned",
+        "observed_at": "2026-09-12T00:00:00Z",
+        "grants_authority": False,
+    }
+
+
+def _provider_schema_evidence(*, review_required: bool = False) -> dict[str, object]:
+    drift_digest = "9" * 64 if review_required else None
+    return {
+        "schema_version": "fdai.provider-schema-deployment-evidence.v1",
+        "application_source_commit": _COMMIT,
+        "runtime_image_revision": _COMMIT,
+        "plan_id": "plan-123-1",
+        "job_execution_ref_digest": "3" * 64,
+        "job_execution_status": "Succeeded",
+        "checked_at": "2026-09-12T00:01:00+00:00",
+        "provider_source_revision": "4" * 40,
+        "baseline_digest": f"sha256:{'5' * 64}",
+        "observed_digest": f"sha256:{'6' * 64}",
+        "drift_digest": drift_digest,
+        "disposition": "breaking" if review_required else "unchanged",
+        "durable_generation_digest": f"sha256:{'7' * 64}",
+        "durable_generation_revision": 1,
+        "run_receipt_digest": f"sha256:{'8' * 64}",
+        "review_package_digest": f"sha256:{'a' * 64}" if review_required else None,
+        "heimdall_review_dispatched": review_required,
+        "review_evidence_status": "verified" if review_required else "not_applicable",
+        "correlation_id": f"provider-schema:azure:{drift_digest}" if review_required else None,
+        "forseti_risk_verdict": "hil" if review_required else None,
+        "forseti_reason": "no_rule_match" if review_required else None,
+        "saga_audit_entry_hash": "b" * 64 if review_required else None,
+        "grants_authority": False,
+    }
 
 
 class RecordingRunner:
@@ -468,6 +518,95 @@ def test_cost_plan_status_accepts_profile_specific_observations() -> None:
     assert status["plan"]["post_apply_observations"] == (_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS)
 
 
+@pytest.mark.parametrize(
+    ("runtime_image_profile", "request_prefix"),
+    (
+        ("core-control-plane", "plan-provider-"),
+        ("cost-governance", "plan-provider-cost-"),
+    ),
+)
+def test_provider_schema_plan_status_validates_profile_specific_evidence(
+    runtime_image_profile: str,
+    request_prefix: str,
+) -> None:
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_provider_schema=True,
+        runtime_image_revision=_COMMIT,
+        runtime_image_profile=runtime_image_profile,
+    )
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.provider-status",
+        selection=selection,
+        run=RecordingRunner(),
+    )
+
+    class ProviderPlanArtifactRunner(RecordingRunner):
+        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
+            self.calls.append(arguments)
+            if arguments[:2] == ("run", "download"):
+                directory = Path(arguments[arguments.index("--dir") + 1])
+                (directory / "plan-metadata.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "fdai.deployment-plan.v1",
+                            "request_id": plan.request_id,
+                            "commit_sha": _COMMIT,
+                            "status": "ready",
+                            "plan_id": "plan-123-1",
+                            "plan_digest": "c" * 64,
+                            "context_digest": plan.context_digest,
+                            "expires_at": _FUTURE_EXPIRY,
+                            "plan_summary": _summary(create=0),
+                            "post_apply_observations": (_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS),
+                            "runtime_image": {
+                                "source_revision": _COMMIT,
+                                "digest": f"sha256:{'d' * 64}",
+                                "profile": runtime_image_profile,
+                            },
+                        },
+                        sort_keys=True,
+                    ),
+                    encoding="utf-8",
+                )
+                return CommandResult(0, "")
+            return CommandResult(
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": 123,
+                            "displayTitle": plan.run_name,
+                            "status": "completed",
+                            "conclusion": "success",
+                            "url": "https://example.com/run/123",
+                            "headSha": _COMMIT,
+                        }
+                    ]
+                ),
+            )
+
+    status = workflow_status(
+        repository="example/fdai",
+        request_id_value=plan.request_id,
+        expected_commit=_COMMIT,
+        expected_context_digest=plan.context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        run=ProviderPlanArtifactRunner(),
+    )
+
+    assert plan.request_id.startswith(request_prefix)
+    assert status["plan"]["post_apply_observations"] == (_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS)
+    assert status["plan"]["runtime_image"]["profile"] == runtime_image_profile
+
+
 def test_status_rejects_absent_or_ambiguous_runs() -> None:
     context_digest = deployment_context_digest(
         environment="dev",
@@ -718,6 +857,136 @@ def test_cost_apply_status_validates_terminal_receipt_and_job_readback() -> None
     assert receipt["cost_governance_job_images_verified"] is True
     assert receipt["cost_governance_image_digest"] == f"sha256:{'d' * 64}"
     assert "runtime_health_verified" not in receipt
+
+
+@pytest.mark.parametrize(
+    ("runtime_image_profile", "request_prefix"),
+    (
+        ("core-control-plane", "apply-provider-"),
+        ("cost-governance", "apply-provider-cost-"),
+    ),
+)
+def test_provider_schema_apply_status_validates_terminal_evidence(
+    runtime_image_profile: str,
+    request_prefix: str,
+) -> None:
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_provider_schema=True,
+        runtime_image_revision=_COMMIT,
+        runtime_image_profile=runtime_image_profile,
+    )
+    dispatched = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.provider-apply-status",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=False,
+        selection=selection,
+        run=RecordingRunner(),
+    )
+
+    class ProviderApplyArtifactRunner(RecordingRunner):
+        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
+            self.calls.append(arguments)
+            if arguments[:2] == ("run", "download"):
+                directory = Path(arguments[arguments.index("--dir") + 1])
+                image_digest = f"sha256:{'d' * 64}"
+                baseline_bytes = (
+                    json.dumps(
+                        _provider_schema_baseline(image_digest=image_digest),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                ).encode()
+                evidence_bytes = (
+                    json.dumps(
+                        _provider_schema_evidence(
+                            review_required=runtime_image_profile == "cost-governance"
+                        ),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                ).encode()
+                (directory / "provider-schema-core-baseline.json").write_bytes(baseline_bytes)
+                (directory / "provider-schema-deployment-evidence.json").write_bytes(evidence_bytes)
+                receipt = {
+                    "schema_version": "fdai.deployment-apply-receipt.v1",
+                    "plan_id": "plan-123-1",
+                    "plan_digest": "c" * 64,
+                    "request_id": dispatched.request_id,
+                    "context_digest": dispatched.context_digest,
+                    "source_commit": _COMMIT,
+                    "workflow_run_id": "123",
+                    "workflow_run_attempt": "1",
+                    "applied_at": "2026-09-12T00:05:00Z",
+                    "status": "applied",
+                    "terraform_zero_change_verified": True,
+                    "provider_schema_runtime_image_revision": _COMMIT,
+                    "provider_schema_runtime_image_digest": image_digest,
+                    "provider_schema_runtime_image_profile": runtime_image_profile,
+                    "provider_schema_core_baseline_digest": hashlib.sha256(
+                        baseline_bytes
+                    ).hexdigest(),
+                    "provider_schema_deployment_evidence_digest": hashlib.sha256(
+                        evidence_bytes
+                    ).hexdigest(),
+                    "subscription_ready": False,
+                }
+                receipt["receipt_digest"] = canonical_digest(receipt)
+                (directory / "apply-receipt.json").write_text(
+                    json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+                    encoding="utf-8",
+                )
+                return CommandResult(0, "")
+            return CommandResult(
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": 123,
+                            "displayTitle": dispatched.run_name,
+                            "status": "completed",
+                            "conclusion": "success",
+                            "url": "https://example.com/run/123",
+                            "headSha": _COMMIT,
+                        }
+                    ]
+                ),
+            )
+
+    status = workflow_status(
+        repository="example/fdai",
+        request_id_value=dispatched.request_id,
+        expected_commit=_COMMIT,
+        expected_context_digest=dispatched.context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        expected_plan_id="plan-123-1",
+        expected_plan_digest="c" * 64,
+        run=ProviderApplyArtifactRunner(),
+    )
+
+    receipt = status["apply_receipt"]
+    assert isinstance(receipt, dict)
+    assert dispatched.request_id.startswith(request_prefix)
+    assert receipt["provider_schema_runtime_image_profile"] == runtime_image_profile
+    assert receipt["provider_schema"]["durable_generation_revision"] == 1
+    expected_review_status = (
+        "verified" if runtime_image_profile == "cost-governance" else "not_applicable"
+    )
+    assert receipt["provider_schema"]["review_evidence_status"] == expected_review_status
+    assert "runtime_health_verified" not in receipt
+    assert "cost_governance_job_images_verified" not in receipt
 
 
 def test_context_changes_when_any_feature_selection_changes() -> None:
@@ -1138,13 +1407,24 @@ def test_gateway_selection_round_trip() -> None:
     assert fields["deploy_dev_operations_gateway"] == "true"
 
 
-def test_provider_schema_selection_round_trip() -> None:
+@pytest.mark.parametrize(
+    ("runtime_image_profile", "request_prefix"),
+    (
+        ("core-control-plane", "provider"),
+        ("cost-governance", "provider-cost"),
+    ),
+)
+def test_provider_schema_selection_round_trip(
+    runtime_image_profile: str,
+    request_prefix: str,
+) -> None:
     runner = RecordingRunner()
     selection = DeploymentSelection(
         deploy_console=False,
         deploy_operator_api=False,
         deploy_provider_schema=True,
         runtime_image_revision=_COMMIT,
+        runtime_image_profile=runtime_image_profile,
     )
 
     plan = dispatch_plan(
@@ -1192,9 +1472,9 @@ def test_provider_schema_selection_round_trip() -> None:
     plan_fields = _fields(workflow_calls[0])
     apply_fields = _fields(workflow_calls[1])
     resume_fields = _fields(workflow_calls[2])
-    assert plan.request_id.startswith("plan-provider-")
-    assert apply.request_id.startswith("apply-provider-")
-    assert resume.request_id.startswith("apply-provider-")
+    assert plan.request_id.startswith(f"plan-{request_prefix}-")
+    assert apply.request_id.startswith(f"apply-{request_prefix}-")
+    assert resume.request_id.startswith(f"apply-{request_prefix}-")
     assert plan.context_digest == apply.context_digest == resume.context_digest
     assert resume.mode == "resume-verification"
     assert "deploy_provider_schema" not in plan_fields
@@ -1218,14 +1498,6 @@ def test_provider_schema_selection_rejects_mixed_or_unbound_requests() -> None:
             deploy_console=False,
             deploy_operator_api=False,
             deploy_provider_schema=True,
-        )
-    with pytest.raises(ValueError, match="requires the core-control-plane runtime image profile"):
-        DeploymentSelection(
-            deploy_console=False,
-            deploy_operator_api=False,
-            deploy_provider_schema=True,
-            runtime_image_revision=_COMMIT,
-            runtime_image_profile="cost-governance",
         )
 
 

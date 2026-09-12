@@ -97,11 +97,11 @@ _CORE_PREFIXES = (
     "alembic/",
     "config/",
     "policies/",
+    "provider-schema-catalog/",
     "rule-catalog/",
     "services/assets/",
     "tests/scenarios/",
 )
-_CORE_ONLY_PREFIXES = ("provider-schema-catalog/",)
 _COST_GOVERNANCE_PREFIX = "extensions/cost-governance/"
 _GITHUB_APP_AUTH_PREFIX = "packages/github-app-auth/"
 _SOURCE_PACKAGE_PREFIXES = (
@@ -173,9 +173,6 @@ def select_image_targets(
 
     selected: set[str] = set()
     for path in paths:
-        if path.startswith(_CORE_ONLY_PREFIXES):
-            selected.add("core-control-plane")
-            continue
         if path.startswith(_GITHUB_APP_AUTH_PREFIX):
             selected.update({"core-control-plane", "cost-governance", "document-ingestion-api"})
             continue

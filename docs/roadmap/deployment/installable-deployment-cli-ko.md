@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 1d2332e76ad45d2f23567b8f904a0032845f4308
+translation_source_sha: 21cb1dcafdd94ae54164add3cdeb15215559b172
 translation_revised: 2026-09-12
 ---
 # 설치형 배포 CLI
@@ -514,7 +514,7 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 없는
 `--deploy-operator-channel-edge` 신원 계획 및 전용 RCA reader를 계획과 적용에 동일하게
 봉인합니다. RCA 모드는 전용 신원과 Monitoring Reader 역할만 허용합니다. 선택적 런타임
-리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다. `--deploy-identity-migration`은 애플리케이션 선택을 차단하고 stable-principal fence와 상태 기반 deployer 역할만 대상으로 하는 개발 환경 전용 단독 작업입니다. exact 적용은 같은 대상 집합으로 수렴하고 stable 역할 및 교체된 역할 0건 readback을 적용 증적에 결합합니다. 일반 CLI 맥락은 서버 digest와 일치하도록 `runtime_call_evidence_transition=false`를 봉인하지만 제거된 해당 키를 workflow dispatch field로 보내지는 않습니다.
+리비전도 봉인하며 입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다. 단독 provider-schema 선택은 표준 Core 프로필에 `provider` 요청 id를 사용하고 Cost Governance Core 프로필에 `provider-cost` 요청 id를 사용합니다. 하위 유형과 맥락 다이제스트는 workflow 입력을 추가하거나 provider Job을 패키지 대상으로 취급하지 않고 선택한 프로필을 결속합니다. `--deploy-identity-migration`은 애플리케이션 선택을 차단하고 stable-principal fence와 상태 기반 deployer 역할만 대상으로 하는 개발 환경 전용 단독 작업입니다. exact 적용은 같은 대상 집합으로 수렴하고 stable 역할 및 교체된 역할 0건 readback을 적용 증적에 결합합니다. 일반 CLI 맥락은 서버 digest와 일치하도록 `runtime_call_evidence_transition=false`를 봉인하지만 제거된 해당 키를 workflow dispatch field로 보내지는 않습니다.
 
 적용 디스패치에는 GitHub 환경 승인 게이트가 없습니다. 클라이언트는 필수 검토자, 자체 검토,
 관리자 우회를 확인하지 않으며 보호된 작업 흐름도 배포 환경을 바인딩하지 않으므로, 권한이 있는
@@ -575,7 +575,7 @@ Terraform 적용 성공 뒤 신원, 이행, 상태 또는 canary 검사가 실�
 기존 점유와 증적 부재를 검증하고 Terraform 적용을 건너뛰며 convergence와 post-apply
 검사를 다시 수행한 뒤 증적을 기록합니다. 맥락 변경, 누락된 점유, 기존 증적은
 재개를 차단합니다. Targeted 계획이 콘솔 hostname 출력을 비워 두면 Entra sync는 Terraform
-상태의 exact Static Web App id를 사용해 Azure 관리 평면에서 hostname을 읽습니다. 적용 후 관찰은 봉인된 runtime profile을 따릅니다. Cost Governance plan은 대상이 제한된 zero-change 결과와 collector 및 analyzer Job의 독립 image readback만 요구합니다. `deploy status`는 apply 증적과 함께 정제된 Job readback을 내려받아 두 고정 container binding과 공유 다이제스트를 확인하고, readback 및 증적 다이제스트를 다시 계산합니다. 이 패키지 범위를 Core migration, health, inventory 또는 canary 근거로 대체하지 않습니다.
+상태의 exact Static Web App id를 사용해 Azure 관리 평면에서 hostname을 읽습니다. 적용 후 관측은 런타임 프로필보다 봉인된 요청 모드를 먼저 따릅니다. Provider-schema 계획에는 대상이 제한된 zero-change, 정확하고 정상인 Core 기준선, 성공한 Job 실행 한 번, 최신 영속 출처 세대, 그리고 완전한 Heimdall/Forseti/Saga 검토 체인 또는 명시적인 해당 없음 검토 결과가 필요합니다. `deploy status`는 기준선과 provider 근거 산출물 다이제스트를 다시 계산하고 해당 출처, 이미지, 세대 및 검토 필드를 검증합니다. Cost Governance 패키지 계획에는 대신 대상이 제한된 zero-change 결과와 collector 및 analyzer Job의 독립 이미지 readback이 필요합니다. Status는 두 고정 컨테이너 연결과 공유 다이제스트를 검증합니다. 어느 대상 범위도 관련 없는 Core 마이그레이션, 인벤토리, 상태 또는 canary 근거를 대체하지 않습니다.
 
 Post-apply 이행은 같은 작업 흐름 문서가 서로 다른 action-catalog 다이제스트를 pin할 때 변경할 수 없는
 built-in 작업 흐름 정의가 coexist하도록 허용합니다. Unique 데이터베이스 신원은 작업 흐름 이름,

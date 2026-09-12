@@ -847,20 +847,39 @@ def test_provider_schema_plan_and_apply_are_context_bound_and_exclusive() -> Non
             },
             checkout_commit=_COMMIT,
         )
-    wrong_profile = {**values, "RUNTIME_IMAGE_PROFILE": "cost-governance"}
-    wrong_profile_context = _MODULE._deployment_context_digest(wrong_profile)
-    wrong_profile_prefix = _MODULE._request_binding_prefix(
+    cost_profile = {**values, "RUNTIME_IMAGE_PROFILE": "cost-governance"}
+    cost_profile_context = _MODULE._deployment_context_digest(cost_profile)
+    cost_profile_prefix = _MODULE._request_binding_prefix(
         target_binding=_TARGET_BINDING,
-        context_digest=wrong_profile_context,
+        context_digest=cost_profile_context,
         mode="plan",
         region="koreacentral",
     )
-    with pytest.raises(ValueError, match="requires the core-control-plane runtime image profile"):
+    validate(
+        {
+            **cost_profile,
+            "REQUEST_ID": f"plan-provider-cost-{cost_profile_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": cost_profile_context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+        },
+        checkout_commit=_COMMIT,
+    )
+    with pytest.raises(ValueError, match="request prefix and runtime_image_profile must match"):
         validate(
             {
-                **wrong_profile,
-                "REQUEST_ID": f"plan-provider-{wrong_profile_prefix}{'abcd' * 5}0001",
-                "CONTEXT_DIGEST": wrong_profile_context,
+                **cost_profile,
+                "REQUEST_ID": f"plan-provider-{cost_profile_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": cost_profile_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="request prefix and runtime_image_profile must match"):
+        validate(
+            {
+                **values,
+                "REQUEST_ID": bound("plan").replace("plan-provider-", "plan-provider-cost-", 1),
+                "CONTEXT_DIGEST": context,
                 "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
             },
             checkout_commit=_COMMIT,

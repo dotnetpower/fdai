@@ -137,7 +137,7 @@ jobs:
       # AAD auth for both the azurerm provider and the state backend blob,
       # using the runner's stable user-assigned managed identity.
       ARM_USE_AZUREAD: "true"
-      RUNTIME_IMAGE_PROFILE: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && 'cost-governance' || 'core-control-plane' }}
+      RUNTIME_IMAGE_PROFILE: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-') || startsWith(inputs.request_id, 'plan-provider-cost-') || startsWith(inputs.request_id, 'apply-provider-cost-')) && 'cost-governance' || 'core-control-plane' }}
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
