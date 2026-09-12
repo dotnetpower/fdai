@@ -137,3 +137,63 @@ def test_rejects_stale_document_ocr_plan_state() -> None:
             expected_proposal_id=proposal_id,
             expected_environment="dev",
         )
+
+
+class _Cursor:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+
+    def fetchall(self) -> list[dict[str, object]]:
+        return self.rows
+
+
+class _Connection:
+    def __init__(
+        self,
+        proposal: dict[str, object],
+        policy_state: dict[str, object],
+        plan_state: dict[str, object],
+    ) -> None:
+        self.proposal = proposal
+        self.policy_state = policy_state
+        self.plan_state = plan_state
+        self.statements: list[tuple[str, object]] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def transaction(self):
+        return self
+
+    def execute(self, statement: str, parameters: object = None) -> _Cursor:
+        self.statements.append((statement, parameters))
+        if "operator-proposal:iam" in statement:
+            return _Cursor([{"value": self.proposal}])
+        if "operator-document-ocr-policy:current" in statement:
+            return _Cursor([{"value": self.policy_state}])
+        if "operator-document-ocr-plan:current" in statement:
+            return _Cursor([{"value": self.plan_state}])
+        return _Cursor([])
+
+
+def test_database_loader_escapes_like_wildcard(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _module()
+    proposal, policy_state, plan_state, proposal_id = _records(
+        provider="azure_document_intelligence",
+        resource_desired=True,
+        deprovision_requested=False,
+    )
+    connection = _Connection(proposal, policy_state, plan_state)
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_args, **_kwargs: connection)
+
+    loaded = module.load_document_ocr_records(
+        database_url="postgresql://example.invalid/fdai",
+        proposal_id=proposal_id,
+    )
+
+    assert loaded == (proposal, policy_state, plan_state)
+    assert "LIKE 'operator-proposal:iam:%%'" in connection.statements[2][0]
+    assert connection.statements[2][1] == (proposal_id,)

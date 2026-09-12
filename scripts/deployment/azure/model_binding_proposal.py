@@ -165,7 +165,7 @@ def load_model_binding_records(
                     """
                     SELECT value
                       FROM state_kv
-                     WHERE key LIKE 'operator-proposal:iam:%'
+                                         WHERE key LIKE 'operator-proposal:iam:%%'
                        AND value ->> 'proposal_id' = %s
                        AND value ->> 'family' = 'iam'
                        AND value ->> 'operation' = 'model-settings.binding-policy.plan'
