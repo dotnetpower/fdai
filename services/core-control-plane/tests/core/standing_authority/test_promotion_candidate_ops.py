@@ -45,6 +45,9 @@ from fdai.core.standing_authority.promotion_candidate import (
     plan_review_transition,
     replay_candidate,
 )
+from tests.core.standing_authority.hypothetical_provider_eligibility import (
+    hypothetical_fence_capable,
+)
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3] / "src" / "fdai"
 NOW = datetime(2026, 9, 10, 12, 0, tzinfo=UTC)
@@ -78,12 +81,12 @@ STALE_FENCE = LifecycleFence(
 
 
 def _record(**overrides: object) -> PromotionCandidateRecord:
+    hypothetical = overrides.pop("hypothetical_fence_capable", None)
     kwargs: dict[str, object] = dict(
         family_id="family:one",
         revision_id=REVISION_ID,
         fence=FENCE,
         eligible_action_types=("ops.scale-out",),
-        ineligible_provider_action_types=(),
         evidence_requirements=(EVIDENCE_1, EVIDENCE_2),
         source_revision_id="source:v1",
         creator_principal=CREATOR,
@@ -93,7 +96,9 @@ def _record(**overrides: object) -> PromotionCandidateRecord:
         quorum_required=2,
     )
     kwargs.update(overrides)
-    return build_candidate_record(**kwargs)  # type: ignore[arg-type]
+    capable = kwargs["eligible_action_types"] if hypothetical is None else hypothetical
+    with hypothetical_fence_capable(capable):  # type: ignore[arg-type]
+        return build_candidate_record(**kwargs)  # type: ignore[arg-type]
 
 
 def _build_review(
@@ -611,8 +616,9 @@ async def test_rebuild_snapshot_matches_stored() -> None:
 def test_multiple_ineligible_action_types_all_denied() -> None:
     rec = _record(
         eligible_action_types=("ops.scale-out", "ops.restart"),
-        ineligible_provider_action_types=("ops.scale-out", "ops.restart"),
+        hypothetical_fence_capable=(),
     )
+    assert rec.ineligible_provider_action_types == ("ops.restart", "ops.scale-out")
     result = _create(rec)
     assert result.snapshot.status is CandidateStatus.DENIED
     assert result.denial is not None
@@ -623,8 +629,9 @@ def test_multiple_ineligible_action_types_all_denied() -> None:
 def test_partial_ineligible_action_type_still_denied() -> None:
     rec = _record(
         eligible_action_types=("ops.scale-out", "ops.restart"),
-        ineligible_provider_action_types=("ops.restart",),
+        hypothetical_fence_capable=("ops.scale-out",),
     )
+    assert rec.ineligible_provider_action_types == ("ops.restart",)
     result = _create(rec)
     assert result.snapshot.status is CandidateStatus.DENIED
     assert result.denial is not None

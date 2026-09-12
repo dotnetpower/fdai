@@ -38,6 +38,9 @@ from fdai.core.standing_authority.promotion_candidate import (
     plan_create_transition,
     plan_review_transition,
 )
+from tests.core.standing_authority.hypothetical_provider_eligibility import (
+    hypothetical_fence_capable,
+)
 
 NOW = datetime(2026, 9, 10, 12, 0, tzinfo=UTC)
 REVISION_ID = "sha256:" + "a" * 64
@@ -64,12 +67,12 @@ FENCE = LifecycleFence(
 
 
 def _record(**overrides: object) -> PromotionCandidateRecord:
+    hypothetical = overrides.pop("hypothetical_fence_capable", None)
     kwargs: dict[str, object] = dict(
         family_id="family:one",
         revision_id=REVISION_ID,
         fence=FENCE,
         eligible_action_types=("ops.scale-out",),
-        ineligible_provider_action_types=(),
         evidence_requirements=(EVIDENCE_1, EVIDENCE_2),
         source_revision_id="source:v1",
         creator_principal=CREATOR,
@@ -79,7 +82,9 @@ def _record(**overrides: object) -> PromotionCandidateRecord:
         quorum_required=2,
     )
     kwargs.update(overrides)
-    return build_candidate_record(**kwargs)  # type: ignore[arg-type]
+    capable = kwargs["eligible_action_types"] if hypothetical is None else hypothetical
+    with hypothetical_fence_capable(capable):  # type: ignore[arg-type]
+        return build_candidate_record(**kwargs)  # type: ignore[arg-type]
 
 
 def _build_review(
@@ -225,8 +230,11 @@ def test_candidate_id_differs_by_fence_generation() -> None:
 
 
 def test_wrong_lease_contract_version_rejected() -> None:
-    with pytest.raises(AuthorizationLifecycleError, match="lease_contract_version"):
-        rec = _record()
+    rec = _record()
+    with (
+        hypothetical_fence_capable(rec.eligible_action_types),
+        pytest.raises(AuthorizationLifecycleError, match="lease_contract_version"),
+    ):
         # Bypass builder: construct with wrong version
         PromotionCandidateRecord(
             candidate_id=rec.candidate_id,
@@ -305,7 +313,8 @@ def test_create_transition_produces_pending_status() -> None:
 
 
 def test_create_with_ineligible_provider_denies_immediately() -> None:
-    rec = _record(ineligible_provider_action_types=("ops.scale-out",))
+    rec = _record(hypothetical_fence_capable=())
+    assert rec.ineligible_provider_action_types == ("ops.scale-out",)
     result = _create(rec)
     assert result.snapshot.status is CandidateStatus.DENIED
     assert result.denial is not None
@@ -324,7 +333,7 @@ def test_create_intent_digest_is_bound_in_transition() -> None:
 
 
 def test_create_ineligible_two_phase_audit() -> None:
-    rec = _record(ineligible_provider_action_types=("ops.scale-out",))
+    rec = _record(hypothetical_fence_capable=())
     result = _create(rec)
     denial = result.denial
     assert denial is not None
