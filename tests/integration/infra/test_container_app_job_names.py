@@ -65,6 +65,7 @@ def test_terraform_resources_use_the_shared_bounded_name_map() -> None:
         source = (_MODULE / filename).read_text(encoding="utf-8")
         assert f"name                         = local.core_job_names.{key}" in source
 
-    root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
-    assert 'core_job_name_prefix         = "caj-${var.workload}${local.env_suffix}"' in root
-    assert 'length("caj-${var.workload}${local.full_suffix}-provider-schema") <= 32' in root
+    main = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    provider = (_ROOT / "infra/provider_schema_job.tf").read_text(encoding="utf-8")
+    assert 'core_job_name_prefix         = "caj-${var.workload}${local.env_suffix}"' in main
+    assert 'length("caj-${var.workload}${local.full_suffix}-provider-schema") <= 32' in provider

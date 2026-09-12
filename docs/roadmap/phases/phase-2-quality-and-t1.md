@@ -145,6 +145,7 @@ sanitized post-apply receipt for the exact Job execution and durable generation.
 review exists, the verifier also requires the same correlation to reach a Forseti human-review
 decision and Saga's append-only audit. An unchanged run records that review evidence is not
 applicable.
+The Job is owned by the root Terraform resource `azurerm_container_app_job.provider_schema[0]`; read-only prerequisite lookups and a state `moved` declaration preserve existing deployments without inheriting the shared compute module's platform dependencies.
 
 ## LLM Quality Gate (T2 - see [llm-strategy.md](../architecture/llm-strategy.md))
 

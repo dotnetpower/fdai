@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: e802600d616284201e6eae8fd6071887adeca115
+translation_source_sha: 202b60fa8212f972e73119e4fe8952dd7a15cdce
 translation_revised: 2026-09-12
 ---
 
@@ -143,6 +143,7 @@ bootstrap용 reviewed catalog를 image에 포함하고 관련 없는 Terraform �
 실행과 durable generation의 정제된 적용 후 receipt를 보존합니다. Material review가 존재하면
 검증기는 같은 correlation이 Forseti 사람 검토 결정과 Saga append-only audit까지 도달했는지도
 요구합니다. 변경이 없는 실행은 해당 review 근거를 해당 없음으로 기록합니다.
+Job은 루트 Terraform 리소스 `azurerm_container_app_job.provider_schema[0]`에서 소유합니다. 읽기 전용 전제 조건 조회와 상태 `moved` 선언은 기존 배포를 보존하면서 공유 compute module의 플랫폼 의존성을 상속하지 않도록 합니다.
 
 ## LLM Quality 게이트 (T2 - [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 참조)
 
