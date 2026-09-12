@@ -22,13 +22,24 @@ from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationIdentity,
     IdempotencyReservationRecord,
     IdempotencyReservationStore,
+    IdempotencyReservationTransitionReceipt,
     ReservationMatch,
     ReservationState,
 )
 from fdai.core.executor.idempotency_reservation_identity import same_operation
 from fdai.core.executor.lock_continuity import EffectSinkContinuityPolicy
+from fdai.core.executor.post_release_closure import (
+    PostReleaseClosureOutcome,
+    PostReleaseClosureRecord,
+    ReconciliationOutcome,
+)
+from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.core.executor.safeguard_bundle_context import SafeguardBundlePersistenceContext
-from fdai.core.executor.safeguard_dispatch_checkpoint import SafeguardDispatchEvidenceRecord
+from fdai.core.executor.safeguard_dispatch_checkpoint import (
+    AuthoritativeSinkState,
+    SafeguardDispatchEvidenceRecord,
+    SafeguardDispatchEvidenceState,
+)
 from fdai.core.executor.safeguard_dispatch_store import SafeguardDispatchEvidenceStore
 from fdai.core.executor.safeguard_evidence_lifecycle import (
     DispatchPort,
@@ -42,6 +53,12 @@ from fdai.core.executor.safeguard_lifecycle_models import (
     SafeguardCoordinatedDispatchResult,
     SafeguardCoordinationDisposition,
     SafeguardLifecycleCoordinatorConfig,
+)
+from fdai.core.executor.safeguard_lifecycle_recovery import (
+    SafeguardLifecycleRecovery,
+)
+from fdai.core.executor.safeguard_lifecycle_recovery import (
+    SafeguardRecoveryReacquisitionError as SafeguardRecoveryReacquisitionError,
 )
 from fdai.core.executor.safeguard_pre_bundle import SafeguardPreBundleCommitment
 from fdai.core.executor.safeguard_proofs import (
@@ -84,7 +101,9 @@ class SafeguardLifecyclePreparer:
         "_fence_store",
         "_hold_release_authorizations",
         "_hold_state_reader",
+        "_closure_store",
         "_reservation_store",
+        "_recovery",
     )
 
     def __init__(
@@ -94,6 +113,7 @@ class SafeguardLifecyclePreparer:
         audit_intent_store: AuditIntentStore,
         fence_store: TargetDispatchFenceStore,
         evidence_store: SafeguardDispatchEvidenceStore,
+        closure_store: PostReleaseClosureStore,
         denial_audit_store: StateStore,
         continuity_policy: EffectSinkContinuityPolicy,
         config: SafeguardLifecycleCoordinatorConfig,
@@ -105,12 +125,21 @@ class SafeguardLifecyclePreparer:
         self._audit_intent_store = audit_intent_store
         self._fence_store = fence_store
         self._evidence_store = evidence_store
+        self._closure_store = closure_store
         self._denial_audit_store = denial_audit_store
         self._continuity_policy = continuity_policy
         self._config = config
         self._denial = denial
         self._hold_state_reader = hold_state_reader
         self._hold_release_authorizations = hold_release_authorizations
+        self._recovery = SafeguardLifecycleRecovery(
+            reservation_store=reservation_store,
+            fence_store=fence_store,
+            evidence_store=evidence_store,
+            closure_store=closure_store,
+            config=config,
+            denial=denial,
+        )
 
     @property
     def source_revision(self) -> str:
@@ -144,42 +173,122 @@ class SafeguardLifecyclePreparer:
             lease_expires_at=reserved_at + self._config.reservation_lease,
         )
         reservation_result = await self._reservation_store.reserve(reserved)
+        reservation_receipt: IdempotencyReservationTransitionReceipt | None = None
         if reservation_result.match is ReservationMatch.CONFLICT:
-            if (
-                same_operation(
-                    reservation_result.observed_record.identity,
-                    reservation_identity,
-                )
-                and reservation_result.observed_record.state is ReservationState.TERMINAL
+            if same_operation(
+                reservation_result.observed_record.identity,
+                reservation_identity,
             ):
-                return SafeguardCoordinatedDispatchResult(
-                    disposition=SafeguardCoordinationDisposition.DUPLICATE,
-                    bundle_digest=await self._existing_bundle_digest(
+                if reservation_result.observed_record.state is ReservationState.TERMINAL:
+                    reopened = await self._recovery._reopen_safe_reservation(
+                        observed=reservation_result.observed_record,
+                        candidate=reserved,
+                    )
+                    if reopened is not None:
+                        reservation_receipt = reopened
+                    else:
+                        return await self._terminal_replay_result(
+                            action=action,
+                            safeguard_receipt=safeguard_receipt,
+                            reservation=reservation_result.observed_record,
+                        )
+                else:
+                    reopened = await self._recovery._recover_pre_dispatch_reservation(
                         action=action,
                         safeguard_receipt=safeguard_receipt,
-                    ),
-                    lifecycle=None,
-                    closure_receipt=None,
-                    dispatch_performed=False,
-                    reason="idempotent operation already reached terminal state",
+                        observed=reservation_result.observed_record,
+                        candidate=reserved,
+                    )
+                    if reopened is not None:
+                        reservation_receipt = reopened
+                    else:
+                        recovered = await self._recovery._recover_release_pending_replay(
+                            action=action,
+                            safeguard_receipt=safeguard_receipt,
+                            reservation=reservation_result.observed_record,
+                        )
+                        if recovered is not None:
+                            return recovered
+                        quarantined = await self._quarantined_replay_result(
+                            action=action,
+                            safeguard_receipt=safeguard_receipt,
+                            reservation=reservation_result.observed_record,
+                        )
+                        if quarantined is not None:
+                            return quarantined
+                        return SafeguardCoordinatedDispatchResult(
+                            disposition=SafeguardCoordinationDisposition.BLOCKED,
+                            bundle_digest=await self._existing_bundle_digest(
+                                action=action,
+                                safeguard_receipt=safeguard_receipt,
+                            ),
+                            lifecycle=None,
+                            closure_receipt=None,
+                            dispatch_performed=False,
+                            reason=(
+                                "idempotency reservation already exists and has not reached "
+                                "a committed terminal outcome"
+                            ),
+                        )
+            else:
+                return await self._denial.deny(
+                    action,
+                    "idempotency reservation conflicts with a different action",
                 )
-            return await self._denial.deny(
-                action,
-                "idempotency reservation conflicts with a different action",
-            )
-        if reservation_result.match is ReservationMatch.DUPLICATE_SAME:
-            return SafeguardCoordinatedDispatchResult(
-                disposition=SafeguardCoordinationDisposition.DUPLICATE,
-                bundle_digest=await self._existing_bundle_digest(
+        elif reservation_result.match is ReservationMatch.DUPLICATE_SAME:
+            if reservation_result.observed_record.state is ReservationState.TERMINAL:
+                reopened = await self._recovery._reopen_safe_reservation(
+                    observed=reservation_result.observed_record,
+                    candidate=reserved,
+                )
+                if reopened is not None:
+                    reservation_receipt = reopened
+                else:
+                    return await self._terminal_replay_result(
+                        action=action,
+                        safeguard_receipt=safeguard_receipt,
+                        reservation=reservation_result.observed_record,
+                    )
+            else:
+                reopened = await self._recovery._recover_pre_dispatch_reservation(
                     action=action,
                     safeguard_receipt=safeguard_receipt,
-                ),
-                lifecycle=None,
-                closure_receipt=None,
-                dispatch_performed=False,
-                reason="idempotency reservation already exists",
-            )
-        reservation_receipt = reservation_result.transition_receipt
+                    observed=reservation_result.observed_record,
+                    candidate=reserved,
+                )
+                if reopened is not None:
+                    reservation_receipt = reopened
+                else:
+                    recovered = await self._recovery._recover_release_pending_replay(
+                        action=action,
+                        safeguard_receipt=safeguard_receipt,
+                        reservation=reservation_result.observed_record,
+                    )
+                    if recovered is not None:
+                        return recovered
+                    quarantined = await self._quarantined_replay_result(
+                        action=action,
+                        safeguard_receipt=safeguard_receipt,
+                        reservation=reservation_result.observed_record,
+                    )
+                    if quarantined is not None:
+                        return quarantined
+                    return SafeguardCoordinatedDispatchResult(
+                        disposition=SafeguardCoordinationDisposition.BLOCKED,
+                        bundle_digest=await self._existing_bundle_digest(
+                            action=action,
+                            safeguard_receipt=safeguard_receipt,
+                        ),
+                        lifecycle=None,
+                        closure_receipt=None,
+                        dispatch_performed=False,
+                        reason=(
+                            "idempotency reservation already exists and has not reached "
+                            "a committed terminal outcome"
+                        ),
+                    )
+        else:
+            reservation_receipt = reservation_result.transition_receipt
         if reservation_receipt is None:
             return await self._denial.deny(action, "idempotency reservation receipt is unavailable")
 
@@ -241,6 +350,12 @@ class SafeguardLifecyclePreparer:
                 dispatch_performed=False,
                 reason=f"target dispatch fence {fence_result.decision.value}",
             )
+        fence_receipt = fence_result.transition_receipt
+        if fence_receipt is None:
+            return await self._denial.deny(
+                action,
+                "target dispatch fence acquisition receipt is unavailable",
+            )
 
         try:
             assessment = await held_lock.assess_ownership()
@@ -278,6 +393,7 @@ class SafeguardLifecyclePreparer:
                 proof_time,
                 audit_receipt.read_back_at,
                 preparing_fence.state_changed_at,
+                fence_receipt.recorded_at,
             )
             bundle = finalize_safeguard_proof_bundle(
                 action,
@@ -336,6 +452,7 @@ class SafeguardLifecyclePreparer:
                     clock=self._denial.now,
                 ),
                 now=bundle_time,
+                clock=self._denial.now,
             )
         except (Exception, asyncio.CancelledError):
             no_dispatch_digest = content_digest(
@@ -352,7 +469,11 @@ class SafeguardLifecyclePreparer:
                     preparing_fence=preparing_fence,
                     no_dispatch_evidence_digest=no_dispatch_digest,
                     fence_store=self._fence_store,
-                    now=max(self._denial.now(), preparing_fence.state_changed_at),
+                    now=max(
+                        self._denial.now(),
+                        preparing_fence.state_changed_at,
+                        fence_receipt.recorded_at,
+                    ),
                 )
             except Exception:
                 _LOGGER.exception(
@@ -372,11 +493,128 @@ class SafeguardLifecyclePreparer:
         )
         if fence is None:
             return None
-        return await self._bundle_for_fence(
+        evidence = await self._evidence_for_fence(
             action=action,
             safeguard_receipt=safeguard_receipt,
             fence=fence,
         )
+        return evidence.bundle.bundle_digest if evidence is not None else None
+
+    async def _terminal_replay_result(
+        self,
+        *,
+        action: Action,
+        safeguard_receipt: SafeguardReceipt,
+        reservation: IdempotencyReservationRecord,
+    ) -> SafeguardCoordinatedDispatchResult:
+        closure_key = content_digest(
+            {
+                "domain": "post-release-closure-key",
+                "reservation_identity_digest": reservation.identity.identity_digest,
+                "reservation_attempt": reservation.identity.acquisition_receipt.attempt,
+            }
+        )
+        closure = await self._closure_store.read(closure_key)
+        evidence = None
+        if closure is not None:
+            evidence = await self._evidence_store.read(
+                closure.identity.target_digest,
+                closure.identity.target_fence_generation,
+            )
+            if (
+                evidence is None
+                or evidence.identity.reservation_identity_digest
+                != reservation.identity.identity_digest
+                or not self._recovery._evidence_matches_action(
+                    evidence=evidence,
+                    action=action,
+                    safeguard_receipt=safeguard_receipt,
+                )
+                or closure.identity.evidence_identity_digest != evidence.identity.identity_digest
+                or closure.pre_release_record_digest != evidence.record_digest
+            ):
+                evidence = None
+        bundle_digest = evidence.bundle.bundle_digest if evidence is not None else None
+        applied = False
+        if (
+            evidence is not None
+            and evidence.state is SafeguardDispatchEvidenceState.PRE_RELEASE
+            and closure is not None
+        ):
+            applied = _closure_proves_applied(closure=closure, evidence=evidence)
+        return SafeguardCoordinatedDispatchResult(
+            disposition=(
+                SafeguardCoordinationDisposition.DUPLICATE
+                if applied
+                else SafeguardCoordinationDisposition.BLOCKED
+            ),
+            bundle_digest=bundle_digest,
+            lifecycle=None,
+            closure_receipt=None,
+            dispatch_performed=False,
+            reason=(
+                "idempotent operation already reached a committed terminal state"
+                if applied
+                else "idempotent operation previously closed without a committed effect"
+            ),
+        )
+
+    async def _quarantined_replay_result(
+        self,
+        *,
+        action: Action,
+        safeguard_receipt: SafeguardReceipt,
+        reservation: IdempotencyReservationRecord,
+    ) -> SafeguardCoordinatedDispatchResult | None:
+        if reservation.state is not ReservationState.OUTCOME_UNKNOWN:
+            return None
+        closure_key = content_digest(
+            {
+                "domain": "post-release-closure-key",
+                "reservation_identity_digest": reservation.identity.identity_digest,
+                "reservation_attempt": reservation.identity.acquisition_receipt.attempt,
+            }
+        )
+        closure = await self._closure_store.read(closure_key)
+        if closure is None or closure.outcome is not PostReleaseClosureOutcome.QUARANTINED:
+            return None
+        evidence = await self._evidence_store.read(
+            closure.identity.target_digest,
+            closure.identity.target_fence_generation,
+        )
+        if evidence is None or not self._recovery._evidence_matches_action(
+            evidence=evidence,
+            action=action,
+            safeguard_receipt=safeguard_receipt,
+        ):
+            return None
+        return SafeguardCoordinatedDispatchResult(
+            disposition=SafeguardCoordinationDisposition.QUARANTINED,
+            bundle_digest=evidence.bundle.bundle_digest,
+            lifecycle=None,
+            closure_receipt=None,
+            dispatch_performed=False,
+            reason="prior dispatch outcome remains quarantined",
+        )
+
+    async def _evidence_for_fence(
+        self,
+        *,
+        action: Action,
+        safeguard_receipt: SafeguardReceipt,
+        fence: TargetDispatchFenceRecord,
+    ) -> SafeguardDispatchEvidenceRecord | None:
+        evidence = await self._evidence_store.read(
+            fence.identity.target_digest,
+            fence.identity.generation,
+        )
+        if evidence is None or not self._recovery._evidence_matches_action(
+            evidence=evidence,
+            action=action,
+            safeguard_receipt=safeguard_receipt,
+        ):
+            return None
+        return evidence
 
     async def _bundle_for_fence(
         self,
@@ -385,21 +623,31 @@ class SafeguardLifecyclePreparer:
         safeguard_receipt: SafeguardReceipt,
         fence: TargetDispatchFenceRecord,
     ) -> str | None:
-        evidence = await self._evidence_store.read(
-            fence.identity.target_digest,
-            fence.identity.generation,
+        evidence = await self._evidence_for_fence(
+            action=action,
+            safeguard_receipt=safeguard_receipt,
+            fence=fence,
         )
-        if evidence is None:
-            return None
-        identity = evidence.identity
-        if (
-            identity.action_id != str(action.action_id)
-            or identity.execution_path != safeguard_receipt.execution_path.value
-            or identity.execution_fingerprint != f"sha256:{safeguard_receipt.execution_fingerprint}"
-            or identity.source_revision != self.source_revision
-        ):
-            return None
-        return evidence.bundle.bundle_digest
+        return evidence.bundle.bundle_digest if evidence is not None else None
+
+
+def _closure_proves_applied(
+    *,
+    closure: PostReleaseClosureRecord,
+    evidence: SafeguardDispatchEvidenceRecord,
+) -> bool:
+    """Use final reconciliation, or initial sink evidence, to prove an effect."""
+
+    if closure.outcome is not PostReleaseClosureOutcome.RESOLVED:
+        return False
+    reconciliation = closure.reconciliation_evidence
+    if reconciliation is not None:
+        return reconciliation.outcome in {
+            ReconciliationOutcome.SINK_COMMITTED,
+            ReconciliationOutcome.EFFECT_VERIFIED,
+        }
+    observation = evidence.dispatch_observation
+    return observation is not None and observation.sink_state is AuthoritativeSinkState.COMMITTED
 
 
 __all__ = ["SafeguardLifecyclePreparer"]

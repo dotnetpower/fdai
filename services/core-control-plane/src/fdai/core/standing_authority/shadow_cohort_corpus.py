@@ -15,6 +15,12 @@ Fail-closed rules:
   field.
 - Size, case count, review count, and per-case elapsed values are bounded, so a
   malformed document cannot drive an unbounded run.
+- Provider-commit-fence eligibility is **never declared here**. The schema has no
+  ineligible-ActionType key, so a corpus author cannot assert eligibility that no
+  adapter enforces; ``build_candidate_record`` derives it from
+  ``provider_eligibility``. Because that adapter registry is empty, every real
+  ActionType derives ``INELIGIBLE_CAPABILITY``, so a corpus of real ActionTypes cannot
+  declare an eligible case and ``build_manifest`` rejects the all-denied result.
 
 The resulting receipt remains development evidence. It cannot satisfy the governed
 runtime cohort, independent review, or human approval required by issue #632.
@@ -85,7 +91,6 @@ _CANDIDATE_KEYS: Final[frozenset[str]] = frozenset(
         "revision_id",
         "fence",
         "eligible_action_types",
-        "ineligible_provider_action_types",
         "evidence_requirements",
         "source_revision_id",
         "creator_principal",
@@ -300,9 +305,6 @@ def _candidate(value: object, case_id: str) -> PromotionCandidateRecord:
         revision_id=_text(value, "revision_id"),
         fence=_fence(value["fence"], case_id),
         eligible_action_types=_strings(value, "eligible_action_types", case_id, MAX_ACTION_TYPES),
-        ineligible_provider_action_types=_strings(
-            value, "ineligible_provider_action_types", case_id, MAX_ACTION_TYPES
-        ),
         evidence_requirements=_strings(value, "evidence_requirements", case_id, MAX_EVIDENCE_ITEMS),
         source_revision_id=_text(value, "source_revision_id"),
         creator_principal=_text(value, "creator_principal"),

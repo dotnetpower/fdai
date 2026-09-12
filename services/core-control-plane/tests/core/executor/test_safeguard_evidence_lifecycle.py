@@ -36,6 +36,7 @@ from fdai.core.executor.safeguard_dispatch_store import (
     classify_safeguard_dispatch_evidence,
 )
 from fdai.core.executor.safeguard_evidence_lifecycle import (
+    DispatchBoundaryGuard,
     LifecycleTerminalKind,
     SafeguardEvidenceLifecycleResult,
     cancel_before_dispatch,
@@ -234,6 +235,63 @@ class InMemoryEvidenceStore:
         return self._records.get((target_digest, generation))
 
 
+class DelayedBundleReceiptEvidenceStore(InMemoryEvidenceStore):
+    """Return an authoritative bundle receipt later than the candidate record."""
+
+    async def persist_bundle(
+        self,
+        record: SafeguardDispatchEvidenceRecord,
+    ) -> SafeguardDispatchPersistenceResult:
+        result = await super().persist_bundle(record)
+        receipt = result.transition_receipt
+        assert receipt is not None
+        delayed_receipt = SafeguardDispatchTransitionReceipt.create(
+            prior_record=receipt.prior_record,
+            record=receipt.record,
+            bundle_persistence_receipt=receipt.bundle_persistence_receipt,
+            current_lock_assessment=receipt.current_lock_assessment,
+            store_receipt_digest=_make_digest("delayed-evidence-persist"),
+            recorded_at=receipt.recorded_at + timedelta(microseconds=1),
+        )
+        return SafeguardDispatchPersistenceResult(
+            candidate_identity=result.candidate_identity,
+            decision=result.decision,
+            observed_record=result.observed_record,
+            transition_receipt=delayed_receipt,
+        )
+
+
+class DelayedDispatchStartReceiptEvidenceStore(InMemoryEvidenceStore):
+    """Delay only the authoritative dispatch-start persistence receipt."""
+
+    async def compare_and_transition(
+        self,
+        *,
+        prior_record_digest: str,
+        expected_revision: int,
+        record: SafeguardDispatchEvidenceRecord,
+        bundle_persistence_receipt: SafeguardDispatchTransitionReceipt | None = None,
+        current_lock_assessment: LiveLockOwnershipAssessment | None = None,
+    ) -> SafeguardDispatchTransitionReceipt:
+        receipt = await super().compare_and_transition(
+            prior_record_digest=prior_record_digest,
+            expected_revision=expected_revision,
+            record=record,
+            bundle_persistence_receipt=bundle_persistence_receipt,
+            current_lock_assessment=current_lock_assessment,
+        )
+        if record.state is not SafeguardDispatchEvidenceState.DISPATCH_STARTED:
+            return receipt
+        return SafeguardDispatchTransitionReceipt.create(
+            prior_record=receipt.prior_record,
+            record=receipt.record,
+            bundle_persistence_receipt=receipt.bundle_persistence_receipt,
+            current_lock_assessment=receipt.current_lock_assessment,
+            store_receipt_digest=_make_digest("delayed-dispatch-start"),
+            recorded_at=_NOW + timedelta(seconds=4),
+        )
+
+
 class InMemoryDispatchPort:
     """Controllable dispatch double."""
 
@@ -253,12 +311,14 @@ class InMemoryDispatchPort:
         *,
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
     ) -> tuple[
         DispatchTransportState,
         AuthoritativeSinkState,
         str | None,
         str | None,
     ]:
+        await pre_invoke_guard()
         self.dispatch_count += 1
         self.last_evidence = evidence_record
         accepted = self.sink in {
@@ -288,6 +348,7 @@ class InMemoryHeldLock:
         *,
         active: bool = True,
         owner: bool = True,
+        ownership_sequence: tuple[bool, ...] | None = None,
         verifier_id: str = "test-verifier",
         verifier_version: str = "1.0.0",
         trust_anchor_id: str = "postgres:primary",
@@ -295,6 +356,8 @@ class InMemoryHeldLock:
         self._receipt = receipt
         self._active = active
         self._owner = owner
+        self._ownership_sequence = ownership_sequence
+        self._assessment_count = 0
         self._verifier_id = verifier_id
         self._verifier_version = verifier_version
         self._trust_anchor_id = trust_anchor_id
@@ -317,9 +380,15 @@ class InMemoryHeldLock:
         return None
 
     async def assess_ownership(self) -> LiveLockOwnershipAssessment:
-        session = self._receipt.session_identity if self._owner else None
+        owner = self._owner
+        if self._ownership_sequence is not None:
+            owner = self._ownership_sequence[
+                min(self._assessment_count, len(self._ownership_sequence) - 1)
+            ]
+            self._assessment_count += 1
+        session = self._receipt.session_identity if owner else None
         reasons: tuple[LockOwnershipRejectionReason, ...] = (
-            () if self._owner else (LockOwnershipRejectionReason.LOCK_LOST,)
+            () if owner else (LockOwnershipRejectionReason.LOCK_LOST,)
         )
         return LiveLockOwnershipAssessment.create(
             self._receipt,
@@ -620,6 +689,126 @@ async def test_lifecycle_completes_resolved_with_exact_order() -> None:
 
 
 @pytest.mark.asyncio
+async def test_lifecycle_records_fresh_post_dispatch_times() -> None:
+    """Dispatch observation and pre-release evidence use fresh clock readings."""
+
+    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
+    fence_store = InMemoryFenceStore()
+    fence_store._records[preparing.identity.target_digest] = preparing
+    evidence_store = InMemoryEvidenceStore()
+    dispatch_port = InMemoryDispatchPort()
+    held_lock = InMemoryHeldLock(acq)
+    readings = iter(
+        (
+            _NOW,
+            _NOW,
+            _NOW,
+            _NOW,
+            _NOW,
+            _NOW + timedelta(seconds=3),
+            _NOW + timedelta(seconds=4),
+            _NOW + timedelta(seconds=4),
+        )
+    )
+    read_count = 0
+
+    def post_dispatch_clock() -> datetime:
+        nonlocal read_count
+        read_count += 1
+        if read_count > 5:
+            assert dispatch_port.dispatch_count == 1
+        return next(readings)
+
+    result = await run_safeguard_evidence_lifecycle(
+        held_lock=held_lock,
+        reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
+        audit_append_receipt=audit_receipt,
+        bundle_record=bundle_record,
+        preparing_fence=preparing,
+        fence_store=fence_store,
+        evidence_store=evidence_store,
+        dispatch_port=dispatch_port,
+        now=_NOW,
+        clock=post_dispatch_clock,
+    )
+
+    assert result.evidence_record is not None
+    assert result.evidence_record.dispatch_observation is not None
+    assert result.evidence_record.dispatch_observation.observed_at == _NOW + timedelta(seconds=3)
+    assert result.evidence_record.pre_release_checkpoint is not None
+    assert result.evidence_record.pre_release_checkpoint.observed_at == _NOW + timedelta(seconds=4)
+    assert result.release_pending_fence is not None
+    assert result.release_pending_fence.state_changed_at == _NOW + timedelta(seconds=4)
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_orders_dispatch_after_authoritative_store_time() -> None:
+    """Authoritative readback time advances every later pre-dispatch record."""
+
+    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
+    fence_store = InMemoryFenceStore()
+    fence_store._records[preparing.identity.target_digest] = preparing
+    evidence_store = DelayedBundleReceiptEvidenceStore()
+    dispatch_port = InMemoryDispatchPort()
+    held_lock = InMemoryHeldLock(acq)
+
+    result = await run_safeguard_evidence_lifecycle(
+        held_lock=held_lock,
+        reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
+        audit_append_receipt=audit_receipt,
+        bundle_record=bundle_record,
+        preparing_fence=preparing,
+        fence_store=fence_store,
+        evidence_store=evidence_store,
+        dispatch_port=dispatch_port,
+        now=_NOW,
+        clock=lambda: _NOW + timedelta(seconds=2),
+    )
+
+    assert result.kind is LifecycleTerminalKind.RESOLVED
+    assert dispatch_port.dispatch_count == 1
+    assert dispatch_port.last_evidence is not None
+    assert dispatch_port.last_evidence.dispatch_start_checkpoint is not None
+    assert (
+        dispatch_port.last_evidence.dispatch_start_checkpoint.dispatch_started_at
+        == _NOW + timedelta(seconds=2)
+    )
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_rejects_expired_pre_dispatch_ownership() -> None:
+    """A stale final ownership readback stops before provider I/O."""
+
+    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
+    fence_store = InMemoryFenceStore()
+    fence_store._records[preparing.identity.target_digest] = preparing
+    evidence_store = DelayedDispatchStartReceiptEvidenceStore()
+    dispatch_port = InMemoryDispatchPort()
+    held_lock = InMemoryHeldLock(acq)
+
+    result = await run_safeguard_evidence_lifecycle(
+        held_lock=held_lock,
+        reservation_receipt=reservation_receipt,
+        reservation_store=_reservation_store(reservation_receipt),
+        audit_append_receipt=audit_receipt,
+        bundle_record=bundle_record,
+        preparing_fence=preparing,
+        fence_store=fence_store,
+        evidence_store=evidence_store,
+        dispatch_port=dispatch_port,
+        now=_NOW,
+        clock=lambda: _NOW + timedelta(seconds=2),
+    )
+
+    assert dispatch_port.dispatch_count == 0
+    assert result.kind is LifecycleTerminalKind.QUARANTINED
+    assert result.dispatch_performed is False
+    assert result.reason == "dispatch blocked before provider invocation: ValueError"
+
+
+@pytest.mark.asyncio
 async def test_lifecycle_quarantines_on_unknown_sink() -> None:
     """Exit criterion: unknown outcome quarantines the target."""
 
@@ -692,8 +881,7 @@ async def test_lifecycle_quarantines_on_unproven_continuity() -> None:
         transport=DispatchTransportState.ACKNOWLEDGED,
         sink=AuthoritativeSinkState.ACCEPTED,
     )
-    # Lock owner flag set to False -> continuity_unproven
-    held_lock = InMemoryHeldLock(acq, owner=False)
+    held_lock = InMemoryHeldLock(acq, ownership_sequence=(True, False))
 
     result = await run_safeguard_evidence_lifecycle(
         held_lock=held_lock,

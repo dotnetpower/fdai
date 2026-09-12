@@ -44,6 +44,9 @@ from fdai.core.standing_authority.shadow_cohort_runner import (
     build_manifest,
     run_cohort,
 )
+from tests.core.standing_authority.hypothetical_provider_eligibility import (
+    hypothetical_fence_capable,
+)
 
 # ---------------------------------------------------------------------------
 # Shared constants
@@ -78,23 +81,23 @@ FENCE = LifecycleFence(
 def _record(
     *,
     eligible: tuple[str, ...] = ("ops.scale-out",),
-    ineligible: tuple[str, ...] = (),
+    fence_capable: tuple[str, ...] | None = None,
     reviewers: tuple[str, ...] = (REVIEWER_A, REVIEWER_B),
 ) -> object:
-    return build_candidate_record(
-        family_id="family:shadow",
-        revision_id=REVISION_ID,
-        fence=FENCE,
-        eligible_action_types=eligible,
-        ineligible_provider_action_types=ineligible,
-        evidence_requirements=EVIDENCE_ALL,
-        source_revision_id="source:v1",
-        creator_principal=CREATOR,
-        authentication_evidence_digest=AUTH_DIGEST,
-        created_at=NOW,
-        required_reviewer_principals=reviewers,
-        quorum_required=2,
-    )
+    with hypothetical_fence_capable(eligible if fence_capable is None else fence_capable):
+        return build_candidate_record(
+            family_id="family:shadow",
+            revision_id=REVISION_ID,
+            fence=FENCE,
+            eligible_action_types=eligible,
+            evidence_requirements=EVIDENCE_ALL,
+            source_revision_id="source:v1",
+            creator_principal=CREATOR,
+            authentication_evidence_digest=AUTH_DIGEST,
+            created_at=NOW,
+            required_reviewer_principals=reviewers,
+            quorum_required=2,
+        )
 
 
 def _review(
@@ -168,7 +171,7 @@ def _make_full_corpus() -> tuple[CohortManifest, tuple[CohortCaseInput, ...], di
     rec_lease_loss = _record()
     rec_evidence = _record()
     rec_identity = _record()
-    rec_provider = _record(ineligible=("ops.scale-out",))
+    rec_provider = _record(fence_capable=())
 
     assert isinstance(rec_eligible, PromotionCandidateRecord)
     assert isinstance(rec_quorum, PromotionCandidateRecord)

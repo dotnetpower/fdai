@@ -1,6 +1,8 @@
 """A3-E standing-authorization records, lifecycle, fence, inert lease, and promotion candidate.
 
-Nothing in this package is wired into a decision or dispatch path. See
+Nothing in this package is wired into a decision or dispatch path. Provider-commit-fence
+capability is derived from ``provider_eligibility`` and is currently ineligible for every
+shipped ActionType. See
 [escalation-and-standing-authority.md](../../../../../../docs/roadmap/decisioning/escalation-and-standing-authority.md).
 """
 
@@ -80,6 +82,14 @@ from fdai.core.standing_authority.promotion_candidate import (
     plan_review_transition,
     replay_candidate,
 )
+from fdai.core.standing_authority.provider_eligibility import (
+    A3E_COMMIT_FENCE_ADAPTERS,
+    ProviderEligibilityPartition,
+    ProviderFenceCapability,
+    a3e_fence_capability,
+    derive_ineligible_provider_action_types,
+    partition_provider_eligibility,
+)
 from fdai.core.standing_authority.record import (
     StandingAuthorization,
     StandingAuthorizationError,
@@ -97,6 +107,7 @@ from fdai.core.standing_authority.shadow_reversion_command import (
 )
 
 __all__ = [
+    "A3E_COMMIT_FENCE_ADAPTERS",
     "AuthorizationRequest",
     "AuthenticatedAuthorizationCommand",
     "AuthorizationCommandKind",
@@ -137,6 +148,8 @@ __all__ = [
     "PromotionCandidateWriteResult",
     "ProviderCommitFenceRequest",
     "ProviderCommitFenceResult",
+    "ProviderEligibilityPartition",
+    "ProviderFenceCapability",
     "ReviewDecision",
     "ShadowReversionPlan",
     "ShadowReversionCommand",
@@ -153,6 +166,7 @@ __all__ = [
     "StandingAuthorizationLifecycleWriter",
     "TerminalDenialRecord",
     "TerminalLeaseRecord",
+    "a3e_fence_capability",
     "authorization_revision_id",
     "build_acquisition_request",
     "build_candidate_record",
@@ -161,9 +175,11 @@ __all__ = [
     "build_provider_commit_fence_request",
     "build_shadow_reversion_command",
     "build_terminal_record",
+    "derive_ineligible_provider_action_types",
     "evaluate_standing_authorization",
     "fence_matches",
     "load_schema",
+    "partition_provider_eligibility",
     "plan_create_transition",
     "plan_effect_shadow_reversion",
     "plan_external_denial",

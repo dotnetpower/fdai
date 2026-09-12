@@ -26,7 +26,7 @@ from fdai.core.executor.safeguard_proofs import (
 )
 from fdai.core.executor.safeguards import (
     SafeguardReceipt,
-    dry_run_receipt,
+    action_dry_run_receipt,
     execution_fingerprint,
     resource_lock_key,
 )
@@ -123,8 +123,9 @@ class SafeguardBundlePersistenceContext:
         )
         if self.pre_bundle_commitment.committed_at > reservation.reserved_at:
             raise ValueError("safeguard pre-bundle commitment followed reservation")
-        expected_dry_run = dry_run_receipt(
-            execution_fingerprint=expected_fingerprint,
+        expected_dry_run = action_dry_run_receipt(
+            self.action,
+            execution_path=reservation.identity.execution_path,
             plan_digest=self.safeguard_receipt.plan_digest,
             plan_kind=self.safeguard_receipt.plan_kind,
         )

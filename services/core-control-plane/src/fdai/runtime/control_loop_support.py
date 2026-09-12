@@ -106,6 +106,7 @@ def build_workflow_coordinator(
     architecture_evidence_provider: ProductionEvidenceProvider | None = None,
     decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
     action_dispatcher: WorkflowActionDispatcher | None = None,
+    automation_holds: StateStoreAutomationHoldLedger | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the default-on shadow workflow coordinator without widening authority."""
     if not workflows:
@@ -170,6 +171,7 @@ def build_workflow_coordinator(
         inner=inner_guard,
         decision_evidence_provider=decision_evidence_provider,
     )
+    holds = automation_holds or StateStoreAutomationHoldLedger(audit_store)
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=action_types_by_name,
@@ -180,11 +182,13 @@ def build_workflow_coordinator(
         approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
         approval_decision_evidence_provider=decision_evidence_provider,
         outcome_verifier=outcome_verifier,
+        automation_holds=holds,
         recovery_coordinator=build_workflow_recovery_coordinator(
             audit_store=audit_store,
             process_store=runtime_store,
             action_dispatcher=action_dispatcher,
             decision_evidence_provider=decision_evidence_provider,
+            automation_holds=holds,
         ),
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
@@ -200,6 +204,7 @@ def build_workflow_recovery_coordinator(
     process_store: Any,
     action_dispatcher: WorkflowActionDispatcher | None,
     decision_evidence_provider: DecisionEvidenceAdmissionProvider | None,
+    automation_holds: StateStoreAutomationHoldLedger | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> WorkflowRecoveryCoordinator:
     """Compose the durable recovery path that closes an automation hold."""
@@ -223,7 +228,7 @@ def build_workflow_recovery_coordinator(
     return WorkflowRecoveryCoordinator(
         process_store=process_store,
         audit_store=audit_store,
-        holds=StateStoreAutomationHoldLedger(audit_store),
+        holds=automation_holds or StateStoreAutomationHoldLedger(audit_store),
         config=RecoveryCoordinatorConfig(
             executor_identity=executor_identity,
             source_revision=raw_revision,

@@ -92,6 +92,15 @@ class _FailingPrPublisher(RemediationPrPublisher):
         raise self._error
 
 
+class _FailingTerminalAuditStore(InMemoryStateStore):
+    """Allow intent writes but fail terminal audit persistence."""
+
+    async def append_audit_entry(self, entry: dict[str, Any]) -> None:
+        if entry.get("audit_phase") == "terminal":
+            raise RuntimeError("terminal audit unavailable")
+        await super().append_audit_entry(entry)
+
+
 def _direct_executor() -> tuple[
     DirectApiShadowExecutor,
     RecordingDirectApiExecutor,
@@ -193,12 +202,13 @@ class TestDirectApiErrorTaxonomy:
 
     async def test_an_uncontrolled_adapter_error_never_reports_success(self) -> None:
         executor, adapter, audit = _direct_executor()
-        adapter.next_error(RuntimeError("adapter exploded"))
+        adapter.next_error(RuntimeError("secret-bearing-provider-detail"))
 
         result = await executor.execute(action=_direct_action())
 
         assert result.outcome is DirectApiExecutionOutcome.FAILED
         assert "uncontrolled adapter error" in (result.reason or "")
+        assert "secret-bearing-provider-detail" not in (result.reason or "")
         assert result.rollback_succeeded is False
         assert _terminal(audit)["outcome"] == "failed"
 
@@ -212,6 +222,32 @@ class TestDirectApiErrorTaxonomy:
         terminal = _terminal(audit)
         assert terminal["outcome"] == "failed"
         assert "cancelled" in str(terminal.get("reason", ""))
+
+    async def test_a_non_applied_terminal_replay_is_not_reported_as_applied(self) -> None:
+        executor, adapter, _audit = _direct_executor()
+        adapter.next_error(DirectApiPreconditionError("resource is already stopped"))
+
+        first = await executor.execute(action=_direct_action())
+        replay = await executor.execute(action=_direct_action())
+
+        assert first.outcome is DirectApiExecutionOutcome.ABSTAINED_PRECONDITION
+        assert replay.outcome is DirectApiExecutionOutcome.REJECTED_INVARIANT
+        assert "without a committed effect" in (replay.reason or "")
+
+    async def test_cancellation_survives_terminal_audit_failure(self) -> None:
+        audit = _FailingTerminalAuditStore()
+        coordinator, lock = _coordinator(audit)
+        adapter = RecordingDirectApiExecutor()
+        adapter.next_error(asyncio.CancelledError())  # type: ignore[arg-type]
+        executor = DirectApiShadowExecutor(
+            executor=adapter,
+            audit_store=audit,
+            resource_lock=lock,
+            safeguard_coordinator=coordinator,
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await executor.execute(action=_direct_action())
 
     async def test_a_refused_safeguard_never_reaches_the_adapter(self) -> None:
         executor, adapter, _ = _direct_executor()
@@ -283,12 +319,13 @@ class TestToolCallErrorTaxonomy:
 
     async def test_an_uncontrolled_tool_error_never_reports_success(self) -> None:
         executor, adapter, audit = _tool_executor()
-        adapter.next_error(RuntimeError("tool exploded"))
+        adapter.next_error(RuntimeError("secret-bearing-tool-detail"))
 
         result = await executor.execute(action=_tool_action())
 
         assert result.outcome is ToolCallExecutionOutcome.FAILED
         assert "uncontrolled adapter error" in (result.reason or "")
+        assert "secret-bearing-tool-detail" not in (result.reason or "")
         assert _terminal(audit)["outcome"] == "failed"
 
     async def test_a_cancelled_tool_dispatch_audits_then_propagates(self) -> None:
@@ -301,6 +338,32 @@ class TestToolCallErrorTaxonomy:
         terminal = _terminal(audit)
         assert terminal["outcome"] == "failed"
         assert "cancelled" in str(terminal.get("reason", ""))
+
+    async def test_a_non_applied_tool_replay_is_not_reported_as_applied(self) -> None:
+        executor, adapter, _audit = _tool_executor()
+        adapter.next_error(ToolPreconditionError("input document is missing"))
+
+        first = await executor.execute(action=_tool_action())
+        replay = await executor.execute(action=_tool_action())
+
+        assert first.outcome is ToolCallExecutionOutcome.ABSTAINED_PRECONDITION
+        assert replay.outcome is ToolCallExecutionOutcome.REJECTED_INVARIANT
+        assert "without a committed effect" in (replay.reason or "")
+
+    async def test_tool_cancellation_survives_terminal_audit_failure(self) -> None:
+        audit = _FailingTerminalAuditStore()
+        coordinator, lock = _coordinator(audit)
+        adapter = RecordingToolExecutor()
+        adapter.next_error(asyncio.CancelledError())  # type: ignore[arg-type]
+        executor = ToolCallShadowExecutor(
+            executor=adapter,
+            audit_store=audit,
+            resource_lock=lock,
+            safeguard_coordinator=coordinator,
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await executor.execute(action=_tool_action())
 
     async def test_a_refused_safeguard_never_reaches_the_tool(self) -> None:
         executor, adapter, _ = _tool_executor()
@@ -360,18 +423,19 @@ class TestPrPublishErrorTaxonomy:
         publisher: RemediationPrPublisher,
         *,
         config: ExecutorConfig | None = None,
+        audit: InMemoryStateStore | None = None,
     ) -> tuple[ShadowExecutor, InMemoryStateStore]:
-        audit = InMemoryStateStore()
-        coordinator, lock = _coordinator(audit)
+        audit_store = audit or InMemoryStateStore()
+        coordinator, lock = _coordinator(audit_store)
         executor = ShadowExecutor(
             publisher=publisher,
-            audit_store=audit,
+            audit_store=audit_store,
             renderer=TemplateRenderer(remediation_root=_ROOT / "rule-catalog" / "remediation"),
             resource_lock=lock,
             config=config,
             safeguard_coordinator=coordinator,
         )
-        return executor, audit
+        return executor, audit_store
 
     async def test_a_publisher_failure_audits_unknown_then_propagates(self) -> None:
         publisher = _FailingPrPublisher(RuntimeError("github is unreachable"))
@@ -393,6 +457,16 @@ class TestPrPublishErrorTaxonomy:
             await executor.execute(action=_pr_action(), rule=_rule())
 
         assert _terminal(audit)["outcome"] == ExecutorOutcome.PUBLISH_OUTCOME_UNKNOWN.value
+
+    async def test_publish_cancellation_survives_terminal_audit_failure(self) -> None:
+        publisher = _FailingPrPublisher(asyncio.CancelledError())
+        executor, _ = self._pr_executor(
+            publisher,
+            audit=_FailingTerminalAuditStore(),
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await executor.execute(action=_pr_action(), rule=_rule())
 
     async def test_blast_radius_abstains_before_the_pr_lifecycle_starts(self) -> None:
         publisher = RecordingRemediationPrPublisher()

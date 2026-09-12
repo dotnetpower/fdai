@@ -11,14 +11,21 @@ These tests validate issue #628 requirements without importing Core:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
 from fdai_executor_service.bundle_validation import (
+    ResolvedSafeguardBundle,
     validate_bundle_binding_sync,
+)
+from fdai_executor_service.runtime import (
+    IsolatedExecutorCommandConsumer,
+    MemoryExecutorReceiptOutbox,
 )
 from fdai_executor_service.service import IsolatedExecutorEffectService
 from fdai_service_contracts.execution_safeguards import (
@@ -32,9 +39,14 @@ from fdai_service_contracts.executor import (
     BlastRadius,
     BlastRadiusScope,
     DirectApiExecutionResultLike,
+    EventBus,
+    EventEnvelope,
     ExecutionPath,
     ExecutorCommand,
+    ExecutorEffectReceipt,
     ExecutorEffectReceiptStatus,
+    ExecutorShadowReceipt,
+    ExecutorShadowReceiptStatus,
     Mode,
     ObservationReceipt,
     ObservationReceiptStatus,
@@ -43,6 +55,9 @@ from fdai_service_contracts.executor import (
     RollbackRef,
     SafeguardBoundExecutorCommand,
     StopConditionKind,
+    executor_action_fingerprint,
+    executor_command_id_from_action_payload,
+    safeguard_bound_executor_command_id,
 )
 from fdai_service_contracts.schema import (
     JsonSchemaContractValidator,
@@ -92,14 +107,22 @@ def _proofs() -> tuple[SafeguardProof, ...]:
 def _bundle(
     *,
     action_id: UUID = _ACTION_ID,
+    action: Action | None = None,
     execution_path: ExecutionPath = ExecutionPath.DIRECT_API,
     source_revision: str = _SOURCE_REVISION,
     recorded_at: datetime = _NOW - timedelta(minutes=2),
 ) -> SafeguardProofBundle:
+    fingerprint_action = action or _action()
     return SafeguardProofBundle.create(
         action_id=action_id,
         execution_path=execution_path,
-        execution_fingerprint="sha256:" + "a" * 64,
+        execution_fingerprint=(
+            "sha256:"
+            + executor_action_fingerprint(
+                action_payload=fingerprint_action.model_dump(mode="json", exclude_none=False),
+                execution_path=execution_path.value,
+            )
+        ),
         source_revision=source_revision,
         recorded_at=recorded_at,
         proofs=_proofs(),
@@ -127,7 +150,16 @@ def _v11_command(
     act = action or _action()
     bndl = bundle or _bundle()
     return SafeguardBoundExecutorCommand.from_action(
-        command_id=UUID(int=3),
+        command_id=safeguard_bound_executor_command_id(
+            action_payload=act.model_dump(mode="json", exclude_none=True),
+            idempotency_key=act.idempotency_key,
+            execution_path=ExecutionPath.DIRECT_API.value,
+            safeguard_bundle_digest=bndl.bundle_digest,
+            source_revision=source_revision,
+            attempt=1,
+            issued_at=_NOW,
+            deadline_at=_DEADLINE,
+        ),
         action=act,
         execution_path=ExecutionPath.DIRECT_API,
         attempt=1,
@@ -138,12 +170,93 @@ def _v11_command(
     )
 
 
+def _legacy_v11_command(
+    *,
+    action: Action,
+    bundle: SafeguardProofBundle,
+) -> SafeguardBoundExecutorCommand:
+    command = _v11_command(action=action, bundle=bundle)
+    return command.model_copy(
+        update={
+            "command_id": executor_command_id_from_action_payload(
+                action_payload=action.model_dump(mode="json", exclude_none=True),
+                idempotency_key=action.idempotency_key,
+            )
+        }
+    )
+
+
+def _legacy_bundle(*, action: Action) -> SafeguardProofBundle:
+    payload = {
+        "action_id": str(action.action_id),
+        "event_id": str(action.event_id),
+        "action_type": action.action_type,
+        "target_resource_ref": action.target_resource_ref,
+        "operation": action.operation.value,
+        "params": dict(action.params),
+        "stop_condition": action.stop_condition,
+        "rollback": {
+            "kind": action.rollback_ref.kind.value,
+            "reference": action.rollback_ref.reference,
+        },
+        "blast_radius": {
+            "scope": action.blast_radius.scope.value,
+            "count": action.blast_radius.count,
+            "rate_per_minute": action.blast_radius.rate_per_minute,
+        },
+        "mode": action.mode.value,
+        "executor_identity_ref": action.executor_identity_ref,
+        "citing_rules": sorted(action.citing_rules),
+        "execution_path": ExecutionPath.DIRECT_API.value,
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+    return SafeguardProofBundle.create(
+        action_id=action.action_id,
+        execution_path=ExecutionPath.DIRECT_API,
+        execution_fingerprint=f"sha256:{fingerprint}",
+        source_revision=_SOURCE_REVISION,
+        recorded_at=_NOW - timedelta(minutes=2),
+        proofs=_proofs(),
+    )
+
+
 class _StubBundleStore:
     def __init__(self, bundles: dict[str, SafeguardProofBundle] | None = None) -> None:
         self._bundles = bundles or {}
 
     async def resolve_bundle(self, bundle_digest: str) -> SafeguardProofBundle | None:
         return self._bundles.get(bundle_digest)
+
+    async def resolve_bundle_context(
+        self,
+        bundle_digest: str,
+    ) -> ResolvedSafeguardBundle | None:
+        bundle = self._bundles.get(bundle_digest)
+        if bundle is None:
+            return None
+        return ResolvedSafeguardBundle(bundle=bundle, reservation_attempt=1)
+
+    def add(self, bundle: SafeguardProofBundle) -> None:
+        self._bundles[bundle.bundle_digest] = bundle
+
+
+class _DeadLetterBus:
+    """Record invalid command routing without a broker dependency."""
+
+    def __init__(self) -> None:
+        self.records: list[tuple[str, str, str]] = []
+
+    async def dead_letter(
+        self,
+        topic: str,
+        key: str,
+        payload: dict[str, Any],
+        reason: str,
+    ) -> None:
+        del payload
+        self.records.append((topic, key, reason))
 
 
 @dataclass(frozen=True)
@@ -194,8 +307,41 @@ class _StubDirectApiExecutor:
         return None
 
 
+class _RecoveringDirectApiExecutor(_StubDirectApiExecutor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.recovery_calls = 0
+
+    async def recover(self, *, action: Action) -> DirectApiExecutionResultLike | None:
+        self.recovery_calls += 1
+        return _StubOutcome(
+            action_id=str(action.action_id),
+            outcome=_OutcomeValue("already_applied"),
+            receipt_ref="receipt:recovered",
+        )
+
+
 def _validator() -> JsonSchemaContractValidator:
     return JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+
+
+def _effect_receipt(command: ExecutorCommand) -> ExecutorEffectReceipt:
+    return ExecutorEffectReceipt(
+        receipt_id=uuid4(),
+        command_id=command.command_id,
+        action_id=command.action_id,
+        idempotency_key=command.idempotency_key,
+        attempt=command.attempt,
+        action_payload_digest=command.action_payload_digest,
+        requested_mode=command.requested_mode,
+        status=ExecutorEffectReceiptStatus.DISPATCHED,
+        executor_instance_id=_INSTANCE_ID,
+        received_at=_NOW,
+        completed_at=_NOW,
+        effect_applied=True,
+        provider_receipt_ref="provider:legacy",
+        audit_ref=f"action:{command.action_id}",
+    )
 
 
 # ──────────────────────────────────────────────────
@@ -216,10 +362,310 @@ class TestSafeguardBoundCommandContract:
         assert cmd.safeguard_proof_bundle_digest == bundle.bundle_digest
         assert cmd.source_revision == _SOURCE_REVISION
 
+    def test_v11_command_identity_binds_issued_and_deadline_times(self) -> None:
+        bundle = _bundle()
+        action = _action()
+        payload = action.model_dump(mode="json", exclude_none=True)
+        first = safeguard_bound_executor_command_id(
+            action_payload=payload,
+            idempotency_key=action.idempotency_key,
+            execution_path=ExecutionPath.DIRECT_API.value,
+            safeguard_bundle_digest=bundle.bundle_digest,
+            source_revision=_SOURCE_REVISION,
+            attempt=1,
+            issued_at=_NOW,
+            deadline_at=_DEADLINE,
+        )
+        changed_deadline = safeguard_bound_executor_command_id(
+            action_payload=payload,
+            idempotency_key=action.idempotency_key,
+            execution_path=ExecutionPath.DIRECT_API.value,
+            safeguard_bundle_digest=bundle.bundle_digest,
+            source_revision=_SOURCE_REVISION,
+            attempt=1,
+            issued_at=_NOW,
+            deadline_at=_DEADLINE + timedelta(seconds=1),
+        )
+
+        assert changed_deadline != first
+
     def test_v10_command_still_validates(self) -> None:
         cmd = _v10_command()
         validator = _validator()
         validator.validate("executor-command", cmd.model_dump(mode="json"), version="1.0.0")
+
+    async def test_v11_command_reaches_the_effect_service_through_the_consumer(self) -> None:
+        bundle = _bundle()
+        command = _v11_command(bundle=bundle)
+        executor = _StubDirectApiExecutor()
+        service = IsolatedExecutorEffectService(
+            direct_api_executor=executor,
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            bundle_store=_StubBundleStore({bundle.bundle_digest: bundle}),
+            clock=lambda: _NOW,
+        )
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, object()),
+            service=service,
+        )
+
+        receipt = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=command.partition_key,
+                payload=command.model_dump(mode="json"),
+                offset=1,
+            )
+        )
+
+        assert receipt is not None
+        assert receipt.safeguard_proof_bundle_digest == bundle.bundle_digest
+        assert len(executor.calls) == 1
+
+    async def test_schema_invalid_v11_command_is_dead_lettered(self) -> None:
+        bus = _DeadLetterBus()
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, bus),
+            service=cast(Any, object()),
+        )
+        envelope = EventEnvelope(
+            topic="object.executor-command",
+            key="resource/example",
+            payload={"schema_version": "1.1.0"},
+            offset=1,
+        )
+
+        receipt = await consumer.handle_envelope(envelope)
+
+        assert receipt is None
+        assert bus.records == [
+            ("object.executor-command", "resource/example", "invalid_executor_command")
+        ]
+
+    async def test_v11_command_with_rewritten_deadline_is_dead_lettered(self) -> None:
+        bus = _DeadLetterBus()
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, bus),
+            service=cast(Any, object()),
+        )
+        command = _v11_command()
+        rewritten = command.model_copy(
+            update={"deadline_at": command.deadline_at + timedelta(seconds=1)}
+        )
+
+        receipt = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=rewritten.partition_key,
+                payload=rewritten.model_dump(mode="json"),
+                offset=1,
+            )
+        )
+
+        assert receipt is None
+        assert bus.records[-1][2] == "executor_command_identity_conflict"
+
+    async def test_bound_command_replays_pre_cutover_shadow_receipt(self) -> None:
+        action = _action(mode=Mode.SHADOW)
+        bundle = _legacy_bundle(action=action)
+        command = _legacy_v11_command(action=action, bundle=bundle)
+        receipt = ExecutorShadowReceipt(
+            receipt_id=uuid4(),
+            command_id=command.command_id,
+            action_id=command.action_id,
+            idempotency_key=command.idempotency_key,
+            attempt=command.attempt,
+            action_payload_digest=command.action_payload_digest,
+            requested_mode=command.requested_mode,
+            status=ExecutorShadowReceiptStatus.REJECTED,
+            reason="enforce command rejected before authority cutover",
+            executor_instance_id=_INSTANCE_ID,
+            received_at=_NOW,
+            completed_at=_NOW,
+            audit_ref=f"action:{command.action_id}",
+        )
+        outbox = MemoryExecutorReceiptOutbox()
+        await outbox.commit_receipt(
+            receipt.receipt_id,
+            command.partition_key,
+            receipt.model_dump(mode="json"),
+            command_id=str(command.command_id),
+            command_offset=1,
+        )
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, object()),
+            service=cast(Any, object()),
+            receipt_outbox=outbox,
+        )
+
+        replay = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=command.partition_key,
+                payload=command.model_dump(mode="json"),
+                offset=2,
+            )
+        )
+
+        assert replay == receipt
+
+    async def test_legacy_v11_shadow_command_closes_without_provider_effect(self) -> None:
+        action = _action(mode=Mode.SHADOW)
+        bundle = _legacy_bundle(action=action)
+        command = _legacy_v11_command(action=action, bundle=bundle)
+        executor = _StubDirectApiExecutor()
+        service = IsolatedExecutorEffectService(
+            direct_api_executor=executor,
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            bundle_store=_StubBundleStore({bundle.bundle_digest: bundle}),
+            clock=lambda: _NOW,
+        )
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, object()),
+            service=service,
+        )
+
+        receipt = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=command.partition_key,
+                payload=command.model_dump(mode="json"),
+                offset=1,
+            )
+        )
+
+        assert receipt is not None
+        assert receipt.status is ExecutorEffectReceiptStatus.REJECTED_MODE
+        assert executor.calls == []
+
+    async def test_legacy_v11_enforce_command_without_receipt_is_dead_lettered(self) -> None:
+        action = _action(mode=Mode.ENFORCE)
+        bundle = _legacy_bundle(action=action)
+        command = _legacy_v11_command(action=action, bundle=bundle)
+        bus = _DeadLetterBus()
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, bus),
+            service=cast(Any, object()),
+        )
+
+        receipt = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=command.partition_key,
+                payload=command.model_dump(mode="json"),
+                offset=1,
+            )
+        )
+
+        assert receipt is None
+        assert bus.records[-1][2] == "executor_command_identity_conflict"
+
+    async def test_v10_effect_receipt_cannot_replay_for_a_rewritten_path(self) -> None:
+        command = _v10_command()
+        receipt = _effect_receipt(command)
+        outbox = MemoryExecutorReceiptOutbox()
+        await outbox.commit_receipt(
+            receipt.receipt_id,
+            command.partition_key,
+            receipt.model_dump(mode="json"),
+            command_id=str(command.command_id),
+            command_offset=1,
+        )
+        bus = _DeadLetterBus()
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, bus),
+            service=cast(Any, object()),
+            receipt_outbox=outbox,
+        )
+        rewritten = command.model_copy(update={"execution_path": ExecutionPath.PR_NATIVE})
+
+        replay = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=rewritten.partition_key,
+                payload=rewritten.model_dump(mode="json"),
+                offset=2,
+            )
+        )
+
+        assert replay is None
+        assert bus.records[-1][2] == "executor_command_identity_conflict"
+
+    async def test_v11_redelivery_reuses_first_terminal_receipt(self) -> None:
+        bundle = _bundle()
+        command = _v11_command(bundle=bundle)
+        executor = _StubDirectApiExecutor()
+        store = _StubBundleStore()
+        service = IsolatedExecutorEffectService(
+            direct_api_executor=executor,
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            bundle_store=store,
+            clock=lambda: _NOW,
+        )
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, object()),
+            service=service,
+        )
+        envelope = EventEnvelope(
+            topic="object.executor-command",
+            key=command.partition_key,
+            payload=command.model_dump(mode="json"),
+            offset=1,
+        )
+
+        first = await consumer.handle_envelope(envelope)
+        first_pending = await consumer._receipt_outbox.claim_receipts(limit=1)
+        assert len(first_pending) == 1
+        await consumer._receipt_outbox.mark_receipt_published(first_pending[0].receipt_id)
+        store.add(bundle)
+        replay = await consumer.handle_envelope(envelope)
+        replay_pending = await consumer._receipt_outbox.claim_receipts(limit=1)
+
+        assert first is not None
+        assert replay == first
+        assert len(replay_pending) == 1
+        assert replay_pending[0].receipt_id == first.receipt_id
+        assert first.status is ExecutorEffectReceiptStatus.REJECTED_INVARIANT
+        assert executor.calls == []
+
+    async def test_v11_replay_rejects_changed_source_under_the_same_command_id(self) -> None:
+        bundle = _bundle()
+        command = _v11_command(bundle=bundle)
+        bus = _DeadLetterBus()
+        service = IsolatedExecutorEffectService(
+            direct_api_executor=_StubDirectApiExecutor(),
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            bundle_store=_StubBundleStore({bundle.bundle_digest: bundle}),
+            clock=lambda: _NOW,
+        )
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, bus),
+            service=service,
+        )
+        envelope = EventEnvelope(
+            topic="object.executor-command",
+            key=command.partition_key,
+            payload=command.model_dump(mode="json"),
+            offset=1,
+        )
+        assert await consumer.handle_envelope(envelope) is not None
+        substituted = command.model_copy(update={"source_revision": "commit:" + "f" * 40})
+
+        replay = await consumer.handle_envelope(
+            EventEnvelope(
+                topic=envelope.topic,
+                key=envelope.key,
+                payload=substituted.model_dump(mode="json"),
+                offset=2,
+            )
+        )
+
+        assert replay is None
+        assert bus.records[-1][2] == "executor_command_identity_conflict"
 
 
 # ──────────────────────────────────────────────────
@@ -251,6 +697,18 @@ class TestBundleValidationSync:
         bundle = _bundle(action_id=UUID(int=99))
         cmd = _v11_command(bundle=bundle)
         result = validate_bundle_binding_sync(cmd, bundle, now=_NOW)
+        assert result is not None
+        assert result.category == "substituted"
+
+    def test_substituted_action_payload_rejected(self) -> None:
+        bundle = _bundle()
+        command = _v11_command(
+            action=_action(target="resource/other"),
+            bundle=bundle,
+        )
+
+        result = validate_bundle_binding_sync(command, bundle, now=_NOW)
+
         assert result is not None
         assert result.category == "substituted"
 
@@ -295,6 +753,24 @@ class TestBundleValidationSync:
 
 
 class TestEffectServiceBundleValidation:
+    async def test_v11_attempt_must_match_persisted_bundle_context(self) -> None:
+        bundle = _bundle()
+        executor = _StubDirectApiExecutor()
+        service = IsolatedExecutorEffectService(
+            direct_api_executor=executor,
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            bundle_store=_StubBundleStore({bundle.bundle_digest: bundle}),
+            clock=lambda: _NOW,
+        )
+        command = _v11_command(bundle=bundle).model_copy(update={"attempt": 2})
+
+        receipt = await service.handle(command)
+
+        assert receipt.status is ExecutorEffectReceiptStatus.REJECTED_INVARIANT
+        assert "reservation attempt" in (receipt.reason or "")
+        assert executor.calls == []
+
     async def test_v11_missing_bundle_rejected_before_dispatch(self) -> None:
         executor = _StubDirectApiExecutor()
         store = _StubBundleStore()
@@ -333,7 +809,7 @@ class TestEffectServiceBundleValidation:
         assert receipt.effect_verified is False
         assert receipt.safeguard_proof_bundle_digest == bundle.bundle_digest
         assert len(executor.calls) == 1
-        assert executor.calls[0]["upstream_target_lock_held"] is True
+        assert executor.calls[0]["upstream_target_lock_held"] is False
 
     async def test_v10_command_is_readable_but_cannot_dispatch_effect(self) -> None:
         executor = _StubDirectApiExecutor()
@@ -434,6 +910,25 @@ class TestDeadlineReconciliation:
         assert receipt.status == ExecutorEffectReceiptStatus.EXPIRED
         assert receipt.safeguard_proof_bundle_digest == bundle.bundle_digest
         assert receipt.effect_verified is False
+
+    async def test_expired_stale_bundle_recovers_before_freshness_refusal(self) -> None:
+        bundle = _bundle(recorded_at=_NOW - timedelta(hours=25))
+        store = _StubBundleStore({bundle.bundle_digest: bundle})
+        executor = _RecoveringDirectApiExecutor()
+        svc = IsolatedExecutorEffectService(
+            direct_api_executor=executor,
+            contract_validator=_validator(),
+            executor_instance_id=_INSTANCE_ID,
+            bundle_store=store,
+            clock=lambda: _DEADLINE + timedelta(minutes=1),
+        )
+
+        receipt = await svc.handle(_v11_command(bundle=bundle))
+
+        assert receipt.status is ExecutorEffectReceiptStatus.ALREADY_APPLIED
+        assert receipt.provider_receipt_ref == "receipt:recovered"
+        assert executor.recovery_calls == 1
+        assert executor.calls == []
 
 
 # ──────────────────────────────────────────────────

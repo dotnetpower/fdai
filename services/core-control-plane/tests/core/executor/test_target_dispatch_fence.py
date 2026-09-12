@@ -709,13 +709,24 @@ def test_target_fence_public_transitions_reject_stale_or_wrong_state() -> None:
     preparing = _preparing()
     prepared = _prepared()
     in_flight = mark_target_fence_in_flight(prepared, changed_at=_NOW)
+    release_pending = mark_target_fence_release_pending(
+        in_flight,
+        changed_at=_NOW,
+    )
 
     with pytest.raises(ValueError, match="cannot resolve as undispatched"):
         resolve_target_fence_without_dispatch(
-            in_flight,
+            release_pending,
             no_dispatch_evidence_digest=_DIGEST,
             changed_at=_NOW,
         )
+    recovered = resolve_target_fence_without_dispatch(
+        in_flight,
+        no_dispatch_evidence_digest=_DIGEST,
+        changed_at=_NOW,
+    )
+    assert recovered.state is TargetDispatchFenceState.RESOLVED
+    assert recovered.no_dispatch_evidence_digest == _DIGEST
     with pytest.raises(ValueError, match="no_dispatch_evidence_digest"):
         resolve_target_fence_without_dispatch(
             preparing,

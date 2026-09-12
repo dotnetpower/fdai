@@ -222,6 +222,55 @@ def test_full_action_digest_covers_structured_and_lineage_fields() -> None:
     assert full_action_digest(changed_time) != full_action_digest(action)
 
 
+@pytest.mark.parametrize("path", list(ExecutionPath))
+def test_dry_run_artifact_identity_does_not_replace_full_action_binding(
+    path: ExecutionPath,
+) -> None:
+    action = _action()
+    original = _receipt(action, path)
+    later = _receipt(_action(created_at=_NOW + timedelta(seconds=1)), path)
+    changed_plan = _receipt(_action(params={"name": "other"}), path)
+    changed_guard = _receipt(
+        _action(
+            stop_condition=StopConditionKind.PROVIDER_API_ERROR_STREAK.value,
+            stop_conditions=[
+                ActionStopCondition(kind=StopConditionKind.PROVIDER_API_ERROR_STREAK, count=3)
+            ],
+        ),
+        path,
+    )
+
+    assert later.dry_run_receipt == original.dry_run_receipt
+    assert later.execution_fingerprint != original.execution_fingerprint
+    assert later.action_digest != original.action_digest
+    for changed in (changed_plan, changed_guard):
+        assert changed.dry_run_receipt != original.dry_run_receipt
+        assert changed.execution_fingerprint != original.execution_fingerprint
+
+
+def test_stable_dry_run_artifact_cannot_authorize_a_changed_action() -> None:
+    action = _action()
+    receipt = _receipt(action)
+    changed = _action(created_at=_NOW + timedelta(seconds=1))
+    assert _receipt(changed).dry_run_receipt == receipt.dry_run_receipt
+    lock, idempotency, audit, assessment = _proofs(action, receipt)
+
+    with pytest.raises(ValueError, match="action digest"):
+        finalize_safeguard_proof_bundle(
+            changed,
+            receipt=receipt,
+            source_revision=_SOURCE_REVISION,
+            recorded_at=_NOW + timedelta(seconds=1),
+            lock_proof=lock,
+            lock_assessment=assessment,
+            expected_lock_verifier_id=_LOCK_VERIFIER_ID,
+            expected_lock_verifier_version=_LOCK_VERIFIER_VERSION,
+            expected_lock_trust_anchor_id=_LOCK_TRUST_ANCHOR_ID,
+            idempotency_proof=idempotency,
+            audit_intent_proof=audit,
+        )
+
+
 def test_finalizer_rejects_cross_action_path_lock_and_audit_proofs() -> None:
     action = _action()
     receipt = _receipt(action)

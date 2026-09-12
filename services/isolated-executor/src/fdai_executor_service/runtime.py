@@ -19,17 +19,25 @@ from fdai_service_contracts import (
     EXECUTOR_COMMAND_TOPIC,
     EXECUTOR_CONSUMER_GROUP,
     EXECUTOR_RECEIPT_TOPIC,
+    CompatibilityError,
 )
 from fdai_service_contracts.executor import (
+    AnyExecutorCommand,
     EventBus,
     EventEnvelope,
+    ExecutionPath,
     ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorShadowReceipt,
+    Mode,
+    SafeguardBoundExecutorCommand,
+    executor_command_id_from_action_payload,
+    safeguard_bound_executor_command_id,
 )
 from fdai_service_contracts.schema import ContractValidationError
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
+from fdai_executor_service.contract_codecs import EXECUTOR_COMMAND_CONSUMER_V11
 from fdai_executor_service.health import RuntimeHealthServer
 from fdai_executor_service.lock import ExecutorShadowCommandHandler
 from fdai_executor_service.ports import ExecutorReceiptOutbox, PendingExecutorReceipt
@@ -37,6 +45,8 @@ from fdai_executor_service.service import ExecutorCommandConflictError
 
 _LOGGER = logging.getLogger("fdai.isolated_executor")
 type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
+_EXECUTOR_COMMAND_ADAPTER: TypeAdapter[AnyExecutorCommand] = TypeAdapter(AnyExecutorCommand)
+_EXECUTOR_RECEIPT_ADAPTER: TypeAdapter[ExecutorReceipt] = TypeAdapter(ExecutorReceipt)
 
 
 class MemoryExecutorReceiptOutbox:
@@ -45,6 +55,13 @@ class MemoryExecutorReceiptOutbox:
     def __init__(self) -> None:
         self._pending: dict[UUID, PendingExecutorReceipt] = {}
         self._committed: dict[UUID, Mapping[str, Any]] = {}
+        self._committed_by_command: dict[str, Mapping[str, Any]] = {}
+
+    async def read_committed_receipt(
+        self,
+        command_id: str,
+    ) -> Mapping[str, Any] | None:
+        return self._committed_by_command.get(command_id)
 
     async def commit_receipt(
         self,
@@ -55,7 +72,20 @@ class MemoryExecutorReceiptOutbox:
         command_id: str,
         command_offset: int | None,
     ) -> None:
+        existing = self._committed_by_command.get(command_id)
+        if existing is not None:
+            if existing != payload:
+                raise RuntimeError("Executor command already has a different terminal receipt")
+            self._pending[receipt_id] = PendingExecutorReceipt(
+                receipt_id=receipt_id,
+                partition_key=partition_key,
+                payload=dict(payload),
+                command_id=command_id,
+                command_offset=command_offset,
+            )
+            return
         self._committed.setdefault(receipt_id, dict(payload))
+        self._committed_by_command[command_id] = dict(payload)
         self._pending.setdefault(
             receipt_id,
             PendingExecutorReceipt(
@@ -77,7 +107,7 @@ class MemoryExecutorReceiptOutbox:
 class ExecutorCommandHandler(Protocol):
     """Handle one validated Executor command under its owned safeguards."""
 
-    async def handle(self, command: ExecutorCommand) -> ExecutorReceipt: ...
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorReceipt: ...
 
 
 class IsolatedExecutorCommandConsumer:
@@ -184,12 +214,56 @@ class IsolatedExecutorCommandConsumer:
         """
 
         try:
-            command = ExecutorCommand.model_validate(envelope.payload)
-        except ValidationError:
+            payload = EXECUTOR_COMMAND_CONSUMER_V11.decode_mapping(envelope.payload)
+            command = _EXECUTOR_COMMAND_ADAPTER.validate_python(payload)
+        except (CompatibilityError, ContractValidationError, ValidationError):
             await self._dead_letter(envelope, "invalid_executor_command")
             return None
         if envelope.key != command.partition_key:
             await self._dead_letter(envelope, "executor_partition_key_mismatch")
+            return None
+        legacy_bound_identity = False
+        if isinstance(command, SafeguardBoundExecutorCommand):
+            current_id = safeguard_bound_executor_command_id(
+                action_payload=command.action_payload,
+                idempotency_key=command.idempotency_key,
+                execution_path=command.execution_path.value,
+                safeguard_bundle_digest=command.safeguard_proof_bundle_digest,
+                source_revision=command.source_revision,
+                attempt=command.attempt,
+                issued_at=command.issued_at,
+                deadline_at=command.deadline_at,
+            )
+            if command.command_id != current_id:
+                legacy_id = executor_command_id_from_action_payload(
+                    action_payload=command.action_payload,
+                    idempotency_key=command.idempotency_key,
+                )
+                if command.command_id != legacy_id:
+                    await self._dead_letter(envelope, "executor_command_identity_conflict")
+                    return None
+                legacy_bound_identity = True
+        existing_payload = await self._receipt_outbox.read_committed_receipt(
+            str(command.command_id)
+        )
+        if existing_payload is not None:
+            try:
+                existing_receipt = _EXECUTOR_RECEIPT_ADAPTER.validate_python(existing_payload)
+            except ValidationError as exc:
+                raise RuntimeError("stored Executor receipt is malformed") from exc
+            if not _receipt_matches_command(command, existing_receipt):
+                await self._dead_letter(envelope, "executor_command_identity_conflict")
+                return None
+            await self._receipt_outbox.commit_receipt(
+                existing_receipt.receipt_id,
+                command.partition_key,
+                existing_receipt.model_dump(mode="json"),
+                command_id=str(command.command_id),
+                command_offset=envelope.offset,
+            )
+            return existing_receipt
+        if legacy_bound_identity and command.requested_mode is not Mode.SHADOW:
+            await self._dead_letter(envelope, "executor_command_identity_conflict")
             return None
         try:
             receipt = await self._service.handle(command)
@@ -283,6 +357,33 @@ class IsolatedExecutorCommandConsumer:
             envelope.payload,
             reason,
         )
+
+
+def _receipt_matches_command(
+    command: AnyExecutorCommand,
+    receipt: ExecutorReceipt,
+) -> bool:
+    return (
+        receipt.command_id == command.command_id
+        and receipt.action_id == command.action_id
+        and receipt.idempotency_key == command.idempotency_key
+        and receipt.attempt == command.attempt
+        and receipt.action_payload_digest == command.action_payload_digest
+        and receipt.requested_mode is command.requested_mode
+        and not (
+            isinstance(command, ExecutorCommand)
+            and isinstance(receipt, ExecutorEffectReceipt)
+            and command.execution_path is not ExecutionPath.DIRECT_API
+        )
+        and (
+            not isinstance(command, SafeguardBoundExecutorCommand)
+            or isinstance(receipt, ExecutorShadowReceipt)
+            or (
+                isinstance(receipt, ExecutorEffectReceipt)
+                and receipt.safeguard_proof_bundle_digest == command.safeguard_proof_bundle_digest
+            )
+        )
+    )
 
 
 def _receipt_correlation(

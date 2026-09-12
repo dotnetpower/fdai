@@ -7,6 +7,7 @@ importing no Core implementation. Validation runs before provider dispatch.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
@@ -15,20 +16,44 @@ from fdai_service_contracts.execution_safeguards import (
     SafeguardProofKind,
 )
 from fdai_service_contracts.executor_models import (
+    Action,
     AnyExecutorCommand,
     ExecutorCommand,
+    Mode,
     SafeguardBoundExecutorCommand,
+    executor_action_fingerprint,
+    executor_plan_fingerprint,
 )
+from pydantic import ValidationError
 
 _DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
 _REQUIRED_PROOF_KINDS = tuple(SafeguardProofKind)
 _BUNDLE_MAX_AGE_SECONDS = 86_400  # 24 hours
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedSafeguardBundle:
+    """A bundle plus its authoritative reservation attempt."""
+
+    bundle: SafeguardProofBundle
+    reservation_attempt: int
+
+    def __post_init__(self) -> None:
+        if type(self.bundle) is not SafeguardProofBundle:
+            raise ValueError("resolved safeguard bundle requires an exact bundle")
+        if type(self.reservation_attempt) is not int or self.reservation_attempt < 1:
+            raise ValueError("resolved safeguard reservation attempt MUST be positive")
+
+
 class SafeguardBundleStore(Protocol):
     """Read-only port for retrieving a proof bundle by its digest."""
 
     async def resolve_bundle(self, bundle_digest: str) -> SafeguardProofBundle | None: ...
+
+    async def resolve_bundle_context(
+        self,
+        bundle_digest: str,
+    ) -> ResolvedSafeguardBundle | None: ...
 
 
 class BundleValidationRefusal:
@@ -49,6 +74,7 @@ def validate_bundle_binding_sync(
     bundle: SafeguardProofBundle | None,
     *,
     now: datetime,
+    reservation_attempt: int | None = None,
 ) -> BundleValidationRefusal | None:
     """Revalidate the safeguard proof bundle against the command envelope.
 
@@ -82,6 +108,11 @@ def validate_bundle_binding_sync(
             "mismatched",
             "resolved bundle digest does not match the command binding",
         )
+    if reservation_attempt is not None and reservation_attempt != command.attempt:
+        return BundleValidationRefusal(
+            "substituted",
+            "bundle reservation attempt does not match command attempt",
+        )
 
     if str(bundle.action_id) != str(command.action_id):
         return BundleValidationRefusal(
@@ -95,11 +126,29 @@ def validate_bundle_binding_sync(
             "bundle execution_path does not match command execution_path",
         )
 
-    payload_target = command.action_payload.get("target_resource_ref", "")
-    if payload_target != command.target_resource_ref:
+    try:
+        action = Action.model_validate(command.action_payload)
+    except ValidationError:
+        return BundleValidationRefusal(
+            "malformed",
+            "command action payload is invalid",
+        )
+    if action.target_resource_ref != command.target_resource_ref:
         return BundleValidationRefusal(
             "wrong-target",
             "action payload target_resource_ref does not match envelope",
+        )
+    expected_fingerprint = "sha256:" + executor_action_fingerprint(
+        action_payload=action.model_dump(mode="json", exclude_none=False),
+        execution_path=command.execution_path.value,
+    )
+    if bundle.execution_fingerprint != expected_fingerprint and not (
+        command.requested_mode is Mode.SHADOW
+        and bundle.execution_fingerprint == _legacy_execution_fingerprint(action, command)
+    ):
+        return BundleValidationRefusal(
+            "substituted",
+            "bundle execution fingerprint does not match command action payload",
         )
 
     if command.source_revision and bundle.source_revision != command.source_revision:
@@ -144,8 +193,18 @@ def validate_bundle_binding_sync(
     return None
 
 
+def _legacy_execution_fingerprint(
+    action: Action,
+    command: SafeguardBoundExecutorCommand,
+) -> str:
+    return "sha256:" + executor_plan_fingerprint(
+        action=action, execution_path=command.execution_path.value
+    )
+
+
 __all__ = [
     "BundleValidationRefusal",
+    "ResolvedSafeguardBundle",
     "SafeguardBundleStore",
     "validate_bundle_binding_sync",
 ]

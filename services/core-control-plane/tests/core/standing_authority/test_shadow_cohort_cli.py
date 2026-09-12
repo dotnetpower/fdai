@@ -36,6 +36,9 @@ from fdai.core.standing_authority.shadow_cohort_corpus import (
     CohortCorpusError,
     decode_corpus_document,
 )
+from tests.core.standing_authority.hypothetical_provider_eligibility import (
+    hypothetical_fence_capable,
+)
 from tests.core.standing_authority.inertness_scan import find_inertness_violations
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3] / "src" / "fdai"
@@ -48,6 +51,7 @@ AUTH_DIGEST = "sha256:" + "f" * 64
 EVIDENCE_1 = "sha256:" + "e1" + "0" * 62
 EVIDENCE_2 = "sha256:" + "e2" + "0" * 62
 CREATOR = "human:creator"
+HYPOTHETICALLY_CAPABLE = ("ops.scale-out",)
 REVIEWER_A = "human:reviewer-a"
 REVIEWER_B = "human:reviewer-b"
 
@@ -67,7 +71,6 @@ def _candidate(family: str = "family:one") -> dict[str, Any]:
             "transition_digest": "sha256:" + "d" * 64,
         },
         "eligible_action_types": ["ops.scale-out"],
-        "ineligible_provider_action_types": [],
         "evidence_requirements": [EVIDENCE_1, EVIDENCE_2],
         "source_revision_id": "source:v1",
         "creator_principal": CREATOR,
@@ -275,7 +278,10 @@ def test_all_denied_corpus_is_refused_by_the_manifest() -> None:
 def test_cli_runs_and_writes_exactly_one_local_receipt(tmp_path: Path) -> None:
     corpus = _write(tmp_path, _document())
     out = tmp_path / "artifacts"
-    code = main(["--corpus", str(corpus), "--output-dir", str(out)])
+    # Every real ActionType derives INELIGIBLE_CAPABILITY, so a complete cohort is
+    # only reachable under the explicit test-only hypothetical adapter registry.
+    with hypothetical_fence_capable(HYPOTHETICALLY_CAPABLE):
+        code = main(["--corpus", str(corpus), "--output-dir", str(out)])
     assert code == EXIT_OK
     receipts = sorted(out.glob("cohort-receipt-*.json"))
     assert len(receipts) == 1
@@ -298,7 +304,8 @@ def test_cli_reports_a_policy_escape_as_incomplete(tmp_path: Path) -> None:
     document["cases"] = [_eligible_case(), mismatched]
     corpus = _write(tmp_path, document)
     out = tmp_path / "artifacts"
-    code = main(["--corpus", str(corpus), "--output-dir", str(out)])
+    with hypothetical_fence_capable(HYPOTHETICALLY_CAPABLE):
+        code = main(["--corpus", str(corpus), "--output-dir", str(out)])
     assert code == EXIT_INCOMPLETE
     receipts = sorted(out.glob("cohort-receipt-*.json"))
     assert len(receipts) == 1
@@ -425,7 +432,8 @@ def test_cli_reports_deadline_overrun(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_cli_receipt_resolves_inside_the_declared_directory(tmp_path: Path) -> None:
     corpus = _write(tmp_path, _document())
     out = tmp_path / "nested" / "artifacts"
-    assert main(["--corpus", str(corpus), "--output-dir", str(out)]) == EXIT_OK
+    with hypothetical_fence_capable(HYPOTHETICALLY_CAPABLE):
+        assert main(["--corpus", str(corpus), "--output-dir", str(out)]) == EXIT_OK
     receipts = sorted(out.glob("cohort-receipt-*.json"))
     assert len(receipts) == 1
     assert receipts[0].resolve().parent == out.resolve()
@@ -437,8 +445,34 @@ def test_cli_accepts_a_relative_output_dir(
 ) -> None:
     corpus = _write(tmp_path, _document())
     monkeypatch.chdir(tmp_path)
-    assert main(["--corpus", str(corpus), "--output-dir", "relative-out"]) == EXIT_OK
+    with hypothetical_fence_capable(HYPOTHETICALLY_CAPABLE):
+        assert main(["--corpus", str(corpus), "--output-dir", "relative-out"]) == EXIT_OK
     assert len(sorted((tmp_path / "relative-out").glob("cohort-receipt-*.json"))) == 1
+
+
+def test_corpus_schema_cannot_declare_provider_eligibility(tmp_path: Path) -> None:
+    """Provider eligibility is derived, so the corpus has no key to declare it."""
+    document = _document()
+    document["cases"][0]["candidate"]["ineligible_provider_action_types"] = []
+    with pytest.raises(CohortCorpusError, match="unknown key"):
+        decode_corpus_document(json.dumps(document))
+
+
+def test_real_registry_cannot_produce_a_complete_local_cohort(tmp_path: Path) -> None:
+    """With zero registered adapters no real ActionType can reach an eligible case."""
+    corpus = _write(tmp_path, _document())
+    out = tmp_path / "artifacts"
+    assert main(["--corpus", str(corpus), "--output-dir", str(out)]) == EXIT_INCOMPLETE
+    payload = json.loads(sorted(out.glob("cohort-receipt-*.json"))[0].read_text(encoding="utf-8"))
+    assert payload["eligible_count"] == 0
+    assert payload["zero_policy_escapes"] is False
+
+
+def test_real_registry_denies_every_declared_eligible_case() -> None:
+    """The decoder still parses, but every candidate derives PROVIDER_INELIGIBLE."""
+    decoded = decode_corpus_document(json.dumps(_document()))
+    for case in decoded.corpus:
+        assert case.record.ineligible_provider_action_types == case.record.eligible_action_types
 
 
 # ---------------------------------------------------------------------------

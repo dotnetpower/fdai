@@ -35,6 +35,7 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     SafeguardDispatchEvidenceState,
 )
 from fdai.core.executor.safeguard_dispatch_store import (
+    SafeguardDispatchEvidenceReadback,
     SafeguardDispatchPersistenceDecision,
     SafeguardDispatchPersistenceResult,
     SafeguardDispatchTransitionReceipt,
@@ -42,11 +43,13 @@ from fdai.core.executor.safeguard_dispatch_store import (
 )
 from fdai.core.executor.target_dispatch_fence import (
     TargetDispatchFenceRecord,
+    TargetDispatchFenceState,
     TargetDispatchFenceTransitionReceipt,
 )
 from fdai.core.executor.target_dispatch_fence_store import (
     TargetDispatchFenceAcquireDecision,
     TargetDispatchFenceAcquireResult,
+    TargetDispatchFenceReadback,
     classify_target_fence,
 )
 from fdai.shared.providers.resource_lock import LiveLockOwnershipAssessment
@@ -195,9 +198,39 @@ class InMemoryTargetDispatchFenceStore:
             key = record.identity.target_digest
             existing = self._records.get(key)
             if existing is not None:
+                decision = classify_target_fence(existing, record.identity)
+                if decision is TargetDispatchFenceAcquireDecision.DUPLICATE_SAME:
+                    return TargetDispatchFenceAcquireResult(
+                        candidate_identity=record.identity,
+                        decision=decision,
+                        observed_record=existing,
+                        transition_receipt=None,
+                    )
+                if (
+                    existing.state is TargetDispatchFenceState.RESOLVED
+                    and record.prior_record_digest == existing.record_digest
+                    and record.revision == existing.revision + 1
+                    and record.identity.generation == existing.identity.generation + 1
+                ):
+                    self._records[key] = record
+                    receipt = TargetDispatchFenceTransitionReceipt.create(
+                        prior_record=existing,
+                        record=record,
+                        store_receipt_digest=_digest(
+                            "memory-target-fence-generation",
+                            record.record_digest,
+                        ),
+                        recorded_at=record.state_changed_at,
+                    )
+                    return TargetDispatchFenceAcquireResult(
+                        candidate_identity=record.identity,
+                        decision=TargetDispatchFenceAcquireDecision.ACQUIRED,
+                        observed_record=record,
+                        transition_receipt=receipt,
+                    )
                 return TargetDispatchFenceAcquireResult(
                     candidate_identity=record.identity,
-                    decision=classify_target_fence(existing, record.identity),
+                    decision=TargetDispatchFenceAcquireDecision.BLOCKED,
                     observed_record=existing,
                     transition_receipt=None,
                 )
@@ -241,6 +274,18 @@ class InMemoryTargetDispatchFenceStore:
 
     async def read(self, target_digest: str) -> TargetDispatchFenceRecord | None:
         return self._records.get(target_digest)
+
+    async def read_with_timestamp(
+        self,
+        target_digest: str,
+    ) -> TargetDispatchFenceReadback | None:
+        record = await self.read(target_digest)
+        if record is None:
+            return None
+        return TargetDispatchFenceReadback(
+            record=record,
+            recorded_at=record.state_changed_at,
+        )
 
 
 class InMemorySafeguardDispatchEvidenceStore:
@@ -317,6 +362,19 @@ class InMemorySafeguardDispatchEvidenceStore:
     ) -> SafeguardDispatchEvidenceRecord | None:
         return self._records.get((target_digest, generation))
 
+    async def read_with_timestamp(
+        self,
+        target_digest: str,
+        generation: int,
+    ) -> SafeguardDispatchEvidenceReadback | None:
+        record = await self.read(target_digest, generation)
+        if record is None:
+            return None
+        return SafeguardDispatchEvidenceReadback(
+            record=record,
+            recorded_at=record.state_changed_at,
+        )
+
 
 class InMemoryPostReleaseClosureStore:
     """Process-local closure transaction provider for explicit tests."""
@@ -384,6 +442,24 @@ class InMemoryPostReleaseClosureStore:
 
     async def read(self, closure_key: str) -> PostReleaseClosureRecord | None:
         return self._records.get(closure_key)
+
+    async def read_receipt(
+        self,
+        closure_key: str,
+    ) -> PostReleaseClosureStoreReceipt | None:
+        record = await self.read(closure_key)
+        if record is None:
+            return None
+        return PostReleaseClosureStoreReceipt.create(
+            decision=PostReleaseClosureWriteDecision.DUPLICATE_SAME,
+            record=record,
+            persisted_at=record.closed_at,
+            read_back_at=record.closed_at,
+            store_receipt_digest=_digest(
+                "memory-post-release-readback",
+                record.record_digest,
+            ),
+        )
 
 
 __all__ = [

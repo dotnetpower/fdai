@@ -23,7 +23,10 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     DispatchTransportState,
     SafeguardDispatchEvidenceRecord,
 )
-from fdai.core.executor.safeguard_evidence_lifecycle import DispatchPort
+from fdai.core.executor.safeguard_evidence_lifecycle import (
+    DispatchBoundaryGuard,
+    DispatchPort,
+)
 from fdai.shared.providers.automation_hold_state import (
     AutomationHoldStateReader,
     HoldReleaseAuthorizationReader,
@@ -89,45 +92,45 @@ class HoldFencedDispatchPort:
         *,
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
     ) -> tuple[
         DispatchTransportState,
         AuthoritativeSinkState,
         str | None,
         str | None,
     ]:
-        """Fence the target, then delegate exactly once when it stays eligible."""
+        """Delegate with a final hold-and-ownership guard at provider call time."""
 
-        check = await self._recheck()
-        if check is not None and not check.eligible:
-            audit = HoldFenceAuditResult.create(
-                check_result=check,
-                recorded_at=self._clock(),
-            )
-            await self._denial_audit_store.append_audit_entry(
-                {
-                    "action_id": self._action_id,
-                    "actor": self._actor,
-                    "action_kind": "executor.hold_dispatch_fence.denied",
-                    "audit_phase": "pre-dispatch",
-                    "outcome": "not_invoked",
-                    "target_digest": audit.target_digest,
-                    "hold_state": audit.hold_state.value,
-                    "rejection_reasons": [reason.value for reason in audit.rejection_reasons],
-                    "audit_digest": audit.audit_digest,
-                    "recorded_at": audit.recorded_at.isoformat(),
-                    "execution_authority": False,
-                    "effect_verified": False,
-                }
-            )
-            return (
-                DispatchTransportState.FAILED,
-                AuthoritativeSinkState.NOT_ACCEPTED,
-                None,
-                audit.audit_digest,
-            )
+        async def hold_and_ownership_guard() -> datetime:
+            check = await self._recheck()
+            if check is not None and not check.eligible:
+                audit = HoldFenceAuditResult.create(
+                    check_result=check,
+                    recorded_at=self._clock(),
+                )
+                await self._denial_audit_store.append_audit_entry(
+                    {
+                        "action_id": self._action_id,
+                        "actor": self._actor,
+                        "action_kind": "executor.hold_dispatch_fence.denied",
+                        "audit_phase": "pre-dispatch",
+                        "outcome": "not_invoked",
+                        "target_digest": audit.target_digest,
+                        "hold_state": audit.hold_state.value,
+                        "rejection_reasons": [reason.value for reason in audit.rejection_reasons],
+                        "audit_digest": audit.audit_digest,
+                        "recorded_at": audit.recorded_at.isoformat(),
+                        "execution_authority": False,
+                        "effect_verified": False,
+                    }
+                )
+                raise RuntimeError("automation hold blocks provider invocation")
+            return await pre_invoke_guard()
+
         return await self._inner.dispatch(
             evidence_record=evidence_record,
             started_at=started_at,
+            pre_invoke_guard=hold_and_ownership_guard,
         )
 
     async def _recheck(self) -> HoldFenceCheckResult | None:

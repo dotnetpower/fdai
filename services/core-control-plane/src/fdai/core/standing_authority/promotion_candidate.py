@@ -4,9 +4,10 @@
 never imported or mutated. All records carry ``execution_authority=False`` and
 ``promotion_authority=False``. Fail-closed: self-review, silence, duplicate/conflicting
 review, agent/executor identity, missing evidence, stale fence, provider-ineligible
-ActionType, and explicit revocation all terminate deterministically. Two-phase audit:
-immutable intent digest captured before mutation; result committed in same boundary.
-Append-only hash-chained history with monotonic sequence.
+ActionType, and explicit revocation all terminate deterministically. The ineligible
+ActionType set is derived from ``provider_eligibility``; no caller declares it.
+Two-phase audit: immutable intent digest captured before mutation; result committed in
+the same boundary. Append-only hash-chained history with monotonic sequence.
 
 Re-exports all public names from the focused sub-modules:
   - ``promotion_candidate_models``: immutable record types and persistence protocol.
