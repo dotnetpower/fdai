@@ -317,7 +317,11 @@ def test_matching_runtime_image_evidence_passes(
     plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
         expires_at=_NOW + timedelta(minutes=30),
-        runtime_image={"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}"},
+        runtime_image={
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+        },
     )
 
     _verify(
@@ -556,9 +560,24 @@ def test_invalid_model_resolution_evidence_fails(
 @pytest.mark.parametrize(
     "runtime_image",
     [
-        {"source_revision": "bad", "digest": f"sha256:{'c' * 64}"},
-        {"source_revision": "a" * 40, "digest": "bad"},
-        {"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}", "extra": "x"},
+        {
+            "source_revision": "bad",
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+        },
+        {"source_revision": "a" * 40, "digest": "bad", "profile": "cost-governance"},
+        {"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}"},
+        {
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "unknown",
+        },
+        {
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": "cost-governance",
+            "extra": "x",
+        },
     ],
 )
 def test_invalid_runtime_image_evidence_fails(
