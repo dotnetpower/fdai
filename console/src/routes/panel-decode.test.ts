@@ -10,7 +10,7 @@ describe("optional panel response decoders", () => {
       window_days: null,
       ready_count: 0,
       blocked_count: 1,
-      rows: [{ action_type_name: "x", shadow_days_elapsed: 0, sample_count: 0, reviewed_count: 0, agreed_count: 0, policy_escapes: 0, accuracy: 0, ready: false, gaps: [null] }],
+      rows: [{ action_type_name: "x", mode: "shadow", mode_source: "catalog-default", shadow_days_elapsed: 0, sample_count: 0, reviewed_count: 0, agreed_count: 0, policy_escapes: 0, accuracy: 0, ready: false, gaps: [null] }],
     })).toThrow(/only strings/);
   });
 });
