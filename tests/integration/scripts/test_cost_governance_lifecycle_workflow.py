@@ -20,6 +20,8 @@ def test_lifecycle_workflow_is_protected_and_exact_revision_bound() -> None:
 def test_lifecycle_workflow_uses_private_state_and_canonical_cli() -> None:
     assert "FDAI_STATE_STORE_DSN" in _WORKFLOW
     assert "migration_dsn_secret_name" in _WORKFLOW
+    assert "UV_FROZEN=1 uv build --package fdai-cost-governance" in _WORKFLOW
+    assert "uv build --frozen" not in _WORKFLOW
     assert "fdai_cost_governance.lifecycle_cli" in _WORKFLOW
     assert "operation == $operation" in _WORKFLOW
     assert 'evidence_kind == "live-authoritative"' in _WORKFLOW
