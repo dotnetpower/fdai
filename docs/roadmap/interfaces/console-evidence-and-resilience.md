@@ -129,7 +129,7 @@ Narration receives rendered facts, never invented unavailable values or replacem
 Headlines and cards share formatting, preserving ratios and the displayed percentage precision.
 Dashboard routing retains its own canonical sample, independent of general audit noise.
 Mode, tier, action, outcome, window and sequence filters reach the server-owned audit query.
-Admitted cohort comparisons remain separate from rolling Live values, expire, and grant no authority. Their captured view context retains both arms and the expiry rather than substituting the rolling baseline.
+Admitted cohort comparisons remain separate from rolling Live values, expire, and grant no authority. Their captured view context retains both arms and the expiry rather than substituting the rolling baseline. Expiry republishes the view, and every submission withdraws expired cohort groups from pinned snapshots as well.
 The audit-backed projection captures one UTC window and append-only head sequence, then reads
 canonical classifications, independent outcomes, metric observations and human inputs below it.
 An over-budget complete read fails closed rather than reporting a partial rate. Normalized event

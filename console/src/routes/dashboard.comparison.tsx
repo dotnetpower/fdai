@@ -20,16 +20,26 @@ export function CohortComparison({ comparison }: {
   return comparison ? <PublishedComparison comparison={comparison} /> : null;
 }
 
-function PublishedComparison({ comparison }: { readonly comparison: DashboardComparison }) {
+/** Republish both the visible comparison and screen evidence when its admission expires. */
+export function useCohortExpiry(validUntil: string | undefined): boolean {
   const [now, setNow] = useState(Date.now);
-  const expiry = Date.parse(comparison.valid_until);
+  const expiry = validUntil === undefined ? undefined : Date.parse(validUntil);
   useEffect(() => {
+    if (expiry === undefined) return;
     const remaining = expiry - Date.now();
-    if (remaining <= 0) return;
+    if (remaining <= 0) {
+      if (now < expiry) setNow(Date.now());
+      return;
+    }
     const timeout = setTimeout(() => setNow(Date.now()), Math.min(remaining, 2_147_483_647));
     return () => clearTimeout(timeout);
   }, [expiry, now]);
-  if (Math.max(now, Date.now()) >= expiry) return <UnavailableState message={text("expired")} />;
+  return expiry !== undefined && Math.max(now, Date.now()) >= expiry;
+}
+
+function PublishedComparison({ comparison }: { readonly comparison: DashboardComparison }) {
+  const expired = useCohortExpiry(comparison.valid_until);
+  if (expired) return <UnavailableState message={text("expired")} />;
 
   const number = (value: number) => new Intl.NumberFormat(getLocale(), {
     maximumSignificantDigits: 4,

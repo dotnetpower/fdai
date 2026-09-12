@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { DASHBOARD_SAMPLE_DATA } from "../../src/routes/dashboard.sample";
 
 test("admitted comparison stays separate, expires and reflows", async ({ page }) => {
+  const contexts: Array<{ records?: Record<string, unknown> }> = [];
   await page.clock.install({ time: new Date("2026-09-01T00:00:00Z") });
   await page.setViewportSize({ width: 1440, height: 900 });
   const arm = (name: string, value: number) => ({
@@ -18,6 +19,19 @@ test("admitted comparison stays separate, expires and reflows", async ({ page })
   });
   await page.route("**/*", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/chat/health")) return route.fulfill({
+      json: { available: true, mode: "test", model: "test" },
+    });
+    if (path.endsWith("/chat/stream")) {
+      contexts.push(route.request().postDataJSON().view_context);
+      return route.fulfill({
+        contentType: "text/event-stream",
+        body: `event: done\ndata: ${JSON.stringify({
+          seq: 1, revision: 1, answer: "Fixture response.",
+          source: "semantic:direct-response", model: "test",
+        })}\n\n`,
+      });
+    }
     if (path === "/kpi") return route.fulfill({ json: {
       ...DASHBOARD_SAMPLE_DATA.kpi, event_count: 280, by_tier: {}, by_outcome: {},
     } });
@@ -37,7 +51,7 @@ test("admitted comparison stays separate, expires and reflows", async ({ page })
         baseline: arm("baseline", 0.4), treatment: arm("treatment", 0.8),
       },
     } });
-    if (/^\/(kpi\/|system\/data-sources|cost-governance\/)/.test(path)) {
+    if (/^\/(api\/|kpi\/|system\/data-sources|cost-governance\/)/.test(path)) {
       return route.fulfill({ status: 404, json: { detail: "Unavailable in comparison fixture" } });
     }
     return route.continue();
@@ -51,6 +65,13 @@ test("admitted comparison stays separate, expires and reflows", async ({ page })
   await expect(comparison.locator(".comparison-estimate strong")).toHaveText(["40%", "80%"]);
   await expect(comparison.getByRole("link", { name: "View publication evidence" }))
     .toHaveAttribute("href", "/audit?action=measurement.dashboard_comparison.v1");
+  await page.clock.runFor(600);
+  await page.locator(".deck-invoke").click();
+  await page.locator(".deck-input").fill("Describe the comparison.");
+  await page.locator(".deck-input").press("Enter");
+  await expect.poll(() => contexts.length).toBe(1);
+  expect(contexts[0]?.records?.cohort_comparison_metrics).toHaveLength(1);
+  await page.locator(".deck-close").click();
   for (const width of [993, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.locator("main").evaluate((element) =>
@@ -59,4 +80,12 @@ test("admitted comparison stays separate, expires and reflows", async ({ page })
   await page.clock.fastForward(60_001);
   await expect(page.locator(".dashboard-cohort-comparison")).toHaveCount(0);
   await expect(page.locator(".overview-details")).toContainText("This comparison has expired");
+  await page.clock.fastForward(501);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator(".deck-invoke").click();
+  await page.locator(".deck-input").fill("Describe the current comparison.");
+  await page.locator(".deck-input").press("Enter");
+  await expect.poll(() => contexts.length).toBe(2);
+  expect(contexts[1]?.records?.cohort_comparison_metrics).toEqual([]);
+  expect(contexts[1]?.records?.cohort_comparison_context).toEqual([]);
 });

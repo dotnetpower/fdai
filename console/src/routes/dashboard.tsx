@@ -29,7 +29,7 @@ import {
   SuccessMetrics,
 } from "./dashboard.executive";
 import { LivingRules, VerticalCards } from "./dashboard.signals";
-import { CohortComparison } from "./dashboard.comparison";
+import { CohortComparison, useCohortExpiry } from "./dashboard.comparison";
 import { DashboardSkeleton } from "./dashboard.skeleton";
 import {
   loadDashboardOverviewForMode,
@@ -85,6 +85,7 @@ export function DashboardRoute({ client, dataMode }: Props) {
 
 function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
   const { kpi, cost, gates, autonomy } = data;
+  const comparisonExpired = useCohortExpiry(autonomy?.comparison?.valid_until);
   const sampleParams = auditSampleParams(kpi);
 
   const t0Share = overviewT0Share(kpi.by_tier);
@@ -100,8 +101,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
 
   usePublishViewContext(
     () => {
-      const comparison = autonomy?.comparison &&
-        Date.parse(autonomy.comparison.valid_until) > Date.now() ? autonomy.comparison : null;
+      const comparison = autonomy?.comparison && !comparisonExpired ? autonomy.comparison : null;
       // The Overview renders an autonomy hero, success-metrics-vs-baseline,
       // per-vertical cards, and guard bands from the /kpi/autonomy panel.
       // Publish that surface (not just the audit KPIs) so the deck can answer
@@ -329,7 +329,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
         },
       };
     },
-    [kpi, cost, gates, autonomy, health, savings, t0Share],
+    [kpi, cost, gates, autonomy, health, savings, t0Share, comparisonExpired],
   );
 
   return (

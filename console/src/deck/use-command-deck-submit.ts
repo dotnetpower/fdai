@@ -32,6 +32,7 @@ import {
   type ConversationSummary,
 } from "./conversation-sessions";
 import type { ViewSnapshot } from "./context";
+import { withdrawExpiredCohortContext } from "./expiring-cohort-context";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
   drainStreamPaint,
@@ -95,7 +96,7 @@ export function requestSnapshotForSubmit(
   supplied: ViewSnapshot | null | undefined,
 ): ViewSnapshot | null {
   const selected = supplied === undefined ? current : supplied;
-  return selected === null ? null : structuredClone(selected);
+  return selected === null ? null : withdrawExpiredCohortContext(structuredClone(selected), Date.now());
 }
 
 interface UseCommandDeckSubmitOptions {
