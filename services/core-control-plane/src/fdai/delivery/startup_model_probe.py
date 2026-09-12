@@ -96,6 +96,7 @@ class CrossCheckModelStartupProbe:
         self._proof_sampled_at_unix_ms = 0
         self._reuse_count = 0
         self._first_reused_at_unix_ms = 0
+        self._first_reused_expires_at_unix_ms = 0
         self._lock = asyncio.Lock()
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
@@ -104,9 +105,14 @@ class CrossCheckModelStartupProbe:
             if self._proof is not None and self._proof.sample_count >= request.model_sample_count:
                 observed_at = datetime.now(UTC)
                 reused_at_unix_ms = int(observed_at.timestamp() * 1000)
+                reused_expires_at_unix_ms = int(
+                    (observed_at + timedelta(seconds=request.evidence_ttl_seconds)).timestamp()
+                    * 1000
+                )
                 self._reuse_count += 1
                 if self._first_reused_at_unix_ms == 0:
                     self._first_reused_at_unix_ms = reused_at_unix_ms
+                    self._first_reused_expires_at_unix_ms = reused_expires_at_unix_ms
                 return _result(
                     self.probe_id,
                     started_at,
@@ -119,7 +125,9 @@ class CrossCheckModelStartupProbe:
                         "proof_started_at_unix_ms": self._proof_started_at_unix_ms,
                         "proof_sampled_at_unix_ms": self._proof_sampled_at_unix_ms,
                         "first_reused_at_unix_ms": self._first_reused_at_unix_ms,
+                        "first_reused_expires_at_unix_ms": (self._first_reused_expires_at_unix_ms),
                         "latest_reused_at_unix_ms": reused_at_unix_ms,
+                        "latest_reused_expires_at_unix_ms": reused_expires_at_unix_ms,
                         "reuse_count": self._reuse_count,
                     },
                     observed_at=observed_at,
@@ -132,6 +140,7 @@ class CrossCheckModelStartupProbe:
                 self._proof_sampled_at_unix_ms = 0
                 self._reuse_count = 0
                 self._first_reused_at_unix_ms = 0
+                self._first_reused_expires_at_unix_ms = 0
             if not self._proof_id:
                 proof_started_at = datetime.now(UTC)
                 self._proof_id = uuid4().hex

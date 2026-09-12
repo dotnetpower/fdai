@@ -40,7 +40,9 @@ class CandidateObservation:
     proof_started_at: datetime
     proof_sampled_at: datetime
     first_reused_at: datetime
+    first_reused_expires_at: datetime
     latest_reused_at: datetime
+    latest_reused_expires_at: datetime
     current_observed_at: datetime
     current_expires_at: datetime
     sample_count: int
@@ -152,9 +154,17 @@ def _candidate_observations(
             evidence.get("first_reused_at_unix_ms"),
             f"{result.probe_id}.first_reused_at_unix_ms",
         )
+        first_reused_expires_at = _unix_ms(
+            evidence.get("first_reused_expires_at_unix_ms"),
+            f"{result.probe_id}.first_reused_expires_at_unix_ms",
+        )
         latest_reused_at = _unix_ms(
             evidence.get("latest_reused_at_unix_ms"),
             f"{result.probe_id}.latest_reused_at_unix_ms",
+        )
+        latest_reused_expires_at = _unix_ms(
+            evidence.get("latest_reused_expires_at_unix_ms"),
+            f"{result.probe_id}.latest_reused_expires_at_unix_ms",
         )
         observed_at_ms = int(result.observed_at.timestamp() * 1000)
         if not proof_started_at <= proof_sampled_at < first_reused_at < latest_reused_at:
@@ -164,6 +174,19 @@ def _candidate_observations(
         if int(latest_reused_at.timestamp() * 1000) != observed_at_ms:
             raise T2StartupProofEvidenceError(
                 f"{result.probe_id} latest reuse does not match observed_at"
+            )
+        if not (
+            first_reused_at < first_reused_expires_at < latest_reused_expires_at
+            and latest_reused_at < latest_reused_expires_at
+        ):
+            raise T2StartupProofEvidenceError(
+                f"{result.probe_id} reuse expiry timestamps are not fresh and ordered"
+            )
+        if int(latest_reused_expires_at.timestamp() * 1000) != int(
+            result.expires_at.timestamp() * 1000
+        ):
+            raise T2StartupProofEvidenceError(
+                f"{result.probe_id} latest reuse expiry does not match expires_at"
             )
         if result.expires_at <= captured_at:
             raise T2StartupProofEvidencePendingError(f"{result.probe_id} evidence has expired")
@@ -176,7 +199,9 @@ def _candidate_observations(
                 proof_started_at=proof_started_at,
                 proof_sampled_at=proof_sampled_at,
                 first_reused_at=first_reused_at,
+                first_reused_expires_at=first_reused_expires_at,
                 latest_reused_at=latest_reused_at,
+                latest_reused_expires_at=latest_reused_expires_at,
                 current_observed_at=result.observed_at.astimezone(UTC),
                 current_expires_at=result.expires_at.astimezone(UTC),
                 sample_count=result.model_evidence.sample_count,
@@ -292,7 +317,9 @@ def _metering_receipt(
         "proof_started_at": _timestamp(observation.proof_started_at),
         "proof_sampled_at": _timestamp(observation.proof_sampled_at),
         "first_reused_at": _timestamp(observation.first_reused_at),
+        "first_reused_expires_at": _timestamp(observation.first_reused_expires_at),
         "latest_reused_at": _timestamp(observation.latest_reused_at),
+        "latest_reused_expires_at": _timestamp(observation.latest_reused_expires_at),
         "current_observed_at": _timestamp(observation.current_observed_at),
         "current_expires_at": _timestamp(observation.current_expires_at),
         "sample_count": observation.sample_count,

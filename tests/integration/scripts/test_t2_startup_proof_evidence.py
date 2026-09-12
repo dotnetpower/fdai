@@ -58,7 +58,13 @@ def _report(*, reuse_count: int = 2) -> dict[str, object]:
                     "proof_started_at_unix_ms": int(started_at.timestamp() * 1000),
                     "proof_sampled_at_unix_ms": int(sampled_at.timestamp() * 1000),
                     "first_reused_at_unix_ms": int(first_reused_at.timestamp() * 1000),
+                    "first_reused_expires_at_unix_ms": int(
+                        (first_reused_at + timedelta(minutes=5)).timestamp() * 1000
+                    ),
                     "latest_reused_at_unix_ms": int(latest_reused_at.timestamp() * 1000),
+                    "latest_reused_expires_at_unix_ms": int(
+                        (latest_reused_at + timedelta(minutes=5)).timestamp() * 1000
+                    ),
                     "reuse_count": reuse_count,
                 },
                 "model_evidence": {
@@ -144,6 +150,8 @@ def test_builds_sanitized_evidence_for_two_reuses(evidence_module: ModuleType) -
     assert candidate["reuse_count"] == 2
     assert candidate["metered_invocation_count"] == 2
     assert candidate["additional_invocation_count"] == 0
+    assert candidate["first_reused_expires_at"] == "2026-09-12T01:10:00Z"
+    assert candidate["latest_reused_expires_at"] == "2026-09-12T01:15:00Z"
     assert candidate["total_tokens"] == 255
     assert candidate["total_cost"] == "0.0026"
     assert candidate["initial_sampled"] is True
@@ -247,4 +255,44 @@ def test_rejects_a_stale_or_predeployment_proof(evidence_module: ModuleType) -> 
         _build(
             evidence_module,
             revision_created_at=datetime(2026, 9, 12, 1, 0, 1, tzinfo=UTC),
+        )
+
+
+def test_rejects_missing_or_inconsistent_reuse_expiry(evidence_module: ModuleType) -> None:
+    missing = _report()
+    del missing["results"][0]["evidence"]["first_reused_expires_at_unix_ms"]
+    with pytest.raises(evidence_module.T2StartupProofEvidenceError, match="must be an integer"):
+        evidence_module.build_t2_startup_proof_evidence(
+            missing,
+            _invocations(),
+            source_revision=SOURCE_REVISION,
+            image_digest=DIGEST,
+            revision_ref_digest=DIGEST,
+            replica_ref_digest=DIGEST,
+            source_identity_digest=DIGEST,
+            environment="dev",
+            workflow_run_id=123,
+            workflow_run_attempt=1,
+            captured_at=datetime(2026, 9, 12, 1, 10, 2, tzinfo=UTC),
+            revision_created_at=datetime(2026, 9, 12, 0, 59, tzinfo=UTC),
+        )
+
+    inconsistent = _report()
+    inconsistent["results"][0]["evidence"]["latest_reused_expires_at_unix_ms"] = int(
+        datetime(2026, 9, 12, 1, 14, tzinfo=UTC).timestamp() * 1000
+    )
+    with pytest.raises(evidence_module.T2StartupProofEvidenceError, match="does not match"):
+        evidence_module.build_t2_startup_proof_evidence(
+            inconsistent,
+            _invocations(),
+            source_revision=SOURCE_REVISION,
+            image_digest=DIGEST,
+            revision_ref_digest=DIGEST,
+            replica_ref_digest=DIGEST,
+            source_identity_digest=DIGEST,
+            environment="dev",
+            workflow_run_id=123,
+            workflow_run_attempt=1,
+            captured_at=datetime(2026, 9, 12, 1, 10, 2, tzinfo=UTC),
+            revision_created_at=datetime(2026, 9, 12, 0, 59, tzinfo=UTC),
         )

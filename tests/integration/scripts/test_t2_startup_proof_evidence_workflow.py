@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = ROOT / ".github" / "workflows" / "t2-startup-proof-evidence.yml"
+CAPTURE = ROOT / "scripts" / "deployment" / "azure" / "capture_t2_startup_proof_evidence.py"
 
 
 def test_workflow_is_read_only_and_revision_bound() -> None:
@@ -19,6 +20,8 @@ def test_workflow_is_read_only_and_revision_bound() -> None:
     assert '[[ "$deployed_source_revision" == "$TARGET_COMMIT_SHA" ]]' in workflow
     assert "T2 startup evidence requires exactly one active Core revision" in workflow
     assert "T2 startup evidence requires exactly one running Core replica" in workflow
+    assert "Reverify the observed Core process" in workflow
+    assert "the Core replica changed during startup-proof observation" in workflow
     assert "terraform apply" not in workflow
     assert "containerapp update" not in workflow
     assert "containerapp revision restart" not in workflow
@@ -34,5 +37,14 @@ def test_workflow_keeps_live_values_out_of_the_artifact() -> None:
     assert "--replica-ref-digest" in workflow
     assert "t2-startup-proof-live-evidence.json" in workflow
     assert "Remove live context files" in workflow
+    assert '"$RUNNER_TEMP/t2-startup-proof-live-evidence.json"' in workflow
+    assert 'if [[ -n "${AZURE_CONFIG_DIR:-}" ]]; then' in workflow
     assert '[[ "$AZURE_CONFIG_DIR" == "$RUNNER_TEMP/"* ]]' in workflow
     assert 'rm -rf -- "$AZURE_CONFIG_DIR"' in workflow
+
+
+def test_postgres_evidence_reads_are_read_only_and_bounded() -> None:
+    capture = CAPTURE.read_text(encoding="utf-8")
+
+    assert capture.count('connection.execute("SET TRANSACTION READ ONLY")') == 2
+    assert capture.count('connection.execute("SET LOCAL statement_timeout = 15000")') == 2
