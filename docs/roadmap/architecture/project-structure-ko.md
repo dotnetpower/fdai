@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ee0b76e45d68c7aff0728106fe38ea81d2392966
+translation_source_sha: b7992b5c71dae5aded3f5a3cc1f3af1f5174cee6
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -413,7 +413,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   범위가 제한된 age와 future skew를 사용해 현재 evaluation 시계 기준으로 평가하므로 이벤트 직전의 recent
   캐시는 통과할 수 있지만 historical 재생이 stale 근거를 되살릴 수는 없습니다. Learned 서명은
   정본 매개변수와 완전한 operational-case 맥락을 연결합니다. Growth 및 pgvector 조회/쓰기
-  경계는 데이터베이스 I/O 전에 non-finite 임베딩 값을 거부합니다. 검증기는 실행 권한을
+  경계는 데이터베이스 I/O 전에 non-finite 임베딩 값을 거부합니다. Approximate pgvector 검색이 요청한 결과 제한을 채우지 못하면 후보를 반환하기 전에 exact sequential scan으로 다시 시도합니다. 검증기는 실행 권한을
   부여하지 않습니다. 연결이 없으면 operational reuse는 abstain하고 이전 방식 pattern은 계속됩니다.
   Pantheon 조립은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 타입이 지정된 learning을
   serialize하고 Mimir 검토 전에 범위가 제한된 제안 backpressure를 적용합니다.

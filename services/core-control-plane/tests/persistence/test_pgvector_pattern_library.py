@@ -238,7 +238,7 @@ async def test_add_upserts_on_signature_conflict() -> None:
     url = _requires_live_db()
     _upgrade_head()
     dsn = _plain_dsn(url)
-    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
+    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn, ivfflat_probes=1))
 
     signature = f"upsert-{uuid.uuid4().hex}"
     vector = _distinct_vector(signature)
@@ -304,7 +304,7 @@ async def test_search_respects_k_limit() -> None:
     url = _requires_live_db()
     _upgrade_head()
     dsn = _plain_dsn(url)
-    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
+    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn, ivfflat_probes=1))
 
     prefix = uuid.uuid4().hex
     for i in range(3):
