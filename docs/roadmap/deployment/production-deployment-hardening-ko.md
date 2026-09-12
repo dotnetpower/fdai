@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 5faeefca0b14bd37139230df7607d7114ebb0385
+translation_source_sha: 42a034686c07692ce45cc849315ae5ae3be6257e
 translation_revised: 2026-09-12
 ---
 # 운영 배포 강화
@@ -33,6 +33,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 공유 compute module의 module-level dependency graph가 관련 없는 scheduler, VNet 및 PostgreSQL 변경을 포함한 뒤 두 Cost Governance Job을 해당 module 밖으로 이동했습니다. Root 소유 Job은 이전 state 주소를 보존하고 기존 environment 및 inventory identity 입력만 해석합니다. | `current change`, `infra/cost_governance_jobs.tf`, 집중 Terraform, Job, workflow 및 범위 검사, 실패한 보호 계획 `34687002689`는 아티팩트 보존 또는 apply 전에 중단됨 | Reader 역할 배정과 두 패키지 Job만 포함하는 삭제 없는 Cost Governance 계획을 보존한 뒤 정확한 해당 아티팩트를 적용합니다. |
 | 2026-09-12 | implemented | 보호된 계획에서 관련 없는 root module drift가 드러난 뒤 Cost Governance platform 계획을 격리했습니다. Workflow는 이제 reader 역할 배정과 두 패키지 Job만 정확히 대상으로 하며 별도 허용 목록은 그 밖의 모든 변경 주소를 거부합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `scripts/deployment/azure/enforce_plan_scope.py`, 집중 deployment, request 및 dispatch 테스트 146개, 실패한 보호 계획 `34683751394`는 apply 또는 보존된 plan 아티팩트를 생성하지 않음 | 삭제가 없는 보호 Cost Governance 계획과 exact apply를 하나 보존한 뒤 별도의 W7 수명 주기 및 캠페인 근거를 수집합니다. |
 | 2026-09-12 | implemented | GitHub와 독립적인 관리 호스트가 애플리케이션 활성화 전에 서명된 런타임 이미지를 가져올 수 있도록 구성된 안정적 배포 실행기에 정확한 ACR 범위의 `AcrPush` 배정을 추가했습니다. 이 배정은 생성된 registry로 범위가 제한되며 구독 전체 이미지 또는 역할 관리 권한을 부여하지 않습니다. | `current change`, `infra/main.tf`, standalone 관리 호스트 이미지 가져오기 및 다이제스트 재확인, root Terraform 검증, 라우팅된 deployment 및 Genesis 테스트 | 관리 ID가 모든 서명 이미지 다이제스트를 가져오고 독립적으로 재확인했음을 입증하는 활성 로그인 배포 증적을 하나 보존합니다. |
 | 2026-09-11 | implemented | 보호된 배포 인벤토리에서 상태를 재정의하는 모든 실행 단계로 검증기 성공 직접 결속을 확장했습니다. 여기에는 코호트 정리, 채널 비밀 정리, 프레임워크 컨텍스트 정리, 드리프트 근거 강제, 시스템 지식 요약 및 정리, 서비스 롤백 보고, 시나리오 근거와 권한 정리가 포함됩니다. | `current change`, 보호된 워크플로 인벤토리, 집중 CI 보안 계약 테스트, `check-ci-contracts.py` | 검증기 이후 실패 처리 경로를 실행하고 검증기 실패 시 이후 실행 단계가 실행되지 않음을 입증하는 보호 실행을 보존합니다. |

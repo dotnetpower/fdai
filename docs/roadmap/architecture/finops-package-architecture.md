@@ -139,6 +139,13 @@ The wheel is included through a reviewed image build or downstream composition. 
 does not download or import arbitrary code from an uploaded archive. The trusted-artifact record
 binds provenance, version, compatibility, and digest to code already approved for that image.
 
+The platform root owns the optional collector and analyzer Jobs directly rather than placing them
+inside the shared compute module. Their deployment resolves the existing Container Apps
+environment and inventory identity through read-only data sources. This keeps a package-only
+Terraform target from inheriting unrelated scheduler, network, database, or runtime dependencies.
+The independently owned Core service receives the same distribution image through its ordinary
+service plan and apply boundary; neither deployment activates the package.
+
 ### Keep CapabilityBundle narrow
 
 `CapabilityBundle` continues to register operator-facing metadata, reasoning tools, and references

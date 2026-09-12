@@ -46,8 +46,8 @@ def test_deploy_workflow_isolates_cost_governance_plan_changes() -> None:
     assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in target_step
     for address in (
         "azurerm_role_assignment.inventory_cost_reader",
-        "module.compute.azurerm_container_app_job.cost_governance_collector[0]",
-        "module.compute.azurerm_container_app_job.cost_governance_analyzer[0]",
+        "azurerm_container_app_job.cost_governance_collector[0]",
+        "azurerm_container_app_job.cost_governance_analyzer[0]",
     ):
         assert f"-target={address}" in target_step
 
