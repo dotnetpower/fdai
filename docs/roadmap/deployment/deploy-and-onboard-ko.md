@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 655dca26a09b5dc49ab9c1cec8aaec622024b2f3
+translation_source_sha: db82c9e14784a670aab52ace00521ff26fba22d3
 translation_revised: 2026-09-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -436,7 +436,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
   readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
   리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다. 보호된 모델 Settings workflow는 모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 읽기 전용 트랜잭션에서 환경에 결속된 두 행을 검증해 새 Console에서 설정 컨트롤을 표시할 수 있게 합니다.
-- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 Core와 두 작업에 연결합니다. 배포 후 smoke 테스트와 합성 카나리는 [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 계속 정의됩니다.
+- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 collector 및 analyzer Job에 연결합니다. Platform apply는 대상이 제한된 zero-change plan을 확인하고 두 Job 이미지를 독립적으로 다시 읽어 하나의 content-addressed 증적에 기록합니다. 별도의 보호된 Core service plan이 같은 이미지를 Core에 연결합니다. 패키지 전용 platform 경로는 Core 소유 migration, Core health, 기존 inventory 또는 canary 검사를 실행하지 않습니다.
 
 ## 분포 및 배포 책임 매트릭스
 

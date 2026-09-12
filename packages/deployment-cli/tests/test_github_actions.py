@@ -56,6 +56,10 @@ _POST_APPLY_OBSERVATIONS = [
     "canary-publisher",
     "terraform-zero-change",
 ]
+_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "cost-governance-job-image-readback",
+]
 
 
 class RecordingRunner:
@@ -388,6 +392,82 @@ def test_status_requires_one_exact_run_title() -> None:
     assert status["mutation_performed"] is False
 
 
+def test_cost_plan_status_accepts_profile_specific_observations() -> None:
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        runtime_image_revision=_COMMIT,
+        runtime_image_profile="cost-governance",
+    )
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.cost-status",
+        selection=selection,
+        run=RecordingRunner(),
+    )
+
+    class CostPlanArtifactRunner(RecordingRunner):
+        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
+            self.calls.append(arguments)
+            if arguments[:2] == ("run", "download"):
+                directory = Path(arguments[arguments.index("--dir") + 1])
+                (directory / "plan-metadata.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "fdai.deployment-plan.v1",
+                            "request_id": plan.request_id,
+                            "commit_sha": _COMMIT,
+                            "status": "ready",
+                            "plan_id": "plan-123-1",
+                            "plan_digest": "c" * 64,
+                            "context_digest": plan.context_digest,
+                            "expires_at": _FUTURE_EXPIRY,
+                            "plan_summary": _summary(create=0),
+                            "post_apply_observations": (_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS),
+                            "runtime_image": {
+                                "source_revision": _COMMIT,
+                                "digest": f"sha256:{'d' * 64}",
+                                "profile": "cost-governance",
+                            },
+                        },
+                        sort_keys=True,
+                    ),
+                    encoding="utf-8",
+                )
+                return CommandResult(0, "")
+            return CommandResult(
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": 123,
+                            "displayTitle": plan.run_name,
+                            "status": "completed",
+                            "conclusion": "success",
+                            "url": "https://example.com/run/123",
+                            "headSha": _COMMIT,
+                        }
+                    ]
+                ),
+            )
+
+    status = workflow_status(
+        repository="example/fdai",
+        request_id_value=plan.request_id,
+        expected_commit=_COMMIT,
+        expected_context_digest=plan.context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        run=CostPlanArtifactRunner(),
+    )
+
+    assert status["plan"]["post_apply_observations"] == (_COST_GOVERNANCE_POST_APPLY_OBSERVATIONS)
+
+
 def test_status_rejects_absent_or_ambiguous_runs() -> None:
     context_digest = deployment_context_digest(
         environment="dev",
@@ -531,6 +611,113 @@ def test_apply_status_validates_terminal_receipt_and_initial_inventory() -> None
     assert receipt["terraform_zero_change_verified"] is True
     assert receipt["runtime_health_verified"] is True
     assert receipt["subscription_ready"] is False
+
+
+def test_cost_apply_status_validates_terminal_receipt_and_job_readback() -> None:
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        runtime_image_revision=_COMMIT,
+        runtime_image_profile="cost-governance",
+    )
+    dispatched = dispatch_apply(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        approval_quorum=1,
+        run_id="run.cost-apply-status",
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
+        resume_verification=False,
+        selection=selection,
+        run=RecordingRunner(),
+    )
+
+    class CostApplyArtifactRunner(RecordingRunner):
+        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
+            self.calls.append(arguments)
+            if arguments[:2] == ("run", "download"):
+                directory = Path(arguments[arguments.index("--dir") + 1])
+                image_digest = f"sha256:{'d' * 64}"
+                readback = {
+                    "schema_version": "fdai.cost-governance-job-image-readback.v1",
+                    "image_digest": image_digest,
+                    "jobs": {
+                        "analyzer": {
+                            "container": "cost-governance-analyzer",
+                            "image_digest": image_digest,
+                        },
+                        "collector": {
+                            "container": "cost-governance-collector",
+                            "image_digest": image_digest,
+                        },
+                    },
+                }
+                readback_bytes = (
+                    json.dumps(readback, sort_keys=True, separators=(",", ":")) + "\n"
+                ).encode()
+                (directory / "cost-governance-job-image-readback.json").write_bytes(readback_bytes)
+                receipt = {
+                    "schema_version": "fdai.deployment-apply-receipt.v1",
+                    "plan_id": "plan-123-1",
+                    "plan_digest": "c" * 64,
+                    "request_id": dispatched.request_id,
+                    "context_digest": dispatched.context_digest,
+                    "source_commit": _COMMIT,
+                    "workflow_run_id": "123",
+                    "workflow_run_attempt": "1",
+                    "applied_at": "2026-09-11T00:05:00Z",
+                    "status": "applied",
+                    "terraform_zero_change_verified": True,
+                    "cost_governance_job_images_verified": True,
+                    "cost_governance_image_digest": image_digest,
+                    "cost_governance_job_image_readback_digest": hashlib.sha256(
+                        readback_bytes
+                    ).hexdigest(),
+                    "subscription_ready": False,
+                }
+                receipt["receipt_digest"] = canonical_digest(receipt)
+                (directory / "apply-receipt.json").write_text(
+                    json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+                    encoding="utf-8",
+                )
+                return CommandResult(0, "")
+            return CommandResult(
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": 123,
+                            "displayTitle": f"deploy-{dispatched.request_id}",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "url": "https://example.com/run/123",
+                            "headSha": _COMMIT,
+                        }
+                    ]
+                ),
+            )
+
+    status = workflow_status(
+        repository="example/fdai",
+        request_id_value=dispatched.request_id,
+        expected_commit=_COMMIT,
+        expected_context_digest=dispatched.context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        expected_plan_id="plan-123-1",
+        expected_plan_digest="c" * 64,
+        run=CostApplyArtifactRunner(),
+    )
+
+    receipt = status["apply_receipt"]
+    assert isinstance(receipt, dict)
+    assert receipt["cost_governance_job_images_verified"] is True
+    assert receipt["cost_governance_image_digest"] == f"sha256:{'d' * 64}"
+    assert "runtime_health_verified" not in receipt
 
 
 def test_context_changes_when_any_feature_selection_changes() -> None:

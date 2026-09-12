@@ -36,7 +36,8 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
         "&& env.CORE_MODEL_QUORUM_ONLY != 'true' "
         "&& env.PROVIDER_SCHEMA_ONLY != 'true' "
         "&& env.RCA_READER_IDENTITY_ONLY != 'true' "
-        "&& env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}"
+        "&& env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' "
+        "&& env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}"
     ) in health_step
 
 

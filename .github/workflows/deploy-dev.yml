@@ -1781,9 +1781,8 @@ jobs:
             exit 1
           fi
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Run schema migrations
-        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -1834,7 +1833,7 @@ jobs:
           fi
 
       - name: Publish integrated migration adoption evidence
-        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integrated-service-migration-adoption-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -1843,7 +1842,7 @@ jobs:
           retention-days: 90
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2230,7 +2229,7 @@ jobs:
           retention-days: 7
 
       - name: Run canary publisher smoke
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.PROVIDER_SCHEMA_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.PROVIDER_SCHEMA_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2252,7 +2251,6 @@ jobs:
             sleep 6
           done
           [ "$completed" = "true" ] || { echo "$job canary publisher did not complete in time"; exit 1; }
-
       - name: Record exact plan apply receipt
         if: ${{ inputs.apply && success() }}
         env:
@@ -2268,7 +2266,7 @@ jobs:
           applied_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           export APPLIED_AT="$applied_at" APPLY_PLAN_ID APPLY_PLAN_DIGEST \
             APPLY_REQUEST_ID APPLY_CONTEXT_DIGEST APPLY_SOURCE_COMMIT
-          python3 ../scripts/deployment/azure/build_deployment_apply_receipt.py \
+          python3 ../scripts/deployment/azure/build_deployment_apply_receipt.py --cost-governance-readback "$RUNNER_TEMP/cost-governance-job-image-readback.json" \
             --output apply-receipt.json
           az storage blob upload \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
@@ -2291,6 +2289,7 @@ jobs:
           if [[ -f initial-inventory-receipt.json ]]; then
             install -m 0600 initial-inventory-receipt.json "$candidate/initial-inventory-receipt.json"
           fi
+          [[ ! -f "$RUNNER_TEMP/cost-governance-job-image-readback.json" ]] || install -m 0600 "$RUNNER_TEMP/cost-governance-job-image-readback.json" "$candidate/cost-governance-job-image-readback.json"
           if [[ -f runtime-call-evidence-job-readback.json ]]; then
             install -m 0600 runtime-call-evidence-job-readback.json "$candidate/runtime-call-evidence-job-readback.json"
           fi

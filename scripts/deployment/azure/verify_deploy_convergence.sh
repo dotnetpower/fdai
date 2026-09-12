@@ -64,6 +64,9 @@ if [[ "$cost_governance_only" == "true" ]]; then
   }
   collector_evidence_path="$RUNNER_TEMP/cost-governance-collector-job.json"
   analyzer_evidence_path="$RUNNER_TEMP/cost-governance-analyzer-job.json"
+  collector_image_receipt="$RUNNER_TEMP/cost-governance-collector-image.json"
+  analyzer_image_receipt="$RUNNER_TEMP/cost-governance-analyzer-image.json"
+  readback_path="$RUNNER_TEMP/cost-governance-job-image-readback.json"
   az containerapp job show \
     --resource-group "$resource_group" \
     --name "$collector_job_name" \
@@ -76,12 +79,17 @@ if [[ "$cost_governance_only" == "true" ]]; then
     ../scripts/deployment/azure/verify_job_image.py \
     --job "$collector_evidence_path" \
     --container "cost-governance-collector" \
-    --expected-image "$TF_VAR_cost_governance_image"
+    --expected-image "$TF_VAR_cost_governance_image" > "$collector_image_receipt"
   uv run --frozen --package fdai-core-control-plane python \
     ../scripts/deployment/azure/verify_job_image.py \
     --job "$analyzer_evidence_path" \
     --container "cost-governance-analyzer" \
-    --expected-image "$TF_VAR_cost_governance_image"
+    --expected-image "$TF_VAR_cost_governance_image" > "$analyzer_image_receipt"
+  python3 ../scripts/deployment/azure/build_cost_governance_job_readback.py \
+    --collector "$collector_image_receipt" \
+    --analyzer "$analyzer_image_receipt" \
+    --expected-image "$TF_VAR_cost_governance_image" \
+    --output "$readback_path"
   exit 0
 elif [[ "$provider_schema_only" == "true" ]]; then
   job_id="$(terraform output -raw provider_schema_job_id)"

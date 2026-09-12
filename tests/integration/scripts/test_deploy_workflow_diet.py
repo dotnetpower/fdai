@@ -112,7 +112,9 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
         assert f"scripts/deployment/azure/{helper}" in _WORKFLOW
         assert (_ROOT / "scripts/deployment/azure" / helper).is_file()
     assert "verify_job_image.py" in _CONVERGENCE
+    assert "build_cost_governance_job_readback.py" in _CONVERGENCE
     assert (_ROOT / "scripts/deployment/azure/verify_job_image.py").is_file()
+    assert (_ROOT / "scripts/deployment/azure/build_cost_governance_job_readback.py").is_file()
 
 
 def test_production_input_helper_preserves_hardening_contract() -> None:
@@ -226,13 +228,24 @@ def test_post_apply_verifies_inventory_job_image() -> None:
     assert 'elif [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then' in _CONVERGENCE
 
 
-def test_cost_apply_skips_unrelated_initial_inventory_execution() -> None:
-    health_step = _WORKFLOW.split("- name: Verify deployed health endpoints", maxsplit=1)[1].split(
+def test_cost_apply_uses_only_cost_post_apply_evidence() -> None:
+    for step in (
+        "Run schema migrations",
+        "Publish integrated migration adoption evidence",
+        "Verify deployed health endpoints",
+        "Run canary publisher smoke",
+    ):
+        block = _WORKFLOW.split(f"- name: {step}", maxsplit=1)[1].split(
+            "      - name:", maxsplit=1
+        )[0]
+        assert "env.RUNTIME_IMAGE_PROFILE != 'cost-governance'" in block
+
+    receipt_step = _WORKFLOW.split("- name: Record exact plan apply receipt", maxsplit=1)[1].split(
         "      - name:", maxsplit=1
     )[0]
-
-    assert '${RUNTIME_IMAGE_PROFILE:-core-control-plane}" != "cost-governance"' in health_step
-    assert "terraform output -raw inventory_job_name" in health_step
+    assert '--cost-governance-readback "$RUNNER_TEMP/' in receipt_step
+    assert "cost-governance-job-image-readback.json" in receipt_step
+    assert 'install -m 0600 "$RUNNER_TEMP/cost-governance-job-image-readback.json"' in receipt_step
 
 
 def test_operational_history_apply_ignores_unrelated_inventory_image_drift() -> None:

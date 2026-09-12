@@ -7,9 +7,12 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+_MAX_READBACK_BYTES = 64 * 1024
 
 
 def build_apply_receipt(
@@ -17,6 +20,7 @@ def build_apply_receipt(
     environ: Mapping[str, str],
     inventory_path: Path,
     plan_metadata_path: Path,
+    cost_governance_readback_path: Path = Path("cost-governance-job-image-readback.json"),
 ) -> dict[str, object]:
     """Return an apply receipt closed over every available required observation."""
     receipt: dict[str, object] = {
@@ -54,6 +58,36 @@ def build_apply_receipt(
                 ).hexdigest(),
             }
         )
+    is_cost_governance = environ["APPLY_REQUEST_ID"].startswith("apply-cost-")
+    if is_cost_governance:
+        if inventory_path.is_file():
+            raise ValueError("Cost Governance apply receipt has unrelated inventory evidence")
+        readback_bytes = _read_bounded(
+            cost_governance_readback_path,
+            "Cost Governance Job image readback",
+        )
+        readback = _json_object(readback_bytes, "Cost Governance Job image readback")
+        _validate_cost_governance_readback(readback)
+        plan_metadata = _load_json_object(plan_metadata_path, "plan metadata")
+        runtime_image = plan_metadata.get("runtime_image")
+        if (
+            not isinstance(runtime_image, dict)
+            or runtime_image.get("profile") != "cost-governance"
+            or runtime_image.get("digest") != readback["image_digest"]
+        ):
+            raise ValueError("Cost Governance readback does not match plan image evidence")
+        receipt.update(
+            {
+                "terraform_zero_change_verified": True,
+                "cost_governance_job_images_verified": True,
+                "cost_governance_image_digest": readback["image_digest"],
+                "cost_governance_job_image_readback_digest": hashlib.sha256(
+                    readback_bytes
+                ).hexdigest(),
+            }
+        )
+    elif cost_governance_readback_path.is_file():
+        raise ValueError("Cost Governance Job image readback is unexpected")
     readback_digest = environ.get("MODEL_BINDING_READBACK_DIGEST", "")
     if readback_digest:
         if not _is_digest(readback_digest):
@@ -83,6 +117,45 @@ def _canonical_digest(value: Mapping[str, object]) -> str:
     return hashlib.sha256(body).hexdigest()
 
 
+def _read_bounded(path: Path, label: str) -> bytes:
+    try:
+        details = path.lstat()
+        if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_READBACK_BYTES:
+            raise ValueError(f"{label} must be a bounded regular file")
+        return path.read_bytes()
+    except OSError as exc:
+        raise ValueError(f"{label} is unavailable") from exc
+
+
+def _validate_cost_governance_readback(readback: Mapping[str, object]) -> None:
+    if set(readback) != {"schema_version", "image_digest", "jobs"}:
+        raise ValueError("Cost Governance Job image readback schema is invalid")
+    image_digest = readback.get("image_digest")
+    if (
+        readback.get("schema_version") != "fdai.cost-governance-job-image-readback.v1"
+        or not isinstance(image_digest, str)
+        or not image_digest.startswith("sha256:")
+        or not _is_digest(image_digest.removeprefix("sha256:"))
+    ):
+        raise ValueError("Cost Governance Job image readback is invalid")
+    jobs = readback.get("jobs")
+    expected_containers = {
+        "analyzer": "cost-governance-analyzer",
+        "collector": "cost-governance-collector",
+    }
+    if not isinstance(jobs, dict) or set(jobs) != set(expected_containers):
+        raise ValueError("Cost Governance Job image readback is incomplete")
+    for role, expected_container in expected_containers.items():
+        job = jobs[role]
+        if (
+            not isinstance(job, dict)
+            or set(job) != {"container", "image_digest"}
+            or job.get("container") != expected_container
+            or job.get("image_digest") != image_digest
+        ):
+            raise ValueError(f"Cost Governance {role} readback is invalid")
+
+
 def _json_object(content: bytes, label: str) -> dict[str, Any]:
     try:
         payload = json.loads(content)
@@ -108,6 +181,11 @@ def main() -> int:
         default=Path("initial-inventory-receipt.json"),
     )
     parser.add_argument("--plan-metadata", type=Path, default=Path("plan-metadata.json"))
+    parser.add_argument(
+        "--cost-governance-readback",
+        type=Path,
+        default=Path("cost-governance-job-image-readback.json"),
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -115,6 +193,7 @@ def main() -> int:
             environ=os.environ,
             inventory_path=args.inventory_receipt,
             plan_metadata_path=args.plan_metadata,
+            cost_governance_readback_path=args.cost_governance_readback,
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc

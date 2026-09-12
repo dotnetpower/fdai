@@ -438,7 +438,7 @@ later stage with a broken earlier one.
   projections. A management-plane prebind or prestart is accepted only when readback proves the
   digest-pinned image and latest successful execution; the VNet runner then compares every expected
   repository projection with PostgreSQL before reporting success. The protected model Settings workflow refreshes the model projection, creates a missing runtime Settings row without replacing existing runtime evidence, and verifies both environment-bound rows in a read-only transaction so a fresh Console can render setup controls.
-- **Cost Governance profile and post-deploy checks**: `plan-cost-*` and `apply-cost-*` request identities bind one exact digest-pinned Cost Governance image to Core plus its two Jobs without changing package enablement or action mode. Post-deploy smoke tests and the synthetic canary remain defined in [operating-and-verification.md](../operations/operating-and-verification.md).
+- **Cost Governance profile and post-deploy checks**: `plan-cost-*` and `apply-cost-*` request identities bind one exact digest-pinned Cost Governance image to the collector and analyzer Jobs without changing package enablement or action mode. The platform apply proves a targeted zero-change plan and independently reads both Job images into one content-addressed receipt. A separate protected Core service plan binds that same image to Core. The package-only platform path does not run Core-owned migrations, Core health, legacy inventory, or canary checks.
 
 ## Distribution and Deployment Responsibility Matrix
 
