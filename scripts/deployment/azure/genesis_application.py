@@ -24,6 +24,7 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 from fdai_deployment_cli.profile import load_profile
 from genesis_approval import GenesisApprovalExpiredError, load_genesis_approval
 from genesis_approval_prompt import create_approval
+from genesis_images import REQUIRED_IMAGES
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,10 +240,11 @@ def run_application(config: ApplicationConfig) -> dict[str, object]:
 def ensure_container_supply_chain(
     *, repository: str, source_commit: str, timeout_seconds: int = 5400
 ) -> None:
-    """Require one successful exact-main image publication, dispatching it when absent."""
+    """Join a candidate covering Genesis images, then leave digest verification to the resolver."""
 
     deadline = time.monotonic() + timeout_seconds
     dispatched = False
+    required_targets = {image.removeprefix("fdai-") for image in REQUIRED_IMAGES}
     while True:
         result = run_github_cli(
             (
@@ -254,16 +256,31 @@ def ensure_container_supply_chain(
                 "container-supply-chain.yml",
                 "--commit",
                 source_commit,
+                "--event",
+                "workflow_dispatch",
                 "--limit",
                 "20",
                 "--json",
-                "databaseId,status,conclusion,headSha",
+                "databaseId,status,conclusion,headSha,event,displayTitle",
             )
         )
         if result.returncode != 0:
             raise ValueError("container supply-chain status is unavailable")
         runs = json.loads(result.stdout)
-        exact = [row for row in runs if row.get("headSha") == source_commit]
+        exact = []
+        for row in runs:
+            title = row.get("displayTitle", "")
+            if (
+                row.get("headSha") != source_commit
+                or row.get("event") != "workflow_dispatch"
+                or not isinstance(title, str)
+                or not title.startswith("Candidate images: ")
+            ):
+                continue
+            selection = title.removeprefix("Candidate images: ").strip()
+            targets = {name.strip().removeprefix("fdai-") for name in selection.split(",")}
+            if selection == "all" or required_targets.issubset(targets):
+                exact.append(row)
         if any(
             row.get("status") == "completed" and row.get("conclusion") == "success" for row in exact
         ):
@@ -288,6 +305,8 @@ def ensure_container_supply_chain(
                     "main",
                     "--field",
                     f"commit_sha={source_commit}",
+                    "--field",
+                    f"images={','.join(REQUIRED_IMAGES)}",
                 )
             )
             if dispatch.returncode != 0:

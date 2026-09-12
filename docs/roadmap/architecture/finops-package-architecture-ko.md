@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 111d0ec40d511beee0b8cf1acc67ac36c1837aca
+translation_source_sha: 927b79f4a638de8257eca20bf1dc88183143ebda
 translation_revised: 2026-09-12
 ---
 
@@ -51,7 +51,8 @@ translation_revised: 2026-09-12
 > 빌드 입력을 변경하는 끌어오기 요청은 별도의 읽기 전용 이미지 빌드와 취약점 검사를
 > 유지합니다. 레지스트리 게시, SBOM 및 증명에는 이미지 선택과 정확한 보호 소스 SHA를
 > 포함한 명시적 후보 디스패치가 필요합니다. 일반 소스 push와 버전 태그는 이미지를
-> 게시하지 않으며, 끌어오기 요청 조건으로 게시 권한을 상속할 수 없습니다.
+> 게시하지 않으며, 끌어오기 요청 조건으로 게시 권한을 상속할 수 없습니다. 후보 제목은 선택한
+> 이미지 집합을 결속하고 Genesis는 동일한 보호 소스 개정의 정확한 성공 후보만 재사용합니다.
 
 ## 설계 개요
 

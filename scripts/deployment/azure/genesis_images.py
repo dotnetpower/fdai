@@ -16,7 +16,7 @@ from typing import Protocol
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
-_IMAGES = (
+REQUIRED_IMAGES = (
     "fdai-core-control-plane",
     "fdai-operator-service",
     "fdai-document-ingestion-api",
@@ -73,7 +73,7 @@ def resolve_exact_images(
             token=token,
             opener=opener,
         )
-        for image in _IMAGES
+        for image in REQUIRED_IMAGES
     }
     for reference in images.values():
         _verify_attestation(repository, source_commit, reference)
