@@ -226,6 +226,15 @@ def test_post_apply_verifies_inventory_job_image() -> None:
     assert 'elif [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then' in _CONVERGENCE
 
 
+def test_cost_apply_skips_unrelated_initial_inventory_execution() -> None:
+    health_step = _WORKFLOW.split("- name: Verify deployed health endpoints", maxsplit=1)[1].split(
+        "      - name:", maxsplit=1
+    )[0]
+
+    assert '${RUNTIME_IMAGE_PROFILE:-core-control-plane}" != "cost-governance"' in health_step
+    assert "terraform output -raw inventory_job_name" in health_step
+
+
 def test_operational_history_apply_ignores_unrelated_inventory_image_drift() -> None:
     guard = _CONVERGENCE.index('elif [[ "$OPERATIONAL_HISTORY_ONLY" != "true" ]]; then')
     inventory_readback = _CONVERGENCE.index('job_name="ca-fdai-', guard)

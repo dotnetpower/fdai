@@ -1901,7 +1901,7 @@ jobs:
             && "${OPERATIONAL_HISTORY_ONLY:-false}" != "true" \
             && "${CORE_MODEL_QUORUM_ONLY:-false}" != "true" \
             && "${RCA_READER_IDENTITY_ONLY:-false}" != "true" \
-            && "${MODEL_BINDING_ONLY:-false}" != "true" ]]; then
+            && "${MODEL_BINDING_ONLY:-false}" != "true" && "${RUNTIME_IMAGE_PROFILE:-core-control-plane}" != "cost-governance" ]]; then
             job="$(terraform output -raw inventory_job_name)"
             [[ -n "$job" ]] || { echo "scheduled inventory Job is unavailable" >&2; exit 1; }
             claim_time="$(python3 -c 'import json; print(json.load(open("apply-claim.json", encoding="utf-8"))["claimed_at"])')"
