@@ -113,7 +113,7 @@ def filter_reviewed_platform_migrations(
         validated.add(retired)
 
     embedding = by_address.get(_EMBEDDING_ADDRESS)
-    if embedding is not None:
+    if embedding is not None and "delete" in _actions(embedding):
         if not _exact_embedding_replacement(embedding):
             raise ValueError("unapproved t1.embedding replacement")
         validated.add(_EMBEDDING_ADDRESS)

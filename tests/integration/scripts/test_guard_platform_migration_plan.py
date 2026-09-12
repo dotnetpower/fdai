@@ -117,6 +117,29 @@ def test_filters_only_exact_reviewed_platform_migrations() -> None:
     assert {change["address"] for change in remaining} == {"unrelated.safe_update"}
 
 
+def test_preserves_embedding_in_place_update_for_general_plan_guards() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": guard._EMBEDDING_ADDRESS,  # noqa: SLF001
+                "change": {
+                    "actions": ["update"],
+                    "before": {"version_upgrade_option": "NoAutoUpgrade"},
+                    "after": {"version_upgrade_option": "OnceNewDefaultVersionAvailable"},
+                },
+            }
+        ]
+    }
+
+    filtered, validated = guard.filter_reviewed_platform_migrations(
+        plan,
+        expected_deploy_principal_id=_DEPLOY_PRINCIPAL,
+    )
+
+    assert validated == ()
+    assert filtered == plan
+
+
 def test_role_guard_ignores_optional_provider_metadata() -> None:
     plan = _plan()
     first_role = next(iter(guard._ROLE_REPLACEMENTS))  # noqa: SLF001
