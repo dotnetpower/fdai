@@ -461,16 +461,17 @@ def test_shadow_lifecycle_and_store_remain_unwired_from_authority_paths() -> Non
     )
     roots = (
         "agents",
-        "risk_gate",
-        "executor",
-        "hil_resume",
-        "control_loop",
-        "composition.py",
+        "core/risk_gate",
+        "core/executor",
+        "core/hil_resume",
+        "core/workflow",
+        "core/control_loop",
         "composition",
     )
     violations: list[str] = []
     for root in roots:
         path = SOURCE_ROOT / root
+        assert path.exists(), f"authority path is missing from scan root: {root}"
         candidates = (path,) if path.is_file() else path.rglob("*.py")
         for candidate in candidates:
             tree = ast.parse(candidate.read_text(encoding="utf-8"))
