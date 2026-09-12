@@ -31,7 +31,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The coordinator derives one evidence lifetime and refresh lead from the full-pass and per-probe budgets. Runtime refresh is bounded, closes processing at exact expiry, and supplies Thor's live fail-closed authority ceiling. PostgreSQL state rehydration remains process-critical, while durable A2 notification replay remains isolated. |
-| T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) and [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request, while failures remain retryable. |
+| T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py), [`t2_startup_proof_evidence.py`](../../../scripts/deployment/azure/t2_startup_proof_evidence.py), and focused startup-proof tests | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request. Opaque proof identity, sampling time, and reuse observations let a protected read-only workflow join readiness and durable metering without retaining deployment names. Failures remain retryable. |
 | Collector scheduling and governed discovery activation | implemented | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py), and focused collector, activation, Norns, runtime, and infrastructure tests | The configurable Job uses the non-effect inventory identity and records only validated provenance receipts. Runtime composition closes Norns publication until policy and every current prerequisite pass. |
 | Human approval bootstrap | implemented | `fdai_operator_service/families/iam/hil_callback*.py`; `scripts/operations/run-hil-bootstrap-canary.py`; focused Operator callback, PostgreSQL, Kafka, workflow, governance, and canary tests | Teams callbacks require an API-audience Entra token issued to the configured approval bot, a mapped actor, and the configured group-connected team/channel audience. Slack A1 can operate independently with its workspace and Entra map. Signed time anchors `decided_at`; exact retries preserve first audit timestamps; workflow approvals require bounded expiry; and Operator closes delivery only after broker acceptance. |
 | Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution, proposal-only reconciliation, collector scheduling, governed discovery activation, and the local Human approval bootstrap are implemented. Governed runtime receipts remain separate. |
@@ -40,6 +40,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Added process-bound identity and timing to successful T2 startup proofs, plus a protected read-only workflow that requires one healthy Core revision and replica before joining the latest readiness report to durable invocation and cost meters. | `current change`; `t2-startup-proof-evidence.yml`, its closed JSON Schema, and focused startup probe, evidence builder, workflow, Ruff, and strict mypy checks. | Run the workflow against a fresh pinned Core revision, retain its sanitized receipt, and record final repository validation before closing issue #90. |
 | 2026-09-06 | implemented | Closed guarded processing before the minimum refresh delay when the refresh loop observes already-expired evidence, and made the expiry test wait for the guarded operation explicitly. | `current change`; focused readiness tests and the changed-range regression gate. | Retain deployed degraded-shadow expiry evidence separately. |
 | 2026-08-13 | implemented | Reused each successful T2 cross-check startup proof for later process-local readiness refreshes instead of resampling every five minutes. Failed and concurrent attempts remain retry-safe. | Current change in `startup_model_probe.py` and `test_startup_probe.py`; focused startup probe tests: `18 passed`. | Capture governed deployed-runtime metering evidence and complete the broader lifecycle workflows below. |
 | 2026-08-19 | implemented | Ran deterministic live model resolution before protected Terraform planning, sealed its exact manifests and digests through apply, and added a weekly provider-failure-abstaining draft-PR reconciler. | `current change`; focused lifecycle, protected-plan verifier, Operator narrator, Terraform, and CI security contracts. | Retain a governed reconciler run and complete the independent collector and Human approval workflows. |
@@ -62,8 +63,10 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 - [ ] Retain one governed deployed Teams callback and one trusted governance-App blocked-then-cleared
    receipt on a pinned revision before changing the Human approval row to `validated`. The local
    canary is an explicit no-network dry run and cannot substitute for that receipt.
-- [ ] Record governed deployed-runtime metering that shows one successful T2 startup sample set per
-   candidate and no additional T2 calls from later five-minute readiness refreshes in that process.
+- [ ] Run the protected `t2-startup-proof-evidence.yml` workflow against a fresh pinned Core
+   revision. Retain its schema-valid receipt showing one successful T2 startup sample set per
+   candidate and no additional T2 calls across at least two later readiness refreshes in that
+   process, then record the final validation evidence in issue #90.
 - [ ] Retain a deployed Core readiness report showing that the existing large audit chain produces
    a healthy or degraded-shadow revision without granting enforcement, then independently verify
    one durable metering write before changing provisioned model capacity.
@@ -155,6 +158,14 @@ first token (TTFT), total latency, output-token rate, sample count, and sanitize
 Embeddings prove latency and vector shape; structured-output and tool-calling candidates prove those
 features. Probes use minimal prompts and capped output, avoid unrelated tool charges, and discard
 error text.
+
+Each successful T2 cross-check proof also records an opaque process-local proof id, its sampling
+window, the first and latest reuse observations, and a cumulative reuse count. The protected
+`t2-startup-proof-evidence.yml` workflow runs on the VNet-integrated deployment runner, requires one
+healthy revision and replica bound to the requested source revision, and joins those sanitized
+fields with PostgreSQL invocation, token, and cost meters. The retained receipt hashes the runtime
+revision, replica, model binding, and observer identity instead of exposing deployment identifiers,
+prompts, endpoints, tenant values, or customer data. This observation grants no execution authority.
 
 The narrator target remains TTFT p95 within 2.5 seconds
 ([operator-console-view-snapshot.md](../interfaces/operator-console-view-snapshot.md)). Startup

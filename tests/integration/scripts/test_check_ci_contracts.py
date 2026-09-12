@@ -1538,6 +1538,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "service-deploy.yml",
         "sre-demo-lab.yml",
         "system-knowledge-deploy.yml",
+        "t2-startup-proof-evidence.yml",
     }
 
 

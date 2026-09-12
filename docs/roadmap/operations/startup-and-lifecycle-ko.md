@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: c6ac8618ea47860cf639fb102c1bdd8314d65d4d
-translation_revised: 2026-09-06
+translation_source_sha: 189a1f11d8cc4415d806fa9387493fe90fd93e3b
+translation_revised: 2026-09-12
 ---
 
 # 시작과 라이프사이클(시작 and 수명 주기)
@@ -33,7 +33,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 조정기는 전체 실행 및 탐색별 예산에서 하나의 근거 수명과 새로 고침 선행 시간을 계산합니다. 런타임 새로 고침은 범위가 제한되고 정확한 만료 시점에 처리를 닫으며 Thor에 실제 fail-closed 권한 상한을 제공합니다. PostgreSQL 상태 재구성은 process-critical로 유지하고 영속 A2 알림 replay는 격리합니다. |
-| T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
+| T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py), [`t2_startup_proof_evidence.py`](../../../scripts/deployment/azure/t2_startup_proof_evidence.py) 및 집중 시작 증명 테스트 | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용합니다. 불투명한 증명 식별자, 샘플링 시각 및 재사용 관측을 사용하면 보호된 읽기 전용 워크플로가 배포 이름을 보존하지 않고 준비 상태와 영속 계측을 결합할 수 있습니다. 실패는 계속 재시도할 수 있습니다. |
 | 수집기 일정 및 통제된 발견 활성화 | `implemented` | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py) 및 집중 수집기/활성화/Norns/런타임/인프라 검사 | 구성 가능한 작업은 실행 권한이 없는 인벤토리 신원을 사용하고, 검증된 출처 증적만 기록합니다. 런타임 조립은 정책과 최신 선행 조건이 모두 통과할 때까지 Norns 게시를 차단합니다. |
 | 사람 승인 초기화 | `implemented` | `fdai_operator_service/families/iam/hil_callback*.py`, `scripts/operations/run-hil-bootstrap-canary.py`, 집중 Operator 콜백, PostgreSQL, Kafka, 워크플로, 거버넌스 및 카나리 테스트 | Teams 콜백은 구성된 승인 봇에 발급된 API 대상 Entra 토큰, 매핑된 행위자, 구성된 그룹 연결 팀/채널 대상을 요구합니다. Slack A1은 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 서명 시각은 `decided_at`을 고정하고 정확한 재시도는 첫 감사 시각을 보존합니다. 워크플로 승인은 범위가 제한된 만료가 필요하며 Operator는 브로커가 수락한 뒤에만 전달 완료로 표시합니다. |
 | 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석, 제안 전용 조정, 수집기 일정, 통제된 발견 활성화 및 로컬 사람 승인 초기화가 구현됐습니다. 통제된 런타임 증적은 별도로 남아 있습니다. |
@@ -42,6 +42,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | `implemented` | 성공한 T2 시작 증명에 프로세스 범위 식별자와 시각을 추가했습니다. 또한 하나의 정상 Core 개정 번호와 복제본을 요구한 뒤 최신 준비 상태 보고서를 영속 호출 및 비용 계측과 결합하는 보호된 읽기 전용 워크플로를 추가했습니다. | `current change`, `t2-startup-proof-evidence.yml`, 폐쇄형 JSON Schema 및 집중 시작 탐색, 증거 생성기, 워크플로, Ruff, strict mypy 검사 | 새로 시작한 고정 Core 개정 번호에 워크플로를 실행하고 정제된 증적을 보존하며 최종 저장소 검증을 기록한 뒤 이슈 #90을 종료합니다. |
 | 2026-09-06 | `implemented` | 새로 고침 루프가 이미 만료된 근거를 확인하면 최소 새로 고침 지연 전에 보호된 처리를 닫고 만료 테스트가 보호 작업 시작을 명시적으로 기다리도록 수정했습니다. | `current change`; 집중 준비 상태 테스트 및 변경 범위 회귀 게이트 | 배포된 degraded-shadow 만료 근거는 별도로 보존합니다. |
 | 2026-08-13 | `implemented` | 성공한 각 T2 교차 검사 시작 증명을 프로세스의 후속 준비 상태 새로 고침에서 재사용하여 5분마다 다시 샘플링하지 않도록 했습니다. 실패 및 동시 시도는 안전하게 재시도됩니다. | 현재 변경의 `startup_model_probe.py` 및 `test_startup_probe.py`, 시작 탐색 집중 테스트: `18 passed` | 관리되는 배포 런타임 계측 근거를 수집하고 아래의 더 넓은 수명 주기 작업 흐름을 완료합니다. |
 | 2026-08-19 | `implemented` | 보호된 Terraform 계획 전에 결정론적 실제 모델 해석을 실행하고, 정확한 매니페스트와 다이제스트를 적용까지 봉인했으며, 공급자 실패 시 판단을 보류하는 주간 초안 PR 조정기를 추가했습니다. | `current change`; 집중 수명 주기, 보호된 계획 검증기, Operator 서술기, Terraform 및 CI 보안 계약. | 통제된 조정기 실행을 보존하고 독립적인 수집기 및 사람 승인 workflow를 완료합니다. |
@@ -63,8 +64,10 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 - [ ] 사람 승인 행을 `validated`로 변경하기 전에 고정된 개정 번호에서 통제된 배포 Teams
    콜백 증적과 신뢰할 수 있는 거버넌스 App의 차단 후 통과 증적을 하나씩 보존합니다. 로컬
    카나리는 명시적인 네트워크 없는 예행이며 이 증적을 대체할 수 없습니다.
-- [ ] 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고, 해당 프로세스의 이후 5분 준비
-   상태 새로 고침에서는 T2 호출이 추가되지 않음을 보여 주는 관리되는 배포 런타임 계측을 기록합니다.
+- [ ] 새로 시작한 고정 Core 개정 번호에 보호된 `t2-startup-proof-evidence.yml` 워크플로를
+   실행합니다. 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고 해당 프로세스에서 최소
+   두 번의 후속 준비 상태 새로 고침 동안 T2 호출이 추가되지 않음을 보여 주는 스키마 유효
+   증적을 보존한 뒤 최종 검증 근거를 이슈 #90에 기록합니다.
 - [ ] 기존 대규모 감사 체인이 강제 적용 권한을 부여하지 않고 healthy 또는 degraded-shadow
    개정 번호를 만드는 배포 Core 준비 상태 보고를 보존한 다음, 프로비저닝된 모델 용량을
    변경하기 전에 영속 계측 쓰기 한 건을 독립적으로 검증합니다.
@@ -155,6 +158,14 @@ build-time 근거로 유지합니다. 비공개 엔드포인트는 런타임 서
 (TTFT), 총 지연 시간, 출력 토큰 비율, 샘플 수 및 정제된 실패 분류를 기록합니다. 임베딩은 지연
 시간과 벡터 형태를 증명하고, 구조화된 출력 및 도구 호출 후보는 해당 기능을 증명합니다. 탐색은
 최소 프롬프트와 제한된 출력을 사용하고 관련 없는 도구 비용과 오류 텍스트 저장을 피합니다.
+
+성공한 각 T2 교차 검사 증명은 불투명한 프로세스 범위 증명 식별자, 샘플링 구간, 최초 및
+최근 재사용 관측, 누적 재사용 횟수도 기록합니다. 보호된
+`t2-startup-proof-evidence.yml` 워크플로는 VNet 통합 배포 실행기에서 동작합니다. 요청한
+소스 개정 번호에 연결된 정상 개정 번호와 복제본이 각각 하나인지 확인하고, 이 정제된 필드를
+PostgreSQL 호출, 토큰 및 비용 계측과 결합합니다. 보존되는 증적은 배포 식별자, 프롬프트,
+엔드포인트, 테넌트 값 또는 고객 데이터를 노출하는 대신 런타임 개정 번호, 복제본, 모델 연결 및
+관측자 신원을 해시합니다. 이 관측은 실행 권한을 부여하지 않습니다.
 
 Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 ([operator-console-view-snapshot-ko.md](../interfaces/operator-console-view-snapshot-ko.md)). 시작
