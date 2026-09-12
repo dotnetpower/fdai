@@ -161,6 +161,9 @@ _CORE_EVIDENCE_BINDING_ENVIRONMENT = (
 _CORE_SOURCE_REVISION_ENVIRONMENT = "FDAI_SOURCE_REVISION"
 _CORE_RECOVERY_OBSERVER_ENVIRONMENT = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES"
 _CORE_RECOVERY_OBSERVER_IDENTITY = "observer:heimdall:azure-container-apps"
+_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT = (
+    "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION"
+)
 _CONFIGURATION_DRIFT_ENVIRONMENT = frozenset(
     {
         "FDAI_CONFIGURATION_DRIFT_ENABLED",
@@ -487,6 +490,27 @@ def _only_core_recovery_observer_adoption(
         is None
         and _environment_binding(after_environment.get(_CORE_RECOVERY_OBSERVER_ENVIRONMENT))
         == (_CORE_RECOVERY_OBSERVER_IDENTITY, None)
+    )
+
+
+def _only_isolated_executor_strict_safeguard_adoption(
+    *,
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> bool:
+    return (
+        contract.service == "isolated-executor"
+        and set(runtime_drift_names) == {f"env:{_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT}"}
+        and _environment_binding(
+            before_environment.get(_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT)
+        )
+        is None
+        and _environment_binding(
+            after_environment.get(_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT)
+        )
+        == ("0", None)
     )
 
 
@@ -1700,6 +1724,12 @@ def _guard_update(
         after_environment=after_environment,
         runtime_drift_names=effective_runtime_drift_names,
     )
+    allowed_isolated_executor_strict_safeguards = _only_isolated_executor_strict_safeguard_adoption(
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=effective_runtime_drift_names,
+    )
     if core_evidence_bindings_transition and not (
         allowed_core_evidence_bindings or allowed_core_recovery_observer
     ):
@@ -1742,6 +1772,7 @@ def _guard_update(
         )
         and not allowed_notification_topic
         and not allowed_core_handover_cadence
+        and not allowed_isolated_executor_strict_safeguards
         and not allowed_stewardship_adoption
         and effective_runtime_drift_names
     ):
@@ -1815,6 +1846,7 @@ def _guard_update(
         or allowed_notification_topic
         or allowed_core_handover_cadence
         or allowed_core_source_revision
+        or allowed_isolated_executor_strict_safeguards
         or allowed_stewardship_adoption
         or sharepoint_connector_transition != "none"
     ):
