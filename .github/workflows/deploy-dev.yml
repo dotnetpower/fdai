@@ -341,7 +341,7 @@ jobs:
           fi
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
-        run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
+        run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
         run: >-
