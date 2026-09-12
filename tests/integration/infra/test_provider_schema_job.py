@@ -9,6 +9,7 @@ _JOB = _ROOT / "infra/provider_schema_job.tf"
 _MAIN = _ROOT / "infra/main.tf"
 _VARIABLES = _ROOT / "infra/variables.tf"
 _CORE_DOCKERFILE = _ROOT / "services/core-control-plane/docker/Dockerfile"
+_COST_DOCKERFILE = _ROOT / "extensions/cost-governance/docker/Dockerfile"
 
 
 def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon() -> None:
@@ -42,11 +43,12 @@ def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon
     assert "provider_schema_cron_expression" not in main
     assert 'variable "provider_schema_cron_expression"' in variables
     assert 'default     = "0 4 * * *"' in variables
-    dockerfile = _CORE_DOCKERFILE.read_text(encoding="utf-8")
-    assert "COPY --chown=65532:65532 provider-schema-catalog/" in dockerfile
-    assert "ARG GIT_VERSION=2.55.0-r1" in dockerfile
-    assert '"git=${GIT_VERSION}"' in dockerfile
-    assert "&& git --version" in dockerfile
+    for dockerfile_path in (_CORE_DOCKERFILE, _COST_DOCKERFILE):
+        dockerfile = dockerfile_path.read_text(encoding="utf-8")
+        assert "COPY --chown=65532:65532 provider-schema-catalog/" in dockerfile
+        assert "ARG GIT_VERSION=2.55.0-r1" in dockerfile
+        assert '"git=${GIT_VERSION}"' in dockerfile
+        assert "&& git --version" in dockerfile
 
 
 def test_provider_schema_job_uses_only_the_read_only_inventory_identity() -> None:
