@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 089ef9d4ff5ab5f9a95ad5b635d8fe5ea9387588
+translation_source_sha: a3b9f19d1dd6ec725fb60e79e9ece97e5ec596eb
 translation_revised: 2026-09-12
 ---
 
@@ -327,6 +327,20 @@ envelope:                         # 액션은 반드시 이 안에 완전히 들
 폐기 경쟁을 막지 못하므로 현재 shadow 범위에서는 평가기와 함께 연결하지 않습니다. 적용 모드에는
 부작용 커밋 동안 유지되는 별도 검토된 잠금 또는 lease, 통제된 shadow 근거 및 독립적인 승격 검토가
 필요합니다.
+
+선택된 `ops.start-vm@1.0.0` 개발 범위는 리소스 그룹 하나의 VM 하나만 대상으로 하는
+프로바이더 경계 shadow probe를 추가합니다. 기존 `StandingAuthorizationLeaseStore` fence를
+통해 획득한 lease를 비교하고 콘텐츠 주소 영수증을 만들지만,
+`provider_commit_attempted=false`, `effect_applied=false`,
+`provider_capability_outcome=ineligible_capability`를 항상 기록합니다. Azure Resource
+Manager는 VM 시작 수락을 PostgreSQL lease 트랜잭션과 결합할 수 없습니다. 따라서 현재
+shadow fence는 계약에 대한 근거일 뿐 ActionType에 A3-E 자격을 부여하지 않습니다.
+
+같은 범위는 순수 효과 결과 계획기도 추가합니다. 일치한 독립 근거는 전이를 제안하지 않고,
+실패, 시간 초과, 누락, 오래됨, 충돌, 검열 또는 그 밖의 채점 불가 근거는
+`return_to_shadow`를 제안합니다. 계획기는 레지스트리 작성자가 아니며, 상시 권한을 취소하거나
+복구 권한을 부여하지 않습니다. 이후 권한을 수반하는 소비자는 별도로 검토하고 승인해야 합니다.
+
 - **실행이 validity 구간 안에 들어갑니다.** Risk 게이트는 전달 전에
   `now + max_duration_seconds <= valid_until`을 요구합니다. 저장된 instant에는 trusted UTC를,
   실행 기한에는 단조 증가 경과 시간을 사용합니다. 시계 사용 불가 또는 과도한 skew가

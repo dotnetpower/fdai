@@ -101,6 +101,22 @@ A successful provider receipt with a missing or conflicting independent outcome 
 `inconclusive`. A complete independent observation that contradicts the expected direction is
 refutation evidence even when the provider reported success.
 
+The selected `ops.start-vm@1.0.0` shadow package adds a read-only Azure VM power-state source and
+collector for one constructor-pinned VM and resource group. The source uses a dedicated observer
+identity, reads only the exact ARM VM with `instanceView`, and retains `running`, adverse,
+incomplete, conflicting, censored, and stale results instead of inferring success from the
+provider receipt. The collector emits the existing provider-authoritative signed observation
+envelope for an exact semantic V2 plan. A clean `starting` state remains held for another read
+rather than becoming a terminal mismatch; the deadline still converts a missing final observation
+into fail-closed reversion evidence. The collector is not bound by runtime configuration,
+deployment, or an EventBus subscriber in this slice.
+
+The A3-E shadow-reversion planner consumes an exact reconciliation result separately. It maps
+every result other than `matched`, plus an observation still missing at its deadline, to a
+proposal-only `return_to_shadow` requirement. It does not write the promotion registry or initiate
+recovery, so this contract can lower authority later without becoming a second reconciliation or
+promotion system.
+
 ## Logic and promotion separation
 
 Active logic is the exact reviewed release used to build or score the current `DecisionCase`.

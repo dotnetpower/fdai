@@ -348,6 +348,21 @@ authoritative primary store can compare that fence immediately before effect dis
 read-time check does not close a revoke-during-effect race, so it remains unwired with the evaluator
 in the current shadow slice. Enforcement requires a separately reviewed lock or lease that spans
 the side-effect commit, plus governed shadow evidence and independent promotion review.
+
+The selected `ops.start-vm@1.0.0` development slice adds a provider-boundary shadow probe for
+exactly one VM in one resource group. It compares the acquired lease through the existing
+`StandingAuthorizationLeaseStore` fence and emits a content-addressed receipt, but always records
+`provider_commit_attempted=false`, `effect_applied=false`, and
+`provider_capability_outcome=ineligible_capability`. Azure Resource Manager cannot join its VM
+start acceptance to the PostgreSQL lease transaction, so a current shadow fence is evidence about
+the contract only and does not make the ActionType eligible for A3-E.
+
+The same slice adds a pure effect-result planner. Matched independent evidence proposes no
+transition; failed, timed-out, missing, stale, conflicting, censored, or otherwise unscorable
+evidence proposes `return_to_shadow`. The planner is not a registry writer, does not revoke a
+standing authorization, and grants no recovery authority. A later authority-bearing consumer must
+be separately reviewed and authorized.
+
 - **Execution fits the validity window.** The risk gate requires
   `now + max_duration_seconds <= valid_until` before dispatch. It uses trusted UTC for persisted
   instants and monotonic elapsed time for the running deadline. Clock unavailability or excessive
