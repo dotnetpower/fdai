@@ -97,6 +97,7 @@ bindings through configuration (see
 | 2026-09-12 | in-progress | Separated targeted PR packaging scans from explicit protected-main image publication. Removed automatic main/tag publication and PR SBOM generation, and added validated image selection without an all-image default. | `current change`; `container-supply-chain.yml`, `select_changed_images.py`, and focused selector/workflow regression tests added but not yet run. | Record passing focused checks; an explicitly authorized candidate run remains separate from local implementation. |
 | 2026-09-12 | implemented | Separated targeted PR packaging from explicit protected-main publication. Removed automatic main/tag publication and PR SBOM generation, excluded known source-only PR changes at the trigger, and required explicit image selection. Genesis dispatch and reuse now bind its required image set without accepting PR or partial-candidate success. | `current change`; selector, CI-contract, Genesis application, supervisor, and image tests passed 182 cases; CI-contract checker passed. | An explicitly authorized candidate run and post-change latency measurement remain separate from local implementation. |
 | 2026-09-12 | implemented | Bound each Core `FDAI_SOURCE_REVISION` change to the exact protected commit and limited first adoption of the fixed Heimdall recovery observer to the explicit Core evidence transition. | Failed protected Core plan `34637615112`; `guard_plan.py`, `service-deploy.yml`, `service-matrix.json`, and the focused service-deploy suites passed 299 cases in the current change. | Publish the corrected controls, create a new exact Core candidate, and retain the zero-destroy plan, exact apply, and rollback evidence required by Issue #290. |
+| 2026-09-12 | implemented | Completed the model artifact handoff after a model-only apply converged Terraform but failed on an unrelated inventory Job image check. Resolver artifacts are canonicalized before hashing, an artifact-only recovery plan requires a digest different from the attested active Core, model convergence replans only deployments before provider readback, and Core can derive one primary endpoint from authoritative platform state when optional narrator routing is absent. | Failed apply `34691214670`; `current change`; `deploy-dev.yml`, `enforce_plan_scope.py`, `verify_deploy_convergence.sh`, `materialize_tfvars.py`; 131 focused tests passed; Ruff, shell syntax, and strict mypy passed. | Publish the corrected controls, complete the artifact-only platform plan and apply, then retain the protected Core image, rollout, health, and model-binding evidence. |
 ### Remaining work
 
 - [ ] Retain one repository-safe public fresh-subscription receipt for the exact clean revision,
@@ -198,9 +199,14 @@ prod topology so shadow evaluation is representative.
   and validated web-search settings. The active Core revision must already use canonical Event Bus topic bindings. Platform model-only plans target the `azurerm_cognitive_deployment.capability` resource collection directly instead of the enclosing model module, so existing account and role-assignment resources cannot enter through target expansion. The plan may compose this mode only with `database_host_binding` and the exact
   first-time notification receipt topic addition. Each guard validates its complete allowlist, the
   host, topic, and endpoint map come from authoritative platform-state output, and the sealed
-  deployment mode records the exact combination. The attested model digest may remain unchanged
-  when the validated endpoint map is the model binding being added. No identity, authority, secret,
-  command, or unrelated environment change is accepted.
+  deployment mode records the exact combination. When a resolver-only manifest omits optional
+  narrator routing metadata, materialization selects the single Azure OpenAI endpoint from that
+  authoritative map and still verifies its provider reference and hostname. Resolver artifacts are
+  canonicalized before plan hashing so the plan and image attestation use the same content digest.
+  A resource-no-op recovery plan is accepted only when that digest differs from the attested active
+  Core digest, and the apply still requires model-specific provider readback. The attested model
+  digest may remain unchanged when the validated endpoint map is the model binding being added. No
+  identity, authority, secret, command, or unrelated environment change is accepted.
 - **Bounded Core evidence binding adoption**: the Core-only
   `core_evidence_bindings_transition` mode may add only previously absent decision-evidence storage
   and operating-intent source bindings. It runs independently from initial cutover, database,

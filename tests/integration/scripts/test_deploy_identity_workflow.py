@@ -50,10 +50,9 @@ def test_workflow_binds_and_guards_only_the_identity_migration_plan() -> None:
 
 def test_identity_apply_uses_targeted_convergence_without_runtime_checks() -> None:
     assert 'elif [[ "$request_id" == apply-identity-* ]]' in _CONVERGENCE
-    assert (
-        'if [[ "$deploy_identity_only" == "true" || "$runtime_call_evidence_only" == "true" ]]'
-        in _CONVERGENCE
-    )
+    assert 'if [[ "$deploy_identity_only" == "true" \\' in _CONVERGENCE
+    assert '|| "$runtime_call_evidence_only" == "true" \\' in _CONVERGENCE
+    assert '|| "$model_binding_only" == "true" ]]; then' in _CONVERGENCE
     assert "deploy-identity-applied-plan.json" in _WORKFLOW
     assert "- name: Verify stable deploy identity effect" not in _WORKFLOW
     assert "verify-deploy-identity-effect.sh" in _WORKFLOW

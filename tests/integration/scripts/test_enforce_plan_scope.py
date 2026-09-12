@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -228,12 +229,33 @@ def test_model_scope_uses_non_hil_sealed_capabilities() -> None:
         )
 
 
-def test_model_scope_requires_a_change() -> None:
-    with pytest.raises(ValueError, match="contains no deployment change"):
+def test_model_scope_accepts_artifact_only_transition() -> None:
+    resolved = {"capabilities": []}
+    resolved_digest = hashlib.sha256(
+        json.dumps(resolved, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+
+    assert (
         enforce(
             {"resource_changes": []},
             mode="model-binding",
-            resolved_models={"capabilities": []},
+            resolved_models=resolved,
+            active_model_digest="a" * 64,
+        )
+        == frozenset()
+    )
+    with pytest.raises(ValueError, match="no deployment or artifact change"):
+        enforce(
+            {"resource_changes": []},
+            mode="model-binding",
+            resolved_models=resolved,
+            active_model_digest=resolved_digest,
+        )
+    with pytest.raises(ValueError, match="requires an active Core model digest"):
+        enforce(
+            {"resource_changes": []},
+            mode="model-binding",
+            resolved_models=resolved,
         )
 
 

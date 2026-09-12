@@ -105,6 +105,30 @@ def _candidate_endpoints(payload: dict[str, Any], key: str) -> set[str]:
     return endpoints
 
 
+def _primary_model_endpoint(
+    resolved_models: dict[str, Any],
+    model_endpoints: object,
+) -> str:
+    endpoints = _candidate_endpoints(resolved_models, "narrator_candidates")
+    narrator = resolved_models.get("narrator")
+    if narrator is not None:
+        if not isinstance(narrator, dict):
+            raise TfvarsError("resolved models narrator must be an object")
+        deployment = narrator.get("deployment")
+        if not isinstance(deployment, str) or not deployment.strip():
+            raise TfvarsError("resolved models narrator deployment must be non-empty")
+        endpoints.add(_https_origin(narrator.get("endpoint")))
+    if not endpoints and isinstance(model_endpoints, dict):
+        endpoints = {
+            _https_origin(endpoint)
+            for reference, endpoint in model_endpoints.items()
+            if isinstance(reference, str) and reference.startswith("azure-openai:")
+        }
+    if len(endpoints) != 1:
+        raise TfvarsError("model binding must identify exactly one primary model endpoint")
+    return next(iter(endpoints))
+
+
 def _model_endpoints(
     raw: object,
     *,
@@ -377,18 +401,7 @@ def materialize_core_llm(
     if _resolved_models_digest(resolved_models) != expected_digest:
         raise TfvarsError("resolved models manifest does not match the attested digest")
 
-    endpoints = _candidate_endpoints(resolved_models, "narrator_candidates")
-    narrator = resolved_models.get("narrator")
-    if narrator is not None:
-        if not isinstance(narrator, dict):
-            raise TfvarsError("resolved models narrator must be an object")
-        deployment = narrator.get("deployment")
-        if not isinstance(deployment, str) or not deployment.strip():
-            raise TfvarsError("resolved models narrator deployment must be non-empty")
-        endpoints.add(_https_origin(narrator.get("endpoint")))
-    if len(endpoints) != 1:
-        raise TfvarsError("resolved models must identify exactly one narrator endpoint origin")
-    primary_endpoint = next(iter(endpoints))
+    primary_endpoint = _primary_model_endpoint(resolved_models, model_endpoints)
     endpoint_map = _model_endpoints(
         model_endpoints,
         primary_endpoint=primary_endpoint,
@@ -397,7 +410,7 @@ def materialize_core_llm(
 
     allowed_domains = _web_search_domains(web_search_allowed_domains)
     web_search_endpoints = _candidate_endpoints(resolved_models, "web_search_candidates")
-    web_search_available = bool(web_search_endpoints) and web_search_endpoints == endpoints
+    web_search_available = bool(web_search_endpoints) and web_search_endpoints == {primary_endpoint}
     web_search_enabled = web_search_requested and web_search_available
     if web_search_enabled and not allowed_domains:
         raise TfvarsError("enabled web search requires an allowed-domain policy")
