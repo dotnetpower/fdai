@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f24fa64f1834179be676e41cfd09e00246dd40a1
+translation_source_sha: dfbfc2420f7a3f9df93def5785706a66a1bf3e2a
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -124,7 +124,10 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
   기능 binding을 해석합니다. Staging ChatOps 검증 모드는 결과를 계획 metadata에 봉인하고 계획과
   적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
-  충족하지 못하게 합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
+  충족하지 못하게 합니다. 조립은 다이제스트에 결속된 정책 산출물에서만 reasoner 수준의
+  `hil-only` 대체 경로를 수락하고 결정론적 불일치를 강제하며, 그 대체 구현을 시작 모델 탐색과
+  계측에서 제외합니다. 예기치 않은 `auto` 또는 `pinned` 손실은 계속 시작을 차단합니다.
+  의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
   호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만

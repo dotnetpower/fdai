@@ -126,7 +126,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   semantic planning plus post-turn review resolve their capability bindings through it. The
   staging ChatOps validation mode seals that result into plan metadata and revalidates it before
   both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying
-  the reviewed secondary profile. Semantic pre-frame selection keeps summaries, traces, and
+  the reviewed secondary profile. Composition accepts a reasoner-level `hil-only` fallback only
+  from a digest-bound policy artifact, forces deterministic disagreement, and excludes that sentinel
+  from startup model probes and metering; unexpected `auto` or `pinned` loss still blocks startup.
+  Semantic pre-frame selection keeps summaries, traces, and
   ownership frames typed separately; compatibility facades retain stable imports.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
