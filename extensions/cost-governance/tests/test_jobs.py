@@ -2,7 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fdai_cost_governance.job_cli import _cost_retry_after_seconds
+
 _ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_cost_retry_after_uses_longest_provider_delay_case_insensitively() -> None:
+    delay = _cost_retry_after_seconds(
+        {
+            "Retry-After": "2",
+            "X-MS-RATELIMIT-MICROSOFT.COSTMANAGEMENT-ENTITY-RETRY-AFTER": "7",
+            "x-ms-ratelimit-microsoft.costmanagement-tenant-retry-after": "5",
+        }
+    )
+
+    assert delay == 7
 
 
 def test_package_declares_both_job_entrypoints() -> None:
