@@ -76,8 +76,6 @@ run "package_jobs_are_root_owned" {
 
   assert {
     condition = (
-      module.compute.cost_governance_collector_job_name == null &&
-      module.compute.cost_governance_analyzer_job_name == null &&
       output.cost_governance_collector_job_name == "caj-fdai-dev-cost-collect" &&
       output.cost_governance_analyzer_job_name == "caj-fdai-dev-cost-analyze"
     )

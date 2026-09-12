@@ -58,9 +58,6 @@ def test_job_schedules_default_absent() -> None:
 
 def test_cost_governance_image_is_digest_pinned_and_job_names_are_exported() -> None:
     root_variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
-    module_outputs = (_ROOT / "infra/modules/compute/container-apps/outputs.tf").read_text(
-        encoding="utf-8"
-    )
     root_outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
 
     declaration = root_variables.split('variable "cost_governance_image"', 1)[1].split("\n}\n", 1)[
@@ -72,5 +69,3 @@ def test_cost_governance_image_is_digest_pinned_and_job_names_are_exported() -> 
         "cost_governance_analyzer_job_name",
     ):
         assert f'output "{name}"' in root_outputs
-        compatibility_output = module_outputs.split(f'output "{name}"', 1)[1].split("}", 1)[0]
-        assert "value       = null" in compatibility_output

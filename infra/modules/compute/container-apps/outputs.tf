@@ -3,16 +3,6 @@ output "environment_id" {
   value       = azurerm_container_app_environment.primary.id
 }
 
-output "cost_governance_collector_job_name" {
-  description = "Deprecated compatibility output. Root Terraform owns the optional Job."
-  value       = null
-}
-
-output "cost_governance_analyzer_job_name" {
-  description = "Deprecated compatibility output. Root Terraform owns the optional Job."
-  value       = null
-}
-
 output "attached_identity_ids" {
   description = "Declared identity resource ids retained for legacy workflow compatibility."
   value       = concat([var.executor_identity_id], var.extra_identity_ids)

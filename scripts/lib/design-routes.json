@@ -2064,7 +2064,7 @@
         "infra/main.tf",
         "infra/variables.tf",
         "infra/outputs.tf",
-        "infra/modules/compute/container-apps/*cost*",
+        "infra/cost_governance_jobs.tf",
         ".github/workflows/cost-governance-lifecycle.yml",
         ".github/workflows/cost-governance-observation-export.yml",
         "service-migrations/branches/core-control-plane/versions/*cost*",
