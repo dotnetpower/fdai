@@ -497,6 +497,7 @@ class DirectApiShadowExecutor:
             receipt_ref=receipt.receipt_ref,
             safeguard_bundle_digest=safeguard_bundle_digest,
             rollback_succeeded=receipt.rollback_succeeded,
+            remember=receipt.outcome is not DirectApiOutcome.PRECONDITION_FAILED,
             dry_run_receipt=dry_run_receipt,
         )
 

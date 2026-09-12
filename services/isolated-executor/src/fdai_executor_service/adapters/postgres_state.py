@@ -21,6 +21,17 @@ _EXECUTOR_STATE_PREFIXES: Final[tuple[str, ...]] = (
     "isolated-executor:",
     "isolated_executor_",
 )
+_EXECUTOR_READABLE_STATE_PREFIXES: Final[tuple[str, ...]] = (
+    *_EXECUTOR_STATE_PREFIXES,
+    "workflow:automation-hold:",
+    "workflow:automation-hold-dispatch-authorization:",
+)
+_SELECT_LEGACY_RECEIPT_BY_COMMAND = (
+    "SELECT payload FROM executor_receipt_outbox "
+    "WHERE COALESCE(payload -> 'telemetry' ->> 'command_id', "
+    "payload ->> 'command_id') = %s "
+    "ORDER BY created_at, receipt_id LIMIT 1"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,7 +174,7 @@ class PostgresStateStore:
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
         """Read one durable attempt record without treating corruption as a miss."""
 
-        _require_executor_state_key(key)
+        _require_executor_readable_state_key(key)
 
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
@@ -221,6 +232,11 @@ class PostgresStateStore:
         command_offset: int | None,
     ) -> None:
         """Atomically commit terminal receipt state and its publication outbox."""
+        outbox_record = _receipt_outbox_record(
+            payload,
+            command_id=command_id,
+            command_offset=command_offset,
+        )
         async with (
             await psycopg.AsyncConnection.connect(
                 self._config.dsn,
@@ -234,21 +250,88 @@ class PostgresStateStore:
                 "ON CONFLICT (key) DO NOTHING",
                 (f"isolated-executor:receipt:{receipt_id}", _canonical(payload)),
             )
-            await connection.execute(
+            command_cursor = await connection.execute(
+                "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+                "ON CONFLICT (key) DO UPDATE SET value = state_kv.value "
+                "WHERE state_kv.value = EXCLUDED.value",
+                (
+                    f"isolated-executor:command-receipt:{command_id}",
+                    _canonical(payload),
+                ),
+            )
+            if command_cursor.rowcount != 1:
+                raise RuntimeError("Executor command already has a different terminal receipt")
+            outbox_cursor = await connection.execute(
                 "INSERT INTO executor_receipt_outbox (receipt_id, partition_key, payload) "
-                "VALUES (%s, %s, %s::jsonb) ON CONFLICT (receipt_id) DO NOTHING",
+                "VALUES (%s, %s, %s::jsonb) ON CONFLICT (receipt_id) DO UPDATE SET "
+                "partition_key = EXCLUDED.partition_key, payload = EXCLUDED.payload, "
+                "published_at = NULL, next_attempt_at = clock_timestamp() "
+                "WHERE executor_receipt_outbox.partition_key = EXCLUDED.partition_key "
+                "AND COALESCE(executor_receipt_outbox.payload -> 'receipt', "
+                "executor_receipt_outbox.payload)::jsonb = "
+                "(EXCLUDED.payload -> 'receipt')::jsonb",
                 (
                     receipt_id,
                     partition_key,
-                    _canonical(
-                        _receipt_outbox_record(
-                            payload,
-                            command_id=command_id,
-                            command_offset=command_offset,
-                        )
-                    ),
+                    _canonical(outbox_record),
                 ),
             )
+            if outbox_cursor.rowcount != 1:
+                raise RuntimeError("Executor receipt id is bound to a different receipt")
+
+    async def read_committed_receipt(
+        self,
+        command_id: str,
+    ) -> Mapping[str, Any] | None:
+        """Read the first durable terminal receipt for one command."""
+
+        if not command_id:
+            raise ValueError("Executor receipt command id MUST NOT be empty")
+        command_key = f"isolated-executor:command-receipt:{command_id}"
+        async with (
+            await psycopg.AsyncConnection.connect(
+                self._config.dsn,
+                row_factory=dict_row,
+                connect_timeout=self._config.connect_timeout_s,
+            ) as connection,
+            connection.transaction(),
+        ):
+            await self._set_statement_timeout(connection)
+            row = await (
+                await connection.execute(
+                    "SELECT value FROM state_kv WHERE key = %s",
+                    (command_key,),
+                )
+            ).fetchone()
+            if row is not None:
+                return _json_object(
+                    row["value"],
+                    record_name="committed Executor receipt",
+                )
+            legacy_row = await (
+                await connection.execute(
+                    _SELECT_LEGACY_RECEIPT_BY_COMMAND,
+                    (command_id,),
+                )
+            ).fetchone()
+            if legacy_row is None:
+                return None
+            stored = _json_object(
+                legacy_row["payload"],
+                record_name="legacy receipt outbox payload",
+            )
+            receipt, observed_command_id, _command_offset = _decode_receipt_outbox_record(stored)
+            if observed_command_id != command_id:
+                raise RuntimeError("legacy Executor receipt command id mismatched")
+            cursor = await connection.execute(
+                "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+                "ON CONFLICT (key) DO UPDATE SET value = state_kv.value "
+                "WHERE state_kv.value = EXCLUDED.value",
+                (command_key, _canonical(receipt)),
+            )
+            if cursor.rowcount != 1:
+                raise RuntimeError("Executor command receipt backfill conflicted")
+            return receipt
 
     async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]:
         """Lease due unpublished receipts by moving their retry timestamp."""
@@ -358,6 +441,11 @@ class PostgresStateStore:
 def _require_executor_state_key(key: str) -> None:
     if not any(key.startswith(prefix) for prefix in _EXECUTOR_STATE_PREFIXES):
         raise ValueError("Executor state key is outside the isolated-executor namespace")
+
+
+def _require_executor_readable_state_key(key: str) -> None:
+    if not any(key.startswith(prefix) for prefix in _EXECUTOR_READABLE_STATE_PREFIXES):
+        raise ValueError("state key is outside the isolated-executor readable namespaces")
 
 
 def _require_executor_audit_entry(payload: Mapping[str, Any]) -> None:

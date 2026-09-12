@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 0169b91cad46c66585882a20799e7b02d756ce72
-translation_revised: 2026-09-12
+translation_source_sha: da114527b045a8b2959ea5aa9ac435b7c2816b75
+translation_revised: 2026-09-13
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -82,6 +82,7 @@ translation_revised: 2026-09-12
 | 2026-08-26 | 진행 중 | 역방향 완료 계약을 Core 발신함과 Operator 소유 writer에 연결했습니다. Operator migration은 대화 쓰기와 inbox sequence 사용을 부여하고 하나의 transaction이 서비스 토폴로지 또는 Core 권한을 바꾸지 않으면서 제안, Web assistant turn 및 inbox 행을 dedupe합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 채널 outbound enqueue, 보존 정리 및 통제된 배포/rollback 근거를 추가합니다. |
 | 2026-08-29 | 구현됨 | Operator 소유 완료 inbox 보존 worker와 해당 inbox에만 삭제 권한을 부여하는 후속 migration을 추가했습니다. 정리는 계약 기한, 제한된 배치, 기한 순서 및 `SKIP LOCKED`를 사용합니다. 정리에 실패하면 완료 수신은 차단하지 않지만 Operator 준비 상태는 닫힌 상태를 유지합니다. | `current change`, `postgres_read_investigation_completion.py`, `read_investigation_completion_runtime.py`, `operator_completion_retention_20260829`, 집중 완료, 조립, migration 및 서비스 inventory 검사 | 검증된 채널 outbound enqueue를 추가한 뒤 통제된 재시작, 배포 및 rollback 근거를 보존합니다. |
 | 2026-09-05 | implemented | 새로운 handover, document 및 protection suite의 정확한 service-test 소유권을 복원하고 5개 서비스 토폴로지를 변경하지 않은 채 Operator aggregate manifest를 등록된 경로 188개와 일치시켰습니다. | `current change`, service-suite 소유권 및 Operator full-composition 검사 통과 | 각 소유 capability에서 이미 추적하는 통제된 runtime 근거를 보존합니다. |
+| 2026-09-13 | implemented | 격리 Executor의 automation-hold fence suite에 대한 정확한 service-test 소유권을 복원했습니다. 새 fence 테스트에 소유 그룹이 없어 suite runner가 단일 소유자를 확정하지 못했고 모든 coverage, 순서, 인자 검사가 fail-closed로 실패했습니다. 이제 형제인 effect-safety fence 테스트와 같은 isolated-executor `unit` 그룹에 속하며 5개 서비스 토폴로지, source root, 그룹 의미는 변경되지 않았습니다. | `current change`, `tests/integration/service-suites.json`, service-suite 소유권 및 models-facade 검사 30건 통과 | 소유 capability 설계에서 통제된 Executor runtime 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] 정확한 이미지의 Teams, Blob claim, 신원, 비용, 비활성화 및 롤백 근거가 적용 가능한

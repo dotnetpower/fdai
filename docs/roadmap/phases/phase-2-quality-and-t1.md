@@ -149,7 +149,9 @@ catalog for first-generation bootstrap, rejects unrelated Terraform addresses, a
 sanitized post-apply receipt for the exact Job execution and durable generation. When a material
 review exists, the verifier also requires the same correlation to reach a Forseti human-review
 decision and Saga's append-only audit. An unchanged run records that review evidence is not
-applicable.
+applicable. An apply-triggered execution forces a new source observation instead of accepting the
+periodic cadence. A successfully accepted complete snapshot refreshes its freshness timestamp, and
+the deployment verifier rejects any stale receipt.
 The Job is owned by the root Terraform resource `azurerm_container_app_job.provider_schema[0]`; deterministic prerequisite IDs, a read-only identity client lookup, and a state `moved` declaration preserve existing deployments without inheriting the shared compute module's platform dependencies.
 
 ## LLM Quality Gate (T2 - see [llm-strategy.md](../architecture/llm-strategy.md))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -77,8 +78,10 @@ def _coordinator(
     hold_state_reader: object | None = None,
     hold_release_authorizations: object | None = None,
     commitment_store: object | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> tuple[SafeguardLifecycleCoordinator, ResourceLockManager]:
-    lock = ResourceLockManager(clock=lambda: _NOW, acquisition_id_factory=lambda: "test")
+    lifecycle_clock = clock or (lambda: _NOW)
+    lock = ResourceLockManager(clock=lifecycle_clock, acquisition_id_factory=lambda: "test")
     reservations = InMemoryIdempotencyReservationStore()
     fences = InMemoryTargetDispatchFenceStore()
     coordinator = SafeguardLifecycleCoordinator(
@@ -112,7 +115,7 @@ def _coordinator(
         commitment_store=commitment_store,  # type: ignore[arg-type]
         hold_state_reader=hold_state_reader,  # type: ignore[arg-type]
         hold_release_authorizations=hold_release_authorizations,  # type: ignore[arg-type]
-        clock=lambda: _NOW,
+        clock=lifecycle_clock,
     )
     return coordinator, lock
 
@@ -182,6 +185,46 @@ async def test_direct_api_restart_reuses_retained_bundle_without_dispatch() -> N
     assert replay.outcome is DirectApiExecutionOutcome.ALREADY_APPLIED
     assert replay.safeguard_bundle_digest == first.safeguard_bundle_digest
     assert len(adapter.records) == 1
+
+
+async def test_replay_uses_its_closure_after_a_newer_target_generation() -> None:
+    current_time = [_NOW]
+
+    def clock() -> datetime:
+        return current_time[0]
+
+    audit = InMemoryStateStore()
+    coordinator, lock = _coordinator(audit, clock=clock)
+    adapter = RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+    first_action = _direct_action()
+    second_action = _direct_action(
+        action_id="00000000-0000-0000-0000-000000000099",
+        idempotency_key="second-target-generation",
+    )
+    first = await executor.execute(action=first_action)
+    current_time[0] += timedelta(seconds=1)
+    second = await executor.execute(action=second_action)
+    current_time[0] += timedelta(seconds=1)
+    restarted_executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    replay = await restarted_executor.execute(action=first_action)
+
+    assert first.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert second.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert replay.outcome is DirectApiExecutionOutcome.ALREADY_APPLIED
+    assert replay.safeguard_bundle_digest == first.safeguard_bundle_digest
+    assert len(adapter.records) == 2
 
 
 async def test_tool_call_dispatches_through_shared_lifecycle() -> None:
@@ -285,12 +328,37 @@ class _StaticHoldReader:
         return self.record
 
 
+class _HoldActivatingAuditStore(InMemoryStateStore):
+    """Activate a hold after the path audit and before the final guard."""
+
+    def __init__(self, reader: _StaticHoldReader) -> None:
+        super().__init__()
+        self._reader = reader
+
+    async def append_audit_entry(self, entry: Mapping[str, object]) -> None:
+        await super().append_audit_entry(entry)
+        if entry.get("audit_phase") == "intent":
+            self._reader.record = {"state": "active", "revision": 1}
+
+
 class _UnreadableHoldReader:
     """Fail every hold read so dispatch fences closed."""
 
     async def read_hold_record(self, *, target_ref: str) -> dict[str, object] | None:
         del target_ref
         raise RuntimeError("automation hold state is unreadable")
+
+
+class _AdvancingEmptyHoldReader:
+    """Advance the lifecycle clock while confirming that no hold exists."""
+
+    def __init__(self, advance: Callable[[], None]) -> None:
+        self._advance = advance
+
+    async def read_hold_record(self, *, target_ref: str) -> None:
+        del target_ref
+        self._advance()
+        return None
 
 
 class _HoldAdmissions:
@@ -465,6 +533,11 @@ async def test_active_hold_fences_direct_api_dispatch_inside_the_lock() -> None:
     assert denial["outcome"] == "not_invoked"
     assert denial["execution_authority"] is False
 
+    replay = await executor.execute(action=_direct_action())
+
+    assert replay.outcome is DirectApiExecutionOutcome.REJECTED_INVARIANT
+    assert len(adapter.records) == 0
+
 
 async def test_hold_reissued_after_release_fences_tool_dispatch() -> None:
     audit = InMemoryStateStore(linearization_clock=lambda: _NOW)
@@ -551,6 +624,56 @@ async def test_unreadable_hold_state_fences_dispatch_closed() -> None:
         if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
     )
     assert denial["rejection_reasons"] == ["unreadable_state"]
+
+
+async def test_hold_issued_during_path_audit_fences_provider_dispatch() -> None:
+    reader = _StaticHoldReader(None)
+    audit = _HoldActivatingAuditStore(reader)
+    coordinator, lock = _coordinator(audit, hold_state_reader=reader)
+    adapter = RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    result = await executor.execute(action=_direct_action())
+
+    assert adapter.records == ()
+    assert result.outcome is DirectApiExecutionOutcome.REJECTED_INVARIANT
+    assert result.reason == "dispatch blocked before provider invocation: RuntimeError"
+    assert reader.reads == 1
+
+
+async def test_elapsed_hold_preflight_rechecks_lock_before_provider() -> None:
+    current_time = [_NOW]
+
+    def clock() -> datetime:
+        return current_time[0]
+
+    def advance() -> None:
+        current_time[0] += timedelta(seconds=6)
+
+    audit = InMemoryStateStore()
+    coordinator, lock = _coordinator(
+        audit,
+        hold_state_reader=_AdvancingEmptyHoldReader(advance),
+        clock=clock,
+    )
+    adapter = RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+
+    result = await executor.execute(action=_direct_action())
+
+    assert adapter.records == ()
+    assert result.outcome is DirectApiExecutionOutcome.REJECTED_INVARIANT
+    assert result.reason == "dispatch blocked before provider invocation: ValueError"
 
 
 async def test_released_hold_with_matching_lineage_permits_dispatch() -> None:

@@ -432,6 +432,19 @@ class TestAdapterFailures:
         assert entry["action_kind"] == "executor.tool_call.abstained_precondition"
 
     @pytest.mark.asyncio
+    async def test_precondition_failed_receipt_is_not_cached_across_retries(self) -> None:
+        exec_, adapter, _ = _executor()
+        adapter.force_outcome(ToolCallOutcome.PRECONDITION_FAILED)
+
+        first = await exec_.execute(action=_action())
+        adapter.force_outcome(ToolCallOutcome.SUCCEEDED)
+        retried = await exec_.execute(action=_action())
+
+        assert first.outcome is ToolCallExecutionOutcome.ABSTAINED_PRECONDITION
+        assert retried.outcome is ToolCallExecutionOutcome.DISPATCHED
+        assert len(adapter.records) == 2
+
+    @pytest.mark.asyncio
     async def test_forced_stopped_records_rollback(self) -> None:
         exec_, adapter, audit = _executor()
         adapter.force_outcome(

@@ -10,6 +10,8 @@ import psycopg
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
 from psycopg.rows import dict_row
 
+from fdai_executor_service.bundle_validation import ResolvedSafeguardBundle
+
 _SELECT_SQL = """
 SELECT record
 FROM safeguard_dispatch_evidence
@@ -39,6 +41,13 @@ class PostgresSafeguardBundleStore:
         self._config = config
 
     async def resolve_bundle(self, bundle_digest: str) -> SafeguardProofBundle | None:
+        resolved = await self.resolve_bundle_context(bundle_digest)
+        return resolved.bundle if resolved is not None else None
+
+    async def resolve_bundle_context(
+        self,
+        bundle_digest: str,
+    ) -> ResolvedSafeguardBundle | None:
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
             autocommit=True,
@@ -59,12 +68,25 @@ class PostgresSafeguardBundleStore:
         if not isinstance(record, Mapping):
             raise ValueError("persisted safeguard evidence is malformed")
         raw_bundle: Any = record.get("bundle")
+        identity: Any = record.get("identity")
         if not isinstance(raw_bundle, Mapping):
             raise ValueError("persisted safeguard proof bundle is missing")
+        if not isinstance(identity, Mapping):
+            raise ValueError("persisted safeguard evidence identity is missing")
+        reservation_attempt = identity.get("reservation_attempt")
+        if (
+            not isinstance(reservation_attempt, int)
+            or isinstance(reservation_attempt, bool)
+            or reservation_attempt < 1
+        ):
+            raise ValueError("persisted safeguard reservation attempt is invalid")
         bundle = SafeguardProofBundle.model_validate(dict(raw_bundle))
         if bundle.bundle_digest != bundle_digest:
             raise ValueError("persisted safeguard proof bundle digest mismatched")
-        return bundle
+        return ResolvedSafeguardBundle(
+            bundle=bundle,
+            reservation_attempt=reservation_attempt,
+        )
 
 
 __all__ = [

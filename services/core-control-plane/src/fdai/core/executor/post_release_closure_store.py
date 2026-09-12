@@ -109,6 +109,13 @@ class PostReleaseClosureStore(Protocol):
         """Read the current durable closure revision by stable attempt key."""
         ...
 
+    async def read_receipt(
+        self,
+        closure_key: str,
+    ) -> PostReleaseClosureStoreReceipt | None:
+        """Return authoritative readback evidence for the current closure."""
+        ...
+
 
 __all__ = [
     "PostReleaseClosureStore",

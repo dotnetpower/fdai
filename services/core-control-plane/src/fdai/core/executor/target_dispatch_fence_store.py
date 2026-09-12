@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -57,6 +58,14 @@ class TargetDispatchFenceAcquireResult:
                 raise ValueError("target dispatch fence result mismatched candidate")
 
 
+@dataclass(frozen=True, slots=True)
+class TargetDispatchFenceReadback:
+    """Authoritative current fence record and persistence time."""
+
+    record: TargetDispatchFenceRecord
+    recorded_at: datetime
+
+
 @runtime_checkable
 class TargetDispatchFenceStore(Protocol):
     """Atomic target-unique insert, CAS transition, and readback seam."""
@@ -85,6 +94,13 @@ class TargetDispatchFenceStore(Protocol):
         """Return the authoritative current generation for one target."""
         ...
 
+    async def read_with_timestamp(
+        self,
+        target_digest: str,
+    ) -> TargetDispatchFenceReadback | None:
+        """Return the current generation with authoritative persistence time."""
+        ...
+
 
 def classify_target_fence(
     existing: TargetDispatchFenceRecord,
@@ -108,6 +124,7 @@ def target_mutation_blocked(record: TargetDispatchFenceRecord | None) -> bool:
 __all__ = [
     "TargetDispatchFenceAcquireDecision",
     "TargetDispatchFenceAcquireResult",
+    "TargetDispatchFenceReadback",
     "TargetDispatchFenceStore",
     "classify_target_fence",
     "target_mutation_blocked",

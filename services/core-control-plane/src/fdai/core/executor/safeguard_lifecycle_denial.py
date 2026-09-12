@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from fdai.core.executor.safeguard_evidence_lifecycle import SafeguardEvidenceLifecycleResult
 from fdai.core.executor.safeguard_lifecycle_models import (
     SafeguardCoordinatedDispatchResult,
     SafeguardCoordinationDisposition,
@@ -40,21 +41,13 @@ class SafeguardDenialJournal:
         action: Action,
         reason: str,
     ) -> SafeguardCoordinatedDispatchResult:
-        bounded_reason = reason[:512]
-        await self._denial_audit_store.append_audit_entry(
-            {
-                "event_id": str(action.event_id),
-                "action_id": str(action.action_id),
-                "idempotency_key": action.idempotency_key,
-                "actor": self._config.actor,
-                "action_kind": "executor.safeguard_lifecycle.denied",
-                "audit_phase": "terminal",
-                "outcome": "denied",
-                "reason": bounded_reason,
-                "recorded_at": self.now().isoformat(),
-                "execution_authority": False,
-                "effect_verified": False,
-            }
+        bounded_reason = await self._record(
+            action=action,
+            action_kind="executor.safeguard_lifecycle.denied",
+            outcome="denied",
+            reason=reason,
+            bundle_digest=None,
+            dispatch_performed=False,
         )
         return SafeguardCoordinatedDispatchResult(
             disposition=SafeguardCoordinationDisposition.BLOCKED,
@@ -64,6 +57,88 @@ class SafeguardDenialJournal:
             dispatch_performed=False,
             reason=bounded_reason,
         )
+
+    async def quarantine(
+        self,
+        action: Action,
+        *,
+        reason: str,
+        bundle_digest: str,
+        lifecycle: SafeguardEvidenceLifecycleResult | None = None,
+        dispatch_performed: bool = True,
+    ) -> SafeguardCoordinatedDispatchResult:
+        """Record an unknown post-dispatch outcome without permitting replay."""
+
+        bounded_reason = await self._record(
+            action=action,
+            action_kind="executor.safeguard_lifecycle.quarantined",
+            outcome="unknown",
+            reason=reason,
+            bundle_digest=bundle_digest,
+            dispatch_performed=dispatch_performed,
+        )
+        return SafeguardCoordinatedDispatchResult(
+            disposition=(
+                SafeguardCoordinationDisposition.QUARANTINED
+                if dispatch_performed
+                else SafeguardCoordinationDisposition.BLOCKED
+            ),
+            bundle_digest=bundle_digest,
+            lifecycle=lifecycle,
+            closure_receipt=None,
+            dispatch_performed=dispatch_performed,
+            reason=bounded_reason,
+        )
+
+    async def record_quarantine(
+        self,
+        action: Action,
+        *,
+        reason: str,
+        bundle_digest: str,
+        dispatch_performed: bool = True,
+    ) -> None:
+        """Persist a post-dispatch quarantine before propagating cancellation."""
+
+        await self._record(
+            action=action,
+            action_kind="executor.safeguard_lifecycle.quarantined",
+            outcome="unknown",
+            reason=reason,
+            bundle_digest=bundle_digest,
+            dispatch_performed=dispatch_performed,
+        )
+
+    async def _record(
+        self,
+        *,
+        action: Action,
+        action_kind: str,
+        outcome: str,
+        reason: str,
+        bundle_digest: str | None,
+        dispatch_performed: bool,
+    ) -> str:
+        bounded_reason = reason[:512]
+        entry: dict[str, object] = {
+            "event_id": str(action.event_id),
+            "action_id": str(action.action_id),
+            "idempotency_key": action.idempotency_key,
+            "actor": self._config.actor,
+            "action_kind": action_kind,
+            "audit_phase": "terminal",
+            "mode": action.mode.value,
+            "outcome": outcome,
+            "reason": bounded_reason,
+            "recorded_at": self.now().isoformat(),
+            "execution_authority": False,
+            "effect_verified": False,
+        }
+        if bundle_digest is not None:
+            entry["safeguard_bundle_digest"] = bundle_digest
+            entry["dispatch_performed"] = dispatch_performed
+        await self._denial_audit_store.append_audit_entry(entry)
+        return bounded_reason
 
     def now(self) -> datetime:
         value = self._clock()

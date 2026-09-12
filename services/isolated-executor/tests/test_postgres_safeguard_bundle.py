@@ -85,7 +85,16 @@ async def test_postgres_bundle_store_reads_exact_core_bundle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bundle = _bundle()
-    connection = _Connection([{"record": {"bundle": bundle.model_dump(mode="json")}}])
+    connection = _Connection(
+        [
+            {
+                "record": {
+                    "bundle": bundle.model_dump(mode="json"),
+                    "identity": {"reservation_attempt": 1},
+                }
+            }
+        ]
+    )
 
     async def connect(*_args: object, **_kwargs: object) -> _Connection:
         return connection
@@ -106,7 +115,12 @@ async def test_postgres_bundle_store_rejects_ambiguous_digest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bundle = _bundle()
-    row = {"record": {"bundle": bundle.model_dump(mode="json")}}
+    row = {
+        "record": {
+            "bundle": bundle.model_dump(mode="json"),
+            "identity": {"reservation_attempt": 1},
+        }
+    }
     connection = _Connection([row, row])
 
     async def connect(*_args: object, **_kwargs: object) -> _Connection:

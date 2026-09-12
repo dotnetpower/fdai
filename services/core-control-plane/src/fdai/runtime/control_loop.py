@@ -8,12 +8,12 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import httpx
 import yaml
 
-from fdai.composition import Container, LlmBindings
+from fdai.composition import Container
 from fdai.core.assurance_twin import (
     DynamicRuntimeCoordinator,
     GraphDynamicRuntimeCoordinator,
@@ -25,9 +25,7 @@ from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     DirectApiExecutionPort,
     MutationDependencyReadiness,
-    ShadowExecutor,
     ThorExecutionPort,
-    ToolCallShadowExecutor,
 )
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.executor.renderer import TemplateRenderer
@@ -43,17 +41,12 @@ from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.quality_gate import (
-    DeterministicEvidenceKind,
-    DeterministicEvidenceVerifier,
     HashedRuleEmbeddingIndex,
     QualityGate,
     QualityGateConfig,
     RagGroundingSource,
     RuleBasedVerifier,
-    SelfConsistencySampler,
-    UnavailableDeterministicEvidenceVerifier,
 )
-from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
 from fdai.core.rca import (
     CausalRuntimeCoordinator,
     KnowledgeEvidenceGatherer,
@@ -157,6 +150,15 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 from fdai.shared.resilience import StateStoreKillSwitch
 
 from .control_loop_auxiliary import (
+    _build_self_consistency_cascade as _build_self_consistency_cascade,
+)
+from .control_loop_auxiliary import (
+    _legacy_executor_bindings as _legacy_executor_bindings,
+)
+from .control_loop_auxiliary import (
+    _resolve_t2_deterministic_evidence_verifiers as _resolve_t2_deterministic_evidence_verifiers,
+)
+from .control_loop_auxiliary import (
     build_irp_event_handler as _build_irp_event_handler,
 )
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
@@ -165,45 +167,6 @@ __all__ = ["_build_irp_event_handler"]
 
 _LOGGER = logging.getLogger("fdai.startup")
 _TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"
-
-
-def _build_self_consistency_cascade(
-    container: Container,
-    llm_bindings: LlmBindings,
-) -> SelfConsistencyCascade | None:
-    """Return the configured T2 stability cascade, or ``None`` when disabled.
-
-    Sampling costs one extra model call per sample, so it stays opt-in through
-    ``llm.self_consistency_samples``. The primary cross-check model is the sampled
-    proposer seam.
-    """
-
-    llm_config = container.config.llm
-    if llm_config.self_consistency_samples < 1:
-        return None
-    return SelfConsistencyCascade(
-        sampler=SelfConsistencySampler(
-            proposer=llm_bindings.cross_check_models[0],
-            samples=llm_config.self_consistency_samples,
-        ),
-        sample_threshold=llm_config.self_consistency_sample_threshold,
-        stability_threshold=llm_config.self_consistency_stability_threshold,
-    )
-
-
-def _legacy_executor_bindings(
-    port: ThorExecutionPort,
-) -> tuple[
-    ShadowExecutor,
-    DirectApiExecutionPort | None,
-    ToolCallShadowExecutor | None,
-]:
-    """Adapt the injected Thor port to the unchanged Core and HIL APIs."""
-    return (
-        cast(ShadowExecutor, port.pr_native),
-        port.direct_api,
-        cast(ToolCallShadowExecutor | None, port.tool_call),
-    )
 
 
 def _load_resource_types() -> ResourceTypeRegistry:
@@ -228,19 +191,6 @@ def _load_parameter_relaxation_policies(
     with policy_file.open("r", encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
     return parameter_relaxation_policies_from_mapping(raw)
-
-
-def _resolve_t2_deterministic_evidence_verifiers(
-    container: Container,
-) -> dict[DeterministicEvidenceKind, DeterministicEvidenceVerifier]:
-    configured = container.t2_deterministic_evidence_verifiers or tuple(
-        UnavailableDeterministicEvidenceVerifier(
-            kind=kind,
-            reason=f"{kind.value}_evidence_provider_unavailable",
-        )
-        for kind in DeterministicEvidenceKind
-    )
-    return {verifier.kind: verifier for verifier in configured}
 
 
 def _build_control_loop(
@@ -436,18 +386,27 @@ def _build_control_loop(
     process_runtime_store = _build_process_store()
     publisher: Any = None
     renderer: TemplateRenderer | None = None
-    resource_lock: Any = None
+    resource_lock: Any = _build_resource_lock()
     idempotency_store: Any = None
     safeguard_coordinator: Any = None
     if thor_execution_port is None:
         publisher = _build_publisher(http_client)
         renderer = TemplateRenderer(remediation_root=remediation_root)
-        resource_lock = _build_resource_lock()
         idempotency_store = _build_idempotency_store()
         safeguard_coordinator = _build_safeguard_lifecycle_coordinator(
             audit_store=audit_store,
             resource_lock=resource_lock,
             process_store=process_runtime_store,
+            receipt_journal_consumer=(
+                direct_api_execution_port.bind_receipt_journal
+                if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
+                else None
+            ),
+            receipt_journal_capacity=(
+                direct_api_execution_port.max_pending_requests
+                if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
+                else 256
+            ),
         )
     risk_table = load_risk_table(catalog_root / "risk-classification.yaml")
     promotion_registry: ActionPromotionRegistry
@@ -719,7 +678,10 @@ def _build_control_loop(
         topic=container.config.kafka.topic_events,
         workflows_present=bool(workflows),
     )
-    workflow_automation_holds = StateStoreAutomationHoldLedger(audit_store)
+    workflow_automation_holds = StateStoreAutomationHoldLedger(
+        audit_store,
+        resource_lock=resource_lock,
+    )
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -764,6 +726,7 @@ def _build_control_loop(
             architecture_evidence_provider=container.architecture_review_evidence_provider,
             decision_evidence_provider=container.decision_evidence_admission_provider,
             action_dispatcher=workflow_action_dispatcher,
+            automation_holds=workflow_automation_holds,
         ),
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,

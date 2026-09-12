@@ -30,7 +30,10 @@ from fdai_service_contracts.executor_models import (
     RollbackRef,
     SafeguardBoundExecutorCommand,
     StopConditionKind,
+    executor_action_fingerprint,
+    executor_command_id_from_action_payload,
     executor_action_payload_digest,
+    safeguard_bound_executor_command_id,
 )
 from fdai_service_contracts.executor_providers import (
     DirectApiAuthenticationError,
@@ -145,6 +148,9 @@ __all__ = [
     "StateStore",
     "StopConditionKind",
     "WorkloadIdentity",
+    "executor_action_fingerprint",
+    "executor_command_id_from_action_payload",
     "executor_action_payload_digest",
+    "safeguard_bound_executor_command_id",
     "resolve_azure_operation_target",
 ]
