@@ -17,6 +17,7 @@ from typing import TextIO
 
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from genesis_runner_image_review import show_image_vm_selection
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SOURCE = re.compile(r"[0-9a-f]{40}")
@@ -222,6 +223,10 @@ def main() -> int:
     if not isinstance(run_binding, str) or not isinstance(source_commit, str):
         raise ValueError("Genesis status context is invalid")
     stage, evidence = _approval_from_status(status)
+    if stage == "runner-image":
+        show_image_vm_selection(
+            status=status, work_dir=args.status.parent, evidence=evidence, output=sys.stderr
+        )
     create_approval(
         stage=stage,
         evidence=evidence,
