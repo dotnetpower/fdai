@@ -223,11 +223,8 @@ def _unified_audit_dict(
         "mode": Mode.SHADOW.value,
         "action_id": str(action.action_id),
         "action_type_id": action.action_type,
-        "workflow_action": (
-            action.workflow_action.model_dump(mode="json")
-            if action.workflow_action is not None
-            else None
-        ),
+        "workflow_action": action.workflow_action
+        and action.workflow_action.model_dump(mode="json"),
         **unified.as_audit_dict(),
     }
 
