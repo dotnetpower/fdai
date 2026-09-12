@@ -130,8 +130,8 @@ def test_provider_schema_scope_accepts_only_provider_job() -> None:
 
 def test_cost_governance_scope_accepts_only_reader_and_package_jobs() -> None:
     reader = "azurerm_role_assignment.inventory_cost_reader"
-    collector = "module.compute.azurerm_container_app_job.cost_governance_collector[0]"
-    analyzer = "module.compute.azurerm_container_app_job.cost_governance_analyzer[0]"
+    collector = "azurerm_container_app_job.cost_governance_collector[0]"
+    analyzer = "azurerm_container_app_job.cost_governance_analyzer[0]"
 
     assert enforce(_plan(reader, collector, analyzer), mode="cost-governance") == frozenset(
         {reader, collector, analyzer}

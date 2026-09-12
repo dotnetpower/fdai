@@ -14,21 +14,40 @@ def test_package_declares_both_job_entrypoints() -> None:
 
 
 def test_optional_jobs_are_serial_and_use_non_executor_collection_identity() -> None:
-    terraform = (_ROOT / "infra/modules/compute/container-apps/cost_governance_jobs.tf").read_text(
-        encoding="utf-8"
-    )
+    terraform = (_ROOT / "infra/cost_governance_jobs.tf").read_text(encoding="utf-8")
+    legacy_path = _ROOT / "infra/modules/compute/container-apps/cost_governance_jobs.tf"
+
+    assert not legacy_path.exists()
     assert terraform.count("parallelism              = 1") == 2
-    assert terraform.count("identity_ids = [var.inventory_identity_id]") == 2
+    assert (
+        terraform.count(
+            "identity_ids = [data.azurerm_user_assigned_identity.cost_governance_inventory[0].id]"
+        )
+        == 2
+    )
     assert "var.finops_identity" not in terraform
     assert "fdai-cost-collector" in terraform
     assert "fdai-cost-analyzer" in terraform
     assert "FDAI_COST_COLLECTION_MI_CLIENT_ID" in terraform
+    assert 'data "azurerm_container_app_environment" "cost_governance"' in terraform
+    assert 'data "azurerm_user_assigned_identity" "cost_governance_inventory"' in terraform
+    assert (
+        "from = module.compute.azurerm_container_app_job.cost_governance_collector[0]" in terraform
+    )
+    assert (
+        "from = module.compute.azurerm_container_app_job.cost_governance_analyzer[0]" in terraform
+    )
+    for unrelated_dependency in (
+        "module.compute.environment_id",
+        "module.network",
+        "module.scheduler_identity",
+        "module.state_store",
+    ):
+        assert unrelated_dependency not in terraform
 
 
 def test_job_schedules_default_absent() -> None:
-    variables = (_ROOT / "infra/modules/compute/container-apps/variables.tf").read_text(
-        encoding="utf-8"
-    )
+    variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
     for name in (
         "cost_governance_collector_cron_expression",
         "cost_governance_analyzer_cron_expression",
@@ -39,20 +58,19 @@ def test_job_schedules_default_absent() -> None:
 
 def test_cost_governance_image_is_digest_pinned_and_job_names_are_exported() -> None:
     root_variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
-    module_variables = (_ROOT / "infra/modules/compute/container-apps/variables.tf").read_text(
-        encoding="utf-8"
-    )
     module_outputs = (_ROOT / "infra/modules/compute/container-apps/outputs.tf").read_text(
         encoding="utf-8"
     )
     root_outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
 
-    for source in (root_variables, module_variables):
-        declaration = source.split('variable "cost_governance_image"', 1)[1].split("\n}\n", 1)[0]
-        assert "@sha256:[0-9a-f]{64}" in declaration
+    declaration = root_variables.split('variable "cost_governance_image"', 1)[1].split("\n}\n", 1)[
+        0
+    ]
+    assert "@sha256:[0-9a-f]{64}" in declaration
     for name in (
         "cost_governance_collector_job_name",
         "cost_governance_analyzer_job_name",
     ):
-        assert f'output "{name}"' in module_outputs
         assert f'output "{name}"' in root_outputs
+        compatibility_output = module_outputs.split(f'output "{name}"', 1)[1].split("}", 1)[0]
+        assert "value       = null" in compatibility_output

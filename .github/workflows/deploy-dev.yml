@@ -349,7 +349,7 @@ jobs:
           fi
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' || env.RUNTIME_IMAGE_PROFILE == 'cost-governance' }}
-        run: if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"; elif [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.compute.azurerm_container_app_job.provider_schema[0]' >> "$GITHUB_ENV"; else echo 'TF_CLI_ARGS_plan=-target=azurerm_role_assignment.inventory_cost_reader -target=module.compute.azurerm_container_app_job.cost_governance_collector[0] -target=module.compute.azurerm_container_app_job.cost_governance_analyzer[0]' >> "$GITHUB_ENV"; fi
+        run: if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"; elif [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.compute.azurerm_container_app_job.provider_schema[0]' >> "$GITHUB_ENV"; else echo 'TF_CLI_ARGS_plan=-target=azurerm_role_assignment.inventory_cost_reader -target=azurerm_container_app_job.cost_governance_collector[0] -target=azurerm_container_app_job.cost_governance_analyzer[0]' >> "$GITHUB_ENV"; fi
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
         run: >-

@@ -336,12 +336,12 @@ output "measurement_operational_promotion_job_name" {
 
 output "cost_governance_collector_job_name" {
   description = "Cost Governance collector Job name, or null when absent."
-  value       = module.compute.cost_governance_collector_job_name
+  value       = try(azurerm_container_app_job.cost_governance_collector[0].name, null)
 }
 
 output "cost_governance_analyzer_job_name" {
   description = "Cost Governance analyzer Job name, or null when absent."
-  value       = module.compute.cost_governance_analyzer_job_name
+  value       = try(azurerm_container_app_job.cost_governance_analyzer[0].name, null)
 }
 
 

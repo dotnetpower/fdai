@@ -46,8 +46,8 @@ _RUNTIME_CALL_EVIDENCE = frozenset(
 _COST_GOVERNANCE = frozenset(
     {
         "azurerm_role_assignment.inventory_cost_reader",
-        "module.compute.azurerm_container_app_job.cost_governance_analyzer[0]",
-        "module.compute.azurerm_container_app_job.cost_governance_collector[0]",
+        "azurerm_container_app_job.cost_governance_analyzer[0]",
+        "azurerm_container_app_job.cost_governance_collector[0]",
     }
 )
 _OPERATIONAL_HISTORY_PREFIXES = (

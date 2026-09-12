@@ -4,13 +4,13 @@ output "environment_id" {
 }
 
 output "cost_governance_collector_job_name" {
-  description = "Cost Governance collector Job name, or null when absent."
-  value       = try(azurerm_container_app_job.cost_governance_collector[0].name, null)
+  description = "Deprecated compatibility output. Root Terraform owns the optional Job."
+  value       = null
 }
 
 output "cost_governance_analyzer_job_name" {
-  description = "Cost Governance analyzer Job name, or null when absent."
-  value       = try(azurerm_container_app_job.cost_governance_analyzer[0].name, null)
+  description = "Deprecated compatibility output. Root Terraform owns the optional Job."
+  value       = null
 }
 
 output "attached_identity_ids" {
