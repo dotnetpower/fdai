@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: c0dcc6a268440fcc4a4f59565b283217f9776e6e
-translation_revised: 2026-09-11
+translation_source_sha: c81ff119404b53e979fd8901a26f7571bbfaf822
+translation_revised: 2026-09-12
 ---
 
 # 권한 인식 관측 캠페인
@@ -26,7 +26,7 @@ translation_revised: 2026-09-11
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인 커버리지는 전체 의미 payload 대신 집계 스냅샷 개수, ARG 개수 및 대상이 필요 없는 Log Analytics 메트릭을 읽습니다. |
+| 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `delivery/azure/vm_power_state.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인 커버리지는 전체 의미 payload 대신 집계 스냅샷 개수, ARG 개수 및 대상이 필요 없는 Log Analytics 메트릭을 읽습니다. 정확한 단일 VM 전원 상태 판독기는 작업별 경로이며 캠페인 등록 밖에 유지됩니다. |
 | 정확한 WARA 평가 읽기 | implemented | `delivery/azure/wara_observation.py`; `delivery/wara_assessment_cli.py`; 정확한 평가기 overlay; 집중 어댑터 테스트 | 이 어댑터는 일반 캠페인 검색과 분리된 상태를 유지합니다. 전용 예약 Job이 배포에서 선언한 umbrella workload 하나를 제공하고 완전한 대상 가시성과 범위가 제한된 결정론적 증적을 사용해 정확한 검토 쿼리를 실행하며, 논리 결과를 기존 Pantheon Event Hub로 multiplex합니다. WARA를 캠페인 출처로 등록하거나 수정 권한을 부여하지 않습니다. |
 | 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
@@ -45,10 +45,16 @@ translation_revised: 2026-09-11
 제품별 어댑터는 각 exporter workflow 뒤에 유지되므로 배포는 Core 또는 이 캠페인
 카탈로그를 바꾸지 않고 서로 다른 정본 시스템을 선택할 수 있습니다.
 
+`ops.start-vm@1.0.0` 전원 상태 관찰자는 또 다른 별도 읽기 경로입니다. 생성자에서 VM
+하나와 리소스 그룹 하나로 고정하며, 캠페인 일정이나 출처 카탈로그 항목이 없고 캠페인 준비
+상태를 효과 근거로 사용할 수 없습니다. 이 shadow-only 범위는 런타임 연결이나 실제 읽기를
+추가하지 않습니다.
+
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 캠페인 출처를 추가하지 않고 독립 `ops.start-vm@1.0.0` 효과 관측을 위한 정확한 대상 Azure VM 전원 상태 읽기 계약을 추가했습니다. | `current change`; `delivery/azure/vm_power_state.py`; 정확한 범위, 신원, 응답 한계, 안전한 실패 집중 테스트입니다. | 별도 승인된 A3-E 런타임 근거 작업 전까지 어댑터를 연결하지 않고, 검증 전 동등한 배포 근거를 보존합니다. |
 | 2026-09-04 | implemented | 일반 관측 캠페인의 범위를 넓히지 않고 전용 예약 WARA Job을 추가했습니다. 범위 판독기는 기존 shadow 관측기를 실행하기 전에 최신 승격 세대, 완전한 워크로드 관계, 인벤토리가 소유하는 정확한 ARM ID를 요구합니다. | `current change`; 집중 WARA CLI, PostgreSQL 범위, 런타임, Azure 어댑터 검사가 통과했습니다. | 별도로 권한이 부여된 배포 WARA 증적을 보존하고 WARA를 일반 출처 검색 밖에 유지합니다. |
 | 2026-09-04 | implemented | 강화 라운드 13에서 각 WARA 위반 쿼리 전에 정확한 ID를 사용하는 보조 `Resources` 커버리지 쿼리를 추가했습니다. 모든 대상이 같은 읽기 신원에 표시되는 경우에만 위반 0건을 충족으로 처리할 수 있습니다. | `current change`; 집중 부분 RBAC 및 표시되지 않는 대상 회귀 검사입니다. | 이후 예약 출처 등록에서도 동일한 커버리지 증명을 보존합니다. |
 | 2026-09-04 | implemented | 강화 라운드 3에서 남은 WARA 전송 한계 공백을 수정했습니다. 표준 HTTPS 관리 포트만 허용하며 배포 구성이 더 낮출 수 있는 고정된 페이지당 4 MiB 및 관측당 16 MiB 응답 상한을 적용합니다. | `current change`; 집중 endpoint 및 응답 한계 회귀 검사입니다. | 이후 예약 출처 등록에서도 이 상한을 보존합니다. |

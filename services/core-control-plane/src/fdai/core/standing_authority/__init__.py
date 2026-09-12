@@ -4,6 +4,14 @@ Nothing in this package is wired into a decision or dispatch path. See
 [escalation-and-standing-authority.md](../../../../../../docs/roadmap/decisioning/escalation-and-standing-authority.md).
 """
 
+from fdai.core.standing_authority.effect_shadow_reversion import (
+    EffectEvidenceDisposition,
+    EffectVerificationFinding,
+    ShadowReversionPlan,
+    ShadowReversionTransition,
+    build_effect_verification_finding,
+    plan_effect_shadow_reversion,
+)
 from fdai.core.standing_authority.evaluator import (
     AuthorizationRequest,
     AutonomyClass,
@@ -101,6 +109,8 @@ __all__ = [
     "CandidateTransitionKind",
     "DenialReason",
     "EffectStatus",
+    "EffectEvidenceDisposition",
+    "EffectVerificationFinding",
     "Eligibility",
     "LEASE_CONTRACT_VERSION",
     "LeaseAcquisitionRequest",
@@ -116,6 +126,8 @@ __all__ = [
     "ProviderCommitFenceRequest",
     "ProviderCommitFenceResult",
     "ReviewDecision",
+    "ShadowReversionPlan",
+    "ShadowReversionTransition",
     "StandingAuthorization",
     "StandingAuthorizationDecision",
     "StandingAuthorizationError",
@@ -128,12 +140,14 @@ __all__ = [
     "build_acquisition_request",
     "build_candidate_record",
     "build_checkpoint",
+    "build_effect_verification_finding",
     "build_provider_commit_fence_request",
     "build_terminal_record",
     "evaluate_standing_authorization",
     "fence_matches",
     "load_schema",
     "plan_create_transition",
+    "plan_effect_shadow_reversion",
     "plan_external_denial",
     "plan_lifecycle_transition",
     "plan_review_transition",
