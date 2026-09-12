@@ -845,7 +845,12 @@ def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
     }
     env.pop("FDAI_PYTEST_MAX_WORKERS", None)
 
-    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+    blocked = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+    assert blocked.returncode == 125
+    assert "whole-suite fallback requires" in blocked.stderr
+    assert not args_file.exists()
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", "--allow-full-suite", env=env)
 
     assert result.returncode == 0, result.stderr
     commands = args_file.read_text(encoding="utf-8").splitlines()

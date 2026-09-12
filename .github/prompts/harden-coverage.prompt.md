@@ -1,14 +1,13 @@
 ---
 mode: agent
-description: One coverage-driven hardening batch on the lowest-covered core module.
+description: One coverage-driven hardening batch on an under-covered core module.
 ---
 
 # /harden-coverage - one focused coverage-hardening batch
 
-Follow the coverage-driven hardening recipe from the repo memory
-(`/memories/repo/coding-ability.md`): pick the lowest-covered production
-module under `services/core-control-plane/src/fdai/core/`, add tests that cover the exact missing
-lines, verify, commit. **One batch = one commit.**
+Follow the [coverage-driven recipe](../skills/coding-hardening/SKILL.md#coverage-driven-recipe):
+pick one under-covered production module under `services/core-control-plane/src/fdai/core/`, add
+tests for its missing branches, verify, commit. **One batch = one commit.**
 
 ## Rules
 
@@ -23,35 +22,20 @@ lines, verify, commit. **One batch = one commit.**
 
 ## Steps
 
-1. Reuse the under-covered module list already recorded for this hardening
-  campaign. If no campaign baseline exists, run this whole-tree command once
-  and record the ordered candidate list in the session plan:
-   ```
-   pytest -q -p no:cacheprovider --cov=src/fdai --cov-branch \
-     --cov-report=term-missing
-   ```
-  Do not rerun it for later batches. A report from another commit is only a
-  candidate-selection hint, not verification evidence.
-2. Sort the one-time baseline by lowest coverage, excluding testing fakes:
-   ```
-   coverage report --skip-covered --sort=cover | grep -vE "/testing/"
-   ```
-3. Pick ONE module under 90% coverage. Read its Missing line ranges.
-4. Add tests that exercise exactly those branches. Keep tests
+1. Reuse the campaign candidate list or available coverage hints, excluding testing fakes.
+   Without a report, choose one safety-core module and measure it with the recipe's single-module
+   command. Do not run a whole-tree baseline merely to rank candidates.
+2. Pick ONE measured module under 90% coverage. Read its Missing line ranges.
+3. Add tests that exercise exactly those branches. Keep tests
    deterministic (seed randomness, no network, no wall clock).
-5. Verify the single module:
-   ```
-   pytest <testfile> --cov=fdai.<dotted.module> --cov-branch \
-     --cov-report=term-missing --no-cov-on-fail -o addopts=""
-   ```
-   Note: `--cov=` takes a **dotted module**, not a slash path. `-o addopts=""`
-   drops the project's default `--cov` floor for this single-file check.
-6. Per-file `git add`, then a Conventional Commit:
+4. Verify the completed logical batch with the recipe's focused coverage command. Follow
+   [Testing](../instructions/coding-conventions.instructions.md#testing) for result reuse; unrelated
+   edits and commit metadata alone do not require another run.
+5. Per-file `git add`, then a Conventional Commit:
    `test(<scope>): cover <module> (<X% -> Y%>)`
 
-Do not run the whole repository suite per batch. The merge/release CI coverage
-gate is authoritative; local `scripts/verify.sh --all` is reserved for an
-explicit user request or the end of a merge/release campaign.
+The merge/release CI coverage gate remains authoritative. A campaign end, merge, or release is not
+an explicit local whole-suite request.
 
 ## When to stop
 

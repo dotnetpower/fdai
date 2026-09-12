@@ -107,16 +107,18 @@ evidence rather than leaving the section empty.
 
 ### 6. Synchronize and validate
 
-Keep the English and Korean owner links equivalent and refresh the Korean owner's source SHA. The
-engineering ledger remains English canonical and has no Korean duplicate:
+Keep English and Korean owner links equivalent. Semantically review each changed Korean owner
+against its source before refreshing only that reviewed path. The engineering ledger remains
+English canonical and has no Korean duplicate:
 
 ```bash
-python3 scripts/quality/localization/refresh-translation-sha.py
+python3 scripts/quality/localization/refresh-translation-sha.py <changed-reviewed-owner-ko.md>
 ```
 
-Run the roadmap tracking check first, then the translation and punctuation
-checks for changed docs. Run the narrow implementation tests cited by the new
-history row. A ledger is not evidence for itself.
+Select the roadmap tracking check and changed-path translation/punctuation checks. Reuse the
+focused implementation evidence cited by the new history row under
+[Testing](../../instructions/coding-conventions.instructions.md#testing); editing only the ledger
+does not invalidate it. A ledger is not evidence for itself.
 
 ## Review Checklist
 
@@ -127,4 +129,4 @@ history row. A ledger is not evidence for itself.
 - Historical gaps are disclosed instead of reconstructed.
 - Every unchecked item has an observable exit condition.
 - A completion item cites evidence and does not hide deferred scope.
-- English and Korean ledgers carry the same information.
+- English and Korean owners link to the same authoritative ledger.

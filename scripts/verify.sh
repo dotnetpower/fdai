@@ -26,7 +26,7 @@
 #   scripts/verify.sh              # --fast (text + lint + strict type gates)
 #   scripts/verify.sh --fast       # same as default
 #   scripts/verify.sh --fast --diff <range>  # skip unrelated fast gates
-#   scripts/verify.sh --full <path>  # add pytest scoped to <path>
+#   scripts/verify.sh --full <path>  # pytest only, scoped to <path>
 #   scripts/verify.sh --all          # whole pytest + operator suite (explicit)
 #
 # Exit code: 0 on all-pass, 1 on any failure. Prints a summary at the end so
@@ -90,6 +90,14 @@ if [[ "${FDAI_VERIFY_DEFER_STRUCTURAL_GATES:-0}" == "1" &&
       "${FDAI_VALIDATION_ACTIVE:-0}" != "1" ]]; then
     echo "verify.sh: structural gate deferral is restricted to the central validator" >&2
     exit 2
+fi
+
+if [[ "$MODE" == "full" ]]; then
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "validation-environment: uv is required for focused pytest" >&2
+        exit 125
+    fi
+    exec uv run pytest -q --no-cov "$PYTEST_PATH"
 fi
 
 CHANGED_FILES=""
@@ -277,9 +285,7 @@ run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(c
 
 # ---- pytest and whole-repository gates (opt-in) -----------------------------
 
-if [[ "$MODE" == "full" ]]; then
-    run_gate "pytest ($PYTEST_PATH)" uv run pytest -q --no-cov "$PYTEST_PATH"
-elif [[ "$MODE" == "all" ]]; then
+if [[ "$MODE" == "all" ]]; then
     run_gate "pytest + coverage" bash scripts/quality/ci/run-python-tests.sh
     run_gate "operator surfaces" bash scripts/quality/ci/run-operator-surfaces.sh
 fi

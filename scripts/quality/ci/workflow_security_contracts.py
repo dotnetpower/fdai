@@ -381,6 +381,78 @@ def container_pr_boundary_errors(document: Any, relative: str) -> list[str]:
     return errors
 
 
+def container_candidate_boundary_errors(document: Any, relative: str) -> list[str]:
+    """Keep publication manual and explicit, and PR checks packaging-only."""
+    if relative != ".github/workflows/container-supply-chain.yml":
+        return []
+    triggers = workflow_triggers(document)
+    errors: list[str] = []
+    if set(triggers) != {"pull_request", "workflow_dispatch"}:
+        errors.append(f"{relative} must trigger only PR packaging checks and manual candidates")
+    dispatch = triggers.get("workflow_dispatch")
+    inputs = dispatch.get("inputs", {}) if isinstance(dispatch, dict) else {}
+    images = inputs.get("images", {}) if isinstance(inputs, dict) else {}
+    if (
+        not isinstance(images, dict)
+        or images.get("required") is not True
+        or images.get("type") != "string"
+        or "default" in images
+    ):
+        errors.append(f"{relative} must require explicit images without a default")
+    jobs = document.get("jobs", {}) if isinstance(document, dict) else {}
+    if not isinstance(jobs, dict):
+        return [*errors, f"{relative} must declare supply-chain jobs"]
+    publication = jobs.get("build-scan-attest", {})
+    condition = publication.get("if") if isinstance(publication, dict) else None
+    required = {"github.event_name == 'workflow_dispatch'", "github.ref == 'refs/heads/main'"}
+    if not isinstance(condition, str) or not all(
+        required.issubset(
+            strip_outer_parentheses(value)
+            for value in split_top_level_operator(strip_outer_parentheses(clause), "&&")
+        )
+        for clause in flatten_logical_or(" ".join(condition.split()))
+    ):
+        errors.append(f"{relative} publication must require a manual protected-main candidate")
+    selection = jobs.get("select-images", {})
+    steps = selection.get("steps", []) if isinstance(selection, dict) else []
+    selectors = (
+        [step for step in steps if isinstance(step, dict) and step.get("id") == "select"]
+        if isinstance(steps, list)
+        else []
+    )
+    selector_env = selectors[0].get("env") if len(selectors) == 1 else None
+    if len(selectors) != 1 or not (
+        isinstance(selector_env, dict)
+        and selector_env.get("SELECTED_IMAGES") == "${{ inputs.images }}"
+        and '--images "$SELECTED_IMAGES"' in str(selectors[0].get("run", ""))
+        and "--packaging-only --nul" in str(selectors[0].get("run", ""))
+        and "--all" not in str(selectors[0].get("run", ""))
+    ):
+        errors.append(f"{relative} must select explicit images or affected PR packaging inputs")
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict) or not condition_can_run_for_event(
+            job.get("if"), "pull_request"
+        ):
+            continue
+        steps = job.get("steps")
+        if not isinstance(steps, list):
+            errors.append(f"{relative} pull-request job {job_name} must declare steps")
+            continue
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            command = str(step.get("run", ""))
+            action = str(step.get("uses", ""))
+            if action.startswith("actions/attest") or re.search(
+                r"--format\s+(?:cyclonedx|spdx-json)|resolved-models\.provenance\.json",
+                command,
+            ):
+                errors.append(
+                    f"{relative} pull-request job {job_name} cannot generate release evidence"
+                )
+    return errors
+
+
 def condition_overrides_guard_failure(condition: Any) -> bool:
     """Return whether a condition may run after a failed dependency or step."""
     if not isinstance(condition, str):
@@ -440,7 +512,10 @@ def protected_guard_prefix_errors(
     """Require each privileged job to own or depend on an exact verifier prefix."""
     if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
         return [f"{relative} is privileged and has no executable protected-source guard"]
-    errors = container_pr_boundary_errors(document, relative)
+    errors = [
+        *container_pr_boundary_errors(document, relative),
+        *container_candidate_boundary_errors(document, relative),
+    ]
     guarded_jobs: set[str] = set()
     expected_checkout_with = {
         "ref": "main",

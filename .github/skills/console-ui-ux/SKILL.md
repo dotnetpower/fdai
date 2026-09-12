@@ -52,18 +52,23 @@ Use these principles:
 
 ### 0. Complete Desktop First
 
-Treat desktop and responsive validation as sequential gates, not one simultaneous edit loop.
+Select the touched routes, states, interactions, and viewport behavior first. Isolated nonvisual
+changes need owning component/contract tests, not an automatic browser matrix. Visual or
+interaction changes require evidence on the actual surface; shared layout/tokens widen scope to
+their consumers. Use [Testing](../../instructions/coding-conventions.instructions.md#testing) for
+logical batches and input-based evidence reuse.
 
-1. Establish the desktop baseline at `1440x900`, or the collaborator's actual desktop viewport.
+For the selected visual scope, desktop and responsive checks are sequential:
+
+1. Establish or reuse the desktop baseline at `1440x900`, or the collaborator's actual viewport.
 2. Finish desktop functionality, hierarchy, geometry, pointer hit targets, overflow, and clipping
   before opening a constrained desktop or mobile viewport. A known desktop defect blocks
   responsive validation.
-3. Run the narrowest focused check and capture the desktop screenshot and measurements. The
-  desktop gate passes only when the actual route, representative data states, and primary
-  interactions are correct.
-4. After desktop passes, validate constrained desktop at about `993x641`, then mobile at
-  `390x844`. Responsive fixes must preserve the accepted desktop baseline; rerun the cheapest
-  desktop geometry check after a responsive edit.
+3. Run the narrowest focused check and record desktop measurements. The desktop gate passes
+  only when touched data states and interactions on the actual route are correct.
+4. If layout, wrapping, breakpoints, or shared visual primitives changed, validate the affected
+  constrained desktop behavior at about `993x641`, then applicable mobile behavior at `390x844`.
+  Recheck desktop geometry only when responsive changes invalidate that baseline.
 
 Do not inspect or tune mobile in parallel with an unresolved desktop layout. The only exception is
 an explicitly mobile-only request when the desktop baseline is already known to pass.
@@ -74,7 +79,8 @@ an explicitly mobile-only request when the desktop baseline is already known to 
 - For production Console work, reuse the standard `http://localhost:5273` full-stack page.
 - For static mocks, distinguish the repository-root `http://127.0.0.1:5373/` master index from
   `mocks/ui/index.html` and direct mock pages. They are separate navigation surfaces.
-- Capture one before screenshot and measure viewport, container width, overflow, and active state.
+- For visual work, record before measurements of viewport, container width, overflow, and active
+  state; capture a screenshot when useful or required by the request.
 
 ### 2. State a Falsifiable Visual Hypothesis
 
@@ -109,12 +115,14 @@ speaks loudly, the page reads as unfinished.
 
 ### 5. Validate in the Browser
 
-Run focused tests first, then inspect the live surface in this order:
+For the visual scope selected in step 0, run missing focused tests, then inspect the actual surface
+in this order. Reuse passing evidence for unchanged inputs; do not expand an isolated change into
+every route, state, or viewport:
 
 1. Desktop: `1440x900` or the collaborator's actual desktop viewport. Complete this gate before
   continuing.
-2. Constrained desktop: about `993x641` when using the shared VS Code browser.
-3. Mobile: `390x844` for routes and mocks expected to support narrow screens.
+2. Constrained desktop: about `993x641` when the change affects constrained layout.
+3. Mobile: `390x844` when narrow-screen behavior is affected.
 
 Check computed styles and geometry, not only screenshots. A screenshot can hide overflow or an
 inactive control outside the crop.
@@ -208,19 +216,21 @@ Rules:
 
 ## Validation Checklist
 
-Before reporting completion:
+Before reporting completion, record which checks apply to the touched behavior and why. A full
+visual deliverable covers its declared routes, state matrix, and supported viewports; isolated
+nonvisual changes do not inherit that matrix. Reuse valid evidence rather than repeating checks:
 
-- [ ] The actual Console or master mock URL was opened, not a substitute shell.
-- [ ] The desktop functional and visual gate passed before constrained or mobile validation began.
-- [ ] The accepted desktop baseline still passes after responsive edits.
+- [ ] Visual/interaction checks used the actual Console or master mock URL, not a substitute shell.
+- [ ] Applicable desktop checks passed before constrained or mobile validation began.
+- [ ] Responsive edits preserved the accepted desktop baseline where their inputs overlap.
 - [ ] Focused component or contract tests pass.
 - [ ] Console TypeScript changes pass `npm --prefix console run typecheck`.
-- [ ] Production-impacting Console CSS passes `npm --prefix console run build`.
-- [ ] Desktop, constrained desktop, and applicable mobile screenshots were reviewed.
-- [ ] `scrollWidth <= clientWidth` for the document and primary content region.
-- [ ] Active navigation, disclosure state, loading, unavailable, error, and empty states remain clear.
-- [ ] Long English, Korean, timestamp, and identifier samples fit without overlap.
-- [ ] Reduced-motion and keyboard focus behavior remain usable.
+- [ ] Build/asset pipeline changes pass `npm --prefix console run build`.
+- [ ] Affected viewports have measured evidence; required or captured screenshots were reviewed.
+- [ ] Touched layout satisfies `scrollWidth <= clientWidth` for the document and primary content.
+- [ ] Touched navigation, disclosure, loading, unavailable, error, and empty states remain clear.
+- [ ] Changed text/layout fits representative English, Korean, timestamp, and identifier samples.
+- [ ] Touched motion and interaction preserve reduced-motion and keyboard focus behavior.
 - [ ] Shared tokens or docs were updated when the visual contract changed.
 - [ ] Explicit scenarios report `passed`, `failed`, `needs-human`, or `needs-infrastructure`.
 

@@ -26,6 +26,7 @@ bindings through configuration (see
 | Fresh-clone public development Core path | implemented | `azd-up.sh`, platform and Core Terraform roots, contributor deployment tests, and focused Terraform plans | A confirmed clean-checkout run stages platform, image, schema, catalogs, Core, jobs, canary, and initial inventory in one public `dev` subscription. It keeps observation mode and is not a private, shared, staging, or production path. |
 | Capability-license Trial delivery | implemented | Core licensing and execution-gate tests; independent Core Terraform validation; contributor deployment contracts | A deployment without a token stays observation-only. The public development path issues a maximum-30-day full-catalog token only when the dedicated owner-only local key verifies, transfers it through a file input to a per-token digest-named Key Vault secret, and passes only its versionless reference and non-secret digests to Terraform. No live Azure issue, renewal, or expiry receipt is retained. |
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
+| Explicit image candidates and targeted PR packaging | in-progress | `container-supply-chain.yml`, `select_changed_images.py`, `workflow_security_contracts.py`, `test_select_changed_images.py`, and `test_check_ci_contracts.py` in the current change | Publication requires a protected-main manual candidate and explicit image selection. Focused validation is pending; deployment evidence checks are unchanged. |
 | Protected subscription-genesis plan-only validation | validated | Protected run `34436576350`; sanitized `fdai.deployment-plan.v1` metadata; exact migration and destructive-plan guards | The required-CI-green revision produced a ready plan for the selected Console, operations gateway, Operator API, document ingestion, and isolated Executor scope. The complete plan was reviewed, and no apply was dispatched. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
 | Single-maintainer direct dev apply | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py`, and focused verifier and workflow tests | `DEV_DEPLOY_REQUIRED_APPROVALS=0` permits only direct dev applies without a reviewer rule. Exact plans, image attestations, identity checks, health verification, and rollback remain required; staging, production, and bot-owned paths keep independent approval. |
@@ -89,10 +90,13 @@ bindings through configuration (see
 | 2026-09-05 | implemented | Added a sealed degraded-recovery boundary for an Operator database-binding repair when Azure has no distinct healthy revision. The baseline must remain active, provisioned, running, and exactly restorable; the mode does not widen the guarded Terraform plan. | `current change`; focused plan-bundle, workflow, baseline-selection, snapshot, and rollback checks. | Run one exact protected Operator apply and retain its health and rollback-boundary evidence. |
 | 2026-09-05 | implemented | Validated degraded Operator recovery, then added authoritative Console-origin hydration after live browser preflight exposed an empty CORS binding. The database-binding guard accepts only one normalized Static Web Apps HTTPS origin and still rejects unrelated environment changes. | Protected plan `33957891101`; exact apply `33957993467`; `current change`; focused hydration, guard, and workflow checks. | Apply the Console-origin binding and retain authenticated browser evidence. |
 | 2026-09-05 | validated | Applied the protected Console origin and completed authenticated Help drawer validation. The drawer rendered five journey stages, 11 manual cards, and 22 loaded cover images without an alert or horizontal overflow; the selected same-origin manual returned HTTP 200. | Protected plan `33959768010`; apply `33959860773`; Issue #414 browser evidence. The apply and health steps succeeded; the final workflow failed only because concurrent Core state advanced from serial 53 to 54 during peer isolation. | No remaining work for the Operator Console origin binding. |
+| 2026-09-12 | in-progress | Separated targeted PR packaging scans from explicit protected-main image publication. Removed automatic main/tag publication and PR SBOM generation, and added validated image selection without an all-image default. | `current change`; `container-supply-chain.yml`, `select_changed_images.py`, and focused selector/workflow regression tests added but not yet run. | Record passing focused checks; an explicitly authorized candidate run remains separate from local implementation. |
 ### Remaining work
 
 - [ ] Retain one repository-safe public fresh-subscription receipt for the exact clean revision,
   reviewed previews, temporary-access cleanup, Core health, canary, initial inventory, and second-run no-change plan.
+- [ ] Record passing `test_select_changed_images.py` and supply-chain cases in
+  `test_check_ci_contracts.py` for candidate-only publication and targeted PR packaging.
 - [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
   succeeds before the catalog Job and that both immutable projection keys are readable afterward.
 - [ ] Retain a repository-safe protected apply and successful and failed execution receipts for the browser-evidence retention Job.
@@ -280,15 +284,37 @@ prod topology so shadow evaluation is representative.
 - **CI identity**: the pipeline authenticates with a **short-lived, OIDC-federated** identity
   (no long-lived cloud keys in CI). Secrets are pulled from the secret store at runtime and
   are **never** written to logs or build artifacts (secret scanning gates the merge).
-- **Supply chain**: `.github/workflows/container-supply-chain.yml` selects the service-owned
-  Dockerfiles affected by each change. A service-only source change builds that image, while a
-  shared contract, lockfile, package metadata, or workflow change builds all service images. Manual
-  runs also build all images. Each selected build blocks on HIGH/CRITICAL Trivy findings, emits a
-  CycloneDX **SBOM**, publishes the verified image to GHCR on `main`/release, and writes GitHub
-  build-provenance and SBOM attestations. The Dockerfile base is pinned by **digest** and runs as uid
-  65532. The Core image builder cold-imports the production bootstrap after installing the service
-  wheel, so a missing direct runtime dependency blocks publication. Deployment verifies the
-  attestation and digest before rollout; an unattested image is rejected.
+- **PR packaging checks**: `.github/workflows/container-supply-chain.yml` builds and scans affected
+  images only when Dockerfiles, base-image pins, dependency metadata, build helpers, or packaged
+  assets change. Ordinary Python source, unit-test, and package-documentation changes do not build
+  images. Shared lockfiles, workspace metadata, build overrides, and unknown service inputs select
+  all images conservatively. Runtime assets, including packaged scenarios, retain their consumer
+  checks. PR jobs stay hosted, read-only, and secret-free, including for fork PRs. They cannot
+  publish images or generate release SBOMs or attestations.
+- **Explicit image candidates**: full build, scan, publication, software bill of materials (SBOM),
+  and provenance run only through an explicitly authorized `workflow_dispatch` on protected
+  `main`. Routine `main` pushes and version tags do not publish images. Supply `commit_sha` equal
+  to that workflow run's `github.sha`; historical or alternate-ref builds are not supported.
+  The protected workflow verifier runs before input-validation code or candidate source checkout.
+  Required pushed-SHA CI and deployment preflight remain separate release requirements.
+- **Image selection**: `images` is required and has no default. Supply comma-separated targets:
+  `core-control-plane`, `cost-governance`, `operator-service`, `document-ingestion-api`,
+  `document-processing-worker`, `isolated-executor`, or `system-knowledge-service`. Their
+  `fdai-`-prefixed image names are also accepted. Selecting a runtime service selects its default
+  image only; the optional Cost Governance profile requires its own selection. Use `all` alone
+  only when every image is intentionally needed. Empty, unknown, duplicate, or mixed `all`
+  selections fail before any build. For example, `images=operator-service,document-ingestion-api`
+  publishes just those two candidate images.
+- **Candidate evidence**: selected builds block on MEDIUM/HIGH/CRITICAL Trivy findings both before
+  publication and against the exact pushed digest. Each image retains CycloneDX SBOM evidence,
+  build provenance, and an SPDX SBOM attestation; Core also binds the resolved-model material
+  digest. Base images stay digest-pinned and run as uid 65532. The Core builder cold-imports
+  production bootstrap after installing its wheel, so missing runtime dependencies block
+  publication. Deployment still verifies the exact source revision, trusted signer workflow,
+  attestations, and image digest before rollout.
+- **Evidence reuse**: promote an existing matching, verified digest without rebuilding when the
+  deployment verifier accepts its source and evidence. Recheck applicable freshness and policy.
+  A local validation cache, a PR scan, or an image tag alone is never deployment authority.
 - **Artifact registry**: images and their SBOM/attestations are retained with an explicit
   retention policy so any prod revision can be traced and re-verified.
 - **ACR handoff**: upstream GHCR is the generic build-evidence registry. A fork that requires

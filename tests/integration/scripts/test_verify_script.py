@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[3]
 _VERIFY = _ROOT / "scripts" / "verify.sh"
 _PYTHON_TESTS = _ROOT / "scripts" / "quality" / "ci" / "run-python-tests.sh"
@@ -48,6 +50,28 @@ def test_help_distinguishes_focused_and_whole_suite_modes() -> None:
     assert result.returncode == 0
     assert "--full <path>" in result.stdout
     assert "--all" in result.stdout
+
+
+@pytest.mark.parametrize("exit_code", [0, 1, 5])
+def test_full_runs_only_targeted_pytest_and_propagates_result(
+    tmp_path: Path, exit_code: int
+) -> None:
+    executable = tmp_path / "uv"
+    executable.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*"\nexit {exit_code}\n', encoding="utf-8")
+    executable.chmod(0o755)
+    bash = shutil.which("bash")
+    assert bash is not None
+    result = subprocess.run(  # noqa: S603 - fixed script and test-owned executable
+        [bash, str(_VERIFY), "--full", "tests/example_test.py::test_case"],
+        cwd=_ROOT,
+        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == exit_code
+    assert result.stdout.strip() == "run pytest -q --no-cov tests/example_test.py::test_case"
 
 
 def test_a_missing_toolchain_refuses_instead_of_failing_a_gate() -> None:

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 305f7e28ea6c6cf54cd2f1f31a3be90cec1dec02
+translation_source_sha: 111d0ec40d511beee0b8cf1acc67ac36c1837aca
 translation_revised: 2026-09-12
 ---
 
@@ -47,11 +47,11 @@ translation_revised: 2026-09-12
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
 > 루트 디스패치 작업을 보호된 `main`으로 제한합니다. 따라서 검증되지 않은 워크플로 텍스트가
 > 출처 확인 게이트보다 먼저 실행될 수 없습니다. 검증기는 실행 중인 워크플로 원본 참조가
-> 보호된 `main` 또는 변경할 수 없는 `v*` 릴리스 태그가 아니면 차단합니다.
-> 끌어오기 요청은 별도의 읽기 전용 작업에서 이미지를 빌드하고 검사하며 단기 SBOM 근거를
-> 보존합니다. 레지스트리 게시와 증명은 검증된 보호 리비전에서만 수행합니다. 게시 작업은
-> 최상위 push 및 수동 디스패치 절을 명시적으로 사용하므로 다른 끌어오기 요청 조건이 쓰기
-> 권한을 상속할 수 없습니다.
+> 보호된 `main`이 아니면 게시 워크플로 디스패치를 차단합니다.
+> 빌드 입력을 변경하는 끌어오기 요청은 별도의 읽기 전용 이미지 빌드와 취약점 검사를
+> 유지합니다. 레지스트리 게시, SBOM 및 증명에는 이미지 선택과 정확한 보호 소스 SHA를
+> 포함한 명시적 후보 디스패치가 필요합니다. 일반 소스 push와 버전 태그는 이미지를
+> 게시하지 않으며, 끌어오기 요청 조건으로 게시 권한을 상속할 수 없습니다.
 
 ## 설계 개요
 
@@ -76,7 +76,7 @@ FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패
 | 영역 | 현재 근거 | 패키징 시사점 |
 |------|-----------|---------------|
 | FinOps 가드레일 | `core/verticals/cost_governance/finops.py`와 11개 집중 테스트 | 순수 도메인 로직은 컨트롤 루프나 에이전트를 가져오지 않고 이동할 수 있습니다. |
-| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 공급망 근거를 위해 모든 서비스 이미지를 다시 빌드하며, 정합성 검사는 검토된 OPA 전이 모듈 override를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` override는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core bootstrap import 검증은 runtime 이미지에 필요한 config와 rule-catalog 자산을 복사한 뒤에만 실행하며, 이 순서는 Cost Governance 패키지 입력을 추가하지 않습니다. |
+| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 PR 패키징 검사에서 영향받는 모든 이미지를 선택하며, 후보 게시에서는 명시적으로 선택한 이미지만 빌드합니다. 정합성 검사는 검토된 OPA 전이 모듈 override를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` override는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core bootstrap import 검증은 runtime 이미지에 필요한 config와 rule-catalog 자산을 복사한 뒤에만 실행하며, 이 순서는 Cost Governance 패키지 입력을 추가하지 않습니다. |
 | 비용 추정 | `shared/providers/cost_estimator.py`와 컨트롤 루프의 `_resolve_cost_override` 경로 | Protocol은 Core에 남고 패키지는 구체 추정기를 제공할 수 있습니다. |
 | 오퍼레이터 비용 거버넌스 변환 결과 | `fdai_operator_service/postgres_cost_governance.py`는 직접 psycopg 연결을 통해 서비스 소유 JSON 범위 맵을 읽습니다. | 오퍼레이터 호스트는 드라이버 경계에서 SQLAlchemy 형식 psycopg DSN을 정규화하고, 접근 권한을 선택적 패키지로 옮기지 않으면서 정확한 범위 포함 여부를 평가합니다. |
 | 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord의 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |

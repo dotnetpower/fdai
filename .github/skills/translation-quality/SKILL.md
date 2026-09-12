@@ -146,11 +146,15 @@ Two cautions learned the hard way:
 
 ## Verify
 
-```
-python3 scripts/quality/localization/check-translation-quality.py
-bash scripts/quality/localization/check-translations.sh
-bash scripts/quality/repository/check-punctuation.sh <files>
-python3 scripts/quality/localization/check-readable-hangul.py <files>
+Select only changed task-owned paths and reuse passing evidence under
+[Testing](../../instructions/coding-conventions.instructions.md#testing). Run these checks for a
+completed translation batch, not after unrelated edits or merely because a commit was created:
+
+```bash
+python3 scripts/quality/localization/check-translation-quality.py <changed-ko-paths>
+bash scripts/quality/localization/check-translations.sh <changed-doc-paths>
+bash scripts/quality/repository/check-punctuation.sh <changed-files>
+python3 scripts/quality/localization/check-readable-hangul.py <changed-files>
 ```
 
 An accepted finding goes in

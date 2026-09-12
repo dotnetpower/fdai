@@ -1,11 +1,13 @@
 ---
 mode: agent
-description: Run the narrowest FDAI verification for a supplied path or an explicit merge/release boundary.
+description: Run focused FDAI verification for supplied paths or explicitly requested local whole-suite validation.
 ---
 
 # /verify - run focused FDAI verification
 
 Run the narrowest executable check that can falsify the current change and report its summary.
+Use [Testing](../instructions/coding-conventions.instructions.md#testing) for scope, result reuse,
+and the distinction between local evidence and authoritative pushed-SHA CI.
 
 ## Steps
 
@@ -13,13 +15,14 @@ Run the narrowest executable check that can falsify the current change and repor
    (`git rev-parse --show-toplevel`). If not, cd there.
 2. If a Python venv exists at `.venv/`, activate it so `ruff` and `pytest`
    are on PATH: `source .venv/bin/activate`.
-3. If the user supplied a pytest path, run focused verification:
-   `bash scripts/verify.sh --full ${ARGS}`.
+3. If the user supplied pytest paths or node ids, run them directly in one invocation:
+   `uv run pytest -q --no-cov <supplied-test-paths-or-node-ids>`.
 4. Otherwise select the smallest test file, node id, typecheck, linter, or structural checker for
    the task-owned paths. Do not substitute `verify.sh --fast`, `verify.sh --all`, or an unscoped
    package/repository suite.
-5. If the user explicitly identifies a merge or release boundary, run `make validation-all`
-   exactly once. Do not wait for or rerun the same validation.
+5. Run `make validation-all` only for an explicit local whole-suite request. A merge or release
+   request alone does not trigger it or replace required CI. Reuse valid local evidence unless the
+   user explicitly requests a fresh run; explain any missing evidence or necessary scope escalation.
 6. Print the relevant command summary. If any gate failed:
    - Name the failing gate.
    - Point at the individual `scripts/check-*.sh` or the offending pytest

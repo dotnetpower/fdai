@@ -1,27 +1,25 @@
 ---
 name: documentation-writing
 description: |
-  Comprehensive guide for writing FDAI documentation with the tone,
-  structure, and terminology of Microsoft Learn (learn.microsoft.com). Use
-  this skill when authoring, reviewing, or correcting any tracked markdown
-  file in the repository. Complements
-  `.github/instructions/documentation-style.instructions.md` (which is the
-  short, always-loaded contract) and
-  `.github/instructions/language.instructions.md` (which is the language +
-  translation contract).
+  Author or substantially revise FDAI user-facing Markdown guides using
+  Microsoft Learn tone, structure, and terminology. Use for new documents,
+  structural or prose-quality reviews, and reader-facing terminology changes.
+  Do not load for .github engineering instructions or skills, mechanical
+  link/SHA updates, or code-only edits; use their scoped instructions instead.
+  Complements documentation-style.instructions.md and language.instructions.md.
 version: 1.0.0
 scope: repository
 ---
 
 # Documentation Writing (FDAI)
 
-This skill is the long-form authoring guide for every markdown doc in the
-repo. It defines the doc tiers, structural patterns, Microsoft-Learn-inspired
+This skill is the long-form authoring guide for user-facing documentation.
+It defines the doc tiers, structural patterns, Microsoft-Learn-inspired
 tone, terminology glosses, and a pre-publish checklist.
 
 The short-form contract lives in
 [../../instructions/documentation-style.instructions.md](../../instructions/documentation-style.instructions.md)
-and is loaded automatically for every `**/*.md` edit. This skill is invoked
+and applies to its declared user-facing document paths. This skill is invoked
 by hand when you want the full guidance.
 
 ## When to Use This Skill
@@ -240,8 +238,8 @@ and `~합니다` in the same bullet list.
   gate. See same file.
 - Bilingual pair: every `docs/**/*.md` and root `README.md` has a matching
   `-ko.md` with valid front-matter and current `translation_source_sha`.
-  CI: `scripts/quality/localization/check-translations.sh`. Auto-refresh:
-  `python3 scripts/quality/localization/refresh-translation-sha.py`.
+  CI: `scripts/quality/localization/check-translations.sh`. After semantic review, refresh only
+  changed Korean paths using the [i18n workflow](../i18n-catalog/SKILL.md#paired-update-rule-must).
 - Every link resolves to a real file or a stable public URL. Do not link
   to files that "will exist".
 - Diagrams: mermaid over ASCII art. When ASCII art is unavoidable, wrap it
@@ -278,16 +276,17 @@ Before merging a PR that touches a `.md` file:
 6. Voice: user-facing docs are reader-directed; RFC 2119 verbs softened.
 7. Next steps: user-facing docs end with a `Next steps` (or `Related docs`)
    table linking to real files.
-8. Bilingual pair: `-ko.md` updated with translated prose (not just the
-   English left in place) and its front-matter SHA refreshed via
-   `python3 scripts/quality/localization/refresh-translation-sha.py`.
-9. CI gates: run locally before pushing:
+8. Bilingual pair: semantically review the changed `-ko.md` against its English source, then refresh
+   only that file: `python3 scripts/quality/localization/refresh-translation-sha.py <changed-reviewed-ko.md>`.
+9. Select applicable changed-path checks, reusing valid evidence under
+   [Testing](../../instructions/coding-conventions.instructions.md#testing):
 
     ```bash
-    bash scripts/quality/repository/check-punctuation.sh
-    bash scripts/quality/localization/check-translations.sh
+    bash scripts/quality/repository/check-punctuation.sh <changed-files>
+    bash scripts/quality/localization/check-translations.sh <changed-doc-paths>
     ```
 
+   Documentation-only edits do not trigger runtime tests or builds. Required CI remains separate.
 10. Links: every relative link resolves; no `will exist` placeholders.
 11. Anti-patterns: none of the items in the [Anti-Patterns](#anti-patterns)
     section slipped in.

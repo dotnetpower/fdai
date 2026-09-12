@@ -6,8 +6,9 @@ description: One critique -> harden -> verify batch on a safety-core module.
 # /critique-batch - one focused critique + harden cycle
 
 Do one honest bug-finding batch on a safety-core module. **One batch =
-one focused change + one commit.** The loop is documented in
-`/memories/repo/coding-ability.md`; this prompt is the executable form.
+one focused change + one commit.** Follow the
+[coding-hardening loop](../skills/coding-hardening/SKILL.md) and the authoritative
+[Testing contract](../instructions/coding-conventions.instructions.md#testing).
 
 ## Priority modules (safety core, >= 90% coverage floor)
 
@@ -35,9 +36,9 @@ Pick one that has NOT already been hardened this session:
    "false-positive after re-verification" is a legitimate outcome.
 3. **Harden**: fix ONE finding. Do not blend unrelated fixes.
 4. **Verify**:
-   - Targeted pytest for the touched module, with coverage:
-     `pytest services/core-control-plane/tests/<matching_path> -q --no-cov` (or a coverage run if
-     coverage is at risk).
+   - Run `uv run pytest -q --no-cov services/core-control-plane/tests/<matching_path>` for the
+     completed logical batch, or the skill's single-module coverage recipe if coverage is at risk.
+     Reuse an existing pass when its relevant inputs are unchanged.
    - Safety-core property tests must still pass unchanged.
 5. **Docs-first / docs-after**: if behavior, DI seam, config key, or a
    schema changed, update the affected docs (English + `-ko.md`) in the

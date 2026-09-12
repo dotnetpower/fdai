@@ -66,8 +66,57 @@ def test_required_validation_composes_and_deduplicates_matching_routes() -> None
     )
 
     assert required == tuple(sorted(set(required)))
-    assert "scripts/verify.sh" in required
-    assert "uv run mypy" in required
+    assert "scripts/verify.sh" not in required
+    assert "uv run mypy" not in required
+    assert (
+        "uv run ruff check -- services/operator-service/src/fdai_operator_service/composition.py"
+    ) in required
+
+
+def test_guidance_route_never_selects_runtime_or_repository_checks() -> None:
+    required = _load_module().required_validation((".github/skills/ci-diagnosis/SKILL.md",))
+
+    assert required
+    assert "python3 scripts/quality/architecture/check-design-routes.py" in required
+    assert all(
+        ".github/skills/ci-diagnosis/SKILL.md" in command or "check-design-routes.py" in command
+        for command in required
+    )
+    assert not any(
+        "verify.sh" in command or "independent-services" in command for command in required
+    )
+
+
+def test_scoped_route_quotes_paths_and_omits_deleted_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        module,
+        "_manifest",
+        lambda: {
+            "routes": [
+                {
+                    "paths": ["*.py"],
+                    "validate": ["uv run ruff check -- {paths}"],
+                }
+            ]
+        },
+    )
+    (tmp_path / "name with spaces.py").write_text("value = 1\n")
+
+    required = module.required_validation(("name with spaces.py", "deleted.py"))
+
+    assert required == ("uv run ruff check -- 'name with spaces.py'",)
+    assert module.required_validation(("deleted.py",)) == ()
+
+
+def test_document_pair_route_retains_deleted_paths() -> None:
+    required = _load_module().required_validation(("docs/user-guide/deleted-guide.md",))
+    assert (
+        "bash scripts/quality/localization/check-translations.sh docs/user-guide/deleted-guide.md"
+    ) in required
 
 
 def test_final_operator_path_reuses_logical_design_routes() -> None:
@@ -164,6 +213,21 @@ def test_constitutional_surface_requires_canonical_context() -> None:
     assert "docs/roadmap/architecture/fdai-constitution.md" in required
     assert "docs/roadmap/decisioning/risk-classification.md" in required
     assert "docs/roadmap/decisioning/escalation-and-standing-authority.md" in required
+
+
+def test_workflow_guidance_keeps_constitution_without_unrelated_runtime_reading() -> None:
+    required = _load_module().required_context((".github/copilot-instructions.md",))
+    assert "docs/roadmap/architecture/fdai-constitution.md" in required
+    assert "config/constitution-traceability.json" in required
+    assert "docs/roadmap/decisioning/process-automation.md" not in required
+    assert len(required) <= 7
+
+
+def test_document_route_loads_short_contracts_not_the_full_authoring_skill() -> None:
+    required = _load_module().required_context(("docs/user-guide/example.md",))
+    assert ".github/instructions/documentation-style.instructions.md" in required
+    assert ".github/instructions/language.instructions.md" in required
+    assert ".github/skills/documentation-writing/SKILL.md" not in required
 
 
 def test_hook_avoids_post_tool_response_payloads() -> None:
