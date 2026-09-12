@@ -60,6 +60,7 @@ async def test_proposal_survives_restart_and_state_transition_is_cas() -> None:
         markdown=markdown,
         proposed_by_agent="Bragi",
         created_at=_NOW,
+        evidence_refs=("audit:skill-proposal",),
     )
     config = PostgresSkillProposalStoreConfig(dsn=dsn)
     store = PostgresSkillProposalStore(config=config)
@@ -87,4 +88,6 @@ async def test_proposal_survives_restart_and_state_transition_is_cas() -> None:
     )
 
     restarted = PostgresSkillProposalStore(config=config)
-    assert (await restarted.get(proposal.proposal_id)).state is SkillProposalState.APPROVED
+    restored = await restarted.get(proposal.proposal_id)
+    assert restored.state is SkillProposalState.APPROVED
+    assert restored.evidence_refs == ("audit:skill-proposal",)

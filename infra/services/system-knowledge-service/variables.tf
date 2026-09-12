@@ -47,18 +47,21 @@ variable "platform" {
 }
 
 variable "teams" {
-  description = "Deployment-owned Teams destinations and Bot service trust roots."
+  description = "Deployment-owned Teams transport, destinations, and trust roots."
   type = object({
+    transport               = string
     tenant_id               = string
     team_ids                = list(string)
     channel_ids             = list(string)
-    allowed_service_urls    = list(string)
-    jwks_url                = string
+    allowed_service_urls    = optional(list(string), [])
+    jwks_url                = optional(string, "")
     principal_map_secret_id = string
+    outgoing_hmac_secret_id = optional(string)
   })
   sensitive = true
   validation {
     condition = (
+      contains(["bot_framework", "outgoing_webhook"], var.teams.transport) &&
       trimspace(var.teams.tenant_id) != "" &&
       length(var.teams.team_ids) > 0 &&
       length(var.teams.team_ids) <= 100 &&
@@ -66,13 +69,28 @@ variable "teams" {
       length(var.teams.channel_ids) > 0 &&
       length(var.teams.channel_ids) <= 100 &&
       length(var.teams.channel_ids) == length(distinct(var.teams.channel_ids)) &&
-      length(var.teams.allowed_service_urls) > 0 &&
-      length(var.teams.allowed_service_urls) <= 32 &&
-      length(var.teams.allowed_service_urls) == length(distinct(var.teams.allowed_service_urls)) &&
-      startswith(var.teams.jwks_url, "https://") &&
-      startswith(var.teams.principal_map_secret_id, "https://")
+      startswith(var.teams.principal_map_secret_id, "https://") &&
+      (
+        var.teams.transport == "bot_framework"
+        ? (
+          length(var.teams.allowed_service_urls) > 0 &&
+          length(var.teams.allowed_service_urls) <= 32 &&
+          length(var.teams.allowed_service_urls) == length(distinct(var.teams.allowed_service_urls)) &&
+          startswith(var.teams.jwks_url, "https://") &&
+          var.teams.outgoing_hmac_secret_id == null
+        )
+        : (
+          length(var.teams.team_ids) == 1 &&
+          length(var.teams.allowed_service_urls) == 0 &&
+          var.teams.jwks_url == "" &&
+          (
+            var.teams.outgoing_hmac_secret_id == null
+            || startswith(var.teams.outgoing_hmac_secret_id, "https://")
+          )
+        )
+      )
     )
-    error_message = "teams must contain bounded unique destinations and HTTPS trust references."
+    error_message = "teams must contain one valid transport with bounded destinations and matching trust references."
   }
 }
 

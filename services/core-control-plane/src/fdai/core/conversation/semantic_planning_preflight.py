@@ -39,6 +39,7 @@ _PREFLIGHT_OPERATIONAL_INTENTS = {
     ),
     OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE: ("query.gateway_diagnostic_evidence"),
     OperationalPreflightFamily.RESOURCE_CURRENT_STATE: "query.resource_current_state",
+    OperationalPreflightFamily.RECENT_RESOURCE_CHANGES: "query.resource_change_activity",
     OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES: "query.resource_change_activity",
     OperationalPreflightFamily.SUBSCRIPTION_SCOPE_IDENTITY: "query.subscription_scope_identity",
     OperationalPreflightFamily.SUBSCRIPTION_SERVICE_HEALTH: "query.subscription_service_health",

@@ -76,6 +76,10 @@ deallocate/generalize actions, and the managed image. The exact plan
 rejects Storage and image-template resources. Independent acceptance requires the captured image
 provenance, successful builder and verifier extensions, and both VMs in the expected deallocated
 state. A build claim without that evidence remains blocked and cannot be retried.
+When tenant policy appends `FirstPartyUsage=/Unprivileged` to the two Firewall public IPs,
+Terraform treats only that field as externally owned. Acceptance requires the same bounded value
+or absence on both exact public IPs, no unknown IP tag, and a refreshed zero-change plan. A policy
+effect never authorizes replacement, firewall rebinding, or reuse of an ambiguous apply claim.
 Policy-probe cleanup parses multi-value Azure CLI TSV projections as ordered lines, verifies the
 exact tagged group and deleted-vault absence, and never reports completion from command success alone.
 
@@ -168,6 +172,8 @@ The selected execution profile must prove:
 - effective routes, firewalls, network security groups, service tags, proxy trust, and private DNS
   answers for the target Azure cloud;
 - checksum-pinned tools and images, with no unverified `latest` download during a protected run;
+- mode-restricted authenticated bundle sources launched only through fixed trusted interpreters,
+  without broad execute-bit restoration or ambient-path interpreter selection;
 - distinct authenticated archive and extracted-executable digests where packaging changes bytes,
   with one schema-versioned toolchain digest shared by planning, image tags, and attestation;
 - bounded egress or a complete signed offline kit; and

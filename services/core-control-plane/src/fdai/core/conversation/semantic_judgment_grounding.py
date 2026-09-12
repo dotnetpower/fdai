@@ -518,7 +518,11 @@ def validate_required_target_shape(proposal: SemanticJudgmentProposal) -> None:
             raise ValueError(
                 "semantic current-state intent requires exact Resource or clarification"
             )
-    elif proposal.primary_intent == "query.resource_change_activity" and "resource" not in kinds:
+    elif (
+        proposal.primary_intent == "query.resource_change_activity"
+        and "resource" not in kinds
+        and not _targetless_resource_change_collection(proposal)
+    ):
         raise ValueError("semantic Resource activity intent requires exact Resource")
     elif (
         proposal.primary_intent == "query.resource_error_activity_correlation"
@@ -680,6 +684,24 @@ def _without_ambiguity(proposal: SemanticJudgmentProposal) -> SemanticJudgmentPr
 
 def _alternatives_repeat_primary(proposal: SemanticJudgmentProposal) -> bool:
     return not proposal.alternatives or set(proposal.alternatives) == {proposal.primary_intent}
+
+
+def _targetless_resource_change_collection(proposal: SemanticJudgmentProposal) -> bool:
+    if proposal.targets or proposal.secondary_intents or proposal.action_subject != "none":
+        return False
+    facets = {facet.replace("-", "_") for facet in proposal.requested_facets}
+    return bool(
+        facets.intersection(
+            {
+                "changed_resources",
+                "recent_resource_changes",
+                "recent_state_changes",
+                "recently_changed",
+                "resource_changes",
+                "state_changes",
+            }
+        )
+    )
 
 
 __all__ = [

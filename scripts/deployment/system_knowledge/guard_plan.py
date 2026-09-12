@@ -11,9 +11,7 @@ from pathlib import Path
 from typing import Any
 
 _PREFIX = "module.system_knowledge_service[0]."
-_ADDRESSES = {
-    _PREFIX + "azurerm_bot_channel_ms_teams.service",
-    _PREFIX + "azurerm_bot_service_azure_bot.service",
+_BASE_ADDRESSES = {
     _PREFIX + "azurerm_role_assignment.acr_pull",
     _PREFIX + "azurerm_role_assignment.claim_writer",
     _PREFIX + "azurerm_role_assignment.principal_map_reader",
@@ -22,6 +20,11 @@ _ADDRESSES = {
     _PREFIX + "module.container_app.azurerm_container_app.service",
     _PREFIX + "terraform_data.authority_contract",
 }
+_BOT_ADDRESSES = {
+    _PREFIX + "azurerm_bot_channel_ms_teams.service",
+    _PREFIX + "azurerm_bot_service_azure_bot.service",
+}
+_ADDRESSES = _BASE_ADDRESSES | _BOT_ADDRESSES
 _CONTAINER = _PREFIX + "module.container_app.azurerm_container_app.service"
 _BOT = _PREFIX + "azurerm_bot_service_azure_bot.service"
 _CLAIMS = _PREFIX + "azurerm_storage_container.claims"
@@ -32,21 +35,25 @@ _ROLES = {
 }
 _AUTHORITY = _PREFIX + "terraform_data.authority_contract"
 _IMAGE = re.compile(r"^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}$")
-_REQUIRED_ENV = {
+_COMMON_ENV = {
     "FDAI_EXECUTION_VENUE",
     "FDAI_SYSTEM_KNOWLEDGE_CLAIM_CONTAINER_URL",
     "FDAI_SYSTEM_KNOWLEDGE_MI_CLIENT_ID",
     "FDAI_SYSTEM_KNOWLEDGE_SOURCE_REVISION",
-    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_APPLICATION_ID",
-    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_BOT_ID",
     "FDAI_SYSTEM_KNOWLEDGE_TEAMS_CHANNEL_IDS_JSON",
-    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_JWKS_URL",
     "FDAI_SYSTEM_KNOWLEDGE_TEAMS_PRINCIPAL_MAP_JSON",
-    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_SERVICE_URLS_JSON",
     "FDAI_SYSTEM_KNOWLEDGE_TEAMS_TEAM_IDS_JSON",
     "FDAI_SYSTEM_KNOWLEDGE_TEAMS_TENANT_ID",
+    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_TRANSPORT",
     "RUNTIME_ENV",
 }
+_BOT_ENV = {
+    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_APPLICATION_ID",
+    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_BOT_ID",
+    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_JWKS_URL",
+    "FDAI_SYSTEM_KNOWLEDGE_TEAMS_SERVICE_URLS_JSON",
+}
+_OUTGOING_HMAC_ENV = "FDAI_SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET"
 _FORBIDDEN_ENV_PARTS = ("EXECUTOR", "DATABASE", "KAFKA", "LLM", "AZURE_SUBSCRIPTION")
 
 
@@ -54,11 +61,25 @@ class SystemKnowledgePlanError(ValueError):
     """The plan changes an unapproved resource or runtime capability."""
 
 
-def validate_plan(plan: Mapping[str, Any], *, transition: str, image_ref: str) -> None:
-    """Validate one enable or disable plan without accepting replacements."""
+def validate_plan(
+    plan: Mapping[str, Any],
+    *,
+    transition: str,
+    image_ref: str,
+    transport: str = "bot_framework",
+) -> None:
+    """Validate one transport-specific transition without accepting replacements."""
 
-    if transition not in {"enable", "disable"} or _IMAGE.fullmatch(image_ref) is None:
+    if (
+        transition not in {"bootstrap", "enable", "disable"}
+        or transport not in {"bot_framework", "outgoing_webhook"}
+        or (transition == "bootstrap" and transport != "outgoing_webhook")
+        or _IMAGE.fullmatch(image_ref) is None
+    ):
         raise SystemKnowledgePlanError("transition or image reference is invalid")
+    expected_addresses = (
+        _BASE_ADDRESSES | _BOT_ADDRESSES if transport == "bot_framework" else _BASE_ADDRESSES
+    )
     changes = plan.get("resource_changes")
     if not isinstance(changes, list):
         raise SystemKnowledgePlanError("plan resource_changes must be an array")
@@ -80,7 +101,7 @@ def validate_plan(plan: Mapping[str, Any], *, transition: str, image_ref: str) -
         elif "delete" in action_set or not action_set <= {"create", "read", "update"}:
             raise SystemKnowledgePlanError("enable plan may not replace or delete resources")
         by_address[address] = entry
-    if transition == "enable":
+    if transition in {"bootstrap", "enable"}:
         planned = _planned_resources(plan)
         if not planned:
             planned = {
@@ -89,18 +110,30 @@ def validate_plan(plan: Mapping[str, Any], *, transition: str, image_ref: str) -
                 if isinstance((change := entry.get("change")), Mapping)
                 and isinstance((after := change.get("after")), Mapping)
             }
-        _validate_enable(planned, image_ref=image_ref)
-    elif set(by_address) != _ADDRESSES:
+        _validate_active(
+            planned,
+            image_ref=image_ref,
+            transport=transport,
+            transition=transition,
+        )
+    elif set(by_address) != expected_addresses:
         raise SystemKnowledgePlanError("disable plan must remove the complete service boundary")
 
 
-def _validate_enable(
+def _validate_active(
     resources: Mapping[str, Mapping[str, Any]],
     *,
     image_ref: str,
+    transport: str,
+    transition: str,
 ) -> None:
-    if not _ADDRESSES <= resources.keys():
+    expected_addresses = (
+        _BASE_ADDRESSES | _BOT_ADDRESSES if transport == "bot_framework" else _BASE_ADDRESSES
+    )
+    if not expected_addresses <= resources.keys():
         raise SystemKnowledgePlanError("enable plan is missing the complete service boundary")
+    if transport == "outgoing_webhook" and _BOT_ADDRESSES & resources.keys():
+        raise SystemKnowledgePlanError("Outgoing Webhook plan may not create Azure Bot resources")
     container = resources[_CONTAINER]
     template = _one(container.get("template"), "Container App template")
     primary = _one(template.get("container"), "Container App primary container")
@@ -119,7 +152,12 @@ def _validate_enable(
         for item in environment
         if isinstance(item, Mapping) and isinstance(item.get("name"), str)
     }
-    if names != _REQUIRED_ENV or any(
+    expected_env = _COMMON_ENV | (
+        _BOT_ENV
+        if transport == "bot_framework"
+        else ({_OUTGOING_HMAC_ENV} if transition == "enable" else set())
+    )
+    if names != expected_env or any(
         part in name for name in names for part in _FORBIDDEN_ENV_PARTS
     ):
         raise SystemKnowledgePlanError(
@@ -135,25 +173,27 @@ def _validate_enable(
     for address, role in _ROLES.items():
         if resources[address].get("role_definition_name") != role:
             raise SystemKnowledgePlanError("service role assignment exceeds the approved set")
-    bot = resources[_BOT]
-    if (
-        bot.get("microsoft_app_type") != "UserAssignedMSI"
-        or not isinstance(bot.get("microsoft_app_id"), str)
-        or not bot.get("microsoft_app_id")
-        or not isinstance(bot.get("microsoft_app_msi_id"), str)
-        or not bot.get("microsoft_app_msi_id")
-        or bot.get("sku") != "F0"
-        or bot.get("local_authentication_enabled") is not False
-        or bot.get("public_network_access_enabled") is not True
-        or not str(bot.get("endpoint", "")).endswith("/api/teams/messages")
-    ):
-        raise SystemKnowledgePlanError("Azure Bot contract exceeds the approved boundary")
+    if transport == "bot_framework":
+        bot = resources[_BOT]
+        if (
+            bot.get("microsoft_app_type") != "UserAssignedMSI"
+            or not isinstance(bot.get("microsoft_app_id"), str)
+            or not bot.get("microsoft_app_id")
+            or not isinstance(bot.get("microsoft_app_msi_id"), str)
+            or not bot.get("microsoft_app_msi_id")
+            or bot.get("sku") != "F0"
+            or bot.get("local_authentication_enabled") is not False
+            or bot.get("public_network_access_enabled") is not True
+            or not str(bot.get("endpoint", "")).endswith("/api/teams/messages")
+        ):
+            raise SystemKnowledgePlanError("Azure Bot contract exceeds the approved boundary")
     authority = resources[_AUTHORITY]
     input_value = authority.get("input")
     if (
         not isinstance(input_value, Mapping)
         or input_value.get("execution_authority") is not False
         or input_value.get("replica_ceiling") != 1
+        or input_value.get("teams_transport") != transport
     ):
         raise SystemKnowledgePlanError("service authority contract is invalid")
 
@@ -196,13 +236,27 @@ def _one(value: Any, label: str) -> Mapping[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan-json", type=Path, required=True)
-    parser.add_argument("--transition", choices=("enable", "disable"), required=True)
+    parser.add_argument(
+        "--transition",
+        choices=("bootstrap", "enable", "disable"),
+        required=True,
+    )
+    parser.add_argument(
+        "--transport",
+        choices=("bot_framework", "outgoing_webhook"),
+        required=True,
+    )
     parser.add_argument("--image-ref", required=True)
     arguments = parser.parse_args()
     plan = json.loads(arguments.plan_json.read_text(encoding="utf-8"))
     if not isinstance(plan, dict):
         raise SystemKnowledgePlanError("plan must be a JSON object")
-    validate_plan(plan, transition=arguments.transition, image_ref=arguments.image_ref)
+    validate_plan(
+        plan,
+        transition=arguments.transition,
+        image_ref=arguments.image_ref,
+        transport=arguments.transport,
+    )
     print("system-knowledge-plan: OK")
     return 0
 

@@ -33,6 +33,9 @@ domain code and assets. It does not create another control plane or move authori
 > Terraform deployer roles use the configured stable runner UAMI principal, and planning stops
 > when the authenticated principal differs. Replacing the runner host doesn't change package or
 > observation authority.
+> The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
+> not a Cost Governance package input and cannot install, enable, promote, or grant package data
+> access.
 > Live-authoritative lifecycle, observation
 > cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability
@@ -72,7 +75,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 | Area | Current evidence | Packaging implication |
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
-| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes still rebuild all service images for supply-chain evidence, while the parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. |
+| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes still rebuild all service images for supply-chain evidence, while the parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets; that ordering does not add Cost Governance package inputs. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
 | Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |

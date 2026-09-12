@@ -9,6 +9,7 @@ adapter has coverage even without a live DB.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -171,6 +172,16 @@ def _unit_vector_at(index: int) -> Sequence[float]:
     return vec
 
 
+def _distinct_vector(seed: str) -> Sequence[float]:
+    """Return a replay-stable vector that avoids shared-database tie collisions."""
+
+    digest = hashlib.sha256(seed.encode("utf-8")).digest()
+    vec = [0.0] * 384
+    for offset, value in enumerate(digest):
+        vec[offset * 11] = (value + 1) / 256
+    return vec
+
+
 def _seed_action(*, signature: str, success_rate: float = 0.95) -> LearnedAction:
     return LearnedAction(
         signature=signature,
@@ -197,8 +208,8 @@ async def test_add_then_search_returns_nearest_first() -> None:
     # Distinct vectors so this run's rows are not colliding with rows from
     # earlier runs of the same test - pgvector cannot break score ties by
     # signature, and the shared table is not truncated between tests.
-    near_vec = _unit_vector_at(1 + (hash(prefix) % 100))
-    far_vec = _unit_vector_at(200 + (hash(prefix) % 100))
+    near_vec = _distinct_vector(near_sig)
+    far_vec = _distinct_vector(far_sig)
 
     await library.add(vector=near_vec, action=_seed_action(signature=near_sig))
     await library.add(vector=far_vec, action=_seed_action(signature=far_sig))
@@ -227,13 +238,14 @@ async def test_add_upserts_on_signature_conflict() -> None:
     url = _requires_live_db()
     _upgrade_head()
     dsn = _plain_dsn(url)
-    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
+    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn, ivfflat_probes=1))
 
     signature = f"upsert-{uuid.uuid4().hex}"
+    vector = _distinct_vector(signature)
     baseline_count = await library.count()
 
     await library.add(
-        vector=_unit_vector_at(0),
+        vector=vector,
         action=_seed_action(signature=signature, success_rate=0.5),
     )
     after_first = await library.count()
@@ -241,7 +253,7 @@ async def test_add_upserts_on_signature_conflict() -> None:
 
     # Second add with same signature - must UPDATE, not duplicate.
     await library.add(
-        vector=_unit_vector_at(0),
+        vector=vector,
         action=_seed_action(signature=signature, success_rate=0.9),
     )
     after_second = await library.count()
@@ -249,7 +261,7 @@ async def test_add_upserts_on_signature_conflict() -> None:
         "ON CONFLICT (signature) DO UPDATE must not create a duplicate row"
     )
 
-    matches = await library.search(_unit_vector_at(0), k=10)
+    matches = await library.search(vector, k=10)
     hits = [m for m in matches if m.action.signature == signature]
     assert len(hits) == 1
     assert hits[0].action.success_rate == pytest.approx(0.9)
@@ -276,7 +288,7 @@ async def test_contextless_upsert_preserves_existing_operational_context() -> No
         _seed_action(signature=signature),
         operational_case=context,
     )
-    vector = _unit_vector_at(10)
+    vector = _distinct_vector(signature)
     await library.add(vector=vector, action=contextual)
     await library.add(vector=vector, action=_seed_action(signature=signature))
 
@@ -292,7 +304,7 @@ async def test_search_respects_k_limit() -> None:
     url = _requires_live_db()
     _upgrade_head()
     dsn = _plain_dsn(url)
-    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
+    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn, ivfflat_probes=1))
 
     prefix = uuid.uuid4().hex
     for i in range(3):
@@ -316,6 +328,7 @@ async def test_search_returns_learned_action_fields_intact() -> None:
     library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
 
     signature = f"roundtrip-{uuid.uuid4().hex}"
+    vector = _distinct_vector(signature)
     action = LearnedAction(
         signature=signature,
         rule_id="rg.tagging.owner-required",
@@ -335,8 +348,8 @@ async def test_search_returns_learned_action_fields_intact() -> None:
             evidence_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
         ),
     )
-    await library.add(vector=_unit_vector_at(1), action=action)
-    matches = await library.search(_unit_vector_at(1), k=5)
+    await library.add(vector=vector, action=action)
+    matches = await library.search(vector, k=5)
     hits = [m for m in matches if m.action.signature == signature]
     assert hits, "seeded pattern should be retrievable"
     got = hits[0].action

@@ -1039,6 +1039,39 @@ def test_recent_resource_state_collection_promotes_without_target() -> None:
     )
 
 
+def test_recent_resource_changes_promote_without_state_meaning() -> None:
+    utterance = "Show me recently changed resources"
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RECENT_RESOURCE_CHANGES,
+        operational_window=OperationalWindowMode.SERVER_RECENT_DEFAULT,
+        operational_targets=(),
+        operational_facets=("changed_resources", "resource_count"),
+        operational_result_limit=5,
+        confidence=0.97,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.requested_facets == (
+        "changed_resources",
+        "resource_count",
+        "default_recent_window",
+        "limit_5",
+    )
+
+
 def test_recent_resource_state_collection_requires_typed_count() -> None:
     utterance = "최근 상태가 변경된 리소스 5개만 알려줄래?"
     proposal = ConversationPreflightProposal(

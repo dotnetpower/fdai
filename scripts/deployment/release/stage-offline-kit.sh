@@ -324,6 +324,9 @@ if [[ -n "$RUNTIME_DESCRIPTOR" ]]; then
     --deployment-bundle "$OUT/bundle.tar.gz" --output "$OUT/runtime-build" >/dev/null
   RUNTIME_RELEASE="$OUT/runtime-build"
 fi
+if [[ -n "$RUNTIME_RELEASE" ]]; then
+  WITH_RUNTIME_WHEELS=1
+fi
 
 echo "-- terraform provider mirror"
 bash scripts/deployment/release/mirror-locked-providers.sh \
@@ -364,7 +367,7 @@ if [[ "$WITH_RUNTIME_WHEELS" -eq 1 ]]; then
   echo "-- locked runtime support wheels"
   "$PYTHON" scripts/deployment/release/stage-runtime-wheelhouse.py \
     --repo-root "$repo_root" --out-dir "$OUT/runtime-python"
-  mkdir -m 700 -p "$KIT/support/python"
+  install -d -m 0700 "$KIT/support/python"
   cp -r "$OUT/runtime-python/build" "$OUT/runtime-python/requirements" \
     "$OUT/runtime-python/wheels" "$OUT/runtime-python/inventory.json" "$KIT/support/python/"
 fi

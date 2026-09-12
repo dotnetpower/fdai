@@ -205,8 +205,31 @@ def test_started_foundation_effect_selects_verification_only_resume(
 
     assert result["receipt_digest"] == FOUNDATION_RECEIPT_DIGEST
     assert len(calls) == 1
+    assert calls[0][0] == "/bin/bash"
     assert "--resume-verification" in calls[0]
     assert "--approve" not in calls[0]
+
+
+def test_runner_image_checkpoint_rejects_missing_effect_evidence(tmp_path: Path) -> None:
+    coordinator = _coordinator(tmp_path)
+    result = {
+        "schema_version": "fdai.genesis-runner-image-apply-receipt.v1",
+        "state": "applied",
+        "review_digest": REVIEW_DIGEST,
+        "plan_digest": PLAN_DIGEST,
+        "toolchain_digest": "1" * 64,
+        "effect_verified": True,
+        "public_ip_policy_effect_verified": False,
+        "terraform_zero_change_verified": True,
+        "runner_registered": False,
+        "mutation_performed": True,
+        "subscription_ready": False,
+        "completed_at": "2026-09-10T00:00:00+00:00",
+        "receipt_digest": FOUNDATION_RECEIPT_DIGEST,
+    }
+
+    with pytest.raises(PrivateExecutionError, match="runner_image_effect_evidence_incomplete"):
+        coordinator._require_runner_image_effect(result)
 
 
 def test_portable_checkpoint_projection_drops_resource_ids_and_state_paths(
@@ -220,6 +243,8 @@ def test_portable_checkpoint_projection_drops_resource_ids_and_state_paths(
         "plan_digest": PLAN_DIGEST,
         "toolchain_digest": "1" * 64,
         "runner_image_id": "/subscriptions/private/resourceGroups/private/providers/image",
+        "public_ip_policy_effect_verified": True,
+        "terraform_zero_change_verified": True,
         "state_ref": "root/terraform.tfstate",
         "effect_verified": True,
         "runner_registered": False,

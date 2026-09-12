@@ -54,6 +54,7 @@ from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
+from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.status_projection import project_status
 from fdai_deployment_cli.support_install import install_support
 from fdai_deployment_cli.target import compute_target_binding
@@ -108,6 +109,19 @@ def _parser() -> argparse.ArgumentParser:
 
     provision = subcommands.add_parser("provision")
     provision_commands = provision.add_subparsers(required=True)
+    azure = provision_commands.add_parser("azure")
+    kit_source = azure.add_mutually_exclusive_group(required=True)
+    kit_source.add_argument("--online", action="store_true")
+    kit_source.add_argument("--offline-kit", type=Path)
+    azure.add_argument("--online-url")
+    azure.add_argument("--region", default="koreacentral")
+    azure.add_argument("--monthly-cost-ceiling", type=int, default=1000)
+    azure.add_argument("--work-dir", type=Path, default=Path.home() / ".local/state/fdai/azure")
+    azure.add_argument("--timeout-seconds", type=int, default=14_400)
+    azure.add_argument("--license-signing-key", type=Path)
+    azure.add_argument("--trial-token", type=Path)
+    azure.add_argument("--output", choices=("text", "json"), default="text")
+    azure.set_defaults(handler=_provision_azure)
     register_state_handoff_command(provision_commands)
     register_foundation_plan_command(provision_commands)
     initialize = provision_commands.add_parser("init")
@@ -315,6 +329,29 @@ def _provision_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _provision_azure(args: argparse.Namespace) -> int:
+    """Run the standalone active-Azure-login deployment path."""
+
+    work_dir = args.work_dir if args.work_dir.is_absolute() else Path.cwd() / args.work_dir
+    result = deploy_azure_foundation(
+        work_dir=work_dir,
+        online=args.online,
+        offline_kit=args.offline_kit,
+        online_url=args.online_url,
+        region=args.region,
+        monthly_cost_ceiling=args.monthly_cost_ceiling,
+        timeout_seconds=args.timeout_seconds,
+        license_signing_key=args.license_signing_key,
+        trial_token=args.trial_token,
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text="standalone Azure application converged; complete readiness evidence remains open",
+    )
+    return 0
+
+
 def _offline_prepare(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile)
     release_root = _read_public_key(args.release_root)
@@ -415,14 +452,8 @@ def _provision_plan(args: argparse.Namespace) -> int:
     foundation = args.stage == "foundation"
     if args.save_plan and not foundation:
         raise ValueError("saved local plans are supported only for the foundation stage")
-    if foundation and (
-        profile.connectivity != "offline"
-        or profile.host != "managed-vm"
-        or profile.monthly_cost_ceiling <= 0
-    ):
-        raise ValueError(
-            "foundation planning requires an offline managed-vm profile and cost ceiling"
-        )
+    if foundation and (profile.host != "managed-vm" or profile.monthly_cost_ceiling <= 0):
+        raise ValueError("foundation planning requires a managed-vm profile and cost ceiling")
     active_binding = azure_active_target_binding()
     if foundation and active_binding != profile.target_binding:
         raise ValueError("foundation planning requires the authenticated operator target")

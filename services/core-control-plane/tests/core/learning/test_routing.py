@@ -47,9 +47,14 @@ class _RuleHints:
         return "rule-hint:1"
 
 
-def _router() -> tuple[GovernedPostTurnProposalRouter, _RuleHints]:
+def _router() -> tuple[
+    GovernedPostTurnProposalRouter,
+    _RuleHints,
+    InMemorySkillProposalStore,
+]:
     audit = _Audit()
     rule_hints = _RuleHints()
+    skill_proposals = InMemorySkillProposalStore()
     return (
         GovernedPostTurnProposalRouter(
             operator_memory=OperatorMemoryProposalWorkshop(
@@ -59,18 +64,19 @@ def _router() -> tuple[GovernedPostTurnProposalRouter, _RuleHints]:
                 authorizer=_Authorizer(),
             ),
             skills=SkillWorkshop(
-                store=InMemorySkillProposalStore(),
+                store=skill_proposals,
                 audit=audit,  # type: ignore[arg-type]
                 authorizer=_Authorizer(),
             ),
             rule_hints=rule_hints,
         ),
         rule_hints,
+        skill_proposals,
     )
 
 
 async def test_routes_operator_memory_to_unapproved_workshop() -> None:
-    router, _ = _router()
+    router, _, _ = _router()
 
     proposal_ref = await router.route(
         OperatorMemoryCandidate(
@@ -89,7 +95,7 @@ async def test_routes_operator_memory_to_unapproved_workshop() -> None:
 
 
 async def test_routes_skill_to_existing_skill_workshop() -> None:
-    router, _ = _router()
+    router, _, skill_proposals = _router()
     body = "Review bounded incident evidence and cite its audit references."
     markdown = f"""---
 name: incident-review
@@ -115,10 +121,11 @@ allowed_agents: [Norns]
     )
 
     assert proposal_ref.startswith("skill-proposal:")
+    assert (await skill_proposals.get(proposal_ref)).evidence_refs == ("audit:1",)
 
 
 async def test_rule_hint_stays_behind_norns_owned_submitter() -> None:
-    router, submitter = _router()
+    router, submitter, _ = _router()
     hint = RuleCandidateHint(
         proposal_kind="revision",
         target_ref="rule-1",

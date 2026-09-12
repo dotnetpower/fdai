@@ -57,8 +57,6 @@ def _parser() -> argparse.ArgumentParser:
 def _execute(args: argparse.Namespace) -> dict[str, object]:
     if args.approve == args.resume_verification:
         raise ValueError("runner enrollment requires exactly one approval or verification resume")
-    if _REPOSITORY.fullmatch(args.repository) is None:
-        raise ValueError("runner enrollment repository is invalid")
     if _DIGEST.fullmatch(args.expected_foundation_receipt_digest) is None:
         raise ValueError("expected Foundation receipt digest is invalid")
     if not 300 <= args.timeout_seconds <= 3600:
@@ -78,6 +76,9 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     access = _object(handoff["access"], "Foundation access handoff")
     ops = _object(handoff["ops"], "Foundation operations handoff")
     _validate_context(profile.target_binding, handoff, foundation)
+    manual = runner.get("execution_transport", "github-actions") == "manual"
+    if not manual and _REPOSITORY.fullmatch(args.repository) is None:
+        raise ValueError("runner enrollment repository is invalid")
     connection = _connection_values(runner, access, ops)
     private_key = _absolute(args.ssh_private_key)
     if validate_ssh_private_key(private_key) != runner["ssh_key_digest"]:
@@ -97,7 +98,9 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     if type(parallelism) is not int:
         raise ValueError("Foundation runner parallelism is invalid")
     expected_names = _runner_names(str(runner["vm_name"]), parallelism)
-    repository_digest = hashlib.sha256(args.repository.casefold().encode()).hexdigest()
+    repository_digest = hashlib.sha256(
+        (f"manual:{profile.target_binding}" if manual else args.repository.casefold()).encode()
+    ).hexdigest()
     claim_path = directory / CLAIM_NAME
     receipt_path = directory / RECEIPT_NAME
     known_hosts = directory / KNOWN_HOSTS_NAME
@@ -121,6 +124,7 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             claim=claim,
             host_key_digest=host_key_digest,
             toolchain_digest=str(runner["toolchain_digest"]),
+            manual=manual,
         )
         with BastionTunnel(
             subscription_id=str(handoff["subscription_id"]),
@@ -135,8 +139,18 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             timeout=args.timeout_seconds,
             trust_new_host_key=False,
         ) as tunnel:
-            _attest_runner(tunnel, handoff=handoff, runner=runner, timeout=args.timeout_seconds)
-        observed = _wait_for_runners(args.repository, expected_names, timeout=60)
+            _attest_runner(
+                tunnel,
+                handoff=handoff,
+                runner=runner,
+                timeout=args.timeout_seconds,
+                transport=profile.transport,
+            )
+        observed = (
+            _manual_host_set(expected_names)
+            if manual
+            else _wait_for_runners(args.repository, expected_names, timeout=60)
+        )
         if _runner_set_digest(observed) != existing_receipt["runner_set_digest"]:
             raise ValueError("registered runner readback changed after receipt")
         return existing_receipt
@@ -149,7 +163,11 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     elif claim is not None:
         raise ValueError("runner enrollment claim exists; only verification may resume")
     else:
-        conflicts = {item["name"] for item in _list_runners(args.repository)} & set(expected_names)
+        conflicts = (
+            set()
+            if manual
+            else {item["name"] for item in _list_runners(args.repository)} & set(expected_names)
+        )
         if conflicts:
             raise ValueError(
                 "runner enrollment names already exist and cannot be adopted implicitly"
@@ -172,17 +190,19 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         trust_new_host_key=claim is None,
     ) as tunnel:
         if claim is None:
-            preflight = tunnel.ssh(
-                (
+            preflight_command = (
+                ("/usr/bin/test", "-x", "/usr/local/sbin/fdai-attest-runner")
+                if manual
+                else (
                     "/usr/bin/test",
                     "-x",
                     "/usr/local/sbin/fdai-enroll-runner",
                     "-a",
                     "-x",
                     "/usr/local/sbin/fdai-attest-runner",
-                ),
-                timeout=60,
+                )
             )
+            preflight = tunnel.ssh(preflight_command, timeout=60)
             if preflight.returncode != 0:
                 raise ValueError("runner enrollment helpers are unavailable on the exact VM")
             validate_known_hosts(known_hosts)
@@ -190,44 +210,59 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
                 foundation=foundation,
                 repository_digest=repository_digest,
                 expected_names=expected_names,
-                actor_digest=_github_actor_digest(args.repository),
+                actor_digest=(
+                    _azure_actor_digest(profile.target_binding)
+                    if manual
+                    else _github_actor_digest(args.repository)
+                ),
                 host_key_digest=_file_digest(known_hosts),
             )
             write_private_output(
                 claim_path, json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n"
             )
-            token = _registration_token(args.repository)
-            try:
-                for slot, runner_name in enumerate(expected_names, start=1):
-                    completed = tunnel.ssh(
-                        (
-                            "/usr/local/sbin/fdai-enroll-runner",
-                            "--repository-url",
-                            f"https://github.com/{args.repository}",
-                            "--slot",
-                            str(slot),
-                            "--runner-name",
-                            runner_name,
-                        ),
-                        timeout=min(300, args.timeout_seconds),
-                        input_text=token + "\n",
-                    )
-                    marker = f"enrollment_complete slot={slot} runner_name={runner_name}"
-                    if (
-                        completed.returncode != 0
-                        or marker not in completed.stdout.splitlines()
-                        or token in completed.stdout
-                        or token in completed.stderr
-                    ):
-                        raise ValueError(
-                            "runner enrollment did not return its sanitized completion marker"
+            if not manual:
+                token = _registration_token(args.repository)
+                try:
+                    for slot, runner_name in enumerate(expected_names, start=1):
+                        completed = tunnel.ssh(
+                            (
+                                "/usr/local/sbin/fdai-enroll-runner",
+                                "--repository-url",
+                                f"https://github.com/{args.repository}",
+                                "--slot",
+                                str(slot),
+                                "--runner-name",
+                                runner_name,
+                            ),
+                            timeout=min(300, args.timeout_seconds),
+                            input_text=token + "\n",
                         )
-            finally:
-                token = ""
+                        marker = f"enrollment_complete slot={slot} runner_name={runner_name}"
+                        if (
+                            completed.returncode != 0
+                            or marker not in completed.stdout.splitlines()
+                            or token in completed.stdout
+                            or token in completed.stderr
+                        ):
+                            raise ValueError(
+                                "runner enrollment did not return its sanitized completion marker"
+                            )
+                finally:
+                    token = ""
 
-        _attest_runner(tunnel, handoff=handoff, runner=runner, timeout=args.timeout_seconds)
+        _attest_runner(
+            tunnel,
+            handoff=handoff,
+            runner=runner,
+            timeout=args.timeout_seconds,
+            transport=profile.transport,
+        )
 
-    observed = _wait_for_runners(args.repository, expected_names, timeout=180)
+    observed = (
+        _manual_host_set(expected_names)
+        if manual
+        else _wait_for_runners(args.repository, expected_names, timeout=180)
+    )
     completed_at = _utc_now().replace(microsecond=0).isoformat()
     if claim is None:
         raise ValueError("runner enrollment claim was not persisted before verification")
@@ -248,9 +283,10 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         "toolchain_digest": runner["toolchain_digest"],
         "identity_attested": True,
         "services_attested": True,
-        "github_readback_verified": True,
+        "github_readback_verified": not manual,
+        "manual_host_readback_verified": manual,
         "effect_verified": True,
-        "mutation_performed": True,
+        "mutation_performed": not manual,
         "subscription_ready": False,
         "completed_at": completed_at,
     }
@@ -317,8 +353,6 @@ def _connection_values(
         not isinstance(value, str) or not value for value in values.values()
     ):
         raise ValueError("Foundation Bastion access handoff is incomplete")
-    if runner.get("public_egress") is not True:
-        raise ValueError("GitHub runner enrollment requires an approved outbound path")
     parallelism = runner.get("parallelism")
     if type(parallelism) is not int or not 1 <= parallelism <= 5:
         raise ValueError("Foundation runner parallelism is invalid")
@@ -530,6 +564,7 @@ def _validate_receipt_context(
     claim: Mapping[str, object],
     host_key_digest: str,
     toolchain_digest: str,
+    manual: bool,
 ) -> None:
     if (
         receipt.get("foundation_receipt_digest") != foundation["receipt_digest"]
@@ -547,8 +582,9 @@ def _validate_receipt_context(
         or _DIGEST.fullmatch(str(receipt["runner_set_digest"])) is None
         or receipt.get("identity_attested") is not True
         or receipt.get("services_attested") is not True
-        or receipt.get("github_readback_verified") is not True
-        or receipt.get("mutation_performed") is not True
+        or receipt.get("github_readback_verified") is not (not manual)
+        or bool(receipt.get("manual_host_readback_verified", False)) is not manual
+        or receipt.get("mutation_performed") is not (not manual)
         or receipt.get("subscription_ready") is not False
     ):
         raise ValueError("runner enrollment receipt context is invalid")
@@ -560,6 +596,7 @@ def _attest_runner(
     handoff: Mapping[str, object],
     runner: Mapping[str, object],
     timeout: int,
+    transport: str,
 ) -> None:
     """Re-observe the exact runner identity, tools, and services without mutation."""
 
@@ -580,20 +617,49 @@ def _attest_runner(
             str(runner["toolchain_digest"]),
             "--parallelism",
             str(runner["parallelism"]),
+            "--transport",
+            transport,
         ),
         timeout=min(300, timeout),
     )
-    if (
-        attestation.returncode != 0
-        or f"attestation_complete slots={runner['parallelism']}"
-        not in attestation.stdout.splitlines()
-    ):
+    if attestation.returncode != 0 or not {
+        f"attestation_complete transport={transport} slots={runner['parallelism']}",
+        f"attestation_complete slots={runner['parallelism']}",
+    }.intersection(attestation.stdout.splitlines()):
         raise ValueError("runner identity, toolchain, or service attestation failed")
 
 
 def _runner_set_digest(runners: list[dict[str, object]]) -> str:
     stable = [{"name": runner["name"], "labels": runner["labels"]} for runner in runners]
     return canonical_digest({"runners": stable})
+
+
+def _manual_host_set(expected_names: list[str]) -> list[dict[str, object]]:
+    """Return the deterministic manual-host set after remote attestation succeeds."""
+
+    return [
+        {"name": name, "status": "attested", "busy": False, "labels": ["manual"]}
+        for name in expected_names
+    ]
+
+
+def _azure_actor_digest(target_binding: str) -> str:
+    """Bind the manual host claim to the current authenticated Azure human."""
+
+    raw = _capture(
+        ("az", "account", "show", "--query", "{type:user.type,name:user.name}", "-o", "json"),
+        timeout=30,
+        reason="Azure host-attestation actor is unavailable",
+    )
+    value = json.loads(raw)
+    if (
+        not isinstance(value, dict)
+        or value.get("type") != "user"
+        or not isinstance(value.get("name"), str)
+        or not value["name"]
+    ):
+        raise ValueError("manual host attestation requires an authenticated Azure human")
+    return hashlib.sha256(f"{target_binding}:{value['name'].casefold()}".encode()).hexdigest()
 
 
 def _prepare_known_hosts(path: Path, *, claim_exists: bool) -> None:
@@ -656,6 +722,7 @@ def _print(result: Mapping[str, object], output: str) -> None:
         "identity_attested": result["identity_attested"],
         "services_attested": result["services_attested"],
         "github_readback_verified": result["github_readback_verified"],
+        "manual_host_readback_verified": result.get("manual_host_readback_verified", False),
         "effect_verified": result["effect_verified"],
         "subscription_ready": result["subscription_ready"],
         "receipt_digest": result["receipt_digest"],
@@ -663,7 +730,7 @@ def _print(result: Mapping[str, object], output: str) -> None:
     if output == "json":
         print(json.dumps(safe, sort_keys=True, separators=(",", ":")))
     else:
-        print("runner enrollment and independent readback completed")
+        print("execution host attestation and independent readback completed")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
-    "legacy_head": "20260831_0089",
-    "legacy_revision_count": 91,
+    "legacy_head": "20260912_0090",
+    "legacy_revision_count": 92,
     "services": {
         "core-control-plane": {
             "digest": "sha256:132d0391c3e9d8a0b0d42113535b85cde4afe9bead7be7af5ea8b648c73f2fd0",
@@ -15,10 +15,10 @@
             ]
         },
         "operator-service": {
-            "digest": "sha256:1aaef0d6b09abf69320c5673ac2b2b8cc6e2671b2af36337c4da0b54eafc51bf",
+            "digest": "sha256:7f7f911ffd637f44077c453fb1596764eeedf3ef64579969cee288a7f7342a2f",
             "table_count": 60,
-            "column_count": 632,
-            "constraint_count": 413,
+            "column_count": 633,
+            "constraint_count": 414,
             "extensions": [
                 "pg_trgm",
                 "plpgsql",

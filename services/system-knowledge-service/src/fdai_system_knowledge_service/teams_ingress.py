@@ -10,7 +10,11 @@ from typing import Any, Literal
 
 from fdai_service_contracts.ontology_query import content_digest
 
-from fdai_system_knowledge_service.config import TeamsSettings, normalize_service_url
+from fdai_system_knowledge_service.config import (
+    TeamsOutgoingWebhookSettings,
+    TeamsSettings,
+    normalize_service_url,
+)
 from fdai_system_knowledge_service.teams_auth import (
     ServiceTokenVerifier,
     TeamsIngressError,
@@ -77,80 +81,115 @@ class TeamsMentionVerifier:
                 http_status=413,
             )
         token = await self._tokens.verify(authorization)
-        payload = _json_object(body)
-        if payload.get("type") != "message" or payload.get("channelId") != "msteams":
-            raise TeamsIngressError(
-                "Teams activity type is unsupported",
-                code="unsupported_activity",
-                http_status=400,
-            )
+        payload = decode_teams_activity(body)
         service_url = _service_url(payload, token, self._settings)
-        conversation = _object(payload, "conversation")
-        if conversation.get("conversationType") != "channel":
-            raise TeamsIngressError(
-                "Teams conversation type is unsupported",
-                code="unsupported_conversation",
-                http_status=400,
-            )
-        channel_data = _object(payload, "channelData")
-        tenant_ids = {_text(_object(channel_data, "tenant"), "id", 200)}
-        conversation_tenant = conversation.get("tenantId")
-        if conversation_tenant is not None:
-            if not isinstance(conversation_tenant, str) or not conversation_tenant:
-                raise TeamsIngressError(
-                    "Teams conversation tenant is invalid",
-                    code="invalid_payload",
-                    http_status=400,
-                )
-            tenant_ids.add(conversation_tenant)
-        team_id = _text(_object(channel_data, "team"), "id", 256)
-        channel_id = _text(_object(channel_data, "channel"), "id", 256)
-        if (
-            tenant_ids != {self._settings.tenant_id}
-            or team_id not in self._settings.team_ids
-            or channel_id not in self._settings.channel_ids
-        ):
-            raise TeamsIngressError(
-                "Teams destination is not authorized",
-                code="unknown_destination",
-                http_status=403,
-            )
-        recipient_id = _text(_object(payload, "recipient"), "id", 256)
-        if recipient_id != self._settings.bot_id:
-            raise TeamsIngressError(
-                "Teams recipient is not the configured bot",
-                code="unknown_recipient",
-                http_status=403,
-            )
-        sender_id = _text(_object(payload, "from"), "aadObjectId", 200)
-        principal_id = self._settings.principal_by_aad_object_id.get(sender_id)
-        if principal_id is None:
-            raise TeamsIngressError(
-                "Teams sender is not authorized",
-                code="unknown_sender",
-                http_status=403,
-            )
-        mention_texts = _bot_mentions(payload.get("entities"), recipient_id)
-        if not mention_texts:
-            return None
-        query = _optional_text(payload, "text", 16_000)
-        for mention_text in mention_texts:
-            query = query.replace(mention_text, " ")
-        return VerifiedKnowledgeTurn(
-            conversation_id=_text(conversation, "id", 512),
-            message_id=_text(payload, "id", 256),
-            sender_id=sender_id,
-            principal_id=principal_id,
-            principal_scope_digest=content_digest(
-                {"principal_id": principal_id, "purpose": "system-knowledge"}
-            ),
+        return parse_verified_knowledge_turn(
+            payload=payload,
+            received_at=received_at,
+            settings=self._settings,
+            expected_recipient_id=self._settings.bot_id,
             service_url=service_url,
-            query=" ".join(query.split()),
-            locale=(
-                "ko" if _optional_text(payload, "locale", 32).casefold().startswith("ko") else "en"
-            ),
             verification_ref=f"teams-service-key:{token.key_id}",
         )
+
+
+def parse_verified_knowledge_turn(
+    *,
+    payload: Mapping[str, Any],
+    received_at: datetime,
+    settings: TeamsSettings | TeamsOutgoingWebhookSettings,
+    expected_recipient_id: str | None,
+    service_url: str,
+    verification_ref: str,
+) -> VerifiedKnowledgeTurn | None:
+    """Parse one authenticated activity and enforce common mention boundaries."""
+
+    if received_at.tzinfo is None or received_at.utcoffset() is None:
+        raise ValueError("Teams received_at MUST be timezone-aware")
+    if payload.get("type") != "message" or payload.get("channelId") != "msteams":
+        raise TeamsIngressError(
+            "Teams activity type is unsupported",
+            code="unsupported_activity",
+            http_status=400,
+        )
+    conversation = _object(payload, "conversation")
+    if conversation.get("conversationType") != "channel":
+        raise TeamsIngressError(
+            "Teams conversation type is unsupported",
+            code="unsupported_conversation",
+            http_status=400,
+        )
+    channel_data = _object(payload, "channelData")
+    tenant_ids = {_text(_object(channel_data, "tenant"), "id", 200)}
+    conversation_tenant = conversation.get("tenantId")
+    if conversation_tenant is not None:
+        if not isinstance(conversation_tenant, str) or not conversation_tenant:
+            raise TeamsIngressError(
+                "Teams conversation tenant is invalid",
+                code="invalid_payload",
+                http_status=400,
+            )
+        tenant_ids.add(conversation_tenant)
+    team_id = _text(_object(channel_data, "team"), "id", 256)
+    channel_id = _text(_object(channel_data, "channel"), "id", 256)
+    if (
+        tenant_ids != {settings.tenant_id}
+        or team_id not in settings.team_ids
+        or channel_id not in settings.channel_ids
+    ):
+        raise TeamsIngressError(
+            "Teams destination is not authorized",
+            code="unknown_destination",
+            http_status=403,
+        )
+    recipient_id = _text(_object(payload, "recipient"), "id", 256)
+    if expected_recipient_id is not None and recipient_id != expected_recipient_id:
+        raise TeamsIngressError(
+            "Teams recipient is not the configured bot",
+            code="unknown_recipient",
+            http_status=403,
+        )
+    sender_id = _text(_object(payload, "from"), "aadObjectId", 200)
+    principal_id = settings.principal_by_aad_object_id.get(sender_id)
+    if principal_id is None:
+        raise TeamsIngressError(
+            "Teams sender is not authorized",
+            code="unknown_sender",
+            http_status=403,
+        )
+    mention_texts = _bot_mentions(payload.get("entities"), recipient_id)
+    if not mention_texts:
+        return None
+    query = _optional_text(payload, "text", 16_000)
+    for mention_text in mention_texts:
+        query = query.replace(mention_text, " ")
+    return VerifiedKnowledgeTurn(
+        conversation_id=_text(conversation, "id", 512),
+        message_id=_text(payload, "id", 256),
+        sender_id=sender_id,
+        principal_id=principal_id,
+        principal_scope_digest=content_digest(
+            {"principal_id": principal_id, "purpose": "system-knowledge"}
+        ),
+        service_url=service_url,
+        query=" ".join(query.split()),
+        locale=(
+            "ko" if _optional_text(payload, "locale", 32).casefold().startswith("ko") else "en"
+        ),
+        verification_ref=verification_ref,
+    )
+
+
+def decode_teams_activity(body: bytes) -> Mapping[str, Any]:
+    """Decode one bounded Teams activity after transport authentication."""
+
+    if len(body) > _MAX_BODY_BYTES:
+        raise TeamsIngressError(
+            "Teams activity exceeds the configured bound",
+            code="body_too_large",
+            http_status=413,
+        )
+    return _json_object(body)
 
 
 def _service_url(
@@ -263,4 +302,9 @@ def _optional_text(value: Mapping[str, Any], key: str, maximum: int) -> str:
     return item
 
 
-__all__ = ["TeamsMentionVerifier", "VerifiedKnowledgeTurn"]
+__all__ = [
+    "TeamsMentionVerifier",
+    "VerifiedKnowledgeTurn",
+    "decode_teams_activity",
+    "parse_verified_knowledge_turn",
+]

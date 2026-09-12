@@ -7,6 +7,7 @@ from typing import Any, Final
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from fdai.core.skills import (
     SkillProposal,
@@ -16,7 +17,7 @@ from fdai.core.skills import (
 
 _COLUMNS: Final = (
     "proposal_id, skill_name, content_hash, markdown, proposed_by_agent, created_at, "
-    "state, reviewed_by, review_reason, reviewed_at"
+    "evidence_refs, state, reviewed_by, review_reason, reviewed_at"
 )
 
 
@@ -45,7 +46,7 @@ class PostgresSkillProposalStore:
             cursor = await connection.execute(
                 f"""
                 INSERT INTO skill_proposal ({_COLUMNS})
-                VALUES (%s, %s, %s, %s, %s, %s, %s, NULL, NULL, NULL)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL, NULL)
                 ON CONFLICT (proposal_id) DO NOTHING
                 RETURNING {_COLUMNS}
                 """,  # noqa: S608 - _COLUMNS is a module constant
@@ -56,6 +57,7 @@ class PostgresSkillProposalStore:
                     proposal.markdown,
                     proposal.proposed_by_agent,
                     proposal.created_at,
+                    Jsonb(list(proposal.evidence_refs)),
                     proposal.state.value,
                 ),
             )
@@ -144,6 +146,7 @@ def _row_to_proposal(row: dict[str, Any]) -> SkillProposal:
         markdown=bytes(row["markdown"]),
         proposed_by_agent=str(row["proposed_by_agent"]),
         created_at=row["created_at"],
+        evidence_refs=tuple(str(value) for value in row["evidence_refs"]),
         state=SkillProposalState(str(row["state"])),
         reviewed_by=str(row["reviewed_by"]) if row["reviewed_by"] is not None else None,
         review_reason=(str(row["review_reason"]) if row["review_reason"] is not None else None),

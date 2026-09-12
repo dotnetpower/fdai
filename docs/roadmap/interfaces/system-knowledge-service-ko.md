@@ -1,31 +1,35 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 0b6a1185df079a0d2a0c0f5e838692adfa6f91e6
-translation_revised: 2026-09-11
+translation_source_sha: b65d8e83bc8778ea794380dda4aea75653e2eea1
+translation_revised: 2026-09-12
 ---
 # 시스템 지식 서비스
 
 이 문서는 FDAI 자체의 설계, 구현, 검증 상태 및 알려진 미비점에 관한 범위가 제한된 질문에
-전용 Teams 멘션 봇으로 답하는 독립 FDAI 마이크로서비스를 정의합니다. 이 서비스는 읽기 전용
-제품 지식 표면이며 운영 조회, 승인 또는 실행 경로가 되지 않습니다.
+전용 Teams 멘션 endpoint로 답하는 독립 FDAI 마이크로서비스를 정의합니다. 배포는 Bot
+Framework application 또는 `FDAI-bot`이라는 Team 범위 Teams Outgoing Webhook 중 하나를
+선택합니다. 이 서비스는 읽기 전용 제품 지식 표면이며 운영 조회, 승인 또는 실행 경로가 되지
+않습니다.
 
 > **범위:** 이 서비스는 release에 고정된 FDAI 저장소 지식으로만 답합니다. 고객 문서, 실시간
 > Azure 상태, Incident 근거, 사용자 대화 기록 및 관리 리소스 작업은 이 서비스 범위에 포함하지
 > 않습니다.
 >
-> **배포 경계:** 이 서비스는 자체 이미지, 상태 확인 경계, Teams 애플리케이션 신원 및 release
-> 산출물을 갖는 독립 패키지 형태의 여섯 번째 서비스 후보입니다. Core, Operator Service 또는 기존
-> A3 채널 edge workload 안에서 실행하지 않습니다. 보호된 배포 요약 및 정리 단계는 보호된 원본
-> 검증기가 성공한 후에만 실행합니다.
+> **배포 경계:** 이 서비스는 자체 이미지, 상태 확인 경계, Teams transport 구성 및 release
+> 산출물을 갖는 독립 패키지 형태의 여섯 번째 서비스 후보입니다. Core, Operator Service 또는
+> 기존 A3 채널 edge workload 안에서 실행하지 않습니다. 보호된 배포 요약 및 정리 단계는 보호된
+> 원본 검증기가 성공한 후에만 실행합니다.
 >
 > **권한 경계:** 모든 응답은 `execution_authority=false`를 포함합니다. Teams 멘션, 검색한 레코드,
 > 구현 상태 또는 인용한 소스는 FDAI 동작을 설명할 수 있지만 변경을 승인할 수 없습니다.
 
 ## 설계 개요
 
-전용 Teams 봇은 직접 멘션을 수신하고 Bot service token, tenant, team, channel, recipient 및
-sender mapping을 검증한 후 검증된 봇 멘션만 제거합니다. 서비스는 추적되는 설계 문서와 범위가
+전용 Teams transport는 직접 멘션을 수신합니다. Bot Framework 경로는 service token과 구성된
+application 신원을 검증합니다. Outgoing Webhook 경로는 Teams가 발급한 Team별 HMAC key로 원본
+request body를 검증합니다. 두 경로 모두 tenant, team, channel, recipient, mention entity 및
+sender mapping을 검증한 후 검증된 멘션만 제거합니다. 서비스는 추적되는 설계 문서와 범위가
 제한된 소스 메타데이터로 컴파일한 변경 불가능한 카탈로그를 검색합니다. 설계, 구현, 제한 및
 인용을 포함한 간결한 응답 하나를 렌더링하고 안전하게 다시 시도할 수 있는 메시지 claim을 기록한
 후 동일한 Teams 대화에 답합니다.
@@ -33,7 +37,8 @@ sender mapping을 검증한 후 검증된 봇 멘션만 제거합니다. 서비�
 ```text
 Teams @mention
   -> System Knowledge Service
-  -> service-token, tenant, team, channel, recipient, and sender verification
+  -> Bot service JWT or Outgoing Webhook HMAC verification
+  -> tenant, team, channel, recipient, mention, and sender verification
   -> release-bound SystemKnowledgeCatalog
   -> deterministic exact and bilingual lexical retrieval
   -> design + implementation + limitations + citations
@@ -78,8 +83,11 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 
 - **별도 프로세스:** 서비스는 자체 패키지, entry point, 이미지, 상태 확인 및 범위가 제한된 구성을
   가집니다.
-- **별도 Teams 앱:** 배포는 전용 봇 애플리케이션을 공급하고 승인된 표준 채널에만 설치합니다.
-  첫 release에서는 모든 메시지를 읽는 RSC(resource-specific consent)를 요청하지 않습니다.
+- **별도 Teams transport:** 배포는 정확히 하나의 transport를 선택합니다. `bot_framework`는
+  승인된 표준 channel에만 설치하는 전용 application을 제공합니다. `outgoing_webhook`은 Team
+  소유자가 만든 Team 범위 멘션 endpoint를 사용하며 Entra application 등록이나 Teams app
+  package가 필요하지 않습니다. 두 경로 모두 모든 메시지를 읽는 RSC(resource-specific
+  consent)를 요청하지 않습니다.
 - **멘션 전용 유입:** 인증된 activity에 정확한 봇 recipient의 mention entity가 있을 때만 채널
   메시지를 수락합니다.
 - **Release 고정 카탈로그:** build 명령은 추적되는 파일에서 구조화 레코드와 소스 인용을
@@ -110,43 +118,68 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 | `source_revision`, `catalog_digest` | 정확한 release 및 전체 카탈로그 신원 |
 
 `catalog_digest`는 스키마 버전, 소스 개정, 빌드 시각, 레코드 및 권한 플래그를 포함합니다. 따라서
-같은 레코드를 다른 시각에 다시 빌드하면 별개의 패키지 산출물이 생성됩니다. 서식만 압축한 경우를
-포함해 인용한 소스가 바뀌면 같은 변경 집합에서 패키징 전에 카탈로그를 다시 빌드해야 blob
-고정값과 다이제스트가 release 트리와 일치합니다. 이 기계적 갱신은 수정된 원본 식별자를
+같은 레코드를 다른 시각에 다시 빌드하면 별개의 패키지 산출물이 생성됩니다. 서식만 압축하거나
+Markdown 구조를 수정한 경우를 포함해 인용한 소스가 바뀌면 같은 변경 집합에서 패키징 전에
+카탈로그를 다시 빌드해야 blob 고정값과 다이제스트가 release 트리와 일치합니다. 이 기계적 갱신은 수정된 원본 식별자를
 전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
 다시 빌드 규칙을 적용합니다.
+완료 handoff 및 behavior-knowledge ledger 갱신도 이 규칙을 따릅니다. Source blob pin과
+catalog digest만 바꾸며 검색 권한이나 메시지 전달 동작은 변경하지 않습니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.
 `source_revision`은 현재 checkout과 보호된 `origin/main`의 merge-base이며 rebase 또는 squash
 통합 후에도 보호된 main의 조상으로 유지합니다. 각 소스의 `blob_sha`는 현재 검토된 checkout을
 별도로 고정하므로 카탈로그 내용이 갱신되어도 side branch 계보를 release 기준점으로 지정하지
-않습니다.
+않습니다. Upstream rebase 뒤에는 rebase 전 원본 고정값을 유지하지 않고 최종 병합 checkout에서
+카탈로그를 다시 생성합니다.
 
 ## Teams 신뢰 경계
 
-서비스는 검색 전에 다음 값을 검증합니다.
+서비스는 검색 전에 다음 공통 값을 검증합니다.
 
-1. Bot service JWT 서명, 고정 algorithm, issuer, audience, 시간 및 `serviceurl`.
-2. Activity `channelId=msteams` 및 정확한 허용 service URL.
-3. 구성된 tenant, team 및 channel.
-4. 사용 가능한 지식 principal 하나에 매핑된 sender `aadObjectId`.
-5. 구성된 bot application과 같은 activity recipient.
-6. `mentioned.id`가 해당 recipient와 같은 mention entity.
+1. Activity `type=message`, `channelId=msteams` 및 channel conversation type.
+2. 구성된 tenant, team 및 표준 channel.
+3. 사용 가능한 지식 principal 하나에 매핑된 sender `aadObjectId`.
+4. 범위가 제한된 recipient 및 `mentioned.id`가 해당 recipient와 같은 mention entity.
 
 서비스는 정확한 mention entity text를 제거해 질문을 만듭니다. `<at>` markup만으로 mention 신원을
 추론하지 않습니다. 지원하지 않는 activity, 크기 초과 body 및 알 수 없는 mapping은 검색 전에
 차단됩니다. 첫 release에서는 private 및 shared channel을 지원하지 않으므로 배포 구성의 team 및
 channel allowlist에서 제외해야 합니다.
 
+Bot Framework transport는 service JWT 서명, 고정 algorithm, issuer, audience, 시간,
+`serviceurl`, 허용된 service URL 및 구성된 bot application과 같은 recipient도 검증합니다.
+Outgoing Webhook transport는 SHA-256과 constant-time 비교를 사용해 변경되지 않은 원본 request
+body에 대한 `Authorization: HMAC <value>`를 검증합니다. HMAC key는 Team webhook 하나에
+고유하며 request data로 받지 않고 배포 secret store에서만 읽습니다. 서명된 activity timestamp는
+수신 시점에서 5분 이내여야 하며 Outgoing Webhook profile 하나는 정확히 하나의 Team을 선택합니다.
+
+### Outgoing Webhook bootstrap
+
+Teams는 Team 소유자가 접근 가능한 callback URL을 제공한 뒤에만 HMAC key를 발급합니다. 보호된
+배포는 다음 두 transition을 분리합니다.
+
+1. `bootstrap`은 HMAC 결속 없이 독립 서비스 endpoint를 만듭니다. 상태 확인은 계속 가능하지만
+   Outgoing Webhook 경로는 `503 outgoing_webhook_unconfigured`을 반환합니다.
+2. Team 소유자는 정확한 callback URL로 `FDAI-bot` Outgoing Webhook을 만들고 표시된 key를
+   보호된 배포 secret으로 직접 저장합니다.
+3. `enable`은 비공개 Key Vault 경계 안에서 key를 쓰고 다시 읽어 검증한 뒤 versionless secret
+   reference를 새 Container App 개정에 결속해 HMAC 검증을 활성화합니다.
+
+Workflow는 HMAC key를 Terraform 값, plan 산출물, 명령 인자 또는 log에 넣지 않습니다. Bot
+Framework 배포는 `bootstrap` transition을 사용하지 않습니다.
+
 ## 전달 및 실패 동작
 
 | 실패 | 안전한 동작 |
 |------|-------------|
 | 잘못된 service token | `401`을 반환하고 검색하거나 보내지 않음 |
+| 누락되거나 잘못된 Outgoing Webhook HMAC | `401` 또는 `503`을 반환하고 검색하거나 답하지 않음 |
 | 알 수 없는 tenant, team, channel, sender 또는 recipient | `403`을 반환하고 검색하거나 보내지 않음 |
 | 직접 봇 멘션 누락 | `202`를 반환하고 조회를 기록하거나 보내지 않음 |
 | 멘션 제거 후 질문이 비어 있음 | 범위가 제한된 사용 안내 전송 |
+| Outgoing Webhook 처리가 4초를 초과함 | Teams 5초 기한 전에 `503`을 반환함 |
 | 카탈로그 개정 불일치 | 준비 상태를 사용 불가로 유지하고 답변을 보내지 않음 |
 | 관련 레코드 없음 | 검증된 시스템 지식 레코드가 일치하지 않았음을 표시 |
 | 증적 전 프로바이더 차단 | 다시 시도할 수 있는 claim 해제 |
@@ -160,20 +193,24 @@ connection string 또는 file share를 만들지 않습니다. 시작할 때 con
 배포는 replica 하나를 유지합니다. 더 많은 replica는 동시성, 비용 및 롤백 근거로 서비스 분리
 scorecard를 닫을 때까지 차단됩니다.
 
-독립 Terraform root는 전용 UAMI(user-assigned managed identity), 비공개 claim container,
-`AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User`, replica 하나의 Container
-App, F0 Azure Bot 및 Teams channel 하나를 소유합니다. 보호된 workflow는 plan-only를 기본으로
-사용하며 apply 전에 정확한 CI, image attestation, plan 및 context digest, 명시적 `enable` 또는
-`disable` 전환을 요구합니다.
+독립 Terraform root는 항상 전용 UAMI(user-assigned managed identity), 비공개 claim
+container, `AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User` 및 replica
+하나의 Container App을 소유합니다. `bot_framework` 배포는 F0 Azure Bot 하나와 Teams channel도
+소유합니다. `outgoing_webhook` 배포는 Bot 또는 Graph resource를 소유하지 않고 bootstrap 후 Key
+Vault HMAC secret 하나를 선택적으로 결속합니다. 보호된 workflow는 기본적으로 plan-only 출력을
+만들고 apply 전에 정확한 CI, image attestation, plan 및 context digest와 명시적인 `bootstrap`,
+`enable` 또는 `disable` transition을 요구합니다.
 
 ## 출시 순서
 
 1. 카탈로그, 결정적 검색, 멘션 검증 및 응답 렌더러를 build하고 검사합니다.
 2. 저장소 소스 없이 서비스와 이미지를 패키징합니다.
-3. 합성 signed activity로 로컬 Activity Protocol canary를 실행합니다.
-4. 보호된 Terraform plan을 적용하고 결정적 Teams package를 build한 뒤 필요한 Microsoft Graph
-   app catalog 권한을 가진 tenant 관리자가 설치합니다.
-5. 운영 준비를 선언하기 전에 mention-only 수신, 동일 대화 응답, 재시작 중복 제거, 비활성화 및
+3. 합성 signed activity로 로컬 Activity Protocol 또는 Outgoing Webhook canary를 실행합니다.
+4. Bot Framework는 보호된 Terraform plan을 적용하고 결정적 Teams package를 build한 뒤 필요한
+   Microsoft Graph app catalog 권한을 가진 tenant 관리자가 설치합니다.
+5. Outgoing Webhook은 `bootstrap`을 적용하고 Team 범위 `FDAI-bot` webhook을 만든 뒤 HMAC key를
+   저장하고 새로운 보호된 `enable` plan을 적용합니다.
+6. 운영 준비를 선언하기 전에 mention-only 수신, 동일 대화 응답, 재시작 중복 제거, 비활성화 및
    롤백을 검증합니다.
 
 ## 관련 문서

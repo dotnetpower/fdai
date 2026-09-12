@@ -72,6 +72,7 @@ class RunConfig:
     create_runner_image: bool = False
     runner_image_terraform: Path | None = None
     runner_ssh_private_key: Path | None = None
+    source_commit: str | None = None
 
     def validate(self) -> None:
         """Reject ambiguous targets and implicit mutation authority."""
@@ -84,8 +85,13 @@ class RunConfig:
             raise OrchestrationError("invalid_environment", 64)
         if self.repository is not None and _REPOSITORY.fullmatch(self.repository) is None:
             raise OrchestrationError("invalid_repository", 64)
-        if self.apply and self.repository is None:
+        if self.apply and self.repository is None and self.source_commit is None:
             raise OrchestrationError("repository_required_for_apply", 64)
+        if (
+            self.source_commit is not None
+            and re.fullmatch(r"[0-9a-f]{40}", self.source_commit) is None
+        ):
+            raise OrchestrationError("invalid_source_revision", 64)
         if self.apply and not self.allow_probe_resources:
             raise OrchestrationError("policy_probe_approval_required", 64)
         if not 30 <= self.provider_timeout_seconds <= 1800:
@@ -145,14 +151,14 @@ class GenesisOrchestrator:
         config.validate()
         self.config = config
         self.checks = GenesisChecks(config.repository_root)
-        self.source_commit = self.checks.capture(
+        self.source_commit = config.source_commit or self.checks.capture(
             ("/usr/bin/git", "rev-parse", "HEAD"), "source_revision"
         )
         if re.fullmatch(r"[0-9a-f]{40}", self.source_commit) is None:
             raise OrchestrationError("invalid_source_revision")
         run_context = (
             f"{config.tenant_id.lower()}:{config.subscription_id.lower()}:"
-            f"{config.region}:{config.environment}:{config.repository or ''}"
+            f"{config.region}:{config.environment}:{config.repository or 'signed-kit'}"
         )
         if config.create_runner_image:
             run_context += ":runner-image=true"
@@ -364,7 +370,7 @@ class GenesisOrchestrator:
         }
         self.checks.run_required(
             (
-                "bash",
+                self.checks.bash,
                 str(self.config.repository_root / "infra/bootstrap/preflight-policy-check.sh"),
                 "--run-id",
                 probe_run_id,
@@ -409,7 +415,10 @@ class GenesisOrchestrator:
             "FDAI_AZURE_REGION": self.config.region,
         }
         self.checks.run_required(
-            ("bash", str(self.config.repository_root / "scripts/deployment/azure/azd-up.sh")),
+            (
+                self.checks.bash,
+                str(self.config.repository_root / "scripts/deployment/azure/azd-up.sh"),
+            ),
             "public_preview_failed",
             timeout=self._bounded_timeout(self.config.execution_timeout_seconds),
             env=environment,
@@ -419,9 +428,7 @@ class GenesisOrchestrator:
     def _run_private_execution(self) -> None:
         """Delegate exact private checkpoints to the resumable coordinator."""
 
-        repository = self.config.repository
-        if repository is None:
-            raise OrchestrationError("repository_required_for_apply", 64)
+        repository = self.config.repository or "standalone/fdai"
         coordinator = PrivateExecutionCoordinator(
             config=PrivateExecutionConfig(
                 repository_root=self.config.repository_root,
@@ -508,6 +515,7 @@ def _parser() -> argparse.ArgumentParser:
         help="authorize creation and verified cleanup of the policy probe resource group",
     )
     parser.add_argument("--repository")
+    parser.add_argument("--source-commit")
     parser.add_argument("--environment", choices=("dev", "staging", "prod"), default="dev")
     parser.add_argument("--region", default="koreacentral")
     parser.add_argument("--provider-timeout-seconds", type=int, default=900)
@@ -579,6 +587,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             create_runner_image=args.create_runner_image,
             runner_image_terraform=args.runner_image_terraform,
             runner_ssh_private_key=args.runner_ssh_private_key,
+            source_commit=args.source_commit,
         )
         return GenesisOrchestrator(config).run()
     except (OrchestrationError, CheckError, FoundationPlanError, StatusStoreError) as exc:

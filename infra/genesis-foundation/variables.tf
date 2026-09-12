@@ -42,6 +42,18 @@ variable "env" {
   }
 }
 
+variable "execution_transport" {
+  description = "Execution transport bound into the managed runner image and host attestation."
+  type        = string
+  default     = "github-actions"
+  nullable    = false
+
+  validation {
+    condition     = contains(["manual", "github-actions"], var.execution_transport)
+    error_message = "execution_transport must be manual or github-actions."
+  }
+}
+
 variable "region" {
   description = "Explicit Azure public-cloud region for foundation resources. Availability and quota are external prerequisites."
   type        = string

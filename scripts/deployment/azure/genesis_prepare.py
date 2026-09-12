@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.contracts import ProvisionProfile
+from fdai_deployment_cli.deployment_kit import DeploymentKit
 from fdai_deployment_cli.foundation_input import snapshot_foundation_input
 from fdai_deployment_cli.offline_kit import OfflineKitVerification, verify_offline_kit
 from fdai_deployment_cli.plan_input import read_plan_input, write_plan_input
@@ -30,6 +31,10 @@ from fdai_deployment_cli.private_output import (
 )
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.target import compute_target_binding
+from fdai_deployment_cli.trust_roots import (
+    deployment_bundle_root_pem,
+    deployment_release_root_pem,
+)
 from genesis_prepare_inputs import foundation_values
 from genesis_subprocess import run_with_heartbeat
 
@@ -50,6 +55,10 @@ class PreparedGenesis:
     target_binding: str
     run_binding: str
     kit_manifest_digest: str
+    offline_kit: Path
+    release_root: Path
+    bundle_public_key: Path
+    terraform: Path
 
 
 def prepare_genesis(
@@ -172,6 +181,117 @@ def prepare_genesis(
         target_binding=target_binding,
         run_binding=run_binding,
         kit_manifest_digest=verification.manifest_digest,
+        offline_kit=stage / "kit",
+        release_root=stage / "release-root.pub",
+        bundle_public_key=stage / "bundle-key.pub",
+        terraform=stage / "kit/terraform/terraform",
+    )
+
+
+def prepare_standalone_genesis(
+    *,
+    deployment_kit: DeploymentKit,
+    tenant_id: str,
+    subscription_id: str,
+    region: str,
+    monthly_cost_ceiling: int,
+    connectivity: str,
+    root: Path,
+) -> PreparedGenesis:
+    """Create target-bound inputs from an independently verified complete kit."""
+
+    source_commit = deployment_kit.source_commit
+    if (
+        connectivity not in {"online", "offline"}
+        or not re.fullmatch(r"[a-z][a-z0-9]+", region)
+        or type(monthly_cost_ceiling) is not int
+        or monthly_cost_ceiling <= 0
+    ):
+        raise ValueError("standalone Genesis preparation input is invalid")
+    _private_directory(root)
+    ssh_key = root / "runner_ed25519"
+    _ensure_ed25519_key(ssh_key, openssh=True)
+    ssh_public = root / "runner_ed25519.pub"
+    _ensure_ssh_public_key(ssh_key, ssh_public)
+    target_binding = compute_target_binding(
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+    )
+    run_binding = hashlib.sha256(
+        (
+            f"{tenant_id.lower()}:{subscription_id.lower()}:{region}:dev:"
+            "signed-kit:runner-image=true"
+        ).encode()
+    ).hexdigest()
+    profile_path = root / "profile.json"
+    desired_profile = ProvisionProfile(
+        environment="dev",
+        region=region,
+        target_binding=target_binding,
+        connectivity=connectivity,
+        host="managed-vm",
+        transport="manual",
+        access_method="bastion",
+        shadow_only=True,
+        approval_quorum=1,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+    )
+    if profile_path.exists():
+        if load_profile(profile_path) != desired_profile:
+            raise ValueError("existing Genesis profile differs from the requested deployment")
+    else:
+        write_profile(profile_path, desired_profile)
+    variables_path = root / "foundation-variables.json"
+    if variables_path.exists():
+        values = read_plan_input(variables_path)
+        if values.get("source_commit") != source_commit:
+            raise ValueError("existing Foundation variables use another source revision")
+    else:
+        values = foundation_values(
+            repository_root=deployment_kit.bundle_root,
+            source_commit=source_commit,
+            tenant_id=tenant_id,
+            subscription_id=subscription_id,
+            region=region,
+            target_binding=target_binding,
+            run_binding=run_binding,
+            ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384).decode("ascii").strip(),
+            execution_transport="manual",
+        )
+        write_plan_input(variables_path, values)
+    check = root / ".foundation-variables-check.json"
+    check.unlink(missing_ok=True)
+    try:
+        snapshot_foundation_input(
+            variables_path,
+            check,
+            expected_target_binding=target_binding,
+            expected_region=region,
+            expected_environment="dev",
+        )
+    finally:
+        check.unlink(missing_ok=True)
+    release_root = root / "deployment-release-root.pub"
+    bundle_root = root / "deployment-bundle-root.pub"
+    if not release_root.exists():
+        write_private_bytes(release_root, deployment_release_root_pem())
+    if not bundle_root.exists():
+        write_private_bytes(bundle_root, deployment_bundle_root_pem())
+    terraform = deployment_kit.materialized_root / deployment_kit.verification.terraform_binary
+    return PreparedGenesis(
+        root=root,
+        stage=deployment_kit.materialized_root,
+        profile=profile_path,
+        variables=variables_path,
+        ssh_private_key=ssh_key,
+        source_commit=source_commit,
+        target_binding=target_binding,
+        run_binding=run_binding,
+        kit_manifest_digest=deployment_kit.verification.manifest_digest,
+        offline_kit=deployment_kit.root,
+        release_root=release_root,
+        bundle_public_key=bundle_root,
+        terraform=terraform,
     )
 
 
@@ -377,9 +497,9 @@ def main() -> int:
                 "profile": str(prepared.profile),
                 "foundation_variables": str(prepared.variables),
                 "ssh_private_key": str(prepared.ssh_private_key),
-                "offline_kit": str(prepared.stage / "kit"),
-                "release_root": str(prepared.stage / "release-root.pub"),
-                "bundle_public_key": str(prepared.stage / "bundle-key.pub"),
+                "offline_kit": str(prepared.offline_kit),
+                "release_root": str(prepared.release_root),
+                "bundle_public_key": str(prepared.bundle_public_key),
                 "mutation_performed": False,
                 "subscription_ready": False,
             },

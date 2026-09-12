@@ -27,6 +27,7 @@ def foundation_values(
     target_binding: str,
     run_binding: str,
     ssh_public_key: str,
+    execution_transport: str = "github-actions",
 ) -> dict[str, object]:
     """Resolve independent exact image, unique name, and network inputs concurrently."""
 
@@ -66,21 +67,14 @@ def foundation_values(
         )
     if re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", version) is None:
         raise ValueError("Azure Marketplace image version is not exact")
-    toolchain_raw = subprocess.run(
-        [
-            "/usr/bin/git",
-            "show",
-            f"{source_commit}:infra/genesis-runner-image/toolchain.json",
-        ],
-        cwd=repository_root,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if toolchain_raw.returncode != 0:
+    toolchain_path = repository_root / "infra/genesis-runner-image/toolchain.json"
+    try:
+        toolchain_raw = toolchain_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError("runner image toolchain object is unavailable") from exc
+    if toolchain_path.is_symlink() or not toolchain_path.is_file():
         raise ValueError("runner image toolchain object is unavailable")
-    toolchain = json.loads(toolchain_raw.stdout)
+    toolchain = json.loads(toolchain_raw)
     if not isinstance(toolchain, dict):
         raise ValueError("runner image toolchain object is invalid")
     manifest = {
@@ -89,6 +83,8 @@ def foundation_values(
         "source_image_version": version,
         **{key: value for key, value in toolchain.items() if key != "schema_version"},
     }
+    if execution_transport == "manual":
+        manifest["execution_transport"] = "manual"
     toolchain_digest = canonical_digest(manifest)
     context_digest = canonical_digest(
         {
@@ -128,6 +124,7 @@ def foundation_values(
         "runner_vm_size": "Standard_D4ds_v5",
         "source_commit": source_commit,
         "run_digest": run_binding,
+        "execution_transport": execution_transport,
         "foundation_context_digest": context_digest,
     }
 

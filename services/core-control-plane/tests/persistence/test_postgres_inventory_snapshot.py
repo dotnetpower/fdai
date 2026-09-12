@@ -1255,7 +1255,6 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
     store = PostgresInventorySnapshotStore(config=config)
-    projector = PostgresInventoryDeltaProjector(config=config)
     context_provider = PostgresInventoryContextProvider(config=config)
 
     manifest = _manifest("arg")
@@ -1268,11 +1267,15 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
     )
     await store.promote(attempt, manifest)
     assert manifest.started_at is not None
+    projector = PostgresInventoryDeltaProjector(
+        config=config,
+        clock=lambda: manifest.started_at + timedelta(seconds=1),
+    )
 
     result = await projector(
         {
-            "event_id": "event-before-snapshot",
-            "idempotency_key": "inventory-before-snapshot",
+            "event_id": "event-before-snapshot-history-v4",
+            "idempotency_key": "inventory-before-snapshot-history-v4",
             "inventory_change": {
                 "kind": "upsert",
                 "resource": {
@@ -1293,3 +1296,71 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
     context = await context_provider("rg-stale/vm")
     assert context is not None
     assert context["props"] == {"name": "snapshot"}
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        journal = await connection.execute(
+            "SELECT count(*) FROM inventory_observation_journal "
+            "WHERE source_event_id='event-before-snapshot-history-v4'"
+        )
+        assert (await journal.fetchone()) == (1,)
+
+
+@pytest.mark.parametrize("present_in_snapshot", [True, False])
+async def test_snapshot_covered_delete_is_history_only(
+    present_in_snapshot: bool,
+) -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    context_provider = PostgresInventoryContextProvider(config=config)
+    resource_id = f"rg-stale/vm-delete-{present_in_snapshot}"
+
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    resources = (
+        (ResourceRecord(resource_id, "compute.vm", {"name": "snapshot"}),)
+        if present_in_snapshot
+        else ()
+    )
+    await store.stage(attempt, InventoryBatch(resources=resources))
+    await store.promote(attempt, manifest)
+    assert manifest.started_at is not None
+    event_id = f"event-delete-history-v4-{present_in_snapshot}"
+    projector = PostgresInventoryDeltaProjector(
+        config=config,
+        clock=lambda: manifest.started_at + timedelta(seconds=1),
+    )
+
+    result = await projector(
+        {
+            "event_id": event_id,
+            "idempotency_key": f"inventory-delete-history-v4-{present_in_snapshot}",
+            "inventory_change": {
+                "kind": "delete",
+                "observation_kind": "tombstone",
+                "tombstone_confirmed": False,
+                "resource": {
+                    "resource_id": resource_id,
+                    "type": "compute.vm",
+                    "props": {},
+                    "provider_ref": None,
+                    "last_seen": (manifest.started_at - timedelta(seconds=1)).isoformat(),
+                },
+                "links": [],
+            },
+        }
+    )
+
+    assert result.outcome is InventoryDeltaApplyOutcome.SNAPSHOT_COVERED
+    context = await context_provider(resource_id)
+    assert (context is not None) is present_in_snapshot
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        journal = await connection.execute(
+            "SELECT count(*) FROM inventory_observation_journal WHERE source_event_id=%s",
+            (event_id,),
+        )
+        pending = await connection.execute(
+            "SELECT count(*) FROM inventory_observation_pending_tombstone WHERE resource_id=%s",
+            (resource_id,),
+        )
+        assert (await journal.fetchone()) == (1,)
+        assert (await pending.fetchone()) == (0,)

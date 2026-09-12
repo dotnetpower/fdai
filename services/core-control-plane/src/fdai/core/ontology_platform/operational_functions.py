@@ -26,6 +26,7 @@ from .mysql_pressure_evidence import (
 )
 from .network_path import network_path_function_type
 from .pod_telemetry import pod_telemetry_function_type
+from .recent_resource_changes import recent_resource_changes_function_type
 from .relationship_queries import ontology_relationships_function_type
 from .release_diff_queries import ontology_release_diff_function_type
 from .resource_activity_queries import resource_activity_function_type
@@ -79,6 +80,7 @@ def operational_function_types(
         resource_class_closure_function_type(),
         pod_telemetry_function_type(),
         resource_activity_function_type(),
+        recent_resource_changes_function_type(),
         resource_current_state_function_type(),
         resource_configuration_function_type(),
         resource_configuration_snapshot_function_type(),

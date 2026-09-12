@@ -33,7 +33,7 @@ if [[ "$DEV_APPROVALS" != "0" && "$DEV_APPROVALS" != "1" ]]; then
   exit 2
 fi
 
-"$HERE/verify-azure-context.sh" "$SUB" "$TENANT"
+/bin/bash "$HERE/verify-azure-context.sh" "$SUB" "$TENANT"
 
 out() { terraform -chdir="$BS" output -raw "$1"; }
 

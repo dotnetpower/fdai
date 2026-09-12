@@ -153,6 +153,7 @@ def _factory(
     *,
     cfg: AzureResourceChangeFeedConfig | None = None,
     vocab: ResourceTypeRegistry | None = None,
+    allowed_resource_types: frozenset[str] | None = None,
 ) -> tuple[AzureResourceChangeFeed, httpx.AsyncClient, ResourceTypeRegistry]:
     vocabulary = vocab if vocab is not None else _vocab()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -161,6 +162,8 @@ def _factory(
         resource_types=vocabulary,
         http_client=client,
         config=cfg or _config(),
+        clock=lambda: datetime(2026, 7, 10, 6, 59, tzinfo=UTC),
+        allowed_resource_types=allowed_resource_types,
     )
     return feed, client, vocabulary
 
@@ -211,7 +214,7 @@ async def test_empty_cursor_uses_lookback_window() -> None:
         await client.aclose()
 
     assert result.events == ()
-    assert result.next_cursor == ""
+    assert result.next_cursor.endswith("\x1f__fdai_initial__")
     assert "changeTime > datetime(" in captured[0].content.decode("utf-8")
 
 
@@ -315,6 +318,88 @@ async def test_create_row_also_hydrates_as_upsert() -> None:
 
     assert len(result.events) == 1
     assert result.events[0].payload["inventory_change"]["kind"] == "upsert"
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_arm_type_is_resolved_from_hydrated_kind() -> None:
+    arm_type = "Microsoft.Web/sites"
+    arm_id = _arm_id(arm_type, "function-a")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [_hydration_row(arm_id=arm_id, arm_type=arm_type, kind="functionapp")]
+        )
+
+    feed, client, _ = _factory(_router(on_changes=on_changes, on_hydration=on_hydration))
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert result.events[0].payload["inventory_change"]["resource"]["type"] == "compute.function"
+
+
+@pytest.mark.parametrize(
+    ("allowed_type", "expected_count"),
+    [
+        ("compute.function", 1),
+        ("compute.web-app", 0),
+    ],
+)
+@pytest.mark.asyncio
+async def test_ambiguous_arm_type_is_filtered_after_kind_resolution(
+    allowed_type: str,
+    expected_count: int,
+) -> None:
+    arm_type = "Microsoft.Web/sites"
+    arm_id = _arm_id(arm_type, "function-filtered")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [_hydration_row(arm_id=arm_id, arm_type=arm_type, kind="functionapp")]
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+        allowed_resource_types=frozenset({allowed_type}),
+    )
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert len(result.events) == expected_count
+    if result.events:
+        assert (
+            result.events[0].payload["inventory_change"]["resource"]["type"] == "compute.function"
+        )
+    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 
 # ---------------------------------------------------------------------------
@@ -454,7 +539,7 @@ async def test_multiple_changes_to_one_resource_dedupe_to_the_latest() -> None:
 
 
 @pytest.mark.asyncio
-async def test_truncated_page_without_continuation_token_raises() -> None:
+async def test_truncated_page_without_continuation_token_advances_keyset_cursor() -> None:
     async def on_changes(_request: httpx.Request) -> httpx.Response:
         return _changes_response(
             [
@@ -470,10 +555,107 @@ async def test_truncated_page_without_continuation_token_raises() -> None:
 
     feed, client, _ = _factory(_router(on_changes=on_changes))
     try:
-        with pytest.raises(ArgResourceChangeError, match="truncated"):
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert len(result.events) == 1
+    assert result.next_cursor != ""
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("truncated", [True, "true"])
+async def test_empty_tokenless_truncated_page_remains_incomplete(
+    truncated: bool | str,
+) -> None:
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([], resultTruncated=truncated)
+
+    feed, client, _ = _factory(_router(on_changes=on_changes))
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert result.events == ()
+    assert result.next_cursor.endswith("\x1f__fdai_initial__")
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
+async def test_invalid_result_truncated_flag_fails_closed() -> None:
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([], resultTruncated="unknown")
+
+    feed, client, _ = _factory(_router(on_changes=on_changes))
+    try:
+        with pytest.raises(ArgResourceChangeError, match="resultTruncated flag was invalid"):
             await feed.poll("")
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_continuation_token_page_cap_advances_keyset_cursor() -> None:
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Delete",
+                    arm_id=_arm_id("Microsoft.Compute/virtualMachines", "a"),
+                )
+            ],
+            **{"$skipToken": "next-page"},
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes),
+        cfg=_config(page_size=1, max_pages=1),
+    )
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert len(result.events) == 1
+    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
+async def test_tokenless_truncated_page_resumes_without_duplicates() -> None:
+    async def on_changes(request: httpx.Request) -> httpx.Response:
+        query = str(json.loads(request.content)["query"])
+        change_id = "c2" if "strcmp(tostring(id), 'c1') > 0" in query else "c1"
+        return _changes_response(
+            [
+                _change_row(
+                    change_id=change_id,
+                    change_time=f"2026-07-10T06:00:0{int(change_id == 'c2')}Z",
+                    change_type="Delete",
+                    arm_id=_arm_id("Microsoft.Compute/virtualMachines", change_id),
+                )
+            ],
+            resultTruncated=change_id == "c1",
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes),
+        cfg=_config(page_size=1, max_pages=1),
+    )
+    try:
+        first = await feed.poll("")
+        second = await feed.poll(first.next_cursor)
+    finally:
+        await client.aclose()
+
+    assert first.complete is False
+    assert second.complete is True
+    assert first.next_cursor != second.next_cursor
+    assert len({event.idempotency_key for event in (*first.events, *second.events)}) == 2
 
 
 @pytest.mark.asyncio
@@ -522,13 +704,14 @@ async def test_resourcechanges_http_failure_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_hydration_fails_before_cursor_advance() -> None:
-    """A missing hydration cannot silently discard a potentially new resource."""
+async def test_missing_hydration_race_retains_cursor_for_retry() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
     arm_id = _arm_id(arm_type, "thing-vanished")
+    queries: list[str] = []
 
-    async def on_changes(_request: httpx.Request) -> httpx.Response:
+    async def on_changes(request: httpx.Request) -> httpx.Response:
+        queries.append(str(json.loads(request.content)["query"]))
         return _changes_response(
             [
                 _change_row(
@@ -548,7 +731,55 @@ async def test_missing_hydration_fails_before_cursor_advance() -> None:
         _router(on_changes=on_changes, on_hydration=on_hydration), vocab=vocab
     )
     try:
-        with pytest.raises(ArgResourceChangeError, match="did not resolve every mapped upsert"):
+        result = await feed.poll("")
+        retry = await feed.poll(result.next_cursor)
+    finally:
+        await client.aclose()
+
+    assert result.events == ()
+    assert result.next_cursor.endswith("\x1f__fdai_initial__")
+    assert result.complete is False
+    assert retry.next_cursor == result.next_cursor
+    assert queries[0] == queries[1]
+
+
+@pytest.mark.asyncio
+async def test_oversized_hydration_fails_before_cursor_advance() -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = _arm_id(arm_type, "thing-oversized")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _hydration_row(
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                    properties={"payload": "x" * 2_000},
+                )
+            ]
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+        vocab=vocab,
+        cfg=_config(max_props_bytes=1_024),
+    )
+    try:
+        with pytest.raises(ArgResourceChangeError, match="exceed the configured bound"):
             await feed.poll("")
     finally:
         await client.aclose()
@@ -767,6 +998,16 @@ def test_config_accepts_the_hydration_batch_cap_boundary() -> None:
     assert _config(max_hydration_batch=100).max_hydration_batch == 100
 
 
+def test_config_bounds_pending_event_batch() -> None:
+    with pytest.raises(ValueError, match=r"page_size \* max_pages MUST be <= 1000"):
+        _config(page_size=201, max_pages=5)
+
+
+def test_config_bounds_hydration_retries() -> None:
+    with pytest.raises(ValueError, match="max_hydration_retries"):
+        _config(max_hydration_retries=0)
+
+
 def test_config_rejects_zero_page_size() -> None:
     with pytest.raises(ValueError, match="page_size"):
         _config(page_size=0)
@@ -901,7 +1142,7 @@ async def test_forward_publishes_and_persists_cursor_on_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_forward_does_not_persist_cursor_when_the_poll_fails() -> None:
+async def test_forward_persists_initial_cursor_before_poll_failure() -> None:
     async def on_changes(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="boom")
 
@@ -921,7 +1162,15 @@ async def test_forward_does_not_persist_cursor_when_the_poll_fails() -> None:
         await client.aclose()
 
     saved = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
-    assert saved is None
+    assert saved == {
+        "complete": False,
+        "coverage_gap_at": None,
+        "cursor": "2026-07-10T05:59:00+00:00\x1f__fdai_initial__",
+        "hydration_retry_count": 0,
+        "last_event_cursor": None,
+        "pending_event_ids": [],
+        "published_event_count": 0,
+    }
     assert event_bus._records == {}
 
 
@@ -956,9 +1205,119 @@ async def test_forward_resumes_from_the_persisted_cursor() -> None:
     assert "strcmp(tostring(id), 'c1') > 0" in seen_cursors[0]
     saved = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
     assert saved == {
+        "complete": True,
+        "coverage_gap_at": None,
         "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "hydration_retry_count": 0,
+        "last_event_cursor": None,
         "last_polled_at": "2026-07-10T06:01:00+00:00",
+        "pending_event_ids": [],
+        "published_event_count": 0,
     }
+
+
+@pytest.mark.asyncio
+async def test_forward_preserves_an_uningested_batch_without_polling() -> None:
+    calls = 0
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _changes_response([])
+
+    class PendingFence:
+        async def contains(self, event_ids: tuple[str, ...]) -> bool:
+            assert event_ids == ("event-1",)
+            return False
+
+    feed, client, _ = _factory(_router(on_changes=on_changes))
+    state_store = InMemoryStateStore()
+    key = f"arg_resource_change_cursor:{_SCOPE}"
+    retained = {
+        "complete": True,
+        "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_event_cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_polled_at": "2026-07-10T06:01:00+00:00",
+        "pending_event_ids": ["event-1"],
+        "published_event_count": 1,
+    }
+    await state_store.write_state(key, retained)
+    try:
+        published = await forward_arg_resource_changes(
+            feed=feed,
+            state_store=state_store,
+            event_bus=InMemoryEventBus(),
+            topic="inventory.events",
+            scope=_SCOPE,
+            ingestion_fence=PendingFence(),
+        )
+    finally:
+        await client.aclose()
+
+    assert published == 0
+    assert calls == 0
+    assert await state_store.read_state(key) == retained
+
+
+@pytest.mark.asyncio
+async def test_forward_advances_after_bounded_hydration_retries_with_gap() -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = _arm_id(arm_type, "thing-vanished")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([])
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+        vocab=vocab,
+        cfg=_config(max_hydration_retries=2),
+    )
+    state_store = InMemoryStateStore()
+    try:
+        first = await forward_arg_resource_changes(
+            feed=feed,
+            state_store=state_store,
+            event_bus=InMemoryEventBus(),
+            topic="inventory.events",
+            scope=_SCOPE,
+            clock=lambda: datetime(2026, 7, 10, 6, 1, tzinfo=UTC),
+        )
+        first_state = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
+        second = await forward_arg_resource_changes(
+            feed=feed,
+            state_store=state_store,
+            event_bus=InMemoryEventBus(),
+            topic="inventory.events",
+            scope=_SCOPE,
+            clock=lambda: datetime(2026, 7, 10, 6, 2, tzinfo=UTC),
+        )
+    finally:
+        await client.aclose()
+
+    assert first == 0
+    assert first_state is not None
+    assert first_state["hydration_retry_count"] == 1
+    assert first_state["cursor"].endswith("\x1f__fdai_initial__")
+    assert second == 0
+    second_state = await state_store.read_state(f"arg_resource_change_cursor:{_SCOPE}")
+    assert second_state is not None
+    assert second_state["cursor"] == "2026-07-10T06:00:00+00:00\x1fc1"
+    assert second_state["coverage_gap_at"] == "2026-07-10T06:00:00+00:00"
+    assert second_state["hydration_retry_count"] == 0
 
 
 @pytest.mark.asyncio

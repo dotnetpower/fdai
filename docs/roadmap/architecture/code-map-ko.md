@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 199fbb9cf2bf5645a94877dccdf57ccd8df84ea5
-translation_revised: 2026-09-11
+translation_source_sha: e73b835bbd1e4765c23c74e3e28188cc7cf2e334
+translation_revised: 2026-09-12
 ---
 # 코드 맵
 
@@ -62,7 +62,7 @@ Core 배포 단위는 전체 `fdai` 네임스페이스를 유지합니다. 다�
 | Document Ingestion API | 업로드 접수, 커넥터 상태, 문서 정책, 수집 게시 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) 및 [설계](../interfaces/document-ingestion-ko.md) |
 | Document Processing Worker | 영속 추출, 광학 문자 인식, 인덱싱, 게시 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/) 및 [설계](../interfaces/document-lifecycle-governance-ko.md) |
 | Isolated Executor | Thor 소유 명령 처리, 공급자 효과, 실행 증적 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) 및 [설계](../decisioning/execution-model-ko.md) |
-| System Knowledge Service | 운영 권한 없이 release에 연결된 저장소 지식 검색 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/) 및 [설계](../interfaces/system-knowledge-service-ko.md) |
+| System Knowledge Service | 상호 배타적인 Bot Framework 또는 HMAC 인증 Outgoing Webhook 멘션 유입을 통한 release 연결 저장소 지식 검색, 운영 권한 없음 | [패키지](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/) 및 [설계](../interfaces/system-knowledge-service-ko.md) |
 | Cost Governance 확장 | 선택적으로 독립 패키지화한 비용 분석과 정책 통합 | [패키지](../../../extensions/cost-governance/src/fdai_cost_governance/) 및 [설계](finops-package-architecture-ko.md) |
 | Console | Operator Service 계약을 사용하는 간결한 운영자 단일 페이지 애플리케이션 | [패키지](../../../console/) 및 [설계](../interfaces/operator-console-ko.md) |
 

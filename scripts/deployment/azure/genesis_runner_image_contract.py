@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 from collections import Counter
@@ -40,9 +41,22 @@ _TOOLCHAIN_FIELDS = {
     "microsoft_package_key_fingerprint",
     "opa_sha256",
     "opa_version",
+    "oras_binary_sha256",
+    "oras_sha256",
+    "oras_version",
     "terraform_binary_sha256",
     "terraform_sha256",
     "terraform_version",
+}
+_LEGACY_TOOLCHAIN_FIELDS = _TOOLCHAIN_FIELDS - {
+    "oras_binary_sha256",
+    "oras_sha256",
+    "oras_version",
+}
+_ORAS_DEFAULTS = {
+    "oras_binary_sha256": "90d7256c6209ffb8e2c6a2d3e14388cb41f9d0583a99116f2649f56df9854f53",
+    "oras_sha256": "b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827",
+    "oras_version": "1.2.3",
 }
 _EXPECTED_CREATE_ADDRESSES = frozenset(
     {
@@ -159,22 +173,24 @@ def load_runner_image_inputs(
     source_commit = str(foundation["source_commit"])
     if re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
         raise ValueError("runner image source commit is invalid")
-    toolchain_blob = subprocess.run(
-        [
-            "/usr/bin/git",
-            "show",
-            f"{source_commit}:infra/genesis-runner-image/toolchain.json",
-        ],
-        cwd=repository_root,
-        check=False,
-        capture_output=True,
-        timeout=30,
-    )
-    if toolchain_blob.returncode != 0:
-        raise ValueError("runner image toolchain object is unavailable")
-    toolchain = load_json_object(
-        toolchain_blob.stdout, label="runner image toolchain", max_bytes=65_536
-    )
+    if os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE") is not None:
+        toolchain_raw = (repository_root / "infra/genesis-runner-image/toolchain.json").read_bytes()
+    else:
+        toolchain_blob = subprocess.run(
+            [
+                "/usr/bin/git",
+                "show",
+                f"{source_commit}:infra/genesis-runner-image/toolchain.json",
+            ],
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        if toolchain_blob.returncode != 0:
+            raise ValueError("runner image toolchain object is unavailable")
+        toolchain_raw = toolchain_blob.stdout
+    toolchain = load_json_object(toolchain_raw, label="runner image toolchain", max_bytes=65_536)
     _validate_toolchain(toolchain)
     if profile.monthly_cost_ceiling < _MONTHLY_FIXED_COST_UPPER_BOUND_USD:
         raise ValueError(
@@ -189,6 +205,7 @@ def load_runner_image_inputs(
         "region_short": foundation["region_short"],
         "source_commit": foundation["source_commit"],
         "run_digest": foundation["run_digest"],
+        "execution_transport": foundation.get("execution_transport", "github-actions"),
         "runner_ssh_public_key": foundation["runner_ssh_public_key"],
         "build_address_space": foundation["build_address_space"],
         "build_subnet_prefix": foundation["build_subnet_prefix"],
@@ -203,6 +220,8 @@ def load_runner_image_inputs(
         "source_image_version": variables.get("source_image_version"),
         **{key: value for key, value in toolchain.items() if key != "schema_version"},
     }
+    if variables["execution_transport"] == "manual":
+        manifest["execution_transport"] = "manual"
     return RunnerImageInputs(
         terraform_values=variables,
         target_binding=profile.target_binding,
@@ -242,12 +261,17 @@ def add_source_image_version(
                 "microsoft_package_key_fingerprint",
                 "opa_sha256",
                 "opa_version",
+                "oras_binary_sha256",
+                "oras_sha256",
+                "oras_version",
                 "terraform_binary_sha256",
                 "terraform_sha256",
                 "terraform_version",
             }
         },
     }
+    if values["execution_transport"] == "manual":
+        manifest["execution_transport"] = "manual"
     return RunnerImageInputs(
         terraform_values=values,
         target_binding=inputs.target_binding,
@@ -265,6 +289,27 @@ def snapshot_terraform_root(source: Path, destination: Path, *, source_commit: s
     """Copy a link-free Terraform root and return its exact content digest."""
     if re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
         raise ValueError("runner image source commit is invalid")
+    if os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE") is not None:
+        if source.is_symlink() or not source.is_dir() or destination.exists():
+            raise ValueError("signed runner image Terraform root is invalid")
+        destination.mkdir(mode=0o700)
+        files = sorted(path for path in source.rglob("*") if path.is_file())
+        if not files:
+            raise ValueError("signed runner image Terraform root has no files")
+        for entry in sorted(source.rglob("*")):
+            details = entry.lstat()
+            if stat.S_ISLNK(details.st_mode) or not (
+                stat.S_ISDIR(details.st_mode) or stat.S_ISREG(details.st_mode)
+            ):
+                raise ValueError("signed runner image Terraform root is unsafe")
+            target = destination / entry.relative_to(source)
+            if stat.S_ISDIR(details.st_mode):
+                target.mkdir(mode=0o700, exist_ok=True)
+                continue
+            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            shutil.copyfile(entry, target)
+            target.chmod(0o700 if details.st_mode & stat.S_IXUSR else 0o600)
+        return hash_tree(destination)
     repository_root = source.parents[1]
     relative_root = source.relative_to(repository_root)
     completed = subprocess.run(
@@ -395,6 +440,10 @@ def create_review(
     effect_summary = {
         "egress_class": "fqdn-allowlisted-firewall-basic",
         "public_ip_count": retained_types["azurerm_public_ip"],
+        "policy_managed_fields": [
+            "azurerm_public_ip.firewall.ip_tags",
+            "azurerm_public_ip.firewall_management.ip_tags",
+        ],
         "retained_type_counts": dict(sorted(retained_types.items())),
         "monthly_fixed_cost_upper_bound_usd": _MONTHLY_FIXED_COST_UPPER_BOUND_USD,
         "approved_monthly_cost_ceiling_usd": inputs.monthly_cost_ceiling,
@@ -602,6 +651,8 @@ def _foundation_image_values(
             "runner_image_id",
             "state_ref",
             "effect_verified",
+            "public_ip_policy_effect_verified",
+            "terraform_zero_change_verified",
             "runner_registered",
             "mutation_performed",
             "subscription_ready",
@@ -610,6 +661,8 @@ def _foundation_image_values(
         or receipt.get("schema_version") != "fdai.genesis-runner-image-apply-receipt.v1"
         or receipt.get("state") != "applied"
         or receipt.get("effect_verified") is not True
+        or receipt.get("public_ip_policy_effect_verified") is not True
+        or receipt.get("terraform_zero_change_verified") is not True
         or receipt.get("runner_registered") is not False
         or receipt.get("mutation_performed") is not True
         or receipt.get("subscription_ready") is not False
@@ -743,6 +796,8 @@ def _foundation_image_values(
 
 
 def _validate_toolchain(value: dict[str, object]) -> None:
+    if set(value) == _LEGACY_TOOLCHAIN_FIELDS:
+        value.update(_ORAS_DEFAULTS)
     if (
         set(value) != _TOOLCHAIN_FIELDS
         or value["schema_version"] != "fdai.genesis-runner-toolchain.v1"
@@ -802,6 +857,15 @@ def _validate_projection(plan: dict[str, object], variables: dict[str, object]) 
         by_address, "azapi_resource_action.verifier_deallocate", "action", "deallocate"
     )
     _require_after_value(by_address, "azurerm_image.runner", "hyper_v_generation", "V2")
+    for address in (
+        "azurerm_public_ip.firewall",
+        "azurerm_public_ip.firewall_management",
+    ):
+        change = by_address[address]["change"]
+        after = change.get("after") if isinstance(change, dict) else None
+        ip_tags = after.get("ip_tags") if isinstance(after, dict) else None
+        if not isinstance(after, dict) or (ip_tags is not None and ip_tags != []):
+            raise ValueError("runner image plan attempts to author policy-managed IP tags")
     deprovision_change = by_address["azapi_resource.builder_deprovision"]["change"]
     deprovision_after = (
         deprovision_change.get("after") if isinstance(deprovision_change, dict) else None

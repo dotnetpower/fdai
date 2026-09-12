@@ -207,6 +207,17 @@ class _FailingTransitionWriter:
         raise RuntimeError("transition store unavailable")
 
 
+class _IncompleteCurrentStateReader:
+    async def read_inventory_state_base(
+        self,
+        *,
+        object_ids: tuple[str, ...],
+        expected_generation: str | None,
+    ) -> tuple[OntologyObjectRecord, ...]:
+        del object_ids, expected_generation
+        raise ValueError("inventory ontology state base generation is incomplete")
+
+
 async def test_complete_promotion_publishes_one_retained_topology_baseline() -> None:
     writer = _Writer()
     publisher = InventoryTopologyHistoryPublisher(
@@ -574,6 +585,74 @@ async def test_transition_derivation_rejects_mismatched_ontology_generation() ->
                 state_base_generation_checked=True,
             )
         )
+
+
+async def test_incomplete_ontology_base_falls_back_to_retained_topology_history() -> None:
+    previous_at = RECORDED_AT - timedelta(minutes=10)
+    previous = TopologyRevisionBatch(
+        revision_id="previous-incomplete-base",
+        provider_generation_ref="snapshot-materialized",
+        effective_at=previous_at,
+        recorded_at=previous_at,
+        complete_snapshot=True,
+        object_revisions=(
+            TopologyObjectRevision(
+                object_id="vm-1",
+                object_type="Resource",
+                properties_json=json.dumps(
+                    {
+                        "properties": _availability_properties(
+                            "Available",
+                            at=previous_at,
+                            generation="snapshot-materialized",
+                        )
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                effective_at=previous_at,
+                recorded_at=previous_at,
+                deleted=False,
+                evidence_ref="inventory-generation:snapshot-materialized",
+            ),
+        ),
+    )
+    transition_writer = _TransitionWriter()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=_Writer(),
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader((previous,)),
+        transition_writer=transition_writer,
+        current_state_reader=_IncompleteCurrentStateReader(),
+    )
+
+    await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="vm-1",
+                    type="compute.vm",
+                    props=_availability_properties(
+                        "Degraded",
+                        at=RECORDED_AT,
+                        generation="snapshot-1",
+                    ),
+                    last_seen=RECORDED_AT.isoformat(),
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=RECORDED_AT,
+            state_base_generation="snapshot-skipped",
+            state_base_generation_checked=True,
+        )
+    )
+
+    assert len(transition_writer.batches) == 1
+    transition = transition_writer.batches[0].transitions[0]
+    assert transition.from_state == "available"
+    assert transition.to_state == "degraded"
 
 
 async def test_same_promotion_has_one_deterministic_revision_identity() -> None:

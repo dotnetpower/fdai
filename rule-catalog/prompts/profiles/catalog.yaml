@@ -58,7 +58,7 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-judgment
-    version: 2
+    version: 3
     capability_id: semantic.judgment
     mode: active
     root: {id: semantic-judgment, version: 8, layer: base}
@@ -66,6 +66,7 @@ profiles:
       - {id: semantic-incident-action-guidance, version: 1, layer: pack}
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+      - {id: semantic-recent-resource-changes, version: 1, layer: pack}
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
@@ -187,11 +188,12 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: active.conversation-preflight
-    version: 1
+    version: 2
     capability_id: conversation.preflight
     mode: active
     root: {id: conversation-preflight, version: 8, layer: base}
-    packs: []
+    packs:
+      - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
     system_token_budget: 8192
     request_token_budget: 16384
     reserved_output_tokens: 768

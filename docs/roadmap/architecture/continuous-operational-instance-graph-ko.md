@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 3b60d40ad1fb16a0b70ec63081d511050aa52724
+translation_source_sha: e802210cfecea756842a665e2a87bcf8e85cabc3
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -51,7 +51,9 @@ translation_revised: 2026-09-12
   범위가 제한된 조회는 사용 가능한 범위의 검증된 양성 관측을 반환할 수 있지만 결과를
   불완전하게 유지하며, 누락 범위를 다른 관측이 없다는 증거로 취급하지 않습니다.
 - **조회와 쓰기 분리:** 공급자 관측과 온톨로지 변환 결과는 조회 플레인 작업입니다. 관리
-  리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다.
+  리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다. 독립 실행형
+  배포 호스트의 정확한 registry 범위 `AcrPush` 배정은 쓰기 플레인 전달 권한으로 유지됩니다.
+  이미지 가져오기와 다이제스트 재확인은 운영 그래프 사실이나 관측 권한을 만들지 않습니다.
 - **제한된 보존:** rollup 또는 archive 매니페스트가 완전한 원본 범위를 검증하고 적용되는
   보존 hold가 삭제를 허용한 후에만 hot 또는 warm 저장소에서 원시 데이터를 제거합니다.
 
@@ -111,7 +113,9 @@ ARM replica 검증과 짝 완전성을 평가하기 전에 정확한 엔드포�
 읽기가 끝난 뒤에만 평가합니다. 그런 다음 인벤토리 기록기는 `runtime_calls`를 변환하기 전에
 완전한 활성 세대, principal 범위, 최신성 예산 및 정확한 온톨로지 릴리스에 대해 두 엔드포인트
 ID를 다시 검사합니다. 검증 증적은 두 엔드포인트 Resource ID와 활성 세대의 Resource 형식을
-함께 결속합니다. KQL과 파싱한 엔드포인트 증표 값은 집중 contract 모듈에 격리하며 수집, ARM
+함께 결속합니다. Core 인벤토리 snapshot과 실시간 link constraint는 검토된 `runtime_calls`
+형식을 허용합니다. 롤백은 다시 만들 수 있는 해당 link만 삭제한 뒤 이전 constraint를 복원합니다.
+KQL과 파싱한 엔드포인트 증표 값은 집중 contract 모듈에 격리하며 수집, ARM
 검증, 축약 및 인증은 원본 어댑터에 유지합니다. 독립 서비스 런타임 호출 전환 guard는 일치하는 Container App의 고정 API
 또는 채널 경계 namespace 값만 허용하며 서로 바뀌거나 임의의 namespace는 계속 차단합니다.
 로컬 개발에는 Container Apps 로그 식별이 없으므로 edge를 날조하지 않고
@@ -132,6 +136,9 @@ Job 원본을 제어하므로 상태 이행이 수집을 조용히 제거할 수
 있는 새로운 정본 수집을 더 이상 차단하지 않습니다. 현재 수집의 변환이 불완전하면 실행은
 계속 실패합니다. 승격된 전체 스냅샷이 성능이 저하된 base를 건너뛰었다면 recovery는 변환 전에
 실제 현재 manifest 세대에 다시 결속합니다. manifest 세대가 없으면 계속 안전하게 실패합니다.
+선언한 상태 base가 ontology에 도달하지 못한 새로운 전체 스냅샷은 보존된 완전한 topology
+이력에서 전이를 파생할 수 있습니다. 이 fallback은 보존 이력이 있는 정확한 incomplete-base
+오류에만 적용하며 다른 generation 불일치는 계속 차단합니다.
 계획의 전체 JSON 변환 결과와 값 없는 요약은 범위가 제한된 계획 메타데이터를 봉인할 때까지
 현재 UID가 소유한 mode-0700 임시 디렉터리에 유지하며, 이후 두 비공개 파일을 제거합니다.
 PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 없는 별도의 principal-safe 변환
@@ -173,7 +180,8 @@ journal 기록은 완전성을 낮출 수 있지만 전역 또는 활성 범위 
 경계보다 앞으로 이동시킬 수 없습니다.
 PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하고 인벤토리 상태 기준의 완전성과
 객체 소유권 검증을 `postgres_ontology_records.py`에 통합합니다. 이 공통 레코드 검증 경계는
-다른 그래프 기록기나 권한 표면을 만들지 않습니다.
+다른 그래프 기록기나 권한 표면을 만들지 않습니다. 변경 feed 값 해석과 replay watermark 해석은
+순수 delivery helper에 유지하므로 모듈 분리는 cursor 진행, 완전성 또는 쓰기 권한을 바꾸지 않습니다.
 
 ### 비공개 네트워크 변경 가속
 
@@ -182,11 +190,47 @@ PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하�
 정렬하고 경계 중복을 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤 cursor를
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
-부재를 입증할 때까지 기다립니다. 부분 페이지나 매핑된 대상의 누락은 cursor와 overlay를 진행하지
-않으며, 반환된 미지원 공급자 형식은 명시적인 커버리지 공백으로 유지합니다.
+부재를 입증할 때까지 기다립니다. 연속 토큰이 없는 잘린 페이지는 같은 안정적인 keyset cursor로
+진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal에 나타날 때까지 기다립니다. 따라서
+snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로 잘못 표현되지 않으면서 생산자
+fence를 해제합니다. 구성된 페이지 크기와 페이지 수의 곱은 1,000개 ID로 제한된 내구성 있는
+fence 한도를 넘을 수 없습니다. 프로바이더가 여전히 잘림을 보고한 빈 페이지도 불완전한 상태를
+유지합니다. Transport는 문서화된 `resultTruncated`의 bool 및 문자열 형식만 허용하고 다른 값은
+거부합니다. 범위가 제한된 마지막 페이지에 연속 토큰이 남아 있으면 feed는 수집한 가장 오래된 행을
+불완전 상태로 반환하고 수신 fence가 해제된 뒤 안정적인 keyset cursor를 진행합니다.
+첫 폴링은 계산한 lookback 경계를 초기 cursor로 영속화하므로 불완전한 빈 응답이나 재조회 재시도가
+앞으로 이동하여 변경을 건너뛸 수 없습니다. 이 anchor는 첫 프로바이더 조회나 게시 전에 커밋되므로
+첫 시도가 실패해도 동일한 경계를 다시 사용합니다.
+Snapshot에 포함된 이벤트도 이력 전용 관측을
+추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
+있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
+현재 overlay를 변경하지 않습니다.
+재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
+해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
+카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
+실패시킵니다. 속성 payload 한도를 넘은 재조회도 잘린 전체 교체를 주장하지 않도록 게시하거나
+cursor를 진행하기 전에 실패시킵니다.
+해결되지 않은 재조회를 세 번 재시도한 뒤 feed는 범위가 제한된 페이지를 지나서 진행하고 누락된
+최신 변경 시각을 내구성 있는 coverage gap으로 기록합니다. 해당 gap과 겹치는 조회 기간은
+불완전하게 유지되며, 이후 기간은 feed를 영구적으로 막지 않고 복구할 수 있습니다.
+
+읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 인벤토리 범위를
+조회합니다. 수집과 동일한 `FDAI_INVENTORY_SCOPES` parser를 사용하며,
+`AZURE_SUBSCRIPTION_ID`는 기존 단일 범위 fallback으로만 사용합니다. ARG 생성, 업데이트, 삭제
+관측 또는 검토된 Event Grid Resource 변경 adapter가 만든
+작업 정보 포함 관측만 선택하며, 주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든
+정확한 이벤트 ID fence를 검증한
+뒤에만 완전한 결과로 보고합니다. 조회기는 요청 한도보다 한 행을 더 가져오며, 범위가 제한된
+부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다. 행, cursor 상태, journal fence
+근거는 하나의 읽기 전용 repeatable-read snapshot에서 읽고 모두 답변의 `known_at` 경계로
+제한합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
-mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구
+mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. `FDAI_INVENTORY_RESOURCE_TYPES`가
+수집을 제한하면 가속기는 먼저 전체 검토 vocabulary에서 ARM 유형과 `kind`를 확인한 다음 구성된
+중립 유형 allowlist를 적용합니다. 제외된 유형은 수신 fence에 들어가 전체 폴링을 막지 않으며,
+공유 ARM 유형은 너무 일찍 필터링된 registry 때문에 잘못 분류되지 않습니다. Azure Activity Log는
+감사 및 복구
 출처로 유지하고, 완전한 ARG 및 ARM reconciliation은 누락된 변경을 복구하고 하위 토폴로지를
 수집합니다. Resource Graph 변경 정보는 최종 일관성을 사용하므로 이 경로는 즉시성을 보장하는
 프로바이더 기능이 아니라 실시간에 가까운 처리입니다.

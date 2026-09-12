@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 from dataclasses import dataclass, replace
@@ -19,8 +20,10 @@ _ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT_DIR = _ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(_SCRIPT_DIR))
 
+import genesis_checks as genesis_checks_module  # noqa: E402
 import genesis_orchestrator as orchestrator  # noqa: E402
 import genesis_private_execution as private_execution  # noqa: E402
+from fdai_deployment_cli.bundle import extract_bundle_archive  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile  # noqa: E402
 from fdai_deployment_cli.profile import write_profile  # noqa: E402
 from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
@@ -127,6 +130,37 @@ def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
         "Microsoft.DBforMySQL",
         "Microsoft.Web",
     }.isdisjoint(expected)
+
+
+def test_signed_kit_source_evidence_requires_no_git_or_github(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = "a" * 40
+    monkeypatch.setenv(
+        "FDAI_SIGNED_SOURCE_EVIDENCE",
+        json.dumps(
+            {
+                "source_commit": source,
+                "kit_manifest_digest": "b" * 64,
+                "bundle_manifest_digest": "c" * 64,
+                "runtime_release_digest": "d" * 64,
+            }
+        ),
+    )
+    original = genesis_checks_module.trusted_tool
+
+    def trusted_tool(name: str) -> str:
+        if name in {"git", "gh"}:
+            raise AssertionError(f"standalone source verification requested {name}")
+        return original(name)
+
+    monkeypatch.setattr(genesis_checks_module, "trusted_tool", trusted_tool)
+    checks = GenesisChecks(_ROOT)
+
+    checks.verify_source(source_commit=source, repository=None, apply=True)
+
+    with pytest.raises(CheckError, match="signed_source_revision_mismatch"):
+        checks.verify_source(source_commit="e" * 40, repository=None, apply=True)
 
 
 def test_provider_preview_reports_every_missing_namespace_without_mutation() -> None:
@@ -698,7 +732,7 @@ def test_mutation_enabled_toolchain_prepares_access_tools_first(
     assert calls[0] == ("verify", True)
     arguments, reason, timeout, capture = calls[1][1]
     assert arguments == (
-        "/usr/bin/bash",
+        instance.checks.bash,
         str(_ROOT / "scripts/deployment/azure/prepare-genesis-access-tools.sh"),
     )
     assert reason == "azure_access_tool_preparation_failed"
@@ -1006,7 +1040,10 @@ def test_public_preview_is_noninteractive_and_never_sets_apply_confirmation(
 
     assert len(calls) == 2
     preview_arguments, preview_environment = calls[1]
-    assert preview_arguments[-1].endswith("/scripts/deployment/azure/azd-up.sh")
+    assert preview_arguments == (
+        instance.checks.bash,
+        str(_ROOT / "scripts/deployment/azure/azd-up.sh"),
+    )
     assert preview_environment is not None
     assert preview_environment["FDAI_AZD_CONFIRM"] == "0"
     assert preview_environment["FDAI_AZURE_REGION"] == "koreacentral"
@@ -1027,6 +1064,7 @@ def test_policy_route_is_rejected_without_verified_probe_cleanup(
     ) -> None:
         del timeout, env
         assert capture is True
+        assert arguments[0] == instance.checks.bash
         output = Path(arguments[arguments.index("--output-file") + 1])
         output.write_text(
             json.dumps(
@@ -1139,11 +1177,30 @@ class PolicyProbeExecution:
     invocations: str
 
 
+def _normalized_policy_bundle(tmp_path: Path) -> Path:
+    source = tmp_path / "bundle-source"
+    policy_script = source / "bundle/infra/bootstrap/preflight-policy-check.sh"
+    verifier = source / "bundle/scripts/deployment/azure/verify-azure-context.sh"
+    policy_script.parent.mkdir(parents=True)
+    verifier.parent.mkdir(parents=True)
+    shutil.copyfile(_ROOT / "infra/bootstrap/preflight-policy-check.sh", policy_script)
+    shutil.copyfile(_ROOT / "scripts/deployment/azure/verify-azure-context.sh", verifier)
+    archive = tmp_path / "bundle.tar.gz"
+    with tarfile.open(archive, "w:gz") as stream:
+        stream.add(source / "bundle", arcname="bundle")
+    bundle = extract_bundle_archive(archive, tmp_path / "bundle-extracted")
+    assert (bundle / "infra/bootstrap/preflight-policy-check.sh").stat().st_mode & 0o777 == 0o600
+    extracted_verifier = bundle / "scripts/deployment/azure/verify-azure-context.sh"
+    assert extracted_verifier.stat().st_mode & 0o777 == 0o600
+    return bundle
+
+
 def _run_policy_probe(
     tmp_path: Path,
     *,
     group_exists: bool = False,
     deleted_key_vault_exists: bool = False,
+    normalized_bundle_modes: bool = False,
     environment: dict[str, str] | None = None,
 ) -> PolicyProbeExecution:
     fake_bin = tmp_path / "bin"
@@ -1172,15 +1229,23 @@ def _run_policy_probe(
         "FAKE_KV_DELETED_STATE": str(deleted_key_vault_state),
         **(environment or {}),
     }
+    policy_script = _ROOT / "infra/bootstrap/preflight-policy-check.sh"
+    command = [str(policy_script)]
+    cwd = _ROOT
+    if normalized_bundle_modes:
+        bundle = _normalized_policy_bundle(tmp_path)
+        policy_script = bundle / "infra/bootstrap/preflight-policy-check.sh"
+        command = ["bash", str(policy_script)]
+        cwd = bundle
     result = subprocess.run(  # noqa: S603 - controlled repository script
         [
-            str(_ROOT / "infra/bootstrap/preflight-policy-check.sh"),
+            *command,
             "--run-id",
             "abcdef123456",
             "--output-file",
             str(output),
         ],
-        cwd=_ROOT,
+        cwd=cwd,
         env=env,
         capture_output=True,
         text=True,
@@ -1221,6 +1286,47 @@ def test_policy_probe_routes_from_effective_posture_and_verifies_cleanup(
     assert execution.invocations.index("group delete") < execution.invocations.index(
         "keyvault purge"
     )
+
+
+def test_policy_probe_runs_from_secure_normalized_bundle_modes(tmp_path: Path) -> None:
+    execution = _run_policy_probe(tmp_path, normalized_bundle_modes=True)
+
+    assert execution.result.returncode == 0, execution.result.stderr
+    payload = json.loads(execution.output.read_text(encoding="utf-8"))
+    assert payload["state"] == "ready"
+    assert payload["cleanup_complete"] is True
+
+
+def test_policy_orchestrator_runs_secure_normalized_bundle_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = _normalized_policy_bundle(tmp_path)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _write_fake_az(fake_bin / "az")
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(mode=0o700)
+    calls = tmp_path / "calls"
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "FAKE_AZ_CALLS": str(calls),
+        "FAKE_GROUP_STATE": str(tmp_path / "group"),
+        "FAKE_KV_STATE": str(tmp_path / "key-vault"),
+        "FAKE_KV_DELETED_STATE": str(tmp_path / "deleted-key-vault"),
+    }
+    monkeypatch.setattr(os, "environ", env)
+    instance = _new_orchestrator(
+        tmp_path,
+        monkeypatch,
+        config=replace(_config(tmp_path), repository_root=bundle),
+    )
+
+    route = instance._probe_policy_route()
+
+    assert route == "public-dev"
+    assert instance.store.policy_report is not None
+    assert instance.store.policy_report["cleanup_complete"] is True
 
 
 def test_policy_probe_creates_independent_resources_concurrently(tmp_path: Path) -> None:

@@ -41,6 +41,14 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
     "query.contextual_resources": frozenset({"Resource"}),
     "query.resource_health_inventory": frozenset({"Resource", "query.resource_health_inventory"}),
     "query.resource_current_state": frozenset({"Resource", "query.resource_current_state"}),
+    "query.resource_change_activity": frozenset(
+        {
+            "Resource",
+            "query.resource_change_activity",
+            "query.recent_resource_changes",
+            "query.resource_state_transitions",
+        }
+    ),
     "query.resource_event_history": frozenset({"Resource", "query.resource_event_history"}),
     "query.resource_state_inventory": frozenset({"Resource", "query.resource_state_inventory"}),
     "query.subscription_scope_identity": frozenset({"query.subscription_scope_identity"}),

@@ -86,6 +86,18 @@ variable "run_digest" {
   }
 }
 
+variable "execution_transport" {
+  description = "Execution transport installed in the image. Manual hosts contain no GitHub runner software."
+  type        = string
+  default     = "github-actions"
+  nullable    = false
+
+  validation {
+    condition     = contains(["manual", "github-actions"], var.execution_transport)
+    error_message = "execution_transport must be manual or github-actions."
+  }
+}
+
 variable "source_image_version" {
   description = "Exact Canonical Ubuntu 24.04 server Marketplace version. Mutable latest is prohibited."
   type        = string
@@ -182,6 +194,42 @@ variable "opa_sha256" {
   validation {
     condition     = can(regex("^[0-9a-f]{64}$", var.opa_sha256))
     error_message = "opa_sha256 must be a lowercase SHA-256 digest."
+  }
+}
+
+variable "oras_version" {
+  description = "Exact ORAS version used for authenticated OCI archive import."
+  type        = string
+  default     = "1.2.3"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.oras_version))
+    error_message = "oras_version must be an exact semantic version."
+  }
+}
+
+variable "oras_sha256" {
+  description = "SHA-256 of the exact official Linux x64 ORAS archive."
+  type        = string
+  default     = "b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.oras_sha256))
+    error_message = "oras_sha256 must be a lowercase SHA-256 digest."
+  }
+}
+
+variable "oras_binary_sha256" {
+  description = "SHA-256 of the ORAS executable extracted from the authenticated archive."
+  type        = string
+  default     = "90d7256c6209ffb8e2c6a2d3e14388cb41f9d0583a99116f2649f56df9854f53"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.oras_binary_sha256))
+    error_message = "oras_binary_sha256 must be a lowercase SHA-256 digest."
   }
 }
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import stat
 import subprocess
@@ -9,6 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from fdai_deployment_cli import deployment_kit
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from test_oci_archive import make_archive
@@ -166,6 +168,12 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
         "deployment_support": payload("deployment-support", image=False),
     }
     (kit / "runtime/release.json").write_bytes(canonical_bytes(runtime))
+    support_inventory = kit / "support/python/inventory.json"
+    support_inventory.parent.mkdir(parents=True)
+    support_inventory.write_text("{}\n", encoding="utf-8")
+    support_wheel = kit / "support/python/wheels/example/example-0.1-py3-none-any.whl"
+    support_wheel.parent.mkdir(parents=True)
+    support_wheel.write_bytes(b"synthetic support wheel")
     _sign_kit(kit, key)
     return kit, key, public
 
@@ -190,6 +198,109 @@ def _prepare(
         cli_version="0.1.0",
         platform_tag="linux-x86_64",
     )
+
+
+def test_standalone_offline_kit_uses_package_roots_and_complete_runtime(
+    tmp_path: Path,
+    release: tuple[Path, Ed25519PrivateKey, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit, _key, public = release
+    monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
+    work = tmp_path / "standalone"
+    work.mkdir(mode=0o700)
+
+    verified = deployment_kit.acquire_deployment_kit(
+        work_dir=work,
+        online=False,
+        offline_kit=kit,
+    )
+
+    assert verified.source_commit == COMMIT
+    assert verified.runtime.schema_version == "fdai.runtime-release.v2"
+    assert verified.bundle_manifest_digest
+
+
+def test_standalone_transport_archive_rechecks_signed_files(
+    tmp_path: Path,
+    release: tuple[Path, Ed25519PrivateKey, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit, _key, public = release
+    monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
+    work = tmp_path / "standalone"
+    work.mkdir(mode=0o700)
+    verified = deployment_kit.acquire_deployment_kit(
+        work_dir=work,
+        online=False,
+        offline_kit=kit,
+    )
+    archive = tmp_path / "transport.tar.gz"
+
+    digest = deployment_kit.archive_verified_kit(verified, archive)
+
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == digest
+    assert stat.S_IMODE(archive.stat().st_mode) == 0o600
+    with tarfile.open(archive, "r:gz") as payload:
+        assert "kit/offline-kit.json" in payload.getnames()
+
+    changed = replace(
+        verified,
+        verification=replace(verified.verification, manifest_digest="f" * 64),
+    )
+    with pytest.raises(ValueError, match="transport archive is invalid"):
+        deployment_kit.archive_verified_kit(changed, archive)
+
+
+def test_online_kit_rejects_unapproved_release_host(tmp_path: Path) -> None:
+    work = tmp_path / "online"
+    work.mkdir(mode=0o700)
+
+    with pytest.raises(ValueError, match="approved HTTPS release host"):
+        deployment_kit.acquire_deployment_kit(
+            work_dir=work,
+            online=True,
+            offline_kit=None,
+            online_url="https://example.com/fdai.tar.gz",
+        )
+
+
+def test_online_download_accepts_official_release_asset_redirect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Response(io.BytesIO):
+        def geturl(self) -> str:
+            return "https://release-assets.githubusercontent.com/github-production-release-asset"
+
+    monkeypatch.setattr(
+        deployment_kit.urllib.request,
+        "urlopen",
+        lambda _request, timeout: Response(b"signed release archive"),
+    )
+    destination = tmp_path / "download.tar.gz"
+
+    deployment_kit._download(
+        "https://github.com/dotnetpower/fdai/releases/download/v1/kit.tar.gz",
+        destination,
+    )
+
+    assert destination.read_bytes() == b"signed release archive"
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://release-assets.githubusercontent.com:8443/kit.tar.gz",
+        "https://operator@release-assets.githubusercontent.com/kit.tar.gz",
+        "https://release-assets.githubusercontent.com.evil.example/kit.tar.gz",
+    ),
+)
+def test_online_download_rejects_noncanonical_release_asset_urls(tmp_path: Path, url: str) -> None:
+    with pytest.raises(ValueError, match="approved HTTPS release host"):
+        deployment_kit._download(url, tmp_path / "download.tar.gz")
 
 
 def test_preparation_snapshots_complete_release_without_execution(

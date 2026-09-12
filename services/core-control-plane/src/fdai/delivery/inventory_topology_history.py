@@ -311,10 +311,17 @@ class InventoryTopologyHistoryPublisher:
         if self._current_state_reader is not None:
             object_ids = tuple(item.id for item in objects if item.object_type == "Resource")
             if observation.state_base_generation_checked:
-                return await self._current_state_reader.read_inventory_state_base(
-                    object_ids=object_ids,
-                    expected_generation=observation.state_base_generation,
-                )
+                try:
+                    return await self._current_state_reader.read_inventory_state_base(
+                        object_ids=object_ids,
+                        expected_generation=observation.state_base_generation,
+                    )
+                except ValueError as exc:
+                    if (
+                        str(exc) != "inventory ontology state base generation is incomplete"
+                        or not previous_batches
+                    ):
+                        raise
         if not previous_batches or observation.recorded_at is None:
             return ()
         return tuple(

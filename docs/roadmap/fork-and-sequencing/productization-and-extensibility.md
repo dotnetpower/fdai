@@ -44,7 +44,7 @@ background work gains durable ledgers and bounded failover.
 | P0-05 | Static deployment preflight | Implemented | Deterministic input, Terraform plan JSON, live Azure Policy/quota/identity/secret, and bounded runner TLS egress pass with hash-only evidence and fail-closed errors |
 | P0-06 | Remote plan submission | Implemented | Doctor-gated plan-only dispatch, exact-commit guard, private immutable binary plan, sanitized metadata status, digest/expiry, and bounded cleanup pass without target ids in transport artifacts |
 | P0-07 | Exact-plan apply | Implemented | Protected plan requires complete enforce-mode Policy/quota/identity/secret check coverage plus bounded egress evidence; separate immutable evidence digests are restored and verified before claim, approval-gated apply, convergence, migrations, health, and receipt |
-| P0-08 | Signed deployment bundle | Implemented | Tracked allowlist, deterministic CycloneDX build/archive, external Ed25519 signing, double-build byte comparison, verifier round-trip, approval-gated artifact, and optional GitHub Release publication pass |
+| P0-08 | Signed deployment bundle | Partial | Tracked allowlist, deterministic CycloneDX build/archive, external Ed25519 signing, and verifier round-trip pass; reproducible double-build verification and approval-gated publication remain open |
 | P0-09 | Local security audit | Implemented | Stable findings cover auth bypass, Entra config, execution flags, sandbox readiness, and config hygiene |
 | P0-10 | Narrow security auto-fix | Implemented | Only regular-file `0600` and parent-directory `0700` changes are allowed |
 | P0-11 | Bidirectional channel contract | Implemented | Bounded `InboundTurn` and thread-preserving `OutboundResponse` pass protocol tests |
@@ -60,7 +60,7 @@ background work gains durable ledgers and bounded failover.
 | P0-21 | Invariant-safe T2 primary failover | Implemented | Each same-publisher candidate is tried at most once; all-failed still routes to review |
 | P0-22 | Typed external RPC and client contract | Implemented | Scoped discovery, strict HTTP correlation, SHA-256 PostgreSQL claim/replay CAS, deterministic compilable Python stubs, built-in tool methods, and explicit standalone production composition pass |
 | P0-23 | Governed sandbox profiles | Implemented | Default-deny command, VM-task, MCP/tool, and document-converter profiles enforce server-owned capability, mode, suffix, timeout, workspace/network, and byte ceilings at concrete adapter boundaries |
-| P0-24 | Full release verification | Implemented | Approval-gated release waits for clean-checkout full and productization gates, disposable pgvector migration/integration tests, pinned dependency audit, clean-tree confirmation, reproducible signed bundle verification, and optional GitHub Release publication |
+| P0-24 | Full release verification | Partial | Local release scripts cover bounded construction and verification; a protected workflow must still enforce clean-checkout full and productization gates, disposable pgvector migration/integration tests, pinned dependency audit, clean-tree confirmation, reproducible signed bundle verification, and optional GitHub Release publication |
 
 ## P1 operational experience
 
@@ -185,14 +185,17 @@ bash scripts/quality/repository/check-punctuation.sh
 
 Release batches additionally run `scripts/verify.sh --all` from a clean checkout, build the wheel
 and deployment bundle, install the wheel in an isolated environment, verify signatures, and run
-migration upgrade checks against a disposable PostgreSQL database. The release workflow enforces
-this sequence before its Environment can expose the signing key; a separate dependency audit must
-also pass, and only the gated bundle job receives repository write permission.
+migration upgrade checks against a disposable PostgreSQL database. A future protected release
+workflow must enforce this sequence before its Environment can expose the signing key, require a
+separate dependency audit, and grant repository write permission only to the gated publication
+job. The current automatic-version workflow publishes version metadata and a tag; it does not
+enforce these release-batch checks or publish the deployment bundle.
 
 Run `scripts/deployment/release/verify-productization.sh` for the executable productization gate. It covers the
-subsystems in this plan, verifies that Alembic has one head, builds the wheel, and launches
-`fdaictl version --output json` through an isolated `uvx` install. It does not replace the full
-repository gate or a live disposable-database migration run.
+subsystems in this plan, verifies that Alembic has one head, runs the package tests, and builds the
+wheel. A separate focused integration test exercises `fdaictl version --output json` through the
+package project environment. Neither path installs that wheel or replaces the full repository
+gate, release-batch isolated install, or a live disposable-database migration run.
 
 ## Related docs
 

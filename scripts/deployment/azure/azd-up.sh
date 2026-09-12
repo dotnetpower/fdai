@@ -657,7 +657,7 @@ if [[ "$CONFIRM" == "1" && -n "$(git -C "$REPO_ROOT" status --porcelain --untrac
   fail "apply requires a clean checkout so the built image matches the source revision"
 fi
 
-"$HERE/verify-azure-context.sh" "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
+/bin/bash "$HERE/verify-azure-context.sh" "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 [[ "$(az cloud show --query name --output tsv --only-show-errors)" == "AzureCloud" ]] || {
   fail "the direct path currently supports Azure public cloud only"
 }

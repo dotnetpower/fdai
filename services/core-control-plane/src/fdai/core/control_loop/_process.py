@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
-from datetime import UTC, datetime
 from typing import Any, cast
 
 from fdai.core.control_loop._helpers import (
@@ -355,7 +354,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
                 host._change_safety_evidence_provider,
                 event=event,
                 action=action,
-                evaluated_at=datetime.now(tz=UTC),
+                evaluated_at=host._clock(),
             )
             pre_authority_evidence.append(evidence_decision)
             evidence = evidence_decision.evidence

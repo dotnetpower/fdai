@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 177c8e67db51dd9faa8a9552a76224e4e961066a
+translation_source_sha: 34c4d2cd95028e3e779b3e31e82e179d0620132d
 translation_revised: 2026-09-12
 ---
 
@@ -127,8 +127,9 @@ Genesis는 도구 체인 단계에서 안정적인 Bastion 및 Microsoft Entra S
   apply를 승인하지 않습니다. 정확한 계획 적용은 별도 승인 작업으로 유지됩니다.
 - VNet에 연결된 runner에서 검증된 5개 service root를 독립적으로 배포합니다. 배포 gate가
   적용된 시스템 지식 서비스는 별도 `system-knowledge-deploy.yml` plan/apply workflow, Blob
-  claim state, Azure Bot 및 배포 전용 Graph installer identity를 사용합니다. Isolated
-  Executor만 작업별 효과 역할을 받을 수 있습니다.
+  claim state를 사용합니다. Bot Framework는 Azure Bot과 배포 전용 Graph 설치를 추가합니다.
+  Outgoing Webhook 대안은 두 resource 없이 `bootstrap` 후 HMAC이 결속된 `enable` transition을
+  사용합니다. Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
 - 단독 유지관리자 저장소에서는 `DEV_DEPLOY_REQUIRED_APPROVALS=0` 저장소 변수를 설정해
   검토자 없이 직접 `dev` 적용을 실행합니다. `dev` 환경에는 검토자 규칙을 두지 않고 관리자
   우회를 비활성화하세요. 스테이징, 운영 및 봇 소유 적용 경로는 독립 검토자 한 명을 계속

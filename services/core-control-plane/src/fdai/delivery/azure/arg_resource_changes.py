@@ -75,7 +75,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 from urllib.parse import urlparse
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 import httpx
 
@@ -87,6 +87,44 @@ from fdai.delivery.azure.arg_projection import (
     resource_operational_status,
     to_neutral_id,
     truncate_props,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    ArgResourceChangeError,
+    ResourceChangeFeedResult,
+    ResourceChangeIngestionFence,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    ChangeRow as _ChangeRow,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    HydrationResult as _HydrationResult,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    coverage_gap_at as _coverage_gap_at,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    decode_cursor as _decode_cursor,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    encode_cursor as _encode_cursor,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    event_uuid as _event_uuid,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    hydration_retry_count as _hydration_retry_count,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    operational_status_change as _operational_status_change,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    parse_ts as _parse_ts,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    pending_event_ids as _pending_event_ids,
+)
+from fdai.delivery.azure.arg_resource_change_support import (
+    with_nested_value as _with_nested_value,
 )
 from fdai.delivery.azure.arg_transport import (
     DEFAULT_ARG_REQUESTS_PER_SECOND,
@@ -116,34 +154,16 @@ _DEFAULT_MAX_HYDRATION_BATCH: Final[int] = 100
 _MAX_HYDRATION_BATCH_CAP: Final[int] = 100
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 10_000_000
 _DEFAULT_MAX_TOTAL_RESPONSE_BYTES: Final[int] = 64_000_000
-_CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in an RFC 3339 ts or a GUID.
+_INITIAL_CURSOR_ID: Final[str] = "__fdai_initial__"
 _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
     "create": "upsert",
     "update": "upsert",
     "delete": "delete",
 }
-_OPERATIONAL_STATUS_CHANGE_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
-    "properties.powerState.code": ("properties", "powerState", "code"),
-    "properties.runningStatus": ("properties", "runningStatus"),
-    "properties.operationalState": ("properties", "operationalState"),
-    "properties.dnsResolverState": ("properties", "dnsResolverState"),
-    "properties.resourceState": ("properties", "resourceState"),
-    "properties.state": ("properties", "state"),
-    "properties.status": ("properties", "status"),
-    "properties.userVisibleState": ("properties", "userVisibleState"),
-}
 _SOURCE: Final[str] = "fdai.delivery.azure.arg_resource_changes"
 _SIGNAL_KIND: Final[str] = "azure.resource_graph_change_feed"
 _CURSOR_PREFIX: Final[str] = "arg_resource_change_cursor:"
 DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS: Final[float] = 60.0
-
-
-class ArgResourceChangeError(RuntimeError):
-    """Raised when a ``resourcechanges`` poll or hydration fetch is unusable.
-
-    The message is safe to log - it never carries raw response bodies or
-    tenant-identifying values, only a short, bounded reason string.
-    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +186,7 @@ class AzureResourceChangeFeedConfig:
     page_size: int = _DEFAULT_PAGE_SIZE
     max_pages: int = _DEFAULT_MAX_PAGES
     max_hydration_batch: int = _DEFAULT_MAX_HYDRATION_BATCH
+    max_hydration_retries: int = 3
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
     max_total_response_bytes: int = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES
     requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
@@ -207,43 +228,18 @@ class AzureResourceChangeFeedConfig:
             raise ValueError("page_size MUST be in [1, 1000]")
         if self.max_pages < 1:
             raise ValueError("max_pages MUST be >= 1")
+        if self.page_size * self.max_pages > 1_000:
+            raise ValueError("page_size * max_pages MUST be <= 1000")
         if not 1 <= self.max_hydration_batch <= _MAX_HYDRATION_BATCH_CAP:
             raise ValueError(f"max_hydration_batch MUST be in [1, {_MAX_HYDRATION_BATCH_CAP}]")
+        if not 1 <= self.max_hydration_retries <= 10:
+            raise ValueError("max_hydration_retries MUST be in [1, 10]")
         if self.max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be >= 1")
         if self.max_total_response_bytes < 1:
             raise ValueError("max_total_response_bytes MUST be >= 1")
         if not 0 < self.requests_per_second <= 100:
             raise ValueError("requests_per_second MUST be in (0, 100]")
-
-
-@dataclass(frozen=True, slots=True)
-class _ChangeRow:
-    """One validated ``resourcechanges`` record."""
-
-    change_id: str
-    change_time: datetime
-    change_kind: str  # "upsert" | "delete"
-    arm_id: str
-    arm_type: str | None
-    neutral_id: str
-    operational_status_change: tuple[tuple[str, ...], str] | None
-
-
-@dataclass(frozen=True, slots=True)
-class ResourceChangeFeedResult:
-    """One bounded poll result: the events to publish and the next cursor."""
-
-    events: tuple[Event, ...]
-    next_cursor: str
-
-
-@dataclass(frozen=True, slots=True)
-class _HydrationResult:
-    """Mapped records plus every provider identity returned by hydration."""
-
-    records: Mapping[str, ResourceRecord]
-    seen_provider_refs: frozenset[str]
 
 
 class AzureResourceChangeFeed:
@@ -256,11 +252,22 @@ class AzureResourceChangeFeed:
         resource_types: ResourceTypeRegistry,
         http_client: httpx.AsyncClient,
         config: AzureResourceChangeFeedConfig,
+        clock: Callable[[], datetime] | None = None,
+        allowed_resource_types: frozenset[str] | None = None,
     ) -> None:
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureResourceChangeFeedConfig] = config
+        self._clock: Final[Callable[[], datetime]] = clock or (lambda: datetime.now(tz=UTC))
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
+        if allowed_resource_types is not None:
+            missing = allowed_resource_types - resource_types.ids()
+            if missing:
+                raise ValueError(
+                    "allowed Resource change types are absent from the vocabulary: "
+                    f"{sorted(missing)}"
+                )
+        self._allowed_resource_types: Final[frozenset[str] | None] = allowed_resource_types
         # ARM type -> CSP-neutral resource_type reverse map for delete
         # tombstones, which carry no `kind` disambiguator.
         self._arm_to_neutral: Final[Mapping[str, str]] = build_arm_to_neutral_map(resource_types)
@@ -269,11 +276,35 @@ class AzureResourceChangeFeed:
             requests_per_second=config.requests_per_second
         )
 
+    def initial_cursor(self) -> str:
+        """Return one stable lower bound for the first persisted poll."""
+
+        anchored_at = self._clock()
+        if anchored_at.tzinfo is None:
+            raise ArgResourceChangeError("resourcechanges clock MUST be timezone-aware")
+        lower_ts = anchored_at.astimezone(UTC) - timedelta(
+            seconds=self._config.initial_lookback_seconds
+        )
+        return _encode_cursor(lower_ts, _INITIAL_CURSOR_ID)
+
+    @property
+    def max_hydration_retries(self) -> int:
+        return self._config.max_hydration_retries
+
     async def poll(self, cursor: str) -> ResourceChangeFeedResult:
         """Fetch one bounded, oldest-first page of changes past ``cursor``."""
 
         lower_ts, lower_id = _decode_cursor(cursor)
+        if lower_ts is None:
+            cursor = self.initial_cursor()
+            lower_ts, lower_id = _decode_cursor(cursor)
         query = self._build_change_query(lower_ts=lower_ts, lower_id=lower_id)
+        tokenless_truncated = False
+
+        def observe_truncation(value: bool) -> None:
+            nonlocal tokenless_truncated
+            tokenless_truncated = value
+
         rows = await fetch_arg_row_pages(
             identity=self._identity,
             http_client=self._http,
@@ -291,9 +322,16 @@ class AzureResourceChangeFeed:
             rate_limiter=self._rate_limiter,
             max_response_bytes=self._config.max_response_bytes,
             max_total_response_bytes=self._config.max_total_response_bytes,
+            allow_truncated_without_token=True,
+            allow_page_cap_truncation=True,
+            truncation_observer=observe_truncation,
         )
         if not rows:
-            return ResourceChangeFeedResult(events=(), next_cursor=cursor)
+            return ResourceChangeFeedResult(
+                events=(),
+                next_cursor=cursor,
+                complete=not tokenless_truncated,
+            )
 
         changes = [self._parse_change_row(row) for row in rows]
         newest = max((change.change_time, change.change_id) for change in changes)
@@ -322,47 +360,48 @@ class AzureResourceChangeFeed:
         )
 
         events: list[Event] = []
+        published_cursors: list[str] = []
         for change in deletes:
             resource_type = self._resolve_delete_type(change)
             if resource_type is None:
                 continue  # ARM type outside the vocabulary - drop, don't fail closed.
             events.append(self._tombstone_event(change, resource_type=resource_type))
+            published_cursors.append(_encode_cursor(change.change_time, change.change_id))
 
-        hydration_candidates = [
-            change
-            for change in upserts
-            if change.arm_type is None or change.arm_type.casefold() in self._arm_to_neutral
-        ]
+        hydration_candidates = upserts
         hydration = await self._hydrate([change.arm_id for change in hydration_candidates])
-        unresolved_hydrations: list[_ChangeRow] = []
+        hydration_incomplete = False
         for change in hydration_candidates:
             provider_key = change.arm_id.casefold()
             record = hydration.records.get(provider_key)
             if record is None:
                 if provider_key not in hydration.seen_provider_refs:
-                    unresolved_hydrations.append(change)
+                    hydration_incomplete = True
                 continue
             events.append(self._upsert_event(change, record=record))
-        if unresolved_hydrations:
-            raise ArgResourceChangeError(
-                "resourcechanges hydration did not resolve every mapped upsert"
-            )
+            published_cursors.append(_encode_cursor(change.change_time, change.change_id))
 
-        next_cursor = _encode_cursor(newest[0], newest[1])
-        return ResourceChangeFeedResult(events=tuple(events), next_cursor=next_cursor)
+        next_cursor = cursor if hydration_incomplete else _encode_cursor(newest[0], newest[1])
+        return ResourceChangeFeedResult(
+            events=tuple(events),
+            next_cursor=next_cursor,
+            complete=not tokenless_truncated and not hydration_incomplete,
+            last_event_cursor=max(published_cursors, default=None),
+            recovery_cursor=(
+                _encode_cursor(newest[0], newest[1]) if hydration_incomplete else None
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Query construction
     # ------------------------------------------------------------------
 
     def _build_change_query(self, *, lower_ts: datetime | None, lower_id: str | None) -> str:
-        if lower_ts is None:
-            lookback = datetime.now(tz=UTC) - timedelta(
-                seconds=self._config.initial_lookback_seconds
-            )
-            predicate = f"| where changeTime > datetime('{lookback.isoformat()}') "
+        if lower_ts is None or lower_id is None:
+            raise ArgResourceChangeError("resourcechanges cursor initialization failed")
+        if lower_id == _INITIAL_CURSOR_ID:
+            predicate = f"| where changeTime > datetime('{lower_ts.isoformat()}') "
         else:
-            assert lower_id is not None  # noqa: S101 - decoded together, never one without the other
             if "'" in lower_id:
                 raise ArgResourceChangeError("illegal character in resourcechanges cursor id")
             predicate = (
@@ -440,7 +479,14 @@ class AzureResourceChangeFeed:
         arm_type = change.arm_type or arm_id_to_type(change.arm_id)
         if arm_type is None:
             return None
-        return self._arm_to_neutral.get(arm_type.casefold())
+        resolved = self._arm_to_neutral.get(arm_type.casefold())
+        if (
+            resolved is None
+            or self._allowed_resource_types is not None
+            and resolved not in self._allowed_resource_types
+        ):
+            return None
+        return resolved
 
     async def _hydrate(self, arm_ids: Sequence[str]) -> _HydrationResult:
         if not arm_ids:
@@ -496,6 +542,11 @@ class AzureResourceChangeFeed:
         )
         if resolved_type is None:
             return None  # Unmapped or ambiguous ARM type - drop, don't fail closed.
+        if (
+            self._allowed_resource_types is not None
+            and resolved_type not in self._allowed_resource_types
+        ):
+            return None
 
         neutral_id = to_neutral_id(arm_id)
         props: dict[str, Any] = {"providerType": arm_type}
@@ -518,6 +569,10 @@ class AzureResourceChangeFeed:
         if status := resource_operational_status(row):
             props["status"] = status
         props = truncate_props(props, max_bytes=self._config.max_props_bytes)
+        if props.get("_truncated") is True:
+            raise ArgResourceChangeError(
+                "resourcechanges hydration properties exceed the configured bound"
+            )
         if (parent_id := parent_neutral_id(arm_id)) is not None:
             props["parent_id"] = parent_id
         record = ResourceRecord(
@@ -579,6 +634,7 @@ class AzureResourceChangeFeed:
                 "inventory_change": {
                     "kind": "upsert",
                     "observation_kind": "full",
+                    "source_revision": _encode_cursor(change.change_time, change.change_id),
                     "properties_complete": True,
                     "property_mask": sorted(resource.props),
                     "tombstone_confirmed": False,
@@ -616,6 +672,7 @@ class AzureResourceChangeFeed:
                 "inventory_change": {
                     "kind": "delete",
                     "observation_kind": "tombstone",
+                    "source_revision": _encode_cursor(change.change_time, change.change_id),
                     "properties_complete": False,
                     "property_mask": [],
                     "tombstone_confirmed": False,
@@ -639,6 +696,7 @@ async def forward_arg_resource_changes(
     event_bus: EventBus,
     topic: str,
     scope: str,
+    ingestion_fence: ResourceChangeIngestionFence | None = None,
     deadline_seconds: float = DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
     clock: Callable[[], datetime] | None = None,
 ) -> int:
@@ -654,7 +712,30 @@ async def forward_arg_resource_changes(
         raise ValueError("resource change feed deadline_seconds MUST be > 0")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
+    pending_event_ids = _pending_event_ids(saved.get("pending_event_ids"))
+    hydration_retry_count = _hydration_retry_count(saved.get("hydration_retry_count"))
+    coverage_gap_at = _coverage_gap_at(saved.get("coverage_gap_at"))
+    if pending_event_ids and (
+        ingestion_fence is None or not await ingestion_fence.contains(pending_event_ids)
+    ):
+        return 0
     cursor = str(saved.get("cursor") or "")
+    if not cursor:
+        cursor = feed.initial_cursor()
+        await state_store.write_state(
+            cursor_key,
+            {
+                "complete": False,
+                "coverage_gap_at": (
+                    coverage_gap_at.isoformat() if coverage_gap_at is not None else None
+                ),
+                "cursor": cursor,
+                "hydration_retry_count": hydration_retry_count,
+                "last_event_cursor": None,
+                "pending_event_ids": [],
+                "published_event_count": 0,
+            },
+        )
     result: ResourceChangeFeedResult | None = None
     try:
         async with asyncio.timeout(deadline_seconds):
@@ -672,81 +753,36 @@ async def forward_arg_resource_changes(
     polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
     if polled_at.tzinfo is None:
         raise RuntimeError("resource change feed clock MUST be timezone-aware")
+    next_cursor = result.next_cursor
+    if result.recovery_cursor is not None:
+        hydration_retry_count += 1
+        if hydration_retry_count >= feed.max_hydration_retries:
+            next_cursor = result.recovery_cursor
+            gap_at, _gap_id = _decode_cursor(result.recovery_cursor)
+            if gap_at is None:
+                raise RuntimeError("resource change recovery cursor is malformed")
+            coverage_gap_at = max(
+                (candidate for candidate in (coverage_gap_at, gap_at) if candidate is not None),
+            )
+            hydration_retry_count = 0
+    else:
+        hydration_retry_count = 0
     await state_store.write_state(
         cursor_key,
         {
-            "cursor": result.next_cursor,
+            "complete": result.complete,
+            "coverage_gap_at": (
+                coverage_gap_at.astimezone(UTC).isoformat() if coverage_gap_at is not None else None
+            ),
+            "cursor": next_cursor,
+            "hydration_retry_count": hydration_retry_count,
+            "last_event_cursor": result.last_event_cursor,
             "last_polled_at": polled_at.astimezone(UTC).isoformat(),
+            "pending_event_ids": [str(event.event_id) for event in result.events],
+            "published_event_count": len(result.events),
         },
     )
     return len(result.events)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _event_uuid(scope: str, change_id: str) -> UUID:
-    return uuid5(NAMESPACE_URL, f"fdai.arg-resource-change://{scope}/{change_id}")
-
-
-def _encode_cursor(change_time: datetime, change_id: str) -> str:
-    return f"{change_time.astimezone(UTC).isoformat()}{_CURSOR_SEP}{change_id}"
-
-
-def _decode_cursor(cursor: str) -> tuple[datetime | None, str | None]:
-    trimmed = cursor.strip()
-    if not trimmed:
-        return None, None
-    if _CURSOR_SEP not in trimmed:
-        raise ArgResourceChangeError("resourcechanges cursor is malformed")
-    ts_part, _, id_part = trimmed.partition(_CURSOR_SEP)
-    parsed = _parse_ts(ts_part)
-    if parsed is None or not id_part:
-        raise ArgResourceChangeError("resourcechanges cursor is malformed")
-    return parsed, id_part
-
-
-def _parse_ts(raw: Any) -> datetime | None:
-    if not isinstance(raw, str) or not raw:
-        return None
-    text = raw.strip().replace("Z", "+00:00") if raw.strip().endswith("Z") else raw.strip()
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    return parsed.astimezone(UTC) if parsed.tzinfo else None
-
-
-def _operational_status_change(
-    changes: Mapping[str, Any],
-) -> tuple[tuple[str, ...], str] | None:
-    for source_path, target_path in _OPERATIONAL_STATUS_CHANGE_PATHS.items():
-        raw_change = changes.get(source_path)
-        if not isinstance(raw_change, Mapping):
-            continue
-        raw_value = raw_change.get("newValue")
-        candidate = raw_value.get("code") if isinstance(raw_value, Mapping) else raw_value
-        if isinstance(candidate, str) and candidate.strip():
-            return target_path, candidate.strip()
-    return None
-
-
-def _with_nested_value(
-    value: Mapping[str, Any],
-    path: tuple[str, ...],
-    replacement: str,
-) -> dict[str, Any]:
-    updated = dict(value)
-    cursor = updated
-    for component in path[:-1]:
-        existing = cursor.get(component)
-        child = dict(existing) if isinstance(existing, Mapping) else {}
-        cursor[component] = child
-        cursor = child
-    cursor[path[-1]] = replacement
-    return updated
 
 
 __all__ = [

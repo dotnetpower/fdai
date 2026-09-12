@@ -246,23 +246,6 @@ class PostgresInventoryDeltaProjector:
                         "inventory change resource or link endpoint type is outside "
                         "active snapshot coverage"
                     )
-                if observed_at <= coverage["started_at"]:
-                    _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.SNAPSHOT_COVERED)
-                    return InventoryDeltaApplyResult(
-                        resources=0,
-                        links=0,
-                        outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
-                    )
-                await _acquire_resource_locks(
-                    connection,
-                    (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
-                )
-                await _validate_upsert_link_endpoints(
-                    connection,
-                    snapshot_id=str(coverage["id"]),
-                    links=links,
-                    additional_resource=(resource_id, resource_type),
-                )
                 observations = normalized_inventory_observations(
                     payload=payload,
                     change=change,
@@ -279,6 +262,31 @@ class PostgresInventoryDeltaProjector:
                     observed_at=observed_at,
                     recorded_at=now.astimezone(UTC),
                     active_scope_refs=tuple(str(value) for value in coverage["scopes"]),
+                )
+                if observed_at <= coverage["started_at"]:
+                    journal_result = await self._observation_journal.append_history_only(
+                        connection,
+                        observations,
+                    )
+                    await self._observation_journal.mark_overlay_projected(
+                        connection,
+                        watermark=journal_result.high_watermark,
+                    )
+                    _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.SNAPSHOT_COVERED)
+                    return InventoryDeltaApplyResult(
+                        resources=0,
+                        links=0,
+                        outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
+                    )
+                await _acquire_resource_locks(
+                    connection,
+                    (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
+                )
+                await _validate_upsert_link_endpoints(
+                    connection,
+                    snapshot_id=str(coverage["id"]),
+                    links=links,
+                    additional_resource=(resource_id, resource_type),
                 )
                 journal_result = await self._observation_journal.append_change(
                     connection,

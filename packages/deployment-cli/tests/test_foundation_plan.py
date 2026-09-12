@@ -125,6 +125,21 @@ def test_foundation_cli_uses_only_selected_root_and_locked_providers(
     assert result["apply_authorized"] is False
 
 
+def test_foundation_online_connectivity_accepts_verified_kit(
+    foundation_command: tuple[list[str], Path, ProvisionProfile],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _root, profile = foundation_command
+    monkeypatch.setattr(cli, "load_profile", lambda _: replace(profile, connectivity="online"))
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "", ""),
+    )
+
+    assert cli.main(args) == 0
+
+
 @pytest.mark.parametrize("stage", ["init", "plan", "environment", "timeout"])
 def test_failed_foundation_attempt_removes_snapshot_and_never_reports_success(
     foundation_command: tuple[list[str], Path, ProvisionProfile],
@@ -164,7 +179,6 @@ def test_failed_foundation_attempt_removes_snapshot_and_never_reports_success(
 @pytest.mark.parametrize(
     "condition",
     [
-        "online",
         "existing-host",
         "zero-cost",
         "target",
@@ -179,9 +193,7 @@ def test_foundation_preconditions_block_terraform(
     condition: str,
 ) -> None:
     args, root, profile = foundation_command
-    if condition == "online":
-        profile = replace(profile, connectivity="online")
-    elif condition == "existing-host":
+    if condition == "existing-host":
         profile = replace(profile, host="existing-host")
     elif condition == "zero-cost":
         profile = replace(profile, monthly_cost_ceiling=0)

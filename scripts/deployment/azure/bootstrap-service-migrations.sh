@@ -94,7 +94,7 @@ migration_order_output="$(
 )"
 mapfile -t migration_services <<< "$migration_order_output"
 for service in "${migration_services[@]}"; do
-  run_migration "service-migrations/bin/$service" bootstrap \
+  run_migration /bin/sh "service-migrations/bin/$service" bootstrap \
     --evidence-output "$evidence_dir/$service.json" \
     --schema-output "$evidence_dir/$service-schema.json" \
     --rollback-reference \

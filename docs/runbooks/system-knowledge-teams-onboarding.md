@@ -4,9 +4,9 @@ title: Onboard the System Knowledge Teams Bot
 # Onboard the System Knowledge Teams Bot
 
 Use this runbook to prepare and deploy the independent FDAI System Knowledge Service in one
-approved standard Teams channel. The workflow keeps tenant values in GitHub configuration, uses a
-deployment-only OpenID Connect (OIDC) identity for Microsoft Graph, and gives the runtime identity
-no app-catalog or execution permission.
+approved standard Teams channel. You can use a Bot Framework application or a team-scoped Teams
+Outgoing Webhook named `FDAI-bot`. The Outgoing Webhook path needs no Entra application
+registration, app package, or Microsoft Graph installation permission.
 
 > **Scope:** This runbook covers the development environment. It does not change the operational
 > A3 bot, request resource-specific consent (RSC) for all channel messages, or grant managed-resource
@@ -24,7 +24,9 @@ You need:
 - one or more Entra users mapped to stable FDAI knowledge principal names;
 - a clean, pushed protected-main revision with required CI and an attested
   `fdai-system-knowledge-service` image;
-- tenant administration permission to bootstrap the deployment-only installer identity;
+- tenant administration permission to bootstrap the deployment-only installer identity when you
+  select Bot Framework;
+- Team owner permission to create an Outgoing Webhook when you select that transport;
 - the existing private FDAI platform with document Blob storage enabled.
 
 Private and shared channels are not supported by the initial release.
@@ -35,13 +37,27 @@ Create these repository secrets without writing their values to source control:
 
 | Secret | Content |
 |--------|---------|
-| `SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON` | Service name, Bot name, tenant, approved team and channel lists, Bot service URL allowlist, and JWKS URL |
+| `SYSTEM_KNOWLEDGE_TEAMS_PROFILE_JSON` | Selected transport, service name, tenant, approved team and channel lists, and transport-specific trust roots |
 | `SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON` | Teams sender `aadObjectId` to deployment-local knowledge principal mapping |
+| `SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET` | Teams-issued Base64 HMAC key; set only after Outgoing Webhook bootstrap |
 
-Use this shape for the profile:
+For an Outgoing Webhook, use this profile:
 
 ```json
 {
+  "transport": "outgoing_webhook",
+  "service_name": "<container-app-name>",
+  "tenant_id": "<tenant-guid>",
+  "team_ids": ["<team-guid>"],
+  "channel_ids": ["<channel-id>"]
+}
+```
+
+For Bot Framework, use the existing profile:
+
+```json
+{
+  "transport": "bot_framework",
   "service_name": "<container-app-name>",
   "bot_name": "<azure-bot-name>",
   "tenant_id": "<tenant-guid>",
@@ -61,9 +77,11 @@ Use this shape for the principal map:
 ```
 
 The protected workflow writes only the principal map to one fixed Key Vault secret. The other
-values remain protected deployment inputs and appear in the restricted Terraform state.
+values remain protected deployment inputs and appear in the restricted Terraform state. For an
+Outgoing Webhook enable transition, the workflow also writes and reads back the HMAC key under a
+second fixed Key Vault secret. The HMAC value never enters Terraform state.
 
-## Bootstrap the deployment-only installer
+## Bootstrap the deployment-only installer for Bot Framework
 
 The installer uses exactly two Microsoft Graph application permissions:
 
@@ -90,6 +108,29 @@ The helper creates or verifies one Entra application, service principal, GitHub
 `repo:dotnetpower/fdai:environment:dev` federated credential, and the exact two Graph roles. The
 apply job exchanges GitHub OIDC for a short-lived Graph token. No client secret is created.
 
+## Bootstrap an Outgoing Webhook
+
+First run the protected workflow with `transition=bootstrap`. Use the same plan-only and exact
+apply evidence flow described below. Bootstrap creates the Container App, private claim container,
+and dedicated UAMI without an Azure Bot, Teams channel resource, app package, or HMAC binding.
+
+After apply, copy the callback URL from the workflow summary. In Teams, open **Manage team** >
+**Apps** > **Upload an app** > **Create an outgoing webhook**, then:
+
+1. set the name to `FDAI-bot`;
+2. paste the exact callback URL;
+3. add a bounded description and optional image;
+4. create the webhook;
+5. store the displayed HMAC key directly in the protected repository secret by running
+   `gh secret set SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET` and entering the value only at the
+   terminal prompt.
+
+Do not paste the key into chat, a command argument, a file, or workflow input. After the secret is
+set, create a fresh `transition=enable` plan and apply its exact evidence. Enable writes the HMAC
+key inside the VNet, adds the versionless Key Vault reference, and creates a new Container App
+revision. The bootstrap endpoint returns `503 outgoing_webhook_unconfigured` until this step
+completes.
+
 ## Plan the deployment
 
 Resolve the attested image digest for the exact required-CI revision, then dispatch plan-only:
@@ -99,12 +140,13 @@ gh workflow run system-knowledge-deploy.yml \
   -f commit_sha=<exact-sha> \
   -f image_ref=ghcr.io/dotnetpower/fdai/fdai-system-knowledge-service@sha256:<digest> \
   -f previous_image_ref=ghcr.io/dotnetpower/fdai/fdai-system-knowledge-service@sha256:<digest> \
-  -f transition=enable
+  -f transition=<bootstrap-or-enable>
 ```
 
-The plan is accepted only when it contains the dedicated UAMI, private claim container, three
-minimum role assignments, one-replica Container App, F0 Azure Bot, Teams channel, and
-`execution_authority=false` contract.
+Every plan is accepted only when it contains the dedicated UAMI, private claim container, three
+minimum role assignments, one-replica Container App, and `execution_authority=false` contract. A
+Bot Framework plan also contains the F0 Azure Bot and Teams channel. An Outgoing Webhook plan must
+contain neither.
 
 Record the plan run id, attempt, plan digest, and context digest from the workflow summary.
 
@@ -117,7 +159,7 @@ gh workflow run system-knowledge-deploy.yml \
   -f commit_sha=<exact-sha> \
   -f image_ref=ghcr.io/dotnetpower/fdai/fdai-system-knowledge-service@sha256:<digest> \
   -f previous_image_ref=ghcr.io/dotnetpower/fdai/fdai-system-knowledge-service@sha256:<digest> \
-  -f transition=enable \
+  -f transition=<bootstrap-or-enable> \
   -f apply=true \
   -f plan_run_id=<plan-run-id> \
   -f plan_run_attempt=<attempt> \
@@ -131,14 +173,17 @@ The workflow:
 2. materializes and reads back the principal map inside the private VNet;
 3. applies the plan;
 4. verifies the active healthy revision and private Blob claim container;
-5. builds the deterministic Teams package;
-6. uses the deployment-only OIDC identity to upload and install the package.
+5. for Bot Framework, builds the deterministic Teams package and uses the deployment-only OIDC
+   identity to upload and install it;
+6. for Outgoing Webhook, proves that no Azure Bot exists and exposes the callback URL in the
+   workflow summary.
 
 ## Validate the channel
 
 In the approved standard channel:
 
-1. Mention `FDAI Knowledge` and ask how FDAI keeps actions safe.
+1. Mention `FDAI Knowledge` for Bot Framework or `FDAI-bot` for Outgoing Webhook and ask how FDAI
+   keeps actions safe.
 2. Verify that one same-conversation reply contains designed behavior, implementation evidence,
    limitations, source paths, and `execution_authority=false`.
 3. Restart the exact Container App revision.

@@ -41,6 +41,8 @@ _SAFE_RESULT_FIELDS: dict[str, frozenset[str]] = {
             "plan_digest",
             "toolchain_digest",
             "effect_verified",
+            "public_ip_policy_effect_verified",
+            "terraform_zero_change_verified",
             "runner_registered",
             "mutation_performed",
             "subscription_ready",
@@ -88,6 +90,7 @@ _SAFE_RESULT_FIELDS: dict[str, frozenset[str]] = {
             "identity_attested",
             "services_attested",
             "github_readback_verified",
+            "manual_host_readback_verified",
             "effect_verified",
             "mutation_performed",
             "subscription_ready",
@@ -154,7 +157,7 @@ class PrivateCommandExecutor:
         }
         try:
             completed = self._run_child(
-                ("bash", str(script), *arguments),
+                ("/bin/bash", str(script), *arguments),
                 cwd=self.context.repository_root,
                 env=environment,
                 capture_output=True,

@@ -38,8 +38,8 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 91
-    assert inventory.heads == ("20260831_0089",)
+    assert len(inventory.down_revisions) == 92
+    assert inventory.heads == ("20260912_0090",)
     assert len(inventory.table_sources) == 108
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["background_task_projection_outbox"] == ("20260829_0088",)
@@ -135,6 +135,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "inventory_observation_checkpoint",
         "inventory_observation_correction_receipt",
         "inventory_observation_journal",
+        "inventory_change_event_receipt",
         "inventory_observation_lifecycle_binding",
         "inventory_observation_pending_tombstone",
         "inventory_observation_partition",
@@ -290,6 +291,25 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
         version_tables.add(adoption.service_version_table)
     assert len(heads) == 5
     assert len(version_tables) == 5
+
+
+def test_core_runtime_call_link_migration_extends_both_inventory_constraints() -> None:
+    path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/"
+        "20260912_core_runtime_call_snapshot_links.py"
+    )
+    metadata = inventory_module.load_revision_metadata(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert metadata.revision == "core_runtime_call_snapshot_links_20260912"
+    assert (
+        'down_revision: str | Sequence[str] | None = "core_post_release_closure_20260912"' in source
+    )
+    assert source.count("'runtime_calls'") == 4
+    assert source.count("inventory_snapshot_link_link_type_check") == 4
+    assert source.count("inventory_realtime_link_link_type_check") == 4
+    assert "DELETE FROM inventory_snapshot_link WHERE link_type = 'runtime_calls'" in source
+    assert "DELETE FROM inventory_realtime_link WHERE link_type = 'runtime_calls'" in source
 
 
 def test_service_migrations_serialize_cross_service_ddl_before_service_lock() -> None:
@@ -1584,6 +1604,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     post_release_closure_migration = inventory_module.load_revision_metadata(
         post_release_closure_path
     )
+    resource_change_receipt_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/"
+        "20260912_core_resource_change_receipts.py"
+    )
+    resource_change_receipt_migration = inventory_module.load_revision_metadata(
+        resource_change_receipt_path
+    )
     certification_support_path = (
         MIGRATION_ROOT
         / "branches/core-control-plane/versions/20260907_core_oi16_certification_support.py"
@@ -1621,6 +1648,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(target_dispatch_fence_migration.owned_tables)
         | set(safeguard_dispatch_evidence_migration.owned_tables)
         | set(post_release_closure_migration.owned_tables)
+        | set(resource_change_receipt_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
     )
     assert granted_tables == expected_tables

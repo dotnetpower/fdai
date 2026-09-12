@@ -240,7 +240,7 @@ run "exact_direct_builder_contract" {
 
   assert {
     condition = (
-      local.toolchain_digest == "2e17f214622f0459c1c104c5d0caf970ea2ea940fea71a092d6da1320370dcb1" &&
+      local.toolchain_digest == "353d53d5f6a8f2b7b7d63f50809aabfd9ba25d01515c861b8477f5bbcea0dba1" &&
       output.runner_image.toolchain_digest == local.toolchain_digest
     )
     error_message = "The captured image must bind the exact source VM and toolchain provenance."
