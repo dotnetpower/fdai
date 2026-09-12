@@ -34,6 +34,12 @@ class ServiceContract:
     image_repository: str
     entrypoint: str
     required_environment: tuple[str, ...]
+    additional_image_repositories: tuple[str, ...] = ()
+
+    @property
+    def image_repositories(self) -> tuple[str, ...]:
+        """Return every closed image repository accepted for this service."""
+        return (self.image_repository, *self.additional_image_repositories)
 
 
 def _load_object(path: Path) -> dict[str, Any]:
@@ -86,7 +92,30 @@ def load_matrix() -> dict[str, Any]:
             raise ServiceContractError(
                 f"allowed resource address for {service} disagrees with state migration metadata"
             )
+        _image_repositories(raw, service=service)
     return matrix
+
+
+def _image_repositories(raw: dict[str, Any], *, service: str) -> tuple[str, ...]:
+    """Validate the closed image repository set for one service."""
+    primary = raw.get("image_repository")
+    additional = raw.get("additional_image_repositories", [])
+    if not isinstance(primary, str) or re.fullmatch(r"[a-z0-9][a-z0-9._-]*", primary) is None:
+        raise ServiceContractError(f"service matrix entry for {service} has an invalid image")
+    if not isinstance(additional, list) or not all(
+        isinstance(repository, str)
+        and re.fullmatch(r"[a-z0-9][a-z0-9._-]*", repository) is not None
+        for repository in additional
+    ):
+        raise ServiceContractError(
+            f"service matrix entry for {service} has invalid additional images"
+        )
+    repositories = (primary, *additional)
+    if len(repositories) != len(set(repositories)):
+        raise ServiceContractError(
+            f"service matrix entry for {service} has duplicate image repositories"
+        )
+    return repositories
 
 
 def resolve_service(service: str, environment: str) -> ServiceContract:
@@ -101,7 +130,6 @@ def resolve_service(service: str, environment: str) -> ServiceContract:
         "terraform_root",
         "backend_key_template",
         "allowed_resource_address",
-        "image_repository",
         "entrypoint",
     )
     if any(not isinstance(raw.get(field), str) or not raw[field] for field in fields):
@@ -119,15 +147,17 @@ def resolve_service(service: str, environment: str) -> ServiceContract:
     terraform_root = raw["terraform_root"]
     if not (_REPO_ROOT / terraform_root).is_dir():
         raise ServiceContractError(f"Terraform root for {service} does not exist")
+    image_repositories = _image_repositories(raw, service=service)
     return ServiceContract(
         service=service,
         environment=environment,
         terraform_root=terraform_root,
         backend_key=raw["backend_key_template"].format(environment=environment),
         allowed_resource_address=raw["allowed_resource_address"],
-        image_repository=raw["image_repository"],
+        image_repository=image_repositories[0],
         entrypoint=raw["entrypoint"],
         required_environment=tuple(required_environment),
+        additional_image_repositories=image_repositories[1:],
     )
 
 
@@ -135,8 +165,15 @@ def validate_image_reference(contract: ServiceContract, repository: str, referen
     """Require the selected service's GHCR subject pinned to one SHA-256 digest."""
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ServiceContractError("repository must be an owner/name pair")
-    expected_prefix = f"ghcr.io/{repository.lower()}/{contract.image_repository}@"
-    if not reference.startswith(expected_prefix):
+    expected_prefix = next(
+        (
+            prefix
+            for image_repository in contract.image_repositories
+            if reference.startswith(prefix := f"ghcr.io/{repository.lower()}/{image_repository}@")
+        ),
+        None,
+    )
+    if expected_prefix is None:
         raise ServiceContractError("image reference does not match the selected service repository")
     digest = reference.removeprefix(expected_prefix)
     if _DIGEST_PATTERN.fullmatch(digest) is None:
