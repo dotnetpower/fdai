@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 66afee370930c6addd0d17f236b6c3899efdf63e
+translation_source_sha: a2add80d436f03d0f8ffabc806baacad27f38d25
 translation_revised: 2026-09-12
 ---
 # 콘솔 근거 및 복원력
@@ -392,7 +392,7 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 근거에서 결정론적으로 렌더링됩니다. 온톨로지 browse는 대상과 browse verb를 요구하고,
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
-assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
+assembly와 분리된 자체 프롬프트 모듈에 위치합니다. Ontology Instances는 활성 세대 프로바이더 유형 커버리지를 Resource 상태 및 관계 커버리지와 분리해 전달하며, 브라우저는 일치하는 개수를 검증하고 원시 개체 식별자나 속성 없이 범위가 제한된 unknown 유형 이름을 표시합니다.
 Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 개정, 릴리스 다이제스트,
 선언 기록, 의미 맵 프로필 및 카탈로그 토폴로지를 포함하는 하나의 exact 카탈로그 릴리스를
 제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,
