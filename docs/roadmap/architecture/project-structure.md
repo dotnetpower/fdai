@@ -406,7 +406,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   **not** re-exported from public sub-packages; they must be imported directly from their
   submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
 - **Config-driven binding**: configuration selects each implementation.
-  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records preserve abstention without validating unused endpoint values. Partial records fail startup without changing execution T2.
+  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records, or three digest-policy-held `hil-only` records with no endpoints, preserve abstention without validating unused endpoint values. Partial, unsigned, or endpoint-bearing held records fail startup without changing execution T2.
   The generic drop-directory `ManualSource` retains oversize paths as metadata-only held candidates, so its read bound cannot create a false deletion signal.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.

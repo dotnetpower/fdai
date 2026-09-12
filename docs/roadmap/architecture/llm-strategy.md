@@ -142,7 +142,7 @@ Endpoint URLs and credentials are not serialized in the operator projection. The
 opaque `endpoint_ref`; the composition root resolves it to an HTTPS URL from protected deployment
 configuration. A binding without an injected resolver fails startup. Embedding, proposer, primary
 and secondary cross-check, Critic, Judge, RCA, and narrator paths use the same request-target
-builder. Legacy files without `endpoint_bindings` keep the direct Azure OpenAI path.
+builder. Legacy files without `endpoint_bindings` keep the direct Azure OpenAI path. The ontology council remains abstaining only when all three capabilities are explicitly `hil-only` under a validated binding policy and none has an endpoint binding; unsigned, partial, or endpoint-bearing held records still fail startup.
 
 APIM is a route and governance boundary, not a model publisher. The mixed-model quality gate still
 compares the publishers and families behind the gateway. Primary and secondary capabilities remain
