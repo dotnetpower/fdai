@@ -34,9 +34,19 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from statistics import median
+from typing import Protocol
 
-from fdai.shared.contracts.models import Incident
+
+class IncidentTiming(Protocol):
+    """Read-only timestamps shared by Incident and admitted lifecycle source records."""
+
+    @property
+    def opened_at(self) -> datetime: ...
+
+    @property
+    def resolved_at(self) -> datetime | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +89,7 @@ def _percentile_nearest_rank(sorted_values: Sequence[float], percentile: float) 
     return sorted_values[rank - 1]
 
 
-def compute_mttr(incidents: Iterable[Incident]) -> MttrSummary:
+def compute_mttr(incidents: Iterable[IncidentTiming]) -> MttrSummary:
     """Fold ``incidents`` into an :class:`MttrSummary`.
 
     Resolved incidents with ``resolved_at >= opened_at`` contribute their

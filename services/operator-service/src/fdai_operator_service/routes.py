@@ -36,6 +36,7 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from fdai_operator_service.audit_filters import audit_sequence, audit_window
 from fdai_operator_service.auth import (
     AuthenticationError,
     AuthorizationError,
@@ -241,6 +242,14 @@ def build_operator_app(
                     limit=_parse_limit(request),
                     cursor=_bounded_query(request, "cursor", maximum=1024),
                     correlation_id=_bounded_query(request, "correlation_id", maximum=256),
+                    mode=_bounded_query(request, "mode", maximum=16),
+                    tier=_bounded_query(request, "tier", maximum=8),
+                    action_kind=_bounded_query(request, "action", maximum=256),
+                    outcome=_bounded_query(request, "outcome", maximum=256),
+                    vertical=_bounded_query(request, "vertical", maximum=256),
+                    window_days=audit_window(_bounded_query(request, "window", maximum=4)),
+                    from_seq=audit_sequence(_bounded_query(request, "from_seq", maximum=19)),
+                    through_seq=audit_sequence(_bounded_query(request, "through_seq", maximum=19)),
                 )
             )
         except ValueError as exc:

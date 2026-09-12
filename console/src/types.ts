@@ -213,6 +213,10 @@ export interface DashboardKpi {
   readonly by_tier: Record<string, number>;
   readonly last_recorded_at: string | null;
   readonly audit_sample: AuditSample | null;
+  readonly routing_sample?: AuditSample & {
+    readonly action_kind: "measurement.control_loop.v1";
+    readonly window_days: number;
+  };
 }
 
 /**
@@ -279,6 +283,8 @@ export interface OutcomeFinalizationSummary {
  * Overview falls back to the audit-only summary).
  */
 export interface AutonomyPayload {
+  readonly rules_evidence?: "measured" | "unavailable";
+  readonly comparison?: import("./dashboard-comparison").DashboardComparison | null;
   readonly synthetic: boolean;
   readonly window_days: number;
   readonly sample_size: number;
