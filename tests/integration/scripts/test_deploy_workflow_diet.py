@@ -38,6 +38,26 @@ def test_deploy_workflow_uses_consolidated_boundaries() -> None:
     assert "Enforce model-binding-only Terraform plan" not in _WORKFLOW
 
 
+def test_deploy_workflow_isolates_cost_governance_plan_changes() -> None:
+    target_step = _WORKFLOW.split("- name: Bind model-binding Terraform target", maxsplit=1)[
+        1
+    ].split("- name: Verify production architecture-review evidence", maxsplit=1)[0]
+
+    assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in target_step
+    for address in (
+        "azurerm_role_assignment.inventory_cost_reader",
+        "module.compute.azurerm_container_app_job.cost_governance_collector[0]",
+        "module.compute.azurerm_container_app_job.cost_governance_analyzer[0]",
+    ):
+        assert f"-target={address}" in target_step
+
+    scope_step = _WORKFLOW.split("- name: Enforce bounded Terraform plan scope", maxsplit=1)[
+        1
+    ].split("- name: Reject destructive protected plan", maxsplit=1)[0]
+    assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in scope_step
+    assert "mode=cost-governance" in scope_step
+
+
 def test_pinned_github_cli_precedes_model_and_runtime_image_checks() -> None:
     installer = _WORKFLOW.index("- name: Install pinned GitHub CLI")
     installer_block = _WORKFLOW[installer:].split("      - name:", maxsplit=1)[0]

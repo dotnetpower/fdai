@@ -348,8 +348,8 @@ jobs:
               --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
           fi
       - name: Bind model-binding Terraform target
-        if: ${{ env.MODEL_BINDING_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' }}
-        run: if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"; else echo 'TF_CLI_ARGS_plan=-target=module.compute.azurerm_container_app_job.provider_schema[0]' >> "$GITHUB_ENV"; fi
+        if: ${{ env.MODEL_BINDING_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' || env.RUNTIME_IMAGE_PROFILE == 'cost-governance' }}
+        run: if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"; elif [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.compute.azurerm_container_app_job.provider_schema[0]' >> "$GITHUB_ENV"; else echo 'TF_CLI_ARGS_plan=-target=azurerm_role_assignment.inventory_cost_reader -target=module.compute.azurerm_container_app_job.cost_governance_collector[0] -target=module.compute.azurerm_container_app_job.cost_governance_analyzer[0]' >> "$GITHUB_ENV"; fi
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
         run: >-
@@ -735,9 +735,8 @@ jobs:
           terraform show -json dev.plan > "$RUNNER_TEMP/legacy-runtime-plan.json"
           python3 ../scripts/deployment/service/state_migration.py guard-legacy-plan \
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
-
       - name: Enforce bounded Terraform plan scope
-        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-') || startsWith(inputs.request_id, 'plan-runtime-')) }}
+        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || env.RUNTIME_IMAGE_PROFILE == 'cost-governance' || startsWith(inputs.request_id, 'plan-observability-') || startsWith(inputs.request_id, 'plan-runtime-')) }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -757,6 +756,7 @@ jobs:
           elif [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then mode=provider-schema; extra=()
           elif [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
             mode=rca-reader-identity; extra=()
+          elif [[ "$RUNTIME_IMAGE_PROFILE" == "cost-governance" ]]; then mode=cost-governance; extra=()
           elif [[ "${{ startsWith(inputs.request_id, 'plan-runtime-') }}" == "true" ]]; then mode=runtime-call-evidence; extra=()
           elif [[ "${{ startsWith(inputs.request_id, 'plan-observability-') }}" == "true" ]]; then mode=observability-analyzer; extra=()
           else

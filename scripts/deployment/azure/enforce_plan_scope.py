@@ -43,6 +43,13 @@ _RUNTIME_CALL_EVIDENCE = frozenset(
         "terraform_data.runtime_workspace_binding_transition",
     }
 )
+_COST_GOVERNANCE = frozenset(
+    {
+        "azurerm_role_assignment.inventory_cost_reader",
+        "module.compute.azurerm_container_app_job.cost_governance_analyzer[0]",
+        "module.compute.azurerm_container_app_job.cost_governance_collector[0]",
+    }
+)
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
@@ -222,6 +229,14 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "cost-governance":
+        unexpected = sorted(changed.difference(_COST_GOVERNANCE))
+        if unexpected:
+            raise ValueError(
+                "Cost Governance plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "operational-history":
         unexpected = sorted(
             address
@@ -266,6 +281,7 @@ def main() -> int:
         "--mode",
         choices=(
             "core-model-quorum",
+            "cost-governance",
             "deploy-identity",
             "design-mocks",
             "monitoring",
