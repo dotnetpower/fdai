@@ -274,6 +274,12 @@ candidate total makes the receipt incomplete. Supported materialization reaches 
 explicit provider, release, source, principal, scope, and competency profile. It never means every
 possible relationship in an open cloud-provider schema.
 
+Provider-native type coverage remains separate from relationship candidate accounting and ontology
+classification. The active snapshot reports reconciled mapped and unmapped object counts and
+bounded unknown provider type names. The Operator and Console validate and present that evidence,
+but an unknown type remains `unclassified-resource`; the report cannot create a ResourceType,
+classification link, catalog revision, or execution authority.
+
 A bounded exploratory response reports returned Resource and link counts, the exact requested
 limits, and per-reason truncation. When a bound is reached, the response stays incomplete and the
 operator narrows the link types, depth, or root. Local Inspector paging covers only relationships
