@@ -363,6 +363,18 @@ evidence proposes `return_to_shadow`. The planner is not a registry writer, does
 standing authorization, and grants no recovery authority. A later authority-bearing consumer must
 be separately reviewed and authorized.
 
+The local acceptance-fence model orders one scripted provider submission attempt inside one
+process. It persists `PREPARED` before the callback, rechecks the exact lease fence, issues at most
+one permit for the target-fence digest, and records `ACCEPTED`, positive `NOT_ACCEPTED`, or
+`UNKNOWN`. Every existing state blocks another submission; timeout, cancellation, exception,
+or terminal-write ambiguity stays commit-equivalent and cannot be retried. The deterministic
+`x-ms-client-request-id` is correlation only and is not provider-side deduplication.
+
+This model is not distributed atomicity, does not close the revoke-during-submit race, and does
+not prove the VM effect. It declares `production_eligible=false`, has only a process-local test
+store, and remains unwired. The strict `StandingAuthorizationLeaseStore` provider-commit contract
+and `INELIGIBLE_CAPABILITY` outcome remain unchanged.
+
 - **Execution fits the validity window.** The risk gate requires
   `now + max_duration_seconds <= valid_until` before dispatch. It uses trusted UTC for persisted
   instants and monotonic elapsed time for the running deadline. Clock unavailability or excessive
