@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: c870fc28adeba631228236469482e4a3d41b30bc
-translation_revised: 2026-09-06
+translation_source_sha: c0f349111b4d398cf9178e0514d1aa74bdf1ba70
+translation_revised: 2026-09-12
 ---
 # Console 읽기 경계
 
@@ -29,6 +29,7 @@ translation_revised: 2026-09-06
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 카탈로그 변환 결과에 프로덕션 writer가 추가된 뒤 승격 게이트 출처를 정정했습니다. 이제 Operator는 모든 카탈로그 ActionType 행을 영속 승격 레지스트리와 결합하고, 레지스트리 레코드가 없을 때만 런타임과 같은 shadow 모드를 기본값으로 사용하며, 결합한 값을 응답 출처에 포함합니다. | `current change`; Operator 워크플로 계열 검사 40개와 집중 Console 승격 검사 6개 통과, Console 타입 검사 및 카탈로그 동등성 검사 통과. | 인증된 브라우저 근거를 보존하고 통제된 승인 전달 증적을 별도로 완료합니다. |
 | 2026-09-06 | implemented | 무시되던 설정 카탈로그 새로 고침 플래그를 주입된 읽기 전용 공급자에 연결하고 기존 T2 배포의 명시적 로컬 연결 기능을 추가했습니다. | `current change`; 집중 Python 테스트 70개와 Console 디코더 테스트 35개 통과. 인증된 설정 새로 고침에서 HTTP 200과 선택한 기존 기본 모델을 포함한 모델 버전 47개를 확인했으며 추론 요청은 보내지 않았습니다. | T1 답변 가용성을 누락된 T2 검토자와 분리하는 작업은 별도로 필요하며 모델 호출과 전체 다중 모델 정족수는 검증되지 않았습니다. |
 | 2026-09-01 | 구현됨 | 검증된 FDAI 역할, IAM 탐색, 로그아웃 및 동일 테넌트 Entra 계정 선택을 제공하는 접근 가능한 헤더 계정 패널을 추가했습니다. 중복 작업, 초기 번들 크기 및 모바일 탐색 겹침을 방지하도록 강화했습니다. | `current change`; `console/src/components/account-menu.tsx`; `console/src/components/account-menu.test.ts`; `console/src/auth.ts`; `console/src/auth.test.ts`; 집중 콘솔 테스트(`11 passed`), typecheck 및 프로덕션 빌드 통과 | 디렉터리 전환은 단일 테넌트 발급자 계약에 따라 계속 지원되지 않습니다. |
 | 2026-09-01 | 구현됨 | 읽기 전용 WARA 인벤토리 및 선택적 평가 변환 결과를 공유 로컬 및 배포 Operator 조립 경계에 연결했습니다. | `current change`, rebase된 구현의 WARA 변환 결과, 워크플로 계열, materializer 및 Console 모델 검사. | 런타임 검증을 주장하기 전에 별도로 승인된 다중 리소스 실제 Azure shadow 증적을 보존합니다. |
