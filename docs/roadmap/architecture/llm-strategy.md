@@ -144,6 +144,11 @@ configuration. A binding without an injected resolver fails startup. Embedding, 
 and secondary cross-check, Critic, Judge, RCA, and narrator paths use the same request-target
 builder. Legacy files without `endpoint_bindings` keep the direct Azure OpenAI path.
 
+The ontology council is optional only when all three council capabilities are explicitly `hil-only`
+under a validated binding policy and none has an endpoint binding. Composition then preserves the
+abstaining distiller without making a model request. An unsigned HIL-only record, a partial council,
+or any leftover endpoint binding still fails startup rather than silently reducing the council.
+
 APIM is a route and governance boundary, not a model publisher. The mixed-model quality gate still
 compares the publishers and families behind the gateway. Primary and secondary capabilities remain
 separate bindings even when they share an APIM hostname, and a same-publisher pair is still invalid.
