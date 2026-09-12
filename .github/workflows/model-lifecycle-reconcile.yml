@@ -289,7 +289,7 @@ jobs:
                 head: branch,
                 draft: true,
                 title: `chore(models): review lifecycle proposal ${proposalDigest.slice(0, 12)}`,
-                body: "This draft carries sanitized model-family and deprecation evidence. It has no activation authority and does not deploy, promote, or swap a live mapping. Compatibility impact and the exact proposal digest are recorded in the added manifest.",
+                body: "This draft carries sanitized model-family and deprecation evidence. It has no activation authority and does not deploy, promote, or swap a live mapping. Compatibility impact and the exact proposal digest are recorded in the added manifest. Human review and frozen-scenario shadow replay are separate required gates before activation.",
               });
               pull = created.data;
             }

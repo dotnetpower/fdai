@@ -60,6 +60,10 @@ def build_model_lifecycle_receipt(
         "execution_authority": False,
         "live_execution_eligible": False,
         "required_next_gate": "human_review_and_merge",
+        "required_next_gates": [
+            "human_review_and_merge",
+            "frozen_scenario_shadow_replay",
+        ],
     }
     body["receipt_digest"] = hashlib.sha256(
         json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")

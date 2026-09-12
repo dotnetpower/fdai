@@ -823,6 +823,10 @@ def test_reconciliation_receipt_binds_draft_without_authority() -> None:
     assert receipt["mapping_authority"] is False
     assert receipt["execution_authority"] is False
     assert receipt["live_execution_eligible"] is False
+    assert receipt["required_next_gates"] == [
+        "human_review_and_merge",
+        "frozen_scenario_shadow_replay",
+    ]
     assert len(str(receipt["receipt_digest"])) == 64
 
 

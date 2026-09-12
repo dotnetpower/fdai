@@ -406,10 +406,11 @@ After draft readback, the workflow emits
 `fdai.model-lifecycle-reconciliation-receipt.v1`. The receipt binds the workflow run and attempt,
 source commit, source-model and proposal digests, pull request number, immutable head SHA, and
 draft state. It records sanitized evidence and sets activation, mapping, execution, and live
-execution eligibility to false. A protected live run must retain this receipt before operators can
-claim operational validation. An expired unmerged replacement lowers the capability to human
-review, and any accepted registry change still needs Owner review plus frozen-scenario shadow
-replay.
+execution eligibility to false. Its machine-readable `required_next_gates` lists
+`human_review_and_merge` and `frozen_scenario_shadow_replay`; the legacy singular gate remains for
+compatible readers. A protected live run must retain this receipt before operators can claim
+operational validation. An expired unmerged replacement lowers the capability to human review,
+and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
 
 ### Mixed-Model Family Strategies
 
