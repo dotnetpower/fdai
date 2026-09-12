@@ -78,6 +78,8 @@ async def collect_provider_schema_deployment_evidence(
     checked_at = _receipt_time(receipt)
     if checked_at < started_at.astimezone(UTC):
         raise ProviderSchemaError("provider schema durable run receipt predates Job execution")
+    if receipt.get("stale") is not False:
+        raise ProviderSchemaError("provider schema durable run receipt is stale")
     source_revision = _required_text(receipt, "source_revision", _SOURCE_REVISION)
     baseline_digest = _required_text(receipt, "baseline_digest", _SHA256)
     observed_digest = _required_text(receipt, "observed_digest", _SHA256)

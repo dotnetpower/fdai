@@ -207,6 +207,25 @@ async def test_rejects_receipt_older_than_job_execution(tmp_path: Path) -> None:
         )
 
 
+async def test_rejects_stale_receipt(tmp_path: Path) -> None:
+    receipt = _receipt(review_required=False)
+    receipt["stale"] = True
+    store = await _persist_receipt(tmp_path, receipt)
+
+    with pytest.raises(ProviderSchemaError, match="durable run receipt is stale"):
+        await collect_provider_schema_deployment_evidence(
+            store=store,
+            audit_reader=_AuditReader(()),
+            ledger_root=tmp_path / "readback",
+            application_source_commit=_SOURCE_COMMIT,
+            runtime_image_revision=_RUNTIME_REVISION,
+            plan_id=_PLAN_ID,
+            execution_name="provider-schema-abc123",
+            execution_status="Succeeded",
+            started_at=_NOW - timedelta(seconds=1),
+        )
+
+
 async def test_rejects_missing_forseti_and_saga_evidence(tmp_path: Path) -> None:
     store = await _persist_receipt(tmp_path, _receipt())
     waits: list[float] = []

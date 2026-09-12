@@ -249,13 +249,14 @@ class ProviderSchemaWatcher:
             observed_at=checked_at,
             accept_baseline=accept_baseline,
         )
+        resulting_baseline_time = checked_at if accept_baseline else baseline_time
         self._ledger.record_coverage(self._provider, coverage)
         receipt = self._receipt(
             disposition=disposition,
             reason=reason,
             checked_at=checked_at,
             baseline=baseline,
-            baseline_time=baseline_time,
+            baseline_time=resulting_baseline_time,
             observed=observed,
             selected=selected,
             fallback_used=selected is not allowed_sources[0],

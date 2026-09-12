@@ -17,7 +17,9 @@ def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon
     variables = _VARIABLES.read_text(encoding="utf-8")
 
     assert "cron_expression          = var.provider_schema_cron_expression" in job
-    assert 'command = ["python", "-m", "fdai.delivery.provider_schema_watcher_cli"]' in job
+    assert (
+        'command = ["python", "-m", "fdai.delivery.provider_schema_watcher_cli", "--force"]' in job
+    )
     assert 'name    = "provider-schema"' in job
     assert 'workload_profile_name        = "Consumption"' in job
     assert "replica_timeout_in_seconds   = 1800" in job
