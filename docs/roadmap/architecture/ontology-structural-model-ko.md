@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 73aa60166d83fc8cedf069b9408c964a306b0409
+translation_source_sha: 06fd2fbe8d43838fc94fd178c926199a3959bcaa
 translation_revised: 2026-09-12
 ---
 # 온톨로지 구조 모델
@@ -14,7 +14,8 @@ translation_revised: 2026-09-12
 > 관찰하거나, 작업을 승인하거나, 실행기를 선택하거나, 자율성을 높일 수 없습니다.
 > 카탈로그 스키마와 같은 위치에 있는 거버넌스 검토 등급 토큰은 변경 통제 메타데이터일 뿐,
 > 온톨로지 타입이나 자율성 축이 아닙니다. `standing-authority-promotion`은 ActionType
-> 모드를 바꾸거나 A3-E 권한을 부여할 수 없습니다.
+> 모드를 바꾸거나 A3-E 권한을 부여할 수 없습니다. Operator promotion-gate 화면은 온톨로지
+> 식별자 및 분류 외부의 읽기 전용 레지스트리 메타데이터입니다.
 >
 > **호환성 경계:** 기존 `Resource`, `ResourceType`, LinkType 아이덴티티, 저장된 링크 방향,
 > 과거 온톨로지 release는 계속 유효합니다. 새 구조 표면은 추가 방식으로 도입하며 읽기 전용

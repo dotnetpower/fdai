@@ -12,7 +12,8 @@ or a second source of provider truth.
 > They cannot observe external state, approve an action, select an executor, or raise autonomy.
 > Governance review-class tokens colocated with catalog schemas remain change-control metadata,
 > not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
-> mode or grant A3-E authority.
+> mode or grant A3-E authority. The Operator promotion-gate view is read-only registry metadata
+> outside ontology identity and classification.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive

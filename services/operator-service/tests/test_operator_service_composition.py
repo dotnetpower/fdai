@@ -966,7 +966,7 @@ def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() ->
     assert source.reason
 
 
-def test_autonomy_measurement_declares_an_authoritative_audit_source() -> None:
+def test_autonomy_measurement_declares_an_authoritative_projection_source() -> None:
     composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
     runtime = composition.build_runtime(
         {
@@ -978,7 +978,7 @@ def test_autonomy_measurement_declares_an_authoritative_audit_source() -> None:
 
     source = next(item for item in runtime.data_sources if item.key == "autonomy-measurement")
     assert source.routes == ("/kpi/autonomy",)
-    assert source.source == "service-local-audit"
+    assert source.source == "outcome-assurance-measurement"
     assert source.availability == "unknown"
     assert source.configured is True
     assert source.authoritative is True
@@ -1027,7 +1027,6 @@ def test_repository_catalog_routes_declare_authoritative_durable_sources() -> No
     expected = {
         "onboarding-probe": "/onboarding",
         "capability-contract": "/capabilities",
-        "promotion-gate-evidence": "/kpi/promotion-gates",
         "workflow-app-catalog": "/views/workflow-apps",
     }
     for key, route in expected.items():
@@ -1039,6 +1038,13 @@ def test_repository_catalog_routes_declare_authoritative_durable_sources() -> No
         assert source.authoritative is True
         assert source.durable is True
         assert source.reason is None
+
+    promotion = next(item for item in runtime.data_sources if item.key == "promotion-gate-evidence")
+    assert promotion.routes == ("/kpi/promotion-gates",)
+    assert promotion.source == "catalog-and-promotion-registry-projection"
+    assert promotion.configured is True
+    assert promotion.authoritative is True
+    assert promotion.durable is True
 
 
 @pytest.mark.parametrize("configured", [False, True])
