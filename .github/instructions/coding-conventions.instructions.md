@@ -200,6 +200,13 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 - **Delivery boundaries**: distinguish locally verified implementation from pushed-SHA CI and
   deployment completion. Push only when requested, then record the exact run once; do not poll,
   dispatch, or retry to test an iteration. Keep required merge and deployment evidence checks.
+  An explicitly authorized `pr-delivery` operation MAY start the canonical one-time
+  `scripts/automation/pr_delivery_daemon.py` after publication. That exception observes one PR at
+  a bounded interval and may locally merge its current base in a clean isolated worktree, push
+  without force, and restore protected auto-merge. It MUST stop on a terminal result, failed check,
+  conflict, identity mismatch, total deadline, or no-progress deadline. It MUST NOT diagnose or
+  repair CI, resolve conflicts, alter protection, carry credentials in arguments, or become a
+  general remote-work polling loop.
   Build, scan, publish, and attest release images for explicitly selected candidates; retain
   targeted packaging checks for build and runtime dependency changes. Promote the same verified
   digest, rechecking evidence freshness and policy rather than rebuilding at each environment.

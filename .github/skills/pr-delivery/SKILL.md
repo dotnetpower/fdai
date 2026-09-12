@@ -42,6 +42,9 @@ access, an admin bypass, or a force-push.
    - Observe the exact PR head and its required checks once. Do not poll.
    - If checks are pending and repository policy supports auto-merge, enable protected auto-merge
      with the repository's established merge method. Record that external evidence is pending.
+   - When Merge Queue is unavailable and delivery is authorized through merge, start the canonical
+     one-time coordinator described below. The coordinator owns subsequent bounded observations and
+     behind-branch updates; the interactive agent does not poll alongside it.
    - If a required check fails, use the `ci-diagnosis` skill on that exact attempt, fix only the
      established cause locally, rerun the narrowest falsifying check, commit, push, and update the
      existing PR.
@@ -61,12 +64,52 @@ access, an admin bypass, or a force-push.
 8. **Close the evidence loop.** Reconcile the linked issue and report commit SHA, PR, merge result,
    base revision, CI status, and branch-cleanup result separately.
 
+## One-Time Delivery Coordinator
+
+Use `scripts/automation/pr_delivery_daemon.py` only after the task commit is pushed, the PR exists,
+its exact local and remote head match, and protected auto-merge is permitted. If the canonical
+script is absent, first create it and its focused regressions as task-owned repository source,
+validate that implementation, and resume delivery only from a checkout that contains it. Never
+substitute an inline polling loop, downloaded executable, GitHub content API commit, or cloud agent.
+
+Start it from the clean isolated topic-branch worktree with that worktree's selected Python:
+
+```bash
+.venv/bin/python scripts/automation/pr_delivery_daemon.py start \
+  --repo <owner/repository> \
+  --pr-number <number> \
+  --topic-branch <topic-branch> \
+  --base-branch <base-branch> \
+  --worktree <absolute-worktree-path>
+```
+
+The `start` operation returns immediately after creating one detached, finite process. It writes a
+private state record and log beneath the Git common directory and reuses an exact live process for
+the same PR instead of starting a duplicate. Do not pass tokens, credentials, URLs containing
+credentials, or environment dumps. Authentication comes only from the existing `gh` and Git
+credential providers.
+
+The coordinator may:
+
+- Observe only the pinned PR every 30-300 seconds for at most two hours.
+- Merge the latest named base locally when GitHub reports `BEHIND`.
+- Push the exact local topic branch without force and verify the remote SHA.
+- Restore the repository's existing protected auto-merge method.
+- Verify that the reported merge commit is contained by the remote base.
+
+It stops without repair when a check fails, the PR closes, a conflict occurs, local or remote
+identity changes, the worktree becomes dirty, or a deadline expires. CI diagnosis, code changes,
+review decisions, conflict resolution, branch protection, retries after provider errors, issue
+closure, and worktree cleanup remain interactive `pr-delivery` responsibilities. On a later turn,
+read status once with the same arguments and the `status` operation; do not tail or poll its log.
+
 ## Waiting and resumption
 
-GitHub Actions and reviews are external evidence. Do not repeatedly query them. When checks are
-still running, enable auto-merge if allowed, record the exact PR and head SHA, and leave the work
-blocked on external evidence. Resume from that same PR when a terminal notification or a later
-operator turn arrives; do not create a replacement PR or silently switch revisions.
+GitHub Actions and reviews are external evidence. Do not repeatedly query them interactively. When
+checks are still running, enable auto-merge if allowed and either start the one-time coordinator or
+record the exact PR and head SHA before leaving the work blocked on external evidence. Resume from
+that same PR when the coordinator records a terminal outcome, a terminal notification arrives, or
+a later operator turn begins; do not create a replacement PR or silently switch revisions.
 
 ## Example
 
