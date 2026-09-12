@@ -212,20 +212,8 @@ first provider query or publication, so a failed first attempt reuses the same b
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
-A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
-later poll can observe either the Resource or its delete record. A returned Resource type outside
-the reviewed mapping catalog is retained with its exact provider identity under the reviewed
-`unclassified-resource` type. An explicit runtime collection filter can still exclude it without
-blocking later changes. Malformed hydration still fails the batch. Hydration that exceeds the
-bounded property payload also fails before publication or cursor advancement rather than asserting
-a truncated full replacement.
-Each complete inventory promotion stores provider-native type accounting in the active snapshot
-metadata. The Operator API validates that the mapped and unmapped object totals, provider type
-counts, materialized unknown identities, and sorted unknown-type counts reconcile before exposing
-them through Ontology Instances. The Console shows the snapshot cutoff, capture method, coverage
-totals, identity-completeness state, and bounded provider type names and counts. It receives no raw
-provider object identity or property payload, and the coverage view grants no catalog or execution
-authority.
+A Resource absent from hydration retains the prior cursor and incomplete source state for a later poll. An unmapped returned type retains exact provider identity as `unclassified-resource`; an explicit runtime filter can still exclude it. Malformed or oversized hydration fails before publication or cursor advancement.
+Complete promotion stores provider-type accounting in active snapshot metadata. Operator validates reconciled mapped, unmapped, materialized, and type counts; Console shows cutoff, capture method, identity completeness, and bounded type names without raw provider objects, catalog authority, or execution authority.
 After three unresolved hydration retries, the feed advances past the bounded page and records the
 latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
 remain incomplete, while later windows can recover without permanently blocking the feed.
