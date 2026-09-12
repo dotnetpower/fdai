@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: a3b9f19d1dd6ec725fb60e79e9ece97e5ec596eb
+translation_source_sha: a71aa5be7a44dd63da41033035344733cc553553
 translation_revised: 2026-09-12
 ---
 
@@ -340,6 +340,18 @@ shadow fence는 계약에 대한 근거일 뿐 ActionType에 A3-E 자격을 부�
 실패, 시간 초과, 누락, 오래됨, 충돌, 검열 또는 그 밖의 채점 불가 근거는
 `return_to_shadow`를 제안합니다. 계획기는 레지스트리 작성자가 아니며, 상시 권한을 취소하거나
 복구 권한을 부여하지 않습니다. 이후 권한을 수반하는 소비자는 별도로 검토하고 승인해야 합니다.
+
+로컬 acceptance fence 모델은 한 프로세스 안에서 스크립트로 만든 provider 제출 시도 하나의
+순서를 정합니다. callback 전에 `PREPARED`를 영구 기록하고 정확한 lease fence를 다시 확인하며,
+target-fence 다이제스트마다 permit을 최대 하나만 발급하고 `ACCEPTED`, 긍정적으로 입증된
+`NOT_ACCEPTED`, 또는 `UNKNOWN`을 기록합니다. 기존 상태는 모두 추가 제출을 차단합니다.
+시간 초과, 취소, 예외 또는 종료 기록 불확실성은 commit-equivalent 상태로 남아 재시도할 수
+없습니다. 결정론적 `x-ms-client-request-id`는 상관관계 용도일 뿐 provider 측 중복 제거가 아닙니다.
+
+이 모델은 분산 원자성이 아니고, 취소와 제출의 경쟁을 닫지 않으며, VM 효과를 증명하지 않습니다.
+`production_eligible=false`를 선언하고 process-local 테스트 저장소만 가지며 연결하지 않은 상태를
+유지합니다. 엄격한 `StandingAuthorizationLeaseStore` provider-commit 계약과
+`INELIGIBLE_CAPABILITY` 결과는 바뀌지 않습니다.
 
 - **실행이 validity 구간 안에 들어갑니다.** Risk 게이트는 전달 전에
   `now + max_duration_seconds <= valid_until`을 요구합니다. 저장된 instant에는 trusted UTC를,
