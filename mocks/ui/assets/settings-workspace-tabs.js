@@ -1,4 +1,4 @@
-/** Bind accessible, route-aware preview tabs without granting settings or execution authority. */
+/** Bind route-aware preview tabs. Content anchors are opt-in; Settings keeps strict tab IDs and aliases. */
 export function bindWorkspaceTabs(root, {
   tabAttribute = "data-settings-tab",
   panelAttribute = "data-settings-panel",
@@ -6,6 +6,7 @@ export function bindWorkspaceTabs(root, {
   errorSelector = "[data-settings-error]",
   defaultTab,
   aliases = {},
+  resolveContentFragments = false,
 }) {
   const tabs = [...root.querySelectorAll(`[${tabAttribute}]`)];
   const panels = [...root.querySelectorAll(`[${panelAttribute}]`)];
@@ -13,7 +14,14 @@ export function bindWorkspaceTabs(root, {
   let active = null;
 
   function selectTab(requested, userInitiated = false, focus = false) {
-    const id = Object.hasOwn(aliases, requested) ? aliases[requested] : requested;
+    const target = resolveContentFragments ? document.getElementById(requested) : null;
+    const ownedTarget = target && root.contains(target) ? target : null;
+    let id = Object.hasOwn(aliases, requested) ? aliases[requested] : requested;
+    if (!tabs.some(item => item.getAttribute(tabAttribute) === id) && ownedTarget) {
+      const current = tabs.some(item => item.getAttribute(tabAttribute) === active) ? active : defaultTab;
+      id = ownedTarget.closest(`[${panelAttribute}]`)?.getAttribute(panelAttribute) || current;
+    }
+    const fragment = ownedTarget ? requested : id;
     const tab = tabs.find((item) => item.getAttribute(tabAttribute) === id);
     const changed = active !== id;
     active = id;
@@ -29,12 +37,13 @@ export function bindWorkspaceTabs(root, {
       return;
     }
     if (focus) tab.focus();
-    if (userInitiated && changed) {
-      history.pushState(null, "", "#" + id);
-      window.scrollTo({ top: 0, behavior: "instant" });
+    if (userInitiated && (changed || (resolveContentFragments && location.hash !== "#" + fragment))) {
+      history.pushState(null, "", "#" + fragment);
+      if (ownedTarget && fragment !== id && ownedTarget !== root) ownedTarget.scrollIntoView({ block: "start", behavior: "instant" });
+      else window.scrollTo({ top: 0, behavior: "instant" });
     }
     if (window.parent !== window) {
-      window.parent.postMessage({ type: "fdai:mock-section", section: id }, window.location.origin);
+      window.parent.postMessage({ type: "fdai:mock-section", section: fragment }, window.location.origin);
     }
   }
 

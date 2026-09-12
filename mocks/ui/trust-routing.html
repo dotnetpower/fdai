@@ -4,17 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trust routing - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=overview-quality-v1" />
   <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
   <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/overview-quality.css?v=overview-quality-v3" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <script src="assets/overview-workspace.js?v=1" type="module"></script>
+  <script src="assets/overview-workspace.js?v=overview-quality-v2" type="module"></script>
 </head>
-<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
-  <main class="cs-container cs-page ov-page ow-page" data-overview-tabs="t2">
-    <header class="cp-header"><div><h1>Trust routing</h1><p>Deterministic-first routing, governed residual reasoning, and the signals that require review.</p></div><div class="ov-window"><span>Evidence window</span><strong>30 days</strong></div></header>
-    <nav class="ov-tabs cs-settings-workspace-tabs" role="tablist" aria-label="Trust tier"><button type="button" role="tab" id="tab-t0" aria-controls="t0" data-overview-tab="t0">T0 deterministic</button><button type="button" role="tab" id="tab-t1" aria-controls="t1" data-overview-tab="t1">T1 lightweight</button><button type="button" role="tab" id="tab-t2" aria-controls="t2" data-overview-tab="t2">T2 reasoning</button></nav>
+<body class="cs-operator-neutral cs-overview-quality" data-chat-theme="clear-neutral">
+  <a class="oq-skip-link" href="#trust-routing-main">Skip to trust routing</a>
+  <main id="trust-routing-main" class="cs-container cs-page ov-page ow-page oq-page" data-overview-tabs="t2" data-preview-view="trust-routing-v1" tabindex="-1">
+    <header class="oq-page-header"><div><h1>Trust routing</h1><p>Deterministic-first routing, governed residual reasoning, and the signals that require review.</p></div><div class="ov-window"><span>Frozen example window</span><strong>30 days</strong></div></header>
+    <nav class="oq-tabs" role="tablist" aria-label="Trust tier"><button type="button" role="tab" id="tab-t0" aria-controls="t0" data-overview-tab="t0">T0 / Rules</button><button type="button" role="tab" id="tab-t1" aria-controls="t1" data-overview-tab="t1">T1 / Lightweight analysis</button><button type="button" role="tab" id="tab-t2" aria-controls="t2" data-overview-tab="t2">T2 / Governed reasoning</button></nav>
     <p data-overview-error hidden role="status">This tier is not registered. Choose T0, T1, or T2.</p>
     <div class="cs-readonly-banner"><strong>T2 is a governed residual path.</strong> Synthetic examples only. No model invocation, policy change, or authority transfer.</div>
     <div class="ov-evidence"><strong>Simulated</strong><span>30 days / 30 events</span><span>Confidence unavailable</span><span>Source example-autonomy</span><span>As of 2026-07-22T15:18:00Z</span></div>
@@ -41,12 +43,12 @@
         </div>
       </section>
       <section class="ov-section"><h2>Leading indicators</h2><p class="ow-note">Current values compared with a projected baseline, not invented policy limits. Simulated indicators cannot establish normal operation.</p>
-        <div class="ow-tools"><label>Indicator<select class="cs-control-select" data-indicator-filter><option value="">All indicators</option><option value="disagreement">Mixed-model disagreement</option><option value="verifier">Verifier failure</option><option value="divergence">Shadow divergence</option></select></label></div>
+        <div class="ow-tools"><label>Indicator<select id="routing-indicator-filter" class="cs-control-select" data-indicator-filter><option value="">All indicators</option><option value="disagreement">Mixed-model disagreement</option><option value="verifier">Verifier failure</option><option value="divergence">Observation-mode divergence</option></select></label></div>
         <p data-indicator-empty hidden role="status">This leading indicator is unavailable. Choose a registered indicator.</p>
-        <div class="ov-guard-list">
-          <article class="ov-guard" data-indicator="disagreement"><div class="ov-guard-name"><a href="trust-routing.html?indicator=disagreement#t2"><strong>Mixed-model disagreement</strong></a><small>Current 4%</small></div><div><div class="ov-meter"><span style="width:40%"></span></div><div class="ov-meter-meta"><span>Current 4%</span><span>Baseline 10%</span></div></div><span class="ov-status">Simulated</span></article>
-          <article class="ov-guard" data-indicator="verifier"><div class="ov-guard-name"><a href="trust-routing.html?indicator=verifier#t2"><strong>Verifier failure</strong></a><small>Current 2%</small></div><div><div class="ov-meter"><span style="width:40%"></span></div><div class="ov-meter-meta"><span>Current 2%</span><span>Baseline 5%</span></div></div><span class="ov-status">Simulated</span></article>
-          <article class="ov-guard" data-indicator="divergence"><div class="ov-guard-name"><a href="trust-routing.html?indicator=divergence#t2"><strong>Shadow divergence</strong></a><small>Current unavailable</small></div><div><div class="ov-meter"><span style="width:0"></span></div><div class="ov-meter-meta"><span>No measurement</span><span>Baseline unavailable</span></div></div><span class="ov-status">Unavailable</span></article>
+        <div class="ov-guard-list oq-surface">
+          <article class="oq-guard" data-indicator="disagreement"><div class="ov-guard-name"><a href="trust-routing.html?indicator=disagreement#t2"><strong>Mixed-model disagreement</strong></a><small>Current compared with baseline</small></div><div class="oq-guard-values"><span>Current <strong>4%</strong></span><span>Baseline 10%</span></div><span class="ov-status">Simulated</span></article>
+          <article class="oq-guard" data-indicator="verifier"><div class="ov-guard-name"><a href="trust-routing.html?indicator=verifier#t2"><strong>Verifier failure</strong></a><small>Current compared with baseline</small></div><div class="oq-guard-values"><span>Current <strong>2%</strong></span><span>Baseline 5%</span></div><span class="ov-status">Simulated</span></article>
+          <article class="oq-guard" data-indicator="divergence"><div class="ov-guard-name"><a href="trust-routing.html?indicator=divergence#t2"><strong>Observation-mode divergence</strong></a><small>Shadow comparison</small></div><div class="oq-guard-values"><span>Current <strong>Unavailable</strong></span><span>Baseline unavailable</span></div><span class="ov-status">Unavailable</span></article>
         </div>
       </section>
       <nav class="ov-footer-links" aria-label="T2 evidence"><a href="audit.html?tier=t2&amp;window=30d">2 example T2 events</a><a href="rules.html">Rule catalog</a><a href="llm-cost.html">Provider usage</a></nav>

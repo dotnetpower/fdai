@@ -4,21 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Operating outcomes - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=overview-quality-v1" />
   <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
   <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/overview-quality.css?v=overview-quality-v3" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <script src="assets/overview-outcomes.js?v=1" defer></script>
-  <script src="assets/overview-workspace.js?v=1" type="module"></script>
+  <script src="assets/overview-outcomes.js?v=overview-quality-v1" defer></script>
+  <script src="assets/overview-workspace.js?v=overview-quality-v2" type="module"></script>
 </head>
-<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
-  <main class="cs-container cs-page ov-page ow-page" data-overview-tabs="auto-resolution">
-    <header class="cp-header"><div><h1>Operating outcomes</h1><p>Current results, paired baselines, finalization, and the evidence gaps behind each claim.</p></div><div class="ov-window"><span>Evidence window</span><strong>30 days</strong></div></header>
-    <nav class="ov-tabs cs-settings-workspace-tabs" role="tablist" aria-label="Outcome metric">
+<body class="cs-operator-neutral cs-overview-quality" data-chat-theme="clear-neutral">
+  <a class="oq-skip-link" href="#operating-outcomes-main">Skip to operating outcomes</a>
+  <main id="operating-outcomes-main" class="cs-container cs-page ov-page ow-page oq-page" data-overview-tabs="auto-resolution" data-preview-view="operating-outcomes-v1" tabindex="-1">
+    <header class="oq-page-header"><div><h1>Operating outcomes</h1><p>Current results, paired baselines, finalization, and the evidence gaps behind each claim.</p></div><div class="ov-window"><span>Frozen example window</span><strong>30 days</strong></div></header>
+    <nav class="oq-tabs" role="tablist" aria-label="Outcome metric">
       <button type="button" role="tab" id="tab-auto-resolution" aria-controls="auto-resolution" data-overview-tab="auto-resolution">Auto-resolution</button>
-      <button type="button" role="tab" id="tab-human-touchpoints" aria-controls="human-touchpoints" data-overview-tab="human-touchpoints">Human touchpoints</button>
-      <button type="button" role="tab" id="tab-mttr" aria-controls="mttr" data-overview-tab="mttr">MTTR</button>
+      <button type="button" role="tab" id="tab-human-touchpoints" aria-controls="human-touchpoints" data-overview-tab="human-touchpoints">Human interactions</button>
+      <button type="button" role="tab" id="tab-mttr" aria-controls="mttr" data-overview-tab="mttr">Recovery time</button>
       <button type="button" role="tab" id="tab-change-lead-time" aria-controls="change-lead-time" data-overview-tab="change-lead-time">Change lead time</button>
       <button type="button" role="tab" id="tab-cost-per-resolved-event" aria-controls="cost-per-resolved-event" data-overview-tab="cost-per-resolved-event">Cost / resolved event</button>
     </nav>
@@ -27,31 +29,34 @@
     <div class="ov-evidence"><strong>Simulated</strong><span>30 days / 30 events</span><span>Confidence unavailable</span><span>Attribution coverage 86%</span><span>Source example-autonomy</span><span>As of 2026-07-22T15:18:00Z</span></div>
     <section id="auto-resolution" role="tabpanel" aria-labelledby="tab-auto-resolution" data-overview-panel="auto-resolution">
       <header class="ov-metric-intro"><div><h2>Correct outcomes without human intervention</h2><p>Finalization and adverse outcomes remain visible beside the resolution rate.</p></div><span class="ov-metric-direction">Higher is better</span></header>
-      <div class="ow-metrics">
-        <a class="ow-metric" href="audit.html?window=30d&amp;outcome=auto"><span>Current rate</span><strong>73%</strong><small>Rounded example projection</small></a>
-        <a class="ow-metric" href="audit.html?window=30d&amp;outcome=auto"><span>Baseline</span><strong>65%</strong><small>Paired scenario set</small></a>
-        <a class="ow-metric" href="audit.html?window=30d&amp;outcome=auto"><span>Auto-resolved</span><strong>22</strong><small>Across attributed verticals</small></a>
-        <a class="ow-metric" href="audit.html?window=30d"><span>Finalized events</span><strong>30</strong><small>Terminal records in sample</small></a>
-        <a class="ow-metric" href="audit.html?window=30d"><span>Pending finalization</span><strong>0</strong><small>Explicit fixture zero</small></a>
-        <a class="ow-metric" href="audit.html?window=30d"><span>Adverse events</span><strong>2</strong><small>Not successful resolutions</small></a>
-        <a class="ow-metric" href="audit.html?window=30d"><span>Observed events</span><strong>30</strong><small>Same synthetic window</small></a>
+      <div class="cs-metric-grid oq-comparison-metrics">
+        <a class="cs-metric-link" href="audit.html?window=30d&amp;outcome=auto"><span>Current rate</span><strong>73%</strong><small>Rounded example projection</small></a>
+        <a class="cs-metric-link" href="audit.html?window=30d&amp;outcome=auto"><span>Baseline</span><strong>65%</strong><small>Paired scenario set</small></a>
+        <a class="cs-metric-link" href="audit.html?window=30d&amp;outcome=auto"><span>Auto-resolved</span><strong>22</strong><small>Across attributed verticals</small></a>
+        <a class="cs-metric-link" href="audit.html?window=30d"><span>Finalized events</span><strong>30</strong><small>Terminal records in sample</small></a>
+        <a class="cs-metric-link" href="audit.html?window=30d"><span>Pending finalization</span><strong>0</strong><small>Explicit fixture zero</small></a>
+        <a class="cs-metric-link" href="audit.html?window=30d"><span>Adverse events</span><strong>2</strong><small>Not successful resolutions</small></a>
+        <a class="cs-metric-link" href="audit.html?window=30d"><span>Observed events</span><strong>30</strong><small>Same synthetic window</small></a>
       </div>
       <div class="ow-grid">
-        <section class="ov-panel js-chartable" data-chart-title="Auto-resolution trend" data-chart-columns='["Sample","Rate"]' data-chart-rows='[["1","65%"],["2","68%"],["3","71%"],["4","73%"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy. Ordered samples, not invented timestamps.">
-          <h3>Auto-resolution trend</h3><p>Four recorded example samples. Final value 73%.</p>
-          <svg class="ov-chart" viewBox="0 0 620 190" role="img" aria-label="Four synthetic samples: 65, 68, 71, 73 percent">
+        <section class="oq-panel js-chartable" data-chart-title="Auto-resolution trend" data-chart-columns='["Sample","Rate"]' data-chart-rows='[["1","65%"],["2","68%"],["3","71%"],["4","73%"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy. Ordered samples, not invented timestamps.">
+          <div class="oq-chart-head"><h3>Auto-resolution trend</h3><button class="oq-inspect" type="button" data-cs-chart-inspect aria-label="Inspect auto-resolution samples"><span aria-hidden="true">&nearr;</span></button></div><p>Four recorded example samples. Final value 73%.</p>
+          <div class="oq-surface">
+          <svg class="ov-chart oq-trend-plot" viewBox="0 0 620 190" role="img" aria-label="Four synthetic samples: 65, 68, 71, 73 percent">
             <path class="grid" d="M42 25H610M42 70H610M42 115H610M42 160H610" />
             <path class="area" d="M42 115L230 88L420 61L610 43L610 160H42Z" /><path class="line" d="M42 115L230 88L420 61L610 43" />
             <text x="4" y="164">60%</text><text x="4" y="119">65%</text><text x="4" y="74">70%</text><text x="4" y="29">75%</text><text x="42" y="184">Sample 1</text><text x="545" y="184">Sample 4</text>
           </svg>
+          <dl class="oq-mobile-data" aria-label="Auto-resolution samples"><div><dt>Sample 1</dt><dd>65%</dd></div><div><dt>Sample 2</dt><dd>68%</dd></div><div><dt>Sample 3</dt><dd>71%</dd></div><div><dt>Sample 4</dt><dd>73%</dd></div></dl>
           <a href="audit.html?window=30d&amp;outcome=auto">Inspect supporting outcomes</a>
+          </div>
         </section>
-        <section class="ov-panel"><h3>Quality boundary</h3><p>Simulated guard values are not promotion evidence.</p><ul class="ov-list"><li><a href="control-assurance.html?guard=rollback">Rollback rate</a><strong>6.7%</strong></li><li><a href="control-assurance.html?guard=fpr">False-positive rate</a><strong>2.0%</strong></li><li><a href="control-assurance.html?guard=fnr">False-negative rate</a><strong>1.5%</strong></li><li><a href="control-assurance.html?guard=cfr">Change failure rate</a><strong>4.5%</strong></li></ul></section>
+        <section class="oq-panel"><h3>Quality boundary</h3><p>Simulated guard values are not promotion evidence.</p><div class="oq-surface"><ul class="ov-list"><li><a href="control-assurance.html?guard=rollback">Rollback rate</a><strong>6.7%</strong></li><li><a href="control-assurance.html?guard=fpr">False-positive rate</a><strong>2.0%</strong></li><li><a href="control-assurance.html?guard=fnr">False-negative rate</a><strong>1.5%</strong></li><li><a href="control-assurance.html?guard=cfr">Change failure rate</a><strong>4.5%</strong></li></ul></div></section>
       </div>
-      <section class="ov-section"><h2>Vertical resolution</h2><p class="ow-note">Attributed operating events; monthly savings remain separate from cost recommendations.</p><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Vertical</th><th>Events</th><th>Auto-resolved</th><th>Open risks</th><th>Monthly savings</th></tr></thead><tbody>
-        <tr><td><a href="verticals.html#resilience">Resilience</a></td><td>12</td><td>10</td><td>1</td><td>$0</td></tr>
-        <tr><td><a href="verticals.html#change-safety">Change safety</a></td><td>11</td><td>8</td><td>2</td><td>$0</td></tr>
-        <tr><td><a href="verticals.html#cost-governance">Cost governance</a></td><td>7</td><td>4</td><td>3</td><td>$0</td></tr>
+      <section class="ov-section"><h2>Vertical resolution</h2><p class="ow-note">Attributed operating events; monthly savings remain separate from cost recommendations.</p><div class="cs-table-wrap"><table class="cs-table"><caption class="cs-sr-only">Vertical results in the frozen 30-event sample</caption><thead><tr><th scope="col">Vertical</th><th scope="col" class="num">Events</th><th scope="col" class="num">Auto-resolved</th><th scope="col" class="num">Open risks</th><th scope="col" class="num">Monthly savings (USD)</th></tr></thead><tbody>
+        <tr><td><a href="verticals.html#resilience">Resilience</a></td><td class="num">12</td><td class="num">10</td><td class="num">1</td><td class="num">0</td></tr>
+        <tr><td><a href="verticals.html#change-safety">Change safety</a></td><td class="num">11</td><td class="num">8</td><td class="num">2</td><td class="num">0</td></tr>
+        <tr><td><a href="verticals.html#cost-governance">Cost governance</a></td><td class="num">7</td><td class="num">4</td><td class="num">3</td><td class="num">0</td></tr>
       </tbody></table></div></section>
       <nav class="ov-footer-links" aria-label="Outcome evidence"><a href="audit.html?window=30d&amp;outcome=auto">Terminal outcomes</a><a href="rules.html">Rules</a><a href="llm-cost.html">LLM usage</a></nav>
     </section>

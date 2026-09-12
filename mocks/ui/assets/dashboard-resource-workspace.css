@@ -1,0 +1,295 @@
+/* Resource-specific composition over shared Calm Slate controls and state-map primitives. */
+body.cs-resource-dashboard[data-chat-theme="clear-neutral"] {
+  --cs-bg: #f7f8fa;
+  --cs-card: #ffffff;
+  --cs-shade: #eef2f6;
+  --cs-hairline: #d4dce4;
+  --cs-text: #1e2b39;
+  --cs-text-soft: #536170;
+  --cs-steel: #275a85;
+  --cs-sage: #326553;
+  --cs-terracotta: #805522;
+  --cs-dusty-red: #963f48;
+  --cs-type-section-title-size: 18px;
+  background: var(--cs-bg);
+}
+
+.cs-resource-dashboard > main.dashboard-v2 {
+  width: min(100%, 1440px);
+  max-width: 1440px;
+  min-width: 0;
+  padding: 20px 24px 32px;
+}
+
+.cs-resource-dashboard .rd-skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 8px;
+  left: 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--cs-steel);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  transform: translateY(calc(-100% - 16px));
+}
+.cs-resource-dashboard .rd-skip-link:focus { transform: none; }
+
+.cs-resource-dashboard .rd-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+}
+.cs-resource-dashboard .rd-page-header > div:first-child { min-width: 0; }
+.cs-resource-dashboard .rd-page-header h1 { margin: 0; }
+.cs-resource-dashboard .db-page-subtitle {
+  max-width: 74ch;
+  margin: 4px 0 0;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+}
+.cs-resource-dashboard .db-page-subtitle strong { color: var(--cs-steel); }
+.cs-resource-dashboard .rd-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.cs-resource-dashboard .rd-page-actions > a,
+.cs-resource-dashboard .rd-example-controls > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #7c8b9a;
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cs-resource-dashboard .rd-page-actions > a:hover,
+.cs-resource-dashboard .rd-example-controls > summary:hover { background: var(--cs-shade); }
+.cs-resource-dashboard .rd-example-controls { position: relative; }
+.cs-resource-dashboard .rd-example-controls > summary { list-style: none; }
+.cs-resource-dashboard .rd-example-controls > summary::-webkit-details-marker { display: none; }
+.cs-resource-dashboard .rd-example-controls > summary::after { content: "+"; margin-left: 8px; }
+.cs-resource-dashboard .rd-example-controls[open] > summary::after { content: "-"; }
+.cs-resource-dashboard .rd-example-popover {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+  box-shadow: 0 4px 16px rgb(30 43 57 / .12);
+}
+.cs-resource-dashboard .dr-example-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+.cs-resource-dashboard .dr-example-options > p { grid-column: 1 / -1; }
+.cs-resource-dashboard .rd-example-popover p { margin: 12px 0; font-size: var(--cs-type-compact-size); }
+.cs-resource-dashboard .rd-example-footer { padding-top: 12px; border-top: 1px solid var(--cs-hairline); }
+.cs-resource-dashboard #resource-data { display: grid; gap: 20px; }
+
+.cs-resource-dashboard .rd-snapshot,
+.cs-resource-dashboard :is(.dr-resource-panel, .dr-attention, .dr-inspector, .dr-history-panel) {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.cs-resource-dashboard .dr-scope { align-items: center; padding: 0 0 12px; }
+.cs-resource-dashboard .dr-summary {
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.cs-resource-dashboard .dr-summary > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+}
+.cs-resource-dashboard .dr-summary dt { grid-column: 1; grid-row: 1; }
+.cs-resource-dashboard .dr-summary dd { grid-column: 2; grid-row: 1; font-variant-numeric: tabular-nums; }
+.cs-resource-dashboard .rd-summary-action { grid-column: 1 / -1; justify-self: start; padding-left: 0; text-decoration: underline; }
+.cs-resource-dashboard .rd-summary-note { margin: 8px 0 0; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.cs-resource-dashboard .rd-summary-note > span { color: var(--cs-text); font-weight: 600; }
+.cs-resource-dashboard .rd-primary-workspace { grid-template-columns: minmax(0, 1fr) 248px; gap: 24px; }
+.cs-resource-dashboard .dr-panel-head { align-items: center; gap: 12px; margin-bottom: 12px; }
+.cs-resource-dashboard .dr-panel-head h2 { font-size: var(--cs-type-section-title-size); }
+.cs-resource-dashboard .rd-map-surface,
+.cs-resource-dashboard #resource-selected-facts {
+  padding: 16px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+}
+.cs-resource-dashboard .dr-view-switch { gap: 4px; }
+.cs-resource-dashboard :is(.dr-view-switch, .dr-lenses, .dr-legend) button { position: relative; }
+.cs-resource-dashboard :is(.dr-view-switch, .dr-lenses, .dr-legend) button[aria-pressed="true"] {
+  border-color: var(--cs-steel);
+  background: var(--cs-shade);
+}
+.cs-resource-dashboard :is(.dr-view-switch, .dr-lenses, .dr-legend) button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  border-bottom: 2px solid currentColor;
+  pointer-events: none;
+}
+.cs-resource-dashboard .dr-lenses { align-items: center; gap: 4px; margin-bottom: 12px; padding-bottom: 12px; }
+.cs-resource-dashboard .dr-density-switch { padding-left: 8px; }
+.cs-resource-dashboard .dr-filters { gap: 12px; }
+.cs-resource-dashboard .dr-filters :is(input, select),
+.cs-resource-dashboard .dr-type-picker .cs-combobox-control,
+.cs-resource-dashboard .dr-example-options select {
+  border-color: #7c8b9a;
+}
+.cs-resource-dashboard .dr-type-picker .cs-combobox-control input { border: 0; }
+.cs-resource-dashboard .dr-map-meta { gap: 8px 12px; }
+.cs-resource-dashboard .dr-legend { gap: 4px; margin: 8px 0 12px; }
+/* Preserve 52x60px base cells at 14px while allowing user text enlargement. */
+.cs-resource-dashboard .dr-honeycomb:not(.is-dense) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(248em / 14)), 1fr));
+  gap: 8px;
+  font-size: var(--cs-type-body-size);
+}
+.cs-resource-dashboard .dr-honeycomb:not(.is-dense) .dr-hex-row {
+  flex-wrap: wrap;
+  gap: calc(4em / 14);
+}
+.cs-resource-dashboard .dr-honeycomb:not(.is-dense) .dr-hex-row + .dr-hex-row { margin-top: calc(-8em / 14); }
+.cs-resource-dashboard .dr-honeycomb:not(.is-dense) .dr-hex-row:nth-child(even) { margin-left: 2em; }
+.cs-resource-dashboard .dr-honeycomb:not(.is-dense) .dr-cell {
+  flex-basis: calc(52em / 14);
+  width: calc(52em / 14);
+  height: calc(60em / 14);
+  font-size: var(--cs-type-body-size);
+}
+.cs-resource-dashboard .dr-cluster h3 { margin-bottom: 8px; }
+.cs-resource-dashboard .dr-cluster h3 span { font-size: var(--cs-type-compact-size); }
+.cs-resource-dashboard .dr-cell .dr-cell-name { font-size: var(--cs-type-label-size); }
+.cs-resource-dashboard .dr-cell polygon { stroke-opacity: 1; }
+.cs-resource-dashboard .dr-status { font-size: var(--cs-type-compact-size); border-radius: 4px; }
+.cs-resource-dashboard .rd-map-notes { margin-top: 12px; border-top: 1px solid var(--cs-hairline); }
+.cs-resource-dashboard :is(.rd-map-notes, .rd-highlight-context, .rd-supplement) > summary {
+  min-height: 32px;
+  padding-block: 8px;
+  cursor: pointer;
+  font-size: var(--cs-type-compact-size);
+}
+.cs-resource-dashboard .rd-map-notes p { margin: 8px 0; }
+.cs-resource-dashboard :is(.dr-text-link, .rd-provenance a) { text-decoration: underline; text-underline-offset: 3px; }
+.cs-resource-dashboard .dr-priorities { display: grid; gap: 12px; }
+.cs-resource-dashboard .dr-priorities li + li { margin: 0; padding-top: 12px; border-top: 1px solid var(--cs-hairline); }
+.cs-resource-dashboard .rd-priority-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
+.cs-resource-dashboard .rd-priority-heading h3 { margin: 0; font-size: var(--cs-type-panel-title-size); }
+.cs-resource-dashboard .dr-priorities .dr-text-link { min-height: 32px; padding-block: 4px; }
+.cs-resource-dashboard .rd-highlight-context p { font-size: var(--cs-type-compact-size); margin: 6px 0; }
+.cs-resource-dashboard .dr-boundary { font-size: var(--cs-type-compact-size); }
+.cs-resource-dashboard .dr-inspector .dr-panel-head { align-items: start; }
+.cs-resource-dashboard .dr-inspector .dr-panel-head > div { min-width: 0; }
+.cs-resource-dashboard .dr-inspector .dr-view-switch { width: 100%; }
+.cs-resource-dashboard .db-kicker { display: block; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); margin-bottom: 4px; }
+.cs-resource-dashboard #resource-selected-scope { overflow-wrap: anywhere; }
+.cs-resource-dashboard .dr-resource-facts { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; }
+.cs-resource-dashboard .dr-resource-facts > div { grid-template-columns: 1fr; gap: 4px; }
+.cs-resource-dashboard .dr-resource-facts dd { margin: 0; overflow-wrap: anywhere; }
+.cs-resource-dashboard .dr-record > summary { min-height: 44px; }
+.cs-resource-dashboard .rd-supplement { padding-top: 4px; border-top: 1px solid var(--cs-hairline); }
+.cs-resource-dashboard .rd-supplement > summary { min-height: 44px; font-size: var(--cs-type-panel-title-size); font-weight: 600; }
+.cs-resource-dashboard .rd-supplement > summary span { color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); font-weight: 400; margin-left: 12px; }
+.cs-resource-dashboard .dr-lower-grid { gap: 24px; margin: 20px 0 24px; }
+.cs-resource-dashboard .dr-coverage { padding: 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); }
+.cs-resource-dashboard .rd-provenance { padding-block: 20px; border-top: 1px solid var(--cs-hairline); }
+.cs-resource-dashboard .rd-provenance h2 { font-size: var(--cs-type-section-title-size); }
+.cs-resource-dashboard .rd-source-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; margin: 16px 0; }
+.cs-resource-dashboard .rd-source-facts dt { color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.cs-resource-dashboard .rd-source-facts dd { margin: 4px 0 0; font-size: var(--cs-type-body-size); overflow-wrap: anywhere; }
+body.cs-resource-dashboard :is(a, button, summary, select, input):focus-visible { outline: 3px solid var(--cs-steel); outline-offset: 3px; }
+body.cs-resource-dashboard .dr-type-picker .cs-combobox-control:focus-within { outline: 3px solid var(--cs-steel); outline-offset: 3px; }
+body.cs-resource-dashboard .dr-type-picker input:focus-visible { outline: 0; }
+
+@media (max-width: 1000px) {
+  .cs-resource-dashboard .rd-primary-workspace { grid-template-columns: minmax(0, 1fr); }
+  .cs-resource-dashboard .dr-priorities { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .cs-resource-dashboard .dr-priorities li + li { padding-top: 0; border-top: 0; }
+}
+
+@media (max-width: 800px) {
+  .cs-resource-dashboard .rd-page-header { align-items: start; flex-wrap: wrap; gap: 12px; }
+  .cs-resource-dashboard .dr-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-resource-dashboard .dr-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-resource-dashboard .dr-priorities { grid-template-columns: minmax(0, 1fr); }
+  .cs-resource-dashboard .dr-priorities li + li { padding-top: 12px; border-top: 1px solid var(--cs-hairline); }
+  .cs-resource-dashboard .dr-lower-grid { grid-template-columns: minmax(0, 1fr); }
+  .cs-resource-dashboard .rd-source-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .cs-resource-dashboard > main.dashboard-v2 { padding: 20px 16px 32px; }
+  .cs-resource-dashboard .rd-page-actions { width: 100%; position: relative; flex-wrap: wrap; }
+  .cs-resource-dashboard .rd-example-controls { position: static; }
+  .cs-resource-dashboard .rd-example-popover { width: 100%; right: 0; }
+  .cs-resource-dashboard .dr-example-options { grid-template-columns: minmax(0, 1fr); }
+  .cs-resource-dashboard :is(.cs-control-button, .dr-text-link, .dr-lenses button, .dr-legend button, .dr-summary button, .dr-type-clear),
+  .cs-resource-dashboard :is(.rd-map-notes, .rd-highlight-context, .rd-supplement) > summary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .cs-resource-dashboard .dr-type-clear { flex: 0 0 44px; }
+  .cs-resource-dashboard .dr-priorities .dr-text-link { min-height: 44px; }
+  .cs-resource-dashboard .dr-filters :is(input, select),
+  .cs-resource-dashboard .dr-type-picker .cs-combobox-control,
+  .cs-resource-dashboard .dr-example-options select { min-height: 44px; }
+  .cs-resource-dashboard .dr-type-picker .cs-combobox-control { padding-right: 0; }
+  .cs-resource-dashboard .dr-type-picker .cs-combobox-control input { min-height: 0; }
+  .cs-resource-dashboard .rd-supplement > summary span { display: block; margin: 4px 0 0; }
+}
+
+@media (max-width: 500px) {
+  .cs-resource-dashboard .rd-page-header .cs-page-domain,
+  .cs-resource-dashboard .rd-page-header .cs-page-separator { display: none; }
+  .cs-resource-dashboard .rd-source-facts { grid-template-columns: minmax(0, 1fr); }
+  .cs-resource-dashboard .dr-summary > div { padding: 12px; }
+  .cs-resource-dashboard .dr-filters { grid-template-columns: minmax(0, 1fr); }
+  .cs-resource-dashboard .rd-map-surface { padding: 12px; }
+  .cs-resource-dashboard .dr-honeycomb:not(.is-dense) { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-resource-dashboard *, .cs-resource-dashboard *::before, .cs-resource-dashboard *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .cs-resource-dashboard .dr-status { border: 1px solid CanvasText; }
+  .cs-resource-dashboard .dr-cell polygon { fill: Canvas; stroke: CanvasText; }
+  .cs-resource-dashboard .dr-cell:focus-visible polygon,
+  .cs-resource-dashboard .dr-cell[aria-pressed="true"] polygon { stroke: Highlight; }
+}

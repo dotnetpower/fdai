@@ -124,7 +124,7 @@ try {
   } else if (suite === "overview") {
     await check("Outcome comparison has two primary and five balanced supporting metrics", async () => {
       const frame = await open("operating-outcomes.html");
-      const boxes = await frame.locator("#auto-resolution .ow-metric").evaluateAll(elements => elements.map(element => {
+      const boxes = await frame.locator("#auto-resolution .cs-metric-link").evaluateAll(elements => elements.map(element => {
         const box = element.getBoundingClientRect(); return { y: box.y, width: box.width };
       }));
       assert.equal(boxes.length, 7);
@@ -136,7 +136,7 @@ try {
       assert.match(await frame.locator('[data-overview-panel="cost-per-resolved-event"]').innerText(), /unavailable|not connected/i);
     });
     for (const [path, selector] of [
-      ["control-assurance.html", ".ov-guard-name small, .ov-meter-meta"],
+      ["control-assurance.html", ".ov-guard-name small, .oq-guard-values"],
       ["trust-routing.html", ".ov-route-step"],
       ["verticals.html", ".ov-vertical-purpose, .ov-status"],
       ["llm-cost.html", ".lc-timezone, .lc-range-option"],

@@ -299,16 +299,16 @@ Resource and relationship updates are ordered per logical resource. Duplicate de
 and a stale cursor or older event cannot move an instance backward. Tombstones retain their source,
 effective time, generation, and archive lineage.
 
-A complete provider generation may contain reviewed candidates that cannot become edges because an
-endpoint is outside the active generation, its provider type is not modeled, or its exact reference
-was not observed. These typed non-edges do not freeze newer Resource objects and independently
-verified links. The ontology projection advances the same generation with
-`relationship_complete=false` and preserves every classified reason. Relationship coverage bounds
-relationship claims: it prevents a query from using the graph as complete relationship evidence,
-while a snapshot whose object set admits no intra-set edge states nothing about relationships and
-therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
-partial source generation, conflict, or cardinality violation remains blocking and preserves the
-previous graph.
+A complete generation can retain typed non-edges for out-of-generation endpoints, unmodeled types,
+or unobserved references. Newer objects and verified links advance with `relationship_complete=false`
+and classified reasons. This limits relationship claims, not object coverage when no intra-set edge is possible.
+Invalid verification metadata, unclassified drops, partial generations, conflicts, or cardinality violations block replacement.
+
+Open environment self-identity values (exact ARM IDs or unique endpoint aliases) are not dependencies;
+explicit self-links remain blocked. Reciprocal `depends_on` facts require one candidate per direction,
+source-owned evidence, owner-to-reference mappings, and complete-generation endpoint, schema, observation-time,
+and independent-verifier checks under `inventory-generation-verifier.v2`. Duplicate and unsupported reversed edges still block.
+Regenerate semantic-intent coverage after projection edits; source commitments never change evaluation thresholds.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
