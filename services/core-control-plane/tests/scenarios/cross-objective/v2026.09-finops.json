@@ -262,7 +262,7 @@
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "2d1c89de8862ae28f5b9a79f6402866b380ff83528a78f3a938986877140c036",
+      "case_id": "c7f4123c7d799b3a7dfeaf015fbf484967f5e4e212c07793de8960dee09e1a83",
       "context_snapshot_id": "cfa775038ff05d7b70e77cc1e6242217bbc769ae34113e04633a230d5c8ac7fe",
       "option_by_domain": {
         "change_safety": "change_safety:remediate.assign-identity",
@@ -280,8 +280,8 @@
         "audit:scenario-7/network.public-ip.orphan/example-orphan-pip",
         "event:00000000-0000-0000-0000-000000000007",
         "event:00000000-0000-0000-0000-000000000019",
-        "receipt:sha256:6e963bc4c4a3b0854782860a634fe0919b5f4ea04c201cf1ed1e169bb245275c",
-        "receipt:sha256:df202f7a97994d9f1d087381788daec523db27516495509edaf7e89010638343",
+        "receipt:sha256:32a9c6cc40bbda9f3ed66bca9b14392a77dc2cd2c02b410d9c6202a9e0ef3b82",
+        "receipt:sha256:89fd0a2b15d5ea5f83018649e9e477a07571e10a764823fc453a73c36ba6c99e",
         "rule:compute.vm.managed-identity.assigned",
         "rule:network.public-ip.orphan",
         "specialist:change_safety:finops-cross-objective-conflict-v2026-09",
@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:fecc86c51a02a792f1af8774cabaab11489c5141efc44049645ab0ad22743827",
-    "evidence_digest": "sha256:cf8fd744b7f47b83165651ac609d5558682f0820f139a79fad9b1a0fdfe11438"
+    "decision_digest": "sha256:3d1ac187f35fdce2cb7b2c15c89c66d3196efd85537417cb28dd905784e6548a",
+    "evidence_digest": "sha256:b80fdef913c24d4ea517982c7916911a357bfb1fc5abb40cb4dbc7fee8cc2a98"
   }
 }

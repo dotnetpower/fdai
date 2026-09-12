@@ -8,7 +8,8 @@ closure races; capacity or storage failures prevent new publication.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fdai_service_contracts.ontology_query import content_digest
@@ -79,13 +80,19 @@ class BoundExecutorReceiptJournal:
     """
 
     def __init__(
-        self, store: StateStore, *, capacity: int, closure_store: PostReleaseClosureStore
+        self,
+        store: StateStore,
+        *,
+        capacity: int,
+        closure_store: PostReleaseClosureStore,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         """Bind durable Core storage, closure reads, and the outstanding-work limit."""
 
         self._store = store
         self._capacity = capacity
         self._closure_store = closure_store
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def register(
         self,
@@ -182,9 +189,10 @@ class BoundExecutorReceiptJournal:
             prior = await self._store.read_state(key)
             if prior != payload:
                 await self._reject(receipt, "terminal_receipt_conflict")
-            return True
-        # Registration already put this command in the durable work index.
-        # Do not depend on an in-memory waiter or on Core having closed yet.
+                return True
+        # A late receipt can arrive after its bounded wait was retired. Re-add
+        # it so reconciliation remains restart-safe without republishing.
+        await self._change_work(receipt.command_id, add=True, touch=True)
         return True
 
     async def record_not_published(
@@ -256,21 +264,44 @@ class BoundExecutorReceiptJournal:
         return completed
 
     async def _reconcile_command(self, command_id: UUID) -> int:
+        observed_work = await self._read_work()
+        if command_id not in observed_work.commands:
+            return 0
+        raw_correlation = await self._store.read_state(self._command_key(command_id))
+        if raw_correlation is None:
+            raise ValueError("isolated Executor command correlation is unavailable")
+        correlation = BoundCommandCorrelation.model_validate(raw_correlation)
+        if correlation.command.command_id != command_id:
+            raise ValueError("isolated Executor command correlation id mismatched")
         not_published = await self._store.read_state(self._not_published_key(command_id))
         if not_published is not None:
-            correlation = BoundCommandCorrelation.model_validate(
-                await self._store.read_state(self._command_key(command_id))
-            )
             if not_published != self._not_published_record(correlation):
                 raise ValueError("isolated Executor no-publication record mismatched")
             await self._change_work(command_id, add=False)
             return 1
         raw_receipt = await self._store.read_state(self._receipt_key(command_id))
         if raw_receipt is None:
-            return 0
-        correlation = BoundCommandCorrelation.model_validate(
-            await self._store.read_state(self._command_key(command_id))
-        )
+            now = self._clock()
+            if now.tzinfo is None or now.utcoffset() is None:
+                raise ValueError("isolated Executor receipt journal clock is not timezone-aware")
+            if now < correlation.command.deadline_at + _MAX_RECEIPT_CLOCK_SKEW:
+                return 0
+            timeout_record = {
+                "command_id": str(command_id),
+                "deadline_at": correlation.command.deadline_at.isoformat(),
+                "outcome": "receipt_not_observed_before_deadline",
+                "execution_authority": False,
+                "effect_verified": False,
+            }
+            await self._store.write_state_with_audit_if_absent(
+                self._receipt_timeout_key(command_id),
+                timeout_record,
+                self._audit(command_id, "receipt_not_observed_before_deadline"),
+            )
+            retired = await self._change_work(
+                command_id, add=False, expected_revision=observed_work.revision
+            )
+            return int(retired)
         closure = await self._closure_store.read(correlation.closure_key)
         if closure is None:
             return 0
@@ -323,16 +354,29 @@ class BoundExecutorReceiptJournal:
         raw = await self._store.read_state(_INDEX_KEY)
         return _ReceiptWork() if raw is None else _ReceiptWork.model_validate(raw)
 
-    async def _change_work(self, command_id: UUID, *, add: bool) -> None:
+    async def _change_work(
+        self,
+        command_id: UUID,
+        *,
+        add: bool,
+        touch: bool = False,
+        expected_revision: int | None = None,
+    ) -> bool:
+        """Touch intake revisions so an older absence observation cannot retire new work."""
+
         for _ in range(_CAS_ATTEMPTS):
             prior = await self._read_work()
+            if expected_revision is not None and prior.revision != expected_revision:
+                return False
             present = command_id in prior.commands
-            if present == add:
-                return
-            if add and len(prior.commands) >= self._capacity:
-                raise RuntimeError("isolated Executor durable receipt capacity exceeded")
+            if present == add and not touch:
+                return True
+            if add and not present and len(prior.commands) >= self._capacity:
+                raise ExecutorReceiptStorageUnavailableError(
+                    "isolated Executor durable receipt capacity exceeded"
+                )
             commands = (
-                (*prior.commands, command_id)
+                (prior.commands if present else (*prior.commands, command_id))
                 if add
                 else tuple(item for item in prior.commands if item != command_id)
             )
@@ -350,8 +394,12 @@ class BoundExecutorReceiptJournal:
                     audit_entry=audit,
                 )
             if written:
-                return
-        raise RuntimeError("isolated Executor receipt work contention exceeded")
+                return True
+            if expected_revision is not None:
+                return False
+        raise ExecutorReceiptStorageUnavailableError(
+            "isolated Executor receipt work contention exceeded"
+        )
 
     @staticmethod
     def _command_key(command_id: UUID) -> str:
@@ -360,6 +408,10 @@ class BoundExecutorReceiptJournal:
     @staticmethod
     def _receipt_key(command_id: UUID) -> str:
         return f"{_PREFIX}terminal-receipt:{command_id}"
+
+    @staticmethod
+    def _receipt_timeout_key(command_id: UUID) -> str:
+        return f"{_PREFIX}receipt-timeout:{command_id}"
 
     @staticmethod
     def _not_published_key(command_id: UUID) -> str:

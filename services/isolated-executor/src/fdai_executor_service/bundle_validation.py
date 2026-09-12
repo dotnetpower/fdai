@@ -6,8 +6,6 @@ importing no Core implementation. Validation runs before provider dispatch.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,6 +22,7 @@ from fdai_service_contracts.executor_models import (
     Mode,
     SafeguardBoundExecutorCommand,
     executor_action_fingerprint,
+    executor_plan_fingerprint,
 )
 from pydantic import ValidationError
 
@@ -198,30 +197,9 @@ def _legacy_execution_fingerprint(
     action: Action,
     command: SafeguardBoundExecutorCommand,
 ) -> str:
-    payload = {
-        "action_id": str(action.action_id),
-        "event_id": str(action.event_id),
-        "action_type": action.action_type,
-        "target_resource_ref": action.target_resource_ref,
-        "operation": action.operation.value,
-        "params": dict(action.params),
-        "stop_condition": action.stop_condition,
-        "rollback": {
-            "kind": action.rollback_ref.kind.value,
-            "reference": action.rollback_ref.reference,
-        },
-        "blast_radius": {
-            "scope": action.blast_radius.scope.value,
-            "count": action.blast_radius.count,
-            "rate_per_minute": action.blast_radius.rate_per_minute,
-        },
-        "mode": action.mode.value,
-        "executor_identity_ref": action.executor_identity_ref,
-        "citing_rules": sorted(action.citing_rules),
-        "execution_path": command.execution_path.value,
-    }
-    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
-    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+    return "sha256:" + executor_plan_fingerprint(
+        action=action, execution_path=command.execution_path.value
+    )
 
 
 __all__ = [

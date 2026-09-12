@@ -1,4 +1,4 @@
-"""Auxiliary catalog identity and IRP runtime assembly."""
+"""Auxiliary catalog identity and control-loop collaborator assembly."""
 
 from __future__ import annotations
 
@@ -6,10 +6,75 @@ import hashlib
 import json
 import os
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
-from fdai.composition import Container
+from fdai.composition import Container, LlmBindings
+from fdai.core.executor import (
+    DirectApiExecutionPort,
+    ShadowExecutor,
+    ThorExecutionPort,
+    ToolCallShadowExecutor,
+)
+from fdai.core.quality_gate import (
+    DeterministicEvidenceKind,
+    DeterministicEvidenceVerifier,
+    SelfConsistencySampler,
+    UnavailableDeterministicEvidenceVerifier,
+)
+from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
 from fdai.shared.providers.event_bus import EventBus
+
+
+def _build_self_consistency_cascade(
+    container: Container,
+    llm_bindings: LlmBindings,
+) -> SelfConsistencyCascade | None:
+    """Return the configured T2 stability cascade, or ``None`` when disabled.
+
+    Sampling costs one extra model call per sample, so it stays opt-in through
+    ``llm.self_consistency_samples``. The primary cross-check model is the sampled
+    proposer seam.
+    """
+
+    llm_config = container.config.llm
+    if llm_config.self_consistency_samples < 1:
+        return None
+    return SelfConsistencyCascade(
+        sampler=SelfConsistencySampler(
+            proposer=llm_bindings.cross_check_models[0],
+            samples=llm_config.self_consistency_samples,
+        ),
+        sample_threshold=llm_config.self_consistency_sample_threshold,
+        stability_threshold=llm_config.self_consistency_stability_threshold,
+    )
+
+
+def _legacy_executor_bindings(
+    port: ThorExecutionPort,
+) -> tuple[
+    ShadowExecutor,
+    DirectApiExecutionPort | None,
+    ToolCallShadowExecutor | None,
+]:
+    """Adapt the injected Thor port to the unchanged Core and HIL APIs."""
+    return (
+        cast(ShadowExecutor, port.pr_native),
+        port.direct_api,
+        cast(ToolCallShadowExecutor | None, port.tool_call),
+    )
+
+
+def _resolve_t2_deterministic_evidence_verifiers(
+    container: Container,
+) -> dict[DeterministicEvidenceKind, DeterministicEvidenceVerifier]:
+    configured = container.t2_deterministic_evidence_verifiers or tuple(
+        UnavailableDeterministicEvidenceVerifier(
+            kind=kind,
+            reason=f"{kind.value}_evidence_provider_unavailable",
+        )
+        for kind in DeterministicEvidenceKind
+    )
+    return {verifier.kind: verifier for verifier in configured}
 
 
 def rca_catalog_revision(

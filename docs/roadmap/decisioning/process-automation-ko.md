@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f3799e284cf73d03f484b38aa4c66fcb2ccf808e
+translation_source_sha: 1de3451d8a651b1ca0eca92ba44cf21546de3345
 translation_revised: 2026-09-13
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -216,8 +216,8 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 됩니다. 근거가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나
 `recovery_incomplete`로 끝나며 성공이 되지 않습니다.
 
-Core는 전달과 동일한 논리 대상 잠금으로 자동화 보류 발행을 직렬화합니다. 격리 실행기는
-프로바이더 입출력 직전에 자신의 대상 잠금 안에서 현재 보류와 정확한 워크플로 권한 부여를
+Core는 전달과 동일한 논리 대상 잠금으로 자동화 보류 발행을 직렬화하고, 증적 인코딩과 상태 전이를 분리합니다.
+격리 실행기는 프로바이더 입출력 직전에 자신의 대상 잠금 안에서 현재 보류와 정확한 워크플로 권한 부여를
 다시 확인합니다. 잘못되었거나 새 기록으로 대체된 권한 부여는 전달을 차단하며, 거부된 시도는
 적용 결과로 캐시하지 않습니다. 비동기 전달 증적은 권위 있는 대상 시스템 상태, 잠금 해제,
 독립적인 효과 검증과 구분합니다.

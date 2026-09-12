@@ -220,8 +220,8 @@ same Process after a crash. A proposal reference proves dispatch only. `Workflow
 must independently validate each action and compensation receipt before a forward step completes or the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
 closes as `recovery_incomplete`; it never becomes success.
 
-Core serializes automation-hold issuance on the same logical-target lock as dispatch. The isolated
-Executor rechecks the current hold and exact workflow authorization inside its own target lock
+Core serializes automation-hold issuance on the same logical-target lock as dispatch; receipt encoding
+stays separate from state transitions. The isolated Executor rechecks the current hold and exact workflow authorization inside its own target lock
 immediately before provider I/O. Malformed or superseded authorization stops dispatch; a rejected
 attempt is not cached as an applied result. Asynchronous dispatch receipts remain distinct from
 authoritative sink status, lock release, and independent effect verification.

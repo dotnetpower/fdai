@@ -237,6 +237,36 @@ def executor_action_payload_digest(payload: Mapping[str, Any]) -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def executor_plan_fingerprint(*, action: object, execution_path: str) -> str:
+    """Preserve the historical dry-run artifact identity, never execution authority."""
+
+    action = Action.model_validate(action, from_attributes=True)
+    payload = {
+        "action_id": str(action.action_id),
+        "event_id": str(action.event_id),
+        "action_type": action.action_type,
+        "target_resource_ref": action.target_resource_ref,
+        "operation": action.operation.value,
+        "params": dict(action.params),
+        "stop_condition": action.stop_condition,
+        "rollback": {
+            "kind": action.rollback_ref.kind.value,
+            "reference": action.rollback_ref.reference,
+        },
+        "blast_radius": {
+            "scope": action.blast_radius.scope.value,
+            "count": action.blast_radius.count,
+            "rate_per_minute": action.blast_radius.rate_per_minute,
+        },
+        "mode": action.mode.value,
+        "executor_identity_ref": action.executor_identity_ref,
+        "citing_rules": sorted(action.citing_rules),
+        "execution_path": execution_path,
+    }
+    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 def executor_action_fingerprint(
     *,
     action_payload: Mapping[str, Any],
@@ -614,6 +644,7 @@ __all__ = [
     "StopConditionKind",
     "WorkflowActionRef",
     "executor_action_fingerprint",
+    "executor_plan_fingerprint",
     "executor_command_id_from_action_payload",
     "executor_action_payload_digest",
     "safeguard_bound_executor_command_id",

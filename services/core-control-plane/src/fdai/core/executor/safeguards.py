@@ -31,7 +31,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from fdai_service_contracts.executor_models import executor_action_fingerprint
+from fdai_service_contracts.executor_models import (
+    executor_action_fingerprint,
+    executor_plan_fingerprint,
+)
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.shared.contracts.models import Action, ExecutionPath
@@ -159,8 +162,9 @@ def evaluate_pre_dispatch(
         execution_fingerprint=fingerprint,
         plan_digest=plan_digest,
         plan_kind=plan_kind,
-        dry_run_receipt=dry_run_receipt(
-            execution_fingerprint=fingerprint,
+        dry_run_receipt=action_dry_run_receipt(
+            action,
+            execution_path=execution_path,
             plan_digest=plan_digest,
             plan_kind=plan_kind,
         ),
@@ -183,6 +187,24 @@ def full_action_digest(action: Action) -> str:
     """Hash every serialized action field at pre-dispatch evaluation time."""
 
     return content_digest(action.model_dump(mode="json", exclude_none=False))
+
+
+def action_dry_run_receipt(
+    action: Action,
+    *,
+    execution_path: ExecutionPath,
+    plan_digest: str,
+    plan_kind: str,
+) -> str:
+    """Identify the stable artifact separately from the full-Action execution proof."""
+
+    return dry_run_receipt(
+        execution_fingerprint=executor_plan_fingerprint(
+            action=action, execution_path=execution_path.value
+        ),
+        plan_digest=plan_digest,
+        plan_kind=plan_kind,
+    )
 
 
 def dry_run_receipt(*, execution_fingerprint: str, plan_digest: str, plan_kind: str) -> str:
@@ -255,6 +277,7 @@ __all__ = [
     "evaluate_pre_dispatch",
     "execution_fingerprint",
     "full_action_digest",
+    "action_dry_run_receipt",
     "idempotency_lock_key",
     "missing_safety_invariant",
     "plan_digest_for_mapping",

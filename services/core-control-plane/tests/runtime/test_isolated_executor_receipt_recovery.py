@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from datetime import UTC, datetime, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any
 from uuid import UUID
 
@@ -287,6 +287,74 @@ async def test_durable_no_publication_marker_repairs_interrupted_capacity_cleanu
     work = await store.read_state(f"{_PREFIX}receipt-work")
     assert work is not None and work["commands"] == []
     assert [item async for item in bus.subscribe(EXECUTOR_COMMAND_TOPIC, "test-empty")] == []
+
+
+async def test_failed_no_publication_marker_retires_at_the_receipt_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    bus = _NotAttemptedPublishBus()
+    coordinator, _lock = _coordinator(store)
+    client = EventBusDirectApiExecutionClient(
+        bus,
+        store,
+        "core-marker-failure",
+        retry_seconds=0.001,
+    )
+    current_time = [datetime.now(UTC)]
+    journal = BoundExecutorReceiptJournal(
+        store,
+        capacity=1,
+        closure_store=coordinator._closure._closure_store,
+        clock=lambda: current_time[0],
+    )
+    client.bind_receipt_journal(journal)
+    original_write = store.write_state_with_audit_if_absent
+
+    async def fail_marker(
+        key: str,
+        value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if key.startswith(f"{_PREFIX}not-published:"):
+            raise ConnectionError("synthetic marker outage")
+        return await original_write(key, value, audit_entry)
+
+    monkeypatch.setattr(store, "write_state_with_audit_if_absent", fail_marker)
+    action = _action(mode=Mode.ENFORCE)
+    context = _context(action, "1")
+    try:
+        with pytest.raises(EventPublishNotAttemptedError):
+            await client.publish_bound(
+                action=action,
+                safeguard_bundle_digest=context.safeguard_bundle_digest,
+                source_revision=context.source_revision,
+                attempt=1,
+                pre_publish_guard=lambda: asyncio.sleep(0, result=datetime.now(UTC)),
+                correlation_context=context,
+            )
+    finally:
+        await client.stop()
+
+    rows = await store.read_states(f"{_PREFIX}command:", limit=1)
+    correlation = BoundCommandCorrelation.model_validate(rows[0])
+    work = await store.read_state(f"{_PREFIX}receipt-work")
+    assert work is not None and str(correlation.command.command_id) in work["commands"]
+
+    monkeypatch.setattr(store, "write_state_with_audit_if_absent", original_write)
+    current_time[0] = correlation.command.deadline_at + timedelta(seconds=31)
+    assert await journal.reconcile() == 1
+    work = await store.read_state(f"{_PREFIX}receipt-work")
+    assert work is not None and work["commands"] == []
+    timeout = await store.read_state(f"{_PREFIX}receipt-timeout:{correlation.command.command_id}")
+    assert timeout is not None
+
+    assert await journal.accept(
+        _receipt(correlation.command),
+        partition_key=correlation.command.partition_key,
+    )
+    work = await store.read_state(f"{_PREFIX}receipt-work")
+    assert work is not None and str(correlation.command.command_id) in work["commands"]
 
 
 @pytest.mark.parametrize(

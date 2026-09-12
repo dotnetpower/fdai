@@ -262,7 +262,7 @@
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "ffe999a7b9c35b4843bc0b628644e75a94cf03ae99d2b809686c9e06d4e2cb08",
+      "case_id": "1f7fea2b26236648fe24a272f194bd50ad292db7b8ec6870570162e71a029d66",
       "context_snapshot_id": "9a62024abf0a63abeb49e9bd0c9df7b8eb1a7adeba4621c80a654804875d6cb2",
       "option_by_domain": {
         "change_safety": "change_safety:remediate.enable-diagnostic-settings",
@@ -280,8 +280,8 @@
         "audit:scenario-17/network.load-balancer.unused-backend/example-dr-failover-load-balancer",
         "event:00000000-0000-0000-0000-000000000016",
         "event:00000000-0000-0000-0000-000000000017",
-        "receipt:sha256:4480e9cdbc184a63c35c36765131c455efabaa6cc19dd91fd2e954f300a11925",
-        "receipt:sha256:b1b6c28db793d123955026837f0e8fddd93295b7271d6a29bc6ca78d7bf162eb",
+        "receipt:sha256:9743d992d56098e7fd63e6dffc9648f2e018a96675125bfc3aae19141c624a6e",
+        "receipt:sha256:9bf6efbc88862e3cb01559a8f2119002b16fab96c441f49590b52fbfe2e5fb13",
         "rule:network.load-balancer.unused-backend",
         "rule:postgresql-server.diagnostic-settings-required",
         "specialist:change_safety:dr-cross-objective-conflict-v2026-09",
@@ -318,7 +318,7 @@
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:965c542e698bdcf335b2ac9fc7493162473dfcdd3d922133e722035b3614c0de",
-    "evidence_digest": "sha256:5f00cd4c3a9b2d4bfbd85a813bf1d2c26e0132b6f9b96860c5c102a6d447fd2c"
+    "decision_digest": "sha256:0c5ed48631a1043d8caeb055e08b538874d221a03b6b787b3bbaff92dff62a1d",
+    "evidence_digest": "sha256:a4df7053e38993bd3cfdce337328f4a0fedc124b2a2591fde7b336cfd2c7b744"
   }
 }
