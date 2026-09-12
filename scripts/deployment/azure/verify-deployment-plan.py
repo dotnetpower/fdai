@@ -42,7 +42,8 @@ _BASE_METADATA_FIELDS = frozenset(
         "workflow_run_id",
     }
 )
-_RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest"})
+_RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest", "profile"})
+_RUNTIME_IMAGE_PROFILES = frozenset({"core-control-plane", "cost-governance"})
 _MODEL_RESOLUTION_FIELDS = frozenset({"resolved_models_digest", "deployment_models_digest"})
 _MODEL_VALIDATION_FIELDS = frozenset({"chatops_channel_validation"})
 _PLAN_SUMMARY_ACTIONS = frozenset({"create", "delete", "no_op", "read", "replace", "update"})
@@ -172,10 +173,13 @@ def verify_plan(
             raise PlanVerificationError("plan metadata runtime image has an unexpected schema")
         source_revision = runtime_image.get("source_revision")
         image_digest = runtime_image.get("digest")
+        image_profile = runtime_image.get("profile")
         if not isinstance(source_revision, str) or _COMMIT.fullmatch(source_revision) is None:
             raise PlanVerificationError("plan metadata runtime image revision is invalid")
         if not isinstance(image_digest, str) or _OCI_DIGEST.fullmatch(image_digest) is None:
             raise PlanVerificationError("plan metadata runtime image digest is invalid")
+        if not isinstance(image_profile, str) or image_profile not in _RUNTIME_IMAGE_PROFILES:
+            raise PlanVerificationError("plan metadata runtime image profile is invalid")
     model_resolution = metadata.get("model_resolution")
     if model_resolution is not None:
         fields = set(model_resolution) if isinstance(model_resolution, dict) else set()
