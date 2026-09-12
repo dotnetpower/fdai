@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 504928b7bbc5594dd212453f010688ecd232eada
+translation_source_sha: 647db5924832554c4dcd08b3ad7e0eb0963e8637
 translation_revised: 2026-09-12
 ---
 
@@ -61,6 +61,10 @@ translation_revised: 2026-09-12
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
 > 데이터 접근 권한을 부여하지 않습니다.
+
+공유 감사 경로도 측정 출처, 시간 구간과 순번 필터를 보존합니다. 승인된 운영 지출이나
+실측군 비교를 읽어도 Cost Governance를 활성화하거나 수집기를 시작하지 않습니다.
+예상 절감액을 지출로 해석하거나 패키지 데이터 접근 권한을 부여하지도 않습니다.
 
 FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패키징합니다. 이 프로필은
 검토된 코드, 선언적 자산, 온톨로지 참조, 범위가 제한된 쿼리 프로필 및 이미지에 설치되는
@@ -140,7 +144,9 @@ wheel은 검토된 이미지 빌드나 downstream 조립을 통해 포함합니�
 Platform 루트는 선택적 collector 및 analyzer Job을 공유 compute module 안에 두지 않고 직접
 소유합니다. 이 배포는 기존 Container Apps environment와 inventory identity를 읽기 전용 data
 source로 해석합니다. 따라서 패키지 전용 Terraform target이 관련 없는 scheduler, network,
-database 또는 runtime dependency를 상속하지 않습니다. 독립적으로 소유되는 Core 서비스는
+database 또는 runtime dependency를 상속하지 않습니다.
+provider-schema Job도 같은 루트 소유 격리 패턴을 따르지만 Core 근거 Job으로 유지되며 Cost Governance 대상, 이미지 프로필 또는 활성화 상태에 포함되지 않습니다.
+독립적으로 소유되는 Core 서비스는
 일반 service plan 및 apply 경계를 통해 같은 배포 이미지를 받으며, 어느 배포도 패키지를
 활성화하지 않습니다.
 

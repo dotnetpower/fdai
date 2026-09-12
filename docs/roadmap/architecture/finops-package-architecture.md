@@ -62,6 +62,10 @@ domain code and assets. It does not create another control plane or move authori
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.
 
+The shared audit route also preserves measurement source, time-window and sequence filters.
+Reading admitted operational spend or a cohort comparison does not enable Cost Governance,
+start its collectors, reinterpret estimated savings as spend, or grant package data access.
+
 FDAI packages Cost Governance as one exact-release vertical profile: reviewed code, declarative
 assets, ontology references, bounded query profiles, and provider requirements installed into an
 image. The profile lets agents share the same resource identity, service topology, objectives,
@@ -143,6 +147,7 @@ The platform root owns the optional collector and analyzer Jobs directly rather 
 inside the shared compute module. Their deployment resolves the existing Container Apps
 environment and inventory identity through read-only data sources. This keeps a package-only
 Terraform target from inheriting unrelated scheduler, network, database, or runtime dependencies.
+The provider-schema Job follows the same root-owned isolation pattern, but remains a Core evidence Job and never enters the Cost Governance target, image profile, or activation state.
 The independently owned Core service receives the same distribution image through its ordinary
 service plan and apply boundary; neither deployment activates the package.
 

@@ -224,6 +224,49 @@ def _client(
     return TestClient(create_app(BASE_ENV, composition=composition))
 
 
+def test_audit_drilldown_filters_reach_the_authoritative_read_model() -> None:
+    class CapturingReadModel(EmptyReadModel):
+        query: AuditQuery | None = None
+
+        async def list_audit(self, query: AuditQuery) -> PageProjection:
+            self.query = query
+            return PageProjection(items=(), next_cursor=None)
+
+    model = CapturingReadModel()
+    response = _client(read_model=model).get(
+        "/audit?mode=shadow&tier=t0&action=measurement.control_loop.v1"
+        "&outcome=auto&window=30d&from_seq=1&through_seq=50",
+        headers={"Authorization": "Bearer reader"},
+    )
+    assert response.status_code == 200
+    assert model.query is not None
+    assert model.query.action_kind == "measurement.control_loop.v1"
+    assert model.query.mode == "shadow"
+    assert model.query.tier == "t0"
+    assert model.query.outcome == "auto"
+    assert model.query.window_days == 30
+    assert (model.query.from_seq, model.query.through_seq) == (1, 50)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "mode=invalid",
+        "tier=invalid",
+        "window=0d",
+        "window=1000d",
+        "from_seq=-1",
+        "from_seq=51&through_seq=50",
+        "through_seq=9223372036854775808",
+    ],
+)
+def test_invalid_audit_drilldown_is_rejected(query: str) -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        f"/audit?{query}", headers={"Authorization": "Bearer reader"}
+    )
+    assert response.status_code == 400
+
+
 def _imports(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: set[str] = set()

@@ -78,6 +78,8 @@
           "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_conversation_history.py",
           "services/operator-service/tests/test_conversation_document_export.py",
+          "services/operator-service/tests/test_dashboard_aggregation.py",
+          "services/operator-service/tests/test_dashboard_source.py",
           "services/operator-service/tests/test_detection_lifecycle_projection.py",
           "services/operator-service/tests/test_entra_directory.py",
           "services/operator-service/tests/test_hil_teams_callback.py",

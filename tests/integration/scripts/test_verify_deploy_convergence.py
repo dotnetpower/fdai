@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -49,6 +51,19 @@ printf '{"properties":{"template":{"containers":[]}}}'
         "uv": """#!/usr/bin/env bash
 set -euo pipefail
 printf 'uv %s\n' "$*" >> "$CALLS"
+container=""
+expected_image=""
+while (( $# > 0 )); do
+    case "$1" in
+        --container) container="$2"; shift 2 ;;
+        --expected-image) expected_image="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [[ -n "$container" ]]; then
+    printf '{"container":"%s","image_digest":"%s"}\n' \
+        "$container" "${expected_image##*@sha256:}"
+fi
 """,
     }.items():
         path = bin_dir / name
@@ -101,7 +116,7 @@ def test_general_apply_keeps_full_plan_and_inventory_verification(tmp_path: Path
 
 
 def test_cost_apply_replans_and_verifies_both_cost_jobs(tmp_path: Path) -> None:
-    result, calls, _ = _run(tmp_path, "apply-cost-" + "a" * 48)
+    result, calls, evidence_root = _run(tmp_path, "apply-cost-" + "a" * 48)
 
     assert result.returncode == 0, result.stderr
     log = calls.read_text(encoding="ascii")
@@ -115,6 +130,22 @@ def test_cost_apply_replans_and_verifies_both_cost_jobs(tmp_path: Path) -> None:
     assert "--name cost-analyzer" in log
     assert "--container cost-governance-analyzer" in log
     assert "--name ca-fdai-dev-krc-core-inventory" not in log
+    readback_path = evidence_root / "cost-governance-job-image-readback.json"
+    assert stat.S_IMODE(readback_path.stat().st_mode) == 0o600
+    assert json.loads(readback_path.read_text(encoding="utf-8")) == {
+        "schema_version": "fdai.cost-governance-job-image-readback.v1",
+        "image_digest": f"sha256:{'a' * 64}",
+        "jobs": {
+            "analyzer": {
+                "container": "cost-governance-analyzer",
+                "image_digest": f"sha256:{'a' * 64}",
+            },
+            "collector": {
+                "container": "cost-governance-collector",
+                "image_digest": f"sha256:{'a' * 64}",
+            },
+        },
+    }
 
 
 def test_runtime_call_apply_replans_only_transition_before_separate_readback(
@@ -152,7 +183,7 @@ def test_provider_schema_apply_replans_and_reads_only_provider_job(tmp_path: Pat
 
     assert result.returncode == 0, result.stderr
     log = calls.read_text(encoding="ascii")
-    assert "target=-target=module.compute.azurerm_container_app_job.provider_schema[0]" in log
+    assert "target=-target=azurerm_container_app_job.provider_schema[0]" in log
     assert "terraform output -raw provider_schema_job_id" in log
     assert "az resource show --ids " in log
     assert "--container provider-schema" in log

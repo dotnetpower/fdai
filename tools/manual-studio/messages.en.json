@@ -1,0 +1,165 @@
+{
+  "language": {
+    "control": "Interface language",
+    "english": "English",
+    "korean": "Korean"
+  },
+  "document": {
+    "consoleTitle": "FDAI Manual Studio - Console preview",
+    "consoleDescription": "Preview the FDAI Console guide experience.",
+    "libraryTitle": "FDAI Manual Studio - Library",
+    "libraryDescription": "Explore FDAI guides by journey stage and open them as HTML slides."
+  },
+  "common": {
+    "manual": "Guide",
+    "loading": "Loading",
+    "draft": "Draft pending review",
+    "wip": "Work in progress",
+    "coreDeck": "Core deck",
+    "deepDive": "Deep dive",
+    "duration": "{minutes} min",
+    "slideCount": "{count} slides",
+    "lastEdited": "Last edited {date}",
+    "generated": "Generated {date}",
+    "openSlides": "Open {title} slides",
+    "openSlidesWithStatus": "Open {title} slides ({status})",
+    "selectManual": "Select {title}",
+    "selectManualWithStatus": "Select {title} ({status})"
+  },
+  "console": {
+    "home": "FDAI Console home",
+    "activeIncidents": "Active incidents",
+    "accessRequests": "Access requests",
+    "browserNotifications": "Browser notifications",
+    "openGuides": "Open guides",
+    "guidesTitle": "Guides",
+    "accountMenu": "Open account menu",
+    "navigation": "Console navigation",
+    "overview": "Overview",
+    "operations": "Operations",
+    "agents": "Agents",
+    "pageTitle": "Operations overview",
+    "pageLead": "Review current status, decisions, and required operator checks in one place.",
+    "summary": "Operations summary",
+    "healthy": "Healthy",
+    "lastVerified": "Last verified 4 minutes ago",
+    "humanReview": "1 requires human review",
+    "verifiedChanges": "Based on verified changes",
+    "orientationTitle": "Select the ? button in the upper-right corner",
+    "orientationLead": "Browse product guides like an album and open the selected guide as HTML slides.",
+    "orientationFlow": "Guide exploration flow",
+    "closeGuides": "Close guides",
+    "drawerLead": "Choose a topic to open its slides.",
+    "allGuides": "View full library",
+    "sampleData": "Prototype data"
+  },
+  "library": {
+    "home": "FDAI Manual Studio home",
+    "heroTitle": "Explore the AI transformation journey, one guide at a time",
+    "heroLead": "Connect the conversations and deliverables you need across five stages, from initial understanding to enterprise scale.",
+    "guideCount": "{count} guides",
+    "catalogGenerated": "Catalog generated {date}",
+    "stages": "Value-to-Scale stages",
+    "previousManual": "Previous guide",
+    "nextManual": "Next guide"
+  },
+  "viewer": {
+    "print": "PDF",
+    "enterFullscreen": "View fullscreen",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "fullscreenUnsupported": "This browser does not support fullscreen mode",
+    "close": "Close slides",
+    "previousSlide": "Previous slide",
+    "nextSlide": "Next slide"
+  },
+  "errors": {
+    "fullscreen": "Manual Studio could not enter fullscreen mode. Check the browser permissions and settings.",
+    "manualNotFound": "The requested guide is not available in this catalog.",
+    "startup": "Manual Studio could not load. Check the local server."
+  },
+  "journey": {
+    "titles": {
+      "understand-align": "Discovery & Alignment",
+      "envision-prioritize": "Vision & Value",
+      "architect-validate": "Architecture & Validation",
+      "activate-realize": "Activation & Outcomes",
+      "scale-evolve": "Scale & Evolution"
+    },
+    "questions": {
+      "understand-align": "Clarify the current state, priority challenges, and goals to align on.",
+      "envision-prioritize": "Define the future value to create and select the first priority.",
+      "architect-validate": "Validate the architecture and feasibility needed to realize the target value.",
+      "activate-realize": "Apply the design to operations and demonstrate measurable outcomes.",
+      "scale-evolve": "Scale verified outcomes across the enterprise and improve continuously."
+    }
+  },
+  "manuals": {
+    "executive-briefing": {
+      "title": "FDAI Executive Briefing",
+      "eyebrow": "Executive briefing",
+      "coverLabel": "Value to scale",
+      "description": "Learn FDAI's operating model, 15 agents, data sovereignty, AIOps decisions, adoption readiness, and the path to a first validation."
+    },
+    "readiness-maturity": {
+      "title": "AI/Data Readiness & Maturity",
+      "eyebrow": "Readiness & maturity",
+      "coverLabel": "Readiness",
+      "description": "Assess data quality, AI evaluation, people, and controls across six capabilities, then build a case-based maturity view and a 30-day improvement plan."
+    },
+    "art-of-possible": {
+      "title": "Art of the Possible",
+      "eyebrow": "Future experience",
+      "coverLabel": "Possibilities",
+      "description": "Explore concrete scenarios for the operating experience and new ways of working that AI agents can enable."
+    },
+    "value-prioritization": {
+      "title": "Use Case & Value Prioritization",
+      "eyebrow": "Value portfolio",
+      "coverLabel": "Prioritize",
+      "description": "Prioritize candidate use cases by value, feasibility, risk, and evidence readiness."
+    },
+    "target-architecture": {
+      "title": "FDAI Target Architecture",
+      "eyebrow": "Target architecture",
+      "coverLabel": "Architect",
+      "description": "Review an implementable target architecture from operational events through independent effect verification."
+    },
+    "ontology-foundation": {
+      "title": "Data & Ontology Foundation",
+      "eyebrow": "FDAI differentiator",
+      "coverLabel": "Meaning",
+      "description": "Connect Aristotle's questions about being and categories to the limits of LLM-only approaches, modern knowledge representation, FDAI's operating ontology, and practical decisions."
+    },
+    "responsible-ai-security": {
+      "title": "Responsible AI & Security",
+      "eyebrow": "Responsible AI",
+      "coverLabel": "Guardrails",
+      "description": "Define responsible AI operating boundaries through identity separation, approval, safety contracts, audit, and recovery."
+    },
+    "pilot-production": {
+      "title": "Pilot-to-Production Playbook",
+      "eyebrow": "Value realization",
+      "coverLabel": "Activate",
+      "description": "Follow the transition from an observation-mode pilot to operational adoption and measurable value realization."
+    },
+    "sre-incident-response": {
+      "title": "SRE Incident Response & MTTR",
+      "eyebrow": "SRE operations",
+      "coverLabel": "SRE response",
+      "description": "Understand the SRE operating loop from detection and incident correlation through recovery, failover, effect verification, and MTTR improvement."
+    },
+    "ai-operating-model": {
+      "title": "AI Operating Model",
+      "eyebrow": "Operating model",
+      "coverLabel": "Operate",
+      "description": "Design a sustainable AI operating model that connects accountability, governance, FinOps, and LLMOps."
+    },
+    "enterprise-scale-roadmap": {
+      "title": "Enterprise Scale Roadmap",
+      "eyebrow": "Enterprise scale",
+      "coverLabel": "Evolve",
+      "description": "Build a phased enterprise roadmap that scales organizational, platform, data, and control capabilities."
+    }
+  }
+}

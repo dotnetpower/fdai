@@ -1,0 +1,19 @@
+{
+  "title": "Admitted cohort comparison",
+  "boundary": "A separate baseline and treatment study, not a comparison with the rolling Live values above. It grants no promotion or execution authority.",
+  "expired": "This comparison has expired. Reload the page to check for a newly admitted publication.",
+  "metric": "Measure",
+  "baseline": "Baseline",
+  "treatment": "FDAI treatment",
+  "interval": "95% interval: {lower} to {upper}",
+  "samples": "{count} samples",
+  "window": "Evidence window",
+  "revision": "Measured revision",
+  "protocol": "Protocol",
+  "evidence": "View publication evidence",
+  "auto_resolution_rate": "Auto-resolution rate",
+  "human_touchpoints_per_100_events": "Human touchpoints / 100 events",
+  "mttr_seconds": "Mean recovery time (seconds)",
+  "change_lead_time_seconds": "Change lead time (seconds)",
+  "cost_per_unit_usd": "Cost per unit (USD)"
+}

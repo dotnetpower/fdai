@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 6e4c197df315af59f6947155beb669305dd6855f
-translation_revised: 2026-09-09
+translation_source_sha: abf5f9e6fdf600b75fcace305d0a412d6e8be237
+translation_revised: 2026-09-12
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
@@ -139,7 +139,7 @@ Azure API 관리(APIM)을 경유하는 Azure OpenAI, APIM을 경유하는 OpenAI
 `endpoint_ref`를 저장하고 조립 루트가 protected 배포 구성에서 HTTPS URL로
 해석합니다. 해석기가 주입되지 않은 연결은 시작에 실패합니다. 임베딩, 제안자,
 기본 및 보조 교차 검증, 비평자, Judge, RCA, 서술기 경로가 같은 request-target 빌더를
-사용합니다. `endpoint_bindings`가 없는 이전 방식 파일은 direct Azure OpenAI 경로를 유지합니다.
+사용합니다. `endpoint_bindings`가 없는 이전 방식 파일은 direct Azure OpenAI 경로를 유지합니다. Ontology council은 검증된 binding policy에서 세 capability가 모두 명시적으로 `hil-only`이고 endpoint binding이 없을 때만 abstaining 상태를 유지하며, 무서명·부분·endpoint 보유 보류 레코드는 계속 시작에 실패합니다.
 
 APIM은 경로 및 거버넌스 경계이며 모델 발행기가 아닙니다. Mixed-model quality 게이트는
 게이트웨이 뒤의 발행기와 계열을 계속 비교합니다. 기본과 보조 기능은 같은 APIM
@@ -199,7 +199,7 @@ Signed 자체 호스팅 등록은 injected `Ed25519SignedRegistrationSource`를 
 |-----------|------------|----------|
 | `auto` | 완전한 레지스트리 후보를 순서대로 평가합니다. | 다음 후보를 평가하고 없으면 `hil-only`로 유지합니다. |
 | `pinned` | 요청한 발행기, 계열, SKU 및 용량만 평가합니다. | 사람 검토로 유지하며 다른 계열로 대체하지 않습니다. |
-| `hil-only` | 기능에 모델을 바인딩하지 않습니다. | 종속 결정을 사람 검토로 유지합니다. |
+| `hil-only` | 기능에 모델을 바인딩하지 않습니다. | 종속 결정을 사람 검토로 유지합니다. T2 reasoner 중 하나를 명시적으로 보류하면 결정론적 불일치 대체 구현을 바인딩하므로 실제 reasoner 하나만으로 정족수를 충족할 수 없습니다. |
 
 ```yaml
 capability: t2.reasoner.primary
@@ -215,7 +215,7 @@ capacity: { unit: ptu, value: 30 }
   정책 다이제스트 및 활성 산출물 다이제스트를 적용까지 고정합니다.
 - **후보 완결성:** `auto`는 발행기-계열-버전-SKU-용량 후보를 완전하게 평가합니다.
 - **용량 단위:** Standard SKU는 TPM, 프로비저닝된 SKU는 변환 없는 PTU를 사용합니다.
-- **T2 쌍 원자성:** 보류 상태가 아니면 primary와 secondary는 서로 다른 발행기여야 합니다.
+- **T2 쌍 원자성:** 다이제스트 결속 정책이 reasoner 중 하나를 `hil-only`로 보류하지 않는 한 primary와 secondary는 서로 다른 발행기여야 합니다. 명시적 보류는 모든 T2 결정을 사람 승인으로 보내며, 결정론적 불일치 대체 구현은 시작 모델 후보가 아니고 모델 호출이나 계측 레코드를 만들지 않습니다.
 - **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다. 보호된 모델 계획은 하나의 요청 ID로 정확한 Operator 제안과 정책 다이제스트를 식별합니다. Runner는 PostgreSQL을 변경하지 않고 읽으며 오래되었거나 권한을 포함한 상태를 차단합니다. 보호된 모델 Settings producer는 다이제스트에 결속된 모델 projection을 새로 고치고 런타임 Settings 기준 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 성공을 보고하기 전에 두 행의 배포 환경을 확인합니다.
 - **독립 도구:** 검색, RCA, rubric, escalation 및 tool calling은 별도 게이트를 유지합니다.
 
@@ -248,13 +248,8 @@ OpenAI/AIServices format을 매핑하며 두 값을 안정된 버전 키로 사�
 
 ### 프로비저닝 완결성 게이트
 
-해석기는 프로비저닝 불가능한 기능을 `hil-only`로 강등시키고 계속한다 -
-하나의 누락된 계열 때문에 전체 부트스트랩을 막지 않으므로 **부분 배포가
-조용하다**: `resolved-models.json`이 T1 쌍 + `t2.reasoner.primary`만 담고 있는데
-레지스트리는 보조 reasoner, 비평자, RCA reasoner, 에스컬레이션 상한까지
-선언할 수 있다. 그러면 조립 루트는 조용히 forced-disagree 교차 검증으로
-대체 경로 하고 모든 T2 케이스가 HIL로 라우팅되며, reasoning 계층이 사실상 꺼졌다는
-신호가 배포 시점에 없다.
+해석기는 프로비저닝 불가능한 기능을 `hil-only`로 강등시키고 계속하므로 **부분 배포가 별도 신호 없이 남을 수 있습니다**. 산출물에 T1 쌍과 primary reasoner만 있어도 레지스트리는 더 많은 기능을 선언할 수 있습니다.
+다이제스트 결속 정책이 T2 reasoner 중 하나를 명시적으로 보류하면 조립 루트는 강제 불일치 교차 검증으로 모든 T2 케이스를 사람 승인으로 보냅니다. `auto` 또는 `pinned` reasoner가 예기치 않게 누락되면 모드를 재해석하지 않고 런타임 조립을 차단하며, 배포 평가는 두 경우의 정족수 실패를 모두 드러냅니다.
 
 [`assess_provisioning`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provisioning_assessment.py)
 이 그 공백을 닫는다. 권위 `llm-registry.yaml`(의도)과 `resolved-models.json`(실제)
@@ -295,8 +290,7 @@ return quorum_result(cand_a, cand_b)
 ```
 
 - `core/` 에 모델 id가 나타나지 않음.
-- 누락 배포는 장애로 취급: 요청은 HIL로 라우팅되고 운영 알림 발행(A2, [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md#3-categories-a1a4)
-  에 따라). 다른 기능로의 조용한 스위치는 금지.
+- 명시적으로 보류한 reasoner는 결정론적 불일치로 요청을 사람 승인에 보내고, 예기치 않은 배포 누락은 런타임 시작을 차단합니다. 두 경우 모두 운영 근거를 남기며 다른 기능으로 조용히 전환하지 않습니다.
 
 ### 에스컬레이션 단계 구조 정책
 

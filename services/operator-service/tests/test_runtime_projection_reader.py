@@ -568,7 +568,7 @@ async def test_autonomy_without_canonical_projection_is_unavailable(
         await reader.read(_query("autonomy"))
 
 
-async def test_autonomy_returns_only_canonical_measurement_projection(
+async def test_autonomy_returns_canonical_measurement_with_comparison_status(
     monkeypatch: Any,
 ) -> None:
     unavailable_higher = {"value": None, "baseline": None, "direction": "higher"}
@@ -612,8 +612,11 @@ async def test_autonomy_returns_only_canonical_measurement_projection(
     ) -> list[dict[str, object]]:
         del self
         assert "FROM state_kv" in statement
-        assert parameters == ("measurement:outcome-assurance:autonomy",)
-        return [{"value": projection}]
+        if parameters == ("measurement:outcome-assurance:autonomy",):
+            return [{"value": projection}]
+        if parameters == ("measurement:dashboard-comparison:v1",):
+            return []
+        raise AssertionError(parameters)
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
     reader = RuntimeProjectionReader(
@@ -621,7 +624,13 @@ async def test_autonomy_returns_only_canonical_measurement_projection(
         RecordingFallback(),
     )
 
-    assert await reader.read(_query("autonomy")) == projection
+    result = await reader.read(_query("autonomy"))
+
+    assert result == {
+        **projection,
+        "comparison": None,
+        "comparison_status": "not_published",
+    }
 
 
 @pytest.mark.parametrize(

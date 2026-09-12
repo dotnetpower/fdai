@@ -1,4 +1,7 @@
 import { additionalManualSlides } from "./manual-content.js";
+import { additionalManualSlides as additionalEnglishManualSlides } from "./manual-content.en.js";
+import { executiveBriefingSlides as executiveBriefingEnglishSlides } from "./executive-briefing.en.js";
+import { createTranslator, resolveLocale, urlWithLocale } from "./localization.js";
 
 const manualSlides = {
   "executive-briefing": [
@@ -266,11 +269,10 @@ const manualSlides = {
   ...additionalManualSlides,
 };
 
-const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-});
+const englishManualSlides = {
+  "executive-briefing": executiveBriefingEnglishSlides,
+  ...additionalEnglishManualSlides,
+};
 
 const page = document.body.dataset.page;
 const viewer = document.querySelector("#viewer");
@@ -288,6 +290,103 @@ let currentSlide = 0;
 let drawerTrigger = null;
 let selectedManualIndex = 0;
 let suppressCoverflowClick = false;
+let locale = "en";
+let translate = (key) => key;
+let dateFormatter = createDateFormatter(locale);
+const localeStorageKey = "fdai:manual-studio:locale";
+
+function createDateFormatter(activeLocale) {
+  return new Intl.DateTimeFormat(activeLocale === "ko" ? "ko-KR" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function t(key, params) {
+  return translate(key, params);
+}
+
+function storedLocale() {
+  try {
+    return window.localStorage.getItem(localeStorageKey);
+  } catch (error) {
+    console.warn("manual_studio_locale_read_failed", error);
+    return null;
+  }
+}
+
+function saveLocale(value) {
+  try {
+    window.localStorage.setItem(localeStorageKey, value);
+  } catch (error) {
+    console.warn("manual_studio_locale_write_failed", error);
+  }
+}
+
+function localizedManualField(manual, field) {
+  const key = `manuals.${manual.id}.${field}`;
+  const translated = t(key);
+  return translated === key ? manual[field] : translated;
+}
+
+function localizedDuration(manual) {
+  return t("common.duration", { minutes: Number.parseInt(manual.duration, 10) });
+}
+
+function localizedStageField(stage, field) {
+  const key = `journey.${field}s.${stage.id}`;
+  const translated = t(key);
+  return translated === key ? stage[field] : translated;
+}
+
+function applyDocumentLocale() {
+  document.documentElement.lang = locale;
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  for (const attribute of ["aria-label", "title"]) {
+    const dataName = `i18n${attribute === "aria-label" ? "AriaLabel" : "Title"}`;
+    document.querySelectorAll(`[data-i18n-${attribute}]`).forEach((element) => {
+      element.setAttribute(attribute, t(element.dataset[dataName]));
+    });
+  }
+  document.querySelectorAll("[data-locale-choice]").forEach((button) => {
+    const selected = button.dataset.localeChoice === locale;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  document.querySelectorAll("a[data-preserve-locale]").forEach((link) => {
+    const url = urlWithLocale(new URL(link.getAttribute("href"), window.location.href), locale);
+    link.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
+  });
+
+  const requestedManual = catalog?.manuals.find(
+    (manual) => manual.id === document.body.dataset.manualId,
+  );
+  const titleKey = page === "console" ? "document.consoleTitle" : "document.libraryTitle";
+  document.title = requestedManual
+    ? `${localizedManualField(requestedManual, "title")} | FDAI Manual Studio`
+    : t(titleKey);
+  const description = document.querySelector('meta[name="description"]');
+  if (description) {
+    description.content = requestedManual
+      ? localizedManualField(requestedManual, "description")
+      : t(page === "console" ? "document.consoleDescription" : "document.libraryDescription");
+  }
+}
+
+function bindLanguageSwitches() {
+  document.querySelectorAll("[data-locale-choice]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextLocale = button.dataset.localeChoice;
+      if (nextLocale === locale) return;
+      saveLocale(nextLocale);
+      window.location.assign(urlWithLocale(window.location.href, nextLocale));
+    });
+  });
+}
 
 function formatDate(value) {
   return dateFormatter.format(new Date(`${value}T00:00:00Z`));
@@ -301,9 +400,9 @@ function requestedSlideIndex(value) {
 
 function replaceViewerUrl(manual, slideIndex) {
   if (page !== "library") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("manual", manual.id);
+  const url = new URL(`${manual.id}.html`, window.location.href);
   url.searchParams.set("slide", String(slideIndex + 1));
+  url.searchParams.set("locale", locale);
   window.history.replaceState(null, "", url);
 }
 
@@ -324,60 +423,78 @@ function updateSlideScale() {
 
 function clearViewerUrl() {
   if (page !== "library") return;
-  const url = new URL(window.location.href);
-  url.searchParams.delete("manual");
-  url.searchParams.delete("slide");
+  const url = new URL("library.html", window.location.href);
+  url.searchParams.set("locale", locale);
   window.history.replaceState(null, "", url);
+}
+
+function isDraftManual(manual) {
+  return !manual.reviewedAt || manual.reviewedAt < manual.lastEditedAt;
+}
+
+function draftOverlay(manual) {
+  return isDraftManual(manual)
+    ? `<span class="manual-draft-overlay" aria-label="${t("common.draft")}">DRAFT</span>`
+    : "";
 }
 
 function coverArtwork(manual) {
   const wipOverlay = manual.status === "wip"
-    ? '<span class="manual-wip-overlay" aria-label="작업 중">WIP</span>'
+    ? `<span class="manual-wip-overlay" aria-label="${t("common.wip")}">WIP</span>`
     : "";
   return `
     <div class="album-art">
       <img src="${manual.coverImage}" alt="" draggable="false">
       ${wipOverlay}
+      ${draftOverlay(manual)}
       <span class="album-art-label">
-        <small>${manual.kind === "core" ? "CORE DECK" : "DEEP DIVE"}</small>
-        <strong>${manual.coverLabel}</strong>
+        <small>${manual.kind === "core" ? t("common.coreDeck") : t("common.deepDive")}</small>
+        <strong>${localizedManualField(manual, "coverLabel")}</strong>
       </span>
     </div>`;
 }
 
 function bookCoverMarkup(manual, reflection = false) {
   const stage = catalog.journey.stages.find((candidate) => candidate.id === manual.stageId);
-  const kind = manual.kind === "core" ? "CORE DECK" : "DEEP DIVE";
+  const kind = manual.kind === "core" ? t("common.coreDeck") : t("common.deepDive");
   const wipOverlay = manual.status === "wip"
-    ? '<span class="manual-wip-overlay" aria-label="작업 중">WIP</span>'
+    ? `<span class="manual-wip-overlay" aria-label="${t("common.wip")}">WIP</span>`
     : "";
   return `
     <span class="coverflow-book${reflection ? " coverflow-book-reflection" : ""}"${reflection ? " aria-hidden=\"true\"" : ""}>
       <span class="coverflow-book-image">
         <img src="${manual.coverImage}" alt="" draggable="false">
-        <b>${manual.coverLabel}</b>
+        <b>${localizedManualField(manual, "coverLabel")}</b>
       </span>
       <span class="coverflow-book-copy">
         <small>${kind} · ${manual.level ?? "L100"} · ${String(stage.number).padStart(2, "0")}</small>
-        <strong>${manual.title}</strong>
-        <span>${manual.duration} · ${manual.slideCount} SLIDES</span>
+        <strong>${localizedManualField(manual, "title")}</strong>
+        <span>${localizedDuration(manual)} · ${t("common.slideCount", { count: manual.slideCount })}</span>
       </span>
       ${wipOverlay}
+      ${draftOverlay(manual)}
     </span>`;
 }
 
 function albumCard(manual) {
   const article = document.createElement("article");
   article.className = `album-card${manual.featured ? " featured" : ""}`;
-  const statusLabel = manual.status === "wip" ? " (작업 중)" : "";
+  const statusLabel = [
+    manual.status === "wip" ? t("common.wip") : "",
+    isDraftManual(manual) ? t("common.draft") : "",
+  ].filter(Boolean).join(", ");
+  const manualTitle = localizedManualField(manual, "title");
+  const accessibleLabel = statusLabel
+    ? t("common.openSlidesWithStatus", { title: manualTitle, status: statusLabel })
+    : t("common.openSlides", { title: manualTitle });
   article.innerHTML = `
-    <button type="button" aria-label="${manual.title}${statusLabel} 슬라이드 열기">
+    <button type="button" aria-label="${accessibleLabel}">
       ${coverArtwork(manual)}
       <span class="album-copy">
-        <small>${manual.eyebrow}</small>
-        <strong>${manual.title}</strong>
-        <span>${manual.description}</span>
-        <span class="album-meta"><time datetime="${manual.createdAt}">${formatDate(manual.createdAt)}</time><i></i>${manual.slideCount}장</span>
+        <small>${localizedManualField(manual, "eyebrow")}</small>
+        <strong>${manualTitle}</strong>
+        <span>${localizedManualField(manual, "description")}</span>
+        <span class="album-meta"><time datetime="${manual.lastEditedAt}">${t("common.lastEdited", { date: formatDate(manual.lastEditedAt) })}</time><i></i>${t("common.slideCount", { count: manual.slideCount })}</span>
       </span>
     </button>`;
   article.querySelector("button").addEventListener("click", () => openViewer(manual));
@@ -389,7 +506,8 @@ function renderAlbums(container) {
 }
 
 function renderSlides(manual) {
-  const slides = manualSlides[manual.id] ?? journeySlides(manual);
+  const localizedManualSlides = locale === "en" ? englishManualSlides : manualSlides;
+  const slides = localizedManualSlides[manual.id] ?? journeySlides(manual);
   if (!slides || slides.length !== manual.slideCount) {
     throw new Error(`Slide content does not match catalog entry: ${manual.id}`);
   }
@@ -398,9 +516,9 @@ function renderSlides(manual) {
     const stage = catalog.journey.stages.find((candidate) => candidate.id === manual.stageId);
     return [
       {
-        eyebrow: `FDAI / ${manual.eyebrow}`,
-        title: manual.title,
-        lead: manual.description,
+        eyebrow: `FDAI / ${localizedManualField(manual, "eyebrow")}`,
+        title: localizedManualField(manual, "title"),
+        lead: localizedManualField(manual, "description"),
         layout: "cover",
         content: `
           <figure class="cover-photo">
@@ -408,11 +526,11 @@ function renderSlides(manual) {
           </figure>`,
       },
       {
-        eyebrow: `${String(stage.number).padStart(2, "0")} / ${stage.title}`,
-        title: stage.question,
+        eyebrow: `${String(stage.number).padStart(2, "0")} / ${localizedStageField(stage, "title")}`,
+        title: localizedStageField(stage, "question"),
         lead: "고객의 현재 상태와 목표를 연결해 다음 의사결정과 산출물을 명확하게 정의합니다.",
         layout: "takeaway",
-        content: `<blockquote>${manual.coverLabel}<br>from value to scale.</blockquote>`,
+        content: `<blockquote>${localizedManualField(manual, "coverLabel")}<br>from value to scale.</blockquote>`,
       },
       {
         eyebrow: "NEXT CONVERSATION",
@@ -436,10 +554,11 @@ function renderSlides(manual) {
         ${slide.deckTitle ? `<strong class="slide-deck-title">${slide.deckTitle}</strong>` : ""}
         ${slide.overline ? `<span class="slide-overline"><b>FDAI</b><i aria-hidden="true"></i>${slide.overline}</span>` : ""}
         <h2>${slide.title}</h2><p>${slide.lead}</p>
-        ${slide.showDate ? `<time class="slide-date" datetime="${manual.createdAt}">${formatDate(manual.createdAt)}</time>` : ""}
+        ${slide.showDate ? `<time class="slide-date" datetime="${manual.lastEditedAt}">${formatDate(manual.lastEditedAt)}</time>` : ""}
       </div>
       <div class="slide-content">${slide.content}</div>
-      <footer><span>${manual.title}</span><span>${String(index + 1).padStart(2, "0")}</span></footer>`;
+      <footer><span>${localizedManualField(manual, "title")}</span><span>${String(index + 1).padStart(2, "0")}</span></footer>
+      ${index === 0 ? draftOverlay(manual) : ""}`;
     section.setAttribute("aria-label", `${index + 1}. ${section.querySelector("h2").textContent}`);
     return section;
   }));
@@ -452,7 +571,7 @@ function showSlide(index) {
   progressBar.style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
   progressLabel.textContent = `${currentSlide + 1} / ${slides.length}`;
   const title = slides[currentSlide].querySelector("h2")?.textContent ?? "";
-  announcement.textContent = `${activeManual.title}, ${currentSlide + 1} / ${slides.length}, ${title}`;
+  announcement.textContent = `${localizedManualField(activeManual, "title")}, ${currentSlide + 1} / ${slides.length}, ${title}`;
   document.querySelector("#previous-slide").disabled = currentSlide === 0;
   document.querySelector("#next-slide").disabled = currentSlide === slides.length - 1;
   replaceViewerUrl(activeManual, currentSlide);
@@ -460,7 +579,7 @@ function showSlide(index) {
 
 function openViewer(manual, initialSlide = 0) {
   activeManual = manual;
-  viewerTitle.textContent = manual.title;
+  viewerTitle.textContent = localizedManualField(manual, "title");
   renderSlides(manual);
   viewer.showModal();
   updateSlideScale();
@@ -479,7 +598,7 @@ function reportFullscreenFailure(error) {
   console.error("manual_studio_fullscreen_failed", error);
   const message = document.querySelector("#app-error");
   message.hidden = false;
-  message.textContent = "전체 화면으로 전환하지 못했습니다. 브라우저 권한과 설정을 확인하세요.";
+  message.textContent = t("errors.fullscreen");
   announcement.textContent = message.textContent;
 }
 
@@ -494,8 +613,8 @@ function bindViewer() {
 
   function syncFullscreenButton() {
     const active = document.fullscreenElement === fullscreenRoot;
-    const label = active ? "전체 화면 종료" : "전체 화면";
-    const accessibleLabel = active ? "전체 화면 종료" : "전체 화면으로 보기";
+    const label = active ? t("viewer.exitFullscreen") : t("viewer.fullscreen");
+    const accessibleLabel = active ? t("viewer.exitFullscreen") : t("viewer.enterFullscreen");
     fullscreenButton.setAttribute("aria-pressed", String(active));
     fullscreenButton.setAttribute("aria-label", accessibleLabel);
     fullscreenButton.title = accessibleLabel;
@@ -512,8 +631,8 @@ function bindViewer() {
 
   if (!fullscreenSupported) {
     fullscreenButton.disabled = true;
-    fullscreenButton.setAttribute("aria-label", "전체 화면을 지원하지 않는 브라우저입니다");
-    fullscreenButton.title = "전체 화면을 지원하지 않는 브라우저입니다";
+    fullscreenButton.setAttribute("aria-label", t("viewer.fullscreenUnsupported"));
+    fullscreenButton.title = t("viewer.fullscreenUnsupported");
   }
 
   document.querySelector("#viewer-close").addEventListener("click", closeViewer);
@@ -611,16 +730,19 @@ function setupDrawer() {
   });
 
   renderAlbums(document.querySelector("#drawer-library"));
-  document.querySelector("#drawer-count").textContent = `${catalog.manuals.length}개 설명서`;
-  document.querySelector("#catalog-date").textContent = `생성 ${formatDate(catalog.generatedAt.slice(0, 10))}`;
+  document.querySelector("#drawer-count").textContent =
+    t("library.guideCount", { count: catalog.manuals.length });
+  document.querySelector("#catalog-date").textContent =
+    t("common.generated", { date: formatDate(catalog.generatedAt.slice(0, 10)) });
 }
 
 function setupLibrary() {
-  document.querySelector("#library-count").textContent = `${catalog.manuals.length}개 설명서`;
+  document.querySelector("#library-count").textContent =
+    t("library.guideCount", { count: catalog.manuals.length });
   document.querySelector("#library-generated").textContent =
-    `카탈로그 생성 ${formatDate(catalog.generatedAt.slice(0, 10))}`;
+    t("library.catalogGenerated", { date: formatDate(catalog.generatedAt.slice(0, 10)) });
   const searchParams = new URL(window.location.href).searchParams;
-  const requestedManualId = searchParams.get("manual");
+  const requestedManualId = searchParams.get("manual") || document.body.dataset.manualId || null;
   const requestedSlide = requestedSlideIndex(searchParams.get("slide"));
   const requestedIndex = requestedManualId === null
     ? -1
@@ -637,7 +759,7 @@ function setupLibrary() {
     button.dataset.stageId = stage.id;
     button.innerHTML = `
       <span>${String(stage.number).padStart(2, "0")}</span>
-      <strong>${stage.title}</strong>`;
+      <strong>${localizedStageField(stage, "title")}</strong>`;
     button.addEventListener("click", () => {
       const preferred = catalog.manuals.findIndex((manual) =>
         manual.stageId === stage.id && (manual.featured || manual.kind === "core"));
@@ -673,7 +795,7 @@ function setupLibrary() {
     });
     const message = document.querySelector("#app-error");
     message.hidden = false;
-    message.textContent = "요청한 설명서를 이 카탈로그에서 찾을 수 없습니다.";
+    message.textContent = t("errors.manualNotFound");
   }
 }
 
@@ -687,8 +809,8 @@ function renderCoverflow() {
   const activeStage = catalog.journey.stages.find((stage) => stage.id === selected.stageId);
   document.querySelector("#active-stage-number").textContent =
     String(activeStage.number).padStart(2, "0");
-  document.querySelector("#active-stage-title").textContent = activeStage.title;
-  document.querySelector("#active-stage-question").textContent = activeStage.question;
+  document.querySelector("#active-stage-title").textContent = localizedStageField(activeStage, "title");
+  document.querySelector("#active-stage-question").textContent = localizedStageField(activeStage, "question");
   document.querySelector("#active-stage-badge").hidden = !activeStage.differentiator;
   document.querySelectorAll("#journey-stages button").forEach((button) => {
     const current = button.dataset.stageId === activeStage.id;
@@ -720,17 +842,24 @@ function renderCoverflow() {
   }
   [...flow.children].forEach((item, index) => {
     const manual = catalog.manuals[index];
+    const manualTitle = localizedManualField(manual, "title");
     const distance = index - selectedManualIndex;
     item.dataset.distance = String(Math.max(-3, Math.min(3, distance)));
     item.dataset.active = String(distance === 0);
     item.setAttribute("aria-hidden", String(Math.abs(distance) > 1));
     item.tabIndex = Math.abs(distance) > 1 ? -1 : 0;
-    const statusLabel = manual.status === "wip" ? " (작업 중)" : "";
+    const statusLabel = manual.status === "wip" ? t("common.wip") : "";
     item.setAttribute(
       "aria-label",
       distance === 0
-        ? `${manual.title}${statusLabel} 슬라이드 열기`
-        : `${manual.title}${statusLabel} 선택`,
+        ? t(statusLabel ? "common.openSlidesWithStatus" : "common.openSlides", {
+            title: manualTitle,
+            status: statusLabel,
+          })
+        : t(statusLabel ? "common.selectManualWithStatus" : "common.selectManual", {
+            title: manualTitle,
+            status: statusLabel,
+          }),
     );
     item.setAttribute("aria-pressed", String(distance === 0));
   });
@@ -838,9 +967,33 @@ function clearCoverflowDrag(flow) {
 }
 
 async function start() {
-  const response = await fetch("catalog.json", { cache: "no-store" });
-  if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}.`);
-  catalog = await response.json();
+  const [catalogResponse, englishResponse, koreanResponse] = await Promise.all([
+    fetch("catalog.json", { cache: "no-store" }),
+    fetch("messages.en.json", { cache: "no-store" }),
+    fetch("messages.ko.json", { cache: "no-store" }),
+  ]);
+  for (const [name, response] of [
+    ["Catalog", catalogResponse],
+    ["English messages", englishResponse],
+    ["Korean messages", koreanResponse],
+  ]) {
+    if (!response.ok) throw new Error(`${name} request failed with HTTP ${response.status}.`);
+  }
+  const [catalogValue, englishMessages, koreanMessages] = await Promise.all([
+    catalogResponse.json(),
+    englishResponse.json(),
+    koreanResponse.json(),
+  ]);
+  locale = resolveLocale({
+    url: window.location.href,
+    storedLocale: storedLocale(),
+    browserLocales: navigator.languages ?? [navigator.language],
+  });
+  translate = createTranslator({ en: englishMessages, ko: koreanMessages }, locale);
+  dateFormatter = createDateFormatter(locale);
+  catalog = catalogValue;
+  applyDocumentLocale();
+  bindLanguageSwitches();
   bindViewer();
   if (page === "console") setupDrawer();
   if (page === "library") setupLibrary();
@@ -850,6 +1003,8 @@ start().catch((error) => {
   console.error("manual_studio_start_failed", error);
   const message = document.querySelector("#app-error");
   message.hidden = false;
-  message.textContent = "설명서 시안을 불러오지 못했습니다. 로컬 서버 상태를 확인하세요.";
+  message.textContent = t("errors.startup") === "errors.startup"
+    ? "Manual Studio could not load. Check the local server."
+    : t("errors.startup");
   drawerTrigger?.setAttribute("disabled", "");
 });

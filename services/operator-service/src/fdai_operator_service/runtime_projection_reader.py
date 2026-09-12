@@ -370,7 +370,38 @@ class RuntimeProjectionReader:
             raise ProjectionUnavailableError(
                 "authoritative autonomy measurement projection is unavailable"
             )
-        return validate_autonomy_measurement(rows[0].get("value"))
+        result = validate_autonomy_measurement(rows[0].get("value"))
+        source = cast(Mapping[str, object], result["source"])
+        as_of = cast(str, source["as_of"])
+        comparison, comparison_status = await self._dashboard_comparison(
+            datetime.fromisoformat(as_of.replace("Z", "+00:00"))
+        )
+        result["comparison"] = comparison
+        result["comparison_status"] = comparison_status
+        return result
+
+    async def _dashboard_comparison(
+        self, evaluated_at: datetime
+    ) -> tuple[Mapping[str, object] | None, str]:
+        """Read an independently admitted comparison without relabelling live values."""
+        from fdai_service_contracts.dashboard_comparison import (
+            DASHBOARD_COMPARISON_STATE_KEY,
+            DashboardComparisonSnapshot,
+        )
+
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %s",
+            (DASHBOARD_COMPARISON_STATE_KEY,),
+        )
+        if not rows:
+            return None, "not_published"
+        try:
+            comparison = DashboardComparisonSnapshot.from_state(
+                rows[0]["value"], evaluated_at=evaluated_at
+            )
+        except (TypeError, ValueError):
+            return None, "invalid_or_expired"
+        return comparison.model_dump(mode="json"), "available"
 
     async def _conversation_delivery(self) -> Mapping[str, object]:
         state_rows = await self._fetch_all(

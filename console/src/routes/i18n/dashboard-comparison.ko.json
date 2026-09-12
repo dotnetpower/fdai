@@ -1,0 +1,19 @@
+{
+  "title": "승인된 실측군 비교",
+  "boundary": "기준군과 FDAI 처리군을 별도로 측정한 결과이며, 위의 현재 Live 값과 비교한 결과는 아닙니다. 승격이나 실행 권한을 부여하지 않습니다.",
+  "expired": "이 비교 결과의 유효 기간이 지났습니다. 새로고침하여 새로 승인된 결과가 있는지 확인하세요.",
+  "metric": "측정 항목",
+  "baseline": "기준군",
+  "treatment": "FDAI 처리군",
+  "interval": "95% 신뢰 구간: {lower}~{upper}",
+  "samples": "표본 {count}개",
+  "window": "근거 구간",
+  "revision": "측정한 개정 번호",
+  "protocol": "측정 규약",
+  "evidence": "공개 근거 보기",
+  "auto_resolution_rate": "자동 해결률",
+  "human_touchpoints_per_100_events": "이벤트 100건당 사람 개입",
+  "mttr_seconds": "평균 복구 시간(초)",
+  "change_lead_time_seconds": "변경 리드타임(초)",
+  "cost_per_unit_usd": "단위당 비용(USD)"
+}

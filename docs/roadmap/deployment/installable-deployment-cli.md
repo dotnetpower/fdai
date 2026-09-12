@@ -576,7 +576,7 @@ the same command with `--resume-verification`. Resume requires the exact plan to
 convergence, and reruns the post-apply checks before writing the receipt. A changed context,
 missing claim, or existing receipt blocks resume. Targeted plans may leave the console hostname
 output empty; Entra sync then resolves the exact Static Web App id from Terraform state and reads
-its hostname through the Azure management plane.
+its hostname through the Azure management plane. Post-apply observations follow the sealed runtime profile. A Cost Governance plan requires only a targeted zero-change result and independent image readback for its collector and analyzer Jobs. `deploy status` downloads the sanitized Job readback with the apply receipt, verifies both fixed container bindings and their shared digest, and recomputes the readback and receipt digests. It does not substitute Core migration, health, inventory, or canary evidence for that package scope.
 
 Post-apply migration permits immutable built-in workflow definitions for the same workflow document
 to coexist when they pin different action-catalog digests. The unique database identity includes
@@ -604,9 +604,7 @@ dispatch receipt, the runner stores the protected binary plan in private Blob st
 `deploy status` retrieves a bounded sanitized artifact through the workflow host. Exact apply and
 verification-only resume send the same feature selection and context digest. The GitHub Environment
 approval boundary, immutable claim, and audit receipt remain authoritative. Runner egress preflight
-evidence is bound into immutable plan metadata, and post-apply checks require Terraform convergence,
-migration success, and enabled endpoint health before the receipt is written. Runner-side policy,
-quota, identity, secret, and egress evidence are required inputs to the C4 exact-plan gate.
+evidence is bound into immutable plan metadata. General application receipts require Terraform convergence, migration success, and enabled endpoint health. Cost Governance receipts instead require targeted convergence plus the two-Job image readback described above. Runner-side policy, quota, identity, secret, and egress evidence are required inputs to the C4 exact-plan gate.
 
 ## Private-everything tenants
 

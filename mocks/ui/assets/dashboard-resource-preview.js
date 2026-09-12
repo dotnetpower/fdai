@@ -42,7 +42,7 @@
         element("p", "dr-hover-scope", `${typeNames[resource.type]} / ${resource.subscriptionName} / ${resource.groupName}`),
       );
       const facts = element("dl", "dr-hover-facts");
-      for (const [lens, label] of [["operation", "Operating state"], ["availability", "Availability"], ["observation", "Observation"]]) {
+      for (const [lens, label] of [["operation", "Operating state"], ["provisioning", "Provisioning"], ["availability", "Availability"], ["observation", "Observation"]]) {
         const row = element("div");
         const value = element("dd");
         value.appendChild(badge(lens, statusKey(resource, lens, snapshot)));

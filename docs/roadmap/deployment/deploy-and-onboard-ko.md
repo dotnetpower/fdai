@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 427a32ee0a5f9320fd41dd2f82bfeb2195b65291
+translation_source_sha: db82c9e14784a670aab52ace00521ff26fba22d3
 translation_revised: 2026-09-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -119,7 +119,7 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
 제외하면서 작업 이미지와 필수 shared 런타임 구성을 수렴 상태로 유지합니다.
-Provider-schema 배포는 `fdaictl deploy plan --deploy-provider-schema`를 사용해 이 넓은 gateway 대상 대신 별도의 `plan-provider-*` 및 `apply-provider-*` 모드를 만듭니다. 이 모드는 provider-schema Job 주소 하나만 허용하고, 증명된 정확한 Core image revision을 결속하며, 다른 대상과의 조합을 차단하고, 적용 후 대상이 제한된 zero-change 계획을 요구합니다. 계획과 적용은 모두 정확히 같은 이미지가 rollback retention이 활성화된 active, healthy, provisioned Core revision인지 확인합니다. 계획은 정제된 baseline을 불변 plan 경로에 저장하고, 적용은 저장된 receipt를 검증한 뒤 변경 전에 live baseline을 다시 관측합니다. 전용 bounded verifier는 Job을 한 번 시작하고 Core baseline, source revision, durable generation, Heimdall handoff, 일치하는 Forseti 결정 및 Saga audit record 증적을 보존합니다. 검증 전용 재개는 Terraform을 다시 적용하지 않습니다. 정확한 불변 증적이 있으면 재사용하고, 없으면 Job 검증만 다시 실행합니다. 스키마가 변경되지 않은 실행은 결정을 만들지 않고 agent review를 해당 없음으로 기록합니다. 대상 집합에는
+Provider-schema Job은 루트 Terraform 리소스 `azurerm_container_app_job.provider_schema[0]`에서 소유합니다. 결정적 리소스 ID는 기존 Container Apps 환경과 인벤토리 신원을 연결하고, 읽기 전용 신원 조회는 클라이언트 ID를 제공하며, `moved` 블록은 이전 compute module 주소의 상태를 보존합니다. 따라서 provider 전용 대상은 compute module의 광범위한 플랫폼 의존성 그래프를 상속하지 않습니다. 배포에는 `fdaictl deploy plan --deploy-provider-schema`를 사용해 이 넓은 gateway 대상 대신 별도의 `plan-provider-*` 및 `apply-provider-*` 모드를 만듭니다. 이 모드는 provider-schema Job 주소 하나만 허용하고, 증명된 정확한 Core image revision을 결속하며, 다른 대상과의 조합을 차단하고, 적용 후 대상이 제한된 zero-change 계획을 요구합니다. 계획과 적용은 모두 정확히 같은 이미지가 rollback retention이 활성화된 active, healthy, provisioned Core revision인지 확인합니다. 계획은 정제된 baseline을 불변 plan 경로에 저장하고, 적용은 저장된 receipt를 검증한 뒤 변경 전에 live baseline을 다시 관측합니다. 전용 bounded verifier는 Job을 한 번 시작하고 Core baseline, source revision, durable generation, Heimdall handoff, 일치하는 Forseti 결정 및 Saga audit record 증적을 보존합니다. 검증 전용 재개는 Terraform을 다시 적용하지 않습니다. 정확한 불변 증적이 있으면 재사용하고, 없으면 Job 검증만 다시 실행합니다. 스키마가 변경되지 않은 실행은 결정을 만들지 않고 agent review를 해당 없음으로 기록합니다. 대상 집합에는
 활성 Terraform `moved` 블록의 출처 및 대상 주소가 모두 포함됩니다. 작업 흐름 계약
 테스트는 이 주소를 동기화하여 상태 이행 때문에 protected 계획이 무효화되지 않도록 합니다.
 여기에는 baseline-regression 및 pattern-growth 작업의 인덱스 없는 대상 주소가 포함됩니다.
@@ -436,7 +436,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
   readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
   리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다. 보호된 모델 Settings workflow는 모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 읽기 전용 트랜잭션에서 환경에 결속된 두 행을 검증해 새 Console에서 설정 컨트롤을 표시할 수 있게 합니다.
-- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 Core와 두 작업에 연결합니다. 배포 후 smoke 테스트와 합성 카나리는 [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 계속 정의됩니다.
+- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 collector 및 analyzer Job에 연결합니다. Platform apply는 대상이 제한된 zero-change plan을 확인하고 두 Job 이미지를 독립적으로 다시 읽어 하나의 content-addressed 증적에 기록합니다. 별도의 보호된 Core service plan이 같은 이미지를 Core에 연결합니다. 패키지 전용 platform 경로는 Core 소유 migration, Core health, 기존 inventory 또는 canary 검사를 실행하지 않습니다.
 
 ## 분포 및 배포 책임 매트릭스
 

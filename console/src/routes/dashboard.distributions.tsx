@@ -3,6 +3,7 @@ import { t } from "../i18n";
 import { routeHref } from "../router";
 import {
   auditSampleParams,
+  routingSampleParams,
   controlGapSummary,
   controlOutcomeGroup,
   dashboardEvidenceGaps,
@@ -20,7 +21,8 @@ interface Props {
 }
 
 export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
-  const sampleParams = auditSampleParams(kpi);
+  const sampleParams = routingSampleParams(kpi);
+  const modeSampleParams = auditSampleParams(kpi);
   const tiers = distributionRows(kpi.by_tier);
   const outcomes = distributionRows(kpi.by_outcome);
   const shadowCount = Math.round(kpi.event_count * kpi.shadow_share);
@@ -63,11 +65,11 @@ export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
           heading={t("overview.routing.modeTitle")}
           rows={modes}
           hrefFor={(row) => routeHref("audit", {
-            params: { ...sampleParams, mode: row.key },
+            params: { ...modeSampleParams, mode: row.key },
           })}
           labelFor={(row) => t(`overview.routing.mode.${row.key}`)}
           toneFor={(row) => row.key}
-          unavailableHref={routeHref("audit", { params: sampleParams })}
+          unavailableHref={routeHref("audit", { params: modeSampleParams })}
         />
       </article>
     </section>

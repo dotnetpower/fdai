@@ -386,6 +386,8 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             approval_id=aid,
             correlation_id=correlation_id,
             detail={
+                "event_id": str(action.event_id),
+                "action_id": str(action.action_id),
                 "action_type": action.action_type,
                 "rule_id": rule.id,
                 "severity": rule.severity.value,
