@@ -36,10 +36,11 @@ domain code and assets. It does not create another control plane or move authori
 > The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
 > not a Cost Governance package input and cannot install, enable, promote, or grant package data
 > access.
-> Live-authoritative lifecycle, observation
-> cohort, and independent promotion evidence
-> remain open. The first protected exact-revision plan verified Azure context but model capability
-> quorum failed before Terraform, so the package and its actions remain unvalidated and unpromoted.
+> Live-authoritative install, enable, and disable receipts now exist, but independent readback
+> found that the enable-triggered collector attempts ended on Azure Cost Management HTTP `429`.
+> The three activation transitions are verified, while successful collection, upgrade, rollback,
+> final enablement, the observation cohort, and independent promotion evidence remain open. The
+> package and its actions remain unvalidated and unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
@@ -84,7 +85,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 | Area | Current evidence | Packaging implication |
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
-| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency or generic evidence asset such as the reviewed provider-schema catalog changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images for PR packaging checks; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets; that ordering does not add Cost Governance package inputs. |
+| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency or generic evidence asset such as the reviewed provider-schema catalog changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images for PR packaging checks; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets. Both supported Core image profiles pin and check the Git client and reviewed bootstrap catalog required by the provider-schema evidence Job. Those runtime prerequisites remain Core-owned and do not become Cost Governance package inputs. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
 | Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |
@@ -192,6 +193,8 @@ Cost Governance uses three independent axes:
 
 Enabling the package cannot promote an action. Promotion remains per-`ActionType`, evidence-based,
 and reversible through the authoritative promotion registry.
+The shared Operator promotion-gate projection joins each catalog row to that registry for display;
+an absent durable row renders `shadow` and does not change package availability or enablement.
 
 ## Target package layout
 
@@ -318,7 +321,10 @@ an unavailable package available, grant cost-data access, or promote an action.
 
 Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
 The workflow verifies protected `main`, required CI, the exact release source, the signed image
-digest, and the deployed Cost Governance jobs before it calls the lifecycle function. Every
+digest, and the deployed Cost Governance jobs before it calls the lifecycle function. It rebuilds
+the exact release wheel in lockfile-frozen mode through the pinned package toolchain. An unsupported
+build invocation, lock drift, or ambiguous wheel output fails before Azure authentication or
+lifecycle state mutation. Every
 successful receipt includes a canonical digest of all request inputs. Reusing a request id with a
 different operation, artifact, source revision, runtime configuration, actor, desired enablement,
 or expected revision is an idempotency conflict. An exact retry returns the original receipt rather
@@ -365,6 +371,7 @@ activation state, provider binding, or promotion authority.
 | Missing provider binding | Package unavailable with a bounded reason; no partial rules loaded. |
 | Ontology release or semantic-profile mismatch | Activation blocked; no query profile or asset is published. |
 | Duplicate rule, action, workflow, capability, or vertical id | Activation blocked before publication. |
+| Azure Cost Management returns `429` | Retry the read once only when the provider supplies a valid retry delay that fits the request deadline; otherwise fail before storing observations. |
 | Cost observation stale or incomplete | Detector holds the result or emits explicit unknown evidence. |
 | Estimator timeout or unsupported SKU | Cost remains unknown and cannot raise authority. |
 | Package disabled during work | New candidates stop; accepted work follows the existing idempotent lifecycle to a terminal audit result. |

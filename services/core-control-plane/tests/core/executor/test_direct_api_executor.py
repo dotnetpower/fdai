@@ -457,6 +457,19 @@ class TestAdapterOutcomes:
         assert result.outcome is DirectApiExecutionOutcome.ABSTAINED_PRECONDITION
 
     @pytest.mark.asyncio
+    async def test_precondition_failed_receipt_is_not_cached_across_retries(self) -> None:
+        exec_, adapter, _ = _executor()
+        adapter.force_outcome(DirectApiOutcome.PRECONDITION_FAILED)
+
+        first = await exec_.execute(action=_action())
+        adapter.force_outcome(DirectApiOutcome.SUCCEEDED)
+        retried = await exec_.execute(action=_action())
+
+        assert first.outcome is DirectApiExecutionOutcome.ABSTAINED_PRECONDITION
+        assert retried.outcome is DirectApiExecutionOutcome.DISPATCHED
+        assert len(adapter.records) == 2
+
+    @pytest.mark.asyncio
     async def test_uncontrolled_adapter_exception_fails_closed(self) -> None:
         exec_, adapter, audit = _executor()
         adapter.next_error(RuntimeError("network partition"))

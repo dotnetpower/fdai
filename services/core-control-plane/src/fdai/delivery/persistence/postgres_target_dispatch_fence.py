@@ -24,6 +24,7 @@ from fdai.core.executor.target_dispatch_fence_codec import (
 from fdai.core.executor.target_dispatch_fence_store import (
     TargetDispatchFenceAcquireDecision,
     TargetDispatchFenceAcquireResult,
+    TargetDispatchFenceReadback,
     classify_target_fence,
 )
 
@@ -213,10 +214,24 @@ class PostgresTargetDispatchFenceStore:
         self,
         target_digest: str,
     ) -> TargetDispatchFenceRecord | None:
+        readback = await self.read_with_timestamp(target_digest)
+        return readback.record if readback is not None else None
+
+    async def read_with_timestamp(
+        self,
+        target_digest: str,
+    ) -> TargetDispatchFenceReadback | None:
         async with await self._connect() as connection:
             await self._set_statement_timeout(connection)
             cursor = await connection.execute(_SELECT_SQL, (target_digest,))
-            return _decode_optional_record(await cursor.fetchone())
+            row = await cursor.fetchone()
+            record = _decode_optional_record(row)
+            if record is None or row is None:
+                return None
+            return TargetDispatchFenceReadback(
+                record=record,
+                recorded_at=_row_datetime(row.get("recorded_at")),
+            )
 
     async def _connect(self) -> psycopg.AsyncConnection[Any]:
         return await psycopg.AsyncConnection.connect(

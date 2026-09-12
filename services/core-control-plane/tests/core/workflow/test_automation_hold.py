@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai.core.executor import ResourceLockManager
 from fdai.core.workflow.automation_hold import (
     AutomationHoldReleaseReceipt,
     StateStoreAutomationHoldLedger,
@@ -21,11 +22,32 @@ from fdai.core.workflow.workflow_runtime import (
     workflow_approval_state_key,
 )
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
+from fdai.shared.providers.resource_lock import resource_lock_key
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 9, 10, 3, 0, tzinfo=UTC)
 _RECEIPTS = ("sha256:" + "b" * 64, "sha256:" + "c" * 64)
 _SOURCE_REVISION = "commit:" + "d" * 40
+
+
+async def test_hold_issue_waits_for_the_shared_target_lock() -> None:
+    store = InMemoryStateStore()
+    lock = ResourceLockManager()
+    ledger = StateStoreAutomationHoldLedger(store, resource_lock=lock)
+
+    async with lock.acquire(resource_lock_key("resource-1")):
+        issue = asyncio.create_task(
+            ledger.issue(
+                target_ref="resource-1",
+                process_id="process-1",
+                reason="recovery_incomplete",
+            )
+        )
+        await asyncio.sleep(0)
+        assert issue.done() is False
+
+    await issue
+    assert await ledger.is_held(target_ref="resource-1") is True
 
 
 class _Admissions:
@@ -762,7 +784,7 @@ async def test_approval_cancelled_before_terminal_cas_preserves_hold() -> None:
 
 async def test_approval_expiring_after_intent_preserves_hold() -> None:
     store = InMemoryStateStore()
-    instants = iter((_NOW, _NOW + timedelta(minutes=2)))
+    instants = iter((_NOW, _NOW, _NOW + timedelta(minutes=2)))
     ledger = StateStoreAutomationHoldLedger(store, clock=lambda: next(instants))
     await ledger.issue(
         target_ref="resource-1",

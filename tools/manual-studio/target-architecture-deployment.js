@@ -38,16 +38,16 @@ export function buildTargetArchitectureDeployment() {
       chapter: 5,
       state: "STATUS",
       diagramKind: "deployment",
-      title: "Azure 기준선은 한 리전의 VNet 통합 Container Apps cell입니다",
+      title: "Azure 기준선은 VNet 통합 Container Apps에 배치합니다",
       lead: "다섯 서비스와 Jobs가 내부 Event Hubs, 서비스별 PostgreSQL role, Key Vault reference, private storage, observability를 각자 신원으로 사용합니다.",
       evidence: ["architectureGuide", "deployment", "portability", "security"],
       takeaway: "5개 서비스와 독립 identity 경계는 검증됐습니다. 이 배치의 production private flow, 운영 준비도, RPO/RTO와 DR은 배포별 근거가 필요합니다.",
       body: `
         <div class="ta-azure-deployment" data-ta-diagram="azure-deployment-topology" data-diagram-kind="deployment" role="img" aria-label="Azure region, VNet, Container Apps subnet, private endpoint subnet, five FDAI services와 managed data services의 배포 토폴로지">
           <div class="ta-azure-outside">
-            ${archNode("azure-operator", "HUMAN", "Operator", "Entra ID · Console · Teams", { tone: "human" })}
-            ${archNode("azure-signals", "PLATFORM", "Azure signals", "ARG · Activity · Monitor", { tone: "azure" })}
-            ${archNode("azure-git", "DELIVERY", "Git provider", "PR · review · revert", { tone: "external" })}
+            ${archNode("azure-operator", "", "Operator", "", { tone: "human" })}
+            ${archNode("azure-signals", "", "Azure signals", "", { tone: "azure" })}
+            ${archNode("azure-git", "", "Git provider", "", { tone: "external" })}
           </div>
           <div class="ta-azure-outside-links">
             ${archLink("azure-operator", "azure-region", { kind: "request", direction: "down" })}
@@ -57,35 +57,28 @@ export function buildTargetArchitectureDeployment() {
           ${archBoundary("AZURE REGION", "One day-zero operational cell", `
             <div class="ta-azure-region-grid">
               ${archBoundary("PUBLIC / OPERATOR EDGE", "Authenticated surfaces", `
-                ${archNode("azure-console", "STATIC + CONTAINER APP", "Console / Operator", "read-only web · authenticated API · no effect role", { tone: "surface" })}
-                ${archNode("azure-ingestion", "CONTAINER APP", "Document Ingestion API", "authenticated upload", { tone: "service" })}
+                ${archNode("azure-console", "", "Console / Operator", "read-only web · authenticated API · no effect role", { tone: "surface" })}
+                ${archNode("azure-ingestion", "", "Document Ingestion API", "authenticated upload", { tone: "service" })}
               `, { id: "azure-edge", classes: "ta-azure-edge", tone: "surface" })}
               ${archBoundary("VNET · CONTAINER APPS SUBNET", "Internal runtime environment", `
-                ${archNode("azure-core", "NO INGRESS · NO EFFECT ROLE", "Core Control Plane", "", { tone: "control", primary: true })}
+                ${archNode("azure-core", "NO EFFECT ROLE", "Core Control Plane", "", { tone: "control", primary: true })}
                 ${archNode("azure-worker", "INTERNAL · CLAMAV", "Processing Worker", "", { tone: "service" })}
-                ${archNode("azure-executor", "NO INGRESS · EFFECT ROLE", "Isolated Executor", "", { tone: "execution", primary: true })}
+                ${archNode("azure-executor", "EFFECT ROLE", "Isolated Executor", "", { tone: "execution", primary: true })}
                 ${archNode("azure-jobs", "SCHEDULED", "Container Apps Jobs", "", { tone: "service" })}
-              `, { id: "azure-apps", classes: "ta-azure-apps", tone: "control", status: "VNET INTEGRATED" })}
+              `, { id: "azure-apps", classes: "ta-azure-apps", tone: "control" })}
               ${archBoundary("PRIVATE DATA PLANE", "Managed services", `
                 ${archNode("azure-eventhubs", "KAFKA :9093", "Event Hubs", "primary + operational shards", { tone: "event", primary: true })}
-                ${archNode("azure-postgres", "STATE", "PostgreSQL + pgvector", "service roles · migrations · audit", { tone: "store", primary: true })}
+                ${archNode("azure-postgres", "STATE", "PostgreSQL + pgvector", "", { tone: "store", primary: true })}
                 ${archNode("azure-storage", "HISTORY", "Private Blob / ADLS", "case history · document data", { tone: "store" })}
                 ${archNode("azure-keyvault", "TRUST", "Key Vault + UAMI", "native reference · short-lived token", { tone: "policy" })}
-              `, { id: "azure-data", classes: "ta-azure-data", tone: "dependency", status: "PRIVATE ENDPOINTS" })}
+              `, { id: "azure-data", classes: "ta-azure-data", tone: "dependency" })}
               ${archNode("azure-observability", "OBSERVABILITY · OTEL", "Log Analytics + App Insights", "independent telemetry · health · trace · SLO · effect evidence", { tone: "evidence", classes: "ta-azure-observability", primary: true })}
             </div>
           `, { id: "azure-region", classes: "ta-azure-region", tone: "azure", status: "PRODUCTION EVIDENCE REQUIRED" })}
-          <div class="ta-azure-internal-links">
-            ${archLink("azure-edge", "azure-apps", { kind: "request", direction: "down", measured: false })}
-            ${archLink("azure-apps", "azure-data", { kind: "read", direction: "down", measured: false })}
-            ${archLink("azure-apps", "azure-observability", { kind: "observation", direction: "down", measured: false })}
-          </div>
           ${archLegend([
             { kind: "request", label: "HTTPS/request" },
             { kind: "event", label: "Kafka event" },
-            { kind: "read", label: "private data" },
             { kind: "mutation", label: "delivery/effect" },
-            { kind: "observation", label: "telemetry" },
           ])}
         </div>`,
     }),
@@ -119,13 +112,9 @@ export function buildTargetArchitectureDeployment() {
           <div class="ta-network-support">
             ${archNode("net-keyvault", "SECRET", "Key Vault reference", "native reference · no secret over event bus", { tone: "policy", footer: "runtime injection" })}
             ${archNode("net-postgres", "STATE", "PostgreSQL", "service roles · audit · projections", { tone: "store", footer: "private service-owned access" })}
-            ${archNode("net-model", "OPTIONAL", "Azure OpenAI / Foundry", "redacted input through T2 adapter", { tone: "model", status: "OPTIONAL PROFILE", footer: "Core outbound only" })}
+            ${archNode("net-model", "OPTIONAL", "Azure OpenAI / Foundry", "redacted input through T2 adapter", { tone: "model", status: "OPTIONAL PROFILE" })}
             ${archNode("net-git", "DELIVER", "Git provider", "governed remediation PR", { tone: "external", footer: "Executor delivery path" })}
-            ${archNode("net-monitor", "08 · OBSERVE", "Azure Monitor sources", "independent effect evidence", { tone: "evidence", primary: true, footer: "separate observation path" })}
-          </div>
-          <div class="ta-network-support-links">
-            ${archLink("net-target", "net-monitor", { kind: "observation", direction: "down", label: "7", measured: false })}
-            ${archLink("net-executor", "net-git", { kind: "mutation", direction: "down", measured: false })}
+            ${archNode("net-monitor", "08 · OBSERVE", "Azure Monitor sources", "independent effect evidence", { tone: "evidence", primary: true })}
           </div>
           <footer><span data-status="CURRENT">current: authenticated edge + VNet-integrated services</span><span data-status="TARGET">target: private Application Gateway / WAF and profile-specific endpoints</span></footer>
         </div>`,

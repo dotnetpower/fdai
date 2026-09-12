@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildTargetArchitectureDeck } from "../target-architecture.js";
+import { inspectTextGeometry, verifyTextGeometry } from "./target-architecture-text-geometry.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const output = process.argv[2];
@@ -31,7 +32,48 @@ const problems = [];
 const failedRequests = [];
 const pageErrors = [];
 const results = [];
+const startedAt = Date.now();
 const browser = await chromium.launch({ headless: true, timeout: 15000 });
+
+/** Reject the original fixed-row RiskGate regression before trusting a new deck measurement. */
+async function verifyRiskGateRegression(page) {
+  await page.goto("http://127.0.0.1:5474/target-architecture.html?slide=15", { waitUntil: "load", timeout: 15000 });
+  const slide = page.locator('.manual-slide.active[data-index="14"]');
+  await slide.waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  await slide.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+  const boundaries = slide.locator('.ta-risk-inputs .ta-arch-boundary');
+  await boundaries.evaluateAll((elements) => elements.forEach((element) => {
+    element.style.height = "112px";
+    element.style.maxHeight = "112px";
+  }));
+  try {
+    const broken = await slide.evaluate(inspectTextGeometry);
+    for (const boundary of ["risk-table", "risk-ceilings"]) {
+      assert.ok(broken.findings.some((finding) => finding.kind === "text-clipped-by-ancestor" &&
+        finding.detail.startsWith(`${boundary}:`)), `The original ${boundary} clipping must fail.`);
+    }
+  } finally {
+    await boundaries.evaluateAll((elements) => elements.forEach((element) => element.removeAttribute("style")));
+  }
+  return { legacyHeightPx: 112, rejectedBoundaries: ["risk-table", "risk-ceilings"] };
+}
+
+/** Build a comparison sheet from actual slide captures, never a substitute for full-size review. */
+async function createContactSheet(browser, directory, mode) {
+  const images = await Promise.all(slides.map(async (slide, index) => {
+    const number = String(index + 1).padStart(2, "0");
+    const image = await readFile(join(directory, `${number}-${slide.architecture.id}.png`));
+    return `<figure><img src="data:image/png;base64,${image.toString("base64")}"><figcaption>${number} · ${slide.architecture.id}</figcaption></figure>`;
+  }));
+  const sheet = await browser.newPage({ viewport: { width: 1560, height: 1100 } });
+  try {
+    await sheet.setContent(`<html><head><style>body{margin:0;padding:16px;background:#e9eef2;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;font:12px/1.5 sans-serif}figure{margin:0}img{display:block;width:100%}figcaption{padding:6px 0;color:#233846}</style></head><body>${images.join("")}</body></html>`);
+    await sheet.screenshot({ path: join(output, `contact-sheet-${mode}.png`), fullPage: true });
+  } finally {
+    await sheet.close();
+  }
+}
 
 /** Measure visible content, contrast, and connector geometry on the fixed slide canvas. */
 function inspectSlide(slide, mode) {
@@ -57,7 +99,11 @@ function inspectSlide(slide, mode) {
     if (outside(canvas, box(document.querySelector("#slide-stage")))) add("stage-overflow", canvas);
   }
 
-  const regionElements = [slide.querySelector(".slide-copy"), ...slide.querySelectorAll(".ta-meta, .ta-visual, .ta-takeaway, .ta-source")];
+  const regionElements = [
+    slide.querySelector(":scope > header"),
+    slide.querySelector(".slide-copy"),
+    ...slide.querySelectorAll(".ta-meta, .ta-visual, .ta-takeaway, .ta-source"),
+  ];
   const regions = regionElements.filter((element) => element && box(element).height > 0);
   for (const region of regions) if (outside(box(region), canvas)) add("region-outside", region.className);
   if (!isCover) {
@@ -128,6 +174,10 @@ function inspectSlide(slide, mode) {
           child.right > parent.right + textTolerance || child.bottom > parent.bottom + textTolerance;
         const region = element.closest(".ta-visual, .ta-meta, .ta-takeaway, .ta-source, .slide-copy");
         if (region && textOutside(bounds, box(region))) add("text-outside-region", label(element));
+        const architectureNode = element.closest(".ta-arch-node");
+        if (architectureNode && textOutside(bounds, box(architectureNode))) {
+          add("text-outside-node", `${architectureNode.dataset.taNode}: ${label(element)}`);
+        }
         if (!(isCover && element.matches("h2")) &&
           element.matches("p, h2, h3, blockquote, td, th, dt, dd") &&
           textOutside(bounds, box(element))) add("text-outside-block", label(element));
@@ -216,6 +266,7 @@ function inspectSlide(slide, mode) {
 try {
   const page = await browser.newPage({ viewport: viewports.desktop, reducedMotion: "reduce", locale: "ko-KR" });
   page.setDefaultTimeout(10000);
+  const textGeometrySelfTests = await verifyTextGeometry(page);
   await page.route("**/*", (route) => {
     if (new URL(route.request().url()).origin === "http://127.0.0.1:5474") return route.continue();
     failedRequests.push("External request blocked.");
@@ -227,6 +278,7 @@ try {
   });
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await mkdir(output, { recursive: true });
+  const riskGateRegression = await verifyRiskGateRegression(page);
 
   for (const mode of modes) {
     console.log(`target-architecture-visual: ${mode} start (${slides.length} slides)`);
@@ -251,8 +303,13 @@ try {
       if (mode !== "print") {
         if (index) await page.keyboard.press("ArrowRight");
         await page.waitForFunction((expected) => document.querySelector(".manual-slide.active")?.dataset.index === String(expected), index);
+        await locator.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
       }
       const result = await locator.evaluate(inspectSlide, mode);
+      const textGeometry = await locator.evaluate(inspectTextGeometry);
+      result.checkedTextRuns = textGeometry.checkedTextRuns;
+      result.checkedClipAncestors = textGeometry.checkedClipAncestors;
+      result.findings.push(...textGeometry.findings);
       results.push(result);
       problems.push(...result.findings.map((finding) => ({ slide: index + 1, mode, ...finding })));
       if (mode !== "print") {
@@ -261,9 +318,13 @@ try {
           animations: "disabled",
         });
       }
+      if ((index + 1) % 5 === 0) console.log(`target-architecture-visual: ${mode} ${index + 1}/${slides.length}`);
+      assert.ok(Date.now() - startedAt < 180000, "Visual review exceeded its three-minute total deadline.");
     }
     if (mode === "print") {
       await page.pdf({ path: join(output, "target-architecture.pdf"), preferCSSPageSize: true, printBackground: true });
+    } else {
+      await createContactSheet(browser, directory, mode);
     }
     if (mode === "fullscreen") await page.evaluate(() => document.exitFullscreen());
   }
@@ -281,6 +342,8 @@ try {
     "target-architecture.css",
     "target-architecture-visuals.css",
     "target-architecture-deployment.css",
+    "test/target-architecture-visual.mjs",
+    "test/target-architecture-text-geometry.mjs",
   ];
   const sourceDigests = Object.fromEntries(await Promise.all(files.map(async (file) => [
     file,
@@ -294,6 +357,8 @@ try {
     slideModeChecks: results.length,
     deckDigest: createHash("sha256").update(JSON.stringify(slides)).digest("hex"),
     sourceDigests,
+    textGeometrySelfTests,
+    riskGateRegression,
     minimumPrimaryFont: Math.min(...results.map((result) => result.minimumPrimaryFont ?? Infinity)),
     minimumTextContrastRatio: Math.min(...results.map((result) => result.minimumContrast)),
     maximumTitleLines: Math.max(...results.map((result) => result.titleLines)),

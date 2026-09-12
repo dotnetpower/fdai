@@ -21,6 +21,7 @@ from fdai.core.executor.safeguard_dispatch_codec import (
     safeguard_dispatch_record_to_mapping,
 )
 from fdai.core.executor.safeguard_dispatch_store import (
+    SafeguardDispatchEvidenceReadback,
     SafeguardDispatchPersistenceDecision,
     SafeguardDispatchPersistenceResult,
     SafeguardDispatchTransitionReceipt,
@@ -211,6 +212,14 @@ class PostgresSafeguardDispatchEvidenceStore:
         target_digest: str,
         generation: int,
     ) -> SafeguardDispatchEvidenceRecord | None:
+        readback = await self.read_with_timestamp(target_digest, generation)
+        return readback.record if readback is not None else None
+
+    async def read_with_timestamp(
+        self,
+        target_digest: str,
+        generation: int,
+    ) -> SafeguardDispatchEvidenceReadback | None:
         _validate_storage_key(target_digest, generation)
         async with await self._connect() as connection:
             await self._set_statement_timeout(connection)
@@ -221,13 +230,16 @@ class PostgresSafeguardDispatchEvidenceStore:
             row = await cursor.fetchone()
             if row is None:
                 return None
-            record, _recorded_at = _decode_row(row)
+            record, recorded_at = _decode_row(row)
             if (
                 record.identity.target_digest != target_digest
                 or record.identity.target_fence_generation != generation
             ):
                 raise ValueError("PostgreSQL safeguard dispatch readback key mismatched")
-            return record
+            return SafeguardDispatchEvidenceReadback(
+                record=record,
+                recorded_at=recorded_at,
+            )
 
     async def _connect(self) -> psycopg.AsyncConnection[Any]:
         return await psycopg.AsyncConnection.connect(

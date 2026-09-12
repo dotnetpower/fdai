@@ -111,6 +111,34 @@ class InventoryRelationshipCoverage:
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryProviderTypeCount:
+    """One bounded provider-native type absent from the reviewed registry."""
+
+    provider_type: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if not self.provider_type.strip() or len(self.provider_type) > 512:
+            raise ValueError("inventory provider type identity is malformed")
+        if isinstance(self.count, bool) or not isinstance(self.count, int) or self.count < 1:
+            raise ValueError("inventory provider type count MUST be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryProviderScopeCoverage:
+    """Complete provider-native type accounting for one active snapshot."""
+
+    capture_method: str
+    provider_object_count: int
+    mapped_provider_object_count: int
+    unmapped_provider_object_count: int
+    materialized_unmapped_provider_object_count: int
+    provider_identity_complete: bool
+    provider_type_count: int
+    unmapped_provider_types: tuple[InventoryProviderTypeCount, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class InventoryImpactContext:
     """Exact active inventory generation and its authoritative observation cutoff."""
 
@@ -120,6 +148,7 @@ class InventoryImpactContext:
     relationship_drop_classifications: tuple[InventoryRelationshipDropClassification, ...] = ()
     projection_source_states: tuple[InventoryProjectionSourceState, ...] = ()
     relationship_coverage: InventoryRelationshipCoverage | None = None
+    provider_scope_coverage: InventoryProviderScopeCoverage | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -516,6 +545,8 @@ __all__ = [
     "InventoryImpactEdge",
     "InventoryImpactLinkPage",
     "InventoryImpactReader",
+    "InventoryProviderScopeCoverage",
+    "InventoryProviderTypeCount",
     "InventoryRelationshipCoverage",
     "InventoryRelationshipDropClassification",
     "ProjectionQuery",

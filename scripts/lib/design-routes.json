@@ -58,6 +58,23 @@
       ]
     },
     {
+      "id": "pr-delivery-daemon",
+      "paths": [
+        ".github/skills/pr-delivery/**",
+        "scripts/automation/pr_delivery_daemon*.py",
+        "tests/integration/scripts/test_pr_delivery_daemon.py"
+      ],
+      "must_read": [
+        ".github/copilot-instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/skills/pr-delivery/SKILL.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/scripts/test_pr_delivery_daemon.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "roadmap-implementation-tracking",
       "paths": [
         ".github/instructions/roadmap-implementation-tracking.instructions.md",

@@ -1245,6 +1245,7 @@ async def _ground_conflict_options(
             audit=audit,
             wire_risk_gate=bool(overlay.get("wire_risk_gate", False)),
             wire_t2=bool(overlay.get("wire_t2", False)),
+            clock=_replay_clock(scenario),
         )
         event = _merge_enrichment(scenario["event"], overlay)
         event["correlation_id"] = spec["correlation_id"]

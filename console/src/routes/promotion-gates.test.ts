@@ -4,6 +4,8 @@ import { decodePromotionGates, filterPromotionRows, promotionReasonFromValue } f
 const rows = [
   {
     action_type_name: "safe-action",
+    mode: "enforce",
+    mode_source: "promotion-registry",
     shadow_days_elapsed: 7,
     sample_count: 100,
     reviewed_count: 100,
@@ -15,6 +17,8 @@ const rows = [
   },
   {
     action_type_name: "escaped-action",
+    mode: "shadow",
+    mode_source: "catalog-default",
     shadow_days_elapsed: 3,
     sample_count: 20,
     reviewed_count: 10,
@@ -40,6 +44,8 @@ describe("promotion gate drilldown filters", () => {
     expect(() => decodePromotionGates(response({ accuracy: 1.1 }))).toThrow(/between 0 and 1/);
     expect(() => decodePromotionGates(response({ shadow_days_elapsed: -0.1 }))).toThrow(/non-negative/);
     expect(() => decodePromotionGates(response({ agreed_count: 11 }))).toThrow(/MUST NOT exceed/);
+    expect(() => decodePromotionGates(response({ mode: "unknown" }))).toThrow(/shadow or enforce/);
+    expect(() => decodePromotionGates(response({ mode_source: "browser" }))).toThrow(/mode source/);
   });
 
   it("rejects summary counts that contradict the returned rows", () => {

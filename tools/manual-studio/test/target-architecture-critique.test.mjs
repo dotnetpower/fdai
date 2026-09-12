@@ -101,7 +101,7 @@ const rounds = [
   }],
   ["17 isolated Executor owns the only provider effect boundary", () => {
     const content = text("isolated-executor-architecture");
-    for (const stage of ["Validate command", "Seven safeguards", "Target lock \\+ attempt", "WorkloadIdentity", "Registered effect adapter", "ExecutionReceipt", "Recovery path"]) assert.match(content, new RegExp(stage));
+    for (const stage of ["Validate command", "Seven safeguards", "Target lock \\+ attempt", "Workload identity", "Registered effect adapter", "ExecutionReceipt", "Recovery path"]) assert.match(content, new RegExp(stage));
     assert.match(content, /SOLE EFFECT HOLDER/);
     assert.match(content, /end-to-end receipt parity in progress/);
   }],
@@ -161,12 +161,15 @@ const rounds = [
     assert.match(all, /in progress/);
     assert.match(all, /production.*blocked/is);
   }],
-  ["27 architecture density exceeds the diagram floor", () => {
+  ["27 every retained architecture connection has measurable endpoints", () => {
     const body = slides.slice(1);
     assert.ok(body.every((slide) => nodes(slide.architecture.id) >= 4));
     assert.ok(body.every((slide) => links(slide.architecture.id) >= 2));
     assert.ok(body.reduce((sum, slide) => sum + nodes(slide.architecture.id), 0) >= 220);
-    assert.ok(body.reduce((sum, slide) => sum + links(slide.architecture.id), 0) >= 140);
+    assert.ok(body.reduce((sum, slide) => sum + links(slide.architecture.id), 0) >= 120);
+    for (const slide of body) {
+      assert.equal(links(slide.architecture.id), [...slide.content.matchAll(/data-ta-link data-ta-from=/g)].length);
+    }
   }],
   ["28 connection semantics are visible without color", () => {
     const all = slides.map((slide) => slide.content).join("\n");

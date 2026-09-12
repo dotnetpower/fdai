@@ -5,12 +5,16 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
-from fdai_service_contracts.ontology_query import content_digest
-
+from fdai.core.workflow.automation_hold_receipt import (
+    AutomationHoldReleaseReceipt as AutomationHoldReleaseReceipt,
+)
+from fdai.core.workflow.automation_hold_receipt import (
+    _matching_release_receipt as _matching_release_receipt,
+)
 from fdai.core.workflow.recovery_admission import (
     WORKFLOW_RECOVERY_EVIDENCE_PURPOSE,
     WorkflowRecoveryAdmissionAssessment,
@@ -23,6 +27,7 @@ from fdai.core.workflow.workflow_runtime import (
     workflow_approval_state_key,
 )
 from fdai.shared.providers.decision_evidence_verifier import assess_decision_evidence_admission
+from fdai.shared.providers.resource_lock import ResourceLock, resource_lock_key
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,101 +66,35 @@ class ApprovalGuardedStateStore(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class AutomationHoldReleaseReceipt:
-    """Content-addressed hold release result with no execution authority."""
-
-    action_id: str
-    target_digest: str
-    process_id: str
-    released_hold_revision: int
-    fencing_generation: int
-    recovery_admission_digest: str
-    recovery_evidence_digest: str
-    compensation_receipt_digests: tuple[str, ...]
-    source_revision: str
-    released_at: datetime
-    receipt_digest: str
-    execution_authority: Literal[False] = False
-
-    def __post_init__(self) -> None:
-        if self.execution_authority:
-            raise ValueError("automation hold release receipt MUST NOT grant execution authority")
-        expected = content_digest(
-            {
-                **asdict(self),
-                "released_at": self.released_at.astimezone(UTC).isoformat(),
-                "receipt_digest": None,
-            }
-        )
-        if self.receipt_digest != expected:
-            raise ValueError("automation hold release receipt digest mismatched")
-
-    @classmethod
-    def create(
-        cls,
-        *,
-        action_id: str,
-        target_digest: str,
-        process_id: str,
-        released_hold_revision: int,
-        fencing_generation: int,
-        recovery_admission_digest: str,
-        recovery_evidence_digest: str,
-        compensation_receipt_digests: tuple[str, ...],
-        source_revision: str,
-        released_at: datetime,
-    ) -> AutomationHoldReleaseReceipt:
-        """Create one canonical receipt from an atomically committed release."""
-
-        normalized_released_at = released_at.astimezone(UTC)
-        digest = content_digest(
-            {
-                "action_id": action_id,
-                "target_digest": target_digest,
-                "process_id": process_id,
-                "released_hold_revision": released_hold_revision,
-                "fencing_generation": fencing_generation,
-                "recovery_admission_digest": recovery_admission_digest,
-                "recovery_evidence_digest": recovery_evidence_digest,
-                "compensation_receipt_digests": compensation_receipt_digests,
-                "source_revision": source_revision,
-                "released_at": normalized_released_at.isoformat(),
-                "execution_authority": False,
-                "receipt_digest": None,
-            }
-        )
-        return cls(
-            action_id=action_id,
-            target_digest=target_digest,
-            process_id=process_id,
-            released_hold_revision=released_hold_revision,
-            fencing_generation=fencing_generation,
-            recovery_admission_digest=recovery_admission_digest,
-            recovery_evidence_digest=recovery_evidence_digest,
-            compensation_receipt_digests=compensation_receipt_digests,
-            source_revision=source_revision,
-            released_at=normalized_released_at,
-            receipt_digest=digest,
-            execution_authority=False,
-        )
-
-    def to_mapping(self) -> dict[str, object]:
-        """Return the canonical state and audit representation."""
-
-        return {
-            **asdict(self),
-            "released_at": self.released_at.isoformat(),
-        }
-
-
-@dataclass(frozen=True, slots=True)
 class StateStoreAutomationHoldLedger:
     """Issue immutable recovery holds and read their fail-closed state."""
 
     store: StateStore
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(tz=UTC))
+    resource_lock: ResourceLock | None = None
 
     async def issue(
+        self,
+        *,
+        target_ref: str,
+        process_id: str,
+        reason: str,
+    ) -> None:
+        if self.resource_lock is not None:
+            async with self.resource_lock.acquire(resource_lock_key(target_ref)):
+                await self._issue_unlocked(
+                    target_ref=target_ref,
+                    process_id=process_id,
+                    reason=reason,
+                )
+            return
+        await self._issue_unlocked(
+            target_ref=target_ref,
+            process_id=process_id,
+            reason=reason,
+        )
+
+    async def _issue_unlocked(
         self,
         *,
         target_ref: str,
@@ -174,7 +113,7 @@ class StateStoreAutomationHoldLedger:
                 "process_id": process_id,
                 "reason": reason,
                 "state": "active",
-                "created_at": datetime.now(tz=UTC).isoformat(),
+                "created_at": self.clock().astimezone(UTC).isoformat(),
                 "revision": revision,
             }
             audit_entry = {
@@ -744,51 +683,6 @@ def _approval_is_current(
     return (
         snapshot.requested_at.astimezone(UTC) <= normalized_at < snapshot.expires_at.astimezone(UTC)
     )
-
-
-def _matching_release_receipt(
-    record: object,
-    *,
-    action_id: str,
-    process_id: str,
-    hold_revision: int,
-    recovery_admission_digest: str,
-) -> AutomationHoldReleaseReceipt | None:
-    if not isinstance(record, Mapping) or record.get("state") != "released":
-        return None
-    raw = record.get("release_receipt")
-    if not isinstance(raw, Mapping):
-        return None
-    if (
-        raw.get("action_id") != action_id
-        or raw.get("process_id") != process_id
-        or raw.get("released_hold_revision") != hold_revision
-        or raw.get("recovery_admission_digest") != recovery_admission_digest
-        or raw.get("execution_authority") is not False
-    ):
-        return None
-    try:
-        raw_receipts = raw["compensation_receipt_digests"]
-        if not isinstance(raw_receipts, list | tuple) or not all(
-            isinstance(item, str) for item in raw_receipts
-        ):
-            return None
-        return AutomationHoldReleaseReceipt(
-            action_id=str(raw["action_id"]),
-            target_digest=str(raw["target_digest"]),
-            process_id=str(raw["process_id"]),
-            released_hold_revision=int(raw["released_hold_revision"]),
-            fencing_generation=int(raw["fencing_generation"]),
-            recovery_admission_digest=str(raw["recovery_admission_digest"]),
-            recovery_evidence_digest=str(raw["recovery_evidence_digest"]),
-            compensation_receipt_digests=tuple(raw_receipts),
-            source_revision=str(raw["source_revision"]),
-            released_at=datetime.fromisoformat(str(raw["released_at"])),
-            receipt_digest=str(raw["receipt_digest"]),
-            execution_authority=False,
-        )
-    except (KeyError, TypeError, ValueError):
-        return None
 
 
 __all__ = ["AutomationHoldReleaseReceipt", "StateStoreAutomationHoldLedger"]

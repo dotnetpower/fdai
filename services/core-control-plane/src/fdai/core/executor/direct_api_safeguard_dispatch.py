@@ -15,6 +15,7 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     DispatchTransportState,
     SafeguardDispatchEvidenceRecord,
 )
+from fdai.core.executor.safeguard_evidence_lifecycle import DispatchBoundaryGuard
 from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardCoordinationDisposition,
     SafeguardLifecycleCoordinator,
@@ -106,6 +107,7 @@ class DirectApiLifecycleDispatchPort:
         *,
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
     ) -> tuple[
         DispatchTransportState,
         AuthoritativeSinkState,
@@ -113,11 +115,12 @@ class DirectApiLifecycleDispatchPort:
         str | None,
     ]:
         del started_at
+        await self._owner._write_audit_intent(
+            action=self._action,
+            dry_run_receipt=self._dry_run_receipt,
+        )
+        await pre_invoke_guard()
         try:
-            await self._owner._write_audit_intent(
-                action=self._action,
-                dry_run_receipt=self._dry_run_receipt,
-            )
             self.receipt = await self._owner._executor.execute(
                 replace(
                     self._request,
@@ -165,12 +168,21 @@ class DirectApiLifecycleDispatchPort:
             DirectApiOutcome.SUCCEEDED,
             DirectApiOutcome.ALREADY_APPLIED,
         }
+        rolled_back = (
+            receipt.outcome in {DirectApiOutcome.STOPPED, DirectApiOutcome.FAILED}
+            and receipt.rollback_succeeded is True
+        )
         sink_state = (
             AuthoritativeSinkState.COMMITTED
             if accepted
             else AuthoritativeSinkState.NOT_ACCEPTED
             if receipt.outcome is DirectApiOutcome.PRECONDITION_FAILED
             else AuthoritativeSinkState.NOT_COMMITTED
+            if rolled_back
+            else AuthoritativeSinkState.UNKNOWN
+        )
+        known_status = (
+            accepted or receipt.outcome is DirectApiOutcome.PRECONDITION_FAILED or rolled_back
         )
         return (
             DispatchTransportState.ACKNOWLEDGED,
@@ -185,13 +197,17 @@ class DirectApiLifecycleDispatchPort:
                 if accepted
                 else None
             ),
-            content_digest(
-                {
-                    "domain": "direct-api-status",
-                    "receipt_ref": receipt.receipt_ref,
-                    "outcome": receipt.outcome.value,
-                    "bundle_digest": evidence_record.bundle.bundle_digest,
-                }
+            (
+                content_digest(
+                    {
+                        "domain": "direct-api-status",
+                        "receipt_ref": receipt.receipt_ref,
+                        "outcome": receipt.outcome.value,
+                        "bundle_digest": evidence_record.bundle.bundle_digest,
+                    }
+                )
+                if known_status
+                else None
             ),
         )
 
@@ -245,6 +261,26 @@ async def execute_direct_api_with_safeguard_lifecycle(
         correlation_id=str(action.event_id),
         attempt=action.workflow_action.attempt if action.workflow_action is not None else 1,
     )
+    if port.error is not None:
+        return await _finish_error(
+            owner,
+            action=action,
+            error=port.error,
+            safeguard_bundle_digest=coordinated.bundle_digest,
+            dry_run_receipt=safeguards.dry_run_receipt,
+        )
+    if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED:
+        receipt = port.receipt
+        return await owner._finish(
+            action=action,
+            outcome=DirectApiExecutionOutcome.FAILED,
+            reason=coordinated.reason or "dispatch continuity is quarantined",
+            receipt_ref=receipt.receipt_ref if receipt is not None else None,
+            safeguard_bundle_digest=coordinated.bundle_digest,
+            rollback_succeeded=(receipt.rollback_succeeded if receipt is not None else False),
+            remember=False,
+            dry_run_receipt=safeguards.dry_run_receipt,
+        )
     if not coordinated.dispatch_performed:
         return await owner._finish(
             action=action,
@@ -259,14 +295,6 @@ async def execute_direct_api_with_safeguard_lifecycle(
             remember=False,
             dry_run_receipt=safeguards.dry_run_receipt,
         )
-    if port.error is not None:
-        return await _finish_error(
-            owner,
-            action=action,
-            error=port.error,
-            safeguard_bundle_digest=coordinated.bundle_digest,
-            dry_run_receipt=safeguards.dry_run_receipt,
-        )
     receipt = port.receipt
     if receipt is None:
         return await owner._finish(
@@ -274,17 +302,6 @@ async def execute_direct_api_with_safeguard_lifecycle(
             outcome=DirectApiExecutionOutcome.REJECTED_INVARIANT,
             reason="direct-API adapter returned no lifecycle-bound receipt",
             safeguard_bundle_digest=coordinated.bundle_digest,
-            remember=False,
-            dry_run_receipt=safeguards.dry_run_receipt,
-        )
-    if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED:
-        return await owner._finish(
-            action=action,
-            outcome=DirectApiExecutionOutcome.FAILED,
-            reason=coordinated.reason or "dispatch continuity is quarantined",
-            receipt_ref=receipt.receipt_ref,
-            safeguard_bundle_digest=coordinated.bundle_digest,
-            rollback_succeeded=receipt.rollback_succeeded,
             remember=False,
             dry_run_receipt=safeguards.dry_run_receipt,
         )
@@ -307,15 +324,22 @@ async def _finish_error(
     from fdai.core.executor.direct_api import DirectApiExecutionOutcome
 
     if isinstance(error, asyncio.CancelledError):
-        await owner._finish(
-            action=action,
-            outcome=DirectApiExecutionOutcome.FAILED,
-            reason="direct-API execution cancelled",
-            safeguard_bundle_digest=safeguard_bundle_digest,
-            rollback_succeeded=False,
-            remember=False,
-            dry_run_receipt=dry_run_receipt,
-        )
+        try:
+            await owner._finish(
+                action=action,
+                outcome=DirectApiExecutionOutcome.FAILED,
+                reason="direct-API execution cancelled",
+                safeguard_bundle_digest=safeguard_bundle_digest,
+                rollback_succeeded=False,
+                remember=False,
+                dry_run_receipt=dry_run_receipt,
+            )
+        except Exception as audit_error:
+            _LOGGER.exception(
+                "direct_api_cancellation_terminal_audit_failed",
+                extra={"action_id": str(action.action_id)},
+            )
+            raise error from audit_error
         raise error
     if isinstance(error, DirectApiPromotionError):
         outcome = DirectApiExecutionOutcome.REJECTED_MODE
@@ -347,7 +371,7 @@ async def _finish_error(
             extra={"error_kind": type(error).__name__},
         )
         outcome = DirectApiExecutionOutcome.FAILED
-        reason = f"uncontrolled adapter error: {error!r}"
+        reason = f"uncontrolled adapter error: {type(error).__name__}"
     return await owner._finish(
         action=action,
         outcome=outcome,

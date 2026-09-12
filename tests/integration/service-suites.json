@@ -239,6 +239,7 @@
       ],
       "test_groups": {
         "unit": [
+          "services/isolated-executor/tests/test_automation_hold_fence.py",
           "services/isolated-executor/tests/test_effect_safety.py",
           "services/isolated-executor/tests/test_executor_terraform_identity.py"
         ],

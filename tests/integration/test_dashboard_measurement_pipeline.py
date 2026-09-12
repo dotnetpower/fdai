@@ -17,7 +17,9 @@ from fdai.shared.contracts.models import (
     ResponseVerificationStatus,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
-from fdai_operator_service.dashboard_source import MEASUREMENT_SNAPSHOT_SQL
+from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
+from fdai_operator_service.dashboard_source import decode_dashboard_snapshot
+from fdai_operator_service.families.operations import ProjectionUnavailableError
 from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReader,
     RuntimeProjectionReaderConfig,
@@ -75,7 +77,7 @@ class NoFallback:
         raise AssertionError("measurement reads must not fall back to invented data")
 
 
-async def test_real_recorders_feed_the_operator_without_dispatch_success_inference(
+async def test_real_recorders_require_canonical_projection_for_operator_authority(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryStateStore()
@@ -115,27 +117,38 @@ async def test_real_recorders_feed_the_operator_without_dispatch_success_inferen
         }
     )
 
+    def aggregate() -> dict[str, object]:
+        records = [
+            {
+                "seq": index,
+                "action_kind": row["entry"]["action_kind"],
+                "entry": row["entry"],
+                "created_at": NOW,
+            }
+            for index, row in enumerate(store.audit_entries, start=1)
+        ]
+        snapshot = decode_dashboard_snapshot(
+            [{"cutoff_seq": len(records), "window_end": NOW, "records": records}]
+        )
+        return aggregate_dashboard(
+            events=snapshot.events,
+            outcomes=snapshot.outcomes,
+            metrics=snapshot.metrics,
+            touchpoints=snapshot.touchpoints,
+            window_start=snapshot.window_start,
+            window_end=snapshot.window_end,
+            human_source_complete=snapshot.unattributed_touchpoints == 0,
+        )
+
     async def fetch(self, statement, parameters=()):
-        if statement == MEASUREMENT_SNAPSHOT_SQL:
-            records = [
-                {
-                    "seq": index,
-                    "action_kind": row["entry"]["action_kind"],
-                    "entry": row["entry"],
-                    "created_at": NOW,
-                }
-                for index, row in enumerate(store.audit_entries, start=1)
-            ]
-            return [{"cutoff_seq": len(records), "window_end": NOW, "records": records}]
-        if "SELECT value FROM state_kv" in statement:
-            return []
-        raise AssertionError("unexpected measurement query")
+        del self, statement, parameters
+        return []
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
     reader = RuntimeProjectionReader(
         RuntimeProjectionReaderConfig("postgresql://example.invalid/test"), NoFallback()
     )
-    before = await reader._autonomy_measurement()
+    before = aggregate()
     assert before["sample_size"] == 2
     assert before["success"]["auto_resolution_rate"]["value"] == 0
     assert before["success"]["human_touchpoints_per_100"]["value"] == 50
@@ -178,7 +191,7 @@ async def test_real_recorders_feed_the_operator_without_dispatch_success_inferen
         item = observation(identity, metric, value)
         assert await recorder.record(item)
         assert not await recorder.record(item)
-    result = await reader._autonomy_measurement()
+    result = aggregate()
     values = {key: metric["value"] for key, metric in result["success"].items()}
     assert values == {
         "auto_resolution_rate": 0.5,
@@ -187,6 +200,10 @@ async def test_real_recorders_feed_the_operator_without_dispatch_success_inferen
         "change_lead_time_seconds": 90,
         "cost_per_resolved_event_usd": 5,
     }
-    assert result["comparison"] is None
-    assert result["comparison_status"] == "not_published"
     assert result["finalization"]["pending_events"] == 1
+
+    with pytest.raises(
+        ProjectionUnavailableError,
+        match="authoritative autonomy measurement projection is unavailable",
+    ):
+        await reader._autonomy_measurement()

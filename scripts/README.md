@@ -18,7 +18,7 @@ entry point; place other scripts in the domain directories below.
 | `deployment/local/` | Local pgvector and Redpanda development stack lifecycle. |
 | `deployment/azure/` | Azure provisioning, deployment-plan, runner, and environment operations. |
 | `deployment/release/` | Runtime-release assembly, deployment bundle and offline kit staging, signing, license issuing, complete or toolchain-only air-gap drills, and productization verification. |
-| `automation/` | Session, workflow, Git auto-pull, and diff-scoped test helpers. |
+| `automation/` | Session, workflow, Git auto-pull, bounded PR delivery, and diff-scoped test helpers. |
 | `lib/` | Stable machine-readable support data shared by repository scripts. |
 
 ## Conventions
@@ -36,6 +36,9 @@ entry point; place other scripts in the domain directories below.
   focused tests under `tests/integration/scripts/`.
 - The background Git auto-pull checks local dirty, rebase, and centralized-validation
   state before contacting the remote. It fetches only when the checkout can safely rebase.
+- The one-time PR delivery daemon is started only by the `pr-delivery` skill after explicit
+  publication authorization. It owns one PR in a clean linked worktree, keeps every branch update
+  local-first, and terminates on a completed merge or any bounded failure condition.
 
 ## Run changed tests
 

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 
 import httpx
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
@@ -24,6 +26,13 @@ from .azure_focus import (
 from .service import CostAnalyzerService, CostCollectorService, CostJobConfig
 
 _ARM_AUDIENCE = "https://management.azure.com/.default"
+_COST_RETRY_AFTER_HEADERS = (
+    "retry-after",
+    "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after",
+    "x-ms-ratelimit-microsoft.costmanagement-entity-retry-after",
+    "x-ms-ratelimit-microsoft.costmanagement-tenant-retry-after",
+    "x-ms-ratelimit-microsoft.costmanagement-clienttype-retry-after",
+)
 
 
 class _ManagedIdentityCostCredential:
@@ -61,7 +70,37 @@ class _HttpxCostTransport:
         body = await response.aread()
         if len(body) > max_bytes:
             raise RuntimeError("Cost Management response exceeded byte budget")
-        return CostHttpResponse(status_code=response.status_code, body=body)
+        return CostHttpResponse(
+            status_code=response.status_code,
+            body=body,
+            retry_after_seconds=_cost_retry_after_seconds(response.headers),
+        )
+
+
+def _cost_retry_after_seconds(headers: Mapping[str, str]) -> float | None:
+    """Return the longest valid provider retry delay without retaining raw headers."""
+
+    normalized = {name.casefold(): value for name, value in headers.items()}
+    delays: list[float] = []
+    for name in _COST_RETRY_AFTER_HEADERS:
+        value = normalized.get(name)
+        if value is None:
+            continue
+        try:
+            delay = float(value)
+        except ValueError:
+            if name != "retry-after":
+                continue
+            try:
+                retry_at = parsedate_to_datetime(value)
+            except (TypeError, ValueError):
+                continue
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=UTC)
+            delay = max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
+        if math.isfinite(delay) and delay >= 0:
+            delays.append(delay)
+    return max(delays) if delays else None
 
 
 def collector_main() -> None:

@@ -12,7 +12,8 @@ or a second source of provider truth.
 > They cannot observe external state, approve an action, select an executor, or raise autonomy.
 > Governance review-class tokens colocated with catalog schemas remain change-control metadata,
 > not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
-> mode or grant A3-E authority.
+> mode or grant A3-E authority. The Operator promotion-gate view is read-only registry metadata
+> outside ontology identity and classification.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive
@@ -273,6 +274,12 @@ unclassified counts separate. An unclassified candidate or a sum that does not e
 candidate total makes the receipt incomplete. Supported materialization reaches 100% only for an
 explicit provider, release, source, principal, scope, and competency profile. It never means every
 possible relationship in an open cloud-provider schema.
+
+Provider-native type coverage remains separate from relationship candidate accounting and ontology
+classification. The active snapshot reports reconciled mapped and unmapped object counts and
+bounded unknown provider type names. The Operator and Console validate and present that evidence,
+but an unknown type remains `unclassified-resource`; the report cannot create a ResourceType,
+classification link, catalog revision, or execution authority.
 
 A bounded exploratory response reports returned Resource and link counts, the exact requested
 limits, and per-reason truncation. When a bound is reached, the response stays incomplete and the

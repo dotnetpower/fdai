@@ -161,6 +161,9 @@ _CORE_EVIDENCE_BINDING_ENVIRONMENT = (
 _CORE_SOURCE_REVISION_ENVIRONMENT = "FDAI_SOURCE_REVISION"
 _CORE_RECOVERY_OBSERVER_ENVIRONMENT = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES"
 _CORE_RECOVERY_OBSERVER_IDENTITY = "observer:heimdall:azure-container-apps"
+_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT = (
+    "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION"
+)
 _CONFIGURATION_DRIFT_ENVIRONMENT = frozenset(
     {
         "FDAI_CONFIGURATION_DRIFT_ENABLED",
@@ -487,6 +490,27 @@ def _only_core_recovery_observer_adoption(
         is None
         and _environment_binding(after_environment.get(_CORE_RECOVERY_OBSERVER_ENVIRONMENT))
         == (_CORE_RECOVERY_OBSERVER_IDENTITY, None)
+    )
+
+
+def _only_isolated_executor_strict_safeguard_adoption(
+    *,
+    contract: ServiceContract,
+    before_environment: dict[str, dict[str, Any]],
+    after_environment: dict[str, dict[str, Any]],
+    runtime_drift_names: tuple[str, ...],
+) -> bool:
+    return (
+        contract.service == "isolated-executor"
+        and set(runtime_drift_names) == {f"env:{_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT}"}
+        and _environment_binding(
+            before_environment.get(_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT)
+        )
+        is None
+        and _environment_binding(
+            after_environment.get(_ISOLATED_EXECUTOR_LEGACY_TRANSITION_ENVIRONMENT)
+        )
+        == ("0", None)
     )
 
 
@@ -1700,6 +1724,12 @@ def _guard_update(
         after_environment=after_environment,
         runtime_drift_names=effective_runtime_drift_names,
     )
+    allowed_isolated_executor_strict_safeguards = _only_isolated_executor_strict_safeguard_adoption(
+        contract=contract,
+        before_environment=before_environment,
+        after_environment=after_environment,
+        runtime_drift_names=effective_runtime_drift_names,
+    )
     if core_evidence_bindings_transition and not (
         allowed_core_evidence_bindings or allowed_core_recovery_observer
     ):
@@ -1742,6 +1772,7 @@ def _guard_update(
         )
         and not allowed_notification_topic
         and not allowed_core_handover_cadence
+        and not allowed_isolated_executor_strict_safeguards
         and not allowed_stewardship_adoption
         and effective_runtime_drift_names
     ):
@@ -1815,6 +1846,7 @@ def _guard_update(
         or allowed_notification_topic
         or allowed_core_handover_cadence
         or allowed_core_source_revision
+        or allowed_isolated_executor_strict_safeguards
         or allowed_stewardship_adoption
         or sharepoint_connector_transition != "none"
     ):
@@ -2135,7 +2167,7 @@ def _guard_revision_metadata_drift(
     contract: ServiceContract,
     planned_before: dict[str, Any] | None,
 ) -> bool:
-    """Accept only computed revision metadata and an attested-image recovery alignment."""
+    """Accept computed revision metadata and an exact recovery alignment."""
     if not isinstance(resource_drift, list) or len(resource_drift) != 1:
         return False
     entry = resource_drift[0]
@@ -2156,6 +2188,64 @@ def _guard_revision_metadata_drift(
     }
     if planned_before is not None:
         allowed_paths.add("$.template[0].container[0].image")
+    aligned_source_revision_index: int | None = None
+    if contract.service == "core-control-plane" and planned_before is not None:
+        try:
+            before_environment = _container_layout(
+                before,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0].get("env")
+            after_environment = _container_layout(
+                after,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0].get("env")
+            planned_environment = _container_layout(
+                planned_before,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0].get("env")
+        except PlanGuardError:
+            return False
+        if (
+            isinstance(before_environment, list)
+            and isinstance(after_environment, list)
+            and isinstance(planned_environment, list)
+            and len(before_environment) == len(after_environment) == len(planned_environment)
+        ):
+            for index, (before_item, after_item, planned_item) in enumerate(
+                zip(before_environment, after_environment, planned_environment, strict=True)
+            ):
+                if not all(
+                    isinstance(item, dict) for item in (before_item, after_item, planned_item)
+                ):
+                    return False
+                if after_item.get("name") != _CORE_SOURCE_REVISION_ENVIRONMENT:
+                    continue
+                before_binding = _environment_binding(before_item)
+                after_binding = _environment_binding(after_item)
+                aligned_source_revision = (
+                    before_binding is not None
+                    and after_binding is not None
+                    and before_binding != after_binding
+                    and after_item == planned_item
+                    and before_binding[1] is None
+                    and after_binding[1] is None
+                    and re.fullmatch(r"[0-9a-f]{40}", before_binding[0]) is not None
+                    and re.fullmatch(r"[0-9a-f]{40}", after_binding[0]) is not None
+                )
+                if aligned_source_revision:
+                    aligned = copy.deepcopy(before)
+                    aligned_environment = _container_layout(
+                        aligned,
+                        address=contract.allowed_resource_address,
+                        contract=contract,
+                    )[0]["env"]
+                    aligned_environment[index] = copy.deepcopy(after_item)
+                    allowed_paths.update(_difference_paths(before, aligned))
+                    aligned_source_revision_index = index
+                break
     if not paths or not paths <= allowed_paths:
         return False
     expected = copy.deepcopy(before)
@@ -2173,6 +2263,20 @@ def _guard_revision_metadata_drift(
     ):
         return False
     expected_templates[0]["revision_suffix"] = after_templates[0].get("revision_suffix")
+    if aligned_source_revision_index is not None:
+        expected_environment = _container_layout(
+            expected,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )[0]["env"]
+        after_environment = _container_layout(
+            after,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )[0]["env"]
+        expected_environment[aligned_source_revision_index] = copy.deepcopy(
+            after_environment[aligned_source_revision_index]
+        )
     if "$.template[0].container[0].image" in paths:
         if planned_before is None:
             return False

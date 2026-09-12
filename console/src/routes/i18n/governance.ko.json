@@ -159,6 +159,7 @@
     },
     "column": {
       "actionType": "ActionType",
+      "mode": "현재 모드",
       "shadowDays": "Shadow 일수",
       "samples": "샘플",
       "reviewedAgreed": "검토 / 동의",
@@ -199,6 +200,8 @@
     "error": {
       "windowDays": "잘못된 Operator API 응답: promotion gates.window_days는 음수가 아닌 숫자 또는 null이어야 합니다",
       "agreedCount": "잘못된 Operator API 응답: promotion gate row.agreed_count는 reviewed_count를 초과할 수 없습니다",
+      "mode": "잘못된 Operator API 응답: promotion gate row.mode는 shadow 또는 enforce여야 합니다",
+      "modeSource": "잘못된 Operator API 응답: promotion gate row 모드 출처가 올바르지 않습니다",
       "summaryCounts": "잘못된 Operator API 응답: 승격 게이트 요약 수는 행 수와 반드시 일치해야 합니다"
     }
   },

@@ -3022,6 +3022,79 @@ def test_plan_guard_rejects_authority_cutover_change(guard: ModuleType) -> None:
         )
 
 
+def _isolated_executor_strict_safeguard_plan(
+    guard: ModuleType,
+    *,
+    before_legacy_transition: str | None = None,
+    after_legacy_transition: str = "0",
+) -> dict[str, object]:
+    service = "isolated-executor"
+    contract = guard.resolve_service(service, "dev")
+    plan = _plan(contract.allowed_resource_address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["name"] = service
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": "value"} for name in contract.required_environment
+        ]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    if before_legacy_transition is not None:
+        before_environment.append(
+            {
+                "name": "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION",
+                "value": before_legacy_transition,
+            }
+        )
+    after_environment.append(
+        {
+            "name": "FDAI_ISOLATED_EXECUTOR_LEGACY_UNBOUND_TRANSITION",
+            "value": after_legacy_transition,
+        }
+    )
+    return plan
+
+
+def test_plan_guard_allows_default_off_isolated_safeguard_adoption(
+    guard: ModuleType,
+) -> None:
+    guard.validate_plan(
+        _isolated_executor_strict_safeguard_plan(guard),
+        service="isolated-executor",
+        environment="dev",
+        image_ref="image",
+    )
+
+
+@pytest.mark.parametrize(
+    ("before_value", "after_value"),
+    [
+        (None, "1"),
+        ("1", "0"),
+    ],
+)
+def test_plan_guard_rejects_authority_widening_or_replayed_safeguard_adoption(
+    guard: ModuleType,
+    before_value: str | None,
+    after_value: str,
+) -> None:
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            _isolated_executor_strict_safeguard_plan(
+                guard,
+                before_legacy_transition=before_value,
+                after_legacy_transition=after_value,
+            ),
+            service="isolated-executor",
+            environment="dev",
+            image_ref="image",
+        )
+
+
 def test_plan_guard_allows_bounded_initial_runtime_cutover(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
@@ -3439,6 +3512,66 @@ def test_plan_guard_allows_recovery_image_aligned_to_attested_plan(guard: Module
             service="operator-service",
             environment="dev",
             image_ref="image",
+        )
+
+
+def test_plan_guard_allows_core_recovery_source_revision_aligned_to_plan(
+    guard: ModuleType,
+) -> None:
+    plan = _core_release_binding_plan(guard)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    planned_before = change["before"]
+    planned_before["template"][0]["container"][0]["env"].append(  # type: ignore[index]
+        {
+            "name": "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES",
+            "value": "observer:heimdall:azure-container-apps",
+        }
+    )
+    drift_before = copy.deepcopy(planned_before)
+    drift_after = copy.deepcopy(planned_before)
+    drift_before["latest_revision_name"] = "service--terraform-stale"
+    drift_after["latest_revision_name"] = "service--recovered"
+    drift_before["latest_revision_fqdn"] = "stale.example.com"
+    drift_after["latest_revision_fqdn"] = "recovered.example.com"
+    drift_before["template"][0]["revision_suffix"] = "terraform-stale"
+    drift_after["template"][0]["revision_suffix"] = "recovered"
+    drift_before["template"][0]["container"][0]["image"] = "state-image"
+    drift_before_environment = drift_before["template"][0]["container"][0]["env"]
+    next(item for item in drift_before_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "c" * 40
+    plan["resource_drift"] = [
+        {
+            "address": (
+                "module.core_control_plane.module.container_app.azurerm_container_app.service"
+            ),
+            "change": {
+                "actions": ["update"],
+                "before": drift_before,
+                "after": drift_after,
+            },
+        }
+    ]
+
+    guard.validate_plan(
+        plan,
+        service="core-control-plane",
+        environment="dev",
+        image_ref="image",
+        source_revision="b" * 40,
+    )
+
+    drift_after_environment = drift_after["template"][0]["container"][0]["env"]
+    next(item for item in drift_after_environment if item["name"] == "FDAI_SOURCE_REVISION")[
+        "value"
+    ] = "d" * 40
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            source_revision="b" * 40,
         )
 
 

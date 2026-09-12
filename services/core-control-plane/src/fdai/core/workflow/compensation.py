@@ -47,12 +47,13 @@ class WorkflowCompensationCoordinator:
         dispatcher: WorkflowActionDispatcher | None,
         outcome_verifier: WorkflowOutcomeVerifier | None,
         recovery_coordinator: WorkflowRecoveryCoordinator | None = None,
+        automation_holds: StateStoreAutomationHoldLedger | None = None,
     ) -> None:
         self._process_store = process_store
         self._audit_store = audit_store
         self._dispatcher = dispatcher
         self._outcome_verifier = outcome_verifier
-        self._automation_holds = StateStoreAutomationHoldLedger(audit_store)
+        self._automation_holds = automation_holds or StateStoreAutomationHoldLedger(audit_store)
         self._recovery_coordinator = recovery_coordinator
 
     async def start(

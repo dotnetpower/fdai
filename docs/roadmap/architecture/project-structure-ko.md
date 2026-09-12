@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 21b3476b3ac3b162bba28b3bf5989dfa86f545ba
-translation_revised: 2026-09-12
+translation_source_sha: dc645100e180d979212936d54d77ce5d650f7795
+translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -17,7 +17,7 @@ translation_revised: 2026-09-12
 허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 사전 권한 Change Safety 근거는 작업 생성, dispatch, 감사와 동일하게 주입된 control-loop clock을 사용하므로 고정 replay가 host wall time 때문에 stale 상태가 되지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
 않습니다. 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한 episode 하나가 due 대기열 전체를 막을 수 없습니다. T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트
 리소스 유형을 읽습니다. 따라서 이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
-기록된 Resource 상태 정규화는 Core와 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다. 구성 표류 전달도 `delivery/azure/`와 보호된 Core 서비스 구성에 유지합니다. 검토된 스냅샷은 콘텐츠 주소 기반 private Blob을 통해서만 전달하고, 런타임은 Managed Identity로 읽으며, 적용 후에는 정확한 서버 소유 바인딩을 독립적으로 검증합니다.
+기록된 Resource 상태 정규화는 Core와 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다. 구성 표류 전달도 `delivery/azure/`와 보호된 Core 서비스 구성에 유지합니다. 검토된 스냅샷은 콘텐츠 주소 기반 private Blob을 통해서만 전달하고, 런타임은 Managed Identity로 읽으며, 적용 후에는 정확한 서버 소유 바인딩을 독립적으로 검증합니다. 독립 서비스 계획 가드는 명령과 환경 변경을 롤백 경계의 일부로 취급합니다. 격리 실행기는 이전에 없던 기본 비활성 legacy-unbound 전환 연결을 정확히 한 번만 도입할 수 있습니다. 이를 활성화하거나 반복 적용하거나 관련 없는 런타임 표류와 결합하는 작업은 허용하지 않습니다.
 
 ## Core 도메인 탐색 결정
 
@@ -47,6 +47,7 @@ translation_revised: 2026-09-12
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
+  전송만 담당하는 Core 실행기 클라이언트는 공유 프로바이더 계약인 `ExecutorReceiptJournal`을 주입받고, 런타임은 영속 시도 기록과 종결 기록의 연결을 담당합니다. 전달 증적은 권한이나 독립적인 효과 검증을 제공하지 않습니다. 사전 실행 아티팩트는 기존의 안정적인 식별자를 유지하며, 전체 Action 지문은 현재 실행 근거를 별도로 결속합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
@@ -403,7 +404,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   는 공개 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
   조립 루트에서만 가져오기 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
 - **Config-기반 바인딩**: 설정이 각 구현을 선택합니다.
-  `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없으면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
+  `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없거나 엔드포인트 없이 다이제스트 정책에 의해 세 기록이 모두 `hil-only`로 보류되면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분·무서명·엔드포인트 보유 보류 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
   범용 드롭 디렉터리 `ManualSource`는 크기 상한을 넘은 경로를 메타데이터 전용 검토 대기 후보로 유지하므로 읽기 한도가 잘못된 삭제 신호를 만들 수 없습니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.

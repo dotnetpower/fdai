@@ -4,10 +4,10 @@ import { test } from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("catalog records stable creation metadata for every manual", async () => {
+test("catalog records stable creation and review metadata for every manual", async () => {
   const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
 
-  assert.equal(catalog.schemaVersion, 2);
+  assert.equal(catalog.schemaVersion, 3);
   assert.match(catalog.generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   assert.deepEqual(catalog.minimumSlidesByLevel, {
     L100: 10,
@@ -21,6 +21,9 @@ test("catalog records stable creation metadata for every manual", async () => {
   for (const manual of catalog.manuals) {
     assert.match(manual.id, /^[a-z0-9-]+$/);
     assert.match(manual.createdAt, /^\d{4}-\d{2}-\d{2}$/);
+    assert.match(manual.lastEditedAt, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(manual.lastEditedAt >= manual.createdAt);
+    assert.ok(manual.reviewedAt === null || /^\d{4}-\d{2}-\d{2}$/.test(manual.reviewedAt));
     assert.match(manual.level ?? "L100", /^L[1-4]00$/);
     assert.match(manual.status, /^(complete|wip)$/);
     assert.ok(manual.slideCount > 0);
@@ -34,8 +37,33 @@ test("catalog records stable creation metadata for every manual", async () => {
     new Set(catalog.manuals.map((manual) => manual.coverImage)).size,
     catalog.manuals.length,
   );
-  assert.equal(catalog.manuals.find((manual) => manual.id === "executive-briefing").status, "complete");
+  const executiveBriefing = catalog.manuals.find((manual) => manual.id === "executive-briefing");
+  assert.equal(executiveBriefing.status, "complete");
+  assert.ok(catalog.manuals.every((manual) => manual.lastEditedAt === "2026-09-12"));
+  assert.deepEqual(
+    catalog.manuals.filter((manual) => manual.reviewedAt === null).map((manual) => manual.id),
+    [
+      "responsible-ai-security",
+      "pilot-production",
+      "ai-operating-model",
+      "enterprise-scale-roadmap",
+    ],
+  );
+  assert.ok(catalog.manuals
+    .filter((manual) => manual.reviewedAt !== null)
+    .every((manual) => manual.reviewedAt === "2026-09-13"));
   assert.ok(catalog.manuals.every((manual) => manual.status === "complete"));
+});
+
+test("unreviewed or changed manuals render DRAFT only on their covers", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+  const css = await readFile(new URL("styles.css", root), "utf8");
+
+  assert.match(script, /!manual\.reviewedAt \|\| manual\.reviewedAt < manual\.lastEditedAt/);
+  assert.match(script, /index === 0 \? draftOverlay\(manual\) : ""/);
+  assert.match(script, /datetime="\$\{manual\.lastEditedAt\}"/);
+  assert.match(css, /\.manual-draft-overlay \{[\s\S]+rotate\(-28deg\)/);
+  assert.match(css, /\.manual-slide > \.manual-draft-overlay/);
 });
 
 test("completed manuals provide the catalog slide count and source evidence", async () => {
@@ -358,8 +386,10 @@ test("library deep links preserve the requested manual and slide", async () => {
   const script = await readFile(new URL("app.js", root), "utf8");
 
   assert.match(script, /searchParams\.get\("manual"\)/);
+  assert.match(script, /document\.body\.dataset\.manualId/);
   assert.match(script, /searchParams\.get\("slide"\)/);
   assert.match(script, /openViewer\(catalog\.manuals\[requestedIndex\], requestedSlide\)/);
+  assert.match(script, /new URL\(`\$\{manual\.id\}\.html`, window\.location\.href\)/);
   assert.match(script, /url\.searchParams\.set\("slide", String\(slideIndex \+ 1\)\)/);
   assert.match(script, /window\.history\.replaceState\(null, "", url\)/);
 });
@@ -406,12 +436,20 @@ test("Executive and SRE decks load the presentation font standard", async () => 
   assert.match(css, /evidence-source[\s\S]+font-size: 13px/);
 });
 
-test("Cover Flow supports pointer-capture dragging", async () => {
+test("Cover Flow preserves card clicks and captures only dragging pointers", async () => {
   const script = await readFile(new URL("app.js", root), "utf8");
   const css = await readFile(new URL("styles.css", root), "utf8");
+  const pointerDownStart = script.indexOf('flow.addEventListener("pointerdown"');
+  const pointerMoveStart = script.indexOf('flow.addEventListener("pointermove"');
+  const pointerUpStart = script.indexOf('flow.addEventListener("pointerup"');
+  const pointerDownSource = script.slice(pointerDownStart, pointerMoveStart);
+  const pointerMoveSource = script.slice(pointerMoveStart, pointerUpStart);
 
   assert.match(script, /setPointerCapture\(event\.pointerId\)/);
   assert.match(script, /applyCoverflowDrag\(flow, drag\.deltaX\)/);
+  assert.doesNotMatch(pointerDownSource, /setPointerCapture/);
+  assert.match(pointerMoveSource, /Math\.abs\(rawDeltaX\) > 8/);
+  assert.match(pointerMoveSource, /setPointerCapture\(event\.pointerId\)/);
   assert.match(script, /manual\.status === "wip"/);
   assert.match(script, /manual-wip-overlay/);
   assert.match(css, /\.manual-wip-overlay \{/);
@@ -422,6 +460,7 @@ test("viewer fullscreen control tracks browser fullscreen state", async () => {
   const script = await readFile(new URL("app.js", root), "utf8");
   const css = await readFile(new URL("styles.css", root), "utf8");
   const library = await readFile(new URL("library.html", root), "utf8");
+  const koreanMessages = await readFile(new URL("messages.ko.json", root), "utf8");
 
   assert.match(library, /id="fullscreen-manual"[^>]+aria-pressed="false"/);
   assert.match(script, /const fullscreenRoot = stage/);
@@ -429,7 +468,8 @@ test("viewer fullscreen control tracks browser fullscreen state", async () => {
   assert.match(script, /await fullscreenRoot\.requestFullscreen\(\)/);
   assert.match(script, /document\.addEventListener\("fullscreenchange", syncFullscreenButton\)/);
   assert.match(script, /fullscreenButton\.setAttribute\("aria-pressed", String\(active\)\)/);
-  assert.match(script, /전체 화면 종료/);
+  assert.match(script, /t\("viewer\.exitFullscreen"\)/);
+  assert.match(koreanMessages, /"exitFullscreen": "전체 화면 종료"/);
   assert.match(script, /manual_studio_fullscreen_failed/);
   assert.match(css, /\.slide-stage:fullscreen \{/);
   assert.match(css, /\.slide-stage:fullscreen \.manual-slide \{/);

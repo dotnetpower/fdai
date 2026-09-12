@@ -108,6 +108,44 @@ flowchart LR
 | Review decision | `docs/roadmap/architecture/architecture-review-board.md` |
 | Machine review state | `config/architecture-review.yaml` |
 
+## Visual hardening revision - 2026-09-11
+
+현재 아키텍처 문서와 기계 검토 상태를 다시 대조한 결과, 25장의 시스템 경계, 다섯 서비스,
+신원 분리, 실행 상한, 독립 효과 검증, Azure 구현 상태에는 권한 또는 사실성 정정이 필요한
+모순이 없었습니다. 이번 리비전은 의미를 바꾸지 않고 다음 발표 결함을 수정합니다.
+
+- 긴 제목과 오른쪽 위 슬라이드 번호를 서로 다른 세로 영역으로 분리합니다.
+- 좁은 시스템 경계의 label, title, status를 한 줄에 압축하지 않고 명확한 위계로 쌓습니다.
+- 레이어, 제어 루프, 서비스 표지의 행 높이를 본문 24px 기준으로 다시 배분합니다.
+- 짧은 connector gap을 침범하던 중복 라벨은 제거하고 방향, 선 종류, 범례로 의미를
+  유지합니다. 관계 이름이 아키텍처 의미인 semantic graph의 edge label은 유지합니다.
+- 제목 슬라이드에는 `catalog.json`의 실제 `lastEditedAt` 날짜를 표시합니다.
+
+시각 검사는 자동 bounds 결과만으로 종료하지 않습니다. 25장 데스크톱 렌더를 실제 크기로
+직접 읽고, 이후 tablet, mobile, fullscreen, print를 실행합니다. 자동 검사는 최상위 슬라이드
+번호 영역과 제목 영역 사이의 겹침도 별도 semantic region 충돌로 판정합니다.
+
+## Clipping remediation - 2026-09-11
+
+The operator's second review exposed a gap in the earlier evidence: text can fit a node or the
+overall visual while a containing boundary clips its last row. The shared browser also uses
+different font metrics from local Chromium. A green local screenshot check is not proof that the
+same fixed-height rows fit both font environments.
+
+This revision keeps all 25 slides and the existing authority statements. It gives content-heavy
+boundaries intrinsic row heights, makes dense summary labels less repetitive, and reserves clear
+space for semantic edge names. Short topic summaries on the service overview can be removed because
+the next slide owns the complete channel explanation. Detached, unmeasured auxiliary arrows can be
+removed; indispensable relationships stay in the text or use a measured connection. Node counts are
+not a reason to retain misleading decorative edges.
+
+Check every painted text range against every clipping ancestor, including labels marked
+`aria-hidden`. Check container scroll dimensions as well as glyph bounds, and reject an inspection
+that sees no text during a hidden or animated frame. Before reviewing the deck, prove that the
+checker detects deliberately clipped nested rows and overlapping edge labels at desktop and scaled
+sizes. Inspect all 25 screenshots individually, repeat the geometry check in the shared browser,
+and retain the default DRAFT state until the operator confirms the revised manual.
+
 ## Critique and validation
 
 1. Compare every architecture node, edge, status, and authority label with its source.

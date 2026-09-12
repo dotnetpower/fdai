@@ -193,12 +193,29 @@ class PostgresPostReleaseClosureStore:
                 )
 
     async def read(self, closure_key: str) -> PostReleaseClosureRecord | None:
+        receipt = await self.read_receipt(closure_key)
+        return receipt.record if receipt is not None else None
+
+    async def read_receipt(
+        self,
+        closure_key: str,
+    ) -> PostReleaseClosureStoreReceipt | None:
+        """Read the current closure with authoritative persistence timing."""
+
         validate_digest("closure_key", closure_key)
         async with await self._connect() as connection:
             await self._prepare(connection)
             row = await (await connection.execute(_SELECT_CLOSURE, (closure_key,))).fetchone()
             decoded = _decode_optional_closure(row)
-            return decoded[0] if decoded is not None else None
+            if decoded is None:
+                return None
+            record, persisted_at, read_back_at = decoded
+            return _store_receipt(
+                record=record,
+                decision=PostReleaseClosureWriteDecision.DUPLICATE_SAME,
+                persisted_at=persisted_at,
+                read_back_at=read_back_at,
+            )
 
     async def _verify_predecessors(
         self,

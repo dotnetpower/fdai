@@ -95,7 +95,13 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    another change enters `main`. A session waiting on external evidence is blocked or idle, not
    active WIP. Report local implementation, publication, and deployment completion separately.
    Do not poll or rerun remote work to test an edit. Full image publication and attestation belong
-   to an explicitly selected release or deployment candidate, not every source change.
+   to an explicitly selected release or deployment candidate, not every source change. The only
+   polling exception is `scripts/automation/pr_delivery_daemon.py`, started by the `pr-delivery`
+   skill after explicit delivery authorization. It is limited to one PR in one clean isolated
+   worktree, checks no more often than every 30 seconds, has total and no-progress deadlines of at
+   most two hours, never force-pushes or repairs a failure, and stops on merge, closure, failed CI,
+   conflict, deadline, or lost identity. Its observations maintain delivery state; they never test
+   an edit or replace exact-head CI evidence.
 7. Prevent sensitive-input prompts. Secrets MUST NOT cross chat, tools, command lines, generated
    files, logs, or task output. Use existing identity or provider-hosted authorization; if a running
    terminal requests a secret, the user enters it directly. Never weaken a security control.

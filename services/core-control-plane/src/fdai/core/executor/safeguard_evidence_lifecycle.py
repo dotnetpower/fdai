@@ -25,10 +25,15 @@ Primitives:  #692 target dispatch fences, #693 dispatch checkpoints,
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Protocol, runtime_checkable
+
+from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.executor.audit_intent import AuditIntentAppendReceipt
 from fdai.core.executor.idempotency_reservation import (
@@ -41,6 +46,7 @@ from fdai.core.executor.idempotency_reservation import (
 )
 from fdai.core.executor.safeguard_dispatch_checkpoint import (
     AuthoritativeSinkState,
+    ContinuityUnprovenReason,
     DispatchTransportState,
     PreReleaseContinuityState,
     PreReleaseOwnershipCheckpoint,
@@ -63,6 +69,7 @@ from fdai.core.executor.safeguard_dispatch_support import (
 from fdai.core.executor.target_dispatch_fence import (
     TargetDispatchFenceRecord,
     TargetDispatchFenceState,
+    TargetDispatchFenceTransitionReceipt,
     attach_prepared_evidence,
     mark_target_fence_in_flight,
     mark_target_fence_release_pending,
@@ -74,7 +81,10 @@ from fdai.core.executor.target_dispatch_fence_store import (
 from fdai.shared.providers.resource_lock import (
     HeldResourceLock,
     LiveLockOwnershipAssessment,
+    require_current_lock_ownership,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Terminal outcome
@@ -108,6 +118,10 @@ class SafeguardEvidenceLifecycleResult:
     evidence_record: SafeguardDispatchEvidenceRecord | None
     pre_release_receipt: SafeguardDispatchTransitionReceipt | None
     release_pending_fence: TargetDispatchFenceRecord | None
+    release_pending_receipt: TargetDispatchFenceTransitionReceipt | None = None
+    dispatch_performed: bool = False
+    cancellation_requested: bool = False
+    reason: str | None = None
     execution_authority: Literal[False] = False
     effect_verification_authority: Literal[False] = False
 
@@ -125,6 +139,8 @@ class SafeguardEvidenceLifecycleResult:
 # Dispatch port (provider-neutral call-the-sink seam)
 # ---------------------------------------------------------------------------
 
+DispatchBoundaryGuard = Callable[[], Awaitable[datetime]]
+
 
 @runtime_checkable
 class DispatchPort(Protocol):
@@ -140,14 +156,19 @@ class DispatchPort(Protocol):
         *,
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
     ) -> tuple[
         DispatchTransportState,
         AuthoritativeSinkState,
         str | None,
         str | None,
     ]:
-        """Call the sink and return transport, sink, op-ref, status digests."""
+        """Call the guard immediately before the sink, then return its evidence."""
         ...
+
+
+class DispatchNotAttemptedError(RuntimeError):
+    """The transport proved that no command or provider request was sent."""
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +188,7 @@ async def run_safeguard_evidence_lifecycle(
     evidence_store: SafeguardDispatchEvidenceStore,
     dispatch_port: DispatchPort,
     now: datetime,
+    clock: Callable[[], datetime] | None = None,
 ) -> SafeguardEvidenceLifecycleResult:
     """Execute the in-lock safeguard evidence lifecycle in exact phase order.
 
@@ -180,6 +202,7 @@ async def run_safeguard_evidence_lifecycle(
     """
 
     current_time = utc(now, "now")
+    lifecycle_clock = clock or (lambda: current_time)
 
     # -- Prior-phase validation -------------------------------------------
     _validate_prior_phases(
@@ -214,13 +237,18 @@ async def run_safeguard_evidence_lifecycle(
         raise ValueError("store contract violated: persisted bundle lacks receipt")
 
     # -- Phase 6b: CAS fence -> prepared ----------------------------------
+    prepared_at = max(
+        current_time,
+        bundle_persistence_receipt.recorded_at,
+        utc(lifecycle_clock(), "clock"),
+    )
     prepared_fence = attach_prepared_evidence(
         preparing_fence,
         audit_append_receipt=audit_append_receipt,
         safeguard_bundle_digest=bundle_record.bundle.bundle_digest,
-        changed_at=current_time,
+        changed_at=prepared_at,
     )
-    await fence_store.compare_and_transition(
+    prepared_fence_receipt = await fence_store.compare_and_transition(
         prior_record_digest=preparing_fence.record_digest,
         expected_revision=preparing_fence.revision,
         record=prepared_fence,
@@ -228,25 +256,41 @@ async def run_safeguard_evidence_lifecycle(
 
     # -- Phase 7: begin in-flight state -----------------------------------
     # 7a: fence -> in_flight
+    in_flight_at = max(
+        prepared_at,
+        prepared_fence_receipt.recorded_at,
+        utc(lifecycle_clock(), "clock"),
+    )
     in_flight_fence = mark_target_fence_in_flight(
         prepared_fence,
-        changed_at=current_time,
+        changed_at=in_flight_at,
     )
-    await fence_store.compare_and_transition(
+    in_flight_fence_receipt = await fence_store.compare_and_transition(
         prior_record_digest=prepared_fence.record_digest,
         expected_revision=prepared_fence.revision,
         record=in_flight_fence,
     )
 
     # 7b: reservation -> in_flight
+    reservation_started_at = max(
+        in_flight_at,
+        in_flight_fence_receipt.recorded_at,
+        utc(lifecycle_clock(), "clock"),
+    )
     in_flight_reservation = _begin_reservation_dispatch(
         reservation_receipt.record,
-        at=current_time,
+        at=reservation_started_at,
     )
     in_flight_reservation_receipt = await reservation_store.compare_and_transition(
         prior_record_digest=reservation_receipt.record.record_digest,
         expected_prior_revision=reservation_receipt.record.revision,
         record=in_flight_reservation,
+    )
+
+    dispatch_started_at = max(
+        reservation_started_at,
+        in_flight_reservation_receipt.recorded_at,
+        utc(lifecycle_clock(), "clock"),
     )
 
     # 7c: evidence -> dispatch_started
@@ -256,10 +300,10 @@ async def run_safeguard_evidence_lifecycle(
         in_flight_reservation_receipt=in_flight_reservation_receipt,
         prepared_fence=prepared_fence,
         in_flight_fence=in_flight_fence,
-        dispatch_started_at=current_time,
-        changed_at=current_time,
+        dispatch_started_at=dispatch_started_at,
+        changed_at=dispatch_started_at,
     )
-    await evidence_store.compare_and_transition(
+    dispatch_start_receipt = await evidence_store.compare_and_transition(
         prior_record_digest=bundle_record.record_digest,
         expected_revision=bundle_record.revision,
         record=dispatch_started,
@@ -267,48 +311,143 @@ async def run_safeguard_evidence_lifecycle(
     )
 
     # -- Phase 8: dispatch (same lock handle active) ----------------------
-    held_lock.require_active()
+    async def require_pre_invoke_ownership() -> datetime:
+        assessment = await held_lock.assess_ownership()
+        provider_call_at = max(
+            dispatch_started_at,
+            dispatch_start_receipt.recorded_at,
+            assessment.evaluated_at,
+            utc(lifecycle_clock(), "clock"),
+        )
+        _validate_pre_dispatch_ownership(
+            bundle_record=bundle_record,
+            assessment=assessment,
+            observed_at=provider_call_at,
+        )
+        held_lock.require_active()
+        return provider_call_at
 
-    transport_state, sink_state, op_ref_digest, status_digest = await dispatch_port.dispatch(
-        evidence_record=dispatch_started,
-        started_at=current_time,
-    )
+    provider_call_at: datetime | None = None
+
+    async def guarded_provider_call() -> datetime:
+        nonlocal provider_call_at
+        provider_call_at = await require_pre_invoke_ownership()
+        return provider_call_at
+
+    cancellation_requested = False
+    failure_reason: str | None = None
+    try:
+        transport_state, sink_state, op_ref_digest, status_digest = await dispatch_port.dispatch(
+            evidence_record=dispatch_started,
+            started_at=dispatch_started_at,
+            pre_invoke_guard=guarded_provider_call,
+        )
+    except DispatchNotAttemptedError:
+        provider_call_at = None
+        failure_reason = "dispatch transport proved no publication"
+        transport_state = DispatchTransportState.FAILED
+        sink_state = AuthoritativeSinkState.NOT_ACCEPTED
+        op_ref_digest = None
+        status_digest = _pre_invoke_failure_digest(
+            bundle_record=bundle_record,
+            failure_kind="DispatchNotAttempted",
+        )
+    except asyncio.CancelledError:
+        if provider_call_at is not None:
+            raise
+        cancellation_requested = True
+        failure_reason = "dispatch cancelled before provider invocation"
+        transport_state = DispatchTransportState.FAILED
+        sink_state = AuthoritativeSinkState.NOT_ACCEPTED
+        op_ref_digest = None
+        status_digest = _pre_invoke_failure_digest(
+            bundle_record=bundle_record,
+            failure_kind="CancelledError",
+        )
+    except Exception as exc:
+        if provider_call_at is not None:
+            raise
+        failure_reason = f"dispatch blocked before provider invocation: {type(exc).__name__}"
+        transport_state = DispatchTransportState.FAILED
+        sink_state = AuthoritativeSinkState.NOT_ACCEPTED
+        op_ref_digest = None
+        status_digest = _pre_invoke_failure_digest(
+            bundle_record=bundle_record,
+            failure_kind=type(exc).__name__,
+        )
+    if provider_call_at is None and failure_reason is None:
+        failure_reason = "dispatch blocked before provider invocation"
+        transport_state = DispatchTransportState.FAILED
+        sink_state = AuthoritativeSinkState.NOT_ACCEPTED
+        op_ref_digest = None
+        status_digest = _pre_invoke_failure_digest(
+            bundle_record=bundle_record,
+            failure_kind="DispatchNotInvoked",
+        )
 
     # 8a: record observation
+    observation_time = max(
+        dispatch_started_at,
+        dispatch_start_receipt.recorded_at,
+        provider_call_at or dispatch_started_at,
+        utc(lifecycle_clock(), "clock"),
+    )
     observation = SafeguardDispatchObservation.create(
         dispatch_start_record=dispatch_started,
         transport_state=transport_state,
         sink_state=sink_state,
         sink_operation_reference_digest=op_ref_digest,
         authoritative_status_digest=status_digest,
-        observed_at=current_time,
+        observed_at=observation_time,
     )
     observed = record_dispatch_observation(
         dispatch_started,
         observation=observation,
-        changed_at=current_time,
+        changed_at=observation_time,
     )
-    await evidence_store.compare_and_transition(
-        prior_record_digest=dispatch_started.record_digest,
-        expected_revision=dispatch_started.revision,
-        record=observed,
+    observation_receipt, cancelled = await _await_after_dispatch(
+        evidence_store.compare_and_transition(
+            prior_record_digest=dispatch_started.record_digest,
+            expected_revision=dispatch_started.revision,
+            record=observed,
+        )
     )
+    cancellation_requested = cancellation_requested or cancelled
 
     # -- Phase 9: record continuity and pre-release -----------------------
     # 9a: fresh ownership assessment
-    assessment = await held_lock.assess_ownership()
-    # The pre-release state_changed_at must be >= assessment.evaluated_at
-    # per require_current_lock_ownership; use the later timestamp.
-    pre_release_time = max(current_time, assessment.evaluated_at)
-    checkpoint = PreReleaseOwnershipCheckpoint.from_assessment(
-        evidence_identity=bundle_record.identity,
-        assessment=assessment,
-        not_before=observation.observed_at,
-        observed_at=pre_release_time,
+    assessment: LiveLockOwnershipAssessment | None = None
+    unproven_reason: ContinuityUnprovenReason | None = None
+    try:
+        assessment, cancelled = await _await_after_dispatch(held_lock.assess_ownership())
+        cancellation_requested = cancellation_requested or cancelled
+    except asyncio.CancelledError:
+        cancellation_requested = True
+        failure_reason = failure_reason or "pre-release ownership assessment was cancelled"
+        unproven_reason = ContinuityUnprovenReason.CALLBACK_CANCELLED
+    except Exception:
+        failure_reason = failure_reason or "pre-release ownership assessment failed"
+        unproven_reason = ContinuityUnprovenReason.CALLBACK_FAILED
+    pre_release_time = max(
+        observation_time,
+        observation_receipt.recorded_at,
+        assessment.evaluated_at if assessment is not None else observation_time,
+        utc(lifecycle_clock(), "clock"),
     )
-    # Pass assessment only when continuity is current; unproven edges
-    # reject a non-None assessment per the transition validator.
-    assessment_for_transition: LiveLockOwnershipAssessment | None = (
+    if assessment is None:
+        checkpoint = PreReleaseOwnershipCheckpoint.unproven(
+            evidence_identity=bundle_record.identity,
+            reason=unproven_reason or ContinuityUnprovenReason.MISSING,
+            observed_at=pre_release_time,
+        )
+    else:
+        checkpoint = PreReleaseOwnershipCheckpoint.from_assessment(
+            evidence_identity=bundle_record.identity,
+            assessment=assessment,
+            not_before=observation.observed_at,
+            observed_at=pre_release_time,
+        )
+    assessment_for_transition = (
         assessment if checkpoint.continuity_state is PreReleaseContinuityState.CURRENT else None
     )
     pre_release = record_pre_release_checkpoint(
@@ -317,27 +456,39 @@ async def run_safeguard_evidence_lifecycle(
         current_lock_assessment=assessment_for_transition,
         changed_at=pre_release_time,
     )
-    pre_release_receipt = await evidence_store.compare_and_transition(
-        prior_record_digest=observed.record_digest,
-        expected_revision=observed.revision,
-        record=pre_release,
-        current_lock_assessment=assessment_for_transition,
+    pre_release_receipt, cancelled = await _await_after_dispatch(
+        evidence_store.compare_and_transition(
+            prior_record_digest=observed.record_digest,
+            expected_revision=observed.revision,
+            record=pre_release,
+            current_lock_assessment=assessment_for_transition,
+        )
     )
+    cancellation_requested = cancellation_requested or cancelled
 
     # 9b: fence -> release_pending (before lock context exits)
+    release_pending_at = max(
+        pre_release_time,
+        pre_release_receipt.recorded_at,
+        utc(lifecycle_clock(), "clock"),
+    )
     release_pending_fence = mark_target_fence_release_pending(
         in_flight_fence,
-        changed_at=pre_release_time,
+        changed_at=release_pending_at,
     )
-    await fence_store.compare_and_transition(
-        prior_record_digest=in_flight_fence.record_digest,
-        expected_revision=in_flight_fence.revision,
-        record=release_pending_fence,
+    release_pending_receipt, cancelled = await _await_after_dispatch(
+        fence_store.compare_and_transition(
+            prior_record_digest=in_flight_fence.record_digest,
+            expected_revision=in_flight_fence.revision,
+            record=release_pending_fence,
+        )
     )
+    cancellation_requested = cancellation_requested or cancelled
 
     # Determine terminal disposition from pre-release evidence
     quarantined = (
-        checkpoint.continuity_state is PreReleaseContinuityState.CONTINUITY_UNPROVEN
+        provider_call_at is None
+        or checkpoint.continuity_state is PreReleaseContinuityState.CONTINUITY_UNPROVEN
         or sink_state
         in {
             AuthoritativeSinkState.UNOBSERVED,
@@ -356,6 +507,10 @@ async def run_safeguard_evidence_lifecycle(
         evidence_record=pre_release,
         pre_release_receipt=pre_release_receipt,
         release_pending_fence=release_pending_fence,
+        release_pending_receipt=release_pending_receipt,
+        dispatch_performed=provider_call_at is not None,
+        cancellation_requested=cancellation_requested,
+        reason=failure_reason,
     )
 
 
@@ -463,6 +618,65 @@ def _validate_prior_phases(
         raise ValueError("lifecycle bundle MUST NOT grant authority")
 
 
+def _validate_pre_dispatch_ownership(
+    *,
+    bundle_record: SafeguardDispatchEvidenceRecord,
+    assessment: LiveLockOwnershipAssessment,
+    observed_at: datetime,
+) -> None:
+    """Require fresh ownership from the same trusted acquisition before I/O."""
+
+    identity = bundle_record.identity
+    if (
+        assessment.acquisition_receipt.receipt_digest != identity.acquisition_receipt_digest
+        or assessment.verifier_id != identity.lock_verifier_id
+        or assessment.verifier_version != identity.lock_verifier_version
+        or assessment.trust_anchor_id != identity.lock_trust_anchor_id
+    ):
+        raise ValueError("dispatch-start lock ownership evidence changed identity")
+    if (
+        observed_at >= identity.reservation_lease_expires_at
+        or observed_at >= identity.lock_assessment_valid_until
+    ):
+        raise ValueError("dispatch-start evidence expired before provider I/O")
+    require_current_lock_ownership(assessment, observed_at=observed_at)
+
+
+def _pre_invoke_failure_digest(
+    *,
+    bundle_record: SafeguardDispatchEvidenceRecord,
+    failure_kind: str,
+) -> str:
+    return content_digest(
+        {
+            "domain": "safeguard-pre-invoke-failure",
+            "bundle_digest": bundle_record.bundle.bundle_digest,
+            "failure_kind": failure_kind,
+        }
+    )
+
+
+async def _await_after_dispatch[T](awaitable: Awaitable[T]) -> tuple[T, bool]:
+    """Finish one critical evidence write before honoring caller cancellation."""
+
+    operation = asyncio.ensure_future(awaitable)
+    cancellation: asyncio.CancelledError | None = None
+    while True:
+        try:
+            result = await asyncio.shield(operation)
+        except asyncio.CancelledError as exc:
+            if operation.cancelled():
+                raise
+            cancellation = cancellation or exc
+            continue
+        except Exception:
+            if cancellation is not None:
+                _LOGGER.exception("safeguard_post_dispatch_completion_failed")
+                raise cancellation from None
+            raise
+        return result, cancellation is not None
+
+
 def _validate_terminal_shape(result: SafeguardEvidenceLifecycleResult) -> None:
     """Enforce invariants on each terminal kind."""
 
@@ -477,6 +691,8 @@ def _validate_terminal_shape(result: SafeguardEvidenceLifecycleResult) -> None:
             raise ValueError("completed lifecycle requires pre-release receipt")
         if result.release_pending_fence is None:
             raise ValueError("completed lifecycle requires release-pending fence")
+        if result.release_pending_receipt is None:
+            raise ValueError("completed lifecycle requires release-pending receipt")
 
     if kind is LifecycleTerminalKind.CANCELLED_BEFORE_DISPATCH:
         if result.bundle_digest is not None:
@@ -493,9 +709,13 @@ def _validate_terminal_shape(result: SafeguardEvidenceLifecycleResult) -> None:
             raise ValueError("early-exit lifecycle MUST NOT have pre-release receipt")
         if result.release_pending_fence is not None:
             raise ValueError("early-exit lifecycle MUST NOT have release-pending fence")
+        if result.release_pending_receipt is not None:
+            raise ValueError("early-exit lifecycle MUST NOT have release-pending receipt")
 
 
 __all__ = [
+    "DispatchBoundaryGuard",
+    "DispatchNotAttemptedError",
     "DispatchPort",
     "LifecycleTerminalKind",
     "SafeguardEvidenceLifecycleResult",

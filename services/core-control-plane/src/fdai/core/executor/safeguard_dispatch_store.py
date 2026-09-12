@@ -171,6 +171,14 @@ class SafeguardDispatchPersistenceResult:
                 raise ValueError("safeguard dispatch persistence result mismatched candidate")
 
 
+@dataclass(frozen=True, slots=True)
+class SafeguardDispatchEvidenceReadback:
+    """Authoritative current evidence record and persistence time."""
+
+    record: SafeguardDispatchEvidenceRecord
+    recorded_at: datetime
+
+
 @runtime_checkable
 class SafeguardDispatchEvidenceStore(Protocol):
     """Atomic initial persistence, exact CAS, and authoritative readback seam."""
@@ -202,6 +210,14 @@ class SafeguardDispatchEvidenceStore(Protocol):
         """Read the authoritative evidence for one target-fence generation."""
         ...
 
+    async def read_with_timestamp(
+        self,
+        target_digest: str,
+        generation: int,
+    ) -> SafeguardDispatchEvidenceReadback | None:
+        """Read authoritative evidence with its persistence time."""
+        ...
+
 
 def classify_safeguard_dispatch_evidence(
     existing: SafeguardDispatchEvidenceRecord,
@@ -220,6 +236,7 @@ def classify_safeguard_dispatch_evidence(
 
 
 __all__ = [
+    "SafeguardDispatchEvidenceReadback",
     "SafeguardDispatchEvidenceStore",
     "SafeguardDispatchPersistenceDecision",
     "SafeguardDispatchPersistenceResult",

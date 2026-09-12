@@ -22,6 +22,9 @@ become an operational, availability, or provisioning state axis, and missing dia
 not become a state value.
 Fleet source availability is also separate from Resource state. The instance detail retains
 several same-name sources only when distinct opaque `scope_digest` values qualify them.
+Provider-native type coverage is another separate active-generation evidence object. It reports
+reconciled mapped and unmapped counts, bounded unknown type names, capture method, and provider
+identity completeness without becoming an operational, provisioning, or availability value.
 Every current instance-detail response includes explicit `runtime_call_graph` and
 `postgres_role_evidence` source states. The Console decoder rejects either missing source instead
 of presenting omission as availability or measured zero. The Operator reader also rejects a

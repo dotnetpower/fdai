@@ -141,8 +141,8 @@ approval, denial, execution failure, or rollback signal. Dispatch-only events re
 route shows observed, finalized, pending, adverse, and auto-resolved counts separately; the
 auto-resolution rate keeps the canonical total observed-event denominator, so pending and other
 non-auto events never disappear from the rate. Outcome and audit timestamps must be timezone-aware;
-an outcome more than five minutes ahead of its durable audit timestamp is malformed evidence and
-does not finalize the action.
+an outcome more than five minutes ahead of its durable audit timestamp does not finalize the action.
+Operator accepts only a complete, consistent, non-synthetic `measurement:outcome-assurance:autonomy` projection and never repairs it from audit rows.
 Vertical attribution uses an explicit recorded vertical first, then only strong Resilience or Cost
 Governance action/resource hints. Evidence that cannot be attributed without guessing remains in an
 `unattributed` row, contributes to the global denominator, and lowers the displayed attribution
@@ -387,7 +387,7 @@ Read-source provenance, ontology browse, cross-screen operational, and inventory
 rendered deterministically from typed evidence. Ontology browse requires a target and browse verb,
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
-browse answer stay in their own prompt module, separate from general prompt assembly.
+browse answer stay in their own prompt module, separate from general prompt assembly. Ontology Instances carries active-generation provider type coverage separately from Resource state and relationship coverage; the browser validates reconciled counts and shows bounded unknown type names without raw object identities or properties. Promotion Gates displays server-joined durable mode and its catalog-default or registry source; browser values cannot author either field. Valid mode fields do not bypass malformed missing-evidence list rejection; decoder regression fixtures must exercise both checks independently.
 The Reader-gated `/ontology/graph` projection contains one exact catalog release with a schema
 version, projection revision, release digest, declaration records, semantic-map profile, and
 catalog topology. It never returns deployment instance properties. Runtime objects and state facts

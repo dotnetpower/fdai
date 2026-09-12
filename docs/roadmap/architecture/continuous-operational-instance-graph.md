@@ -28,9 +28,11 @@ unbounded tight polling loop.
   an observed graph fact. Every status-overriding service-deployment run or action step executes
   only after the protected-source verifier succeeds; cleanup, failure reporting, or artifact
   retention never converts dispatch into observed evidence. The service workflow contract test
-  pins that verifier-success predicate on final rollback failure reporting. Every Core image transition
-  binds `FDAI_SOURCE_REVISION` to the exact protected commit. The fixed Heimdall recovery observer can
-  enter only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
+  pins that verifier-success predicate on final rollback failure reporting. Rollback health waits for
+  the exact requested recovery revision before evaluating readiness, so an eventually consistent
+  pre-existing healthy revision cannot satisfy recovery evidence. Every Core image transition binds `FDAI_SOURCE_REVISION` to the exact protected commit.
+  A later plan treats a rolled-back image and source revision as recovery metadata only when both source revisions are valid commits and the refreshed source binding exactly matches the plan's `before` state.
+  The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph.
@@ -212,11 +214,8 @@ first provider query or publication, so a failed first attempt reuses the same b
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
-A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
-later poll can observe either the Resource or its delete record. A returned Resource type outside
-the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
-fails the batch. Hydration that exceeds the bounded property payload also fails before publication
-or cursor advancement rather than asserting a truncated full replacement.
+A Resource absent from hydration retains the prior cursor and incomplete source state for a later poll. An unmapped returned type retains exact provider identity as `unclassified-resource`; an explicit runtime filter can still exclude it. Malformed or oversized hydration fails before publication or cursor advancement.
+Complete promotion stores provider-type accounting in active snapshot metadata. Operator validates reconciled mapped, unmapped, materialized, and type counts; Console shows cutoff, capture method, identity completeness, and bounded type names without raw provider objects, catalog authority, or execution authority. The separate promotion-gate view reads durable ActionType mode without changing graph generation.
 After three unresolved hydration retries, the feed advances past the bounded page and records the
 latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
 remain incomplete, while later windows can recover without permanently blocking the feed.

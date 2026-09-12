@@ -19,7 +19,7 @@ the settling window. Tolerated negative age never creates suppression when the c
 only from complete telemetry, so a false-negative outcome never publishes a completeness claim its observation did not make. Forecast
 closure attempts every claimed episode before re-raising the first failure, so one failing episode cannot hold the whole due queue open. T1
 contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
-as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply.
+as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply. Independent-service plan guards treat command and environment changes as part of the rollback boundary. The isolated Executor may adopt the previously absent default-off legacy-unbound transition binding exactly once; enabling or replaying it, or combining it with unrelated runtime drift, remains ineligible.
 
 ## Core domain navigation decision
 
@@ -50,6 +50,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
+  The transport-only Core Executor client injects the shared-provider `ExecutorReceiptJournal`; runtime owns durable attempt/closure joins. Dispatch receipts grant no authorization or independent effect verification. Dry-run artifacts retain their stable historical identity; full-Action fingerprints independently bind current execution proofs.
   Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged. Versioned terminal measurement contracts follow the same service boundary: Core retains normalized event classifications atomically with audit, and Operator reads them without importing Core or treating a classification as execution or effect authority. A duplicate acknowledgement requires matching retained facts; a collision cannot silently replace or discard the original classification. Measurement timestamps require explicit timezone-bearing datetime or ISO 8601 text, never implicit numeric epoch coercion.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
@@ -406,7 +407,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   **not** re-exported from public sub-packages; they must be imported directly from their
   submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
 - **Config-driven binding**: configuration selects each implementation.
-  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records preserve abstention without validating unused endpoint values. Partial records fail startup without changing execution T2.
+  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records, or three digest-policy-held `hil-only` records with no endpoints, preserve abstention without validating unused endpoint values. Partial, unsigned, or endpoint-bearing held records fail startup without changing execution T2.
   The generic drop-directory `ManualSource` retains oversize paths as metadata-only held candidates, so its read bound cannot create a false deletion signal.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
