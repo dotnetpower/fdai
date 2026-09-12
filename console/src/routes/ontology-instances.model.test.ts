@@ -533,6 +533,48 @@ describe("decodeOntologyInstanceExploration", () => {
     );
   });
 
+  it("accepts complete provider-native type coverage", () => {
+    const value = payload();
+    value.provider_scope_coverage = {
+      capture_method: "azure-resource-graph",
+      provider_object_count: 10,
+      mapped_provider_object_count: 7,
+      unmapped_provider_object_count: 3,
+      materialized_unmapped_provider_object_count: 3,
+      provider_identity_complete: true,
+      provider_type_count: 5,
+      unmapped_provider_type_count: 1,
+      unmapped_provider_types: [
+        { provider_type: "example.provider/widgets", count: 3 },
+      ],
+    };
+
+    expect(decodeOntologyInstanceExploration(value).provider_scope_coverage).toEqual(
+      value.provider_scope_coverage,
+    );
+  });
+
+  it("rejects inconsistent provider-native type coverage", () => {
+    const value = payload();
+    value.provider_scope_coverage = {
+      capture_method: "azure-resource-graph",
+      provider_object_count: 10,
+      mapped_provider_object_count: 7,
+      unmapped_provider_object_count: 2,
+      materialized_unmapped_provider_object_count: 2,
+      provider_identity_complete: true,
+      provider_type_count: 5,
+      unmapped_provider_type_count: 1,
+      unmapped_provider_types: [
+        { provider_type: "example.provider/widgets", count: 2 },
+      ],
+    };
+
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "provider coverage object counts are inconsistent",
+    );
+  });
+
   it("rejects incomplete or contradictory relationship candidate accounting", () => {
     const value = payload();
     value.schema_version = "1.4.0";

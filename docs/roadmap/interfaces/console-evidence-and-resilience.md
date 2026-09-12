@@ -387,7 +387,7 @@ Read-source provenance, ontology browse, cross-screen operational, and inventory
 rendered deterministically from typed evidence. Ontology browse requires a target and browse verb,
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
-browse answer stay in their own prompt module, separate from general prompt assembly.
+browse answer stay in their own prompt module, separate from general prompt assembly. Ontology Instances carries active-generation provider type coverage separately from Resource state and relationship coverage; the browser validates reconciled counts and shows bounded unknown type names without raw object identities or properties.
 The Reader-gated `/ontology/graph` projection contains one exact catalog release with a schema
 version, projection revision, release digest, declaration records, semantic-map profile, and
 catalog topology. It never returns deployment instance properties. Runtime objects and state facts

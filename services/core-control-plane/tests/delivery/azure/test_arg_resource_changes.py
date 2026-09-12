@@ -11,8 +11,8 @@ Verifies the bounded, oldest-first ``resourcechanges`` polling path
 - Delete rows are never hydrated and emit an unconfirmed tombstone
   (``tombstone_confirmed=False``, ``observation_kind="tombstone"``).
 - The next cursor advances to the maximum ``(changeTime, id)`` seen across
-  every validated row in the page, even rows dropped for an unmapped ARM
-  type - so a skipped row is never reprocessed.
+    every validated row in the page. Unmapped ARM types retain bounded
+    ``unclassified-resource`` evidence, while explicitly filtered rows are not reprocessed.
 - Any HTTP/parse failure in either the ``resourcechanges`` query or the
   hydration query raises before a cursor is computed, so
   ``forward_arg_resource_changes`` never persists a stale/partial cursor.
@@ -45,6 +45,7 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
@@ -318,6 +319,41 @@ async def test_create_row_also_hydrates_as_upsert() -> None:
 
     assert len(result.events) == 1
     assert result.events[0].payload["inventory_change"]["kind"] == "upsert"
+
+
+@pytest.mark.asyncio
+async def test_unmapped_hydration_retains_provider_identity_without_ontology_authority() -> None:
+    arm_type = "Example.Provider/widgets"
+    arm_id = _arm_id(arm_type, "unmapped-widget")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([_hydration_row(arm_id=arm_id, arm_type=arm_type)])
+
+    feed, client, _ = _factory(_router(on_changes=on_changes, on_hydration=on_hydration))
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    assert len(result.events) == 1
+    resource = result.events[0].payload["inventory_change"]["resource"]
+    assert resource["type"] == UNCLASSIFIED_RESOURCE_TYPE
+    assert resource["provider_ref"] == arm_id
+    assert resource["props"]["providerType"] == arm_type
+    assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 
 @pytest.mark.asyncio
@@ -816,7 +852,7 @@ async def test_unknown_delete_type_is_dropped_but_cursor_advances() -> None:
 
 
 @pytest.mark.asyncio
-async def test_unknown_hydrated_type_is_dropped_but_cursor_advances() -> None:
+async def test_unknown_hydrated_type_is_retained_and_cursor_advances() -> None:
     arm_id = _arm_id("Microsoft.Nonexistent/widgets", "w")
 
     async def on_changes(_request: httpx.Request) -> httpx.Response:
@@ -843,7 +879,11 @@ async def test_unknown_hydrated_type_is_dropped_but_cursor_advances() -> None:
     finally:
         await client.aclose()
 
-    assert result.events == ()
+    assert len(result.events) == 1
+    resource = result.events[0].payload["inventory_change"]["resource"]
+    assert resource["type"] == UNCLASSIFIED_RESOURCE_TYPE
+    assert resource["provider_ref"] == arm_id
+    assert resource["props"]["providerType"] == "Microsoft.Nonexistent/widgets"
     assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 

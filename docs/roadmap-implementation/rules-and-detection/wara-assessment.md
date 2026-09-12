@@ -23,6 +23,7 @@ assessment without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Kept active-inventory provider type coverage outside WARA scope and evidence admission while extending the shared Operator PostgreSQL store. | `current change`; focused Operator inventory/workflow suites passed 83 tests. | No WARA evaluation, satisfaction, publication, replay, or authority behavior changed. |
 | 2026-09-12 | implemented | Kept the Cost Governance disclosure-audit dependency isolated from WARA while sharing the existing Operator composition root. | `current change`; Operator composition and focused Cost Governance route checks. | No WARA scope, evidence admission, satisfaction, publication, or authority behavior changed. |
 | 2026-09-11 | implemented | Restricted the shared Operator source-state decoder to canonical machine-token reasons so principal text and provider details cannot enter WARA through that storage path. | `current change`; `postgres_family_store.py`; focused principal-text rejection check. | No WARA behavior changed. |
 | 2026-09-11 | implemented | Clarified that the shared Operator reader's generation-fenced runtime-call relationship decoder remains outside WARA evidence admission and results. | `current change`; `postgres_family_store.py`; focused mismatched-generation rejection check. | No WARA behavior changed. |
