@@ -390,7 +390,13 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
         "proof_started_at_unix_ms": int(observed_at[0].timestamp() * 1000),
         "proof_sampled_at_unix_ms": int(observed_at[1].timestamp() * 1000),
         "first_reused_at_unix_ms": int(observed_at[2].timestamp() * 1000),
+        "first_reused_expires_at_unix_ms": int(
+            (observed_at[2] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
         "latest_reused_at_unix_ms": int(observed_at[2].timestamp() * 1000),
+        "latest_reused_expires_at_unix_ms": int(
+            (observed_at[2] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
         "reuse_count": 1,
     }
     assert refreshed_again.evidence == {
@@ -400,7 +406,13 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
         "proof_started_at_unix_ms": int(observed_at[0].timestamp() * 1000),
         "proof_sampled_at_unix_ms": int(observed_at[1].timestamp() * 1000),
         "first_reused_at_unix_ms": int(observed_at[2].timestamp() * 1000),
+        "first_reused_expires_at_unix_ms": int(
+            (observed_at[2] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
         "latest_reused_at_unix_ms": int(observed_at[3].timestamp() * 1000),
+        "latest_reused_expires_at_unix_ms": int(
+            (observed_at[3] + timedelta(seconds=request.evidence_ttl_seconds)).timestamp() * 1000
+        ),
         "reuse_count": 2,
     }
     assert (result.observed_at, refreshed.observed_at, refreshed_again.observed_at) == observed_at[

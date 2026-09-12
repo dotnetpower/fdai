@@ -42,6 +42,7 @@ def _timestamp_argument(value: str, field: str) -> datetime:
 def _read_report(dsn: str) -> dict[str, Any] | None:
     with psycopg.connect(dsn, row_factory=dict_row, connect_timeout=10) as connection:
         connection.execute("SET TRANSACTION READ ONLY")
+        connection.execute("SET LOCAL statement_timeout = 15000")
         row = connection.execute(
             "SELECT value FROM state_kv WHERE key = %s",
             (_REPORT_KEY,),
@@ -62,6 +63,7 @@ def _read_invocations(
 ) -> tuple[Mapping[str, Any], ...]:
     with psycopg.connect(dsn, row_factory=dict_row, connect_timeout=10) as connection:
         connection.execute("SET TRANSACTION READ ONLY")
+        connection.execute("SET LOCAL statement_timeout = 15000")
         rows = connection.execute(
             """
             SELECT occurred_at, correlation_id, capability_id, model_key, mode,

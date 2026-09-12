@@ -169,6 +169,14 @@ jobs:
             exit 1
           }
           replica_name="$(jq -er '.[0].name' "$replicas_json")"
+          jq -cn \
+            --arg resource_group "$resource_group" \
+            --arg app_name "$app_name" \
+            --arg revision "$latest_revision" \
+            --arg replica "$replica_name" \
+            '{resource_group: $resource_group, app_name: $app_name, revision: $revision, replica: $replica}' \
+            > "$RUNNER_TEMP/t2-startup-proof-context.json"
+          chmod 0600 "$RUNNER_TEMP/t2-startup-proof-context.json"
           revision_ref_digest="sha256:$(printf '%s' "$latest_revision" | sha256sum | cut -d' ' -f1)"
           replica_ref_digest="sha256:$(printf '%s' "$replica_name" | sha256sum | cut -d' ' -f1)"
           source_identity_digest="sha256:$(printf '%s' "$DEPLOY_RUNNER_PRINCIPAL_ID" | sha256sum | cut -d' ' -f1)"
@@ -214,6 +222,47 @@ jobs:
               --output "$RUNNER_TEMP/t2-startup-proof-live-evidence.json"
           unset FDAI_STARTUP_EVIDENCE_DSN
 
+      - name: Reverify the observed Core process
+        run: |
+          set -euo pipefail
+          context="$RUNNER_TEMP/t2-startup-proof-context.json"
+          resource_group="$(jq -er '.resource_group' "$context")"
+          app_name="$(jq -er '.app_name' "$context")"
+          expected_revision="$(jq -er '.revision' "$context")"
+          expected_replica="$(jq -er '.replica' "$context")"
+          app_json="$RUNNER_TEMP/t2-startup-proof-app-after.json"
+          revisions_json="$RUNNER_TEMP/t2-startup-proof-revisions-after.json"
+          revision_json="$RUNNER_TEMP/t2-startup-proof-revision-after.json"
+          replicas_json="$RUNNER_TEMP/t2-startup-proof-replicas-after.json"
+          az containerapp show --name "$app_name" --resource-group "$resource_group" \
+            --only-show-errors --output json > "$app_json"
+          [[ "$(jq -er '.properties.latestRevisionName' "$app_json")" == "$expected_revision" ]]
+          [[ "$(jq -er '.properties.latestReadyRevisionName' "$app_json")" == "$expected_revision" ]]
+          az containerapp revision list --name "$app_name" --resource-group "$resource_group" \
+            --only-show-errors --output json > "$revisions_json"
+          [[ "$(jq '[.[] | select(.properties.active == true)] | length' "$revisions_json")" == "1" ]]
+          az containerapp revision show --name "$app_name" --resource-group "$resource_group" \
+            --revision "$expected_revision" --only-show-errors --output json > "$revision_json"
+          [[ "$(jq -er '.properties.healthState' "$revision_json")" == "Healthy" ]]
+          source_revision="$(
+            jq -er '[.properties.template.containers[] | .env[]? | select(.name == "FDAI_SOURCE_REVISION") | .value] | if length == 1 then .[0] else error("source revision binding is not singular") end' \
+              "$revision_json"
+          )"
+          [[ "$source_revision" == "$TARGET_COMMIT_SHA" ]]
+          image="$(
+            jq -er '[.properties.template.containers[] | select(any(.env[]?; .name == "FDAI_SOURCE_REVISION")) | .image] | if length == 1 then .[0] else error("Core image binding is not singular") end' \
+              "$revision_json"
+          )"
+          [[ "$image" =~ @sha256:([0-9a-f]{64})$ ]]
+          [[ "sha256:${BASH_REMATCH[1]}" == "$T2_STARTUP_IMAGE_DIGEST" ]]
+          az containerapp replica list --name "$app_name" --resource-group "$resource_group" \
+            --revision "$expected_revision" --only-show-errors --output json > "$replicas_json"
+          [[ "$(jq 'length' "$replicas_json")" == "1" ]]
+          [[ "$(jq -er '.[0].name' "$replicas_json")" == "$expected_replica" ]] || {
+            echo "the Core replica changed during startup-proof observation" >&2
+            exit 1
+          }
+
       - name: Retain sanitized startup-proof evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -225,11 +274,20 @@ jobs:
       - name: Remove live context files
         if: always() && steps.protected-source.outcome == 'success'
         run: |
-          [[ "$AZURE_CONFIG_DIR" == "$RUNNER_TEMP/"* ]]
+          set -euo pipefail
           rm -f -- \
             "$RUNNER_TEMP/t2-startup-proof-app.json" \
             "$RUNNER_TEMP/t2-startup-proof-revision.json" \
             "$RUNNER_TEMP/t2-startup-proof-revisions.json" \
             "$RUNNER_TEMP/t2-startup-proof-replicas.json" \
-            "$RUNNER_TEMP/t2-startup-proof-dsn"
-          rm -rf -- "$AZURE_CONFIG_DIR"
+            "$RUNNER_TEMP/t2-startup-proof-context.json" \
+            "$RUNNER_TEMP/t2-startup-proof-app-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-revision-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-revisions-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-replicas-after.json" \
+            "$RUNNER_TEMP/t2-startup-proof-dsn" \
+            "$RUNNER_TEMP/t2-startup-proof-live-evidence.json"
+          if [[ -n "${AZURE_CONFIG_DIR:-}" ]]; then
+            [[ "$AZURE_CONFIG_DIR" == "$RUNNER_TEMP/"* ]]
+            rm -rf -- "$AZURE_CONFIG_DIR"
+          fi
