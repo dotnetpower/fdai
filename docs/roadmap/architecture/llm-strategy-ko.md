@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: f871b7db24e141009871ba8b588cbc02676af813
+translation_source_sha: abf5f9e6fdf600b75fcace305d0a412d6e8be237
 translation_revised: 2026-09-12
 ---
 # LLM 전략(LLM Strategy)
@@ -139,7 +139,7 @@ Azure API 관리(APIM)을 경유하는 Azure OpenAI, APIM을 경유하는 OpenAI
 `endpoint_ref`를 저장하고 조립 루트가 protected 배포 구성에서 HTTPS URL로
 해석합니다. 해석기가 주입되지 않은 연결은 시작에 실패합니다. 임베딩, 제안자,
 기본 및 보조 교차 검증, 비평자, Judge, RCA, 서술기 경로가 같은 request-target 빌더를
-사용합니다. `endpoint_bindings`가 없는 이전 방식 파일은 direct Azure OpenAI 경로를 유지합니다.
+사용합니다. `endpoint_bindings`가 없는 이전 방식 파일은 direct Azure OpenAI 경로를 유지합니다. Ontology council은 검증된 binding policy에서 세 capability가 모두 명시적으로 `hil-only`이고 endpoint binding이 없을 때만 abstaining 상태를 유지하며, 무서명·부분·endpoint 보유 보류 레코드는 계속 시작에 실패합니다.
 
 APIM은 경로 및 거버넌스 경계이며 모델 발행기가 아닙니다. Mixed-model quality 게이트는
 게이트웨이 뒤의 발행기와 계열을 계속 비교합니다. 기본과 보조 기능은 같은 APIM

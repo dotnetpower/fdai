@@ -245,6 +245,51 @@ def test_hil_only_council_capability_fails_closed() -> None:
         _bind(_resolved(capabilities=tuple(capabilities)))
 
 
+def test_governed_hil_only_council_preserves_abstaining_distiller() -> None:
+    capabilities = tuple(
+        replace(
+            _capability(*values),
+            status=CapabilityStatus.HIL_ONLY,
+            selection_mode="hil-only",
+        )
+        for values in _CAPABILITIES
+    )
+    resolved = replace(
+        _resolved(capabilities=capabilities, bindings=()),
+        binding_policy_environment="dev",
+        binding_policy_revision=1,
+        binding_policy_digest=f"sha256:{'a' * 64}",
+        binding_policy_expected_active_digest=f"sha256:{'b' * 64}",
+    )
+    container = _container(resolved)
+
+    result = _bind(
+        resolved,
+        container=container,
+        endpoint="",
+        system_prompt="",
+        endpoint_resolver=None,
+    )
+
+    assert result is container
+    assert isinstance(result.distiller, AbstainingDistiller)
+    assert ontology_council_binding_state(resolved) is OntologyCouncilBindingState.ABSENT
+
+
+def test_unbound_hil_only_council_without_policy_fails_closed() -> None:
+    capabilities = tuple(
+        replace(
+            _capability(*values),
+            status=CapabilityStatus.HIL_ONLY,
+            selection_mode="hil-only",
+        )
+        for values in _CAPABILITIES
+    )
+
+    with pytest.raises(LlmBindingsUnavailableError, match="requires all three"):
+        _bind(_resolved(capabilities=capabilities, bindings=()))
+
+
 @pytest.mark.parametrize(
     ("change", "message"),
     (
