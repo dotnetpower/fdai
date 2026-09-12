@@ -401,6 +401,7 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
         "semantic-incident-action-guidance",
         "semantic-resource-name-filter",
         "semantic-sre-diagnostic",
+        "semantic-recent-resource-changes",
     ]
     assert "author a fresh, concise direct_response.answer" in out.system_text
     assert "Do not reuse canned wording" in out.system_text
@@ -416,7 +417,11 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     out = await composer.compose(capability_id="conversation.preflight")
 
     assert base.version == 8
-    assert out.system_text == base.body
+    assert out.system_text.startswith(base.body)
+    assert [layer.id for layer in out.layer_manifest] == [
+        "conversation-preflight",
+        "conversation-preflight-resource-changes",
+    ]
     assert out.system_token_budget is not None
     assert out.token_estimate <= out.system_token_budget
     assert "candidate data only except for bounded general_answer" in out.system_text

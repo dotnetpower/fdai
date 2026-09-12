@@ -117,8 +117,9 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 
 `catalog_digest` covers the schema version, source revision, build time, records, and authority
 flag. Rebuilding the same records at a different time therefore creates a distinct packaged
-artifact. Any change to a cited source, including formatting-only compaction, requires a catalog
-rebuild in the same change before packaging so its blob pins and digest match the release tree.
+artifact. Any change to a cited source, including formatting-only compaction or Markdown structure
+repair, requires a catalog rebuild in the same change before packaging so its blob pins and digest
+match the release tree.
 This mechanical refresh carries the revised source identity and does not add operational,
 approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source

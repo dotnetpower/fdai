@@ -34,7 +34,12 @@ from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     build_projection_replay_observation,
     projection_freshness_ceiling,
     projection_replay_drops,
-    required_replay_watermark,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_replay import (
+    manifest_watermarks as _manifest_watermarks,
+)
+from fdai.delivery.persistence.postgres_inventory_projection_replay import (
+    nonnegative_watermark as _nonnegative_int,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
@@ -770,27 +775,6 @@ async def _update_watermark_state(
             INVENTORY_OBSERVATION_WATERMARK_KEY,
             json.dumps(value, sort_keys=True, separators=(",", ":")),
         ),
-    )
-
-
-def _nonnegative_int(value: object) -> int:
-    if value is None:
-        return 0
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise ValueError("inventory observation watermark MUST be a non-negative integer")
-    return value
-
-
-def _manifest_watermarks(manifest: Mapping[str, Any]) -> tuple[int, int]:
-    journal = manifest.get("journal_high_watermark")
-    projection = manifest.get("projection_high_watermark")
-    if journal is None and projection is None:
-        return 0, 0
-    if journal is None or projection is None:
-        raise ValueError("inventory projection replay manifest watermarks are incomplete")
-    return (
-        required_replay_watermark(manifest, "journal_high_watermark"),
-        required_replay_watermark(manifest, "projection_high_watermark"),
     )
 
 

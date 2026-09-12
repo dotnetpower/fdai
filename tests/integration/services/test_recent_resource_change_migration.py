@@ -14,7 +14,7 @@ def test_recent_resource_change_indexes_match_query_and_fence() -> None:
     source = REVISION.read_text(encoding="utf-8")
     migration = runpy.run_path(str(REVISION))
 
-    assert migration["down_revision"] == "core_post_release_closure_20260912"
+    assert migration["down_revision"] == "core_runtime_call_snapshot_links_20260912"
     assert migration["migration_owner"] == "core-control-plane"
     assert "inventory_observation_recent_object_change_idx" in source
     assert "inventory_arg_change_event_fence_idx" in source

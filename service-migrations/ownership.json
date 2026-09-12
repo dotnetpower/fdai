@@ -125,8 +125,8 @@
     }
   ],
   "legacy_inventory": {
-    "head": "20260831_0089",
-    "revision_count": 91,
+    "head": "20260912_0090",
+    "revision_count": 92,
     "table_count": 108
   },
   "table_migrations": {

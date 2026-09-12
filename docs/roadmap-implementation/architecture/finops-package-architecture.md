@@ -21,6 +21,7 @@ resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Moved the shared Core bootstrap import smoke after runtime asset copies so image validation observes the packaged config and rule catalog without adding optional Cost Governance inputs or authority. | `current change`; local Core runtime image build and bootstrap import passed. | No FinOps package behavior changed. |
 | 2026-09-12 | implemented | Confirmed that the exact-registry `AcrPush` assignment for the stable deployment host is a shared image-delivery permission. It is not a Cost Governance package input and cannot install, enable, promote, or grant data access to the optional package. | `current change`; root Terraform role scope; standalone signed-image import and readback boundary | No FinOps package behavior changed. |
 | 2026-09-11 | implemented | Confirmed that registering the route-local Approvals English catalog in the shared Console static key guard does not add or activate Cost Governance behavior. | `current change`; `console/src/i18n/catalog-usage.test.ts`; full Console unit suite (`2906 passed`). | No FinOps package behavior changed. |
 | 2026-09-11 | implemented | Clarified that the global runtime-call evidence source flag remains outside Cost Governance package inputs and activation. | `current change`; root Terraform runtime-call source control and focused infrastructure contract check. | No FinOps package behavior changed. |
