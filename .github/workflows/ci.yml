@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 # Cancel only superseded PR runs. Integrated and manually requested revisions
@@ -41,11 +42,14 @@ jobs:
         id: scope
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
           if [[ -n "$PR_BASE_SHA" ]]; then
             range="$PR_BASE_SHA...HEAD"
+          elif [[ -n "$MERGE_GROUP_BASE_SHA" ]]; then
+            range="$MERGE_GROUP_BASE_SHA...HEAD"
           elif [[ -n "$PUSH_BEFORE_SHA" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
             range="$PUSH_BEFORE_SHA...HEAD"
           else
@@ -281,11 +285,14 @@ jobs:
       - name: Validate changed design contracts
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
           if [[ -n "$PR_BASE_SHA" ]]; then
             range="$PR_BASE_SHA...HEAD"
+          elif [[ -n "$MERGE_GROUP_BASE_SHA" ]]; then
+            range="$MERGE_GROUP_BASE_SHA...HEAD"
           elif [[ -n "$PUSH_BEFORE_SHA" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
             range="$PUSH_BEFORE_SHA...HEAD"
           else
@@ -425,6 +432,7 @@ jobs:
       - name: Run catalog and governance runtime checks
         env:
           PR_BASE_REF: ${{ github.base_ref }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -uo pipefail
@@ -455,6 +463,13 @@ jobs:
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
               git fetch --no-tags --depth=1 origin "$PR_BASE_REF"
               base="origin/$PR_BASE_REF"
+            elif [[ "${{ github.event_name }}" == "merge_group" ]]; then
+              if [[ ! "$MERGE_GROUP_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || \
+                 ! git cat-file -e "${MERGE_GROUP_BASE_SHA}^{commit}" 2>/dev/null; then
+                echo "The merge-group base commit is unavailable."
+                return 1
+              fi
+              base="$MERGE_GROUP_BASE_SHA"
             elif [[ -z "$PUSH_BEFORE_SHA" || "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
               echo "No prior commit to compare; skipping governance transitions."
               return 0
@@ -597,10 +612,10 @@ jobs:
           inputs: audit-requirements.txt
 
   freeze-scenarios:
-    name: Frozen scenario-set immutability (PR only)
+    name: Frozen scenario-set immutability
     needs: changes
     if: >-
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
       needs.changes.outputs.scenarios == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -613,14 +628,15 @@ jobs:
       - name: Detect modifications / deletions in frozen versions
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$PR_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || \
-             ! git cat-file -e "${PR_BASE_SHA}^{commit}" 2>/dev/null; then
-            echo "The immutable pull-request base commit is unavailable."
+          base_sha="${PR_BASE_SHA:-$MERGE_GROUP_BASE_SHA}"
+          if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ ]] || \
+             ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+            echo "The immutable comparison base commit is unavailable."
             exit 1
           fi
-          base_sha="$PR_BASE_SHA"
           frozen_patterns=(
             'services/core-control-plane/tests/scenarios/v*/*.json'
             'services/core-control-plane/tests/scenarios/enrichment/v*/*.json'

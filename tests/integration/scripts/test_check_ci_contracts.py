@@ -1282,8 +1282,11 @@ def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
 
     assert checkout["with"]["fetch-depth"] == 0
     assert all(step["name"] != "Fetch base ref" for step in freeze_steps)
-    assert detection["env"] == {"PR_BASE_SHA": "${{ github.event.pull_request.base.sha }}"}
-    assert 'base_sha="$PR_BASE_SHA"' in detection["run"]
+    assert detection["env"] == {
+        "PR_BASE_SHA": "${{ github.event.pull_request.base.sha }}",
+        "MERGE_GROUP_BASE_SHA": "${{ github.event.merge_group.base_sha }}",
+    }
+    assert 'base_sha="${PR_BASE_SHA:-$MERGE_GROUP_BASE_SHA}"' in detection["run"]
     assert "'services/core-control-plane/tests/scenarios/v*/*.json'" in workflow
     assert "'services/core-control-plane/tests/scenarios/enrichment/v*/*.json'" in workflow
     assert "'services/core-control-plane/tests/scenarios/manifests/v*.json'" in workflow
@@ -1440,6 +1443,7 @@ def test_ci_supports_exact_main_revalidation() -> None:
     assert "  workflow_dispatch:" in workflow
     assert "  push:" in workflow
     assert "  pull_request:" in workflow
+    assert "  merge_group:" in workflow
     assert "github.event_name != 'workflow_dispatch'" in workflow
     assert "gitleaks_8.24.3_linux_x64.tar.gz" in workflow
     assert "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c" in workflow
@@ -1496,6 +1500,36 @@ def test_ci_concurrency_contract_ignores_commented_fragments(
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert len(module._validate_ci_concurrency()) == 2
+
+
+def test_ci_merge_queue_contract_uses_the_synthetic_group_base() -> None:
+    module = _load_contract_module()
+    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert module._validate_merge_queue_support() == []
+    assert workflow.count("MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}") >= 4
+    assert workflow.count('elif [[ -n "$MERGE_GROUP_BASE_SHA" ]]; then') >= 2
+    assert 'elif [[ "${{ github.event_name }}" == "merge_group" ]]; then' in workflow
+    assert (
+        "(github.event_name == 'pull_request' || github.event_name == 'merge_group') &&" in workflow
+    )
+    assert 'base_sha="${PR_BASE_SHA:-$MERGE_GROUP_BASE_SHA}"' in workflow
+
+
+def test_ci_merge_queue_contract_rejects_missing_merge_group_trigger(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text("on:\n  pull_request:\n", encoding="utf-8")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    errors = module._validate_merge_queue_support()
+
+    assert "ci.yml must run required checks for merge_group events" in errors
+    assert len(errors) == 6
 
 
 def test_shipped_workflows_satisfy_security_contracts() -> None:

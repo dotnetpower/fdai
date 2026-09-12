@@ -437,6 +437,28 @@ def _validate_ci_concurrency() -> list[str]:
     ]
 
 
+def _validate_merge_queue_support() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    errors: list[str] = []
+    if "  merge_group:" not in workflow:
+        errors.append("ci.yml must run required checks for merge_group events")
+    merge_base_binding = "MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}"
+    if workflow.count(merge_base_binding) < 4:
+        errors.append("ci.yml must bind the merge-group base in every comparison boundary")
+    if workflow.count('elif [[ -n "$MERGE_GROUP_BASE_SHA" ]]; then') < 2:
+        errors.append("ci.yml must scope tests and design checks from the merge-group base")
+    if 'elif [[ "${{ github.event_name }}" == "merge_group" ]]; then' not in workflow:
+        errors.append("ci.yml must validate governance transitions from the merge-group base")
+    scenario_events = (
+        "(github.event_name == 'pull_request' || github.event_name == 'merge_group') &&"
+    )
+    if scenario_events not in workflow:
+        errors.append("ci.yml must enforce frozen scenarios for merge groups")
+    if 'base_sha="${PR_BASE_SHA:-$MERGE_GROUP_BASE_SHA}"' not in workflow:
+        errors.append("ci.yml must resolve the frozen-scenario merge-group comparison base")
+    return errors
+
+
 def _validate_service_contract_generation() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     command = "python3 scripts/quality/contracts/generate_service_contracts.py --check"
@@ -676,6 +698,7 @@ def main() -> int:
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
         *_validate_ci_concurrency(),
+        *_validate_merge_queue_support(),
         *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),
