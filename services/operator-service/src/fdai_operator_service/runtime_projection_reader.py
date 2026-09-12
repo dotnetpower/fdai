@@ -26,6 +26,13 @@ from fdai_operator_service.assurance_twin_posture_projection import (
     assurance_twin_review_detail_projection,
     assurance_twin_review_list_projection,
 )
+from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
+from fdai_operator_service.dashboard_source import (
+    MEASUREMENT_KINDS,
+    MEASUREMENT_ROW_LIMIT,
+    MEASUREMENT_SNAPSHOT_SQL,
+    decode_dashboard_snapshot,
+)
 from fdai_operator_service.detection_lifecycle_projection import (
     detection_lifecycle_projection,
 )
@@ -359,91 +366,50 @@ class RuntimeProjectionReader:
 
     async def _autonomy_measurement(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT mode, entry, created_at FROM audit_log "
-            "WHERE created_at >= now() - interval '30 days' "
-            "AND entry->>'decision' IN ('auto', 'hil', 'abstain', 'deny') "
-            "AND entry ? 'tier' ORDER BY seq DESC LIMIT 5000"
+            MEASUREMENT_SNAPSHOT_SQL, (list(MEASUREMENT_KINDS), MEASUREMENT_ROW_LIMIT + 1)
         )
-        watermark_rows = await self._fetch_all(
-            "SELECT MAX(created_at) AS observed_at FROM audit_log"
+        try:
+            snapshot = decode_dashboard_snapshot(rows)
+            result = aggregate_dashboard(
+                events=snapshot.events,
+                outcomes=snapshot.outcomes,
+                metrics=snapshot.metrics,
+                touchpoints=snapshot.touchpoints,
+                window_start=snapshot.window_start,
+                window_end=snapshot.window_end,
+                human_source_complete=snapshot.unattributed_touchpoints == 0,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectionUnavailableError(
+                "canonical measurement evidence is unavailable"
+            ) from exc
+        comparison, comparison_status = await self._dashboard_comparison(snapshot.window_end)
+        result["comparison"] = comparison
+        result["comparison_status"] = comparison_status
+        return result
+
+    async def _dashboard_comparison(
+        self, evaluated_at: datetime
+    ) -> tuple[Mapping[str, object] | None, str]:
+        """Read an independently admitted comparison without relabelling live values."""
+        from fdai_service_contracts.dashboard_comparison import (
+            DASHBOARD_COMPARISON_STATE_KEY,
+            DashboardComparisonSnapshot,
         )
-        decisions = Counter(str(_json_mapping(row["entry"]).get("decision", "")) for row in rows)
-        tier_counts = Counter(
-            str(_json_mapping(row["entry"]).get("tier", "")).lower() for row in rows
+
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %s",
+            (DASHBOARD_COMPARISON_STATE_KEY,),
         )
-        total = len(rows)
-        auto_resolved = decisions["auto"]
-        adverse = decisions["abstain"] + decisions["deny"]
-        finalized = auto_resolved + adverse
-        pending = decisions["hil"]
-        as_of = (
-            _optional_timestamp(watermark_rows[0].get("observed_at")) if watermark_rows else None
-        )
-        return {
-            "synthetic": False,
-            "window_days": 30,
-            "sample_size": total,
-            "confidence": None,
-            "source": {
-                "name": "postgresql:audit_log",
-                "kind": "audit",
-                "as_of": as_of,
-            },
-            "rules": {
-                "active": 0,
-                "candidates_30d": 0,
-                "promoted_30d": 0,
-            },
-            "success": {
-                "auto_resolution_rate": _metric(
-                    auto_resolved / total if total else None,
-                    "higher",
-                ),
-                "human_touchpoints_per_100": _metric(
-                    pending / total * 100 if total else None,
-                    "lower",
-                ),
-                "mttr_seconds": _metric(None, "lower"),
-                "change_lead_time_seconds": _metric(None, "lower"),
-                "cost_per_resolved_event_usd": _metric(None, "lower"),
-            },
-            "leading": {
-                "mixed_model_disagreement_rate": _metric(None, "lower"),
-                "verifier_failure_rate": _metric(None, "lower"),
-                "shadow_divergence_rate": _metric(None, "lower"),
-            },
-            "guards": [],
-            "finalization": {
-                "finalized_events": finalized,
-                "pending_events": pending,
-                "adverse_events": adverse,
-            },
-            "attribution": {
-                "attributed_events": 0,
-                "unattributed_events": total,
-                "coverage": 0.0 if total else None,
-            },
-            "verticals": [
-                {
-                    "key": "unattributed",
-                    "events": total,
-                    "auto_resolved": auto_resolved,
-                    "open_risks": pending + adverse,
-                    "monthly_savings": 0.0,
-                }
-            ]
-            if total
-            else [],
-            "tier": {
-                "mix": {tier: count / total for tier, count in sorted(tier_counts.items()) if tier},
-                "bands": {
-                    "t0": [0.70, 0.80],
-                    "t1": [0.15, 0.20],
-                    "t2": [0.05, 0.10],
-                },
-            },
-            "trend": {},
-        }
+        if not rows:
+            return None, "not_published"
+        try:
+            comparison = DashboardComparisonSnapshot.from_state(
+                rows[0]["value"], evaluated_at=evaluated_at
+            )
+        except (TypeError, ValueError):
+            return None, "invalid_or_expired"
+        return comparison.model_dump(mode="json"), "available"
 
     async def _conversation_delivery(self) -> Mapping[str, object]:
         state_rows = await self._fetch_all(

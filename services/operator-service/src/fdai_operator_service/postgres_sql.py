@@ -8,6 +8,18 @@ SELECT seq, event_id, correlation_id, actor, action_kind, mode,
   FROM audit_log
  WHERE (%(cutoff)s::bigint IS NULL OR seq < %(cutoff)s::bigint)
    AND (%(correlation_id)s::text IS NULL OR correlation_id = %(correlation_id)s::text)
+   AND (%(mode)s::text IS NULL OR mode = %(mode)s::text)
+   AND (%(tier)s::text IS NULL OR lower(entry->>'tier') = %(tier)s::text)
+   AND (%(action_kind)s::text IS NULL OR action_kind = %(action_kind)s::text)
+   AND (%(outcome)s::text IS NULL
+        OR COALESCE(entry->>'gate_route', entry->>'outcome', entry->>'decision')
+           = %(outcome)s::text)
+   AND (%(vertical)s::text IS NULL
+        OR COALESCE(entry->>'vertical', entry->>'category') = %(vertical)s::text)
+   AND (%(window_days)s::integer IS NULL
+        OR created_at >= CURRENT_TIMESTAMP - %(window_days)s::integer * interval '1 day')
+   AND (%(from_seq)s::bigint IS NULL OR seq >= %(from_seq)s::bigint)
+   AND (%(through_seq)s::bigint IS NULL OR seq <= %(through_seq)s::bigint)
  ORDER BY seq DESC
  LIMIT %(fetch)s
 """
@@ -75,6 +87,16 @@ SELECT key, value, updated_at
 KPI_SAMPLE_SQL: Final = """
 SELECT seq, action_kind, mode, entry, created_at
   FROM audit_log
+ ORDER BY seq DESC
+ LIMIT %(limit)s
+"""
+
+ROUTING_SAMPLE_SQL: Final = """
+SELECT seq, action_kind, mode, entry, created_at
+  FROM audit_log
+ WHERE action_kind = 'measurement.control_loop.v1'
+   AND seq <= %(cutoff_seq)s
+   AND created_at >= CURRENT_TIMESTAMP - interval '30 days'
  ORDER BY seq DESC
  LIMIT %(limit)s
 """

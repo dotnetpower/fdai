@@ -29,6 +29,7 @@ import {
   SuccessMetrics,
 } from "./dashboard.executive";
 import { LivingRules, VerticalCards } from "./dashboard.signals";
+import { CohortComparison, useCohortExpiry } from "./dashboard.comparison";
 import { DashboardSkeleton } from "./dashboard.skeleton";
 import {
   loadDashboardOverviewForMode,
@@ -84,6 +85,7 @@ export function DashboardRoute({ client, dataMode }: Props) {
 
 function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
   const { kpi, cost, gates, autonomy } = data;
+  const comparisonExpired = useCohortExpiry(autonomy?.comparison?.valid_until);
   const sampleParams = auditSampleParams(kpi);
 
   const t0Share = overviewT0Share(kpi.by_tier);
@@ -99,6 +101,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
 
   usePublishViewContext(
     () => {
+      const comparison = autonomy?.comparison && !comparisonExpired ? autonomy.comparison : null;
       // The Overview renders an autonomy hero, success-metrics-vs-baseline,
       // per-vertical cards, and guard bands from the /kpi/autonomy panel.
       // Publish that surface (not just the audit KPIs) so the deck can answer
@@ -253,6 +256,20 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
           ...autonomyFacts,
         ],
         records: {
+          cohort_comparison_context: comparison ? [{
+            scope: "separate_admitted_cohort",
+            revision: comparison.fdai_revision,
+            protocol_version: comparison.measurement_protocol_version,
+            published_at: comparison.published_at,
+            valid_until: comparison.valid_until,
+          }] : [],
+          cohort_comparison_metrics: comparison ? comparison.baseline.metrics.map((metric, index) => ({
+            metric: metric.metric_id,
+            baseline: metric.absolute_value,
+            treatment: comparison.treatment.metrics[index]!.absolute_value,
+            baseline_sample_size: metric.sample_size,
+            treatment_sample_size: comparison.treatment.metrics[index]!.sample_size,
+          })) : [],
           sections: [
             {
               position: 1,
@@ -312,7 +329,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
         },
       };
     },
-    [kpi, cost, gates, autonomy, health, savings, t0Share],
+    [kpi, cost, gates, autonomy, health, savings, t0Share, comparisonExpired],
   );
 
   return (
@@ -385,6 +402,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
           <span class="muted">{t("overview.detailHint")}</span>
         </summary>
         <div class="stack overview-details-body">
+          <CohortComparison comparison={autonomy?.comparison} />
           <KpiGrid>
             <KpiCard href={routeHref("audit", { params: sampleParams })} label={t("overview.detailMetric.events")} value={kpi.event_count} hint={t("overview.detailMetric.eventsHint")} />
             <KpiCard href={routeHref("audit", { params: { ...sampleParams, mode: "shadow" } })} label={t("overview.detailMetric.shadow")} value={formatShare(kpi.shadow_share)} hint={t("overview.detailMetric.shadowHint")} tone={kpi.shadow_share > 0.95 ? "positive" : "default"} />
@@ -392,7 +410,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
             <KpiCard href={routeHref("hil-queue")} label={t("overview.detailMetric.approvals")} value={kpi.hil_pending} tone={kpi.hil_pending > 0 ? "warning" : "positive"} hint={kpi.hil_pending > 0 ? t("overview.detailMetric.approvalHint") : t("overview.detailMetric.approvalClear")} />
           </KpiGrid>
 
-          {autonomy ? (
+          {autonomy && autonomy.rules_evidence !== "unavailable" ? (
             <LivingRules rules={autonomy.rules} provenance={autonomy} />
           ) : (
             <a class="overview-unavailable-link" href={routeHref("rules")}>

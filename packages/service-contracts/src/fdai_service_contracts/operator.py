@@ -66,6 +66,39 @@ class AuditQuery:
     limit: int
     cursor: str | None = None
     correlation_id: str | None = None
+    mode: str | None = None
+    tier: str | None = None
+    action_kind: str | None = None
+    outcome: str | None = None
+    vertical: str | None = None
+    window_days: int | None = None
+    from_seq: int | None = None
+    through_seq: int | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.limit) is not int or not 1 <= self.limit <= 500:
+            raise ValueError("audit limit MUST be in [1, 500]")
+        if self.mode is not None and self.mode not in {"shadow", "enforce"}:
+            raise ValueError("audit mode MUST be shadow or enforce")
+        if self.tier is not None and self.tier not in {"t0", "t1", "t2"}:
+            raise ValueError("audit tier MUST be t0, t1 or t2")
+        for value in (self.action_kind, self.outcome, self.vertical):
+            if value is not None and (
+                not isinstance(value, str) or not value or len(value) > 256 or "\x00" in value
+            ):
+                raise ValueError("audit filters MUST be bounded nonempty text")
+        if self.window_days is not None and (
+            type(self.window_days) is not int or not 1 <= self.window_days <= 999
+        ):
+            raise ValueError("audit window MUST be in [1, 999] days")
+        for sequence in (self.from_seq, self.through_seq):
+            if sequence is not None and (
+                type(sequence) is not int or not 1 <= sequence <= 9_223_372_036_854_775_807
+            ):
+                raise ValueError("audit sequence filter MUST be a positive bigint")
+        if self.from_seq is not None and self.through_seq is not None:
+            if self.from_seq > self.through_seq:
+                raise ValueError("audit sequence bounds are reversed")
 
 
 @dataclass(frozen=True, slots=True)

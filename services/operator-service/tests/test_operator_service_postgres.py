@@ -76,6 +76,7 @@ from fdai_operator_service.postgres_sql import (
     LLM_USAGE_CONVERSATIONS_SQL,
     LLM_USAGE_RECORDS_SQL,
     LLM_USAGE_SUMMARIES_SQL,
+    ROUTING_SAMPLE_SQL,
     statement_identity,
 )
 from fdai_operator_service.projection_logic import hil_item
@@ -1760,6 +1761,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))
         self.calls: list[tuple[str, Mapping[str, object]]] = []
         self.audit_rows: list[dict[str, object]] = []
+        self.routing_rows: list[dict[str, object]] = []
         self.hil_rows: list[dict[str, object]] = []
         self.incident_rows: list[dict[str, object]] = []
         self.incident_snapshot_seq = 0
@@ -1781,6 +1783,8 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
             return self.audit_rows
         if statement == KPI_SAMPLE_SQL:
             return self.audit_rows
+        if statement == ROUTING_SAMPLE_SQL:
+            return self.routing_rows
         if statement == HIL_COUNT_SQL:
             # Mirrors the SQL projectability filter so the count agrees with the page.
             unprojectable = sum(1 for row in self.hil_rows if hil_item(row) is None)
@@ -1877,6 +1881,32 @@ async def test_audit_projection_normalizes_null_string_correlation() -> None:
     assert page.items[0]["correlation_id"] is None
 
 
+async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> None:
+    model = StubPostgresReadModel()
+    action = "measurement.control_loop.v1' OR TRUE --"
+    await model.list_audit(
+        AuditQuery(
+            limit=25,
+            action_kind=action,
+            mode="shadow",
+            tier="t0",
+            outcome="auto",
+            window_days=30,
+            from_seq=10,
+            through_seq=20,
+        )
+    )
+    statement, parameters = model.calls[0]
+    assert action not in statement
+    assert parameters["action_kind"] == action
+    assert parameters["window_days"] == 30
+    assert parameters["from_seq"] == 10
+    assert parameters["through_seq"] == 20
+    assert parameters["mode"] == "shadow"
+    assert parameters["tier"] == "t0"
+    assert parameters["outcome"] == "auto"
+
+
 @pytest.mark.asyncio
 async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() -> None:
     model = StubPostgresReadModel()
@@ -1946,9 +1976,42 @@ async def test_count_only_hil_queue_reports_a_renderable_total() -> None:
 
 @pytest.mark.asyncio
 async def test_kpi_uses_bounded_sample_and_authoritative_hil_count() -> None:
+    from uuid import UUID
+
+    from fdai_service_contracts.control_loop_measurement import (
+        ControlLoopMeasurement,
+        control_loop_measurement_id,
+    )
+
     model = StubPostgresReadModel()
     model.audit_rows = [
         _audit_row(1, action_kind="rule.evaluate", entry={"outcome": "hil", "tier": "T0"})
+    ]
+    classification = ControlLoopMeasurement(
+        measurement_id=control_loop_measurement_id("example"),
+        event_id=UUID(int=1),
+        idempotency_key="example",
+        source="example",
+        event_type="example.detected",
+        mode="shadow",
+        occurred_at=_NOW,
+        ingested_at=_NOW,
+        recorded_at=_NOW,
+        tier="t0",
+        terminal_outcome="hil",
+        gate_route="hil",
+        synthetic=False,
+    )
+    model.routing_rows = [
+        _audit_row(
+            1,
+            action_kind="measurement.control_loop.v1",
+            entry={
+                **classification.model_dump(mode="json"),
+                "actor": "fdai.measurement",
+                "action_kind": "measurement.control_loop.v1",
+            },
+        )
     ]
     model.hil_rows = [{"value": {}}]
 
@@ -1960,6 +2023,9 @@ async def test_kpi_uses_bounded_sample_and_authoritative_hil_count() -> None:
     assert payload["by_outcome"] == {"hil": 1}
     kpi_call = next(call for call in model.calls if call[0] == KPI_SAMPLE_SQL)
     assert kpi_call[1]["limit"] == 500
+    assert payload["routing_sample"]["action_kind"] == "measurement.control_loop.v1"
+    routing_call = next(call for call in model.calls if call[0] == ROUTING_SAMPLE_SQL)
+    assert routing_call[1]["cutoff_seq"] == 1
 
 
 @pytest.mark.asyncio
@@ -1974,7 +2040,8 @@ async def test_kpi_abstains_instead_of_inventing_an_outcome_for_rows_without_one
     payload = (await model.dashboard_metrics()).to_dict()
 
     assert payload["event_count"] == 3
-    assert payload["by_outcome"] == {"applied": 1}
+    assert payload["by_outcome"] == {}
+    assert payload["routing_sample"]["row_count"] == 0
 
 
 @pytest.mark.asyncio

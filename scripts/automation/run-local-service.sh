@@ -82,6 +82,28 @@ write_launch_marker() {
   mv -f -- "$launch_marker.tmp.$$" "$launch_marker"
 }
 
+has_stack_supervisor() {
+  local ancestor="$1"
+  local depth
+  for ((depth = 0; depth < 32; depth++)); do
+    if [[ ! "$ancestor" =~ ^[1-9][0-9]*$ ]]; then
+      return 2
+    fi
+    if (( ancestor == 1 )); then
+      return 1
+    fi
+    if [[ ! -r "/proc/$ancestor/cmdline" ]]; then
+      return 2
+    fi
+    if grep -zEq '(^|/)scripts/deployment/local/start-console-services\.sh$' \
+      "/proc/$ancestor/cmdline"; then
+      return 0
+    fi
+    ancestor="$(ps -o ppid= -p "$ancestor" | tr -d ' ')" || return 2
+  done
+  return 2
+}
+
 lock_file="${log_file}.lock"
 exec {service_lock_fd}>> "$lock_file"
 chmod 600 "$lock_file"
@@ -137,6 +159,21 @@ if ! flock -n "$service_lock_fd"; then
       else
         if [[ "$owner_is_managed" != "1" && "$child_is_managed" != "1" ]]; then
           echo "service restart required: $service (launch inputs changed)" >&2
+          exit 75
+        fi
+        # The stack supervisor stops every sibling when one owned child exits.
+        scope_pid="$owner_child_pid"
+        if [[ "$owner_is_managed" == "1" ]]; then
+          scope_pid="$owner_pid"
+        fi
+        has_stack_supervisor "$scope_pid"
+        supervisor_status=$?
+        if (( supervisor_status == 0 )); then
+          echo "single-service restart blocked: $service (owned by the full-stack supervisor; an explicitly authorized stack restart is required)" >&2
+          exit 75
+        fi
+        if (( supervisor_status != 1 )); then
+          echo "single-service restart blocked: $service (supervisor scope cannot be verified)" >&2
           exit 75
         fi
         echo "service inputs changed; restarting: $service" >&2
