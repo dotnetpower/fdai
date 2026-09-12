@@ -5,12 +5,22 @@ locals {
   provider_schema_job_enabled    = var.provider_schema_cron_expression != ""
   provider_schema_resource_group = "rg-${var.workload}${local.full_suffix}"
   provider_schema_environment    = "cae-${var.workload}${local.full_suffix}"
+  provider_schema_environment_id = join("", [
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}",
+    "/resourceGroups/${local.provider_schema_resource_group}",
+    "/providers/Microsoft.App/managedEnvironments/${local.provider_schema_environment}",
+  ])
   provider_schema_acr_login_server = (
     "cr${var.workload}${local.acr_suffix}${var.resource_name_suffix}.azurecr.io"
   )
   provider_schema_inventory_identity = (
     "id-${var.workload}${local.full_suffix}-inventory"
   )
+  provider_schema_inventory_identity_id = join("", [
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}",
+    "/resourceGroups/${local.provider_schema_resource_group}",
+    "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${local.provider_schema_inventory_identity}",
+  ])
   provider_schema_job_name = (
     length("caj-${var.workload}${local.full_suffix}-provider-schema") <= 32
     ? "caj-${var.workload}${local.full_suffix}-provider-schema"
@@ -24,13 +34,6 @@ locals {
     "evhns-${var.workload}${local.full_suffix}${local.global_name_suffix}",
     ".servicebus.windows.net:9093",
   ])
-}
-
-data "azurerm_container_app_environment" "provider_schema" {
-  count = local.provider_schema_job_enabled ? 1 : 0
-
-  name                = local.provider_schema_environment
-  resource_group_name = local.provider_schema_resource_group
 }
 
 data "azurerm_user_assigned_identity" "provider_schema_inventory" {
@@ -49,7 +52,7 @@ resource "azurerm_container_app_job" "provider_schema" {
   count = local.provider_schema_job_enabled ? 1 : 0
 
   name                         = local.provider_schema_job_name
-  container_app_environment_id = data.azurerm_container_app_environment.provider_schema[0].id
+  container_app_environment_id = local.provider_schema_environment_id
   resource_group_name          = local.provider_schema_resource_group
   location                     = var.region
   workload_profile_name        = "Consumption"
@@ -58,20 +61,20 @@ resource "azurerm_container_app_job" "provider_schema" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [data.azurerm_user_assigned_identity.provider_schema_inventory[0].id]
+    identity_ids = [local.provider_schema_inventory_identity_id]
   }
 
   dynamic "registry" {
     for_each = local.provider_schema_acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = local.provider_schema_acr_login_server
-      identity = data.azurerm_user_assigned_identity.provider_schema_inventory[0].id
+      identity = local.provider_schema_inventory_identity_id
     }
   }
 
   secret {
     name                = "provider-schema-dsn"
-    identity            = data.azurerm_user_assigned_identity.provider_schema_inventory[0].id
+    identity            = local.provider_schema_inventory_identity_id
     key_vault_secret_id = local.provider_schema_state_store_dsn_secret_uri
   }
 

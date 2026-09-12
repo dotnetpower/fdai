@@ -48,7 +48,10 @@ def test_provider_schema_job_is_scheduled_durable_and_publishes_through_pantheon
 def test_provider_schema_job_uses_only_the_read_only_inventory_identity() -> None:
     job = _JOB.read_text(encoding="utf-8")
 
-    assert job.count("data.azurerm_user_assigned_identity.provider_schema_inventory[0].id") == 3
+    assert "container_app_environment_id = local.provider_schema_environment_id" in job
+    assert job.count("local.provider_schema_inventory_identity_id") == 3
+    assert 'data "azurerm_container_app_environment" "provider_schema"' not in job
+    assert "data.azurerm_user_assigned_identity.provider_schema_inventory[0].client_id" in job
     assert "module.inventory_identity" not in job
     assert "module.event_bus" not in job
     assert "grants_authority" not in job
