@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 5077da8fb9fcc956c874dfde8c38b185a2a7ced9
+translation_source_sha: 5387d9d7388f45306909726c10ba03b752e3cfad
 translation_revised: 2026-09-12
 ---
 
@@ -41,6 +41,8 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 적용, 정리, 상태, 인계는 계속 직렬로 수행합니다.
 기반 계층 이전 이미지 계획은 Shared Key에 의존하는 Azure VM Image Builder 스테이징 경로가
 아니라 FQDN 허용 목록이 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM을 사용합니다.
+계획 전에 요청한 지역에서 호환되는 이미지 VM 크기를 선택하고 합산 할당량을 확인한 뒤,
+봉인된 선택을 승인 전에 표시합니다. 적용 중에는 선택한 크기를 바꾸지 않습니다.
 
 하위 수준 Genesis 라우터는 번호가 지정된 15개 단계, 정확한 진행률, 건너뛴 단계 수, 남은 작업을
 표시합니다. `--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및 Storage 정책

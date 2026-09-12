@@ -1,0 +1,29 @@
+{
+  "schema_version": "fdai.runner-image-sku-policy.v1",
+  "architecture": "x64",
+  "hyper_v_generation": "V2",
+  "os_disk_gib": 64,
+  "vcpu_count": 2,
+  "max_memory_gib": 8,
+  "roles": {
+    "builder": {
+      "min_memory_gib": 8,
+      "candidates": [
+        "Standard_D2ds_v5",
+        "Standard_D2s_v5",
+        "Standard_D2ads_v5",
+        "Standard_D2as_v5"
+      ]
+    },
+    "verifier": {
+      "min_memory_gib": 4,
+      "candidates": [
+        "Standard_B2s",
+        "Standard_D2ds_v5",
+        "Standard_D2s_v5",
+        "Standard_D2ads_v5",
+        "Standard_D2as_v5"
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: db82c9e14784a670aab52ace00521ff26fba22d3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: fd4a863434199214d5ad6fb659ece3587c54369b }]
 ---
 
 # Deploy Quickstart
@@ -42,6 +42,8 @@ and image-supply work uses bounded concurrency. Approvals, applies, cleanup, sta
 remain serial.
 The pre-Foundation image plan uses private builder and verifier VMs behind an FQDN-allowlisted
 Firewall Basic rather than the Shared-Key-dependent Azure VM Image Builder staging path.
+It chooses compatible image VM sizes in the requested region before planning, checks their combined
+quota, and displays the sealed choices before approval. It never changes those sizes during apply.
 
 The lower-level Genesis router displays 15 numbered stages, exact progress, skipped-stage counts,
 and remaining work. Its `--apply --allow-probe-resources` flags authorize only missing-provider
