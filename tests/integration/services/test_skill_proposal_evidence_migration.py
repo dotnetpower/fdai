@@ -28,9 +28,9 @@ _EVIDENCE_REVISION = "operator_skill_proposal_evidence_20260912"
 
 @pytest.fixture
 def disposable_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    source = os.environ.get("FDAI_VALIDATION_DATABASE_URL")
+    source = os.environ.get("FDAI_VALIDATION_DATABASE_URL") or os.environ.get("FDAI_DATABASE_URL")
     if not source:
-        pytest.skip("FDAI_VALIDATION_DATABASE_URL is unset")
+        pytest.skip("FDAI_VALIDATION_DATABASE_URL and FDAI_DATABASE_URL are unset")
     source = source.replace("postgresql+psycopg://", "postgresql://", 1)
     parts = urlsplit(source)
     database = "fdai_skill_evidence_" + uuid4().hex[:12]
