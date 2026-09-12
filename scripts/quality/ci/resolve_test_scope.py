@@ -42,14 +42,24 @@ _TERRAFORM_FILES = frozenset(
         ".github/workflows/ci.yml",
     }
 )
-_DOC_PREFIXES = (".github/instructions/", "docs/", "scripts/quality/localization/")
+_DOC_PREFIXES = ("docs/", "scripts/quality/localization/")
 _DOC_FILES = frozenset(
     {
         "README.md",
         "README-ko.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "DEVELOPING.md",
+        ".github/copilot-instructions.md",
         ".github/workflows/ci.yml",
         "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
     }
+)
+_GUIDANCE_PREFIXES = (
+    ".github/instructions/",
+    ".github/skills/",
+    ".github/prompts/",
+    ".github/agents/",
 )
 _OPERATOR_PREFIXES = (
     "console/",
@@ -57,12 +67,16 @@ _OPERATOR_PREFIXES = (
     "eval/",
     "ui/",
     "mocks/ui/",
-    "packages/network-topology-contracts/",
-    "packages/service-contracts/",
+    "packages/",
+    "src/",
+    "services/core-control-plane/src/fdai/shared/contracts/",
+    "config/",
+    "extensions/",
+    "rule-catalog/vocabulary/",
     "services/operator-service/",
     "tools/architecture-diagrams/assets/",
 )
-_OPERATOR_FILES = frozenset(
+_OPERATOR_FILES = _PYTHON_FILES | frozenset(
     {
         ".github/workflows/ci.yml",
         "scripts/quality/ci/run-operator-surfaces.sh",
@@ -73,8 +87,11 @@ _EVALUATION_PREFIXES = (
     "evaluation-sdk/",
     "benchmarks/sregym/",
     "benchmarks/cybergym/",
+    "extensions/",
+    "packages/",
+    "src/",
 )
-_EVALUATION_FILES = frozenset(
+_EVALUATION_FILES = _PYTHON_FILES | frozenset(
     {
         ".github/workflows/ci.yml",
         "pyproject.toml",
@@ -110,13 +127,15 @@ class ChangeScope(NamedTuple):
 
 
 def _classify_path(path: str) -> ChangeScope:
+    if path.endswith(".md") and path.startswith(_GUIDANCE_PREFIXES):
+        return ChangeScope(False, True, False, False, False, False, False)
     python = path.startswith(_PYTHON_PREFIXES) or path in _PYTHON_FILES
     return ChangeScope(
         python=python,
         docs=python or path.startswith(_DOC_PREFIXES) or path in _DOC_FILES,
         terraform=path.startswith(_TERRAFORM_PREFIXES) or path in _TERRAFORM_FILES,
-        operator=python or path.startswith(_OPERATOR_PREFIXES) or path in _OPERATOR_FILES,
-        evaluation=python or path.startswith(_EVALUATION_PREFIXES) or path in _EVALUATION_FILES,
+        operator=path.startswith(_OPERATOR_PREFIXES) or path in _OPERATOR_FILES,
+        evaluation=path.startswith(_EVALUATION_PREFIXES) or path in _EVALUATION_FILES,
         dependencies=path in _DEPENDENCY_FILES,
         scenarios=path.startswith(_SCENARIO_PREFIXES) or path in _SCENARIO_FILES,
     )

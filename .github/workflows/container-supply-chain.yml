@@ -12,7 +12,6 @@ on:
       - "pyproject.toml"
       - "uv.lock"
       - "LICENSE"
-      - "README.md"
       - "evaluation-sdk/**"
       - "benchmarks/sregym/pyproject.toml"
       - "benchmarks/cybergym/pyproject.toml"
@@ -23,44 +22,60 @@ on:
       - "policies/**"
       - "config/**"
       - "scripts/deployment/service/select_changed_images.py"
+      - "scripts/deployment/service/apply_image_build_override.py"
+      - "scripts/deployment/local/materialize-authoritative-catalogs.py"
       - "docs/internals/sregym-absorption-ledger.json"
       - "tests/scenarios/**"
       - "alembic/**"
       - "alembic.ini"
       - ".github/workflows/container-supply-chain.yml"
-  push:
-    branches: [main]
-    tags: ["v*"]
-    paths:
-      - ".dockerignore"
-      - ".trivyignore.yaml"
-      - "services/**"
-      - "packages/service-contracts/**"
-      - "packages/github-app-auth/**"
-      - "service-contracts/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "LICENSE"
-      - "README.md"
-      - "evaluation-sdk/**"
-      - "benchmarks/sregym/pyproject.toml"
-      - "benchmarks/cybergym/pyproject.toml"
-      - "extensions/code-assurance/pyproject.toml"
-      - "extensions/cost-governance/**"
-      - "src/**"
-      - "rule-catalog/**"
-      - "policies/**"
-      - "config/**"
-      - "scripts/deployment/service/select_changed_images.py"
-      - "docs/internals/sregym-absorption-ledger.json"
-      - "tests/scenarios/**"
-      - "alembic/**"
-      - "alembic.ini"
-      - ".github/workflows/container-supply-chain.yml"
+      - "!services/core-control-plane/src/**/*.py"
+      - "!services/core-control-plane/src/**/*.pyi"
+      - "!services/operator-service/src/**/*.py"
+      - "!services/operator-service/src/**/*.pyi"
+      - "!services/document-ingestion-api/src/**/*.py"
+      - "!services/document-ingestion-api/src/**/*.pyi"
+      - "!services/document-processing-worker/src/**/*.py"
+      - "!services/document-processing-worker/src/**/*.pyi"
+      - "!services/isolated-executor/src/**/*.py"
+      - "!services/isolated-executor/src/**/*.pyi"
+      - "!services/system-knowledge-service/src/**/*.py"
+      - "!services/system-knowledge-service/src/**/*.pyi"
+      - "!packages/service-contracts/src/**/*.py"
+      - "!packages/service-contracts/src/**/*.pyi"
+      - "!packages/github-app-auth/src/**/*.py"
+      - "!packages/github-app-auth/src/**/*.pyi"
+      - "!evaluation-sdk/src/**/*.py"
+      - "!evaluation-sdk/src/**/*.pyi"
+      - "!extensions/cost-governance/src/**/*.py"
+      - "!extensions/cost-governance/src/**/*.pyi"
+      - "!src/**/*.py"
+      - "!src/**/*.pyi"
+      - "!services/core-control-plane/tests/**"
+      - "!services/operator-service/tests/**"
+      - "!services/document-ingestion-api/tests/**"
+      - "!services/document-processing-worker/tests/**"
+      - "!services/isolated-executor/tests/**"
+      - "!services/system-knowledge-service/tests/**"
+      - "!services/core-control-plane/docs/**"
+      - "!services/operator-service/docs/**"
+      - "!services/document-ingestion-api/docs/**"
+      - "!services/document-processing-worker/docs/**"
+      - "!services/isolated-executor/docs/**"
+      - "!services/system-knowledge-service/docs/**"
+      - "!packages/service-contracts/tests/**"
+      - "!packages/github-app-auth/tests/**"
+      - "!evaluation-sdk/tests/**"
+      - "!extensions/cost-governance/tests/**"
+      - "services/core-control-plane/tests/scenarios/**"
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: "Exact protected origin/main commit to build and publish."
+        description: "Explicit deployment/release candidate; must equal this main workflow SHA."
+        type: string
+        required: true
+      images:
+        description: "Comma-separated runtime targets/image names (cost-governance separately), or all."
         type: string
         required: true
 
@@ -77,11 +92,10 @@ jobs:
   select-images:
     if: >-
       github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
       (github.event_name == 'workflow_dispatch' &&
         github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -123,21 +137,25 @@ jobs:
           ref: ${{ env.TARGET_COMMIT_SHA }}
           fetch-depth: 0
 
-      - name: Select affected distribution images
+      - name: Select PR packaging checks or explicit candidate images
         id: select
         env:
           BASE_COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
+          SELECTED_IMAGES: ${{ inputs.images }}
         run: |
           set -euo pipefail
           selector=(python3 scripts/deployment/service/select_changed_images.py)
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] ||
-             [[ ! "$BASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] ||
-             [[ "$BASE_COMMIT_SHA" == "0000000000000000000000000000000000000000" ]]; then
-            "${selector[@]}" --all >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            "${selector[@]}" --images "$SELECTED_IMAGES" >> "$GITHUB_OUTPUT"
           else
-            git diff --name-only -z "$BASE_COMMIT_SHA" "$TARGET_COMMIT_SHA" |
-              "${selector[@]}" --nul >> "$GITHUB_OUTPUT"
+            [[ "$BASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] &&
+              [[ "$BASE_COMMIT_SHA" != "0000000000000000000000000000000000000000" ]] || {
+                echo "pull-request packaging checks require an exact base SHA" >&2
+                exit 1
+              }
+            git diff --no-renames --name-only -z "$BASE_COMMIT_SHA" "$TARGET_COMMIT_SHA" |
+              "${selector[@]}" --packaging-only --nul >> "$GITHUB_OUTPUT"
           fi
 
   pr-build-scan:
@@ -146,6 +164,7 @@ jobs:
       github.event_name == 'pull_request' &&
       needs.select-images.outputs.has_images == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select-images.outputs.matrix) }}
@@ -164,13 +183,10 @@ jobs:
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
 
       - name: Materialize resolved model manifest
-        id: models
         env:
-          EVENT_NAME: ${{ github.event_name }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
         run: |
           python3 - <<'PY'
-          import hashlib
           import json
           import os
           from pathlib import Path
@@ -190,18 +206,9 @@ jobs:
               if not isinstance(capabilities, list):
                   raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
           canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-          digest = hashlib.sha256(canonical).hexdigest()
           rendered = canonical.decode("utf-8")
           Path("resolved-models.json").write_text(rendered, encoding="utf-8")
           Path("services/assets/resolved-models.json").write_text(rendered, encoding="utf-8")
-          predicate = {
-              "schema_version": "1.0.0",
-              "resolved_models": {"canonical_json_sha256": digest},
-          }
-          Path("resolved-models.provenance.json").write_text(
-              json.dumps(predicate, separators=(",", ":"), sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
           PY
 
       - name: Build image for verification
@@ -236,30 +243,14 @@ jobs:
           --ignorefile .trivyignore.yaml
           "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 
-      - name: Generate CycloneDX SBOM
-        run: >-
-          trivy image --format cyclonedx
-          --output "sbom-${{ matrix.target }}-${TARGET_COMMIT_SHA}.cdx.json"
-          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
-
-      - name: Upload SBOM evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: fdai-pr-sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}
-          path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.cdx.json
-          if-no-files-found: error
-          retention-days: 7
-
   build-scan-attest:
     needs: select-images
     if: >-
-      (needs.select-images.outputs.has_images == 'true' &&
-        github.event_name == 'push' &&
-        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
-      (needs.select-images.outputs.has_images == 'true' &&
-        github.event_name == 'workflow_dispatch' &&
-        github.ref == 'refs/heads/main')
+      needs.select-images.outputs.has_images == 'true' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select-images.outputs.matrix) }}

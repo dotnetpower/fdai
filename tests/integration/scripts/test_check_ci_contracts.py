@@ -1874,6 +1874,133 @@ def test_container_pull_requests_use_a_read_only_scan_job() -> None:
         "attestations": "write",
         "id-token": "write",
     }
+    assert not any(
+        "SBOM" in step.get("name", "") or str(step.get("uses", "")).startswith("actions/attest")
+        for step in pr_job["steps"]
+    )
+
+
+def test_container_publication_requires_explicit_protected_main_candidate() -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    assert (
+        module.workflow_security.container_candidate_boundary_errors(
+            workflow, ".github/workflows/container-supply-chain.yml"
+        )
+        == []
+    )
+    assert set(module.workflow_security.workflow_triggers(workflow)) == {
+        "pull_request",
+        "workflow_dispatch",
+    }
+    selection_steps = workflow["jobs"]["select-images"]["steps"]
+    assert selection_steps[1]["name"] == "Verify protected workflow source"
+    source = selection_steps[2]
+    assert source["name"] == "Validate manual publication source"
+    assert source["if"] == "github.event_name == 'workflow_dispatch'"
+    assert source["env"]["INPUT_COMMIT_SHA"] == "${{ inputs.commit_sha }}"
+    assert '[[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {' in source["run"]
+    assert "exit 1" in source["run"]
+    selector = next(step for step in selection_steps if step.get("id") == "select")
+    assert 'git diff --no-renames --name-only -z "$BASE_COMMIT_SHA"' in selector["run"]
+    publication = workflow["jobs"]["build-scan-attest"]
+    assert publication["needs"] == "select-images"
+    for event in ("push", "pull_request", "release", "workflow_call"):
+        assert not module.workflow_security.condition_can_run_for_event(publication["if"], event)
+    steps = {step["name"]: step for step in publication["steps"]}
+    assert "${{ steps.subject.outputs.reference }}" in steps["Scan exact evidence subject"]["run"]
+    for name in (
+        "Generate build provenance attestation",
+        "Attest Core resolved model material",
+        "Generate SBOM attestation",
+    ):
+        assert steps[name]["with"]["subject-digest"] == "${{ steps.push.outputs.digest }}"
+        assert steps[name]["with"]["push-to-registry"] is True
+
+
+@pytest.mark.parametrize("trigger", ("push", "release", "schedule", "pull_request_target"))
+def test_container_candidate_contract_rejects_automatic_publication_triggers(trigger: str) -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    module.workflow_security.workflow_triggers(workflow)[trigger] = {}
+    assert any(
+        "must trigger only PR packaging checks and manual candidates" in error
+        for error in module.workflow_security.container_candidate_boundary_errors(
+            workflow, ".github/workflows/container-supply-chain.yml"
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "condition",
+    (
+        "github.event_name != 'pull_request'",
+        "github.event_name == 'workflow_dispatch'",
+        "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' || true",
+        "github.event_name == 'push' && github.ref == 'refs/heads/main'",
+    ),
+)
+def test_container_candidate_contract_rejects_unbounded_publication(condition: str) -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    workflow["jobs"]["build-scan-attest"]["if"] = condition
+    assert any(
+        "publication must require a manual protected-main candidate" in error
+        for error in module.workflow_security.container_candidate_boundary_errors(
+            workflow, ".github/workflows/container-supply-chain.yml"
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "images",
+    (
+        {},
+        {"required": False, "type": "string"},
+        {"required": True, "type": "string", "default": "all"},
+    ),
+)
+def test_container_candidate_contract_requires_image_selection(images: dict[str, object]) -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    module.workflow_security.workflow_triggers(workflow)["workflow_dispatch"]["inputs"][
+        "images"
+    ] = images
+    assert any(
+        "must require explicit images without a default" in error
+        for error in module.workflow_security.container_candidate_boundary_errors(
+            workflow, ".github/workflows/container-supply-chain.yml"
+        )
+    )
+
+
+def test_container_candidate_contract_rejects_all_image_fallback_and_pr_sbom() -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/container-supply-chain.yml").read_text(encoding="utf-8")
+    )
+    selection = next(
+        step for step in workflow["jobs"]["select-images"]["steps"] if step.get("id") == "select"
+    )
+    selection["run"] = selection["run"].replace('--images "$SELECTED_IMAGES"', "--all")
+    workflow["jobs"]["pr-build-scan"]["steps"].append(
+        {"run": "trivy image --format cyclonedx image"}
+    )
+    errors = module.workflow_security.container_candidate_boundary_errors(
+        workflow, ".github/workflows/container-supply-chain.yml"
+    )
+    assert any(
+        "must select explicit images or affected PR packaging inputs" in error for error in errors
+    )
+    assert any("cannot generate release evidence" in error for error in errors)
 
 
 def test_container_pull_request_jobs_cannot_gain_write_or_secret_access() -> None:

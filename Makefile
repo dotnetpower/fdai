@@ -1,8 +1,8 @@
 # Convenience targets:
 #   `dev-*`   - local dev stack (pgvector + Redpanda), see `infra/local/`.
-#   `lint`, `format`, `test`, `gates`, `check` - local mirror of the CI jobs
-#     in `.github/workflows/ci.yml`. `check` runs everything CI runs so a
-#     contributor can reproduce a failing PR locally in one command.
+#   `lint`, `format`, `test`, `gates`, `check` - local validation entry points.
+#     `check` is an explicitly requested broad local run, not complete Actions
+#     parity. Prefer owning tests during development.
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
 
@@ -42,8 +42,8 @@ genesis-up: ## explain the retired Terraform-stream prototype and canonical fdai
 	@scripts/deployment/azure/genesis-up.sh
 
 # ---------------------------------------------------------------------------
-# CI-parity targets. Each mirrors one job in .github/workflows/ci.yml so a
-# contributor can reproduce the merge gate without pushing.
+# Local counterparts of individual CI checks. They do not replace remote
+# integration, supply-chain evidence, or protected deployment preflight.
 # ---------------------------------------------------------------------------
 
 lint: ## ruff check + ruff format --check + mypy --strict
@@ -78,7 +78,7 @@ gates: ## repo hygiene: punctuation / guids / translations / core-imports / risk
 	bash scripts/quality/architecture/check-core-imports.sh
 	python3 scripts/quality/architecture/check-risk-table-change.py
 
-check: lint gates test operator ## full local CI parity
+check: lint gates test operator ## explicit broad local checks (not all GitHub Actions jobs)
 
 validation-status: ## show commits waiting for centralized integration validation
 	@python3 scripts/automation/validation_queue.py status

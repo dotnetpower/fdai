@@ -220,7 +220,8 @@ def test_context_plan_is_deduplicated_and_rejects_external_targets(tmp_path: Pat
     assert payload["targets"] == ["scripts/automation/session-handover.py"]
     assert payload["required_documents"] == sorted(set(payload["required_documents"]))
     assert ".github/copilot-instructions.md" in payload["required_documents"]
-    assert "scripts/verify.sh" in payload["focused_checks"]
+    assert "scripts/verify.sh" not in payload["focused_checks"]
+    assert any("session-handover.py" in command for command in payload["focused_checks"])
 
     external = _run(
         SCRIPT.parents[2],

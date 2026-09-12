@@ -16,6 +16,8 @@
 #   Excluded: .github/**, docs/internals/** and docs/roadmap-implementation/**
 #             (English-only engineering records), mocks/**, examples/**,
 #             node_modules/**, site/**
+# With paths, inspect those document pairs only, including untracked additions
+# and either surviving side of a deletion. No arguments retains the full CI scan.
 #
 # Exit codes: 0 on success, 1 on any violation.
 
@@ -38,27 +40,59 @@ front_matter_value() {
   ' <<<"$front_matter"
 }
 
-# Enumerate in-scope English markdown files (canonical sources).
-mapfile -t english_docs < <(
-  git ls-files 'README.md' 'docs' \
-    | grep -E '\.md$' \
-    | grep -Ev '(^|/)[^/]+-ko\.md$' \
-    | grep -Ev '^docs/internals/' \
-    | grep -Ev '^docs/roadmap-implementation/' \
-    | while IFS= read -r path; do
-        [[ -f "$path" ]] && printf '%s\n' "$path"
-      done \
-    | sort -u
-)
-
-# Enumerate all -ko.md files (to catch orphans).
-mapfile -t korean_docs < <(
-  git ls-files '*-ko.md' \
-    | while IFS= read -r path; do
-        [[ -f "$path" ]] && printf '%s\n' "$path"
-      done \
-    | sort -u
-)
+if (( $# == 0 )); then
+  # Enumerate canonical sources and all translations to catch orphan files.
+  mapfile -t english_docs < <(
+    git ls-files 'README.md' 'docs' \
+      | grep -E '\.md$' \
+      | grep -Ev '(^|/)[^/]+-ko\.md$' \
+      | grep -Ev '^docs/internals/' \
+      | grep -Ev '^docs/roadmap-implementation/' \
+      | while IFS= read -r path; do
+          [[ -f "$path" ]] && printf '%s\n' "$path"
+        done \
+      | sort -u
+  )
+  mapfile -t korean_docs < <(
+    git ls-files '*-ko.md' \
+      | while IFS= read -r path; do
+          [[ -f "$path" ]] && printf '%s\n' "$path"
+        done \
+      | sort -u
+  )
+else
+  english_docs=()
+  korean_docs=()
+  for path in "$@"; do
+    case "$path" in
+      /*|../*|*/../*|*/..|-*)
+        echo "check-translations: expected repository-relative document paths: $path" >&2
+        exit 2
+        ;;
+    esac
+    case "$path" in
+      *-ko.md)
+        src="${path%-ko.md}.md"
+        [[ ! -f "$path" ]] || korean_docs+=("$path")
+        ;;
+      *.md) src="$path" ;;
+      *)
+        echo "check-translations: expected a Markdown path: $path" >&2
+        exit 2
+        ;;
+    esac
+    case "$src" in
+      docs/internals/*|docs/roadmap-implementation/*) continue ;;
+      README.md|docs/*.md)
+        ko="${src%.md}-ko.md"
+        [[ ! -f "$src" ]] || english_docs+=("$src")
+        [[ ! -f "$ko" ]] || korean_docs+=("$ko")
+        ;;
+    esac
+  done
+  mapfile -t english_docs < <(printf '%s\n' "${english_docs[@]}" | sed '/^$/d' | sort -u)
+  mapfile -t korean_docs < <(printf '%s\n' "${korean_docs[@]}" | sed '/^$/d' | sort -u)
+fi
 
 # Rule 1 + 2 + 3: every English doc has a valid, up-to-date -ko.md.
 for src in "${english_docs[@]}"; do

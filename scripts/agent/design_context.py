@@ -362,13 +362,26 @@ def required_validation(targets: tuple[str, ...]) -> tuple[str, ...]:
     required: set[str] = set()
     for route in _manifest()["routes"]:
         patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
-        if any(
-            _matches(candidate, pattern)
-            for target in targets
-            for candidate in _route_paths(target)
-            for pattern in patterns
-        ):
-            required.update(str(command) for command in route.get("validate", ()))
+        matched = sorted(
+            {
+                target
+                for target in targets
+                for candidate in _route_paths(target)
+                for pattern in patterns
+                if _matches(candidate, pattern)
+            }
+        )
+        if not matched:
+            continue
+        existing = [path for path in matched if (REPO_ROOT / path).is_file()]
+        for command in route.get("validate", ()):
+            command = str(command)
+            if "{paths}" in command:
+                if not existing:
+                    continue
+                command = command.replace("{paths}", shlex.join(existing))
+            command = command.replace("{changed_paths}", shlex.join(matched))
+            required.add(command)
     return tuple(sorted(required))
 
 

@@ -107,6 +107,46 @@ def test_translation_gate_accepts_a_deleted_document_pair(git_repo: Path) -> Non
     assert "0 English docs, 0 translations verified" in result.stdout
 
 
+def test_scoped_translation_gate_checks_only_selected_pair_including_untracked(
+    git_repo: Path,
+) -> None:
+    docs = git_repo / "docs"
+    docs.mkdir()
+    source = docs / "selected.md"
+    source.write_text("# Selected\n", encoding="utf-8")
+    sha = _run(git_repo, "git", "hash-object", str(source)).stdout.strip()
+    translation = docs / "selected-ko.md"
+    translation.write_text(
+        f"---\ntranslation_of: selected.md\ntranslation_source_sha: {sha}\n---\n# Selected\n",
+        encoding="utf-8",
+    )
+    (docs / "unrelated.md").write_text("# Missing translation\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "docs/unrelated.md").returncode == 0
+
+    result = _run(git_repo, "bash", str(_TRANSLATIONS), "docs/selected.md", "docs/selected-ko.md")
+    assert result.returncode == 0, result.stderr
+    assert "1 English docs, 1 translations verified" in result.stdout
+
+    source.write_text("# Changed\n", encoding="utf-8")
+    stale = _run(git_repo, "bash", str(_TRANSLATIONS), "docs/selected-ko.md")
+    assert stale.returncode == 1
+    assert "stale translation" in stale.stderr
+    source.unlink()
+    orphan = _run(git_repo, "bash", str(_TRANSLATIONS), "docs/selected.md")
+    assert orphan.returncode == 1
+    assert "orphan translation" in orphan.stderr
+    translation.unlink()
+    removed = _run(git_repo, "bash", str(_TRANSLATIONS), "docs/selected.md")
+    assert removed.returncode == 0
+
+
+@pytest.mark.parametrize("path", ["../outside.md", "docs/../../outside.md", "--all", "file.py"])
+def test_scoped_translation_gate_rejects_invalid_paths(git_repo: Path, path: str) -> None:
+    result = _run(git_repo, "bash", str(_TRANSLATIONS), path)
+    assert result.returncode == 2
+    assert "expected" in result.stderr
+
+
 def test_text_gates_limit_scans_to_supplied_paths(git_repo: Path) -> None:
     (git_repo / "clean.txt").write_text("clean\n", encoding="utf-8")
     (git_repo / "bad-punctuation.txt").write_text("bad \u2014 punctuation\n", encoding="utf-8")

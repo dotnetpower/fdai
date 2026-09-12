@@ -133,7 +133,7 @@ def sync_is_current(paths: QueuePaths, fingerprint: str) -> bool:
     """Return whether the reusable environment matches its dependency digest."""
     try:
         state: object = json.loads(paths.sync_state.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):
         return False
     if not isinstance(state, dict):
         return False
@@ -167,16 +167,23 @@ def load_stage_cache(path: Path, context: dict[str, str]) -> set[str]:
     """Load passed stages only when their complete context still matches."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):
         return set()
-    if payload.get("context") != context or not isinstance(payload.get("passed"), list):
+    if (
+        not isinstance(payload, dict)
+        or payload.get("context") != context
+        or not isinstance(payload.get("passed"), list)
+    ):
         return set()
     return {stage for stage in payload["passed"] if isinstance(stage, str)}
 
 
 def write_stage_cache(path: Path, context: dict[str, str], passed: set[str]) -> None:
     """Persist passed retry stages atomically."""
-    atomic_write(
-        path,
-        json.dumps({"context": context, "passed": sorted(passed)}, sort_keys=True) + "\n",
-    )
+    try:
+        atomic_write(
+            path,
+            json.dumps({"context": context, "passed": sorted(passed)}, sort_keys=True) + "\n",
+        )
+    except OSError:
+        print("validation-queue: stage-cache=unavailable; successful stage retained")

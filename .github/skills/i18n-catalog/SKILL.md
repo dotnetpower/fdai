@@ -63,10 +63,10 @@ the defects bulk substitution introduces, load the
 - CI enforces this via [`scripts/quality/localization/check-translations.sh`](../../../scripts/quality/localization/check-translations.sh):
   compares `git hash-object foo.md` against the `translation_source_sha`
   recorded in `foo-ko.md`.
-- After editing English docs, run
-  [`scripts/quality/localization/refresh-translation-sha.py`](../../../scripts/quality/localization/refresh-translation-sha.py)
-  to re-sync all pair SHAs at once (only files whose SHA changed are
-  rewritten).
+- After updating and semantically reviewing each changed Korean translation against its source,
+  run `python3 scripts/quality/localization/refresh-translation-sha.py <changed-reviewed-ko.md>`.
+  Pass only those reviewed `*-ko.md` paths. A SHA refresh records review, not translation quality;
+  never run a no-path sweep or stamp unrelated stale translations current.
 
 ### Content rules
 
@@ -151,7 +151,7 @@ and cross-fork search - localize the labels around it, not the record itself.
   `-`, `"`, `'`, `...`. No em-dash / en-dash / smart quotes /
   ellipsis character / no-break space. This applies inside `-ko.md`
   and inside `.ko.json` too.
-- Auto-fix: `python3 scripts/quality/localization/normalize-punctuation.py` (fence-aware
+- Auto-fix: `python3 scripts/quality/localization/normalize-punctuation.py <changed-files>` (fence-aware
   for `.md`; add `--whole-file` for source files whose content is
   entirely code).
 - Timestamps: ISO 8601 / RFC 3339. Decimal separator `.`; no digit
@@ -165,14 +165,13 @@ and cross-fork search - localize the labels around it, not the record itself.
   doesn't have.
 - **Translation-pair failure**: `git hash-object foo.md` does not
   match the `translation_source_sha` in `foo-ko.md`. Update the
-  Korean file to reflect the English edit, then run
-  `refresh-translation-sha.py`.
+  Korean file to reflect the English edit, then follow the scoped refresh in the paired-update rule.
 - **Readable-Hangul failure**: Korean prose was encoded as opaque Hangul
   escapes. Use literal NFC UTF-8 Korean, or add a narrow rationale-bearing
   allowlist entry only when the code explicitly tests code points, character
   ranges, malformed text, or normalization behavior.
 - **Punctuation failure**: an em-dash or smart quote snuck in via
-  copy-paste. Run `normalize-punctuation.py`.
+  copy-paste. Run `normalize-punctuation.py <changed-files>`.
 - **Translation-quality failure**: the Korean left ordinary vocabulary in
   English, split a product name, collapsed markdown indentation, translated a
   fixed domain term such as `shadow`, or spliced an adjective onto a verb
@@ -180,16 +179,24 @@ and cross-fork search - localize the labels around it, not the record itself.
 
 ## Verify
 
-Before every commit that touches L1 or L2, select only the applicable checks from this list:
+For a completed L1 or L2 change, select applicable checks below. Reuse passing evidence under
+[Testing](../../instructions/coding-conventions.instructions.md#testing); a commit is not itself a
+reason to repeat checks. Replace placeholders with task-owned paths, not another session's changes:
 
+```bash
+bash scripts/quality/repository/check-punctuation.sh <changed-files>
+python3 scripts/quality/localization/check-readable-hangul.py <changed-files>
+bash scripts/quality/localization/check-translations.sh <changed-doc-paths>
 ```
-bash scripts/quality/repository/check-punctuation.sh
-python3 scripts/quality/localization/check-readable-hangul.py
-bash scripts/quality/localization/check-translations.sh
+
+For catalog edits only, the parity checker currently has no path selector:
+
+```bash
 bash scripts/quality/localization/check-catalog-parity.sh
 ```
 
-Editing a `-ko.md` file also runs `translation-quality`.
+For changed `-ko.md` files, also use the translation-quality skill. Do not broaden a prose-only
+edit into runtime tests, builds, or unrelated catalog checks.
 
 ## Related
 

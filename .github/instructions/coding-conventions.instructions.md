@@ -172,25 +172,37 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 ## Testing
 
 - **External work ordering:** GitHub Actions troubleshooting, Azure mutation/deployment, remote
-  evaluation, and image build/push/pull MUST wait for focused checks and a focused commit. Release
+  evaluation, and release image build/push/pull MUST wait for focused checks and a focused commit. Release
   and deployment work MUST target a pushed SHA whose required CI checks and protected workflow
   preflight pass. A local validation-queue receipt is optional diagnostic evidence and MUST NOT
   block another session's work. Read-only preflight MAY run earlier; edits restart the loop.
 - **Edit loop**: run the smallest executable test that can falsify the current change. Do not run a
   package, subsystem, or repository suite when one test file or node id is sufficient.
 - **Parallel sessions**: prefer separate worktrees; never run bare `make test-changed` over another session's dirty or untracked paths.
-- **Completed batch**: run focused checks, then use bare `make test-changed` only for an isolated
-  batch. In a shared dirty tree, commit owned paths and run
-  `make test-changed DIFF=<commit>^..<commit>`; fix failures before reporting. Use
-  `DIFF=<base>...HEAD` only at an explicit integration boundary; CI owns repository-wide
-  integration for pushed SHAs.
-- **Focused pytest facade**: use `bash scripts/verify.sh --full <path>` when the completed slice
-  needs pytest through the common gate runner. A path is mandatory; pathless `--full` is rejected.
-- **Whole-repository suite**: `bash scripts/verify.sh --all` is reserved for an explicit user
-  request, a merge/release boundary, or a changed-test selector full fallback. It MUST NOT run after
-  every edit, hardening batch, commit, or push. A green whole-suite result applies to that exact
-  commit and environment and MUST NOT be repeated while relevant inputs are unchanged; use CI as
-  the authoritative merge/release regression gate when available.
+- **Completed batch**: run the owning focused tests once. Use `make test-changed` when the tests
+  do not already cover the complete change, only over task-owned isolated inputs. For committed
+  work, `make test-changed DIFF=<base>..<commit>` selects missing coverage; it is not a mandatory
+  second pass after the same content passed locally. Never commit merely to obtain a test identity.
+- **Result reuse**: a local pass is reusable only when the selected inputs, owning tests, checker
+  code, configuration, locked dependencies, tool versions, and relevant environment are unchanged.
+  Commit metadata alone does not invalidate it. Git-history checks also bind their comparison
+  history. Unknown dependencies or mutable external state require fresh checks. Verify delivered
+  bytes against the tested inputs; never associate a dirty checkout's result with a clean commit.
+  Cache misses, corruption, or unavailable evidence trigger the owning check, not a successful
+  fallback. Local cache entries cannot satisfy CI, image provenance, or deployment authorization.
+- **Focused pytest facade**: use direct `uv run pytest -q --no-cov <path>` or
+  `bash scripts/verify.sh --full <path>` for pytest only. Run additional owning static checks
+  separately when needed. A path is mandatory; pathless `--full` is rejected.
+- **Whole-repository suite**: `bash scripts/verify.sh --all` and `make validation-all` require an
+  explicit local whole-suite request. A merge/release request alone does not require duplicating
+  authoritative CI locally. If the changed-test selector cannot bound impact, report that fallback
+  before escalating. Never run a whole suite after each edit, batch, commit, or push.
+- **Delivery boundaries**: distinguish locally verified implementation from pushed-SHA CI and
+  deployment completion. Push only when requested, then record the exact run once; do not poll,
+  dispatch, or retry to test an iteration. Keep required merge and deployment evidence checks.
+  Build, scan, publish, and attest release images for explicitly selected candidates; retain
+  targeted packaging checks for build and runtime dependency changes. Promote the same verified
+  digest, rechecking evidence freshness and policy rather than rebuilding at each environment.
 - Diff-scoped testing is a development feedback optimization, not proof of complete regression or
   coverage. It MUST NOT replace relevant safety property tests, focused slice verification, or the
   authoritative full coverage/regression gates at merge and release boundaries.

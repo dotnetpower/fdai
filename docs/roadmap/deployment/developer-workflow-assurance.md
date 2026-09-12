@@ -54,10 +54,45 @@ HTTP probes use the committed local port inventory, and Azure reads use at most 
 
 The CI scope resolver is deterministic and fail-safe. A change to the CI workflow selects every
 scoped surface, and an unclassified path falls back to every scoped surface instead of skipping
-unknown consumers. Python changes retain the full regression, safety-core coverage, database,
-governance, derived-source, operator-surface, and evaluation checks. The required join accepts
+unknown consumers. Python changes retain full regression, safety-core coverage, database,
+governance, and derived-source checks. Operator and evaluation checks follow their own source and
+shared dependency inputs. Markdown under the instruction, skill, prompt, and agent directories is
+documentation; executable skill assets remain conservatively classified. The required join accepts
 only successful jobs and intentional skips, so scope routing reduces unrelated work without
 converting a failed or cancelled check into success.
+
+## Validation stages and reuse
+
+Development checks target changed behavior, not the act of creating a commit. A changed-test
+whole-suite fallback prints the selected scope and stops before execution unless an explicitly
+requested local whole-suite run supplies `--allow-full-suite`. The focused
+`verify.sh --full <path>` facade runs only the selected pytest target. Additional owning static
+checks are explicit; route plans never add an unscoped repository runner to every path.
+Workflow guidance keeps the Constitution and traceability context; deeper runtime authority
+documents load for changes to those runtime contracts rather than every CI tooling edit.
+
+| Stage | Required evidence | Reuse boundary |
+|-------|-------------------|----------------|
+| Edit | Owning focused tests and affected static contracts | Reuse only while code, tests, checker, configuration, dependencies, tools, and relevant environment inputs remain equal. |
+| Commit and push | Delivered content matches the tested inputs; hooks retain their owning controls | A new commit identifier alone does not invalidate a content-bound local result. Dirty content cannot certify a clean commit. |
+| Merge | Required CI on the actual integration revision | Local results do not replace required remote checks. A merge request does not also request a local whole-suite run. |
+| Release candidate | Selected images are built, scanned, published, and attested by the protected workflow | Reuse a verified candidate digest instead of building every source commit or every environment. |
+| Deploy | Exact source, digest, provenance, approval, policy, and fresh evidence | Local caches grant no deployment authority; stale vulnerability evidence can require a new scan of the same digest. |
+
+The local structural runner can reuse successful results across the optional validator and push
+hook only when its complete content and execution context match. Gates without a proven narrower
+dependency set use the complete tracked tree. Missing, malformed, failed, or mismatched cache
+records cause execution, never a successful fallback. Cache availability is optional.
+
+Documentation updates refresh only the translated files actually reviewed. Coverage candidate
+selection can use existing reports as hints; a one-module task measures that module, not a mandatory
+whole-tree baseline. Visual validation expands from changed slides or routes to shared-layout
+consumers and complete release deliverables, rather than repeating every viewport for each edit.
+
+The tradeoff is later discovery of unrelated integration or packaging failures. Required CI,
+targeted build-input checks, conservative unknown-path fallback, and protected candidate validation
+retain those checks at the owning boundary. Measure queue, setup, check execution, and repeated
+work separately; this design does not claim a latency reduction without comparable run evidence.
 
 ## Safety boundaries
 
