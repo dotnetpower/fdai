@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+import yaml
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = (_ROOT / ".github/workflows/cost-governance-observation-export.yml").read_text(
     encoding="utf-8"
 )
 _ROUTES = (_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+_PYTHON_HEREDOC = re.compile(r"<<'PY'\n(?P<body>.*?)\nPY(?:\n|$)", re.DOTALL)
 
 
 def test_observation_workflow_is_scheduled_protected_and_exact_revision_bound() -> None:
@@ -37,6 +41,20 @@ def test_review_is_non_authoritative_and_cannot_promote() -> None:
     assert "promote-action-type" not in _WORKFLOW
     assert "terraform apply" not in _WORKFLOW
     assert "--require-ready" not in _WORKFLOW
+
+
+def test_embedded_python_is_syntactically_valid() -> None:
+    steps = yaml.safe_load(_WORKFLOW)["jobs"]["observe-import-evaluate"]["steps"]
+    snippets = [
+        match.group("body")
+        for step in steps
+        if isinstance(step.get("run"), str)
+        for match in _PYTHON_HEREDOC.finditer(step["run"])
+    ]
+
+    assert snippets
+    for index, snippet in enumerate(snippets):
+        compile(snippet, f"cost-governance-observation-export:{index}", "exec")
 
 
 def test_cost_governance_design_route_owns_observation_workflow() -> None:

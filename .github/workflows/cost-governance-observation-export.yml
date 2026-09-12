@@ -215,7 +215,7 @@ jobs:
           import sys
           from pathlib import Path
 
-            source_revision, pin_digest, *evidence_names, output_name = sys.argv[1:]
+          source_revision, pin_digest, *evidence_names, output_name = sys.argv[1:]
           evidence_refs = [
               "sha256:" + hashlib.sha256(Path(name).read_bytes()).hexdigest()
               for name in evidence_names
