@@ -1,0 +1,111 @@
+/* Range, chart and bounded ledger composition; shared Overview owns the visual foundation. */
+.lc-range-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  padding-block: 16px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+.lc-range-copy { display: grid; gap: 4px; min-width: 0; }
+.lc-range-copy span, .lc-timezone { color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.lc-range-controls, .lc-range-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lc-segmented { display: flex; flex-wrap: wrap; gap: 4px; }
+.lc-range-option {
+  min-width: 48px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--cs-text-soft);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: inherit;
+  font-size: var(--cs-type-compact-size);
+  cursor: pointer;
+}
+.lc-range-option:hover { background: var(--cs-shade); }
+.lc-range-option.is-active { border-color: var(--cs-steel); background: var(--cs-shade); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+.lc-range-form { flex: 1 1 100%; min-width: 0; }
+.lc-range-form p { margin: 0 0 12px; }
+.lc-date-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 240px)); gap: 16px; }
+.lc-date-field { display: grid; gap: 8px; font-size: var(--cs-type-compact-size); }
+.lc-date-field input { width: 100%; min-width: 0; font: inherit; }
+.lc-range-error { color: var(--cs-dusty-red); font-size: var(--cs-type-body-size); }
+.lc-range-error:empty { display: none; }
+.lc-range-form .lc-range-error { margin-block: 12px; }
+.lc-range-actions { margin-top: 16px; }
+.lc-two { display: grid; grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr); gap: 24px; }
+.lc-two > section { min-width: 0; }
+.lc-two .oq-section-head { min-height: 84px; }
+.lc-token-mix { display: flex; height: 12px; margin-bottom: 16px; overflow: hidden; border-radius: 4px; }
+.lc-token-mix .is-input { flex: 1158; background: var(--cs-steel); }
+.lc-token-mix .is-output { flex: 102; background: var(--cs-terracotta); }
+.lc-token-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 12px; padding-block: 16px; border-top: 1px solid var(--cs-hairline); }
+.lc-token-row > span { text-decoration: underline; text-underline-offset: 3px; }
+.lc-token-row strong { color: var(--cs-text); }
+.lc-token-row small { color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.lc-token-row strong, .lc-token-row small, .lc-chart-meta strong { font-variant-numeric: tabular-nums; }
+.lc-chart-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; font-size: var(--cs-type-compact-size); }
+.lc-chart-help { margin-block: 8px 16px; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.lc-chart-scroll { max-width: 100%; overflow-x: auto; padding-block: 8px; }
+.lc-chart-wrap { min-width: 640px; }
+.lc-chart { display: block; width: 100%; height: 218px; }
+.lc-chart .grid { stroke: var(--cs-hairline); stroke-width: 1; }
+.lc-chart .area { fill: var(--cs-shade); }
+.lc-chart .line { fill: none; stroke: var(--cs-steel); stroke-width: 2; }
+.lc-chart .axis-label { fill: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.lc-chart .point { fill: var(--cs-card); stroke: var(--cs-steel); stroke-width: 2; pointer-events: none; }
+.lc-chart .hit { fill: transparent; cursor: crosshair; }
+.lc-chart .point.is-active { r: 6; fill: var(--cs-steel); }
+.lc-chart .hit:focus-visible { stroke: var(--cs-steel); stroke-width: 2; }
+.lc-chart-guide { stroke: var(--cs-steel); stroke-width: 1; stroke-dasharray: 3 3; visibility: hidden; }
+.lc-chart-guide.is-visible { visibility: visible; }
+.lc-tooltip { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; min-height: 72px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--cs-hairline); font-size: var(--cs-type-compact-size); color: var(--cs-text-soft); }
+.lc-tooltip strong { color: var(--cs-text); }
+.lc-tooltip-row { display: inline-flex; gap: 8px; }
+.lc-tooltip-row b { color: var(--cs-text); font-variant-numeric: tabular-nums; }
+.lc-table-caption { text-align: left; padding: 12px; color: var(--cs-text-soft); }
+.lc-model-table { min-width: 800px; }
+.lc-model-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lc-model-pill { padding: 2px 8px; border-radius: 4px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.lc-ledger-note { color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); margin-block: 8px 16px; }
+.lc-ledger-note:empty { display: none; }
+.lc-ledger-table { min-width: 1320px; }
+.lc-ledger-table td { white-space: nowrap; }
+.lc-ledger-table :is(.capability, .correlation) { font-family: var(--cs-font-mono); }
+.lc-rollup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.lc-rollup-grid > section { min-width: 0; }
+.lc-rollup-grid h2 { margin: 0 0 16px; font-size: var(--cs-type-section-title-size); }
+.lc-rollup-grid .cs-table { min-width: 580px; }
+.lc-rollup-grid .cs-table-wrap { max-height: 440px; overflow: auto; }
+.lc-evidence-links { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.lc-evidence-links a, .lc-trend-section .oq-section-head > a, .lc-model-usage .oq-section-head > a { display: inline-flex; align-items: center; min-height: 44px; }
+@media (max-width: 1000px) {
+  .lc-two { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .lc-two .oq-section-head { min-height: 0; }
+}
+@media (max-width: 1240px) {
+  .lc-rollup-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .lc-range-bar, .lc-range-controls { align-items: start; }
+  .lc-range-controls { width: 100%; }
+  .lc-date-fields { grid-template-columns: minmax(0, 1fr); }
+  .lc-token-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .lc-token-row small { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-chart *, .lc-tooltip { animation: none; transition: none; }
+}
+@media (forced-colors: active) {
+  .lc-chart .line, .lc-chart .point, .lc-chart-guide { stroke: CanvasText; }
+  .lc-chart .axis-label { fill: CanvasText; }
+  .lc-chart .area { fill: Canvas; }
+  .lc-chart .hit:focus-visible { stroke: Highlight; }
+  .lc-chart .point.is-active { fill: Highlight; }
+  .lc-range-option.is-active { outline: 2px solid Highlight; }
+  .lc-token-mix { border: 1px solid CanvasText; }
+  .lc-token-mix .is-input { background: CanvasText; forced-color-adjust: none; }
+  .lc-token-mix .is-output { background: Canvas; forced-color-adjust: none; }
+}

@@ -29,6 +29,8 @@ Read the applicable repository instructions before editing. In particular:
 - `ui/calm-slate-primitives.css` owns presentation primitives shared by Console and mocks.
 - `console/src/styles.css` owns production Console composition.
 - `mocks/ui/assets/calm-slate.css` owns static mock composition over shared tokens.
+- [UI/UX quality rubric](../../../docs/reference/ui-ux-quality-rubric.md) owns the 50 evaluation
+  criteria, scope selection, scoring, mandatory gates, and review-record template.
 
 Existing product behavior and the active design system win over examples in this skill.
 
@@ -51,6 +53,11 @@ Use these principles:
 ## Workflow
 
 ### 0. Complete Desktop First
+
+Before editing, read the rubric and select its core checks, applicable gates, and change-specific
+criteria. Record the route, data mode, navigation state, default and expanded states, viewport,
+language, and evidence inputs. Don't turn untested states into `N/A` or broaden a focused change
+into 50 new test commands. Reuse valid evidence under the testing contract.
 
 Select the touched routes, states, interactions, and viewport behavior first. Isolated nonvisual
 changes need owning component/contract tests, not an automatic browser matrix. Visual or
@@ -233,5 +240,10 @@ nonvisual changes do not inherit that matrix. Reuse valid evidence rather than r
 - [ ] Touched motion and interaction preserve reduced-motion and keyboard focus behavior.
 - [ ] Shared tokens or docs were updated when the visual contract changed.
 - [ ] Explicit scenarios report `passed`, `failed`, `needs-human`, or `needs-infrastructure`.
+
+Complete the rubric record before reporting UI work done: selected and inapplicable IDs,
+per-item evidence and ratings, coverage, gate results, and remaining refinements. Report a score
+only under the rubric's complete-evidence rule. Missing human or infrastructure evidence remains
+explicit; a high average cannot compensate for a failed gate or an unreviewed expanded state.
 
 Report measured outcomes. Do not claim runtime or visual validation from source inspection alone.

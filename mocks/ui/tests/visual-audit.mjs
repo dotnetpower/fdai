@@ -1,4 +1,4 @@
-/** Bounded, local-only visual census of the real master mock iframe. No runtime authority. */
+/** Local visual census of the master iframe; an optional fifth argument expands a details selector. */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const require = createRequire(join(root, "console/package.json"));
 const { chromium } = require("playwright");
-const [label = "baseline", widthArg = "1440", heightArg = "900", filter = ""] = process.argv.slice(2);
+const [label = "baseline", widthArg = "1440", heightArg = "900", filter = "", disclosureSelector = ""] = process.argv.slice(2);
 if (!/^[a-z0-9-]+$/.test(label)) throw new Error("Use an ASCII audit label.");
 const width = Number(widthArg);
 const height = Number(heightArg);
@@ -138,6 +138,15 @@ try {
       const element = await page.locator("#preview-frame").elementHandle();
       const frame = await element.contentFrame();
       await frame.waitForLoadState("load", { timeout: 6000 });
+      if (disclosureSelector) {
+        const disclosure = frame.locator(disclosureSelector);
+        if (!(await disclosure.evaluate(node => node.tagName === "DETAILS"))) {
+          throw new Error("Expanded-state audit requires a native details element.");
+        }
+        if (!(await disclosure.evaluate(node => node.open))) {
+          await disclosure.locator(":scope > summary").click();
+        }
+      }
       await frame.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const measurements = await frame.evaluate(measureDocument);
       const shell = await page.evaluate(() => ({
@@ -160,8 +169,8 @@ try {
       const disposition = Object.values(assertions).every(Boolean) ? "passed" : "failed";
       const name = route.path.replace(/[^a-z0-9-]/gi, "-");
       await page.screenshot({ path: join(output, `${name}.png`), animations: "disabled", timeout: 6000 });
-      results.push({ ...route, ...measurements, shell, assertions, disposition, errors, blocked: [...blocked],
-        limitations: ["Initial visible route and geometry only; not every hidden interaction.",
+      results.push({ ...route, ...measurements, shell, assertions, disposition, errors, expandedDisclosure: disclosureSelector || null, blocked: [...blocked],
+        limitations: [disclosureSelector ? "Named expanded state and geometry only; not every hidden interaction." : "Initial visible route and geometry only; not every hidden interaction.",
           "Contrast excludes gradients, translucent backgrounds, canvas, and SVG text.",
           ...([...blocked].length ? ["External resources blocked; no external rendering or live-readiness claim."] : [])] });
       console.log(`${results.length}/${routes.length} ${route.path} overflow=${measurements.document.scrollWidth - measurements.document.clientWidth} contrast=${measurements.lowContrast.length} unnamed=${measurements.unnamed.length} errors=${errors.length}`);

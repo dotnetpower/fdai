@@ -4,46 +4,48 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Control assurance - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=overview-quality-v1" />
   <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
   <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/overview-quality.css?v=overview-quality-v3" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <script src="assets/overview-workspace.js?v=1" type="module"></script>
+  <script src="assets/overview-workspace.js?v=overview-quality-v2" type="module"></script>
 </head>
-<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
-  <main class="cs-container cs-page ov-page ow-page">
-    <header class="cp-header"><div><h1>Control assurance</h1><p>Safety controls, promotion evidence, and the guard measurements behind operating posture.</p></div><div class="ov-window"><span>Evidence window</span><strong>30 days</strong></div></header>
+<body class="cs-operator-neutral cs-overview-quality" data-chat-theme="clear-neutral">
+  <a class="oq-skip-link" href="#control-assurance-main">Skip to control assurance</a>
+  <main id="control-assurance-main" class="cs-container cs-page ov-page ow-page oq-page" data-preview-view="control-assurance-v1" tabindex="-1">
+    <header class="oq-page-header"><div><h1>Control assurance</h1><p>Safety controls, promotion evidence, and the guard measurements behind operating posture.</p></div><div class="ov-window"><span>Frozen example window</span><strong>30 days</strong></div></header>
     <div class="cs-readonly-banner"><strong>Synthetic preview / Posture unknown.</strong> Simulated guards cannot establish a healthy verdict or authorize promotion.</div>
     <div class="ov-evidence"><strong>Simulated</strong><span>30 days / 30 events</span><span>Confidence unavailable</span><span>Source example-autonomy</span><span>As of 2026-07-22T15:18:00Z</span></div>
-    <div class="ow-metrics">
-      <a class="ow-metric" href="#required-attention"><span>Control posture</span><strong class="op-value-label">Unknown</strong><small>Missing measured guard evidence</small></a>
-      <a class="ow-metric" href="promotion.html?status=blocked"><span>Policy escapes</span><strong class="op-value-label">Unavailable</strong><small>Promotion registry not connected</small></a>
-      <a class="ow-metric" href="audit.html?window=30d&amp;mode=shadow"><span>Shadow share</span><strong>80%</strong><small>24 of 30 example decisions</small></a>
-      <a class="ow-metric" href="promotion.html?status=ready"><span>Promotion ready</span><strong class="op-value-label">Not connected</strong><small>No authoritative registry response</small></a>
+    <div class="cs-metric-grid">
+      <a class="cs-metric-link" href="#required-attention"><span>Control posture</span><strong class="oq-value-label">Unknown</strong><small>Missing measured guard evidence</small></a>
+      <a class="cs-metric-link" href="promotion.html?status=blocked"><span>Safety-policy bypasses</span><strong class="oq-value-label">Unavailable</strong><small>Promotion registry not connected</small></a>
+      <a class="cs-metric-link" href="audit.html?window=30d&amp;mode=shadow"><span>Observation mode</span><strong>80%</strong><small>Shadow / 24 of 30 example decisions</small></a>
+      <a class="cs-metric-link" href="promotion.html?status=ready"><span>Promotion ready</span><strong class="oq-value-label">Not connected</strong><small>No authoritative registry response</small></a>
     </div>
     <section class="ov-section" id="promotion-guards">
       <div class="ov-section-head"><div><h2>Promotion guards</h2><p>Current value, paired baseline, and configured threshold. Fixture values stay simulated even when numerically within threshold.</p></div></div>
-      <div class="ow-tools"><label>Guard<select class="cs-control-select" data-guard-filter><option value="">All guards</option><option value="rollback">Rollback rate</option><option value="fpr">False-positive rate</option><option value="fnr">False-negative rate</option><option value="cfr">Change failure rate</option></select></label></div>
+      <div class="ow-tools"><label>Guard<select id="assurance-guard-filter" class="cs-control-select" data-guard-filter><option value="">All guards</option><option value="rollback">Rollback rate</option><option value="fpr">False-positive rate</option><option value="fnr">False-negative rate</option><option value="cfr">Change failure rate</option></select></label></div>
       <p data-guard-empty role="status" hidden>No projected guard matches this key. No safety conclusion is available.</p>
-      <div class="ov-guard-list">
-        <article class="ov-guard js-chartable" data-guard-key="rollback" data-chart-title="Rollback rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","6.7"],["Baseline","8"],["Threshold","10"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
-          <div class="ov-guard-name"><a href="control-assurance.html?guard=rollback"><strong>Rollback rate</strong></a><small>Baseline 8% / Lower is better</small></div><div><div class="ov-meter"><span style="width:6.7%"></span></div><div class="ov-meter-meta"><span>Current 6.7%</span><span>Threshold 10%</span></div></div><span class="ov-status">Simulated</span>
+      <div class="ov-guard-list oq-surface">
+        <article class="oq-guard js-chartable" data-guard-key="rollback" data-chart-title="Rollback rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","6.7"],["Baseline","8"],["Threshold","10"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=rollback"><strong>Rollback rate</strong></a><small>Lower is better</small></div><div class="oq-guard-values"><span>Current <strong>6.7%</strong></span><span>Baseline 8%</span><span>Threshold 10%</span></div><div class="oq-guard-state"><span class="ov-status">Simulated</span><button type="button" class="oq-inspect" data-cs-chart-inspect aria-label="Inspect rollback measurements"><span aria-hidden="true">&nearr;</span></button></div>
         </article>
-        <article class="ov-guard js-chartable" data-guard-key="fpr" data-chart-title="False-positive rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","2"],["Baseline","3"],["Threshold","5"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
-          <div class="ov-guard-name"><a href="control-assurance.html?guard=fpr"><strong>False-positive rate</strong></a><small>Baseline 3% / Lower is better</small></div><div><div class="ov-meter"><span style="width:2%"></span></div><div class="ov-meter-meta"><span>Current 2%</span><span>Threshold 5%</span></div></div><span class="ov-status">Simulated</span>
+        <article class="oq-guard js-chartable" data-guard-key="fpr" data-chart-title="False-positive rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","2"],["Baseline","3"],["Threshold","5"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=fpr"><strong>False-positive rate</strong></a><small>Lower is better</small></div><div class="oq-guard-values"><span>Current <strong>2%</strong></span><span>Baseline 3%</span><span>Threshold 5%</span></div><div class="oq-guard-state"><span class="ov-status">Simulated</span><button type="button" class="oq-inspect" data-cs-chart-inspect aria-label="Inspect false-positive measurements"><span aria-hidden="true">&nearr;</span></button></div>
         </article>
-        <article class="ov-guard js-chartable" data-guard-key="fnr" data-chart-title="False-negative rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","1.5"],["Baseline","2"],["Threshold","3"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
-          <div class="ov-guard-name"><a href="control-assurance.html?guard=fnr"><strong>False-negative rate</strong></a><small>Baseline 2% / Lower is better</small></div><div><div class="ov-meter"><span style="width:1.5%"></span></div><div class="ov-meter-meta"><span>Current 1.5%</span><span>Threshold 3%</span></div></div><span class="ov-status">Simulated</span>
+        <article class="oq-guard js-chartable" data-guard-key="fnr" data-chart-title="False-negative rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","1.5"],["Baseline","2"],["Threshold","3"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=fnr"><strong>False-negative rate</strong></a><small>Lower is better</small></div><div class="oq-guard-values"><span>Current <strong>1.5%</strong></span><span>Baseline 2%</span><span>Threshold 3%</span></div><div class="oq-guard-state"><span class="ov-status">Simulated</span><button type="button" class="oq-inspect" data-cs-chart-inspect aria-label="Inspect false-negative measurements"><span aria-hidden="true">&nearr;</span></button></div>
         </article>
-        <article class="ov-guard js-chartable" data-guard-key="cfr" data-chart-title="Change failure rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","4.5"],["Baseline","4"],["Threshold","4"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
-          <div class="ov-guard-name"><a href="control-assurance.html?guard=cfr"><strong>Change failure rate</strong></a><small>Baseline 4% / Lower is better</small></div><div><div class="ov-meter"><span style="width:4.5%"></span></div><div class="ov-meter-meta"><span>Current 4.5%</span><span>Threshold 4%</span></div></div><span class="ov-status">Simulated</span>
+        <article class="oq-guard js-chartable" data-guard-key="cfr" data-chart-title="Change failure rate" data-chart-columns='["Measure","Percent"]' data-chart-rows='[["Current","4.5"],["Baseline","4"],["Threshold","4"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy; not promotion evidence.">
+          <div class="ov-guard-name"><a href="control-assurance.html?guard=cfr"><strong>Change failure rate</strong></a><small>Lower is better</small></div><div class="oq-guard-values"><span>Current <strong>4.5%</strong></span><span>Baseline 4%</span><span>Threshold 4%</span></div><div class="oq-guard-state"><span class="ov-status">Simulated</span><button type="button" class="oq-inspect" data-cs-chart-inspect aria-label="Inspect change-failure measurements"><span aria-hidden="true">&nearr;</span></button></div>
         </article>
       </div>
     </section>
     <div class="ow-grid ov-section">
-      <section class="ov-panel"><h3>Control path</h3><p>30 example decision dispositions, not 30 verified effects.</p><div class="cs-stackbar" aria-hidden="true"><span class="is-auto" style="width:73.33%"></span><span class="is-hil" style="width:6.67%"></span><span class="is-abstain" style="width:16.67%"></span><span class="is-deny" style="width:3.33%"></span></div><nav class="ov-footer-links" aria-label="Control dispositions"><a href="audit.html?outcome=auto&amp;from_seq=1&amp;through_seq=30">Auto 22</a><a href="audit.html?outcome=hil&amp;from_seq=1&amp;through_seq=30">Approval 2</a><a href="audit.html?outcome=abstain&amp;from_seq=1&amp;through_seq=30">Held 5</a><a href="audit.html?outcome=deny&amp;from_seq=1&amp;through_seq=30">Denied 1</a></nav></section>
-      <section class="ov-panel" id="required-attention"><h3>Required attention</h3><ul class="ov-list"><li><a href="#promotion-guards">Measured failed guards</a><strong>Unavailable</strong></li><li><a href="hil.html?status=pending">Approvals pending</a><strong>2</strong></li><li><a href="promotion.html?status=blocked">Blocked capabilities</a><strong>Not connected</strong></li><li><a href="promotion.html">Policy escapes</a><strong>Unavailable</strong></li></ul></section>
+      <section class="oq-panel"><h3>Control path</h3><p>30 example decision dispositions, not 30 verified effects.</p><div class="oq-surface"><div class="cs-stackbar" aria-hidden="true"><span class="is-auto" style="width:73.33%"></span><span class="is-hil" style="width:6.67%"></span><span class="is-abstain" style="width:16.67%"></span><span class="is-deny" style="width:3.33%"></span></div><nav class="ov-footer-links" aria-label="Control dispositions"><a href="audit.html?outcome=auto&amp;from_seq=1&amp;through_seq=30">Automated 22</a><a href="audit.html?outcome=hil&amp;from_seq=1&amp;through_seq=30">Human approval 2</a><a href="audit.html?outcome=abstain&amp;from_seq=1&amp;through_seq=30">Held 5</a><a href="audit.html?outcome=deny&amp;from_seq=1&amp;through_seq=30">Denied 1</a></nav></div></section>
+      <section class="oq-panel" id="required-attention"><h3>Required attention</h3><div class="oq-surface"><ul class="ov-list"><li><a href="#promotion-guards">Measured failed guards</a><strong>Unavailable</strong></li><li><a href="hil.html?status=pending">Approvals pending</a><strong>2</strong></li><li><a href="promotion.html?status=blocked">Blocked capabilities</a><strong>Not connected</strong></li><li><a href="promotion.html">Safety-policy bypasses</a><strong>Unavailable</strong></li></ul></div></section>
     </div>
     <nav class="ov-footer-links" aria-label="Assurance evidence"><a href="promotion.html?status=blocked">Promotion evidence</a><a href="hil.html">Pending approvals</a><a href="audit.html?mode=shadow&amp;window=30d">Shadow audit</a></nav>
   </main>

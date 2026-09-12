@@ -1,7 +1,9 @@
 """Complete-generation Azure relationship projection tests."""
 
+from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from fdai.delivery.azure.arg_projection import (
     arm_id_to_type,
     build_arm_to_neutral_map,
@@ -524,6 +526,63 @@ def test_complete_generation_ignores_non_reference_environment_values() -> None:
 
     assert result.links == ()
     assert result.dropped == ()
+
+
+@pytest.mark.parametrize("reference_kind", ["arm", "arm-case", "endpoint"])
+def test_environment_dependency_excludes_own_identity(reference_kind: str) -> None:
+    app = _resource(
+        "app-example",
+        "compute.container-app",
+        "Microsoft.App/containerApps",
+        {},
+    )
+    target = _resource(
+        "target-example",
+        "compute.container-app",
+        "Microsoft.App/containerApps",
+        {"configuration": {"ingress": {"fqdn": "target.example.com"}}},
+    )
+    assert app.provider_ref is not None
+    assert target.provider_ref is not None
+    own_reference = app.provider_ref
+    target_reference = target.provider_ref
+    if reference_kind == "arm-case":
+        own_reference = f"  {own_reference.upper()}  "
+    elif reference_kind == "endpoint":
+        own_reference = "https://app.example.com/api"
+        target_reference = "https://target.example.com/api"
+    app = replace(
+        app,
+        props={
+            **app.props,
+            "properties": {
+                "configuration": {"ingress": {"fqdn": "app.example.com"}},
+                "template": {
+                    "containers": [{"env": [{"value": own_reference}, {"value": target_reference}]}]
+                },
+            },
+        },
+    )
+    if reference_kind == "endpoint":
+        result = _project((app, target))
+    else:
+        registry = load_resource_type_registry_from_mapping(
+            __import__("yaml").safe_load(RESOURCE_TYPES.read_text(encoding="utf-8"))
+        )
+        result = project_provider_relationships(
+            {"type": "Microsoft.App/containerApps", **app.props},
+            owner=app,
+            arm_to_neutral=build_arm_to_neutral_map(registry),
+            catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+            arm_id_to_type=arm_id_to_type,
+            to_neutral_id=to_neutral_id,
+            source_identity="azure-resource-graph",
+        )
+
+    assert result.dropped == ()
+    assert [(link.from_id, link.link_type, link.to_id) for link in result.links] == [
+        (app.resource_id, "depends_on", target.resource_id)
+    ]
 
 
 def test_per_row_projection_defers_complete_generation_aliases() -> None:

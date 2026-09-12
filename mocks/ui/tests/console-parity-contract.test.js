@@ -24,8 +24,8 @@ const dashboardEssentialStyles = readFileSync(
   join(uiRoot, "assets", "dashboard-essential.css"),
   "utf8",
 );
-const dashboardResourceEssentialStyles = readFileSync(
-  join(uiRoot, "assets", "dashboard-resource-essential.css"),
+const dashboardResourceWorkspaceStyles = readFileSync(
+  join(uiRoot, "assets", "dashboard-resource-workspace.css"),
   "utf8",
 );
 const governanceEvidenceStyles = readFileSync(
@@ -251,16 +251,17 @@ test("master navigation uses a Console-like collapsible Activity Bar and Explore
 test("material studies stay separate from the decision-focused Dashboard", () => {
   const dashboard = readFileSync(join(uiRoot, "dashboard.html"), "utf8");
   const essential = readFileSync(join(uiRoot, "material-glass-essential.html"), "utf8");
-  assert.match(dashboard, /class="cs-operator-neutral cs-dashboard-essential"/);
+  assert.match(dashboard, /class="cs-operator-neutral cs-dashboard-essential cs-dashboard-overview"/);
   assert.match(dashboard, /assets\/dashboard-essential\.css/);
   assert.doesNotMatch(dashboard, /material-glass-renderer|cs-calacatta-dashboard|glass-slide/);
-  assert.match(dashboard, /class="de-card de-attention"/);
-  assert.match(dashboard, /class="de-card de-posture"/);
-  assert.match(dashboard, /class="de-toast" role="status"/);
+  assert.match(dashboard, /class="de-section de-attention"/);
+  assert.match(dashboard, /class="de-section de-posture"/);
+  assert.match(dashboard, /class="de-preview-note"/);
+  assert.doesNotMatch(dashboard, /class="de-toast"/);
   assert.doesNotMatch(dashboard, /class="de-boundary"/);
   assert.ok(
-    dashboard.indexOf('class="de-card de-attention"')
-      < dashboard.indexOf("<h2>Routing and control</h2>"),
+    dashboard.indexOf('class="de-section de-attention"')
+      < dashboard.indexOf('id="routing-title"'),
   );
   assert.match(essential, /class="cs-material-study is-essential"/);
   assert.match(essential, /assets\/material-glass-renderer\.js/);
@@ -321,43 +322,111 @@ test("material studies stay separate from the decision-focused Dashboard", () =>
   assert.match(dashboardEssentialStyles, /@keyframes de-toast-dismiss/);
   assert.match(dashboardEssentialStyles, /pointer-events: none/);
   assert.doesNotMatch(dashboardEssentialStyles, /translateY\(-1px\)/);
-  assert.match(
-    dashboardEssentialStyles,
-    /body\.cs-dashboard-essential \.de-attention-grid > a:first-child:hover/,
-  );
-  assert.match(dashboardEssentialStyles, /background-color: #f5ede2/);
+  assert.match(dashboardEssentialStyles, /body\.cs-dashboard-overview\[data-chat-theme="clear-neutral"\]/);
+  assert.match(dashboardEssentialStyles, /--cs-text: #1e2b39/);
+});
+
+test("Dashboard groups content with open section headings instead of nested cards", () => {
+  const dashboard = readFileSync(join(uiRoot, "dashboard.html"), "utf8");
+  assert.match(dashboard, /<main[^>]*class="[^"]*\bde-page"/);
+  assert.equal((dashboard.match(/class="de-section de-/g) || []).length, 6);
+  assert.equal((dashboard.match(/<header class="de-section-head"/g) || []).length, 7);
+  assert.doesNotMatch(dashboard, /\bde-card\b/);
+  ["attention", "posture", "outcomes", "routing", "verticals"].forEach((name) => {
+    assert.match(dashboard, new RegExp(`aria-labelledby="${name}-title"`));
+    assert.match(dashboard, new RegExp(`<h2 id="${name}-title">`));
+  });
+  assert.match(dashboard, /<details id="operational-evidence" class="de-section de-evidence" data-preview-persist>/);
+  assert.match(dashboard, /<summary><span>Operational evidence<\/span>/);
+  const sectionRule = dashboardEssentialStyles.match(
+    /\.cs-dashboard-essential \.de-section \{([^}]+)\}/,
+  )?.[1];
+  assert.ok(sectionRule);
+  assert.match(sectionRule, /background: transparent/);
+  assert.match(sectionRule, /border: 0/);
+  assert.match(sectionRule, /padding: 0/);
+  assert.match(sectionRule, /box-shadow: none/);
+});
+
+test("Dashboard keeps secondary evidence discoverable and primary charts accessible", () => {
+  const dashboard = readFileSync(join(uiRoot, "dashboard.html"), "utf8");
+  const evidenceStart = dashboard.indexOf('class="de-section de-evidence"');
+  assert.ok(evidenceStart > dashboard.indexOf('id="outcomes-title"'));
+  assert.ok(dashboard.indexOf('id="verticals-title"') > evidenceStart);
+  assert.match(dashboard, /href="#dashboard-main">Skip to dashboard content/);
+  assert.match(dashboard, /<main id="dashboard-main"[^>]*tabindex="-1"/);
+  assert.match(dashboard, /Simulated data/);
+  assert.match(dashboard, /No live reads or actions/);
+  assert.match(dashboard, /aria-label="Inspect trust tier distribution"/);
+  assert.match(dashboard, /data-cs-chart-inspect/);
+  assert.equal((dashboard.match(/<caption class="cs-sr-only">/g) || []).length, 2);
+  assert.equal((dashboard.match(/<th scope="col"[^>]*>/g) || []).length, 4);
+  assert.match(dashboard, /pathLength="100" stroke-dasharray="73 27"/);
+  assert.match(dashboard, /<strong>73%<\/strong>/);
+  assert.match(dashboardEssentialStyles, /@media \(forced-colors: active\)/);
+  assert.match(dashboardEssentialStyles, /outline: 3px solid var\(--de-focus/);
+  assert.doesNotMatch(dashboard, /overview-hubs\.css|overview-workspace\.css/);
+  assert.match(dashboard, /class="cs-metric-grid de-outcome-grid"/);
+  assert.match(dashboard, /Human interactions \/ 100 events/);
+  assert.match(dashboard, /data-window-start datetime="2026-06-22T15:18:00Z"/);
+  assert.match(dashboard, /data-window-end datetime="2026-07-22T15:18:00Z"/);
+  assert.match(dashboard, /30 of 30 example events, sequence 1-30/);
+  assert.match(dashboard, /tenant-wide completeness and live freshness are not assessed/);
+  assert.match(dashboardEssentialStyles, /flex: 0 0 44px/);
+});
+
+test("expanded Dashboard evidence has ordered context, vertical facts and audit detail", () => {
+  const dashboard = readFileSync(join(uiRoot, "dashboard.html"), "utf8");
+  const evidence = dashboard.slice(dashboard.indexOf('<div class="de-evidence-body">'));
+  assert.match(dashboard, /assets\/dashboard-evidence\.css/);
+  assert.ok(evidence.indexOf('id="evidence-context-title"') < evidence.indexOf('id="verticals-title"'));
+  assert.ok(evidence.indexOf('id="verticals-title"') < evidence.indexOf('id="audit-detail-title"'));
+  assert.match(evidence, /<dl class="de-source-facts">/);
+  assert.equal((evidence.match(/<dl class="de-vertical-facts">/g) || []).length, 3);
+  assert.match(evidence, /<div class="de-audit-summary">/);
+  assert.match(evidence, /<div class="de-breakdowns">/);
+  assert.equal((evidence.match(/<td class="de-count">/g) || []).length, 6);
+  assert.match(evidence, /<footer class="de-evidence-note">/);
+  assert.doesNotMatch(evidence, /de-provenance|class="ov-footer-links"/);
+});
+
+test("expanded desktop navigation reserves space instead of obscuring the preview", () => {
+  assert.match(masterLanding, /@media \(min-width: 781px\)/);
+  assert.match(masterLanding, /grid-template-columns: var\(--activity-bar-w\) var\(--explorer-w\) minmax\(0, 1fr\)/);
+  assert.match(masterLanding, /\.app:not\(\.is-nav-collapsed\) \.preview \{ grid-column: 3; \}/);
 });
 
 test("Resource Dashboard uses the decision-first resource workspace", () => {
   const dashboard = readFileSync(join(uiRoot, "dashboard-v2.html"), "utf8");
   assert.match(
     dashboard,
-    /class="dashboard-preview cs-operator-neutral cs-dashboard-essential cs-resource-dashboard"/,
+    /class="dashboard-preview cs-operator-neutral cs-resource-dashboard"/,
   );
-  assert.match(dashboard, /assets\/dashboard-essential\.css/);
-  assert.match(dashboard, /assets\/dashboard-resource-essential\.css/);
-  assert.match(dashboard, /class="de-toast" role="status" aria-live="polite"/);
+  assert.match(dashboard, /assets\/dashboard-resource-workspace\.css/);
+  assert.doesNotMatch(dashboard, /assets\/dashboard-essential\.css|overview-workspace\.css|operator-workspace\.css|<style>/);
+  assert.doesNotMatch(dashboard, /class="de-toast"/);
+  assert.match(dashboard, /<strong>Simulated data<\/strong>/);
   assert.match(dashboard, /class="dr-preview-controls rd-example-controls"/);
-  assert.match(dashboard, /class="rd-snapshot-card"/);
+  assert.match(dashboard, /class="rd-snapshot"/);
   assert.match(dashboard, /class="dr-workspace rd-primary-workspace"/);
   assert.doesNotMatch(dashboard, /class="cs-readonly-banner dr-preview-controls"/);
   assert.doesNotMatch(dashboard, /material-glass-renderer|cs-calacatta-dashboard|glass-slide/);
   assert.ok(
-    dashboard.indexOf('class="rd-snapshot-card"')
+    dashboard.indexOf('class="rd-snapshot"')
       < dashboard.indexOf('class="dr-workspace rd-primary-workspace"'),
   );
   assert.ok(
     dashboard.indexOf('class="dr-resource-panel"')
       < dashboard.indexOf('class="dr-lower-grid"'),
   );
-  assert.match(dashboardResourceEssentialStyles, /width: min\(100%, 1400px\)/);
-  assert.match(
-    dashboardResourceEssentialStyles,
-    /\.rd-primary-workspace > \.dr-lower-grid \{\s+grid-column: 1;/,
-  );
-  assert.match(dashboardResourceEssentialStyles, /\.dr-attention \{\s+background: #fffdf9;/);
-  assert.match(dashboardResourceEssentialStyles, /prefers-reduced-motion: reduce/);
-  assert.doesNotMatch(dashboardResourceEssentialStyles, /translateY\(/);
+  assert.match(dashboardResourceWorkspaceStyles, /width: min\(100%, 1440px\)/);
+  assert.match(dashboard, /id="resource-main"[^>]*data-preview-view="resource-v1"/);
+  assert.match(dashboard, /id="resource-supplement"[^>]*data-preview-persist/);
+  assert.match(dashboard, /class="rd-map-surface"/);
+  assert.match(dashboard, /id="resource-inspector-jump"/);
+  assert.match(dashboard, /<span id="count-na">-<\/span> resources have no start\/stop state/);
+  assert.match(dashboardResourceWorkspaceStyles, /prefers-reduced-motion: reduce/);
+  assert.match(dashboardResourceWorkspaceStyles, /forced-colors: active/);
 });
 
 test("knowledge graph renders every generated ontology node kind", () => {

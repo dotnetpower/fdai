@@ -1,14 +1,16 @@
 // Preserve the existing map interactions; add production's provisioning and provenance surfaces.
 (() => {
   const byId = (id) => document.getElementById(id);
+  const root = document.querySelector(".dashboard-v2");
+  const { formatCount } = window.FdaiDashboardViews;
   function syncRecordedFacts() {
     const snapshot = window.FdaiDashboardV2Snapshot;
     if (!snapshot) return;
-    byId("count-provisioning").textContent = snapshot.resources.filter((resource) =>
-      resource.provisioning !== "unknown").length;
+    byId("count-provisioning").textContent = formatCount(snapshot.resources.filter((resource) =>
+      resource.provisioning !== "unknown").length);
     const result = window.FdaiDashboardV2Query;
     const grouped = document.querySelector('[data-resource-view="groups"]').getAttribute("aria-pressed") === "true";
-    byId("resource-count").textContent = `${grouped ? result.groups.length + " groups" : result.records.length + " resources"} shown / ${result.matchCount} match filters / ${snapshot.resources.length} received${window.FdaiDashboardV2SummaryFilter ? " / " + window.FdaiDashboardV2SummaryFilter + " evidence filter" : ""}`;
+    byId("resource-count").textContent = `${grouped ? formatCount(result.groups.length) + " groups" : formatCount(result.records.length) + " resources"} shown / ${formatCount(result.matchCount)} match filters / ${formatCount(snapshot.resources.length)} received${window.FdaiDashboardV2SummaryFilter ? " / " + window.FdaiDashboardV2SummaryFilter + " evidence filter" : ""}`;
     const activeLens = document.querySelector('[data-resource-lens][aria-pressed="true"]');
     if (activeLens?.dataset.resourceLens === "provisioning") {
       byId("resource-lens-note").textContent = "Provisioning describes a recorded control-plane operation, not power, availability, or verified effect. Missing provisioning evidence remains unknown.";
@@ -37,11 +39,7 @@
       facts.prepend(row);
     }
   }
-  document.addEventListener("click", () => queueMicrotask(syncRecordedFacts));
-  document.addEventListener("input", () => queueMicrotask(syncRecordedFacts));
-  document.addEventListener("change", () => queueMicrotask(syncRecordedFacts));
-  document.addEventListener("keydown", () => queueMicrotask(syncRecordedFacts));
-  new ResizeObserver(() => queueMicrotask(syncRecordedFacts)).observe(document.querySelector(".dr-resource-panel"));
+  root.addEventListener("fdai-preview-state-change", syncRecordedFacts);
   document.addEventListener("click", (event) => {
     if (event.target.closest("#resource-reset, [data-resource-lens], #resource-scope-reset")) window.FdaiDashboardV2SummaryFilter = null;
   }, true);
@@ -49,11 +47,19 @@
     byId("resource-example-state").dispatchEvent(new Event("change", { bubbles: true }));
     byId("resource-refresh-status").textContent = "Same frozen fixture reloaded. No runtime request.";
   });
+  const summaries = [
+    ["received", "Inspect received resources"],
+    ["known", "Inspect known operating states"],
+    ["unknown", "Inspect unknown operating states"],
+    ["provisioning", "Inspect recorded provisioning evidence"],
+  ];
   document.querySelectorAll(".dr-summary > div").forEach((item, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "ow-row-action";
+    button.id = "resource-inspect-" + summaries[index][0];
+    button.className = "cs-control-button is-quiet rd-summary-action";
     button.textContent = "Inspect";
+    button.setAttribute("aria-label", summaries[index][1]);
     button.addEventListener("click", () => {
       byId("resource-reset").click();
       document.querySelector(`[data-resource-lens="${index === 3 ? "provisioning" : "operation"}"]`).click();
@@ -63,6 +69,24 @@
       byId("resource-refresh-status").textContent = index === 1 ? "Showing known operating states only." : index === 3 ? "Showing resources with a recorded provisioning fact. Stale facts still display unknown." : "";
     });
     item.append(button);
+  });
+  for (const kind of ["view", "lens", "density"]) {
+    root.querySelectorAll(`[data-resource-${kind}]`).forEach(button => {
+      if (!button.id) button.id = `resource-${kind}-${button.getAttribute("data-resource-" + kind)}`;
+    });
+  }
+  root.querySelectorAll("details[id][data-preview-persist] > summary").forEach(summary => {
+    if (!summary.id) summary.id = summary.parentElement.id + "-toggle";
+  });
+  const examples = byId("resource-example-controls");
+  document.addEventListener("pointerdown", event => {
+    if (examples.open && !examples.contains(event.target)) examples.open = false;
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !examples.open || event.defaultPrevented) return;
+    examples.open = false;
+    if (examples.contains(document.activeElement)) examples.querySelector("summary").focus({ preventScroll: true });
+    event.preventDefault();
   });
   syncRecordedFacts();
 })();
