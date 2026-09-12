@@ -621,6 +621,38 @@ def test_bind_explicit_hil_only_reasoner_uses_disagree_fake(tmp_path: Path) -> N
     )
 
 
+def test_bind_explicit_hold_does_not_mask_unexpected_reasoner_loss(tmp_path: Path) -> None:
+    resolved = tmp_path / "resolved-models.json"
+    payload = json.loads(_resolved_models_json())
+    reasoners = {
+        capability["name"]: capability
+        for capability in payload["capabilities"]
+        if capability["name"] in {"t2.reasoner.primary", "t2.reasoner.secondary"}
+    }
+    reasoners["t2.reasoner.primary"]["selection_mode"] = "pinned"
+    reasoners["t2.reasoner.primary"]["status"] = "hil-only"
+    reasoners["t2.reasoner.secondary"]["selection_mode"] = "hil-only"
+    reasoners["t2.reasoner.secondary"]["status"] = "hil-only"
+    payload["binding_policy"] = {
+        "environment": "test",
+        "revision": 1,
+        "digest": f"sha256:{'a' * 64}",
+        "expected_active_digest": f"sha256:{'b' * 64}",
+    }
+    resolved.write_text(json.dumps(payload), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient()
+
+    with pytest.raises(LlmBindingsUnavailableError, match="T2 reasoner"):
+        bind_azure_llm_bindings(
+            container,
+            identity=_StaticIdentity(),
+            http_client=http,
+            endpoint="https://oai-test",
+            system_prompt=_TEST_SYSTEM_PROMPT,
+        )
+
+
 def test_bind_hil_only_mode_uses_disagree_fake_for_secondary(tmp_path: Path) -> None:
     """`mixed_model_mode='hil-only'` MUST bind cleanly with an
     always-disagree fake as the secondary, so every T2 quality-gate

@@ -343,15 +343,28 @@ def bind_azure_llm_bindings(
         else None
     )
     if primary_cap is None or secondary_cap is None:
-        explicitly_held_reasoner = resolved.binding_policy_digest is not None and any(
-            capability.name in {"t2.reasoner.primary", "t2.reasoner.secondary"}
+        missing_reasoners = {
+            capability
+            for capability, binding in (
+                ("t2.reasoner.primary", primary_cap),
+                ("t2.reasoner.secondary", secondary_cap),
+            )
+            if binding is None
+        }
+        policy_held_reasoners = {
+            capability.name
+            for capability in resolved.capabilities
+            if capability.name in {"t2.reasoner.primary", "t2.reasoner.secondary"}
             and capability.status.value == "hil-only"
             and capability.selection_mode == "hil-only"
-            for capability in resolved.capabilities
+        }
+        explicitly_held_reasoners = (
+            resolved.binding_policy_digest is not None
+            and missing_reasoners <= policy_held_reasoners
         )
         # A global or governed per-capability HIL opt-out binds an always-disagree
         # sentinel so a single reasoner can never satisfy the quality gate.
-        if resolved.mixed_model_mode == "hil-only" or explicitly_held_reasoner:
+        if resolved.mixed_model_mode == "hil-only" or explicitly_held_reasoners:
             primary_model: CrossCheckModel
             if primary_cap is not None:
                 primary_model = AzureOpenAICrossCheckModel(
