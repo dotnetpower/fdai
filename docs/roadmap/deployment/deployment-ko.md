@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: b5f5907c91947150fdf03b1ac0b215a5705012e9
+translation_source_sha: 3e7414c5f99add7e3e05102fa44d2d3b6a7aa0a0
 translation_revised: 2026-09-12
 ---
 
@@ -48,6 +48,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 모델 전용 Terraform 계획의 대상을 Azure OpenAI 기능 배포 컬렉션으로 제한했습니다. 이제 상위 모듈 전체를 대상으로 지정해 기존 계정 및 역할 할당 리소스가 계획에 포함되는 일이 없습니다. | `current change`; 실패한 보호 계획 `34677766334`; `.github/workflows/deploy-dev.yml`; 모델 수명 주기 및 배포 작업 흐름 집중 테스트 87개; CI 계약 검사. | 수정된 작업 흐름을 게시하고 관련 없는 변경이 없는 모델 연결 계획을 보존한 뒤 이슈 #90의 정확한 Core 이미지 연결 및 런타임 근거를 완료합니다. |
 | 2026-09-10 | implemented | 배포 실행기가 사용하는 ops 소유의 비공개 DNS 영역에 운영 이력 Blob 계정 전용 A record를 추가했습니다. 범위가 제한된 운영 이력 target은 lifecycle Job 종속성을 통해 record를 가져오고 plan 범위 guard는 해당 주소만 허용합니다. 공용 네트워크 접근과 key 인증은 계속 비활성화합니다. | `current change`; 보호된 OI-12 실행 `34447462177`은 실행기 readback 실패 전에 7개 축을 모두 완료하고 비공개 증적을 기록함; 실행기 VM의 guest DNS 진단; 프로바이더에서 관측한 앱 영역 A record와 누락된 ops 영역 record; 집중 Terraform 및 범위 검사. | 실행기 DNS 연결을 게시하고 보호된 운영 이력 plan/apply를 실행 및 검토한 뒤 실행기의 비공개 Blob 해석을 증명하고 통과한 보호 OI-12 artifact를 보존합니다. |
 | 2026-09-10 | implemented | OI-12 프로바이더 실패 및 복구 쿼리를 현재 활성 세대의 원본과 관측 종류로 제한했습니다. 폐기한 원본이 현재 운영 인스턴스 축을 영구 unavailable 상태로 유지할 수 없습니다. 복구는 여전히 실패 이후에 발생해야 하며 실패의 원본, 관측 종류, 범위와 리소스 종류에 정확히 일치해야 합니다. | `current change`; 실패한 보호 인증 `34445258249`; 정제한 읽기 전용 운영 집계에서 폐기한 `arm/observed` 원본은 이후 성공이 없고 활성 `arg/observed` 원본에는 정확한 194.335387초 복구가 있음을 확인; 집중 PostgreSQL 인증 검사. | 활성 원본 fence를 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
 | 2026-09-10 | implemented | 실제 endpoint가 Job 소유의 `volumes`를 거부한 뒤 인벤토리 ARM 시작 본문을 안정 `JobExecutionTemplate` schema로 제한했습니다. Materializer는 검토된 전체 Job을 계속 검증하고 컨테이너 명령, 인자, 환경, 리소스, 시크릿 참조, 볼륨 mount와 초기화 컨테이너를 보존하지만 `containers`와 `initContainers`만 내보냅니다. 구성된 볼륨은 Job에서 제공합니다. | `current change`; 실패한 보호 인증 `34442888325`; 안정 Container Apps `2024-03-01` OpenAPI schema; 집중 materializer 및 작업 흐름 검사. | Schema에 맞는 시작 본문을 게시하고 정확히 증명된 Core 이미지를 생성한 뒤 통과한 보호 OI-12 증적을 보존합니다. |
@@ -190,7 +191,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본
-  Event Bus topic 연결을 사용해야 합니다. 계획은 이 모드를 `database_host_binding` 및 정확한
+  Event Bus topic 연결을 사용해야 합니다. 플랫폼의 모델 전용 계획은 상위 모델 모듈 전체가
+  아니라 `azurerm_cognitive_deployment.capability` 리소스 컬렉션만 직접 대상으로 지정합니다.
+  따라서 기존 계정과 역할 할당 리소스가 대상 확장을 통해 계획에 포함되지 않습니다. 계획은
+  이 모드를 `database_host_binding` 및 정확한
   최초 notification receipt topic 추가와만 함께 사용할 수 있습니다. 각 guard는 전체 허용 목록을
   검증하고 호스트, topic 및 endpoint map은 권위 있는 platform state 출력에서 가져오며 봉인된
   배포 모드는 정확한 조합을 기록합니다. 검증된 endpoint map을 처음 추가하는 model binding이면
