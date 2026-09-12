@@ -40,7 +40,18 @@ test("catalog records stable creation and review metadata for every manual", asy
   const executiveBriefing = catalog.manuals.find((manual) => manual.id === "executive-briefing");
   assert.equal(executiveBriefing.status, "complete");
   assert.ok(catalog.manuals.every((manual) => manual.lastEditedAt === "2026-09-12"));
-  assert.ok(catalog.manuals.every((manual) => manual.reviewedAt === null));
+  assert.deepEqual(
+    catalog.manuals.filter((manual) => manual.reviewedAt === null).map((manual) => manual.id),
+    [
+      "responsible-ai-security",
+      "pilot-production",
+      "ai-operating-model",
+      "enterprise-scale-roadmap",
+    ],
+  );
+  assert.ok(catalog.manuals
+    .filter((manual) => manual.reviewedAt !== null)
+    .every((manual) => manual.reviewedAt === "2026-09-13"));
   assert.ok(catalog.manuals.every((manual) => manual.status === "complete"));
 });
 
@@ -425,12 +436,20 @@ test("Executive and SRE decks load the presentation font standard", async () => 
   assert.match(css, /evidence-source[\s\S]+font-size: 13px/);
 });
 
-test("Cover Flow supports pointer-capture dragging", async () => {
+test("Cover Flow preserves card clicks and captures only dragging pointers", async () => {
   const script = await readFile(new URL("app.js", root), "utf8");
   const css = await readFile(new URL("styles.css", root), "utf8");
+  const pointerDownStart = script.indexOf('flow.addEventListener("pointerdown"');
+  const pointerMoveStart = script.indexOf('flow.addEventListener("pointermove"');
+  const pointerUpStart = script.indexOf('flow.addEventListener("pointerup"');
+  const pointerDownSource = script.slice(pointerDownStart, pointerMoveStart);
+  const pointerMoveSource = script.slice(pointerMoveStart, pointerUpStart);
 
   assert.match(script, /setPointerCapture\(event\.pointerId\)/);
   assert.match(script, /applyCoverflowDrag\(flow, drag\.deltaX\)/);
+  assert.doesNotMatch(pointerDownSource, /setPointerCapture/);
+  assert.match(pointerMoveSource, /Math\.abs\(rawDeltaX\) > 8/);
+  assert.match(pointerMoveSource, /setPointerCapture\(event\.pointerId\)/);
   assert.match(script, /manual\.status === "wip"/);
   assert.match(script, /manual-wip-overlay/);
   assert.match(css, /\.manual-wip-overlay \{/);
