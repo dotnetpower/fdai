@@ -310,6 +310,15 @@ therefore keeps its own object coverage. An unclassified drop, invalid verificat
 partial source generation, conflict, or cardinality violation remains blocking and preserves the
 previous graph.
 
+Open container environment values that resolve to the owning Resource are identity references,
+not dependency candidates. This applies to exact ARM IDs and uniquely resolved endpoint aliases;
+it does not suppress self-links from explicit relationship fields. Reciprocal `depends_on` edges
+are separate facts only when each direction has one candidate, its own source Resource owns the
+provider evidence, and both mappings declare owner-to-reference direction. Both edges still pass
+the complete-generation endpoint, schema, observation-time, and independent-verifier checks.
+Verifier revision `inventory-generation-verifier.v2` records this distinction. Duplicate edges,
+unsupported reversed orientations, and self-links remain blocking.
+
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
 active pointer changes, and the ontology store revalidates LinkType cardinality before commit. The

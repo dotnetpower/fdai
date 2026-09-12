@@ -86,7 +86,7 @@ _DROP_CONFLICTING_DUPLICATE = "conflicting_duplicate"
 _DROP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 _DROP_UNSEEDED_RESOURCE_TYPE = "unseeded_resource_type"
 _NON_BLOCKING_DROPS = frozenset({_DROP_UNSEEDED_RESOURCE_TYPE})
-_RECIPROCAL_LINK_TYPES = frozenset({"peered_with", "runtime_calls"})
+_RECIPROCAL_LINK_TYPES = frozenset({"depends_on", "peered_with", "runtime_calls"})
 
 
 class InventoryProjectionConflictError(RuntimeError):

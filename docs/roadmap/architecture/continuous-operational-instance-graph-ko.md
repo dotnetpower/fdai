@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: b164ec6afa2e169e92711c2c2ad7785ff084d00c
+translation_source_sha: 1c2c35c9fbf2ab95702bbcc1820d4b293a39197f
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -303,6 +303,15 @@ Ontology projection은 같은 세대를 `relationship_complete=false`로 전진�
 아무것도 진술하지 않으므로 자신의 객체 커버리지를 그대로 유지합니다. 분류되지 않은 drop,
 잘못된 검증 metadata, 부분 source 세대, conflict 또는 cardinality 위반은 계속 차단되며 이전
 그래프를 보존합니다.
+
+컨테이너 환경 변수 값이 소유 Resource 자신을 가리키면 의존 관계 후보가 아니라 자기 식별
+참조로 처리합니다. 정확한 ARM ID와 대상으로 유일하게 해석되는 엔드포인트 별칭에 모두
+적용하지만, 명시적인 관계 필드에서 나온 자기 참조 연결은 제외하지 않습니다. 서로 반대인
+`depends_on` 연결은 방향별 후보가 하나이고, 각 출발 Resource가 해당 공급자 근거를 소유하며,
+두 매핑 모두 소유자에서 참조 대상으로 향하는 방향을 선언한 경우에만 별개의 사실입니다.
+두 연결 모두 완전한 세대의 엔드포인트, 스키마, 관측 시각, 독립 검증기 검사를 통과해야 합니다.
+검증기 버전 `inventory-generation-verifier.v2`가 이 구분을 기록합니다. 중복 연결, 근거 없는
+역방향, 자기 참조 연결은 계속 차단합니다.
 
 정확히 검토된 공급자 parent는 같은 child에 대한 일반 Resource Group containment를
 shadow합니다. Snapshot promotion은 활성 pointer를 변경하기 전에 child별 `contains` parent가

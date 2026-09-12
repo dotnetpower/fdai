@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Dependency identity and reciprocal verification | implemented | `delivery/azure/arg_relationships.py`, `delivery/inventory_relationship_verifier.py`, `core/ontology_platform/inventory_projection.py`; focused source, verifier, projection, and replay regressions | Open environment self-identity references are not dependencies. Independently owned reciprocal dependencies retain separate verification receipts through the ontology projection. Duplicate, ambiguous, self-link, and incomplete-evidence rejection remains in force; deployed rollout is not claimed. |
 | Push events and durable delta overlay | implemented | `delivery/azure/activity_log.py`; realtime inventory projector and focused tests | Resource changes can update a bounded overlay. Deployment evidence remains separate. |
 | Private-safe change acceleration | in-progress | `arg_resource_changes.py`; `inventory_change_acceleration.py`; inventory job composition; Operator durable invalidation SSE; Console SSE consumer and polling countdown; focused source, route, replay, and Console checks | The bounded implementation is locally assembled. Change-feed orchestration is isolated from the full reconciliation CLI without changing cursor or completeness authority. Final integrated validation remains open. Complete reconciliation remains the only relationship-completeness authority. |
 | Complete inventory promotion and ontology projection | validated | `delivery/inventory_sync.py`; `runtime/inventory_ontology.py`; focused inventory and projection tests; bounded live ARG collection and authenticated Console inspection | Complete generations replace the owned subgraph atomically. Reviewed nested operational values retain the Resource observation time and generation metadata. Missing values distinguish expected-but-unrecorded, provider-not-exposed, not-applicable, unclassified, and unreviewed types without inferring health from provisioning. |
@@ -250,7 +251,13 @@ retention remain in progress.
 | 2026-08-27 | implemented | Extended the 1.2.0 inventory manifest migration path and content-addressed 1.3.0 manifest digest to include canonical object types and properties plus link properties and source content. Same-generation content changes are rejected before replacement. | `current change`; projection upgrade, same-generation, content-tamper, mixed-release, and completeness tests (`55 passed`). | Deployed projection reload and Azure receipts remain external-only. |
 | 2026-08-27 | implemented | Registered `runtime_calls` in the inventory topology projection contract and verified the complete telemetry-to-current/history path. Valid exact endpoint links remain complete instead of being dropped as unregistered. | `current change`; end-to-end runtime-call inventory, ontology, and topology-history checks (`6 passed`). | Authenticated Operator and Console evidence remains external-only. |
 
+| 2026-09-12 | implemented | Excluded exact own-resource references from open environment dependency candidates and admitted independently owned reciprocal dependencies under verifier revision `inventory-generation-verifier.v2`. Aligned the core projection with verified dependency direction and added a source-to-projection regression. | `current change`; `test_generation_relationships.py`, `test_inventory_relationship_verifier.py`, `test_inventory_projection.py`, and adjacent source, promotion, projection, and replay suites: 354 focused tests passed; Ruff and strict mypy passed for the changed production modules. | Deployed publication and validation remain separate; no readiness or completeness gate was relaxed. |
+
 ### Remaining work
+
+- [x] Verify self-identity filtering, independently owned reciprocal dependencies, and preserved
+  conflict rejection across the source, verifier, and ontology projection; 354 focused checks
+  passed for the current change.
 
 - [x] `OI-01` records a source-to-store implementation audit and identifies the exact owner, tests,
   and missing binding for every collection, projection, query, retention, and archive stage. The

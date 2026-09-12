@@ -6,7 +6,9 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 import yaml
+from fdai.core.ontology_platform.inventory_projection import build_inventory_ontology_projection
 from fdai.delivery.azure.arg_projection import (
     arm_id_to_type,
     build_arm_to_neutral_map,
@@ -478,6 +480,115 @@ def test_duplicate_edge_fails_closed() -> None:
 
 def test_conflicting_duplicate_fails_closed() -> None:
     result = _verify(links=(_link(), replace(_link(), link_props={"conflict": True})))
+    assert result.links == ()
+    assert {drop.reason for drop in result.dropped} == {
+        RelationshipDropReason.CONFLICTING_DUPLICATE
+    }
+
+
+def _reciprocal_dependencies() -> tuple[LinkRecord, ...]:
+    return tuple(
+        _link(
+            source,
+            target,
+            from_type="compute.container-app",
+            to_type="compute.container-app",
+            link_type="depends_on",
+            evidence=replace(
+                _evidence(
+                    mapping_id="azure.container-workload-depends-on-arm-resource",
+                    owner_id=source,
+                    observation_receipt_ref="sha256:" + receipt * 64,
+                ),
+                source_property_path="properties.template.containers[].env[].value",
+                endpoint_orientation="owner_to_referenced",
+                source_provider_type="Microsoft.App/containerApps",
+                target_provider_type="Microsoft.App/containerApps",
+            ),
+        )
+        for source, target, receipt in (("app-a", "app-b", "a"), ("app-b", "app-a", "b"))
+    )
+
+
+def test_reciprocal_dependencies_keep_independent_direction_evidence() -> None:
+    links = _reciprocal_dependencies()
+    resources = tuple(_resource(name, "compute.container-app") for name in ("app-a", "app-b"))
+    result = _verify(resources=resources, links=links)
+
+    assert result.dropped == ()
+    assert [(link.from_id, link.to_id) for link in result.links] == [
+        ("app-a", "app-b"),
+        ("app-b", "app-a"),
+    ]
+    receipts = {
+        link.observation_metadata.verification_receipt_ref
+        for link in result.links
+        if link.observation_metadata is not None
+    }
+    assert len(receipts) == 2
+    assert _verify(resources=resources, links=tuple(reversed(links))) == result
+    projection = build_inventory_ontology_projection(
+        generation="generation-1",
+        resources=resources,
+        links=result.links,
+        relationship_drops=result.dropped,
+    )
+    assert projection.complete is True
+    assert projection.relationship_complete is True
+    assert projection.dropped_reasons == ()
+    assert [(link.from_id, link.to_id) for link in projection.links] == [
+        ("app-a", "app-b"),
+        ("app-b", "app-a"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "defect", ["same-owner", "wrong-orientation", "missing-evidence", "duplicate"]
+)
+def test_reciprocal_dependencies_reject_ambiguous_evidence(defect: str) -> None:
+    forward, reverse = _reciprocal_dependencies()
+    evidence = reverse.mapping_evidence
+    assert evidence is not None
+    if defect == "same-owner":
+        reverse = replace(reverse, mapping_evidence=replace(evidence, provider_owner_id="app-a"))
+    elif defect == "wrong-orientation":
+        reverse = replace(
+            reverse,
+            mapping_evidence=replace(evidence, endpoint_orientation="referenced_to_owner"),
+        )
+    elif defect == "missing-evidence":
+        reverse = replace(reverse, mapping_evidence=None)
+    links = (forward, reverse, reverse) if defect == "duplicate" else (forward, reverse)
+
+    result = _verify(
+        resources=tuple(_resource(name, "compute.container-app") for name in ("app-a", "app-b")),
+        links=links,
+    )
+
+    assert result.links == ()
+    assert RelationshipDropReason.CONFLICTING_DUPLICATE in {drop.reason for drop in result.dropped}
+
+
+@pytest.mark.parametrize("link_type", ["contains", "attached_to", "routes_to"])
+def test_other_reversed_relationships_still_fail_closed(link_type: str) -> None:
+    result = _verify(
+        resources=tuple(_resource(name, "compute.container-app") for name in ("app-a", "app-b")),
+        links=tuple(replace(link, link_type=link_type) for link in _reciprocal_dependencies()),
+    )
+
+    assert result.links == ()
+    assert {drop.reason for drop in result.dropped} == {
+        RelationshipDropReason.CONFLICTING_DUPLICATE
+    }
+
+
+def test_explicit_self_dependency_still_fails_closed() -> None:
+    forward, _ = _reciprocal_dependencies()
+    result = _verify(
+        resources=(_resource("app-a", "compute.container-app"),),
+        links=(replace(forward, to_id="app-a"),),
+    )
+
     assert result.links == ()
     assert {drop.reason for drop in result.dropped} == {
         RelationshipDropReason.CONFLICTING_DUPLICATE
