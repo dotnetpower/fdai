@@ -73,10 +73,12 @@ FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067b
 ARG OPENSSL_LIBS_VERSION=3.5.8-r0
 ARG SQLITE_LIBS_VERSION=3.53.4-r0
 ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r1
+ARG GIT_VERSION=2.55.0-r1
 RUN apk add --no-cache --upgrade \
         "libcrypto3=${OPENSSL_LIBS_VERSION}" \
         "libssl3=${OPENSSL_LIBS_VERSION}" \
     && apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+    "git=${GIT_VERSION}" \
         "libuuid=${UTIL_LINUX_LIBS_VERSION}" \
         "sqlite-libs=${SQLITE_LIBS_VERSION}" \
     && rm -rf /usr/local/lib/python3.13/site-packages/pip \
@@ -96,6 +98,7 @@ WORKDIR /app
 COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
 COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa
 COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
+COPY --chown=65532:65532 provider-schema-catalog/ /app/provider-schema-catalog/
 COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
 COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json /app/docs/internals/sregym-absorption-ledger.json
@@ -106,6 +109,7 @@ COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 COPY --chown=65532:65532 scripts/deployment/local/materialize-authoritative-catalogs.py /app/scripts/deployment/local/materialize-authoritative-catalogs.py
 USER 65532
 RUN test -x /app/.venv/bin/fdai-core-control-plane \
+    && git --version \
     && /app/.venv/bin/python -c "from fdai_cost_governance import load_resource_manifest; assert load_resource_manifest()['candidate_state'] == 'inert'"
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
