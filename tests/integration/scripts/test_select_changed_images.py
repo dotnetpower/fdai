@@ -77,6 +77,7 @@ def test_unrelated_paths_do_not_select_images() -> None:
 def test_pr_trigger_excludes_known_runtime_source_but_keeps_build_assets() -> None:
     root = Path(__file__).resolve().parents[3]
     workflow = yaml.safe_load((root / ".github/workflows/container-supply-chain.yml").read_text())
+    assert workflow["run-name"] == "Candidate images: ${{ inputs.images || 'pr-packaging' }}"
     paths = workflow[True]["pull_request"]["paths"]
     assert "README.md" not in paths
     assert select_image_targets(["README.md"], packaging_only=True) == ()

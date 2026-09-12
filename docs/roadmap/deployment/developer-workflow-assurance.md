@@ -267,6 +267,7 @@ The remaining Low risks are explicit and bounded:
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
 | Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
 | Developer validation authority | implemented | `.githooks/post-commit`; `.githooks/pre-push`; `scripts/agent/design_context.py`; focused hook and dispatcher tests | Commits and pushes no longer depend on local queue receipts; CI owns pushed-SHA integration. |
+| Local-first validation and candidate publication | in-progress | `scripts/verify.sh`; `scripts/agent/design_context.py`; `scripts/quality/ci/resolve_test_scope.py`; scoped text and changed-test selectors; focused regression tests | Content-based local reuse, bounded guidance, and candidate-only publication are being integrated. Required remote evidence remains independent. |
 
 ### Implementation history
 
@@ -305,6 +306,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-16 | implemented | Round 29 re-reviewed the round 28 budgets against the real worst case of each job and script and confirmed they sit above it rather than truncating a slow but healthy deploy, that the `timeout` wrappers preserve exit-code propagation under `set -euo pipefail`, and that both job budgets are valid YAML at job level. The campaign exit condition is met: no reproducible finding above Low remains. | Current change; the round 29 confirmation review and the focused suites recorded in the rows above. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | validated | Central validation accepted the integrated bounded wait revision and the outgoing range was pushed to `origin/main`. | `validation_queue.py check-range origin/main..HEAD` passed for revision `85c5aadf4`, and the push reused that exact receipt and the structural evidence. | Complete issue #122 and synchronize the project board. |
 | 2026-08-17 | implemented | Removed centralized validation from the mandatory developer path while preserving focused checks, path reservations, commit scoping, structural pre-push gates, and SHA-addressed CI. | `current change`; issue #148; focused hook, dispatcher, and constitution tests. | Observe CI and push latency after adoption; keep the queue available only for explicit diagnostics. |
+| 2026-09-12 | in-progress | Reconciled validation stages, removed unscoped route defaults, scoped translation checks, and stopped implicit whole-suite execution. The read-only baseline contains 12 completed CI runs at 265-391 seconds (mean 337.2) and six supply-chain runs at 168-281 seconds (mean 192.2). These are workflow elapsed times, not queue-only measurements or proof of a 90% waiting ratio. | `current change`; focused selector, facade, routing, and text-gate tests; baseline CI run `34663201915` and supply-chain run `34663201914`. | Finish local cache integration and focused checks; measure comparable runs only after an authorized push. |
 
 ### Remaining work
 
@@ -321,6 +323,8 @@ The remaining Low risks are explicit and bounded:
 - [x] Removed automatic queue enrollment and per-commit receipt requirements from ordinary commit,
   push, and agent-tool paths in issue #148.
 - [ ] Complete issue #122 and synchronize the project board.
+- [ ] After an authorized push, compare equivalent CI and candidate-publication cohorts with the
+  recorded baseline, separating queue, setup, execution, and repeated work.
 
 ## Bounded wait campaign
 
