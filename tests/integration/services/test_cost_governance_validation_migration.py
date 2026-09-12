@@ -209,6 +209,67 @@ def test_release_guard_repair_disambiguates_jsonb_subtraction() -> None:
     assert "EXECUTE replace(function_definition, fixed_expression, broken_expression)" in downgrade
 
 
+def test_release_guard_round_trip_preserves_function_security(
+    disposable_database_url: str,
+) -> None:
+    function_identity = (
+        "public.fdai_register_cost_governance_release("
+        "text,text,text,text,text,text,text,text,text,text,"
+        "text,text,bigint,text,jsonb)"
+    )
+    with psycopg.connect(disposable_database_url) as connection:
+        for path in (
+            _RUNTIME_MIGRATION,
+            _MIGRATION,
+            _SETTINGS_MIGRATION,
+            _LIFECYCLE_REPAIR_MIGRATION,
+        ):
+            connection.execute(_migration_sql(path, "upgrade")[1])
+
+        def function_state() -> tuple[object, ...]:
+            row = connection.execute(
+                """
+                SELECT proowner, prosecdef, proconfig, proacl
+                  FROM pg_proc
+                 WHERE oid = %s::REGPROCEDURE
+                """,
+                (function_identity,),
+            ).fetchone()
+            assert row is not None
+            return row
+
+        def function_definition() -> str:
+            row = connection.execute(
+                "SELECT pg_get_functiondef(%s::REGPROCEDURE)",
+                (function_identity,),
+            ).fetchone()
+            assert row is not None
+            return str(row[0])
+
+        security = function_state()
+        assert "receipt.payload -> 'revision_pin' - 'activation_revision'" in (
+            function_definition()
+        )
+
+        connection.execute(_migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "upgrade")[1])
+        assert function_state() == security
+        assert "(receipt.payload -> 'revision_pin') - 'activation_revision'" in (
+            function_definition()
+        )
+
+        connection.execute(_migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "downgrade")[1])
+        assert function_state() == security
+        assert "receipt.payload -> 'revision_pin' - 'activation_revision'" in (
+            function_definition()
+        )
+
+        connection.execute(_migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "upgrade")[1])
+        assert function_state() == security
+        assert "(receipt.payload -> 'revision_pin') - 'activation_revision'" in (
+            function_definition()
+        )
+
+
 async def test_live_lifecycle_receipts_round_trip_through_canonical_reader(
     disposable_database_url: str,
 ) -> None:
