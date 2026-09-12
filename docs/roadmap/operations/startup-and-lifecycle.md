@@ -31,7 +31,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The coordinator derives one evidence lifetime and refresh lead from the full-pass and per-probe budgets. Runtime refresh is bounded, closes processing at exact expiry, and supplies Thor's live fail-closed authority ceiling. PostgreSQL state rehydration remains process-critical, while durable A2 notification replay remains isolated. |
-| T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py), [`t2_startup_proof_evidence.py`](../../../scripts/deployment/azure/t2_startup_proof_evidence.py), and focused startup-proof tests | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request. Opaque proof identity, sampling time, and reuse observation and expiry times let a protected read-only workflow join readiness and durable metering without retaining deployment names. Failures remain retryable. |
+| T2 cross-check startup proof reuse | validated | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py), [`t2_startup_proof_evidence.py`](../../../scripts/deployment/azure/t2_startup_proof_evidence.py), focused startup-proof tests, and protected run `34716676916` | The exact deployed process sampled its one candidate twice and reused that proof 17 times with zero additional T2 invocations. The schema-valid, self-digested receipt retains token and cost totals without prompts, deployment names, endpoints, tenant values, or customer data. The overall readiness decision remained `degraded` and the receipt grants no execution authority. |
 | Collector scheduling and governed discovery activation | implemented | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py), and focused collector, activation, Norns, runtime, and infrastructure tests | The configurable Job uses the non-effect inventory identity and records only validated provenance receipts. Runtime composition closes Norns publication until policy and every current prerequisite pass. |
 | Human approval bootstrap | implemented | `fdai_operator_service/families/iam/hil_callback*.py`; `scripts/operations/run-hil-bootstrap-canary.py`; focused Operator callback, PostgreSQL, Kafka, workflow, governance, and canary tests | Teams callbacks require an API-audience Entra token issued to the configured approval bot, a mapped actor, and the configured group-connected team/channel audience. Slack A1 can operate independently with its workspace and Entra map. Signed time anchors `decided_at`; exact retries preserve first audit timestamps; workflow approvals require bounded expiry; and Operator closes delivery only after broker acceptance. |
 | Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution, proposal-only reconciliation, collector scheduling, governed discovery activation, and the local Human approval bootstrap are implemented. Governed runtime receipts remain separate. |
@@ -40,6 +40,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | validated | Retained governed deployed-runtime evidence for process-local T2 startup-proof reuse. One candidate used two initial samples, reached 17 reuses with fresh first and latest expiry observations, and emitted zero additional invocations after sampling. The overall readiness decision remained `degraded`, and the receipt grants no execution authority. | Source `e6b1628d39b66d2f375a817116e079a64919529a`; required CI `34715732135`; supply chain `34716025192`; protected plan/apply `34716244950`/`34716402920`; evidence workflow `34716676916`; artifact `t2-startup-proof-evidence-e6b1628d39b66d2f375a817116e079a64919529a`; evidence digest `sha256:2b0810f6d8327f342b2d83ea22aefdb8c75fc912f77ff856807ced5a1f3697aa`. | Record the final focused and documentation validation in issue #90, then close only that issue's completed scope. Other lifecycle runtime receipts remain independently open below. |
 | 2026-09-12 | implemented | Required distinct first and latest reuse expiry observations, bounded each PostgreSQL evidence query, and reverified the same healthy Core revision, source, image, and replica after capture before retaining the receipt. | `current change`; focused startup probe, evidence builder, protected workflow, CI contract, Ruff, and strict mypy checks. | Publish the hardened revision, run the protected live evidence workflow, and retain its schema-valid receipt before closing issue #90. |
 | 2026-09-12 | implemented | Added process-bound identity and timing to successful T2 startup proofs, plus a protected read-only workflow that requires one healthy Core revision and replica before joining the latest readiness report to durable invocation and cost meters. | `current change`; `t2-startup-proof-evidence.yml`, its closed JSON Schema, and focused startup probe, evidence builder, workflow, Ruff, and strict mypy checks. | Run the workflow against a fresh pinned Core revision, retain its sanitized receipt, and record final repository validation before closing issue #90. |
 | 2026-09-06 | implemented | Closed guarded processing before the minimum refresh delay when the refresh loop observes already-expired evidence, and made the expiry test wait for the guarded operation explicitly. | `current change`; focused readiness tests and the changed-range regression gate. | Retain deployed degraded-shadow expiry evidence separately. |
@@ -64,10 +65,10 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 - [ ] Retain one governed deployed Teams callback and one trusted governance-App blocked-then-cleared
    receipt on a pinned revision before changing the Human approval row to `validated`. The local
    canary is an explicit no-network dry run and cannot substitute for that receipt.
-- [ ] Run the protected `t2-startup-proof-evidence.yml` workflow against a fresh pinned Core
-   revision. Retain its schema-valid receipt showing one successful T2 startup sample set per
-   candidate and no additional T2 calls across at least two later readiness refreshes in that
-   process, then record the final validation evidence in issue #90.
+- [x] Run the protected `t2-startup-proof-evidence.yml` workflow against a fresh pinned Core
+   revision. Run `34716676916` retained a schema-valid, self-digested receipt for source
+   `e6b1628d39b66d2f375a817116e079a64919529a`: one candidate used two initial samples, reached
+   17 process-local reuses, and recorded zero additional T2 calls after sampling.
 - [ ] Retain a deployed Core readiness report showing that the existing large audit chain produces
    a healthy or degraded-shadow revision without granting enforcement, then independently verify
    one durable metering write before changing provisioned model capacity.
@@ -239,6 +240,17 @@ previous pipeline snapshot produces `partial`, never `ready`. Even a complete sn
 the readiness workflow's initial `shadow` ceiling and cannot promote an action.
 
 ### Live validation evidence
+
+On 2026-09-12, protected workflow run `34716676916` observed the deployed Core source
+`e6b1628d39b66d2f375a817116e079a64919529a` and digest-pinned image with one active revision and
+one replica before and after capture. The candidate `model.cross-check.0.0` used two metered
+initial invocations, then reused the same process-local proof 17 times with distinct first and
+latest observation and expiry times. It recorded `additional_invocation_count=0`, 198 prompt
+tokens, 46 completion tokens, 244 total tokens, and `0.707500000000 USD`. The closed-schema
+artifact has evidence digest `sha256:2b0810f6d8327f342b2d83ea22aefdb8c75fc912f77ff856807ced5a1f3697aa`.
+It contains hashes instead of deployment identities and contains no prompts, endpoints, tenant
+values, secrets, or customer data. The runtime decision was `degraded`, so this evidence validates
+proof reuse and metering without claiming healthy readiness or execution authority.
 
 On 2026-07-23, a VNet-integrated self-hosted runner performed bounded checks against the existing
 development dependencies. Terraform added private endpoints and linked private DNS for the two
