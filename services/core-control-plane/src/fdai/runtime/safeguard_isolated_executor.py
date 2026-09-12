@@ -29,8 +29,11 @@ from fdai.runtime.isolated_executor_client import (
     RemoteDirectApiExecutionOutcome,
     RemoteDirectApiExecutionResult,
 )
-from fdai.shared.contracts.models import Action, ExecutionPath
-from fdai.shared.contracts.models.executor_transport import SafeguardBoundExecutorCommand
+from fdai.shared.contracts.models import (
+    Action,
+    ExecutionPath,
+    SafeguardBoundExecutorCommand,
+)
 from fdai.shared.providers.event_bus import EventPublishNotAttemptedError
 from fdai.shared.providers.executor_receipt_journal import BoundExecutorCommandContext
 
