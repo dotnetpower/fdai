@@ -317,38 +317,6 @@ The PostgreSQL evidence provider follows these boundaries:
   must provide stable sink idempotency or authoritative status reconciliation, and independent
   effect verification remains a separate terminal axis.
 
-### Independent effect observation identity
-
-Independent effect verification is a separate identity boundary, not a later phase of the same
-principal. An observation is retained only when its observer, the executor that dispatched the
-effect, and the authoritative source being read are three distinct identities, compared
-case-insensitively so one principal cannot pass as three.
-
-Every observation is one append-only receipt bound to the exact safeguard bundle, action, target,
-source revision, durable evidence record, executor receipt, and execution provenance (path,
-orchestration origin, execution venue). Storage grants `SELECT` and `INSERT` only, so a
-contradicting later observation is a new row rather than an edit of the row it contradicts.
-
-The receipt carries hard-false execution, sink-commit, lock-release, and promotion authority. A
-compromised or confused observer can therefore degrade the availability of evidence, but cannot
-cause, complete, release, or promote an effect.
-
-Believability is judged before the outcome is accepted. An observation is downgraded when its
-evidence is synthetic, contested by another source, older than its declared freshness bound,
-provisional, incomplete, or not provably contained inside the declared logical target.
-
-| Observation outcome | Disposition | What it authorizes |
-|---------------------|-------------|--------------------|
-| `verified` | effect verified | Nothing further. The effect is closed and terminal. |
-| `failed` | recovery required | An inert recovery request only. Recovery is a separately approved action carrying all seven safeguards. |
-| `missing`, `stale`, `conflicting`, `censored`, `unavailable` | unknown hold | Nothing. No retry, no new effect, no lock release, no promotion. |
-
-An unreachable or unreadable source produces a retained `unavailable` or `censored` receipt rather
-than silence, so an absent observation and an unreadable one are both visible instead of one of
-them resembling success. A reading whose authoritative record predates the widest representable
-evidence window is likewise retained as a `stale` hold rather than dropped, and a dispatch with no
-retained observation at all reads as `missing` rather than as an absent effect.
-
 ## Rate Limiting and Kill-Switch (DoS and containment)
 
 - The event loop and executor enforce **rate/budget caps** (per-tier, per-resource, and global);
