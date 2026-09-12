@@ -915,15 +915,18 @@ function bindCoverflowDrag(flow) {
       ? event.target.closest(".coverflow-item")
       : null;
     drag.targetIndex = pointerTarget === null ? null : Number(pointerTarget.dataset.index);
-    flow.setPointerCapture(event.pointerId);
-    flow.classList.add("dragging");
   });
   flow.addEventListener("pointermove", (event) => {
     if (drag.pointerId !== event.pointerId) return;
+    const rawDeltaX = event.clientX - drag.startX;
+    if (Math.abs(rawDeltaX) > 8 && !flow.hasPointerCapture(event.pointerId)) {
+      flow.setPointerCapture(event.pointerId);
+      flow.classList.add("dragging");
+    }
     const { spacing } = coverflowMetrics();
     const minimum = -(catalog.manuals.length - 1 - selectedManualIndex) * spacing;
     const maximum = selectedManualIndex * spacing;
-    drag.deltaX = Math.max(minimum, Math.min(maximum, event.clientX - drag.startX));
+    drag.deltaX = Math.max(minimum, Math.min(maximum, rawDeltaX));
     applyCoverflowDrag(flow, drag.deltaX);
   });
   flow.addEventListener("pointerup", end);
