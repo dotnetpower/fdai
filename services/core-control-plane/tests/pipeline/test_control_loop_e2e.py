@@ -144,6 +144,9 @@ def _make_loop(
     rca_side_path_timeout_seconds: float = 5.0,
     governance_assignments: tuple[Any, ...] = (),
     governance_overrides: tuple[Any, ...] = (),
+    change_safety_detector: Any = None,
+    change_safety_evidence_provider: Any = None,
+    clock: Any = None,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     signal_types = load_signal_type_registry_from_mapping(
@@ -166,6 +169,7 @@ def _make_loop(
             if governed_knowledge_context_provider is not None
             else None
         ),
+        clock=clock,
     )
     validator = JsonSchemaEventValidator(
         JsonSchemaContractValidator(PackageResourceSchemaRegistry())
@@ -196,6 +200,9 @@ def _make_loop(
         resource_dependency_graph=resource_dependency_graph,
         governance_assignments=governance_assignments,
         governance_overrides=governance_overrides,
+        change_safety_detector=change_safety_detector,
+        change_safety_evidence_provider=change_safety_evidence_provider,
+        clock=clock,
     )
     return loop, publisher, audit
 
@@ -392,6 +399,77 @@ async def test_public_access_deny_end_to_end_opens_shadow_pr(
     for pr in publisher.records:
         assert pr.mode is Mode.SHADOW
         assert "shadow" in pr.labels
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_change_safety_pre_authority_uses_frozen_control_loop_clock(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    from fdai.core.control_loop.change_safety_evidence import (
+        ChangeSafetyEvidenceStatus,
+        ChangeSafetyPreAuthorityEvidence,
+    )
+    from fdai.core.verticals.change_safety.detector import (
+        ChangeAttribution,
+        ChangeSafetyDecision,
+        DetectorOutcome,
+    )
+
+    replay_now = datetime(2026, 7, 5, 8, 2, tzinfo=UTC)
+
+    class Detector:
+        async def detect(self, event: Event) -> ChangeSafetyDecision:
+            return ChangeSafetyDecision(
+                event_id=str(event.event_id),
+                attribution=ChangeAttribution.OUT_OF_BAND,
+                outcome=DetectorOutcome.OUT_OF_BAND_EMITTED,
+                actor="portal-user",
+                reason="unknown deployment actor",
+                resource_type="object-storage",
+                resource_id=event.resource_ref,
+            )
+
+    class EvidenceProvider:
+        async def evaluate(self, *, event: Event, action: Any) -> ChangeSafetyPreAuthorityEvidence:
+            return ChangeSafetyPreAuthorityEvidence(
+                schema_version="1.0.0",
+                event_id=str(event.event_id),
+                action_id=str(action.action_id),
+                drift_status=ChangeSafetyEvidenceStatus.PASSED,
+                what_if_status=ChangeSafetyEvidenceStatus.PASSED,
+                drift_evidence_ref="drift:frozen-replay",
+                what_if_evidence_ref="what-if:frozen-replay",
+                observed_at=replay_now - timedelta(seconds=30),
+                expires_at=replay_now + timedelta(minutes=5),
+                affected_count=1,
+            )
+
+    loop, _publisher, audit = _make_loop(
+        shipped_catalog,
+        change_safety_detector=Detector(),
+        change_safety_evidence_provider=EvidenceProvider(),
+        clock=lambda: replay_now,
+    )
+    event = _make_event(
+        idempotency_key="e-public-frozen-change-safety",
+        resource_type="object-storage",
+        resource_id="stg-frozen",
+        props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+    )
+    event["payload"]["signal_kind"] = "azure.activity_log"  # type: ignore[index]
+
+    result = await loop.process(event)
+
+    assert result.outcome is ControlLoopOutcome.EXECUTED
+    evidence_entries = [
+        item["entry"]
+        for item in audit.audit_entries
+        if item["entry"].get("action_kind") == "change_safety.pre_authority_evidence"
+    ]
+    assert evidence_entries
+    assert all(entry["ready_for_risk"] is True for entry in evidence_entries)
+    assert all(entry["affected_count"] == 1 for entry in evidence_entries)
 
 
 @requires_opa

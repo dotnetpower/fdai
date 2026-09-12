@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
 
 import httpx
 import pytest
+from fdai.agents import Norns, PantheonRuntime
+from fdai.core.learning import RuleCandidateHint
 from fdai.core.ontology_platform import MetricAggregation, MetricSemanticDefinition
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.reconciliation_binding import (
@@ -68,6 +71,7 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_pantheon import (
     _approver_authorizer_from_env,
+    _bind_post_turn_learning,
     _pantheon_enforce_enabled,
     _runtime_asset_root,
 )
@@ -77,6 +81,7 @@ from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.metric import MetricPoint, MetricQuery, NoopMetricProvider
 from fdai.shared.providers.startup_probe import StartupProbeRequest
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
@@ -89,6 +94,62 @@ from fdai_service_contracts.semantic_turn import (
 
 def test_pantheon_starts_by_default() -> None:
     assert pantheon_start_enabled({}) is True
+
+
+class _PostTurnBinding:
+    submitter: object | None = None
+
+    def bind_rule_hints(self, submitter: object) -> None:
+        self.submitter = submitter
+
+
+class _DisabledDiscoveryActivation:
+    def __init__(self) -> None:
+        self.shadow_count: Callable[[], int] | None = None
+        self.report = object()
+
+    def is_enabled(self) -> bool:
+        return False
+
+    def bind_shadow_decision_count(self, source: Callable[[], int]) -> None:
+        self.shadow_count = source
+
+    async def evaluate(self) -> object:
+        return self.report
+
+
+async def test_bootstrap_binding_keeps_post_turn_rule_hint_inert_when_disabled() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="runtime.raw-events",
+    )
+    post_turn = _PostTurnBinding()
+    activation = _DisabledDiscoveryActivation()
+
+    report = await _bind_post_turn_learning(
+        pantheon_runtime=runtime,
+        post_turn_review=post_turn,  # type: ignore[arg-type]
+        discovery_activation=activation,  # type: ignore[arg-type]
+    )
+
+    norns = runtime.agents["Norns"]
+    assert isinstance(norns, Norns)
+    assert post_turn.submitter is norns
+    assert report is activation.report
+    assert activation.shadow_count is not None
+    assert activation.shadow_count() == 0
+    await norns.submit_rule_hint(
+        RuleCandidateHint(
+            proposal_kind="new",
+            target_ref="procedure.repeated-investigation",
+            pattern="Repeated procedure may justify a reviewed deterministic rule.",
+            evidence_refs=("audit:procedure-1",),
+            confidence=0.85,
+        ),
+        proposed_by="Norns",
+        at=datetime(2026, 9, 12, tzinfo=UTC),
+    )
+    assert len(norns.pending_candidates) == 1
 
 
 def test_pantheon_runtime_assets_use_the_layout_aware_root(

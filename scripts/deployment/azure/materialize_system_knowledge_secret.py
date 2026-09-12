@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hmac
 import json
 import os
@@ -16,6 +18,7 @@ import httpx
 _VAULT_AUDIENCE = "https://vault.azure.net"
 _API_VERSION = "7.4"
 _SECRET_NAME = "fdai-system-knowledge-principal-map"  # noqa: S105 - Key Vault key
+_OUTGOING_SECRET_NAME = "fdai-system-knowledge-outgoing-hmac"  # noqa: S105
 
 
 class SystemKnowledgeSecretError(RuntimeError):
@@ -82,6 +85,55 @@ def materialize(
         raise SystemKnowledgeSecretError("Key Vault principal-map readback did not match")
 
 
+def validate_outgoing_hmac(value: str) -> str:
+    """Return a validated Teams-issued Base64 HMAC key."""
+
+    normalized = value.strip()
+    try:
+        decoded = base64.b64decode(normalized, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise SystemKnowledgeSecretError(
+            "system knowledge Outgoing Webhook HMAC must be valid Base64"
+        ) from exc
+    if len(decoded) != 32:
+        raise SystemKnowledgeSecretError(
+            "system knowledge Outgoing Webhook HMAC must decode to 32 bytes"
+        )
+    return normalized
+
+
+def materialize_outgoing_hmac(
+    *,
+    vault_uri: str,
+    hmac_secret: str,
+    access_token: str,
+    transport: httpx.Client,
+) -> None:
+    """Write and independently read back the fixed Outgoing Webhook HMAC secret."""
+
+    base_uri = _validated_vault_uri(vault_uri)
+    url = f"{base_uri}/secrets/{quote(_OUTGOING_SECRET_NAME)}?api-version={_API_VERSION}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = transport.put(
+        url,
+        headers=headers,
+        json={
+            "value": hmac_secret,
+            "contentType": "application/vnd.fdai.system-knowledge-outgoing-hmac",
+            "attributes": {"enabled": True},
+        },
+    )
+    _success(response, operation="outgoing HMAC write")
+    readback = transport.get(url, headers=headers)
+    _success(readback, operation="outgoing HMAC readback")
+    try:
+        observed = readback.json().get("value")
+    except (AttributeError, ValueError) as exc:
+        raise SystemKnowledgeSecretError("Key Vault returned invalid readback JSON") from exc
+    if not isinstance(observed, str) or not hmac.compare_digest(observed, hmac_secret):
+        raise SystemKnowledgeSecretError("Key Vault Outgoing Webhook HMAC readback did not match")
+
+
 def _azure_cli_token() -> str:
     result = subprocess.run(  # noqa: S603 - fixed Azure CLI command and arguments
         [
@@ -142,9 +194,15 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vault-uri", required=True)
+    parser.add_argument("--include-outgoing-hmac", action="store_true")
     arguments = parser.parse_args()
     principal_map = validate_principal_map(
         os.environ.get("SYSTEM_KNOWLEDGE_PRINCIPAL_MAP_JSON", "")
+    )
+    outgoing_hmac = (
+        validate_outgoing_hmac(os.environ.get("SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET", ""))
+        if arguments.include_outgoing_hmac
+        else None
     )
     token = _azure_cli_token()
     try:
@@ -158,8 +216,16 @@ def main() -> int:
                 access_token=token,
                 transport=client,
             )
+            if outgoing_hmac is not None:
+                materialize_outgoing_hmac(
+                    vault_uri=arguments.vault_uri,
+                    hmac_secret=outgoing_hmac,
+                    access_token=token,
+                    transport=client,
+                )
     finally:
         token = ""
+        outgoing_hmac = None
     return 0
 
 

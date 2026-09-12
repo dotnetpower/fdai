@@ -183,6 +183,8 @@ async def fetch_arg_row_pages(
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
     request_headers: Mapping[str, str] | None = None,
     allow_truncated_without_token: bool = False,
+    allow_page_cap_truncation: bool = False,
+    truncation_observer: Callable[[bool], None] | None = None,
     max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
     max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
 ) -> tuple[Mapping[str, Any], ...]:
@@ -278,13 +280,19 @@ async def fetch_arg_row_pages(
 
         next_token = payload.get("$skipToken")
         if not isinstance(next_token, str) or not next_token:
-            if not allow_truncated_without_token and (
-                payload.get("resultTruncated") is True or _count_is_truncated(payload)
-            ):
+            tokenless_truncated = _result_is_truncated(
+                payload,
+                error_type=error_type,
+                result_name=result_name,
+                page=page,
+            ) or _count_is_truncated(payload)
+            if not allow_truncated_without_token and tokenless_truncated:
                 raise error_type(
                     f"ARG returned a truncated result without a continuation token for "
                     f"{result_name!r} (page {page})"
                 )
+            if truncation_observer is not None:
+                truncation_observer(tokenless_truncated)
             break
         if next_token in seen_skip_tokens:
             raise error_type(
@@ -293,12 +301,36 @@ async def fetch_arg_row_pages(
         seen_skip_tokens.add(next_token)
         skip_token = next_token
     else:
-        raise error_type(
-            f"ARG pagination cap ({max_pages}) exceeded for {result_name!r}; "
-            "narrow the query or raise max_pages via config"
-        )
+        if not allow_page_cap_truncation:
+            raise error_type(
+                f"ARG pagination cap ({max_pages}) exceeded for {result_name!r}; "
+                "narrow the query or raise max_pages via config"
+            )
+        if truncation_observer is not None:
+            truncation_observer(True)
 
     return tuple(collected)
+
+
+def _result_is_truncated(
+    payload: Mapping[str, Any],
+    *,
+    error_type: type[RuntimeError],
+    result_name: str,
+    page: int,
+) -> bool:
+    value = payload.get("resultTruncated")
+    if value is None or value is False:
+        return False
+    if value is True:
+        return True
+    if isinstance(value, str):
+        normalized = value.strip().casefold()
+        if normalized == "false":
+            return False
+        if normalized == "true":
+            return True
+    raise error_type(f"ARG resultTruncated flag was invalid for {result_name!r} (page {page})")
 
 
 async def _post_with_retry(

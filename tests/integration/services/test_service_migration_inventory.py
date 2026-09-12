@@ -38,8 +38,8 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 91
-    assert inventory.heads == ("20260831_0089",)
+    assert len(inventory.down_revisions) == 92
+    assert inventory.heads == ("20260912_0090",)
     assert len(inventory.table_sources) == 108
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["background_task_projection_outbox"] == ("20260829_0088",)
@@ -135,6 +135,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "inventory_observation_checkpoint",
         "inventory_observation_correction_receipt",
         "inventory_observation_journal",
+        "inventory_change_event_receipt",
         "inventory_observation_lifecycle_binding",
         "inventory_observation_pending_tombstone",
         "inventory_observation_partition",
@@ -1603,6 +1604,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     post_release_closure_migration = inventory_module.load_revision_metadata(
         post_release_closure_path
     )
+    resource_change_receipt_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/"
+        "20260912_core_resource_change_receipts.py"
+    )
+    resource_change_receipt_migration = inventory_module.load_revision_metadata(
+        resource_change_receipt_path
+    )
     certification_support_path = (
         MIGRATION_ROOT
         / "branches/core-control-plane/versions/20260907_core_oi16_certification_support.py"
@@ -1640,6 +1648,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(target_dispatch_fence_migration.owned_tables)
         | set(safeguard_dispatch_evidence_migration.owned_tables)
         | set(post_release_closure_migration.owned_tables)
+        | set(resource_change_receipt_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
     )
     assert granted_tables == expected_tables

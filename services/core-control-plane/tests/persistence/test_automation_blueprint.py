@@ -81,3 +81,14 @@ async def test_postgres_blueprint_store_persists_and_cas_transitions() -> None:
         expected_state=AutomationBlueprintState.DRAFT,
     )
     assert accepted is not None and accepted.state is AutomationBlueprintState.ACCEPTED
+    stale = await store.transition(
+        replace(
+            candidate,
+            state=AutomationBlueprintState.REJECTED,
+            reviewed_by="approver-2",
+            review_reason="stale review",
+        ),
+        expected_state=AutomationBlueprintState.DRAFT,
+    )
+    assert stale is None
+    assert await store.get(candidate.candidate_id) == accepted

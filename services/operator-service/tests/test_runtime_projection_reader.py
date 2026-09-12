@@ -454,6 +454,96 @@ async def test_empty_automation_blueprint_table_is_authoritative(monkeypatch: An
     }
 
 
+async def test_nonempty_automation_blueprint_projection_is_bounded_and_read_only(
+    monkeypatch: Any,
+) -> None:
+    expires_at = datetime(2026, 9, 13, tzinfo=UTC)
+    statements: list[str] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        if "COUNT(*) AS proposed" in statement:
+            return [
+                {
+                    "proposed": 2,
+                    "accepted": 1,
+                    "rejected": 0,
+                    "expired": 0,
+                    "materialized": 1,
+                    "realized_usage": 5,
+                }
+            ]
+        return [
+            {
+                "candidate_id": "candidate-1",
+                "normalized_task_intent": "check inventory drift",
+                "schedule_expression": "0 3 * * *",
+                "resource_scope": "scope://subscription/example/resource-group/app",
+                "delivery_intent": "audit-only",
+                "required_tools": ["query_inventory"],
+                "isolation_profile": {"network": "deny", "filesystem": "deny"},
+                "estimated_cost_microusd": 250,
+                "evidence_fingerprints": ["sha256:" + ("a" * 64)],
+                "confidence": 0.9,
+                "expires_at": expires_at,
+                "state": "accepted",
+                "enabled": False,
+                "shadow_only": True,
+                "mutation_tool_ids": [],
+                "realized_usage_count": 0,
+            }
+        ]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    result = await reader.read(_query("automation_blueprint.list"))
+
+    assert result == {
+        "source": "postgresql:automation_blueprint_candidate",
+        "mutation_controls": False,
+        "count": 1,
+        "candidates": [
+            {
+                "candidate_id": "candidate-1",
+                "state": "accepted",
+                "normalized_task_intent": "check inventory drift",
+                "schedule_expression": "0 3 * * *",
+                "resource_scope": "scope://subscription/example/resource-group/app",
+                "delivery_intent": "audit-only",
+                "required_tools": ["query_inventory"],
+                "isolation_profile": {"network": "deny", "filesystem": "deny"},
+                "estimated_cost_microusd": 250,
+                "evidence_fingerprints": ["sha256:" + ("a" * 64)],
+                "confidence": 0.9,
+                "expires_at": expires_at.isoformat(),
+                "enabled": False,
+                "shadow_only": True,
+                "mutation_tool_ids": [],
+            }
+        ],
+        "metrics": {
+            "proposed": 2,
+            "accepted": 1,
+            "rejected": 0,
+            "expired": 0,
+            "materialized": 1,
+            "realized_usage": 5,
+            "candidate_precision": 0.5,
+            "acceptance_rate": 1.0,
+        },
+    }
+    assert statements[0].rstrip().endswith("LIMIT 200")
+
+
 async def test_empty_autonomy_window_remains_an_authoritative_measurement(
     monkeypatch: Any,
 ) -> None:

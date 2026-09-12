@@ -1066,6 +1066,130 @@ def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage
     assert "`execution_authority=false`" in answer
 
 
+def test_recent_resource_change_answer_renders_arg_changes_without_state_transitions() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "recent-resource-changes",
+                "rows": [
+                    {
+                        "row_id": "resource-a",
+                        "values": {
+                            "subject_name": "api-prod",
+                            "operation": None,
+                            "mutation_kind": "upsert",
+                            "observation_kind": "full",
+                            "occurred_at": NOW.isoformat(),
+                            "source_identity": "fdai.delivery.azure.arg_resource_changes",
+                            "execution_authority": False,
+                        },
+                    },
+                    {
+                        "row_id": "resource-b",
+                        "values": {
+                            "subject_name": "storage-prod",
+                            "operation": "Microsoft.Storage/storageAccounts/write",
+                            "mutation_kind": "upsert",
+                            "observation_kind": "change_hint",
+                            "occurred_at": NOW.isoformat(),
+                            "source_identity": "azure_event_grid.resource_change",
+                            "execution_authority": False,
+                        },
+                    },
+                ],
+                "returned_rows": 2,
+                "total_rows": 2,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_changes",
+        measure_concepts=("resource_change.observed",),
+    )
+    assert answer.startswith("## Recently observed resource changes")
+    assert "`api-prod`: `upsert`" in answer
+    assert "`storage-prod`: `Microsoft.Storage/storageAccounts/write`" in answer
+    assert "state transition" not in answer.casefold()
+    assert "Source completeness: `complete`" in answer
+
+
+def test_recent_resource_change_answer_withholds_untrusted_rows() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "recent-resource-changes",
+                "rows": [
+                    {
+                        "row_id": "resource-a",
+                        "values": {
+                            "subject_name": "must-not-render",
+                            "operation": "update",
+                            "mutation_kind": "upsert",
+                            "observation_kind": "change_hint",
+                            "occurred_at": "not-a-time",
+                            "source_identity": "activity-log",
+                            "execution_authority": True,
+                        },
+                    },
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": False,
+                "source_truncation_reason": "resource_change_coverage_unverified",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_changes",
+        measure_concepts=("resource_change.observed",),
+    )
+    assert "must-not-render" not in answer
+    assert "Unresolved change evidence: 1" in answer
+
+
+def test_recent_resource_change_answer_rejects_unreviewed_source() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "recent-resource-changes",
+                "rows": [
+                    {
+                        "row_id": "resource-a",
+                        "values": {
+                            "subject_name": "must-not-render-rogue-source",
+                            "operation": "update",
+                            "mutation_kind": "upsert",
+                            "observation_kind": "change_hint",
+                            "occurred_at": NOW.isoformat(),
+                            "source_identity": "untrusted.inventory.producer",
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": False,
+                "source_truncation_reason": "resource_change_coverage_unverified",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_changes",
+        measure_concepts=("resource_change.observed",),
+    )
+
+    assert "must-not-render-rogue-source" not in answer
+    assert "Unresolved change evidence: 1" in answer
+
+
 def test_state_transition_answer_does_not_promote_untrusted_edge() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

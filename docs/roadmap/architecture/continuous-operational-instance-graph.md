@@ -185,6 +185,8 @@ projection checkpoints beyond that append boundary.
 PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and isolates inventory
 state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
 shared record-validation boundary does not create another graph writer or authority surface.
+Change-feed value parsing and replay-watermark decoding remain pure delivery helpers, so module
+splits do not change cursor progress, completeness, or writer authority.
 
 ### Private-safe change acceleration
 
@@ -193,11 +195,47 @@ and tracks every enabled accelerator heartbeat even when positions are unchanged
 ordered oldest first, boundary duplicates are idempotent, and the cursor advances only after every
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation
-before proving absence. A partial page or missing mapped hydration advances neither cursor nor
-overlay; a returned unsupported provider type remains an explicit coverage gap.
+before proving absence. A tokenless truncated page advances through the same stable keyset cursor,
+and the next poll waits until every published event id appears in the observation journal.
+Snapshot-covered and ordering-rejected changes therefore release the producer fence without being
+misrepresented as current overlay changes.
+The configured page-size and page-count product cannot exceed the 1,000-id durable fence bound.
+An empty provider page that still reports truncation also remains incomplete. The transport accepts
+only the documented boolean and string forms of `resultTruncated` and rejects other values.
+If the final bounded page still carries a continuation token, the feed returns the oldest collected
+rows as incomplete and advances the stable keyset cursor after their ingestion fence clears.
+The first poll persists its calculated lookback boundary as an initial cursor, so incomplete empty
+or hydration retries cannot drift forward and skip changes. This anchor is committed before the
+first provider query or publication, so a failed first attempt reuses the same boundary.
+Snapshot-covered events still append a history-only observation so recent-change evidence remains
+queryable while the newer snapshot remains authoritative for current state. The history-only path
+does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
+A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
+later poll can observe either the Resource or its delete record. A returned Resource type outside
+the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
+fails the batch. Hydration that exceeds the bounded property payload also fails before publication
+or cursor advancement rather than asserting a truncated full replacement.
+After three unresolved hydration retries, the feed advances past the bounded page and records the
+latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
+remain incomplete, while later windows can recover without permanently blocking the feed.
+
+The read-only recent-change FunctionType queries the server-configured inventory scopes rather than
+a model-supplied scope. It uses the same `FDAI_INVENTORY_SCOPES` parser as collection, with
+`AZURE_SUBSCRIPTION_ID` only as the legacy single-scope fallback. It selects only ARG create,
+update, and delete observations or
+operation-bearing observations from the reviewed Event Grid Resource-change adapter, excludes
+periodic snapshots and live refreshes, and
+reports complete only after the fresh cursor and every exact event-id fence verify. The reader
+fetches one row beyond the requested limit and reports `result_limit` rather than claiming that a
+bounded subset is complete. Rows, cursor state, and journal fence evidence are read from one
+read-only repeatable-read snapshot and are all bounded by the answer's `known_at` cutoff.
 
 The change accelerator batches bursts for at most two seconds, applies per-resource ordering, and
 publishes no relationship that the exact hydration and reviewed mapping catalog did not support.
+When `FDAI_INVENTORY_RESOURCE_TYPES` restricts collection, the accelerator first resolves ARM type
+and `kind` through the complete reviewed vocabulary, then applies the configured neutral-type
+allowlist. Excluded types cannot enter and block the ingestion fence, and shared ARM types cannot be
+misclassified by a prematurely filtered registry.
 Azure Activity Log remains an audit and recovery source, while complete ARG and ARM reconciliation
 continues to repair missed changes and collect child topology. Resource Graph change availability is
 eventually consistent, so this path is near-real-time rather than an immediate provider guarantee.

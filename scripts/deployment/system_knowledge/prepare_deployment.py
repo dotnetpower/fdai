@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -17,7 +19,7 @@ _DIGEST_IMAGE = re.compile(r"^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]
 _GIT_REVISION = re.compile(r"^[0-9a-f]{40}$")
 _GUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$")
-_PROFILE_KEYS = {
+_BOT_PROFILE_KEYS = {
     "allowed_service_urls",
     "bot_name",
     "channel_ids",
@@ -25,8 +27,18 @@ _PROFILE_KEYS = {
     "service_name",
     "team_ids",
     "tenant_id",
+    "transport",
+}
+_LEGACY_BOT_PROFILE_KEYS = _BOT_PROFILE_KEYS - {"transport"}
+_OUTGOING_PROFILE_KEYS = {
+    "channel_ids",
+    "service_name",
+    "team_ids",
+    "tenant_id",
+    "transport",
 }
 _SECRET_NAME = "fdai-system-knowledge-principal-map"  # noqa: S105 - Key Vault key
+_OUTGOING_SECRET_NAME = "fdai-system-knowledge-outgoing-hmac"  # noqa: S105 - Key Vault key
 
 
 class DeploymentInputError(ValueError):
@@ -45,12 +57,14 @@ def build_inputs(
     previous_image_ref: str,
     source_revision: str,
     transition: str,
+    outgoing_hmac_secret: str = "",
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Return sensitive Terraform values and a content-free context receipt."""
 
     if _GUID.fullmatch(subscription_id) is None:
         raise DeploymentInputError("subscription id must be a canonical lowercase UUID")
     if environment not in {"dev", "staging", "prod"} or transition not in {
+        "bootstrap",
         "enable",
         "disable",
     }:
@@ -66,26 +80,48 @@ def build_inputs(
         raise DeploymentInputError("source revision must be a lowercase Git object id")
 
     profile = _json_object(teams_profile_json, label="Teams profile")
-    if set(profile) != _PROFILE_KEYS:
-        raise DeploymentInputError("Teams profile fields do not match the closed contract")
+    transport = profile.get("transport", "bot_framework")
+    if transport == "bot_framework":
+        if (
+            set(profile) not in (_BOT_PROFILE_KEYS, _LEGACY_BOT_PROFILE_KEYS)
+            or transition == "bootstrap"
+        ):
+            raise DeploymentInputError("Bot Framework profile or transition is invalid")
+    elif transport == "outgoing_webhook":
+        if set(profile) != _OUTGOING_PROFILE_KEYS:
+            raise DeploymentInputError("Outgoing Webhook profile fields are invalid")
+    else:
+        raise DeploymentInputError("Teams transport is outside the closed contract")
     service_name = _name(profile["service_name"], "service name")
-    bot_name = _name(profile["bot_name"], "bot name")
+    bot_name = (
+        _name(profile["bot_name"], "bot name") if transport == "bot_framework" else service_name
+    )
     tenant_id = _guid(profile["tenant_id"], "Teams tenant id")
     team_ids = _bounded_string_array(profile["team_ids"], "Teams team ids", maximum=100)
+    if transport == "outgoing_webhook" and len(team_ids) != 1:
+        raise DeploymentInputError("Outgoing Webhook profile must select exactly one Team")
     channel_ids = _bounded_string_array(
         profile["channel_ids"],
         "Teams channel ids",
         maximum=100,
     )
-    service_urls = tuple(
-        _https_url(value, "Teams service URL")
-        for value in _bounded_string_array(
-            profile["allowed_service_urls"],
-            "Teams service URLs",
-            maximum=32,
+    service_urls: tuple[str, ...] = ()
+    jwks_url = ""
+    if transport == "bot_framework":
+        service_urls = tuple(
+            _https_url(value, "Teams service URL")
+            for value in _bounded_string_array(
+                profile["allowed_service_urls"],
+                "Teams service URLs",
+                maximum=32,
+            )
         )
+        jwks_url = _https_url(profile["jwks_url"], "Teams JWKS URL")
+    hmac_secret = (
+        _outgoing_hmac_secret(outgoing_hmac_secret, required=True)
+        if transport == "outgoing_webhook" and transition == "enable"
+        else None
     )
-    jwks_url = _https_url(profile["jwks_url"], "Teams JWKS URL")
     principal_map = _json_object(principal_map_json, label="Teams principal map")
     if len(principal_map) > 1000 or any(
         not isinstance(sender, str)
@@ -120,8 +156,9 @@ def build_inputs(
     vault_name = vault.hostname.removesuffix(".vault.azure.net")
     base_id = f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}/providers"
     principal_secret_id = f"{vault_uri.rstrip('/')}/secrets/{_SECRET_NAME}"
+    outgoing_secret_id = f"{vault_uri.rstrip('/')}/secrets/{_OUTGOING_SECRET_NAME}"
     tfvars: dict[str, object] = {
-        "enabled": transition == "enable",
+        "enabled": transition != "disable",
         "name": service_name,
         "bot_name": bot_name,
         "image": image_ref,
@@ -139,12 +176,18 @@ def build_inputs(
             "claim_storage_blob_endpoint": f"https://{storage_name}.blob.core.windows.net/",
         },
         "teams": {
+            "transport": transport,
             "tenant_id": tenant_id,
             "team_ids": list(team_ids),
             "channel_ids": list(channel_ids),
             "allowed_service_urls": list(service_urls),
             "jwks_url": jwks_url,
             "principal_map_secret_id": principal_secret_id,
+            "outgoing_hmac_secret_id": (
+                outgoing_secret_id
+                if transport == "outgoing_webhook" and transition == "enable"
+                else None
+            ),
         },
         "claim_store": {"container_name": "system-knowledge-claims"},
         "health": {
@@ -178,6 +221,7 @@ def build_inputs(
     context_body: dict[str, object] = {
         "schema_version": "fdai.system-knowledge-deployment.v1",
         "transition": transition,
+        "teams_transport": transport,
         "environment": environment,
         "source_revision": source_revision,
         "image_digest": image_ref.rsplit("@", 1)[1],
@@ -185,6 +229,7 @@ def build_inputs(
         "tfvars_digest": _digest(tfvars),
         "teams_profile_digest": _digest(profile),
         "principal_map_digest": _digest(principal_map),
+        "outgoing_hmac_digest": _digest(hmac_secret) if hmac_secret is not None else None,
     }
     return tfvars, {**context_body, "context_digest": _digest(context_body)}
 
@@ -265,6 +310,21 @@ def _https_url(value: Any, label: str) -> str:
     return value
 
 
+def _outgoing_hmac_secret(value: str, *, required: bool) -> str | None:
+    normalized = value.strip() or None
+    if normalized is None:
+        if required:
+            raise DeploymentInputError("Outgoing Webhook enable requires an HMAC key")
+        return None
+    try:
+        decoded = base64.b64decode(normalized, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise DeploymentInputError("Outgoing Webhook HMAC key must be valid Base64") from exc
+    if len(decoded) != 32:
+        raise DeploymentInputError("Outgoing Webhook HMAC key must decode to 32 bytes")
+    return normalized
+
+
 def _digest(value: object) -> str:
     body = json.dumps(
         value,
@@ -285,7 +345,11 @@ def main() -> int:
     parser.add_argument("--image-ref", required=True)
     parser.add_argument("--previous-image-ref", required=True)
     parser.add_argument("--source-revision", required=True)
-    parser.add_argument("--transition", choices=("enable", "disable"), required=True)
+    parser.add_argument(
+        "--transition",
+        choices=("bootstrap", "enable", "disable"),
+        required=True,
+    )
     parser.add_argument("--tfvars-output", type=Path, required=True)
     parser.add_argument("--context-output", type=Path, required=True)
     arguments = parser.parse_args()
@@ -303,6 +367,10 @@ def main() -> int:
         previous_image_ref=arguments.previous_image_ref,
         source_revision=arguments.source_revision,
         transition=arguments.transition,
+        outgoing_hmac_secret=os.environ.get(
+            "SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET",
+            "",
+        ),
     )
     write_private_json(arguments.tfvars_output, tfvars)
     write_private_json(arguments.context_output, context)

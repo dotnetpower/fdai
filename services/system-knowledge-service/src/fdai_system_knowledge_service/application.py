@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
@@ -22,9 +23,18 @@ from fdai_system_knowledge_service.blob_ledger import (
     AzureBlobMessageLedger,
 )
 from fdai_system_knowledge_service.catalog import load_catalog
-from fdai_system_knowledge_service.config import SystemKnowledgeSettings
+from fdai_system_knowledge_service.config import (
+    SystemKnowledgeSettings,
+    TeamsOutgoingWebhookSettings,
+    TeamsSettings,
+    TeamsTransport,
+)
 from fdai_system_knowledge_service.ledger import DeliveryLedger, MessageLedger
-from fdai_system_knowledge_service.runtime import SystemKnowledgeRuntime
+from fdai_system_knowledge_service.runtime import (
+    OutgoingWebhookKnowledgeRuntime,
+    OutgoingWebhookTurnResult,
+    SystemKnowledgeRuntime,
+)
 from fdai_system_knowledge_service.search import SystemKnowledgeIndex
 from fdai_system_knowledge_service.teams import (
     AzureChannelTokenProvider,
@@ -32,6 +42,7 @@ from fdai_system_knowledge_service.teams import (
     RemoteJwksProvider,
     TeamsIngressError,
     TeamsMentionVerifier,
+    TeamsOutgoingWebhookVerifier,
     TeamsPublisher,
     TeamsPublishError,
 )
@@ -41,6 +52,9 @@ _MAX_BODY_BYTES = 256_000
 
 class KnowledgeHttpRuntime(Protocol):
     """Route-safe lifecycle and activity surface."""
+
+    @property
+    def transport(self) -> TeamsTransport: ...
 
     @property
     def ready(self) -> bool: ...
@@ -69,6 +83,10 @@ class _ComposedRuntime:
     ) -> None:
         self._runtime = runtime
         self._http_client = http_client
+
+    @property
+    def transport(self) -> TeamsTransport:
+        return self._runtime.transport
 
     @property
     def ready(self) -> bool:
@@ -108,22 +126,6 @@ def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
         settings.catalog_path,
         expected_source_revision=settings.expected_source_revision,
     )
-    http_client = httpx.AsyncClient(
-        trust_env=False,
-        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-    )
-    jwks = RemoteJwksProvider(url=settings.teams.jwks_url, http_client=http_client)
-    teams_credential = (
-        ClientSecretCredential(
-            tenant_id=settings.teams.tenant_id,
-            client_id=settings.teams.application_id,
-            client_secret=settings.teams.client_secret or "",
-        )
-        if settings.execution_venue is ExecutionVenue.LOCAL
-        else ManagedIdentityCredential(client_id=settings.managed_identity_client_id)
-    )
-    token_provider = AzureChannelTokenProvider(teams_credential)
-    publisher = TeamsPublisher(http_client=http_client, tokens=token_provider)
     if settings.execution_venue is ExecutionVenue.LOCAL:
         ledger: DeliveryLedger = MessageLedger(settings.ledger_path)
     else:
@@ -139,11 +141,36 @@ def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
             ),
             credential=blob_credential,
         )
+    if isinstance(settings.teams, TeamsOutgoingWebhookSettings):
+        return OutgoingWebhookKnowledgeRuntime(
+            ingress=TeamsOutgoingWebhookVerifier(settings=settings.teams),
+            index=SystemKnowledgeIndex(catalog),
+            ledger=ledger,
+        )
+    if not isinstance(settings.teams, TeamsSettings):
+        raise RuntimeError("validated Teams transport settings are unavailable")
+    bot_settings = settings.teams
+    http_client = httpx.AsyncClient(
+        trust_env=False,
+        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+    )
+    jwks = RemoteJwksProvider(url=bot_settings.jwks_url, http_client=http_client)
+    teams_credential = (
+        ClientSecretCredential(
+            tenant_id=bot_settings.tenant_id,
+            client_id=bot_settings.application_id,
+            client_secret=bot_settings.client_secret or "",
+        )
+        if settings.execution_venue is ExecutionVenue.LOCAL
+        else ManagedIdentityCredential(client_id=settings.managed_identity_client_id)
+    )
+    token_provider = AzureChannelTokenProvider(teams_credential)
+    publisher = TeamsPublisher(http_client=http_client, tokens=token_provider)
     runtime = SystemKnowledgeRuntime(
         ingress=TeamsMentionVerifier(
-            settings=settings.teams,
+            settings=bot_settings,
             tokens=PyJwtServiceTokenVerifier(
-                application_id=settings.teams.application_id,
+                application_id=bot_settings.application_id,
                 jwks=jwks,
             ),
         ),
@@ -183,6 +210,8 @@ def create_app(
         )
 
     async def teams(request: Request) -> Response:
+        if selected.transport is not TeamsTransport.BOT_FRAMEWORK:
+            return JSONResponse({"error": {"code": "transport_disabled"}}, status_code=404)
         if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
             return JSONResponse({"error": {"code": "unsupported_media_type"}}, status_code=415)
         body = await _bounded_request_body(request)
@@ -202,11 +231,42 @@ def create_app(
         state = getattr(result, "state", "accepted")
         return JSONResponse({"status": state}, status_code=202)
 
+    async def outgoing_webhook(request: Request) -> Response:
+        if selected.transport is not TeamsTransport.OUTGOING_WEBHOOK:
+            return JSONResponse({"error": {"code": "transport_disabled"}}, status_code=404)
+        if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
+            return JSONResponse({"error": {"code": "unsupported_media_type"}}, status_code=415)
+        body = await _bounded_request_body(request)
+        if body is None:
+            return JSONResponse({"error": {"code": "body_too_large"}}, status_code=413)
+        try:
+            async with asyncio.timeout(4.0):
+                result = await selected.handle(
+                    body=body,
+                    authorization=request.headers.get("authorization", ""),
+                    received_at=datetime.now(UTC),
+                )
+        except TimeoutError:
+            return JSONResponse(
+                {"error": {"code": "outgoing_webhook_deadline_exceeded"}},
+                status_code=503,
+            )
+        except TeamsIngressError as exc:
+            return JSONResponse({"error": {"code": exc.code}}, status_code=exc.http_status)
+        if not isinstance(result, OutgoingWebhookTurnResult):
+            raise RuntimeError("Outgoing Webhook runtime returned an invalid result")
+        return JSONResponse(result.payload, status_code=200)
+
     return Starlette(
         routes=[
             Route("/health/live", live, methods=["GET"]),
             Route("/health/ready", ready, methods=["GET"]),
             Route("/api/teams/messages", teams, methods=["POST"]),
+            Route(
+                "/api/teams/outgoing-webhook",
+                outgoing_webhook,
+                methods=["POST"],
+            ),
         ],
         lifespan=lifespan,
     )

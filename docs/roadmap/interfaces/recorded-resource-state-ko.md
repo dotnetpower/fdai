@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: f20a49b0bb787baba71bdaace9ca28768c9de6b8
-translation_revised: 2026-09-11
+translation_source_sha: 6b5f676af8812b5585276226ff730b12644f80f4
+translation_revised: 2026-09-12
 ---
 # 기록된 리소스 상태
 
@@ -166,6 +166,10 @@ ResourceType을 선언합니다.
 ## 화면과 호환성
 
 - Dashboard v2는 기존 `inventory/graph`의 단일 상태 문자열 대신 공통 상태 조회를 사용합니다.
+- Dashboard v2는 반환 범위와 스냅샷 개수를 하나의 절제된 요약 표면에 표시하고, Resource 현황을
+  기본 작업 영역으로 유지하며, 근거 범위를 그 아래에 맞춰 배치합니다. 보조 열에는 우선 확인
+  항목 또는 선택한 Resource Inspector만 표시합니다. 이 계층은 표현만 바꾸며 각 개수는 기존과
+  같은 필터가 적용된 기록 상태 화면으로 계속 연결됩니다.
 - 온톨로지 디렉터리와 탐색 기록도 온톨로지가 소유하는 현재 Resource 상태에서 같은 `states` 필드를
   제공합니다.
 - 온톨로지 인스턴스 그래프는 결과 노드가 적어도 검토된 뷰포트 높이를 유지하므로 기록된 상태의

@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: e05474269925f3f7c7677be2c0a02cc0c31125d1
-translation_revised: 2026-08-20
+translation_source_sha: b15f90bb40acf9cd0500e88d52d622c054c73aa1
+translation_revised: 2026-09-12
 ---
 
 # Command Deck 행동 지식
@@ -150,8 +150,8 @@ PostgreSQL, 시드, 테스트 구현은 제거되었습니다. 인메모리 검�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 구조화된 행동 계약 | in-progress | [`behavior_knowledge.py`](../../../services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py) | `BehaviorSpec`, 지역화된 콘텐츠, 출처 메타데이터, 최신성 결과, 인덱스 프로토콜은 남아 있지만 현재 이를 실행하는 집중 테스트는 없습니다. |
-| 인메모리 검색과 추적 출처 최신성 검증 | in-progress | [`behavior_index.py`](../../../services/core-control-plane/src/fdai/core/knowledge/behavior_index.py), [`test_behavior_index.py`](../../../services/core-control-plane/tests/knowledge/test_behavior_index.py) | `InMemoryBehaviorKnowledgeIndex`가 멱등 upsert, 정확 별칭/정확 식별자/hybrid 정렬, 권위 정렬, 상호 순위 융합, 검색 하한, 비교 보류, 한국어 토큰 검색을 복원했습니다. `TrackedSourceFreshnessValidator`는 추적되지 않거나 오래된 인용을 표시합니다. 참조 시드 13개는 복원되지 않았습니다. |
+| 구조화된 행동 계약 | implemented | [`behavior_knowledge.py`](../../../services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py), [`test_behavior_knowledge.py`](../../../services/core-control-plane/tests/providers/test_behavior_knowledge.py)(`16 passed`) | 집중 계약 테스트는 저장소 상대 source 좌표, 순서가 올바른 line 범위, citation 최소화, 안정적인 identity 필드, 필수 alias와 source, embedding 차원, test backing 및 지역화된 검색 text를 검증합니다. |
+| 인메모리 검색과 추적 출처 최신성 검증 | implemented | [`behavior_index.py`](../../../services/core-control-plane/src/fdai/core/knowledge/behavior_index.py), [`test_behavior_index.py`](../../../services/core-control-plane/tests/knowledge/test_behavior_index.py)(`14 passed`) | `InMemoryBehaviorKnowledgeIndex`는 멱등 upsert, 정확 alias/identifier/hybrid 정렬, 권위 정렬, 상호 순위 융합, 검색 하한, 비교 보류, 한국어 token 검색 및 stale/untracked citation 처리를 제공합니다. 참조 seed 13개는 별도 작업으로 남습니다. |
 | 참조 시드 13개 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 현재 서비스 토폴로지에 시드 집합, 시드 정밀도 테스트, holdout 말뭉치가 없습니다. |
 | 서버 소유 해석기, 렌더러, 검증기 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 현재 Operator API의 행동 근거 기능에서 유지된 계약을 가져오거나 연결하는 경로가 없습니다. |
 | PostgreSQL/pgvector 영속성과 운영 연결 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 이전 어댑터가 제거되었으며 현재 트리에는 행동 전용 이행, 조립 연결, 동기화 명령이 없습니다. |
@@ -163,6 +163,7 @@ PostgreSQL, 시드, 테스트 구현은 제거되었습니다. 인메모리 검�
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 서비스 분해 이후 오래된 상태를 바로잡았습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 이 영문/한국어 문서 쌍; 현재 프로바이더 계약 점검; `git diff-tree --no-commit-id --name-status -r 0988b1552`; 로드맵, 번역, 문장 부호, 한글, 문서 크기, 링크 검사. | 아래의 구체 검색 및 답변 경로, 영속성, 집중 테스트, 관리되는 런타임 근거를 복원합니다. |
 | 2026-08-16 | in-progress | 현재 서비스 토폴로지에 인메모리 행동 인덱스와 추적 출처 최신성 검증기를 복원했습니다. | `pytest services/core-control-plane/tests/knowledge/test_behavior_index.py`가 멱등 upsert, 일치 등급 및 권위 정렬, 오래되거나 추적되지 않은 인용, 한국어 의역 검색, 비교 보류, 전부 오래된 경우의 비교 기권, 검색 하한, 인용 전용 노출을 다루는 집중 테스트 14개를 통과했습니다. | 참조 시드 13개를 복원하고 서버 소유 Operator 답변 경로를 연결하며 영속성을 추가하고 관리되는 런타임 근거를 기록해야 합니다. |
+| 2026-09-12 | implemented | 제거된 seed나 production binding을 복원하지 않고 direct provider 계약 coverage를 추가하고 이미 검증된 in-memory 검색 및 freshness 구현을 정합화했습니다. | `current change`; provider 계약 및 in-memory index test(`30 passed`). | 추적 reference seed, server-owned 답변 경로, PostgreSQL parity 및 관리되는 runtime 근거를 복원합니다. |
 
 ### 남은 작업
 

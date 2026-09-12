@@ -96,10 +96,10 @@ that axis. A missing applicable operational value remains visible. This is prese
 only; it does not merge axes or infer operational success or health from availability or
 provisioning.
 
-The Resource directory is bounded, so an unsearched page is never a complete inventory. Dashboard v2
-reads recorded state only when the active inventory matches the committed ontology manifest, rejects
-cross-generation pages, preserves distinct unknown reasons, and replaces its bounded snapshot after
-invalidation. Search still reaches Resources beyond the directory bound while the operator types.
+The Resource directory is bounded, so an unsearched page is never a complete inventory. Dashboard v2 reads recorded state only when the active inventory matches the committed ontology manifest.
+It presents returned scope and drill-down counts as one snapshot surface, keeps the Resource landscape as the primary work surface, places evidence coverage beneath the map, and reserves the secondary rail for Check first records or the selected Resource Inspector.
+This visual hierarchy does not change evidence, filtering, or authority. The route rejects cross-generation pages, preserves distinct unknown reasons, and replaces its bounded snapshot after invalidation.
+Search still reaches Resources beyond the directory bound while the operator types.
 `Enter` runs the typed search unless the operator has actively highlighted a suggestion.
 
 The search control is the only Resource selection control. It browses the bounded directory when

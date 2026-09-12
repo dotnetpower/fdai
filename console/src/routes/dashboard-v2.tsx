@@ -173,29 +173,31 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
     records: { selected_resource: selected ? [{ id: selected.id, name: selected.name, type: selected.type, reported_status: selected.status, recorded_states: selected.states ?? null, snapshot_id: snapshot.id }] : [] },
   }), [snapshot, matches.length, selected]);
   return <>
-    <section class="dv2-scope">
-      <div><strong>{t("scope")}</strong><p>{snapshot.recordedStates ? t("inventoryScope") : snapshot.scope ?? t("missing")}</p><p>{t("boundary")}</p></div>
-      <div><strong>{t("snapshotAt")}</strong><p>{date(snapshot.at)}</p>{!snapshot.recordedStates && <StateBadge value={snapshot.freshness} />}</div>
+    <section class="dv2-snapshot-card" aria-label={t("scope")}>
+      <div class="dv2-scope">
+        <div><strong>{t("scope")}</strong><p>{snapshot.recordedStates ? t("inventoryScope") : snapshot.scope ?? t("missing")}</p><p>{t("boundary")}</p></div>
+        <div><strong>{t("snapshotAt")}</strong><p>{date(snapshot.at)}</p>{!snapshot.recordedStates && <StateBadge value={snapshot.freshness} />}</div>
+      </div>
+      {(snapshot.truncated || snapshot.limitations.length > 0) && <p class="dv2-notice" role="status">{t("partial")}</p>}
+      {!snapshot.recordedStates && (snapshot.observationKind !== "OBSERVED" || !snapshot.id || !snapshot.source) && <p class="dv2-notice">{t("unverified")}</p>}
+      {snapshot.freshness === "stale" && <p class="dv2-notice">{t("stale")}</p>}
+      <div class="dv2-summary">
+        {([
+          ["received", snapshot.resources.length, ""],
+          ["known", known, "known"],
+          ["unknown", operations.get("unknown") ?? 0, "unknown"],
+          ["provisioningRecorded", provisioningRecorded, "known"],
+        ] as const).map(([label, value, status]) =>
+          <a href={routeHref("dashboard-v2", { params: { state: status, lens: label === "provisioningRecorded" ? "provisioning" : null } })} key={label} onClick={(event) => {
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            setFilters({ ...EMPTY_DASHBOARD_FILTERS, status }); setLens(label === "provisioningRecorded" ? "provisioning" : "operation"); setView("list"); setPage(0);
+          }}><strong>{number(value)}</strong><span>{t(label)}</span></a>)}
+      </div>
     </section>
-    {(snapshot.truncated || snapshot.limitations.length > 0) && <p class="dv2-notice" role="status">{t("partial")}</p>}
-    {!snapshot.recordedStates && (snapshot.observationKind !== "OBSERVED" || !snapshot.id || !snapshot.source) && <p class="dv2-notice">{t("unverified")}</p>}
-    {snapshot.freshness === "stale" && <p class="dv2-notice">{t("stale")}</p>}
-    <div class="dv2-summary">
-      {([
-        ["received", snapshot.resources.length, ""],
-        ["known", known, "known"],
-        ["unknown", operations.get("unknown") ?? 0, "unknown"],
-        ["provisioningRecorded", provisioningRecorded, "known"],
-      ] as const).map(([label, value, status]) =>
-        <a href={routeHref("dashboard-v2", { params: { state: status, lens: label === "provisioningRecorded" ? "provisioning" : null } })} key={label} onClick={(event) => {
-          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          setFilters({ ...EMPTY_DASHBOARD_FILTERS, status }); setLens(label === "provisioningRecorded" ? "provisioning" : "operation"); setView("list"); setPage(0);
-        }}><strong>{number(value)}</strong><span>{t(label)}</span></a>)}
-    </div>
     <div class="dv2-workspace">
-      <section class="dv2-resource-panel" ref={panelRef}>
-        <header class="dv2-panel-head"><div><h3>{t("landscape")}</h3><p>{t("mapHelp")}</p></div>
+      <section class="dv2-resource-panel" ref={panelRef} aria-labelledby="dashboard-v2-landscape-title">
+        <header class="dv2-panel-head"><div><h3 id="dashboard-v2-landscape-title">{t("landscape")}</h3><p>{t("mapHelp")}</p></div>
           <div class="dv2-controls" role="group" aria-label={t("landscape")}>{(["honeycomb", "list", "groups"] as const).map((key) =>
             <button type="button" class="cs-control-button" key={key} aria-pressed={view === key} onClick={() => { setView(key); setPage(0); }}>{t(key)}</button>)}</div></header>
         <div class="dv2-lenses"><div class="dv2-controls" role="group" aria-label={t("observation")}>
@@ -232,21 +234,21 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           {unknownReason && <p class="dv2-note">{t(unknownReason)}</p>}
           <a href={resourceHref(selected)}>{t("inspectOntology")}</a>
           <details><summary>{t("evidence")}</summary><pre>{JSON.stringify({ snapshot_id: snapshot.id, snapshot_at: snapshot.at, source: snapshot.source, ontology_generation: snapshot.ontologyGeneration, ontology_manifest_digest: snapshot.ontologyManifestDigest, observation_kind: snapshot.observationKind, resource: selected, execution_authority: false }, null, 2)}</pre></details>
-        </section> : <section class="dv2-attention"><h3>{t("checkFirst")}</h3><p class="dv2-note">{t("checkHelp")}</p>
+        </section> : <section class="dv2-attention" aria-labelledby="dashboard-v2-attention-title"><header class="dv2-attention-head"><h3 id="dashboard-v2-attention-title">{t("checkFirst")}</h3><p class="dv2-note">{t("checkHelp")}</p></header>
           {highlights.length === 0 ? <p>{t("noHighlights")}</p> : highlights.map((resource) => <div key={resource.id}><StateBadge value={dashboardResourceState(resource, snapshot, "operation")} /><button type="button" class="dv2-link" onClick={() => setSelectedId(resource.id)}>{resource.name}</button><p class="dv2-note">{resource.type}</p></div>)}
           <a href={resourceHref()}>{t("browseOntology")}</a></section>}
       </aside>
+      <section class="dv2-coverage" aria-labelledby="dashboard-v2-coverage-title"><header class="dv2-coverage-head"><h3 id="dashboard-v2-coverage-title">{t("coverage")}</h3></header><dl>
+        <div><dt>{t("inventoryCoverage")}</dt><dd>{t(snapshot.truncated || snapshot.limitations.length ? "partialProjection" : "completeProjection")}<p>{snapshot.recordedStates ? t("queryTotal", { total: number(snapshot.totalCount ?? snapshot.resources.length) }) : t("excluded", { count: snapshot.excludedContainers })}</p><p>{snapshot.recordedStates ? t("operationalOnly") : t("excludedAuthorization", { count: snapshot.excludedAuthorization })}</p></dd></div>
+        <div><dt>{t("source")}</dt><dd>{snapshot.source ?? t("missing")}<p>{t("snapshot")}: {snapshot.id ?? t("missing")}</p><p>{t("ontologyGeneration")}: {snapshot.ontologyGeneration ?? t("missing")}</p></dd></div>
+        <div><dt>{t("unknownCauses")}</dt><dd>{unknownCounts.size === 0 ? t("noneRecorded") : <ul>{[...unknownCounts].map(([reason, count]) => <li key={reason}>{t(reason)}: {number(count)}</li>)}</ul>}</dd></div>
+        <div><dt>{t("availabilityCoverage")}</dt><dd>{t("availabilityHelp")}</dd></div>
+        <div><dt>{t("historyCoverage")}</dt><dd>{t("historyUnavailable")} <a href={resourceHref(selected ?? undefined)}>{t("inspectOntology")}</a></dd></div>
+      </dl>{snapshot.pendingChanges !== null && <p>{t("pending", { count: snapshot.pendingChanges })}</p>}
+        {snapshot.limitations.length > 0 && <details><summary>{t("evidence")}</summary><ul>{snapshot.limitations.map((reason) => <li key={reason}>{reason}</li>)}</ul></details>}
+        <p class="dv2-note">{t("readOnly")}</p>
+      </section>
     </div>
     <span class="sr-only" role="status">{selected ? t("pinned", { name: selected.name }) : ""}</span>
-    <section class="dv2-coverage"><h3>{t("coverage")}</h3><dl>
-      <div><dt>{t("inventoryCoverage")}</dt><dd>{t(snapshot.truncated || snapshot.limitations.length ? "partialProjection" : "completeProjection")}<p>{snapshot.recordedStates ? t("queryTotal", { total: number(snapshot.totalCount ?? snapshot.resources.length) }) : t("excluded", { count: snapshot.excludedContainers })}</p><p>{snapshot.recordedStates ? t("operationalOnly") : t("excludedAuthorization", { count: snapshot.excludedAuthorization })}</p></dd></div>
-      <div><dt>{t("source")}</dt><dd>{snapshot.source ?? t("missing")}<p>{t("snapshot")}: {snapshot.id ?? t("missing")}</p><p>{t("ontologyGeneration")}: {snapshot.ontologyGeneration ?? t("missing")}</p></dd></div>
-      <div><dt>{t("unknownCauses")}</dt><dd>{unknownCounts.size === 0 ? t("noneRecorded") : <ul>{[...unknownCounts].map(([reason, count]) => <li key={reason}>{t(reason)}: {number(count)}</li>)}</ul>}</dd></div>
-      <div><dt>{t("availabilityCoverage")}</dt><dd>{t("availabilityHelp")}</dd></div>
-      <div><dt>{t("historyCoverage")}</dt><dd>{t("historyUnavailable")} <a href={resourceHref(selected ?? undefined)}>{t("inspectOntology")}</a></dd></div>
-    </dl>{snapshot.pendingChanges !== null && <p>{t("pending", { count: snapshot.pendingChanges })}</p>}
-      {snapshot.limitations.length > 0 && <details><summary>{t("evidence")}</summary><ul>{snapshot.limitations.map((reason) => <li key={reason}>{reason}</li>)}</ul></details>}
-      <p class="dv2-note">{t("readOnly")}</p>
-    </section>
   </>;
 }

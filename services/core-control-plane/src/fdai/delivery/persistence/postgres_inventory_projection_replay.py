@@ -232,6 +232,31 @@ def required_replay_watermark(manifest: Mapping[str, Any], field: str) -> int:
     return value
 
 
+def nonnegative_watermark(value: object) -> int:
+    """Decode one optional non-negative inventory watermark."""
+
+    if value is None:
+        return 0
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError("inventory observation watermark MUST be a non-negative integer")
+    return value
+
+
+def manifest_watermarks(manifest: Mapping[str, Any]) -> tuple[int, int]:
+    """Decode the journal and projection watermarks as one complete pair."""
+
+    journal = manifest.get("journal_high_watermark")
+    projection = manifest.get("projection_high_watermark")
+    if journal is None and projection is None:
+        return 0, 0
+    if journal is None or projection is None:
+        raise ValueError("inventory projection replay manifest watermarks are incomplete")
+    return (
+        required_replay_watermark(manifest, "journal_high_watermark"),
+        required_replay_watermark(manifest, "projection_high_watermark"),
+    )
+
+
 def projection_freshness_ceiling(manifest: Mapping[str, Any]) -> int:
     object_content = manifest.get("object_content")
     if not isinstance(object_content, list) or not object_content:

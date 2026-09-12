@@ -131,6 +131,11 @@ from fdai.core.ontology_platform.query_receipt_authority import (
     SecuredQueryReceiptAuthority,
     secured_query_scope_digest,
 )
+from fdai.core.ontology_platform.recent_resource_changes import (
+    RECENT_RESOURCE_CHANGES_FUNCTION_NAME,
+    RecentResourceChangeReader,
+    recent_resource_changes_function,
+)
 from fdai.core.ontology_platform.relationship_queries import (
     ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME,
     ontology_relationships_function,
@@ -244,6 +249,7 @@ def build_semantic_query_runtime(
     subscription_scope_reader: SubscriptionScopeReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
     state_transition_reader: StateTransitionStore | None = None,
+    recent_resource_change_reader: RecentResourceChangeReader | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
     pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
@@ -421,6 +427,16 @@ def build_semantic_query_runtime(
                 reader=state_transition_reader,
             ),
             authority=EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
+        )
+    if recent_resource_change_reader is not None:
+        declaration = declarations[RECENT_RESOURCE_CHANGES_FUNCTION_NAME]
+        function_registry.register_contextual(
+            declaration,
+            recent_resource_changes_function(
+                ontology_release,
+                reader=recent_resource_change_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
     if topology_reader is not None:
         function_registry.register_contextual(

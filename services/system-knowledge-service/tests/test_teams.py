@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 from datetime import UTC, datetime
 from types import MappingProxyType
@@ -8,12 +11,16 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fdai_system_knowledge_service.config import TeamsSettings
+from fdai_system_knowledge_service.config import (
+    TeamsOutgoingWebhookSettings,
+    TeamsSettings,
+)
 from fdai_system_knowledge_service.teams import (
     ChannelAccessToken,
     PyJwtServiceTokenVerifier,
     TeamsIngressError,
     TeamsMentionVerifier,
+    TeamsOutgoingWebhookVerifier,
     TeamsPublisher,
     VerifiedServiceToken,
 )
@@ -69,6 +76,23 @@ def _settings() -> TeamsSettings:
     )
 
 
+def _outgoing_settings(*, configured: bool = True) -> TeamsOutgoingWebhookSettings:
+    return TeamsOutgoingWebhookSettings(
+        tenant_id="tenant-example",
+        team_ids=frozenset({"team-example"}),
+        channel_ids=frozenset({"channel-example"}),
+        principal_by_aad_object_id=MappingProxyType(
+            {"aad-user-example": "knowledge-reader-example"}
+        ),
+        hmac_secret=base64.b64encode(b"k" * 32).decode() if configured else None,
+    )
+
+
+def _hmac_header(body: bytes) -> str:
+    digest = base64.b64encode(hmac.new(b"k" * 32, body, hashlib.sha256).digest()).decode()
+    return f"HMAC {digest}"
+
+
 def _activity(
     *,
     entities: object | None = None,
@@ -78,6 +102,7 @@ def _activity(
     payload = {
         "type": "message",
         "id": "message-example",
+        "timestamp": NOW.isoformat(),
         "channelId": "msteams",
         "serviceUrl": SERVICE_URL,
         "locale": "ko-KR",
@@ -184,6 +209,60 @@ async def test_text_markup_without_verified_mention_entity_is_ignored() -> None:
     )
 
     assert turn is None
+
+
+async def test_outgoing_webhook_verifies_raw_body_before_parsing_mention() -> None:
+    body = _activity()
+    ingress = TeamsOutgoingWebhookVerifier(settings=_outgoing_settings())
+
+    turn = await ingress.parse(
+        body=body,
+        authorization=_hmac_header(body),
+        received_at=NOW,
+    )
+
+    assert turn is not None
+    assert turn.query == "설계와 구현 상태를 설명해줘"
+    assert turn.verification_ref == "teams-outgoing-hmac"
+
+
+async def test_outgoing_webhook_rejects_tampered_or_unconfigured_requests() -> None:
+    body = _activity()
+    ingress = TeamsOutgoingWebhookVerifier(settings=_outgoing_settings())
+
+    with pytest.raises(TeamsIngressError) as tampered:
+        await ingress.parse(
+            body=body + b" ",
+            authorization=_hmac_header(body),
+            received_at=NOW,
+        )
+    with pytest.raises(TeamsIngressError) as unconfigured:
+        await TeamsOutgoingWebhookVerifier(settings=_outgoing_settings(configured=False)).parse(
+            body=body,
+            authorization=_hmac_header(body),
+            received_at=NOW,
+        )
+
+    assert tampered.value.http_status == 401
+    assert tampered.value.code == "invalid_webhook_signature"
+    assert unconfigured.value.http_status == 503
+    assert unconfigured.value.code == "outgoing_webhook_unconfigured"
+
+
+async def test_outgoing_webhook_rejects_stale_signed_activity() -> None:
+    payload = json.loads(_activity())
+    payload["timestamp"] = "2026-09-09T23:00:00+00:00"
+    body = json.dumps(payload, separators=(",", ":")).encode()
+
+    with pytest.raises(TeamsIngressError) as stale:
+        await TeamsOutgoingWebhookVerifier(settings=_outgoing_settings()).parse(
+            body=body,
+            authorization=_hmac_header(body),
+            received_at=NOW,
+        )
+
+    assert stale.value.http_status == 401
+    assert stale.value.code == "stale_webhook_activity"
 
 
 async def test_unknown_team_fails_before_query() -> None:

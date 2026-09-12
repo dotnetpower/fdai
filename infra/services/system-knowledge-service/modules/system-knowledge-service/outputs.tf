@@ -16,13 +16,13 @@ output "identity" {
 }
 
 output "bot" {
-  value = {
-    id         = azurerm_bot_service_azure_bot.service.id
-    name       = azurerm_bot_service_azure_bot.service.name
+  value = local.bot_framework_enabled ? {
+    id         = azurerm_bot_service_azure_bot.service[0].id
+    name       = azurerm_bot_service_azure_bot.service[0].name
     app_id     = azurerm_user_assigned_identity.service.client_id
-    endpoint   = azurerm_bot_service_azure_bot.service.endpoint
-    channel_id = azurerm_bot_channel_ms_teams.service.id
-  }
+    endpoint   = azurerm_bot_service_azure_bot.service[0].endpoint
+    channel_id = azurerm_bot_channel_ms_teams.service[0].id
+  } : null
 }
 
 output "claim_store" {

@@ -8,7 +8,7 @@ MODULE = (SERVICE_ROOT / "modules/system-knowledge-service/main.tf").read_text(e
 VARIABLES = (SERVICE_ROOT / "variables.tf").read_text(encoding="utf-8")
 
 
-def test_root_owns_identity_blob_bot_and_single_replica_runtime() -> None:
+def test_root_owns_identity_blob_optional_bot_and_single_replica_runtime() -> None:
     for resource in (
         'resource "azurerm_user_assigned_identity" "service"',
         'resource "azurerm_storage_container" "claims"',
@@ -26,6 +26,8 @@ def test_root_owns_identity_blob_bot_and_single_replica_runtime() -> None:
     assert 'microsoft_app_type            = "UserAssignedMSI"' in MODULE
     assert 'sku                           = "F0"' in MODULE
     assert "local_authentication_enabled  = false" in MODULE
+    assert 'var.teams.transport == "bot_framework"' in MODULE
+    assert "count                         = local.bot_framework_enabled ? 1 : 0" in MODULE
 
 
 def test_runtime_environment_has_no_operational_or_executor_authority() -> None:
@@ -33,7 +35,9 @@ def test_runtime_environment_has_no_operational_or_executor_authority() -> None:
         "FDAI_SYSTEM_KNOWLEDGE_CLAIM_CONTAINER_URL",
         "FDAI_SYSTEM_KNOWLEDGE_SOURCE_REVISION",
         "FDAI_SYSTEM_KNOWLEDGE_TEAMS_APPLICATION_ID",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_OUTGOING_HMAC_SECRET",
         "FDAI_SYSTEM_KNOWLEDGE_TEAMS_PRINCIPAL_MAP_JSON",
+        "FDAI_SYSTEM_KNOWLEDGE_TEAMS_TRANSPORT",
     ):
         assert required in MODULE
     for forbidden in (

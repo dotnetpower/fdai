@@ -1,7 +1,7 @@
 ---
 title: 기능 번들 수명 주기
 translation_of: capability-bundle-lifecycle.md
-translation_source_sha: 1faf291d05412df4065733e968ffbf2ecba5dfca
+translation_source_sha: db9a438263db220cc6c8692bf32dbbf639a58229
 translation_revised: 2026-08-21
 ---
 # 기능 번들 수명 주기
@@ -10,6 +10,8 @@ translation_revised: 2026-08-21
 설치, 활성화, 비활성화 및 제거 단계를 거치는 방법을 정의합니다. [프로젝트
 구조](project-structure-ko.md)의 의존성 주입 모델을 구체화하며 모든 변경 요청을 기존 trust,
 risk, 실행, 복구 및 감사 경로에 유지합니다.
+런타임 스킬 제안 근거는 비활성 초안과 감사 레코드에 결속되며 스킬을 활성화, 구체화 또는
+승격하지 않습니다.
 
 > **권한 경계:** 번들 및 확장 활성화는 타입이 지정된 메타데이터, 참조 및 검토된 프로바이더만
 > 등록합니다. 승인 또는 실행 권한을 부여하지 않습니다.

@@ -43,6 +43,7 @@ class SkillProposal:
     reviewed_by: str | None = None
     review_reason: str | None = None
     reviewed_at: datetime | None = None
+    evidence_refs: tuple[str, ...] = ()
 
 
 class SkillProposalStore(Protocol):
@@ -196,16 +197,24 @@ class SkillWorkshop:
         *,
         proposed_by_agent: str,
         at: datetime,
+        evidence_refs: tuple[str, ...] = (),
     ) -> SkillProposal:
         if not proposed_by_agent:
             raise SkillWorkshopError("skill proposer agent MUST be non-empty")
+        canonical_evidence = tuple(sorted(set(evidence_refs)))
+        if len(canonical_evidence) > 64 or any(
+            not ref or len(ref) > 256 or any(ord(char) < 32 for char in ref)
+            for ref in canonical_evidence
+        ):
+            raise SkillWorkshopError("skill proposal evidence refs MUST be bounded identifiers")
         skill = parse_skill_markdown(raw_markdown)
         content_hash = hashlib.sha256(raw_markdown).hexdigest()
+        identity_material = f"{proposed_by_agent}\0{skill.manifest.name}\0{content_hash}"
+        if canonical_evidence:
+            evidence_digest = hashlib.sha256("\0".join(canonical_evidence).encode()).hexdigest()
+            identity_material += f"\0{evidence_digest}"
         proposal_id = (
-            "skill-proposal:"
-            + hashlib.sha256(
-                f"{proposed_by_agent}\0{skill.manifest.name}\0{content_hash}".encode()
-            ).hexdigest()[:32]
+            "skill-proposal:" + hashlib.sha256(identity_material.encode()).hexdigest()[:32]
         )
         proposal = await self._store.create(
             SkillProposal(
@@ -215,6 +224,7 @@ class SkillWorkshop:
                 markdown=raw_markdown,
                 proposed_by_agent=proposed_by_agent,
                 created_at=at,
+                evidence_refs=canonical_evidence,
             )
         )
         await self._audit.append(_event("skill.proposed", proposal, actor=proposed_by_agent, at=at))
@@ -310,6 +320,7 @@ def _event(kind: str, proposal: SkillProposal, *, actor: str, at: datetime) -> d
         "proposal_id": proposal.proposal_id,
         "skill_name": proposal.skill_name,
         "content_hash": proposal.content_hash,
+        "evidence_refs": list(proposal.evidence_refs),
         "state": proposal.state.value,
         "actor": actor,
         "timestamp": at.isoformat(),

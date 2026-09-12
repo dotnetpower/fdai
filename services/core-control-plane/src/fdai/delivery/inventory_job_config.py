@@ -28,7 +28,6 @@ from fdai.delivery.repo_assets import repo_asset_root
 
 _DEFAULT_LOOP_SECONDS = 60
 _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS = 120
-_DEFAULT_COLLECTION_POLICY_PATH = repo_asset_root() / "config" / "inventory-collection-policy.json"
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {
     "https://management.azure.com": "https://management.azure.com/.default",
     "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
@@ -89,8 +88,7 @@ class InventoryJobConfig:
 
         source = env if env is not None else os.environ
         dsn = source.get("FDAI_INVENTORY_DSN", "").strip()
-        default_scope = source.get("AZURE_SUBSCRIPTION_ID", "").strip()
-        scopes = _csv(source.get("FDAI_INVENTORY_SCOPES", default_scope))
+        scopes = inventory_scopes_from_env(source)
         source_order = _csv(source.get("FDAI_INVENTORY_SOURCES", "arg,arm"))
         resource_types = _csv(source.get("FDAI_INVENTORY_RESOURCE_TYPES", ""))
         management_endpoint = source.get(
@@ -166,11 +164,14 @@ class InventoryJobConfig:
             "FDAI_RUNTIME_CALL_EVIDENCE_ENABLED",
             False,
         )
-        collection_policy_path = Path(
-            source.get(
-                "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
-                str(_DEFAULT_COLLECTION_POLICY_PATH),
-            ).strip()
+        collection_policy_value = source.get(
+            "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
+            "",
+        ).strip()
+        collection_policy_path = (
+            Path(collection_policy_value)
+            if collection_policy_value
+            else repo_asset_root() / "config" / "inventory-collection-policy.json"
         )
 
         if not dsn:
@@ -443,6 +444,13 @@ def _csv(value: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
 
 
+def inventory_scopes_from_env(source: Mapping[str, str]) -> tuple[str, ...]:
+    """Resolve the authoritative inventory scopes with the legacy fallback."""
+
+    default_scope = source.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    return _csv(source.get("FDAI_INVENTORY_SCOPES", default_scope))
+
+
 def read_bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
     raw = source.get(key)
     if raw is None:
@@ -455,4 +463,9 @@ def read_bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
     raise ValueError(f"{key} MUST be one of 1, 0, true, false")
 
 
-__all__ = ["InventoryJobConfig", "read_bool_env", "verify_declarative_sha256"]
+__all__ = [
+    "InventoryJobConfig",
+    "inventory_scopes_from_env",
+    "read_bool_env",
+    "verify_declarative_sha256",
+]

@@ -12,6 +12,9 @@ from fdai_system_knowledge_service.teams_ingress import (
     TeamsMentionVerifier,
     VerifiedKnowledgeTurn,
 )
+from fdai_system_knowledge_service.teams_outgoing_webhook import (
+    TeamsOutgoingWebhookVerifier,
+)
 from fdai_system_knowledge_service.teams_publisher import (
     AzureChannelTokenProvider,
     ChannelAccessToken,
@@ -30,6 +33,7 @@ __all__ = [
     "ServiceTokenVerifier",
     "TeamsIngressError",
     "TeamsMentionVerifier",
+    "TeamsOutgoingWebhookVerifier",
     "TeamsPublishError",
     "TeamsPublisher",
     "VerifiedKnowledgeTurn",

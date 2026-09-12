@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 14898c035fa97e0aebd83ed9f143ce98aad7e671
+translation_source_sha: e802210cfecea756842a665e2a87bcf8e85cabc3
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -180,7 +180,8 @@ journal 기록은 완전성을 낮출 수 있지만 전역 또는 활성 범위 
 경계보다 앞으로 이동시킬 수 없습니다.
 PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하고 인벤토리 상태 기준의 완전성과
 객체 소유권 검증을 `postgres_ontology_records.py`에 통합합니다. 이 공통 레코드 검증 경계는
-다른 그래프 기록기나 권한 표면을 만들지 않습니다.
+다른 그래프 기록기나 권한 표면을 만들지 않습니다. 변경 feed 값 해석과 replay watermark 해석은
+순수 delivery helper에 유지하므로 모듈 분리는 cursor 진행, 완전성 또는 쓰기 권한을 바꾸지 않습니다.
 
 ### 비공개 네트워크 변경 가속
 
@@ -189,11 +190,47 @@ PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하�
 정렬하고 경계 중복을 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤 cursor를
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
-부재를 입증할 때까지 기다립니다. 부분 페이지나 매핑된 대상의 누락은 cursor와 overlay를 진행하지
-않으며, 반환된 미지원 공급자 형식은 명시적인 커버리지 공백으로 유지합니다.
+부재를 입증할 때까지 기다립니다. 연속 토큰이 없는 잘린 페이지는 같은 안정적인 keyset cursor로
+진행하며, 다음 폴링은 게시한 모든 이벤트 ID가 관측 journal에 나타날 때까지 기다립니다. 따라서
+snapshot에 포함된 변경과 순서상 거부된 변경은 현재 overlay 변경으로 잘못 표현되지 않으면서 생산자
+fence를 해제합니다. 구성된 페이지 크기와 페이지 수의 곱은 1,000개 ID로 제한된 내구성 있는
+fence 한도를 넘을 수 없습니다. 프로바이더가 여전히 잘림을 보고한 빈 페이지도 불완전한 상태를
+유지합니다. Transport는 문서화된 `resultTruncated`의 bool 및 문자열 형식만 허용하고 다른 값은
+거부합니다. 범위가 제한된 마지막 페이지에 연속 토큰이 남아 있으면 feed는 수집한 가장 오래된 행을
+불완전 상태로 반환하고 수신 fence가 해제된 뒤 안정적인 keyset cursor를 진행합니다.
+첫 폴링은 계산한 lookback 경계를 초기 cursor로 영속화하므로 불완전한 빈 응답이나 재조회 재시도가
+앞으로 이동하여 변경을 건너뛸 수 없습니다. 이 anchor는 첫 프로바이더 조회나 게시 전에 커밋되므로
+첫 시도가 실패해도 동일한 경계를 다시 사용합니다.
+Snapshot에 포함된 이벤트도 이력 전용 관측을
+추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
+있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
+현재 overlay를 변경하지 않습니다.
+재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
+해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
+카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
+실패시킵니다. 속성 payload 한도를 넘은 재조회도 잘린 전체 교체를 주장하지 않도록 게시하거나
+cursor를 진행하기 전에 실패시킵니다.
+해결되지 않은 재조회를 세 번 재시도한 뒤 feed는 범위가 제한된 페이지를 지나서 진행하고 누락된
+최신 변경 시각을 내구성 있는 coverage gap으로 기록합니다. 해당 gap과 겹치는 조회 기간은
+불완전하게 유지되며, 이후 기간은 feed를 영구적으로 막지 않고 복구할 수 있습니다.
+
+읽기 전용 최근 변경 FunctionType은 모델이 제안한 범위가 아니라 서버에 구성된 인벤토리 범위를
+조회합니다. 수집과 동일한 `FDAI_INVENTORY_SCOPES` parser를 사용하며,
+`AZURE_SUBSCRIPTION_ID`는 기존 단일 범위 fallback으로만 사용합니다. ARG 생성, 업데이트, 삭제
+관측 또는 검토된 Event Grid Resource 변경 adapter가 만든
+작업 정보 포함 관측만 선택하며, 주기적 스냅샷과 live refresh를 제외합니다. 최신 cursor와 모든
+정확한 이벤트 ID fence를 검증한
+뒤에만 완전한 결과로 보고합니다. 조회기는 요청 한도보다 한 행을 더 가져오며, 범위가 제한된
+부분집합을 완전하다고 주장하지 않고 `result_limit`을 보고합니다. 행, cursor 상태, journal fence
+근거는 하나의 읽기 전용 repeatable-read snapshot에서 읽고 모두 답변의 `known_at` 경계로
+제한합니다.
 
 변경 가속기는 최대 2초 동안 급증한 변경을 묶고 리소스별 순서를 적용하며, 정확한 재조회와 검토된
-mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. Azure Activity Log는 감사 및 복구
+mapping 카탈로그가 지원하지 않은 관계를 게시하지 않습니다. `FDAI_INVENTORY_RESOURCE_TYPES`가
+수집을 제한하면 가속기는 먼저 전체 검토 vocabulary에서 ARM 유형과 `kind`를 확인한 다음 구성된
+중립 유형 allowlist를 적용합니다. 제외된 유형은 수신 fence에 들어가 전체 폴링을 막지 않으며,
+공유 ARM 유형은 너무 일찍 필터링된 registry 때문에 잘못 분류되지 않습니다. Azure Activity Log는
+감사 및 복구
 출처로 유지하고, 완전한 ARG 및 ARM reconciliation은 누락된 변경을 복구하고 하위 토폴로지를
 수집합니다. Resource Graph 변경 정보는 최종 일관성을 사용하므로 이 경로는 즉시성을 보장하는
 프로바이더 기능이 아니라 실시간에 가까운 처리입니다.

@@ -1,0 +1,14 @@
+id: conversation-preflight-resource-changes
+version: 1
+layer: pack
+applies_to: [conversation.preflight]
+token_budget: 192
+default_mode: shadow
+body: |-
+  Correct Resource change distinction:
+  - recent_resource_changes: provider create, update, delete, or change operations for Resources; no targets; server_recent_default; operational_result_limit is the explicit count or 5; facets [changed_resources,resource_count,default_recent_window].
+  - recent_resource_state_changes: only when the operator explicitly asks whose operational state changed; no targets; server_recent_default; operational_result_limit is the explicit count or 5; facets [recently_changed,resource_count,default_recent_window].
+  Plain "recently changed resources" is recent_resource_changes, not a state-transition request and not a resource_name_filter.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Separates provider Resource changes from operational-state transitions.

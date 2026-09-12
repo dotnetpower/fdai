@@ -110,6 +110,7 @@ test.describe("Native Dashboard v2", () => {
     await installApi(page);
     await openV2(page);
     await expect(page.locator(".page-header-title")).toContainText("Dashboard v2");
+    await expect(page.locator(".dv2-snapshot-card .dv2-summary")).toBeVisible();
     await expect(page.locator(".dv2-summary strong")).toHaveText(["600", "500", "100", "100"]);
     await expect(page.locator(".dv2-scope")).toContainText("Immutable inventory snapshot");
     await page.locator(".activity-bar").getByRole("button", { name: "Overview", exact: true }).hover();
@@ -120,6 +121,21 @@ test.describe("Native Dashboard v2", () => {
     expect(await page.locator(".dashboard-v2-map-cell").count()).toBeGreaterThan(200);
     expect(await page.locator(".dashboard-v2-map-cell").count()).toBeLessThanOrEqual(476);
     expect(await page.locator(".dashboard-v2-map").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const desktopLayout = await page.locator(".dv2-workspace").evaluate((workspace) => {
+      const resource = workspace.querySelector(".dv2-resource-panel")!.getBoundingClientRect();
+      const attention = workspace.querySelector(".dv2-side")!.getBoundingClientRect();
+      const coverage = workspace.querySelector(".dv2-coverage")!.getBoundingClientRect();
+      return {
+        attentionFollowsResource: attention.left > resource.left,
+        coverageBelowResource: coverage.top > resource.top,
+        coverageAlignedWithResource: Math.abs(coverage.left - resource.left) < 1,
+      };
+    });
+    expect(desktopLayout).toEqual({
+      attentionFollowsResource: true,
+      coverageBelowResource: true,
+      coverageAlignedWithResource: true,
+    });
     await page.screenshot({ path: testInfo.outputPath("dashboard-v2-desktop.png") });
     await page.locator(".dv2-summary a").nth(1).click();
     await expect(page.locator(".dv2-meta")).toContainText("500 match filters");
@@ -345,8 +361,10 @@ test.describe("Native Dashboard v2", () => {
       await installApi(mobile);
       await mobile.goto("/dashboard-v2?locale=ko");
       await expect(mobile.locator(".page-header-title")).toContainText("대시보드 v2");
+      await expect(mobile.locator(".dv2-snapshot-card .dv2-summary a")).toHaveCount(4);
       await expect(mobile.getByRole("button", { name: "조밀하게", exact: true })).toBeDisabled();
       await expect(mobile.locator(".dashboard-v2-map-cell")).toHaveCount(48);
+      await mobile.screenshot({ path: testInfo.outputPath("dashboard-v2-mobile-overview.png") });
       const input = mobile.getByRole("combobox", { name: "유형", exact: true });
       await input.tap();
       await input.fill("vm");
@@ -365,6 +383,7 @@ test.describe("Native Dashboard v2", () => {
       });
       expect(await mobile.locator(".dv2-inspector").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       expect(await mobile.locator("main").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await mobile.locator(".dv2-snapshot-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       const box = await first.boundingBox();
       expect(box!.width).toBeGreaterThanOrEqual(44);
       expect(box!.height).toBeGreaterThanOrEqual(44);

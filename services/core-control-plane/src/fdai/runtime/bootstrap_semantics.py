@@ -32,6 +32,7 @@ from fdai.delivery.evidence_conflict import (
     EventBusEvidenceConflictCandidatePublisher,
     StateStoreEvidenceConflictProjection,
 )
+from fdai.delivery.inventory_job_config import inventory_scopes_from_env
 from fdai.delivery.inventory_live_evidence import (
     InventoryGraphLiveRefreshProvider,
     InventoryLiveEvidenceWriter,
@@ -41,6 +42,10 @@ from fdai.delivery.operational_activity import EventBusOperationalActivityPublis
 from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventoryDeltaProjector
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
+)
+from fdai.delivery.persistence.postgres_recent_resource_changes import (
+    PostgresRecentResourceChangeReader,
+    PostgresRecentResourceChangeReaderConfig,
 )
 from fdai.delivery.persistence.postgres_state_transitions import (
     PostgresStateTransitionStore,
@@ -212,6 +217,16 @@ async def build_semantic_runtime(
         if state_store_dsn
         else None
     )
+    recent_resource_change_reader = (
+        PostgresRecentResourceChangeReader(
+            config=PostgresRecentResourceChangeReaderConfig(
+                dsn=state_store_dsn,
+                scope_refs=tuple(sorted(inventory_scopes_from_env(environment))),
+            )
+        )
+        if state_store_dsn
+        else None
+    )
     incident_evidence_reader = (
         state_store if isinstance(state_store, IncidentEvidenceReader) else None
     )
@@ -309,6 +324,7 @@ async def build_semantic_runtime(
         subscription_scope_reader=subscription_scope_reader,
         service_health_reader=service_health_reader,
         state_transition_reader=state_transition_reader,
+        recent_resource_change_reader=recent_resource_change_reader,
         vm_process_cpu_reader=vm_process_cpu_reader,
         pod_log_evidence_reader=pod_log_evidence_reader,
         graph_live_refresh_provider=_graph_live_refresh_provider(

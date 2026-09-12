@@ -1,8 +1,8 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: 32051765185fdf15bfd444e822cdecb56c296edf
-translation_revised: 2026-08-24
+translation_source_sha: 4c47554eba7cd09657ff03777dab58222cf80ec8
+translation_revised: 2026-09-12
 ---
 # 제품화 및 확장성 계획
 
@@ -47,7 +47,7 @@ Install과 진단은 단순해지고, 채널은 실행 권한 없이 bidirection
 | P0-05 | Static 배포 preflight | 구현됨 | 결정론적 입력, Terraform 계획 JSON, 실제 운영 Azure Policy/할당량/신원/시크릿, hash-only 근거 및 실패 시 차단 오류를 사용하는 범위가 제한된 실행기 TLS egress 통과 |
 | P0-06 | 원격 계획 제출 | 구현됨 | 대상 id를 전송 계층 산출물에 넣지 않는 doctor-gated plan-only 전달, exact-commit 가드, 비공개 변경할 수 없는 binary 계획, 정제된 메타데이터 상태, 다이제스트/만료, 범위가 제한된 정리 통과 |
 | P0-07 | Exact-plan 적용 | 구현됨 | Protected 계획이 완전한 enforce-mode Policy/할당량/신원/시크릿 검사 커버리지 및 범위가 제한된 egress 근거를 요구하며 separate 변경할 수 없는 근거 다이제스트를 점유, approval-gated 적용, convergence, 이행, 상태, 증적 전에 복원하고 verify |
-| P0-08 | Signed 배포 번들 | 구현됨 | Tracked 허용 목록, 결정론적 CycloneDX 빌드/보관, 외부 Ed25519 서명, double-build 바이트 비교, 검증기 round-trip, approval-gated 산출물, 선택적 GitHub release 게시 통과 |
+| P0-08 | Signed 배포 번들 | 부분 구현 | 추적되는 허용 목록, 결정론적 CycloneDX 빌드/보관, 외부 Ed25519 서명, 검증기 round-trip 통과. 재현 가능한 double-build 검증과 승인이 필요한 게시는 남은 작업 |
 | P0-09 | 로컬 security 감사 | 구현됨 | 고정된 발견 사항이 auth bypass, Entra 구성, 실행 플래그, 샌드박스 준비 상태, 구성 hygiene 포함 |
 | P0-10 | Narrow security auto-fix | 구현됨 | Regular 파일 `0600` 및 상위 디렉터리 `0700` 변경만 허용 |
 | P0-11 | Bidirectional 채널 계약 | 구현됨 | 범위가 제한된 `InboundTurn` 및 thread-preserving `OutboundResponse` 프로토콜 테스트 통과 |
@@ -63,7 +63,7 @@ Install과 진단은 단순해지고, 채널은 실행 권한 없이 bidirection
 | P0-21 | Invariant-safe T2 기본 장애 조치 | 구현됨 | 각 same-publisher 후보를 최대 한 번 시도, all-failed는 검토로 경로 |
 | P0-22 | 타입이 지정된 외부 RPC 및 클라이언트 계약 | 구현됨 | Scoped 발견, strict HTTP 상관관계, SHA-256 PostgreSQL 점유/재생 CAS, 결정론적 compilable Python stub, built-in 도구 메서드, 명시적 standalone 운영 조립 통과 |
 | P0-23 | 통제된 샌드박스 프로파일 | 구현됨 | Default-deny 명령, VM-task, MCP/도구, document-converter 프로파일이 구체적인 어댑터 경계에서 서버가 소유한 기능, 모드, 접미사, 시간 초과, workspace/네트워크, 바이트 상한을 적용 |
-| P0-24 | Full release 검증 | 구현됨 | Approval-gated release가 clean-checkout full 및 productization 게이트, disposable pgvector 이행/통합 테스트, pinned 의존성 감사, clean-tree 확인, reproducible signed 번들 검증, 선택적 GitHub release 게시를 요구 |
+| P0-24 | Full release 검증 | 부분 구현 | 로컬 release 스크립트가 범위가 제한된 구성과 검증을 수행. 보호되는 작업 흐름에서 clean-checkout full 및 productization 게이트, disposable pgvector 이행/통합 테스트, 고정된 의존성 감사, clean-tree 확인, 재현 가능한 signed 번들 검증, 선택적 GitHub release 게시를 아직 강제해야 함 |
 
 ## P1 operational experience
 
@@ -189,14 +189,16 @@ bash scripts/quality/repository/check-punctuation.sh
 
 release 배치는 clean 체크아웃에서 `scripts/verify.sh --all`도 실행하고 휠 및 배포
 번들을 빌드하고 isolated 환경에 휠을 설치하고 서명을 검증하고 disposable
-PostgreSQL 데이터베이스에서 이행 업그레이드 검사를 실행합니다. release 작업 흐름은 환경이
-서명 키를 노출하기 전에 이 순서를 적용합니다. 별도 의존성 감사도 통과해야 하며
-gated 번들 작업만 저장소 쓰기 권한을 받습니다.
+PostgreSQL 데이터베이스에서 이행 업그레이드 검사를 실행합니다. 향후 보호되는 release 작업
+흐름은 환경이 서명 키를 노출하기 전에 이 순서를 강제하고 별도 의존성 감사를 요구하며,
+게시 작업에만 저장소 쓰기 권한을 부여해야 합니다. 현재 automatic-version 작업 흐름은 버전
+메타데이터와 태그를 게시하지만 이 release 배치 검사를 강제하거나 배포 번들을 게시하지 않습니다.
 
 Executable productization 게이트에는 `scripts/deployment/release/verify-productization.sh`를 실행합니다. 이 계획의
-subsystem을 검사하고 Alembic 헤드가 하나인지 확인하고 휠을 빌드하고 isolated `uvx`
-install로 `fdaictl version --output json`을 실행합니다. Full 저장소 게이트 또는 실제 운영 disposable
-데이터베이스 이행 실행을 대체하지 않습니다.
+subsystem을 검사하고 Alembic 헤드가 하나인지 확인하며 package test를 실행한 뒤 휠을 빌드합니다.
+별도 focused integration test가 package project 환경에서 `fdaictl version --output json`을
+실행합니다. 두 경로 모두 이 휠을 설치하지 않으며 full 저장소 게이트, release batch의 isolated
+install 또는 실제 운영 disposable 데이터베이스 이행 실행을 대체하지 않습니다.
 
 ## 관련 문서
 
