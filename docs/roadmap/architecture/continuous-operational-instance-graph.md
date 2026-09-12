@@ -299,25 +299,17 @@ Resource and relationship updates are ordered per logical resource. Duplicate de
 and a stale cursor or older event cannot move an instance backward. Tombstones retain their source,
 effective time, generation, and archive lineage.
 
-A complete provider generation may contain reviewed candidates that cannot become edges because an
-endpoint is outside the active generation, its provider type is not modeled, or its exact reference
-was not observed. These typed non-edges do not freeze newer Resource objects and independently
-verified links. The ontology projection advances the same generation with
-`relationship_complete=false` and preserves every classified reason. Relationship coverage bounds
-relationship claims: it prevents a query from using the graph as complete relationship evidence,
-while a snapshot whose object set admits no intra-set edge states nothing about relationships and
-therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
-partial source generation, conflict, or cardinality violation remains blocking and preserves the
-previous graph.
+A complete provider generation can contain typed non-edges: endpoints outside that generation,
+unmodeled provider types, or unobserved exact references. Newer Resource objects and independently
+verified links can advance with `relationship_complete=false`, retaining all classified reasons.
+Coverage limits relationship claims, not object coverage when no intra-set edge is possible.
+Invalid verification metadata, unclassified drops, partial generations, conflicts, or cardinality violations block replacement.
 
-Open container environment values that resolve to the owning Resource are identity references,
-not dependency candidates. This applies to exact ARM IDs and uniquely resolved endpoint aliases;
-it does not suppress self-links from explicit relationship fields. Reciprocal `depends_on` edges
-are separate facts only when each direction has one candidate, its own source Resource owns the
-provider evidence, and both mappings declare owner-to-reference direction. Both edges still pass
-the complete-generation endpoint, schema, observation-time, and independent-verifier checks.
-Verifier revision `inventory-generation-verifier.v2` records this distinction. Duplicate edges,
-unsupported reversed orientations, and self-links remain blocking.
+Open environment self-identity values (exact ARM IDs or unique endpoint aliases) are not
+dependencies; explicit self-links remain blocked. Reciprocal `depends_on` facts require one
+candidate per direction, source-owned evidence, and owner-to-reference mappings. Both edges pass
+complete-generation endpoint, schema, observation-time, and independent-verifier checks under
+`inventory-generation-verifier.v2`; duplicate edges and unsupported reversed orientations still block.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
