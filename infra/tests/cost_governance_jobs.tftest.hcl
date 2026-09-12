@@ -46,6 +46,14 @@ variables {
 run "package_jobs_are_root_owned" {
   command = plan
 
+  plan_options {
+    target = [
+      azurerm_role_assignment.inventory_cost_reader,
+      azurerm_container_app_job.cost_governance_collector,
+      azurerm_container_app_job.cost_governance_analyzer,
+    ]
+  }
+
   assert {
     condition = (
       length(azurerm_container_app_job.cost_governance_collector) == 1 &&
