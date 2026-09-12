@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/t2-startup-proof-evidence/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "authority_class",
+    "source_identity_digest",
+    "scope_digest",
+    "purpose",
+    "query_version",
+    "event_time",
+    "recorded_at",
+    "freshness_seconds",
+    "completeness",
+    "synthetic",
+    "execution_authority",
+    "source_revision",
+    "image_digest",
+    "environment",
+    "revision_created_at",
+    "revision_ref_digest",
+    "replica_ref_digest",
+    "active_revision_count",
+    "replica_count",
+    "readiness_decision",
+    "minimum_reuse_count",
+    "maximum_proof_age_seconds",
+    "candidate_count",
+    "candidates",
+    "workflow",
+    "provenance_digest",
+    "evidence_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "fdai.t2-startup-proof-evidence.v1"},
+    "evidence_kind": {"const": "t2_startup_proof_reuse"},
+    "authority_class": {"const": "protected-runner-observation"},
+    "source_identity_digest": {"$ref": "#/$defs/digest"},
+    "scope_digest": {"$ref": "#/$defs/digest"},
+    "purpose": {"const": "issue-90-t2-startup-proof-reuse"},
+    "query_version": {"const": "t2-startup-proof-evidence@1.0.0"},
+    "event_time": {"$ref": "#/$defs/timestamp"},
+    "recorded_at": {"$ref": "#/$defs/timestamp"},
+    "freshness_seconds": {"type": "number", "minimum": 0},
+    "completeness": {"const": true},
+    "synthetic": {"const": false},
+    "execution_authority": {"const": false},
+    "source_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "image_digest": {"$ref": "#/$defs/digest"},
+    "environment": {"enum": ["dev", "staging", "prod"]},
+    "revision_created_at": {"$ref": "#/$defs/timestamp"},
+    "revision_ref_digest": {"$ref": "#/$defs/digest"},
+    "replica_ref_digest": {"$ref": "#/$defs/digest"},
+    "active_revision_count": {"const": 1},
+    "replica_count": {"const": 1},
+    "readiness_decision": {"enum": ["ready", "degraded"]},
+    "minimum_reuse_count": {"type": "integer", "minimum": 2},
+    "maximum_proof_age_seconds": {"type": "integer", "minimum": 1},
+    "candidate_count": {"type": "integer", "minimum": 1},
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "run_id", "run_attempt"],
+      "properties": {
+        "ref": {
+          "const": ".github/workflows/t2-startup-proof-evidence.yml@refs/heads/main"
+        },
+        "run_id": {"type": "integer", "minimum": 1},
+        "run_attempt": {"type": "integer", "minimum": 1}
+      }
+    },
+    "provenance_digest": {"$ref": "#/$defs/digest"},
+    "evidence_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_id",
+        "capability_id",
+        "model_ref_digest",
+        "proof_id",
+        "proof_started_at",
+        "proof_sampled_at",
+        "first_reused_at",
+        "latest_reused_at",
+        "current_observed_at",
+        "current_expires_at",
+        "sample_count",
+        "reuse_count",
+        "initial_sampled",
+        "current_sampled",
+        "previously_proven",
+        "metered_invocation_count",
+        "additional_invocation_count",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "total_cost",
+        "currency",
+        "modes",
+        "usage_scopes",
+        "metering_digest"
+      ],
+      "properties": {
+        "probe_id": {
+          "type": "string",
+          "pattern": "^model[.]cross-check[.][0-9]+[.][0-9]+$"
+        },
+        "capability_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "model_ref_digest": {"$ref": "#/$defs/digest"},
+        "proof_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "proof_started_at": {"$ref": "#/$defs/timestamp"},
+        "proof_sampled_at": {"$ref": "#/$defs/timestamp"},
+        "first_reused_at": {"$ref": "#/$defs/timestamp"},
+        "latest_reused_at": {"$ref": "#/$defs/timestamp"},
+        "current_observed_at": {"$ref": "#/$defs/timestamp"},
+        "current_expires_at": {"$ref": "#/$defs/timestamp"},
+        "sample_count": {"type": "integer", "minimum": 2},
+        "reuse_count": {"type": "integer", "minimum": 2},
+        "initial_sampled": {"const": true},
+        "current_sampled": {"const": false},
+        "previously_proven": {"const": true},
+        "metered_invocation_count": {"type": "integer", "minimum": 2},
+        "additional_invocation_count": {"const": 0},
+        "prompt_tokens": {"type": "integer", "minimum": 0},
+        "completion_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 1},
+        "total_cost": {"type": "string", "pattern": "^(0|[1-9][0-9]*)([.][0-9]+)?$"},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["shadow", "enforce"]}
+        },
+        "usage_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {"const": "control_plane"}
+        },
+        "metering_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}
