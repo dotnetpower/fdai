@@ -187,6 +187,51 @@ def test_runtime_call_evidence_transition_is_context_bound_and_exclusive() -> No
         )
 
 
+def test_cost_governance_image_requests_are_context_bound() -> None:
+    values = _request(
+        COMMIT_SHA=_COMMIT,
+        PROMOTE_RUNTIME_IMAGE="true",
+        RUNTIME_IMAGE_PROFILE="cost-governance",
+        RUNTIME_IMAGE_REVISION="c" * 40,
+    )
+    context = _MODULE._deployment_context_digest(values)
+    plan_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    validate(
+        {
+            **values,
+            "REQUEST_ID": f"plan-cost-{plan_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+        },
+        checkout_commit=_COMMIT,
+    )
+
+    apply_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="apply",
+        region="koreacentral",
+    )
+    validate(
+        {
+            **values,
+            "APPLY": "true",
+            "PROMOTE_RUNTIME_IMAGE": "false",
+            "REQUEST_ID": f"apply-cost-{apply_prefix}{'abcd' * 5}0001",
+            "CONTEXT_DIGEST": context,
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": "d" * 64,
+        },
+        checkout_commit=_COMMIT,
+    )
+
+
 def test_document_ocr_proposal_plan_derives_action_from_policy() -> None:
     request_id = f"plan-ocr-{'a' * 32}-{'b' * 64}"
     validate(
