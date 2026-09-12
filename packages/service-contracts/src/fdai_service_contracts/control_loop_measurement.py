@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from fdai_service_contracts.executor_models import ContractBase
+from fdai_service_contracts.measurement_time import measurement_timestamp_input
 
 CONTROL_LOOP_MEASUREMENT_ACTION_KIND = "measurement.control_loop.v1"
 CONTROL_LOOP_MEASUREMENT_ACTOR = "fdai.measurement"
@@ -63,6 +64,11 @@ class ControlLoopMeasurement(ContractBase):
     gate_route: TerminalToken
     resource_type: SourceText | None = None
     action_ids: Annotated[tuple[SourceText, ...], Field(max_length=4096)] = ()
+
+    @field_validator("occurred_at", "ingested_at", "recorded_at", mode="before")
+    @classmethod
+    def _timestamp_representation(cls, value: object) -> object:
+        return measurement_timestamp_input(value)
 
     @field_validator("action_ids", mode="before")
     @classmethod

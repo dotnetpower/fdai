@@ -1,4 +1,4 @@
-"""CLI composition for protected cohort observation imports."""
+"""Protected observation imports and independently admitted comparison publication."""
 
 from __future__ import annotations
 
@@ -16,8 +16,14 @@ from fdai.delivery.measurement.cohort_observation_import import (
     import_cohort_observation_batch,
     load_cohort_observation_batch,
 )
+from fdai.delivery.measurement.dashboard_comparison import (
+    load_dashboard_comparison_receipt,
+    publish_dashboard_comparison,
+)
+from fdai.delivery.measurement.metric_source import load_metric_source_batch
+from fdai.delivery.measurement.metric_source_import import import_metric_source_batch
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
-from fdai_service_contracts.baseline_cohort import CohortArm
+from fdai_service_contracts.baseline_cohort import CohortArm, CohortArtifactOrigin
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -44,19 +50,35 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         else datetime.fromisoformat(str(args.imported_at).replace("Z", "+00:00"))
     )
     policy = load_cohort_claim_policy(args.policy)
+    context = CohortObservationImportContext(
+        arm=CohortArm(args.arm),
+        fdai_revision=args.revision,
+        source_workflow_path=args.source_workflow_path,
+        source_run_id=args.source_run_id,
+        source_run_attempt=args.source_run_attempt,
+        source_artifact_name=args.source_artifact_name,
+        imported_at=imported_at,
+    )
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    comparison_receipt = load_dashboard_comparison_receipt(args.batch)
+    if comparison_receipt is not None:
+        return await publish_dashboard_comparison(
+            comparison_receipt,
+            context=context,
+            policy=policy,
+            store=store,
+            import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        )
+    source_batch = load_metric_source_batch(args.batch)
+    if source_batch is not None:
+        return await import_metric_source_batch(
+            source_batch, context=context, policy=policy, store=store
+        )
     report = await import_cohort_observation_batch(
         load_cohort_observation_batch(args.batch),
-        context=CohortObservationImportContext(
-            arm=CohortArm(args.arm),
-            fdai_revision=args.revision,
-            source_workflow_path=args.source_workflow_path,
-            source_run_id=args.source_run_id,
-            source_run_attempt=args.source_run_attempt,
-            source_artifact_name=args.source_artifact_name,
-            imported_at=imported_at,
-        ),
+        context=context,
         policy=policy,
-        store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn)),
+        store=store,
     )
     return report.to_mapping()
 

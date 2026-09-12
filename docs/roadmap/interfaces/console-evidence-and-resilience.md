@@ -123,18 +123,18 @@ The console card contract test checks shared KPI destinations, rejects nested wh
 requires nullable KPI values to declare an evidence state, requires raw data cards to expose a link
 or explicit detail control, and blocks structural card names.
 
-Operating Outcomes publishes the selected metric, current value, baseline, measurement window,
-sample size, confidence, and source provenance as a bounded Command Deck view snapshot. It includes
-vertical records only for Auto-resolution, the one metric view that renders that measured
-breakdown. The narrator receives only rendered evidence facts; it does not infer unavailable values
-or replace the route's authoritative source. Snapshot headlines use the same metric formatter as the
-visible cards, and auto-resolution values retain ratio semantics so displayed percentage claims can
-be checked at the same rounded precision the operator sees.
-The audit-backed projection captures the append-only audit head sequence, traverses every row in
-the measurement window below that cutoff, then filters to control-loop and executor producers. It
-groups rows by `event_id` and counts each normalized event once. Concurrent appends after the cutoff
-don't enter the snapshot. The request computes one absolute UTC lower timestamp and reuses it with
-the same head sequence on every page, so pagination changes only query cost, not KPI membership. An
+Operating Outcomes publishes its metric, value, baseline, window, sample size, confidence and
+provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.
+Narration receives rendered facts, never invented unavailable values or replacement sources.
+Headlines and cards share formatting, preserving ratios and the displayed percentage precision.
+Dashboard routing retains its own canonical sample, independent of general audit noise.
+Mode, tier, action, outcome, window and sequence filters reach the server-owned audit query.
+Admitted cohort comparisons remain separate from rolling Live values, expire, and grant no authority.
+The audit-backed projection captures one UTC window and append-only head sequence, then reads
+canonical classifications, independent outcomes, metric observations and human inputs below it.
+An over-budget complete read fails closed rather than reporting a partial rate. Normalized event
+identity controls the denominator; incident/change identities control timing sample sizes.
+Concurrent appends after the cutoff do not enter the snapshot. An
 event is auto-resolved only after an explicit `measurement.action_outcome.v1` record finalizes an
 enforce, verified, auto, non-rollback action and the complete event evidence contains no human
 approval, denial, execution failure, or rollback signal. Dispatch-only events remain pending. The

@@ -336,15 +336,16 @@ Every metric maps to a concrete telemetry source so the dashboard is buildable, 
   finalized denominator, and rollback/adverse outcomes remain visible without becoming successes.
   When an action has corrected finalization rows, only its highest audit sequence is authoritative;
   an explicit verification failure remains a rejected observation rather than disappearing.
-- **Explicit metric observations** use the latest row for each `event_id` and metric key. A retry
-  or correction for one event replaces that event's earlier value instead of adding statistical
-  weight; observations from different events remain independent samples.
+- **Explicit metric observations** keep the latest row per natural measurement unit and metric.
+  Timing uses the source incident or change identity, so several events for one incident do not
+  inflate its sample size. Cost remains attributed per normalized event. Retries and corrections
+  replace prior values instead of adding statistical weight.
 - **MTTR (metric 3a)** is computed by the pure aggregator
   [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py), which folds resolved
   incidents (`resolved_at - opened_at`) into **mean, median, and p90** seconds; unresolved and
   integrity-violating incidents are counted but excluded, never contributing a `0` or a
-  negative duration. The delivery-layer wiring that feeds it live incidents (replacing the
-  synthetic dev value in the `/kpi/autonomy` panel) is tracked as follow-up.
+  negative duration. The protected measurement-source importer feeds independently admitted
+  lifecycle facts to this reducer; unverified native lifecycle changes remain unavailable.
 - **Cost/usage records** (model tokens, compute time, storage, bus throughput) source metric 1;
   attribution keys spend to the originating `event_id`. Repeated lifecycle rows for one action
   contribute the latest observed savings value once rather than weighting or summing retries.

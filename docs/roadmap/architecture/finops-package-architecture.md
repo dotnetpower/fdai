@@ -62,6 +62,10 @@ domain code and assets. It does not create another control plane or move authori
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.
 
+The shared audit route also preserves measurement source, time-window and sequence filters.
+Reading admitted operational spend or a cohort comparison does not enable Cost Governance,
+start its collectors, reinterpret estimated savings as spend, or grant package data access.
+
 FDAI packages Cost Governance as one exact-release vertical profile: reviewed code, declarative
 assets, ontology references, bounded query profiles, and provider requirements installed into an
 image. The profile lets agents share the same resource identity, service topology, objectives,
