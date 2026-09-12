@@ -11,7 +11,7 @@ import shutil
 import stat
 import subprocess
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,6 +21,7 @@ from fdai_deployment_cli.foundation_input import snapshot_foundation_input
 from fdai_deployment_cli.plan_input import read_plan_input, write_plan_input
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.profile import load_profile
+from genesis_runner_image_skus import require_selection_projection
 
 PLAN_NAME = "runner-image.tfplan"
 PLAN_JSON_NAME = "runner-image-plan.json"
@@ -151,6 +152,7 @@ class RunnerImageInputs:
     environment: str
     region: str
     profile_digest: str
+    sku_selection: dict[str, object] | None = None
 
 
 def load_runner_image_inputs(
@@ -272,16 +274,10 @@ def add_source_image_version(
     }
     if values["execution_transport"] == "manual":
         manifest["execution_transport"] = "manual"
-    return RunnerImageInputs(
+    return replace(
+        inputs,
         terraform_values=values,
-        target_binding=inputs.target_binding,
-        source_commit=inputs.source_commit,
-        run_digest=inputs.run_digest,
         toolchain_digest=canonical_digest(manifest),
-        monthly_cost_ceiling=inputs.monthly_cost_ceiling,
-        environment=inputs.environment,
-        region=inputs.region,
-        profile_digest=inputs.profile_digest,
     )
 
 
@@ -329,7 +325,7 @@ def snapshot_terraform_root(source: Path, destination: Path, *, source_commit: s
     )
     if completed.returncode != 0:
         raise ValueError("runner image tracked source inventory is unavailable")
-    files: list[tuple[Path, str]] = []
+    tracked_files: list[tuple[Path, str]] = []
     for record in completed.stdout.split(b"\0"):
         if not record:
             continue
@@ -348,11 +344,11 @@ def snapshot_terraform_root(source: Path, destination: Path, *, source_commit: s
             relative = Path(raw_path.decode("utf-8")).relative_to(relative_root)
         except (UnicodeDecodeError, ValueError):
             raise ValueError("runner image tracked source path is invalid") from None
-        files.append((relative, object_id))
-    if not files:
+        tracked_files.append((relative, object_id))
+    if not tracked_files:
         raise ValueError("runner image Terraform root has no tracked files")
     destination.mkdir(mode=0o700)
-    for relative, object_id in files:
+    for relative, object_id in tracked_files:
         if relative.name.startswith("terraform.tfstate") or relative.name.endswith(".auto.tfvars"):
             raise ValueError("runner image Terraform root contains an unsafe tracked artifact")
         target = destination / relative
@@ -448,6 +444,11 @@ def create_review(
         "monthly_fixed_cost_upper_bound_usd": _MONTHLY_FIXED_COST_UPPER_BOUND_USD,
         "approved_monthly_cost_ceiling_usd": inputs.monthly_cost_ceiling,
     }
+    if inputs.sku_selection is not None:
+        require_selection_projection(
+            projection_bytes, region=inputs.region, selection=inputs.sku_selection
+        )
+        effect_summary["vm_skus"] = inputs.sku_selection
     now = datetime.now(timezone.utc).replace(  # noqa: UP017 - Python 3.10 entrypoint
         microsecond=0
     )
@@ -901,11 +902,9 @@ def _validate_projection(plan: dict[str, object], variables: dict[str, object]) 
     )
     firewall_change = by_address["azurerm_firewall_policy_rule_collection_group.builder"]["change"]
     firewall_after = firewall_change.get("after") if isinstance(firewall_change, dict) else None
-    collections = (
-        firewall_after.get("application_rule_collection")
-        if isinstance(firewall_after, dict)
-        else None
-    )
+    if not isinstance(firewall_after, dict):
+        raise ValueError("runner image plan contains an invalid egress allowlist")
+    collections = firewall_after.get("application_rule_collection")
     if not isinstance(collections, list) or len(collections) != 1:
         raise ValueError("runner image plan contains an invalid egress allowlist")
     collection = collections[0]

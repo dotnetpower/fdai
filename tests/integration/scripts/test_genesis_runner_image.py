@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -16,6 +17,7 @@ SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_runner_image as command  # noqa: E402
+import genesis_runner_image_contract as image_contract  # noqa: E402
 import genesis_runner_image_observation as observation  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest  # noqa: E402
 from fdai_deployment_cli.profile import write_profile  # noqa: E402
@@ -36,6 +38,11 @@ from genesis_runner_image_contract import (  # noqa: E402
     load_runner_image_inputs,
     materialize_foundation_image_input,
     snapshot_terraform_root,
+)
+from tests.integration.scripts.test_genesis_runner_image_sku_choice import (  # noqa: E402
+    POLICY_PATH,
+    sku_rows,
+    usage_rows,
 )
 
 TENANT = "00000000-0000-0000-0000-000000000000"
@@ -212,6 +219,17 @@ def _plan_projection(values: dict[str, object]) -> dict[str, object]:
     ]
 
     def after(address: str) -> dict[str, object]:
+        if address in {
+            "azurerm_linux_virtual_machine.builder",
+            "azurerm_linux_virtual_machine.verifier",
+        }:
+            return {
+                "size": values.get("build_vm_size", "Standard_D2ds_v5")
+                if address.endswith(".builder")
+                else values.get("verify_vm_size", "Standard_B2s"),
+                "location": values["region"],
+                "zone": None,
+            }
         if address == "azapi_resource_action.builder_deallocate":
             return {"action": "deallocate"}
         if address == "azapi_resource_action.builder_generalize":
@@ -295,6 +313,7 @@ def _plan_projection(values: dict[str, object]) -> dict[str, object]:
             *[
                 {
                     "address": address,
+                    "mode": "managed",
                     "type": _EXPECTED_RESOURCE_TYPES[address],
                     "change": {
                         "actions": ["create"],
@@ -674,8 +693,25 @@ def test_terraform_snapshot_reads_exact_git_objects_not_worktree(tmp_path: Path)
     assert (destination / "main.tf").read_text(encoding="utf-8") == "terraform {}\n"
 
 
+@pytest.mark.parametrize(
+    "sku_outcome",
+    [
+        "clear",
+        "builder-restricted",
+        "verifier-restricted",
+        "missing-sku",
+        "review-expired",
+        "approval-expired",
+        "forged-sidecar",
+    ],
+)
+@pytest.mark.parametrize("automatic", [False, True])
 def test_apply_writes_claim_once_and_requires_independent_image_readback(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sku_outcome: str,
+    capsys: pytest.CaptureFixture[str],
+    automatic: bool,
 ) -> None:
     source_commit = command._capture(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, timeout=30, reason="test"
@@ -687,6 +723,30 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     root.mkdir(mode=0o700)
     (root / "main.tf").write_text("terraform {}\n", encoding="utf-8")
     (root / "main.tf").chmod(0o600)
+    if automatic:
+        policy = root / "sku-policy.json"
+        policy.write_bytes(POLICY_PATH.read_bytes())
+        policy.chmod(0o600)
+        values = {
+            **inputs.terraform_values,
+            "build_vm_size": "Standard_D2ds_v5",
+            "verify_vm_size": "Standard_D2ds_v5",
+        }
+        inputs = replace(
+            inputs,
+            terraform_values=values,
+            sku_selection={
+                "schema_version": "fdai.runner-image-sku-selection.v1",
+                "build_vm_size": "Standard_D2ds_v5",
+                "verify_vm_size": "Standard_D2ds_v5",
+                "policy_digest": command.hashlib.sha256(policy.read_bytes()).hexdigest(),
+                "sku_evidence_digest": "1" * 64,
+                "quota_evidence_digest": "2" * 64,
+                "checked_at": command._utc_now().isoformat(),
+                "capacity_reserved": False,
+            },
+        )
+        variables.write_text(json.dumps(values), encoding="utf-8")
     variables.replace(work / "runner-image.auto.tfvars.json")
     terraform = tmp_path / "terraform"
     terraform.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -731,6 +791,8 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         "providers/Microsoft.Network/publicIPAddresses/management"
     )
     calls: list[list[str]] = []
+    sku_reads: list[list[str]] = []
+    quota_reads: list[list[str]] = []
 
     for name in (
         "ARM_RESOURCE_PROVIDER_REGISTRATIONS",
@@ -774,6 +836,44 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     )
 
     def capture(cmd: list[str], **_: object) -> str:
+        if cmd[1:3] == ["show", "-json"]:
+            assert cmd == [str(terraform), "show", "-json", str(work / PLAN_NAME)]
+            return json.dumps(_plan_projection(inputs.terraform_values))
+        if cmd[:4] == ["/usr/bin/az", "rest", "--method", "get"]:
+            if "/usages?" in cmd[cmd.index("--url") + 1]:
+                quota_reads.append(cmd)
+                assert not (work / CLAIM_NAME).exists()
+                return json.dumps({"value": usage_rows()})
+            sku_reads.append(cmd)
+            assert not (work / CLAIM_NAME).exists()
+            evidence = sorted(
+                [row for row in sku_rows() if f"'{row['name']}'" in cmd[cmd.index("--query") + 1]],
+                key=lambda row: row["name"] == "Standard_B2s",
+            )
+            for row in evidence:
+                row["locations"] = ["KoreaCentral"]
+            if sku_outcome in {"builder-restricted", "verifier-restricted", "forged-sidecar"}:
+                index = 1 if sku_outcome == "verifier-restricted" and not automatic else 0
+                evidence[index]["restrictions"] = [
+                    {
+                        "type": "Location",
+                        "values": ["KoreaCentral"],
+                        "reasonCode": "NotAvailableForSubscription",
+                    }
+                ]
+            elif sku_outcome == "missing-sku":
+                evidence.pop()
+            elif sku_outcome == "review-expired":
+
+                class ExpiredClock(command.datetime):
+                    @classmethod
+                    def now(cls, tz: object = None) -> command.datetime:
+                        return command.datetime.fromisoformat(str(review["expires_at"]))
+
+                monkeypatch.setattr(image_contract, "datetime", ExpiredClock)
+            elif sku_outcome == "approval-expired":
+                monkeypatch.setattr(command, "load_genesis_approval", lambda *_a, **_kw: None)
+            return json.dumps({"value": evidence, "nextLink": None})
         if cmd[:3] == ["/usr/bin/git", "rev-parse", "HEAD"]:
             return source_commit + "\n"
         if cmd[:3] == ["/usr/bin/az", "account", "show"]:
@@ -868,7 +968,32 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         "json",
     ]
 
-    assert command.main(args) == 0
+    if sku_outcome == "forged-sidecar":
+        forged = _plan_projection(inputs.terraform_values)
+        for entry in forged["resource_changes"]:
+            if entry["type"] == "azurerm_linux_virtual_machine":
+                entry["change"]["after"]["size"] = "Standard_other"
+        (work / PLAN_JSON_NAME).write_text(json.dumps(forged), encoding="utf-8")
+    result = command.main(args)
+    if sku_outcome != "clear":
+        assert result == (4 if sku_outcome == "missing-sku" and not automatic else 3)
+        assert not calls
+        assert not (work / CLAIM_NAME).exists()
+        assert not (work / RECEIPT_NAME).exists()
+        assert len(sku_reads) == 1
+        error = capsys.readouterr().err
+        if sku_outcome in {"builder-restricted", "verifier-restricted", "forged-sidecar"}:
+            assert (
+                "runner_image_no_compatible_sku_in_selected_region"
+                if automatic
+                else "runner_image_sku_restricted_review_required"
+            ) in error
+        elif sku_outcome == "review-expired":
+            assert "expired" in error
+        elif sku_outcome == "approval-expired":
+            assert "exact approval" in error
+        return
+    assert result == 0
     assert len(calls) == 1
     assert calls[0][1] == "apply"
     assert (work / CLAIM_NAME).is_file()
@@ -881,8 +1006,13 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     assert receipt["claim_digest"]
     assert receipt["approver_actor_digest"] == receipt["credential_actor_digest"]
     assert receipt["executor_identity_digest"] != receipt["approver_actor_digest"]
+    (work / RECEIPT_NAME).unlink()
+    resumed = ["--resume-verification" if item == "--approve" else item for item in args]
+    assert command.main(resumed) == 0
     assert command.main(args) == 0
     assert len(calls) == 1
+    assert len(sku_reads) == 1
+    assert len(quota_reads) == (1 if automatic else 0)
 
 
 def test_direct_apply_without_exact_approval_is_denied(

@@ -29,6 +29,7 @@ from pydantic import ValidationError
 _DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
 _REQUIRED_PROOF_KINDS = tuple(SafeguardProofKind)
 _BUNDLE_MAX_AGE_SECONDS = 86_400  # 24 hours
+_BUNDLE_MAX_FUTURE_SKEW_SECONDS = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,10 +166,10 @@ def validate_bundle_binding_sync(
             f"exceeds {_BUNDLE_MAX_AGE_SECONDS}s limit",
         )
 
-    if age_seconds < 0:
+    if age_seconds < -_BUNDLE_MAX_FUTURE_SKEW_SECONDS:
         return BundleValidationRefusal(
             "stale",
-            "bundle recorded_at is in the future",
+            "bundle recorded_at exceeds the future clock-skew allowance",
         )
 
     proof_kinds = tuple(proof.kind for proof in bundle.proofs)

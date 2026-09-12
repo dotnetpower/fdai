@@ -45,6 +45,11 @@ _LIFECYCLE_REPAIR_MIGRATION = (
     / "service-migrations/branches/core-control-plane/versions"
     / "20260912_core_cost_governance_w7_lifecycle.py"
 )
+_LIFECYCLE_OPERATOR_REPAIR_MIGRATION = (
+    _ROOT
+    / "service-migrations/branches/core-control-plane/versions"
+    / "20260912_core_cost_governance_release_guard.py"
+)
 _STORE = (
     _ROOT
     / "services/core-control-plane/src/fdai/delivery/persistence"
@@ -194,6 +199,77 @@ def test_operator_activation_writes_canonical_w7_lifecycle_payload() -> None:
         assert f"'{field}'" in pin
 
 
+def test_release_guard_repair_disambiguates_jsonb_subtraction() -> None:
+    _, upgrade = _migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "upgrade")
+    _, downgrade = _migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "downgrade")
+
+    assert "'(receipt.payload -> ''revision_pin'') - ''activation_revision'''" in upgrade
+    assert "'receipt.payload -> ''revision_pin'' - ''activation_revision'''" in downgrade
+    assert "EXECUTE replace(function_definition, broken_expression, fixed_expression)" in upgrade
+    assert "EXECUTE replace(function_definition, fixed_expression, broken_expression)" in downgrade
+
+
+def test_release_guard_round_trip_preserves_function_security(
+    disposable_database_url: str,
+) -> None:
+    function_identity = (
+        "public.fdai_register_cost_governance_release("
+        "text,text,text,text,text,text,text,text,text,text,"
+        "text,text,bigint,text,jsonb)"
+    )
+    with psycopg.connect(disposable_database_url) as connection:
+        for path in (
+            _RUNTIME_MIGRATION,
+            _MIGRATION,
+            _SETTINGS_MIGRATION,
+            _LIFECYCLE_REPAIR_MIGRATION,
+        ):
+            connection.execute(_migration_sql(path, "upgrade")[1])
+
+        def function_state() -> tuple[object, ...]:
+            row = connection.execute(
+                """
+                SELECT proowner, prosecdef, proconfig, proacl
+                  FROM pg_proc
+                 WHERE oid = %s::REGPROCEDURE
+                """,
+                (function_identity,),
+            ).fetchone()
+            assert row is not None
+            return row
+
+        def function_definition() -> str:
+            row = connection.execute(
+                "SELECT pg_get_functiondef(%s::REGPROCEDURE)",
+                (function_identity,),
+            ).fetchone()
+            assert row is not None
+            return str(row[0])
+
+        security = function_state()
+        assert "receipt.payload -> 'revision_pin' - 'activation_revision'" in (
+            function_definition()
+        )
+
+        connection.execute(_migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "upgrade")[1])
+        assert function_state() == security
+        assert "(receipt.payload -> 'revision_pin') - 'activation_revision'" in (
+            function_definition()
+        )
+
+        connection.execute(_migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "downgrade")[1])
+        assert function_state() == security
+        assert "receipt.payload -> 'revision_pin' - 'activation_revision'" in (
+            function_definition()
+        )
+
+        connection.execute(_migration_sql(_LIFECYCLE_OPERATOR_REPAIR_MIGRATION, "upgrade")[1])
+        assert function_state() == security
+        assert "(receipt.payload -> 'revision_pin') - 'activation_revision'" in (
+            function_definition()
+        )
+
+
 async def test_live_lifecycle_receipts_round_trip_through_canonical_reader(
     disposable_database_url: str,
 ) -> None:
@@ -203,6 +279,7 @@ async def test_live_lifecycle_receipts_round_trip_through_canonical_reader(
             _MIGRATION,
             _SETTINGS_MIGRATION,
             _LIFECYCLE_REPAIR_MIGRATION,
+            _LIFECYCLE_OPERATOR_REPAIR_MIGRATION,
         ):
             connection.execute(_migration_sql(path, "upgrade")[1])
         connection.execute(
@@ -240,6 +317,62 @@ async def test_live_lifecycle_receipts_round_trip_through_canonical_reader(
                 "enable-request-0001",
             ),
         ).fetchone()
+        connection.execute(
+            "SELECT * FROM fdai_set_cost_governance_enabled(%s, %s, %s, %s, %s)",
+            (
+                "cost-governance",
+                "operator-owner",
+                False,
+                2,
+                "disable-request-0001",
+            ),
+        ).fetchone()
+        release_statement = """
+            SELECT * FROM fdai_register_cost_governance_release(
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s
+            )
+        """
+        connection.execute(
+            release_statement,
+            (
+                "upgrade",
+                "cost-governance",
+                "cost-governance",
+                "0.1.3",
+                _digest("1"),
+                _digest("2"),
+                _digest("3"),
+                _digest("4"),
+                "ontology-release:2026-09",
+                _digest("5"),
+                "1" * 40,
+                _digest("6"),
+                3,
+                "upgrade-request-0001",
+                Jsonb(["workflow:upgrade:1"]),
+            ),
+        ).fetchone()
+        connection.execute(
+            release_statement,
+            (
+                "rollback",
+                "cost-governance",
+                "cost-governance",
+                "0.1.3",
+                _digest("a"),
+                _digest("b"),
+                _digest("c"),
+                _digest("d"),
+                "ontology-release:2026-09",
+                _digest("e"),
+                "f" * 40,
+                _digest("0"),
+                4,
+                "rollback-request-0001",
+                Jsonb(["workflow:rollback:1"]),
+            ),
+        ).fetchone()
 
     receipts = await PostgresCostGovernanceValidationStore(
         dsn=disposable_database_url
@@ -248,10 +381,18 @@ async def test_live_lifecycle_receipts_round_trip_through_canonical_reader(
     assert tuple(receipt.operation.value for receipt in reversed(receipts)) == (
         "install",
         "enable",
+        "disable",
+        "upgrade",
+        "rollback",
     )
     assert all(receipt.evidence_kind.value == "live-authoritative" for receipt in receipts)
-    assert all(receipt.revision_pin.source_revision == "f" * 40 for receipt in receipts)
-    assert tuple(receipt.revision_pin.activation_revision for receipt in receipts) == (2, 1)
+    assert tuple(receipt.revision_pin.activation_revision for receipt in receipts) == (
+        5,
+        4,
+        3,
+        2,
+        1,
+    )
 
 
 def test_lifecycle_request_ids_bind_every_release_and_settings_input(

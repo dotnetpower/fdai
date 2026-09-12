@@ -38,6 +38,9 @@ from genesis_runner_image_contract import (
     snapshot_terraform_root,
 )
 from genesis_runner_image_observation import verify_runner_image_effect
+from genesis_runner_image_sku_probe import verify_image_vm_skus
+from genesis_runner_image_sku_selection import recheck_image_vm_inputs, select_image_vm_inputs
+from genesis_runner_image_skus import selection_sizes
 from genesis_subprocess import run_with_heartbeat
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -174,6 +177,15 @@ def _plan(args: argparse.Namespace) -> int:
     terraform_digest = _file_digest(terraform)
     if terraform_digest != inputs.terraform_values.get("terraform_binary_sha256"):
         raise ValueError("runner image Terraform executable does not match the pinned toolchain")
+    inputs = select_image_vm_inputs(
+        inputs,
+        terraform_root=terraform_root,
+        destination=variables,
+        azure_cli=_trusted_azure_cli(),
+        capture=_capture,
+        cwd=root,
+        environment=environment,
+    )
     _required(
         [str(terraform), "init", "-backend=false", "-input=false", "-lockfile=readonly"],
         cwd=terraform_root,
@@ -203,6 +215,15 @@ def _plan(args: argparse.Namespace) -> int:
         reason="runner image plan inspection failed",
     )
     _exclusive_bytes(work_dir / PLAN_JSON_NAME, projection)
+    verify_image_vm_skus(
+        projection,
+        subscription_id=str(inputs.terraform_values["subscription_id"]),
+        region=inputs.region,
+        azure_cli=_trusted_azure_cli(),
+        capture=_capture,
+        cwd=root,
+        environment=environment,
+    )
     review = create_review(
         directory=work_dir,
         inputs=inputs,
@@ -323,6 +344,33 @@ def _apply(args: argparse.Namespace) -> int:
         executor_digest = executor_identity_digest(review)
         if _execution_tree_digest(work_dir / "terraform-data") != review["provider_digest"]:
             raise ValueError("runner image provider execution tree changed after planning")
+        projection = _capture_bytes(
+            [str(terraform), "show", "-json", str(work_dir / PLAN_NAME)],
+            cwd=work_dir / "root",
+            env=environment,
+            timeout=120,
+            reason="runner image saved-plan SKU inspection failed",
+        )
+        summary = review.get("effect_summary")
+        if isinstance(summary, dict) and "vm_skus" in summary:
+            selection_sizes(summary["vm_skus"])
+        selection = summary.get("vm_skus") if isinstance(summary, dict) else None
+        recheck_image_vm_inputs(
+            projection,
+            selection=selection,
+            terraform_root=work_dir / "root",
+            subscription_id=os.environ["AZURE_SUBSCRIPTION_ID"],
+            region=profile.region,
+            azure_cli=_trusted_azure_cli(),
+            capture=_capture,
+            cwd=root,
+            environment=environment,
+        )
+        # The bounded read cannot extend the review or the human's approval window.
+        load_review(work_dir, expected_review_digest=args.expected_review_digest)
+        approval = _require_apply_approval(args.approval_file, review=review)
+        if approval.actor_digest != credential_actor_digest:
+            raise ValueError("runner image approver changed during SKU verification")
         claimed_at = _utc_now().replace(microsecond=0).isoformat()
         claim = {
             "schema_version": "fdai.genesis-runner-image-apply-claim.v1",
