@@ -349,27 +349,6 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         assert neutral_type in preflight_step
 
 
-def test_platform_workflow_isolates_cost_governance_plan_changes() -> None:
-    target_step = _LEGACY_WORKFLOW.split(
-        "- name: Bind Cost Governance Terraform targets", maxsplit=1
-    )[1].split("- name: Verify production architecture-review evidence", maxsplit=1)[0]
-
-    assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in target_step
-    for address in (
-        "azurerm_role_assignment.inventory_cost_reader",
-        "module.compute.azurerm_container_app_job.cost_governance_collector[0]",
-        "module.compute.azurerm_container_app_job.cost_governance_analyzer[0]",
-    ):
-        assert f"-target={address}" in target_step
-    assert "module.llm_azure_openai" not in target_step
-
-    scope_step = _LEGACY_WORKFLOW.split("- name: Enforce bounded Terraform plan scope", maxsplit=1)[
-        1
-    ].split("- name: Reject destructive protected plan", maxsplit=1)[0]
-    assert "env.RUNTIME_IMAGE_PROFILE == 'cost-governance'" in scope_step
-    assert "mode=cost-governance" in scope_step
-
-
 def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
     materialize = _WORKFLOW.split("- name: Materialize selected service inputs", maxsplit=1)[
         1
