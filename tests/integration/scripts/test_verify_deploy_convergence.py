@@ -26,6 +26,14 @@ set -euo pipefail
 printf 'terraform %s;target=%s\n' "$*" "${TF_CLI_ARGS_plan:-}" >> "$CALLS"
 if [[ "$1" == "plan" ]]; then exit "$PLAN_EXIT"; fi
 if [[ "$*" == "output -raw resource_group_name" ]]; then printf 'rg-fdai-dev-krc'; exit 0; fi
+if [[ "$*" == "output -raw cost_governance_collector_job_name" ]]; then
+    printf 'cost-collector'
+    exit 0
+fi
+if [[ "$*" == "output -raw cost_governance_analyzer_job_name" ]]; then
+    printf 'cost-analyzer'
+    exit 0
+fi
 if [[ "$*" == "output -raw provider_schema_job_id" ]]; then
     printf '/subscriptions/example/resourceGroups/example/providers/'
     printf 'Microsoft.App/jobs/provider'
@@ -61,6 +69,7 @@ printf 'uv %s\n' "$*" >> "$CALLS"
             "PATH": f"{bin_dir}:{os.environ['PATH']}",
             "PLAN_EXIT": str(plan_exit),
             "RUNNER_TEMP": str(tmp_path),
+            "TF_VAR_cost_governance_image": _IMAGE,
             "TF_VAR_core_image": _IMAGE,
             "TF_VAR_env": "dev",
             "TF_VAR_region_short": "krc",
@@ -89,6 +98,23 @@ def test_general_apply_keeps_full_plan_and_inventory_verification(tmp_path: Path
     assert "target=" in log
     assert "--name ca-fdai-dev-krc-core-inventory" in log
     assert "--container inventory" in log
+
+
+def test_cost_apply_replans_and_verifies_both_cost_jobs(tmp_path: Path) -> None:
+    result, calls, _ = _run(tmp_path, "apply-cost-" + "a" * 48)
+
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="ascii")
+    assert (
+        "target=-target=azurerm_role_assignment.inventory_cost_reader "
+        "-target=azurerm_container_app_job.cost_governance_collector[0] "
+        "-target=azurerm_container_app_job.cost_governance_analyzer[0]"
+    ) in log
+    assert "--name cost-collector" in log
+    assert "--container cost-governance-collector" in log
+    assert "--name cost-analyzer" in log
+    assert "--container cost-governance-analyzer" in log
+    assert "--name ca-fdai-dev-krc-core-inventory" not in log
 
 
 def test_runtime_call_apply_replans_only_transition_before_separate_readback(
