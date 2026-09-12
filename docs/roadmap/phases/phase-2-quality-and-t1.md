@@ -139,6 +139,11 @@ through the private PostgreSQL StateStore. Material drift is validated by Heimda
 on the shadow `object.drift` topic with `event_type: provider.schema_drift`. A protected scheduled-run
 receipt remains required before operational validation.
 
+Durable StateStore blobs preserve legacy UTF-8 records unchanged and encode non-UTF-8 catalog
+artifacts with an explicit validated `base64` marker. Manifest entries are ordered by canonical
+relative POSIX path before generation identity is calculated, so compressed review and snapshot
+artifacts hydrate byte-for-byte without depending on host path ordering.
+
 Protected deployment uses a dedicated provider-only plan/apply mode. It packages the reviewed
 catalog for first-generation bootstrap, rejects unrelated Terraform addresses, and retains a
 sanitized post-apply receipt for the exact Job execution and durable generation. When a material
