@@ -254,6 +254,41 @@ async def test_console_hil_decision_uses_server_principal_and_shared_durable_pat
     ]
 
 
+def test_console_hil_decision_keeps_first_receipt_distinct_after_eager_delivery() -> None:
+    registry = RecordingHilRegistry()
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=EagerDeliveryHilOutbox(registry),
+        hil_audit=RecordingHilAudit(),
+        hil_context=registry,
+    )
+    response = client.post(
+        "/hil/approval-1/operator-decision",
+        headers={
+            "x-test-role": OperatorRole.APPROVER.value,
+            "x-test-oid": "approver-1",
+            "Idempotency-Key": "console-decision-1",
+        },
+        json={"decision": "reject", "justification": "The evidence is incomplete."},
+    )
+    replay = client.post(
+        "/hil/approval-1/operator-decision",
+        headers={
+            "x-test-role": OperatorRole.APPROVER.value,
+            "x-test-oid": "approver-1",
+            "Idempotency-Key": "console-decision-1",
+        },
+        json={"decision": "reject", "justification": "The evidence is incomplete."},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["delivered"] is True
+    assert response.json()["already_recorded"] is False
+    assert replay.status_code == 200
+    assert replay.json()["delivered"] is True
+    assert replay.json()["already_recorded"] is True
+
+
 @pytest.mark.parametrize(
     ("headers", "status"),
     [
@@ -1036,6 +1071,8 @@ class RecordingHilRegistry:
         return self.receipt
 
     async def mark_delivered(self, receipt: HilDecisionReceipt) -> HilDecisionReceipt:
+        if self.receipt is not None and self.receipt.delivered:
+            return replace(self.receipt, already_recorded=True)
         self.receipt = replace(receipt, delivered=True)
         return self.receipt
 
@@ -1049,6 +1086,14 @@ class RecordingHilOutbox:
         self.request = request
         if self.fail:
             raise RuntimeError("synthetic delivery failure")
+
+
+class EagerDeliveryHilOutbox:
+    def __init__(self, registry: RecordingHilRegistry) -> None:
+        self.registry = registry
+
+    async def enqueue(self, request: HilDecisionOutboxRequest) -> None:
+        await self.registry.mark_delivered(request.receipt)
 
 
 class RecordingHilAuthority:

@@ -413,7 +413,11 @@ class HilCallbackDecisionService:
                     actor=actor,
                 )
             try:
-                receipt = await self.registry.mark_delivered(receipt)
+                delivered_receipt = await self.registry.mark_delivered(receipt)
+                receipt = replace(
+                    delivered_receipt,
+                    already_recorded=receipt.already_recorded,
+                )
             except IamFamilyError:
                 # Broker acceptance already happened; the lease-fenced replay
                 # worker re-drives the durable record and marks it delivered.
