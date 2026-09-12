@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 095ac7d6b780504b6255a141cd1db6ce78900f96
+translation_source_sha: 6a8f4c054a13abb3dbc89c089f1b78cefeac70e1
 translation_revised: 2026-09-12
 ---
 
@@ -241,6 +241,9 @@ focused owner 문서를 사용하세요.
 패키지 전달 계획](finops-package-delivery-plan-ko.md)을 참조하세요.
 이 계획의 정적 다이어그램 사양과 생성된 자산은 업스트림 문서 산출물입니다. 포크는 이를 변경
 없이 동기화하며, 이 산출물은 편집 가능한 경계를 추가하거나 포크 경계를 넓히지 않습니다.
+보호된 Cost Governance 수명 주기 및 관찰 워크플로도 업스트림 전달 제어입니다. 포크는 지원되는
+패키지, 프로바이더, 정책 데이터 및 배포 입력을 제공할 수 있지만 해당 워크플로의 이름을 바꾸거나
+로컬 근거를 실제 근거로 다시 표시하거나 독립 검토를 우회할 수 없습니다.
 
 **새 비즈니스-오브젝트 버티컬 구축**: non-Resource ObjectType
 수명 주기 (아키텍처-리뷰 제안, compliance-attestation 레코드,
