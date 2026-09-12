@@ -169,7 +169,11 @@ def network_layout(
     ipaddress.IPv4Network,
     ipaddress.IPv4Network,
 ]:
-    """Select a reviewed operations CIDR from concurrent Azure and local route reads."""
+    """Select disjoint reviewed operations and build CIDRs from complete network evidence.
+
+    Default routes describe forwarding, not address-space ownership. Exclude them only from
+    route evidence; declared VNet, peer, and gateway ranges remain overlap constraints.
+    """
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         vnets_future = executor.submit(
@@ -216,9 +220,11 @@ def network_layout(
         local_gateways = local_gateways_future.result()
     used: list[ipaddress.IPv4Network] = []
     _require_complete_network_evidence(vnets, route_tables, local_gateways, routes)
-    for payload in (vnets, route_tables, local_gateways):
+    for payload in (vnets, local_gateways):
         used.extend(_ipv4_networks(payload))
-    used.extend(_ipv4_networks([row["dst"] for row in routes]))
+    route_networks = _ipv4_networks(route_tables)
+    route_networks.extend(_ipv4_networks([row["dst"] for row in routes]))
+    used.extend(network for network in route_networks if network.prefixlen != 0)
     candidates = (
         "172.29.0.0/16",
         "172.30.0.0/16",
@@ -229,12 +235,16 @@ def network_layout(
         "192.168.240.0/20",
     )
     available = [
-        ipaddress.ip_network(candidate)
+        ipaddress.IPv4Network(candidate)
         for candidate in candidates
-        if not any(ipaddress.ip_network(candidate).overlaps(current) for current in used)
+        if not any(ipaddress.IPv4Network(candidate).overlaps(current) for current in used)
     ]
     if len(available) < 2:
-        raise ValueError("no non-overlapping reviewed operations and build networks are available")
+        raise ValueError(
+            "no non-overlapping reviewed operations and build networks are available "
+            f"(available={len(available)}, required=2); "
+            "review VNet, peering, gateway, and non-default route reservations before retrying"
+        )
     ops, build = available[:2]
     subnets = list(ops.subnets(new_prefix=24))
     build_subnets = list(build.subnets(new_prefix=26))

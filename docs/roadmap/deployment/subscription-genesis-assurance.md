@@ -165,6 +165,18 @@ inferred safe range.
 For resource types whose Azure CLI list command requires a resource group, discovery first lists
 a bounded set of IDs across the exact subscription and then reads each exact ID concurrently.
 
+Default forwarding routes (`default` on the local host or `0.0.0.0/0` in an Azure route table or
+local route table) do not reserve address space and are excluded only from route-based overlap
+checks. VNet and peering address spaces, local-network-gateway ranges, and every non-default route
+prefix remain conflict evidence. Missing or malformed evidence still blocks selection. When fewer
+than two reviewed candidates remain, the error reports available and required counts and asks for
+network review without exposing deployment prefixes. This selection never edits a route, removes
+a firewall policy, or proves network reachability.
+
+Standalone deployment loads this selector from the verified release bundle, not from the cloned
+repository. A source fix requires a rebuilt and signed kit before the public command can use it.
+Editing an extracted kit or disabling verification is not a supported recovery path.
+
 The selected execution profile must prove:
 
 - DNS, TCP, TLS, identity, management-plane, GitHub or manual transport, artifact, state, Key Vault,
