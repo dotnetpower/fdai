@@ -561,6 +561,66 @@ def test_bind_rejects_hil_only_reasoner(tmp_path: Path) -> None:
         )
 
 
+def test_bind_rejects_unbound_explicit_hil_only_reasoner(tmp_path: Path) -> None:
+    resolved = tmp_path / "resolved-models.json"
+    payload = json.loads(_resolved_models_json())
+    secondary = next(
+        capability
+        for capability in payload["capabilities"]
+        if capability["name"] == "t2.reasoner.secondary"
+    )
+    secondary["selection_mode"] = "hil-only"
+    secondary["status"] = "hil-only"
+    resolved.write_text(json.dumps(payload), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient()
+
+    with pytest.raises(LlmBindingsUnavailableError, match="T2 reasoner"):
+        bind_azure_llm_bindings(
+            container,
+            identity=_StaticIdentity(),
+            http_client=http,
+            endpoint="https://oai-test",
+            system_prompt=_TEST_SYSTEM_PROMPT,
+        )
+
+
+def test_bind_explicit_hil_only_reasoner_uses_disagree_fake(tmp_path: Path) -> None:
+    from fdai.core.quality_gate.testing import MismatchCrossCheckModel
+
+    resolved = tmp_path / "resolved-models.json"
+    payload = json.loads(_resolved_models_json())
+    secondary = next(
+        capability
+        for capability in payload["capabilities"]
+        if capability["name"] == "t2.reasoner.secondary"
+    )
+    secondary["selection_mode"] = "hil-only"
+    secondary["status"] = "hil-only"
+    payload["binding_policy"] = {
+        "environment": "test",
+        "revision": 1,
+        "digest": f"sha256:{'a' * 64}",
+        "expected_active_digest": f"sha256:{'b' * 64}",
+    }
+    resolved.write_text(json.dumps(payload), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+    )
+
+    assert isinstance(
+        finalized.require_llm_bindings().cross_check_models[1],
+        MismatchCrossCheckModel,
+    )
+
+
 def test_bind_hil_only_mode_uses_disagree_fake_for_secondary(tmp_path: Path) -> None:
     """`mixed_model_mode='hil-only'` MUST bind cleanly with an
     always-disagree fake as the secondary, so every T2 quality-gate

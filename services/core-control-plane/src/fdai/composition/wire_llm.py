@@ -343,12 +343,15 @@ def bind_azure_llm_bindings(
         else None
     )
     if primary_cap is None or secondary_cap is None:
-        # `hil-only` mode is a designed opt-out - the region cannot host
-        # a distinct-publisher secondary reasoner. Bind the primary (or a
-        # deterministic fake if even the primary is missing) plus an
-        # always-disagree fake secondary so every T2 quality-gate call
-        # returns DISAGREE and the pipeline routes to HIL by design.
-        if resolved.mixed_model_mode == "hil-only":
+        explicitly_held_reasoner = resolved.binding_policy_digest is not None and any(
+            capability.name in {"t2.reasoner.primary", "t2.reasoner.secondary"}
+            and capability.status.value == "hil-only"
+            and capability.selection_mode == "hil-only"
+            for capability in resolved.capabilities
+        )
+        # A global or governed per-capability HIL opt-out binds an always-disagree
+        # sentinel so a single reasoner can never satisfy the quality gate.
+        if resolved.mixed_model_mode == "hil-only" or explicitly_held_reasoner:
             primary_model: CrossCheckModel
             if primary_cap is not None:
                 primary_model = AzureOpenAICrossCheckModel(
