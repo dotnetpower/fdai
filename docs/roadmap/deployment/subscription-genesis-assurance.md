@@ -154,33 +154,33 @@ receives a public IP.
 
 ## Network and execution-host assurance
 
-Planning checks address overlap across the ops VNet, application VNet, VPN, peered VNets, hub
-routes, Private DNS Resolver ranges, and selected private endpoint subnets. It validates both
-runner-to-service paths and operator-through-VPN paths without treating VPN access as deployment
-authority.
-Genesis binds discovery to the exact target subscription and includes VNet local and peered
-address spaces, route-table prefixes, local-network-gateway prefixes, and current local host
-routes. Unobservable external ranges remain an explicit operator constraint rather than an
-inferred safe range.
-For resource types whose Azure CLI list command requires a resource group, discovery first lists
-a bounded set of IDs across the exact subscription and then reads each exact ID concurrently.
+Exact-subscription discovery checks ops/app VNet and peering spaces, VPN and gateway ranges,
+hub/route-table prefixes, local host routes, Private DNS Resolver ranges, and endpoint subnets.
+Unobservable external ranges require operator constraints, not assumed safety. For resource-group-
+scoped CLI types, list bounded subscription-wide IDs, then read each exact ID concurrently.
 
-The selected execution profile must prove:
+Default forwarding (`default` or route-only `0.0.0.0/0`) reserves no address space. Exclude it only
+from routes; declared VNet, peer, gateway ranges and non-default routes remain constraints.
+Missing/malformed evidence blocks selection. Fewer than two candidates reports only available and
+required counts with a review action. Selection never edits routes/firewalls or proves reachability.
+
+Standalone uses the verified bundle, not the checkout. Fixes need a rebuilt signed kit;
+editing extracted sources or disabling verification is unsupported.
+
+The profile verifies operator-through-VPN and runner-to-service paths; VPN grants no deployment
+authority. It must prove:
 
 - DNS, TCP, TLS, identity, management-plane, GitHub or manual transport, artifact, state, Key Vault,
   PostgreSQL, Event Hubs, registry, model, and monitoring paths from the actual host;
-- effective routes, firewalls, network security groups, service tags, proxy trust, and private DNS
-  answers for the target Azure cloud;
+- effective target-cloud routes, firewalls, NSGs, service tags, proxy trust, and private DNS;
 - checksum-pinned tools and images, with no unverified `latest` download during a protected run;
-- mode-restricted authenticated bundle sources launched only through fixed trusted interpreters,
-  without broad execute-bit restoration or ambient-path interpreter selection;
+- authenticated bundle sources via fixed trusted interpreters; no execute-bit or PATH fallback;
 - distinct authenticated archive and extracted-executable digests where packaging changes bytes,
   with one schema-versioned toolchain digest shared by planning, image tags, and attestation;
 - bounded egress or a complete signed offline kit; and
 - a healthy runner heartbeat after reboot or deallocation behavior appropriate to its disk model.
 
-Sovereign clouds use their own endpoint suffixes, audiences, service tags, and supported services.
-Unsupported parity is a plan blocker, not a public-cloud fallback.
+Sovereign-cloud suffixes, audiences, service tags, and services must match; no public fallback.
 
 ## Database and semantic assurance
 
