@@ -232,13 +232,17 @@ def test_every_production_routing_and_detection_threshold_has_a_versioned_bound(
     )
     assert config_schema["$id"] == "https://fdai.dev/schemas/config/1.0.0"
     llm_properties = config_schema["properties"]["llm"]["properties"]
-    control_loop = ast.parse(
-        (_REPO_ROOT / "services/core-control-plane/src/fdai/runtime/control_loop.py").read_text(
-            encoding="utf-8"
+    control_loops = [
+        ast.parse(
+            (_REPO_ROOT / "services/core-control-plane/src/fdai/runtime" / name).read_text(
+                encoding="utf-8"
+            )
         )
-    )
+        for name in ("control_loop.py", "control_loop_auxiliary.py")
+    ]
     llm_thresholds = {
         node.attr
+        for control_loop in control_loops
         for node in ast.walk(control_loop)
         if isinstance(node, ast.Attribute)
         and isinstance(node.value, ast.Name)
@@ -247,6 +251,7 @@ def test_every_production_routing_and_detection_threshold_has_a_versioned_bound(
     }
     llm_thresholds.update(
         node.attr
+        for control_loop in control_loops
         for node in ast.walk(control_loop)
         if isinstance(node, ast.Attribute)
         and isinstance(node.value, ast.Attribute)

@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Union
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -235,6 +235,109 @@ def executor_action_payload_digest(payload: Mapping[str, Any]) -> str:
     if len(encoded) > _MAX_ACTION_PAYLOAD_BYTES:
         raise ValueError("executor action payload exceeds the transport byte limit")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def executor_plan_fingerprint(*, action: object, execution_path: str) -> str:
+    """Preserve the historical dry-run artifact identity, never execution authority."""
+
+    action = Action.model_validate(action, from_attributes=True)
+    payload = {
+        "action_id": str(action.action_id),
+        "event_id": str(action.event_id),
+        "action_type": action.action_type,
+        "target_resource_ref": action.target_resource_ref,
+        "operation": action.operation.value,
+        "params": dict(action.params),
+        "stop_condition": action.stop_condition,
+        "rollback": {
+            "kind": action.rollback_ref.kind.value,
+            "reference": action.rollback_ref.reference,
+        },
+        "blast_radius": {
+            "scope": action.blast_radius.scope.value,
+            "count": action.blast_radius.count,
+            "rate_per_minute": action.blast_radius.rate_per_minute,
+        },
+        "mode": action.mode.value,
+        "executor_identity_ref": action.executor_identity_ref,
+        "citing_rules": sorted(action.citing_rules),
+        "execution_path": execution_path,
+    }
+    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def executor_action_fingerprint(
+    *,
+    action_payload: Mapping[str, Any],
+    execution_path: str,
+) -> str:
+    """Return the canonical full-Action digest for one execution path."""
+
+    payload = {
+        "action": dict(action_payload),
+        "execution_path": execution_path,
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def executor_command_id_from_action_payload(
+    *,
+    action_payload: Mapping[str, Any],
+    idempotency_key: str,
+) -> UUID:
+    """Return the legacy action-bound command identity used by v1.0."""
+
+    action_digest = executor_action_payload_digest(action_payload).removeprefix("sha256:")
+    return uuid5(
+        NAMESPACE_URL,
+        f"fdai:executor-command:{idempotency_key}:{action_digest}",
+    )
+
+
+def safeguard_bound_executor_command_id(
+    *,
+    action_payload: Mapping[str, Any],
+    idempotency_key: str,
+    execution_path: str,
+    safeguard_bundle_digest: str,
+    source_revision: str,
+    attempt: int,
+    issued_at: datetime,
+    deadline_at: datetime,
+) -> UUID:
+    """Return the canonical identity of one safeguard-bound command."""
+
+    if (
+        issued_at.tzinfo is None
+        or issued_at.utcoffset() is None
+        or deadline_at.tzinfo is None
+        or deadline_at.utcoffset() is None
+    ):
+        raise ValueError("safeguard-bound command timestamps MUST be timezone-aware")
+    if deadline_at <= issued_at:
+        raise ValueError("safeguard-bound command deadline MUST follow issue time")
+    base_id = executor_command_id_from_action_payload(
+        action_payload=action_payload,
+        idempotency_key=idempotency_key,
+    )
+    canonical_issued_at = issued_at.astimezone(UTC).isoformat()
+    canonical_deadline_at = deadline_at.astimezone(UTC).isoformat()
+    return uuid5(
+        NAMESPACE_URL,
+        (
+            f"fdai:safeguard-bound-executor-command:{base_id}:{execution_path}:"
+            f"{safeguard_bundle_digest}:{source_revision}:{attempt}:"
+            f"{canonical_issued_at}:{canonical_deadline_at}"
+        ),
+    )
 
 
 class ExecutorCommand(ContractBase):
@@ -540,5 +643,9 @@ __all__ = [
     "SourceRevision",
     "StopConditionKind",
     "WorkflowActionRef",
+    "executor_action_fingerprint",
+    "executor_plan_fingerprint",
+    "executor_command_id_from_action_payload",
     "executor_action_payload_digest",
+    "safeguard_bound_executor_command_id",
 ]

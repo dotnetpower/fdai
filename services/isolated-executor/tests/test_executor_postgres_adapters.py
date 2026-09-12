@@ -155,6 +155,17 @@ async def test_state_store_rejects_foreign_namespace_and_audit_shape(
 
     with pytest.raises(ValueError, match="namespace"):
         await store.read_state("core-control-plane:attempt-one")
+    assert await store.read_state("workflow:automation-hold:" + "a" * 64) is None
+    with pytest.raises(ValueError, match="namespace"):
+        await store.write_state_with_audit_if_absent(
+            "workflow:automation-hold:" + "a" * 64,
+            {"revision": 1},
+            {
+                "kind": "isolated_executor.shadow_terminal",
+                "idempotency_key": "attempt-one",
+                "mode": "shadow",
+            },
+        )
     with pytest.raises(ValueError, match="intent or terminal"):
         await store.append_audit_entry({"kind": "foreign.audit", "mode": "enforce"})
 
@@ -318,11 +329,16 @@ async def test_executor_receipt_is_committed_to_outbox_before_publication(
     )
 
     inserts = [call for call in connection.calls if "INSERT INTO" in call[0]]
-    assert len(inserts) == 2
+    assert len(inserts) == 3
     assert inserts[0][1][0] == f"isolated-executor:receipt:{receipt_id}"
-    assert inserts[1][1][0] == receipt_id
-    assert inserts[1][1][1] == "resource:one"
-    assert json.loads(inserts[1][1][2]) == {
+    assert inserts[1][1][0] == "isolated-executor:command-receipt:command-one"
+    assert json.loads(inserts[1][1][1]) == {"status": "dispatched"}
+    assert inserts[2][1][0] == receipt_id
+    assert inserts[2][1][1] == "resource:one"
+    assert "COALESCE(executor_receipt_outbox.payload -> 'receipt'" in inserts[2][0]
+    assert "executor_receipt_outbox.payload)::jsonb" in inserts[2][0]
+    assert "(EXCLUDED.payload -> 'receipt')::jsonb" in inserts[2][0]
+    assert json.loads(inserts[2][1][2]) == {
         "receipt": {"status": "dispatched"},
         "telemetry": {"command_id": "command-one", "command_offset": 42},
     }
@@ -362,6 +378,67 @@ async def test_executor_receipt_claim_restores_correlation_metadata(
     assert pending[0].payload == {"status": "dispatched", "command_id": "command-one"}
     assert pending[0].command_id == "command-one"
     assert pending[0].command_offset == 42
+
+
+async def test_executor_receipt_readback_uses_command_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection(
+        rows=[
+            None,
+            {"value": {"status": "rejected", "command_id": "command-one"}},
+        ]
+    )
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+
+    receipt = await store.read_committed_receipt("command-one")
+
+    assert receipt == {"status": "rejected", "command_id": "command-one"}
+    select_sql, params = next(
+        (sql, params) for sql, params in connection.calls if "SELECT value FROM state_kv" in sql
+    )
+    assert "WHERE key = %s" in select_sql
+    assert params == ("isolated-executor:command-receipt:command-one",)
+
+
+async def test_executor_receipt_readback_backfills_legacy_outbox(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection(
+        rows=[
+            None,
+            None,
+            {
+                "payload": {
+                    "receipt": {"status": "rejected", "command_id": "command-one"},
+                    "telemetry": {"command_id": "command-one", "command_offset": 42},
+                }
+            },
+        ]
+    )
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+
+    receipt = await store.read_committed_receipt("command-one")
+
+    assert receipt == {"status": "rejected", "command_id": "command-one"}
+    legacy_sql = next(sql for sql, _params in connection.calls if "ORDER BY created_at" in sql)
+    assert "telemetry" in legacy_sql
+    backfill = next(
+        params
+        for sql, params in connection.calls
+        if "Executor command receipt backfill" not in sql and "INSERT INTO state_kv" in sql
+    )
+    assert backfill[0] == "isolated-executor:command-receipt:command-one"
 
 
 def test_state_hash_chain_is_canonical_and_ordered() -> None:

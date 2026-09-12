@@ -18,7 +18,7 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.executor.safeguards import (
     SafeguardReceipt,
-    dry_run_receipt,
+    action_dry_run_receipt,
     execution_fingerprint,
     full_action_digest,
     resource_lock_key,
@@ -258,8 +258,9 @@ def finalize_safeguard_proof_bundle(
         raise ValueError("safeguard receipt fingerprint does not match the full action")
     if receipt.idempotency_key != action.idempotency_key:
         raise ValueError("safeguard receipt idempotency key does not match the action")
-    if receipt.dry_run_receipt != dry_run_receipt(
-        execution_fingerprint=receipt.execution_fingerprint,
+    if receipt.dry_run_receipt != action_dry_run_receipt(
+        action,
+        execution_path=receipt.execution_path,
         plan_digest=receipt.plan_digest,
         plan_kind=receipt.plan_kind,
     ):

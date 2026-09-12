@@ -40,6 +40,7 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     record_dispatch_observation,
     record_pre_release_checkpoint,
 )
+from fdai.core.executor.safeguard_lifecycle_preparation import _closure_proves_applied
 from fdai.core.executor.target_dispatch_fence import (
     TargetDispatchFenceIdentity,
     TargetDispatchFenceRecord,
@@ -338,6 +339,10 @@ def test_authoritative_non_acceptance_reconciliation_allows_later_recovery() -> 
 
     assert reconciled.record.outcome is PostReleaseClosureOutcome.RESOLVED
     assert reconciled.record.revision == 2
+    assert not _closure_proves_applied(
+        closure=reconciled.record,
+        evidence=initial.pre_release_record,
+    )
     assert reconciled.record.prior_record_digest == initial.record.record_digest
     assert (
         reconciled.reservation_record.evidence_kind

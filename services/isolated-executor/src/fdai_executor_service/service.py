@@ -25,7 +25,6 @@ from fdai_service_contracts.executor import (
     AnyExecutorCommand,
     DirectApiExecutionResultLike,
     ExecutionPath,
-    ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorEffectReceiptStatus,
     ExecutorShadowReceipt,
@@ -34,8 +33,10 @@ from fdai_service_contracts.executor import (
     SafeguardBoundExecutorCommand,
 )
 from fdai_service_contracts.schema import ContractValidator
+from pydantic import TypeAdapter
 
 from fdai_executor_service.bundle_validation import (
+    ResolvedSafeguardBundle,
     SafeguardBundleStore,
     validate_bundle_binding_sync,
 )
@@ -43,6 +44,7 @@ from fdai_executor_service.effect_safety import deadline_expired
 from fdai_executor_service.ports import ExecutorStateStore
 
 _ATTEMPT_PREFIX = "isolated-executor:attempt:"
+_EXECUTOR_COMMAND_ADAPTER: TypeAdapter[AnyExecutorCommand] = TypeAdapter(AnyExecutorCommand)
 _DELIVERY_PREFIX = "isolated-executor:delivery:"
 _LEGACY_ATTEMPT_PREFIX = "isolated_executor_attempt:"
 _LEGACY_DELIVERY_PREFIX = "isolated_executor_delivery:"
@@ -108,13 +110,21 @@ class IsolatedExecutorEffectService:
         received_at = self._clock()
 
         bundle_digest: str | None = None
+        bundle_refusal = None
         if isinstance(command, SafeguardBoundExecutorCommand):
             bundle_digest = command.safeguard_proof_bundle_digest
-            bundle = None
+            resolved_bundle: ResolvedSafeguardBundle | None = None
             if self._bundle_store is not None:
-                bundle = await self._bundle_store.resolve_bundle(bundle_digest)
-            refusal = validate_bundle_binding_sync(command, bundle, now=received_at)
-            if refusal is not None:
+                resolved_bundle = await self._bundle_store.resolve_bundle_context(bundle_digest)
+            refusal = validate_bundle_binding_sync(
+                command,
+                resolved_bundle.bundle if resolved_bundle is not None else None,
+                now=received_at,
+                reservation_attempt=(
+                    resolved_bundle.reservation_attempt if resolved_bundle is not None else None
+                ),
+            )
+            if refusal is not None and refusal.category != "stale":
                 return self._effect_receipt(
                     command,
                     status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
@@ -123,6 +133,7 @@ class IsolatedExecutorEffectService:
                     completed_at=received_at,
                     safeguard_proof_bundle_digest=bundle_digest,
                 )
+            bundle_refusal = refusal
         elif not self._allow_legacy_unbound_commands:
             return self._effect_receipt(
                 command,
@@ -133,6 +144,15 @@ class IsolatedExecutorEffectService:
             )
 
         action = Action.model_validate(command.action_payload)
+        if action.mode is Mode.SHADOW:
+            return self._effect_receipt(
+                command,
+                status=ExecutorEffectReceiptStatus.REJECTED_MODE,
+                reason="shadow command has no isolated effect authority",
+                received_at=received_at,
+                completed_at=received_at,
+                safeguard_proof_bundle_digest=bundle_digest,
+            )
         if deadline_expired(received_at, command.deadline_at):
             recovered = None
             if command.execution_path is ExecutionPath.DIRECT_API:
@@ -144,10 +164,28 @@ class IsolatedExecutorEffectService:
                     received_at=received_at,
                     safeguard_proof_bundle_digest=bundle_digest,
                 )
+            if bundle_refusal is not None:
+                return self._effect_receipt(
+                    command,
+                    status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                    reason=(f"safeguard bundle {bundle_refusal.category}: {bundle_refusal.reason}"),
+                    received_at=received_at,
+                    completed_at=received_at,
+                    safeguard_proof_bundle_digest=bundle_digest,
+                )
             return self._effect_receipt(
                 command,
                 status=ExecutorEffectReceiptStatus.EXPIRED,
                 reason="command deadline expired before dispatch",
+                received_at=received_at,
+                completed_at=received_at,
+                safeguard_proof_bundle_digest=bundle_digest,
+            )
+        if bundle_refusal is not None:
+            return self._effect_receipt(
+                command,
+                status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                reason=(f"safeguard bundle {bundle_refusal.category}: {bundle_refusal.reason}"),
                 received_at=received_at,
                 completed_at=received_at,
                 safeguard_proof_bundle_digest=bundle_digest,
@@ -165,10 +203,7 @@ class IsolatedExecutorEffectService:
         result = await self._direct_api_executor.execute(
             action=action,
             deadline_at=command.deadline_at,
-            upstream_target_lock_held=isinstance(
-                command,
-                SafeguardBoundExecutorCommand,
-            ),
+            upstream_target_lock_held=False,
         )
         return self._receipt_from_result(
             command,
@@ -262,7 +297,7 @@ class IsolatedExecutorShadowService:
         self._executor_instance_id = executor_instance_id
         self._clock = clock or (lambda: datetime.now(UTC))
 
-    async def handle(self, command: ExecutorCommand) -> ExecutorShadowReceipt:
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorShadowReceipt:
         """Return one durable no-effect receipt for a validated command."""
 
         self._contract_validator.validate(
@@ -308,7 +343,7 @@ class IsolatedExecutorShadowService:
 
     async def _resolve_existing(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         raw: Mapping[str, Any],
         *,
         now: datetime,
@@ -332,7 +367,7 @@ class IsolatedExecutorShadowService:
 
     async def _persist_secondary(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         *,
         status: ExecutorShadowReceiptStatus,
         reason: str,
@@ -368,7 +403,7 @@ class IsolatedExecutorShadowService:
 
     def _receipt(
         self,
-        command: ExecutorCommand,
+        command: AnyExecutorCommand,
         *,
         status: ExecutorShadowReceiptStatus,
         reason: str,
@@ -398,7 +433,7 @@ class IsolatedExecutorShadowService:
 
 
 def _first_terminal_outcome(
-    command: ExecutorCommand,
+    command: AnyExecutorCommand,
     *,
     now: datetime,
 ) -> tuple[ExecutorShadowReceiptStatus, str]:
@@ -412,7 +447,7 @@ def _first_terminal_outcome(
     return ExecutorShadowReceiptStatus.SHADOWED, "shadow command recorded without dispatch"
 
 
-def _same_action_intent(left: ExecutorCommand, right: ExecutorCommand) -> bool:
+def _same_action_intent(left: AnyExecutorCommand, right: AnyExecutorCommand) -> bool:
     return (
         left.action_id == right.action_id
         and left.event_id == right.event_id
@@ -425,7 +460,7 @@ def _same_action_intent(left: ExecutorCommand, right: ExecutorCommand) -> bool:
 
 
 def _state_record(
-    command: ExecutorCommand,
+    command: AnyExecutorCommand,
     receipt: ExecutorShadowReceipt,
 ) -> Mapping[str, Any]:
     return {
@@ -437,19 +472,19 @@ def _state_record(
 
 def _decode_state_record(
     raw: Mapping[str, Any],
-) -> tuple[ExecutorCommand, ExecutorShadowReceipt]:
+) -> tuple[AnyExecutorCommand, ExecutorShadowReceipt]:
     command = raw.get("command")
     receipt = raw.get("receipt")
     if not isinstance(command, Mapping) or not isinstance(receipt, Mapping):
         raise RuntimeError("isolated Executor durable attempt record is malformed")
     return (
-        ExecutorCommand.model_validate(dict(command)),
+        _EXECUTOR_COMMAND_ADAPTER.validate_python(dict(command)),
         ExecutorShadowReceipt.model_validate(dict(receipt)),
     )
 
 
 def _audit_entry(
-    command: ExecutorCommand,
+    command: AnyExecutorCommand,
     receipt: ExecutorShadowReceipt,
 ) -> Mapping[str, Any]:
     return {
