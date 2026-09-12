@@ -29,6 +29,11 @@ def drift() -> ModuleType:
     return _load("drift_contract")
 
 
+@pytest.fixture(scope="module")
+def service_contract() -> ModuleType:
+    return _load("service_contract")
+
+
 def _state(address: str, *images: str) -> dict[str, object]:
     return {
         "values": {
@@ -209,6 +214,44 @@ def test_stored_service_image_selects_primary_digest_before_refresh(drift: Modul
             repository="example/fdai",
         )
         == primary
+    )
+
+
+def test_core_service_accepts_only_declared_distribution_images(
+    service_contract: ModuleType,
+) -> None:
+    core = service_contract.resolve_service("core-control-plane", "dev")
+    assert core.image_repositories == (
+        "fdai-core-control-plane",
+        "fdai-cost-governance",
+    )
+    for repository in core.image_repositories:
+        image = f"ghcr.io/example/fdai/{repository}@sha256:{'a' * 64}"
+        assert service_contract.validate_image_reference(core, "example/fdai", image) == (
+            f"sha256:{'a' * 64}"
+        )
+
+    operator = service_contract.resolve_service("operator-service", "dev")
+    with pytest.raises(service_contract.ServiceContractError, match="selected service"):
+        service_contract.validate_image_reference(
+            operator,
+            "example/fdai",
+            f"ghcr.io/example/fdai/fdai-cost-governance@sha256:{'a' * 64}",
+        )
+
+
+def test_stored_core_image_accepts_cost_governance_distribution(drift: ModuleType) -> None:
+    contract = drift.resolve_service("core-control-plane", "dev")
+    image = f"ghcr.io/example/fdai/fdai-cost-governance@sha256:{'a' * 64}"
+    state = _state(contract.allowed_resource_address, image)
+
+    assert (
+        drift.stored_service_image(
+            state,
+            contract=contract,
+            repository="example/fdai",
+        )
+        == image
     )
 
 

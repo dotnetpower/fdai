@@ -9,7 +9,13 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from service_contract import ServiceContract, ServiceContractError, load_matrix, resolve_service
+from service_contract import (
+    ServiceContract,
+    ServiceContractError,
+    load_matrix,
+    resolve_service,
+    validate_image_reference,
+)
 
 
 class DriftContractError(ValueError):
@@ -71,17 +77,15 @@ def stored_service_image(
     resource_values = resource.get("values")
     if not isinstance(resource_values, dict):
         raise DriftContractError("service resource has no stored values")
-    prefix = f"ghcr.io/{repository.lower()}/{contract.image_repository}@sha256:"
-    images = [
-        image
-        for image in _container_images(resource_values)
-        if image.startswith(prefix) and len(image.removeprefix(prefix)) == 64
-    ]
+    images: list[str] = []
+    for image in _container_images(resource_values):
+        try:
+            validate_image_reference(contract, repository, image)
+        except ServiceContractError:
+            continue
+        images.append(image)
     if len(images) != 1:
         raise DriftContractError("service state must contain exactly one primary image")
-    digest = images[0].removeprefix(prefix)
-    if any(character not in "0123456789abcdef" for character in digest):
-        raise DriftContractError("service state primary image digest must be lowercase hexadecimal")
     return images[0]
 
 

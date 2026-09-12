@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 0225f372c285f639264cb64536050404c3577bd4
+translation_source_sha: 5c198f4660d9248c5c31ef619536ad9fbac34b8a
 translation_revised: 2026-09-12
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-09-12
 | 명시적 이미지 후보와 PR 패키징 집중 검사 | implemented | `container-supply-chain.yml`, 이미지 선택기, 워크플로 및 Genesis 회귀 검사; 집중 테스트 182개 통과 | 게시에는 보호된 main의 디스패치와 명시적 이미지 선택이 필요합니다. Genesis는 필요한 이미지만 요청하며 성공한 PR이나 일부 후보를 재사용할 수 없습니다. 다이제스트 검증은 독립적으로 유지합니다. |
 | 보호된 구독 생성 plan-only 검증 | validated | 보호된 실행 `34436576350`, 정제된 `fdai.deployment-plan.v1` 메타데이터, 정확한 이행 및 파괴적 계획 가드 | 필수 CI를 통과한 개정 번호에서 선택한 Console, 운영 게이트웨이, Operator API, 문서 수집, 격리 실행기 범위의 준비된 계획을 생성했습니다. 전체 계획을 검토했으며 apply는 실행하지 않았습니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
+| Core 패키지 배포 프로파일 | implemented | `service-matrix.json`, `service_contract.py`, `drift_contract.py`, 집중 서비스 이미지 및 표류 테스트 | 독립 Core 루트는 표준 이미지 또는 Cost Governance 배포 이미지만 허용합니다. 두 이미지 모두 정확한 출처, 다이제스트, 증명, 계획, 상태 및 롤백에 계속 결속되며 패키지 이미지 배포는 활성화 또는 작업 권한을 부여하지 않습니다. |
 | 단독 유지관리자 직접 개발 적용 | implemented | `.github/workflows/service-deploy.yml`, `.github/workflows/deploy-dev.yml`, `verify-github-environment.py` 및 집중 검증기와 작업 흐름 테스트 | `DEV_DEPLOY_REQUIRED_APPROVALS=0`은 검토자 규칙 없는 직접 개발 적용에만 허용됩니다. 정확한 계획, 이미지 증명, 신원 검사, 상태 확인 및 롤백은 계속 필요하며 스테이징, 운영 및 봇 소유 경로는 독립 승인을 유지합니다. |
 | Bot 소유의 보호된 Core 적용 요청 | validated | PR #455, 보호된 계획 `33965356996`, Bot 요청 `33965478498`, 정확한 적용 `33965498775` 및 이슈 #454 | Bot 요청자를 사용해 FDAI 유지관리자와 배포 요청자를 분리합니다. 운영 외 Core 경로는 계획에 계속 결합되며 사람의 Environment 승인이 필요합니다. |
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
@@ -48,6 +49,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 패키지 배포 격리 과정에서 platform 루트가 두 패키지 Job만 소유한다는 사실을 확인한 뒤 닫힌 Core 서비스 이미지 계약에 Cost Governance 배포 이미지를 추가했습니다. 서비스 계획, exact apply, 새로 고침 전 표류 검사, 상태 및 롤백은 전체 digest-pinned 이미지 참조에 계속 결속됩니다. | `current change`, 서비스 행렬 및 계약, 표준 이미지, 패키지 프로파일, 잘못된 서비스 및 표류에 대한 집중 회귀 테스트 | 정확한 Cost Governance 후보 하나를 게시하고 삭제가 없는 Core 계획과 exact apply를 보존한 뒤 수명 주기 설치 전에 Core와 두 패키지 Job이 하나의 다이제스트를 사용하는지 검증합니다. |
 | 2026-09-12 | implemented | Broad operations-gateway 대상이 관련 없는 Operator API 역할 교체를 포함한 뒤 전용 protected provider-schema plan/apply 모드를 추가했습니다. 새 모드는 provider-schema Job만 허용하고 정확히 증명된 Core image 하나를 결속하며, 적용 후 Job을 실행하고 durable source/generation 및 해당하는 Heimdall, Forseti, Saga review chain을 검증합니다. | Protected plan `34677766334` 실패, `current change`, 집중 provider runtime, 배포 workflow, CLI, Terraform 및 evidence 검사 | Exact revision을 게시하고 해당 candidate에서 최종 Core baseline을 반복한 뒤 Issue #290의 zero-destroy provider-schema plan, exact apply 및 deployed agent-chain receipt를 보존합니다. |
 | 2026-09-12 | implemented | 모델 전용 Terraform 계획의 대상을 Azure OpenAI 기능 배포 컬렉션으로 제한했습니다. 이제 상위 모듈 전체를 대상으로 지정해 기존 계정 및 역할 할당 리소스가 계획에 포함되는 일이 없습니다. | `current change`; 실패한 보호 계획 `34677766334`; `.github/workflows/deploy-dev.yml`; 모델 수명 주기 및 배포 작업 흐름 집중 테스트 87개; CI 계약 검사. | 수정된 작업 흐름을 게시하고 관련 없는 변경이 없는 모델 연결 계획을 보존한 뒤 이슈 #90의 정확한 Core 이미지 연결 및 런타임 근거를 완료합니다. |
 | 2026-09-10 | implemented | 배포 실행기가 사용하는 ops 소유의 비공개 DNS 영역에 운영 이력 Blob 계정 전용 A record를 추가했습니다. 범위가 제한된 운영 이력 target은 lifecycle Job 종속성을 통해 record를 가져오고 plan 범위 guard는 해당 주소만 허용합니다. 공용 네트워크 접근과 key 인증은 계속 비활성화합니다. | `current change`; 보호된 OI-12 실행 `34447462177`은 실행기 readback 실패 전에 7개 축을 모두 완료하고 비공개 증적을 기록함; 실행기 VM의 guest DNS 진단; 프로바이더에서 관측한 앱 영역 A record와 누락된 ops 영역 record; 집중 Terraform 및 범위 검사. | 실행기 DNS 연결을 게시하고 보호된 운영 이력 plan/apply를 실행 및 검토한 뒤 실행기의 비공개 Blob 해석을 증명하고 통과한 보호 OI-12 artifact를 보존합니다. |
@@ -114,6 +116,8 @@ translation_revised: 2026-09-12
   비활성임을 증명하는 protected 서비스 적용 및 자동 롤백 증적을 보존합니다.
 - [x] 계획 `33965356996`, 요청 `33965478498`, 적용 `33965498775` 및 이슈 #454에 첫 번째
   Bot 요청 Core 서비스 적용과 독립된 사람의 Environment 승인 증적을 보존했습니다.
+- [ ] Cost Governance 배포 이미지에 대해 삭제가 없는 Core 서비스 계획과 exact apply를
+  보존한 뒤 수명 주기 설치 전에 Core와 두 패키지 Job의 단일 image digest를 검증합니다.
 - [ ] 문서화된 자동 artifact 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green
   흐름을 집중 테스트와 통제된 런타임 증적으로 구현합니다.
 
