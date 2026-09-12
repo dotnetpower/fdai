@@ -90,6 +90,33 @@ def _measurements(store: InMemoryStateStore) -> list[Mapping[str, Any]]:
     ]
 
 
+async def test_retained_terminal_rejects_identity_collision_without_another_audit() -> None:
+    store = InMemoryStateStore()
+    await TerminalMeasurementRecorder(store).record(_event(), _result(), recorded_at=NOW)
+    changed = _event().model_copy(update={"source": "another-observer"})
+    with pytest.raises(ValueError, match="conflicts with retained"):
+        await TerminalMeasurementRecorder(store).record(changed, _result(), recorded_at=NOW)
+    assert len(_measurements(store)) == 1
+
+
+async def test_replay_capture_times_do_not_replace_original_terminal() -> None:
+    store = InMemoryStateStore()
+    await TerminalMeasurementRecorder(store).record(_event(), _result(), recorded_at=NOW)
+    replay = _event().model_copy(update={"ingested_at": NOW})
+    await TerminalMeasurementRecorder(store).record(
+        replay, _result(), recorded_at=NOW + timedelta(seconds=1)
+    )
+    assert len(_measurements(store)) == 1
+    assert _measurements(store)[0]["recorded_at"] == NOW.isoformat().replace("+00:00", "Z")
+
+
+async def test_duplicate_acknowledgement_without_retained_evidence_is_not_success() -> None:
+    store = InMemoryStateStore()
+    store.write_state_with_audit_if_absent = AsyncMock(return_value=False)
+    with pytest.raises(ValueError, match="disappeared"):
+        await TerminalMeasurementRecorder(store).record(_event(), _result(), recorded_at=NOW)
+
+
 @pytest.mark.parametrize(
     "outcome", [value for value in ControlLoopOutcome if value is not ControlLoopOutcome.DEDUPED]
 )
@@ -209,9 +236,12 @@ async def test_atomic_identity_survives_new_recorder_and_concurrent_replays() ->
             for _ in range(4)
         ]
     )
-    await TerminalMeasurementRecorder(store).record(
-        event, _result(ControlLoopOutcome.HIL, decision="hil"), recorded_at=NOW + timedelta(days=1)
-    )
+    with pytest.raises(ValueError, match="conflicts with retained"):
+        await TerminalMeasurementRecorder(store).record(
+            event,
+            _result(ControlLoopOutcome.HIL, decision="hil"),
+            recorded_at=NOW + timedelta(days=1),
+        )
     distinct = _event("x" * 500 + "-two")
     await TerminalMeasurementRecorder(store).record(distinct, _result(), recorded_at=NOW)
     rows = _measurements(store)

@@ -97,9 +97,23 @@ class TerminalMeasurementRecorder:
     async def _persist(self, fields: dict[str, object]) -> None:
         measurement = ControlLoopMeasurement.model_validate(fields)
         payload = measurement.model_dump(mode="json")
-        await self._store.write_state_with_audit_if_absent(
-            f"{_STATE_PREFIX}{measurement.measurement_id}",
+        key = f"{_STATE_PREFIX}{measurement.measurement_id}"
+        created = await self._store.write_state_with_audit_if_absent(
+            key,
             payload,
             control_loop_measurement_audit_entry(measurement),
         )
+        if not created:
+            existing = await self._store.read_state(key)
+            if existing is None:
+                raise ValueError("terminal measurement disappeared after duplicate detection")
+            previous = ControlLoopMeasurement.model_validate(existing)
+            comparable = previous.model_copy(
+                update={
+                    "ingested_at": measurement.ingested_at,
+                    "recorded_at": measurement.recorded_at,
+                }
+            )
+            if comparable != measurement:
+                raise ValueError("terminal measurement identity conflicts with retained evidence")
         self._pending.pop(measurement.measurement_id, None)
