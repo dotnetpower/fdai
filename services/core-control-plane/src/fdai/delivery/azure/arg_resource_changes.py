@@ -22,8 +22,8 @@ Design boundaries (identical discipline to
 - Mapping reuses the reviewed :mod:`fdai.delivery.azure.arg_projection`
   helpers and the shared resource-type registry
   (:func:`~fdai.rule_catalog.schema.resource_type.resolve_azure_resource_type`).
-  Nothing is inferred from a resource's name; an ARM type outside the
-  registry is dropped rather than emitted with an unknown type.
+    Nothing is inferred from a resource's name; an ARM type outside the
+    registry is retained under the reviewed ``unclassified-resource`` identity.
 
 Cursor model
 ------------
@@ -34,7 +34,7 @@ The durable cursor is the opaque string ``"<changeTime_iso>\\x1f<change_id>"``
 starts at ``now - initial_lookback_seconds``. Every poll queries
 strictly *after* the cursor (oldest first) and advances to the maximum
 ``(changeTime, id)`` seen across the validated page, so a row that was
-seen but dropped (unmapped ARM type, race-lost hydration) still moves the
+seen but excluded by an explicit runtime allowlist or race-lost hydration still moves the
 cursor forward and is never reprocessed.
 
 Create/Update rows are hydrated in bounded batches (``<= max_hydration_batch``,
@@ -138,7 +138,7 @@ from fdai.rule_catalog.schema.resource_type import (
 )
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, ResourceRecord
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -541,7 +541,7 @@ class AzureResourceChangeFeed:
             self._resource_types, arm_type=arm_type, kind=row.get("kind")
         )
         if resolved_type is None:
-            return None  # Unmapped or ambiguous ARM type - drop, don't fail closed.
+            resolved_type = UNCLASSIFIED_RESOURCE_TYPE
         if (
             self._allowed_resource_types is not None
             and resolved_type not in self._allowed_resource_types

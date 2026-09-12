@@ -14,6 +14,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceActivity,
     InventoryInstanceReader,
     InventoryInstanceResource,
+    InventoryProviderScopeCoverage,
     InventoryRelationshipCoverage,
     InventoryRelationshipEvidence,
     ProjectionNotFoundError,
@@ -395,6 +396,9 @@ async def project_inventory_instance(
             for item in context.relationship_drop_classifications
         ],
         "relationship_coverage": _relationship_coverage_projection(context.relationship_coverage),
+        "provider_scope_coverage": _provider_scope_coverage_projection(
+            context.provider_scope_coverage
+        ),
         "complete": not truncation_reasons and not context.relationship_drop_reasons,
         "truncation_reasons": truncation_reasons,
         **_context_identity(
@@ -455,6 +459,31 @@ def _relationship_coverage_projection(
         "reviewed_unavailable": coverage.reviewed_unavailable,
         "unclassified": coverage.unclassified,
         "complete": coverage.complete,
+    }
+
+
+def _provider_scope_coverage_projection(
+    coverage: InventoryProviderScopeCoverage | None,
+) -> dict[str, object] | None:
+    """Render provider type coverage without provider object identities or properties."""
+
+    if coverage is None:
+        return None
+    return {
+        "capture_method": coverage.capture_method,
+        "provider_object_count": coverage.provider_object_count,
+        "mapped_provider_object_count": coverage.mapped_provider_object_count,
+        "unmapped_provider_object_count": coverage.unmapped_provider_object_count,
+        "materialized_unmapped_provider_object_count": (
+            coverage.materialized_unmapped_provider_object_count
+        ),
+        "provider_identity_complete": coverage.provider_identity_complete,
+        "provider_type_count": coverage.provider_type_count,
+        "unmapped_provider_type_count": len(coverage.unmapped_provider_types),
+        "unmapped_provider_types": [
+            {"provider_type": item.provider_type, "count": item.count}
+            for item in coverage.unmapped_provider_types
+        ],
     }
 
 

@@ -577,6 +577,55 @@ function InstanceSources({ data }: { readonly data: OntologyInstanceExploration 
           {t("ontology.instances.coverageNotReported")}
         </p>
       )}
+      {data.provider_scope_coverage ? (
+        <>
+          <h4>{t("ontology.instances.providerCoverageTitle")}</h4>
+          <dl class="ontology-instance-source-coverage-summary">
+            <div>
+              <dt>{t("ontology.instances.providerObjects")}</dt>
+              <dd>{formatNumber(data.provider_scope_coverage.provider_object_count)}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.providerMappedObjects")}</dt>
+              <dd>{formatNumber(data.provider_scope_coverage.mapped_provider_object_count)}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.providerUnmappedObjects")}</dt>
+              <dd>{formatNumber(data.provider_scope_coverage.unmapped_provider_object_count)}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.providerTypes")}</dt>
+              <dd>{formatNumber(data.provider_scope_coverage.provider_type_count)}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.providerUnmappedTypes")}</dt>
+              <dd>{formatNumber(data.provider_scope_coverage.unmapped_provider_type_count)}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.providerIdentity")}</dt>
+              <dd>{data.provider_scope_coverage.provider_identity_complete
+                ? t("ontology.instances.complete")
+                : t("ontology.instances.unavailable")}</dd>
+            </div>
+          </dl>
+          {data.provider_scope_coverage.unmapped_provider_types.length > 0 ? (
+            <ul class="ontology-instance-source-list">
+              {data.provider_scope_coverage.unmapped_provider_types.map((item) => (
+                <li key={item.provider_type}>
+                  <div>
+                    <code>{item.provider_type}</code>
+                    <span>{formatNumber(item.count)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : (
+        <p class="ontology-instance-source-coverage-unavailable">
+          {t("ontology.instances.providerCoverageNotReported")}
+        </p>
+      )}
       <ul class="ontology-instance-source-list">
         {data.sources.map((source) => (
           <li key={`${source.source}\u0000${source.scope_digest ?? ""}`}>

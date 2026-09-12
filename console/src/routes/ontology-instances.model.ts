@@ -367,6 +367,23 @@ export interface OntologyInstanceRelationshipCoverage {
   readonly complete: boolean;
 }
 
+export interface OntologyInstanceProviderTypeCount {
+  readonly provider_type: string;
+  readonly count: number;
+}
+
+export interface OntologyInstanceProviderScopeCoverage {
+  readonly capture_method: string;
+  readonly provider_object_count: number;
+  readonly mapped_provider_object_count: number;
+  readonly unmapped_provider_object_count: number;
+  readonly materialized_unmapped_provider_object_count: number;
+  readonly provider_identity_complete: boolean;
+  readonly provider_type_count: number;
+  readonly unmapped_provider_type_count: number;
+  readonly unmapped_provider_types: readonly OntologyInstanceProviderTypeCount[];
+}
+
 export interface OntologyInstanceExploration {
   readonly schema_version: "1.3.0" | "1.4.0";
   readonly ontology_release_digest: string;
@@ -393,6 +410,7 @@ export interface OntologyInstanceExploration {
   readonly relationship_drop_reasons: readonly string[];
   readonly relationship_drop_classifications: readonly OntologyRelationshipDropClassification[];
   readonly relationship_coverage?: OntologyInstanceRelationshipCoverage | null;
+  readonly provider_scope_coverage?: OntologyInstanceProviderScopeCoverage | null;
   readonly complete: boolean;
   readonly truncation_reasons: readonly (
     "adjacent_edge_limit" | "resource_limit" | "link_limit" | "activity_limit"
@@ -1012,6 +1030,10 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     || record.relationship_coverage === null
     ? null
     : decodeRelationshipCoverage(record.relationship_coverage);
+  const providerScopeCoverage = record.provider_scope_coverage === undefined
+    || record.provider_scope_coverage === null
+    ? null
+    : decodeProviderScopeCoverage(record.provider_scope_coverage);
   const truncationReasons = uniqueStrings(
     record.truncation_reasons,
     "truncation reasons",
@@ -1049,6 +1071,7 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     relationship_drop_reasons: relationshipDropReasons,
     relationship_drop_classifications: relationshipDropClassifications,
     relationship_coverage: relationshipCoverage,
+    provider_scope_coverage: providerScopeCoverage,
     complete,
     truncation_reasons: truncationReasons as (
       "adjacent_edge_limit" | "resource_limit" | "link_limit" | "activity_limit"
@@ -1090,6 +1113,86 @@ function decodeRelationshipCoverage(value: unknown): OntologyInstanceRelationshi
     reviewed_unavailable: reviewedUnavailable,
     unclassified,
     complete,
+  };
+}
+
+function decodeProviderScopeCoverage(value: unknown): OntologyInstanceProviderScopeCoverage {
+  const record = objectRecord(value, "provider scope coverage");
+  const captureMethod = requiredString(
+    record.capture_method,
+    "provider coverage capture method",
+    128,
+  );
+  const providerObjectCount = nonNegativeInteger(
+    record.provider_object_count,
+    "provider coverage object count",
+  );
+  const mappedObjectCount = nonNegativeInteger(
+    record.mapped_provider_object_count,
+    "provider coverage mapped object count",
+  );
+  const unmappedObjectCount = nonNegativeInteger(
+    record.unmapped_provider_object_count,
+    "provider coverage unmapped object count",
+  );
+  const materializedUnmappedCount = nonNegativeInteger(
+    record.materialized_unmapped_provider_object_count,
+    "provider coverage materialized unmapped object count",
+  );
+  const providerTypeCount = nonNegativeInteger(
+    record.provider_type_count,
+    "provider coverage type count",
+  );
+  const unmappedProviderTypeCount = nonNegativeInteger(
+    record.unmapped_provider_type_count,
+    "provider coverage unmapped type count",
+  );
+  const providerIdentityComplete = boolean(
+    record.provider_identity_complete,
+    "provider coverage identity complete",
+  );
+  const unmappedProviderTypes = array(
+    record.unmapped_provider_types,
+    "provider coverage unmapped types",
+    10_000,
+  ).map((raw) => {
+    const item = objectRecord(raw, "provider coverage unmapped type");
+    return {
+      provider_type: requiredString(
+        item.provider_type,
+        "provider coverage unmapped provider type",
+        512,
+      ),
+      count: nonNegativeInteger(item.count, "provider coverage unmapped provider type count"),
+    };
+  });
+  const providerTypeNames = unmappedProviderTypes.map((item) => item.provider_type);
+  const sortedTypeNames = [...new Set(providerTypeNames)].sort();
+  if (
+    providerObjectCount !== mappedObjectCount + unmappedObjectCount
+    || providerTypeCount > providerObjectCount
+    || (providerObjectCount === 0) !== (providerTypeCount === 0)
+    || unmappedProviderTypeCount !== unmappedProviderTypes.length
+    || unmappedProviderTypes.length > providerTypeCount
+    || unmappedProviderTypes.some((item) => item.count < 1)
+    || unmappedProviderTypes.reduce((total, item) => total + item.count, 0)
+      !== unmappedObjectCount
+    || providerTypeNames.some((name, index) => name !== sortedTypeNames[index])
+    || (materializedUnmappedCount !== 0 && materializedUnmappedCount !== unmappedObjectCount)
+    || providerIdentityComplete !== (materializedUnmappedCount === unmappedObjectCount)
+  ) {
+    throw new Error("provider coverage object counts are inconsistent");
+  }
+  return {
+    capture_method: captureMethod,
+    provider_object_count: providerObjectCount,
+    mapped_provider_object_count: mappedObjectCount,
+    unmapped_provider_object_count: unmappedObjectCount,
+    materialized_unmapped_provider_object_count: materializedUnmappedCount,
+    provider_identity_complete: providerIdentityComplete,
+    provider_type_count: providerTypeCount,
+    unmapped_provider_type_count: unmappedProviderTypeCount,
+    unmapped_provider_types: unmappedProviderTypes,
   };
 }
 
