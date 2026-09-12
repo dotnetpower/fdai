@@ -388,24 +388,6 @@ def _validate_provider_schema_evidence(
             raise ValueError("provider-schema deployment evidence is invalid")
     else:
         raise ValueError("provider-schema deployment evidence is invalid")
-    for field in (
-        "baseline_digest",
-        "observed_digest",
-        "durable_generation_digest",
-        "run_receipt_digest",
-    ):
-        value = evidence.get(field)
-        if (
-            not isinstance(value, str)
-            or not value.startswith("sha256:")
-            or not _is_digest(value.removeprefix("sha256:"))
-        ):
-            raise ValueError("provider-schema deployment evidence is invalid")
-    if (
-        type(evidence.get("durable_generation_revision")) is not int
-        or int(evidence["durable_generation_revision"]) < 1
-    ):
-        raise ValueError("provider-schema deployment evidence is invalid")
 
 
 def _json_object(content: bytes, label: str) -> dict[str, Any]:

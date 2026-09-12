@@ -816,7 +816,7 @@ def _download_plan_metadata(
         "plan_summary": summary,
         "post_apply_observations": observations,
     }
-    if isinstance(runtime_image, dict):
+    if provider_schema and isinstance(runtime_image, dict):
         projected["runtime_image"] = dict(runtime_image)
     return projected
 
