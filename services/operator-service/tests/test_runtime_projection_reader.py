@@ -544,18 +544,16 @@ async def test_nonempty_automation_blueprint_projection_is_bounded_and_read_only
     assert statements[0].rstrip().endswith("LIMIT 200")
 
 
-async def test_empty_autonomy_window_remains_an_authoritative_measurement(
+async def test_autonomy_without_canonical_projection_is_unavailable(
     monkeypatch: Any,
 ) -> None:
-    observed_at = datetime(2026, 8, 27, tzinfo=UTC)
-
     async def fetch(
         self: RuntimeProjectionReader,
         statement: str,
         parameters: tuple[object, ...] = (),
     ) -> list[dict[str, object]]:
-        del self
-        return [{"observed_at": observed_at}] if "MAX(created_at)" in statement else []
+        del self, statement, parameters
+        return []
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
     reader = RuntimeProjectionReader(
@@ -563,18 +561,180 @@ async def test_empty_autonomy_window_remains_an_authoritative_measurement(
         RecordingFallback(),
     )
 
-    result = await reader.read(_query("autonomy"))
+    with pytest.raises(
+        ProjectionUnavailableError,
+        match="authoritative autonomy measurement projection is unavailable",
+    ):
+        await reader.read(_query("autonomy"))
 
-    assert result["synthetic"] is False
-    assert result["sample_size"] == 0
-    assert result["source"] == {
-        "name": "postgresql:audit_log",
-        "kind": "audit",
-        "as_of": observed_at.isoformat(),
+
+async def test_autonomy_returns_only_canonical_measurement_projection(
+    monkeypatch: Any,
+) -> None:
+    unavailable_higher = {"value": None, "baseline": None, "direction": "higher"}
+    unavailable_lower = {"value": None, "baseline": None, "direction": "lower"}
+    projection = {
+        "schema_version": "1.0.0",
+        "synthetic": False,
+        "window_days": 30,
+        "sample_size": 0,
+        "confidence": None,
+        "source": {
+            "name": "outcome-assurance-measurement",
+            "kind": "measurement",
+            "as_of": "2026-09-12T00:00:00+00:00",
+        },
+        "rules": {"active": 0, "candidates_30d": 0, "promoted_30d": 0},
+        "success": {
+            "auto_resolution_rate": unavailable_higher,
+            "human_touchpoints_per_100": unavailable_lower,
+            "mttr_seconds": unavailable_lower,
+            "change_lead_time_seconds": unavailable_lower,
+            "cost_per_resolved_event_usd": unavailable_lower,
+        },
+        "leading": {
+            "mixed_model_disagreement_rate": unavailable_lower,
+            "verifier_failure_rate": unavailable_lower,
+            "shadow_divergence_rate": unavailable_lower,
+        },
+        "guards": [],
+        "finalization": {"finalized_events": 0, "pending_events": 0, "adverse_events": 0},
+        "attribution": {"attributed_events": 0, "unattributed_events": 0, "coverage": None},
+        "verticals": [],
+        "tier": {"mix": {}, "bands": {}},
+        "trend": {},
     }
-    assert result["success"]["auto_resolution_rate"]["value"] is None
-    assert result["attribution"]["coverage"] is None
-    assert result["verticals"] == []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self
+        assert "FROM state_kv" in statement
+        assert parameters == ("measurement:outcome-assurance:autonomy",)
+        return [{"value": projection}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    assert await reader.read(_query("autonomy")) == projection
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {},
+        {
+            "schema_version": "1.0.0",
+            "synthetic": True,
+            "source": {
+                "name": "fixture",
+                "kind": "synthetic",
+                "as_of": "2026-09-12T00:00:00+00:00",
+            },
+        },
+        {
+            "schema_version": "1.0.0",
+            "synthetic": False,
+            "source": {"name": "postgresql:audit_log", "kind": "audit", "as_of": None},
+        },
+    ],
+)
+async def test_autonomy_rejects_noncanonical_projection(
+    monkeypatch: Any,
+    value: object,
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [{"value": value}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    with pytest.raises(
+        ProjectionUnavailableError,
+        match="authoritative autonomy measurement projection is malformed",
+    ):
+        await reader.read(_query("autonomy"))
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {
+            "schema_version": "1.0.0",
+            "synthetic": False,
+            "source": {
+                "name": "outcome-assurance-measurement",
+                "kind": "measurement",
+                "as_of": "2026-09-12T00:00:00+00:00",
+            },
+        },
+        {
+            "schema_version": "1.0.0",
+            "synthetic": False,
+            "window_days": 30,
+            "sample_size": 1,
+            "confidence": None,
+            "source": {
+                "name": "outcome-assurance-measurement",
+                "kind": "measurement",
+                "as_of": "2026-09-12T00:00:00+00:00",
+            },
+            "rules": {"active": 0, "candidates_30d": 0, "promoted_30d": 0},
+            "success": {},
+            "leading": {},
+            "guards": [],
+            "finalization": {
+                "finalized_events": 1,
+                "pending_events": 0,
+                "adverse_events": 0,
+            },
+            "attribution": {
+                "attributed_events": 0,
+                "unattributed_events": 0,
+                "coverage": None,
+            },
+            "verticals": [],
+            "tier": {"mix": {}, "bands": {}},
+            "trend": {},
+        },
+    ],
+)
+async def test_autonomy_rejects_incomplete_or_inconsistent_envelope(
+    monkeypatch: Any,
+    value: object,
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [{"value": value}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    with pytest.raises(
+        ProjectionUnavailableError,
+        match="authoritative autonomy measurement projection is malformed",
+    ):
+        await reader.read(_query("autonomy"))
 
 
 async def test_remaining_console_evidence_projects_durable_tables(
