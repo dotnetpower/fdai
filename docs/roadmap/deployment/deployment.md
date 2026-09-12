@@ -190,11 +190,7 @@ prod topology so shadow evaluation is representative.
   state; the deployment still fails and retains the rollback evidence.
 - **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
   attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
-  and validated web-search settings. The active Core revision must already use canonical Event Bus
-  topic bindings. Platform model-only plans target the
-  `azurerm_cognitive_deployment.capability` resource collection directly instead of the enclosing
-  model module, so existing account and role-assignment resources cannot enter through target
-  expansion. The plan may compose this mode only with `database_host_binding` and the exact
+  and validated web-search settings. The active Core revision must already use canonical Event Bus topic bindings. Platform model-only plans target the `azurerm_cognitive_deployment.capability` resource collection directly instead of the enclosing model module, so existing account and role-assignment resources cannot enter through target expansion. The plan may compose this mode only with `database_host_binding` and the exact
   first-time notification receipt topic addition. Each guard validates its complete allowlist, the
   host, topic, and endpoint map come from authoritative platform-state output, and the sealed
   deployment mode records the exact combination. The attested model digest may remain unchanged

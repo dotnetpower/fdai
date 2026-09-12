@@ -145,7 +145,7 @@ revisions must also be healthy, and their shared ingress `/healthz` responses mu
 fixed success payload. Design-mocks-only applies are the sole exception because they do not plan
 the runtime.
 The protected-plan delete gate permits only bounded security retirements: closing the broad PostgreSQL Azure-services firewall path, or deleting one of the reviewed pre-split ingestion grants when every exact API or worker successor is pure-created in the same plan.
-It also permits the reviewed `t1.embedding` migration only when the plan JSON matches the exact address, account, family, source SKU/capacity, target SKU/capacity, and replacement action.
+It also permits the reviewed `t1.embedding` migration only when the plan JSON matches the exact address, account, family, source SKU/capacity, target SKU/capacity, and replacement action. A model-binding-only plan targets the Azure OpenAI capability deployment collection instead of the enclosing module. Existing account and role-assignment resources therefore remain outside the plan graph before the scope and destructive-change guards run.
 A delete-only model change, a drifted replacement, a missing or non-create successor, and every other delete remain blocked.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and
