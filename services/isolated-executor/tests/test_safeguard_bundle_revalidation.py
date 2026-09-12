@@ -11,6 +11,7 @@ These tests validate issue #628 requirements without importing Core:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
@@ -36,6 +37,7 @@ from fdai_service_contracts.execution_safeguards import (
 from fdai_service_contracts.executor import (
     Action,
     ActionStopCondition,
+    AnyExecutorCommand,
     BlastRadius,
     BlastRadiusScope,
     DirectApiExecutionResultLike,
@@ -146,6 +148,7 @@ def _v11_command(
     action: Action | None = None,
     bundle: SafeguardProofBundle | None = None,
     source_revision: str = _SOURCE_REVISION,
+    execution_path: ExecutionPath = ExecutionPath.DIRECT_API,
 ) -> SafeguardBoundExecutorCommand:
     act = action or _action()
     bndl = bundle or _bundle()
@@ -153,7 +156,7 @@ def _v11_command(
         command_id=safeguard_bound_executor_command_id(
             action_payload=act.model_dump(mode="json", exclude_none=True),
             idempotency_key=act.idempotency_key,
-            execution_path=ExecutionPath.DIRECT_API.value,
+            execution_path=execution_path.value,
             safeguard_bundle_digest=bndl.bundle_digest,
             source_revision=source_revision,
             attempt=1,
@@ -161,7 +164,7 @@ def _v11_command(
             deadline_at=_DEADLINE,
         ),
         action=act,
-        execution_path=ExecutionPath.DIRECT_API,
+        execution_path=execution_path,
         attempt=1,
         issued_at=_NOW,
         deadline_at=_DEADLINE,
@@ -325,7 +328,10 @@ def _validator() -> JsonSchemaContractValidator:
     return JsonSchemaContractValidator(PackageResourceSchemaRegistry())
 
 
-def _effect_receipt(command: ExecutorCommand) -> ExecutorEffectReceipt:
+def _effect_receipt(
+    command: AnyExecutorCommand,
+    status: ExecutorEffectReceiptStatus = ExecutorEffectReceiptStatus.DISPATCHED,
+) -> ExecutorEffectReceipt:
     return ExecutorEffectReceipt(
         receipt_id=uuid4(),
         command_id=command.command_id,
@@ -334,12 +340,19 @@ def _effect_receipt(command: ExecutorCommand) -> ExecutorEffectReceipt:
         attempt=command.attempt,
         action_payload_digest=command.action_payload_digest,
         requested_mode=command.requested_mode,
-        status=ExecutorEffectReceiptStatus.DISPATCHED,
+        status=status,
         executor_instance_id=_INSTANCE_ID,
         received_at=_NOW,
         completed_at=_NOW,
-        effect_applied=True,
-        provider_receipt_ref="provider:legacy",
+        effect_applied=status is ExecutorEffectReceiptStatus.DISPATCHED,
+        provider_receipt_ref=(
+            "provider:legacy" if status is ExecutorEffectReceiptStatus.DISPATCHED else None
+        ),
+        safeguard_proof_bundle_digest=(
+            command.safeguard_proof_bundle_digest
+            if isinstance(command, SafeguardBoundExecutorCommand)
+            else None
+        ),
         audit_ref=f"action:{command.action_id}",
     )
 
@@ -593,6 +606,116 @@ class TestSafeguardBoundCommandContract:
         assert replay is None
         assert bus.records[-1][2] == "executor_command_identity_conflict"
 
+    async def test_legacy_v11_effect_receipt_cannot_replay_for_a_rewritten_path(
+        self,
+    ) -> None:
+        action = _action()
+        bundle = _legacy_bundle(action=action)
+        command = _legacy_v11_command(action=action, bundle=bundle)
+        receipt = _effect_receipt(
+            command,
+            status=ExecutorEffectReceiptStatus.ABSTAINED_PRECONDITION,
+        )
+        outbox = MemoryExecutorReceiptOutbox()
+        await outbox.commit_receipt(
+            receipt.receipt_id,
+            command.partition_key,
+            receipt.model_dump(mode="json"),
+            command_id=str(command.command_id),
+            command_offset=1,
+        )
+        bus = _DeadLetterBus()
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, bus),
+            service=cast(Any, object()),
+            receipt_outbox=outbox,
+        )
+        rewritten = command.model_copy(update={"execution_path": ExecutionPath.PR_NATIVE})
+
+        replay = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=rewritten.partition_key,
+                payload=rewritten.model_dump(mode="json"),
+                offset=2,
+            )
+        )
+
+        assert replay is None
+        assert bus.records[-1][2] == "executor_command_identity_conflict"
+
+    async def test_canonical_v11_non_direct_rejection_replays(self) -> None:
+        bundle = _bundle(execution_path=ExecutionPath.PR_NATIVE)
+        command = _v11_command(
+            bundle=bundle,
+            execution_path=ExecutionPath.PR_NATIVE,
+        )
+        receipt = _effect_receipt(
+            command,
+            status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+        )
+        outbox = MemoryExecutorReceiptOutbox()
+        await outbox.commit_receipt(
+            receipt.receipt_id,
+            command.partition_key,
+            receipt.model_dump(mode="json"),
+            command_id=str(command.command_id),
+            command_offset=1,
+        )
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, object()),
+            service=cast(Any, object()),
+            receipt_outbox=outbox,
+        )
+
+        replay = await consumer.handle_envelope(
+            EventEnvelope(
+                topic="object.executor-command",
+                key=command.partition_key,
+                payload=command.model_dump(mode="json"),
+                offset=2,
+            )
+        )
+
+        assert replay == receipt
+
+    async def test_concurrent_redelivery_commits_only_one_terminal_receipt(self) -> None:
+        class _Service:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            async def handle(self, received: AnyExecutorCommand) -> ExecutorEffectReceipt:
+                self.calls += 1
+                await asyncio.sleep(0.01)
+                assert isinstance(received, ExecutorCommand)
+                return _effect_receipt(
+                    received,
+                    status=ExecutorEffectReceiptStatus.ABSTAINED_PRECONDITION,
+                )
+
+        command = _v10_command()
+        service = _Service()
+        consumer = IsolatedExecutorCommandConsumer(
+            event_bus=cast(EventBus, object()),
+            service=cast(Any, service),
+        )
+        envelope = EventEnvelope(
+            topic="object.executor-command",
+            key=command.partition_key,
+            payload=command.model_dump(mode="json"),
+            offset=1,
+        )
+
+        first, second = await asyncio.gather(
+            consumer.handle_envelope(envelope),
+            consumer.handle_envelope(envelope),
+        )
+
+        assert service.calls == 1
+        assert first == second
+        assert first is not None
+        assert first.status is ExecutorEffectReceiptStatus.ABSTAINED_PRECONDITION
+
     async def test_v11_redelivery_reuses_first_terminal_receipt(self) -> None:
         bundle = _bundle()
         command = _v11_command(bundle=bundle)
@@ -732,6 +855,12 @@ class TestBundleValidationSync:
         result = validate_bundle_binding_sync(cmd, bundle, now=_NOW)
         assert result is not None
         assert result.category == "stale"
+
+    def test_small_future_bundle_skew_is_accepted(self) -> None:
+        bundle = _bundle(recorded_at=_NOW + timedelta(seconds=10))
+        command = _v11_command(bundle=bundle)
+
+        assert validate_bundle_binding_sync(command, bundle, now=_NOW) is None
 
     def test_mismatched_source_revision_rejected(self) -> None:
         bundle = _bundle(source_revision="commit:" + "c" * 40)

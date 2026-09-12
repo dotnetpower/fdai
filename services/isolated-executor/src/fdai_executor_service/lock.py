@@ -11,6 +11,8 @@ from typing import Protocol
 
 from fdai_service_contracts.executor import AnyExecutorCommand, ExecutorShadowReceipt, ResourceLock
 
+from fdai_executor_service.effect_safety import resource_lock_key
+
 
 class ExecutorShadowCommandHandler(Protocol):
     """No-effect command handler invoked inside a logical-target lock."""
@@ -36,7 +38,7 @@ class LockedIsolatedExecutorShadowService:
     async def handle(self, command: AnyExecutorCommand) -> ExecutorShadowReceipt:
         """Hold the exact target lock through durable terminal closure."""
 
-        async with self._resource_lock.acquire(command.target_resource_ref):
+        async with self._resource_lock.acquire(resource_lock_key(command.target_resource_ref)):
             return await self._delegate.handle(command)
 
 

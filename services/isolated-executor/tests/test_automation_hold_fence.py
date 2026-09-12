@@ -15,13 +15,19 @@ from fdai_executor_service.effect_executor import (
     ServiceDirectApiEffectExecutor,
 )
 from fdai_executor_service.effect_safety import resource_lock_key
+from fdai_executor_service.lock import LockedIsolatedExecutorShadowService
 from fdai_service_contracts.executor import (
     Action,
     ActionStopCondition,
+    AnyExecutorCommand,
     BlastRadius,
     BlastRadiusScope,
     DirectApiOutcome,
     DirectApiReceipt,
+    ExecutionPath,
+    ExecutorCommand,
+    ExecutorShadowReceipt,
+    ExecutorShadowReceiptStatus,
     Mode,
     Operation,
     RollbackKind,
@@ -38,11 +44,13 @@ class _Lock:
     def __init__(self) -> None:
         self._locks: dict[str, asyncio.Lock] = {}
         self.active: set[str] = set()
+        self.acquired: list[str] = []
 
     @asynccontextmanager
     async def acquire(self, resource_id: str) -> AsyncIterator[None]:
         lock = self._locks.setdefault(resource_id, asyncio.Lock())
         async with lock:
+            self.acquired.append(resource_id)
             self.active.add(resource_id)
             try:
                 yield
@@ -74,6 +82,28 @@ class _Provider:
         return DirectApiReceipt(
             outcome=DirectApiOutcome.SUCCEEDED,
             receipt_ref="provider:receipt",
+        )
+
+
+class _ShadowDelegate:
+    def __init__(self, lock: _Lock) -> None:
+        self._lock = lock
+
+    async def handle(self, command: AnyExecutorCommand) -> ExecutorShadowReceipt:
+        assert resource_lock_key(command.target_resource_ref) in self._lock.active
+        return ExecutorShadowReceipt(
+            receipt_id=UUID(int=3),
+            command_id=command.command_id,
+            action_id=command.action_id,
+            idempotency_key=command.idempotency_key,
+            attempt=command.attempt,
+            action_payload_digest=command.action_payload_digest,
+            requested_mode=command.requested_mode,
+            status=ExecutorShadowReceiptStatus.SHADOWED,
+            reason="shadow execution only",
+            executor_instance_id="executor-test",
+            received_at=_NOW,
+            completed_at=_NOW,
         )
 
 
@@ -152,6 +182,35 @@ async def test_active_hold_blocks_provider_inside_the_target_lock() -> None:
     assert result.outcome is DirectApiEffectOutcome.REJECTED_INVARIANT
     assert result.reason == "active automation hold blocks provider invocation"
     assert provider.calls == 0
+
+
+async def test_shadow_target_lock_namespace_cannot_collide_with_command_lock() -> None:
+    command_id = UUID(int=4)
+    target = f"fdai:executor-command:{command_id}"
+    action = _action().model_copy(
+        update={
+            "target_resource_ref": target,
+            "mode": Mode.SHADOW,
+        }
+    )
+    command = ExecutorCommand.from_action(
+        command_id=command_id,
+        action=action,
+        execution_path=ExecutionPath.DIRECT_API,
+        attempt=1,
+        issued_at=_NOW,
+        deadline_at=_NOW.replace(hour=1),
+    )
+    lock = _Lock()
+    service = LockedIsolatedExecutorShadowService(
+        delegate=_ShadowDelegate(lock),
+        resource_lock=lock,
+    )
+
+    await service.handle(command)
+
+    assert lock.acquired == [resource_lock_key(target)]
+    assert lock.acquired[0] != target
 
 
 async def test_released_hold_is_rechecked_instead_of_replaying_cached_denial() -> None:

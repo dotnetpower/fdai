@@ -199,6 +199,7 @@ def build_isolated_executor_supervisor(
     validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
     audit_store = _build_audit_store()
     idempotency = _build_idempotency_store()
+    resource_lock = _build_resource_lock()
     service: ExecutorCommandHandler | ExecutorShadowCommandHandler
     if config.authority_cutover:
         executor_identities = {
@@ -211,7 +212,7 @@ def build_isolated_executor_supervisor(
         }
         direct_api_executor = _build_direct_api_executor(
             audit_store=audit_store,
-            resource_lock=_build_resource_lock(),
+            resource_lock=resource_lock,
             idempotency=idempotency,
             http_client=http_client,
             identities=executor_identities,
@@ -231,7 +232,7 @@ def build_isolated_executor_supervisor(
         )
         service = LockedIsolatedExecutorShadowService(
             delegate=durable_service,
-            resource_lock=_build_resource_lock(),
+            resource_lock=resource_lock,
         )
     consumer = IsolatedExecutorCommandConsumer(
         event_bus=event_bus,
@@ -240,6 +241,7 @@ def build_isolated_executor_supervisor(
         receipt_topic=config.receipt_topic,
         group_id=EXECUTOR_CONSUMER_GROUP,
         receipt_outbox=audit_store,
+        command_lock=resource_lock,
     )
     return IsolatedExecutorSupervisor(
         consumer=consumer,
