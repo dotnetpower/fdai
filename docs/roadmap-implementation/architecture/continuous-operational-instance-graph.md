@@ -253,6 +253,8 @@ retention remain in progress.
 
 | 2026-09-12 | implemented | Excluded exact own-resource references from open environment dependency candidates and admitted independently owned reciprocal dependencies under verifier revision `inventory-generation-verifier.v2`. Aligned the core projection with verified dependency direction and added a source-to-projection regression. | `current change`; `test_generation_relationships.py`, `test_inventory_relationship_verifier.py`, `test_inventory_projection.py`, and adjacent source, promotion, projection, and replay suites: 354 focused tests passed; Ruff and strict mypy passed for the changed production modules. | Deployed publication and validation remain separate; no readiness or completeness gate was relaxed. |
 
+| 2026-09-12 | implemented | Regenerated semantic-intent coverage source commitments after the inventory projection change. Evaluation counts and thresholds are unchanged. | `current change`; `build_semantic_intent_coverage.py`; `pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_coverage.py`: 4 passed. | Pushed-SHA CI remains authoritative; no runtime or promotion evidence is inferred. |
+
 ### Remaining work
 
 - [x] Verify self-identity filtering, independently owned reciprocal dependencies, and preserved

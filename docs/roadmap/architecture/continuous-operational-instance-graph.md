@@ -299,17 +299,17 @@ Resource and relationship updates are ordered per logical resource. Duplicate de
 and a stale cursor or older event cannot move an instance backward. Tombstones retain their source,
 effective time, generation, and archive lineage.
 
-A complete provider generation can contain typed non-edges: endpoints outside that generation,
-unmodeled provider types, or unobserved exact references. Newer Resource objects and independently
-verified links can advance with `relationship_complete=false`, retaining all classified reasons.
-Coverage limits relationship claims, not object coverage when no intra-set edge is possible.
+A complete generation can retain typed non-edges for out-of-generation endpoints, unmodeled types,
+or unobserved references. Newer objects and verified links advance with `relationship_complete=false`
+and classified reasons. This limits relationship claims, not object coverage when no intra-set edge is possible.
 Invalid verification metadata, unclassified drops, partial generations, conflicts, or cardinality violations block replacement.
 
-Open environment self-identity values (exact ARM IDs or unique endpoint aliases) are not
-dependencies; explicit self-links remain blocked. Reciprocal `depends_on` facts require one
-candidate per direction, source-owned evidence, and owner-to-reference mappings. Both edges pass
-complete-generation endpoint, schema, observation-time, and independent-verifier checks under
-`inventory-generation-verifier.v2`; duplicate edges and unsupported reversed orientations still block.
+Open environment self-identity values (exact ARM IDs or unique endpoint aliases) are not dependencies;
+explicit self-links remain blocked. Reciprocal `depends_on` facts require one candidate per direction,
+source-owned evidence, owner-to-reference mappings, and complete-generation endpoint, schema, observation-time,
+and independent-verifier checks under `inventory-generation-verifier.v2`. Duplicate and unsupported reversed edges still block.
+Projection source changes also require regenerating `eval/golden-dataset/semantic-intent-coverage.json`
+with `scripts/automation/build_semantic_intent_coverage.py`; source commitments never change evaluation thresholds.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the

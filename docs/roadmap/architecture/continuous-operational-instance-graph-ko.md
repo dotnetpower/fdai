@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ae1c118b1c5bbe3b28c37e5a83284a6efb3d3a7c
+translation_source_sha: 500a679ae5f310eb2eaf37ad7b340b137a8ad8bb
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -306,6 +306,8 @@ archive 계보를 유지합니다.
 하나이고, 각 출발 리소스가 근거를 소유하며, 매핑이 소유자에서 참조 대상으로 향해야 합니다.
 두 연결 모두 `inventory-generation-verifier.v2`의 완전한 세대 엔드포인트, 스키마, 관측 시각,
 독립 검증기 검사를 통과해야 합니다. 중복 연결과 근거 없는 역방향은 계속 차단합니다.
+투영 소스를 변경하면 `scripts/automation/build_semantic_intent_coverage.py`로
+`eval/golden-dataset/semantic-intent-coverage.json`도 다시 생성합니다. 소스 해시 갱신은 평가 기준값을 바꾸지 않습니다.
 
 정확히 검토된 공급자 parent는 같은 child에 대한 일반 Resource Group containment를
 shadow합니다. Snapshot promotion은 활성 pointer를 변경하기 전에 child별 `contains` parent가
