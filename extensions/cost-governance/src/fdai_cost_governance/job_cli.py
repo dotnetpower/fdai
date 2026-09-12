@@ -28,6 +28,7 @@ from .service import CostAnalyzerService, CostCollectorService, CostJobConfig
 _ARM_AUDIENCE = "https://management.azure.com/.default"
 _COST_RETRY_AFTER_HEADERS = (
     "retry-after",
+    "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after",
     "x-ms-ratelimit-microsoft.costmanagement-entity-retry-after",
     "x-ms-ratelimit-microsoft.costmanagement-tenant-retry-after",
     "x-ms-ratelimit-microsoft.costmanagement-clienttype-retry-after",

@@ -11,12 +11,13 @@ def test_cost_retry_after_uses_longest_provider_delay_case_insensitively() -> No
     delay = _cost_retry_after_seconds(
         {
             "Retry-After": "2",
+            "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after": "11",
             "X-MS-RATELIMIT-MICROSOFT.COSTMANAGEMENT-ENTITY-RETRY-AFTER": "7",
             "x-ms-ratelimit-microsoft.costmanagement-tenant-retry-after": "5",
         }
     )
 
-    assert delay == 7
+    assert delay == 11
 
 
 def test_package_declares_both_job_entrypoints() -> None:
