@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:20056ed9c225bcecd0801ace0f1d5c8a4bfdbf053b4ab6e982f901394ca2d852",
+  "catalog_digest": "sha256:d0e13821507d5a008b773f69fbd772dfa1ec7bb8acfef0408bdac34c6af7be94",
   "execution_authority": false,
-  "generated_at": "2026-09-12T03:05:30.455525Z",
+  "generated_at": "2026-09-12T13:26:58.423076Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,13 +448,13 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:10c81c96e28b8a05e2e1fb18e6f12faf6018e13d381fa9407b960ddb6dc2447a",
+      "record_digest": "sha256:fad0913be704e0903336a3202a39466b27a0624eb634bba0c9ea08cba87eb089",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "8676d851c4fdf032665ee9a85dd3eb07446b94f1",
-          "line_end": 99,
-          "line_start": 99,
+          "blob_sha": "0169b91cad46c66585882a20799e7b02d756ce72",
+          "line_end": 101,
+          "line_start": 101,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "3e9c90820479e5e9a6a3b3685d24404b732a36f1"
+  "source_revision": "fb9a622cb06c7152f890f3bc8f902a55a67c194c"
 }

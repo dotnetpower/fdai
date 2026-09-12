@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 8676d851c4fdf032665ee9a85dd3eb07446b94f1
+translation_source_sha: 0169b91cad46c66585882a20799e7b02d756ce72
 translation_revised: 2026-09-12
 ---
 # 서비스 승격과 데이터 소유권
@@ -48,10 +48,12 @@ translation_revised: 2026-09-12
 | 읽기 조사 요청 전송 | 구현됨 | `fdai-service-contracts`의 `read-investigation-request` `1.0.0`, Operator CAS 발신함, Core consumer 및 선택적 coordinator, 집중 교차 프로세스 테스트 | Operator는 영속 제안 수락과 발행을 소유합니다. Core는 요청 소비와 background-task 상태를 소유합니다. 조정기는 여섯 번째 서비스가 아니라 선택적 Core 런타임 구성 요소로 유지합니다. |
 | 읽기 조사 완료 전송 | 진행 중 | `fdai-service-contracts`의 `read-investigation-completion` `1.0.0`, Core 완료 발신함 publisher, Operator inbox, Web 대화 writer, `operator_read_investigation_completion_20260826` 및 `operator_completion_retention_20260829` | 5개 서비스 토폴로지는 바뀌지 않습니다. Core는 Operator 대화 테이블을 쓰지 않습니다. Operator는 inbox와 멱등적인 Web assistant turn을 원자적으로 소유한 뒤 기한이 지난 inbox 행만 제한된 배치로 정리합니다. 채널 outbound enqueue 및 통제된 배포 근거는 열린 상태입니다. |
 | 기록 상태 읽기 변환 결과 | validated | Core 및 Azure 인벤토리 변환 결과, Operator 기록 상태 변환 결과, Console 디코더 및 이유 기반 표시, 집중 검사와 실제 근거 | Operator는 활성 인벤토리 세대를 읽기 전용으로 변환합니다. Console은 Azure를 조회하거나 정상 여부를 추론하거나 변경 권한을 얻지 않습니다. |
+| 서비스 소유 테스트 범위 | implemented | `tests/integration/service-suites.json`, 서비스 스위트 소유권 게이트, 집중 Operator 측정 테스트 | 각 서비스 테스트 파일에는 정확히 하나의 소유 서비스 스위트가 있습니다. Dashboard 집계 및 출처 projection 테스트는 Operator 단위 테스트 그룹에 유지되며 새 서비스 경계를 의미하지 않습니다. |
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 새 Operator Dashboard 집계 및 출처 테스트를 소유 서비스 스위트에 등록했습니다. | `current change`, 서비스 스위트 소유권 테스트 통과. | 이 테스트 등록에는 서비스 승격 또는 권한 변경 잔여 작업이 없습니다. |
 | 2026-09-11 | implemented | 복구 결정 및 semantic coverage 레코드 변경 뒤 파생 System Knowledge catalog를 갱신했습니다. | `current change`; 파생 소스 gate. | 서비스 권한 변경은 없습니다. |
 | 2026-09-11 | implemented | 최종 upstream rebase 뒤 파생 System Knowledge catalog를 갱신하고 Core runtime module 2개를 wheel inventory에 등록했습니다. | `current change`; 집중 catalog 및 Core package 테스트 11개 통과. | 안전조건 runtime module의 package 잔여 작업은 없습니다. |
 | 2026-09-11 | implemented | payload 신원을 신뢰하지 않고 Core 복구 관측 수신을 명시적인 배포 구성 신뢰 observer 신원에 결속했습니다. | `current change`; Core 서비스 Terraform, observer ingress, 운영 writer 테스트. | 배포 신원의 통제된 런타임 근거를 보존합니다. |
