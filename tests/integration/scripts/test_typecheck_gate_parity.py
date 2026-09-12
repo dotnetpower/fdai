@@ -20,8 +20,8 @@ def test_strict_mypy_runs_in_ci_fast_verify_and_central_queue() -> None:
 
     assert "uv run mypy" in ci
     assert 'run_gate_scoped "mypy (strict)"' in verify
-    assert verify.index('run_gate_scoped "mypy (strict)"') < verify.index(
-        'if [[ "$MODE" == "full" ]]'
+    assert verify.index('if [[ "$MODE" == "full" ]]') < verify.index(
+        'run_gate_scoped "mypy (strict)"'
     )
     assert "- id: mypy-strict" not in pre_commit
     assert '"scripts/verify.sh",' in validation_queue
@@ -47,8 +47,10 @@ def test_ruff_uses_the_same_monorepo_roots_in_ci_and_local_gates() -> None:
 def test_pre_push_ruff_uses_locked_development_dependencies() -> None:
     pre_push = (_ROOT / ".githooks" / "pre-push").read_text(encoding="utf-8")
 
-    assert 'uv run --extra dev ruff check "${py[@]}"' in pre_push
-    assert 'uv run --extra dev ruff format --check "${py[@]}"' in pre_push
+    assert 'python3 scripts/automation/local_validation_cache.py command -- "$@"' in pre_push
+    assert 'uv run --extra dev ruff check "$@"' in pre_push
+    assert 'uv run --extra dev ruff format --check "$@"' in pre_push
+    assert "run_project bash -c" in pre_push
 
 
 def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
