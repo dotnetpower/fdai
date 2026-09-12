@@ -42,6 +42,7 @@ to make a commit pass.
 | Failure | Correct response |
 |---------|------------------|
 | `uv is required` | Restore the repository development environment with `uv sync --extra dev`; do not bypass the hook. |
+| `ModuleNotFoundError` for a locked dev dependency such as PyYAML in an isolated worktree | Run `uv sync --frozen --extra dev` from that exact worktree, verify its `.venv` contains the dependency, and retry the commit. Do not run the restore from another checkout or reuse another checkout's `.venv`. |
 | Shared-path or mixed-edit failure | Defer that path or separate only the task-owned edit without altering unrelated work. |
 | Ruff, whitespace, or EOF failure | Apply the narrow fix, inspect it, and retry the same commit once. |
 | Translation, translation-quality, or derived-source failure | Update the paired or derived document semantically and refresh its recorded SHA. |
