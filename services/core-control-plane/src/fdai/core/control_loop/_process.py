@@ -13,6 +13,7 @@ from fdai.core.control_loop._helpers import (
     _synthetic_action_build_failure,
     apply_governance_override_to_rule,
 )
+from fdai.core.control_loop._measurement import TerminalMeasurementRecorder
 from fdai.core.control_loop.change_safety_evidence import (
     ChangeSafetyPreAuthorityDecision,
     evaluate_change_safety_pre_authority,
@@ -34,7 +35,12 @@ from fdai.shared.providers.stage_publisher import StageName, StagePhase
 
 
 async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
-    """Run one event through the ordered control-loop stages."""
+    """Run one event and durably record its terminal classification exactly once."""
+    recorder = getattr(host, "_terminal_measurement_recorder", None)
+    if recorder is None:
+        recorder = TerminalMeasurementRecorder(host._audit_store)
+        host._terminal_measurement_recorder = recorder
+    await recorder.retry_pending()
     event = host._event_ingest.ingest(raw_event)
     if event is None:
         return ControlLoopResult(
@@ -45,6 +51,13 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             reason="duplicate_idempotency_key",
         )
 
+    result = await _process_normalized_event(host, event)
+    await recorder.record(event, result, recorded_at=host._clock())
+    return result
+
+
+async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResult:
+    """Apply the unchanged stage sequence to an accepted normalized event."""
     event_id = str(event.event_id)
     correlation_id = event.correlation_id or event_id
     incident_id = host._correlate_incident_id(event)

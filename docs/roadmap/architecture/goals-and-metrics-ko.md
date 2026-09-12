@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 877d3b1ed5f9ee433b02ae0b12269712b3c698ca
-translation_revised: 2026-09-11
+translation_source_sha: f00da5ceccde3bd5a619a3a189309b8a749d6212
+translation_revised: 2026-09-12
 ---
 
 # 목표와 메트릭
@@ -25,6 +25,7 @@ translation_revised: 2026-09-11
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 정본 제어 루프 최종 측정 기록 | implemented | `core/control_loop/_measurement.py`; `fdai_service_contracts/control_loop_measurement.py`; 집중 계약, 생산자 및 단계 테스트 | 정규화 이벤트 하나가 영속 분류 기록 하나에 기여합니다. 효과 검증은 별도 출처를 유지합니다. Operator와 지표 출처 연결은 #839에서 추적합니다. |
 | 결정론적 KPI와 가드 메트릭 집계 | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; `tests/core/measurement/` 아래의 집중 테스트 | MTTR, 변경, 회귀, 지연 시간, 모델 및 pattern 메트릭에 실행 가능한 reducer와 실패 시 차단 검사가 있습니다. |
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 현재 유효한 공유 의사 결정 근거 승인 결과가 전체 묶음과 일치해야만 준비 완료 결과가 나올 수 있습니다. 기존 저장 증적은 읽을 수 있지만 증적 및 검증 묶음 다이제스트가 없으면 승격 권한에 사용할 수 없습니다. |
 | 의사 결정 경계 승인 완전 커버리지 | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; 집중 경계 테스트 | 등록된 긍정적 의사 결정 경계 20개가 모두 공유 승인 계약을 통해 의사 결정 핵심 근거를 해석하며, 승인 결과가 없거나 수락되지 않으면 검토 보류로 처리합니다. 가드는 인벤토리를 양방향으로 검사하므로 의도적으로 누락된 등록 경계는 실패합니다. 준비 상태 매트릭스는 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. |
@@ -45,6 +46,7 @@ translation_revised: 2026-09-11
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 버전이 있는 최종 측정 기록에 고정 출처 식별자, 티어·경로·모드, 시도한 모든 조치 참조, 원자적 상태 및 감사 저장을 추가했습니다. 저장 실패는 수집 중복 제거 전에 재시도합니다. | `current change`; #839; 집중 최종 계약, 생산자 및 단계 이벤트 테스트 통과. | 실측 출처와 Operator 연결, 하드닝 라운드, 승인된 출처의 선행 조건을 완료해야 합니다. 분류 기록만으로 운영 성공이나 기준선을 주장하지 않습니다. |
 | 2026-09-11 | implemented | FDAI-CONST-002 완료 조건을 강제 가능한 계약 경계로 바로잡았습니다. 등록된 모든 긍정적 의사 결정은 공유 승인 검사의 지배를 받고 근거가 없거나 거부되면 실패 시 차단합니다. 동적 목적과 드물게 발생하는 실제 사건 때문에 모든 경계의 최신 실제 승인을 동시에 보존하는 이전 조건은 열거할 수 없고 안전하게 만들 수도 없어 철회했습니다. | `current change`; `config/constitution-traceability.json`; 등록된 헌법 증명 selector; 완전한 경계 인벤토리와 부정 근거 매트릭스; 집중 헌법 및 경계 검사. | 권위 있는 사건이 발생할 때 실제 양의 경로 승인을 운영 검증으로 계속 수집합니다. 관련 없는 `deployment-apply` 기록의 이름을 바꾸지 않습니다. |
 | 2026-09-11 | implemented | 코호트 exporter allowlist를 제품 중립 출처 레지스트리로 확장했습니다. 군에 포함된 각 필수 지표와 가드는 신뢰할 수 있는 workflow 소유자 하나와 고정 출처 식별자에만 연결되고, 반입기가 해당 식별자를 출처 계보에 주입합니다. 집계 인벤토리는 출처 식별자, workflow, 군 및 측정값이 해당 레지스트리와 계속 일치하는 행만 다시 계수합니다. 일부 측정값만 연결하거나 소유권 또는 출처 식별자가 중복되거나 두 군이 같은 workflow를 재사용하거나 workflow 파일이 없거나 정책 키가 중복되거나 산출물이 출처 권한을 선언하면 실패 시 차단합니다. | `current change`; 코호트 정책, 반입기 및 인벤토리; 집중 정책, 반입기 및 인벤토리 테스트. | 배포된 실제 정본을 지정한 뒤 완전한 출처별 workflow 연결을 추가하고, 두 군의 각 필수 측정값마다 독립 관측값 30개를 보존하고 승인합니다. |
 | 2026-09-11 | implemented | 최초 제공 기록을 다시 쓰지 않고 신뢰 관측 반입 경계를 강화했습니다. 이제 exporter allowlist는 같은 저장소 리비전 안에서 해석되는 일반 파일이면서 심볼릭 링크가 아닌 workflow 파일만 수락합니다. 엄격한 스칼라 및 workflow 문맥 검증, 중복 키 거부, 관측값 1,000개 상한, 재실행 충돌 검사, 묶음과 exporter 출처 결속을 추가해 검토에서 확인된 반입기 신뢰 미비점을 해소했습니다. | `current change`; 코호트 정책, 관측 반입기와 CLI, 보호된 workflow, 인벤토리 쿼리, 집중 계약, 반입기, 인벤토리, workflow 및 CI 계약 테스트 249개; 대상 Ruff 및 strict mypy 검사. | 권위 있는 기준군 exporter 하나와 배포된 FDAI 처리군 exporter 하나를 군별 allowlist 항목과 함께 추가한 뒤 필수 측정값마다 표본 30개를 보존하고 승인합니다. |
@@ -320,6 +322,14 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 
 모든 메트릭은 대시보드가 구축 가능하도록(열망만이 아닌) 구체적인 원격측정 소스에 매핑됩니다:
 
+- **대시보드 이벤트 집계**는 중복을 제거한 정규화 이벤트의 최종 제어 루프 분류를
+  버전이 있는 `measurement.control_loop.v1` 기록 하나로 남깁니다. 중간 평가, 출처 상태 전환,
+  일반 감사 행은 별도 이벤트로 추가하지 않습니다. 이 기록은 이벤트 식별자, 티어, 경로,
+  모드와 시간을 보존하지만 복구 성공을 주장하지 않습니다.
+- **실시간 지표 관측값**은 단위, 관측 식별자, 이벤트 귀속과 유효 시간이 명시된 출처 연결
+  기록을 사용합니다. Operator는 자체 역할로 영속 기록을 읽으며 Core 구현 코드를 가져오지
+  않습니다. 없거나 상충하거나 잘렸거나 검증되지 않은 근거를 실측 0으로 바꾸지 않습니다.
+  현재 실측값은 승인된 기준선 및 처리군 비교, 승격 자격과 구분합니다.
 - **구조화된 이벤트 + 트레이스** (OpenTelemetry)가 `event_id`, `tier`, `decision`,
   `mode`(shadow/강제 적용), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
 - **추가 전용 감사 로그**가 사람 터치포인트(메트릭 4), 롤백, 정책 escape의 소스.
