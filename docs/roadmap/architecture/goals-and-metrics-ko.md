@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: f00da5ceccde3bd5a619a3a189309b8a749d6212
+translation_source_sha: e89544d6987abdca3210f3f00944cc3ad95d115c
 translation_revised: 2026-09-12
 ---
 
@@ -338,15 +338,16 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
   들어가며, 롤백/adverse 결과는 성공이 되지 않고 계속 표시됩니다. 하나의 액션에
   correction finalization 행이 있으면 가장 높은 감사 순서만 권위 있으며, 명시적
   검증 실패는 사라지지 않고 rejected 관측으로 유지됩니다.
-- **명시적 메트릭 관측값**은 각 `event_id` 및 메트릭 키의 최신 행을 사용합니다. 하나의 이벤트에
-  대한 재시도 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 이벤트의
-  관측값은 독립 표본으로 유지합니다.
+- **명시적 지표 관측값**은 자연 측정 단위와 지표별 최신 행을 유지합니다. 시간 지표는 출처의
+  인시던트 또는 변경 식별자를 사용하므로 한 인시던트에 연결된 여러 이벤트가 표본 수를 부풀리지
+  않습니다. 비용은 정규화 이벤트별로 귀속합니다. 재시도와 정정은 통계 가중치를 추가하지 않고
+  이전 값을 대체합니다.
 - **MTTR(메트릭 3a)** 은 순수 집계기
   [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py) 가 계산합니다. 해결된
   인시던트(`resolved_at - opened_at`)를 **mean, median, p90** 초로 접습니다. 미해결/무결성
   위반 인시던트는 카운트하되 계산에서 제외하며, 절대 `0` 이나 음수 소요 시간을 기여하지 않습니다.
-  라이브 인시던트를 공급해 `/kpi/autonomy` 패널의 synthetic 데모값을 대체하는 전달 레이어
-  배선은 후속 작업으로 추적합니다.
+  보호된 지표 출처 반입기가 독립적으로 승인된 수명 주기 사실을 이 집계기에 전달합니다.
+  검증되지 않은 기본 수명 주기 변경은 사용 불가 상태를 유지합니다.
 - **비용/사용 기록**(모델 토큰, 컴퓨트 시간, 저장소, 버스 처리량)이 메트릭 1의 소스.
   귀속 키는 지출을 발생 `event_id`에 연결합니다. 하나의 액션에 반복된 수명 주기 행이 있으면
   재시도를 가중하거나 합산하지 않고 최신 관측 절감 값을 한 번만 반영합니다.

@@ -37,7 +37,6 @@ from fdai_service_contracts.control_loop_measurement import (
     ControlLoopMeasurement,
     control_loop_measurement_id,
 )
-from pydantic import ValidationError
 
 NOW = datetime(2026, 9, 12, 7, tzinfo=UTC)
 
@@ -115,6 +114,19 @@ async def test_duplicate_acknowledgement_without_retained_evidence_is_not_succes
     store.write_state_with_audit_if_absent = AsyncMock(return_value=False)
     with pytest.raises(ValueError, match="disappeared"):
         await TerminalMeasurementRecorder(store).record(_event(), _result(), recorded_at=NOW)
+
+
+async def test_invalid_capture_is_audited_without_poisoning_following_events() -> None:
+    store = InMemoryStateStore()
+    recorder = TerminalMeasurementRecorder(store)
+    invalid = Event.model_validate({**_event().model_dump(), "source": "x" * 4097})
+    with pytest.raises(ValueError, match="measurement rejected"):
+        await recorder.record(invalid, _result(), recorded_at=NOW)
+    await recorder.retry_pending()
+    assert store.audit_entries[0]["entry"]["action_kind"] == "measurement.control_loop.rejected.v1"
+    assert "x" * 4097 not in str(store.audit_entries)
+    await recorder.record(_event("another-event"), _result(), recorded_at=NOW)
+    assert len(_measurements(store)) == 1
 
 
 @pytest.mark.parametrize(
@@ -314,7 +326,7 @@ async def test_duplicate_result_and_nonterminal_exception_create_no_measurement(
     assert _measurements(store) == []
 
 
-async def test_invalid_terminal_fields_remain_an_explicit_failure_on_redelivery(
+async def test_invalid_terminal_fields_leave_rejection_evidence_without_poisoning_redelivery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryStateStore()
@@ -322,11 +334,13 @@ async def test_invalid_terminal_fields_remain_an_explicit_failure_on_redelivery(
     host._clock = lambda: NOW.replace(tzinfo=None)
     runner = AsyncMock(return_value=_result())
     monkeypatch.setattr(_process, "_process_normalized_event", runner)
-    for _ in range(2):
-        with pytest.raises(ValidationError, match="timezone"):
-            await _process.process_event(host, _event())
+    with pytest.raises(ValueError, match="measurement rejected"):
+        await _process.process_event(host, _event())
+    replay = await _process.process_event(host, _event())
+    assert replay.outcome is ControlLoopOutcome.DEDUPED
     runner.assert_awaited_once()
     assert _measurements(store) == []
+    assert store.audit_entries[0]["entry"]["action_kind"] == "measurement.control_loop.rejected.v1"
 
 
 async def test_cancelled_persistence_keeps_the_original_terminal_for_retry(

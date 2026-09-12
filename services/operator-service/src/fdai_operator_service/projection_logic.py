@@ -123,7 +123,12 @@ def _hil_decision_unavailable_reason(
     return None
 
 
-def dashboard_kpi(rows: Sequence[Mapping[str, Any]], *, hil_pending: int) -> JsonObject:
+def dashboard_kpi(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    hil_pending: int,
+    routing_rows: Sequence[Mapping[str, Any]] | None = None,
+) -> JsonObject:
     """Aggregate the bounded newest audit sample into the frozen KPI envelope."""
     by_action_kind: dict[str, int] = {}
     by_outcome: dict[str, int] = {}
@@ -151,6 +156,35 @@ def dashboard_kpi(rows: Sequence[Mapping[str, Any]], *, hil_pending: int) -> Jso
         if timestamp:
             recorded_at.append(timestamp)
     total = len(rows)
+    routing_sample = None
+    if routing_rows is not None:
+        from fdai_service_contracts.control_loop_measurement import ControlLoopMeasurement
+
+        latest = {}
+        for row in sorted(routing_rows, key=lambda item: item["seq"]):
+            measurement = ControlLoopMeasurement.from_audit_entry(_mapping(row["entry"]))
+            latest[measurement.measurement_id] = (measurement, row)
+        classified = [
+            (measurement, row)
+            for measurement, row in latest.values()
+            if measurement.synthetic is not True
+        ]
+        by_tier = {}
+        by_outcome = {}
+        routing_sequences = []
+        for measurement, row in classified:
+            if measurement.tier is not None:
+                by_tier[measurement.tier] = by_tier.get(measurement.tier, 0) + 1
+            by_outcome[measurement.gate_route] = by_outcome.get(measurement.gate_route, 0) + 1
+            routing_sequences.append(int(row["seq"]))
+        routing_sample = {
+            "from_seq": min(routing_sequences) if routing_sequences else None,
+            "through_seq": max(routing_sequences) if routing_sequences else None,
+            "row_count": len(classified),
+            "limit": KPI_SAMPLE_LIMIT,
+            "action_kind": "measurement.control_loop.v1",
+            "window_days": 30,
+        }
     return cast(
         JsonObject,
         {
@@ -168,6 +202,7 @@ def dashboard_kpi(rows: Sequence[Mapping[str, Any]], *, hil_pending: int) -> Jso
                 "row_count": total,
                 "limit": KPI_SAMPLE_LIMIT,
             },
+            **({"routing_sample": routing_sample} if routing_rows is not None else {}),
         },
     )
 

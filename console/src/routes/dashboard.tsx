@@ -29,6 +29,7 @@ import {
   SuccessMetrics,
 } from "./dashboard.executive";
 import { LivingRules, VerticalCards } from "./dashboard.signals";
+import { CohortComparison } from "./dashboard.comparison";
 import { DashboardSkeleton } from "./dashboard.skeleton";
 import {
   loadDashboardOverviewForMode,
@@ -385,6 +386,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
           <span class="muted">{t("overview.detailHint")}</span>
         </summary>
         <div class="stack overview-details-body">
+          <CohortComparison comparison={autonomy?.comparison} />
           <KpiGrid>
             <KpiCard href={routeHref("audit", { params: sampleParams })} label={t("overview.detailMetric.events")} value={kpi.event_count} hint={t("overview.detailMetric.eventsHint")} />
             <KpiCard href={routeHref("audit", { params: { ...sampleParams, mode: "shadow" } })} label={t("overview.detailMetric.shadow")} value={formatShare(kpi.shadow_share)} hint={t("overview.detailMetric.shadowHint")} tone={kpi.shadow_share > 0.95 ? "positive" : "default"} />
@@ -392,7 +394,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
             <KpiCard href={routeHref("hil-queue")} label={t("overview.detailMetric.approvals")} value={kpi.hil_pending} tone={kpi.hil_pending > 0 ? "warning" : "positive"} hint={kpi.hil_pending > 0 ? t("overview.detailMetric.approvalHint") : t("overview.detailMetric.approvalClear")} />
           </KpiGrid>
 
-          {autonomy ? (
+          {autonomy && autonomy.rules_evidence !== "unavailable" ? (
             <LivingRules rules={autonomy.rules} provenance={autonomy} />
           ) : (
             <a class="overview-unavailable-link" href={routeHref("rules")}>

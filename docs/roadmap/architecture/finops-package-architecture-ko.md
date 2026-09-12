@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d6d4bb8e2d0d9d399168964c6c542176679bd741
+translation_source_sha: 5c6e60e3e0e828ca6027e3b50b6a306cd7b8a339
 translation_revised: 2026-09-12
 ---
 
@@ -61,6 +61,10 @@ translation_revised: 2026-09-12
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
 > 데이터 접근 권한을 부여하지 않습니다.
+
+공유 감사 경로도 측정 출처, 시간 구간과 순번 필터를 보존합니다. 승인된 운영 지출이나
+실측군 비교를 읽어도 Cost Governance를 활성화하거나 수집기를 시작하지 않습니다.
+예상 절감액을 지출로 해석하거나 패키지 데이터 접근 권한을 부여하지도 않습니다.
 
 FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패키징합니다. 이 프로필은
 검토된 코드, 선언적 자산, 온톨로지 참조, 범위가 제한된 쿼리 프로필 및 이미지에 설치되는

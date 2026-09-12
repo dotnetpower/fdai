@@ -2,7 +2,7 @@ import type { AutonomyPayload, DashboardKpi } from "../types";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import {
-  auditSampleParams,
+  routingSampleParams,
   controlGapSummary,
   controlOutcomeGroup,
   dashboardEvidenceGaps,
@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
-  const sampleParams = auditSampleParams(kpi);
+  const sampleParams = routingSampleParams(kpi);
   const tiers = distributionRows(kpi.by_tier);
   const outcomes = distributionRows(kpi.by_outcome);
   const shadowCount = Math.round(kpi.event_count * kpi.shadow_share);

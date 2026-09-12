@@ -1,0 +1,21 @@
+.dashboard-cohort-comparison {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.dashboard-cohort-comparison p {
+  max-width: 80ch;
+  overflow-wrap: anywhere;
+}
+.dashboard-cohort-comparison td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.dashboard-cohort-comparison .comparison-estimate {
+  display: grid;
+  gap: 4px;
+}
+.dashboard-cohort-comparison small {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
