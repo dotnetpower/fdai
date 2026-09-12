@@ -17,6 +17,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Clarified that protected Cost Governance lifecycle and observation workflows are upstream delivery controls rather than downstream customization seams. | `current change`; W7 workflows, generic scope policy, protected-path and design-route checks. | Downstream forks continue to use supported package, provider, policy-data, and deployment inputs without relabeling evidence or bypassing review. |
 | 2026-08-19 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and aligned the guide with the machine-readable framework surface, current seam cookbook, and historical standard-set compatibility boundary. | `current change`; the sources and focused checks listed in the scope table. | No implementation work is owned by this guide; downstream distributions supply their own adapters and evidence. |
 
 ### Remaining work

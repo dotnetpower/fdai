@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 import psycopg
@@ -21,6 +21,8 @@ from fdai.shared.providers.cost_governance_lifecycle import (
     CostLifecycleReceipt,
     CostRevisionPin,
 )
+
+_RETENTION_PURGE_GRACE_DAYS = 30
 
 
 class PostgresCostGovernanceValidationStore:
@@ -113,6 +115,7 @@ class PostgresCostGovernanceValidationStore:
                    AND retention.evidence_id = receipt.receipt_id
                  WHERE receipt.package_id = %s
                    AND retention.purged_at IS NULL
+                                     AND receipt.payload ->> 'schema_version' = '1.0.0'
                  ORDER BY activation_revision DESC, occurred_at DESC
                  LIMIT %s
                 """,
@@ -380,7 +383,7 @@ class PostgresCostGovernanceValidationStore:
                 evidence_kind,
                 evidence_id,
                 retention_until,
-                retention_until,
+                retention_until + timedelta(days=_RETENTION_PURGE_GRACE_DAYS),
                 legal_hold,
                 legal_hold_ref,
                 recorded_at,

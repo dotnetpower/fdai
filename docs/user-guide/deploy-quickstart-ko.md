@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8f730d8bc8a4442fb75c2ae709a93bdcc095d8a3
+translation_source_sha: f8b738eeadb4e9d36c790f2383dbdc922e08c012
 translation_revised: 2026-09-12
 ---
 

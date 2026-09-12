@@ -243,6 +243,9 @@ pantheon without selecting tenant values, deployment state, user access, or auto
 [FinOps Package Delivery Plan](finops-package-delivery-plan.md) for that upstream lifecycle.
 Its static diagram specification and generated assets are upstream documentation artifacts. A fork
 syncs them unchanged; they do not add an editable seam or widen the fork boundary.
+The protected Cost Governance lifecycle and observation workflows are also upstream delivery
+controls. A fork can supply supported package, provider, policy-data, and deployment inputs, but it
+does not rename those workflows, relabel local evidence as live, or bypass their independent review.
 
 **Building a new business-object vertical**: a fork that adds a
 non-Resource ObjectType lifecycle (architecture-review proposal,

@@ -137,6 +137,7 @@ jobs:
       # AAD auth for both the azurerm provider and the state backend blob,
       # using the runner's stable user-assigned managed identity.
       ARM_USE_AZUREAD: "true"
+      RUNTIME_IMAGE_PROFILE: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && 'cost-governance' || 'core-control-plane' }}
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
@@ -160,6 +161,12 @@ jobs:
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
       TF_VAR_enable_ohl_scale_out_evidence_target: ${{ inputs.environment == 'dev' && inputs.deploy_ohl_scale_out_evidence_target }}
       TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}
+      TF_VAR_cost_governance_collector_cron_expression: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && (vars.COST_GOVERNANCE_COLLECTOR_CRON_EXPRESSION || '0 */6 * * *') || '' }}
+      TF_VAR_cost_governance_analyzer_cron_expression: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && (vars.COST_GOVERNANCE_ANALYZER_CRON_EXPRESSION || '30 */6 * * *') || '' }}
+      TF_VAR_cost_governance_scope_id: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && vars.COST_GOVERNANCE_SCOPE_ID || '' }}
+      TF_VAR_cost_governance_known_service_ids_json: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && vars.COST_GOVERNANCE_KNOWN_SERVICE_IDS_JSON || '' }}
+      TF_VAR_cost_governance_ontology_release_id: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && vars.COST_GOVERNANCE_ONTOLOGY_RELEASE_ID || '' }}
+      TF_VAR_cost_governance_ontology_release_digest: ${{ (startsWith(inputs.request_id, 'plan-cost-') || startsWith(inputs.request_id, 'apply-cost-')) && vars.COST_GOVERNANCE_ONTOLOGY_RELEASE_DIGEST || '' }}
       TF_VAR_enable_operational_history: ${{ (startsWith(inputs.request_id, 'plan-history-') || startsWith(inputs.request_id, 'apply-history-')) || vars.ENABLE_OPERATIONAL_HISTORY == 'true' }}
       TF_VAR_observability_analyzer_image_update: ${{ startsWith(inputs.request_id, 'plan-observability-') || startsWith(inputs.request_id, 'apply-observability-') }}
       TF_VAR_operational_history_legacy_deployer_principal_id: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
@@ -1236,6 +1243,7 @@ jobs:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
           APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
+          APPLY_RUNTIME_IMAGE_PROFILE: ${{ env.RUNTIME_IMAGE_PROFILE }}
         run: |
           set -euo pipefail
           case "$APPLY_REQUEST_ID" in
@@ -1319,16 +1327,20 @@ jobs:
               exit 1
             }
           fi
-          read -r runtime_revision runtime_digest < <(
+            read -r runtime_revision runtime_digest runtime_profile < <(
             python3 - <<'PY'
           import json
 
           with open("plan-metadata.json", encoding="utf-8") as stream:
               runtime = json.load(stream).get("runtime_image")
           if runtime is None:
-              print("- -")
+            print("- -")
           elif isinstance(runtime, dict):
-              print(runtime.get("source_revision", ""), runtime.get("digest", ""))
+              print(
+                runtime.get("source_revision", ""),
+                runtime.get("digest", ""),
+                runtime.get("profile", ""),
+              )
           else:
               raise SystemExit("protected plan runtime image evidence is invalid")
           PY
@@ -1340,14 +1352,22 @@ jobs:
             }
           else
             if [[ "$runtime_revision" != "$APPLY_RUNTIME_IMAGE_REVISION" \
+              || "$runtime_profile" != "$APPLY_RUNTIME_IMAGE_PROFILE" \
+              || ! "$runtime_profile" =~ ^(core-control-plane|cost-governance)$ \
               || ! "$runtime_revision" =~ ^[0-9a-f]{40}$ \
               || ! "$runtime_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "protected plan runtime image evidence does not match apply input." >&2
               exit 1
             fi
             login_server="$(terraform output -raw container_registry_login_server)"
+            target_image="fdai"
+            if [[ "$runtime_profile" == "cost-governance" ]]; then
+              target_image="fdai-cost-governance"
+              echo "TF_VAR_cost_governance_image=${login_server}/${target_image}@${runtime_digest}" >> "$GITHUB_ENV"
+            fi
             {
-              echo "TF_VAR_core_image=${login_server}/fdai@${runtime_digest}"
+              echo "TF_VAR_core_image=${login_server}/${target_image}@${runtime_digest}"
+              echo "FDAI_RUNTIME_IMAGE_PROFILE=${runtime_profile}"
               echo "FDAI_RUNTIME_IMAGE_REVISION=${runtime_revision}"
               echo "FDAI_RUNTIME_IMAGE_DIGEST=${runtime_digest}"
             } >> "$GITHUB_ENV"

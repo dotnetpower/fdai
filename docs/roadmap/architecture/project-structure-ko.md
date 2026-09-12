@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b7992b5c71dae5aded3f5a3cc1f3af1f5174cee6
+translation_source_sha: 36c4b3aaa6f12f3d0acacec58f07971d05548378
 translation_revised: 2026-09-12
 ---
 # 프로젝트 구조
@@ -595,7 +595,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
-  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
+  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고

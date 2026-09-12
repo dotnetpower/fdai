@@ -394,7 +394,7 @@ def _lifecycle_blocks(
         or not current.enabled
     ):
         blocks.add(CostReadinessBlock.REVISION_MISMATCH)
-    activation_revisions = [item.revision_pin.activation_revision for item in receipts]
+    activation_revisions = [item.revision_pin.activation_revision for item in successful]
     if len(activation_revisions) != len(set(activation_revisions)):
         blocks.add(CostReadinessBlock.REVISION_MISMATCH)
     return blocks

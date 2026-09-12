@@ -27,8 +27,13 @@ def build_plan_metadata(
     """Return metadata bound to the exact plan, source, and post-apply evidence."""
     runtime_image_revision = environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
     runtime_image_digest = environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
+    runtime_image_profile = environ.get("FDAI_RUNTIME_IMAGE_PROFILE", "core-control-plane")
+    if runtime_image_profile not in {"core-control-plane", "cost-governance"}:
+        raise ValueError("runtime image profile is unsupported")
     if bool(runtime_image_revision) != bool(runtime_image_digest):
         raise ValueError("runtime image plan evidence is incomplete")
+    if runtime_image_profile != "core-control-plane" and not runtime_image_revision:
+        raise ValueError("non-default runtime image profile requires exact image evidence")
     metadata: dict[str, object] = {
         "schema_version": "fdai.deployment-plan.v1",
         "plan_id": environ["PLAN_ID"],
@@ -54,6 +59,7 @@ def build_plan_metadata(
         metadata["runtime_image"] = {
             "source_revision": runtime_image_revision,
             "digest": runtime_image_digest,
+            "profile": runtime_image_profile,
         }
     resolved_models_path = environ.get("FDAI_RESOLVED_MODELS_PATH", "")
     deployment_models_path = environ.get("FDAI_DEPLOYMENT_MODELS_PATH", "")

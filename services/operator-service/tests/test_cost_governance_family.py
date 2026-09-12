@@ -13,6 +13,7 @@ from fdai_operator_service.families.cost_governance import (
     CostGovernanceFamilyDependencies,
     build_cost_governance_routes,
 )
+from fdai_operator_service.families.cost_governance.contracts import CostDisclosureAuditRecord
 from fdai_service_contracts import (
     DISCLOSURE_PRESETS,
     CostAccessGrant,
@@ -65,6 +66,8 @@ class RecordingCostDependencies:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.audit_records: list[CostDisclosureAuditRecord] = []
+        self.audit_failure = False
         self.access_allowed = True
         self.ceiling = DISCLOSURE_PRESETS["masked"]
         self.activation: CostActivationSnapshot | None = _activation()
@@ -170,6 +173,11 @@ class RecordingCostDependencies:
             ),
         )
 
+    async def append_disclosure_audit(self, record: CostDisclosureAuditRecord) -> None:
+        if self.audit_failure:
+            raise RuntimeError("audit unavailable")
+        self.audit_records.append(record)
+
 
 def _client(
     dependencies: RecordingCostDependencies,
@@ -196,6 +204,7 @@ def _client(
                     projections=dependencies,
                     analytics=dependencies if include_analytics else None,
                     activation_writer=dependencies,
+                    disclosure_audit=dependencies,
                     pseudonym_key=bytes(range(32)),
                     authenticated_review_access=authenticated_review_access,
                     clock=lambda: NOW,
@@ -378,6 +387,27 @@ def test_enabled_route_applies_policy_meet_before_serialization() -> None:
     assert item["resource"] != "resource/private"
     assert "amount_band" in item
     assert "amount_exact" not in item
+    assert len(dependencies.audit_records) == 1
+    audit = dependencies.audit_records[0]
+    assert audit.record_count == 1
+    assert audit.surface == "resource-efficiency"
+    assert "reader-id" not in repr(audit)
+    assert "resource/private" not in repr(audit)
+
+
+def test_disclosure_audit_failure_blocks_cost_response() -> None:
+    dependencies = RecordingCostDependencies()
+    dependencies.audit_failure = True
+
+    response = _client(dependencies).get(
+        "/cost-governance/resource-efficiency",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "disclosure_audit_unavailable"
+    assert dependencies.calls == ["access", "activation", "projection"]
+    assert dependencies.audit_records == []
 
 
 def test_enabled_route_includes_disclosure_safe_analytics() -> None:

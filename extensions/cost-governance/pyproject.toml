@@ -11,6 +11,9 @@ dependencies = [
 [project.scripts]
 fdai-cost-collector = "fdai_cost_governance.job_cli:collector_main"
 fdai-cost-analyzer = "fdai_cost_governance.job_cli:analyzer_main"
+fdai-cost-lifecycle = "fdai_cost_governance.lifecycle_cli:main"
+fdai-cost-validation = "fdai_cost_governance.validation_cli:main"
+fdai-cost-observation-export = "fdai_cost_governance.campaign_export:main"
 
 [project.entry-points."fdai.cost_advisory_providers"]
 cost-governance = "fdai_cost_governance:RollingCostAdvisoryProvider"

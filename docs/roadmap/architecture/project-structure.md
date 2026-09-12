@@ -595,7 +595,7 @@ only when its rule id, action type, and fixed check reference still match. Idemp
 - Optional vertical distributions such as `fdai-cost-governance` live under `extensions/`. Core
   owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
   reviewed image composition supplies package code and resources. Core never imports an optional
-  package, and package activation remains independent from user access and action promotion.
+  package, and package activation remains independent from user access and action promotion. Protected W7 workflows preserve exact release, Process, disclosure, and retention evidence without moving judgment, approval, execution, or promotion authority into package or Operator composition.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`; `execution_safeguards.py` owns the provider-neutral, authority-free seven-proof bundle shared by Core, workflow, and isolated-Executor producers and validators.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,

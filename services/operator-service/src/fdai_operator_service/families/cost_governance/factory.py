@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -15,12 +17,15 @@ from fdai_operator_service.auth import (
     OperatorAuthenticator,
 )
 from fdai_operator_service.families.cost_governance.contracts import (
+    COST_DISCLOSURE_RETENTION_DAYS,
     CostAccessDecision,
     CostAccessReader,
     CostActivationReader,
     CostActivationSnapshot,
     CostActivationWriter,
     CostAnalyticsReader,
+    CostDisclosureAuditRecord,
+    CostDisclosureAuditWriter,
     CostProjectionReader,
 )
 from fdai_operator_service.families.cost_governance.manifest import (
@@ -70,6 +75,7 @@ class CostGovernanceFamilyDependencies:
     projections: CostProjectionReader
     analytics: CostAnalyticsReader | None = None
     activation_writer: CostActivationWriter | None = None
+    disclosure_audit: CostDisclosureAuditWriter | None = None
     pseudonym_key: bytes | None = None
     authenticated_review_access: bool = False
     clock: Clock = lambda: datetime.now(UTC)
@@ -122,11 +128,12 @@ def _build_route(
         scope = request.query_params.get("scope", "*").strip()
         if not scope or len(scope) > 1024:
             return _error(400, "invalid_scope", "scope must contain 1 to 1024 characters")
+        now = dependencies.clock()
         access = await dependencies.access.read_access(
             principal_id=principal.subject_id,
             purpose="cost-governance-review",
             scope=scope,
-            now=dependencies.clock(),
+            now=now,
         )
         if (
             access.grant is None or access.ceiling is None
@@ -134,7 +141,7 @@ def _build_route(
             access = _configured_review_access(
                 principal_id=principal.subject_id,
                 scope=scope,
-                now=dependencies.clock(),
+                now=now,
             )
         if access.grant is None or access.ceiling is None:
             reason = access.reason or CostGovernanceUnavailableReason.ACCESS_GRANT_MISSING
@@ -236,7 +243,7 @@ def _build_route(
         projection_payload = CostGovernanceProjection(
             surface=surface,
             disclosure=disclosure,
-            generated_at=dependencies.clock(),
+            generated_at=now,
             source_authority="cost-observation",
             complete=(
                 all(item.completeness == 1 for item in records)
@@ -246,6 +253,28 @@ def _build_route(
             suppressed_count=sum(1 for item in items if item.get("suppressed") is True),
             analytics=analytics,
         )
+        if dependencies.disclosure_audit is not None:
+            try:
+                await dependencies.disclosure_audit.append_disclosure_audit(
+                    _disclosure_audit_record(
+                        principal_id=principal.subject_id,
+                        scope=scope,
+                        surface=surface,
+                        grant_revision=access.grant.revision,
+                        ceiling_revision=access.ceiling.revision,
+                        activation_revision=activation.revision,
+                        disclosure=disclosure,
+                        record_count=len(items),
+                        suppressed_count=projection_payload.suppressed_count,
+                        occurred_at=now,
+                    )
+                )
+            except RuntimeError:
+                return _error(
+                    503,
+                    "disclosure_audit_unavailable",
+                    "Cost disclosure audit is unavailable",
+                )
         response = JSONResponse(projection_payload.model_dump(mode="json", exclude_none=True))
         if entry.legacy_alias:
             response.headers["Deprecation"] = "true"
@@ -254,6 +283,70 @@ def _build_route(
 
     endpoint.__name__ = entry.name
     return Route(entry.path, endpoint, methods=[entry.method], name=entry.name)
+
+
+def _disclosure_audit_record(
+    *,
+    principal_id: str,
+    scope: str,
+    surface: str,
+    grant_revision: int,
+    ceiling_revision: int,
+    activation_revision: int,
+    disclosure: CostDisclosurePolicy,
+    record_count: int,
+    suppressed_count: int,
+    occurred_at: datetime,
+) -> CostDisclosureAuditRecord:
+    disclosure_digest = _digest(disclosure.model_dump(mode="json"))
+    principal_digest = _digest(principal_id)
+    scope_digest = _digest(scope)
+    decision_id = _digest(
+        {
+            "activation_revision": activation_revision,
+            "ceiling_revision": ceiling_revision,
+            "disclosure_digest": disclosure_digest,
+            "grant_revision": grant_revision,
+            "occurred_at": occurred_at.isoformat(),
+            "principal_digest": principal_digest,
+            "record_count": record_count,
+            "retention_until": (
+                occurred_at + timedelta(days=COST_DISCLOSURE_RETENTION_DAYS)
+            ).isoformat(),
+            "scope_digest": scope_digest,
+            "suppressed_count": suppressed_count,
+            "surface": surface,
+        }
+    )
+    return CostDisclosureAuditRecord(
+        decision_id=decision_id,
+        principal_digest=principal_digest,
+        scope_digest=scope_digest,
+        surface=surface,
+        grant_revision=grant_revision,
+        ceiling_revision=ceiling_revision,
+        activation_revision=activation_revision,
+        disclosure_digest=disclosure_digest,
+        record_count=record_count,
+        suppressed_count=suppressed_count,
+        occurred_at=occurred_at,
+        retention_until=occurred_at + timedelta(days=COST_DISCLOSURE_RETENTION_DAYS),
+    )
+
+
+def _digest(value: object) -> str:
+    payload = (
+        value.encode()
+        if isinstance(value, str)
+        else json.dumps(
+            value,
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    )
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
 def _disclose_analytics(

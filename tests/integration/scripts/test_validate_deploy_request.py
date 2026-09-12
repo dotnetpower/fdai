@@ -30,7 +30,8 @@ _CONTEXT = hashlib.sha256(
         '"deploy_operational_history":false,'
         '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
         '"document_ocr_action":"preserve",'
-        '"runtime_call_evidence_transition":false,"runtime_image_revision":""}}'
+        '"runtime_call_evidence_transition":false,'
+        '"runtime_image_profile":"core-control-plane","runtime_image_revision":""}}'
     ).encode()
 ).hexdigest()
 
@@ -72,6 +73,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "RCA_READER_IDENTITY_ONLY": "false",
         "RUNTIME_CALL_EVIDENCE_TRANSITION": "false",
         "RUNTIME_IMAGE_REVISION": "",
+        "RUNTIME_IMAGE_PROFILE": "core-control-plane",
         "REQUEST_ID": "",
         "CONTEXT_DIGEST": "",
         "COMMIT_SHA": "",
@@ -651,7 +653,8 @@ def _gateway_context() -> str:
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
-            '"runtime_call_evidence_transition":false,"runtime_image_revision":""}}'
+            '"runtime_call_evidence_transition":false,'
+            '"runtime_image_profile":"core-control-plane","runtime_image_revision":""}}'
         ).encode()
     ).hexdigest()
 
@@ -717,7 +720,8 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '"deploy_operational_history":false,'
             '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
             '"document_ocr_action":"preserve",'
-            '"runtime_call_evidence_transition":false,"runtime_image_revision":"'
+            '"runtime_call_evidence_transition":false,'
+            '"runtime_image_profile":"core-control-plane","runtime_image_revision":"'
             + image_revision
             + '"}}'
         ).encode()

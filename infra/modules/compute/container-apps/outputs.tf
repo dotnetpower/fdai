@@ -3,6 +3,16 @@ output "environment_id" {
   value       = azurerm_container_app_environment.primary.id
 }
 
+output "cost_governance_collector_job_name" {
+  description = "Cost Governance collector Job name, or null when absent."
+  value       = try(azurerm_container_app_job.cost_governance_collector[0].name, null)
+}
+
+output "cost_governance_analyzer_job_name" {
+  description = "Cost Governance analyzer Job name, or null when absent."
+  value       = try(azurerm_container_app_job.cost_governance_analyzer[0].name, null)
+}
+
 output "attached_identity_ids" {
   description = "Declared identity resource ids retained for legacy workflow compatibility."
   value       = concat([var.executor_identity_id], var.extra_identity_ids)

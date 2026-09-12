@@ -50,6 +50,7 @@ from fdai.shared.contracts.models import (
     RuleSource,
     Severity,
     StopConditionKind,
+    WorkflowActionRef,
 )
 from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
 from fdai.shared.providers.testing import (
@@ -176,6 +177,34 @@ async def test_publishes_shadow_pr_and_writes_audit() -> None:
     assert entries[1]["entry"]["outcome"] == "published"
     assert entries[0]["entry"]["dry_run_receipt"] == entries[1]["entry"]["dry_run_receipt"]
     assert pr.metadata["dry_run_receipt"] == entries[0]["entry"]["dry_run_receipt"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_lineage_is_identical_in_intent_and_terminal_audit() -> None:
+    executor, _publisher, audit = _executor()
+    action = _action().model_copy(
+        update={
+            "workflow_action": WorkflowActionRef(
+                process_id="process-cost-001",
+                step_id="apply-rightsize",
+                proposal_ref="proposal:cost:001",
+            )
+        }
+    )
+
+    await executor.execute(action=action, rule=_rule())
+
+    entries = [row["entry"] for row in audit.audit_entries]
+    assert (
+        entries[0]["workflow_action"]
+        == entries[1]["workflow_action"]
+        == {
+            "process_id": "process-cost-001",
+            "step_id": "apply-rightsize",
+            "proposal_ref": "proposal:cost:001",
+            "attempt": 1,
+        }
+    )
 
 
 @pytest.mark.asyncio
