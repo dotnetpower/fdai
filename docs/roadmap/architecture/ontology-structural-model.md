@@ -10,6 +10,9 @@ or a second source of provider truth.
 
 > **Authority boundary:** Taxonomy, interfaces, link roles, and query paths define meaning only.
 > They cannot observe external state, approve an action, select an executor, or raise autonomy.
+> Governance review-class tokens colocated with catalog schemas remain change-control metadata,
+> not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
+> mode or grant A3-E authority.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive
