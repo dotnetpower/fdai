@@ -15,10 +15,10 @@
             ]
         },
         "operator-service": {
-            "digest": "sha256:1aaef0d6b09abf69320c5673ac2b2b8cc6e2671b2af36337c4da0b54eafc51bf",
+            "digest": "sha256:7f7f911ffd637f44077c453fb1596764eeedf3ef64579969cee288a7f7342a2f",
             "table_count": 60,
-            "column_count": 632,
-            "constraint_count": 413,
+            "column_count": 633,
+            "constraint_count": 414,
             "extensions": [
                 "pg_trgm",
                 "plpgsql",
