@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 409b19943cb42d0b222336e247f18b4491ddf089
+translation_source_sha: 326f3bdf9c8dd8b1df28f18806925fdf98c2383e
 translation_revised: 2026-09-12
 ---
 
@@ -273,6 +273,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
 | 10회 보증 | validated | 13개 라운드, 최종 독립 재검토 및 `d3f5257b9` 중앙 receipt | Low를 초과하는 잔존 발견 사항이 없습니다. |
 | 개발자 검증 권한 | implemented | `.githooks/post-commit`, `.githooks/pre-push`, `scripts/agent/design_context.py`, focused hook 및 dispatcher 테스트 | Commit과 push는 더 이상 로컬 queue receipt에 의존하지 않으며 CI가 push된 SHA의 integration을 소유합니다. |
+| 로컬 우선 검증과 후보 게시 | in-progress | `scripts/verify.sh`, `scripts/agent/design_context.py`, `scripts/quality/ci/resolve_test_scope.py`, 범위를 제한한 텍스트 및 변경 테스트 선택기, 집중 회귀 테스트 | 내용 기반 로컬 재사용, 범위를 제한한 지침 및 후보 전용 게시를 통합하고 있습니다. 필수 원격 근거는 독립적으로 유지합니다. |
 
 ### 구현 이력
 
@@ -311,6 +312,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-16 | implemented | 29라운드는 28라운드가 선언한 예산을 각 job과 스크립트의 실제 최악 소요와 대조해, 느리지만 정상인 배포를 자르지 않고 그 위에 있음을 확인했고, `timeout` 래퍼가 `set -euo pipefail` 아래에서 종료 코드 전달을 보존하며 두 job 예산이 job 수준에서 유효한 YAML임을 확인했습니다. 캠페인 종료 조건을 충족합니다. Low를 넘는 재현 가능한 finding은 남아 있지 않습니다. | 현재 변경, 29라운드 확인 검토와 위 행들에 기록된 집중 테스트입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
 | 2026-08-16 | validated | 중앙 검증이 통합된 bounded wait revision을 수락했고 나가는 범위를 `origin/main`에 푸시했습니다. | Revision `85c5aadf4`에 대해 `validation_queue.py check-range origin/main..HEAD`가 통과했고, 푸시가 해당 exact 증적과 구조 증적을 재사용했습니다. | 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다. |
 | 2026-08-17 | implemented | 집중 검사, 경로 예약, commit 범위, 구조 pre-push gate 및 SHA 기반 CI를 유지하면서 중앙 검증을 필수 개발 경로에서 제거했습니다. | `current change`, 이슈 #148, focused hook, dispatcher 및 constitution 테스트입니다. | 도입 후 CI 및 push 지연을 관찰하고 queue는 명시적 진단에만 사용합니다. |
+| 2026-09-12 | in-progress | 검증 단계를 정리하고 범위 없는 기본 검사를 제거했으며 번역 검사를 제한하고 암묵적인 전체 테스트 실행을 중단했습니다. 읽기 전용 기준선은 완료된 CI 12건의 265-391초(평균 337.2초)와 공급망 6건의 168-281초(평균 192.2초)를 포함합니다. 이는 워크플로 경과 시간이며 대기열 시간만 측정한 값이나 대기 비율 90%의 증명이 아닙니다. | `current change`; 선택기, 집중 실행기, 경로 및 텍스트 검사 테스트; 기준선 CI 실행 `34663201915`와 공급망 실행 `34663201914`. | 로컬 캐시 통합과 집중 검사를 완료하고, 승인된 push 이후에만 비교 가능한 실행을 측정합니다. |
 
 ### 남은 작업
 
@@ -326,6 +328,8 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - [x] 이슈 #148에서 일반 commit, push 및 agent-tool 경로의 자동 queue 등록과 commit별 receipt
   요구를 제거했습니다.
 - [ ] 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다.
+- [ ] 승인된 push 이후 동등한 CI 및 후보 게시 실행을 기준선과 비교하고 대기열, 준비,
+  실행 및 반복 작업 시간을 구분합니다.
 
 ## Bounded wait 캠페인
 
