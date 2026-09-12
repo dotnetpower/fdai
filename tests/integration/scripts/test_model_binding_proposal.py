@@ -282,6 +282,7 @@ def test_database_loader_is_read_only_and_exact(monkeypatch: pytest.MonkeyPatch)
     assert connect_args[0][1]["connect_timeout"] == 10
     assert connection.statements[0][0] == "SET TRANSACTION READ ONLY"
     assert connection.statements[1][0] == "SET LOCAL statement_timeout = '10s'"
+    assert "LIKE 'operator-proposal:iam:%%'" in connection.statements[2][0]
     assert connection.statements[2][1] == (_PROPOSAL_ID,)
 
 
