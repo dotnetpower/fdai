@@ -80,6 +80,11 @@ maintainer's local VS Code state.
   reuse its processes, generated `.fdai/local-*.env` files, logs, and database records. Do not
   restart the stack, rerun full preparation, or regenerate state merely to begin an investigation.
   Run only the affected preparation task when a migration, binding, or environment input changed.
+- A stale service owned by `start-console-services.sh` cannot be replaced independently: that
+  supervisor stops all siblings when an owned child exits. The managed runner refuses the
+  replacement before sending a signal. Preserve the stack unless current authorization covers
+  a whole-stack restart, including its startup model probes and provider reads. Do not kill the
+  supervisor or bypass the guard to turn component-only permission into a full-stack restart.
 - Keep local stack and Browser investigation local-first. Use focused local checks and retained
   local receipts for each hypothesis; do not push, watch, or rerun CI merely to test an iteration.
   Run CI once for the final locally verified commit when a merge, protected deployment, or release
@@ -121,6 +126,17 @@ maintainer's local VS Code state.
   backend readiness from a frontend HTTP `200` response.
 - Start only the specifically named component when the user explicitly narrows the request, such as
   "frontend only", "Operator API only", or "design server only".
+
+### Learnings: reuse an explicit recovery authorization
+
+When the operator explicitly says to proceed after the recovery targets and external effects
+have been explained, record that bounded authorization and continue without asking again for
+the same services, configuration, and effects. For example, approval to restore Core and its
+already-described Azure identity/model startup probes covers that recovery attempt, not a new
+deployment, resource mutation, promotion, or open-ended model campaign. Before acting, recheck
+current state and reuse healthy components; preserve authentication, service roles, execution
+mode, restart guards, and stop-on-provider-error deadlines. A "do not ask again" preference
+avoids duplicate approval prompts; it is not blanket authorization for unrelated future work.
 
 ## Playwright and browser-tool latency
 
